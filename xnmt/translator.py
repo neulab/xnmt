@@ -35,5 +35,6 @@ class DefaultTranslator(Translator):
       context = self.attender.calc_context(self.decoder.state.output())
       word_loss = self.decoder.calc_loss(context, ref_word)
       losses.append(word_loss)
+      self.decoder.add_input(ref_word)
 
     return dy.esum(losses)
