@@ -26,3 +26,7 @@ class PlainTextReader(InputReader):
         sentence.append(self.vocab.convert('</s>'))
         sentences.append(sentence)
     return sentences
+
+  def freeze(self):
+    self.vocab.freeze()
+    self.vocab.set_unk('UNK')
