@@ -21,7 +21,7 @@ class PlainTextReader(InputReader):
     sentences = []
     with open(filename) as f:
       for line in f:
-        words = line.decode('utf-8').strip().split()
+        words = line.strip().split()
         sentence = [self.vocab.convert(word) for word in words]
         sentence.append(self.vocab.convert('</s>'))
         sentences.append(sentence)

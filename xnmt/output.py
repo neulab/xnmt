@@ -12,5 +12,5 @@ class Output:
     ''' Initialize an output with actions. '''
     self.actions = actions
 
-  def to_string():
+  def to_string(self):
     raise NotImplementedError('All outputs must implement to_string.')

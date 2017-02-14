@@ -66,7 +66,7 @@ if __name__ == "__main__":
       loss.backward()
       trainer.update()
 
-      if sent_num % 10000 == 9999 or sent_num == len(train_corpus_source) - 1:
+      if sent_num % 1000 == 1 or sent_num == len(train_corpus_source) - 1:
         dev_loss = 0.0
         dev_words = 0
         for src, tgt in zip(dev_corpus_source, dev_corpus_target):
@@ -74,6 +74,8 @@ if __name__ == "__main__":
           loss = translator.calc_loss(src, tgt).value()
           dev_loss += loss
           dev_words += len(tgt)
-        print (epoch_num - 1) + 1.0 * (sent_num + 1) / len(train_corpus_source), 'Dev perplexity:', math.exp(dev_loss / dev_words), '(%f over %d words)' % (dev_loss, dev_words)
+        print ((epoch_num - 1) + 1.0 * (sent_num + 1) / len(train_corpus_source),
+               'Dev perplexity:', math.exp(dev_loss / dev_words),
+               '(%f over %d words)' % (dev_loss, dev_words))
     trainer.update_epoch()
-    print epoch_num, 'Train perplexity:', math.exp(epoch_loss/word_count), '(%f over %d words)' % (epoch_loss, word_count)
+    print (epoch_num, 'Train perplexity:', math.exp(epoch_loss/word_count), '(%f over %d words)' % (epoch_loss, word_count))
