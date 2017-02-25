@@ -66,7 +66,7 @@ if __name__ == "__main__":
       loss.backward()
       trainer.update()
 
-      if sent_num % 1000 == 1 or sent_num == len(train_corpus_source) - 1:
+      if sent_num % 100 == 99 or sent_num == len(train_corpus_source) - 1:
         dev_loss = 0.0
         dev_words = 0
         for src, tgt in zip(dev_corpus_source, dev_corpus_target):

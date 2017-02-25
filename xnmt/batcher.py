@@ -2,31 +2,39 @@ import dynet as dy
 import numpy as np
 from collections import defaultdict
 
+
 class Batcher:
 
-  def __init__(self, minibatch_size):
-    self.minibatch_size = minibatch_size
+  def __init__(self, batch_size):
+    self.batch_size = batch_size
 
-  def pack(self, source):
-    buckets = self.group_by_len(source)
+  def pack(self, source, target):
+    sourse_target_pairs = zip(source, target)
+    buckets = self.group_by_len(sourse_target_pairs)
+
     result = []
-    for sentences in buckets.values():
-      result.extend(self.create_minibatches(sentences))
+    for same_len_src_pairs in buckets.values():
+      result.extend(self.create_minibatches(same_len_src_pairs))
     np.random.shuffle(result)
-    return result
 
-  def group_by_len(self, sentences):
+    source_result = []
+    target_result = []
+    for batch in result:
+      source_result.append([pair[0] for pair in batch])
+      target_result.append([pair[1] for pair in batch])
+    return source_result, target_result
+
+  def group_by_len(self, pairs):
     buckets = defaultdict(list)
-    for sentence in sentences:
-      buckets[len(sentence)].append(sentence)
+    for pair in pairs:
+      buckets[len(pair[0])].append(pair)
     return buckets
 
-  def create_minibatches(self, sentences):
-    num_sentences = len(sentences)
+  def create_minibatches(self, pairs):
     minibatches = []
-    for i in range(0, num_sentences - 1, self.minibatch_size):
-      real_batch_size = self.minibatch_size if i + self.minibatch_size <= num_sentences else num_sentences - i
-      minibatches.append([sentences[i + ii] for ii in range(real_batch_size)])
+    num_batches = len(pairs) // self.batch_size
+    for batch_idx in range(num_batches):
+      minibatches.append([pairs[batch_idx * self.batch_size + i] for i in range(self.batch_size)])
     return minibatches
 
   @staticmethod

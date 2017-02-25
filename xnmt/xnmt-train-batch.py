@@ -53,10 +53,8 @@ if __name__ == "__main__":
   decoder = MlpSoftmaxDecoder(2, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model)
 
   batcher = Batcher(args.minibatch_size)
-  train_corpus_source_batch = batcher.pack(train_corpus_source)
-  train_corpus_target_batch = batcher.pack(train_corpus_target)
-  dev_corpus_source_batch = batcher.pack(dev_corpus_source)
-  dev_corpus_target_batch = batcher.pack(dev_corpus_target)
+  train_corpus_source_batch, train_corpus_target_batch = batcher.pack(train_corpus_source, train_corpus_target)
+  dev_corpus_source_batch, dev_corpus_target_batch = batcher.pack(dev_corpus_source, dev_corpus_target)
 
   translator = DefaultTranslator(encoder, attender, decoder)
 
@@ -68,21 +66,20 @@ if __name__ == "__main__":
     epoch_num += 1
     for sent_num, (train_srcs, train_tgts) in enumerate(zip(train_corpus_source_batch, train_corpus_target_batch)):
       dy.renew_cg()
-      # print(srcs)
       loss = translator.calc_loss(train_srcs, train_tgts)
       word_count += sum(len(x) for x in train_tgts)
       epoch_loss += loss.value()
       loss.backward()
       trainer.update()
 
-      if sent_num % 1000 == 1 or sent_num == len(train_corpus_source_batch) - 1:
+      if sent_num % 100 == 99 or sent_num == len(train_corpus_source_batch) - 1:
         dev_loss = 0.0
         dev_words = 0
         for dev_srcs, dev_tgts in zip(dev_corpus_source_batch, dev_corpus_target_batch):
           dy.renew_cg()
           loss = translator.calc_loss(dev_srcs, dev_tgts)
           dev_loss += loss.value()
-          dev_words += sum(len(dev_tgts) for x in dev_tgts)
+          dev_words += sum(len(x) for x in dev_tgts)
         print ((epoch_num - 1) + 1.0 * (sent_num + 1) / len(train_corpus_source_batch),
                'Dev perplexity:', math.exp(dev_loss / dev_words),
                '(%f over %d words)' % (dev_loss, dev_words))
