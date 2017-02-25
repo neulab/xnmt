@@ -22,6 +22,7 @@ class Batcher:
     for batch in result:
       source_result.append([pair[0] for pair in batch])
       target_result.append([pair[1] for pair in batch])
+
     return source_result, target_result
 
   def group_by_len(self, pairs):
