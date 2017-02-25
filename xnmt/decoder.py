@@ -1,21 +1,18 @@
 import dynet as dy
 from mlp import MLP
 import inspect
-from batcher import *
 
 class Decoder:
   '''
   A template class to convert a prefix of previously generated words and
   a context vector into a probability distribution over possible next words.
   '''
-
+  
   '''
   Document me
   '''
-
   def calc_loss(self, x):
     raise NotImplementedError('calc_loss must be implemented in Decoder subclasses')
-
 
 class MlpSoftmaxDecoder(Decoder):
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
@@ -31,19 +28,9 @@ class MlpSoftmaxDecoder(Decoder):
     self.state = self.fwd_lstm.initial_state()
 
   def add_input(self, target_word):
-    # single mode
-    if not Batcher.is_batch_word(target_word):
-      self.state = self.state.add_input(self.embedder.embed(target_word))
-    # minibatch mode
-    else:
-      self.state = self.state.add_input(self.embedder.embed_batch(target_word))
+    self.state = self.state.add_inputs([self.embedder.embed(target_word)])[-1]
 
   def calc_loss(self, context, ref_action):
     mlp_input = dy.concatenate([context, self.state.output()])
     scores = self.mlp(mlp_input)
-    # single mode
-    if not Batcher.is_batch_word(ref_action):
-      return dy.pickneglogsoftmax(scores, ref_action)
-    # minibatch mode
-    else:
-      return dy.sum_batches(dy.pickneglogsoftmax_batch(scores, ref_action))
+    return dy.pickneglogsoftmax(scores, ref_action)
