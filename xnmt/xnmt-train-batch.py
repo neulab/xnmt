@@ -8,6 +8,7 @@ from input import *
 from encoder import *
 from decoder import *
 from translator import *
+from batcher import *
 '''
 This will be the main class to perform training.
 '''
@@ -15,6 +16,7 @@ This will be the main class to perform training.
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument('--dynet_mem', type=int)
+  parser.add_argument('--batch_size', dest='minibatch_size', type=int)
   parser.add_argument('train_source')
   parser.add_argument('train_target')
   parser.add_argument('dev_source')
@@ -50,6 +52,10 @@ if __name__ == "__main__":
   attender = StandardAttender(encoder_hidden_dim, output_state_dim, attender_hidden_dim, model)
   decoder = MlpSoftmaxDecoder(2, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model)
 
+  batcher = Batcher(args.minibatch_size)
+  train_corpus_source_batch, train_corpus_target_batch = batcher.pack(train_corpus_source, train_corpus_target)
+  dev_corpus_source_batch, dev_corpus_target_batch = batcher.pack(dev_corpus_source, dev_corpus_target)
+
   translator = DefaultTranslator(encoder, attender, decoder)
 
   # Main training loop
@@ -58,23 +64,23 @@ if __name__ == "__main__":
     epoch_loss = 0.0
     word_count = 0
     epoch_num += 1
-    for sent_num, (src, tgt) in enumerate(zip(train_corpus_source, train_corpus_target)):
+    for sent_num, (train_srcs, train_tgts) in enumerate(zip(train_corpus_source_batch, train_corpus_target_batch)):
       dy.renew_cg()
-      loss = translator.calc_loss(src, tgt)
-      word_count += len(tgt)
+      loss = translator.calc_loss(train_srcs, train_tgts)
+      word_count += sum(len(x) for x in train_tgts)
       epoch_loss += loss.value()
       loss.backward()
       trainer.update()
 
-      if sent_num % 100 == 99 or sent_num == len(train_corpus_source) - 1:
+      if sent_num % 100 == 99 or sent_num == len(train_corpus_source_batch) - 1:
         dev_loss = 0.0
         dev_words = 0
-        for src, tgt in zip(dev_corpus_source, dev_corpus_target):
+        for dev_srcs, dev_tgts in zip(dev_corpus_source_batch, dev_corpus_target_batch):
           dy.renew_cg()
-          loss = translator.calc_loss(src, tgt).value()
-          dev_loss += loss
-          dev_words += len(tgt)
-        print ((epoch_num - 1) + 1.0 * (sent_num + 1) / len(train_corpus_source),
+          loss = translator.calc_loss(dev_srcs, dev_tgts)
+          dev_loss += loss.value()
+          dev_words += sum(len(x) for x in dev_tgts)
+        print ((epoch_num - 1) + 1.0 * (sent_num + 1) / len(train_corpus_source_batch),
                'Dev perplexity:', math.exp(dev_loss / dev_words),
                '(%f over %d words)' % (dev_loss, dev_words))
     trainer.update_epoch()
