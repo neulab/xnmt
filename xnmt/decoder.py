@@ -44,6 +44,7 @@ class MlpSoftmaxDecoder(Decoder):
     # single mode
     if not Batcher.is_batch_word(ref_action):
       return dy.pickneglogsoftmax(scores, ref_action)
+
     # minibatch mode
     else:
-      return dy.sum_batches(dy.pickneglogsoftmax_batch(scores, ref_action))
+      return dy.pickneglogsoftmax_batch(scores, ref_action)

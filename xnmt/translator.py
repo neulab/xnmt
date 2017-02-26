@@ -51,6 +51,12 @@ class DefaultTranslator(Translator):
         ref_word = [single_target[i] if i < len(single_target) else single_target[len(single_target) - 1] for single_target in target]
         context = self.attender.calc_context(self.decoder.state.output())
         word_loss = self.decoder.calc_loss(context, ref_word)
+
+        mask_exp = dy.inputVector([1 if i < len(single_target) else 0 for single_target in target])
+        mask_exp = dy.reshape(mask_exp, (1,), len(target))
+        word_loss = word_loss * mask_exp
+        word_loss = dy.sum_batches(word_loss)
+
         losses.append(word_loss)
         self.decoder.add_input(ref_word)
 
