@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
   input_embedder = SimpleWordEmbedder(len(input_reader.vocab), input_word_emb_dim, model)
   output_embedder = SimpleWordEmbedder(len(output_reader.vocab), output_word_emb_dim, model)
-  encoder = BiLstmEncoder(2, encoder_hidden_dim, input_embedder, model)
+  encoder = BiLSTMEncoder(2, encoder_hidden_dim, input_embedder, model)
   attender = StandardAttender(encoder_hidden_dim, output_state_dim, attender_hidden_dim, model)
   decoder = MlpSoftmaxDecoder(2, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model)
 

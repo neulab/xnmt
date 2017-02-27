@@ -12,7 +12,7 @@ class Encoder:
   def encode(self, x):
     raise NotImplementedError('encode must be implemented in Encoder subclasses')
 
-class BiLstmEncoder(Encoder):
+class BiLSTMEncoder(Encoder):
   def __init__(self, layers, output_dim, embedder, model):
     self.embedder = embedder
     input_dim = embedder.emb_dim
@@ -23,7 +23,7 @@ class BiLstmEncoder(Encoder):
     return self.encoder.transduce(embeddings)
 
 
-class ResidualLstmEncoder(Encoder):
+class ResidualLSTMEncoder(Encoder):
   def __init__(self, layers, output_dim, embedder, model):
     self.embedder = embedder
     input_dim = embedder.emb_dim
