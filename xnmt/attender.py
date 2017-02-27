@@ -1,23 +1,28 @@
 import dynet as dy
+from batcher import *
+
 
 class Attender:
   '''
   A template class for functions implementing attention.
   '''
-  
+
   '''
   Implement things.
   '''
+
   def start_sentence(self, sentence):
     raise NotImplementedError('start_sentence must be implemented for Attender subclasses')
 
   def calc_attention(self, state):
     raise NotImplementedError('calc_attention must be implemented for Attender subclasses')
 
+
 class StandardAttender(Attender):
   '''
   Implements the attention model of Bahdanau et. al (2014)
   '''
+
   def __init__(self, input_dim, state_dim, hidden_dim, model):
     self.pW = model.add_parameters((hidden_dim, input_dim))
     self.pV = model.add_parameters((hidden_dim, state_dim))

@@ -15,11 +15,13 @@ This will be the main class to perform training.
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument('--dynet_mem', type=int)
+  parser.add_argument('--batch_size', dest='minibatch_size', type=int)
   parser.add_argument('train_source')
   parser.add_argument('train_target')
   parser.add_argument('dev_source')
   parser.add_argument('dev_target')
   args = parser.parse_args()
+
 
   model = dy.Model()
   trainer = dy.SimpleSGDTrainer(model)
@@ -52,6 +54,18 @@ if __name__ == "__main__":
 
   translator = DefaultTranslator(encoder, attender, decoder)
 
+  # single mode
+  if args.minibatch_size is None:
+    print('Start training in non-minibatch mode...')
+    count_tgt_words = lambda tgt_words: len(tgt_words)
+  # minibatch mode
+  else:
+    print('Start training in minibatch mode...')
+    batcher = SourceBucketBatcher(args.minibatch_size)
+    train_corpus_source, train_corpus_target = batcher.pack(train_corpus_source, train_corpus_target)
+    dev_corpus_source, dev_corpus_target = batcher.pack(dev_corpus_source, dev_corpus_target)
+    count_tgt_words = lambda tgt_words: sum(len(x) for x in tgt_words)
+
   # Main training loop
   epoch_num = 0
   while True:
@@ -61,19 +75,19 @@ if __name__ == "__main__":
     for sent_num, (src, tgt) in enumerate(zip(train_corpus_source, train_corpus_target)):
       dy.renew_cg()
       loss = translator.calc_loss(src, tgt)
-      word_count += len(tgt)
+      word_count += count_tgt_words(tgt)
       epoch_loss += loss.value()
       loss.backward()
       trainer.update()
 
-      if sent_num % 1000 == 1 or sent_num == len(train_corpus_source) - 1:
+      if sent_num % 100 == 99 or sent_num == len(train_corpus_source) - 1:
         dev_loss = 0.0
         dev_words = 0
         for src, tgt in zip(dev_corpus_source, dev_corpus_target):
           dy.renew_cg()
           loss = translator.calc_loss(src, tgt).value()
           dev_loss += loss
-          dev_words += len(tgt)
+          dev_words += count_tgt_words(tgt)
         print ((epoch_num - 1) + 1.0 * (sent_num + 1) / len(train_corpus_source),
                'Dev perplexity:', math.exp(dev_loss / dev_words),
                '(%f over %d words)' % (dev_loss, dev_words))
