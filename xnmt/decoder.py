@@ -33,9 +33,13 @@ class MlpSoftmaxDecoder(Decoder):
   def add_input(self, target_word):
     self.state = self.state.add_input(self.embedder.embed(target_word))
 
-  def calc_loss(self, context, ref_action):
+  def get_scores(self, context):
     mlp_input = dy.concatenate([context, self.state.output()])
     scores = self.mlp(mlp_input)
+    return scores
+
+  def calc_loss(self, context, ref_action):
+    scores = self.get_scores(context)
     # single mode
     if not Batcher.is_batch_word(ref_action):
       return dy.pickneglogsoftmax(scores, ref_action)
