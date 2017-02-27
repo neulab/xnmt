@@ -1,5 +1,6 @@
 import dynet as dy
 from batcher import *
+import residual
 
 
 class Encoder:
@@ -15,7 +16,7 @@ class Encoder:
     raise NotImplementedError('encode must be implemented in Encoder subclasses')
 
 
-class BiLstmEncoder(Encoder):
+class BiLSTMEncoder(Encoder):
 
   def __init__(self, layers, output_dim, embedder, model):
     self.embedder = embedder
@@ -25,4 +26,15 @@ class BiLstmEncoder(Encoder):
 
   def encode(self, sentence):
     embeddings = self.embedder.embed_sentence(sentence)
+    return self.encoder.transduce(embeddings)
+
+
+class ResidualLSTMEncoder(Encoder):
+  def __init__(self, layers, output_dim, embedder, model):
+    self.embedder = embedder
+    input_dim = embedder.emb_dim
+    self.encoder = residual.ResidualRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
+
+  def encode(self, sentence):
+    embeddings = [self.embedder.embed(word) for word in sentence]
     return self.encoder.transduce(embeddings)
