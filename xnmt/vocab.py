@@ -8,6 +8,10 @@ class Vocab:
     self.i2w = []
     self.frozen = False
     self.unk_token = None
+    self.w2i['<s>'] = 0
+    self.w2i['</s>'] = 1
+    self.i2w.append('<s>')
+    self.i2w.append('</s>')
 
   def convert(self, w):
     if w not in self.w2i:

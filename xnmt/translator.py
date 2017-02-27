@@ -1,4 +1,5 @@
 import dynet as dy
+from search_strategy import *
 
 class Translator:
   '''
@@ -18,11 +19,13 @@ class Translator:
   def batch_loss(self, xs, ys):
     return dy.esum([self.loss(x, y) for x, y in zip(xs, ys)])
 
+
 class DefaultTranslator(Translator):
-  def __init__(self, encoder, attender, decoder):
+  def __init__(self, encoder, attender, decoder, beam_size=3):
     self.encoder = encoder
     self.attender = attender
     self.decoder = decoder
+    self.beam_size = beam_size
 
   def calc_loss(self, source, target):
     encodings = self.encoder.encode(source)
@@ -38,3 +41,12 @@ class DefaultTranslator(Translator):
       self.decoder.add_input(ref_word)
 
     return dy.esum(losses)
+
+  def translate(self, source):
+    encodings = self.encoder.encode(source)
+    self.attender.start_sentence(encodings)
+    self.decoder.initialize()
+    g = BeamSearch(self.beam_size, self.decoder, self.attender)
+    output = g.generate_output()
+    return output
+
