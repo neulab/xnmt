@@ -16,6 +16,7 @@ class Encoder:
 
 
 class BiLstmEncoder(Encoder):
+
   def __init__(self, layers, output_dim, embedder, model):
     self.embedder = embedder
     input_dim = embedder.emb_dim
@@ -23,14 +24,5 @@ class BiLstmEncoder(Encoder):
     self.model_lookup = model.add_lookup_parameters((embedder.vocab_size, embedder.emb_dim))
 
   def encode(self, sentence):
-    # single mode
-    if not Batcher.is_batch_sentence(sentence):
-      embeddings = [self.embedder.embed(word) for word in sentence]
-
-    # minibatch mode
-    else:
-      embeddings = []
-      for word_i in range(len(sentence[0])):
-        embeddings.append(self.embedder.embed_batch([single_sentence[word_i] for single_sentence in sentence]))
-
+    embeddings = self.embedder.embed_sentence(sentence)
     return self.encoder.transduce(embeddings)

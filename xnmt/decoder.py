@@ -31,12 +31,7 @@ class MlpSoftmaxDecoder(Decoder):
     self.state = self.fwd_lstm.initial_state()
 
   def add_input(self, target_word):
-    # single mode
-    if not Batcher.is_batch_word(target_word):
-      self.state = self.state.add_input(self.embedder.embed(target_word))
-    # minibatch mode
-    else:
-      self.state = self.state.add_input(self.embedder.embed_batch(target_word))
+    self.state = self.state.add_input(self.embedder.embed(target_word))
 
   def calc_loss(self, context, ref_action):
     mlp_input = dy.concatenate([context, self.state.output()])
@@ -44,7 +39,6 @@ class MlpSoftmaxDecoder(Decoder):
     # single mode
     if not Batcher.is_batch_word(ref_action):
       return dy.pickneglogsoftmax(scores, ref_action)
-
     # minibatch mode
     else:
       return dy.pickneglogsoftmax_batch(scores, ref_action)

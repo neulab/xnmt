@@ -1,3 +1,5 @@
+from batcher import *
+
 class Embedder:
   '''
   A template class to embed a word or token.
@@ -20,7 +22,21 @@ class SimpleWordEmbedder(Embedder):
     self.embeddings = model.add_lookup_parameters((vocab_size, emb_dim))
 
   def embed(self, x):
-    return self.embeddings[x]
+    # single mode
+    if not Batcher.is_batch_word(x):
+      return self.embeddings[x]
+    # minibatch mode
+    else:
+      return self.embeddings.batch(x)
 
-  def embed_batch(self, x):
-    return self.embeddings.batch(x)
+  def embed_sentence(self, sentence):
+    # single mode
+    if not Batcher.is_batch_sentence(sentence):
+      embeddings = [self.embed(word) for word in sentence]
+    # minibatch mode
+    else:
+      embeddings = []
+      for word_i in range(len(sentence[0])):
+        embeddings.append(self.embed([single_sentence[word_i] for single_sentence in sentence]))
+
+    return embeddings

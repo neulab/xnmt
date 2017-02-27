@@ -4,13 +4,28 @@ from collections import defaultdict
 
 
 class Batcher:
+  '''
+  A template class to convert a list of sentences to several batches of
+  sentences.
+  '''
+
+  @staticmethod
+  def is_batch_sentence(source):
+    return len(source) > 0 and type(source[0]) == list
+
+  @staticmethod
+  def is_batch_word(source):
+    return type(source) == list
+
+
+class SourceBucketBatcher(Batcher):
 
   def __init__(self, batch_size):
     self.batch_size = batch_size
 
   def pack(self, source, target):
-    sourse_target_pairs = zip(source, target)
-    buckets = self.group_by_len(sourse_target_pairs)
+    source_target_pairs = zip(source, target)
+    buckets = self.group_by_len(source_target_pairs)
 
     result = []
     for same_len_src_pairs in buckets.values():
@@ -37,11 +52,3 @@ class Batcher:
     for batch_idx in range(num_batches):
       minibatches.append([pairs[batch_idx * self.batch_size + i] for i in range(self.batch_size)])
     return minibatches
-
-  @staticmethod
-  def is_batch_sentence(source):
-    return len(source) > 0 and type(source[0]) == list
-
-  @staticmethod
-  def is_batch_word(source):
-    return type(source) == list
