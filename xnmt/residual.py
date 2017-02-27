@@ -1,8 +1,13 @@
 from dynet import *
 
+
 class ResidualRNNBuilder:
     """
-    Builder for RNNs that implements additional residual connections between layers.
+    Builder for RNNs that implements additional residual connections between layers: the output of each
+    intermediate hidden layer is added to its output.
+
+    input ---> hidden layer 1 ---> hidden layer 2 -+--> ... --+--> hidden layer n
+                                \_________________/  \_ ... _/
     """
 
     def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory):
@@ -32,8 +37,7 @@ class ResidualRNNBuilder:
 
     def add_inputs(self, es):
         """
-        returns the list of state pairs (stateF, stateB) obtained by adding
-        inputs to both forward (stateF) and backward (stateB) RNNs.
+        Returns the list of RNNStates obtained by adding the inputs to the RNN.
 
         @param es: a list of Expression
 
@@ -41,7 +45,7 @@ class ResidualRNNBuilder:
 
         .transduce(xs) is different from .add_inputs(xs) in the following way:
 
-            .add_inputs(xs) returns a list of RNNState pairs. RNNState objects can be
+            .add_inputs(xs) returns a list of RNNState objects. RNNState objects can be
              queried in various ways. In particular, they allow access to the previous
              state, as well as to the state-vectors (h() and s() )
 
@@ -49,16 +53,20 @@ class ResidualRNNBuilder:
              expressions. For many cases, this suffices.
              transduce is much more memory efficient than add_inputs.
         """
+        if len(self.builder_layers) == 1:
+            return self.builder_layers[0].initial_state().add_inputs(es)
+
         es = self.builder_layers[0].initial_state().transduce(es)
+
         for l in self.builder_layers[1:-1]:
-            es += l.initial_state().transduce(es)
-        return self.builder_layers[-1].initial_state().add_inputs(es) + es
+            es = [out + orig for (out, orig) in zip(l.initial_state().transduce(es), es)]
+
+        return self.builder_layers[-1].initial_state().add_inputs(es)
 
     def transduce(self, es):
         """
         returns the list of output Expressions obtained by adding the given inputs
-        to the current state, one by one, to both the forward and backward RNNs,
-        and concatenating.
+        to the current state, one by one.
 
         @param es: a list of Expression
 
@@ -66,6 +74,10 @@ class ResidualRNNBuilder:
         add_inputs and this function.
         """
         es = self.builder_layers[0].initial_state().transduce(es)
-        for l in self.builder_layers[1:]:
-            es += l.initial_state().transduce(es)
-        return es
+        if len(self.builder_layers) == 1:
+            return es
+
+        for l in self.builder_layers[1:-1]:
+            es = [out + orig for (out, orig) in zip(l.initial_state().transduce(es), es)]
+
+        return self.builder_layers[-1].initial_state().transduce(es)
