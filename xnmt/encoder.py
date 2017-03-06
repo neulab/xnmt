@@ -32,7 +32,7 @@ class BiLSTMEncoder(DefaultEncoder):
     self.model_lookup = model.add_lookup_parameters((embedder.vocab_size, embedder.emb_dim))
 
 
-class ResidualLSTMEncoder(Encoder):
+class ResidualLSTMEncoder(DefaultEncoder):
   
   def __init__(self, layers, output_dim, embedder, model):
     self.embedder = embedder
