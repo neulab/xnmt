@@ -4,6 +4,11 @@ eXtensible Neural Machine Translation
 This is a stub of a repository to create an extensible neural machine translation toolkit.
 It is coded in Python based on [DyNet](http://github.com/clab/dynet).
 
+Usage Directions
+----------------
+
+TODO
+
 Coding Style
 ------------
 

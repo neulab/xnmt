@@ -21,6 +21,7 @@ if __name__ == "__main__":
   parser.add_argument('dev_source')
   parser.add_argument('dev_target')
   args = parser.parse_args()
+  print("Starting xnmt-train:\nArguments: %r" % (args))
 
 
   model = dy.Model()
@@ -70,16 +71,25 @@ if __name__ == "__main__":
   epoch_num = 0
   while True:
     epoch_loss = 0.0
-    word_count = 0
+    epoch_words = 0
     epoch_num += 1
+
     for sent_num, (src, tgt) in enumerate(zip(train_corpus_source, train_corpus_target)):
+      # Loss calculation
       dy.renew_cg()
       loss = translator.calc_loss(src, tgt)
-      word_count += count_tgt_words(tgt)
+      epoch_words += count_tgt_words(tgt)
       epoch_loss += loss.value()
       loss.backward()
       trainer.update()
+      
+      # Training reporting
+      fractional_epoch = (epoch_num - 1) + 1.0 * (sent_num + 1) / len(train_corpus_source)
+      if sent_num % 100 == 99 or sent_num == len(train_corpus_source) - 1:
+        print ('Epoch %.4f: train_ppl=%.4f (loss/word=%.4f, words=%d)' % (
+          fractional_epoch, math.exp(epoch_loss/epoch_words), epoch_loss/epoch_words, epoch_words))
 
+      # Devel reporting
       if sent_num % 100 == 99 or sent_num == len(train_corpus_source) - 1:
         dev_loss = 0.0
         dev_words = 0
@@ -88,8 +98,7 @@ if __name__ == "__main__":
           loss = translator.calc_loss(src, tgt).value()
           dev_loss += loss
           dev_words += count_tgt_words(tgt)
-        print ((epoch_num - 1) + 1.0 * (sent_num + 1) / len(train_corpus_source),
-               'Dev perplexity:', math.exp(dev_loss / dev_words),
-               '(%f over %d words)' % (dev_loss, dev_words))
+        print ('Epoch %.4f: devel_ppl=%.4f (loss/word=%.4f, words=%d)' % (
+          fractional_epoch, math.exp(dev_loss/dev_words), dev_loss/dev_words, dev_words))
+
     trainer.update_epoch()
-    print (epoch_num, 'Train perplexity:', math.exp(epoch_loss/word_count), '(%f over %d words)' % (epoch_loss, word_count))
