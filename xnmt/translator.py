@@ -24,7 +24,7 @@ class Translator:
 
 
 class DefaultTranslator(Translator):
-  def __init__(self, encoder, attender, decoder, beam_size=3, len_norm=None):
+  def __init__(self, encoder, attender, decoder, beam_size=3, len_norm=NoNormalization()):
     self.encoder = encoder
     self.attender = attender
     self.decoder = decoder
@@ -73,7 +73,7 @@ class DefaultTranslator(Translator):
       encodings = self.encoder.encode(sentences)
       self.attender.start_sentence(encodings)
       self.decoder.initialize()
-      g = BeamSearch(self.beam_size, self.decoder, self.attender, max_len= 100, len_norm=self.len_norm)
+      g = BeamSearch(self.beam_size, self.decoder, self.attender, len_norm=self.len_norm)
       output.append(g.generate_output())
     return output
 
