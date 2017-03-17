@@ -24,11 +24,12 @@ class Translator:
 
 
 class DefaultTranslator(Translator):
-  def __init__(self, encoder, attender, decoder, beam_size=3):
+  def __init__(self, encoder, attender, decoder, beam_size=3, len_norm=NoNormalization()):
     self.encoder = encoder
     self.attender = attender
     self.decoder = decoder
     self.beam_size = beam_size
+    self.len_norm = len_norm
 
   def calc_loss(self, source, target):
     encodings = self.encoder.encode(source)
@@ -65,10 +66,14 @@ class DefaultTranslator(Translator):
     return dy.esum(losses)
 
   def translate(self, source):
-    encodings = self.encoder.encode(source)
-    self.attender.start_sentence(encodings)
-    self.decoder.initialize()
-    g = BeamSearch(self.beam_size, self.decoder, self.attender)
-    output = g.generate_output()
+    output = []
+    if not Batcher.is_batch_sentence(source):
+      source = [source]
+    for sentences in source:
+      encodings = self.encoder.encode(sentences)
+      self.attender.start_sentence(encodings)
+      self.decoder.initialize()
+      g = BeamSearch(self.beam_size, self.decoder, self.attender, len_norm=self.len_norm)
+      output.append(g.generate_output())
     return output
 
