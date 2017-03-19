@@ -25,7 +25,7 @@ class SourceBucketBatcher(Batcher):
 
   def pack(self, source, target):
     source_target_pairs = zip(source, target)
-    buckets = self.group_by_len(source_target_pairs)
+    buckets = self.group_by_source_len(source_target_pairs)
 
     result = []
     for same_len_src_pairs in buckets.values():
@@ -40,15 +40,20 @@ class SourceBucketBatcher(Batcher):
 
     return source_result, target_result
 
-  def group_by_len(self, pairs):
+  def group_by_source_len(self, pairs):
     buckets = defaultdict(list)
     for pair in pairs:
       buckets[len(pair[0])].append(pair)
+
     return buckets
 
   def create_minibatches(self, pairs):
     minibatches = []
-    num_batches = len(pairs) // self.batch_size
+    num_pairs = len(pairs)
+    num_batches = (num_pairs + self.batch_size - 1) // self.batch_size
     for batch_idx in range(num_batches):
-      minibatches.append([pairs[batch_idx * self.batch_size + i] for i in range(self.batch_size)])
+      real_batch_size = min(self.batch_size, num_pairs - batch_idx * self.batch_size)
+      minibatches.append([pairs[batch_idx * self.batch_size + i] for i in range(real_batch_size)])
+    np.random.shuffle(minibatches)
+
     return minibatches
