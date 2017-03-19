@@ -1,6 +1,8 @@
 import dynet as dy
 import numpy as np
 from collections import defaultdict
+from pprint import pprint
+from vocab import Vocab
 
 
 class Batcher:
@@ -8,6 +10,18 @@ class Batcher:
   A template class to convert a list of sentences to several batches of
   sentences.
   '''
+
+  PAIR_SRC = 0
+  PAIR_TRG = 1
+
+  SHUFFLE = 0
+  SRC = 1
+  TRG = 2
+  SRC_TRG = 3
+  TRG_SRC = 4
+
+  def __init__(self, batch_size):
+    self.batch_size = batch_size
 
   @staticmethod
   def is_batch_sentence(source):
@@ -18,42 +32,59 @@ class Batcher:
     return type(source) == list
 
 
-class SourceBucketBatcher(Batcher):
+class BucketBatcher(Batcher):
 
-  def __init__(self, batch_size):
-    self.batch_size = batch_size
+  @staticmethod
+  def group_by_len(pairs, indexer):
+    buckets = defaultdict(list)
+    for pair in pairs:
+      buckets[indexer(pair)].append(pair)
+    return buckets
+
+  @staticmethod
+  def separate_source_target(joint_result):
+    source_result = []
+    target_result = []
+    for batch in joint_result:
+      source_result.append([pair[0] for pair in batch])
+      target_result.append([pair[1] for pair in batch])
+    return source_result, target_result
+
+  def create_bucket_batches(self, bucket_sent_pairs):
+    minibatches = []
+    num_sent_pairs = len(bucket_sent_pairs)
+    num_batches = (num_sent_pairs + self.batch_size - 1) // self.batch_size
+
+    for batch_idx in range(num_batches):
+      real_batch_size = min(self.batch_size, num_sent_pairs - batch_idx * self.batch_size)
+      one_batch = [bucket_sent_pairs[batch_idx * self.batch_size + i] for i in range(real_batch_size)]
+      self.pad(one_batch)
+      minibatches.append(one_batch)
+
+    np.random.shuffle(minibatches)
+    return minibatches
+
+  def pad(self, batch):
+    raise NotImplementedError('pad must be implemented in BucketBatcher subclasses')
+
+  def pack(self, source, target):
+    raise NotImplementedError('pack must be implemented in BucketBatcher subclasses')
+
+
+class SourceBucketBatcher(BucketBatcher):
 
   def pack(self, source, target):
     source_target_pairs = zip(source, target)
-    buckets = self.group_by_source_len(source_target_pairs)
+    indexer = lambda x: len(x[self.PAIR_SRC])
+    buckets = self.group_by_len(source_target_pairs, indexer)
 
     result = []
     for same_len_src_pairs in buckets.values():
-      result.extend(self.create_minibatches(same_len_src_pairs))
+      result.extend(self.create_bucket_batches(same_len_src_pairs))
     np.random.shuffle(result)
 
-    source_result = []
-    target_result = []
-    for batch in result:
-      source_result.append([pair[0] for pair in batch])
-      target_result.append([pair[1] for pair in batch])
+    return self.separate_source_target(result)
 
-    return source_result, target_result
+  def pad(self, batch):
+    pass
 
-  def group_by_source_len(self, pairs):
-    buckets = defaultdict(list)
-    for pair in pairs:
-      buckets[len(pair[0])].append(pair)
-
-    return buckets
-
-  def create_minibatches(self, pairs):
-    minibatches = []
-    num_pairs = len(pairs)
-    num_batches = (num_pairs + self.batch_size - 1) // self.batch_size
-    for batch_idx in range(num_batches):
-      real_batch_size = min(self.batch_size, num_pairs - batch_idx * self.batch_size)
-      minibatches.append([pairs[batch_idx * self.batch_size + i] for i in range(real_batch_size)])
-    np.random.shuffle(minibatches)
-
-    return minibatches
