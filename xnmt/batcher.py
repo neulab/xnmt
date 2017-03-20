@@ -1,9 +1,8 @@
 import dynet as dy
 import numpy as np
 from collections import defaultdict
-from pprint import pprint
 from vocab import Vocab
-
+from pprint import pprint
 
 class Batcher:
   '''
@@ -58,14 +57,16 @@ class BucketBatcher(Batcher):
     np.random.shuffle(minibatches)
     return minibatches
 
-  def pack_template(self, source, target, indexer):
+  def pack_template(self, source, target, indexer, sorter=lambda x: x):
     source_target_pairs = zip(source, target)
     buckets = self.group_by_len(source_target_pairs, indexer)
 
     result = []
     for same_len_pairs in buckets.values():
+      sorter(same_len_pairs)
       result.extend(self.create_bucket_batches(same_len_pairs))
     np.random.shuffle(result)
+    # pprint(result)
 
     return self.separate_source_target(result)
 
@@ -83,6 +84,14 @@ class SourceBucketBatcher(BucketBatcher):
     pass
 
 
+class SourceTargetBucketBatcher(SourceBucketBatcher):
+
+  def pack(self, source, target):
+    indexer = lambda x: len(x[self.PAIR_SRC])
+    sorter = lambda x: x.sort(key=lambda pair: len(pair[self.PAIR_TRG]))
+    return self.pack_template(source, target, indexer, sorter)
+
+
 class TargetBucketBatcher(BucketBatcher):
 
   def pack(self, source, target):
@@ -94,4 +103,13 @@ class TargetBucketBatcher(BucketBatcher):
     for pair in batch:
       if len(pair[self.PAIR_SRC]) < max_len:
         pair[self.PAIR_SRC].extend([Vocab.ES] * (max_len - len(pair[self.PAIR_SRC])))
+
+
+class TargetSourceBucketBatcher(TargetBucketBatcher):
+
+  def pack(self, source, target):
+    indexer = lambda x: len(x[self.PAIR_TRG])
+    sorter = lambda x: x.sort(key=lambda pair: len(pair[self.PAIR_SRC]))
+    return self.pack_template(source, target, indexer, sorter)
+
 
