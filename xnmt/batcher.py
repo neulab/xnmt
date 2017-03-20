@@ -14,12 +14,6 @@ class Batcher:
   PAIR_SRC = 0
   PAIR_TRG = 1
 
-  SHUFFLE = 0
-  SRC = 1
-  TRG = 2
-  SRC_TRG = 3
-  TRG_SRC = 4
-
   def __init__(self, batch_size):
     self.batch_size = batch_size
 
@@ -64,27 +58,40 @@ class BucketBatcher(Batcher):
     np.random.shuffle(minibatches)
     return minibatches
 
-  def pad(self, batch):
-    raise NotImplementedError('pad must be implemented in BucketBatcher subclasses')
-
-  def pack(self, source, target):
-    raise NotImplementedError('pack must be implemented in BucketBatcher subclasses')
-
-
-class SourceBucketBatcher(BucketBatcher):
-
-  def pack(self, source, target):
+  def pack_template(self, source, target, indexer):
     source_target_pairs = zip(source, target)
-    indexer = lambda x: len(x[self.PAIR_SRC])
     buckets = self.group_by_len(source_target_pairs, indexer)
 
     result = []
-    for same_len_src_pairs in buckets.values():
-      result.extend(self.create_bucket_batches(same_len_src_pairs))
+    for same_len_pairs in buckets.values():
+      result.extend(self.create_bucket_batches(same_len_pairs))
     np.random.shuffle(result)
 
     return self.separate_source_target(result)
 
   def pad(self, batch):
+    raise NotImplementedError('pad must be implemented in BucketBatcher subclasses')
+
+
+class SourceBucketBatcher(BucketBatcher):
+
+  def pack(self, source, target):
+    indexer = lambda x: len(x[self.PAIR_SRC])
+    return self.pack_template(source, target, indexer)
+
+  def pad(self, batch):
     pass
+
+
+class TargetBucketBatcher(BucketBatcher):
+
+  def pack(self, source, target):
+    indexer = lambda x: len(x[self.PAIR_TRG])
+    return self.pack_template(source, target, indexer)
+
+  def pad(self, batch):
+    max_len = max([len(pair[self.PAIR_SRC]) for pair in batch])
+    for pair in batch:
+      if len(pair[self.PAIR_SRC]) < max_len:
+        pair[self.PAIR_SRC].extend([Vocab.ES] * (max_len - len(pair[self.PAIR_SRC])))
 
