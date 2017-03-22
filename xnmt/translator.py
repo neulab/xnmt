@@ -23,11 +23,10 @@ class Translator:
     return dy.esum([self.loss(x, y) for x, y in zip(xs, ys)])
 
 class DefaultTranslator(Translator):
-  def __init__(self, encoder, attender, decoder, beam_size=3):
+  def __init__(self, encoder, attender, decoder):
     self.encoder = encoder
     self.attender = attender
     self.decoder = decoder
-    self.beam_size = beam_size
 
   def calc_loss(self, source, target):
     encodings = self.encoder.encode(source)
@@ -63,12 +62,15 @@ class DefaultTranslator(Translator):
 
     return dy.esum(losses)
 
-  def translate(self, source):
-    encodings = self.encoder.encode(source)
-    self.attender.start_sentence(encodings)
-    self.decoder.initialize()
-    g = BeamSearch(self.beam_size, self.decoder, self.attender)
-    output = g.generate_output()
+  def translate(self, source, search_strategy=BeamSearch(1, len_norm=NoNormalization())):
+    output = []
+    if not Batcher.is_batch_sentence(source):
+      source = [source]
+    for sentences in source:
+      encodings = self.encoder.encode(sentences)
+      self.attender.start_sentence(encodings)
+      self.decoder.initialize()
+      output.append(search_strategy.generate_output(self.decoder, self.attender))
     return output
 
   def to_spec(self):
