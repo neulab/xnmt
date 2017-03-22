@@ -49,7 +49,6 @@ class MultinomialNormalization(LengthNormalization):
   def __init__(self, sentence_stats):
     self.stats = sentence_stats
 
-
   def targetLengthProb(self, sourceLength, targetLength):
     v = len(self.stats.sourceStat)
     if sourceLength in self.stats.sourceStat:
