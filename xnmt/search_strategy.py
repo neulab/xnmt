@@ -10,10 +10,8 @@ class SearchStrategy:
     raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')
 
 class BeamSearch(SearchStrategy):
-  def __init__(self, b, decoder, attender, max_len=100, len_norm=NoNormalization()):
+  def __init__(self, b, max_len=100, len_norm=NoNormalization()):
     self.b = b
-    self.decoder = decoder
-    self.attender = attender
     self.max_len = max_len
     self.len_norm = len_norm
 
@@ -24,9 +22,9 @@ class BeamSearch(SearchStrategy):
       self.id_list = id
 
 
-  def generate_output(self):
+  def generate_output(self, decoder, attender):
     # TODO: Add suitable length normalization
-    active_hypothesis = [self.Hypothesis(0, [0], self.decoder.state)]
+    active_hypothesis = [self.Hypothesis(0, [0], decoder.state)]
     completed_hypothesis = []
     length = 0
 
@@ -39,16 +37,16 @@ class BeamSearch(SearchStrategy):
           completed_hypothesis.append(hyp)
           continue
 
-        self.decoder.state = hyp.state
-        self.decoder.add_input(hyp.id_list[-1])
-        context = self.attender.calc_context(self.decoder.state.output())
-        score = dy.log_softmax(self.decoder.get_scores(context)).npvalue()
+        decoder.state = hyp.state
+        decoder.add_input(hyp.id_list[-1])
+        context = attender.calc_context(decoder.state.output())
+        score = dy.log_softmax(decoder.get_scores(context)).npvalue()
         top_ids = np.argsort(score)[::-1][:self.b]
 
         for id in top_ids:
           new_list = list(hyp.id_list)
           new_list.append(id)
-          new_set.append(self.Hypothesis(hyp.score + score[id], new_list, self.decoder.state))
+          new_set.append(self.Hypothesis(hyp.score + score[id], new_list, decoder.state))
 
       active_hypothesis = sorted(new_set, key=lambda x: x.score, reverse=True)[:self.b]
 
