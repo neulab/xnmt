@@ -26,7 +26,6 @@ class BeamSearch(SearchStrategy):
 
 
   def generate_output(self):
-    # TODO: Add suitable length normalization
     active_hypothesis = [self.Hypothesis(0, [0], self.decoder.state)]
     completed_hypothesis = []
     length = 0
@@ -44,7 +43,7 @@ class BeamSearch(SearchStrategy):
         self.decoder.add_input(hyp.id_list[-1])
         context = self.attender.calc_context(self.decoder.state.output())
         score = dy.log_softmax(self.decoder.get_scores(context)).npvalue()
-        top_ids = np.argsort(score)[::-1][:self.b]
+        top_ids = np.argpartition(score, -self.b)[-self.b:]
 
         for id in top_ids:
           new_list = list(hyp.id_list)

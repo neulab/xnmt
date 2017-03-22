@@ -46,25 +46,15 @@ class MultinomialNormalization(LengthNormalization):
   Tree-to-Sequence Attentional Neural Machine Translation
   https://arxiv.org/pdf/1603.06075.pdf
   '''
-  def __init__(self):
-    self.sourceStat = {}
+  def __init__(self, sentence_stats):
+    self.stats = sentence_stats
 
-  class SourceLengthStat:
-    def __init__(self):
-      self.num_sentences = 0
-      self.tarLenDistribution = {}
-
-  def addTargetLength(self, sourceLength, targetLength):
-      source_stat = self.sourceStat.get(sourceLength, self.SourceLengthStat())
-      source_stat.num_sentences += 1
-      sourceLength.tarLenDistribution[targetLength] = source_stat.tarLenDistribution.get(targetLength, 0) + 1
-      self.sourceStat[sourceLength] = source_stat
 
   def targetLengthProb(self, sourceLength, targetLength):
-    # TODO: Add Lapacian Smoothing
-    if sourceLength in self.sourceStat:
-      source_stat = self.sourceStat.get(sourceLength)
-      return (source_stat.tarLenDistribution.get(targetLength, 0)) / source_stat.num_sentences
+    v = len(self.stats.sourceStat)
+    if sourceLength in self.stats.sourceStat:
+      source_stat = self.stats.sourceStat.get(sourceLength)
+      return (source_stat.tarLenDistribution.get(targetLength, 0) + 1) / (source_stat.num_sentences + v)
     return 1
 
   def normalize_length(self, completed_hypotheses, source_length=0):
@@ -73,5 +63,5 @@ class MultinomialNormalization(LengthNormalization):
     """
     assert (source_length > 0), "Length of Source Sentence is required"
     for hypothesis in completed_hypotheses:
-      hypothesis.score +=  np.log(self.addTargetLength(source_length, len(hypothesis.id_list)))
+      hypothesis.score += np.log(self.targetLengthProb(source_length, len(hypothesis.id_list)))
 
