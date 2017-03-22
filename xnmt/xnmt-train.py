@@ -1,6 +1,7 @@
 # coding: utf-8
 import argparse
 import math
+import sys
 import dynet as dy
 from embedder import *
 from attender import *
@@ -8,6 +9,7 @@ from input import *
 from encoder import *
 from decoder import *
 from translator import *
+from serializer import *
 '''
 This will be the main class to perform training.
 '''
@@ -20,12 +22,16 @@ if __name__ == "__main__":
   parser.add_argument('train_target')
   parser.add_argument('dev_source')
   parser.add_argument('dev_target')
+  parser.add_argument('model_file')
   args = parser.parse_args()
   print("Starting xnmt-train:\nArguments: %r" % (args))
 
 
   model = dy.Model()
   trainer = dy.SimpleSGDTrainer(model)
+
+  # Create the model serializer
+  model_serializer = JSONSerializer()
 
   # Read in training and dev corpora
   input_reader = PlainTextReader()
@@ -69,6 +75,7 @@ if __name__ == "__main__":
 
   # Main training loop
   epoch_num = 0
+  best_dev_loss = sys.float_info.max
   while True:
     epoch_loss = 0.0
     epoch_words = 0
@@ -100,5 +107,10 @@ if __name__ == "__main__":
           dev_words += count_tgt_words(tgt)
         print ('Epoch %.4f: devel_ppl=%.4f (loss/word=%.4f, words=%d)' % (
           fractional_epoch, math.exp(dev_loss/dev_words), dev_loss/dev_words, dev_words))
+        # Write out the model if it's the best one
+        if dev_loss < best_dev_loss:
+          print ('Epoch %.4f: best dev loss, writing model to %s' % (fractional_epoch, args.model_file))
+          best_dev_loss = dev_loss
+          model_serializer.save_to_file(args.model_file, translator, model)
 
     trainer.update_epoch()

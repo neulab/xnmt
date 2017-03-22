@@ -22,7 +22,6 @@ class Translator:
   def batch_loss(self, xs, ys):
     return dy.esum([self.loss(x, y) for x, y in zip(xs, ys)])
 
-
 class DefaultTranslator(Translator):
   def __init__(self, encoder, attender, decoder, beam_size=3):
     self.encoder = encoder
@@ -72,3 +71,9 @@ class DefaultTranslator(Translator):
     output = g.generate_output()
     return output
 
+  def to_spec(self):
+    return {'__class__': self.__class__.__name__,
+            'encoder': encoder,
+            'attender': attender,
+            'decoder': decoder,
+            'beam_size': beam_size}
