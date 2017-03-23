@@ -27,6 +27,7 @@ class DefaultTranslator(Translator):
     self.encoder = encoder
     self.attender = attender
     self.decoder = decoder
+    self.serialize_params = [encoder, attender, decoder]
 
   def calc_loss(self, source, target):
     encodings = self.encoder.encode(source)
@@ -72,10 +73,3 @@ class DefaultTranslator(Translator):
       self.decoder.initialize()
       output.append(search_strategy.generate_output(self.decoder, self.attender))
     return output
-
-  def to_spec(self):
-    return {'__class__': self.__class__.__name__,
-            'encoder': encoder,
-            'attender': attender,
-            'decoder': decoder,
-            'beam_size': beam_size}

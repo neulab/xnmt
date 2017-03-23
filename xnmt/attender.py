@@ -29,6 +29,7 @@ class StandardAttender(Attender):
     self.pb = model.add_parameters(hidden_dim)
     self.pU = model.add_parameters((1, hidden_dim))
     self.curr_sentence = None
+    self.serialize_params = [input_dim, state_dim, hidden_dim, model]
 
   def start_sentence(self, sentence):
     self.curr_sentence = sentence
