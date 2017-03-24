@@ -10,13 +10,11 @@ class SearchStrategy:
     raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')
 
 class BeamSearch(SearchStrategy):
-  def __init__(self, b, decoder, attender, max_len=100, len_norm=NoNormalization(), source_len=0):
+  def __init__(self, b, max_len=100, len_norm=NoNormalization()):
+
     self.b = b
-    self.decoder = decoder
-    self.attender = attender
     self.max_len = max_len
     self.len_norm = len_norm
-    self.source_len = source_len
 
   class Hypothesis:
     def __init__(self, score, id, state):
@@ -25,8 +23,10 @@ class BeamSearch(SearchStrategy):
       self.id_list = id
 
 
-  def generate_output(self):
-    active_hypothesis = [self.Hypothesis(0, [0], self.decoder.state)]
+
+  def generate_output(self, decoder, attender, source_len=0):
+    active_hypothesis = [self.Hypothesis(0, [0], decoder.state)]
+
     completed_hypothesis = []
     length = 0
 
@@ -39,23 +39,24 @@ class BeamSearch(SearchStrategy):
           completed_hypothesis.append(hyp)
           continue
 
-        self.decoder.state = hyp.state
-        self.decoder.add_input(hyp.id_list[-1])
-        context = self.attender.calc_context(self.decoder.state.output())
-        score = dy.log_softmax(self.decoder.get_scores(context)).npvalue()
+
+        decoder.state = hyp.state
+        decoder.add_input(hyp.id_list[-1])
+        context = attender.calc_context(decoder.state.output())
+        score = dy.log_softmax(decoder.get_scores(context)).npvalue()
         top_ids = np.argpartition(score, -self.b)[-self.b:]
 
         for id in top_ids:
           new_list = list(hyp.id_list)
           new_list.append(id)
-          new_set.append(self.Hypothesis(hyp.score + score[id], new_list, self.decoder.state))
+          new_set.append(self.Hypothesis(hyp.score + score[id], new_list, decoder.state))
 
       active_hypothesis = sorted(new_set, key=lambda x: x.score, reverse=True)[:self.b]
 
     if len(completed_hypothesis) == 0:
       completed_hypothesis = active_hypothesis
 
-    self.len_norm.normalize_length(completed_hypothesis, self.source_len)
+    self.len_norm.normalize_length(completed_hypothesis, source_len)
 
     result = sorted(completed_hypothesis, key=lambda x: x.score, reverse=True)[0]
     return result.id_list
