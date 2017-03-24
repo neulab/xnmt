@@ -4,33 +4,34 @@ class SentenceStats:
   '''
 
   def __init__(self):
-      self.sourceStat = {}
-      self.targetStat = {}
-      self.maxPairs = 1000000
+      self.source_stat = {}
+      self.target_stat = {}
+      self.max_pairs = 1000000
 
   class SourceLengthStat:
       def __init__(self):
           self.num_sentences = 0
-          self.tarLenDistribution = {}
+          self.target_len_distribution = {}
 
   class TargetLengthStat:
       def __init__(self):
           self.num_sentences = 0
 
-  def addSentencePairLength(self, sourceLength, targetLength):
-      source_stat = self.sourceStat.get(sourceLength, self.SourceLengthStat())
-      source_stat.num_sentences += 1
-      source_stat.tarLenDistribution[targetLength] = source_stat.tarLenDistribution.get(targetLength, 0) + 1
-      self.sourceStat[sourceLength] = source_stat
+  def add_sentence_pair_length(self, source_length, target_length):
+      source_len_stat = self.source_stat.get(source_length, self.SourceLengthStat())
+      source_len_stat.num_sentences += 1
+      source_len_stat.target_len_distribution[target_length] = \
+          source_len_stat.target_len_distribution.get(target_length, 0) + 1
+      self.source_stat[source_length] = source_len_stat
 
-      target_stat = self.targetStat.get(targetLength, self.TargetLengthStat())
-      target_stat.num_sentences += 1
-      self.targetStat[targetLength] = target_stat
+      target_len_stat = self.target_stat.get(target_length, self.TargetLengthStat())
+      target_len_stat.num_sentences += 1
+      self.target_stat[target_length] = target_len_stat
 
-  def populateStatistics(self, train_corpus_source, train_corpus_target):
+  def populate_statistics(self, train_corpus_source, train_corpus_target):
       for sent_num, (src, tgt) in enumerate(zip(train_corpus_source, train_corpus_target)):
-          self.addSentencePairLength(len(src), len(tgt))
-          if sent_num > self.maxPairs:
+          self.add_sentence_pair_length(len(src), len(tgt))
+          if sent_num > self.max_pairs:
               return
 
 

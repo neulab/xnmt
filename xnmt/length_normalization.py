@@ -49,11 +49,11 @@ class MultinomialNormalization(LengthNormalization):
   def __init__(self, sentence_stats):
     self.stats = sentence_stats
 
-  def targetLengthProb(self, sourceLength, targetLength):
-    v = len(self.stats.sourceStat)
-    if sourceLength in self.stats.sourceStat:
-      source_stat = self.stats.sourceStat.get(sourceLength)
-      return (source_stat.tarLenDistribution.get(targetLength, 0) + 1) / (source_stat.num_sentences + v)
+  def target_length_prob(self, source_length, target_length):
+    v = len(self.stats.source_stat)
+    if source_length in self.stats.source_stat:
+      source_stat = self.stats.source_stat.get(source_length)
+      return (source_stat.target_len_distribution.get(target_length, 0) + 1) / (source_stat.num_sentences + v)
     return 1
 
   def normalize_length(self, completed_hypotheses, source_length=0):
@@ -62,5 +62,5 @@ class MultinomialNormalization(LengthNormalization):
     """
     assert (source_length > 0), "Length of Source Sentence is required"
     for hypothesis in completed_hypotheses:
-      hypothesis.score += np.log(self.targetLengthProb(source_length, len(hypothesis.id_list)))
+      hypothesis.score += np.log(self.target_length_prob(source_length, len(hypothesis.id_list)))
 
