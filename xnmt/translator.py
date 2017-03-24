@@ -71,6 +71,6 @@ class DefaultTranslator(Translator):
       encodings = self.encoder.encode(sentences)
       self.attender.start_sentence(encodings)
       self.decoder.initialize()
-      output.append(search_strategy.generate_output(self.decoder, self.attender))
+      output.append(search_strategy.generate_output(self.decoder, self.attender, source_length=len(sentences)))
     return output
 
