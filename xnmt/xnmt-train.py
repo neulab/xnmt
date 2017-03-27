@@ -16,6 +16,7 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument('--dynet_mem', type=int)
   parser.add_argument('--batch_size', dest='minibatch_size', type=int)
+  parser.add_argument('--eval_every', dest='eval_every', type=int)
   parser.add_argument('train_source')
   parser.add_argument('train_target')
   parser.add_argument('dev_source')
@@ -34,6 +35,7 @@ if __name__ == "__main__":
   train_corpus_source = input_reader.read_file(args.train_source)
   train_corpus_target = output_reader.read_file(args.train_target)
   assert len(train_corpus_source) == len(train_corpus_target)
+  total_train_sent = len(train_corpus_source)
 
   input_reader.freeze()
   output_reader.freeze()
@@ -59,6 +61,8 @@ if __name__ == "__main__":
   if args.minibatch_size is None:
     print('Start training in non-minibatch mode...')
     count_tgt_words = lambda tgt_words: len(tgt_words)
+    count_sent_num = lambda x: 1
+
   # minibatch mode
   else:
     print('Start training in minibatch mode...')
@@ -66,6 +70,7 @@ if __name__ == "__main__":
     train_corpus_source, train_corpus_target = batcher.pack(train_corpus_source, train_corpus_target)
     dev_corpus_source, dev_corpus_target = batcher.pack(dev_corpus_source, dev_corpus_target)
     count_tgt_words = lambda tgt_words: sum(len(x) for x in tgt_words)
+    count_sent_num = lambda x: len(x)
 
   # Main training loop
   epoch_num = 0
@@ -74,23 +79,34 @@ if __name__ == "__main__":
     epoch_words = 0
     epoch_num += 1
 
-    for sent_num, (src, tgt) in enumerate(zip(train_corpus_source, train_corpus_target)):
+    sent_num = 0
+    sent_num_not_report = 0
+    for batch_num, (src, tgt) in enumerate(zip(train_corpus_source, train_corpus_target)):
       # Loss calculation
       dy.renew_cg()
+      batch_sent_num = count_sent_num(src)
+      sent_num += batch_sent_num
+      sent_num_not_report += batch_sent_num
       loss = translator.calc_loss(src, tgt)
       epoch_words += count_tgt_words(tgt)
       epoch_loss += loss.value()
       loss.backward()
       trainer.update()
       
+      print_report = (sent_num_not_report >= args.eval_every) or (sent_num == total_train_sent)
+      if print_report:
+        while sent_num_not_report >= args.eval_every:
+          sent_num_not_report -= args.eval_every
+
       # Training reporting
-      fractional_epoch = (epoch_num - 1) + 1.0 * (sent_num + 1) / len(train_corpus_source)
-      if sent_num % 100 == 99 or sent_num == len(train_corpus_source) - 1:
+      fractional_epoch = (epoch_num - 1) + sent_num / total_train_sent
+
+      if print_report:
         print ('Epoch %.4f: train_ppl=%.4f (loss/word=%.4f, words=%d)' % (
           fractional_epoch, math.exp(epoch_loss/epoch_words), epoch_loss/epoch_words, epoch_words))
 
       # Devel reporting
-      if sent_num % 100 == 99 or sent_num == len(train_corpus_source) - 1:
+      if print_report:
         dev_loss = 0.0
         dev_words = 0
         for src, tgt in zip(dev_corpus_source, dev_corpus_target):
