@@ -81,3 +81,36 @@ class ResidualRNNBuilder:
       es = [out + orig for (out, orig) in zip(l.initial_state().transduce(es), es)]
 
     return self.builder_layers[-1].initial_state().transduce(es)
+
+
+class ResidualBiRNNBuilder:
+  """
+  A residual network with bidirectional first layer
+  """
+  def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory):
+    assert num_layers > 1
+    self.forward_layer = rnn_builder_factory(1, input_dim, hidden_dim, model)
+    self.backward_layer = rnn_builder_factory(1, input_dim, hidden_dim, model)
+    self.residual_network = ResidualRNNBuilder(num_layers - 1, hidden_dim, hidden_dim, model, rnn_builder_factory)
+
+  def set_droupout(self, p):
+    self.forward_layer.set_dropout(p)
+    self.backward_layer.set_droupout(p)
+    self.residual_network.set_dropout(p)
+
+  def disable_droupt(self):
+    self.forward_layer.disable_droupout()
+    self.backward_layer.disable_dropout()
+    self.residual_network.disable_dropout()
+
+  def add_inputs(self, es):
+    forward_e = self.forward_layer.initial_state().transduce(es)
+    backward_e = self.backward_layer.initial_state().transduce(reversed(es))
+
+    return self.residual_network.add_inputs(forward_e + backward_e)
+
+  def transduce(self, es):
+    forward_e = self.forward_layer.initial_state().transduce(es)
+    backward_e = self.backward_layer.initial_state().transduce(reversed(es))
+
+    return self.residual_network.transduce(forward_e + backward_e)
