@@ -66,7 +66,7 @@ if __name__ == "__main__":
   # minibatch mode
   else:
     print('Start training in minibatch mode...')
-    batcher = SourceBucketBatcher(args.minibatch_size)
+    batcher = SourceTargetBucketBatcher(args.minibatch_size)
     train_corpus_source, train_corpus_target = batcher.pack(train_corpus_source, train_corpus_target)
     dev_corpus_source, dev_corpus_target = batcher.pack(dev_corpus_source, dev_corpus_target)
     count_tgt_words = lambda tgt_words: sum(len(x) for x in tgt_words)
