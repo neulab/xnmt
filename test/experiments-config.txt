@@ -1,0 +1,14 @@
+[defaults]
+train_source=../data/train.ja
+train_target=../data/train.en
+dev_source=../data/dev.ja
+dev_target=../data/dev.en
+test_source=../data/test.ja
+test_target=../data/test.en
+run_for_epochs=1
+batch_size=10
+
+[exp1]
+
+[exp2]
+encoder_type=ResidualLSTM

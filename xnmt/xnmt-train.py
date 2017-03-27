@@ -12,18 +12,10 @@ from translator import *
 This will be the main class to perform training.
 '''
 
-if __name__ == "__main__":
-  parser = argparse.ArgumentParser()
-  parser.add_argument('--dynet_mem', type=int)
-  parser.add_argument('--batch_size', dest='minibatch_size', type=int)
-  parser.add_argument('train_source')
-  parser.add_argument('train_target')
-  parser.add_argument('dev_source')
-  parser.add_argument('dev_target')
-  args = parser.parse_args()
-  print("Starting xnmt-train:\nArguments: %r" % (args))
 
-
+def train(train_source, train_target, dev_source, dev_target, minibatch_size=None, run_for_epochs=None,
+          encoder_builder=BiLSTMEncoder, encoder_layers=2, decoder_layers=2):
+  dy.renew_cg()
   model = dy.Model()
   trainer = dy.SimpleSGDTrainer(model)
 
@@ -31,15 +23,15 @@ if __name__ == "__main__":
   input_reader = PlainTextReader()
   output_reader = PlainTextReader()
 
-  train_corpus_source = input_reader.read_file(args.train_source)
-  train_corpus_target = output_reader.read_file(args.train_target)
+  train_corpus_source = input_reader.read_file(train_source)
+  train_corpus_target = output_reader.read_file(train_target)
   assert len(train_corpus_source) == len(train_corpus_target)
 
   input_reader.freeze()
   output_reader.freeze()
 
-  dev_corpus_source = input_reader.read_file(args.dev_source)
-  dev_corpus_target = output_reader.read_file(args.dev_target)
+  dev_corpus_source = input_reader.read_file(dev_source)
+  dev_corpus_target = output_reader.read_file(dev_target)
   assert len(dev_corpus_source) == len(dev_corpus_target)
 
   # Create the translator object and all its subparts
@@ -49,27 +41,28 @@ if __name__ == "__main__":
 
   input_embedder = SimpleWordEmbedder(len(input_reader.vocab), input_word_emb_dim, model)
   output_embedder = SimpleWordEmbedder(len(output_reader.vocab), output_word_emb_dim, model)
-  encoder = BiLSTMEncoder(2, encoder_hidden_dim, input_embedder, model)
+  encoder = encoder_builder(encoder_layers, encoder_hidden_dim, input_embedder, model)
   attender = StandardAttender(encoder_hidden_dim, output_state_dim, attender_hidden_dim, model)
-  decoder = MlpSoftmaxDecoder(2, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model)
+  decoder = MlpSoftmaxDecoder(decoder_layers, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim,
+                              output_embedder, model)
 
   translator = DefaultTranslator(encoder, attender, decoder)
 
   # single mode
-  if args.minibatch_size is None:
+  if minibatch_size is None:
     print('Start training in non-minibatch mode...')
     count_tgt_words = lambda tgt_words: len(tgt_words)
   # minibatch mode
   else:
     print('Start training in minibatch mode...')
-    batcher = SourceBucketBatcher(args.minibatch_size)
+    batcher = SourceBucketBatcher(minibatch_size)
     train_corpus_source, train_corpus_target = batcher.pack(train_corpus_source, train_corpus_target)
     dev_corpus_source, dev_corpus_target = batcher.pack(dev_corpus_source, dev_corpus_target)
     count_tgt_words = lambda tgt_words: sum(len(x) for x in tgt_words)
 
   # Main training loop
   epoch_num = 0
-  while True:
+  while run_for_epochs is None or epoch_num < run_for_epochs:
     epoch_loss = 0.0
     epoch_words = 0
     epoch_num += 1
@@ -82,12 +75,12 @@ if __name__ == "__main__":
       epoch_loss += loss.value()
       loss.backward()
       trainer.update()
-      
+
       # Training reporting
       fractional_epoch = (epoch_num - 1) + 1.0 * (sent_num + 1) / len(train_corpus_source)
       if sent_num % 100 == 99 or sent_num == len(train_corpus_source) - 1:
-        print ('Epoch %.4f: train_ppl=%.4f (loss/word=%.4f, words=%d)' % (
-          fractional_epoch, math.exp(epoch_loss/epoch_words), epoch_loss/epoch_words, epoch_words))
+        print('Epoch %.4f: train_ppl=%.4f (loss/word=%.4f, words=%d)' % (
+          fractional_epoch, math.exp(epoch_loss / epoch_words), epoch_loss / epoch_words, epoch_words))
 
       # Devel reporting
       if sent_num % 100 == 99 or sent_num == len(train_corpus_source) - 1:
@@ -98,7 +91,23 @@ if __name__ == "__main__":
           loss = translator.calc_loss(src, tgt).value()
           dev_loss += loss
           dev_words += count_tgt_words(tgt)
-        print ('Epoch %.4f: devel_ppl=%.4f (loss/word=%.4f, words=%d)' % (
-          fractional_epoch, math.exp(dev_loss/dev_words), dev_loss/dev_words, dev_words))
+        print('Epoch %.4f: devel_ppl=%.4f (loss/word=%.4f, words=%d)' % (
+          fractional_epoch, math.exp(dev_loss / dev_words), dev_loss / dev_words, dev_words))
 
     trainer.update_epoch()
+
+  return math.exp(epoch_loss / epoch_words), math.exp(dev_loss / dev_words)
+
+
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--dynet_mem', type=int)
+  parser.add_argument('--batch_size', dest='minibatch_size', type=int)
+  parser.add_argument('train_source')
+  parser.add_argument('train_target')
+  parser.add_argument('dev_source')
+  parser.add_argument('dev_target')
+  args = parser.parse_args()
+  print("Starting xnmt-train:\nArguments: %r" % (args))
+
+  train(args.train_source, args.train_target, args.dev_source, args.dev_target, args.minibatch_size)
