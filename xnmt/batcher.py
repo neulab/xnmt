@@ -2,6 +2,7 @@ import dynet as dy
 import numpy as np
 from collections import defaultdict
 from vocab import Vocab
+from collections import OrderedDict
 
 class Batcher:
   '''
@@ -113,3 +114,34 @@ class TargetSourceBucketBatcher(TargetBucketBatcher):
 
   def bucket_value_sort(self, pairs):
     return pairs.sort(key=lambda pair: len(pair[Batcher.PAIR_SRC]))
+
+
+class WordTargetBucketBatcher(TargetBucketBatcher):
+
+  def pack(self, source, target):
+    limit_target_words = self.batch_size
+    source_target_pairs = zip(source, target)
+    buckets = self.group_by_len(source_target_pairs)
+
+    result = []
+    temp_batch = []
+    temp_words = 0
+
+    for sent_len, sent_pairs in OrderedDict(buckets).items():
+      # print(sent_len)
+      self.bucket_value_sort(sent_pairs)
+      for pair in sent_pairs:
+        if temp_words + sent_len > limit_target_words:
+          self.pad_sent(temp_batch)
+          result.append(temp_batch)
+          temp_batch = []
+          temp_words = 0
+        temp_batch.append(pair)
+        temp_words += sent_len
+
+    if temp_words != 0:
+      self.pad_sent(temp_batch)
+      result.append(temp_batch)
+
+    np.random.shuffle(result)
+    return self.separate_source_target(result)
