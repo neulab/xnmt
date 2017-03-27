@@ -40,6 +40,21 @@ class Batcher:
       if len(pair[Batcher.PAIR_SRC]) < max_len:
         pair[Batcher.PAIR_SRC].extend([Vocab.ES] * (max_len - len(pair[Batcher.PAIR_SRC])))
 
+  @staticmethod
+  def select_batcher(batcher_str):
+    if batcher_str == 'src':
+      return SourceBucketBatcher
+    elif batcher_str == 'trg':
+      return TargetBucketBatcher
+    elif batcher_str == 'src_trg':
+      return SourceTargetBucketBatcher
+    elif batcher_str == 'trg_src':
+      return TargetSourceBucketBatcher
+    elif batcher_str == 'shuffle':
+      return ShuffleBatcher,
+    elif batcher_str == 'word':
+      return WordTargetBucketBatcher
+
   def create_batches(self, sent_pairs):
     minibatches = []
     for batch_start in range(0, len(sent_pairs), self.batch_size):

@@ -17,6 +17,7 @@ if __name__ == "__main__":
   parser.add_argument('--dynet_mem', type=int)
   parser.add_argument('--batch_size', dest='minibatch_size', type=int)
   parser.add_argument('--eval_every', dest='eval_every', type=int)
+  parser.add_argument('--batch_strategy', dest='batch_strategy', type=str)
   parser.add_argument('train_source')
   parser.add_argument('train_target')
   parser.add_argument('dev_source')
@@ -66,11 +67,12 @@ if __name__ == "__main__":
   # minibatch mode
   else:
     print('Start training in minibatch mode...')
-    batcher = SourceTargetBucketBatcher(args.minibatch_size)
+    batcher = Batcher.select_batcher(args.batch_strategy)(args.minibatch_size)
     train_corpus_source, train_corpus_target = batcher.pack(train_corpus_source, train_corpus_target)
     dev_corpus_source, dev_corpus_target = batcher.pack(dev_corpus_source, dev_corpus_target)
     count_tgt_words = lambda tgt_words: sum(len(x) for x in tgt_words)
     count_sent_num = lambda x: len(x)
+
 
   # Main training loop
   epoch_num = 0
