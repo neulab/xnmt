@@ -1,12 +1,13 @@
 class SentenceStats:
   '''
-  Converts between strings and integer ids
+  to Populate the source and target sentences statistics.
   '''
 
   def __init__(self):
       self.source_stat = {}
       self.target_stat = {}
       self.max_pairs = 1000000
+      self.num_pair = 0
 
   class SourceLengthStat:
       def __init__(self):
@@ -29,9 +30,8 @@ class SentenceStats:
       self.target_stat[target_length] = target_len_stat
 
   def populate_statistics(self, train_corpus_source, train_corpus_target):
+      self.num_pair = min(len(train_corpus_source), self.max_pairs)
       for sent_num, (src, tgt) in enumerate(zip(train_corpus_source, train_corpus_target)):
           self.add_sentence_pair_length(len(src), len(tgt))
           if sent_num > self.max_pairs:
               return
-
-
