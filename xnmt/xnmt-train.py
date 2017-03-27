@@ -8,6 +8,7 @@ from input import *
 from encoder import *
 from decoder import *
 from translator import *
+from logger import *
 '''
 This will be the main class to perform training.
 '''
@@ -58,6 +59,8 @@ if __name__ == "__main__":
 
   translator = DefaultTranslator(encoder, attender, decoder)
 
+  logger = Logger()
+
   # single mode
   if args.minibatch_size is None:
     print('Start training in non-minibatch mode...')
@@ -72,7 +75,6 @@ if __name__ == "__main__":
     dev_corpus_source, dev_corpus_target = batcher.pack(dev_corpus_source, dev_corpus_target)
     count_tgt_words = lambda tgt_words: sum(len(x) for x in tgt_words)
     count_sent_num = lambda x: len(x)
-
 
   # Main training loop
   epoch_num = 0
@@ -89,8 +91,8 @@ if __name__ == "__main__":
       batch_sent_num = count_sent_num(src)
       sent_num += batch_sent_num
       sent_num_not_report += batch_sent_num
-      loss = translator.calc_loss(src, tgt)
       epoch_words += count_tgt_words(tgt)
+      loss = translator.calc_loss(src, tgt)
       epoch_loss += loss.value()
       loss.backward()
       trainer.update()
