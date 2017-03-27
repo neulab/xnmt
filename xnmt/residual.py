@@ -1,6 +1,29 @@
 from dynet import *
 
 
+class PseudoState:
+  """
+  Emulates a state object for python RNN builders. This allows them to be
+  used with minimal changes in code that uses dy.LSTMBuilder.
+  """
+  def __init__(self, network):
+    self.network = network
+    self._output = None
+
+  def add_input(self, e):
+    self._output = self.network.transduce([e])[0]
+    return self
+
+  def output(self):
+    return self._output
+
+  def h(self):
+    raise NotImplementedError("h() is not supported on PseudoStates")
+
+  def s(self):
+    raise NotImplementedError("s() is not supported on PseudoStates")
+
+
 class ResidualRNNBuilder:
   """
   Builder for RNNs that implements additional residual connections between layers: the output of each
@@ -82,6 +105,9 @@ class ResidualRNNBuilder:
 
     return self.builder_layers[-1].initial_state().transduce(es)
 
+  def initial_state(self):
+    return PseudoState(self)
+
 
 class ResidualBiRNNBuilder:
   """
@@ -114,3 +140,7 @@ class ResidualBiRNNBuilder:
     backward_e = self.backward_layer.initial_state().transduce(reversed(es))
 
     return self.residual_network.transduce(forward_e + backward_e)
+
+  def initial_state(self):
+    return PseudoState(self)
+
