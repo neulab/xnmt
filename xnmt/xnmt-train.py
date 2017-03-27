@@ -20,9 +20,6 @@ if __name__ == "__main__":
   parser.add_argument('train_target')
   parser.add_argument('dev_source')
   parser.add_argument('dev_target')
-
-  # This flag has no effect on XNMT but dynet will check its presence to enable visualization
-  parser.add_argument('--dynet-viz', action="store_true")
   args = parser.parse_args()
   print("Starting xnmt-train:\nArguments: %r" % (args))
 
@@ -52,14 +49,15 @@ if __name__ == "__main__":
 
   input_embedder = SimpleWordEmbedder(len(input_reader.vocab), input_word_emb_dim, model)
   output_embedder = SimpleWordEmbedder(len(output_reader.vocab), output_word_emb_dim, model)
-  encoder = BiLSTMEncoder(4, encoder_hidden_dim, input_embedder, model)
+  encoder = BiLSTMEncoder(2, encoder_hidden_dim, input_embedder, model)
   attender = StandardAttender(encoder_hidden_dim, output_state_dim, attender_hidden_dim, model)
-  decoder = MlpSoftmaxDecoder(4, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model)
+  decoder = MlpSoftmaxDecoder(2, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model)
 
   # To use a residual decoder:
   # decoder = MlpSoftmaxDecoder(4, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model,
   #                             lambda layers, input_dim, hidden_dim, model:
   #                               residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.LSTMBuilder))
+
 
   translator = DefaultTranslator(encoder, attender, decoder)
 
