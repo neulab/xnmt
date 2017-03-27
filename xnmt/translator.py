@@ -1,6 +1,7 @@
 import dynet as dy
 from batcher import *
 from search_strategy import *
+from vocab import Vocab
 
 class Translator:
   '''
@@ -49,8 +50,7 @@ class DefaultTranslator(Translator):
       max_len = max([len(single_target) for single_target in target])
 
       for i in range(max_len):
-        ref_word = [single_target[i] if i < len(single_target) else single_target[len(single_target) - 1] \
-                    for single_target in target]
+        ref_word = [single_target[i] if i < len(single_target) else Vocab.ES for single_target in target]
         context = self.attender.calc_context(self.decoder.state.output())
 
         word_loss = self.decoder.calc_loss(context, ref_word)

@@ -73,7 +73,7 @@ if __name__ == '__main__':
   config.read(args.experiments_file)
 
   defaults = {"batch_size": None, "encoder_layers": 2, "decoder_layers": 2,
-              "encoder_type": "BiLSTM", "run_for_epochs": None}
+              "encoder_type": "BiLSTM", "run_for_epochs": 10, "eval_every": 1000}
 
   if "defaults" in config.sections():
     defaults.update(config["defaults"])
@@ -103,6 +103,7 @@ if __name__ == '__main__':
                                           get_or_error("train_target", c, defaults),
                                           get_or_error("dev_source", c, defaults),
                                           get_or_error("dev_target", c, defaults),
+                                          int(get_or_error("eval_every", c, defaults)),
                                           int(get_or_error("batch_size", c, defaults)),
                                           float(get_or_error("run_for_epochs", c, defaults)),
                                           encoder_builder,

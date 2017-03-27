@@ -1,13 +1,19 @@
 import dynet as dy
 import numpy as np
 from collections import defaultdict
-
+from vocab import Vocab
 
 class Batcher:
   '''
   A template class to convert a list of sentences to several batches of
   sentences.
   '''
+
+  PAIR_SRC = 0
+  PAIR_TRG = 1
+
+  def __init__(self, batch_size):
+    self.batch_size = batch_size
 
   @staticmethod
   def is_batch_sentence(source):
@@ -17,38 +23,93 @@ class Batcher:
   def is_batch_word(source):
     return type(source) == list
 
-
-class SourceBucketBatcher(Batcher):
-
-  def __init__(self, batch_size):
-    self.batch_size = batch_size
-
-  def pack(self, source, target):
-    source_target_pairs = zip(source, target)
-    buckets = self.group_by_len(source_target_pairs)
-
-    result = []
-    for same_len_src_pairs in buckets.values():
-      result.extend(self.create_minibatches(same_len_src_pairs))
-    np.random.shuffle(result)
-
+  @staticmethod
+  def separate_source_target(joint_result):
     source_result = []
     target_result = []
-    for batch in result:
-      source_result.append([pair[0] for pair in batch])
-      target_result.append([pair[1] for pair in batch])
-
+    for batch in joint_result:
+      source_result.append([pair[Batcher.PAIR_SRC] for pair in batch])
+      target_result.append([pair[Batcher.PAIR_TRG] for pair in batch])
     return source_result, target_result
+
+  @staticmethod
+  def pad_src_sent(batch):
+    max_len = max([len(pair[Batcher.PAIR_SRC]) for pair in batch])
+    for pair in batch:
+      if len(pair[Batcher.PAIR_SRC]) < max_len:
+        pair[Batcher.PAIR_SRC].extend([Vocab.ES] * (max_len - len(pair[Batcher.PAIR_SRC])))
+
+  def create_batches(self, sent_pairs):
+    minibatches = []
+    for batch_start in range(0, len(sent_pairs), self.batch_size):
+      one_batch = sent_pairs[batch_start:batch_start+self.batch_size]
+      self.pad_sent(one_batch)
+      minibatches.append(one_batch)
+    return minibatches
+
+  def pad_sent(self, batch):
+    pass
+
+
+class ShuffleBatcher(Batcher):
+
+  def pack(self, source, target):
+    source_target_pairs = list(zip(source, target))
+    np.random.shuffle(source_target_pairs)
+    minibatches = self.create_batches(source_target_pairs)
+    return self.separate_source_target(minibatches)
+
+  def pad_sent(self, batch):
+    self.pad_src_sent(batch)
+
+
+class BucketBatcher(Batcher):
 
   def group_by_len(self, pairs):
     buckets = defaultdict(list)
     for pair in pairs:
-      buckets[len(pair[0])].append(pair)
+      buckets[self.bucket_index(pair)].append(pair)
     return buckets
 
-  def create_minibatches(self, pairs):
-    minibatches = []
-    num_batches = len(pairs) // self.batch_size
-    for batch_idx in range(num_batches):
-      minibatches.append([pairs[batch_idx * self.batch_size + i] for i in range(self.batch_size)])
-    return minibatches
+  def pack(self, source, target):
+    source_target_pairs = zip(source, target)
+    buckets = self.group_by_len(source_target_pairs)
+    result = []
+    for same_len_pairs in buckets.values():
+      self.bucket_value_sort(same_len_pairs)
+      result.extend(self.create_batches(same_len_pairs))
+    np.random.shuffle(result)
+    return self.separate_source_target(result)
+
+  def bucket_index(self, pair):
+    raise NotImplementedError('bucket_index() must be implemented in BucketBatcher subclasses')
+
+  def bucket_value_sort(self, pairs):
+    np.random.shuffle(pairs)
+
+
+class SourceBucketBatcher(BucketBatcher):
+
+  def bucket_index(self, pair):
+    return len(pair[Batcher.PAIR_SRC])
+
+
+class SourceTargetBucketBatcher(SourceBucketBatcher):
+
+  def bucket_value_sort(self, pairs):
+    return pairs.sort(key=lambda pair: len(pair[Batcher.PAIR_TRG]))
+
+
+class TargetBucketBatcher(BucketBatcher):
+
+  def bucket_index(self, pair):
+    return len(pair[Batcher.PAIR_TRG])
+
+  def pad_sent(self, batch):
+    self.pad_src_sent(batch)
+
+
+class TargetSourceBucketBatcher(TargetBucketBatcher):
+
+  def bucket_value_sort(self, pairs):
+    return pairs.sort(key=lambda pair: len(pair[Batcher.PAIR_SRC]))

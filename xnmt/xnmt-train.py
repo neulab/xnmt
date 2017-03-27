@@ -12,8 +12,7 @@ from translator import *
 This will be the main class to perform training.
 '''
 
-
-def train(train_source, train_target, dev_source, dev_target, minibatch_size=None, run_for_epochs=None,
+def train(train_source, train_target, dev_source, dev_target, eval_every, minibatch_size=None, run_for_epochs=None,
           encoder_builder=BiLSTMEncoder, encoder_layers=2, decoder_layers=2):
   dy.renew_cg()
   model = dy.Model()
@@ -26,6 +25,7 @@ def train(train_source, train_target, dev_source, dev_target, minibatch_size=Non
   train_corpus_source = input_reader.read_file(train_source)
   train_corpus_target = output_reader.read_file(train_target)
   assert len(train_corpus_source) == len(train_corpus_target)
+  total_train_sent = len(train_corpus_source)
 
   input_reader.freeze()
   output_reader.freeze()
@@ -52,6 +52,8 @@ def train(train_source, train_target, dev_source, dev_target, minibatch_size=Non
   if minibatch_size is None:
     print('Start training in non-minibatch mode...')
     count_tgt_words = lambda tgt_words: len(tgt_words)
+    count_sent_num = lambda x: 1
+
   # minibatch mode
   else:
     print('Start training in minibatch mode...')
@@ -59,6 +61,7 @@ def train(train_source, train_target, dev_source, dev_target, minibatch_size=Non
     train_corpus_source, train_corpus_target = batcher.pack(train_corpus_source, train_corpus_target)
     dev_corpus_source, dev_corpus_target = batcher.pack(dev_corpus_source, dev_corpus_target)
     count_tgt_words = lambda tgt_words: sum(len(x) for x in tgt_words)
+    count_sent_num = lambda x: len(x)
 
   # Main training loop
   epoch_num = 0
@@ -67,23 +70,34 @@ def train(train_source, train_target, dev_source, dev_target, minibatch_size=Non
     epoch_words = 0
     epoch_num += 1
 
-    for sent_num, (src, tgt) in enumerate(zip(train_corpus_source, train_corpus_target)):
+    sent_num = 0
+    sent_num_not_report = 0
+    for batch_num, (src, tgt) in enumerate(zip(train_corpus_source, train_corpus_target)):
       # Loss calculation
       dy.renew_cg()
+      batch_sent_num = count_sent_num(src)
+      sent_num += batch_sent_num
+      sent_num_not_report += batch_sent_num
       loss = translator.calc_loss(src, tgt)
       epoch_words += count_tgt_words(tgt)
       epoch_loss += loss.value()
       loss.backward()
       trainer.update()
 
+      print_report = (sent_num_not_report >= eval_every) or (sent_num == total_train_sent)
+      if print_report:
+        while sent_num_not_report >= eval_every:
+          sent_num_not_report -= eval_every
+
       # Training reporting
-      fractional_epoch = (epoch_num - 1) + 1.0 * (sent_num + 1) / len(train_corpus_source)
-      if sent_num % 100 == 99 or sent_num == len(train_corpus_source) - 1:
-        print('Epoch %.4f: train_ppl=%.4f (loss/word=%.4f, words=%d)' % (
-          fractional_epoch, math.exp(epoch_loss / epoch_words), epoch_loss / epoch_words, epoch_words))
+      fractional_epoch = (epoch_num - 1) + sent_num / total_train_sent
+
+      if print_report:
+        print ('Epoch %.4f: train_ppl=%.4f (loss/word=%.4f, words=%d)' % (
+          fractional_epoch, math.exp(epoch_loss/epoch_words), epoch_loss/epoch_words, epoch_words))
 
       # Devel reporting
-      if sent_num % 100 == 99 or sent_num == len(train_corpus_source) - 1:
+      if print_report:
         dev_loss = 0.0
         dev_words = 0
         for src, tgt in zip(dev_corpus_source, dev_corpus_target):
@@ -103,6 +117,7 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument('--dynet_mem', type=int)
   parser.add_argument('--batch_size', dest='minibatch_size', type=int)
+  parser.add_argument('--eval_every', dest='eval_every', type=int)
   parser.add_argument('train_source')
   parser.add_argument('train_target')
   parser.add_argument('dev_source')
@@ -110,4 +125,4 @@ if __name__ == "__main__":
   args = parser.parse_args()
   print("Starting xnmt-train:\nArguments: %r" % (args))
 
-  train(args.train_source, args.train_target, args.dev_source, args.dev_target, args.minibatch_size)
+  train(args.train_source, args.train_target, args.dev_source, args.dev_target, args.eval_every, args.minibatch_size)
