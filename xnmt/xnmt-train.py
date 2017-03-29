@@ -56,6 +56,12 @@ if __name__ == "__main__":
   attender = StandardAttender(encoder_hidden_dim, output_state_dim, attender_hidden_dim, model)
   decoder = MlpSoftmaxDecoder(2, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model)
 
+  # To use a residual decoder:
+  # decoder = MlpSoftmaxDecoder(4, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model,
+  #                             lambda layers, input_dim, hidden_dim, model:
+  #                               residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.LSTMBuilder))
+
+
   translator = DefaultTranslator(encoder, attender, decoder)
 
   # single mode
