@@ -3,13 +3,16 @@ class Vocab:
   Converts between strings and integer ids
   '''
 
+  SS = 0
+  ES = 1
+
   def __init__(self):
     self.w2i = {}
     self.i2w = []
     self.frozen = False
     self.unk_token = None
-    self.w2i['<s>'] = 0
-    self.w2i['</s>'] = 1
+    self.w2i['<s>'] = self.SS
+    self.w2i['</s>'] = self.ES
     self.i2w.append('<s>')
     self.i2w.append('</s>')
 

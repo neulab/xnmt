@@ -11,6 +11,7 @@ class SearchStrategy:
 
 class BeamSearch(SearchStrategy):
   def __init__(self, b, max_len=100, len_norm=NoNormalization()):
+
     self.b = b
     self.max_len = max_len
     self.len_norm = len_norm
@@ -22,9 +23,10 @@ class BeamSearch(SearchStrategy):
       self.id_list = id
 
 
-  def generate_output(self, decoder, attender):
-    # TODO: Add suitable length normalization
+
+  def generate_output(self, decoder, attender, source_length=0):
     active_hypothesis = [self.Hypothesis(0, [0], decoder.state)]
+
     completed_hypothesis = []
     length = 0
 
@@ -37,11 +39,12 @@ class BeamSearch(SearchStrategy):
           completed_hypothesis.append(hyp)
           continue
 
+
         decoder.state = hyp.state
         decoder.add_input(hyp.id_list[-1])
         context = attender.calc_context(decoder.state.output())
         score = dy.log_softmax(decoder.get_scores(context)).npvalue()
-        top_ids = np.argsort(score)[::-1][:self.b]
+        top_ids = np.argpartition(score, -self.b)[-self.b:]
 
         for id in top_ids:
           new_list = list(hyp.id_list)
@@ -53,7 +56,7 @@ class BeamSearch(SearchStrategy):
     if len(completed_hypothesis) == 0:
       completed_hypothesis = active_hypothesis
 
-    self.len_norm.normalize_length(completed_hypothesis)
+    self.len_norm.normalize_length(completed_hypothesis, source_length)
 
     result = sorted(completed_hypothesis, key=lambda x: x.score, reverse=True)[0]
     return result.id_list

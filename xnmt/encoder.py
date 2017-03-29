@@ -33,9 +33,23 @@ class BiLSTMEncoder(DefaultEncoder):
     self.serialize_params = [layers, output_dim, embedder, model]
 
 class ResidualLSTMEncoder(DefaultEncoder):
-  
+
   def __init__(self, layers, output_dim, embedder, model):
     self.embedder = embedder
     input_dim = embedder.emb_dim
     self.encoder = residual.ResidualRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
-    self.serialize_params = [layers, output_dim, embedder, model]
+    self.model_lookup = model.add_lookup_parameters((embedder.vocab_size, embedder.emb_dim))
+    self.serialize_params = [layers, output_dim, embedder, model_lookup, model]
+
+class ResidualBiLSTMEncoder(DefaultEncoder):
+  """
+  Implements a residual encoder with bidirectional first layer
+  """
+
+  def __init__(self, layers, output_dim, embedder, model):
+    self.embedder = embedder
+    input_dim = embedder.emb_dim
+    self.encoder = residual.ResidualBiRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
+    self.model_lookup = model.add_lookup_parameters((embedder.vocab_size, embedder.emb_dim))
+    self.serialize_params = [layers, output_dim, embedder, model_lookup, model]
+

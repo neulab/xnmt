@@ -14,7 +14,7 @@ class JSONSerializer:
   def save_to_file(self, fname, mod, params):
     with open(fname, 'w') as f:
       json.dump(self.__to_spec(mod), f)
-    params.save(fname + '.data')
+    params.save_all(fname + '.data')
 
   '''
   Load a model from a file.
@@ -27,7 +27,7 @@ class JSONSerializer:
     with open(fname, 'r') as f:
       dict_spec = json.load(f)
       mod = self.__from_spec(dict_spec, param)
-    param.load(fname + '.data')
+    param.load_all(fname + '.data')
     return mod
 
   def __to_spec(self, obj):
