@@ -1,6 +1,7 @@
 # coding: utf-8
 import argparse
 import math
+import sys
 import dynet as dy
 from embedder import *
 from attender import *
@@ -8,6 +9,7 @@ from input import *
 from encoder import *
 from decoder import *
 from translator import *
+from serializer import *
 '''
 This will be the main class to perform training.
 '''
@@ -22,12 +24,16 @@ if __name__ == "__main__":
   parser.add_argument('train_target')
   parser.add_argument('dev_source')
   parser.add_argument('dev_target')
+  parser.add_argument('model_file')
   args = parser.parse_args()
   print("Starting xnmt-train:\nArguments: %r" % (args))
 
 
   model = dy.Model()
   trainer = dy.SimpleSGDTrainer(model)
+
+  # Create the model serializer
+  model_serializer = JSONSerializer()
 
   # Read in training and dev corpora
   input_reader = PlainTextReader()
@@ -37,6 +43,8 @@ if __name__ == "__main__":
   train_corpus_target = output_reader.read_file(args.train_target)
   assert len(train_corpus_source) == len(train_corpus_target)
   total_train_sent = len(train_corpus_source)
+  if args.eval_every == None:
+    args.eval_every = total_train_sent
 
   input_reader.freeze()
   output_reader.freeze()
@@ -79,9 +87,9 @@ if __name__ == "__main__":
     count_tgt_words = lambda tgt_words: sum(len(x) for x in tgt_words)
     count_sent_num = lambda x: len(x)
 
-
   # Main training loop
   epoch_num = 0
+  best_dev_loss = sys.float_info.max
   while True:
     epoch_loss = 0.0
     epoch_words = 0
@@ -124,5 +132,10 @@ if __name__ == "__main__":
           dev_words += count_tgt_words(tgt)
         print ('Epoch %.4f: devel_ppl=%.4f (loss/word=%.4f, words=%d)' % (
           fractional_epoch, math.exp(dev_loss/dev_words), dev_loss/dev_words, dev_words))
+        # Write out the model if it's the best one
+        if dev_loss < best_dev_loss:
+          print ('Epoch %.4f: best dev loss, writing model to %s' % (fractional_epoch, args.model_file))
+          best_dev_loss = dev_loss
+          model_serializer.save_to_file(args.model_file, translator, model)
 
     trainer.update_epoch()

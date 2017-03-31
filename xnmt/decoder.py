@@ -26,6 +26,7 @@ class MlpSoftmaxDecoder(Decoder):
     self.fwd_lstm = fwd_lstm_builder(layers, embedder.emb_dim, lstm_dim, model)
     self.mlp = MLP(input_dim + lstm_dim, mlp_hidden_dim, embedder.vocab_size, model)
     self.state = None
+    self.serialize_params = [layers, input_dim, lstm_dim, mlp_hidden_dim, embedder, model]
 
   def initialize(self):
     self.state = self.fwd_lstm.initial_state()
