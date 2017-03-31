@@ -43,6 +43,8 @@ if __name__ == "__main__":
   train_corpus_target = output_reader.read_file(args.train_target)
   assert len(train_corpus_source) == len(train_corpus_target)
   total_train_sent = len(train_corpus_source)
+  if args.eval_every == None:
+    args.eval_every = total_train_sent
 
   input_reader.freeze()
   output_reader.freeze()
@@ -84,7 +86,6 @@ if __name__ == "__main__":
     dev_corpus_source, dev_corpus_target = batcher.pack(dev_corpus_source, dev_corpus_target)
     count_tgt_words = lambda tgt_words: sum(len(x) for x in tgt_words)
     count_sent_num = lambda x: len(x)
-
 
   # Main training loop
   epoch_num = 0

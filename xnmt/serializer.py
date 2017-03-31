@@ -31,7 +31,6 @@ class JSONSerializer:
     return mod
 
   def __to_spec(self, obj):
-    print ("starting %s" % obj.__class__.__name__)
     if type(obj) == int or type(obj) == str or type(obj) == float:
       return obj
     info = {}
@@ -40,7 +39,6 @@ class JSONSerializer:
       info['__param__'] = [self.__to_spec(x) for x in obj.serialize_params]
     elif obj.__class__.__name__ != 'Model':
       raise NotImplementedError("Class %s is not serializable. Try adding serialize_params to it." % obj.__class__.__name__)
-    print ("ending %s -- %r" % (obj.__class__.__name__, info))
     return info
 
   def __from_spec(self, spec, params):
