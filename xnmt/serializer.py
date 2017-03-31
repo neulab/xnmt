@@ -1,4 +1,11 @@
 from __future__ import print_function
+from embedder import *
+from attender import *
+from input import *
+from encoder import *
+from decoder import *
+from translator import *
+from serializer import *
 import dynet as dy
 import json
 
@@ -36,6 +43,7 @@ class JSONSerializer:
     info = {}
     info['__class__'] = obj.__class__.__name__
     if hasattr(obj, 'serialize_params'):
+      info['__module__'] = obj.__module__
       info['__param__'] = [self.__to_spec(x) for x in obj.serialize_params]
     elif obj.__class__.__name__ != 'Model':
       raise NotImplementedError("Class %s is not serializable. Try adding serialize_params to it." % obj.__class__.__name__)
@@ -45,10 +53,15 @@ class JSONSerializer:
     if type(spec) == int or type(spec) == str or type(spec) == float:
       return spec
     if type(spec) != dict:
-      raise NotImplementedError("Class %s is not serializable. Try adding serialize_params to it." % spec.__class__.__name__)
-    if not '__class__' in spec or not '__params__' in spec:
-      raise NotImplementedError("Class %s is not serializable. Try adding __class__ and __params__ when saving it." % spec.__class__.__name__)
-    args = [__from_spec(x, params) for x in spec['__params__']]
-    return __import__(spec['__class__'])(**args)
+      raise NotImplementedError("Class %s is not deserializable. Try adding serialize_params to it." % spec.__class__.__name__)
+    elif '__class__' not in spec:
+      raise NotImplementedError("Dict is not deserializable. Try adding __class__ when saving it:\n %r" % spec)
+    elif spec['__class__'] == 'Model':
+      return params
+    elif '__param__' not in spec:
+      raise NotImplementedError("Dict is not deserializable. Try adding __param__ when saving it:\n %r" % spec)
+    args = [self.__from_spec(x, params) for x in spec['__param__']]
+    _class = getattr(__import__(spec['__module__']), spec['__class__'])
+    return _class(*args)
 
     
