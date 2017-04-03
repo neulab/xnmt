@@ -9,6 +9,7 @@ from input import *
 from encoder import *
 from decoder import *
 from translator import *
+from logger import *
 from serializer import *
 '''
 This will be the main class to perform training.
@@ -72,11 +73,11 @@ if __name__ == "__main__":
 
   translator = DefaultTranslator(encoder, attender, decoder)
 
+
   # single mode
   if args.minibatch_size is None:
     print('Start training in non-minibatch mode...')
-    count_tgt_words = lambda tgt_words: len(tgt_words)
-    count_sent_num = lambda x: 1
+    logger = NonBatchLogger(args.eval_every, total_train_sent)
 
   # minibatch mode
   else:
@@ -84,58 +85,35 @@ if __name__ == "__main__":
     batcher = Batcher.select_batcher(args.batch_strategy)(args.minibatch_size)
     train_corpus_source, train_corpus_target = batcher.pack(train_corpus_source, train_corpus_target)
     dev_corpus_source, dev_corpus_target = batcher.pack(dev_corpus_source, dev_corpus_target)
-    count_tgt_words = lambda tgt_words: sum(len(x) for x in tgt_words)
-    count_sent_num = lambda x: len(x)
+    logger = BatchLogger(args.eval_every, total_train_sent)
 
   # Main training loop
-  epoch_num = 0
-  best_dev_loss = sys.float_info.max
-  while True:
-    epoch_loss = 0.0
-    epoch_words = 0
-    epoch_num += 1
 
-    sent_num = 0
-    sent_num_not_report = 0
+  while True:
+
+    logger.new_epoch()
+
     for batch_num, (src, tgt) in enumerate(zip(train_corpus_source, train_corpus_target)):
+
       # Loss calculation
       dy.renew_cg()
-      batch_sent_num = count_sent_num(src)
-      sent_num += batch_sent_num
-      sent_num_not_report += batch_sent_num
       loss = translator.calc_loss(src, tgt)
-      epoch_words += count_tgt_words(tgt)
-      epoch_loss += loss.value()
+      logger.update_epoch_loss(src, tgt, loss.value())
+
       loss.backward()
       trainer.update()
       
-      print_report = (sent_num_not_report >= args.eval_every) or (sent_num == total_train_sent)
-      if print_report:
-        while sent_num_not_report >= args.eval_every:
-          sent_num_not_report -= args.eval_every
-
-      # Training reporting
-      fractional_epoch = (epoch_num - 1) + sent_num / total_train_sent
-
-      if print_report:
-        print ('Epoch %.4f: train_ppl=%.4f (loss/word=%.4f, words=%d)' % (
-          fractional_epoch, math.exp(epoch_loss/epoch_words), epoch_loss/epoch_words, epoch_words))
-
       # Devel reporting
-      if print_report:
-        dev_loss = 0.0
-        dev_words = 0
+      if logger.report_train_process():
+
+        logger.new_dev()
         for src, tgt in zip(dev_corpus_source, dev_corpus_target):
           dy.renew_cg()
           loss = translator.calc_loss(src, tgt).value()
-          dev_loss += loss
-          dev_words += count_tgt_words(tgt)
-        print ('Epoch %.4f: devel_ppl=%.4f (loss/word=%.4f, words=%d)' % (
-          fractional_epoch, math.exp(dev_loss/dev_words), dev_loss/dev_words, dev_words))
+          logger.update_dev_loss(tgt, loss)
+
         # Write out the model if it's the best one
-        if dev_loss < best_dev_loss:
-          print ('Epoch %.4f: best dev loss, writing model to %s' % (fractional_epoch, args.model_file))
-          best_dev_loss = dev_loss
+        if logger.report_dev_and_check_model(args.model_file):
           model_serializer.save_to_file(args.model_file, translator, model)
 
     trainer.update_epoch()
