@@ -1,3 +1,4 @@
+import sys
 import math
 
 class Logger:
@@ -20,6 +21,7 @@ class Logger:
         self.fractional_epoch = 0
 
         self.dev_loss = 0.0
+        self.best_dev_loss = sys.float_info.max
         self.dev_words = 0
 
     def new_epoch(self):
@@ -36,7 +38,7 @@ class Logger:
         self.epoch_words += self.count_tgt_words(tgt)
         self.epoch_loss += loss
 
-    def print_train_report(self):
+    def report_train_process(self):
         print_report = (self.sent_num_not_report >= self.eval_every) or (self.sent_num == self.total_train_sent)
         if print_report:
             while self.sent_num_not_report >= self.eval_every:
@@ -55,10 +57,15 @@ class Logger:
         self.dev_loss += loss
         self.dev_words += self.count_tgt_words(tgt)
 
-    def print_dev_report(self):
+    def report_dev_and_check_model(self, model_file):
         print(Logger.REPORT_TEMPLATE.format('test') % (
             self.fractional_epoch, math.exp(self.dev_loss / self.dev_words),
             self.dev_loss / self.dev_words, self.dev_words))
+        save_model = self.dev_loss < self.best_dev_loss
+        if save_model:
+            self.best_dev_loss = self.dev_loss
+            print('Epoch %.4f: best dev loss, writing model to %s' % (self.fractional_epoch, model_file))
+        return save_model
 
     def count_tgt_words(self, tgt_words):
         raise NotImplementedError('count_tgt_words must be implemented in Logger subclasses')
