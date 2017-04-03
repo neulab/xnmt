@@ -1,18 +1,69 @@
+import math
 
 class Logger:
+    '''
+    A template class to generate report for training.
+    '''
 
     REPORT_TEMPLATE = 'Epoch %.4f: {}_ppl=%.4f (loss/word=%.4f, words=%d)'
 
-    def __init__(self, eval_every):
+    def __init__(self, eval_every, total_train_sent):
+        self.eval_every = eval_every
+        self.total_train_sent = total_train_sent
+
+        self.epoch_num = 0
+
+        self.epoch_loss = 0.0
+        self.epoch_words = 0
         self.sent_num = 0
         self.sent_num_not_report = 0
-        self.eval_every = eval_every
-        pass
+        self.fractional_epoch = 0
 
-    def count_tgt_words(self):
+        self.dev_loss = 0.0
+        self.dev_words = 0
+
+    def new_epoch(self):
+        self.epoch_loss = 0.0
+        self.epoch_words = 0
+        self.epoch_num += 1
+        self.sent_num = 0
+        self.sent_num_not_report = 0
+
+    def update_epoch_loss(self, src, tgt, loss):
+        batch_sent_num = self.count_sent_num(src)
+        self.sent_num += batch_sent_num
+        self.sent_num_not_report += batch_sent_num
+        self.epoch_words += self.count_tgt_words(tgt)
+        self.epoch_loss += loss
+
+    def print_train_report(self):
+        print_report = (self.sent_num_not_report >= self.eval_every) or (self.sent_num == self.total_train_sent)
+        if print_report:
+            while self.sent_num_not_report >= self.eval_every:
+                self.sent_num_not_report -= self.eval_every
+            self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
+            print(Logger.REPORT_TEMPLATE.format('train') % (
+                self.fractional_epoch, math.exp(self.epoch_loss / self.epoch_words),
+                self.epoch_loss / self.epoch_words, self.epoch_words))
+        return print_report
+
+    def new_dev(self):
+        self.dev_loss = 0.0
+        self.dev_words = 0
+
+    def update_dev_loss(self, tgt, loss):
+        self.dev_loss += loss
+        self.dev_words += self.count_tgt_words(tgt)
+
+    def print_dev_report(self):
+        print(Logger.REPORT_TEMPLATE.format('test') % (
+            self.fractional_epoch, math.exp(self.dev_loss / self.dev_words),
+            self.dev_loss / self.dev_words, self.dev_words))
+
+    def count_tgt_words(self, tgt_words):
         raise NotImplementedError('count_tgt_words must be implemented in Logger subclasses')
 
-    def count_sent_num(self):
+    def count_sent_num(self, obj):
         raise NotImplementedError('count_tgt_words must be implemented in Logger subclasses')
 
     def clear_counters(self):
@@ -25,13 +76,17 @@ class Logger:
 
 class BatchLogger(Logger):
 
-    count_tgt_words = lambda tgt_words: sum(len(x) for x in tgt_words)
+    def count_tgt_words(self, tgt_words):
+        return sum(len(x) for x in tgt_words)
 
-    count_sent_num = lambda x: len(x)
+    def count_sent_num(self, obj):
+        return len(obj)
 
 
 class NonBatchLogger(Logger):
 
-    count_tgt_words = lambda tgt_words: len(tgt_words)
+    def count_tgt_words(self, tgt_words):
+        return len(tgt_words)
 
-    count_sent_num = lambda x: 1
+    def count_sent_num(self, obj):
+        return 1

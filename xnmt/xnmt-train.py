@@ -59,13 +59,11 @@ if __name__ == "__main__":
 
   translator = DefaultTranslator(encoder, attender, decoder)
 
-  logger = Logger()
 
   # single mode
   if args.minibatch_size is None:
     print('Start training in non-minibatch mode...')
-    count_tgt_words = lambda tgt_words: len(tgt_words)
-    count_sent_num = lambda x: 1
+    logger = NonBatchLogger(args.eval_every, total_train_sent)
 
   # minibatch mode
   else:
@@ -73,52 +71,33 @@ if __name__ == "__main__":
     batcher = Batcher.select_batcher(args.batch_strategy)(args.minibatch_size)
     train_corpus_source, train_corpus_target = batcher.pack(train_corpus_source, train_corpus_target)
     dev_corpus_source, dev_corpus_target = batcher.pack(dev_corpus_source, dev_corpus_target)
-    count_tgt_words = lambda tgt_words: sum(len(x) for x in tgt_words)
-    count_sent_num = lambda x: len(x)
+    logger = BatchLogger(args.eval_every, total_train_sent)
 
   # Main training loop
-  epoch_num = 0
-  while True:
-    epoch_loss = 0.0
-    epoch_words = 0
-    epoch_num += 1
 
-    sent_num = 0
-    sent_num_not_report = 0
+  while True:
+
+    logger.new_epoch()
+
     for batch_num, (src, tgt) in enumerate(zip(train_corpus_source, train_corpus_target)):
+
       # Loss calculation
       dy.renew_cg()
-      batch_sent_num = count_sent_num(src)
-      sent_num += batch_sent_num
-      sent_num_not_report += batch_sent_num
-      epoch_words += count_tgt_words(tgt)
       loss = translator.calc_loss(src, tgt)
-      epoch_loss += loss.value()
+      logger.update_epoch_loss(src, tgt, loss.value())
+
       loss.backward()
       trainer.update()
       
-      print_report = (sent_num_not_report >= args.eval_every) or (sent_num == total_train_sent)
-      if print_report:
-        while sent_num_not_report >= args.eval_every:
-          sent_num_not_report -= args.eval_every
-
-      # Training reporting
-      fractional_epoch = (epoch_num - 1) + sent_num / total_train_sent
-
-      if print_report:
-        print ('Epoch %.4f: train_ppl=%.4f (loss/word=%.4f, words=%d)' % (
-          fractional_epoch, math.exp(epoch_loss/epoch_words), epoch_loss/epoch_words, epoch_words))
+      dev_report = logger.print_train_report()
 
       # Devel reporting
-      if print_report:
-        dev_loss = 0.0
-        dev_words = 0
+      if dev_report:
+        logger.new_dev()
         for src, tgt in zip(dev_corpus_source, dev_corpus_target):
           dy.renew_cg()
           loss = translator.calc_loss(src, tgt).value()
-          dev_loss += loss
-          dev_words += count_tgt_words(tgt)
-        print ('Epoch %.4f: devel_ppl=%.4f (loss/word=%.4f, words=%d)' % (
-          fractional_epoch, math.exp(dev_loss/dev_words), dev_loss/dev_words, dev_words))
+          logger.update_dev_loss(tgt, loss)
+        logger.print_dev_report()
 
     trainer.update_epoch()
