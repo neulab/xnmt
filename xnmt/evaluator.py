@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 from collections import defaultdict, Counter
 import math
@@ -162,7 +163,8 @@ if __name__ == "__main__":
     candidate1 = "It is a guide to action which ensures that the military always obeys the commands of the party".split()
 
     obj = BLEUEvaluator(ngram=4)
-    print("xnmt bleu score :"), print(obj.evaluate([reference1], [candidate1]))
+    print("xnmt bleu score :")
+    print(obj.evaluate([reference1], [candidate1]))
     # print("nltk BLEU scores"), print(corpus_bleu([[reference1]], [candidate1]))
 
     # Example 2
@@ -171,13 +173,15 @@ if __name__ == "__main__":
 
     # Generates a warning because of no 2-grams and beyond
     obj = BLEUEvaluator(ngram=4)
-    print("xnmt bleu score :"), print(obj.evaluate([reference2], [candidate2]))
+    print("xnmt bleu score :")
+    print(obj.evaluate([reference2], [candidate2]))
     # print("nltk BLEU scores"), print(corpus_bleu([[reference2]], [candidate2]))
 
     # Example 3 (candidate1 + candidate3)
     reference3 = "he was interested in world history because he read the book".split()
     candidate3 = "he read the book because he was interested in world history".split()
     obj = BLEUEvaluator(ngram=4)
-    print("xnmt bleu score :"), print(obj.evaluate([reference1, reference3], [candidate1, candidate3]))
+    print("xnmt bleu score :")
+    print(obj.evaluate([reference1, reference3], [candidate1, candidate3]))
     # print("nltk BLEU scores"), print(corpus_bleu([[reference1], [reference3]],
     #                                              [candidate1, candidate3]))
