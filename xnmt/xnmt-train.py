@@ -129,5 +129,6 @@ if __name__ == "__main__":
   parser.add_argument('model_file')
   args = parser.parse_args()
   print("Starting xnmt-train:\nArguments: %r" % (args))
+  xnmt_train(args)
 
 
