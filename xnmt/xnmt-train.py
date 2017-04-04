@@ -1,4 +1,6 @@
 # coding: utf-8
+from __future__ import division
+
 import argparse
 import math
 import sys
@@ -15,20 +17,10 @@ from serializer import *
 This will be the main class to perform training.
 '''
 
-if __name__ == "__main__":
-  parser = argparse.ArgumentParser()
-  parser.add_argument('--dynet_mem', type=int)
-  parser.add_argument('--batch_size', dest='minibatch_size', type=int)
-  parser.add_argument('--eval_every', dest='eval_every', type=int)
-  parser.add_argument('--batch_strategy', dest='batch_strategy', type=str)
-  parser.add_argument('train_source')
-  parser.add_argument('train_target')
-  parser.add_argument('dev_source')
-  parser.add_argument('dev_target')
-  parser.add_argument('model_file')
-  args = parser.parse_args()
-  print("Starting xnmt-train:\nArguments: %r" % (args))
 
+def xnmt_train(args, run_for_epochs=None, encoder_builder=BiLSTMEncoder, encoder_layers=2,
+               decoder_builder=dy.LSTMBuilder, decoder_layers=2):
+  dy.renew_cg()
 
   model = dy.Model()
   trainer = dy.SimpleSGDTrainer(model)
@@ -56,14 +48,15 @@ if __name__ == "__main__":
 
   # Create the translator object and all its subparts
   input_word_emb_dim = output_word_emb_dim = output_state_dim = attender_hidden_dim = \
-  output_mlp_hidden_dim = 67
+    output_mlp_hidden_dim = 67
   encoder_hidden_dim = 64
 
   input_embedder = SimpleWordEmbedder(len(input_reader.vocab), input_word_emb_dim, model)
   output_embedder = SimpleWordEmbedder(len(output_reader.vocab), output_word_emb_dim, model)
-  encoder = BiLSTMEncoder(2, encoder_hidden_dim, input_embedder, model)
+  encoder = encoder_builder(encoder_layers, encoder_hidden_dim, input_embedder, model)
   attender = StandardAttender(encoder_hidden_dim, output_state_dim, attender_hidden_dim, model)
-  decoder = MlpSoftmaxDecoder(2, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model)
+  decoder = MlpSoftmaxDecoder(decoder_layers, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim,
+                              output_embedder, model, decoder_builder)
 
   # To use a residual decoder:
   # decoder = MlpSoftmaxDecoder(4, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model,
@@ -72,7 +65,6 @@ if __name__ == "__main__":
 
 
   translator = DefaultTranslator(encoder, attender, decoder)
-
 
   # single mode
   if args.minibatch_size is None:
@@ -89,7 +81,7 @@ if __name__ == "__main__":
 
   # Main training loop
 
-  while True:
+  while run_for_epochs is None or logger.epoch_num < run_for_epochs:
 
     logger.new_epoch()
 
@@ -102,7 +94,7 @@ if __name__ == "__main__":
 
       loss.backward()
       trainer.update()
-      
+
       # Devel reporting
       if logger.report_train_process():
 
@@ -117,3 +109,22 @@ if __name__ == "__main__":
           model_serializer.save_to_file(args.model_file, translator, model)
 
     trainer.update_epoch()
+
+  return math.exp(logger.epoch_loss / logger.epoch_words), math.exp(logger.dev_loss / logger.dev_words)
+
+
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--dynet_mem', type=int)
+  parser.add_argument('--batch_size', dest='minibatch_size', type=int)
+  parser.add_argument('--eval_every', dest='eval_every', type=int)
+  parser.add_argument('--batch_strategy', dest='batch_strategy', type=str)
+  parser.add_argument('train_source')
+  parser.add_argument('train_target')
+  parser.add_argument('dev_source')
+  parser.add_argument('dev_target')
+  parser.add_argument('model_file')
+  args = parser.parse_args()
+  print("Starting xnmt-train:\nArguments: %r" % (args))
+
+
