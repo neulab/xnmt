@@ -8,6 +8,8 @@ import configparser
 import argparse
 import sys
 import encoder
+import residual
+import dynet as dy
 
 xnmt_train = __import__('xnmt-train')
 
@@ -72,8 +74,9 @@ if __name__ == '__main__':
   config = configparser.ConfigParser()
   config.read(args.experiments_file)
 
-  defaults = {"batch_size": None, "encoder_layers": 2, "decoder_layers": 2,
-              "encoder_type": "BiLSTM", "run_for_epochs": 10, "eval_every": 1000}
+  defaults = {"minibatch_size": None, "encoder_layers": 2, "decoder_layers": 2,
+              "encoder_type": "BiLSTM", "run_for_epochs": 10, "eval_every": 1000,
+              "batch_strategy": "src", "decoder_type": "LSTM", "model_file": "model.out"}
 
   if "defaults" in config.sections():
     defaults.update(config["defaults"])
@@ -96,18 +99,38 @@ if __name__ == '__main__':
       encoder_builder = encoder.BiLSTMEncoder
     elif encoder_type == "ResidualLSTM".lower():
       encoder_builder = encoder.ResidualLSTMEncoder
+    elif encoder_type == "ResidualBiLSTM".lower():
+      encoder_builder = encoder.ResidualBiLSTMEncoder
     else:
       raise RuntimeError("Unkonwn encoder type {}".format(encoder_type))
 
-    train_ppl, dev_ppl = xnmt_train.train(get_or_error("train_source", c, defaults),
-                                          get_or_error("train_target", c, defaults),
-                                          get_or_error("dev_source", c, defaults),
-                                          get_or_error("dev_target", c, defaults),
-                                          int(get_or_error("eval_every", c, defaults)),
-                                          int(get_or_error("batch_size", c, defaults)),
+    decoder_type = get_or_error("decoder_type", c, defaults).lower()
+    if decoder_type == "LSTM".lower():
+      decoder_builder = dy.LSTMBuilder
+    elif decoder_type == "ResidualLSTM".lower():
+      decoder_builder = residual.ResidualRNNBuilder
+    else:
+      raise RuntimeError("Unkonwn decoder type {}".format(encoder_type))
+
+    # Simulate command-line arguments
+    class Args: pass
+
+    args = Args()
+    minibatch_size = get_or_error("minibatch_size", c, defaults)
+    args.minibatch_size = int(minibatch_size) if minibatch_size is not None else None
+    args.eval_every = int(get_or_error("eval_every", c, defaults))
+    args.batch_strategy = get_or_error("batch_strategy", c, defaults)
+    args.train_source = get_or_error("train_source", c, defaults)
+    args.train_target = get_or_error("train_target", c, defaults)
+    args.dev_source = get_or_error("dev_source", c, defaults)
+    args.dev_target = get_or_error("dev_target", c, defaults)
+    args.model_file = get_or_error("model_file", c, defaults)
+
+    train_ppl, dev_ppl = xnmt_train.xnmt_train(args,
                                           float(get_or_error("run_for_epochs", c, defaults)),
                                           encoder_builder,
                                           get_or_error("encoder_layers", c, defaults),
+                                          decoder_builder,
                                           get_or_error("decoder_layers", c, defaults))
 
     print("Train perplexity: {}".format(train_ppl))

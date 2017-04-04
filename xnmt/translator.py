@@ -23,12 +23,12 @@ class Translator:
   def batch_loss(self, xs, ys):
     return dy.esum([self.loss(x, y) for x, y in zip(xs, ys)])
 
-
 class DefaultTranslator(Translator):
   def __init__(self, encoder, attender, decoder):
     self.encoder = encoder
     self.attender = attender
     self.decoder = decoder
+    self.serialize_params = [encoder, attender, decoder]
 
   def calc_loss(self, source, target):
     encodings = self.encoder.encode(source)
@@ -73,4 +73,3 @@ class DefaultTranslator(Translator):
       self.decoder.initialize()
       output.append(search_strategy.generate_output(self.decoder, self.attender, source_length=len(sentences)))
     return output
-
