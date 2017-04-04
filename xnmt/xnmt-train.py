@@ -17,6 +17,7 @@ This will be the main class to perform training.
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument('--dynet_mem', type=int)
+  parser.add_argument('--dynet_seed', type=int)
   parser.add_argument('--batch_size', dest='minibatch_size', type=int)
   parser.add_argument('--eval_every', dest='eval_every', type=int)
   parser.add_argument('--batch_strategy', dest='batch_strategy', type=str)
@@ -48,6 +49,9 @@ if __name__ == "__main__":
 
   input_reader.freeze()
   output_reader.freeze()
+
+  input_reader.save_vocab(args.model_file + "_src")
+  output_reader.save_vocab(args.model_file + "_trg")
 
   dev_corpus_source = input_reader.read_file(args.dev_source)
   dev_corpus_target = output_reader.read_file(args.dev_target)
