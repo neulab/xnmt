@@ -41,9 +41,6 @@ def xnmt_train(args, run_for_epochs=None, encoder_builder=BiLSTMEncoder, encoder
   input_reader.freeze()
   output_reader.freeze()
 
-  input_reader.save_vocab(args.model_file + "_src")
-  output_reader.save_vocab(args.model_file + "_trg")
-
   dev_corpus_source = input_reader.read_file(args.dev_source)
   dev_corpus_target = output_reader.read_file(args.dev_target)
   assert len(dev_corpus_source) == len(dev_corpus_target)
@@ -65,8 +62,7 @@ def xnmt_train(args, run_for_epochs=None, encoder_builder=BiLSTMEncoder, encoder
   #                             lambda layers, input_dim, hidden_dim, model:
   #                               residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.LSTMBuilder))
 
-
-  translator = DefaultTranslator(encoder, attender, decoder)
+  translator = DefaultTranslator(encoder, attender, decoder, input_reader.vocab.i2w, output_reader.vocab.i2w)
 
   # single mode
   if args.minibatch_size is None:

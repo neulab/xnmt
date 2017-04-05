@@ -6,7 +6,11 @@ class Vocab:
   SS = 0
   ES = 1
 
-  def __init__(self):
+  def __init__(self, i2w=None):
+    if (i2w is not None):
+      self.i2w = i2w
+      self.w2i = {word: id for (id, word) in enumerate(self.i2w)}
+      return
     self.w2i = {}
     self.i2w = []
     self.frozen = False

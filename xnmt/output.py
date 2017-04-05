@@ -1,5 +1,4 @@
 from vocab import *
-import pickle
 
 class Output:
   '''
@@ -22,9 +21,8 @@ class PlainTextOutput(Output):
   with one sentence per line.
   '''
 
-  def load_vocab(self, file_path):
-    with open(file_path + ".vocab", 'rb') as handle:
-      self.vocab = pickle.load(handle)
+  def load_vocab(self, vocab):
+    self.vocab = vocab
 
   def process(self, input):
     self.token_strings = []

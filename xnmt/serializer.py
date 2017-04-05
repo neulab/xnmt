@@ -45,13 +45,20 @@ class JSONSerializer:
     if hasattr(obj, 'serialize_params'):
       info['__module__'] = obj.__module__
       info['__param__'] = [self.__to_spec(x) for x in obj.serialize_params]
+    elif obj.__class__.__name__ == 'list':
+      return json.dumps(obj)
     elif obj.__class__.__name__ != 'Model':
       raise NotImplementedError("Class %s is not serializable. Try adding serialize_params to it." % obj.__class__.__name__)
     return info
 
   def __from_spec(self, spec, params):
-    if type(spec) == int or type(spec) == str or type(spec) == float:
+    if type(spec) == int or type(spec) == float:
       return spec
+    if type(spec) == unicode:
+      try:
+        return json.loads(spec)
+      except ValueError:
+        return spec
     if type(spec) != dict:
       raise NotImplementedError("Class %s is not deserializable. Try adding serialize_params to it." % spec.__class__.__name__)
     elif '__class__' not in spec:
@@ -63,5 +70,3 @@ class JSONSerializer:
     args = [self.__from_spec(x, params) for x in spec['__param__']]
     _class = getattr(__import__(spec['__module__']), spec['__class__'])
     return _class(*args)
-
-    
