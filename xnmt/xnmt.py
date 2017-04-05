@@ -1,4 +1,7 @@
 # coding: utf-8
+
+import dynet as dy
+from serializer import JSONSerializer
 import argparse
 '''
 This will be the main class to perform decoding.
