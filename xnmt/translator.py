@@ -28,7 +28,6 @@ class DefaultTranslator(Translator):
     self.encoder = encoder
     self.attender = attender
     self.decoder = decoder
-    self.serialize_params = [encoder, attender, decoder]
 
   def calc_loss(self, source, target):
     encodings = self.encoder.encode(source)

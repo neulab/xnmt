@@ -10,8 +10,8 @@ class SearchStrategy:
     raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')
 
 class BeamSearch(SearchStrategy):
-  def __init__(self, b, max_len=100, len_norm=NoNormalization()):
 
+  def __init__(self, b, max_len=100, len_norm=NoNormalization()):
     self.b = b
     self.max_len = max_len
     self.len_norm = len_norm

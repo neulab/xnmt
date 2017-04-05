@@ -11,12 +11,12 @@ from input import *
 from encoder import *
 from decoder import *
 from translator import *
+from model_params import *
 from logger import *
 from serializer import *
 '''
 This will be the main class to perform training.
 '''
-
 
 def xnmt_train(args, run_for_epochs=None, encoder_builder=BiLSTMEncoder, encoder_layers=2,
                decoder_builder=dy.LSTMBuilder, decoder_layers=2):
@@ -63,8 +63,8 @@ def xnmt_train(args, run_for_epochs=None, encoder_builder=BiLSTMEncoder, encoder
   #                             lambda layers, input_dim, hidden_dim, model:
   #                               residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.LSTMBuilder))
 
-
   translator = DefaultTranslator(encoder, attender, decoder)
+  model_params = ModelParams(encoder, attender, decoder, input_reader.vocab.i2w, output_reader.vocab.i2w)
 
   # single mode
   if args.minibatch_size is None:
@@ -106,7 +106,7 @@ def xnmt_train(args, run_for_epochs=None, encoder_builder=BiLSTMEncoder, encoder
 
         # Write out the model if it's the best one
         if logger.report_dev_and_check_model(args.model_file):
-          model_serializer.save_to_file(args.model_file, translator, model)
+          model_serializer.save_to_file(args.model_file, model_params, model)
 
     trainer.update_epoch()
 
@@ -116,6 +116,7 @@ def xnmt_train(args, run_for_epochs=None, encoder_builder=BiLSTMEncoder, encoder
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument('--dynet_mem', type=int)
+  parser.add_argument('--dynet_seed', type=int)
   parser.add_argument('--batch_size', dest='minibatch_size', type=int)
   parser.add_argument('--eval_every', dest='eval_every', type=int)
   parser.add_argument('--batch_strategy', dest='batch_strategy', type=str)
@@ -126,5 +127,6 @@ if __name__ == "__main__":
   parser.add_argument('model_file')
   args = parser.parse_args()
   print("Starting xnmt-train:\nArguments: %r" % (args))
+  xnmt_train(args)
 
 

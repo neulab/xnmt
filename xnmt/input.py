@@ -14,8 +14,8 @@ class PlainTextReader(InputReader):
   Handles the typical case of reading plain text files,
   with one sentence per line.
   '''
-  def __init__(self):
-    self.vocab = Vocab()
+  def __init__(self, vocab=Vocab()):
+    self.vocab = vocab
 
   def read_file(self, filename):
     sentences = []
