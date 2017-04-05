@@ -1,3 +1,5 @@
+from __future__ import division, generators
+
 from dynet import *
 
 
