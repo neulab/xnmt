@@ -11,6 +11,7 @@ from input import *
 from encoder import *
 from decoder import *
 from translator import *
+from model_params import *
 from logger import *
 from serializer import *
 '''
@@ -62,7 +63,8 @@ def xnmt_train(args, run_for_epochs=None, encoder_builder=BiLSTMEncoder, encoder
   #                             lambda layers, input_dim, hidden_dim, model:
   #                               residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.LSTMBuilder))
 
-  translator = DefaultTranslator(encoder, attender, decoder, input_reader.vocab.i2w, output_reader.vocab.i2w)
+  translator = DefaultTranslator(encoder, attender, decoder)
+  model_params = ModelParams(encoder, attender, decoder, input_reader.vocab.i2w, output_reader.vocab.i2w)
 
   # single mode
   if args.minibatch_size is None:
@@ -104,7 +106,7 @@ def xnmt_train(args, run_for_epochs=None, encoder_builder=BiLSTMEncoder, encoder
 
         # Write out the model if it's the best one
         if logger.report_dev_and_check_model(args.model_file):
-          model_serializer.save_to_file(args.model_file, translator, model)
+          model_serializer.save_to_file(args.model_file, model_params, model)
 
     trainer.update_epoch()
 

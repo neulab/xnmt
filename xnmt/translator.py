@@ -24,13 +24,10 @@ class Translator:
     return dy.esum([self.loss(x, y) for x, y in zip(xs, ys)])
 
 class DefaultTranslator(Translator):
-  def __init__(self, encoder, attender, decoder, source_vocab, target_vocab):
+  def __init__(self, encoder, attender, decoder):
     self.encoder = encoder
     self.attender = attender
     self.decoder = decoder
-    self.source_vocab = source_vocab
-    self.target_vocab = target_vocab
-    self.serialize_params = [encoder, attender, decoder, source_vocab, target_vocab]
 
   def calc_loss(self, source, target):
     encodings = self.encoder.encode(source)

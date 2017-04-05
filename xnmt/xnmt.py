@@ -3,6 +3,7 @@ import argparse
 from input import *
 from output import *
 from encoder import *
+from model_params import *
 from decoder import *
 from translator import *
 from serializer import *
@@ -13,19 +14,19 @@ This will be the main class to perform decoding.
 def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization())):
   model = dy.Model()
   model_serializer = JSONSerializer()
-  translator = model_serializer.load_from_file(args.model, model)
+  model_params = model_serializer.load_from_file(args.model, model)
   # Perform decoding
 
-  source_vocab = Vocab(translator.source_vocab)
+  source_vocab = Vocab(model_params.source_vocab)
   input_reader = PlainTextReader(source_vocab)
   input_reader.freeze()
   source_corpus = input_reader.read_file(args.source_file)
 
-
   output_generator = PlainTextOutput()
-  target_vocab = Vocab(translator.target_vocab)
+  target_vocab = Vocab(model_params.target_vocab)
   output_generator.load_vocab(target_vocab)
 
+  translator = DefaultTranslator(model_params.encoder, model_params.attender, model_params.decoder)
 
   for src in source_corpus:
     token_string = translator.translate(src, search_strategy)
