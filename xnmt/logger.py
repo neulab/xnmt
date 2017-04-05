@@ -1,3 +1,5 @@
+from __future__ import division, generators
+
 import sys
 import math
 

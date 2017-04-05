@@ -1,3 +1,5 @@
+from __future__ import division, generators
+
 import dynet as dy
 from batcher import *
 from search_strategy import *
