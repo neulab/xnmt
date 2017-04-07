@@ -29,7 +29,12 @@ def xnmt_train(args, run_for_epochs=None, encoder_builder=BiLSTMEncoder, encoder
   model_serializer = JSONSerializer()
 
   # Read in training and dev corpora
-  input_reader = PlainTextReader()
+  if args.input_type=="word":
+    input_reader = PlainTextReader()
+  elif args.input_type=="feat-vec":
+    input_reader = FeatVecReader()
+  else:
+    raise RuntimeError("Unkonwn input type {}".format(args.input_type))
   output_reader = PlainTextReader()
 
   train_corpus_source = input_reader.read_file(args.train_source)
@@ -47,11 +52,17 @@ def xnmt_train(args, run_for_epochs=None, encoder_builder=BiLSTMEncoder, encoder
   assert len(dev_corpus_source) == len(dev_corpus_target)
 
   # Create the translator object and all its subparts
-  input_word_emb_dim = output_word_emb_dim = output_state_dim = attender_hidden_dim = \
+  input_word_emb_dim = args.src_embed_dim
+  output_word_emb_dim = output_state_dim = attender_hidden_dim = \
     output_mlp_hidden_dim = 67
   encoder_hidden_dim = 64
 
-  input_embedder = SimpleWordEmbedder(len(input_reader.vocab), input_word_emb_dim, model)
+  if args.input_type=="word":
+    input_embedder = SimpleWordEmbedder(len(input_reader.vocab), input_word_emb_dim, model)
+  elif args.input_type=="feat-vec":
+    input_embedder = FeatVecNoopEmbedder(input_word_emb_dim, model)
+  else:
+    raise RuntimeError("Unkonwn input type {}".format(args.input_type))
   output_embedder = SimpleWordEmbedder(len(output_reader.vocab), output_word_emb_dim, model)
   encoder = encoder_builder(encoder_layers, encoder_hidden_dim, input_embedder, model)
   attender = StandardAttender(encoder_hidden_dim, output_state_dim, attender_hidden_dim, model)
@@ -64,7 +75,9 @@ def xnmt_train(args, run_for_epochs=None, encoder_builder=BiLSTMEncoder, encoder
   #                               residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.LSTMBuilder))
 
   translator = DefaultTranslator(encoder, attender, decoder)
-  model_params = ModelParams(encoder, attender, decoder, input_reader.vocab.i2w, output_reader.vocab.i2w)
+  model_params = ModelParams(encoder, attender, decoder,
+                             input_reader.vocab.serialize_params,
+                             output_reader.vocab.serialize_params)
 
   # single mode
   if args.minibatch_size is None:

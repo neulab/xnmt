@@ -72,11 +72,13 @@ if __name__ == '__main__':
   args = argparser.parse_args()
 
   config = configparser.ConfigParser()
-  config.read(args.experiments_file)
+  if not config.read(args.experiments_file):
+      raise RuntimeError("Could not read experiments config from {}".format(args.experiments_file))
 
   defaults = {"minibatch_size": None, "encoder_layers": 2, "decoder_layers": 2,
               "encoder_type": "BiLSTM", "run_for_epochs": 10, "eval_every": 1000,
-              "batch_strategy": "src", "decoder_type": "LSTM", "model_file": "model.out"}
+              "batch_strategy": "src", "decoder_type": "LSTM", "model_file": "model.out",
+              "input_type":"word", "src_embed_dim":67, }
 
   if "defaults" in config.sections():
     defaults.update(config["defaults"])
@@ -125,6 +127,8 @@ if __name__ == '__main__':
     args.dev_source = get_or_error("dev_source", c, defaults)
     args.dev_target = get_or_error("dev_target", c, defaults)
     args.model_file = get_or_error("model_file", c, defaults)
+    args.input_type = get_or_error("input_type", c, defaults)
+    args.src_embed_dim = int(get_or_error("src_embed_dim", c, defaults))
 
     train_ppl, dev_ppl = xnmt_train.xnmt_train(args,
                                           float(get_or_error("run_for_epochs", c, defaults)),

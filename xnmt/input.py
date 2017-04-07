@@ -1,5 +1,7 @@
 from vocab import *
 
+import numpy as np
+
 class Input:
   '''
   A template class to represent all inputs.
@@ -30,3 +32,26 @@ class PlainTextReader(InputReader):
   def freeze(self):
     self.vocab.freeze()
     self.vocab.set_unk('UNK')
+
+class FeatVecReader(InputReader):
+  '''
+  Handles the case where sentences are sequences of feature vectors.
+  We assumine one sentence per line, words are separated by semicolons, vector entries by 
+  whitespace. E.g.:
+  2.3 4.2;5.1 3
+  2.3 4.2;1 -1;5.1 3
+  '''
+  def __init__(self):
+    self.vocab = NoVocab()
+
+  def read_file(self, filename):
+    sentences = []
+    with open(filename) as f:
+      for line in f:
+        words = line.strip().split(";")
+        sentence = [np.asarray([float(x) for x in word.split()]) for word in words]
+        sentences.append(sentence)
+    return sentences
+
+  def freeze(self):
+    pass
