@@ -30,10 +30,14 @@ def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization()))
   output_generator.load_vocab(target_vocab)
 
   translator = DefaultTranslator(model_params.encoder, model_params.attender, model_params.decoder)
-
+ 
+  translated_output = list()
   for src in source_corpus:
     token_string = translator.translate(src, search_strategy)
-    print output_generator.process(token_string)
+    target_string =  output_generator.process(token_string)
+    translated_output.append(target_string)
+
+  return translated_output
 
 
 if __name__ == "__main__":
