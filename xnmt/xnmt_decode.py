@@ -30,22 +30,28 @@ def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization()))
   output_generator.load_vocab(target_vocab)
 
   translator = DefaultTranslator(model_params.encoder, model_params.attender, model_params.decoder)
- 
-  translated_output = list()
-  for src in source_corpus:
-    token_string = translator.translate(src, search_strategy)
-    target_string =  output_generator.process(token_string)
-    translated_output.append(target_string)
 
-  return translated_output
+  with open(args.target_file, 'w') as fp:  # Saving the translated output to a target file
+    for src in source_corpus:
+      token_string = translator.translate(src, search_strategy)
+      target_sentence = output_generator.process(token_string)[0]
+      
+      if isinstance(target_sentence, unicode):
+        target_sentence = target_sentence.encode('utf8')
+      
+      else: # do bytestring -> unicode -> utf8 full circle, to ensure valid utf8
+        target_sentence = unicode(target_sentence, 'utf8', errors='ignore').encode('utf8')
+    
+      fp.write(target_sentence + u'\n')
+   
 
 
 if __name__ == "__main__":
   # Parse arguments
   parser = argparse.ArgumentParser()
-  parser.add_argument('--model', type=str)
-  parser.add_argument('source_file')
-  parser.add_argument('target_file')
+  parser.add_argument('--model', type=str, help='pretrained (saved) model path')
+  parser.add_argument('source_file', help='path of input source file to be translated')
+  parser.add_argument('target_file', help='path of file where expected target translatons will be written')
   args = parser.parse_args()
   # Load model
   xnmt_decode(args)
