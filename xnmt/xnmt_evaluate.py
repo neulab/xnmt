@@ -31,11 +31,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("This script performs evaluation using BLEU score metric \
                                      between the reference and candidate (hypothesis) target files ")
 
-    parser.add_argument('--ref_target_file_path',
+    parser.add_argument('ref_file',
                         type=str,
                         help='path of the reference file')
 
-    parser.add_argument('--hyp_target_file_path',
+    parser.add_argument('target_file',
                         type=str,
                         help='path of the hypothesis target file')
     
