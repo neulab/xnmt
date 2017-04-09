@@ -10,8 +10,7 @@ import sys
 import encoder
 import residual
 import dynet as dy
-
-xnmt_train = __import__('xnmt-train')
+import xnmt_train
 
 
 class Tee:
