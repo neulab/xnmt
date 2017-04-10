@@ -107,7 +107,8 @@ if __name__ == '__main__':
     if decoder_type == "LSTM".lower():
       decoder_builder = dy.LSTMBuilder
     elif decoder_type == "ResidualLSTM".lower():
-      decoder_builder = residual.ResidualRNNBuilder
+      decoder_builder = lambda num_layers, input_dim, hidden_dim, model:\
+        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.LSTMBuilder)
     else:
       raise RuntimeError("Unkonwn decoder type {}".format(encoder_type))
 
