@@ -17,8 +17,8 @@ def xnmt_evaluate(args):
     """"Returns the BLEU score of the hyp sentences using reference target sentences
     """
     
-    ref_corpus = read_data(args.ref_target_file_path)
-    hyp_corpus = read_data(args.hyp_target_file_path)
+    ref_corpus = read_data(args.ref_file)
+    hyp_corpus = read_data(args.target_file)
 
     model = BLEUEvaluator(ngram=4)
     bleu_score = model.evaluate(ref_corpus, hyp_corpus)
