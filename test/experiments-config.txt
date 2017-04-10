@@ -5,10 +5,10 @@ dev_source=../data/dev.ja
 dev_target=../data/dev.en
 test_source=../data/test.ja
 test_target=../data/test.en
-run_for_epochs=2
-minibatch_size=10
 tempfile=/tmp/xnmt-output
-model_file=/tmp/model
+model_file=model.out
+run_for_epochs=10
+minibatch_size=32
 
 [exp1]
 decode_every=1
