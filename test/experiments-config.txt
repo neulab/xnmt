@@ -5,10 +5,14 @@ dev_source=../data/dev.ja
 dev_target=../data/dev.en
 test_source=../data/test.ja
 test_target=../data/test.en
-run_for_epochs=1
-minibatch_size=10
+tempfile=/tmp/xnmt-output
+model_file=model.out
+run_for_epochs=10
+minibatch_size=32
 
 [exp1]
+decode_every=1
+encoder_layers=3
 
 [exp2]
-encoder_type=ResidualLSTM
+decode_every=1
