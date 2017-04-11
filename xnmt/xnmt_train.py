@@ -25,7 +25,7 @@ class XnmtTrainer:
                decoder_layers=2):
     dy.renew_cg()
 
-    self.args = args # save for later
+    self.args = args  # save for later
 
     self.model = dy.Model()
     self.trainer = dy.SimpleSGDTrainer(self.model)

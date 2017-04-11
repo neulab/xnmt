@@ -102,6 +102,8 @@ if __name__ == '__main__':
       encoder_builder = encoder.ResidualLSTMEncoder
     elif encoder_type == "ResidualBiLSTM".lower():
       encoder_builder = encoder.ResidualBiLSTMEncoder
+    elif encoder_type == "PyramidalBiLSTM".lower():
+      encoder_builder = encoder.PyramidalBiLSTMEncoder
     else:
       raise RuntimeError("Unkonwn encoder type {}".format(encoder_type))
 
