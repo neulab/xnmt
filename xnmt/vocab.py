@@ -48,10 +48,3 @@ class Vocab:
 
   def get_serializing_params(self):
     return self.i2w
-
-class NoVocab(object):
-  '''
-  Empty vocab, placeholder for encoder / decoders that don't use a vocab
-  '''
-  def __init__(self):
-    self.serialize_params = []

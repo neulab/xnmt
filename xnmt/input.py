@@ -45,7 +45,7 @@ class FeatVecReader(InputReader):
   2.3 4.2;1 -1;5.1 3
   '''
   def __init__(self):
-    self.vocab = NoVocab()
+    self.vocab = Vocab()
 
   def read_file(self, filename):
     sentences = []

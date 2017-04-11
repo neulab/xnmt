@@ -58,7 +58,8 @@ class XnmtTrainer:
     assert len(self.dev_corpus_source) == len(self.dev_corpus_target)
 
     # Create the translator object and all its subparts
-    self.input_word_emb_dim = output_word_emb_dim = output_state_dim = attender_hidden_dim = \
+    self.input_word_emb_dim = args.input_word_embed_dim
+    output_word_emb_dim = output_state_dim = attender_hidden_dim = \
       output_mlp_hidden_dim = 67
     self.encoder_hidden_dim = 64
 
@@ -80,7 +81,6 @@ class XnmtTrainer:
     #                               residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.LSTMBuilder))
 
     self.translator = DefaultTranslator(self.encoder, self.attender, self.decoder)
-    # TODO: i2w --> serialize_params
     self.model_params = ModelParams(self.encoder, self.attender, self.decoder, self.input_reader.vocab.i2w,
                                     self.output_reader.vocab.i2w)
 

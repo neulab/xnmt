@@ -52,7 +52,7 @@ class FeatVecNoopEmbedder(Embedder):
   def embed(self, x):
     # single mode
     if not Batcher.is_batch_word(x):
-      return self.model.add_input(x)
+      return dy.inputVector(x)
     # minibatch mode
     else:
       if len(x[0]) != self.emb_dim:

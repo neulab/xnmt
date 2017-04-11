@@ -21,7 +21,12 @@ def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization()))
   # Perform decoding
 
   source_vocab = Vocab(model_params.source_vocab)
-  input_reader = PlainTextReader(source_vocab)
+  if args.input_type == "word":
+    input_reader = PlainTextReader(source_vocab)
+  elif args.input_type == "feat-vec":
+    input_reader = FeatVecReader()
+  else:
+    raise RuntimeError("Unkonwn input type {}".format(args.input_type))
   input_reader.freeze()
   source_corpus = input_reader.read_file(args.source_file)
 
