@@ -10,8 +10,7 @@ import sys
 import encoder
 import residual
 import dynet as dy
-
-xnmt_train = __import__('xnmt-train')
+import xnmt_train, xnmt_decode, xnmt_evaluate
 
 
 class Tee:
@@ -69,16 +68,16 @@ if __name__ == '__main__':
   argparser = argparse.ArgumentParser()
   argparser.add_argument('experiments_file')
   argparser.add_argument('--dynet_mem', type=int)
-  args = argparser.parse_args()
+  train_args = argparser.parse_args()
 
   config = configparser.ConfigParser()
-  if not config.read(args.experiments_file):
-      raise RuntimeError("Could not read experiments config from {}".format(args.experiments_file))
+  if not config.read(train_args.experiments_file):
+    raise RuntimeError("Could not read experiments config from {}".format(args.experiments_file))
 
   defaults = {"minibatch_size": None, "encoder_layers": 2, "decoder_layers": 2,
               "encoder_type": "BiLSTM", "run_for_epochs": 10, "eval_every": 1000,
-              "batch_strategy": "src", "decoder_type": "LSTM", "model_file": "model.out",
-              "input_type":"word", "src_embed_dim":67, }
+              "batch_strategy": "src", "decoder_type": "LSTM", "decode_every": 0,
+              "input_type":"word", "src_embed_dim":67}
 
   if "defaults" in config.sections():
     defaults.update(config["defaults"])
@@ -110,44 +109,68 @@ if __name__ == '__main__':
     if decoder_type == "LSTM".lower():
       decoder_builder = dy.LSTMBuilder
     elif decoder_type == "ResidualLSTM".lower():
-      decoder_builder = residual.ResidualRNNBuilder
+      decoder_builder = lambda num_layers, input_dim, hidden_dim, model:\
+        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.LSTMBuilder)
     else:
       raise RuntimeError("Unkonwn decoder type {}".format(encoder_type))
 
     # Simulate command-line arguments
     class Args: pass
 
-    args = Args()
+    train_args = Args()
     minibatch_size = get_or_error("minibatch_size", c, defaults)
-    args.minibatch_size = int(minibatch_size) if minibatch_size is not None else None
-    args.eval_every = int(get_or_error("eval_every", c, defaults))
-    args.batch_strategy = get_or_error("batch_strategy", c, defaults)
-    args.train_source = get_or_error("train_source", c, defaults)
-    args.train_target = get_or_error("train_target", c, defaults)
-    args.dev_source = get_or_error("dev_source", c, defaults)
-    args.dev_target = get_or_error("dev_target", c, defaults)
-    args.model_file = get_or_error("model_file", c, defaults)
-    args.input_type = get_or_error("input_type", c, defaults)
-    args.src_embed_dim = int(get_or_error("src_embed_dim", c, defaults))
+    train_args.minibatch_size = int(minibatch_size) if minibatch_size is not None else None
+    train_args.eval_every = int(get_or_error("eval_every", c, defaults))
+    train_args.batch_strategy = get_or_error("batch_strategy", c, defaults)
+    train_args.train_source = get_or_error("train_source", c, defaults)
+    train_args.train_target = get_or_error("train_target", c, defaults)
+    train_args.dev_source = get_or_error("dev_source", c, defaults)
+    train_args.dev_target = get_or_error("dev_target", c, defaults)
+    train_args.model_file = get_or_error("model_file", c, defaults)
+    train_args.input_type = get_or_error("input_type", c, defaults)
+    train_args.src_embed_dim = int(get_or_error("src_embed_dim", c, defaults))
 
-    train_ppl, dev_ppl = xnmt_train.xnmt_train(args,
-                                          float(get_or_error("run_for_epochs", c, defaults)),
+    run_for_epochs = int(get_or_error("run_for_epochs", c, defaults))
+    decode_every = int(get_or_error("decode_every", c, defaults))
+    test_source = get_or_error("test_source", c, defaults)
+    test_target = get_or_error("test_target", c, defaults)
+    temp_file_name = get_or_error("tempfile", c, defaults)
+
+    decode_args = Args()
+    decode_args.model = train_args.model_file
+    decode_args.source_file = test_source
+    decode_args.target_file = temp_file_name
+
+    evaluate_args = Args()
+    evaluate_args.ref_file = test_target
+    evaluate_args.target_file = temp_file_name
+
+    xnmt_trainer = xnmt_train.XnmtTrainer(train_args,
                                           encoder_builder,
-                                          get_or_error("encoder_layers", c, defaults),
+                                          int(get_or_error("encoder_layers", c, defaults)),
                                           decoder_builder,
-                                          get_or_error("decoder_layers", c, defaults))
+                                          int(get_or_error("decoder_layers", c, defaults)))
 
-    print("Train perplexity: {}".format(train_ppl))
-    print("Dev perplexity: {}".format(dev_ppl))
+    bleu_score = "unknown"
 
-    results.append([experiment, train_ppl, dev_ppl])
+    for i_epoch in xrange(run_for_epochs):
+      xnmt_trainer.run_epoch()
+
+      if decode_every != 0 and i_epoch % decode_every == 0:
+        xnmt_decode.xnmt_decode(decode_args)
+        bleu_score = xnmt_evaluate.xnmt_evaluate(evaluate_args)
+        print("Bleu score: {}".format(bleu_score))
+        # Clear the temporary file
+        open(temp_file_name, 'w').close()
+
+    results.append((experiment, bleu_score))
 
     output.close()
     err_output.close()
 
-  print("{:<20}|{:<20}|{:<20}".format("Experiment", "Train Perplexity", "Dev Perplexity"))
+  print("{:<20}|{:<20}".format("Experiment", "Final Bleu Score"))
   print("-"*(20*3+2))
 
   for line in results:
-    experiment, train_ppl, dev_ppl, = line
-    print("{:<20}|{:>20}|{:>20}".format(experiment, train_ppl, dev_ppl))
+    experiment, bleu_score = line
+    print("{:<20}|{:>20}".format(experiment, bleu_score))

@@ -6,7 +6,7 @@ import math
 import warnings
 
 
-class Evaluator:
+class Evaluator(object):
     """
     A class to evaluate the quality of output.
     """
