@@ -100,6 +100,8 @@ class XnmtTrainer:
     else:
       print('Start training in minibatch mode...')
       self.batcher = Batcher.select_batcher(args.batch_strategy)(args.minibatch_size)
+      if args.input_type == "feat-vec":
+        self.batcher.pad_token = np.zeros(self.input_word_emb_dim)
       self.train_corpus_source, self.train_corpus_target = self.batcher.pack(self.train_corpus_source,
                                                                              self.train_corpus_target)
       self.dev_corpus_source, self.dev_corpus_target = self.batcher.pack(self.dev_corpus_source,
