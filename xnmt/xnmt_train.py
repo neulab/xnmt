@@ -59,9 +59,11 @@ class XnmtTrainer:
 
     # Create the translator object and all its subparts
     self.input_word_emb_dim = args.input_word_embed_dim
-    output_word_emb_dim = output_state_dim = attender_hidden_dim = \
-      output_mlp_hidden_dim = 67
-    self.encoder_hidden_dim = 64
+    self.output_word_emb_dim = args.output_word_emb_dim  # TODO
+    self.output_state_dim = args.output_state_dim  # TODO
+    self.attender_hidden_dim = args.attender_hidden_dim  # TODO
+    self.output_mlp_hidden_dim = args.output_mlp_hidden_dim  # TODO 67
+    self.encoder_hidden_dim = args.encoder_hidden_dim  # TODO 64
 
     if args.input_type == "word":
       self.input_embedder = SimpleWordEmbedder(len(self.input_reader.vocab), self.input_word_emb_dim, self.model)
@@ -69,14 +71,14 @@ class XnmtTrainer:
       self.input_embedder = FeatVecNoopEmbedder(self.input_word_emb_dim, self.model)
     else:
       raise RuntimeError("Unkonwn input type {}".format(args.input_type))
-    self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), output_word_emb_dim, self.model)
+    self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), self.output_word_emb_dim, self.model)
     self.encoder = encoder_builder(encoder_layers, self.encoder_hidden_dim, self.input_embedder, self.model)
-    self.attender = StandardAttender(self.encoder_hidden_dim, output_state_dim, attender_hidden_dim, self.model)
-    self.decoder = MlpSoftmaxDecoder(decoder_layers, self.encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim,
+    self.attender = StandardAttender(self.encoder_hidden_dim, self.output_state_dim, self.attender_hidden_dim, self.model)
+    self.decoder = MlpSoftmaxDecoder(decoder_layers, self.encoder_hidden_dim, self.output_state_dim, self.output_mlp_hidden_dim,
                                      self.output_embedder, self.model, decoder_builder)
 
     # To use a residual decoder:
-    # decoder = MlpSoftmaxDecoder(4, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model,
+    # decoder = MlpSoftmaxDecoder(4, encoder_hidden_dim, output_state_dim, self.output_mlp_hidden_dim, output_embedder, model,
     #                             lambda layers, input_dim, hidden_dim, model,
     #                               residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.LSTMBuilder))
 

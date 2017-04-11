@@ -77,7 +77,9 @@ if __name__ == '__main__':
   defaults = {"minibatch_size": None, "encoder_layers": 2, "decoder_layers": 2,
               "encoder_type": "BiLSTM", "run_for_epochs": 10, "eval_every": 1000,
               "batch_strategy": "src", "decoder_type": "LSTM", "decode_every": 0,
-              "input_type":"word", "input_word_embed_dim":67}
+              "input_type":"word", "input_word_embed_dim":67, "output_word_emb_dim":67,
+              "output_state_dim":67, "attender_hidden_dim":67, "output_mlp_hidden_dim":67,
+              "encoder_hidden_dim":64}
 
   if "defaults" in config.sections():
     defaults.update(config["defaults"])
@@ -131,6 +133,11 @@ if __name__ == '__main__':
     train_args.model_file = get_or_error("model_file", c, defaults)
     train_args.input_type = get_or_error("input_type", c, defaults)
     train_args.input_word_embed_dim = int(get_or_error("input_word_embed_dim", c, defaults))
+    train_args.output_word_emb_dim = int(get_or_error("output_word_emb_dim", c, defaults))
+    train_args.output_state_dim = int(get_or_error("output_state_dim", c, defaults))
+    train_args.attender_hidden_dim = int(get_or_error("attender_hidden_dim", c, defaults))
+    train_args.output_mlp_hidden_dim = int(get_or_error("output_mlp_hidden_dim", c, defaults))
+    train_args.encoder_hidden_dim = int(get_or_error("encoder_hidden_dim", c, defaults))
 
     run_for_epochs = int(get_or_error("run_for_epochs", c, defaults))
     decode_every = int(get_or_error("decode_every", c, defaults))
