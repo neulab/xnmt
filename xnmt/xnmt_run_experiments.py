@@ -79,7 +79,7 @@ if __name__ == '__main__':
               "batch_strategy": "src", "decoder_type": "LSTM", "decode_every": 0,
               "input_type":"word", "input_word_embed_dim":67, "output_word_emb_dim":67,
               "output_state_dim":67, "attender_hidden_dim":67, "output_mlp_hidden_dim":67,
-              "encoder_hidden_dim":64}
+              "encoder_hidden_dim":64, "trainer":"sgd"}
 
   if "defaults" in config.sections():
     defaults.update(config["defaults"])
@@ -138,6 +138,7 @@ if __name__ == '__main__':
     train_args.attender_hidden_dim = int(get_or_error("attender_hidden_dim", c, defaults))
     train_args.output_mlp_hidden_dim = int(get_or_error("output_mlp_hidden_dim", c, defaults))
     train_args.encoder_hidden_dim = int(get_or_error("encoder_hidden_dim", c, defaults))
+    train_args.trainer = get_or_error("trainer", c, defaults)
 
     run_for_epochs = int(get_or_error("run_for_epochs", c, defaults))
     decode_every = int(get_or_error("decode_every", c, defaults))

@@ -28,7 +28,12 @@ class XnmtTrainer:
     self.args = args  # save for later
 
     self.model = dy.Model()
-    self.trainer = dy.SimpleSGDTrainer(self.model)
+    if args.trainer == "sgd":
+      self.trainer = dy.SimpleSGDTrainer(self.model)
+    elif args.trainer == "adam":
+      self.trainer = dy.AdamTrainer(self.model)
+    else:
+      raise RuntimeError("Unkonwn trainer {}".format(args.trainer))
 
     # Create the model serializer
     self.model_serializer = JSONSerializer()
