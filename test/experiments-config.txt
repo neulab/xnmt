@@ -8,7 +8,7 @@ test_target=../data/test.en
 tempfile=/tmp/xnmt-output
 model_file=model.out
 run_for_epochs=10
-minibatch_size=32
+batch_size=32
 
 [exp1]
 decode_every=1
