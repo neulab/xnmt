@@ -25,17 +25,22 @@ class XnmtTrainer:
                decoder_layers=2):
     dy.renew_cg()
 
-    self.args = args # save for later
+    self.args = args  # save for later
 
     self.model = dy.Model()
-    self.trainer = dy.SimpleSGDTrainer(self.model)
+    if args.trainer == "sgd":
+      self.trainer = dy.SimpleSGDTrainer(self.model)
+    elif args.trainer == "adam":
+      self.trainer = dy.AdamTrainer(self.model)
+    else:
+      raise RuntimeError("Unkonwn trainer {}".format(args.trainer))
 
     # Create the model serializer
     self.model_serializer = JSONSerializer()
 
     # Read in training and dev corpora
-    self.input_reader = PlainTextReader()
-    self.output_reader = PlainTextReader()
+    self.input_reader = InputReader.create_input_reader(args.input_type)
+    self.output_reader = InputReader.create_input_reader("word")
 
     self.train_corpus_source = self.input_reader.read_file(args.train_source)
     self.train_corpus_target = self.output_reader.read_file(args.train_target)
@@ -52,15 +57,23 @@ class XnmtTrainer:
     assert len(self.dev_corpus_source) == len(self.dev_corpus_target)
 
     # Create the translator object and all its subparts
-    self.input_word_emb_dim = output_word_emb_dim = output_state_dim = attender_hidden_dim = \
-      output_mlp_hidden_dim = 67
-    self.encoder_hidden_dim = 64
+    self.input_word_emb_dim = args.input_word_embed_dim
+    self.output_word_emb_dim = args.output_word_emb_dim
+    self.output_state_dim = args.output_state_dim
+    self.attender_hidden_dim = args.attender_hidden_dim
+    self.output_mlp_hidden_dim = args.output_mlp_hidden_dim
+    self.encoder_hidden_dim = args.encoder_hidden_dim
 
-    self.input_embedder = SimpleWordEmbedder(len(self.input_reader.vocab), self.input_word_emb_dim, self.model)
-    self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), output_word_emb_dim, self.model)
+    if args.input_type == "word":
+      self.input_embedder = SimpleWordEmbedder(len(self.input_reader.vocab), self.input_word_emb_dim, self.model)
+    elif args.input_type == "feat-vec":
+      self.input_embedder = FeatVecNoopEmbedder(self.input_word_emb_dim, self.model)
+    else:
+      raise RuntimeError("Unkonwn input type {}".format(args.input_type))
+    self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), self.output_word_emb_dim, self.model)
     self.encoder = encoder_builder(encoder_layers, self.encoder_hidden_dim, self.input_embedder, self.model)
-    self.attender = StandardAttender(self.encoder_hidden_dim, output_state_dim, attender_hidden_dim, self.model)
-    self.decoder = MlpSoftmaxDecoder(decoder_layers, self.encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim,
+    self.attender = StandardAttender(self.encoder_hidden_dim, self.output_state_dim, self.attender_hidden_dim, self.model)
+    self.decoder = MlpSoftmaxDecoder(decoder_layers, self.encoder_hidden_dim, self.output_state_dim, self.output_mlp_hidden_dim,
                                      self.output_embedder, self.model, decoder_builder)
 
     # To use a residual decoder:
@@ -81,6 +94,8 @@ class XnmtTrainer:
     else:
       print('Start training in minibatch mode...')
       self.batcher = Batcher.select_batcher(args.batch_strategy)(args.batch_size)
+      if args.input_type == "feat-vec":
+        self.batcher.pad_token = np.zeros(self.input_word_emb_dim)
       self.train_corpus_source, self.train_corpus_target = self.batcher.pack(self.train_corpus_source,
                                                                              self.train_corpus_target)
       self.dev_corpus_source, self.dev_corpus_target = self.batcher.pack(self.dev_corpus_source,

@@ -21,7 +21,7 @@ def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization()))
   # Perform decoding
 
   source_vocab = Vocab(model_params.source_vocab)
-  input_reader = PlainTextReader(source_vocab)
+  input_reader = InputReader.create_input_reader(args.input_type, source_vocab)
   input_reader.freeze()
   source_corpus = input_reader.read_file(args.source_file)
 
@@ -35,15 +35,15 @@ def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization()))
     for src in source_corpus:
       token_string = translator.translate(src, search_strategy)
       target_sentence = output_generator.process(token_string)[0]
-      
+
       if isinstance(target_sentence, unicode):
         target_sentence = target_sentence.encode('utf8')
-      
-      else: # do bytestring -> unicode -> utf8 full circle, to ensure valid utf8
+
+      else:  # do bytestring -> unicode -> utf8 full circle, to ensure valid utf8
         target_sentence = unicode(target_sentence, 'utf8', errors='ignore').encode('utf8')
-    
+
       fp.write(target_sentence + u'\n')
-   
+
 
 
 if __name__ == "__main__":

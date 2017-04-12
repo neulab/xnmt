@@ -15,8 +15,9 @@ class Batcher:
   PAIR_SRC = 0
   PAIR_TRG = 1
 
-  def __init__(self, batch_size):
+  def __init__(self, batch_size, pad_token=Vocab.ES):
     self.batch_size = batch_size
+    self.pad_token = pad_token
 
   @staticmethod
   def is_batch_sentence(source):
@@ -36,11 +37,11 @@ class Batcher:
     return source_result, target_result
 
   @staticmethod
-  def pad_src_sent(batch):
+  def pad_src_sent(batch, pad_token=Vocab.ES):
     max_len = max([len(pair[Batcher.PAIR_SRC]) for pair in batch])
     for pair in batch:
       if len(pair[Batcher.PAIR_SRC]) < max_len:
-        pair[Batcher.PAIR_SRC].extend([Vocab.ES] * (max_len - len(pair[Batcher.PAIR_SRC])))
+        pair[Batcher.PAIR_SRC].extend([pad_token] * (max_len - len(pair[Batcher.PAIR_SRC])))
 
   @staticmethod
   def select_batcher(batcher_str):
@@ -78,7 +79,7 @@ class ShuffleBatcher(Batcher):
     return self.separate_source_target(minibatches)
 
   def pad_sent(self, batch):
-    self.pad_src_sent(batch)
+    self.pad_src_sent(batch, self.pad_token)
 
 
 class BucketBatcher(Batcher):
@@ -124,7 +125,7 @@ class TargetBucketBatcher(BucketBatcher):
     return len(pair[Batcher.PAIR_TRG])
 
   def pad_sent(self, batch):
-    self.pad_src_sent(batch)
+    self.pad_src_sent(batch, self.pad_token)
 
 
 class TargetSourceBucketBatcher(TargetBucketBatcher):
