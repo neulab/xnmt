@@ -68,6 +68,7 @@ if __name__ == '__main__':
   argparser = argparse.ArgumentParser()
   argparser.add_argument('experiments_file')
   argparser.add_argument('--dynet_mem', type=int)
+  argparser.add_argument("--dynet-gpu", help="use GPU acceleration")
   train_args = argparser.parse_args()
 
   config = configparser.ConfigParser()
