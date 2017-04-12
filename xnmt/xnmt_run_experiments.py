@@ -74,7 +74,7 @@ if __name__ == '__main__':
   if not config.read(train_args.experiments_file):
     raise RuntimeError("Could not read experiments config from {}".format(args.experiments_file))
 
-  defaults = {"minibatch_size": None, "encoder_layers": 2, "decoder_layers": 2,
+  defaults = {"batch_size": None, "encoder_layers": 2, "decoder_layers": 2,
               "encoder_type": "BiLSTM", "run_for_epochs": 10, "eval_every": 1000,
               "batch_strategy": "src", "decoder_type": "LSTM", "decode_every": 0,
               "input_type":"word", "input_word_embed_dim":67, "output_word_emb_dim":67,
@@ -122,8 +122,8 @@ if __name__ == '__main__':
     class Args: pass
 
     train_args = Args()
-    minibatch_size = get_or_error("minibatch_size", c, defaults)
-    train_args.minibatch_size = int(minibatch_size) if minibatch_size is not None else None
+    batch_size = get_or_error("batch_size", c, defaults)
+    train_args.batch_size = int(batch_size) if batch_size is not None else None
     train_args.eval_every = int(get_or_error("eval_every", c, defaults))
     train_args.batch_strategy = get_or_error("batch_strategy", c, defaults)
     train_args.train_source = get_or_error("train_source", c, defaults)
