@@ -162,7 +162,7 @@ class BLEUEvaluator(Evaluator):
 
         return clipped_ngram_count, candidate_ngram_count
 
-class WEREvaluator(object):
+class WEREvaluator(Evaluator):
   """
   A class to evaluate the quality of output in terms of word error rate.
   """
