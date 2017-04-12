@@ -36,17 +36,16 @@ class BLEUEvaluator(Evaluator):
         :param ngram:
         """
         self.ngram = ngram
-        self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
+        self.weights = (1/ngram) * np.ones(ngram, dtype=np.float32)
         self.reference_corpus = None
         self.candidate_corpus = None
-
+    
     def metric_name(self):
-      return "BLEU score"
+        return "BLEU score"
 
     # Doc to be added
     def evaluate(self, ref, hyp):
         """
-
         :rtype: object
         :param ref:
         :param hyp:
@@ -76,7 +75,7 @@ class BLEUEvaluator(Evaluator):
                 if ngram_type in clip_count_dict:
                     clipped_ngram_count[ngram_type] += sum(clip_count_dict[ngram_type].values())
                 else:
-                    clipped_ngram_count[ngram_type] += 0.  # This line may not be required
+                    clipped_ngram_count[ngram_type] += 0. # This line may not be required
 
                 candidate_ngram_count[ngram_type] += sum(full_count_dict[ngram_type].values())
 
@@ -89,13 +88,13 @@ class BLEUEvaluator(Evaluator):
 
         log_precision_score = 0.
         # Precision Score Calculation
-        for ngram_type in range(1, self.ngram + 1):
+        for ngram_type in range(1, self.ngram+1):
             if clipped_ngram_count[ngram_type] == 0:
                 warning_msg = "Count of {}-gram is 0. Will lead to incorrect BLEU scores".format(ngram_type)
                 warnings.warn(warning_msg)
                 break
             else:
-                log_precision_score += self.weights[ngram_type - 1] * \
+                log_precision_score += self.weights[ngram_type-1] * \
                                        math.log(clipped_ngram_count[ngram_type] / candidate_ngram_count[ngram_type])
 
         precision_score = math.exp(log_precision_score)
@@ -110,7 +109,6 @@ class BLEUEvaluator(Evaluator):
     # Doc to be added
     def brevity_penalty(self, r, c):
         """
-
         :param r:
         :param c:
         :return:
@@ -149,7 +147,6 @@ class BLEUEvaluator(Evaluator):
     # Doc to be added
     def modified_precision(self, reference_sentence, candidate_sentence):
         """
-
         :param reference_sentence:
         :param candidate_sentence:
         :return:
@@ -165,38 +162,12 @@ class BLEUEvaluator(Evaluator):
 
         return clipped_ngram_count, candidate_ngram_count
 
-class LevenshteinAligner:
-  # gap penalty:
-  gapPenalty = -1.0
-  gapSymbol = None
-
-  # similarity function:
-  def sim(self, word1, word2):
-    if word1 == word2: return 0
-    else: return -1
-
-  def get_sim(self, l1, l2):
-    # compute matrix
-    F = [[0] * (len(l2) + 1) for i in xrange((len(l1) + 1))]
-    for i in range(len(l1) + 1):
-      F[i][0] = i * self.gapPenalty
-    for j in range(len(l2) + 1):
-      F[0][j] = j * self.gapPenalty
-    for i in range(0, len(l1)):
-      for j in range(0, len(l2)):
-        match = F[i][j] + self.sim(l1[i], l2[j])
-        delete = F[i][j + 1] + self.gapPenalty
-        insert = F[i + 1][j] + self.gapPenalty
-        F[i + 1][j + 1] = max(match, delete, insert)
-    return F[len(l1)][len(l2)]
-
 class WEREvaluator(object):
   """
   A class to evaluate the quality of output in terms of word error rate.
   """
   def __init__(self, case_sensitive=False):
     self.case_sensitive = case_sensitive
-    self.aligner = LevenshteinAligner()
 
   def metric_name(self):
     return "Word error rate"
@@ -224,7 +195,31 @@ class WEREvaluator(object):
     eval_ref = filter(lambda w:w not in ["<s>", "</s>"], ref_sent)
     if not self.case_sensitive:
       eval_ref = map(lambda w:w.lower(), eval_ref)
-    return -self.aligner.get_sim(eval_ref, eval_hyp), len(eval_ref)
+    return -self.seq_sim(eval_ref, eval_hyp), len(eval_ref)
+
+  # gap penalty:
+  gapPenalty = -1.0
+  gapSymbol = None
+
+  # similarity function:
+  def sim(self, word1, word2):
+    if word1 == word2: return 0
+    else: return -1
+
+  def seq_sim(self, l1, l2):
+    # compute matrix
+    F = [[0] * (len(l2) + 1) for i in xrange((len(l1) + 1))]
+    for i in range(len(l1) + 1):
+      F[i][0] = i * self.gapPenalty
+    for j in range(len(l2) + 1):
+      F[0][j] = j * self.gapPenalty
+    for i in range(0, len(l1)):
+      for j in range(0, len(l2)):
+        match = F[i][j] + self.sim(l1[i], l2[j])
+        delete = F[i][j + 1] + self.gapPenalty
+        insert = F[i + 1][j] + self.gapPenalty
+        F[i + 1][j + 1] = max(match, delete, insert)
+    return F[len(l1)][len(l2)]
 
 
 if __name__ == "__main__":
