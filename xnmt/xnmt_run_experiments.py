@@ -11,7 +11,7 @@ import encoder
 import residual
 import dynet as dy
 import xnmt_train, xnmt_decode, xnmt_evaluate
-
+from evaluator import BLEUEvaluator, WEREvaluator
 
 class Tee:
   """
@@ -80,7 +80,7 @@ if __name__ == '__main__':
               "batch_strategy": "src", "decoder_type": "LSTM", "decode_every": 0,
               "input_type":"word", "input_word_embed_dim":67, "output_word_emb_dim":67,
               "output_state_dim":67, "attender_hidden_dim":67, "output_mlp_hidden_dim":67,
-              "encoder_hidden_dim":64, "trainer":"sgd"}
+              "encoder_hidden_dim":64, "trainer":"sgd", "eval_metrics":"bleu"}
 
   if "defaults" in config.sections():
     defaults.update(config["defaults"])
@@ -156,33 +156,45 @@ if __name__ == '__main__':
     evaluate_args = Args()
     evaluate_args.ref_file = test_target
     evaluate_args.target_file = temp_file_name
-
+    evaluate_args.eval_metrics = get_or_error("eval_metrics", c, defaults)
+    evaluators = []
+    for metric in evaluate_args.eval_metrics.split(","):
+      if metric == "bleu":
+        evaluators.append(BLEUEvaluator(ngram=4))
+      elif metric == "wer":
+        evaluators.append(WEREvaluator())
+      else:
+        raise RuntimeError("Unkonwn evaluation metric {}".format(metric))
     xnmt_trainer = xnmt_train.XnmtTrainer(train_args,
                                           encoder_builder,
                                           int(get_or_error("encoder_layers", c, defaults)),
                                           decoder_builder,
                                           int(get_or_error("decoder_layers", c, defaults)))
 
-    bleu_score = "unknown"
+    eval_score = "unknown"
 
     for i_epoch in xrange(run_for_epochs):
       xnmt_trainer.run_epoch()
 
       if decode_every != 0 and i_epoch % decode_every == 0:
         xnmt_decode.xnmt_decode(decode_args)
-        bleu_score = xnmt_evaluate.xnmt_evaluate(evaluate_args)
-        print("Bleu score: {}".format(bleu_score))
+        eval_scores = []
+        for evaluator in evaluators:
+          eval_score = xnmt_evaluate.xnmt_evaluate(evaluate_args, evaluator)
+          print("{}: {}".format(evaluator.metric_name(), eval_score))
+          eval_scores.append(eval_score)
         # Clear the temporary file
         open(temp_file_name, 'w').close()
 
-    results.append((experiment, bleu_score))
+    results.append((experiment, eval_scores))
 
     output.close()
     err_output.close()
 
-  print("{:<20}|{:<20}".format("Experiment", "Final Bleu Score"))
+  print("")
+  print("{:<20}|{:<20}".format("Experiment", "Final Scores"))
   print("-"*(20*3+2))
 
   for line in results:
-    experiment, bleu_score = line
-    print("{:<20}|{:>20}".format(experiment, bleu_score))
+    experiment, eval_scores = line
+    print("{:<20}|{:>20}".format(experiment, eval_scores))

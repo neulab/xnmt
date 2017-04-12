@@ -11,23 +11,22 @@ def read_data(loc_):
             t = line.split()
             data.append(t)
     return data
-    
 
-def xnmt_evaluate(args):
-    """"Returns the BLEU score of the hyp sentences using reference target sentences
+
+def xnmt_evaluate(args, evaluator=BLEUEvaluator(ngram=4)):
+    """"Returns the eval score (e.g. BLEU) of the hyp sentences using reference target sentences
     """
-    
+
     ref_corpus = read_data(args.ref_file)
     hyp_corpus = read_data(args.target_file)
 
-    model = BLEUEvaluator(ngram=4)
-    bleu_score = model.evaluate(ref_corpus, hyp_corpus)
-    
-    return bleu_score
-        
+    eval_score = evaluator.evaluate(ref_corpus, hyp_corpus)
+
+    return eval_score
+
 
 if __name__ == "__main__":
-    
+
     parser = argparse.ArgumentParser("This script performs evaluation using BLEU score metric \
                                      between the reference and candidate (hypothesis) target files ")
 
@@ -38,8 +37,8 @@ if __name__ == "__main__":
     parser.add_argument('target_file',
                         type=str,
                         help='path of the hypothesis target file')
-    
+
     args = parser.parse_args()
-    
+
     bleu_score = xnmt_evaluate(args)
     print("BLEU Score = {}".format(bleu_score))
