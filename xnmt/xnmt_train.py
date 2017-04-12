@@ -39,14 +39,8 @@ class XnmtTrainer:
     self.model_serializer = JSONSerializer()
 
     # Read in training and dev corpora
-    if args.input_type == "word":
-      self.input_reader = PlainTextReader()
-    elif args.input_type == "feat-vec":
-      self.input_reader = FeatVecReader()
-    else:
-      raise RuntimeError("Unkonwn input type {}".format(args.input_type))
-
-    self.output_reader = PlainTextReader()
+    self.input_reader = InputReader.create_input_reader(args.input_type)
+    self.output_reader = InputReader.create_input_reader("word")
 
     self.train_corpus_source = self.input_reader.read_file(args.train_source)
     self.train_corpus_target = self.output_reader.read_file(args.train_target)
@@ -64,11 +58,11 @@ class XnmtTrainer:
 
     # Create the translator object and all its subparts
     self.input_word_emb_dim = args.input_word_embed_dim
-    self.output_word_emb_dim = args.output_word_emb_dim  # TODO
-    self.output_state_dim = args.output_state_dim  # TODO
-    self.attender_hidden_dim = args.attender_hidden_dim  # TODO
-    self.output_mlp_hidden_dim = args.output_mlp_hidden_dim  # TODO 67
-    self.encoder_hidden_dim = args.encoder_hidden_dim  # TODO 64
+    self.output_word_emb_dim = args.output_word_emb_dim
+    self.output_state_dim = args.output_state_dim
+    self.attender_hidden_dim = args.attender_hidden_dim
+    self.output_mlp_hidden_dim = args.output_mlp_hidden_dim
+    self.encoder_hidden_dim = args.encoder_hidden_dim
 
     if args.input_type == "word":
       self.input_embedder = SimpleWordEmbedder(len(self.input_reader.vocab), self.input_word_emb_dim, self.model)

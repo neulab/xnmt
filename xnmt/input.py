@@ -9,7 +9,15 @@ class Input:
   pass
 
 class InputReader:
-  pass
+  @staticmethod
+  def create_input_reader(input_type, vocab=None):
+    if input_type == "word":
+      return PlainTextReader(vocab)
+    elif input_type == "feat-vec":
+      return FeatVecReader()
+    else:
+      raise RuntimeError("Unkonwn input type {}".format(input_type))
+
 
 class PlainTextReader(InputReader):
   '''
@@ -43,6 +51,8 @@ class FeatVecReader(InputReader):
   whitespace. E.g.:
   2.3 4.2;5.1 3
   2.3 4.2;1 -1;5.1 3
+  
+  TODO: should probably move to a binary format, as these files can get quite large.
   '''
   def __init__(self):
     self.vocab = Vocab()
