@@ -2,13 +2,14 @@ from __future__ import division, generators
 
 import sys
 import math
+import time
 
 class Logger:
     '''
     A template class to generate report for training.
     '''
 
-    REPORT_TEMPLATE = 'Epoch %.4f: {}_ppl=%.4f (loss/word=%.4f, words=%d)'
+    REPORT_TEMPLATE = 'Epoch %.4f: {}_ppl=%.4f (words=%d, time=%s)'
 
     def __init__(self, eval_every, total_train_sent):
         self.eval_every = eval_every
@@ -25,6 +26,8 @@ class Logger:
         self.dev_loss = 0.0
         self.best_dev_loss = sys.float_info.max
         self.dev_words = 0
+
+        self.start_time = time.time()
 
     def new_epoch(self):
         self.epoch_loss = 0.0
@@ -48,7 +51,7 @@ class Logger:
             self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
             print(Logger.REPORT_TEMPLATE.format('train') % (
                 self.fractional_epoch, math.exp(self.epoch_loss / self.epoch_words),
-                self.epoch_loss / self.epoch_words, self.epoch_words))
+                self.epoch_words, time.strftime("%H:%M:%S", time.gmtime(time.time() - self.start_time))))
         return print_report
 
     def new_dev(self):
@@ -62,7 +65,7 @@ class Logger:
     def report_dev_and_check_model(self, model_file):
         print(Logger.REPORT_TEMPLATE.format('test') % (
             self.fractional_epoch, math.exp(self.dev_loss / self.dev_words),
-            self.dev_loss / self.dev_words, self.dev_words))
+            self.dev_words, time.strftime("%H:%M:%S", time.gmtime(time.time() - self.start_time))))
         save_model = self.dev_loss < self.best_dev_loss
         if save_model:
             self.best_dev_loss = self.dev_loss
