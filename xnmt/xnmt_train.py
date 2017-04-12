@@ -73,14 +73,14 @@ class XnmtTrainer:
                                     self.output_reader.vocab.i2w)
 
     # single mode
-    if args.minibatch_size is None:
+    if args.batch_size is None or args.batch_size == 1 or args.batch_strategy.lower() == 'none':
       print('Start training in non-minibatch mode...')
       self.logger = NonBatchLogger(args.eval_every, total_train_sent)
 
     # minibatch mode
     else:
       print('Start training in minibatch mode...')
-      self.batcher = Batcher.select_batcher(args.batch_strategy)(args.minibatch_size)
+      self.batcher = Batcher.select_batcher(args.batch_strategy)(args.batch_size)
       self.train_corpus_source, self.train_corpus_target = self.batcher.pack(self.train_corpus_source,
                                                                              self.train_corpus_target)
       self.dev_corpus_source, self.dev_corpus_target = self.batcher.pack(self.dev_corpus_source,
@@ -123,9 +123,9 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument('--dynet_mem', type=int)
   parser.add_argument('--dynet_seed', type=int)
-  parser.add_argument('--batch_size', dest='minibatch_size', type=int)
-  parser.add_argument('--eval_every', dest='eval_every', type=int)
-  parser.add_argument('--batch_strategy', dest='batch_strategy', type=str, required=True)
+  parser.add_argument('--eval_every', type=int)
+  parser.add_argument('--batch_size', type=int, default=32)
+  parser.add_argument('--batch_strategy', type=str, default='src')
   parser.add_argument('train_source')
   parser.add_argument('train_target')
   parser.add_argument('dev_source')
