@@ -19,7 +19,6 @@ class Vocab:
     self.w2i['</s>'] = self.ES
     self.i2w.append('<s>')
     self.i2w.append('</s>')
-    self.serialize_params = [self.i2w]
 
   def convert(self, w):
     if w not in self.w2i:
@@ -45,6 +44,3 @@ class Vocab:
       self.w2i[w] = len(self.i2w)
       self.i2w.append(w)
     self.unk_token = self.w2i[w]
-
-  def get_serializing_params(self):
-    return self.i2w

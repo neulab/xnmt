@@ -1,21 +1,14 @@
-'''
-Created on Apr 11, 2017
-
-@author: Matthias Sperber
-
-Pyramidal LSTM, as in https://arxiv.org/abs/1508.01211
-'''
-
 from dynet import *
 from residual import PseudoState
 
 class PyramidalRNNBuilder(object):
   """
   Builder for pyramidal RNNs that delegates to regular RNNs and wires them together.
+  See https://arxiv.org/abs/1508.01211
   
   Every layer (except the first) reduces sequence length by factor 2.  
   
-      builder = BiRNNBuilder(4, 128, 100, model, LSTMBuilder)
+      builder = PyramidalRNNBuilder(4, 128, 100, model, LSTMBuilder)
       [o1,o2,o3] = builder.transduce([i1,i2,i3])
   """
   def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory):

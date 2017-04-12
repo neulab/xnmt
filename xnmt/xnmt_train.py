@@ -77,7 +77,7 @@ class XnmtTrainer:
                                      self.output_embedder, self.model, decoder_builder)
 
     # To use a residual decoder:
-    # decoder = MlpSoftmaxDecoder(4, encoder_hidden_dim, output_state_dim, self.output_mlp_hidden_dim, output_embedder, model,
+    # decoder = MlpSoftmaxDecoder(4, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model,
     #                             lambda layers, input_dim, hidden_dim, model,
     #                               residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.LSTMBuilder))
 
