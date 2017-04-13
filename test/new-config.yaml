@@ -1,0 +1,22 @@
+defaults:
+  train:
+    train_source: ../data/train.ja
+    train_target: ../data/train.en
+    dev_source: ../data/dev.ja
+    dev_target: ../data/dev.en
+    model_file: /tmp/model.out
+  decode:
+    model_file: /tmp/model.out
+    test_source: ../data/test.ja
+    hyp_file: /tmp/xnmt-hypothesis
+  evaluate:
+    hyp_file: /tmp/xnmt-hypothesis
+    test_target: ../date/test.en
+
+experiment1:
+  train:
+    encoder_layers: 3
+
+experiment2:
+  train:
+    decoder_layers: 4
