@@ -17,7 +17,7 @@ class InputReader:
     if file_format == "text":
       return PlainTextReader(vocab)
     elif file_format == "contvec":
-      return FeatVecReader()
+      return ContVecReader()
     else:
       raise RuntimeError("Unkonwn input type {}".format(file_format))
 
@@ -48,26 +48,19 @@ class PlainTextReader(InputReader):
     self.vocab.set_unk('UNK')
 
     
-class FeatVecReader(InputReader):
+class ContVecReader(InputReader):
   '''
-  Handles the case where sentences are sequences of feature vectors.
-  We assumine one sentence per line, words are separated by semicolons, vector entries by 
-  whitespace. E.g.:
-  2.3 4.2;5.1 3
-  2.3 4.2;1 -1;5.1 3
-  
-  TODO: should probably move to a binary format, as these files can get quite large.
+  Handles the case where sentences are sequences of continuous-space vectors.
+  We assume a list of matrices (sentences) serialized as .npz (with numpy.savez_compressed())
+  We can index them as sentences[sent_no][word_ind,feat_ind]
   '''
   def __init__(self):
     self.vocab = Vocab()
 
   def read_file(self, filename):
-    sentences = []
-    with open(filename) as f:
-      for line in f:
-        words = line.strip().split(";")
-        sentence = [np.asarray([float(x) for x in word.split()]) for word in words]
-        sentences.append(sentence)
+    npzFile = np.load(filename)
+    sentences = map(lambda f:npzFile[f], npzFile.files)
+    npzFile.close()
     return sentences
 
   def freeze(self):
