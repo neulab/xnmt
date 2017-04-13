@@ -4,7 +4,6 @@ and runs them sequentially, logging outputs to files called <experimentname>.log
 and <experimentname>.err.log, and reporting on final perplexity metrics.
 """
 
-import configparser
 import argparse
 import sys
 import encoder
