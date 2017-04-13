@@ -10,14 +10,26 @@ from model_params import *
 from decoder import *
 from translator import *
 from serializer import *
+import sys
+from options import OptionParser, Option
+
+
 '''
 This will be the main class to perform decoding.
 '''
 
+options = [
+  Option("model_file", force_flag=True, required=True, help="pretrained (saved) model path"),
+  Option("source_file", help="path of input source file to be translated"),
+  Option("target_file", help="path of file where expected target translatons will be written"),
+  Option("input_type", default_value="word")
+]
+
+
 def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization())):
   model = dy.Model()
   model_serializer = JSONSerializer()
-  model_params = model_serializer.load_from_file(args.model, model)
+  model_params = model_serializer.load_from_file(args.model_file, model)
   # Perform decoding
 
   source_vocab = Vocab(model_params.source_vocab)
@@ -48,11 +60,9 @@ def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization()))
 
 if __name__ == "__main__":
   # Parse arguments
-  parser = argparse.ArgumentParser()
-  parser.add_argument('--model', type=str, help='pretrained (saved) model path')
-  parser.add_argument('source_file', help='path of input source file to be translated')
-  parser.add_argument('target_file', help='path of file where expected target translatons will be written')
-  args = parser.parse_args()
+  parser = OptionParser()
+  parser.add_task("decode", options)
+  args = parser.args_from_command_line("decode", sys.argv[1:])
   # Load model
   xnmt_decode(args)
 

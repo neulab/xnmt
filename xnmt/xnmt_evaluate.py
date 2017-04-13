@@ -1,5 +1,14 @@
 import argparse
-from evaluator import BLEUEvaluator
+import sys
+from evaluator import BLEUEvaluator, WEREvaluator
+from options import Option, OptionParser
+
+options = [
+    Option("ref_file", help="path of the reference file"),
+    Option("hyp_file", help="path of the hypothesis target file"),
+    Option("evaluator", default_value="bleu")
+]
+
 
 
 def read_data(loc_):
@@ -13,12 +22,19 @@ def read_data(loc_):
     return data
 
 
-def xnmt_evaluate(args, evaluator=BLEUEvaluator(ngram=4)):
+def xnmt_evaluate(args):
     """"Returns the eval score (e.g. BLEU) of the hyp sentences using reference target sentences
     """
 
+    if args.evaluator == "bleu":
+        evaluator = BLEUEvaluator(ngram=4)
+    elif args.evaluator == "wer":
+        evaluator = WEREvaluator()
+    else:
+        raise RuntimeError("Unkonwn evaluation metric {}".format(args.evaluator))
+
     ref_corpus = read_data(args.ref_file)
-    hyp_corpus = read_data(args.target_file)
+    hyp_corpus = read_data(args.hyp_file)
 
     eval_score = evaluator.evaluate(ref_corpus, hyp_corpus)
 
@@ -27,18 +43,9 @@ def xnmt_evaluate(args, evaluator=BLEUEvaluator(ngram=4)):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser("This script performs evaluation using BLEU score metric \
-                                     between the reference and candidate (hypothesis) target files ")
+    parser = OptionParser()
+    parser.add_task("evaluate", options)
+    args = parser.args_from_command_line("evaluate", sys.argv[1:])
 
-    parser.add_argument('ref_file',
-                        type=str,
-                        help='path of the reference file')
-
-    parser.add_argument('target_file',
-                        type=str,
-                        help='path of the hypothesis target file')
-
-    args = parser.parse_args()
-
-    bleu_score = xnmt_evaluate(args)
-    print("BLEU Score = {}".format(bleu_score))
+    score = xnmt_evaluate(args)
+    print("{} Score = {}".format(args.evaluator, score))

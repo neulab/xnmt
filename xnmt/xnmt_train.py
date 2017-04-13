@@ -14,26 +14,71 @@ from translator import *
 from model_params import *
 from logger import *
 from serializer import *
+from options import Option, OptionParser, general_options
 
 '''
 This will be the main class to perform training.
 '''
 
+options = [
+  Option("eval_every", int, default_value=1000, force_flag=True),
+  Option("batch_size", int, default_value=32, force_flag=True),
+  Option("batch_strategy", default_value="src"),
+  Option("train_source"),
+  Option("train_target"),
+  Option("dev_source"),
+  Option("dev_target"),
+  Option("model_file"),
+  Option("input_type", default_value="word"),
+  Option("input_word_embed_dim", int, default_value=67),
+  Option("output_word_embed_dim", int, default_value=67),
+  Option("output_state_dim", int, default_value=67),
+  Option("attender_hidden_dim", int, default_value=67),
+  Option("output_mlp_hidden_dim", int, default_value=67),
+  Option("encoder_hidden_dim", int, default_value=64),
+  Option("trainer", default_value="sgd"),
+  Option("eval_metrics", default_value="bleu"),
+  Option("encoder_layers", int, default_value=2),
+  Option("decoder_layers", int, default_value=2),
+  Option("encoder_type", default_value="BiLSTM"),
+  Option("decoder_type", default_value="LSTM"),
+]
 
 class XnmtTrainer:
-  def __init__(self, args, encoder_builder=BiLSTMEncoder, encoder_layers=2, decoder_builder=dy.LSTMBuilder,
-               decoder_layers=2):
+  def __init__(self, args):
     dy.renew_cg()
 
     self.args = args  # save for later
 
     self.model = dy.Model()
-    if args.trainer == "sgd":
+
+    if args.trainer.lower() == "sgd":
       self.trainer = dy.SimpleSGDTrainer(self.model)
-    elif args.trainer == "adam":
+    elif args.trainer.lower() == "adam":
       self.trainer = dy.AdamTrainer(self.model)
     else:
       raise RuntimeError("Unkonwn trainer {}".format(args.trainer))
+
+    encoder_type = args.encoder_type.lower()
+    if encoder_type == "BiLSTM".lower():
+      encoder_builder = BiLSTMEncoder
+    elif encoder_type == "ResidualLSTM".lower():
+      encoder_builder = ResidualLSTMEncoder
+    elif encoder_type == "ResidualBiLSTM".lower():
+      encoder_builder = ResidualBiLSTMEncoder
+    elif encoder_type == "PyramidalBiLSTM".lower():
+      encoder_builder = PyramidalBiLSTMEncoder
+    else:
+      raise RuntimeError("Unkonwn encoder type {}".format(encoder_type))
+
+    decoder_type = args.decoder_type.lower()
+    if decoder_type == "LSTM".lower():
+      decoder_builder = dy.LSTMBuilder
+    elif decoder_type == "ResidualLSTM".lower():
+      decoder_builder = lambda num_layers, input_dim, hidden_dim, model: \
+        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.LSTMBuilder)
+    else:
+      raise RuntimeError("Unkonwn decoder type {}".format(encoder_type))
 
     # Create the model serializer
     self.model_serializer = JSONSerializer()
@@ -58,7 +103,7 @@ class XnmtTrainer:
 
     # Create the translator object and all its subparts
     self.input_word_emb_dim = args.input_word_embed_dim
-    self.output_word_emb_dim = args.output_word_emb_dim
+    self.output_word_emb_dim = args.output_word_embed_dim
     self.output_state_dim = args.output_state_dim
     self.attender_hidden_dim = args.attender_hidden_dim
     self.output_mlp_hidden_dim = args.output_mlp_hidden_dim
@@ -71,9 +116,11 @@ class XnmtTrainer:
     else:
       raise RuntimeError("Unkonwn input type {}".format(args.input_type))
     self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), self.output_word_emb_dim, self.model)
-    self.encoder = encoder_builder(encoder_layers, self.encoder_hidden_dim, self.input_embedder, self.model)
-    self.attender = StandardAttender(self.encoder_hidden_dim, self.output_state_dim, self.attender_hidden_dim, self.model)
-    self.decoder = MlpSoftmaxDecoder(decoder_layers, self.encoder_hidden_dim, self.output_state_dim, self.output_mlp_hidden_dim,
+    self.encoder = encoder_builder(self.args.encoder_layers, self.encoder_hidden_dim, self.input_embedder, self.model)
+    self.attender = StandardAttender(self.encoder_hidden_dim, self.output_state_dim, self.attender_hidden_dim,
+                                     self.model)
+    self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.encoder_hidden_dim, self.output_state_dim,
+                                     self.output_mlp_hidden_dim,
                                      self.output_embedder, self.model, decoder_builder)
 
     # To use a residual decoder:
@@ -135,18 +182,9 @@ class XnmtTrainer:
 
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser()
-  parser.add_argument('--dynet_mem', type=int)
-  parser.add_argument('--dynet_seed', type=int)
-  parser.add_argument('--eval_every', type=int)
-  parser.add_argument('--batch_size', type=int, default=32)
-  parser.add_argument('--batch_strategy', type=str, default='src')
-  parser.add_argument('train_source')
-  parser.add_argument('train_target')
-  parser.add_argument('dev_source')
-  parser.add_argument('dev_target')
-  parser.add_argument('model_file')
-  args = parser.parse_args()
+  parser = OptionParser()
+  parser.add_task("train", general_options + options)
+  args = parser.args_from_command_line("train", sys.argv[1:])
   print("Starting xnmt-train:\nArguments: %r" % (args))
 
   xnmt_trainer = XnmtTrainer(args)
