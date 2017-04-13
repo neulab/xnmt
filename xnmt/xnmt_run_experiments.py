@@ -100,7 +100,7 @@ if __name__ == '__main__':
 
     decode_args = exp_tasks["decode"]
     decode_args.target_file = exp_args.hyp_file
-    decode_args.model_file = exp_args.model_file
+    decode_args.model_file = None  # The model is passed to the decoder directly
 
     evaluate_args = exp_tasks["evaluate"]
     evaluate_args.hyp_file = exp_args.hyp_file
