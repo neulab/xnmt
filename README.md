@@ -7,7 +7,23 @@ It is coded in Python based on [DyNet](http://github.com/clab/dynet).
 Usage Directions
 ----------------
 
-TODO
+### Running experiments with `xnmt-run-experiments`
+
+Configuration files are in YAML dictionary format (see `test/experiments-config.yaml`
+for an example).
+
+Top-level entries in the file correspond to individual experiments to run. Each
+such entry must have four subsections: `experiment`, `train`, `decode`,
+and `evaluate`. Options for each subsection are listed below.
+
+There can be a special top-level entry named `defaults`; if it is
+present, parameters defined in it will act as defaults for other experiments
+in the configuration file.
+
+The stdout and stderr outputs of an experiment will be written to `<experiment-name>.log`
+and `<experiment-name>.err.log` in the current directory.
+
+See [experiments.md](experiments.md) for option details.
 
 Coding Style
 ------------
