@@ -50,6 +50,7 @@ if __name__ == "__main__":
   # Parse arguments
   parser = argparse.ArgumentParser()
   parser.add_argument('--model', type=str, help='pretrained (saved) model path')
+  parser.add_argument('--input_type', default="word", type=str, help='input type (word|feat_vec)')
   parser.add_argument('source_file', help='path of input source file to be translated')
   parser.add_argument('target_file', help='path of file where expected target translatons will be written')
   args = parser.parse_args()
