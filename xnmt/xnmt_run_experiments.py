@@ -6,12 +6,9 @@ and <experimentname>.err.log, and reporting on final perplexity metrics.
 
 import argparse
 import sys
-import encoder
-import residual
-import dynet as dy
 import xnmt_train, xnmt_decode, xnmt_evaluate
-from evaluator import BLEUEvaluator, WEREvaluator
 from options import OptionParser, Option
+
 
 class Tee:
   """
@@ -121,7 +118,8 @@ if __name__ == '__main__':
 
       if exp_args.decode_every != 0 and i_epoch % exp_args.decode_every == 0:
         print("> Evaluating")
-        xnmt_decode.xnmt_decode(decode_args)
+        xnmt_decode.xnmt_decode(decode_args, model_elements=(
+          xnmt_trainer.input_reader.vocab, xnmt_trainer.output_reader.vocab, xnmt_trainer.translator))
         eval_scores = []
         for evaluator in evaluators:
           evaluate_args.evaluator = evaluator
@@ -138,7 +136,7 @@ if __name__ == '__main__':
 
   print("")
   print("{:<20}|{:<40}".format("Experiment", "Final Scores"))
-  print("-"*(60+1))
+  print("-" * (60 + 1))
 
   for line in results:
     experiment_name, eval_scores = line
