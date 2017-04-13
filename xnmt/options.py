@@ -3,25 +3,26 @@ Stores options and default values for
 """
 import yaml
 import argparse
+from collections import OrderedDict
 
 
 class Option:
-  def __init__(self, name, type=str, default_value=None, required=None, force_flag=False):
+  def __init__(self, name, type=str, default_value=None, required=None, force_flag=False, help=None):
     """
     Defines a configuration option
     :param name: Name of the option
     :param type: Expected type. Should be a base type.
     :param default_value: Default option value. If this is set to anything other than none, and the option is not
     explicitly marked as required, it will be considered optional.
-    :param required: Whether the option is required
-    :param force_flag: If set to true, the command-line version of this option will be made a flag option (starting
-    with '--')
+    :param required: Whether the option is required.
+    :param force_flag: Force making this argument a flag (starting with '--') even though it is required
     """
     self.name = name
     self.type = type
     self.default_value = default_value
     self.required = required == True or required is None and default_value is None
     self.force_flag = force_flag
+    self.help = help
 
 
 class Args: pass
@@ -33,7 +34,7 @@ class OptionParser:
     """Options, sorted by task"""
 
   def add_task(self, task_name, task_options):
-    self.tasks[task_name] = {opt.name: opt for opt in task_options}
+    self.tasks[task_name] = OrderedDict([(opt.name, opt) for opt in task_options])
 
   def check_and_convert(self, task_name, option_name, value):
     if option_name not in self.tasks[task_name]:
@@ -55,8 +56,9 @@ class OptionParser:
       raise RuntimeError("Could not read configuration file {}: {}".format(file, e))
 
     # Default values as specified in option definitions
-    defaults = {task_name: {name: opt.default_value for name, opt in task_options.items() if opt.default_value is not None}
-                for task_name, task_options in self.tasks.items()}
+    defaults = {
+      task_name: {name: opt.default_value for name, opt in task_options.items() if opt.default_value is not None}
+      for task_name, task_options in self.tasks.items()}
 
     # defaults section in the config file
     if "defaults" in config:
@@ -64,9 +66,6 @@ class OptionParser:
         defaults[task_name].update(
           {name: self.check_and_convert(task_name, name, value) for name, value in task_options.items()})
     del config["defaults"]
-
-    print "Defaults:"
-    print defaults
 
     experiments = {}
     for exp, exp_tasks in config.items():
@@ -92,59 +91,43 @@ class OptionParser:
   def args_from_command_line(self, task, argv):
     parser = argparse.ArgumentParser()
     for option in self.tasks[task].values():
-      name = ("--" if option.force_flag else "") + option.name
-      parser.add_argument(name, default=option.default_value, required=option.required, type=option.type)
+      if option.required and not option.force_flag:
+        parser.add_argument(option.name, type=option.type, help=option.help)
+      else:
+        parser.add_argument("--" + option.name, default=option.default_value, required=option.required,
+                            type=option.type, help=option.help)
 
     return parser.parse_args(argv)
 
+  def remove_option(self, task, option_name):
+    if option_name not in self.tasks[task]:
+      raise RuntimeError("Tried to remove nonexistent option {} for task {}".format(option_name, task))
+    del self.tasks[task][option_name]
 
-# general_options = [
-#   Option("dynet_mem", int, required=False, commandline_only=True, force_flag=True),
-#   Option("dynet_seed", int, required=False, commandline_only=True, force_flag=True),
-# ]
-option_parser = OptionParser()
+  def generate_options_table(self):
+    """
+    Generates markdown documentation for the options
+    """
+    lines = []
+    for task, task_options in self.tasks.items():
+      lines.append("## {}".format(task))
+      lines.append("")
+      lines.append("| Name | Description | Type | Default value |")
+      lines.append("|------|-------------|------|---------------|")
+      for option in task_options.values():
+        if option.required:
+          template = "| **{}** | {} | {} | {} |"
+        else:
+          template = "| {} | {} | {} | {} |"
+        lines.append(template.format(option.name, option.help if option.help else "", option.type.__name__,
+                                     option.default_value if option.default_value is not None else ""))
+      lines.append("")
 
-train_options = [
-  Option("eval_every", int, default_value=1000, force_flag=True),
-  Option("batch_size", int, default_value=32, force_flag=True),
-  Option("batch_strategy", default_value="src"),
-  Option("train_source"),
-  Option("train_target"),
-  Option("dev_source"),
-  Option("dev_target"),
-  Option("model_file"),
-  Option("input_type", default_value="word"),
-  Option("input_word_embed_dim", int, default_value=67),
-  Option("output_word_embed_dim", int, default_value=67),
-  Option("output_state_dim", int, default_value=67),
-  Option("attender_hidden_dim", int, default_value=67),
-  Option("output_mlp_hidden_dim", int, default_value=67),
-  Option("encoder_hidden_dim", int, default_value=64),
-  Option("trainer", default_value="sgd"),
-  Option("eval_metrics", default_value="bleu"),
-  Option("encoder_layers", int, default_value=2),
-  Option("decoder_layers", int, default_value=2),
-  Option("encoder_type", default_value="BiLSTM"),
-  Option("decoder_type", default_value="LSTM"),
-  Option("decode_every", int, default_value=0),
-  Option("run_for_epochs", int, default_value=0),
+    return "\n".join(lines)
+
+
+# Predefined options for dynet
+general_options = [
+  Option("dynet_mem", int, required=False),
+  Option("dynet_seed", int, required=False),
 ]
-option_parser.add_task("train", train_options)
-decode_options = [
-  Option("model_file"),
-  Option("test_source"),
-  Option("hyp_file"),
-]
-option_parser.add_task("decode", decode_options)
-evaluate_options = [
-  Option("hyp_file"),
-  Option("test_target"),
-  Option("evaluator", default_value="bleu")
-]
-option_parser.add_task("evaluate", evaluate_options)
-
-f = option_parser.args_from_config_file("../test/new-config.yaml")
-
-print "Final:"
-print f
-print type(f["experiment1"]["train"].encoder_type)
