@@ -78,7 +78,7 @@ if __name__ == '__main__':
   defaults = {"batch_size": None, "encoder_layers": 2, "decoder_layers": 2,
               "encoder_type": "BiLSTM", "run_for_epochs": 10, "eval_every": 1000,
               "batch_strategy": "src", "decoder_type": "LSTM", "decode_every": 0,
-              "input_type":"word", "input_word_embed_dim":67, "output_word_emb_dim":67,
+              "input_format":"text", "input_word_embed_dim":67, "output_word_emb_dim":67,
               "output_state_dim":67, "attender_hidden_dim":67, "output_mlp_hidden_dim":67,
               "encoder_hidden_dim":64, "trainer":"sgd", "eval_metrics":"bleu"}
 
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     train_args.dev_source = get_or_error("dev_source", c, defaults)
     train_args.dev_target = get_or_error("dev_target", c, defaults)
     train_args.model_file = get_or_error("model_file", c, defaults)
-    train_args.input_type = get_or_error("input_type", c, defaults)
+    train_args.input_format = get_or_error("input_format", c, defaults)
     train_args.input_word_embed_dim = int(get_or_error("input_word_embed_dim", c, defaults))
     train_args.output_word_emb_dim = int(get_or_error("output_word_emb_dim", c, defaults))
     train_args.output_state_dim = int(get_or_error("output_state_dim", c, defaults))
@@ -151,7 +151,7 @@ if __name__ == '__main__':
     decode_args.model = train_args.model_file
     decode_args.source_file = test_source
     decode_args.target_file = temp_file_name
-    decode_args.input_type = get_or_error("input_type", c, defaults)
+    decode_args.input_format = get_or_error("input_format", c, defaults)
 
     evaluate_args = Args()
     evaluate_args.ref_file = test_target

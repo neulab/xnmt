@@ -13,13 +13,13 @@ class Input:
 
 class InputReader:
   @staticmethod
-  def create_input_reader(input_type, vocab=None):
-    if input_type == "word":
+  def create_input_reader(file_format, vocab=None):
+    if file_format == "text":
       return PlainTextReader(vocab)
-    elif input_type == "feat-vec":
+    elif file_format == "contvec":
       return FeatVecReader()
     else:
-      raise RuntimeError("Unkonwn input type {}".format(input_type))
+      raise RuntimeError("Unkonwn input type {}".format(file_format))
 
 
 class PlainTextReader(InputReader):
