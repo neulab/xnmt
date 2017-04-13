@@ -45,7 +45,7 @@ class PlainTextReader(InputReader):
 
   def freeze(self):
     self.vocab.freeze()
-    self.vocab.set_unk('UNK')
+    self.vocab.set_unk('<unk>')
 
     
 class FeatVecReader(InputReader):
