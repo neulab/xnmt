@@ -149,7 +149,7 @@ class WordTargetBucketBatcher(TargetBucketBatcher):
       # print(sent_len)
       self.bucket_value_sort(sent_pairs)
       for pair in sent_pairs:
-        if temp_words + sent_len > limit_target_words:
+        if temp_words + sent_len > limit_target_words and len(temp_batch)>0:
           self.pad_sent(temp_batch)
           result.append(temp_batch)
           temp_batch = []
