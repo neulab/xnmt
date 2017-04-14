@@ -1,0 +1,24 @@
+defaults:
+  experiment:
+    model_file: /tmp/model.out
+    hyp_file: /tmp/xnmt-hypothesis
+    run_for_epochs: 2
+    decode_every: 1
+    eval_metrics: bleu,wer
+  train:
+    train_source: ../data/train.ja
+    train_target: ../data/train.en
+    dev_source: ../data/dev.ja
+    dev_target: ../data/dev.en
+  decode:
+    source_file: ../data/test.ja
+  evaluate:
+    ref_file: ../data/test.en
+
+experiment1:
+  train:
+    encoder_layers: 3
+
+experiment2:
+  train:
+    decoder_layers: 4

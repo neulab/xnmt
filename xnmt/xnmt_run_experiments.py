@@ -4,14 +4,11 @@ and runs them sequentially, logging outputs to files called <experimentname>.log
 and <experimentname>.err.log, and reporting on final perplexity metrics.
 """
 
-import configparser
 import argparse
 import sys
-import encoder
-import residual
-import dynet as dy
 import xnmt_train, xnmt_decode, xnmt_evaluate
-from evaluator import BLEUEvaluator, WEREvaluator
+from options import OptionParser, Option
+
 
 class Tee:
   """
@@ -51,150 +48,97 @@ class Tee:
     self.stdstream.flush()
 
 
-def get_or_none(key, dict, default_dict):
-  return dict.get(key, default_dict.get(key, None))
-
-
-def get_or_error(key, dict, default_dict):
-  if key in dict:
-    return dict[key]
-  elif key in default_dict:
-    return default_dict[key]
-  else:
-    raise RuntimeError("No value (or default value) passed for parameter {}".format(key))
-
-
 if __name__ == '__main__':
   argparser = argparse.ArgumentParser()
   argparser.add_argument('experiments_file')
   argparser.add_argument('--dynet_mem', type=int)
   argparser.add_argument("--dynet-gpu", help="use GPU acceleration")
-  train_args = argparser.parse_args()
+  argparser.add_argument("--generate-doc", action='store_true', help="Do not run, output documentation instead")
+  argparser.set_defaults(generate_doc=False)
+  args = argparser.parse_args()
 
-  config = configparser.ConfigParser()
-  if not config.read(train_args.experiments_file):
-    raise RuntimeError("Could not read experiments config from {}".format(args.experiments_file))
+  config_parser = OptionParser()
+  config_parser.add_task("train", xnmt_train.options)
+  config_parser.add_task("decode", xnmt_decode.options)
+  config_parser.add_task("evaluate", xnmt_evaluate.options)
 
-  defaults = {"batch_size": None, "encoder_layers": 2, "decoder_layers": 2,
-              "encoder_type": "BiLSTM", "run_for_epochs": 10, "eval_every": 1000,
-              "batch_strategy": "src", "decoder_type": "LSTM", "decode_every": 0,
-              "input_format":"text", "input_word_embed_dim":67, "output_word_emb_dim":67,
-              "output_state_dim":67, "attender_hidden_dim":67, "output_mlp_hidden_dim":67,
-              "encoder_hidden_dim":64, "trainer":"sgd", "eval_metrics":"bleu"}
+  # Tweak the options to make config files less repetitive:
+  # - Delete evaluate:evaluator, replace with exp:eval_metrics
+  # - Delete decode:hyp_file, evaluate:hyp_file, replace with exp:hyp_file
+  # - Delete train:model, decode:model_file, replace with exp:model_file
+  config_parser.remove_option("evaluate", "evaluator")
+  config_parser.remove_option("decode", "target_file")
+  config_parser.remove_option("evaluate", "hyp_file")
+  config_parser.remove_option("train", "model_file")
+  config_parser.remove_option("decode", "model_file")
 
-  if "defaults" in config.sections():
-    defaults.update(config["defaults"])
+  experiment_options = [
+    Option("model_file", required=True, help="Location to write the model file"),
+    Option("hyp_file", required=True, help="Temporary location to write decoded output for evaluation"),
+    Option("eval_metrics", default_value="bleu", help="Comma-separated list of evaluation metrics"),
+    Option("run_for_epochs", int, help="How many epochs to run each test for"),
+    Option("decode_every", int, default_value=0, help="Evaluation period in epochs. If set to 0, will never evaluate."),
+  ]
 
-  del config["defaults"]
+  config_parser.add_task("experiment", experiment_options)
+
+  if args.generate_doc:
+    print config_parser.generate_options_table()
+    exit(0)
+
+  config = config_parser.args_from_config_file(args.experiments_file)
 
   results = []
 
-  for experiment in config.sections():
-    print("=> Running {}".format(experiment))
+  for experiment_name, exp_tasks in config.items():
+    print("=> Running {}".format(experiment_name))
 
-    output = Tee(experiment + ".log", 3)
-    err_output = Tee(experiment + ".err.log", 3, error=True)
+    exp_args = exp_tasks["experiment"]
+
+    train_args = exp_tasks["train"]
+    train_args.model_file = exp_args.model_file
+
+    decode_args = exp_tasks["decode"]
+    decode_args.target_file = exp_args.hyp_file
+    decode_args.model_file = None  # The model is passed to the decoder directly
+
+    evaluate_args = exp_tasks["evaluate"]
+    evaluate_args.hyp_file = exp_args.hyp_file
+    evaluators = exp_args.eval_metrics.split(",")
+
+    output = Tee(experiment_name + ".log", 3)
+    err_output = Tee(experiment_name + ".err.log", 3, error=True)
     print("> Training")
 
-    c = config[experiment]
+    xnmt_trainer = xnmt_train.XnmtTrainer(train_args)
 
-    encoder_type = get_or_error("encoder_type", c, defaults).lower()
-    if encoder_type == "BiLSTM".lower():
-      encoder_builder = encoder.BiLSTMEncoder
-    elif encoder_type == "ResidualLSTM".lower():
-      encoder_builder = encoder.ResidualLSTMEncoder
-    elif encoder_type == "ResidualBiLSTM".lower():
-      encoder_builder = encoder.ResidualBiLSTMEncoder
-    elif encoder_type == "PyramidalBiLSTM".lower():
-      encoder_builder = encoder.PyramidalBiLSTMEncoder
-    else:
-      raise RuntimeError("Unkonwn encoder type {}".format(encoder_type))
-
-    decoder_type = get_or_error("decoder_type", c, defaults).lower()
-    if decoder_type == "LSTM".lower():
-      decoder_builder = dy.LSTMBuilder
-    elif decoder_type == "ResidualLSTM".lower():
-      decoder_builder = lambda num_layers, input_dim, hidden_dim, model:\
-        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.LSTMBuilder)
-    else:
-      raise RuntimeError("Unkonwn decoder type {}".format(encoder_type))
-
-    # Simulate command-line arguments
-    class Args: pass
-
-    train_args = Args()
-    batch_size = get_or_error("batch_size", c, defaults)
-    train_args.batch_size = int(batch_size) if batch_size is not None else None
-    train_args.eval_every = int(get_or_error("eval_every", c, defaults))
-    train_args.batch_strategy = get_or_error("batch_strategy", c, defaults)
-    train_args.train_source = get_or_error("train_source", c, defaults)
-    train_args.train_target = get_or_error("train_target", c, defaults)
-    train_args.dev_source = get_or_error("dev_source", c, defaults)
-    train_args.dev_target = get_or_error("dev_target", c, defaults)
-    train_args.model_file = get_or_error("model_file", c, defaults)
-    train_args.input_format = get_or_error("input_format", c, defaults)
-    train_args.input_word_embed_dim = int(get_or_error("input_word_embed_dim", c, defaults))
-    train_args.output_word_emb_dim = int(get_or_error("output_word_emb_dim", c, defaults))
-    train_args.output_state_dim = int(get_or_error("output_state_dim", c, defaults))
-    train_args.attender_hidden_dim = int(get_or_error("attender_hidden_dim", c, defaults))
-    train_args.output_mlp_hidden_dim = int(get_or_error("output_mlp_hidden_dim", c, defaults))
-    train_args.encoder_hidden_dim = int(get_or_error("encoder_hidden_dim", c, defaults))
-    train_args.trainer = get_or_error("trainer", c, defaults)
-
-    run_for_epochs = int(get_or_error("run_for_epochs", c, defaults))
-    decode_every = int(get_or_error("decode_every", c, defaults))
-    test_source = get_or_error("test_source", c, defaults)
-    test_target = get_or_error("test_target", c, defaults)
-    temp_file_name = get_or_error("tempfile", c, defaults)
-
-    decode_args = Args()
-    decode_args.model = train_args.model_file
-    decode_args.source_file = test_source
-    decode_args.target_file = temp_file_name
-    decode_args.input_format = get_or_error("input_format", c, defaults)
-
-    evaluate_args = Args()
-    evaluate_args.ref_file = test_target
-    evaluate_args.target_file = temp_file_name
-    evaluate_args.eval_metrics = get_or_error("eval_metrics", c, defaults)
-    evaluators = []
-    for metric in evaluate_args.eval_metrics.split(","):
-      if metric == "bleu":
-        evaluators.append(BLEUEvaluator(ngram=4))
-      elif metric == "wer":
-        evaluators.append(WEREvaluator())
-      else:
-        raise RuntimeError("Unkonwn evaluation metric {}".format(metric))
-    xnmt_trainer = xnmt_train.XnmtTrainer(train_args,
-                                          encoder_builder,
-                                          int(get_or_error("encoder_layers", c, defaults)),
-                                          decoder_builder,
-                                          int(get_or_error("decoder_layers", c, defaults)))
-
-    eval_score = "unknown"
-
-    for i_epoch in xrange(run_for_epochs):
+    eval_scores = "Not evaluated"
+    for i_epoch in xrange(exp_args.run_for_epochs):
       xnmt_trainer.run_epoch()
 
-      if decode_every != 0 and i_epoch % decode_every == 0:
-        xnmt_decode.xnmt_decode(decode_args)
+      if exp_args.decode_every != 0 and i_epoch % exp_args.decode_every == 0:
+        print("> Evaluating")
+        xnmt_decode.xnmt_decode(decode_args, model_elements=(
+          xnmt_trainer.input_reader.vocab, xnmt_trainer.output_reader.vocab, xnmt_trainer.translator))
         eval_scores = []
         for evaluator in evaluators:
-          eval_score = xnmt_evaluate.xnmt_evaluate(evaluate_args, evaluator)
-          print("{}: {}".format(evaluator.metric_name(), eval_score))
+          evaluate_args.evaluator = evaluator
+          eval_score = xnmt_evaluate.xnmt_evaluate(evaluate_args)
+          print("{}: {}".format(evaluator, eval_score))
           eval_scores.append(eval_score)
-        # Clear the temporary file
-        open(temp_file_name, 'w').close()
 
-    results.append((experiment, eval_scores))
+        # The temporary file is cleared by xnmt_decode, not clearing it explicitly here allows it to stay around
+        # after the experiment is complete.
+
+    results.append((experiment_name, eval_scores))
 
     output.close()
     err_output.close()
 
   print("")
-  print("{:<20}|{:<20}".format("Experiment", "Final Scores"))
-  print("-"*(20*3+2))
+  print("{:<20}|{:<40}".format("Experiment", "Final Scores"))
+  print("-" * (60 + 1))
 
   for line in results:
-    experiment, eval_scores = line
-    print("{:<20}|{:>20}".format(experiment, eval_scores))
+    experiment_name, eval_scores = line
+    print("{:<20}|{:<40}".format(experiment_name, eval_scores))
