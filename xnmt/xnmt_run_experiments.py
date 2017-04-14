@@ -6,12 +6,9 @@ and <experimentname>.err.log, and reporting on final perplexity metrics.
 
 import argparse
 import sys
-import encoder
-import residual
-import dynet as dy
 import xnmt_train, xnmt_decode, xnmt_evaluate
-from evaluator import BLEUEvaluator, WEREvaluator
 from options import OptionParser, Option
+
 
 class Tee:
   """
@@ -103,7 +100,7 @@ if __name__ == '__main__':
 
     decode_args = exp_tasks["decode"]
     decode_args.target_file = exp_args.hyp_file
-    decode_args.model_file = exp_args.model_file
+    decode_args.model_file = None  # The model is passed to the decoder directly
 
     evaluate_args = exp_tasks["evaluate"]
     evaluate_args.hyp_file = exp_args.hyp_file
@@ -121,15 +118,17 @@ if __name__ == '__main__':
 
       if exp_args.decode_every != 0 and i_epoch % exp_args.decode_every == 0:
         print("> Evaluating")
-        xnmt_decode.xnmt_decode(decode_args)
+        xnmt_decode.xnmt_decode(decode_args, model_elements=(
+          xnmt_trainer.input_reader.vocab, xnmt_trainer.output_reader.vocab, xnmt_trainer.translator))
         eval_scores = []
         for evaluator in evaluators:
           evaluate_args.evaluator = evaluator
           eval_score = xnmt_evaluate.xnmt_evaluate(evaluate_args)
           print("{}: {}".format(evaluator, eval_score))
           eval_scores.append(eval_score)
-        # Clear the temporary file
-        open(exp_args.hyp_file, 'w').close()
+
+        # The temporary file is cleared by xnmt_decode, not clearing it explicitly here allows it to stay around
+        # after the experiment is complete.
 
     results.append((experiment_name, eval_scores))
 
@@ -138,7 +137,7 @@ if __name__ == '__main__':
 
   print("")
   print("{:<20}|{:<40}".format("Experiment", "Final Scores"))
-  print("-"*(60+1))
+  print("-" * (60 + 1))
 
   for line in results:
     experiment_name, eval_scores = line
