@@ -14,7 +14,7 @@ options = [
   Option("model_file", force_flag=True, required=True, help="pretrained (saved) model path"),
   Option("source_file", help="path of input source file to be translated"),
   Option("target_file", help="path of file where expected target translatons will be written"),
-  Option("input_format", default_value="text"),
+  Option("input_format", default_value="text", help="format of input data: text/contvec"),
 ]
 
 

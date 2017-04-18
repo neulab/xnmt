@@ -32,7 +32,7 @@ and `<experiment-name>.err.log` in the current directory.
 | Name | Description | Type | Default value |
 |------|-------------|------|---------------|
 | **source_file** | path of input source file to be translated | str |  |
-| input_type |  | str | word |
+| input_format | format of input data: text/contvec | str | text |
 
 ### evaluate
 
@@ -51,7 +51,7 @@ and `<experiment-name>.err.log` in the current directory.
 | **train_target** |  | str |  |
 | **dev_source** |  | str |  |
 | **dev_target** |  | str |  |
-| input_type |  | str | word |
+| input_format | format of input data: text/contvec | str | text |
 | input_word_embed_dim |  | int | 67 |
 | output_word_embed_dim |  | int | 67 |
 | output_state_dim |  | int | 67 |

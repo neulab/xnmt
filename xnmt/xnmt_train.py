@@ -29,7 +29,7 @@ options = [
   Option("dev_source"),
   Option("dev_target"),
   Option("model_file"),
-  Option("input_format", default_value="text"),
+  Option("input_format", default_value="text", help="format of input data: text/contvec"),
   Option("input_word_embed_dim", int, default_value=67),
   Option("output_word_embed_dim", int, default_value=67),
   Option("output_state_dim", int, default_value=67),
