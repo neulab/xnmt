@@ -55,16 +55,7 @@ class FeatVecNoopEmbedder(Embedder):
       return dy.inputVector(x)
     # minibatch mode
     else:
-      if len(x[0]) != self.emb_dim:
-        raise RuntimeError("Input vec dim {} does not match embed_dim {}"\
-                           .format(len(x[0]), self.emb_dim))
-      # workaround from https://github.com/clab/dynet/issues/175
-      concat_x = np.concatenate(x)
-      return dy.reshape(
-        dy.inputVector(concat_x),
-        (len(x[0]),), batch_size=len(x))
-#      return [inputVector(x_i) for x_i in x]
-#      return self.embeddings.batch(x)
+      return dy.inputTensor(x, batched=True)
 
   def embed_sentence(self, sentence):
     # single mode
