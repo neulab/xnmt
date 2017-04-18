@@ -42,7 +42,7 @@ class MlpSoftmaxDecoder(Decoder):
   def calc_loss(self, context, ref_action):
     scores = self.get_scores(context)
     # single mode
-    if not Batcher.is_batch_word(ref_action):
+    if not Batcher.is_batch(ref_action):
       return dy.pickneglogsoftmax(scores, ref_action)
     # minibatch mode
     else:

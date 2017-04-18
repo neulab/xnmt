@@ -6,6 +6,12 @@ from collections import defaultdict
 from vocab import Vocab
 from collections import OrderedDict
 
+class Batch(list):
+  '''
+  this is a marker class to indicate a batch
+  '''
+  pass
+
 class Batcher:
   '''
   A template class to convert a list of sentences to several batches of
@@ -20,20 +26,21 @@ class Batcher:
     self.pad_token = pad_token
 
   @staticmethod
-  def is_batch_sentence(source):
-    return len(source) > 0 and type(source[0]) == list
+  def is_batch(data):
+    return type(data)==Batch
 
   @staticmethod
-  def is_batch_word(source):
-    return type(source) == list
+  def mark_as_batch(data):
+    if type(data)==Batch: return data
+    else: return Batch(data)
 
   @staticmethod
   def separate_source_target(joint_result):
     source_result = []
     target_result = []
     for batch in joint_result:
-      source_result.append([pair[Batcher.PAIR_SRC] for pair in batch])
-      target_result.append([pair[Batcher.PAIR_TRG] for pair in batch])
+      source_result.append(Batcher.mark_as_batch([pair[Batcher.PAIR_SRC] for pair in batch]))
+      target_result.append(Batcher.mark_as_batch([pair[Batcher.PAIR_TRG] for pair in batch]))
     return source_result, target_result
 
   @staticmethod
@@ -63,7 +70,7 @@ class Batcher:
     for batch_start in range(0, len(sent_pairs), self.batch_size):
       one_batch = sent_pairs[batch_start:batch_start+self.batch_size]
       self.pad_sent(one_batch)
-      minibatches.append(one_batch)
+      minibatches.append(Batcher.mark_as_batch(one_batch))
     return minibatches
 
   def pad_sent(self, batch):
