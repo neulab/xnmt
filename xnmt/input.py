@@ -11,6 +11,31 @@ class Input:
   '''
   pass
 
+class Sentence:
+  def __len__(self):
+    raise NotImplementedError("__len__() must be implemented by Sentence subclasses")
+  def __getitem__(self):
+    raise NotImplementedError("__getitem__() must be implemented by Sentence subclasses")
+  def get_padded_sentence(self, token, pad_len):
+    raise NotImplementedError("get_padded_sentence() must be implemented by Sentence subclasses")
+
+class SimpleSentence(list, Sentence):
+  def get_padded_sentence(self, token, pad_len):
+    self.extend([token] * pad_len)
+    return self
+    
+class ArraySentence(np.ndarray, Sentence):
+  # using idiom from https://docs.scipy.org/doc/numpy/user/basics.subclassing.html
+  def __new__(cls, input_array, info=None):
+    obj = np.asarray(input_array).view(cls)
+    obj.info = info
+    return obj
+  def get_padded_sentence(self, token, pad_len):
+    if pad_len==0:
+      return self
+    else:
+      return np.append(self, np.repeat(token.reshape(1,len(token)), pad_len, axis=0), axis=0)
+
 class InputReader:
   @staticmethod
   def create_input_reader(file_format, vocab=None):
@@ -40,7 +65,7 @@ class PlainTextReader(InputReader):
         words = line.strip().split()
         sentence = [self.vocab.convert(word) for word in words]
         sentence.append(self.vocab.convert('</s>'))
-        sentences.append(sentence)
+        sentences.append(SimpleSentence(sentence))
     return sentences
 
   def freeze(self):
@@ -59,7 +84,7 @@ class ContVecReader(InputReader):
 
   def read_file(self, filename):
     npzFile = np.load(filename)
-    sentences = map(lambda f:npzFile[f], npzFile.files)
+    sentences = map(lambda f:ArraySentence(npzFile[f]), npzFile.files)
     npzFile.close()
     return sentences
 

@@ -39,7 +39,7 @@ class DefaultTranslator(Translator):
     losses = []
 
     # single mode
-    if not Batcher.is_batch(source):
+    if not Batcher.is_batch_sentence(source):
       for ref_word in target:
         context = self.attender.calc_context(self.decoder.state.output())
         word_loss = self.decoder.calc_loss(context, ref_word)
@@ -66,8 +66,8 @@ class DefaultTranslator(Translator):
 
   def translate(self, source, search_strategy=BeamSearch(1, len_norm=NoNormalization())):
     output = []
-    if not Batcher.is_batch(source):
-      source = [source]
+    if not Batcher.is_batch_sentence(source):
+      source = Batcher.mark_as_batch([source])
     for sentences in source:
       encodings = self.encoder.encode(sentences)
       self.attender.start_sentence(encodings)

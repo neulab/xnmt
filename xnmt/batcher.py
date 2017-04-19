@@ -26,8 +26,12 @@ class Batcher:
     self.pad_token = pad_token
 
   @staticmethod
-  def is_batch(data):
-    return type(data)==Batch
+  def is_batch_sentence(sentence):
+    return type(sentence)==Batch
+
+  @staticmethod
+  def is_batch_word(word):
+    return type(word)==Batch
 
   @staticmethod
   def mark_as_batch(data):
@@ -46,9 +50,9 @@ class Batcher:
   @staticmethod
   def pad_src_sent(batch, pad_token=Vocab.ES):
     max_len = max([len(pair[Batcher.PAIR_SRC]) for pair in batch])
-    for pair in batch:
-      if len(pair[Batcher.PAIR_SRC]) < max_len:
-        pair[Batcher.PAIR_SRC].extend([pad_token] * (max_len - len(pair[Batcher.PAIR_SRC])))
+    return map(lambda pair: (pair[Batcher.PAIR_SRC].get_padded_sentence(pad_token, max_len - len(pair[Batcher.PAIR_SRC])),
+                             pair[Batcher.PAIR_TRG]),
+               batch)
 
   @staticmethod
   def select_batcher(batcher_str):
@@ -69,12 +73,11 @@ class Batcher:
     minibatches = []
     for batch_start in range(0, len(sent_pairs), self.batch_size):
       one_batch = sent_pairs[batch_start:batch_start+self.batch_size]
-      self.pad_sent(one_batch)
-      minibatches.append(Batcher.mark_as_batch(one_batch))
+      minibatches.append(Batcher.mark_as_batch(self.pad_sent(one_batch)))
     return minibatches
 
   def pad_sent(self, batch):
-    pass
+    return batch
 
 
 class ShuffleBatcher(Batcher):
@@ -86,7 +89,7 @@ class ShuffleBatcher(Batcher):
     return self.separate_source_target(minibatches)
 
   def pad_sent(self, batch):
-    self.pad_src_sent(batch, self.pad_token)
+    return self.pad_src_sent(batch, self.pad_token)
 
 
 class BucketBatcher(Batcher):
@@ -132,7 +135,7 @@ class TargetBucketBatcher(BucketBatcher):
     return len(pair[Batcher.PAIR_TRG])
 
   def pad_sent(self, batch):
-    self.pad_src_sent(batch, self.pad_token)
+    return self.pad_src_sent(batch, self.pad_token)
 
 
 class TargetSourceBucketBatcher(TargetBucketBatcher):
@@ -157,16 +160,14 @@ class WordTargetBucketBatcher(TargetBucketBatcher):
       self.bucket_value_sort(sent_pairs)
       for pair in sent_pairs:
         if temp_words + sent_len > limit_target_words and len(temp_batch)>0:
-          self.pad_sent(temp_batch)
-          result.append(temp_batch)
+          result.append(self.pad_sent(temp_batch))
           temp_batch = []
           temp_words = 0
         temp_batch.append(pair)
         temp_words += sent_len
 
     if temp_words != 0:
-      self.pad_sent(temp_batch)
-      result.append(temp_batch)
+      result.append(self.pad_sent(temp_batch))
 
     np.random.shuffle(result)
     return self.separate_source_target(result)

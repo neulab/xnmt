@@ -26,7 +26,7 @@ class SimpleWordEmbedder(Embedder):
 
   def embed(self, x):
     # single mode
-    if not Batcher.is_batch(x):
+    if not Batcher.is_batch_word(x):
       return self.embeddings[x]
     # minibatch mode
     else:
@@ -34,7 +34,7 @@ class SimpleWordEmbedder(Embedder):
 
   def embed_sentence(self, sentence):
     # single mode
-    if not Batcher.is_batch(sentence):
+    if not Batcher.is_batch_sentence(sentence):
       embeddings = [self.embed(word) for word in sentence]
     # minibatch mode
     else:
@@ -51,21 +51,12 @@ class FeatVecNoopEmbedder(Embedder):
 
   def embed(self, x):
     # single mode
-    if not Batcher.is_batch(x):
+    if not Batcher.is_batch_word(x):
       return dy.inputVector(x)
     # minibatch mode
     else:
       return dy.inputTensor(x, batched=True)
 
   def embed_sentence(self, sentence):
-    # single mode
-    if not Batcher.is_batch(sentence):
-      embeddings = [self.embed(word) for word in sentence]
-    # minibatch mode
-    else:
-      embeddings = []
-      for word_i in range(len(sentence[0])):
-        embeddings.append(self.embed(Batcher.mark_as_batch([single_sentence[word_i] for single_sentence in sentence])))
-
-    return embeddings
+    return dy.inputTensor(sentence, batched=Batcher.is_batch_sentence(sentence))
 
