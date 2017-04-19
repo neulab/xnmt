@@ -100,6 +100,7 @@ class MultilingualAlignedCorpusReader(object):
     def __init__(self, corpus_path, vocab=None, delimiter='\t', target_token=True,
                  bilingual=True, lang_dict={'source': ['fr'], 'target': ['en']}):
         
+        self.empty_line_flag = ''
         self.corpus_path = corpus_path
         self.delimiter = delimiter
         self.bilingual = bilingual    
@@ -122,19 +123,23 @@ class MultilingualAlignedCorpusReader(object):
         with open(file_loc_) as fp:
             for line in fp:
                 try:
-                    text = line.strip().split(self.delimiter)[3]
+                    text = line.strip()
                 except IndexError:
-                    text = "__NULL__"
+                    text = self.empty_line_flag
                 data_list.append(text)
         return data_list
     
     
     def filter_text(self, dict_):
+        if self.target_token:
+            field_index = 1
+        else:
+            field_index = 0
         data_dict = defaultdict(list)
         list1 = dict_['source']
         list2 = dict_['target']
         for sent1, sent2 in zip(list1, list2):
-            if ('__NULL__' == sent1.split()[1]) or (sent2 == '__NULL__'):
+            if (self.empty_line_flag == sent1.split()[field_index]) or (sent2 == self.empty_line_flag):
                 continue
             data_dict['source'].append(sent1)
             data_dict['target'].append(sent2)
@@ -185,6 +190,8 @@ class MultilingualAlignedCorpusReader(object):
                                 if self.target_token:
                                     text = self.add_target_token(text, t_lang)
                                     data_dict['source'] += text
+                                else:
+                                    data_dict['source'] += text
                             
                             elif lang == t_lang:
                                 data_dict['target'] += text
@@ -196,17 +203,25 @@ class MultilingualAlignedCorpusReader(object):
 if __name__ == "__main__":
     
     # Testing the code
-    data_path = "/home/devendra/Desktop/Neural_MT/scrapped_ted_talks_dataset/web_data_aligned"
-    lang_dict={'source': ['es', 'fr', 'ja'], 'target': ['en', 'pt-br']}
-    obj = MultilingualAlignedCorpusReader(corpus_path=data_path, lang_dict=lang_dict)
+    data_path = "/home/devendra/Desktop/Neural_MT/scrapped_ted_talks_dataset/web_data_temp"
+    lang_dict={'source': ['fr'], 'target': ['en']}
     
-    source_test_list = obj.read_file(split_type='test', data_type='source')
-    target_test_list = obj.read_file(split_type='test', data_type='target')
+    obj = MultilingualAlignedCorpusReader(corpus_path=data_path, lang_dict=lang_dict, target_token=True)
     
-    print len(source_test_list)
-    print len(target_test_list)
+    #source_test_list = obj.read_file(split_type='test', data_type='source')
+    #target_test_list = obj.read_file(split_type='test', data_type='target')
     
-    for sent_s, sent_t in zip(source_test_list, target_test_list):
-        print sent_s, "\t", sent_t
+    #print len(source_test_list)
+    #print len(target_test_list)
+    
+    #for sent_s, sent_t in zip(source_test_list, target_test_list):
+    #    print sent_s, "\t", sent_t
         
-    obj.save_file("temp.txt", split_type='test', data_type='source')
+    obj.save_file("ted_sample/fr.train", split_type='train', data_type='source')
+    obj.save_file("ted_sample/en.train", split_type='train', data_type='target')
+    
+    obj.save_file("ted_sample/fr.test", split_type='test', data_type='source')
+    obj.save_file("ted_sample/en.test", split_type='test', data_type='target')
+    
+    obj.save_file("ted_sample/fr.dev", split_type='dev', data_type='source')
+    obj.save_file("ted_sample/en.dev", split_type='dev', data_type='target')
