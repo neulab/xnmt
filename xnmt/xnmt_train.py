@@ -115,8 +115,8 @@ class XnmtTrainer:
       self.attender = self.model_params.attender
       self.decoder = self.model_params.decoder
       self.translator = DefaultTranslator(self.encoder, self.attender, self.decoder)
-      self.input_reader = InputReader.create_input_reader(self.args.input_type, source_vocab)
-      self.output_reader = InputReader.create_input_reader("word", target_vocab)
+      self.input_reader = InputReader.create_input_reader(self.args.input_format, source_vocab)
+      self.output_reader = InputReader.create_input_reader("text", target_vocab)
       self.read_data()
       return
 
@@ -134,7 +134,7 @@ class XnmtTrainer:
     self.output_mlp_hidden_dim = self.args.output_mlp_hidden_dim
     self.encoder_hidden_dim = self.args.encoder_hidden_dim
 
-    if self.args.input_type == "text":
+    if self.args.input_format == "text":
       self.input_embedder = SimpleWordEmbedder(len(self.input_reader.vocab), self.input_word_emb_dim, self.model)
     elif self.args.input_format == "contvec":
       self.input_embedder = FeatVecNoopEmbedder(self.input_word_emb_dim, self.model)
