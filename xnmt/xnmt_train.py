@@ -111,31 +111,30 @@ class XnmtTrainer:
       self.attender = self.model_params.attender
       self.decoder = self.model_params.decoder
       self.translator = DefaultTranslator(self.encoder, self.attender, self.decoder)
-      self.input_reader = InputReader.create_input_reader(args.input_type, source_vocab)
-      print len(self.input_reader.vocab)
+      self.input_reader = InputReader.create_input_reader(self.args.input_type, source_vocab)
       self.output_reader = InputReader.create_input_reader("word", target_vocab)
       self.read_data()
       return
 
     self.model_serializer = JSONSerializer()
     # Read in training and dev corpora
-    self.input_reader = InputReader.create_input_reader(args.input_type)
+    self.input_reader = InputReader.create_input_reader(self.args.input_type)
     self.output_reader = InputReader.create_input_reader("word")
     self.read_data()
     # Create the translator object and all its subparts
-    self.input_word_emb_dim = args.input_word_embed_dim
-    self.output_word_emb_dim = args.output_word_embed_dim
-    self.output_state_dim = args.output_state_dim
-    self.attender_hidden_dim = args.attender_hidden_dim
-    self.output_mlp_hidden_dim = args.output_mlp_hidden_dim
-    self.encoder_hidden_dim = args.encoder_hidden_dim
+    self.input_word_emb_dim = self.args.input_word_embed_dim
+    self.output_word_emb_dim = self.args.output_word_embed_dim
+    self.output_state_dim = self.args.output_state_dim
+    self.attender_hidden_dim = self.args.attender_hidden_dim
+    self.output_mlp_hidden_dim = self.args.output_mlp_hidden_dim
+    self.encoder_hidden_dim = self.args.encoder_hidden_dim
 
-    if args.input_type == "word":
+    if self.args.input_type == "word":
       self.input_embedder = SimpleWordEmbedder(len(self.input_reader.vocab), self.input_word_emb_dim, self.model)
-    elif args.input_type == "feat-vec":
+    elif self.args.input_type == "feat-vec":
       self.input_embedder = FeatVecNoopEmbedder(self.input_word_emb_dim, self.model)
     else:
-      raise RuntimeError("Unkonwn input type {}".format(args.input_type))
+      raise RuntimeError("Unkonwn input type {}".format(self.args.input_type))
     self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), self.output_word_emb_dim, self.model)
     self.encoder = self.encoder_builder(self.args.encoder_layers, self.encoder_hidden_dim, self.input_embedder, self.model)
     self.attender = StandardAttender(self.encoder_hidden_dim, self.output_state_dim, self.attender_hidden_dim,
@@ -156,18 +155,18 @@ class XnmtTrainer:
 
 
   def read_data(self):
-    self.train_corpus_source = self.input_reader.read_file(args.train_source)
-    self.train_corpus_target = self.output_reader.read_file(args.train_target)
+    self.train_corpus_source = self.input_reader.read_file(self.args.train_source)
+    self.train_corpus_target = self.output_reader.read_file(self.args.train_target)
     assert len(self.train_corpus_source) == len(self.train_corpus_target)
     self.total_train_sent = len(self.train_corpus_source)
-    if args.eval_every == None:
-      args.eval_every = self.total_train_sent
+    if self.args.eval_every == None:
+      self.args.eval_every = self.total_train_sent
 
     self.input_reader.freeze()
     self.output_reader.freeze()
 
-    self.dev_corpus_source = self.input_reader.read_file(args.dev_source)
-    self.dev_corpus_target = self.output_reader.read_file(args.dev_target)
+    self.dev_corpus_source = self.input_reader.read_file(self.args.dev_source)
+    self.dev_corpus_target = self.output_reader.read_file(self.args.dev_target)
     assert len(self.dev_corpus_source) == len(self.dev_corpus_target)
 
   def run_epoch(self):
