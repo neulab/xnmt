@@ -42,6 +42,8 @@ options = [
   Option("decoder_layers", int, default_value=2),
   Option("encoder_type", default_value="BiLSTM"),
   Option("decoder_type", default_value="LSTM"),
+  Option("residual_to_output", bool, default_value=True,
+         help="If using residual networks, whether to add a residual connection to the output layer"),
 ]
 
 class XnmtTrainer:
@@ -63,9 +65,11 @@ class XnmtTrainer:
     if encoder_type == "BiLSTM".lower():
       encoder_builder = BiLSTMEncoder
     elif encoder_type == "ResidualLSTM".lower():
-      encoder_builder = ResidualLSTMEncoder
+      encoder_builder = lambda encoder_layers, encoder_hidden_dim, input_embedder, model:\
+        ResidualLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model, args.residual_to_output)
     elif encoder_type == "ResidualBiLSTM".lower():
-      encoder_builder = ResidualBiLSTMEncoder
+      encoder_builder = lambda encoder_layers, encoder_hidden_dim, input_embedder, model:\
+        ResidualBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model, args.residual_to_output)
     elif encoder_type == "PyramidalBiLSTM".lower():
       encoder_builder = PyramidalBiLSTMEncoder
     else:
@@ -76,7 +80,7 @@ class XnmtTrainer:
       decoder_builder = dy.LSTMBuilder
     elif decoder_type == "ResidualLSTM".lower():
       decoder_builder = lambda num_layers, input_dim, hidden_dim, model: \
-        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.LSTMBuilder)
+        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.LSTMBuilder, args.residual_to_output)
     else:
       raise RuntimeError("Unkonwn decoder type {}".format(encoder_type))
 

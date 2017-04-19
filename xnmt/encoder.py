@@ -33,10 +33,10 @@ class BiLSTMEncoder(DefaultEncoder):
 
 class ResidualLSTMEncoder(DefaultEncoder):
 
-  def __init__(self, layers, output_dim, embedder, model):
+  def __init__(self, layers, output_dim, embedder, model, residual_to_output=False):
     self.embedder = embedder
     input_dim = embedder.emb_dim
-    self.encoder = residual.ResidualRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
+    self.encoder = residual.ResidualRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder, residual_to_output)
     self.serialize_params = [layers, output_dim, embedder, model]
 
 class ResidualBiLSTMEncoder(DefaultEncoder):
@@ -44,10 +44,11 @@ class ResidualBiLSTMEncoder(DefaultEncoder):
   Implements a residual encoder with bidirectional first layer
   """
 
-  def __init__(self, layers, output_dim, embedder, model):
+  def __init__(self, layers, output_dim, embedder, model, residual_to_output=False):
     self.embedder = embedder
     input_dim = embedder.emb_dim
-    self.encoder = residual.ResidualBiRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
+    self.encoder = residual.ResidualBiRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder,
+                                                 residual_to_output)
     self.serialize_params = [layers, output_dim, embedder, model]
 
 class PyramidalBiLSTMEncoder(DefaultEncoder):

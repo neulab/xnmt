@@ -64,3 +64,4 @@ and `<experiment-name>.err.log` in the current directory.
 | decoder_layers |  | int | 2 |
 | encoder_type |  | str | BiLSTM |
 | decoder_type |  | str | LSTM |
+| residual_to_output | If using residual networks, whether to add a residual connection to the output layer | bool | True |

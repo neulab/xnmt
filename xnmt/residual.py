@@ -8,9 +8,9 @@ class PseudoState:
   Emulates a state object for python RNN builders. This allows them to be
   used with minimal changes in code that uses dy.LSTMBuilder.
   """
-  def __init__(self, network):
+  def __init__(self, network, output=None):
     self.network = network
-    self._output = None
+    self._output = output
 
   def add_input(self, e):
     self._output = self.network.transduce([e])[0]
@@ -31,23 +31,26 @@ class ResidualRNNBuilder:
   Builder for RNNs that implements additional residual connections between layers: the output of each
   intermediate hidden layer is added to its output.
 
-  input ---> hidden layer 1 ---> hidden layer 2 -+--> ... --+--> hidden layer n
-                              \_________________/  \_ ... _/
+  input ---> hidden layer 1 ---> hidden layer 2 -+--> ... -+---> hidden layer n ---+--->
+                              \_________________/  \_ ... _/ \_(if add_to_output)_/
   """
 
-  def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory):
+  def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory, add_to_output=False):
     """
     @param num_layers: depth of the RNN (> 0)
     @param input_dim: size of the inputs
     @param hidden_dim: size of the outputs (and intermediate layer representations)
-    @param model
+    @param model:
     @param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
+    @param add_to_output: whether to add a residual connection to the output layer
     """
     assert num_layers > 0
     self.builder_layers = []
     self.builder_layers.append(rnn_builder_factory(1, input_dim, hidden_dim, model))
     for _ in range(num_layers - 1):
       self.builder_layers.append(rnn_builder_factory(1, hidden_dim, hidden_dim, model))
+
+    self.add_to_output = add_to_output
 
   def whoami(self):
     return "ResidualRNNBuilder"
@@ -59,6 +62,13 @@ class ResidualRNNBuilder:
   def disable_dropout(self):
     for l in self.builder_layers:
       l.disable_dropout()
+
+  @staticmethod
+  def _sum_lists(a, b):
+    """
+    Sums lists element-wise.
+    """
+    return [ea + eb for (ea, eb) in zip(a, b)]
 
   def add_inputs(self, es):
     """
@@ -73,20 +83,14 @@ class ResidualRNNBuilder:
         .add_inputs(xs) returns a list of RNNState objects. RNNState objects can be
          queried in various ways. In particular, they allow access to the previous
          state, as well as to the state-vectors (h() and s() )
+         add_inputs is used for compatibility only, and the returned state will only
+         support the output() operation, not h() or s().
 
         .transduce(xs) returns a list of Expression. These are just the output
          expressions. For many cases, this suffices.
          transduce is much more memory efficient than add_inputs.
     """
-    if len(self.builder_layers) == 1:
-      return self.builder_layers[0].initial_state().add_inputs(es)
-
-    es = self.builder_layers[0].initial_state().transduce(es)
-
-    for l in self.builder_layers[1:-1]:
-      es = [out + orig for (out, orig) in zip(l.initial_state().transduce(es), es)]
-
-    return self.builder_layers[-1].initial_state().add_inputs(es)
+    return PseudoState(self, self.transduce(es))
 
   def transduce(self, es):
     """
@@ -99,13 +103,19 @@ class ResidualRNNBuilder:
     add_inputs and this function.
     """
     es = self.builder_layers[0].initial_state().transduce(es)
+
     if len(self.builder_layers) == 1:
       return es
 
-    for l in self.builder_layers[1:-1]:
-      es = [out + orig for (out, orig) in zip(l.initial_state().transduce(es), es)]
+    for l in self.builder_layers[1:]:
+      es = self._sum_lists(l.initial_state().transduce(es), es)
 
-    return self.builder_layers[-1].initial_state().transduce(es)
+    last_output = self.builder_layers[-1].initial_state().transduce(es)
+
+    if self.add_to_output:
+      return self._sum_lists(last_output, es)
+    else:
+      return last_output
 
   def initial_state(self):
     return PseudoState(self)
@@ -115,11 +125,13 @@ class ResidualBiRNNBuilder:
   """
   A residual network with bidirectional first layer
   """
-  def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory):
+  def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory, add_to_output=False):
     assert num_layers > 1
-    self.forward_layer = rnn_builder_factory(1, input_dim, hidden_dim, model)
-    self.backward_layer = rnn_builder_factory(1, input_dim, hidden_dim, model)
-    self.residual_network = ResidualRNNBuilder(num_layers - 1, hidden_dim, hidden_dim, model, rnn_builder_factory)
+    assert hidden_dim % 2 == 0
+    self.forward_layer = rnn_builder_factory(1, input_dim, hidden_dim/2, model)
+    self.backward_layer = rnn_builder_factory(1, input_dim, hidden_dim/2, model)
+    self.residual_network = ResidualRNNBuilder(num_layers - 1, hidden_dim, hidden_dim, model, rnn_builder_factory,
+                                               add_to_output)
 
   def set_droupout(self, p):
     self.forward_layer.set_dropout(p)
@@ -132,17 +144,13 @@ class ResidualBiRNNBuilder:
     self.residual_network.disable_dropout()
 
   def add_inputs(self, es):
-    forward_e = self.forward_layer.initial_state().transduce(es)
-    backward_e = self.backward_layer.initial_state().transduce(reversed(es))
-
-    return self.residual_network.add_inputs(forward_e + backward_e)
+    return PseudoState(self, self.transduce(es))
 
   def transduce(self, es):
     forward_e = self.forward_layer.initial_state().transduce(es)
     backward_e = self.backward_layer.initial_state().transduce(reversed(es))
 
-    return self.residual_network.transduce(forward_e + backward_e)
+    return self.residual_network.transduce([concatenate([f,b]) for f,b in zip(forward_e, reversed(backward_e))])
 
   def initial_state(self):
     return PseudoState(self)
-
