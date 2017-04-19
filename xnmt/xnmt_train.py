@@ -29,8 +29,8 @@ options = [
   Option("dev_source"),
   Option("dev_target"),
   Option("model_file"),
-  Option("input_type", default_value="word"),
-  Option("pretrained_model_file", default_value=""),
+  Option("pretrained_model_file", default_value="", help="path of pre-trained model file"),
+  Option("input_format", default_value="text", help="format of input data: text/contvec"),
   Option("input_word_embed_dim", int, default_value=67),
   Option("output_word_embed_dim", int, default_value=67),
   Option("output_state_dim", int, default_value=67),
@@ -43,6 +43,8 @@ options = [
   Option("decoder_layers", int, default_value=2),
   Option("encoder_type", default_value="BiLSTM"),
   Option("decoder_type", default_value="LSTM"),
+  Option("residual_to_output", bool, default_value=True,
+         help="If using residual networks, whether to add a residual connection to the output layer"),
 ]
 
 class XnmtTrainer:
@@ -64,9 +66,11 @@ class XnmtTrainer:
     if encoder_type == "BiLSTM".lower():
       self.encoder_builder = BiLSTMEncoder
     elif encoder_type == "ResidualLSTM".lower():
-      self.encoder_builder = ResidualLSTMEncoder
+      self.encoder_builder = lambda encoder_layers, encoder_hidden_dim, input_embedder, model:\
+        ResidualLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model, args.residual_to_output)
     elif encoder_type == "ResidualBiLSTM".lower():
-      self.encoder_builder = ResidualBiLSTMEncoder
+      self.encoder_builder = lambda encoder_layers, encoder_hidden_dim, input_embedder, model:\
+        ResidualBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model, args.residual_to_output)
     elif encoder_type == "PyramidalBiLSTM".lower():
       self.encoder_builder = PyramidalBiLSTMEncoder
     else:
@@ -77,7 +81,8 @@ class XnmtTrainer:
       self.decoder_builder = dy.LSTMBuilder
     elif decoder_type == "ResidualLSTM".lower():
       self.decoder_builder = lambda num_layers, input_dim, hidden_dim, model: \
-        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.LSTMBuilder)
+        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.LSTMBuilder, args.residual_to_output)
+
     else:
       raise RuntimeError("Unkonwn decoder type {}".format(encoder_type))
 
@@ -92,14 +97,13 @@ class XnmtTrainer:
     else:
       print('Start training in minibatch mode...')
       self.batcher = Batcher.select_batcher(args.batch_strategy)(args.batch_size)
-      if args.input_type == "feat-vec":
+      if args.input_format == "contvec":
         self.batcher.pad_token = np.zeros(self.input_word_emb_dim)
       self.train_corpus_source, self.train_corpus_target = self.batcher.pack(self.train_corpus_source,
                                                                              self.train_corpus_target)
       self.dev_corpus_source, self.dev_corpus_target = self.batcher.pack(self.dev_corpus_source,
                                                                          self.dev_corpus_target)
       self.logger = BatchLogger(args.eval_every, self.total_train_sent)
-
 
   def create_model(self):
     if self.args.pretrained_model_file:
@@ -118,8 +122,9 @@ class XnmtTrainer:
 
     self.model_serializer = JSONSerializer()
     # Read in training and dev corpora
-    self.input_reader = InputReader.create_input_reader(self.args.input_type)
-    self.output_reader = InputReader.create_input_reader("word")
+
+    self.input_reader = InputReader.create_input_reader(self.args.input_format)
+    self.output_reader = InputReader.create_input_reader("text")
     self.read_data()
     # Create the translator object and all its subparts
     self.input_word_emb_dim = self.args.input_word_embed_dim
@@ -129,12 +134,14 @@ class XnmtTrainer:
     self.output_mlp_hidden_dim = self.args.output_mlp_hidden_dim
     self.encoder_hidden_dim = self.args.encoder_hidden_dim
 
-    if self.args.input_type == "word":
+    if self.args.input_type == "text":
       self.input_embedder = SimpleWordEmbedder(len(self.input_reader.vocab), self.input_word_emb_dim, self.model)
-    elif self.args.input_type == "feat-vec":
+    elif self.args.input_format == "contvec":
       self.input_embedder = FeatVecNoopEmbedder(self.input_word_emb_dim, self.model)
     else:
-      raise RuntimeError("Unkonwn input type {}".format(self.args.input_type))
+      raise RuntimeError("Unkonwn input type {}".format(self.args.input_format))
+
+
     self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), self.output_word_emb_dim, self.model)
     self.encoder = self.encoder_builder(self.args.encoder_layers, self.encoder_hidden_dim, self.input_embedder, self.model)
     self.attender = StandardAttender(self.encoder_hidden_dim, self.output_state_dim, self.attender_hidden_dim,
@@ -168,6 +175,7 @@ class XnmtTrainer:
     self.dev_corpus_source = self.input_reader.read_file(self.args.dev_source)
     self.dev_corpus_target = self.output_reader.read_file(self.args.dev_target)
     assert len(self.dev_corpus_source) == len(self.dev_corpus_target)
+
 
   def run_epoch(self):
     self.logger.new_epoch()

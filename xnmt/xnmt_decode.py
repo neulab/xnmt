@@ -14,7 +14,7 @@ options = [
   Option("model_file", force_flag=True, required=True, help="pretrained (saved) model path"),
   Option("source_file", help="path of input source file to be translated"),
   Option("target_file", help="path of file where expected target translatons will be written"),
-  Option("input_type", default_value="word"),
+  Option("input_format", default_value="text", help="format of input data: text/contvec"),
 ]
 
 
@@ -36,7 +36,7 @@ def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization()),
   else:
     source_vocab, target_vocab, translator = model_elements
 
-  input_reader = InputReader.create_input_reader(args.input_type, source_vocab)
+  input_reader = InputReader.create_input_reader(args.input_format, source_vocab)
   input_reader.freeze()
 
   output_generator = PlainTextOutput()

@@ -11,15 +11,40 @@ class Input:
   '''
   pass
 
+class Sentence:
+  def __len__(self):
+    raise NotImplementedError("__len__() must be implemented by Sentence subclasses")
+  def __getitem__(self):
+    raise NotImplementedError("__getitem__() must be implemented by Sentence subclasses")
+  def get_padded_sentence(self, token, pad_len):
+    raise NotImplementedError("get_padded_sentence() must be implemented by Sentence subclasses")
+
+class SimpleSentence(list, Sentence):
+  def get_padded_sentence(self, token, pad_len):
+    self.extend([token] * pad_len)
+    return self
+    
+class ArraySentence(np.ndarray, Sentence):
+  # using idiom from https://docs.scipy.org/doc/numpy/user/basics.subclassing.html
+  def __new__(cls, input_array, info=None):
+    obj = np.asarray(input_array).view(cls)
+    obj.info = info
+    return obj
+  def get_padded_sentence(self, token, pad_len):
+    if pad_len==0:
+      return self
+    else:
+      return np.append(self, np.repeat(token.reshape(1,len(token)), pad_len, axis=0), axis=0)
+
 class InputReader:
   @staticmethod
-  def create_input_reader(input_type, vocab=None):
-    if input_type == "word":
+  def create_input_reader(file_format, vocab=None):
+    if file_format == "text":
       return PlainTextReader(vocab)
-    elif input_type == "feat-vec":
-      return FeatVecReader()
+    elif file_format == "contvec":
+      return ContVecReader()
     else:
-      raise RuntimeError("Unkonwn input type {}".format(input_type))
+      raise RuntimeError("Unkonwn input type {}".format(file_format))
 
 
 class PlainTextReader(InputReader):
@@ -40,7 +65,7 @@ class PlainTextReader(InputReader):
         words = line.strip().split()
         sentence = [self.vocab.convert(word) for word in words]
         sentence.append(self.vocab.convert('</s>'))
-        sentences.append(sentence)
+        sentences.append(SimpleSentence(sentence))
     return sentences
 
   def freeze(self):
@@ -48,26 +73,19 @@ class PlainTextReader(InputReader):
     self.vocab.set_unk('<unk>')
 
     
-class FeatVecReader(InputReader):
+class ContVecReader(InputReader):
   '''
-  Handles the case where sentences are sequences of feature vectors.
-  We assumine one sentence per line, words are separated by semicolons, vector entries by 
-  whitespace. E.g.:
-  2.3 4.2;5.1 3
-  2.3 4.2;1 -1;5.1 3
-  
-  TODO: should probably move to a binary format, as these files can get quite large.
+  Handles the case where sentences are sequences of continuous-space vectors.
+  We assume a list of matrices (sentences) serialized as .npz (with numpy.savez_compressed())
+  We can index them as sentences[sent_no][word_ind,feat_ind]
   '''
   def __init__(self):
     self.vocab = Vocab()
 
   def read_file(self, filename):
-    sentences = []
-    with open(filename) as f:
-      for line in f:
-        words = line.strip().split(";")
-        sentence = [np.asarray([float(x) for x in word.split()]) for word in words]
-        sentences.append(sentence)
+    npzFile = np.load(filename)
+    sentences = map(lambda f:ArraySentence(npzFile[f]), npzFile.files)
+    npzFile.close()
     return sentences
 
   def freeze(self):
@@ -82,6 +100,7 @@ class MultilingualAlignedCorpusReader(object):
     def __init__(self, corpus_path, vocab=None, delimiter='\t', target_token=True,
                  bilingual=True, lang_dict={'source': ['fr'], 'target': ['en']}):
         
+        self.empty_line_flag = ''
         self.corpus_path = corpus_path
         self.delimiter = delimiter
         self.bilingual = bilingual    
@@ -104,19 +123,23 @@ class MultilingualAlignedCorpusReader(object):
         with open(file_loc_) as fp:
             for line in fp:
                 try:
-                    text = line.strip().split(self.delimiter)[3]
+                    text = line.strip()
                 except IndexError:
-                    text = "__NULL__"
+                    text = self.empty_line_flag
                 data_list.append(text)
         return data_list
     
     
     def filter_text(self, dict_):
+        if self.target_token:
+            field_index = 1
+        else:
+            field_index = 0
         data_dict = defaultdict(list)
         list1 = dict_['source']
         list2 = dict_['target']
         for sent1, sent2 in zip(list1, list2):
-            if ('__NULL__' == sent1.split()[1]) or (sent2 == '__NULL__'):
+            if (self.empty_line_flag == sent1.split()[field_index]) or (sent2 == self.empty_line_flag):
                 continue
             data_dict['source'].append(sent1)
             data_dict['target'].append(sent2)
@@ -167,6 +190,8 @@ class MultilingualAlignedCorpusReader(object):
                                 if self.target_token:
                                     text = self.add_target_token(text, t_lang)
                                     data_dict['source'] += text
+                                else:
+                                    data_dict['source'] += text
                             
                             elif lang == t_lang:
                                 data_dict['target'] += text
@@ -178,17 +203,25 @@ class MultilingualAlignedCorpusReader(object):
 if __name__ == "__main__":
     
     # Testing the code
-    data_path = "/home/devendra/Desktop/Neural_MT/scrapped_ted_talks_dataset/web_data_aligned"
-    lang_dict={'source': ['es', 'fr', 'ja'], 'target': ['en', 'pt-br']}
-    obj = MultilingualAlignedCorpusReader(corpus_path=data_path, lang_dict=lang_dict)
+    data_path = "/home/devendra/Desktop/Neural_MT/scrapped_ted_talks_dataset/web_data_temp"
+    lang_dict={'source': ['fr'], 'target': ['en']}
     
-    source_test_list = obj.read_file(split_type='test', data_type='source')
-    target_test_list = obj.read_file(split_type='test', data_type='target')
+    obj = MultilingualAlignedCorpusReader(corpus_path=data_path, lang_dict=lang_dict, target_token=True)
     
-    print len(source_test_list)
-    print len(target_test_list)
+    #source_test_list = obj.read_file(split_type='test', data_type='source')
+    #target_test_list = obj.read_file(split_type='test', data_type='target')
     
-    for sent_s, sent_t in zip(source_test_list, target_test_list):
-        print sent_s, "\t", sent_t
+    #print len(source_test_list)
+    #print len(target_test_list)
+    
+    #for sent_s, sent_t in zip(source_test_list, target_test_list):
+    #    print sent_s, "\t", sent_t
         
-    obj.save_file("temp.txt", split_type='test', data_type='source')
+    obj.save_file("ted_sample/fr.train", split_type='train', data_type='source')
+    obj.save_file("ted_sample/en.train", split_type='train', data_type='target')
+    
+    obj.save_file("ted_sample/fr.test", split_type='test', data_type='source')
+    obj.save_file("ted_sample/en.test", split_type='test', data_type='target')
+    
+    obj.save_file("ted_sample/fr.dev", split_type='dev', data_type='source')
+    obj.save_file("ted_sample/en.dev", split_type='dev', data_type='target')
