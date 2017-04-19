@@ -10,6 +10,7 @@ class Vocab:
     if (i2w is not None):
       self.i2w = i2w
       self.w2i = {word: id for (id, word) in enumerate(self.i2w)}
+      self.frozen = False
       return
     self.w2i = {}
     self.i2w = []
@@ -21,6 +22,7 @@ class Vocab:
     self.i2w.append('</s>')
 
   def convert(self, w):
+    w = unicode(w, "utf-8")
     if w not in self.w2i:
       if self.frozen:
         assert self.unk_token != None, 'Attempt to convert an OOV in a frozen vocabulary with no UNK token set'
