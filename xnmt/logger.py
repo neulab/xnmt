@@ -42,6 +42,11 @@ class Logger:
         self.sent_num_not_report += batch_sent_num
         self.epoch_words += self.count_tgt_words(tgt)
         self.epoch_loss += loss
+    
+    def format_time(self, seconds):
+        return "{}-{}".format(int(seconds) // 86400, 
+                              time.strftime("%H:%M:%S", time.gmtime(seconds)),
+                             )
 
     def report_train_process(self):
         print_report = (self.sent_num_not_report >= self.eval_every) or (self.sent_num == self.total_train_sent)
@@ -51,7 +56,7 @@ class Logger:
             self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
             print(Logger.REPORT_TEMPLATE.format('train') % (
                 self.fractional_epoch, math.exp(self.epoch_loss / self.epoch_words),
-                self.epoch_words, time.strftime("%H:%M:%S", time.gmtime(time.time() - self.start_time))))
+                self.epoch_words, self.format_time(time.time() - self.start_time)))
         return print_report
 
     def new_dev(self):
@@ -65,7 +70,7 @@ class Logger:
     def report_dev_and_check_model(self, model_file):
         print(Logger.REPORT_TEMPLATE.format('test') % (
             self.fractional_epoch, math.exp(self.dev_loss / self.dev_words),
-            self.dev_words, time.strftime("%H:%M:%S", time.gmtime(time.time() - self.start_time))))
+            self.dev_words, self.format_time(time.time() - self.start_time)))
         save_model = self.dev_loss < self.best_dev_loss
         if save_model:
             self.best_dev_loss = self.dev_loss

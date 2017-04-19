@@ -11,15 +11,40 @@ class Input:
   '''
   pass
 
+class Sentence:
+  def __len__(self):
+    raise NotImplementedError("__len__() must be implemented by Sentence subclasses")
+  def __getitem__(self):
+    raise NotImplementedError("__getitem__() must be implemented by Sentence subclasses")
+  def get_padded_sentence(self, token, pad_len):
+    raise NotImplementedError("get_padded_sentence() must be implemented by Sentence subclasses")
+
+class SimpleSentence(list, Sentence):
+  def get_padded_sentence(self, token, pad_len):
+    self.extend([token] * pad_len)
+    return self
+    
+class ArraySentence(np.ndarray, Sentence):
+  # using idiom from https://docs.scipy.org/doc/numpy/user/basics.subclassing.html
+  def __new__(cls, input_array, info=None):
+    obj = np.asarray(input_array).view(cls)
+    obj.info = info
+    return obj
+  def get_padded_sentence(self, token, pad_len):
+    if pad_len==0:
+      return self
+    else:
+      return np.append(self, np.repeat(token.reshape(1,len(token)), pad_len, axis=0), axis=0)
+
 class InputReader:
   @staticmethod
-  def create_input_reader(input_type, vocab=None):
-    if input_type == "word":
+  def create_input_reader(file_format, vocab=None):
+    if file_format == "text":
       return PlainTextReader(vocab)
-    elif input_type == "feat-vec":
-      return FeatVecReader()
+    elif file_format == "contvec":
+      return ContVecReader()
     else:
-      raise RuntimeError("Unkonwn input type {}".format(input_type))
+      raise RuntimeError("Unkonwn input type {}".format(file_format))
 
 
 class PlainTextReader(InputReader):
@@ -40,7 +65,7 @@ class PlainTextReader(InputReader):
         words = line.strip().split()
         sentence = [self.vocab.convert(word) for word in words]
         sentence.append(self.vocab.convert('</s>'))
-        sentences.append(sentence)
+        sentences.append(SimpleSentence(sentence))
     return sentences
 
   def freeze(self):
@@ -48,26 +73,19 @@ class PlainTextReader(InputReader):
     self.vocab.set_unk('<unk>')
 
     
-class FeatVecReader(InputReader):
+class ContVecReader(InputReader):
   '''
-  Handles the case where sentences are sequences of feature vectors.
-  We assumine one sentence per line, words are separated by semicolons, vector entries by 
-  whitespace. E.g.:
-  2.3 4.2;5.1 3
-  2.3 4.2;1 -1;5.1 3
-  
-  TODO: should probably move to a binary format, as these files can get quite large.
+  Handles the case where sentences are sequences of continuous-space vectors.
+  We assume a list of matrices (sentences) serialized as .npz (with numpy.savez_compressed())
+  We can index them as sentences[sent_no][word_ind,feat_ind]
   '''
   def __init__(self):
     self.vocab = Vocab()
 
   def read_file(self, filename):
-    sentences = []
-    with open(filename) as f:
-      for line in f:
-        words = line.strip().split(";")
-        sentence = [np.asarray([float(x) for x in word.split()]) for word in words]
-        sentences.append(sentence)
+    npzFile = np.load(filename)
+    sentences = map(lambda f:ArraySentence(npzFile[f]), npzFile.files)
+    npzFile.close()
     return sentences
 
   def freeze(self):

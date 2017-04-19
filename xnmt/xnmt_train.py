@@ -29,7 +29,7 @@ options = [
   Option("dev_source"),
   Option("dev_target"),
   Option("model_file"),
-  Option("input_type", default_value="word"),
+  Option("input_format", default_value="text", help="format of input data: text/contvec"),
   Option("input_word_embed_dim", int, default_value=67),
   Option("output_word_embed_dim", int, default_value=67),
   Option("output_state_dim", int, default_value=67),
@@ -84,8 +84,8 @@ class XnmtTrainer:
     self.model_serializer = JSONSerializer()
 
     # Read in training and dev corpora
-    self.input_reader = InputReader.create_input_reader(args.input_type)
-    self.output_reader = InputReader.create_input_reader("word")
+    self.input_reader = InputReader.create_input_reader(args.input_format)
+    self.output_reader = InputReader.create_input_reader("text")
 
     self.train_corpus_source = self.input_reader.read_file(args.train_source)
     self.train_corpus_target = self.output_reader.read_file(args.train_target)
@@ -109,12 +109,12 @@ class XnmtTrainer:
     self.output_mlp_hidden_dim = args.output_mlp_hidden_dim
     self.encoder_hidden_dim = args.encoder_hidden_dim
 
-    if args.input_type == "word":
+    if args.input_format == "text":
       self.input_embedder = SimpleWordEmbedder(len(self.input_reader.vocab), self.input_word_emb_dim, self.model)
-    elif args.input_type == "feat-vec":
+    elif args.input_format == "contvec":
       self.input_embedder = FeatVecNoopEmbedder(self.input_word_emb_dim, self.model)
     else:
-      raise RuntimeError("Unkonwn input type {}".format(args.input_type))
+      raise RuntimeError("Unkonwn input type {}".format(args.input_format))
     self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), self.output_word_emb_dim, self.model)
     self.encoder = encoder_builder(self.args.encoder_layers, self.encoder_hidden_dim, self.input_embedder, self.model)
     self.attender = StandardAttender(self.encoder_hidden_dim, self.output_state_dim, self.attender_hidden_dim,
@@ -141,7 +141,7 @@ class XnmtTrainer:
     else:
       print('Start training in minibatch mode...')
       self.batcher = Batcher.select_batcher(args.batch_strategy)(args.batch_size)
-      if args.input_type == "feat-vec":
+      if args.input_format == "contvec":
         self.batcher.pad_token = np.zeros(self.input_word_emb_dim)
       self.train_corpus_source, self.train_corpus_target = self.batcher.pack(self.train_corpus_source,
                                                                              self.train_corpus_target)

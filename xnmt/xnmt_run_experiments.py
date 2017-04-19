@@ -117,7 +117,7 @@ if __name__ == '__main__':
     for i_epoch in xrange(exp_args.run_for_epochs):
       xnmt_trainer.run_epoch()
 
-      if exp_args.decode_every != 0 and i_epoch % exp_args.decode_every == 0:
+      if exp_args.decode_every != 0 and (i_epoch+1) % exp_args.decode_every == 0:
         print("> Evaluating")
         xnmt_decode.xnmt_decode(decode_args, model_elements=(
           xnmt_trainer.input_reader.vocab, xnmt_trainer.output_reader.vocab, xnmt_trainer.translator))
