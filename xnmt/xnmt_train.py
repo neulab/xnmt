@@ -72,6 +72,8 @@ class XnmtTrainer:
         ResidualBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model, args.residual_to_output)
     elif encoder_type == "PyramidalBiLSTM".lower():
       encoder_builder = PyramidalBiLSTMEncoder
+    elif encoder_type == "ConvBiLSTM".lower():
+      encoder_builder = ConvBiLSTMEncoder
     else:
       raise RuntimeError("Unkonwn encoder type {}".format(encoder_type))
 

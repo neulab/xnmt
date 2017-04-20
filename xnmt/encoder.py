@@ -2,7 +2,7 @@ import dynet as dy
 from batcher import *
 import residual
 import pyramidal
-import audio_encoder
+import conv_encoder
 
 class Encoder:
   '''
@@ -60,12 +60,11 @@ class PyramidalBiLSTMEncoder(DefaultEncoder):
     self.encoder = pyramidal.PyramidalRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
     self.serialize_params = [layers, output_dim, embedder, model]
 
-class AudioConvRNNEncoder(DefaultEncoder):
+class ConvBiLSTMEncoder(DefaultEncoder):
 
   def __init__(self, layers, output_dim, embedder, model):
     self.embedder = embedder
     input_dim = embedder.emb_dim
-#    self.encoder = pyramidal.PyramidalRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
-    self.encoder = audio_encoder.AudioConvRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
+    self.encoder = conv_encoder.ConvBiRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
     self.serialize_params = [layers, output_dim, embedder, model]
 
