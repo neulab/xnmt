@@ -76,7 +76,7 @@ if __name__ == '__main__':
   experiment_options = [
     Option("model_file", required=True, help="Location to write the model file"),
     Option("hyp_file", required=True, help="Temporary location to write decoded output for evaluation"),
-    Option("eval_metrics", default_value="bleu", help="Comma-separated list of evaluation metrics"),
+    Option("eval_metrics", default_value="bleu", help="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
     Option("run_for_epochs", int, help="How many epochs to run each test for"),
     Option("decode_every", int, default_value=0, help="Evaluation period in epochs. If set to 0, will never evaluate."),
   ]
