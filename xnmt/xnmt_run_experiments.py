@@ -42,6 +42,7 @@ class Tee:
   def write(self, data):
     self.file.write(data)
     self.stdstream.write(" " * self.indent + data)
+    self.flush()
 
   def flush(self):
     self.file.flush()
