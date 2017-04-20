@@ -24,9 +24,9 @@ class PlainTextOutput(Output):
   def load_vocab(self, vocab):
     self.vocab = vocab
 
-  def process(self, input):
+  def process(self, inputs):
     self.token_strings = []
-    for token_list in input:
+    for token_list in inputs:
       self.token_string = []
       for token in token_list:
         self.token_string.append(self.vocab[token])
@@ -34,8 +34,24 @@ class PlainTextOutput(Output):
     return self.token_strings
 
   def to_string(self):
-    output_str = ""
-    for token in self.token_string:
-      output_str = output_str + token + " "
-    return output_str
+    return " ".join(self.token_string)
 
+class JoinedCharTextOutput(PlainTextOutput):
+  '''
+  Assumes a single-character vocabulary and joins them to form words;
+  per default, double underscores '__' are converted to spaces   
+  '''
+  def __init__(self, space_token='__'):
+    self.space_token = space_token
+  def to_string(self):
+    return "".join(map(lambda s: ' ' if s==self.space_token else s, self.token_string))
+
+class JoinedBPETextOutput(PlainTextOutput):
+  '''
+  Assumes a bpe-based vocabulary and outputs the merged words;
+  per default, the '@' postfix indicates subwords that should be merged   
+  '''
+  def __init__(self, merge_indicator='@'):
+    self.merge_indicator_with_space = merge_indicator + " "
+  def to_string(self):
+    return " ".join(self.token_string).replace(self.merge_indicator_with_space, "")

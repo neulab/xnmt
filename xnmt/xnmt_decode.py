@@ -15,6 +15,7 @@ options = [
   Option("source_file", help="path of input source file to be translated"),
   Option("target_file", help="path of file where expected target translatons will be written"),
   Option("input_format", default_value="text", help="format of input data: text/contvec"),
+  Option("post_process", default_value="none", help="post-processing of translation outputs: none/join-char/join-bpe"),
 ]
 
 
@@ -39,7 +40,14 @@ def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization()),
   input_reader = InputReader.create_input_reader(args.input_format, source_vocab)
   input_reader.freeze()
 
-  output_generator = PlainTextOutput()
+  if args.post_process=="none":
+    output_generator = PlainTextOutput()
+  elif args.post_process=="join-char":
+    output_generator = JoinedCharTextOutput()
+  elif args.post_process=="join-bpe":
+    output_generator = JoinedBPETextOutput()
+  else:
+    raise RuntimeError("Unkonwn postprocessing argument {}".format(args.postprocess)) 
   output_generator.load_vocab(target_vocab)
 
   source_corpus = input_reader.read_file(args.source_file)
