@@ -85,7 +85,10 @@ class FeatVecNoopEmbedder(Embedder):
     batched = Batcher.is_batch_sentence(sentence)
     first_sent = sentence[0] if batched else sentence
     if hasattr(first_sent, "get_array"):
-      return TensorExprEmbeddedSentence(dy.inputTensor(map(lambda s: s.get_array(), sentence), batched=batched))
+      if not batched:
+        return TensorExprEmbeddedSentence(dy.inputTensor(sentence.get_array(), batched=False))
+      else:
+        return TensorExprEmbeddedSentence(dy.inputTensor(map(lambda s: s.get_array(), sentence), batched=True))
     else:
       if not batched:
         embeddings = [self.embed(word) for word in sentence]
