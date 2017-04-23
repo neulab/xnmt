@@ -100,7 +100,7 @@ class MultilingualAlignedCorpusReader(object):
     def __init__(self, corpus_path, vocab=None, delimiter='\t', target_token=True,
                  bilingual=True, lang_dict={'source': ['fr'], 'target': ['en']}):
         
-        self.empty_line_flag = ''
+        self.empty_line_flag = '__NULL__'
         self.corpus_path = corpus_path
         self.delimiter = delimiter
         self.bilingual = bilingual    
@@ -139,10 +139,20 @@ class MultilingualAlignedCorpusReader(object):
         list1 = dict_['source']
         list2 = dict_['target']
         for sent1, sent2 in zip(list1, list2):
-            if (self.empty_line_flag == sent1.split()[field_index]) or (sent2 == self.empty_line_flag):
+            try:
+                src_sent = ' '.join(sent1.split()[field_index: ])
+            except IndexError:
+                src_sent = '__NULL__'
+            
+            if src_sent.find(self.empty_line_flag) != -1: 
                 continue
-            data_dict['source'].append(sent1)
-            data_dict['target'].append(sent2)
+            
+            elif sent2.find(self.empty_line_flag) != -1:
+                continue
+            
+            else:
+                data_dict['source'].append(sent1)
+                data_dict['target'].append(sent2)
         return data_dict
     
     
@@ -204,7 +214,7 @@ if __name__ == "__main__":
     
     # Testing the code
     data_path = "/home/devendra/Desktop/Neural_MT/scrapped_ted_talks_dataset/web_data_temp"
-    lang_dict={'source': ['fr'], 'target': ['en']}
+    lang_dict={'source': ['es'], 'target': ['en']}
     
     obj = MultilingualAlignedCorpusReader(corpus_path=data_path, lang_dict=lang_dict, target_token=True)
     
