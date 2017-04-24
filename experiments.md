@@ -22,7 +22,7 @@ and `<experiment-name>.err.log` in the current directory.
 |------|-------------|------|---------------|
 | **model_file** | Location to write the model file | str |  |
 | **hyp_file** | Temporary location to write decoded output for evaluation | str |  |
-| eval_metrics | Comma-separated list of evaluation metrics | str | bleu |
+| eval_metrics | Comma-separated list of evaluation metrics (bleu/wer/cer) | str | bleu |
 | **run_for_epochs** | How many epochs to run each test for | int |  |
 | decode_every | Evaluation period in epochs. If set to 0, will never evaluate. | int | 0 |
 
@@ -33,6 +33,7 @@ and `<experiment-name>.err.log` in the current directory.
 |------|-------------|------|---------------|
 | **source_file** | path of input source file to be translated | str |  |
 | input_format | format of input data: text/contvec | str | text |
+| post_process | post-processing of translation outputs: none/join-char/join-bpe | str | none |
 
 ### evaluate
 
