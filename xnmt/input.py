@@ -85,6 +85,7 @@ class ContVecReader(InputReader):
   '''
   Handles the case where sentences are sequences of continuous-space vectors.
   We assume a list of matrices (sentences) serialized as .npz (with numpy.savez_compressed())
+  Sentences should be named arr_0, arr_1, ... (=np default for unnamed archives).
   We can index them as sentences[sent_no][word_ind,feat_ind]
   '''
   def __init__(self):
@@ -92,7 +93,8 @@ class ContVecReader(InputReader):
 
   def read_file(self, filename):
     npzFile = np.load(filename)
-    sentences = map(lambda f:ArraySentence(npzFile[f]), npzFile.files)
+    npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[1]))
+    sentences = map(lambda f:ArraySentence(npzFile[f]), npzKeys)
     npzFile.close()
     return sentences
 
