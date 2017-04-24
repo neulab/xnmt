@@ -90,9 +90,7 @@ class BLEUEvaluator(Evaluator):
         # Precision Score Calculation
         for ngram_type in range(1, self.ngram+1):
             if clipped_ngram_count[ngram_type] == 0:
-                warning_msg = "Count of {}-gram is 0. Will lead to incorrect BLEU scores".format(ngram_type)
-                warnings.warn(warning_msg)
-                break
+                log_precision_score += -1e10
             else:
                 log_precision_score += self.weights[ngram_type-1] * \
                                        math.log(clipped_ngram_count[ngram_type] / candidate_ngram_count[ngram_type])
