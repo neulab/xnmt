@@ -86,14 +86,17 @@ class BLEUEvaluator(Evaluator):
         if clipped_ngram_count[1] == 0:
             return 0.
 
+        frac_score_list = list()
         log_precision_score = 0.
         # Precision Score Calculation
         for ngram_type in range(1, self.ngram+1):
+            frac_score = 0
             if clipped_ngram_count[ngram_type] == 0:
                 log_precision_score += -1e10
             else:
-                log_precision_score += self.weights[ngram_type-1] * \
-                                       math.log(clipped_ngram_count[ngram_type] / candidate_ngram_count[ngram_type])
+                frac_score = clipped_ngram_count[ngram_type] / candidate_ngram_count[ngram_type]
+                log_precision_score += self.weights[ngram_type-1] * math.log(frac_score)
+            frac_score_list.append(str(frac_score))
 
         precision_score = math.exp(log_precision_score)
 
@@ -102,7 +105,13 @@ class BLEUEvaluator(Evaluator):
 
         # BLEU Score
         bleu_score = brevity_penalty_score * precision_score
-        return bleu_score
+
+        return "BLEU = {}, {}(BP = {}, ratio={}, hyp_len={}, ref_len={})".format(bleu_score,
+                                                                                 '/'.join(frac_score_list),
+                                                                                 brevity_penalty_score,
+                                                                                 word_counter['candidate'] / word_counter['reference'],
+                                                                                 word_counter['candidate'],
+                                                                                 word_counter['reference'])
 
     # Doc to be added
     def brevity_penalty(self, r, c):
