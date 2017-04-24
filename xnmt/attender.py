@@ -33,19 +33,17 @@ class StandardAttender(Attender):
 
   def start_sentence(self, sentence):
     self.curr_sentence = sentence
+    I = dy.concatenate_cols(self.curr_sentence)
+    W = dy.parameter(self.pW)
+    b = dy.parameter(self.pb)
+    self.WI = dy.affine_transform([b, W, I])
 
   def calc_attention(self, state):
     # TODO: This can be optimized by pre-computing WI in start_sentence
-    W = dy.parameter(self.pW)
     V = dy.parameter(self.pV)
-    b = dy.parameter(self.pb)
     U = dy.parameter(self.pU)
 
-    I = dy.concatenate_cols(self.curr_sentence)
-    WI = W * I
-    Vsb = dy.affine_transform([b, V, state])
-    Vsb_n = dy.concatenate_cols([Vsb] * len(self.curr_sentence))
-    h = dy.tanh(WI + Vsb_n)
+    h = dy.tanh(dy.colwise_add(self.WI, V * state))
     scores = dy.transpose(U * h)
 
     return dy.softmax(scores)
