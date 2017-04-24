@@ -78,10 +78,10 @@ class XnmtTrainer:
 
     decoder_type = args.decoder_type.lower()
     if decoder_type == "LSTM".lower():
-      self.decoder_builder = dy.LSTMBuilder
+      self.decoder_builder = dy.VanillaLSTMBuilder
     elif decoder_type == "ResidualLSTM".lower():
       self.decoder_builder = lambda num_layers, input_dim, hidden_dim, model: \
-        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.LSTMBuilder, args.residual_to_output)
+        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, args.residual_to_output)
 
     else:
       raise RuntimeError("Unkonwn decoder type {}".format(encoder_type))
@@ -156,6 +156,7 @@ class XnmtTrainer:
     self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.encoder_hidden_dim, self.output_state_dim,
                                      self.output_mlp_hidden_dim,
                                      self.output_embedder, self.model, self.decoder_builder)
+
     self.translator = DefaultTranslator(self.encoder, self.attender, self.decoder)
     self.model_params = ModelParams(self.encoder, self.attender, self.decoder, self.input_reader.vocab.i2w,
                                     self.output_reader.vocab.i2w)
