@@ -187,13 +187,11 @@ class WEREvaluator(Evaluator):
     """
     :return: tuple (levenshtein distance, reference length) 
     """
-    eval_hyp = filter(lambda w:w not in ["<s>", "</s>"], hyp_sent)
     if not self.case_sensitive:
-      eval_hyp = map(lambda w:w.lower(), eval_hyp)
-    eval_ref = filter(lambda w:w not in ["<s>", "</s>"], ref_sent)
+      hyp_sent = map(lambda w:w.lower(), hyp_sent)
     if not self.case_sensitive:
-      eval_ref = map(lambda w:w.lower(), eval_ref)
-    return -self.seq_sim(eval_ref, eval_hyp), len(eval_ref)
+      ref_sent = map(lambda w:w.lower(), ref_sent)
+    return -self.seq_sim(ref_sent, hyp_sent), len(ref_sent)
 
   # gap penalty:
   gapPenalty = -1.0
@@ -218,6 +216,27 @@ class WEREvaluator(Evaluator):
         insert = F[i + 1][j] + self.gapPenalty
         F[i + 1][j + 1] = max(match, delete, insert)
     return F[len(l1)][len(l2)]
+
+class CEREvaluator(object):
+  """
+  A class to evaluate the quality of output in terms of character error rate.
+  """
+  def __init__(self, case_sensitive=False):
+    self.wer_evaluator = WEREvaluator(case_sensitive=case_sensitive)
+
+  def metric_name(self):
+    return "Character error rate"
+
+  def evaluate(self, ref, hyp):
+    """
+    Calculate the quality of output given a references.
+    :param ref: list of list of reference words
+    :param hyp: list of list of decoded words
+    :return: character error rate: (ins+del+sub) / (ref_len)
+    """
+    ref_char = [list("".join(ref_sent)) for ref_sent in ref]
+    hyp_char = [list("".join(hyp_sent)) for hyp_sent in hyp]
+    return self.wer_evaluator.evaluate(ref_char, hyp_char)
 
 
 if __name__ == "__main__":

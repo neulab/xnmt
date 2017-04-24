@@ -1,12 +1,12 @@
 import argparse
 import sys
-from evaluator import BLEUEvaluator, WEREvaluator
+from evaluator import BLEUEvaluator, WEREvaluator, CEREvaluator
 from options import Option, OptionParser
 
 options = [
     Option("ref_file", help="path of the reference file"),
     Option("hyp_file", help="path of the hypothesis target file"),
-    Option("evaluator", default_value="bleu")
+    Option("evaluator", default_value="bleu", help="Evaluation metrics (bleu/wer/cer)")
 ]
 
 
@@ -30,6 +30,8 @@ def xnmt_evaluate(args):
         evaluator = BLEUEvaluator(ngram=4)
     elif args.evaluator == "wer":
         evaluator = WEREvaluator()
+    elif args.evaluator == "cer":
+        evaluator = CEREvaluator()
     else:
         raise RuntimeError("Unkonwn evaluation metric {}".format(args.evaluator))
 
