@@ -57,7 +57,8 @@ class OptionParser:
 
     # Default values as specified in option definitions
     defaults = {
-      task_name: {name: opt.default_value for name, opt in task_options.items() if opt.default_value is not None}
+      task_name: {name: opt.default_value for name, opt in task_options.items() if
+                  opt.default_value is not None or not opt.required}
       for task_name, task_options in self.tasks.items()}
 
     # defaults section in the config file
