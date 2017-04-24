@@ -5,7 +5,8 @@ for an example).
 
 Top-level entries in the file correspond to individual experiments to run. Each
 such entry must have four subsections: `experiment`, `train`, `decode`,
-and `evaluate`. Options for each subsection are listed below.
+and `evaluate`. Options for each subsection are listed below. Options in bold font
+are mandatory.
 
 There can be a special top-level entry named `defaults`; if it is
 present, parameters defined in it will act as defaults for other experiments
@@ -52,7 +53,7 @@ and `<experiment-name>.err.log` in the current directory.
 | **dev_target** |  | str |  |
 | pretrained_model_file | Path of pre-trained model file | str |  |
 | input_format | Format of input data: text/contvec | str | text |
-| default_layer_dim | Default size to use for layers if not otherwise overridden | int | 68 |
+| default_layer_dim | Default size to use for layers if not otherwise overridden | int | 512 |
 | input_word_embed_dim |  | int |  |
 | output_word_embed_dim |  | int |  |
 | output_state_dim |  | int |  |

@@ -31,7 +31,7 @@ options = [
   Option("model_file"),
   Option("pretrained_model_file", default_value="", help="Path of pre-trained model file"),
   Option("input_format", default_value="text", help="Format of input data: text/contvec"),
-  Option("default_layer_dim", int, default_value=68, help="Default size to use for layers if not otherwise overridden"),
+  Option("default_layer_dim", int, default_value=512, help="Default size to use for layers if not otherwise overridden"),
   Option("input_word_embed_dim", int, required=False),
   Option("output_word_embed_dim", int, required=False),
   Option("output_state_dim", int, required=False),
