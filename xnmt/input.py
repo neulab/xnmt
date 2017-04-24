@@ -157,10 +157,10 @@ class MultilingualAlignedCorpusReader(object):
             except IndexError:
                 src_sent = '__NULL__'
             
-            if src_sent.find(self.empty_line_flag) != -1: 
+            if src_sent.find(self.empty_line_flag) != -1 or len(src_sent) == 0: 
                 continue
             
-            elif sent2.find(self.empty_line_flag) != -1:
+            elif sent2.find(self.empty_line_flag) != -1 or len(sent2) == 0:
                 continue
             
             else:
