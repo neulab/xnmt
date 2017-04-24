@@ -12,7 +12,7 @@ from encoder import *
 from decoder import *
 from translator import *
 from model_params import *
-from logger import *
+from loss_tracker import *
 from serializer import *
 from options import Option, OptionParser, general_options
 
@@ -78,10 +78,10 @@ class XnmtTrainer:
 
     decoder_type = args.decoder_type.lower()
     if decoder_type == "LSTM".lower():
-      self.decoder_builder = dy.LSTMBuilder
+      self.decoder_builder = dy.VanillaLSTMBuilder
     elif decoder_type == "ResidualLSTM".lower():
       self.decoder_builder = lambda num_layers, input_dim, hidden_dim, model: \
-        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.LSTMBuilder, args.residual_to_output)
+        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, args.residual_to_output)
 
     else:
       raise RuntimeError("Unkonwn decoder type {}".format(encoder_type))
@@ -91,7 +91,7 @@ class XnmtTrainer:
     # single mode
     if args.batch_size is None or args.batch_size == 1 or args.batch_strategy.lower() == 'none':
       print('Start training in non-minibatch mode...')
-      self.logger = NonBatchLogger(args.eval_every, self.total_train_sent)
+      self.logger = NonBatchLossTracker(args.eval_every, self.total_train_sent)
 
     # minibatch mode
     else:
@@ -103,7 +103,7 @@ class XnmtTrainer:
                                                                              self.train_corpus_target)
       self.dev_corpus_source, self.dev_corpus_target = self.batcher.pack(self.dev_corpus_source,
                                                                          self.dev_corpus_target)
-      self.logger = BatchLogger(args.eval_every, self.total_train_sent)
+      self.logger = BatchLossTracker(args.eval_every, self.total_train_sent)
 
   def create_model(self):
     if self.args.pretrained_model_file:
@@ -153,7 +153,7 @@ class XnmtTrainer:
     # To use a residual decoder:
     # decoder = MlpSoftmaxDecoder(4, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model,
     #                             lambda layers, input_dim, hidden_dim, model,
-    #                               residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.LSTMBuilder))
+    #                               residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder))
 
     self.translator = DefaultTranslator(self.encoder, self.attender, self.decoder)
     self.model_params = ModelParams(self.encoder, self.attender, self.decoder, self.input_reader.vocab.i2w,

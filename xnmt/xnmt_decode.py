@@ -2,9 +2,12 @@
 
 from output import *
 from serializer import *
+import codecs
 import sys
 from options import OptionParser, Option
 
+reload(sys)
+sys.setdefaultencoding('utf8')
 
 '''
 This will be the main class to perform decoding.
@@ -45,7 +48,7 @@ def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization()),
   source_corpus = input_reader.read_file(args.source_file)
 
   # Perform decoding
-  with open(args.target_file, 'w') as fp:  # Saving the translated output to a target file
+  with codecs.open(args.target_file, 'w', 'utf-8') as fp:  # Saving the translated output to a target file
     for src in source_corpus:
       dy.renew_cg()
       token_string = translator.translate(src, search_strategy)

@@ -28,7 +28,7 @@ class BiLSTMEncoder(DefaultEncoder):
   def __init__(self, layers, output_dim, embedder, model):
     self.embedder = embedder
     input_dim = embedder.emb_dim
-    self.encoder = dy.BiRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
+    self.encoder = dy.BiRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder)
     self.serialize_params = [layers, output_dim, embedder, model]
 
 class ResidualLSTMEncoder(DefaultEncoder):
@@ -36,7 +36,7 @@ class ResidualLSTMEncoder(DefaultEncoder):
   def __init__(self, layers, output_dim, embedder, model, residual_to_output=False):
     self.embedder = embedder
     input_dim = embedder.emb_dim
-    self.encoder = residual.ResidualRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder, residual_to_output)
+    self.encoder = residual.ResidualRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
     self.serialize_params = [layers, output_dim, embedder, model]
 
 class ResidualBiLSTMEncoder(DefaultEncoder):
@@ -47,7 +47,7 @@ class ResidualBiLSTMEncoder(DefaultEncoder):
   def __init__(self, layers, output_dim, embedder, model, residual_to_output=False):
     self.embedder = embedder
     input_dim = embedder.emb_dim
-    self.encoder = residual.ResidualBiRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder,
+    self.encoder = residual.ResidualBiRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder,
                                                  residual_to_output)
     self.serialize_params = [layers, output_dim, embedder, model]
 
@@ -56,6 +56,6 @@ class PyramidalBiLSTMEncoder(DefaultEncoder):
   def __init__(self, layers, output_dim, embedder, model):
     self.embedder = embedder
     input_dim = embedder.emb_dim
-    self.encoder = pyramidal.PyramidalRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
+    self.encoder = pyramidal.PyramidalRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder)
     self.serialize_params = [layers, output_dim, embedder, model]
 
