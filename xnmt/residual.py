@@ -6,7 +6,7 @@ from dynet import *
 class PseudoState:
   """
   Emulates a state object for python RNN builders. This allows them to be
-  used with minimal changes in code that uses dy.LSTMBuilder.
+  used with minimal changes in code that uses dy.VanillaLSTMBuilder.
   """
   def __init__(self, network, output=None):
     self.network = network
@@ -41,7 +41,7 @@ class ResidualRNNBuilder:
     @param input_dim: size of the inputs
     @param hidden_dim: size of the outputs (and intermediate layer representations)
     @param model:
-    @param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
+    @param rnn_builder_factory: RNNBuilder subclass, e.g. VanillaLSTMBuilder
     @param add_to_output: whether to add a residual connection to the output layer
     """
     assert num_layers > 0
