@@ -20,7 +20,7 @@ class Decoder:
 class MlpSoftmaxDecoder(Decoder):
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
-  def __init__(self, layers, input_dim, lstm_dim, mlp_hidden_dim, embedder, model, fwd_lstm_builder=dy.LSTMBuilder):
+  def __init__(self, layers, input_dim, lstm_dim, mlp_hidden_dim, embedder, model, fwd_lstm_builder=dy.VanillaLSTMBuilder):
     self.embedder = embedder
     self.input_dim = input_dim
     self.fwd_lstm = fwd_lstm_builder(layers, embedder.emb_dim, lstm_dim, model)
