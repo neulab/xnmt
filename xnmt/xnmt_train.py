@@ -29,14 +29,15 @@ options = [
   Option("dev_source"),
   Option("dev_target"),
   Option("model_file"),
-  Option("pretrained_model_file", default_value="", help="path of pre-trained model file"),
-  Option("input_format", default_value="text", help="format of input data: text/contvec"),
-  Option("input_word_embed_dim", int, default_value=67),
-  Option("output_word_embed_dim", int, default_value=67),
-  Option("output_state_dim", int, default_value=67),
-  Option("attender_hidden_dim", int, default_value=67),
-  Option("output_mlp_hidden_dim", int, default_value=67),
-  Option("encoder_hidden_dim", int, default_value=64),
+  Option("pretrained_model_file", default_value="", help="Path of pre-trained model file"),
+  Option("input_format", default_value="text", help="Format of input data: text/contvec"),
+  Option("default_layer_dim", int, default_value=512, help="Default size to use for layers if not otherwise overridden"),
+  Option("input_word_embed_dim", int, required=False),
+  Option("output_word_embed_dim", int, required=False),
+  Option("output_state_dim", int, required=False),
+  Option("output_mlp_hidden_dim", int, required=False),
+  Option("attender_hidden_dim", int, required=False),
+  Option("encoder_hidden_dim", int, required=False),
   Option("trainer", default_value="sgd"),
   Option("eval_metrics", default_value="bleu"),
   Option("encoder_layers", int, default_value=2),
@@ -52,7 +53,6 @@ class XnmtTrainer:
     dy.renew_cg()
 
     self.args = args  # save for later
-
     self.model = dy.Model()
 
     if args.trainer.lower() == "sgd":
@@ -73,15 +73,17 @@ class XnmtTrainer:
         ResidualBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model, args.residual_to_output)
     elif encoder_type == "PyramidalBiLSTM".lower():
       self.encoder_builder = PyramidalBiLSTMEncoder
+    elif encoder_type == "ConvBiLSTM".lower():
+      self.encoder_builder = ConvBiLSTMEncoder
     else:
       raise RuntimeError("Unkonwn encoder type {}".format(encoder_type))
 
     decoder_type = args.decoder_type.lower()
     if decoder_type == "LSTM".lower():
-      self.decoder_builder = dy.LSTMBuilder
+      self.decoder_builder = dy.VanillaLSTMBuilder
     elif decoder_type == "ResidualLSTM".lower():
       self.decoder_builder = lambda num_layers, input_dim, hidden_dim, model: \
-        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.LSTMBuilder, args.residual_to_output)
+        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, args.residual_to_output)
 
     else:
       raise RuntimeError("Unkonwn decoder type {}".format(encoder_type))
@@ -121,18 +123,25 @@ class XnmtTrainer:
       return
 
     self.model_serializer = JSONSerializer()
-    # Read in training and dev corpora
 
+    # Read in training and dev corpora
     self.input_reader = InputReader.create_input_reader(self.args.input_format)
     self.output_reader = InputReader.create_input_reader("text")
     self.read_data()
-    # Create the translator object and all its subparts
+
+    # Get layer sizes: replace by default if not specified
+    for opt in ["input_word_embed_dim", "output_word_embed_dim", "output_state_dim", "output_mlp_hidden_dim",
+                "encoder_hidden_dim", "attender_hidden_dim"]:
+      if getattr(self.args, opt) is None:
+        setattr(self.args, opt, self.args.default_layer_dim)
+
     self.input_word_emb_dim = self.args.input_word_embed_dim
     self.output_word_emb_dim = self.args.output_word_embed_dim
     self.output_state_dim = self.args.output_state_dim
     self.attender_hidden_dim = self.args.attender_hidden_dim
     self.output_mlp_hidden_dim = self.args.output_mlp_hidden_dim
     self.encoder_hidden_dim = self.args.encoder_hidden_dim
+
 
     if self.args.input_format == "text":
       self.input_embedder = SimpleWordEmbedder(len(self.input_reader.vocab), self.input_word_emb_dim, self.model)
@@ -149,11 +158,6 @@ class XnmtTrainer:
     self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.encoder_hidden_dim, self.output_state_dim,
                                      self.output_mlp_hidden_dim,
                                      self.output_embedder, self.model, self.decoder_builder)
-
-    # To use a residual decoder:
-    # decoder = MlpSoftmaxDecoder(4, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model,
-    #                             lambda layers, input_dim, hidden_dim, model,
-    #                               residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.LSTMBuilder))
 
     self.translator = DefaultTranslator(self.encoder, self.attender, self.decoder)
     self.model_params = ModelParams(self.encoder, self.attender, self.decoder, self.input_reader.vocab.i2w,

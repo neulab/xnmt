@@ -5,7 +5,8 @@ for an example).
 
 Top-level entries in the file correspond to individual experiments to run. Each
 such entry must have four subsections: `experiment`, `train`, `decode`,
-and `evaluate`. Options for each subsection are listed below.
+and `evaluate`. Options for each subsection are listed below. Options in bold font
+are mandatory.
 
 There can be a special top-level entry named `defaults`; if it is
 present, parameters defined in it will act as defaults for other experiments
@@ -25,7 +26,6 @@ and `<experiment-name>.err.log` in the current directory.
 | eval_metrics | Comma-separated list of evaluation metrics | str | bleu |
 | **run_for_epochs** | How many epochs to run each test for | int |  |
 | decode_every | Evaluation period in epochs. If set to 0, will never evaluate. | int | 0 |
-
 
 ### decode
 
@@ -51,13 +51,15 @@ and `<experiment-name>.err.log` in the current directory.
 | **train_target** |  | str |  |
 | **dev_source** |  | str |  |
 | **dev_target** |  | str |  |
-| input_format | format of input data: text/contvec | str | text |
-| input_word_embed_dim |  | int | 67 |
-| output_word_embed_dim |  | int | 67 |
-| output_state_dim |  | int | 67 |
-| attender_hidden_dim |  | int | 67 |
-| output_mlp_hidden_dim |  | int | 67 |
-| encoder_hidden_dim |  | int | 64 |
+| pretrained_model_file | Path of pre-trained model file | str |  |
+| input_format | Format of input data: text/contvec | str | text |
+| default_layer_dim | Default size to use for layers if not otherwise overridden | int | 512 |
+| input_word_embed_dim |  | int |  |
+| output_word_embed_dim |  | int |  |
+| output_state_dim |  | int |  |
+| output_mlp_hidden_dim |  | int |  |
+| attender_hidden_dim |  | int |  |
+| encoder_hidden_dim |  | int |  |
 | trainer |  | str | sgd |
 | eval_metrics |  | str | bleu |
 | encoder_layers |  | int | 2 |

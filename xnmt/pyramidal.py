@@ -8,7 +8,7 @@ class PyramidalRNNBuilder(object):
   
   Every layer (except the first) reduces sequence length by factor 2.  
   
-      builder = PyramidalRNNBuilder(4, 128, 100, model, LSTMBuilder)
+      builder = PyramidalRNNBuilder(4, 128, 100, model, VanillaLSTMBuilder)
       [o1,o2,o3] = builder.transduce([i1,i2,i3])
   """
   def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory):
@@ -17,7 +17,7 @@ class PyramidalRNNBuilder(object):
     @param input_dim: size of the inputs
     @param hidden_dim: size of the outputs (and intermediate layer representations)
     @param model
-    @param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
+    @param rnn_builder_factory: RNNBuilder subclass, e.g. VanillaLSTMBuilder
     """
     assert num_layers > 0
     assert hidden_dim % 2 == 0

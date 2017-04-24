@@ -20,22 +20,30 @@ class Sentence:
   def get_padded_sentence(self, token, pad_len):
     raise NotImplementedError("get_padded_sentence() must be implemented by Sentence subclasses")
 
-class SimpleSentence(list, Sentence):
+class SimpleSentence(Sentence):
+  def __init__(self, l):
+    self.l = l
+  def __len__(self):
+    return self.l.__len__()
+  def __getitem__(self, key):
+    return self.l.__getitem__(key)
   def get_padded_sentence(self, token, pad_len):
-    self.extend([token] * pad_len)
+    self.l.extend([token] * pad_len)
     return self
     
-class ArraySentence(np.ndarray, Sentence):
-  # using idiom from https://docs.scipy.org/doc/numpy/user/basics.subclassing.html
-  def __new__(cls, input_array, info=None):
-    obj = np.asarray(input_array).view(cls)
-    obj.info = info
-    return obj
+class ArraySentence(Sentence):
+  def __init__(self, nparr):
+    self.nparr = nparr
+  def __len__(self):
+    return self.nparr.__len__()
+  def __getitem__(self, key):
+    return self.nparr.__getitem__(key)
   def get_padded_sentence(self, token, pad_len):
-    if pad_len==0:
-      return self
-    else:
-      return np.append(self, np.repeat(token.reshape(1,len(token)), pad_len, axis=0), axis=0)
+    if pad_len>0:
+      self.nparr = np.append(self.nparr, np.repeat(token.reshape(1,len(token)), pad_len, axis=0), axis=0)
+    return self
+  def get_array(self):
+    return self.nparr
 
 class InputReader:
   @staticmethod
@@ -78,6 +86,7 @@ class ContVecReader(InputReader):
   '''
   Handles the case where sentences are sequences of continuous-space vectors.
   We assume a list of matrices (sentences) serialized as .npz (with numpy.savez_compressed())
+  Sentences should be named arr_0, arr_1, ... (=np default for unnamed archives).
   We can index them as sentences[sent_no][word_ind,feat_ind]
   '''
   def __init__(self):
@@ -85,7 +94,8 @@ class ContVecReader(InputReader):
 
   def read_file(self, filename):
     npzFile = np.load(filename)
-    sentences = map(lambda f:ArraySentence(npzFile[f]), npzFile.files)
+    npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[1]))
+    sentences = map(lambda f:ArraySentence(npzFile[f]), npzKeys)
     npzFile.close()
     return sentences
 
