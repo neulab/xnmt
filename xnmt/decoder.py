@@ -36,6 +36,7 @@ class MlpSoftmaxDecoder(Decoder):
 
   def get_scores(self, context):
     mlp_input = dy.concatenate([context, self.state.output()])
+    mlp_input = dy.reshape(mlp_input, (mlp_input.dim()[0][0],))
     scores = self.mlp(mlp_input)
     return scores
 
