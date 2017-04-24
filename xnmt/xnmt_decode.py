@@ -5,9 +5,7 @@ from serializer import *
 import codecs
 import sys
 from options import OptionParser, Option
-
-reload(sys)
-sys.setdefaultencoding('utf8')
+from io import open
 
 '''
 This will be the main class to perform decoding.
@@ -48,19 +46,21 @@ def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization()),
   source_corpus = input_reader.read_file(args.source_file)
 
   # Perform decoding
-  with codecs.open(args.target_file, 'w', 'utf-8') as fp:  # Saving the translated output to a target file
+
+  with open(args.target_file, 'wb') as fp:  # Saving the translated output to a target file
     for src in source_corpus:
       dy.renew_cg()
       token_string = translator.translate(src, search_strategy)
       target_sentence = output_generator.process(token_string)[0]
 
       if isinstance(target_sentence, unicode):
-        target_sentence = target_sentence.encode('utf8', errors='ignore')
+        target_sentence = target_sentence.encode('utf-8', errors='ignore')
 
       else:  # do bytestring -> unicode -> utf8 full circle, to ensure valid utf8
-        target_sentence = unicode(target_sentence, 'utf8', errors='ignore').encode('utf8')
+        #target_sentence = unicode(target_sentence, 'utf-8', errors='ignore').encode('utf-8', errors='ignore')
+        target_sentence = target_sentence.decode('utf-8', errors='ignore').encode('utf-8', errors='ignore')
 
-      fp.write(target_sentence + u'\n')
+      fp.write(target_sentence + '\n')
 
 
 if __name__ == "__main__":
