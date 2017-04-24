@@ -39,7 +39,6 @@ class StandardAttender(Attender):
     self.WI = dy.affine_transform([b, W, I])
 
   def calc_attention(self, state):
-    # TODO: This can be optimized by pre-computing WI in start_sentence
     V = dy.parameter(self.pV)
     U = dy.parameter(self.pU)
 
