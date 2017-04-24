@@ -16,6 +16,22 @@ class Encoder:
   def encode(self, x):
     raise NotImplementedError('encode must be implemented in Encoder subclasses')
 
+  @staticmethod
+  def from_spec(spec, encoder_layers, encoder_hidden_dim, input_embedder, model, residual_to_output):
+    spec_lower = spec.lower()
+    if spec_lower == "bilstm":
+      return BiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model)
+    elif spec_lower == "residuallstm":
+      return ResidualLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model, residual_to_output)
+    elif spec_lower == "residualbilstm":
+      return ResidualBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model, residual_to_output)
+    elif spec_lower == "pyramidalbilstm":
+      return PyramidalBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model)
+    elif spec_lower == "convbilstm":
+      return ConvBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model)
+    else:
+      raise RuntimeError("Unknown encoder type {}".format(encoder_type))
+
 
 class DefaultEncoder(Encoder):
 

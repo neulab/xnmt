@@ -14,6 +14,16 @@ class Embedder:
   def embed(self, x):
     raise NotImplementedError('embed must be implemented in Embedder subclasses')
 
+  @staticmethod
+  def from_spec(input_format, vocab_size, emb_dim, model):
+    input_format_lower = input_format.lower()
+    if input_format_lower == "text":
+      return SimpleWordEmbedder(vocab_size, emb_dim, model)
+    elif input_format_lower == "contvec":
+      return FeatVecNoopEmbedder(emb_dim, model)
+    else:
+      raise RuntimeError("Unknown input type {}".format(input_format))
+
 class EmbeddedSentence():
   '''
   Represents an embedded sentence.
