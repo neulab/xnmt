@@ -50,8 +50,9 @@ class Batcher:
   @staticmethod
   def pad_src_sent(batch, pad_token=Vocab.ES):
     max_len = max([len(pair[Batcher.PAIR_SRC]) for pair in batch])
-    return map(lambda pair: (pair[Batcher.PAIR_SRC].get_padded_sentence(pad_token, max_len - len(pair[Batcher.PAIR_SRC])),
-                             pair[Batcher.PAIR_TRG]),
+    return map(lambda pair:
+               (pair[Batcher.PAIR_SRC].get_padded_sentence(pad_token, max_len - len(pair[Batcher.PAIR_SRC])),
+                pair[Batcher.PAIR_TRG]),
                batch)
 
   @staticmethod
@@ -156,10 +157,9 @@ class WordTargetBucketBatcher(TargetBucketBatcher):
     temp_words = 0
 
     for sent_len, sent_pairs in OrderedDict(buckets).items():
-      # print(sent_len)
       self.bucket_value_sort(sent_pairs)
       for pair in sent_pairs:
-        if temp_words + sent_len > limit_target_words and len(temp_batch)>0:
+        if temp_words + sent_len > limit_target_words and len(temp_batch) > 0:
           result.append(self.pad_sent(temp_batch))
           temp_batch = []
           temp_words = 0
