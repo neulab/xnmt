@@ -29,7 +29,8 @@ class PlainTextOutput(Output):
     for token_list in inputs:
       self.token_string = []
       for token in token_list:
-        self.token_string.append(self.vocab[token])
+        if self.vocab[token] not in ["<s>", "</s>"]:
+          self.token_string.append(self.vocab[token])
     self.token_strings.append(self.to_string())
     return self.token_strings
 

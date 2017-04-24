@@ -189,13 +189,11 @@ class WEREvaluator(Evaluator):
     """
     :return: tuple (levenshtein distance, reference length) 
     """
-    eval_hyp = filter(lambda w:w not in ["<s>", "</s>"], hyp_sent)
     if not self.case_sensitive:
-      eval_hyp = map(lambda w:w.lower(), eval_hyp)
-    eval_ref = filter(lambda w:w not in ["<s>", "</s>"], ref_sent)
+      hyp_sent = map(lambda w:w.lower(), hyp_sent)
     if not self.case_sensitive:
-      eval_ref = map(lambda w:w.lower(), eval_ref)
-    return -self.seq_sim(eval_ref, eval_hyp), len(eval_ref)
+      ref_sent = map(lambda w:w.lower(), ref_sent)
+    return -self.seq_sim(ref_sent, hyp_sent), len(ref_sent)
 
   # gap penalty:
   gapPenalty = -1.0
@@ -238,8 +236,8 @@ class CEREvaluator(object):
     :param hyp: list of list of decoded words
     :return: character error rate: (ins+del+sub) / (ref_len)
     """
-    ref_char = [list("".join(filter(lambda w:w not in ["<s>","</s>"], ref_sent))) for ref_sent in ref]
-    hyp_char = [list("".join(filter(lambda w:w not in ["<s>","</s>"], hyp_sent))) for hyp_sent in hyp]
+    ref_char = [list("".join(ref_sent)) for ref_sent in ref]
+    hyp_char = [list("".join(hyp_sent)) for hyp_sent in hyp]
     return self.wer_evaluator.evaluate(ref_char, hyp_char)
 
 
