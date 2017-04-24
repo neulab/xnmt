@@ -12,7 +12,7 @@ from encoder import *
 from decoder import *
 from translator import *
 from model_params import *
-from logger import *
+from loss_tracker import *
 from serializer import *
 from options import Option, OptionParser, general_options
 
@@ -91,7 +91,7 @@ class XnmtTrainer:
     # single mode
     if args.batch_size is None or args.batch_size == 1 or args.batch_strategy.lower() == 'none':
       print('Start training in non-minibatch mode...')
-      self.logger = NonBatchLogger(args.eval_every, self.total_train_sent)
+      self.logger = NonBatchLossTracker(args.eval_every, self.total_train_sent)
 
     # minibatch mode
     else:
@@ -103,7 +103,7 @@ class XnmtTrainer:
                                                                              self.train_corpus_target)
       self.dev_corpus_source, self.dev_corpus_target = self.batcher.pack(self.dev_corpus_source,
                                                                          self.dev_corpus_target)
-      self.logger = BatchLogger(args.eval_every, self.total_train_sent)
+      self.logger = BatchLossTracker(args.eval_every, self.total_train_sent)
 
   def create_model(self):
     if self.args.pretrained_model_file:
