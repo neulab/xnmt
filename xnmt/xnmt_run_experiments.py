@@ -7,6 +7,7 @@ and <experimentname>.err.log, and reporting on final perplexity metrics.
 import argparse
 import sys
 import xnmt_train, xnmt_decode, xnmt_evaluate
+import six
 from options import OptionParser, Option
 
 
@@ -51,11 +52,12 @@ class Tee:
 
 if __name__ == '__main__':
   argparser = argparse.ArgumentParser()
-  argparser.add_argument('experiments_file')
-  argparser.add_argument('--dynet-mem', type=int)
+  argparser.add_argument("--dynet-mem", type=int)
   argparser.add_argument("--dynet-viz", action='store_true', help="use visualization")
   argparser.add_argument("--dynet-gpu", action='store_true', help="use GPU acceleration")
   argparser.add_argument("--generate-doc", action='store_true', help="Do not run, output documentation instead")
+  argparser.add_argument("experiments_file")
+  argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
   argparser.set_defaults(generate_doc=False)
   args = argparser.parse_args()
 
@@ -85,14 +87,24 @@ if __name__ == '__main__':
   config_parser.add_task("experiment", experiment_options)
 
   if args.generate_doc:
-    print config_parser.generate_options_table()
+    print(config_parser.generate_options_table())
     exit(0)
 
   config = config_parser.args_from_config_file(args.experiments_file)
 
   results = []
 
-  for experiment_name, exp_tasks in config.items():
+  # Check ahead of time that all experiments exist, to avoid bad surprises
+  experiment_names = args.experiment_name or config.keys()
+
+  if args.experiment_name:
+    nonexistent = set(experiment_names).difference(config.keys())
+    if len(nonexistent) != 0:
+      raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
+
+  for experiment_name in experiment_names:
+    exp_tasks = config[experiment_name]
+
     print("=> Running {}".format(experiment_name))
 
     exp_args = exp_tasks["experiment"]
@@ -115,7 +127,7 @@ if __name__ == '__main__':
     xnmt_trainer = xnmt_train.XnmtTrainer(train_args)
 
     eval_scores = "Not evaluated"
-    for i_epoch in xrange(exp_args.run_for_epochs):
+    for i_epoch in six.moves.range(exp_args.run_for_epochs):
       xnmt_trainer.run_epoch()
 
       if exp_args.decode_every != 0 and (i_epoch+1) % exp_args.decode_every == 0:
