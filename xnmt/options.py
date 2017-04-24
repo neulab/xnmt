@@ -65,7 +65,7 @@ class OptionParser:
       for task_name, task_options in config["defaults"].items():
         defaults[task_name].update(
           {name: self.check_and_convert(task_name, name, value) for name, value in task_options.items()})
-    del config["defaults"]
+      del config["defaults"]
 
     experiments = {}
     for exp, exp_tasks in config.items():

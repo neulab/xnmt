@@ -52,7 +52,7 @@ def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization()),
       target_sentence = output_generator.process(token_string)[0]
 
       if isinstance(target_sentence, unicode):
-        target_sentence = target_sentence.encode('utf8')
+        target_sentence = target_sentence.encode('utf8', errors='ignore')
 
       else:  # do bytestring -> unicode -> utf8 full circle, to ensure valid utf8
         target_sentence = unicode(target_sentence, 'utf8', errors='ignore').encode('utf8')

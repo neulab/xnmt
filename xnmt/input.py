@@ -1,4 +1,5 @@
 import numpy as np
+import itertools
 import os
 from collections import defaultdict
 from six.moves import zip
@@ -107,17 +108,19 @@ class MultilingualAlignedCorpusReader(object):
     """Handles the case of reading TED talk files
     """
     
-    def __init__(self, corpus_path, vocab=None, delimiter='\t', target_token=True,
-                 bilingual=True, lang_dict={'source': ['fr'], 'target': ['en']}):
+    def __init__(self, corpus_path, vocab=None, delimiter='\t', target_token=True, bilingual=True,
+                 lang_dict={'source': ['fr'], 'target': ['en']}, zero_shot=False, eval_lang_dict=None):
         
-        self.empty_line_flag = ''
+        self.empty_line_flag = '__NULL__'
         self.corpus_path = corpus_path
         self.delimiter = delimiter
         self.bilingual = bilingual    
         self.lang_dict = lang_dict
         self.lang_set = set()
         self.target_token = target_token
-        
+        self.zero_shot = zero_shot
+        self.eval_lang_dict = eval_lang_dict
+
         for list_ in self.lang_dict.values():
             for lang in list_:
                 self.lang_set.add(lang)
@@ -149,10 +152,20 @@ class MultilingualAlignedCorpusReader(object):
         list1 = dict_['source']
         list2 = dict_['target']
         for sent1, sent2 in zip(list1, list2):
-            if (self.empty_line_flag == sent1.split()[field_index]) or (sent2 == self.empty_line_flag):
+            try:
+                src_sent = ' '.join(sent1.split()[field_index: ])
+            except IndexError:
+                src_sent = '__NULL__'
+            
+            if src_sent.find(self.empty_line_flag) != -1: 
                 continue
-            data_dict['source'].append(sent1)
-            data_dict['target'].append(sent2)
+            
+            elif sent2.find(self.empty_line_flag) != -1:
+                continue
+            
+            else:
+                data_dict['source'].append(sent1)
+                data_dict['target'].append(sent2)
         return data_dict
     
     
@@ -177,10 +190,17 @@ class MultilingualAlignedCorpusReader(object):
         
         split_type_path = os.path.join(self.corpus_path, split_type)
         data_dict = defaultdict(list)
-        
-        for s_lang in self.lang_dict['source']:
-            for t_lang in self.lang_dict['target']:
-        
+
+        if self.zero_shot:
+            if split_type == "train":
+                iterable = zip(self.lang_dict['source'], self.lang_dict['target'])
+            else:
+                iterable = zip(self.eval_lang_dict['source'], self.eval_lang_dict['target'])
+
+        elif self.bilingual:
+            iterable = itertools.product(self.lang_dict['source'], self.lang_dict['target'])
+
+        for s_lang, t_lang in iterable:
                 for talk_dir in os.listdir(split_type_path):
                     dir_path = os.path.join(split_type_path, talk_dir)
 
@@ -211,13 +231,16 @@ class MultilingualAlignedCorpusReader(object):
     
     
 if __name__ == "__main__":
-    
+
     # Testing the code
     data_path = "/home/devendra/Desktop/Neural_MT/scrapped_ted_talks_dataset/web_data_temp"
-    lang_dict={'source': ['fr'], 'target': ['en']}
+    zs_train_lang_dict={'source': ['pt-br', 'en'], 'target': ['en', 'es']}
+    zs_eval_lang_dict = {'source': ['pt-br'], 'target': ['es']}
     
-    obj = MultilingualAlignedCorpusReader(corpus_path=data_path, lang_dict=lang_dict, target_token=True)
-    
+    obj = MultilingualAlignedCorpusReader(corpus_path=data_path, lang_dict=zs_train_lang_dict, target_token=True,
+                                          eval_lang_dict=zs_eval_lang_dict, zero_shot=True, bilingual=False)
+
+
     #source_test_list = obj.read_file(split_type='test', data_type='source')
     #target_test_list = obj.read_file(split_type='test', data_type='target')
     
@@ -227,11 +250,11 @@ if __name__ == "__main__":
     #for sent_s, sent_t in zip(source_test_list, target_test_list):
     #    print sent_s, "\t", sent_t
         
-    obj.save_file("ted_sample/fr.train", split_type='train', data_type='source')
-    obj.save_file("ted_sample/en.train", split_type='train', data_type='target')
+    obj.save_file("../ted_sample/zs_s.train", split_type='train', data_type='source')
+    obj.save_file("../ted_sample/zs_t.train", split_type='train', data_type='target')
     
-    obj.save_file("ted_sample/fr.test", split_type='test', data_type='source')
-    obj.save_file("ted_sample/en.test", split_type='test', data_type='target')
+    obj.save_file("../ted_sample/zs_s.test", split_type='test', data_type='source')
+    obj.save_file("../ted_sample/zs_t.test", split_type='test', data_type='target')
     
-    obj.save_file("ted_sample/fr.dev", split_type='dev', data_type='source')
-    obj.save_file("ted_sample/en.dev", split_type='dev', data_type='target')
+    obj.save_file("../ted_sample/zs_s.dev", split_type='dev', data_type='source')
+    obj.save_file("../ted_sample/zs_t.dev", split_type='dev', data_type='target')

@@ -29,6 +29,7 @@ options = [
   Option("dev_source"),
   Option("dev_target"),
   Option("model_file"),
+  Option("pretrained_model_file", default_value="", help="path of pre-trained model file"),
   Option("input_format", default_value="text", help="format of input data: text/contvec"),
   Option("input_word_embed_dim", int, default_value=67),
   Option("output_word_embed_dim", int, default_value=67),
@@ -63,85 +64,40 @@ class XnmtTrainer:
 
     encoder_type = args.encoder_type.lower()
     if encoder_type == "BiLSTM".lower():
-      encoder_builder = BiLSTMEncoder
+      self.encoder_builder = BiLSTMEncoder
     elif encoder_type == "ResidualLSTM".lower():
-      encoder_builder = lambda encoder_layers, encoder_hidden_dim, input_embedder, model:\
+      self.encoder_builder = lambda encoder_layers, encoder_hidden_dim, input_embedder, model:\
         ResidualLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model, args.residual_to_output)
     elif encoder_type == "ResidualBiLSTM".lower():
-      encoder_builder = lambda encoder_layers, encoder_hidden_dim, input_embedder, model:\
+      self.encoder_builder = lambda encoder_layers, encoder_hidden_dim, input_embedder, model:\
         ResidualBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model, args.residual_to_output)
     elif encoder_type == "PyramidalBiLSTM".lower():
+<<<<<<< HEAD
       encoder_builder = PyramidalBiLSTMEncoder
     elif encoder_type == "ConvBiLSTM".lower():
       encoder_builder = ConvBiLSTMEncoder
+=======
+      self.encoder_builder = PyramidalBiLSTMEncoder
+>>>>>>> master
     else:
       raise RuntimeError("Unkonwn encoder type {}".format(encoder_type))
 
     decoder_type = args.decoder_type.lower()
     if decoder_type == "LSTM".lower():
-      decoder_builder = dy.LSTMBuilder
+      self.decoder_builder = dy.LSTMBuilder
     elif decoder_type == "ResidualLSTM".lower():
-      decoder_builder = lambda num_layers, input_dim, hidden_dim, model: \
+      self.decoder_builder = lambda num_layers, input_dim, hidden_dim, model: \
         residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.LSTMBuilder, args.residual_to_output)
+
     else:
       raise RuntimeError("Unkonwn decoder type {}".format(encoder_type))
 
     # Create the model serializer
-    self.model_serializer = JSONSerializer()
-
-    # Read in training and dev corpora
-    self.input_reader = InputReader.create_input_reader(args.input_format)
-    self.output_reader = InputReader.create_input_reader("text")
-
-    self.train_corpus_source = self.input_reader.read_file(args.train_source)
-    self.train_corpus_target = self.output_reader.read_file(args.train_target)
-    assert len(self.train_corpus_source) == len(self.train_corpus_target)
-    total_train_sent = len(self.train_corpus_source)
-    if args.eval_every == None:
-      args.eval_every = total_train_sent
-
-    self.input_reader.freeze()
-    self.output_reader.freeze()
-
-    self.dev_corpus_source = self.input_reader.read_file(args.dev_source)
-    self.dev_corpus_target = self.output_reader.read_file(args.dev_target)
-    assert len(self.dev_corpus_source) == len(self.dev_corpus_target)
-
-    # Create the translator object and all its subparts
-    self.input_word_emb_dim = args.input_word_embed_dim
-    self.output_word_emb_dim = args.output_word_embed_dim
-    self.output_state_dim = args.output_state_dim
-    self.attender_hidden_dim = args.attender_hidden_dim
-    self.output_mlp_hidden_dim = args.output_mlp_hidden_dim
-    self.encoder_hidden_dim = args.encoder_hidden_dim
-
-    if args.input_format == "text":
-      self.input_embedder = SimpleWordEmbedder(len(self.input_reader.vocab), self.input_word_emb_dim, self.model)
-    elif args.input_format == "contvec":
-      self.input_embedder = FeatVecNoopEmbedder(self.input_word_emb_dim, self.model)
-    else:
-      raise RuntimeError("Unkonwn input type {}".format(args.input_format))
-    self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), self.output_word_emb_dim, self.model)
-    self.encoder = encoder_builder(self.args.encoder_layers, self.encoder_hidden_dim, self.input_embedder, self.model)
-    self.attender = StandardAttender(self.encoder_hidden_dim, self.output_state_dim, self.attender_hidden_dim,
-                                     self.model)
-    self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.encoder_hidden_dim, self.output_state_dim,
-                                     self.output_mlp_hidden_dim,
-                                     self.output_embedder, self.model, decoder_builder)
-
-    # To use a residual decoder:
-    # decoder = MlpSoftmaxDecoder(4, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model,
-    #                             lambda layers, input_dim, hidden_dim, model,
-    #                               residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.LSTMBuilder))
-
-    self.translator = DefaultTranslator(self.encoder, self.attender, self.decoder)
-    self.model_params = ModelParams(self.encoder, self.attender, self.decoder, self.input_reader.vocab.i2w,
-                                    self.output_reader.vocab.i2w)
-
+    self.create_model()
     # single mode
     if args.batch_size is None or args.batch_size == 1 or args.batch_strategy.lower() == 'none':
       print('Start training in non-minibatch mode...')
-      self.logger = NonBatchLogger(args.eval_every, total_train_sent)
+      self.logger = NonBatchLogger(args.eval_every, self.total_train_sent)
 
     # minibatch mode
     else:
@@ -153,7 +109,79 @@ class XnmtTrainer:
                                                                              self.train_corpus_target)
       self.dev_corpus_source, self.dev_corpus_target = self.batcher.pack(self.dev_corpus_source,
                                                                          self.dev_corpus_target)
-      self.logger = BatchLogger(args.eval_every, total_train_sent)
+      self.logger = BatchLogger(args.eval_every, self.total_train_sent)
+
+  def create_model(self):
+    if self.args.pretrained_model_file:
+      self.model_serializer = JSONSerializer()
+      self.model_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, self.model)
+      source_vocab = Vocab(self.model_params.source_vocab)
+      target_vocab = Vocab(self.model_params.target_vocab)
+      self.encoder = self.model_params.encoder
+      self.attender = self.model_params.attender
+      self.decoder = self.model_params.decoder
+      self.translator = DefaultTranslator(self.encoder, self.attender, self.decoder)
+      self.input_reader = InputReader.create_input_reader(self.args.input_format, source_vocab)
+      self.output_reader = InputReader.create_input_reader("text", target_vocab)
+      self.read_data()
+      return
+
+    self.model_serializer = JSONSerializer()
+    # Read in training and dev corpora
+
+    self.input_reader = InputReader.create_input_reader(self.args.input_format)
+    self.output_reader = InputReader.create_input_reader("text")
+    self.read_data()
+    # Create the translator object and all its subparts
+    self.input_word_emb_dim = self.args.input_word_embed_dim
+    self.output_word_emb_dim = self.args.output_word_embed_dim
+    self.output_state_dim = self.args.output_state_dim
+    self.attender_hidden_dim = self.args.attender_hidden_dim
+    self.output_mlp_hidden_dim = self.args.output_mlp_hidden_dim
+    self.encoder_hidden_dim = self.args.encoder_hidden_dim
+
+    if self.args.input_format == "text":
+      self.input_embedder = SimpleWordEmbedder(len(self.input_reader.vocab), self.input_word_emb_dim, self.model)
+    elif self.args.input_format == "contvec":
+      self.input_embedder = FeatVecNoopEmbedder(self.input_word_emb_dim, self.model)
+    else:
+      raise RuntimeError("Unkonwn input type {}".format(self.args.input_format))
+
+
+    self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), self.output_word_emb_dim, self.model)
+    self.encoder = self.encoder_builder(self.args.encoder_layers, self.encoder_hidden_dim, self.input_embedder, self.model)
+    self.attender = StandardAttender(self.encoder_hidden_dim, self.output_state_dim, self.attender_hidden_dim,
+                                     self.model)
+    self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.encoder_hidden_dim, self.output_state_dim,
+                                     self.output_mlp_hidden_dim,
+                                     self.output_embedder, self.model, self.decoder_builder)
+
+    # To use a residual decoder:
+    # decoder = MlpSoftmaxDecoder(4, encoder_hidden_dim, output_state_dim, output_mlp_hidden_dim, output_embedder, model,
+    #                             lambda layers, input_dim, hidden_dim, model,
+    #                               residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.LSTMBuilder))
+
+    self.translator = DefaultTranslator(self.encoder, self.attender, self.decoder)
+    self.model_params = ModelParams(self.encoder, self.attender, self.decoder, self.input_reader.vocab.i2w,
+                                    self.output_reader.vocab.i2w)
+
+
+
+  def read_data(self):
+    self.train_corpus_source = self.input_reader.read_file(self.args.train_source)
+    self.train_corpus_target = self.output_reader.read_file(self.args.train_target)
+    assert len(self.train_corpus_source) == len(self.train_corpus_target)
+    self.total_train_sent = len(self.train_corpus_source)
+    if self.args.eval_every == None:
+      self.args.eval_every = self.total_train_sent
+
+    self.input_reader.freeze()
+    self.output_reader.freeze()
+
+    self.dev_corpus_source = self.input_reader.read_file(self.args.dev_source)
+    self.dev_corpus_target = self.output_reader.read_file(self.args.dev_target)
+    assert len(self.dev_corpus_source) == len(self.dev_corpus_target)
+
 
   def run_epoch(self):
     self.logger.new_epoch()
