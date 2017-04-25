@@ -16,14 +16,28 @@ class Decoder:
   def calc_loss(self, x, ref_action):
     raise NotImplementedError('calc_loss must be implemented in Decoder subclasses')
 
+  @staticmethod
+  def rnn_from_spec(spec, num_layers, input_dim, hidden_dim, model, residual_to_output):
+    decoder_type = spec.lower()
+    if decoder_type == "lstm":
+      return dy.VanillaLSTMBuilder(num_layers, input_dim, hidden_dim, model)
+    elif decoder_type == "residuallstm":
+      return residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
+    else:
+      raise RuntimeError("Unknown decoder type {}".format(spec))
+
 
 class MlpSoftmaxDecoder(Decoder):
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
-  def __init__(self, layers, input_dim, lstm_dim, mlp_hidden_dim, embedder, model, fwd_lstm_builder=dy.VanillaLSTMBuilder):
+  def __init__(self, layers, input_dim, lstm_dim, mlp_hidden_dim, embedder, model,
+               fwd_lstm=None):
     self.embedder = embedder
     self.input_dim = input_dim
-    self.fwd_lstm = fwd_lstm_builder(layers, embedder.emb_dim, lstm_dim, model)
+    if fwd_lstm == None:
+      fwd_lstm = dy.VanillaLSTMBuilder(layers, input_dim, lstm_dim, model)
+    else:
+      self.fwd_lstm = fwd_lstm
     self.mlp = MLP(input_dim + lstm_dim, mlp_hidden_dim, embedder.vocab_size, model)
     self.state = None
     self.serialize_params = [layers, input_dim, lstm_dim, mlp_hidden_dim, embedder, model]

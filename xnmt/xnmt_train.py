@@ -62,32 +62,6 @@ class XnmtTrainer:
     else:
       raise RuntimeError("Unkonwn trainer {}".format(args.trainer))
 
-    encoder_type = args.encoder_type.lower()
-    if encoder_type == "BiLSTM".lower():
-      self.encoder_builder = BiLSTMEncoder
-    elif encoder_type == "ResidualLSTM".lower():
-      self.encoder_builder = lambda encoder_layers, encoder_hidden_dim, input_embedder, model:\
-        ResidualLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model, args.residual_to_output)
-    elif encoder_type == "ResidualBiLSTM".lower():
-      self.encoder_builder = lambda encoder_layers, encoder_hidden_dim, input_embedder, model:\
-        ResidualBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model, args.residual_to_output)
-    elif encoder_type == "PyramidalBiLSTM".lower():
-      self.encoder_builder = PyramidalBiLSTMEncoder
-    elif encoder_type == "ConvBiLSTM".lower():
-      self.encoder_builder = ConvBiLSTMEncoder
-    else:
-      raise RuntimeError("Unkonwn encoder type {}".format(encoder_type))
-
-    decoder_type = args.decoder_type.lower()
-    if decoder_type == "LSTM".lower():
-      self.decoder_builder = dy.VanillaLSTMBuilder
-    elif decoder_type == "ResidualLSTM".lower():
-      self.decoder_builder = lambda num_layers, input_dim, hidden_dim, model: \
-        residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, args.residual_to_output)
-
-    else:
-      raise RuntimeError("Unkonwn decoder type {}".format(encoder_type))
-
     # Create the model serializer
     self.create_model()
     # single mode
@@ -142,22 +116,22 @@ class XnmtTrainer:
     self.output_mlp_hidden_dim = self.args.output_mlp_hidden_dim
     self.encoder_hidden_dim = self.args.encoder_hidden_dim
 
-
-    if self.args.input_format == "text":
-      self.input_embedder = SimpleWordEmbedder(len(self.input_reader.vocab), self.input_word_emb_dim, self.model)
-    elif self.args.input_format == "contvec":
-      self.input_embedder = FeatVecNoopEmbedder(self.input_word_emb_dim, self.model)
-    else:
-      raise RuntimeError("Unkonwn input type {}".format(self.args.input_format))
-
+    self.input_embedder = Embedder.from_spec(self.args.input_format, len(self.input_reader.vocab),
+                                             self.input_word_emb_dim, self.model)
 
     self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), self.output_word_emb_dim, self.model)
-    self.encoder = self.encoder_builder(self.args.encoder_layers, self.encoder_hidden_dim, self.input_embedder, self.model)
+
+    self.encoder = Encoder.from_spec(self.args.encoder_type, self.args.encoder_layers, self.encoder_hidden_dim,
+                                     self.input_embedder, self.model, self.args.residual_to_output)
+
     self.attender = StandardAttender(self.encoder_hidden_dim, self.output_state_dim, self.attender_hidden_dim,
                                      self.model)
+
+    decoder_rnn = Decoder.rnn_from_spec(self.args.decoder_type, self.args.decoder_layers, self.encoder_hidden_dim,
+                                        self.output_state_dim, self.model, self.args.residual_to_output)
     self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.encoder_hidden_dim, self.output_state_dim,
                                      self.output_mlp_hidden_dim,
-                                     self.output_embedder, self.model, self.decoder_builder)
+                                     self.output_embedder, self.model, decoder_rnn)
 
     self.translator = DefaultTranslator(self.encoder, self.attender, self.decoder)
     self.model_params = ModelParams(self.encoder, self.attender, self.decoder, self.input_reader.vocab.i2w,
