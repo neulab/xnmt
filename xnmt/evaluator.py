@@ -106,12 +106,12 @@ class BLEUEvaluator(Evaluator):
         # BLEU Score
         bleu_score = brevity_penalty_score * precision_score
 
-        return "BLEU = {}, {}(BP = {}, ratio={}, hyp_len={}, ref_len={})".format(bleu_score,
-                                                                                 '/'.join(frac_score_list),
-                                                                                 brevity_penalty_score,
-                                                                                 word_counter['candidate'] / word_counter['reference'],
-                                                                                 word_counter['candidate'],
-                                                                                 word_counter['reference'])
+        return "{}, {}(BP = {}, ratio={}, hyp_len={}, ref_len={})".format(bleu_score,
+                                                                          '/'.join(frac_score_list),
+                                                                          brevity_penalty_score,
+                                                                          word_counter['candidate'] / word_counter['reference'],
+                                                                          word_counter['candidate'],
+                                                                          word_counter['reference'])
 
     # Doc to be added
     def brevity_penalty(self, r, c):
