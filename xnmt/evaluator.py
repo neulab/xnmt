@@ -1,45 +1,42 @@
 from __future__ import division, generators
-
 import numpy as np
 from collections import defaultdict, Counter
 import math
-import warnings
 
 
 class Evaluator(object):
-  """
+    """
   A class to evaluate the quality of output.
   """
 
-  def evaluate(self, ref, hyp):
-    """
+    def evaluate(self, ref, hyp):
+        """
     Calculate the quality of output given a references.
-    :param ref:
-    :param hyp:
+    :param ref: list of reference sentences ( a sentence is a list of tokens )
+    :param hyp: list of hypothesis sentences ( a sentence is a list of tokens )
     :return:
     """
-    raise NotImplementedError('evaluate must be implemented in Evaluator subclasses')
+        raise NotImplementedError('evaluate must be implemented in Evaluator subclasses')
 
-  def metric_name(self):
-    """
+    def metric_name(self):
+        """
     :return: a string
     """
-    raise NotImplementedError('metric_name must be implemented in Evaluator subclasses')
+        raise NotImplementedError('metric_name must be implemented in Evaluator subclasses')
 
 
 class BLEUEvaluator(Evaluator):
-    # Doc to be added
+    # Class for computing BLEU Scores accroding to
+    # K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
     def __init__(self, ngram=4):
         """
-        :param ref_corpus:
-        :param can_corpus:
-        :param ngram:
+        :param ngram: default value of 4 is generally used
         """
         self.ngram = ngram
-        self.weights = (1/ngram) * np.ones(ngram, dtype=np.float32)
+        self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
         self.reference_corpus = None
         self.candidate_corpus = None
-    
+
     def metric_name(self):
         return "BLEU score"
 
@@ -47,15 +44,15 @@ class BLEUEvaluator(Evaluator):
     def evaluate(self, ref, hyp):
         """
         :rtype: object
-        :param ref:
-        :param hyp:
-        :return:
-        :return:
+        :param ref: list of reference sentences ( a sentence is a list of tokens )
+        :param hyp: list of hypothesis sentences ( a sentence is a list of tokens )
+        :return: Formatted string having BLEU Score with different intermediate results such as ngram ratio,
+        sentence length, brevity penalty
         """
         self.reference_corpus = ref
         self.candidate_corpus = hyp
 
-        assert(len(self.reference_corpus) == len(self.candidate_corpus)), \
+        assert (len(self.reference_corpus) == len(self.candidate_corpus)), \
             "Length of Reference Corpus and Candidate Corpus should be same"
 
         # Modified Precision Score
@@ -75,7 +72,7 @@ class BLEUEvaluator(Evaluator):
                 if ngram_type in clip_count_dict:
                     clipped_ngram_count[ngram_type] += sum(clip_count_dict[ngram_type].values())
                 else:
-                    clipped_ngram_count[ngram_type] += 0. # This line may not be required
+                    clipped_ngram_count[ngram_type] += 0.  # This line may not be required
 
                 candidate_ngram_count[ngram_type] += sum(full_count_dict[ngram_type].values())
 
@@ -89,13 +86,13 @@ class BLEUEvaluator(Evaluator):
         frac_score_list = list()
         log_precision_score = 0.
         # Precision Score Calculation
-        for ngram_type in range(1, self.ngram+1):
+        for ngram_type in range(1, self.ngram + 1):
             frac_score = 0
             if clipped_ngram_count[ngram_type] == 0:
                 log_precision_score += -1e10
             else:
                 frac_score = clipped_ngram_count[ngram_type] / candidate_ngram_count[ngram_type]
-                log_precision_score += self.weights[ngram_type-1] * math.log(frac_score)
+                log_precision_score += self.weights[ngram_type - 1] * math.log(frac_score)
             frac_score_list.append(str(frac_score))
 
         precision_score = math.exp(log_precision_score)
@@ -109,16 +106,17 @@ class BLEUEvaluator(Evaluator):
         return "{}, {}(BP = {}, ratio={}, hyp_len={}, ref_len={})".format(bleu_score,
                                                                           '/'.join(frac_score_list),
                                                                           brevity_penalty_score,
-                                                                          word_counter['candidate'] / word_counter['reference'],
+                                                                          word_counter['candidate'] / word_counter[
+                                                                              'reference'],
                                                                           word_counter['candidate'],
                                                                           word_counter['reference'])
 
     # Doc to be added
     def brevity_penalty(self, r, c):
         """
-        :param r:
-        :param c:
-        :return:
+        :param r: number of words in reference corpus
+        :param c: number of words in candidate corpus
+        :return: brevity penalty score
         """
 
         penalty = 1.
@@ -151,12 +149,12 @@ class BLEUEvaluator(Evaluator):
 
         return ngram_count
 
-    # Doc to be added
     def modified_precision(self, reference_sentence, candidate_sentence):
         """
-        :param reference_sentence:
-        :param candidate_sentence:
-        :return:
+        Computes counts useful in modified precision calculations
+        :param reference_sentence: iterable of tokens
+        :param candidate_sentence: iterable of tokens
+        :return: tuple of Counter objects
         """
 
         clipped_ngram_count = defaultdict(Counter)
@@ -169,87 +167,93 @@ class BLEUEvaluator(Evaluator):
 
         return clipped_ngram_count, candidate_ngram_count
 
+
 class WEREvaluator(Evaluator):
-  """
+    """
   A class to evaluate the quality of output in terms of word error rate.
   """
-  def __init__(self, case_sensitive=False):
-    self.case_sensitive = case_sensitive
 
-  def metric_name(self):
-    return "Word error rate"
+    def __init__(self, case_sensitive=False):
+        self.case_sensitive = case_sensitive
 
-  def evaluate(self, ref, hyp):
-    """
+    def metric_name(self):
+        return "Word error rate"
+
+    def evaluate(self, ref, hyp):
+        """
     Calculate the word error rate of output given a references.
     :param ref: list of list of reference words
     :param hyp: list of list of decoded words
     :return: word error rate: (ins+del+sub) / (ref_len)
     """
-    total_dist, total_ref_len = 0, 0
-    for ref_sent, hyp_sent in zip(ref, hyp):
-      dist, ref_len = self.dist_one_pair(ref_sent, hyp_sent)
-      total_dist += dist
-      total_ref_len += ref_len
-    return float(total_dist) / total_ref_len
-  def dist_one_pair(self, ref_sent, hyp_sent):
-    """
+        total_dist, total_ref_len = 0, 0
+        for ref_sent, hyp_sent in zip(ref, hyp):
+            dist, ref_len = self.dist_one_pair(ref_sent, hyp_sent)
+            total_dist += dist
+            total_ref_len += ref_len
+        return float(total_dist) / total_ref_len
+
+    def dist_one_pair(self, ref_sent, hyp_sent):
+        """
     :return: tuple (levenshtein distance, reference length) 
     """
-    if not self.case_sensitive:
-      hyp_sent = map(lambda w:w.lower(), hyp_sent)
-    if not self.case_sensitive:
-      ref_sent = map(lambda w:w.lower(), ref_sent)
-    return -self.seq_sim(ref_sent, hyp_sent), len(ref_sent)
+        if not self.case_sensitive:
+            hyp_sent = map(lambda w: w.lower(), hyp_sent)
+        if not self.case_sensitive:
+            ref_sent = map(lambda w: w.lower(), ref_sent)
+        return -self.seq_sim(ref_sent, hyp_sent), len(ref_sent)
 
-  # gap penalty:
-  gapPenalty = -1.0
-  gapSymbol = None
+    # gap penalty:
+    gapPenalty = -1.0
+    gapSymbol = None
 
-  # similarity function:
-  def sim(self, word1, word2):
-    if word1 == word2: return 0
-    else: return -1
+    # similarity function:
+    def sim(self, word1, word2):
+        if word1 == word2:
+            return 0
+        else:
+            return -1
 
-  def seq_sim(self, l1, l2):
-    # compute matrix
-    F = [[0] * (len(l2) + 1) for i in xrange((len(l1) + 1))]
-    for i in range(len(l1) + 1):
-      F[i][0] = i * self.gapPenalty
-    for j in range(len(l2) + 1):
-      F[0][j] = j * self.gapPenalty
-    for i in range(0, len(l1)):
-      for j in range(0, len(l2)):
-        match = F[i][j] + self.sim(l1[i], l2[j])
-        delete = F[i][j + 1] + self.gapPenalty
-        insert = F[i + 1][j] + self.gapPenalty
-        F[i + 1][j + 1] = max(match, delete, insert)
-    return F[len(l1)][len(l2)]
+    def seq_sim(self, l1, l2):
+        # compute matrix
+        F = [[0] * (len(l2) + 1) for i in xrange((len(l1) + 1))]
+        for i in range(len(l1) + 1):
+            F[i][0] = i * self.gapPenalty
+        for j in range(len(l2) + 1):
+            F[0][j] = j * self.gapPenalty
+        for i in range(0, len(l1)):
+            for j in range(0, len(l2)):
+                match = F[i][j] + self.sim(l1[i], l2[j])
+                delete = F[i][j + 1] + self.gapPenalty
+                insert = F[i + 1][j] + self.gapPenalty
+                F[i + 1][j + 1] = max(match, delete, insert)
+        return F[len(l1)][len(l2)]
+
 
 class CEREvaluator(object):
-  """
+    """
   A class to evaluate the quality of output in terms of character error rate.
   """
-  def __init__(self, case_sensitive=False):
-    self.wer_evaluator = WEREvaluator(case_sensitive=case_sensitive)
 
-  def metric_name(self):
-    return "Character error rate"
+    def __init__(self, case_sensitive=False):
+        self.wer_evaluator = WEREvaluator(case_sensitive=case_sensitive)
 
-  def evaluate(self, ref, hyp):
-    """
+    def metric_name(self):
+        return "Character error rate"
+
+    def evaluate(self, ref, hyp):
+        """
     Calculate the quality of output given a references.
     :param ref: list of list of reference words
     :param hyp: list of list of decoded words
     :return: character error rate: (ins+del+sub) / (ref_len)
     """
-    ref_char = [list("".join(ref_sent)) for ref_sent in ref]
-    hyp_char = [list("".join(hyp_sent)) for hyp_sent in hyp]
-    return self.wer_evaluator.evaluate(ref_char, hyp_char)
+        ref_char = [list("".join(ref_sent)) for ref_sent in ref]
+        hyp_char = [list("".join(hyp_sent)) for hyp_sent in hyp]
+        return self.wer_evaluator.evaluate(ref_char, hyp_char)
 
 
 if __name__ == "__main__":
-
     # Example 1
     reference1 = "It is a guide to action that ensures that the military will forever heed Party commands".split()
     candidate1 = "It is a guide to action which ensures that the military always obeys the commands of the party".split()
