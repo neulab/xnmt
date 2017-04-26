@@ -93,7 +93,7 @@ class PyramidalRNNBuilder(object):
       fs = fb.initial_state().transduce(es)
       bs = bb.initial_state().transduce(reversed(es))
       if layer_i < len(self.builder_layers) - 1:
-        es = [concatenate([f, b]) for f, b in zip(fs[::2], bs[::2][:-1])]
+        es = [concatenate([f, b]) for f, b in zip(fs[::2], bs[::2][::-1])]
       else:
         es = [concatenate([f, b]) for f, b in zip(fs, reversed(bs))]
     return es
