@@ -3,7 +3,7 @@ from batcher import *
 import residual
 import pyramidal
 import conv_encoder
-from embedder import NoopEmbedder
+from embedder import NoopEmbedder, ListExpressionSequence
 
 class Encoder:
   '''
@@ -15,6 +15,7 @@ class Encoder:
   '''
 
   def encode(self, x):
+    # TODO: this should probably return an ExpressionSequence rather than a list of expressions
     raise NotImplementedError('encode must be implemented in Encoder subclasses')
 
   @staticmethod
@@ -31,8 +32,11 @@ class Encoder:
     elif spec_lower == "convbilstm":
       return ConvBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model)
     elif spec_lower == "modular":
-      return ModularEncoder([PyramidalBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model),
-                             BiLSTMEncoder(encoder_layers, encoder_hidden_dim, NoopEmbedder(encoder_hidden_dim, model), model)],
+      # example for a modular encoder: stacked pyramidal encoder, followed by stacked LSTM 
+      return ModularEncoder([
+                             PyramidalBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model),
+                             BiLSTMEncoder(encoder_layers, encoder_hidden_dim, NoopEmbedder(encoder_hidden_dim, model), model),
+                             ],
                             model
                             )
     else:
@@ -96,6 +100,8 @@ class ModularEncoder(Encoder):
     self.serialize_params = [model, ]
 
   def encode(self, sentence):
-    for module in self.module_list:
+    for i, module in enumerate(self.module_list):
       sentence = module.encode(sentence)
+      if i<len(self.module_list)-1:
+        sentence = ListExpressionSequence(sentence)
     return sentence

@@ -1,7 +1,7 @@
 import math
 import dynet as dy
 from residual import PseudoState
-from embedder import TensorExprEmbeddedSentence
+from embedder import TensorExpressionSequence
 
 class ConvBiRNNBuilder(object):
   """
@@ -59,8 +59,8 @@ class ConvBiRNNBuilder(object):
       bb.disable_dropout()
 
   def transduce(self, es):
-    if isinstance(es, TensorExprEmbeddedSentence):
-      es_expr = es.get_tensor_repr()
+    if isinstance(es, TensorExpressionSequence):
+      es_expr = es.as_tensor()
     else:
       es_expr = dy.concatenate(map(lambda v: dy.transpose(v), es))
 
