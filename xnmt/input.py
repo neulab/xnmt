@@ -1,6 +1,7 @@
 import numpy as np
 import itertools
 import os
+import csv
 from collections import defaultdict
 from six.moves import zip
 from vocab import *
@@ -108,10 +109,10 @@ class MultilingualAlignedCorpusReader(object):
     """Handles the case of reading TED talk files
     """
     
-    def __init__(self, corpus_path, vocab=None, delimiter='\t', target_token=True, bilingual=True,
+    def __init__(self, corpus_path, vocab=None, delimiter='\t', target_token=True, bilingual=True, corpus_type='file',
                  lang_dict={'source': ['fr'], 'target': ['en']}, zero_shot=False, eval_lang_dict=None):
         
-        self.empty_line_flag = '__NULL__'
+        self.empty_line_flag = 'NULL'
         self.corpus_path = corpus_path
         self.delimiter = delimiter
         self.bilingual = bilingual    
@@ -120,6 +121,7 @@ class MultilingualAlignedCorpusReader(object):
         self.target_token = target_token
         self.zero_shot = zero_shot
         self.eval_lang_dict = eval_lang_dict
+        self.corpus_type = corpus_type
 
         for list_ in self.lang_dict.values():
             for lang in list_:
@@ -155,9 +157,9 @@ class MultilingualAlignedCorpusReader(object):
             try:
                 src_sent = ' '.join(sent1.split()[field_index: ])
             except IndexError:
-                src_sent = '__NULL__'
+                src_sent = 'NULL'
             
-            if src_sent.find(self.empty_line_flag) != -1 or len(src_sent) == 0: 
+            if src_sent.find(self.empty_line_flag) != -1 or len(src_sent) == 0:
                 continue
             
             elif sent2.find(self.empty_line_flag) != -1 or len(sent2) == 0:
@@ -185,11 +187,59 @@ class MultilingualAlignedCorpusReader(object):
         for sent in list_:
             new_list.append(token + ' ' + sent)
         return new_list
-    
-    def read_aligned_corpus(self, split_type='train'):
-        
-        split_type_path = os.path.join(self.corpus_path, split_type)
+
+
+    def read_from_single_file(self, path_, s_lang, t_lang):
         data_dict = defaultdict(list)
+        with open(path_, 'rb') as fp:
+            reader = csv.DictReader(fp, delimiter='\t', quoting=csv.QUOTE_NONE)
+            for row in reader:
+                data_dict['source'].append(row[s_lang])
+                data_dict['target'].append(row[t_lang])
+
+        if self.target_token:
+            text = self.add_target_token(data_dict['source'], t_lang)
+            data_dict['source'] = text
+
+        return data_dict['source'], data_dict['target']
+
+
+    def read_from_directory(self, path_, s_lang, t_lang):
+        data_dict = defaultdict(list)
+
+        for talk_dir in os.listdir(path_):
+            dir_path = os.path.join(path_, talk_dir)
+
+            talk_lang_set = set([l.split('.')[0] for l in os.listdir(dir_path)])
+
+            if s_lang not in talk_lang_set or t_lang not in talk_lang_set:
+                continue
+
+            for infile in os.listdir(dir_path):
+                lang = os.path.splitext(infile)[0]
+
+                if lang in self.lang_set:
+                    file_path = os.path.join(dir_path, infile)
+                    text = self.read_data(file_path)
+
+                    if lang == s_lang:
+                        if self.target_token:
+                            text = self.add_target_token(text, t_lang)
+                            data_dict['source'] += text
+                        else:
+                            data_dict['source'] += text
+
+                    elif lang == t_lang:
+                        data_dict['target'] += text
+
+        return data_dict['source'], data_dict['target']
+
+
+    def read_aligned_corpus(self, split_type='train'):
+        data_dict = defaultdict(list)
+        iterable = []
+        s_list = []
+        t_list = []
 
         if self.zero_shot:
             if split_type == "train":
@@ -201,31 +251,17 @@ class MultilingualAlignedCorpusReader(object):
             iterable = itertools.product(self.lang_dict['source'], self.lang_dict['target'])
 
         for s_lang, t_lang in iterable:
-                for talk_dir in os.listdir(split_type_path):
-                    dir_path = os.path.join(split_type_path, talk_dir)
+            if self.corpus_type == 'directory':
+                split_type_path = os.path.join(self.corpus_path, split_type)
+                s_list, t_list = self.read_from_directory(split_type_path, s_lang=s_lang, t_lang=t_lang)
 
-                    talk_lang_set = set([l.split('.')[0] for l in os.listdir(dir_path)])
+            elif self.corpus_type == 'file':
+                split_type_file_path = os.path.join(self.corpus_path, "all_talks_{}.tsv".format(split_type))
+                s_list, t_list = self.read_from_single_file(split_type_file_path, s_lang=s_lang, t_lang=t_lang)
 
-                    if s_lang not in talk_lang_set or t_lang not in talk_lang_set:
-                        continue
+            data_dict['source'] += s_list
+            data_dict['target'] += t_list
 
-                    for infile in os.listdir(dir_path):
-                        lang = os.path.splitext(infile)[0]
-
-                        if lang in self.lang_set:
-                            file_path = os.path.join(dir_path, infile)
-                            text = self.read_data(file_path)
-                            
-                            if lang == s_lang:
-                                if self.target_token:
-                                    text = self.add_target_token(text, t_lang)
-                                    data_dict['source'] += text
-                                else:
-                                    data_dict['source'] += text
-                            
-                            elif lang == t_lang:
-                                data_dict['target'] += text
-        
         new_data_dict = self.filter_text(data_dict)    
         return new_data_dict
     
@@ -233,28 +269,21 @@ class MultilingualAlignedCorpusReader(object):
 if __name__ == "__main__":
 
     # Testing the code
-    data_path = "/home/devendra/Desktop/Neural_MT/scrapped_ted_talks_dataset/web_data_temp"
+    data_path = "/home/devendra/Desktop/Neural_MT/scrapped_ted_talks_dataset/single_file_all_talks"
+    #data_path = "/home/devendra/Desktop/Neural_MT/scrapped_ted_talks_dataset/web_data_temp"
+
     zs_train_lang_dict={'source': ['pt-br', 'en'], 'target': ['en', 'es']}
     zs_eval_lang_dict = {'source': ['pt-br'], 'target': ['es']}
     
     obj = MultilingualAlignedCorpusReader(corpus_path=data_path, lang_dict=zs_train_lang_dict, target_token=True,
-                                          eval_lang_dict=zs_eval_lang_dict, zero_shot=True, bilingual=False)
+                                          corpus_type='file', eval_lang_dict=zs_eval_lang_dict, zero_shot=True,
+                                          bilingual=False)
 
-
-    #source_test_list = obj.read_file(split_type='test', data_type='source')
-    #target_test_list = obj.read_file(split_type='test', data_type='target')
+    obj.save_file("../ted_sample_one_file/zs_s.train", split_type='train', data_type='source')
+    obj.save_file("../ted_sample_one_file/zs_t.train", split_type='train', data_type='target')
     
-    #print len(source_test_list)
-    #print len(target_test_list)
+    obj.save_file("../ted_sample_one_file/zs_s.test", split_type='test', data_type='source')
+    obj.save_file("../ted_sample_one_file/zs_t.test", split_type='test', data_type='target')
     
-    #for sent_s, sent_t in zip(source_test_list, target_test_list):
-    #    print sent_s, "\t", sent_t
-        
-    obj.save_file("../ted_sample/zs_s.train", split_type='train', data_type='source')
-    obj.save_file("../ted_sample/zs_t.train", split_type='train', data_type='target')
-    
-    obj.save_file("../ted_sample/zs_s.test", split_type='test', data_type='source')
-    obj.save_file("../ted_sample/zs_t.test", split_type='test', data_type='target')
-    
-    obj.save_file("../ted_sample/zs_s.dev", split_type='dev', data_type='source')
-    obj.save_file("../ted_sample/zs_t.dev", split_type='dev', data_type='target')
+    obj.save_file("../ted_sample_one_file/zs_s.dev", split_type='dev', data_type='source')
+    obj.save_file("../ted_sample_one_file/zs_t.dev", split_type='dev', data_type='target')
