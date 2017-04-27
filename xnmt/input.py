@@ -7,20 +7,20 @@ from vocab import *
 
 
 class Input:
-  '''
+  """
   A template class to represent all inputs.
-  '''
-  pass
-
-class Sentence:
+  """
   def __len__(self):
-    raise NotImplementedError("__len__() must be implemented by Sentence subclasses")
+    raise NotImplementedError("__len__() must be implemented by Input subclasses")
   def __getitem__(self):
-    raise NotImplementedError("__getitem__() must be implemented by Sentence subclasses")
+    raise NotImplementedError("__getitem__() must be implemented by Input subclasses")
   def get_padded_sentence(self, token, pad_len):
-    raise NotImplementedError("get_padded_sentence() must be implemented by Sentence subclasses")
+    raise NotImplementedError("get_padded_sentence() must be implemented by Input subclasses")
 
-class SimpleSentence(Sentence):
+class SimpleSentenceInput(Input):
+  """
+  A simple sentence, represented as a list of tokens
+  """
   def __init__(self, l):
     self.l = l
   def __len__(self):
@@ -31,7 +31,10 @@ class SimpleSentence(Sentence):
     self.l.extend([token] * pad_len)
     return self
     
-class ArraySentence(Sentence):
+class ArrayInput(Input):
+  """
+  A sentence based on a single numpy array; first dimension contains tokens 
+  """
   def __init__(self, nparr):
     self.nparr = nparr
   def __len__(self):
@@ -57,10 +60,10 @@ class InputReader:
 
 
 class PlainTextReader(InputReader):
-  '''
+  """
   Handles the typical case of reading plain text files,
   with one sentence per line.
-  '''
+  """
   def __init__(self, vocab=None):
     if vocab is None:
       self.vocab = Vocab()
@@ -74,7 +77,7 @@ class PlainTextReader(InputReader):
         words = line.strip().split()
         sentence = [self.vocab.convert(word) for word in words]
         sentence.append(self.vocab.convert('</s>'))
-        sentences.append(SimpleSentence(sentence))
+        sentences.append(SimpleSentenceInput(sentence))
     return sentences
 
   def freeze(self):
@@ -83,19 +86,20 @@ class PlainTextReader(InputReader):
 
     
 class ContVecReader(InputReader):
-  '''
+  """
   Handles the case where sentences are sequences of continuous-space vectors.
+  
   We assume a list of matrices (sentences) serialized as .npz (with numpy.savez_compressed())
   Sentences should be named arr_0, arr_1, ... (=np default for unnamed archives).
   We can index them as sentences[sent_no][word_ind,feat_ind]
-  '''
+  """
   def __init__(self):
     self.vocab = Vocab()
 
   def read_file(self, filename):
     npzFile = np.load(filename)
     npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[1]))
-    sentences = map(lambda f:ArraySentence(npzFile[f]), npzKeys)
+    sentences = map(lambda f:ArrayInput(npzFile[f]), npzKeys)
     npzFile.close()
     return sentences
 

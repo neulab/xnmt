@@ -20,37 +20,66 @@ class Embedder:
     if input_format_lower == "text":
       return SimpleWordEmbedder(vocab_size, emb_dim, model)
     elif input_format_lower == "contvec":
-      return FeatVecNoopEmbedder(emb_dim, model)
+      return NoopEmbedder(emb_dim, model)
     else:
       raise RuntimeError("Unknown input type {}".format(input_format))
 
-class EmbeddedSentence():
-  '''
-  Represents an embedded sentence.
-  '''
-  def __len__(self): raise NotImplementedError("__len__() must be implemented by EmbeddedSentence subclasses")
-  def __iter__(self): raise NotImplementedError("__iter__() must be implemented by EmbeddedSentence subclasses")
-  def __getitem__(self, key): raise NotImplementedError("__getitem__() must be implemented by EmbeddedSentence subclasses")
-      
-class ListEmbeddedSentence(list, EmbeddedSentence):
-  '''
-  Represents an embedded sentence as a list of (e.g. vector-) expressions
-  '''
-#  def __init__(self, l):
-#    super(list, self).__init__(l)
+class ExpressionSequence():
+  """
+  A class to represent a sequence of expressions.
+  
+  Internal representation is either a list of expressions or a single tensor or both.
+  If necessary, both forms of representation are created from the other on demand.
+  """
+  def __init__(self, **kwargs):
+    """
+    :param expr_list: a python list of expressions
+    :param expr_tensor: a tensor where highest dimension are the sequence items
+    :raises valueError: raises an exception if neither expr_list nor expr_tensor are given,
+                        or if both have inconsistent length
+    """
+    self.expr_list = kwargs.pop('expr_list', None)
+    self.expr_tensor = kwargs.pop('expr_tensor', None)
+    if not (self.expr_list or self.expr_tensor):
+      raise ValueError("must provide expr_list or expr_tensor")
+    if self.expr_list and self.expr_tensor:
+      if len(self.expr_list) != self.expr_tensor.dim()[0][0]:
+        raise ValueError("expr_list and expr_tensor must be of same length")
 
-class TensorExprEmbeddedSentence(EmbeddedSentence):
-  '''
-  Represents an embedded sentence as a single tensor expression, where words correspond to the first dimension.
-  '''
-  def __init__(self, tensorExpr): self.tensorExpr = tensorExpr
-  def __len__(self): return self.tensorExpr.dim()[0][0]
-  def __iter__(self): return iter([self[i] for i in range(len(self))])
-  def __getitem__(self, key): return dy.pick(self.tensorExpr, key) 
-  def get_tensor_repr(self): return self.tensorExpr
+  def __len__(self):
+    """
+    :returns: length of sequence
+    """
+    if self.expr_list: return len(self.expr_list)
+    else: return self.expr_tensor.dim()[0][0]
+
+  def __iter__(self):
+    """
+    :returns: iterator over the sequence; results in explicit conversion to list
+    """
+    if self.expr_list is None:
+      self.expr_list = [self[i] for i in range(len(self))]
+    return iter(self.expr_list)
+
+  def __getitem__(self, key):
+    """
+    :returns: sequence item (expression); does not result in explicit conversion to list
+    """
+    if self.expr_list: return self.expr_list[key]
+    else: return dy.pick(self.expr_tensor, key)
+
+  def as_tensor(self):
+    """
+    :returns: the whole sequence as a tensor expression. 
+    """
+    if self.expr_tensor is None:
+      self.expr_tensor = dy.concatenate(list(map(lambda x:dy.transpose(x), self)))
+    return self.expr_tensor
       
 class SimpleWordEmbedder(Embedder):
-  'Simple word embeddings'
+  """
+  Simple word embeddings via lookup.
+  """
 
   def __init__(self, vocab_size, emb_dim, model):
     self.vocab_size = vocab_size
@@ -76,14 +105,24 @@ class SimpleWordEmbedder(Embedder):
       for word_i in range(len(sentence[0])):
         embeddings.append(self.embed(Batcher.mark_as_batch([single_sentence[word_i] for single_sentence in sentence])))
 
-    return ListEmbeddedSentence(embeddings)
+    return ExpressionSequence(expr_list=embeddings)
 
-class FeatVecNoopEmbedder(Embedder):
+class NoopEmbedder(Embedder):
+  """
+  This embedder performs no lookups but only passes through the inputs.
+  
+  Normally, then input is an Input object, which is converted to an expression.
+  
+  We can also input an ExpressionSequence, which is simply returned as-is.
+  This is useful e.g. to stack several encoders, where the second encoder performs no
+  lookups.
+  """
   def __init__(self, emb_dim, model):
     self.emb_dim = emb_dim
     self.serialize_params = [emb_dim, model]
 
   def embed(self, x):
+    if isinstance(x, dy.Expression): return x
     # single mode
     if not Batcher.is_batch_word(x):
       return dy.inputVector(x)
@@ -92,13 +131,17 @@ class FeatVecNoopEmbedder(Embedder):
       return dy.inputTensor(x, batched=True)
 
   def embed_sentence(self, sentence):
+    # TODO refactor: seems a bit too many special cases that need to be distinguished
+    if isinstance(sentence, ExpressionSequence):
+      return sentence
+    
     batched = Batcher.is_batch_sentence(sentence)
     first_sent = sentence[0] if batched else sentence
     if hasattr(first_sent, "get_array"):
       if not batched:
-        return TensorExprEmbeddedSentence(dy.inputTensor(sentence.get_array(), batched=False))
+        return ExpressionSequence(expr_tensor=dy.inputTensor(sentence.get_array(), batched=False))
       else:
-        return TensorExprEmbeddedSentence(dy.inputTensor(map(lambda s: s.get_array(), sentence), batched=True))
+        return ExpressionSequence(expr_tensor=dy.inputTensor(map(lambda s: s.get_array(), sentence), batched=True))
     else:
       if not batched:
         embeddings = [self.embed(word) for word in sentence]
@@ -106,5 +149,5 @@ class FeatVecNoopEmbedder(Embedder):
         embeddings = []
         for word_i in range(len(first_sent)):
           embeddings.append(self.embed(Batcher.mark_as_batch([single_sentence[word_i] for single_sentence in sentence])))
-      return ListEmbeddedSentence(embeddings)
+      return ExpressionSequence(expr_list=embeddings)
 

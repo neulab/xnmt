@@ -3,6 +3,7 @@ from batcher import *
 import residual
 import pyramidal
 import conv_encoder
+from embedder import NoopEmbedder, ExpressionSequence
 
 class Encoder:
   '''
@@ -29,8 +30,16 @@ class Encoder:
       return PyramidalBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model)
     elif spec_lower == "convbilstm":
       return ConvBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model)
+    elif spec_lower == "modular":
+      # example for a modular encoder: stacked pyramidal encoder, followed by stacked LSTM 
+      return ModularEncoder([
+                             PyramidalBiLSTMEncoder(encoder_layers, encoder_hidden_dim, input_embedder, model),
+                             BiLSTMEncoder(encoder_layers, encoder_hidden_dim, NoopEmbedder(encoder_hidden_dim, model), model),
+                             ],
+                            model
+                            )
     else:
-      raise RuntimeError("Unknown encoder type {}".format(encoder_type))
+      raise RuntimeError("Unknown encoder type {}".format(spec_lower))
 
 
 class DefaultEncoder(Encoder):
@@ -84,3 +93,14 @@ class ConvBiLSTMEncoder(DefaultEncoder):
     self.encoder = conv_encoder.ConvBiRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
     self.serialize_params = [layers, output_dim, embedder, model]
 
+class ModularEncoder(Encoder):
+  def __init__(self, module_list, model):
+    self.module_list = module_list
+    self.serialize_params = [model, ]
+
+  def encode(self, sentence):
+    for i, module in enumerate(self.module_list):
+      sentence = module.encode(sentence)
+      if i<len(self.module_list)-1:
+        sentence = ExpressionSequence(expr_list=sentence)
+    return sentence
