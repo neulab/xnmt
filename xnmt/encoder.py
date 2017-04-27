@@ -3,7 +3,7 @@ from batcher import *
 import residual
 import pyramidal
 import conv_encoder
-from embedder import NoopEmbedder, ListExpressionSequence
+from embedder import NoopEmbedder, ExpressionSequence
 
 class Encoder:
   '''
@@ -15,7 +15,6 @@ class Encoder:
   '''
 
   def encode(self, x):
-    # TODO: this should probably return an ExpressionSequence rather than a list of expressions
     raise NotImplementedError('encode must be implemented in Encoder subclasses')
 
   @staticmethod
@@ -103,5 +102,5 @@ class ModularEncoder(Encoder):
     for i, module in enumerate(self.module_list):
       sentence = module.encode(sentence)
       if i<len(self.module_list)-1:
-        sentence = ListExpressionSequence(sentence)
+        sentence = ExpressionSequence(expr_list=sentence)
     return sentence

@@ -26,29 +26,55 @@ class Embedder:
 
 class ExpressionSequence():
   """
-  A template class to represent a sequence of expressions.
+  A class to represent a sequence of expressions.
+  
+  Internal representation is either a list of expressions or a single tensor or both.
+  If necessary, both forms of representation are created from the other on demand.
   """
-  def __len__(self): raise NotImplementedError("__len__() must be implemented by ExpressionSequence subclasses")
-  def __iter__(self): raise NotImplementedError("__iter__() must be implemented by ExpressionSequence subclasses")
-  def __getitem__(self, key): raise NotImplementedError("__getitem__() must be implemented by ExpressionSequence subclasses")
-  def as_tensor(self): raise NotImplementedError("as_tensor() must be implemented by ExpressionSequence subclasses")
-      
-class ListExpressionSequence(list, ExpressionSequence):
-  """
-  Represents an embedded sentence as a list of expressions.
-  """
-  def as_tensor(self):
-    return dy.concatenate(list(map(lambda x:dy.transpose(x), self)))
+  def __init__(self, **kwargs):
+    """
+    :param expr_list: a python list of expressions
+    :param expr_tensor: a tensor where highest dimension are the sequence items
+    :raises valueError: raises an exception if neither expr_list nor expr_tensor are given,
+                        or if both have inconsistent length
+    """
+    self.expr_list = kwargs.pop('expr_list', None)
+    self.expr_tensor = kwargs.pop('expr_tensor', None)
+    if not (self.expr_list or self.expr_tensor):
+      raise ValueError("must provide expr_list or expr_tensor")
+    if self.expr_list and self.expr_tensor:
+      if len(self.expr_list) != self.expr_tensor.dim()[0][0]:
+        raise ValueError("expr_list and expr_tensor must be of same length")
 
-class TensorExpressionSequence(ExpressionSequence):
-  """
-  Represents an embedded sentence as a single tensor expression, where words correspond to the first dimension.
-  """
-  def __init__(self, tensorExpr): self.tensorExpr = tensorExpr
-  def __len__(self): return self.tensorExpr.dim()[0][0]
-  def __iter__(self): return iter([self[i] for i in range(len(self))])
-  def __getitem__(self, key): return dy.pick(self.tensorExpr, key) 
-  def as_tensor(self): return self.tensorExpr
+  def __len__(self):
+    """
+    :returns: length of sequence
+    """
+    if self.expr_list: return len(self.expr_list)
+    else: return self.expr_tensor.dim()[0][0]
+
+  def __iter__(self):
+    """
+    :returns: iterator over the sequence; results in explicit conversion to list
+    """
+    if self.expr_list is None:
+      self.expr_list = [self[i] for i in range(len(self))]
+    return iter(self.expr_list)
+
+  def __getitem__(self, key):
+    """
+    :returns: sequence item (expression); does not result in explicit conversion to list
+    """
+    if self.expr_list: return self.expr_list[key]
+    else: return dy.pick(self.expr_tensor, key)
+
+  def as_tensor(self):
+    """
+    :returns: the whole sequence as a tensor expression. 
+    """
+    if self.expr_tensor is None:
+      self.expr_tensor = dy.concatenate(list(map(lambda x:dy.transpose(x), self)))
+    return self.expr_tensor
       
 class SimpleWordEmbedder(Embedder):
   """
@@ -79,7 +105,7 @@ class SimpleWordEmbedder(Embedder):
       for word_i in range(len(sentence[0])):
         embeddings.append(self.embed(Batcher.mark_as_batch([single_sentence[word_i] for single_sentence in sentence])))
 
-    return ListExpressionSequence(embeddings)
+    return ExpressionSequence(expr_list=embeddings)
 
 class NoopEmbedder(Embedder):
   """
@@ -113,9 +139,9 @@ class NoopEmbedder(Embedder):
     first_sent = sentence[0] if batched else sentence
     if hasattr(first_sent, "get_array"):
       if not batched:
-        return TensorExpressionSequence(dy.inputTensor(sentence.get_array(), batched=False))
+        return ExpressionSequence(expr_tensor=dy.inputTensor(sentence.get_array(), batched=False))
       else:
-        return TensorExpressionSequence(dy.inputTensor(map(lambda s: s.get_array(), sentence), batched=True))
+        return ExpressionSequence(expr_tensor=dy.inputTensor(map(lambda s: s.get_array(), sentence), batched=True))
     else:
       if not batched:
         embeddings = [self.embed(word) for word in sentence]
@@ -123,5 +149,5 @@ class NoopEmbedder(Embedder):
         embeddings = []
         for word_i in range(len(first_sent)):
           embeddings.append(self.embed(Batcher.mark_as_batch([single_sentence[word_i] for single_sentence in sentence])))
-      return ListExpressionSequence(embeddings)
+      return ExpressionSequence(expr_list=embeddings)
 
