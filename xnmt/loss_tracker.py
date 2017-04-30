@@ -7,9 +7,9 @@ import json
 import codecs
 
 class LossTracker:
-    '''
-    A template class to generate report for training.
-    '''
+    """
+    A template class to track training process and generate report.
+    """
 
     REPORT_TEMPLATE = 'Epoch %.4f: {}_ppl=%.4f (words=%d, words/sec=%.2f, time=%s)'
 
@@ -35,6 +35,9 @@ class LossTracker:
         self.dev_start_time = self.start_time
 
     def new_epoch(self):
+        """
+        Clear epoch-wise counters for starting a new training epoch.
+        """
         self.epoch_loss = 0.0
         self.epoch_words = 0
         self.epoch_num += 1
@@ -42,6 +45,9 @@ class LossTracker:
         self.sent_num_not_report = 0
 
     def update_epoch_loss(self, src, tgt, loss):
+        """
+        Update epoch-wise counters for each iteration.
+        """
         batch_sent_num = self.count_sent_num(src)
         self.sent_num += batch_sent_num
         self.sent_num_not_report += batch_sent_num
@@ -54,6 +60,10 @@ class LossTracker:
                              )
 
     def report_train_process(self):
+        """
+        Print training report if eval_every sentences have been evaluated.
+        :return: True if the training process is reported
+        """
         print_report = (self.sent_num_not_report >= self.eval_every) or (self.sent_num == self.total_train_sent)
 
         if print_report:
@@ -73,15 +83,25 @@ class LossTracker:
         return print_report
 
     def new_dev(self):
+        """
+        Clear dev counters for starting a new dev testing.
+        """
         self.dev_loss = 0.0
         self.dev_words = 0
         self.dev_start_time = time.time()
 
     def update_dev_loss(self, tgt, loss):
+        """
+        Update dev counters for each iteration.
+        """
         self.dev_loss += loss
         self.dev_words += self.count_tgt_words(tgt)
 
     def report_dev_and_check_model(self, model_file):
+        """
+        Print dev testing report and check whether the dev loss is the best seen so far.
+        :return: True if the dev loss is the best and required save operations
+        """
         this_report_time = time.time()
         print(LossTracker.REPORT_TEMPLATE.format('test') % (
             self.fractional_epoch,
@@ -99,9 +119,15 @@ class LossTracker:
         return save_model
 
     def count_tgt_words(self, tgt_words):
+        """
+        Method for counting number of target words.
+        """
         raise NotImplementedError('count_tgt_words must be implemented in LossTracker subclasses')
 
     def count_sent_num(self, obj):
+        """
+        Method for counting number of sentences.
+        """
         raise NotImplementedError('count_tgt_words must be implemented in LossTracker subclasses')
 
     def clear_counters(self):
@@ -113,6 +139,9 @@ class LossTracker:
 
 
 class BatchLossTracker(LossTracker):
+    """
+    A class to track training process and generate report for minibatch mode.
+    """
 
     def count_tgt_words(self, tgt_words):
         return sum(len(x) for x in tgt_words)
@@ -122,6 +151,9 @@ class BatchLossTracker(LossTracker):
 
 
 class NonBatchLossTracker(LossTracker):
+    """
+    A class to track training process and generate report for non-minibatch mode.
+    """
 
     def count_tgt_words(self, tgt_words):
         return len(tgt_words)
