@@ -1,22 +1,22 @@
 from __future__ import division, generators
 
-import dynet as dy
 import numpy as np
 from collections import defaultdict
 from vocab import Vocab
 from collections import OrderedDict
 
+
 class Batch(list):
-  '''
-  this is a marker class to indicate a batch
-  '''
+  """
+  A marker class to indicate a batch.
+  """
   pass
 
+
 class Batcher:
-  '''
-  A template class to convert a list of sentences to several batches of
-  sentences.
-  '''
+  """
+  A template class to convert a list of sentences to several batches of sentences.
+  """
 
   PAIR_SRC = 0
   PAIR_TRG = 1
@@ -27,16 +27,28 @@ class Batcher:
 
   @staticmethod
   def is_batch_sentence(sentence):
-    return type(sentence)==Batch
+    """
+    :rtype: bool
+    :param sentence: a batch of sentences (a list of lists of ints) OR a single sentence (a list of ints)
+    :return: True if the data is a batch of sentences 
+    """
+    return type(sentence) == Batch
 
   @staticmethod
   def is_batch_word(word):
-    return type(word)==Batch
+    """
+    :rtype: bool
+    :param word: a batch of target words (a list of ints) OR a single target word (an int)
+    :return: True if the data is a batch of target words 
+    """
+    return type(word) == Batch
 
   @staticmethod
   def mark_as_batch(data):
-    if type(data)==Batch: return data
-    else: return Batch(data)
+    if type(data) == Batch:
+      return data
+    else:
+      return Batch(data)
 
   @staticmethod
   def separate_source_target(joint_result):
@@ -80,8 +92,21 @@ class Batcher:
   def pad_sent(self, batch):
     return batch
 
+  def pack(self, source, target):
+    """
+    Create batches from input source and target corpus.
+    :param source: source corpus (a list of sentences)
+    :param target: target corpus (a list of sentences)
+    :return: Packed source corpus (a list of batches of sentence) and packed target corpus (a list of batches of 
+    sentence)
+    """
+    raise NotImplementedError('pack() must be implemented in Batcher subclasses')
+
 
 class ShuffleBatcher(Batcher):
+  """
+  A class to create batches through randomly shuffling without sorting.
+  """
 
   def pack(self, source, target):
     source_target_pairs = list(zip(source, target))
@@ -94,6 +119,9 @@ class ShuffleBatcher(Batcher):
 
 
 class BucketBatcher(Batcher):
+  """
+  A template class to create batches through bucketing sentence length.
+  """
 
   def group_by_len(self, pairs):
     buckets = defaultdict(list)
@@ -112,25 +140,40 @@ class BucketBatcher(Batcher):
     return self.separate_source_target(result)
 
   def bucket_index(self, pair):
+    """
+    Specify the method to sort sentences.
+    """
     raise NotImplementedError('bucket_index() must be implemented in BucketBatcher subclasses')
 
   def bucket_value_sort(self, pairs):
+    """
+    Specify the method to break ties for sorted sentences.
+    """
     np.random.shuffle(pairs)
 
 
 class SourceBucketBatcher(BucketBatcher):
+  """
+  A class to create batches based on the source sentence length.
+  """
 
   def bucket_index(self, pair):
     return len(pair[Batcher.PAIR_SRC])
 
 
 class SourceTargetBucketBatcher(SourceBucketBatcher):
+  """
+  A class to create batches based on the source sentence length and break ties by target sentence length.
+  """
 
   def bucket_value_sort(self, pairs):
     return pairs.sort(key=lambda pair: len(pair[Batcher.PAIR_TRG]))
 
 
 class TargetBucketBatcher(BucketBatcher):
+  """
+  A class to create batches based on the target sentence length.
+  """
 
   def bucket_index(self, pair):
     return len(pair[Batcher.PAIR_TRG])
@@ -140,12 +183,18 @@ class TargetBucketBatcher(BucketBatcher):
 
 
 class TargetSourceBucketBatcher(TargetBucketBatcher):
+  """
+  A class to create batches based on the target sentence length and break ties by source sentence length.
+  """
 
   def bucket_value_sort(self, pairs):
     return pairs.sort(key=lambda pair: len(pair[Batcher.PAIR_SRC]))
 
 
 class WordTargetBucketBatcher(TargetBucketBatcher):
+  """
+  A class to create batches based on number of target words, resulting in more stable memory consumption.
+  """
 
   def pack(self, source, target):
     limit_target_words = self.batch_size
