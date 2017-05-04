@@ -1,6 +1,7 @@
 from __future__ import division, generators
 
 from batcher import *
+import dynet as dy
 
 class Embedder:
   '''
@@ -23,6 +24,12 @@ class Embedder:
       return NoopEmbedder(emb_dim, model)
     else:
       raise RuntimeError("Unknown input type {}".format(input_format))
+
+  def get_embed_dim(self):
+    """
+    :returns: dimension of embeddings (integer)
+    """
+    return self.emb_dim
 
 class ExpressionSequence():
   """
