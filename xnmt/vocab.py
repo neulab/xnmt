@@ -24,27 +24,27 @@ class Vocab:
     self.i2w = []
     self.frozen = False
     self.unk_token = None
-    self.w2i['<s>'] = self.SS
-    self.w2i['</s>'] = self.ES
-    self.i2w.append('<s>')
-    self.i2w.append('</s>')
+    self.w2i[u'<s>'] = self.SS
+    self.w2i[u'</s>'] = self.ES
+    self.i2w.append(u'<s>')
+    self.i2w.append(u'</s>')
 
   @staticmethod
   def i2w_from_vocab_file(vocab_file):
     """
     :param vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
     """
-    vocab = ["<s>", "</s>"]
+    vocab = [u"<s>", u"</s>"]
     with open(vocab_file) as f:
       for line in f:
-        word = line.strip() # TODO: unicode
-        if word in ['<s>', '</s>', '<unk>']:
+        word = line.decode('utf-8').strip()
+        if word in [u'<s>', u'</s>', u'<unk>']:
           raise RuntimeError("Vocab file {} contains a reserved word: {}" % (vocab_file, word))
         vocab.append(word)
     return vocab
 
   def convert(self, w):
-    w = unicode(w, "utf-8")
+    assert isinstance(w, unicode)
     if w not in self.w2i:
       if self.frozen:
         assert self.unk_token != None, 'Attempt to convert an OOV in a frozen vocabulary with no UNK token set'

@@ -114,9 +114,6 @@ class XnmtTrainer:
       self.output_reader.freeze()
     self.read_data()
     
-    print "input vocab:", self.input_reader.vocab.i2w
-    print "output vocab:", self.output_reader.vocab.i2w
-
     # Get layer sizes: replace by default if not specified
     for opt in ["input_word_embed_dim", "output_word_embed_dim", "output_state_dim", "output_mlp_hidden_dim",
                 "encoder_hidden_dim", "attender_hidden_dim"]:
