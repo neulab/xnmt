@@ -35,7 +35,7 @@ class MlpSoftmaxDecoder(Decoder):
     self.embedder = embedder
     self.input_dim = input_dim
     if fwd_lstm == None:
-      fwd_lstm = dy.VanillaLSTMBuilder(layers, input_dim, lstm_dim, model)
+      self.fwd_lstm = dy.VanillaLSTMBuilder(layers, input_dim, lstm_dim, model)
     else:
       self.fwd_lstm = fwd_lstm
     self.mlp = MLP(input_dim + lstm_dim, mlp_hidden_dim, embedder.vocab_size, model)
