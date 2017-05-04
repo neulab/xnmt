@@ -102,7 +102,7 @@ if __name__ == '__main__':
     if len(nonexistent) != 0:
       raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
 
-  for experiment_name in experiment_names:
+  for experiment_name in sorted(experiment_names):
     exp_tasks = config[experiment_name]
 
     print("=> Running {}".format(experiment_name))
