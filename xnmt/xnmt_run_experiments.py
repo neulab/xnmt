@@ -9,6 +9,8 @@ import sys
 import xnmt_train, xnmt_decode, xnmt_evaluate
 import six
 from options import OptionParser, Option
+import random
+import numpy as np
 
 
 class Tee:
@@ -90,6 +92,10 @@ if __name__ == '__main__':
   if args.generate_doc:
     print(config_parser.generate_options_table())
     exit(0)
+    
+  if args.dynet_seed:
+    random.seed(args.dynet_seed)
+    np.random.seed(args.dynet_seed)
 
   config = config_parser.args_from_config_file(args.experiments_file)
 
