@@ -95,6 +95,8 @@ class XnmtTrainer:
       self.translator = DefaultTranslator(self.encoder, self.attender, self.decoder)
       self.input_reader = InputReader.create_input_reader(self.args.input_format, source_vocab)
       self.output_reader = InputReader.create_input_reader("text", target_vocab)
+      self.input_reader.freeze()
+      self.output_reader.freeze()
       self.read_data()
       return
 
