@@ -5,7 +5,11 @@ class Vocab:
 
   SS = 0
   ES = 1
-
+  
+  SS_STR = u"<s>"
+  ES_STR = u"</s>"
+  UNK_STR = u"<unk>"
+  
   def __init__(self, i2w=None, vocab_file=None):
     """
     :param i2w: list of words, including <s> and </s>
@@ -24,21 +28,22 @@ class Vocab:
     self.i2w = []
     self.frozen = False
     self.unk_token = None
-    self.w2i[u'<s>'] = self.SS
-    self.w2i[u'</s>'] = self.ES
-    self.i2w.append(u'<s>')
-    self.i2w.append(u'</s>')
+    self.w2i[self.SS_STR] = self.SS
+    self.w2i[self.ES_STR] = self.ES
+    self.i2w.append(self.SS_STR)
+    self.i2w.append(self.ES_STR)
 
   @staticmethod
   def i2w_from_vocab_file(vocab_file):
     """
     :param vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
     """
-    vocab = [u"<s>", u"</s>"]
+    vocab = [Vocab.SS_STR, Vocab.ES_STR]
+    reserved = set([Vocab.SS_STR, Vocab.ES_STR, Vocab.UNK_STR])
     with open(vocab_file) as f:
       for line in f:
         word = line.decode('utf-8').strip()
-        if word in [u'<s>', u'</s>', u'<unk>']:
+        if word in reserved:
           raise RuntimeError("Vocab file {} contains a reserved word: {}" % (vocab_file, word))
         vocab.append(word)
     return vocab
