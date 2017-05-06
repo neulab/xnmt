@@ -9,6 +9,8 @@ import sys
 import xnmt_train, xnmt_decode, xnmt_evaluate
 import six
 from options import OptionParser, Option
+import random
+import numpy as np
 
 
 class Tee:
@@ -53,6 +55,7 @@ class Tee:
 if __name__ == '__main__':
   argparser = argparse.ArgumentParser()
   argparser.add_argument("--dynet-mem", type=int)
+  argparser.add_argument("--dynet-seed", type=int)
   argparser.add_argument("--dynet-viz", action='store_true', help="use visualization")
   argparser.add_argument("--dynet-gpu", action='store_true', help="use GPU acceleration")
   argparser.add_argument("--generate-doc", action='store_true', help="Do not run, output documentation instead")
@@ -89,6 +92,10 @@ if __name__ == '__main__':
   if args.generate_doc:
     print(config_parser.generate_options_table())
     exit(0)
+    
+  if args.dynet_seed:
+    random.seed(args.dynet_seed)
+    np.random.seed(args.dynet_seed)
 
   config = config_parser.args_from_config_file(args.experiments_file)
 
@@ -102,7 +109,7 @@ if __name__ == '__main__':
     if len(nonexistent) != 0:
       raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
 
-  for experiment_name in experiment_names:
+  for experiment_name in sorted(experiment_names):
     exp_tasks = config[experiment_name]
 
     print("=> Running {}".format(experiment_name))

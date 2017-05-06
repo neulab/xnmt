@@ -74,15 +74,15 @@ class PlainTextReader(InputReader):
     sentences = []
     with open(filename) as f:
       for line in f:
-        words = line.strip().split()
+        words = line.decode('utf-8').strip().split()
         sentence = [self.vocab.convert(word) for word in words]
-        sentence.append(self.vocab.convert('</s>'))
+        sentence.append(self.vocab.convert(Vocab.ES_STR))
         sentences.append(SimpleSentenceInput(sentence))
     return sentences
 
   def freeze(self):
     self.vocab.freeze()
-    self.vocab.set_unk('<unk>')
+    self.vocab.set_unk(Vocab.UNK_STR)
 
     
 class ContVecReader(InputReader):

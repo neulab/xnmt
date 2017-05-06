@@ -97,6 +97,7 @@ class ModularEncoder(Encoder):
   def __init__(self, module_list, model):
     self.module_list = module_list
     self.serialize_params = [model, ]
+    self.embedder = module_list[0].embedder
 
   def encode(self, sentence):
     for i, module in enumerate(self.module_list):
