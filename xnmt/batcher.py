@@ -132,10 +132,12 @@ class BucketBatcher(Batcher):
   def pack(self, source, target):
     source_target_pairs = zip(source, target)
     buckets = self.group_by_len(source_target_pairs)
-    result = []
-    for same_len_pairs in buckets.values():
+    sorted_pairs = []
+    for bucket_key in sorted(buckets.keys()):
+      same_len_pairs = buckets[bucket_key]
       self.bucket_value_sort(same_len_pairs)
-      result.extend(self.create_batches(same_len_pairs))
+      sorted_pairs.extend(same_len_pairs)
+    result = self.create_batches(sorted_pairs)
     np.random.shuffle(result)
     return self.separate_source_target(result)
 
