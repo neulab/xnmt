@@ -17,10 +17,12 @@ options = [
   Option("target_file", help="path of file where expected target translatons will be written"),
   Option("input_format", default_value="text", help="format of input data: text/contvec"),
   Option("post_process", default_value="none", help="post-processing of translation outputs: none/join-char/join-bpe"),
+  Option("beam", int, default_value=1),
+  Option("max_len", int, default_value=100),
 ]
 
 
-def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization()), model_elements=None):
+def xnmt_decode(args, model_elements=None):
   """
   :param model_elements: If None, the model will be loaded from args.model_file. If set, should
   equal (source_vocab, target_vocab, translator).
@@ -52,6 +54,8 @@ def xnmt_decode(args, search_strategy=BeamSearch(1, len_norm=NoNormalization()),
   output_generator.load_vocab(target_vocab)
 
   source_corpus = input_reader.read_file(args.source_file)
+  
+  search_strategy=BeamSearch(b=args.beam, max_len=args.max_len, len_norm=NoNormalization())
 
   # Perform decoding
 

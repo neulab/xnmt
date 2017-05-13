@@ -41,6 +41,7 @@ options = [
   Option("attender_hidden_dim", int, required=False),
   Option("encoder_hidden_dim", int, required=False),
   Option("trainer", default_value="sgd"),
+  Option("learning_rate", float, default_value=0.1),
   Option("eval_metrics", default_value="bleu"),
   Option("encoder_layers", int, default_value=2),
   Option("decoder_layers", int, default_value=2),
@@ -58,9 +59,9 @@ class XnmtTrainer:
     self.model = dy.Model()
 
     if args.trainer.lower() == "sgd":
-      self.trainer = dy.SimpleSGDTrainer(self.model)
+      self.trainer = dy.SimpleSGDTrainer(self.model, e0 = args.learning_rate)
     elif args.trainer.lower() == "adam":
-      self.trainer = dy.AdamTrainer(self.model)
+      self.trainer = dy.AdamTrainer(self.model, alpha = args.learning_rate)
     else:
       raise RuntimeError("Unkonwn trainer {}".format(args.trainer))
 
