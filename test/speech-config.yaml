@@ -1,0 +1,49 @@
+defaults:
+  experiment:
+    eval_metrics: wer,bleu,wer-nopunct
+    run_for_epochs: 1
+    decode_every: 1
+  decode:
+    source_file: ../data/synth3-deen-10k-80/test/src.contvec.npz
+    input_format: contvec
+    beam: 5
+    max_len: 200
+  evaluate:
+    ref_file: ../data/synth3-deen-10k-80/test/src.char
+  train:
+    batch_strategy: trg
+    batch_size: 10
+    train_source: ../data/synth3-deen-10k-80/train/src.contvec.npz
+    train_target: ../data/synth3-deen-10k-80/train/src.char
+    dev_source: ../data/synth3-deen-10k-80/dev/src.contvec.npz
+    dev_target: ../data/synth3-deen-10k-80/dev/src.char
+    input_format: contvec
+    input_word_embed_dim: 240
+    output_word_embed_dim: 64
+    output_state_dim: 64
+    attender_hidden_dim: 64
+    output_mlp_hidden_dim: 64
+    encoder_hidden_dim: 64
+    trainer: adam
+    learning_rate: 0.01
+    encoder_layers: 2
+    encoder_type: PyramidalBiLSTM
+
+exp1:
+  experiment:
+    hyp_file: model.out.hypo
+    model_file: model2.out
+#exp2:
+#  experiment:
+#    hyp_file: 002a.2.hypo
+#    model_file: 002a.2.model.out
+#  decode:
+#    source_file: ../data/synth2-esen-10k-80/test/src.contvec.npz
+#  train:
+#    pretrained_model_file: /Users/matthias/Desktop/002a.1.model.out
+#    train_source: ../data/synth2-esen-10k-80/dev/src.contvec.npz
+#    train_target: ../data/synth2-esen-10k-80/dev/trg.char
+#    dev_source: ../data/synth2-esen-10k-80/dev/src.contvec.npz
+#    dev_target: ../data/synth2-esen-10k-80/dev/trg.char
+#  evaluate:
+#    ref_file: ../data/synth2-esen-10k-80/dev/trg.txt

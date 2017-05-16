@@ -1,0 +1,30 @@
+defaults:
+  experiment:
+    model_file: /tmp/model.out
+    hyp_file: /tmp/xnmt-hypothesis
+    run_for_epochs: 2
+    decode_every: 1
+    eval_metrics: cer,wer
+  train:
+    train_source: ../data/synth.contvec.npz
+    train_target: ../data/synth.char
+    dev_source: ../data/synth.contvec.npz
+    dev_target: ../data/synth.char
+    encoder_type: PyramidalBiLSTM
+    input_word_embed_dim: 240
+    input_format: contvec
+  decode:
+    source_file: ../data/synth.contvec.npz
+    input_format: contvec
+  evaluate:
+    ref_file: ../data/synth.char
+
+experiment1:
+  train:
+    encoder_layers: 3
+    output_word_embed_dim: 64
+    output_state_dim: 64
+    attender_hidden_dim: 64
+    output_mlp_hidden_dim: 64
+    encoder_hidden_dim: 64
+
