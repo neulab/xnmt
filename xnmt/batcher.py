@@ -90,7 +90,7 @@ class Batcher:
     return minibatches
 
   def pad_sent(self, batch):
-    return batch
+    return self.pad_src_sent(batch, self.pad_token)
 
   def pack(self, source, target):
     """
