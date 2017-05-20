@@ -147,9 +147,12 @@ if __name__ == '__main__':
           eval_score = xnmt_evaluate.xnmt_evaluate(evaluate_args)
           print("{}: {}".format(evaluator, eval_score))
           eval_scores.append(eval_score)
-
+      
         # The temporary file is cleared by xnmt_decode, not clearing it explicitly here allows it to stay around
         # after the experiment is complete.
+
+      if xnmt_trainer.early_stopping_reached:
+        break
 
     results.append((experiment_name, eval_scores))
 

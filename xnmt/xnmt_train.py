@@ -42,6 +42,8 @@ options = [
   Option("encoder_hidden_dim", int, required=False),
   Option("trainer", default_value="sgd"),
   Option("learning_rate", float, default_value=0.1),
+  Option("lr_decay", float, default_value=1.0),
+  Option("lr_threshold", float, default_value=1e-5),
   Option("eval_metrics", default_value="bleu"),
   Option("encoder_layers", int, default_value=2),
   Option("decoder_layers", int, default_value=2),
@@ -64,6 +66,11 @@ class XnmtTrainer:
       self.trainer = dy.AdamTrainer(self.model, alpha = args.learning_rate)
     else:
       raise RuntimeError("Unkonwn trainer {}".format(args.trainer))
+    
+    if args.lr_decay > 1.0 or args.lr_decay <= 0.0:
+      raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
+    self.learning_scale = 1.0
+    self.early_stopping_reached = False
 
     # Create the model serializer
     self.create_model()
@@ -180,7 +187,8 @@ class XnmtTrainer:
       self.logger.update_epoch_loss(src, tgt, loss.value())
 
       loss.backward()
-      self.trainer.update()
+      self.trainer.update(self.learning_scale)
+      
 
       # Devel reporting
       if self.logger.report_train_process():
@@ -194,7 +202,15 @@ class XnmtTrainer:
         # Write out the model if it's the best one
         if self.logger.report_dev_and_check_model(self.args.model_file):
           self.model_serializer.save_to_file(self.args.model_file, self.model_params, self.model)
-
+        else:
+          # otherwise: learning rate decay / early stopping
+          if self.args.lr_decay < 1.0:
+            self.learning_scale *= self.args.lr_decay
+            print('new learning rate: %s' % (self.learning_scale * self.args.learning_rate))
+          if self.learning_scale * self.args.learning_rate < self.args.lr_threshold:
+            print('Early stopping')
+            self.early_stopping_reached = True
+            
         self.trainer.update_epoch()
 
     return math.exp(self.logger.epoch_loss / self.logger.epoch_words), \
@@ -209,5 +225,5 @@ if __name__ == "__main__":
 
   xnmt_trainer = XnmtTrainer(args)
 
-  while True:
+  while not xnmt_trainer.early_stopping_reached:
     xnmt_trainer.run_epoch()
