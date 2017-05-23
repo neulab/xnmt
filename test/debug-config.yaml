@@ -1,0 +1,26 @@
+# This is a super-small config just for debugging
+defaults:
+  experiment:
+    model_file: /tmp/model.out
+    hyp_file: /tmp/xnmt-hypothesis
+    run_for_epochs: 2
+    decode_every: 1
+    eval_metrics: bleu,wer
+  train:
+    train_source: ../data/head.ja
+    train_target: ../data/head.en
+    dev_source: ../data/head.ja
+    dev_target: ../data/head.en
+    default_layer_dim: 64
+  decode:
+    source_file: ../data/head.ja
+  evaluate:
+    ref_file: ../data/head.en
+
+experiment1:
+  train:
+    encoder_layers: 3
+
+experiment2:
+  train:
+    decoder_layers: 4
