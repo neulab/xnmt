@@ -26,16 +26,19 @@ class Translator:
     return dy.esum([self.loss(x, y) for x, y in zip(xs, ys)])
 
 class DefaultTranslator(Translator):
-  def __init__(self, encoder, attender, decoder):
+  def __init__(self, input_embedder, encoder, attender, output_embedder, decoder):
+    self.input_embedder = input_embedder
     self.encoder = encoder
     self.attender = attender
+    self.output_embedder = output_embedder
     self.decoder = decoder
 
   def calc_loss(self, source, target):
-    encodings = self.encoder.encode(source)
+    embeddings = self.input_embedder.embed_sentence(source)
+    encodings = self.encoder.transduce(embeddings)
     self.attender.start_sentence(encodings)
     self.decoder.initialize()
-    self.decoder.add_input(0)  # XXX: HACK, need to initialize decoder better
+    self.decoder.add_input(self.output_embedder.embed(0))  # XXX: HACK, need to initialize decoder better
     losses = []
 
     # single mode
@@ -44,7 +47,7 @@ class DefaultTranslator(Translator):
         context = self.attender.calc_context(self.decoder.state.output())
         word_loss = self.decoder.calc_loss(context, ref_word)
         losses.append(word_loss)
-        self.decoder.add_input(ref_word)
+        self.decoder.add_input(self.output_embedder.embed(ref_word))
 
     # minibatch mode
     else:
@@ -60,7 +63,7 @@ class DefaultTranslator(Translator):
         word_loss = dy.sum_batches(word_loss * mask_exp)
         losses.append(word_loss)
 
-        self.decoder.add_input(ref_word)
+        self.decoder.add_input(self.output_embedder.embed(ref_word))
 
     return dy.esum(losses)
 
@@ -69,8 +72,9 @@ class DefaultTranslator(Translator):
     if not Batcher.is_batch_sentence(source):
       source = Batcher.mark_as_batch([source])
     for sentences in source:
-      encodings = self.encoder.encode(sentences)
+      embeddings = self.input_embedder.embed_sentence(source)
+      encodings = self.encoder.transduce(embeddings)
       self.attender.start_sentence(encodings)
       self.decoder.initialize()
-      output.append(search_strategy.generate_output(self.decoder, self.attender, source_length=len(sentences)))
+      output.append(search_strategy.generate_output(self.decoder, self.attender, self.output_embedder, source_length=len(sentences)))
     return output
