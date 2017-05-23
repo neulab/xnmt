@@ -4,16 +4,25 @@ from batcher import *
 import dynet as dy
 
 class Embedder:
-  '''
-  A template class to embed a word or token.
-  '''
+  """
+  A parent class that takes in a sentence and outputs an embedded sentence.
+  """
 
-  '''
-  Takes a string or word ID and returns its embedding.
-  '''
-
-  def embed(self, x):
+  def embed(self, word):
+    """
+    Embed a single word.
+    :param word: This will generally be an integer word ID, but could also be something
+      like a string.
+    """
     raise NotImplementedError('embed must be implemented in Embedder subclasses')
+
+  def embed_sentence(self, sentence):
+    """
+    Embed a full sentence worth of words.
+    :param sentence: This will generally be a list of word IDs, but could also be a list
+      of strings or some other format.
+    """
+    raise NotImplementedError('embed_sentence must be implemented in Embedder subclasses')
 
   @staticmethod
   def from_spec(input_format, vocab_size, emb_dim, model):
@@ -24,12 +33,6 @@ class Embedder:
       return NoopEmbedder(emb_dim, model)
     else:
       raise RuntimeError("Unknown input type {}".format(input_format))
-
-  def get_embed_dim(self):
-    """
-    :returns: dimension of embeddings (integer)
-    """
-    return self.emb_dim
 
 class ExpressionSequence():
   """
