@@ -24,7 +24,7 @@ class BeamSearch(SearchStrategy):
 
 
 
-  def generate_output(self, decoder, attender, source_length=0):
+  def generate_output(self, decoder, attender, output_embedder, source_length=0):
     active_hypothesis = [self.Hypothesis(0, [0], decoder.state)]
 
     completed_hypothesis = []
@@ -41,7 +41,7 @@ class BeamSearch(SearchStrategy):
 
 
         decoder.state = hyp.state
-        decoder.add_input(hyp.id_list[-1])
+        decoder.add_input(output_embedder.embed(hyp.id_list[-1]))
         context = attender.calc_context(decoder.state.output())
         score = dy.log_softmax(decoder.get_scores(context)).npvalue()
         top_ids = np.argpartition(score, -self.b)[-self.b:]
