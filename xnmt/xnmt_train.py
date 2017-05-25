@@ -21,6 +21,8 @@ This will be the main class to perform training.
 '''
 
 options = [
+  Option("dynet-mem", int, required=False),
+  Option("dynet-gpu-ids", int, required=False),
   Option("eval_every", int, default_value=1000, force_flag=True),
   Option("batch_size", int, default_value=32, force_flag=True),
   Option("batch_strategy", default_value="src"),
