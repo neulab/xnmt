@@ -12,6 +12,8 @@ This will be the main class to perform decoding.
 '''
 
 options = [
+  Option("dynet-mem", int, required=False),
+  Option("dynet-gpu-ids", int, required=False),
   Option("model_file", force_flag=True, required=True, help="pretrained (saved) model path"),
   Option("source_file", help="path of input source file to be translated"),
   Option("target_file", help="path of file where expected target translatons will be written"),

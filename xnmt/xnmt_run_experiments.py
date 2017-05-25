@@ -58,6 +58,7 @@ if __name__ == '__main__':
   argparser.add_argument("--dynet-seed", type=int)
   argparser.add_argument("--dynet-viz", action='store_true', help="use visualization")
   argparser.add_argument("--dynet-gpu", action='store_true', help="use GPU acceleration")
+  argparser.add_argument("--dynet-gpu-ids", type=int)
   argparser.add_argument("--generate-doc", action='store_true', help="Do not run, output documentation instead")
   argparser.add_argument("experiments_file")
   argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
