@@ -86,7 +86,8 @@ class XnmtTrainer:
       print('Start training in minibatch mode...')
       self.batcher = Batcher.select_batcher(args.batch_strategy)(args.batch_size)
       if args.input_format == "contvec":
-        self.batcher.pad_token = np.zeros(self.encoder.embedder.get_embed_dim())
+        assert self.train_corpus_source[0].nparr.shape[1] == self.input_embedder.emb_dim, "input embed dim is different size than expected"
+        self.batcher.pad_token = np.zeros(self.input_embedder.emb_dim)
       self.train_corpus_source, self.train_corpus_target = self.batcher.pack(self.train_corpus_source,
                                                                              self.train_corpus_target)
       self.dev_corpus_source, self.dev_corpus_target = self.batcher.pack(self.dev_corpus_source,
