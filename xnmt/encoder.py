@@ -3,6 +3,7 @@ from batcher import *
 import residual
 import pyramidal
 import conv_encoder
+from embedder import ExpressionSequence
 
 class Encoder:
   """
@@ -38,7 +39,7 @@ class Encoder:
       # example for a modular encoder: stacked pyramidal encoder, followed by stacked LSTM 
       return ModularEncoder([
                              pyramidal.PyramidalRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder),
-                             dy.BiRNNBuilder(layers, output_dim, model, dy.VanillaLSTMBuilder)
+                             dy.BiRNNBuilder(layers, output_dim, output_dim, model, dy.VanillaLSTMBuilder)
                              ],
                             model
                             )
@@ -57,7 +58,6 @@ class ModularEncoder(Encoder):
   def __init__(self, module_list, model):
     self.module_list = module_list
     self.serialize_params = [model, ]
-    self.embedder = module_list[0].embedder
 
   def transduce(self, sentence):
     for i, module in enumerate(self.module_list):
