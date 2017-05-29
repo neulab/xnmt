@@ -1,0 +1,48 @@
+defaults:
+  experiment:
+    model_file: /tmp/model.out
+    hyp_file: /tmp/xnmt-hypothesis
+    run_for_epochs: 2
+    decode_every: 1
+    eval_metrics: bleu,wer
+  train:
+    train_source: ../data/train.ja
+    train_target: ../data/train.en
+    dev_source: ../data/dev.ja
+    dev_target: ../data/dev.en
+  decode:
+    source_file: ../data/test.ja
+  evaluate:
+    ref_file: ../data/test.en
+
+
+zero_shot_pt-br_es:
+  experiment:
+    model_file: /home/devendra/Desktop/Neural_MT/src/xnmt/ted_sample_multiway/model.out
+    hyp_file: /home/devendra/Desktop/Neural_MT/src/xnmt/ted_sample_multiway/xnmt-hypothesis
+    run_for_epochs: 10
+    decode_every: 1
+    eval_metrics: bleu
+
+  train:
+    batch_strategy: word
+    batch_size: 500
+    encoder_layers: 1
+    decoder_layers: 1
+    eval_every: 10000
+    input_word_embed_dim: 100
+    output_word_embed_dim: 100
+    attender_hidden_dim: 512
+    output_mlp_hidden_dim: 512
+    encoder_hidden_dim: 512
+    output_state_dim: 512
+    train_source: /home/devendra/Desktop/Neural_MT/src/xnmt/ted_sample_multiway/zs_s.train.tok
+    train_target: /home/devendra/Desktop/Neural_MT/src/xnmt/ted_sample_multiway/zs_t.train.tok
+    dev_source: /home/devendra/Desktop/Neural_MT/src/xnmt/ted_sample_multiway/zs_s.dev.tok
+    dev_target: /home/devendra/Desktop/Neural_MT/src/xnmt/ted_sample_multiway/zs_t.dev.tok
+
+  decode:
+    source_file: /home/devendra/Desktop/Neural_MT/src/xnmt/ted_sample_multiway/zs_s.test.tok
+
+  evaluate:
+    ref_file: /home/devendra/Desktop/Neural_MT/src/xnmt/ted_sample_multiway/zs_t.test.tok
