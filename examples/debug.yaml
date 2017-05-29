@@ -4,6 +4,7 @@ defaults:
     run_for_epochs: 2
     decode_every: 1
     eval_metrics: bleu,wer
+    log_dir: examples/output/
   train:
     train_src: examples/data/head.ja
     train_trg: examples/data/head.en

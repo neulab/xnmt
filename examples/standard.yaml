@@ -1,5 +1,6 @@
 defaults:
   experiment:
+    log_dir: examples/output/
     run_for_epochs: 2
     decode_every: 1
     eval_metrics: bleu,wer

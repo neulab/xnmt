@@ -6,6 +6,7 @@ defaults:
   experiment:
     model_file: examples/output/speech.mod
     hyp_file: examples/output/speech.txt
+    log_dir: examples/output/
     run_for_epochs: 2
     decode_every: 1
     eval_metrics: cer,wer
