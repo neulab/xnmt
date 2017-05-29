@@ -35,6 +35,7 @@ single file, over-riding an existing class). Obviously this ideal will not be re
 time, but when designing new functionality, try to think of this goal.
 
 There are also a minimal of coding style conventions:
+
 - Follow Python conventions, and be Python2/3 compatible.
 - Functions should be snake case.
 - Indentation should be two whitespace characters.
@@ -42,6 +43,7 @@ There are also a minimal of coding style conventions:
 We will aim to write unit tests to make sure things don't break, but these are not implemented yet.
 
 In variable names, common words should be abbreviated as:
+
 - source -> src
 - target -> trg
 - sentence -> sent
