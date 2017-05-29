@@ -11,7 +11,7 @@ class Attender:
   Implement things.
   '''
 
-  def start_sentence(self, sentence):
+  def start_sent(self, sentence):
     raise NotImplementedError('start_sentence must be implemented for Attender subclasses')
 
   def calc_attention(self, state):
@@ -31,7 +31,7 @@ class StandardAttender(Attender):
     self.curr_sentence = None
     self.serialize_params = [input_dim, state_dim, hidden_dim, model]
 
-  def start_sentence(self, sentence):
+  def start_sent(self, sentence):
     self.curr_sentence = sentence
     I = dy.concatenate_cols(self.curr_sentence)
     W = dy.parameter(self.pW)

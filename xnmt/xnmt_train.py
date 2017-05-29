@@ -26,10 +26,10 @@ options = [
   Option("eval_every", int, default_value=1000, force_flag=True),
   Option("batch_size", int, default_value=32, force_flag=True),
   Option("batch_strategy", default_value="src"),
-  Option("train_source"),
-  Option("train_target"),
-  Option("dev_source"),
-  Option("dev_target"),
+  Option("train_src"),
+  Option("train_trg"),
+  Option("dev_src"),
+  Option("dev_trg"),
   Option("model_file"),
   Option("pretrained_model_file", default_value="", help="Path of pre-trained model file"),
   Option("input_vocab", default_value="", help="Path of fixed input vocab file"),
@@ -67,7 +67,7 @@ class XnmtTrainer:
     elif args.trainer.lower() == "adam":
       self.trainer = dy.AdamTrainer(self.model, alpha = args.learning_rate)
     else:
-      raise RuntimeError("Unkonwn trainer {}".format(args.trainer))
+      raise RuntimeError("Unknown trainer {}".format(args.trainer))
     
     if args.lr_decay > 1.0 or args.lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
@@ -86,20 +86,18 @@ class XnmtTrainer:
       print('Start training in minibatch mode...')
       self.batcher = Batcher.select_batcher(args.batch_strategy)(args.batch_size)
       if args.input_format == "contvec":
-        assert self.train_corpus_source[0].nparr.shape[1] == self.input_embedder.emb_dim, "input embed dim is different size than expected"
+        assert self.train_src[0].nparr.shape[1] == self.input_embedder.emb_dim, "input embed dim is different size than expected"
         self.batcher.pad_token = np.zeros(self.input_embedder.emb_dim)
-      self.train_corpus_source, self.train_corpus_target = self.batcher.pack(self.train_corpus_source,
-                                                                             self.train_corpus_target)
-      self.dev_corpus_source, self.dev_corpus_target = self.batcher.pack(self.dev_corpus_source,
-                                                                         self.dev_corpus_target)
+      self.train_src, self.train_trg = self.batcher.pack(self.train_src, self.train_trg)
+      self.dev_src, self.dev_trg = self.batcher.pack(self.dev_src, self.dev_trg)
       self.logger = BatchLossTracker(args.eval_every, self.total_train_sent)
 
   def create_model(self):
     if self.args.pretrained_model_file:
       self.model_serializer = JSONSerializer()
       self.model_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, self.model)
-      source_vocab = Vocab(self.model_params.source_vocab)
-      target_vocab = Vocab(self.model_params.target_vocab)
+      src_vocab = Vocab(self.model_params.src_vocab)
+      trg_vocab = Vocab(self.model_params.trg_vocab)
       self.encoder = self.model_params.encoder
       self.attender = self.model_params.attender
       self.decoder = self.model_params.decoder
@@ -107,8 +105,8 @@ class XnmtTrainer:
       self.output_embedder = self.model_params.output_embedder
       self.translator = DefaultTranslator(self.input_embedder, self.encoder, self.attender, 
                                           self.output_embedder, self.decoder)
-      self.input_reader = InputReader.create_input_reader(self.args.input_format, source_vocab)
-      self.output_reader = InputReader.create_input_reader("text", target_vocab)
+      self.input_reader = InputReader.create_input_reader(self.args.input_format, src_vocab)
+      self.output_reader = InputReader.create_input_reader("text", trg_vocab)
       self.input_reader.freeze()
       self.output_reader.freeze()
       self.read_data()
@@ -168,30 +166,30 @@ class XnmtTrainer:
 
 
   def read_data(self):
-    self.train_corpus_source = self.input_reader.read_file(self.args.train_source)
-    self.train_corpus_target = self.output_reader.read_file(self.args.train_target)
-    assert len(self.train_corpus_source) == len(self.train_corpus_target)
-    self.total_train_sent = len(self.train_corpus_source)
+    self.train_src = self.input_reader.read_file(self.args.train_src)
+    self.train_trg = self.output_reader.read_file(self.args.train_trg)
+    assert len(self.train_src) == len(self.train_trg)
+    self.total_train_sent = len(self.train_src)
     if self.args.eval_every == None:
       self.args.eval_every = self.total_train_sent
 
     self.input_reader.freeze()
     self.output_reader.freeze()
 
-    self.dev_corpus_source = self.input_reader.read_file(self.args.dev_source)
-    self.dev_corpus_target = self.output_reader.read_file(self.args.dev_target)
-    assert len(self.dev_corpus_source) == len(self.dev_corpus_target)
+    self.dev_src = self.input_reader.read_file(self.args.dev_src)
+    self.dev_trg = self.output_reader.read_file(self.args.dev_trg)
+    assert len(self.dev_src) == len(self.dev_trg)
 
 
   def run_epoch(self):
     self.logger.new_epoch()
 
-    for batch_num, (src, tgt) in enumerate(zip(self.train_corpus_source, self.train_corpus_target)):
+    for batch_num, (src, trg) in enumerate(zip(self.train_src, self.train_trg)):
 
       # Loss calculation
       dy.renew_cg()
-      loss = self.translator.calc_loss(src, tgt)
-      self.logger.update_epoch_loss(src, tgt, loss.value())
+      loss = self.translator.calc_loss(src, trg)
+      self.logger.update_epoch_loss(src, trg, loss.value())
 
       loss.backward()
       self.trainer.update(self.learning_scale)
@@ -201,10 +199,10 @@ class XnmtTrainer:
       if self.logger.report_train_process():
 
         self.logger.new_dev()
-        for src, tgt in zip(self.dev_corpus_source, self.dev_corpus_target):
+        for src, trg in zip(self.dev_src, self.dev_trg):
           dy.renew_cg()
-          loss = self.translator.calc_loss(src, tgt).value()
-          self.logger.update_dev_loss(tgt, loss)
+          loss = self.translator.calc_loss(src, trg).value()
+          self.logger.update_dev_loss(trg, loss)
 
         # Write out the model if it's the best one
         if self.logger.report_dev_and_check_model(self.args.model_file):

@@ -44,8 +44,8 @@ class MlpSoftmaxDecoder(Decoder):
   def initialize(self):
     self.state = self.fwd_lstm.initial_state()
 
-  def add_input(self, target_embedding):
-    self.state = self.state.add_input(target_embedding)
+  def add_input(self, trg_embedding):
+    self.state = self.state.add_input(trg_embedding)
 
   def get_scores(self, context):
     mlp_input = dy.concatenate([context, self.state.output()])

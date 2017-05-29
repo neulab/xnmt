@@ -7,7 +7,7 @@ class LengthNormalization:
   '''
   A template class to generate translation from the output probability model.
   '''
-  def normalize_length(self, completed_hypotheses, source_length=0):
+  def normalize_length(self, completed_hyps, src_length=0):
     raise NotImplementedError('normalize_length must be implemented in LengthNormalization subclasses')
 
 
@@ -15,7 +15,7 @@ class NoNormalization(LengthNormalization):
   '''
   Adding no form of length normalization
   '''
-  def normalize_length(self, completed_hypotheses, source_length=0):
+  def normalize_length(self, completed_hyps, src_length=0):
     pass
 
 
@@ -26,9 +26,9 @@ class AdditiveNormalization(LengthNormalization):
   def __init__(self, penalty=-0.1):
     self.penalty = penalty
 
-  def normalize_length(self, completed_hypotheses, source_length=0):
-    for hypothesis in completed_hypotheses:
-      hypothesis.score += (len(hypothesis.id_list) * self.penalty)
+  def normalize_length(self, completed_hyps, src_length=0):
+    for hyp in completed_hyps:
+      hyp.score += (len(hyp.id_list) * self.penalty)
 
 
 class PolynomialNormalization(LengthNormalization):
@@ -38,9 +38,9 @@ class PolynomialNormalization(LengthNormalization):
   def __init__(self, m=1):
     self.m = m
 
-  def normalize_length(self, completed_hypotheses, source_length=0):
-    for hypothesis in completed_hypotheses:
-      hypothesis.score /= pow(len(hypothesis.id_list), self.m)
+  def normalize_length(self, completed_hyps, src_length=0):
+    for hyp in completed_hyps:
+      hyp.score /= pow(len(hyp.id_list), self.m)
 
 
 class MultinomialNormalization(LengthNormalization):
@@ -52,20 +52,20 @@ class MultinomialNormalization(LengthNormalization):
   def __init__(self, sentence_stats):
     self.stats = sentence_stats
 
-  def target_length_prob(self, source_length, target_length):
-    v = len(self.stats.source_stat)
-    if source_length in self.stats.source_stat:
-      source_stat = self.stats.source_stat.get(source_length)
-      return (source_stat.target_len_distribution.get(target_length, 0) + 1) / (source_stat.num_sentences + v)
+  def trg_length_prob(self, src_length, trg_length):
+    v = len(self.stats.src_stat)
+    if src_length in self.stats.src_stat:
+      src_stat = self.stats.src_stat.get(src_length)
+      return (src_stat.trg_len_distribution.get(trg_length, 0) + 1) / (src_stat.num_sentences + v)
     return 1
 
-  def normalize_length(self, completed_hypotheses, source_length=0):
+  def normalize_length(self, completed_hyps, src_length=0):
     """
-    :type source_length: length of the source sentence
+    :type src_length: length of the src sentence
     """
-    assert (source_length > 0), "Length of Source Sentence is required"
-    for hypothesis in completed_hypotheses:
-      hypothesis.score += np.log(self.target_length_prob(source_length, len(hypothesis.id_list)))
+    assert (src_length > 0), "Length of Source Sentence is required"
+    for hyp in completed_hyps:
+      hyp.score += np.log(self.trg_length_prob(src_length, len(hyp.id_list)))
 
 
 class GaussianNormalization(LengthNormalization):
@@ -76,7 +76,7 @@ class GaussianNormalization(LengthNormalization):
    refer: https://arxiv.org/pdf/1509.04942.pdf
   '''
   def __init__(self, sentence_stats):
-    self.stats = sentence_stats.target_stat
+    self.stats = sentence_stats.trg_stat
     self.num_sent = sentence_stats.num_pair
     self.fit_distribution()
 
@@ -90,9 +90,9 @@ class GaussianNormalization(LengthNormalization):
     mu, std = norm.fit(y)
     self.distr = norm(mu, std)
 
-  def target_length_prob(self, target_length):
-    return self.distr.pdf(target_length)
+  def trg_length_prob(self, trg_length):
+    return self.distr.pdf(trg_length)
 
-  def normalize_length(self, completed_hypotheses, source_length=0):
-    for hypothesis in completed_hypotheses:
-      hypothesis.score /= self.target_length_prob(len(hypothesis.id_list))
+  def normalize_length(self, completed_hyps, src_length=0):
+    for hyp in completed_hyps:
+      hyp.score /= self.trg_length_prob(len(hyp.id_list))

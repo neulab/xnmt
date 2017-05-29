@@ -16,13 +16,13 @@ class Embedder:
     """
     raise NotImplementedError('embed must be implemented in Embedder subclasses')
 
-  def embed_sentence(self, sentence):
+  def embed_sent(self, sentence):
     """
     Embed a full sentence worth of words.
     :param sentence: This will generally be a list of word IDs, but could also be a list
       of strings or some other format.
     """
-    raise NotImplementedError('embed_sentence must be implemented in Embedder subclasses')
+    raise NotImplementedError('embed_sent must be implemented in Embedder subclasses')
 
   @staticmethod
   def from_spec(input_format, vocab_size, emb_dim, model):
@@ -105,9 +105,9 @@ class SimpleWordEmbedder(Embedder):
     else:
       return self.embeddings.batch(x)
 
-  def embed_sentence(self, sentence):
+  def embed_sent(self, sentence):
     # single mode
-    if not Batcher.is_batch_sentence(sentence):
+    if not Batcher.is_batch_sent(sentence):
       embeddings = [self.embed(word) for word in sentence]
     # minibatch mode
     else:
@@ -140,7 +140,7 @@ class NoopEmbedder(Embedder):
     else:
       return dy.inputTensor(x, batched=True)
 
-  def embed_sentence(self, sentence):
+  def embed_sent(self, sentence):
     # TODO refactor: seems a bit too many special cases that need to be distinguished
     if isinstance(sentence, ExpressionSequence):
       return sentence

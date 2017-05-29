@@ -33,17 +33,17 @@ class DefaultTranslator(Translator):
     self.output_embedder = output_embedder
     self.decoder = decoder
 
-  def calc_loss(self, source, target):
-    embeddings = self.input_embedder.embed_sentence(source)
+  def calc_loss(self, src, trg):
+    embeddings = self.input_embedder.embed_sent(src)
     encodings = self.encoder.transduce(embeddings)
-    self.attender.start_sentence(encodings)
+    self.attender.start_sent(encodings)
     self.decoder.initialize()
     self.decoder.add_input(self.output_embedder.embed(0))  # XXX: HACK, need to initialize decoder better
     losses = []
 
     # single mode
-    if not Batcher.is_batch_sentence(source):
-      for ref_word in target:
+    if not Batcher.is_batch_sent(src):
+      for ref_word in trg:
         context = self.attender.calc_context(self.decoder.state.output())
         word_loss = self.decoder.calc_loss(context, ref_word)
         losses.append(word_loss)
@@ -51,15 +51,15 @@ class DefaultTranslator(Translator):
 
     # minibatch mode
     else:
-      max_len = max([len(single_target) for single_target in target])
+      max_len = max([len(single_trg) for single_trg in trg])
 
       for i in range(max_len):
-        ref_word = Batcher.mark_as_batch([single_target[i] if i < len(single_target) else Vocab.ES for single_target in target])
+        ref_word = Batcher.mark_as_batch([single_trg[i] if i < len(single_trg) else Vocab.ES for single_trg in trg])
         context = self.attender.calc_context(self.decoder.state.output())
 
         word_loss = self.decoder.calc_loss(context, ref_word)
-        mask_exp = dy.inputVector([1 if i < len(single_target) else 0 for single_target in target])
-        mask_exp = dy.reshape(mask_exp, (1,), len(target))
+        mask_exp = dy.inputVector([1 if i < len(single_trg) else 0 for single_trg in trg])
+        mask_exp = dy.reshape(mask_exp, (1,), len(trg))
         word_loss = dy.sum_batches(word_loss * mask_exp)
         losses.append(word_loss)
 
@@ -67,14 +67,14 @@ class DefaultTranslator(Translator):
 
     return dy.esum(losses)
 
-  def translate(self, source, search_strategy=BeamSearch(1, len_norm=NoNormalization())):
+  def translate(self, src, search_strategy=BeamSearch(1, len_norm=NoNormalization())):
     output = []
-    if not Batcher.is_batch_sentence(source):
-      source = Batcher.mark_as_batch([source])
-    for sentences in source:
-      embeddings = self.input_embedder.embed_sentence(source)
+    if not Batcher.is_batch_sent(src):
+      src = Batcher.mark_as_batch([src])
+    for sentences in src:
+      embeddings = self.input_embedder.embed_sent(src)
       encodings = self.encoder.transduce(embeddings)
-      self.attender.start_sentence(encodings)
+      self.attender.start_sent(encodings)
       self.decoder.initialize()
-      output.append(search_strategy.generate_output(self.decoder, self.attender, self.output_embedder, source_length=len(sentences)))
+      output.append(search_strategy.generate_output(self.decoder, self.attender, self.output_embedder, src_length=len(sentences)))
     return output

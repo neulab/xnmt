@@ -44,14 +44,14 @@ class LossTracker:
         self.sent_num = 0
         self.sent_num_not_report = 0
 
-    def update_epoch_loss(self, src, tgt, loss):
+    def update_epoch_loss(self, src, trg, loss):
         """
         Update epoch-wise counters for each iteration.
         """
         batch_sent_num = self.count_sent_num(src)
         self.sent_num += batch_sent_num
         self.sent_num_not_report += batch_sent_num
-        self.epoch_words += self.count_tgt_words(tgt)
+        self.epoch_words += self.count_trg_words(trg)
         self.epoch_loss += loss
     
     def format_time(self, seconds):
@@ -90,12 +90,12 @@ class LossTracker:
         self.dev_words = 0
         self.dev_start_time = time.time()
 
-    def update_dev_loss(self, tgt, loss):
+    def update_dev_loss(self, trg, loss):
         """
         Update dev counters for each iteration.
         """
         self.dev_loss += loss
-        self.dev_words += self.count_tgt_words(tgt)
+        self.dev_words += self.count_trg_words(trg)
 
     def report_dev_and_check_model(self, model_file):
         """
@@ -118,17 +118,17 @@ class LossTracker:
         self.last_report_train_time = time.time()
         return save_model
 
-    def count_tgt_words(self, tgt_words):
+    def count_trg_words(self, trg_words):
         """
-        Method for counting number of target words.
+        Method for counting number of trg words.
         """
-        raise NotImplementedError('count_tgt_words must be implemented in LossTracker subclasses')
+        raise NotImplementedError('count_trg_words must be implemented in LossTracker subclasses')
 
     def count_sent_num(self, obj):
         """
         Method for counting number of sentences.
         """
-        raise NotImplementedError('count_tgt_words must be implemented in LossTracker subclasses')
+        raise NotImplementedError('count_trg_words must be implemented in LossTracker subclasses')
 
     def clear_counters(self):
         self.sent_num = 0
@@ -143,8 +143,8 @@ class BatchLossTracker(LossTracker):
     A class to track training process and generate report for minibatch mode.
     """
 
-    def count_tgt_words(self, tgt_words):
-        return sum(len(x) for x in tgt_words)
+    def count_trg_words(self, trg_words):
+        return sum(len(x) for x in trg_words)
 
     def count_sent_num(self, obj):
         return len(obj)
@@ -155,8 +155,8 @@ class NonBatchLossTracker(LossTracker):
     A class to track training process and generate report for non-minibatch mode.
     """
 
-    def count_tgt_words(self, tgt_words):
-        return len(tgt_words)
+    def count_trg_words(self, trg_words):
+        return len(trg_words)
 
     def count_sent_num(self, obj):
         return 1
