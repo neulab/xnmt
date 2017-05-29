@@ -6,6 +6,7 @@ and <experimentname>.err.log, and reporting on final perplexity metrics.
 
 import argparse
 import sys
+import os
 import xnmt_train, xnmt_decode, xnmt_evaluate
 import six
 from options import OptionParser, Option
@@ -20,6 +21,9 @@ class Tee:
   """
 
   def __init__(self, name, indent=0, error=False):
+    dirname = os.path.dirname(name)
+    if not os.path.exists(dirname):
+      os.makedirs(dirname)
     self.file = open(name, 'w')
     self.stdstream = sys.stderr if error else sys.stdout
     self.indent = indent
@@ -82,8 +86,10 @@ if __name__ == '__main__':
   config_parser.remove_option("decode", "model_file")
 
   experiment_options = [
-    Option("model_file", required=True, help="Location to write the model file"),
-    Option("hyp_file", required=True, help="Temporary location to write decoded output for evaluation"),
+    Option("model_file", default_value="<EXP>.mod", help="Location to write the model file"),
+    Option("hyp_file", default_value="<EXP>.hyp", help="Location to write decoded output for evaluation"),
+    Option("out_file", default_value="<EXP>.out", help="Location to write stdout messages"),
+    Option("err_file", default_value="<EXP>.err", help="Location to write stderr messages"),
     Option("eval_metrics", default_value="bleu", help="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
     Option("run_for_epochs", int, help="How many epochs to run each test for"),
     Option("decode_every", int, default_value=0, help="Evaluation period in epochs. If set to 0, will never evaluate."),
@@ -129,8 +135,8 @@ if __name__ == '__main__':
     evaluate_args.hyp_file = exp_args.hyp_file
     evaluators = exp_args.eval_metrics.split(",")
 
-    output = Tee(experiment_name + ".log", 3)
-    err_output = Tee(experiment_name + ".err.log", 3, error=True)
+    output = Tee(exp_args.out_file, 3)
+    err_output = Tee(exp_args.err_file, 3, error=True)
     print("> Training")
 
     xnmt_trainer = xnmt_train.XnmtTrainer(train_args)
