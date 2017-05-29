@@ -25,18 +25,18 @@ class BeamSearch(SearchStrategy):
 
 
   def generate_output(self, decoder, attender, output_embedder, source_length=0):
-    active_hypothesis = [self.Hypothesis(0, [0], decoder.state)]
+    active_hyp = [self.Hypothesis(0, [0], decoder.state)]
 
-    completed_hypothesis = []
+    completed_hyp = []
     length = 0
 
-    while len(completed_hypothesis) < self.b and length < self.max_len:
+    while len(completed_hyp) < self.b and length < self.max_len:
       length += 1
       new_set = []
-      for hyp in active_hypothesis:
+      for hyp in active_hyp:
 
         if hyp.id_list[-1] == 1:
-          completed_hypothesis.append(hyp)
+          completed_hyp.append(hyp)
           continue
 
 
@@ -51,12 +51,12 @@ class BeamSearch(SearchStrategy):
           new_list.append(id)
           new_set.append(self.Hypothesis(hyp.score + score[id], new_list, decoder.state))
 
-      active_hypothesis = sorted(new_set, key=lambda x: x.score, reverse=True)[:self.b]
+      active_hyp = sorted(new_set, key=lambda x: x.score, reverse=True)[:self.b]
 
-    if len(completed_hypothesis) == 0:
-      completed_hypothesis = active_hypothesis
+    if len(completed_hyp) == 0:
+      completed_hyp = active_hyp
 
-    self.len_norm.normalize_length(completed_hypothesis, source_length)
+    self.len_norm.normalize_length(completed_hyp, source_length)
 
-    result = sorted(completed_hypothesis, key=lambda x: x.score, reverse=True)[0]
+    result = sorted(completed_hyp, key=lambda x: x.score, reverse=True)[0]
     return result.id_list

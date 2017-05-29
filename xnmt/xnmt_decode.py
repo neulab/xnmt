@@ -15,8 +15,8 @@ options = [
   Option("dynet-mem", int, required=False),
   Option("dynet-gpu-ids", int, required=False),
   Option("model_file", force_flag=True, required=True, help="pretrained (saved) model path"),
-  Option("source_file", help="path of input source file to be translated"),
-  Option("target_file", help="path of file where expected target translatons will be written"),
+  Option("src_file", help="path of input src file to be translated"),
+  Option("trg_file", help="path of file where expected trg translatons will be written"),
   Option("input_format", default_value="text", help="format of input data: text/contvec"),
   Option("post_process", default_value="none", help="post-processing of translation outputs: none/join-char/join-bpe"),
   Option("beam", int, default_value=1),
@@ -27,22 +27,22 @@ options = [
 def xnmt_decode(args, model_elements=None):
   """
   :param model_elements: If None, the model will be loaded from args.model_file. If set, should
-  equal (source_vocab, target_vocab, translator).
+  equal (src_vocab, trg_vocab, translator).
   """
   if model_elements is None:
     model = dy.Model()
     model_serializer = JSONSerializer()
     model_params = model_serializer.load_from_file(args.model_file, model)
 
-    source_vocab = Vocab(model_params.source_vocab)
-    target_vocab = Vocab(model_params.target_vocab)
+    src_vocab = Vocab(model_params.src_vocab)
+    trg_vocab = Vocab(model_params.trg_vocab)
 
     translator = DefaultTranslator(model_params.encoder, model_params.attender, model_params.decoder)
 
   else:
-    source_vocab, target_vocab, translator = model_elements
+    src_vocab, trg_vocab, translator = model_elements
 
-  input_reader = InputReader.create_input_reader(args.input_format, source_vocab)
+  input_reader = InputReader.create_input_reader(args.input_format, src_vocab)
   input_reader.freeze()
 
   if args.post_process=="none":
@@ -53,28 +53,28 @@ def xnmt_decode(args, model_elements=None):
     output_generator = JoinedBPETextOutput()
   else:
     raise RuntimeError("Unkonwn postprocessing argument {}".format(args.postprocess)) 
-  output_generator.load_vocab(target_vocab)
+  output_generator.load_vocab(trg_vocab)
 
-  source_corpus = input_reader.read_file(args.source_file)
+  src_corpus = input_reader.read_file(args.src_file)
   
   search_strategy=BeamSearch(b=args.beam, max_len=args.max_len, len_norm=NoNormalization())
 
   # Perform decoding
 
-  with open(args.target_file, 'wb') as fp:  # Saving the translated output to a target file
-    for src in source_corpus:
+  with open(args.trg_file, 'wb') as fp:  # Saving the translated output to a trg file
+    for src in src_corpus:
       dy.renew_cg()
       token_string = translator.translate(src, search_strategy)
-      target_sentence = output_generator.process(token_string)[0]
+      trg_sentence = output_generator.process(token_string)[0]
 
-      if isinstance(target_sentence, unicode):
-        target_sentence = target_sentence.encode('utf-8', errors='ignore')
+      if isinstance(trg_sentence, unicode):
+        trg_sentence = trg_sentence.encode('utf-8', errors='ignore')
 
       else:  # do bytestring -> unicode -> utf8 full circle, to ensure valid utf8
-        #target_sentence = unicode(target_sentence, 'utf-8', errors='ignore').encode('utf-8', errors='ignore')
-        target_sentence = target_sentence.decode('utf-8', errors='ignore').encode('utf-8', errors='ignore')
+        #trg_sentence = unicode(trg_sentence, 'utf-8', errors='ignore').encode('utf-8', errors='ignore')
+        trg_sentence = trg_sentence.decode('utf-8', errors='ignore').encode('utf-8', errors='ignore')
 
-      fp.write(target_sentence + '\n')
+      fp.write(trg_sentence + '\n')
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ class Batch(list):
 
 class Batcher:
   """
-  A template class to convert a list of sentences to several batches of sentences.
+  A template class to convert a list of sents to several batches of sents.
   """
 
   PAIR_SRC = 0
@@ -26,20 +26,20 @@ class Batcher:
     self.pad_token = pad_token
 
   @staticmethod
-  def is_batch_sentence(sentence):
+  def is_batch_sent(sent):
     """
     :rtype: bool
-    :param sentence: a batch of sentences (a list of lists of ints) OR a single sentence (a list of ints)
-    :return: True if the data is a batch of sentences 
+    :param sent: a batch of sents (a list of lists of ints) OR a single sent (a list of ints)
+    :return: True if the data is a batch of sents 
     """
-    return type(sentence) == Batch
+    return type(sent) == Batch
 
   @staticmethod
   def is_batch_word(word):
     """
     :rtype: bool
-    :param word: a batch of target words (a list of ints) OR a single target word (an int)
-    :return: True if the data is a batch of target words 
+    :param word: a batch of trg words (a list of ints) OR a single trg word (an int)
+    :return: True if the data is a batch of trg words 
     """
     return type(word) == Batch
 
@@ -51,19 +51,19 @@ class Batcher:
       return Batch(data)
 
   @staticmethod
-  def separate_source_target(joint_result):
-    source_result = []
-    target_result = []
+  def separate_src_trg(joint_result):
+    src_result = []
+    trg_result = []
     for batch in joint_result:
-      source_result.append(Batcher.mark_as_batch([pair[Batcher.PAIR_SRC] for pair in batch]))
-      target_result.append(Batcher.mark_as_batch([pair[Batcher.PAIR_TRG] for pair in batch]))
-    return source_result, target_result
+      src_result.append(Batcher.mark_as_batch([pair[Batcher.PAIR_SRC] for pair in batch]))
+      trg_result.append(Batcher.mark_as_batch([pair[Batcher.PAIR_TRG] for pair in batch]))
+    return src_result, trg_result
 
   @staticmethod
   def pad_src_sent(batch, pad_token=Vocab.ES):
     max_len = max([len(pair[Batcher.PAIR_SRC]) for pair in batch])
     return map(lambda pair:
-               (pair[Batcher.PAIR_SRC].get_padded_sentence(pad_token, max_len - len(pair[Batcher.PAIR_SRC])),
+               (pair[Batcher.PAIR_SRC].get_padded_sent(pad_token, max_len - len(pair[Batcher.PAIR_SRC])),
                 pair[Batcher.PAIR_TRG]),
                batch)
 
@@ -92,13 +92,13 @@ class Batcher:
   def pad_sent(self, batch):
     return self.pad_src_sent(batch, self.pad_token)
 
-  def pack(self, source, target):
+  def pack(self, src, trg):
     """
-    Create batches from input source and target corpus.
-    :param source: source corpus (a list of sentences)
-    :param target: target corpus (a list of sentences)
-    :return: Packed source corpus (a list of batches of sentence) and packed target corpus (a list of batches of 
-    sentence)
+    Create batches from input src and trg corpus.
+    :param src: src corpus (a list of sents)
+    :param trg: trg corpus (a list of sents)
+    :return: Packed src corpus (a list of batches of sent) and packed trg corpus (a list of batches of 
+    sent)
     """
     raise NotImplementedError('pack() must be implemented in Batcher subclasses')
 
@@ -108,11 +108,11 @@ class ShuffleBatcher(Batcher):
   A class to create batches through randomly shuffling without sorting.
   """
 
-  def pack(self, source, target):
-    source_target_pairs = list(zip(source, target))
-    np.random.shuffle(source_target_pairs)
-    minibatches = self.create_batches(source_target_pairs)
-    return self.separate_source_target(minibatches)
+  def pack(self, src, trg):
+    src_trg_pairs = list(zip(src, trg))
+    np.random.shuffle(src_trg_pairs)
+    minibatches = self.create_batches(src_trg_pairs)
+    return self.separate_src_trg(minibatches)
 
   def pad_sent(self, batch):
     return self.pad_src_sent(batch, self.pad_token)
@@ -120,7 +120,7 @@ class ShuffleBatcher(Batcher):
 
 class BucketBatcher(Batcher):
   """
-  A template class to create batches through bucketing sentence length.
+  A template class to create batches through bucketing sent length.
   """
 
   def group_by_len(self, pairs):
@@ -129,9 +129,9 @@ class BucketBatcher(Batcher):
       buckets[self.bucket_index(pair)].append(pair)
     return buckets
 
-  def pack(self, source, target):
-    source_target_pairs = zip(source, target)
-    buckets = self.group_by_len(source_target_pairs)
+  def pack(self, src, trg):
+    src_trg_pairs = zip(src, trg)
+    buckets = self.group_by_len(src_trg_pairs)
     sorted_pairs = []
     for bucket_key in sorted(buckets.keys()):
       same_len_pairs = buckets[bucket_key]
@@ -139,24 +139,24 @@ class BucketBatcher(Batcher):
       sorted_pairs.extend(same_len_pairs)
     result = self.create_batches(sorted_pairs)
     np.random.shuffle(result)
-    return self.separate_source_target(result)
+    return self.separate_src_trg(result)
 
   def bucket_index(self, pair):
     """
-    Specify the method to sort sentences.
+    Specify the method to sort sents.
     """
     raise NotImplementedError('bucket_index() must be implemented in BucketBatcher subclasses')
 
   def bucket_value_sort(self, pairs):
     """
-    Specify the method to break ties for sorted sentences.
+    Specify the method to break ties for sorted sents.
     """
     np.random.shuffle(pairs)
 
 
 class SourceBucketBatcher(BucketBatcher):
   """
-  A class to create batches based on the source sentence length.
+  A class to create batches based on the src sent length.
   """
 
   def bucket_index(self, pair):
@@ -165,7 +165,7 @@ class SourceBucketBatcher(BucketBatcher):
 
 class SourceTargetBucketBatcher(SourceBucketBatcher):
   """
-  A class to create batches based on the source sentence length and break ties by target sentence length.
+  A class to create batches based on the src sent length and break ties by trg sent length.
   """
 
   def bucket_value_sort(self, pairs):
@@ -174,7 +174,7 @@ class SourceTargetBucketBatcher(SourceBucketBatcher):
 
 class TargetBucketBatcher(BucketBatcher):
   """
-  A class to create batches based on the target sentence length.
+  A class to create batches based on the trg sent length.
   """
 
   def bucket_index(self, pair):
@@ -186,7 +186,7 @@ class TargetBucketBatcher(BucketBatcher):
 
 class TargetSourceBucketBatcher(TargetBucketBatcher):
   """
-  A class to create batches based on the target sentence length and break ties by source sentence length.
+  A class to create batches based on the trg sent length and break ties by src sent length.
   """
 
   def bucket_value_sort(self, pairs):
@@ -195,13 +195,13 @@ class TargetSourceBucketBatcher(TargetBucketBatcher):
 
 class WordTargetBucketBatcher(TargetBucketBatcher):
   """
-  A class to create batches based on number of target words, resulting in more stable memory consumption.
+  A class to create batches based on number of trg words, resulting in more stable memory consumption.
   """
 
-  def pack(self, source, target):
-    limit_target_words = self.batch_size
-    source_target_pairs = zip(source, target)
-    buckets = self.group_by_len(source_target_pairs)
+  def pack(self, src, trg):
+    limit_trg_words = self.batch_size
+    src_trg_pairs = zip(src, trg)
+    buckets = self.group_by_len(src_trg_pairs)
 
     result = []
     temp_batch = []
@@ -210,7 +210,7 @@ class WordTargetBucketBatcher(TargetBucketBatcher):
     for sent_len, sent_pairs in OrderedDict(buckets).items():
       self.bucket_value_sort(sent_pairs)
       for pair in sent_pairs:
-        if temp_words + sent_len > limit_target_words and len(temp_batch) > 0:
+        if temp_words + sent_len > limit_trg_words and len(temp_batch) > 0:
           result.append(self.pad_sent(temp_batch))
           temp_batch = []
           temp_words = 0
@@ -221,4 +221,4 @@ class WordTargetBucketBatcher(TargetBucketBatcher):
       result.append(self.pad_sent(temp_batch))
 
     np.random.shuffle(result)
-    return self.separate_source_target(result)
+    return self.separate_src_trg(result)

@@ -56,6 +56,7 @@ if __name__ == '__main__':
   argparser = argparse.ArgumentParser()
   argparser.add_argument("--dynet-mem", type=int)
   argparser.add_argument("--dynet-seed", type=int)
+  argparser.add_argument("--dynet-autobatch", type=int)
   argparser.add_argument("--dynet-viz", action='store_true', help="use visualization")
   argparser.add_argument("--dynet-gpu", action='store_true', help="use GPU acceleration")
   argparser.add_argument("--dynet-gpu-ids", type=int)
@@ -75,7 +76,7 @@ if __name__ == '__main__':
   # - Delete decode:hyp_file, evaluate:hyp_file, replace with exp:hyp_file
   # - Delete train:model, decode:model_file, replace with exp:model_file
   config_parser.remove_option("evaluate", "evaluator")
-  config_parser.remove_option("decode", "target_file")
+  config_parser.remove_option("decode", "trg_file")
   config_parser.remove_option("evaluate", "hyp_file")
   config_parser.remove_option("train", "model_file")
   config_parser.remove_option("decode", "model_file")
@@ -121,7 +122,7 @@ if __name__ == '__main__':
     train_args.model_file = exp_args.model_file
 
     decode_args = exp_tasks["decode"]
-    decode_args.target_file = exp_args.hyp_file
+    decode_args.trg_file = exp_args.hyp_file
     decode_args.model_file = None  # The model is passed to the decoder directly
 
     evaluate_args = exp_tasks["evaluate"]

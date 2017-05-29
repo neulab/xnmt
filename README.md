@@ -33,3 +33,9 @@ In general, follow Python conventions. Must be Python3 compatible. Functions sho
 Indentation should be two whitespace characters.
 
 Aim to write unit tests for most functionality where possible.
+
+In variable names, common words should be abbreviated as:
+* source -> src
+* target -> trg
+* sentence -> sent
+* hypothesis -> hyp
