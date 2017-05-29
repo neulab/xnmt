@@ -65,16 +65,16 @@ def xnmt_decode(args, model_elements=None):
     for src in src_corpus:
       dy.renew_cg()
       token_string = translator.translate(src, search_strategy)
-      trg_sentence = output_generator.process(token_string)[0]
+      trg_sent = output_generator.process(token_string)[0]
 
-      if isinstance(trg_sentence, unicode):
-        trg_sentence = trg_sentence.encode('utf-8', errors='ignore')
+      if isinstance(trg_sent, unicode):
+        trg_sent = trg_sent.encode('utf-8', errors='ignore')
 
       else:  # do bytestring -> unicode -> utf8 full circle, to ensure valid utf8
-        #trg_sentence = unicode(trg_sentence, 'utf-8', errors='ignore').encode('utf-8', errors='ignore')
-        trg_sentence = trg_sentence.decode('utf-8', errors='ignore').encode('utf-8', errors='ignore')
+        #trg_sent = unicode(trg_sent, 'utf-8', errors='ignore').encode('utf-8', errors='ignore')
+        trg_sent = trg_sent.decode('utf-8', errors='ignore').encode('utf-8', errors='ignore')
 
-      fp.write(trg_sentence + '\n')
+      fp.write(trg_sent + '\n')
 
 
 if __name__ == "__main__":

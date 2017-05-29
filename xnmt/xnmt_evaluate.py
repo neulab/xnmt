@@ -23,7 +23,7 @@ def read_data(loc_):
 
 
 def xnmt_evaluate(args):
-    """"Returns the eval score (e.g. BLEU) of the hyp sentences using reference trg sentences
+    """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
     """
 
     if args.evaluator == "bleu":

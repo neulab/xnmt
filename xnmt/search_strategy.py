@@ -24,7 +24,7 @@ class BeamSearch(SearchStrategy):
 
 
 
-  def generate_output(self, decoder, attender, output_embedder, source_length=0):
+  def generate_output(self, decoder, attender, output_embedder, src_length=0):
     active_hyp = [self.Hypothesis(0, [0], decoder.state)]
 
     completed_hyp = []
@@ -56,7 +56,7 @@ class BeamSearch(SearchStrategy):
     if len(completed_hyp) == 0:
       completed_hyp = active_hyp
 
-    self.len_norm.normalize_length(completed_hyp, source_length)
+    self.len_norm.normalize_length(completed_hyp, src_length)
 
     result = sorted(completed_hyp, key=lambda x: x.score, reverse=True)[0]
     return result.id_list

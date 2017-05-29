@@ -4,31 +4,31 @@
 # Output units should be characters according to the paper.
 defaults:
   experiment:
-    model_file: /tmp/model.out
-    hyp_file: /tmp/xnmt-hypothesis
+    model_file: examples/output/speech.mod
+    hyp_file: examples/output/speech.txt
     run_for_epochs: 2
     decode_every: 1
     eval_metrics: cer,wer
   train:
-    train_source: ../data/synth.contvec.npz
-    train_target: ../data/synth.char
-    dev_source: ../data/synth.contvec.npz
-    dev_target: ../data/synth.char
+    train_src: examples/data/synth.contvec.npz
+    train_trg: examples/data/synth.char
+    dev_src: examples/data/synth.contvec.npz
+    dev_trg: examples/data/synth.char
     # choose pyramidal LSTM encoder:
     encoder_type: PyramidalBiLSTM
     # indicate the dimension of the feature vectors:
     input_word_embed_dim: 240
-    # indicates that the source-side data is continuous-space vectors, contained in a numpy archive (see input.py for details):
+    # indicates that the src-side data is continuous-space vectors, contained in a numpy archive (see input.py for details):
     input_format: contvec
   decode:
-    source_file: ../data/synth.contvec.npz
+    src_file: examples/data/synth.contvec.npz
     input_format: contvec
   evaluate:
-    ref_file: ../data/synth.char
+    ref_file: examples/data/synth.char
 
-experiment1:
+speech:
   train:
-    encoder_layers: 3
+    encoder_layers: 2
     output_word_embed_dim: 64
     output_state_dim: 64
     attender_hidden_dim: 64

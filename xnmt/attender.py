@@ -11,8 +11,8 @@ class Attender:
   Implement things.
   '''
 
-  def start_sentence(self, sentence):
-    raise NotImplementedError('start_sentence must be implemented for Attender subclasses')
+  def start_sent(self, sent):
+    raise NotImplementedError('start_sent must be implemented for Attender subclasses')
 
   def calc_attention(self, state):
     raise NotImplementedError('calc_attention must be implemented for Attender subclasses')
@@ -28,16 +28,16 @@ class StandardAttender(Attender):
     self.pV = model.add_parameters((hidden_dim, state_dim))
     self.pb = model.add_parameters(hidden_dim)
     self.pU = model.add_parameters((1, hidden_dim))
-    self.curr_sentence = None
+    self.curr_sent = None
     self.serialize_params = [input_dim, state_dim, hidden_dim, model]
 
-  def start_sentence(self, sentence):
-    self.curr_sentence = sentence
-    I = dy.concatenate_cols(self.curr_sentence)
+  def start_sent(self, sent):
+    self.curr_sent = sent
+    I = dy.concatenate_cols(self.curr_sent)
     W = dy.parameter(self.pW)
     b = dy.parameter(self.pb)
     self.WI = dy.affine_transform([b, W, I])
-    if len(self.curr_sentence)==1:
+    if len(self.curr_sent)==1:
       self.WI = dy.reshape(self.WI, (self.WI.dim()[0][0],1), batch_size=self.WI.dim()[1])
 
   def calc_attention(self, state):
@@ -51,5 +51,5 @@ class StandardAttender(Attender):
 
   def calc_context(self, state):
     attention = self.calc_attention(state)
-    I = dy.concatenate_cols(self.curr_sentence)
+    I = dy.concatenate_cols(self.curr_sent)
     return I * attention

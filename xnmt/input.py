@@ -14,12 +14,12 @@ class Input:
     raise NotImplementedError("__len__() must be implemented by Input subclasses")
   def __getitem__(self):
     raise NotImplementedError("__getitem__() must be implemented by Input subclasses")
-  def get_padded_sentence(self, token, pad_len):
-    raise NotImplementedError("get_padded_sentence() must be implemented by Input subclasses")
+  def get_padded_sent(self, token, pad_len):
+    raise NotImplementedError("get_padded_sent() must be implemented by Input subclasses")
 
 class SimpleSentenceInput(Input):
   """
-  A simple sentence, represented as a list of tokens
+  A simple sent, represented as a list of tokens
   """
   def __init__(self, l):
     self.l = l
@@ -27,13 +27,13 @@ class SimpleSentenceInput(Input):
     return self.l.__len__()
   def __getitem__(self, key):
     return self.l.__getitem__(key)
-  def get_padded_sentence(self, token, pad_len):
+  def get_padded_sent(self, token, pad_len):
     self.l.extend([token] * pad_len)
     return self
     
 class ArrayInput(Input):
   """
-  A sentence based on a single numpy array; first dimension contains tokens 
+  A sent based on a single numpy array; first dimension contains tokens 
   """
   def __init__(self, nparr):
     self.nparr = nparr
@@ -41,7 +41,7 @@ class ArrayInput(Input):
     return self.nparr.__len__()
   def __getitem__(self, key):
     return self.nparr.__getitem__(key)
-  def get_padded_sentence(self, token, pad_len):
+  def get_padded_sent(self, token, pad_len):
     if pad_len>0:
       self.nparr = np.append(self.nparr, np.repeat(token.reshape(1,len(token)), pad_len, axis=0), axis=0)
     return self
@@ -62,7 +62,7 @@ class InputReader:
 class PlainTextReader(InputReader):
   """
   Handles the typical case of reading plain text files,
-  with one sentence per line.
+  with one sent per line.
   """
   def __init__(self, vocab=None):
     if vocab is None:
@@ -71,14 +71,14 @@ class PlainTextReader(InputReader):
       self.vocab = vocab
 
   def read_file(self, filename):
-    sentences = []
+    sents = []
     with open(filename) as f:
       for line in f:
         words = line.decode('utf-8').strip().split()
-        sentence = [self.vocab.convert(word) for word in words]
-        sentence.append(self.vocab.convert(Vocab.ES_STR))
-        sentences.append(SimpleSentenceInput(sentence))
-    return sentences
+        sent = [self.vocab.convert(word) for word in words]
+        sent.append(self.vocab.convert(Vocab.ES_STR))
+        sents.append(SimpleSentenceInput(sent))
+    return sents
 
   def freeze(self):
     self.vocab.freeze()
@@ -87,11 +87,11 @@ class PlainTextReader(InputReader):
     
 class ContVecReader(InputReader):
   """
-  Handles the case where sentences are sequences of continuous-space vectors.
+  Handles the case where sents are sequences of continuous-space vectors.
   
-  We assume a list of matrices (sentences) serialized as .npz (with numpy.savez_compressed())
+  We assume a list of matrices (sents) serialized as .npz (with numpy.savez_compressed())
   Sentences should be named arr_0, arr_1, ... (=np default for unnamed archives).
-  We can index them as sentences[sent_no][word_ind,feat_ind]
+  We can index them as sents[sent_no][word_ind,feat_ind]
   """
   def __init__(self):
     self.vocab = Vocab()
@@ -99,9 +99,9 @@ class ContVecReader(InputReader):
   def read_file(self, filename):
     npzFile = np.load(filename)
     npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[1]))
-    sentences = map(lambda f:ArrayInput(npzFile[f]), npzKeys)
+    sents = map(lambda f:ArrayInput(npzFile[f]), npzKeys)
     npzFile.close()
-    return sentences
+    return sents
 
   def freeze(self):
     pass

@@ -34,15 +34,15 @@ class DefaultTranslator(Translator):
     self.decoder = decoder
 
   def calc_loss(self, src, trg):
-    embeddings = self.input_embedder.embed_sentence(src)
+    embeddings = self.input_embedder.embed_sent(src)
     encodings = self.encoder.transduce(embeddings)
-    self.attender.start_sentence(encodings)
+    self.attender.start_sent(encodings)
     self.decoder.initialize()
     self.decoder.add_input(self.output_embedder.embed(0))  # XXX: HACK, need to initialize decoder better
     losses = []
 
     # single mode
-    if not Batcher.is_batch_sentence(src):
+    if not Batcher.is_batch_sent(src):
       for ref_word in trg:
         context = self.attender.calc_context(self.decoder.state.output())
         word_loss = self.decoder.calc_loss(context, ref_word)
@@ -69,12 +69,12 @@ class DefaultTranslator(Translator):
 
   def translate(self, src, search_strategy=BeamSearch(1, len_norm=NoNormalization())):
     output = []
-    if not Batcher.is_batch_sentence(src):
+    if not Batcher.is_batch_sent(src):
       src = Batcher.mark_as_batch([src])
-    for sentences in src:
-      embeddings = self.input_embedder.embed_sentence(src)
+    for sents in src:
+      embeddings = self.input_embedder.embed_sent(src)
       encodings = self.encoder.transduce(embeddings)
-      self.attender.start_sentence(encodings)
+      self.attender.start_sent(encodings)
       self.decoder.initialize()
-      output.append(search_strategy.generate_output(self.decoder, self.attender, self.output_embedder, src_length=len(sentences)))
+      output.append(search_strategy.generate_output(self.decoder, self.attender, self.output_embedder, src_length=len(sents)))
     return output

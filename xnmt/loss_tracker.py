@@ -61,7 +61,7 @@ class LossTracker:
 
     def report_train_process(self):
         """
-        Print training report if eval_every sentences have been evaluated.
+        Print training report if eval_every sents have been evaluated.
         :return: True if the training process is reported
         """
         print_report = (self.sent_num_not_report >= self.eval_every) or (self.sent_num == self.total_train_sent)
@@ -126,7 +126,7 @@ class LossTracker:
 
     def count_sent_num(self, obj):
         """
-        Method for counting number of sentences.
+        Method for counting number of sents.
         """
         raise NotImplementedError('count_trg_words must be implemented in LossTracker subclasses')
 

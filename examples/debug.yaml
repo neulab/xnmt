@@ -1,0 +1,30 @@
+# This is a super-small config just for debugging
+defaults:
+  experiment:
+    run_for_epochs: 2
+    decode_every: 1
+    eval_metrics: bleu,wer
+  train:
+    train_src: examples/data/head.ja
+    train_trg: examples/data/head.en
+    dev_src: examples/data/head.ja
+    dev_trg: examples/data/head.en
+    default_layer_dim: 64
+  decode:
+    src_file: examples/data/head.ja
+  evaluate:
+    ref_file: examples/data/head.en
+
+debug-config-1layer:
+  experiment:
+    model_file: examples/output/debug-config-1layer.mod
+    hyp_file: examples/output/debug-config-1layer.out
+  train:
+    encoder_layers: 1
+
+debug-config-2layers:
+  experiment:
+    model_file: examples/output/debug-config-2layers.mod
+    hyp_file: examples/output/debug-config-2layers.out
+  train:
+    decoder_layers: 2
