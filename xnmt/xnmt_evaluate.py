@@ -5,7 +5,7 @@ from options import Option, OptionParser
 
 options = [
     Option("ref_file", help="path of the reference file"),
-    Option("hyp_file", help="path of the hypothesis target file"),
+    Option("hyp_file", help="path of the hypothesis trg file"),
     Option("evaluator", default_value="bleu", help="Evaluation metrics (bleu/wer/cer)")
 ]
 
@@ -23,7 +23,7 @@ def read_data(loc_):
 
 
 def xnmt_evaluate(args):
-    """"Returns the eval score (e.g. BLEU) of the hyp sentences using reference target sentences
+    """"Returns the eval score (e.g. BLEU) of the hyp sentences using reference trg sentences
     """
 
     if args.evaluator == "bleu":
