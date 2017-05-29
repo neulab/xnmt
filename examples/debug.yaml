@@ -28,3 +28,11 @@ debug-config-2layers:
     hyp_file: examples/output/debug-config-2layers.out
   train:
     decoder_layers: 2
+
+debug-config-2layers-finetune:
+  experiment:
+    model_file: examples/output/debug-config-2layers-finetuned.mod
+    hyp_file: examples/output/debug-config-2layers.out
+  train:
+    decoder_layers: 2
+    pretrained_model_file: examples/output/debug-config-2layers.mod
