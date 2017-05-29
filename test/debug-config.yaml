@@ -18,9 +18,15 @@ defaults:
     ref_file: ../data/head.en
 
 experiment1:
+  experiment:
+    model_file: model_debug_1.out
   train:
     encoder_layers: 3
 
 experiment2:
+  experiment:
+    model_file: model_debug_2.out
   train:
     decoder_layers: 4
+    pretrained_model_file: model_debug_1.out
+    

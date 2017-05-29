@@ -10,6 +10,7 @@ defaults:
     train_target: ../data/train.en
     dev_source: ../data/dev.ja
     dev_target: ../data/dev.en
+    encoder_type: bilstm
   decode:
     source_file: ../data/test.ja
   evaluate:

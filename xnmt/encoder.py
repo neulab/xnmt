@@ -25,39 +25,57 @@ class Encoder:
   def from_spec(spec, layers, input_dim, output_dim, model, residual_to_output):
     spec_lower = spec.lower()
     if spec_lower == "bilstm":
-      return BiRNNEncoder(layers, input_dim, output_dim, model)
+      return BiLSTMEncoder(layers, input_dim, output_dim, model)
     elif spec_lower == "residuallstm":
-      return residual.ResidualRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
+      return ResidualLSTMEncoder(layers, input_dim, output_dim, model, residual_to_output)
     elif spec_lower == "residualbilstm":
-      return residual.ResidualBiRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder,
-                                                 residual_to_output)
+      return ResidualBiLSTMEncoder(layers, input_dim, output_dim, model, residual_to_output)
     elif spec_lower == "pyramidalbilstm":
-      return pyramidal.PyramidalRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder)
+      return PyramidalLSTMEncoder(layers, input_dim, output_dim, model)
     elif spec_lower == "convbilstm":
-      return conv_encoder.ConvBiRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
+      return ConvBiRNNBuilder(layers, input_dim, output_dim, model)
     elif spec_lower == "modular":
       # example for a modular encoder: stacked pyramidal encoder, followed by stacked LSTM 
-      return ModularEncoder([
-                             pyramidal.PyramidalRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder),
-                             dy.BiRNNBuilder(layers, output_dim, output_dim, model, dy.VanillaLSTMBuilder)
-                             ],
-                            model
+      return ModularEncoder(model,
+                             PyramidalLSTMEncoder(layers, input_dim, output_dim, model),
+                             BiLSTMEncoder(layers, output_dim, output_dim, model),
                             )
     else:
       raise RuntimeError("Unknown encoder type {}".format(spec_lower))
 
-class BiRNNEncoder(Encoder):
+class BuilderEncoder(Encoder):
+  def transduce(self, sentence):
+    return self.builder.transduce(sentence)
+
+class BiLSTMEncoder(BuilderEncoder):
   def __init__(self, layers, input_dim, output_dim, model):
     self.builder = dy.BiRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder)
     self.serialize_params = [layers, input_dim, output_dim, model]
 
-  def transduce(self, sentence):
-    return self.builder.transduce(sentence)
+class ResidualLSTMEncoder(BuilderEncoder):
+  def __init__(self, layers, input_dim, output_dim, model, residual_to_output):
+    self.builder = residual.ResidualRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
+    self.serialize_params = [layers, input_dim, output_dim, model, residual_to_output]
 
+class ResidualBiLSTMEncoder(BuilderEncoder):
+  def __init__(self, layers, input_dim, output_dim, model, residual_to_output):
+    self.builder = residual.ResidualBiRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
+    self.serialize_params = [layers, input_dim, output_dim, model, residual_to_output]
+
+class PyramidalLSTMEncoder(BuilderEncoder):
+  def __init__(self, layers, input_dim, output_dim, model):
+    self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder)
+    self.serialize_params = [layers, input_dim, output_dim, model]
+
+class ConvBiRNNBuilder(BuilderEncoder):
+  def __init__(self, layers, input_dim, output_dim, model):
+    self.builder = conv_encoder.ConvBiRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
+    self.serialize_params = [layers, input_dim, output_dim, model]
+  
 class ModularEncoder(Encoder):
-  def __init__(self, module_list, model):
+  def __init__(self, model, *module_list):
     self.module_list = module_list
-    self.serialize_params = [model, ]
+    self.serialize_params = [model] + list(module_list)
 
   def transduce(self, sentence):
     for i, module in enumerate(self.module_list):

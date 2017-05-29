@@ -103,7 +103,10 @@ class XnmtTrainer:
       self.encoder = self.model_params.encoder
       self.attender = self.model_params.attender
       self.decoder = self.model_params.decoder
-      self.translator = DefaultTranslator(self.encoder, self.attender, self.decoder)
+      self.input_embedder = self.model_params.input_embedder
+      self.output_embedder = self.model_params.output_embedder
+      self.translator = DefaultTranslator(self.input_embedder, self.encoder, self.attender, 
+                                          self.output_embedder, self.decoder)
       self.input_reader = InputReader.create_input_reader(self.args.input_format, source_vocab)
       self.output_reader = InputReader.create_input_reader("text", target_vocab)
       self.input_reader.freeze()
@@ -160,7 +163,7 @@ class XnmtTrainer:
 
     self.translator = DefaultTranslator(self.input_embedder, self.encoder, self.attender, self.output_embedder, self.decoder)
     self.model_params = ModelParams(self.encoder, self.attender, self.decoder, self.input_reader.vocab.i2w,
-                                    self.output_reader.vocab.i2w)
+                                    self.output_reader.vocab.i2w, self.input_embedder, self.output_embedder)
 
 
 
