@@ -18,7 +18,7 @@ class Output:
 class PlainTextOutput(Output):
   '''
   Handles the typical case of writing plain text,
-  with one sentence per line.
+  with one sent per line.
   '''
 
   def load_vocab(self, vocab):

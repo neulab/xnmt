@@ -10,10 +10,10 @@ class Encoder:
   A parent class representing all classes that encode inputs.
   """
 
-  def transduce(self, sentence):
+  def transduce(self, sent):
     """
     Encode inputs into outputs.
-    :param sentence: The input to be encoded. This is duck-typed, so it is the
+    :param sent: The input to be encoded. This is duck-typed, so it is the
       appropriate input for this particular type of encoder. Frequently it will
       be a list of word embeddings, but it can be anything else.
     :returns: The encoded output. Frequently this will be a list of expressions
@@ -44,8 +44,8 @@ class Encoder:
       raise RuntimeError("Unknown encoder type {}".format(spec_lower))
 
 class BuilderEncoder(Encoder):
-  def transduce(self, sentence):
-    return self.builder.transduce(sentence)
+  def transduce(self, sent):
+    return self.builder.transduce(sent)
 
 class BiLSTMEncoder(BuilderEncoder):
   def __init__(self, layers, input_dim, output_dim, model):
@@ -77,9 +77,9 @@ class ModularEncoder(Encoder):
     self.module_list = module_list
     self.serialize_params = [model] + list(module_list)
 
-  def transduce(self, sentence):
+  def transduce(self, sent):
     for i, module in enumerate(self.module_list):
-      sentence = module.transduce(sentence)
+      sent = module.transduce(sent)
       if i<len(self.module_list)-1:
-        sentence = ExpressionSequence(expr_list=sentence)
-    return sentence
+        sent = ExpressionSequence(expr_list=sent)
+    return sent

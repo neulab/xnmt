@@ -19,6 +19,9 @@ class JSONSerializer:
   param -- the model parameters
   '''
   def save_to_file(self, fname, mod, params):
+    dirname = os.path.dirname(fname)
+    if not os.path.exists(dirname):
+      os.makedirs(dirname)
     with open(fname, 'w') as f:
       json.dump(self.__to_spec(mod), f)
     params.save_all(fname + '.data')

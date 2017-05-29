@@ -5,7 +5,7 @@ import dynet as dy
 
 class Embedder:
   """
-  A parent class that takes in a sentence and outputs an embedded sentence.
+  A parent class that takes in a sent and outputs an embedded sent.
   """
 
   def embed(self, word):
@@ -16,10 +16,10 @@ class Embedder:
     """
     raise NotImplementedError('embed must be implemented in Embedder subclasses')
 
-  def embed_sent(self, sentence):
+  def embed_sent(self, sent):
     """
-    Embed a full sentence worth of words.
-    :param sentence: This will generally be a list of word IDs, but could also be a list
+    Embed a full sent worth of words.
+    :param sent: This will generally be a list of word IDs, but could also be a list
       of strings or some other format.
     """
     raise NotImplementedError('embed_sent must be implemented in Embedder subclasses')
@@ -105,15 +105,15 @@ class SimpleWordEmbedder(Embedder):
     else:
       return self.embeddings.batch(x)
 
-  def embed_sent(self, sentence):
+  def embed_sent(self, sent):
     # single mode
-    if not Batcher.is_batch_sent(sentence):
-      embeddings = [self.embed(word) for word in sentence]
+    if not Batcher.is_batch_sent(sent):
+      embeddings = [self.embed(word) for word in sent]
     # minibatch mode
     else:
       embeddings = []
-      for word_i in range(len(sentence[0])):
-        embeddings.append(self.embed(Batcher.mark_as_batch([single_sentence[word_i] for single_sentence in sentence])))
+      for word_i in range(len(sent[0])):
+        embeddings.append(self.embed(Batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
 
     return ExpressionSequence(expr_list=embeddings)
 
@@ -140,24 +140,24 @@ class NoopEmbedder(Embedder):
     else:
       return dy.inputTensor(x, batched=True)
 
-  def embed_sent(self, sentence):
+  def embed_sent(self, sent):
     # TODO refactor: seems a bit too many special cases that need to be distinguished
-    if isinstance(sentence, ExpressionSequence):
-      return sentence
+    if isinstance(sent, ExpressionSequence):
+      return sent
     
-    batched = Batcher.is_batch_sentence(sentence)
-    first_sent = sentence[0] if batched else sentence
+    batched = Batcher.is_batch_sent(sent)
+    first_sent = sent[0] if batched else sent
     if hasattr(first_sent, "get_array"):
       if not batched:
-        return ExpressionSequence(expr_tensor=dy.inputTensor(sentence.get_array(), batched=False))
+        return ExpressionSequence(expr_tensor=dy.inputTensor(sent.get_array(), batched=False))
       else:
-        return ExpressionSequence(expr_tensor=dy.inputTensor(map(lambda s: s.get_array(), sentence), batched=True))
+        return ExpressionSequence(expr_tensor=dy.inputTensor(map(lambda s: s.get_array(), sent), batched=True))
     else:
       if not batched:
-        embeddings = [self.embed(word) for word in sentence]
+        embeddings = [self.embed(word) for word in sent]
       else:
         embeddings = []
         for word_i in range(len(first_sent)):
-          embeddings.append(self.embed(Batcher.mark_as_batch([single_sentence[word_i] for single_sentence in sentence])))
+          embeddings.append(self.embed(Batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
       return ExpressionSequence(expr_list=embeddings)
 

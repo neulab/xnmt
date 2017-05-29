@@ -12,8 +12,8 @@ class Evaluator(object):
     def evaluate(self, ref, hyp):
         """
     Calculate the quality of output given a references.
-    :param ref: list of reference sentences ( a sentence is a list of tokens )
-    :param hyp: list of hypothesis sentences ( a sentence is a list of tokens )
+    :param ref: list of reference sents ( a sent is a list of tokens )
+    :param hyp: list of hypothesis sents ( a sent is a list of tokens )
     :return:
     """
         raise NotImplementedError('evaluate must be implemented in Evaluator subclasses')
@@ -44,10 +44,10 @@ class BLEUEvaluator(Evaluator):
     def evaluate(self, ref, hyp):
         """
         :rtype: object
-        :param ref: list of reference sentences ( a sentence is a list of tokens )
-        :param hyp: list of hypothesis sentences ( a sentence is a list of tokens )
+        :param ref: list of reference sents ( a sent is a list of tokens )
+        :param hyp: list of hypothesis sents ( a sent is a list of tokens )
         :return: Formatted string having BLEU Score with different intermediate results such as ngram ratio,
-        sentence length, brevity penalty
+        sent length, brevity penalty
         """
         self.reference_corpus = ref
         self.candidate_corpus = hyp
@@ -121,7 +121,7 @@ class BLEUEvaluator(Evaluator):
 
         penalty = 1.
 
-        # If candidate sentence length is 0 (empty), return 0.
+        # If candidate sent length is 0 (empty), return 0.
         if c == 0:
             return 0.
         elif c <= r:
@@ -149,18 +149,18 @@ class BLEUEvaluator(Evaluator):
 
         return ngram_count
 
-    def modified_precision(self, reference_sentence, candidate_sentence):
+    def modified_precision(self, reference_sent, candidate_sent):
         """
         Computes counts useful in modified precision calculations
-        :param reference_sentence: iterable of tokens
-        :param candidate_sentence: iterable of tokens
+        :param reference_sent: iterable of tokens
+        :param candidate_sent: iterable of tokens
         :return: tuple of Counter objects
         """
 
         clipped_ngram_count = defaultdict(Counter)
 
-        reference_ngram_count = self.extract_ngrams(reference_sentence)
-        candidate_ngram_count = self.extract_ngrams(candidate_sentence)
+        reference_ngram_count = self.extract_ngrams(reference_sent)
+        candidate_ngram_count = self.extract_ngrams(candidate_sent)
 
         for ngram_type in candidate_ngram_count:
             clipped_ngram_count[ngram_type] = candidate_ngram_count[ngram_type] & reference_ngram_count[ngram_type]

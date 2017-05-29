@@ -65,7 +65,7 @@ class ConvBiRNNBuilder(object):
     sent_len = es_expr.dim()[0][0]
     batch_size=es_expr.dim()[1]
     
-    # convolutions won't work if sentence length is too short; pad if necessary
+    # convolutions won't work if sent length is too short; pad if necessary
     pad_size = 0
     while math.ceil(float(sent_len + pad_size - self.filter_size_time + 1) / float(self.stride[0])) < self.filter_size_time:
       pad_size += 1

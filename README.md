@@ -1,38 +1,39 @@
 eXtensible Neural Machine Translation
 =====================================
 
-This is a stub of a repository to create an extensible neural machine translation toolkit.
+This is a repository for the extensible neural machine translation toolkit `xnmt`.
 It is coded in Python based on [DyNet](http://github.com/clab/dynet).
 
 Usage Directions
 ----------------
 
-### Running experiments with `xnmt-run-experiments`
+If you want to try to run an experiment, you can do so using sample configurations in the `examples`
+directory. For example, if you wnat to try [the default configuration file](examples/standard.yaml),
+which trains an attentional encoder-decoder model, you can do so by running
 
-Configuration files are in [YAML dictionary format](https://docs.ansible.com/ansible/YAMLSyntax.html).
+    python xnmt/xnmt_run_experiments.py examples/standard.yaml
 
-Top-level entries in the file correspond to individual experiments to run. Each
-such entry must have four subsections: `experiment`, `train`, `decode`,
-and `evaluate`. Options for each subsection are listed below.
+There are other examples here:
 
-There can be a special top-level entry named `defaults`; if it is
-present, parameters defined in it will act as defaults for other experiments
-in the configuration file.
+* `examples/debug.yaml`: A simple debugging configuration that should run super-fast
+* `examples/speech.yaml`: An example of speech-to-text translation
 
-The stdout and stderr outputs of an experiment will be written to `<experiment-name>.log`
-and `<experiment-name>.err.log` in the current directory.
+See [experiments.md](experiments.md) for more details about writing experiment configuration files.
 
-See [experiments.md](experiments.md) for option details, and [the default configuration
-file](test/experiments-config.yaml) for an example configuration you can use.
+Programming Style
+-----------------
 
-Coding Style
-------------
+The over-arching goal of `xnmt` is that it be easy to use for research. When implementing a new
+method, it should require only minimal changes (e.g. ideally the changes will be limited to a
+single file, over-riding an existing class). Obviously this ideal will not be realizable all the
+time, but when designing new functionality, try to think of this goal.
 
-In general, follow Python conventions. Must be Python3 compatible. Functions should be snake case.
+There are also a minimal of coding style conventions:
+* Follow Python conventions, and be Python2/3 compatible.
+* Functions should be snake case.
+* Indentation should be two whitespace characters.
 
-Indentation should be two whitespace characters.
-
-Aim to write unit tests for most functionality where possible.
+We will aim to write unit tests to make sure things don't break, but these are not implemented yet.
 
 In variable names, common words should be abbreviated as:
 * source -> src

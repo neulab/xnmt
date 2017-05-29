@@ -71,10 +71,10 @@ class DefaultTranslator(Translator):
     output = []
     if not Batcher.is_batch_sent(src):
       src = Batcher.mark_as_batch([src])
-    for sentences in src:
+    for sents in src:
       embeddings = self.input_embedder.embed_sent(src)
       encodings = self.encoder.transduce(embeddings)
       self.attender.start_sent(encodings)
       self.decoder.initialize()
-      output.append(search_strategy.generate_output(self.decoder, self.attender, self.output_embedder, src_length=len(sentences)))
+      output.append(search_strategy.generate_output(self.decoder, self.attender, self.output_embedder, src_length=len(sents)))
     return output

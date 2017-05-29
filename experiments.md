@@ -1,12 +1,10 @@
-# Running experiments with `xnmt-run-experiments`
+# Running experiments with `xnmt_run_experiments`
 
-Configuration files are in YAML dictionary format (see `test/experiments-config.yaml`
-for an example).
+Configuration files are in [YAML dictionary format](https://docs.ansible.com/ansible/YAMLSyntax.html).
 
 Top-level entries in the file correspond to individual experiments to run. Each
 such entry must have four subsections: `experiment`, `train`, `decode`,
-and `evaluate`. Options for each subsection are listed below. Options in bold font
-are mandatory.
+and `evaluate`. Options for each subsection are listed below.
 
 There can be a special top-level entry named `defaults`; if it is
 present, parameters defined in it will act as defaults for other experiments
