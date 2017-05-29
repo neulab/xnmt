@@ -13,11 +13,11 @@ class PyramidalRNNBuilder(object):
   """
   def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory):
     """
-    @param num_layers: depth of the PyramidalRNN
-    @param input_dim: size of the inputs
-    @param hidden_dim: size of the outputs (and intermediate layer representations)
-    @param model
-    @param rnn_builder_factory: RNNBuilder subclass, e.g. VanillaLSTMBuilder
+    :param num_layers: depth of the PyramidalRNN
+    :param input_dim: size of the inputs
+    :param hidden_dim: size of the outputs (and intermediate layer representations)
+    :param model
+    :param rnn_builder_factory: RNNBuilder subclass, e.g. VanillaLSTMBuilder
     """
     assert num_layers > 0
     assert hidden_dim % 2 == 0
@@ -47,7 +47,7 @@ class PyramidalRNNBuilder(object):
     returns the list of state pairs (stateF, stateB) obtained by adding 
     inputs to both forward (stateF) and backward (stateB) RNNs.  
 
-    @param es: a list of Expression
+    :param es: a list of Expression
 
     see also transduce(xs)
 
@@ -76,7 +76,7 @@ class PyramidalRNNBuilder(object):
     to the current state, one by one, to both the forward and backward RNNs, 
     and concatenating.
         
-    @param es: a list of Expression
+    :param es: a list of Expression
 
     see also add_inputs(xs)
 

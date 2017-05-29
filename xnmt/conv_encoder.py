@@ -12,11 +12,11 @@ class ConvBiRNNBuilder(object):
   
   def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory, chn_dim=3):
     """
-    @param num_layers: depth of the RNN
-    @param input_dim: size of the inputs
-    @param hidden_dim: size of the outputs (and intermediate RNN layer representations)
-    @param model
-    @param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
+    :param num_layers: depth of the RNN
+    :param input_dim: size of the inputs
+    :param hidden_dim: size of the outputs (and intermediate RNN layer representations)
+    :param model
+    :param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
     """
     assert num_layers > 0
     assert hidden_dim % 2 == 0
