@@ -1,5 +1,9 @@
 defaults:
   experiment:
+    model_file: examples/output/<EXP>.mod
+    hyp_file: examples/output/<EXP>.hyp
+    out_file: examples/output/<EXP>.out
+    err_file: examples/output/<EXP>.err
     run_for_epochs: 2
     decode_every: 1
     eval_metrics: bleu,wer
@@ -14,15 +18,9 @@ defaults:
     ref_file: examples/data/test.en
 
 standard-1layer:
-  experiment:
-    model_file: examples/output/standard-1layer.mod
-    hyp_file: examples/output/standard-1layer.txt
   train:
     encoder_layers: 1
 
 standard-2layer:
-  experiment:
-    model_file: examples/output/standard-1layer.mod
-    hyp_file: examples/output/standard-1layer.txt
   train:
     decoder_layers: 2

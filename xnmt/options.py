@@ -83,6 +83,11 @@ class OptionParser:
             raise RuntimeError(
               "Required option not found for experiment {}, task {}: {}".format(exp, task_name, option.name))
 
+        # Replace the special token "<EXP>" with the experiment name if necessary
+        for k in task_values.keys():
+          if type(task_values[k]) == str:
+            task_values[k] = task_values[k].replace("<EXP>", exp)
+
         experiments[exp][task_name] = Args()
         for name, val in task_values.items():
           setattr(experiments[exp][task_name], name, val)

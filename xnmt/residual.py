@@ -37,12 +37,12 @@ class ResidualRNNBuilder:
 
   def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory, add_to_output=False):
     """
-    @param num_layers: depth of the RNN (> 0)
-    @param input_dim: size of the inputs
-    @param hidden_dim: size of the outputs (and intermediate layer representations)
-    @param model:
-    @param rnn_builder_factory: RNNBuilder subclass, e.g. VanillaLSTMBuilder
-    @param add_to_output: whether to add a residual connection to the output layer
+    :param num_layers: depth of the RNN (> 0)
+    :param input_dim: size of the inputs
+    :param hidden_dim: size of the outputs (and intermediate layer representations)
+    :param model:
+    :param rnn_builder_factory: RNNBuilder subclass, e.g. VanillaLSTMBuilder
+    :param add_to_output: whether to add a residual connection to the output layer
     """
     assert num_layers > 0
     self.builder_layers = []
@@ -74,7 +74,7 @@ class ResidualRNNBuilder:
     """
     Returns the list of RNNStates obtained by adding the inputs to the RNN.
 
-    @param es: a list of Expression
+    :param es: a list of Expression
 
     see also transduce(xs)
 
@@ -97,7 +97,7 @@ class ResidualRNNBuilder:
     returns the list of output Expressions obtained by adding the given inputs
     to the current state, one by one.
 
-    @param es: a list of Expression
+    :param es: a list of Expression
 
     see also add_inputs(xs), including for explanation of differences between
     add_inputs and this function.
