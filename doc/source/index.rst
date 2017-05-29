@@ -18,9 +18,3 @@ It is coded in Python based on `DyNet <http://github.com/clab/dynet>`_.
    api_doc
    programming_style
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`

@@ -23,6 +23,15 @@ class Encoder:
 
   @staticmethod
   def from_spec(spec, layers, input_dim, output_dim, model, residual_to_output):
+    """
+    Create an encoder from a specification.
+    :param spec: Options include bilstm, residuallstm, residualbylstm, pyramidalbilstm, convbilstm, modular.
+    :param layers: Number of layers
+    :param input_dim: Input dimension
+    :param output_dim: Output dimension
+    :param model: The model that we should add the parameters to
+    :param residual_to_output: For residual encoders, whether to add a residual to the output layer.
+    """
     spec_lower = spec.lower()
     if spec_lower == "bilstm":
       return BiLSTMEncoder(layers, input_dim, output_dim, model)
