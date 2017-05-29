@@ -3,6 +3,7 @@ from batcher import *
 import residual
 import pyramidal
 import conv_encoder
+from embedder import ExpressionSequence
 
 class Encoder:
   """
@@ -26,18 +27,18 @@ class Encoder:
     if spec_lower == "bilstm":
       return BiRNNEncoder(layers, input_dim, output_dim, model)
     elif spec_lower == "residuallstm":
-      return residual.ResidualRNNBuilder(layers, input_dim, input_dim, output_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
+      return residual.ResidualRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
     elif spec_lower == "residualbilstm":
-      return residual.ResidualBiRNNBuilder(layers, input_dim, input_dim, output_dim, model, dy.VanillaLSTMBuilder,
+      return residual.ResidualBiRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder,
                                                  residual_to_output)
     elif spec_lower == "pyramidalbilstm":
-      return pyramidal.PyramidalRNNBuilder(layers, input_dim, input_dim, output_dim, model, dy.VanillaLSTMBuilder)
+      return pyramidal.PyramidalRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder)
     elif spec_lower == "convbilstm":
-      return conv_encoder.ConvBiRNNBuilder(layers, input_dim, input_dim, output_dim, model, dy.LSTMBuilder)
+      return conv_encoder.ConvBiRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
     elif spec_lower == "modular":
       # example for a modular encoder: stacked pyramidal encoder, followed by stacked LSTM 
       return ModularEncoder([
-                             pyramidal.PyramidalRNNBuilder(layers, input_dim, input_dim, output_dim, model, dy.VanillaLSTMBuilder),
+                             pyramidal.PyramidalRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder),
                              dy.BiRNNBuilder(layers, output_dim, output_dim, model, dy.VanillaLSTMBuilder)
                              ],
                             model
@@ -57,7 +58,6 @@ class ModularEncoder(Encoder):
   def __init__(self, module_list, model):
     self.module_list = module_list
     self.serialize_params = [model, ]
-    self.embedder = module_list[0].embedder
 
   def transduce(self, sentence):
     for i, module in enumerate(self.module_list):

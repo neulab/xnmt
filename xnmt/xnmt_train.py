@@ -21,6 +21,8 @@ This will be the main class to perform training.
 '''
 
 options = [
+  Option("dynet-mem", int, required=False),
+  Option("dynet-gpu-ids", int, required=False),
   Option("eval_every", int, default_value=1000, force_flag=True),
   Option("batch_size", int, default_value=32, force_flag=True),
   Option("batch_strategy", default_value="src"),
@@ -65,7 +67,7 @@ class XnmtTrainer:
     elif args.trainer.lower() == "adam":
       self.trainer = dy.AdamTrainer(self.model, alpha = args.learning_rate)
     else:
-      raise RuntimeError("Unkonwn trainer {}".format(args.trainer))
+      raise RuntimeError("Unknown trainer {}".format(args.trainer))
     
     if args.lr_decay > 1.0 or args.lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
@@ -84,11 +86,10 @@ class XnmtTrainer:
       print('Start training in minibatch mode...')
       self.batcher = Batcher.select_batcher(args.batch_strategy)(args.batch_size)
       if args.input_format == "contvec":
-        self.batcher.pad_token = np.zeros(self.encoder.embedder.get_embed_dim())
-      self.train_src, self.train_trg = self.batcher.pack(self.train_src,
-                                                                             self.train_trg)
-      self.dev_src, self.dev_trg = self.batcher.pack(self.dev_src,
-                                                                         self.dev_trg)
+        assert self.train_src[0].nparr.shape[1] == self.input_embedder.emb_dim, "input embed dim is different size than expected"
+        self.batcher.pad_token = np.zeros(self.input_embedder.emb_dim)
+      self.train_src, self.train_trg = self.batcher.pack(self.train_src, self.train_trg)
+      self.dev_src, self.dev_trg = self.batcher.pack(self.dev_src, self.dev_trg)
       self.logger = BatchLossTracker(args.eval_every, self.total_train_sent)
 
   def create_model(self):
