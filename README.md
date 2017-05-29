@@ -2,41 +2,10 @@ eXtensible Neural Machine Translation
 =====================================
 
 This is a repository for the extensible neural machine translation toolkit `xnmt`.
+The over-arching goal of `xnmt` is that it be easy to use for research, and thus it supports
+a modular design that means that new methods should be easy to implement by adding new modules.
 It is coded in Python based on [DyNet](http://github.com/clab/dynet).
 
-Usage Directions
-----------------
+More information can be found in the following documentation:
 
-If you want to try to run an experiment, you can do so using sample configurations in the `examples`
-directory. For example, if you wnat to try [the default configuration file](examples/standard.yaml),
-which trains an attentional encoder-decoder model, you can do so by running
-
-    python xnmt/xnmt_run_experiments.py examples/standard.yaml
-
-There are other examples here:
-
-* `examples/debug.yaml`: A simple debugging configuration that should run super-fast
-* `examples/speech.yaml`: An example of speech-to-text translation
-
-See [experiments.md](experiments.md) for more details about writing experiment configuration files.
-
-Programming Style
------------------
-
-The over-arching goal of `xnmt` is that it be easy to use for research. When implementing a new
-method, it should require only minimal changes (e.g. ideally the changes will be limited to a
-single file, over-riding an existing class). Obviously this ideal will not be realizable all the
-time, but when designing new functionality, try to think of this goal.
-
-There are also a minimal of coding style conventions:
-* Follow Python conventions, and be Python2/3 compatible.
-* Functions should be snake case.
-* Indentation should be two whitespace characters.
-
-We will aim to write unit tests to make sure things don't break, but these are not implemented yet.
-
-In variable names, common words should be abbreviated as:
-* source -> src
-* target -> trg
-* sentence -> sent
-* hypothesis -> hyp
+* Documentation: [![Documentation Status](http://readthedocs.org/projects/xnmt/badge/?version=latest)](http://xnmt.readthedocs.io/en/latest/?badge=latest)

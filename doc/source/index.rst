@@ -24,7 +24,7 @@ There are other examples here:
 - ``examples/debug.yaml``: A simple debugging configuration that should run super-fast
 - ``examples/speech.yaml``: An example of speech-to-text translation
 
-See [experiments.md](experiments.md) for more details about writing experiment configuration files.
+See ``experiments.md`` for more details about writing experiment configuration files.
 
 Programming Style
 -----------------
