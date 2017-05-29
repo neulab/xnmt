@@ -1,10 +1,13 @@
 # This is a super-small config just for debugging
 defaults:
   experiment:
+    model_file: examples/output/<EXP>.mod
+    hyp_file: examples/output/<EXP>.hyp
+    out_file: examples/output/<EXP>.out
+    err_file: examples/output/<EXP>.err
     run_for_epochs: 2
     decode_every: 1
     eval_metrics: bleu,wer
-    log_dir: examples/output/
   train:
     train_src: examples/data/head.ja
     train_trg: examples/data/head.en
@@ -17,23 +20,14 @@ defaults:
     ref_file: examples/data/head.en
 
 debug-config-1layer:
-  experiment:
-    model_file: examples/output/debug-config-1layer.mod
-    hyp_file: examples/output/debug-config-1layer.out
   train:
     encoder_layers: 1
 
 debug-config-2layers:
-  experiment:
-    model_file: examples/output/debug-config-2layers.mod
-    hyp_file: examples/output/debug-config-2layers.out
   train:
     decoder_layers: 2
 
 debug-config-2layers-finetune:
-  experiment:
-    model_file: examples/output/debug-config-2layers-finetuned.mod
-    hyp_file: examples/output/debug-config-2layers.out
   train:
     decoder_layers: 2
     pretrained_model_file: examples/output/debug-config-2layers.mod
