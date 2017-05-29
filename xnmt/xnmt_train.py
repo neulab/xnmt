@@ -184,6 +184,7 @@ class XnmtTrainer:
   def run_epoch(self):
     self.logger.new_epoch()
 
+    self.translator.set_train(True)
     for batch_num, (src, trg) in enumerate(zip(self.train_src, self.train_trg)):
 
       # Loss calculation
@@ -197,7 +198,7 @@ class XnmtTrainer:
 
       # Devel reporting
       if self.logger.report_train_process():
-
+        self.translator.set_train(False)
         self.logger.new_dev()
         for src, trg in zip(self.dev_src, self.dev_trg):
           dy.renew_cg()
@@ -217,6 +218,7 @@ class XnmtTrainer:
             self.early_stopping_reached = True
             
         self.trainer.update_epoch()
+        self.translator.set_train(True)
 
     return math.exp(self.logger.epoch_loss / self.logger.epoch_words), \
            math.exp(self.logger.dev_loss / self.logger.dev_words)

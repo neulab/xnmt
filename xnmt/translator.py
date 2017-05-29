@@ -5,6 +5,26 @@ from batcher import *
 from search_strategy import *
 from vocab import Vocab
 
+class TrainTestBehavior:
+  """
+  All subcomponents of the translator that behave differently at train and test time
+  should subclass this class.
+  """
+  def set_train(self, val):
+    """
+    Will be called with val=True when starting to train, and with val=False when starting
+    to evaluate.
+    :param val: bool that indicates whether we're in training mode
+    """
+    for component in self.get_train_test_components():
+      component.set_train(val)
+  def get_train_test_components(self):
+    """
+    Returns all subcomponents that inherit from TrainTestBehavior.
+    """
+    raise NotImplementedError('get_train_test_components must be implemented for TrainTestBehavior subclasses')
+
+
 class Translator:
   '''
   A template class implementing an end-to-end translator that can calculate a
@@ -25,13 +45,16 @@ class Translator:
   def batch_loss(self, xs, ys):
     return dy.esum([self.loss(x, y) for x, y in zip(xs, ys)])
 
-class DefaultTranslator(Translator):
+class DefaultTranslator(Translator, TrainTestBehavior):
   def __init__(self, input_embedder, encoder, attender, output_embedder, decoder):
     self.input_embedder = input_embedder
     self.encoder = encoder
     self.attender = attender
     self.output_embedder = output_embedder
     self.decoder = decoder
+
+  def get_train_test_components(self):
+    return [self.encoder, self.decoder]
 
   def calc_loss(self, src, trg):
     embeddings = self.input_embedder.embed_sent(src)

@@ -4,8 +4,9 @@ import residual
 import pyramidal
 import conv_encoder
 from embedder import ExpressionSequence
+from translator import TrainTestBehavior
 
-class Encoder:
+class Encoder(TrainTestBehavior):
   """
   A parent class representing all classes that encode inputs.
   """
@@ -25,7 +26,7 @@ class Encoder:
   def from_spec(spec, layers, input_dim, output_dim, model, residual_to_output):
     spec_lower = spec.lower()
     if spec_lower == "bilstm":
-      return BiLSTMEncoder(layers, input_dim, output_dim, model)
+      return BiLSTMEncoder(layers, input_dim, output_dim, model, dropout=0.0)
     elif spec_lower == "residuallstm":
       return ResidualLSTMEncoder(layers, input_dim, output_dim, model, residual_to_output)
     elif spec_lower == "residualbilstm":
@@ -43,14 +44,24 @@ class Encoder:
     else:
       raise RuntimeError("Unknown encoder type {}".format(spec_lower))
 
+  def get_train_test_components(self):
+    return [self.encoder, self.decoder]
+
 class BuilderEncoder(Encoder):
   def transduce(self, sent):
     return self.builder.transduce(sent)
+  def get_train_test_components(self):
+    return []
 
 class BiLSTMEncoder(BuilderEncoder):
-  def __init__(self, layers, input_dim, output_dim, model):
+  def __init__(self, layers, input_dim, output_dim, model, dropout):
     self.builder = dy.BiRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder)
-    self.serialize_params = [layers, input_dim, output_dim, model]
+    self.serialize_params = [layers, input_dim, output_dim, model, dropout]
+    self.dropout = dropout
+  def set_train(self, val):
+    self.builder.set_dropout(self.dropout if val else 0.0)
+  def get_train_test_components(self):
+    return []
 
 class ResidualLSTMEncoder(BuilderEncoder):
   def __init__(self, layers, input_dim, output_dim, model, residual_to_output):
