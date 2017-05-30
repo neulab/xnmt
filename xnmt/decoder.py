@@ -26,11 +26,6 @@ class Decoder(TrainTestInterface):
       return residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
     else:
       raise RuntimeError("Unknown decoder type {}".format(spec))
-  def set_train(self, val):
-    pass
-  def get_train_test_components(self):
-    return []
-
 
 
 class MlpSoftmaxDecoder(Decoder):

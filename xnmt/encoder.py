@@ -44,14 +44,9 @@ class Encoder(TrainTestInterface):
     else:
       raise RuntimeError("Unknown encoder type {}".format(spec_lower))
 
-  def get_train_test_components(self):
-    return [self.encoder, self.decoder]
-
 class BuilderEncoder(Encoder):
   def transduce(self, sent):
     return self.builder.transduce(sent)
-  def get_train_test_components(self):
-    return []
 
 class BiLSTMEncoder(BuilderEncoder):
   def __init__(self, layers, input_dim, output_dim, model, dropout):
@@ -60,8 +55,6 @@ class BiLSTMEncoder(BuilderEncoder):
     self.dropout = dropout
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
-  def get_train_test_components(self):
-    return []
 
 class ResidualLSTMEncoder(BuilderEncoder):
   def __init__(self, layers, input_dim, output_dim, model, residual_to_output):
