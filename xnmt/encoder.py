@@ -11,8 +11,8 @@ class Encoder:
   """
 
   def transduce(self, sent):
-    """
-    Encode inputs into outputs.
+    """Encode inputs into outputs.
+
     :param sent: The input to be encoded. This is duck-typed, so it is the appropriate input for this particular type of encoder. Frequently it will be a list of word embeddings, but it can be anything else.
     :returns: The encoded output. Frequently this will be a list of expressions representing the encoded vectors for each word.
     """
@@ -20,8 +20,8 @@ class Encoder:
 
   @staticmethod
   def from_spec(spec, layers, input_dim, output_dim, model, residual_to_output):
-    """
-    Create an encoder from a specification.
+    """Create an encoder from a specification.
+
     :param spec: Options include bilstm, residuallstm, residualbylstm, pyramidalbilstm, convbilstm, modular.
     :param layers: Number of layers
     :param input_dim: Input dimension
