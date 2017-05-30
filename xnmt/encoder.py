@@ -4,9 +4,9 @@ import residual
 import pyramidal
 import conv_encoder
 from embedder import ExpressionSequence
-from translator import TrainTestBehavior
+from translator import TrainTestInterface
 
-class Encoder(TrainTestBehavior):
+class Encoder(TrainTestInterface):
   """
   A parent class representing all classes that encode inputs.
   """

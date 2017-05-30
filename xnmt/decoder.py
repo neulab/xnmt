@@ -2,9 +2,9 @@ import dynet as dy
 from mlp import MLP
 import inspect
 from batcher import *
-from translator import TrainTestBehavior
+from translator import TrainTestInterface
 
-class Decoder(TrainTestBehavior):
+class Decoder(TrainTestInterface):
   '''
   A template class to convert a prefix of previously generated words and
   a context vector into a probability distribution over possible next words.

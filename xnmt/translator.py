@@ -5,7 +5,7 @@ from batcher import *
 from search_strategy import *
 from vocab import Vocab
 
-class TrainTestBehavior:
+class TrainTestInterface:
   """
   All subcomponents of the translator that behave differently at train and test time
   should subclass this class.
@@ -16,16 +16,15 @@ class TrainTestBehavior:
     to evaluate.
     :param val: bool that indicates whether we're in training mode
     """
-    for component in self.get_train_test_components():
-      component.set_train(val)
+    pass
   def get_train_test_components(self):
     """
-    Returns all subcomponents that inherit from TrainTestBehavior.
+    :returns: list of subcomponents that implement TrainTestInterface and will be called recursively.
     """
-    raise NotImplementedError('get_train_test_components must be implemented for TrainTestBehavior subclasses')
+    return []
 
 
-class Translator:
+class Translator(TrainTestInterface):
   '''
   A template class implementing an end-to-end translator that can calculate a
   loss and generate translations.
@@ -45,7 +44,17 @@ class Translator:
   def batch_loss(self, xs, ys):
     return dy.esum([self.loss(x, y) for x, y in zip(xs, ys)])
 
-class DefaultTranslator(Translator, TrainTestBehavior):
+  def set_train(self, val):
+    for component in self.get_train_test_components():
+      Translator.set_train_recursive(component, val)
+  @staticmethod
+  def set_train_recursive(component, val):
+    component.set_train(val)
+    for sub_component in component.get_train_test_components():
+      Translator.set_train_recursive(sub_component, val)
+
+
+class DefaultTranslator(Translator):
   def __init__(self, input_embedder, encoder, attender, output_embedder, decoder):
     self.input_embedder = input_embedder
     self.encoder = encoder
@@ -101,3 +110,5 @@ class DefaultTranslator(Translator, TrainTestBehavior):
       self.decoder.initialize()
       output.append(search_strategy.generate_output(self.decoder, self.attender, self.output_embedder, src_length=len(sents)))
     return output
+
+
