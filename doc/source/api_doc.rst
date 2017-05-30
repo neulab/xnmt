@@ -4,6 +4,17 @@ API Doc
 Embedder
 --------
 
+.. autoclass:: translator.Translator
+   :members:
+   :show-inheritance:
+
+.. autoclass:: translator.DefaultTranslator
+   :members:
+   :show-inheritance:
+
+Embedder
+--------
+
 .. autoclass:: embedder.Embedder
    :members:
    :show-inheritance:
