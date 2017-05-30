@@ -11,10 +11,12 @@ class SearchStrategy:
 
 class BeamSearch(SearchStrategy):
 
-  def __init__(self, b, max_len=100, len_norm=NoNormalization()):
+  def __init__(self, b, max_len=100, len_norm=None):
     self.b = b
     self.max_len = max_len
-    self.len_norm = len_norm
+    # The only reason why we don't set NoNormalization as the default is because it currently
+    # breaks our documentation pipeline
+    self.len_norm = len_norm if len_norm != None else NoNormalization()
 
   class Hypothesis:
     def __init__(self, score, id, state):

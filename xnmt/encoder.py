@@ -13,11 +13,8 @@ class Encoder:
   def transduce(self, sent):
     """
     Encode inputs into outputs.
-    :param sent: The input to be encoded. This is duck-typed, so it is the
-      appropriate input for this particular type of encoder. Frequently it will
-      be a list of word embeddings, but it can be anything else.
-    :returns: The encoded output. Frequently this will be a list of expressions
-      representing the encoded vectors for each word.
+    :param sent: The input to be encoded. This is duck-typed, so it is the appropriate input for this particular type of encoder. Frequently it will be a list of word embeddings, but it can be anything else.
+    :returns: The encoded output. Frequently this will be a list of expressions representing the encoded vectors for each word.
     """
     raise NotImplementedError('transduce must be implemented in Encoder subclasses')
 

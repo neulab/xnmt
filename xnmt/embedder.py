@@ -11,18 +11,14 @@ class Embedder:
   def embed(self, word):
     """
     Embed a single word.
-    :param word:
-      This will generally be an integer word ID, but could also be something
-      like a string.
+    :param word: This will generally be an integer word ID, but could also be something like a string.
     """
     raise NotImplementedError('embed must be implemented in Embedder subclasses')
 
   def embed_sent(self, sent):
     """
     Embed a full sent worth of words.
-    :param sent:
-      This will generally be a list of word IDs, but could also be a list
-      of strings or some other format.
+    :param sent: This will generally be a list of word IDs, but could also be a list of strings or some other format.
     """
     raise NotImplementedError('embed_sent must be implemented in Embedder subclasses')
 

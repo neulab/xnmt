@@ -59,7 +59,7 @@ def get_func_name(func_str):
     return name
 
 
-def create_doc_copy(in_file='../../python/_dynet.pyx', out_file='dynet.py'):
+def create_doc_copy(in_file, out_file):
 
     in_comment = False
     in_func = False
@@ -68,7 +68,7 @@ def create_doc_copy(in_file='../../python/_dynet.pyx', out_file='dynet.py'):
         with open(in_file, 'r') as pyx:
             for l in pyx:
                 # Check if this line is a function declaration (def or cpdef)
-                is_func = re.match(r'(\s*)(?:cp)?def (.*)\((.*)\):', l, re.I)
+                is_func = re.match(r'(\s*)(?:cp)?def ([^\(]*)\((.*)\):', l, re.I)
                 if is_func:
                     # If the previous line was a function, print pass
                     if in_func:
