@@ -36,7 +36,7 @@ class Encoder:
 
     encoder_type = encoder_spec["type"].lower()
     if encoder_type not in registered_encoders:
-      raise RuntimeError("Unknown encoder type {}".format(encoder_type))
+      raise RuntimeError("Unknown encoder type %s, choices are: %s" % (encoder_type, registered_encoders.keys()))
     return registered_encoders[encoder_type](encoder_spec, model)
 
 class BuilderEncoder(Encoder):
@@ -69,22 +69,22 @@ class BiLSTMEncoder(BuilderEncoder):
     self.builder = dy.BiRNNBuilder(*params)
 
 class ResidualLSTMEncoder(BuilderEncoder):
-  def init_builder(self, input_dim, output_dim, encoder_spec, model):
+  def init_builder(self, encoder_spec, model):
     params = self.use_params(encoder_spec, ["layers", "input_dim", "output_dim", model, dy.VanillaLSTMBuilder, "residual_to_output"])
     self.builder = residual.ResidualRNNBuilder(*params)
 
 class ResidualBiLSTMEncoder(BuilderEncoder):
-  def init_builder(self, input_dim, output_dim, encoder_spec, model):
+  def init_builder(self, encoder_spec, model):
     params = self.use_params(encoder_spec, ["layers", "input_dim", "output_dim", model, dy.VanillaLSTMBuilder, "residual_to_output"])
     self.builder = residual.ResidualBiRNNBuilder(*params)
 
 class PyramidalLSTMEncoder(BuilderEncoder):
-  def init_builder(self, input_dim, output_dim, encoder_spec, model):
+  def init_builder(self, encoder_spec, model):
     params = self.use_params(encoder_spec, ["layers", "input_dim", "output_dim", model, dy.VanillaLSTMBuilder])
     self.builder = pyramidal.PyramidalRNNBuilder(*params)
 
 class ConvBiRNNBuilder(BuilderEncoder):
-  def init_builder(self, input_dim, output_dim, encoder_spec, model):
+  def init_builder(self, encoder_spec, model):
     params = self.use_params(encoder_spec, ["layers", "input_dim", "output_dim", model, dy.VanillaLSTMBuilder,
                                             "chn_dim", "num_filters", "filter_size_time", "filter_size_freq",
                                             "stride"])

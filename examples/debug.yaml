@@ -21,7 +21,8 @@ defaults:
 
 debug-config-1layer:
   train:
-    encoder_layers: 1
+    encoder:
+      layers: 2
 
 debug-config-2layers:
   train:
