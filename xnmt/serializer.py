@@ -48,7 +48,7 @@ class JSONSerializer:
     if hasattr(obj, 'serialize_params'):
       info['__module__'] = obj.__module__
       info['__param__'] = [self.__to_spec(x) for x in obj.serialize_params]
-    elif obj.__class__.__name__ == 'list':
+    elif obj.__class__.__name__ == 'list' or obj.__class__.__name__ == 'dict':
       return json.dumps(obj)
     elif obj.__class__.__name__ != 'Model':
       raise NotImplementedError("Class %s is not serializable. Try adding serialize_params to it." % obj.__class__.__name__)

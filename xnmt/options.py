@@ -7,22 +7,23 @@ from collections import OrderedDict
 
 
 class Option:
-  def __init__(self, name, type=str, default_value=None, required=None, force_flag=False, help=None):
+  def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
     """
     Defines a configuration option
     :param name: Name of the option
-    :param type: Expected type. Should be a base type.
+    :param opt_type: Expected type. Should be a base type.
     :param default_value: Default option value. If this is set to anything other than none, and the option is not
     explicitly marked as required, it will be considered optional.
     :param required: Whether the option is required.
     :param force_flag: Force making this argument a flag (starting with '--') even though it is required
+    :param help_str: Help string for documentation
     """
     self.name = name
-    self.type = type
+    self.type = opt_type
     self.default_value = default_value
     self.required = required == True or required is None and default_value is None
     self.force_flag = force_flag
-    self.help = help
+    self.help = help_str
 
 
 class Args: pass
@@ -44,28 +45,54 @@ class OptionParser:
     value = option.type(value)
 
     return value
+  
+  def collapse_sub_dict(self, flat_dict):
+    """
+    {"encoder":{},"encoder.layers":1}
+    => {"encoder":{"layers":1}}
+    """
+    ret = dict(flat_dict)
+    for key in flat_dict.keys():
+      if "." in key:
+        key1, key2 = key.split(".", 1)
+        if not key1 in ret:
+          ret[key1] = {}
+        ret[key1][key2] = flat_dict[key]
+        del ret[key]
+    for key, val in ret.items():
+      if type(val)==dict:
+        ret[key] = self.collapse_sub_dict(val)
+    return ret
+  def update_with_subdicts(self, dict_to_update, dict_new_vals):
+    dict_to_update.update({key:value for key,value in dict_new_vals.items() if type(value)!=dict})
+    for key,value in dict_new_vals.items():
+      if type(value)==dict:
+        if key not in dict_to_update:
+          dict_to_update[key] = value
+        else:
+          self.update_with_subdicts(dict_to_update[key], value)
 
-  def args_from_config_file(self, file):
+  def args_from_config_file(self, filename):
     """
     Returns a dictionary of experiments => {task => {arguments object}}
     """
     try:
-      with open(file) as stream:
+      with open(filename) as stream:
         config = yaml.load(stream)
     except IOError as e:
-      raise RuntimeError("Could not read configuration file {}: {}".format(file, e))
+      raise RuntimeError("Could not read configuration file {}: {}".format(filename, e))
 
     # Default values as specified in option definitions
     defaults = {
-      task_name: {name: opt.default_value for name, opt in task_options.items() if
-                  opt.default_value is not None or not opt.required}
+      task_name: self.collapse_sub_dict({name: opt.default_value for name, opt in task_options.items() if
+                  opt.default_value is not None or not opt.required})
       for task_name, task_options in self.tasks.items()}
 
     # defaults section in the config file
     if "defaults" in config:
       for task_name, task_options in config["defaults"].items():
-        defaults[task_name].update(
-          {name: self.check_and_convert(task_name, name, value) for name, value in task_options.items()})
+        self.update_with_subdicts(defaults[task_name],
+                                  {name: self.check_and_convert(task_name, name, value) for name, value in task_options.items()})
       del config["defaults"]
 
     experiments = {}
@@ -74,14 +101,24 @@ class OptionParser:
       for task_name in self.tasks:
         task_values = defaults[task_name].copy()
         exp_task_values = exp_tasks.get(task_name, dict())
-        task_values.update(
-          {name: self.check_and_convert(task_name, name, value) for name, value in exp_task_values.items()})
+        self.update_with_subdicts(task_values,
+                                  {name: self.check_and_convert(task_name, name, value) for name, value in exp_task_values.items()})
 
         # Check that no required option is missing
         for _, option in self.tasks[task_name].items():
-          if option.required and option.name not in task_values:
-            raise RuntimeError(
-              "Required option not found for experiment {}, task {}: {}".format(exp, task_name, option.name))
+          if option.required:
+            sub_task_values = task_values
+            sub_option_name = option.name
+            while "." in sub_option_name:
+              key1,key2 = sub_option_name.split(".",1)
+              if key1 not in sub_task_values:
+                raise RuntimeError(
+                  "Required option not found for experiment {}, task {}: {}".format(exp, task_name, option.name))
+              sub_task_values = sub_task_values[key1]
+              sub_option_name = key2
+            if sub_option_name not in sub_task_values:
+              raise RuntimeError(
+                "Required option not found for experiment {}, task {}: {}".format(exp, task_name, option.name))
 
         # Replace the special token "<EXP>" with the experiment name if necessary
         for k in task_values.keys():
