@@ -33,9 +33,10 @@ speech:
   train:
     encoder:
       layers: 2
-      output_dim: 64
+      hidden_dim: 64
     output_word_embed_dim: 64
     output_state_dim: 64
     attender_hidden_dim: 64
     output_mlp_hidden_dim: 64
+    attention_context_dim: 64
 

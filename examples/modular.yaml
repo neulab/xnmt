@@ -4,32 +4,32 @@ defaults:
     run_for_epochs: 2
     decode_every: 1
     eval_metrics: bleu,wer
-    out_file: ../examples/output/out.log
-    err_file: ../examples/output/out.log.err
+    out_file: examples/output/out.log
+    err_file: examples/output/out.log.err
   train:
-    train_src: ../examples/data/head.ja
-    train_trg: ../examples/data/head.en
-    dev_src: ../examples/data/head.ja
-    dev_trg: ../examples/data/head.en
-    encoder:
+    train_src: examples/data/head.ja
+    train_trg: examples/data/head.en
+    dev_src: examples/data/head.ja
+    dev_trg: examples/data/head.en
+    encoder: 
       type: modular
       modules:
-      - type: bilstm
+      - type: BiLSTM
         input_dim: 64
         output_dim: 64
         layers: 1
-      - type: pyramidallstm
+      - type: PyramidalBiLSTM
         input_dim: 64
         output_dim: 64
         layers: 1
     default_layer_dim: 64
   decode:
-    src_file: ../examples/data/head.ja
+    src_file: examples/data/head.ja
   evaluate:
-    ref_file: ../examples/data/head.en
+    ref_file: examples/data/head.en
 
 debug-config-1layer:
   experiment:
-    model_file: ../examples/output/debug-config-1layer.mod
-    hyp_file: ../examples/output/debug-config-1layer.out
+    model_file: examples/output/debug-config-1layer.mod
+    hyp_file: examples/output/debug-config-1layer.out
 

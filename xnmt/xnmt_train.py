@@ -41,6 +41,7 @@ options = [
   Option("output_state_dim", int, required=False),
   Option("output_mlp_hidden_dim", int, required=False),
   Option("attender_hidden_dim", int, required=False),
+  Option("attention_context_dim", int, required=False),
   Option("trainer", default_value="sgd"),
   Option("learning_rate", float, default_value=0.1),
   Option("lr_decay", float, default_value=1.0),
@@ -49,7 +50,6 @@ options = [
   Option("encoder", dict, default_value={}),  
   Option("encoder.layers", int, default_value=1),
   Option("encoder.type", default_value="BiLSTM"),
-  Option("encoder.output_dim", int, required=False),
   Option("encoder.input_dim", int, required=False),
   Option("decoder_type", default_value="LSTM"),
   Option("decoder_layers", int, default_value=2),
@@ -132,21 +132,20 @@ class XnmtTrainer:
     
     # Get layer sizes: replace by default if not specified
     for opt in ["input_word_embed_dim", "output_word_embed_dim", "output_state_dim",
-                "output_mlp_hidden_dim", "attender_hidden_dim", ]:
+                "output_mlp_hidden_dim", "attender_hidden_dim", "attention_context_dim"]:
       if getattr(self.args, opt) is None:
         setattr(self.args, opt, self.args.default_layer_dim)
     if getattr(self.args, "encoder") is None:
-      self.encoder = {"input_dim":self.args.input_word_embed_dim, "output_dim" : self.args.default_layer_dim}
-    else:
-      if self.args.encoder.get("output_dim", None) is None: self.args.encoder["output_dim"] = self.args.default_layer_dim
-      if self.args.encoder.get("input_dim", None) is None: self.args.encoder["input_dim"] = self.args.input_word_embed_dim
+      self.args.encoder = {}
+    self.args.encoder["default_layer_dim"] = self.args.default_layer_dim
+    if self.args.encoder.get("input_dim", None) is None: self.args.encoder["input_dim"] = self.args.input_word_embed_dim
 
     self.input_word_emb_dim = self.args.input_word_embed_dim
     self.output_word_emb_dim = self.args.output_word_embed_dim
     self.output_state_dim = self.args.output_state_dim
     self.attender_hidden_dim = self.args.attender_hidden_dim
+    self.attention_context_dim = self.args.attention_context_dim
     self.output_mlp_hidden_dim = self.args.output_mlp_hidden_dim
-    self.encoder_hidden_dim = self.args.encoder["output_dim"]
 
     self.input_embedder = Embedder.from_spec(self.args.input_format, len(self.input_reader.vocab),
                                              self.input_word_emb_dim, self.model)
@@ -155,12 +154,12 @@ class XnmtTrainer:
 
     self.encoder = Encoder.from_spec(self.args.encoder, self.model)
 
-    self.attender = StandardAttender(self.encoder_hidden_dim, self.output_state_dim, self.attender_hidden_dim,
+    self.attender = StandardAttender(self.attention_context_dim, self.output_state_dim, self.attender_hidden_dim,
                                      self.model)
 
-    decoder_rnn = Decoder.rnn_from_spec(self.args.decoder_type, self.args.decoder_layers, self.encoder_hidden_dim,
+    decoder_rnn = Decoder.rnn_from_spec(self.args.decoder_type, self.args.decoder_layers, self.attention_context_dim,
                                         self.output_state_dim, self.model, self.args.residual_to_output)
-    self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.encoder_hidden_dim, self.output_state_dim,
+    self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.attention_context_dim, self.output_state_dim,
                                      self.output_mlp_hidden_dim, len(self.output_reader.vocab),
                                      self.model, decoder_rnn)
 

@@ -47,7 +47,7 @@ class BuilderEncoder(Encoder):
     return self.builder.transduce(sent)
   def init_builder(self, encoder_spec, model):
     raise NotImplementedError("init_builder() must be implemented by BuilderEncoder subclasses")
-  def use_params(self, encoder_spec, params):
+  def use_params(self, encoder_spec, params, map_to_default_layer_dim):
     """
     Slightly hacky first approach toward formalized documentation / logging.
     """
@@ -56,36 +56,45 @@ class BuilderEncoder(Encoder):
     for param in params:
       if type(param)==str:
         if param not in encoder_spec:
-          raise RuntimeError("Missing encoder param %s in encoder %s" % (param, encoder_spec["type"]))
-        ret.append(encoder_spec[param])
-        print("  %s: %s" % (param, ret[-1]))
+          if param in map_to_default_layer_dim and "default_layer_dim" in encoder_spec:
+            val = encoder_spec["default_layer_dim"]
+          else:
+            raise RuntimeError("Missing encoder param %s in encoder %s" % (param, encoder_spec["type"]))
+        else:
+          val = encoder_spec[param]
+        ret.append(val)
+        print("  %s: %s" % (param, val))
       else:
         ret.append(param)
     return ret
 
 class BiLSTMEncoder(BuilderEncoder):
   def init_builder(self, encoder_spec, model):
-    params = self.use_params(encoder_spec, ["layers", "input_dim", "output_dim", model, dy.VanillaLSTMBuilder])
+    params = self.use_params(encoder_spec, ["layers", "input_dim", "hidden_dim", model, dy.VanillaLSTMBuilder],
+                             map_to_default_layer_dim=["hidden_dim"])
     self.builder = dy.BiRNNBuilder(*params)
 
 class ResidualLSTMEncoder(BuilderEncoder):
   def init_builder(self, encoder_spec, model):
-    params = self.use_params(encoder_spec, ["layers", "input_dim", "output_dim", model, dy.VanillaLSTMBuilder, "residual_to_output"])
+    params = self.use_params(encoder_spec, ["layers", "input_dim", "hidden_dim", model, dy.VanillaLSTMBuilder, "residual_to_output"],
+                             map_to_default_layer_dim=["hidden_dim"])
     self.builder = residual.ResidualRNNBuilder(*params)
 
 class ResidualBiLSTMEncoder(BuilderEncoder):
   def init_builder(self, encoder_spec, model):
-    params = self.use_params(encoder_spec, ["layers", "input_dim", "output_dim", model, dy.VanillaLSTMBuilder, "residual_to_output"])
+    params = self.use_params(encoder_spec, ["layers", "input_dim", "hidden_dim", model, dy.VanillaLSTMBuilder, "residual_to_output"],
+                             map_to_default_layer_dim=["hidden_dim"])
     self.builder = residual.ResidualBiRNNBuilder(*params)
 
 class PyramidalLSTMEncoder(BuilderEncoder):
   def init_builder(self, encoder_spec, model):
-    params = self.use_params(encoder_spec, ["layers", "input_dim", "output_dim", model, dy.VanillaLSTMBuilder])
+    params = self.use_params(encoder_spec, ["layers", "input_dim", "hidden_dim", model, dy.VanillaLSTMBuilder],
+                             map_to_default_layer_dim=["hidden_dim"])
     self.builder = pyramidal.PyramidalRNNBuilder(*params)
 
 class ConvBiRNNBuilder(BuilderEncoder):
   def init_builder(self, encoder_spec, model):
-    params = self.use_params(encoder_spec, ["layers", "input_dim", "output_dim", model, dy.VanillaLSTMBuilder,
+    params = self.use_params(encoder_spec, ["layers", "input_dim", "hidden_dim", model, dy.VanillaLSTMBuilder,
                                             "chn_dim", "num_filters", "filter_size_time", "filter_size_freq",
                                             "stride"])
     self.builder = conv_encoder.ConvBiRNNBuilder(*params)
@@ -95,9 +104,9 @@ class ModularEncoder(Encoder):
     self.modules = []
     if encoder_spec.get("input_dim", None) != encoder_spec["modules"][0].get("input_dim"):
       raise RuntimeError("Mismatching input dimensions of first module: %s != %s".format(encoder_spec.get("input_dim", None), encoder_spec["modules"][0].get("input_dim")))
-    if encoder_spec.get("ouput_dim", None) != encoder_spec["modules"][-1].get("ouput_dim"):
-      raise RuntimeError("Mismatching ouput dimensions of last module: %s != %s".format(encoder_spec.get("output_dim", None), encoder_spec["modules"][-1].get("output_dim")))
     for module_spec in encoder_spec["modules"]:
+      module_spec = dict(module_spec)
+      module_spec["default_layer_dim"] = encoder_spec["default_layer_dim"]
       self.modules.append(Encoder.from_spec(module_spec, model))
     self.serialize_params = [encoder_spec, model]
 
