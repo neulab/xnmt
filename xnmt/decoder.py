@@ -30,7 +30,7 @@ class Decoder:
 class MlpSoftmaxDecoder(Decoder):
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
-  def __init__(self, layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model,
+  def __init__(self, layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model, trg_embed_dim,
                fwd_lstm=None):
     self.input_dim = input_dim
     if fwd_lstm == None:
@@ -39,7 +39,7 @@ class MlpSoftmaxDecoder(Decoder):
       self.fwd_lstm = fwd_lstm
     self.mlp = MLP(input_dim + lstm_dim, mlp_hidden_dim, vocab_size, model)
     self.state = None
-    self.serialize_params = [layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model]
+    self.serialize_params = [layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model, trg_embed_dim]
 
   def initialize(self):
     self.state = self.fwd_lstm.initial_state()
