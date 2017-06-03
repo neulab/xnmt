@@ -59,6 +59,8 @@ class BuilderEncoder(Encoder):
         if param not in encoder_spec:
           if param in map_to_default_layer_dim and "default_layer_dim" in encoder_spec:
             val = encoder_spec["default_layer_dim"]
+          elif param == "dropout":
+            val = 0.0
           else:
             raise RuntimeError("Missing encoder param %s in encoder %s" % (param, encoder_spec["type"]))
         else:
