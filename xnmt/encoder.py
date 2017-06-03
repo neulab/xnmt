@@ -4,8 +4,9 @@ import residual
 import pyramidal
 import conv_encoder
 from embedder import ExpressionSequence
+from translator import TrainTestInterface
 
-class Encoder:
+class Encoder(TrainTestInterface):
   """
   A parent class representing all classes that encode inputs.
   """
@@ -19,73 +20,103 @@ class Encoder:
     raise NotImplementedError('transduce must be implemented in Encoder subclasses')
 
   @staticmethod
-  def from_spec(spec, layers, input_dim, output_dim, model, residual_to_output):
+  def from_spec(encoder_spec, model):
     """Create an encoder from a specification.
 
-    :param spec: Options include bilstm, residuallstm, residualbylstm, pyramidalbilstm, convbilstm, modular.
-    :param layers: Number of layers
-    :param input_dim: Input dimension
-    :param output_dim: Output dimension
+    :param encoder_spec: Encoder-specific settings (encoders must consume all provided settings)
     :param model: The model that we should add the parameters to
-    :param residual_to_output: For residual encoders, whether to add a residual to the output layer.
     """
-    spec_lower = spec.lower()
-    if spec_lower == "bilstm":
-      return BiLSTMEncoder(layers, input_dim, output_dim, model)
-    elif spec_lower == "residuallstm":
-      return ResidualLSTMEncoder(layers, input_dim, output_dim, model, residual_to_output)
-    elif spec_lower == "residualbilstm":
-      return ResidualBiLSTMEncoder(layers, input_dim, output_dim, model, residual_to_output)
-    elif spec_lower == "pyramidalbilstm":
-      return PyramidalLSTMEncoder(layers, input_dim, output_dim, model)
-    elif spec_lower == "convbilstm":
-      return ConvBiRNNBuilder(layers, input_dim, output_dim, model)
-    elif spec_lower == "modular":
-      # example for a modular encoder: stacked pyramidal encoder, followed by stacked LSTM 
-      return ModularEncoder(model,
-                             PyramidalLSTMEncoder(layers, input_dim, output_dim, model),
-                             BiLSTMEncoder(layers, output_dim, output_dim, model),
-                            )
-    else:
-      raise RuntimeError("Unknown encoder type {}".format(spec_lower))
+    registered_encoders = {
+                         "bilstm" : BiLSTMEncoder,
+                         "residuallstm" : ResidualLSTMEncoder,
+                         "residualbilstm" : ResidualBiLSTMEncoder,
+                         "pyramidalbilstm" : PyramidalLSTMEncoder,
+                         "convbilstm" : ConvBiRNNBuilder,
+                         "modular" : ModularEncoder
+                         }
+
+    encoder_type = encoder_spec["type"].lower()
+    if encoder_type not in registered_encoders:
+      raise RuntimeError("Unknown encoder type %s, choices are: %s" % (encoder_type, registered_encoders.keys()))
+    return registered_encoders[encoder_type](encoder_spec, model)
 
 class BuilderEncoder(Encoder):
+  def __init__(self, encoder_spec, model):
+    self.serialize_params = [encoder_spec, model]
+    self.init_builder(encoder_spec, model)
   def transduce(self, sent):
     return self.builder.transduce(sent)
+  def init_builder(self, encoder_spec, model):
+    raise NotImplementedError("init_builder() must be implemented by BuilderEncoder subclasses")
+  def use_params(self, encoder_spec, params, map_to_default_layer_dim):
+    """
+    Slightly hacky first approach toward formalized documentation / logging.
+    """
+    ret = []
+    print("> encoder %s:" % (encoder_spec["type"]))
+    for param in params:
+      if type(param)==str:
+        if param not in encoder_spec:
+          if param in map_to_default_layer_dim and "default_layer_dim" in encoder_spec:
+            val = encoder_spec["default_layer_dim"]
+          else:
+            raise RuntimeError("Missing encoder param %s in encoder %s" % (param, encoder_spec["type"]))
+        else:
+          val = encoder_spec[param]
+        ret.append(val)
+        print("  %s: %s" % (param, val))
+      else:
+        ret.append(param)
+    return ret
 
 class BiLSTMEncoder(BuilderEncoder):
-  def __init__(self, layers, input_dim, output_dim, model):
-    self.builder = dy.BiRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder)
-    self.serialize_params = [layers, input_dim, output_dim, model]
+  def init_builder(self, encoder_spec, model):
+    params = self.use_params(encoder_spec, ["layers", "input_dim", "hidden_dim", model, dy.VanillaLSTMBuilder, "dropout"],
+                             map_to_default_layer_dim=["hidden_dim"])
+    self.dropout = params.pop()
+    self.builder = dy.BiRNNBuilder(*params)
+  def set_train(self, val):
+    self.builder.set_dropout(self.dropout if val else 0.0)
 
 class ResidualLSTMEncoder(BuilderEncoder):
-  def __init__(self, layers, input_dim, output_dim, model, residual_to_output):
-    self.builder = residual.ResidualRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
-    self.serialize_params = [layers, input_dim, output_dim, model, residual_to_output]
+  def init_builder(self, encoder_spec, model):
+    params = self.use_params(encoder_spec, ["layers", "input_dim", "hidden_dim", model, dy.VanillaLSTMBuilder, "residual_to_output"],
+                             map_to_default_layer_dim=["hidden_dim"])
+    self.builder = residual.ResidualRNNBuilder(*params)
 
 class ResidualBiLSTMEncoder(BuilderEncoder):
-  def __init__(self, layers, input_dim, output_dim, model, residual_to_output):
-    self.builder = residual.ResidualBiRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
-    self.serialize_params = [layers, input_dim, output_dim, model, residual_to_output]
+  def init_builder(self, encoder_spec, model):
+    params = self.use_params(encoder_spec, ["layers", "input_dim", "hidden_dim", model, dy.VanillaLSTMBuilder, "residual_to_output"],
+                             map_to_default_layer_dim=["hidden_dim"])
+    self.builder = residual.ResidualBiRNNBuilder(*params)
 
 class PyramidalLSTMEncoder(BuilderEncoder):
-  def __init__(self, layers, input_dim, output_dim, model):
-    self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, output_dim, model, dy.VanillaLSTMBuilder)
-    self.serialize_params = [layers, input_dim, output_dim, model]
+  def init_builder(self, encoder_spec, model):
+    params = self.use_params(encoder_spec, ["layers", "input_dim", "hidden_dim", model, dy.VanillaLSTMBuilder],
+                             map_to_default_layer_dim=["hidden_dim"])
+    self.builder = pyramidal.PyramidalRNNBuilder(*params)
 
 class ConvBiRNNBuilder(BuilderEncoder):
-  def __init__(self, layers, input_dim, output_dim, model):
-    self.builder = conv_encoder.ConvBiRNNBuilder(layers, input_dim, output_dim, model, dy.LSTMBuilder)
-    self.serialize_params = [layers, input_dim, output_dim, model]
+  def init_builder(self, encoder_spec, model):
+    params = self.use_params(encoder_spec, ["layers", "input_dim", "hidden_dim", model, dy.VanillaLSTMBuilder,
+                                            "chn_dim", "num_filters", "filter_size_time", "filter_size_freq",
+                                            "stride"])
+    self.builder = conv_encoder.ConvBiRNNBuilder(*params)
   
 class ModularEncoder(Encoder):
-  def __init__(self, model, *module_list):
-    self.module_list = module_list
-    self.serialize_params = [model] + list(module_list)
+  def __init__(self, encoder_spec, model):
+    self.modules = []
+    if encoder_spec.get("input_dim", None) != encoder_spec["modules"][0].get("input_dim"):
+      raise RuntimeError("Mismatching input dimensions of first module: %s != %s".format(encoder_spec.get("input_dim", None), encoder_spec["modules"][0].get("input_dim")))
+    for module_spec in encoder_spec["modules"]:
+      module_spec = dict(module_spec)
+      module_spec["default_layer_dim"] = encoder_spec["default_layer_dim"]
+      self.modules.append(Encoder.from_spec(module_spec, model))
+    self.serialize_params = [encoder_spec, model]
 
   def transduce(self, sent):
-    for i, module in enumerate(self.module_list):
+    for i, module in enumerate(self.modules):
       sent = module.transduce(sent)
-      if i<len(self.module_list)-1:
+      if i<len(self.modules)-1:
         sent = ExpressionSequence(expr_list=sent)
     return sent

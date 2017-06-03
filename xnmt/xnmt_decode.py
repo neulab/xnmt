@@ -14,11 +14,11 @@ This will be the main class to perform decoding.
 options = [
   Option("dynet-mem", int, required=False),
   Option("dynet-gpu-ids", int, required=False),
-  Option("model_file", force_flag=True, required=True, help="pretrained (saved) model path"),
-  Option("src_file", help="path of input src file to be translated"),
-  Option("trg_file", help="path of file where expected trg translatons will be written"),
-  Option("input_format", default_value="text", help="format of input data: text/contvec"),
-  Option("post_process", default_value="none", help="post-processing of translation outputs: none/join-char/join-bpe"),
+  Option("model_file", force_flag=True, required=True, help_str="pretrained (saved) model path"),
+  Option("src_file", help_str="path of input src file to be translated"),
+  Option("trg_file", help_str="path of file where expected trg translatons will be written"),
+  Option("input_format", default_value="text", help_str="format of input data: text/contvec"),
+  Option("post_process", default_value="none", help_str="post-processing of translation outputs: none/join-char/join-bpe"),
   Option("beam", int, default_value=1),
   Option("max_len", int, default_value=100),
 ]
@@ -61,6 +61,7 @@ def xnmt_decode(args, model_elements=None):
 
   # Perform decoding
 
+  translator.set_train(False)
   with open(args.trg_file, 'wb') as fp:  # Saving the translated output to a trg file
     for src in src_corpus:
       dy.renew_cg()

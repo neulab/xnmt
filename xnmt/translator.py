@@ -5,7 +5,26 @@ from batcher import *
 from search_strategy import *
 from vocab import Vocab
 
-class Translator:
+class TrainTestInterface:
+  """
+  All subcomponents of the translator that behave differently at train and test time
+  should subclass this class.
+  """
+  def set_train(self, val):
+    """
+    Will be called with val=True when starting to train, and with val=False when starting
+    to evaluate.
+    :param val: bool that indicates whether we're in training mode
+    """
+    pass
+  def get_train_test_components(self):
+    """
+    :returns: list of subcomponents that implement TrainTestInterface and will be called recursively.
+    """
+    return []
+
+
+class Translator(TrainTestInterface):
   '''
   A template class implementing an end-to-end translator that can calculate a
   loss and generate translations.
@@ -28,6 +47,16 @@ class Translator:
     '''
     raise NotImplementedError('translate must be implemented for Translator subclasses')
 
+  def set_train(self, val):
+    for component in self.get_train_test_components():
+      Translator.set_train_recursive(component, val)
+  @staticmethod
+  def set_train_recursive(component, val):
+    component.set_train(val)
+    for sub_component in component.get_train_test_components():
+      Translator.set_train_recursive(sub_component, val)
+
+
 class DefaultTranslator(Translator):
   '''
   A default translator based on attentional sequence-to-sequence models.
@@ -47,6 +76,9 @@ class DefaultTranslator(Translator):
     self.attender = attender
     self.output_embedder = output_embedder
     self.decoder = decoder
+
+  def get_train_test_components(self):
+    return [self.encoder, self.decoder]
 
   def calc_loss(self, src, trg):
     embeddings = self.input_embedder.embed_sent(src)
@@ -96,3 +128,5 @@ class DefaultTranslator(Translator):
       self.decoder.initialize()
       output.append(search_strategy.generate_output(self.decoder, self.attender, self.output_embedder, src_length=len(sents)))
     return output
+
+
