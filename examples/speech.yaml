@@ -17,7 +17,8 @@ defaults:
     dev_src: examples/data/synth.contvec.npz
     dev_trg: examples/data/synth.char
     # choose pyramidal LSTM encoder:
-    encoder_type: PyramidalBiLSTM
+    encoder:
+      type: PyramidalBiLSTM
     # indicate the dimension of the feature vectors:
     input_word_embed_dim: 240
     # indicates that the src-side data is continuous-space vectors, contained in a numpy archive (see input.py for details):
@@ -30,10 +31,12 @@ defaults:
 
 speech:
   train:
-    encoder_layers: 2
+    encoder:
+      layers: 2
+      hidden_dim: 64
     output_word_embed_dim: 64
     output_state_dim: 64
     attender_hidden_dim: 64
     output_mlp_hidden_dim: 64
-    encoder_hidden_dim: 64
+    attention_context_dim: 64
 

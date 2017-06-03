@@ -31,28 +31,30 @@ options = [
   Option("dev_src"),
   Option("dev_trg"),
   Option("model_file"),
-  Option("pretrained_model_file", default_value="", help="Path of pre-trained model file"),
-  Option("input_vocab", default_value="", help="Path of fixed input vocab file"),
-  Option("output_vocab", default_value="", help="Path of fixed output vocab file"),
-  Option("input_format", default_value="text", help="Format of input data: text/contvec"),
-  Option("default_layer_dim", int, default_value=512, help="Default size to use for layers if not otherwise overridden"),
+  Option("pretrained_model_file", default_value="", help_str="Path of pre-trained model file"),
+  Option("input_vocab", default_value="", help_str="Path of fixed input vocab file"),
+  Option("output_vocab", default_value="", help_str="Path of fixed output vocab file"),
+  Option("input_format", default_value="text", help_str="Format of input data: text/contvec"),
+  Option("default_layer_dim", int, default_value=512, help_str="Default size to use for layers if not otherwise overridden"),
   Option("input_word_embed_dim", int, required=False),
   Option("output_word_embed_dim", int, required=False),
   Option("output_state_dim", int, required=False),
   Option("output_mlp_hidden_dim", int, required=False),
   Option("attender_hidden_dim", int, required=False),
-  Option("encoder_hidden_dim", int, required=False),
+  Option("attention_context_dim", int, required=False),
   Option("trainer", default_value="sgd"),
   Option("learning_rate", float, default_value=0.1),
   Option("lr_decay", float, default_value=1.0),
   Option("lr_threshold", float, default_value=1e-5),
   Option("eval_metrics", default_value="bleu"),
-  Option("encoder_layers", int, default_value=2),
-  Option("decoder_layers", int, default_value=2),
-  Option("encoder_type", default_value="BiLSTM"),
+  Option("encoder", dict, default_value={}),  
+  Option("encoder.layers", int, default_value=1),
+  Option("encoder.type", default_value="BiLSTM"),
+  Option("encoder.input_dim", int, required=False),
   Option("decoder_type", default_value="LSTM"),
+  Option("decoder_layers", int, default_value=2),
   Option("residual_to_output", bool, default_value=True,
-         help="If using residual networks, whether to add a residual connection to the output layer"),
+         help_str="If using residual networks in the decoder, whether to add a residual connection to the output layer"),
 ]
 
 class XnmtTrainer:
@@ -129,33 +131,35 @@ class XnmtTrainer:
     self.read_data()
     
     # Get layer sizes: replace by default if not specified
-    for opt in ["input_word_embed_dim", "output_word_embed_dim", "output_state_dim", "output_mlp_hidden_dim",
-                "encoder_hidden_dim", "attender_hidden_dim"]:
+    for opt in ["input_word_embed_dim", "output_word_embed_dim", "output_state_dim",
+                "output_mlp_hidden_dim", "attender_hidden_dim", "attention_context_dim"]:
       if getattr(self.args, opt) is None:
         setattr(self.args, opt, self.args.default_layer_dim)
+    if getattr(self.args, "encoder") is None:
+      self.args.encoder = {}
+    self.args.encoder["default_layer_dim"] = self.args.default_layer_dim
+    if self.args.encoder.get("input_dim", None) is None: self.args.encoder["input_dim"] = self.args.input_word_embed_dim
 
     self.input_word_emb_dim = self.args.input_word_embed_dim
     self.output_word_emb_dim = self.args.output_word_embed_dim
     self.output_state_dim = self.args.output_state_dim
     self.attender_hidden_dim = self.args.attender_hidden_dim
+    self.attention_context_dim = self.args.attention_context_dim
     self.output_mlp_hidden_dim = self.args.output_mlp_hidden_dim
-    self.encoder_hidden_dim = self.args.encoder_hidden_dim
 
     self.input_embedder = Embedder.from_spec(self.args.input_format, len(self.input_reader.vocab),
                                              self.input_word_emb_dim, self.model)
 
     self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), self.output_word_emb_dim, self.model)
 
-    self.encoder = Encoder.from_spec(self.args.encoder_type, self.args.encoder_layers,
-                                     self.args.input_word_embed_dim, self.encoder_hidden_dim,
-                                     self.model, self.args.residual_to_output)
+    self.encoder = Encoder.from_spec(self.args.encoder, self.model)
 
-    self.attender = StandardAttender(self.encoder_hidden_dim, self.output_state_dim, self.attender_hidden_dim,
+    self.attender = StandardAttender(self.attention_context_dim, self.output_state_dim, self.attender_hidden_dim,
                                      self.model)
 
-    decoder_rnn = Decoder.rnn_from_spec(self.args.decoder_type, self.args.decoder_layers, self.encoder_hidden_dim,
+    decoder_rnn = Decoder.rnn_from_spec(self.args.decoder_type, self.args.decoder_layers, self.attention_context_dim,
                                         self.output_state_dim, self.model, self.args.residual_to_output)
-    self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.encoder_hidden_dim, self.output_state_dim,
+    self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.attention_context_dim, self.output_state_dim,
                                      self.output_mlp_hidden_dim, len(self.output_reader.vocab),
                                      self.model, decoder_rnn)
 
