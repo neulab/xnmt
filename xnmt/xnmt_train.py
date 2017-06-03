@@ -30,6 +30,8 @@ options = [
   Option("train_trg"),
   Option("dev_src"),
   Option("dev_trg"),
+  Option("max_src_len", int, required=False, help_str="Remove sentences from training/dev data that are longer than this on the source side"),
+  Option("max_trg_len", int, required=False, help_str="Remove sentences from training/dev data that are longer than this on the target side"),
   Option("model_file"),
   Option("pretrained_model_file", default_value="", help_str="Path of pre-trained model file"),
   Option("input_vocab", default_value="", help_str="Path of fixed input vocab file"),
@@ -170,8 +172,11 @@ class XnmtTrainer:
 
 
   def read_data(self):
-    self.train_src = self.input_reader.read_file(self.args.train_src)
-    self.train_trg = self.output_reader.read_file(self.args.train_trg)
+    self.train_src, self.train_trg = \
+        self.remove_long_sents(self.input_reader.read_file(self.args.train_src),
+                               self.output_reader.read_file(self.args.train_trg),
+                               self.args.max_src_len, self.args.max_trg_len,
+                               )
     assert len(self.train_src) == len(self.train_trg)
     self.total_train_sent = len(self.train_src)
     if self.args.eval_every == None:
@@ -180,10 +185,22 @@ class XnmtTrainer:
     self.input_reader.freeze()
     self.output_reader.freeze()
 
-    self.dev_src = self.input_reader.read_file(self.args.dev_src)
-    self.dev_trg = self.output_reader.read_file(self.args.dev_trg)
+    self.dev_src, self.dev_trg = \
+        self.remove_long_sents(self.input_reader.read_file(self.args.dev_src),
+                               self.output_reader.read_file(self.args.dev_trg),
+                               self.args.max_src_len, self.args.max_trg_len,
+                               )
     assert len(self.dev_src) == len(self.dev_trg)
-
+  
+  def remove_long_sents(self, src_sents, trg_sents, max_src_len, max_trg_len):
+    filtered_src_sents, filtered_trg_sents = [], []
+    for src_sent, trg_sent in zip(src_sents, trg_sents):
+      if (max_src_len is None or len(src_sent) <= max_src_len) and (max_trg_len is None or len(trg_sent) <= max_trg_len):
+        filtered_src_sents.append(src_sent)
+        filtered_trg_sents.append(trg_sent)
+    if max_src_len or max_trg_len:
+      print("> removed %s out of %s sentences that were too long." % (len(src_sents)-len(filtered_src_sents),len(src_sents)))
+    return filtered_src_sents, filtered_trg_sents
 
   def run_epoch(self):
     self.logger.new_epoch()
