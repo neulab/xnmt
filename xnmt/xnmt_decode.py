@@ -61,6 +61,7 @@ def xnmt_decode(args, model_elements=None):
 
   # Perform decoding
 
+  translator.set_train(False)
   with open(args.trg_file, 'wb') as fp:  # Saving the translated output to a trg file
     for src in src_corpus:
       dy.renew_cg()
