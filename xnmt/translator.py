@@ -30,19 +30,22 @@ class Translator(TrainTestInterface):
   loss and generate translations.
   '''
 
-  '''
-  Calculate the loss of the input and output.
-  '''
+  def calc_loss(self, src, trg):
+    '''Calculate loss based on input-output pairs.
 
-  def loss(self, x, y):
-    raise NotImplementedError('loss must be implemented for Translator subclasses')
+    :param src: The source, a sentence or a batch of sentences.
+    :param trg: The target, a sentence or a batch of sentences.
+    :returns: An expression representing the loss.
+    '''
+    raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
 
-  '''
-  Calculate the loss for a batch. By default, just iterate. Overload for better efficiency.
-  '''
+  def translate(self, src):
+    '''Translate a particular sentence.
 
-  def batch_loss(self, xs, ys):
-    return dy.esum([self.loss(x, y) for x, y in zip(xs, ys)])
+    :param src: The source, a sentence or a batch of sentences.
+    :returns: A translated expression.
+    '''
+    raise NotImplementedError('translate must be implemented for Translator subclasses')
 
   def set_train(self, val):
     for component in self.get_train_test_components():
@@ -55,7 +58,19 @@ class Translator(TrainTestInterface):
 
 
 class DefaultTranslator(Translator):
+  '''
+  A default translator based on attentional sequence-to-sequence models.
+  '''
+
   def __init__(self, input_embedder, encoder, attender, output_embedder, decoder):
+    '''Constructor.
+
+    :param input_embedder: A word embedder for the input language
+    :param encoder: An encoder to generate encoded inputs
+    :param attender: An attention module
+    :param output_embedder: A word embedder for the output language
+    :param decoder: A decoder
+    '''
     self.input_embedder = input_embedder
     self.encoder = encoder
     self.attender = attender
@@ -99,7 +114,10 @@ class DefaultTranslator(Translator):
 
     return dy.esum(losses)
 
-  def translate(self, src, search_strategy=BeamSearch(1, len_norm=NoNormalization())):
+  def translate(self, src, search_strategy=None):
+    # Not including this as a default argument is a hack to get our documentation pipeline working
+    if search_strategy == None:
+      search_strategy = BeamSearch(1, len_norm=NoNormalization())
     output = []
     if not Batcher.is_batch_sent(src):
       src = Batcher.mark_as_batch([src])

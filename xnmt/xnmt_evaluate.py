@@ -4,9 +4,9 @@ from evaluator import BLEUEvaluator, WEREvaluator, CEREvaluator
 from options import Option, OptionParser
 
 options = [
-    Option("ref_file", help="path of the reference file"),
-    Option("hyp_file", help="path of the hypothesis trg file"),
-    Option("evaluator", default_value="bleu", help="Evaluation metrics (bleu/wer/cer)")
+    Option("ref_file", help_str="path of the reference file"),
+    Option("hyp_file", help_str="path of the hypothesis trg file"),
+    Option("evaluator", default_value="bleu", help_str="Evaluation metrics (bleu/wer/cer)")
 ]
 
 

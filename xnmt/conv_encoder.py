@@ -10,7 +10,8 @@ class ConvBiRNNBuilder(object):
   Then, we add a configurable number of bidirectional RNN layers on top.
   """
   
-  def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory, chn_dim=3):
+  def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory, 
+               chn_dim, num_filters, filter_size_time, filter_size_freq, stride):
     """
     :param num_layers: depth of the RNN
     :param input_dim: size of the inputs
@@ -24,10 +25,10 @@ class ConvBiRNNBuilder(object):
       
     self.chn_dim = chn_dim
     self.freq_dim = input_dim / chn_dim
-    self.num_filters = 32
-    self.filter_size_time = 3
-    self.filter_size_freq = 3
-    self.stride = (2,2)
+    self.num_filters = num_filters # 32
+    self.filter_size_time = filter_size_time # 3
+    self.filter_size_freq = filter_size_freq # 3
+    self.stride = stride # (2,2)
     
     normalInit=dy.NormalInitializer(0, 0.1)
     self.filters1 = model.add_parameters(dim=(self.filter_size_time, self.filter_size_freq, self.chn_dim, self.num_filters),

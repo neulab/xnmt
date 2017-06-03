@@ -19,8 +19,17 @@
 
 import os
 import sys
-sys.path.insert(0, os.path.abspath('.'))
+import glob
 
+sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath('../build/xnmt'))
+import doc_util
+
+files = glob.glob('../../xnmt/*.py')
+if not os.path.exists('../build/xnmt'):
+  os.makedirs('../build/xnmt')
+for fname in files:
+  doc_util.create_doc_copy(in_file=fname, out_file='../build/xnmt/'+os.path.basename(fname))
 
 # -- General configuration ------------------------------------------------
 

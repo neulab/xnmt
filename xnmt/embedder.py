@@ -9,18 +9,16 @@ class Embedder:
   """
 
   def embed(self, word):
-    """
-    Embed a single word.
-    :param word: This will generally be an integer word ID, but could also be something
-      like a string.
+    """Embed a single word.
+
+    :param word: This will generally be an integer word ID, but could also be something like a string.
     """
     raise NotImplementedError('embed must be implemented in Embedder subclasses')
 
   def embed_sent(self, sent):
-    """
-    Embed a full sent worth of words.
-    :param sent: This will generally be a list of word IDs, but could also be a list
-      of strings or some other format.
+    """Embed a full sentence worth of words.
+
+    :param sent: This will generally be a list of word IDs, but could also be a list of strings or some other format.
     """
     raise NotImplementedError('embed_sent must be implemented in Embedder subclasses')
 
@@ -35,18 +33,19 @@ class Embedder:
       raise RuntimeError("Unknown input type {}".format(input_format))
 
 class ExpressionSequence():
-  """
-  A class to represent a sequence of expressions.
+  """A class to represent a sequence of expressions.
   
   Internal representation is either a list of expressions or a single tensor or both.
   If necessary, both forms of representation are created from the other on demand.
   """
   def __init__(self, **kwargs):
-    """
+    """Constructor.
+
     :param expr_list: a python list of expressions
     :param expr_tensor: a tensor where highest dimension are the sequence items
-    :raises valueError: raises an exception if neither expr_list nor expr_tensor are given,
-                        or if both have inconsistent length
+    :raises valueError:
+      raises an exception if neither expr_list nor expr_tensor are given,
+      or if both have inconsistent length
     """
     self.expr_list = kwargs.pop('expr_list', None)
     self.expr_tensor = kwargs.pop('expr_tensor', None)
@@ -57,14 +56,16 @@ class ExpressionSequence():
         raise ValueError("expr_list and expr_tensor must be of same length")
 
   def __len__(self):
-    """
+    """Return length.
+
     :returns: length of sequence
     """
     if self.expr_list: return len(self.expr_list)
     else: return self.expr_tensor.dim()[0][0]
 
   def __iter__(self):
-    """
+    """Return iterator.
+
     :returns: iterator over the sequence; results in explicit conversion to list
     """
     if self.expr_list is None:
@@ -72,14 +73,15 @@ class ExpressionSequence():
     return iter(self.expr_list)
 
   def __getitem__(self, key):
-    """
+    """Get a single item.
+
     :returns: sequence item (expression); does not result in explicit conversion to list
     """
     if self.expr_list: return self.expr_list[key]
     else: return dy.pick(self.expr_tensor, key)
 
   def as_tensor(self):
-    """
+    """Get a tensor.
     :returns: the whole sequence as a tensor expression. 
     """
     if self.expr_tensor is None:

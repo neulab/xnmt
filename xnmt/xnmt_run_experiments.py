@@ -86,13 +86,13 @@ if __name__ == '__main__':
   config_parser.remove_option("decode", "model_file")
 
   experiment_options = [
-    Option("model_file", default_value="<EXP>.mod", help="Location to write the model file"),
-    Option("hyp_file", default_value="<EXP>.hyp", help="Location to write decoded output for evaluation"),
-    Option("out_file", default_value="<EXP>.out", help="Location to write stdout messages"),
-    Option("err_file", default_value="<EXP>.err", help="Location to write stderr messages"),
-    Option("eval_metrics", default_value="bleu", help="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
-    Option("run_for_epochs", int, help="How many epochs to run each test for"),
-    Option("decode_every", int, default_value=0, help="Evaluation period in epochs. If set to 0, will never evaluate."),
+    Option("model_file", default_value="<EXP>.mod", help_str="Location to write the model file"),
+    Option("hyp_file", default_value="<EXP>.hyp", help_str="Location to write decoded output for evaluation"),
+    Option("out_file", default_value="<EXP>.out", help_str="Location to write stdout messages"),
+    Option("err_file", default_value="<EXP>.err", help_str="Location to write stderr messages"),
+    Option("eval_metrics", default_value="bleu", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
+    Option("run_for_epochs", int, help_str="How many epochs to run each test for"),
+    Option("decode_every", int, default_value=0, help_str="Evaluation period in epochs. If set to 0, will never evaluate."),
   ]
 
   config_parser.add_task("experiment", experiment_options)

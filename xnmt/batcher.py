@@ -21,9 +21,11 @@ class Batcher:
   PAIR_SRC = 0
   PAIR_TRG = 1
 
-  def __init__(self, batch_size, pad_token=Vocab.ES):
+  def __init__(self, batch_size, pad_token=None):
     self.batch_size = batch_size
-    self.pad_token = pad_token
+    # The only reason why we don't set Vocab.ES as the default is because it currently
+    # breaks our documentation pipeline
+    self.pad_token = pad_token if pad_token != None else Vocab.ES
 
   @staticmethod
   def is_batch_sent(sent):
