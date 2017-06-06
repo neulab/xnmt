@@ -19,7 +19,8 @@ defaults:
 
 standard-1layer:
   train:
-    encoder_layers: 1
+    encoder:
+      layers: 1
 
 standard-2layer:
   train:
