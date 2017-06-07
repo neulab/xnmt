@@ -2,6 +2,7 @@ import argparse
 import sys
 from evaluator import BLEUEvaluator, WEREvaluator, CEREvaluator
 from options import Option, OptionParser
+from xnmt_decode import NO_DECODING_ATTEMPTED
 
 options = [
     Option("ref_file", help_str="path of the reference file"),
@@ -37,6 +38,11 @@ def xnmt_evaluate(args):
 
     ref_corpus = read_data(args.ref_file)
     hyp_corpus = read_data(args.hyp_file)
+    len_before = len(hyp_corpus)
+    ref_corpus, hyp_corpus = zip(*filter(lambda x: NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
+    if len(ref_corpus) < len_before:
+      print("> ignoring %s out of %s test sentences." % (len_before - len(ref_corpus), len_before))
+
 
     eval_score = evaluator.evaluate(ref_corpus, hyp_corpus)
 

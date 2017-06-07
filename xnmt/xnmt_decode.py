@@ -17,12 +17,14 @@ options = [
   Option("model_file", force_flag=True, required=True, help_str="pretrained (saved) model path"),
   Option("src_file", help_str="path of input src file to be translated"),
   Option("trg_file", help_str="path of file where expected trg translatons will be written"),
+  Option("max_src_len", int, required=False, help_str="Remove sentences from data to decode that are longer than this on the source side"),
   Option("input_format", default_value="text", help_str="format of input data: text/contvec"),
   Option("post_process", default_value="none", help_str="post-processing of translation outputs: none/join-char/join-bpe"),
   Option("beam", int, default_value=1),
   Option("max_len", int, default_value=100),
 ]
 
+NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
 
 def xnmt_decode(args, model_elements=None):
   """
@@ -64,9 +66,12 @@ def xnmt_decode(args, model_elements=None):
   translator.set_train(False)
   with open(args.trg_file, 'wb') as fp:  # Saving the translated output to a trg file
     for src in src_corpus:
-      dy.renew_cg()
-      token_string = translator.translate(src, search_strategy)
-      trg_sent = output_generator.process(token_string)[0]
+      if args.max_src_len is not None and len(src) > args.max_src_len:
+        trg_sent = NO_DECODING_ATTEMPTED
+      else:
+        dy.renew_cg()
+        token_string = translator.translate(src, search_strategy)
+        trg_sent = output_generator.process(token_string)[0]
 
       if isinstance(trg_sent, unicode):
         trg_sent = trg_sent.encode('utf-8', errors='ignore')
