@@ -32,6 +32,7 @@ options = [
   Option("dev_trg"),
   Option("max_src_len", int, required=False, help_str="Remove sentences from training/dev data that are longer than this on the source side"),
   Option("max_trg_len", int, required=False, help_str="Remove sentences from training/dev data that are longer than this on the target side"),
+  Option("max_num_train_sents", int, required=False, help_str="Load only the first n sentences from the training data"),
   Option("model_file"),
   Option("pretrained_model_file", default_value="", help_str="Path of pre-trained model file"),
   Option("input_vocab", default_value="", help_str="Path of fixed input vocab file"),
@@ -173,8 +174,8 @@ class XnmtTrainer:
 
   def read_data(self):
     self.train_src, self.train_trg = \
-        self.remove_long_sents(self.input_reader.read_file(self.args.train_src),
-                               self.output_reader.read_file(self.args.train_trg),
+        self.remove_long_sents(self.input_reader.read_file(self.args.train_src, max_num=self.args.max_num_train_sents),
+                               self.output_reader.read_file(self.args.train_trg, max_num=self.args.max_num_train_sents),
                                self.args.max_src_len, self.args.max_trg_len,
                                )
     assert len(self.train_src) == len(self.train_trg)
