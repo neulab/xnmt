@@ -3,7 +3,6 @@ import numpy as np
 from collections import defaultdict, Counter
 import math
 
-
 class Evaluator(object):
     """
   A class to evaluate the quality of output.
