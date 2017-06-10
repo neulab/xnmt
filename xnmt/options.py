@@ -4,6 +4,7 @@ Stores options and default values for
 import yaml
 import argparse
 from collections import OrderedDict
+import copy
 
 
 class Option:
@@ -99,7 +100,7 @@ class OptionParser:
     for exp, exp_tasks in config.items():
       experiments[exp] = {}
       for task_name in self.tasks:
-        task_values = defaults[task_name].copy()
+        task_values = copy.deepcopy(defaults[task_name])
         exp_task_values = exp_tasks.get(task_name, dict())
         self.update_with_subdicts(task_values,
                                   {name: self.check_and_convert(task_name, name, value) for name, value in exp_task_values.items()})
