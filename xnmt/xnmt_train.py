@@ -23,7 +23,7 @@ This will be the main class to perform training.
 options = [
   Option("dynet-mem", int, required=False),
   Option("dynet-gpu-ids", int, required=False),
-  Option("eval_every", int, default_value=1000, force_flag=True),
+  Option("eval_every", int, default_value=10000, force_flag=True),
   Option("batch_size", int, default_value=32, force_flag=True),
   Option("batch_strategy", default_value="src"),
   Option("train_src"),
@@ -219,7 +219,8 @@ class XnmtTrainer:
       
 
       # Devel reporting
-      if self.logger.report_train_process():
+      self.logger.report_train_process()
+      if self.logger.should_report_dev():
         self.translator.set_train(False)
         self.logger.new_dev()
         for src, trg in zip(self.dev_src, self.dev_trg):
