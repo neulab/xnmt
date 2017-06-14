@@ -3,8 +3,6 @@ from __future__ import division, generators
 import sys
 import math
 import time
-import json
-import codecs
 
 class LossTracker:
     """
@@ -14,7 +12,8 @@ class LossTracker:
     REPORT_TEMPLATE = 'Epoch %.4f: {}_ppl=%.4f (words=%d, words/sec=%.2f, time=%s)'
 
     def __init__(self, eval_every, total_train_sent):
-        self.eval_every = eval_every
+        self.eval_train_every = 1000
+        self.eval_dev_every = eval_every
         self.total_train_sent = total_train_sent
 
         self.epoch_num = 0
@@ -22,7 +21,8 @@ class LossTracker:
         self.epoch_loss = 0.0
         self.epoch_words = 0
         self.sent_num = 0
-        self.sent_num_not_report = 0
+        self.sent_num_not_report_train = 0
+        self.sent_num_not_report_dev = 0
         self.fractional_epoch = 0
 
         self.dev_loss = 0.0
@@ -42,7 +42,8 @@ class LossTracker:
         self.epoch_words = 0
         self.epoch_num += 1
         self.sent_num = 0
-        self.sent_num_not_report = 0
+        self.sent_num_not_report_train = 0
+        self.sent_num_not_report_dev = 0
 
     def update_epoch_loss(self, src, trg, loss):
         """
@@ -50,7 +51,8 @@ class LossTracker:
         """
         batch_sent_num = self.count_sent_num(src)
         self.sent_num += batch_sent_num
-        self.sent_num_not_report += batch_sent_num
+        self.sent_num_not_report_train += batch_sent_num
+        self.sent_num_not_report_dev += batch_sent_num
         self.epoch_words += self.count_trg_words(trg)
         self.epoch_loss += loss
     
@@ -61,14 +63,13 @@ class LossTracker:
 
     def report_train_process(self):
         """
-        Print training report if eval_every sents have been evaluated.
+        Print training report if eval_train_every sents have been evaluated.
         :return: True if the training process is reported
         """
-        print_report = (self.sent_num_not_report >= self.eval_every) or (self.sent_num == self.total_train_sent)
+        print_report = (self.sent_num_not_report_train >= self.eval_train_every) or (self.sent_num == self.total_train_sent)
 
         if print_report:
-            while self.sent_num_not_report >= self.eval_every:
-                self.sent_num_not_report -= self.eval_every
+            self.sent_num_not_report_train = self.sent_num_not_report_train % self.eval_train_every
             self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
 
             this_report_time = time.time()
@@ -97,13 +98,17 @@ class LossTracker:
         self.dev_loss += loss
         self.dev_words += self.count_trg_words(trg)
 
+    def should_report_dev(self):
+      return (self.sent_num_not_report_dev >= self.eval_dev_every) or (self.sent_num == self.total_train_sent)
+
     def report_dev_and_check_model(self, model_file):
         """
         Print dev testing report and check whether the dev loss is the best seen so far.
         :return: True if the dev loss is the best and required save operations
         """
         this_report_time = time.time()
-        print(LossTracker.REPORT_TEMPLATE.format('test') % (
+        self.sent_num_not_report_dev = self.sent_num_not_report_dev % self.eval_dev_every
+        print(LossTracker.REPORT_TEMPLATE.format('dev') % (
             self.fractional_epoch,
             math.exp(self.dev_loss / self.dev_words),
             self.dev_words,
@@ -132,7 +137,8 @@ class LossTracker:
 
     def clear_counters(self):
         self.sent_num = 0
-        self.sent_num_not_report = 0
+        self.sent_num_not_report_dev = 0
+        self.sent_num_not_report_train = 0
 
     def report_ppl(self):
         pass
