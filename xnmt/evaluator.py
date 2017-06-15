@@ -183,14 +183,16 @@ class WEREvaluator(Evaluator):
     Calculate the word error rate of output given a references.
     :param ref: list of list of reference words
     :param hyp: list of list of decoded words
-    :return: word error rate: (ins+del+sub) / (ref_len)
+    :return: formatted string (word error rate: (ins+del+sub) / (ref_len), plus more statistics)
     """
-        total_dist, total_ref_len = 0, 0
+        total_dist, total_ref_len, total_hyp_len = 0, 0, 0
         for ref_sent, hyp_sent in zip(ref, hyp):
-            dist, ref_len = self.dist_one_pair(ref_sent, hyp_sent)
+            dist = self.dist_one_pair(ref_sent, hyp_sent)
             total_dist += dist
-            total_ref_len += ref_len
-        return float(total_dist) / total_ref_len
+            total_ref_len += len(ref_sent)
+            total_hyp_len += len(hyp_sent)
+        wer_score = float(total_dist) / total_ref_len
+        return "{} ( hyp_len={}, ref_len={} )".format(wer_score, total_hyp_len, total_ref_len)
 
     def dist_one_pair(self, ref_sent, hyp_sent):
         """
@@ -200,7 +202,7 @@ class WEREvaluator(Evaluator):
             hyp_sent = map(lambda w: w.lower(), hyp_sent)
         if not self.case_sensitive:
             ref_sent = map(lambda w: w.lower(), ref_sent)
-        return -self.seq_sim(ref_sent, hyp_sent), len(ref_sent)
+        return -self.seq_sim(ref_sent, hyp_sent)
 
     # gap penalty:
     gapPenalty = -1.0
