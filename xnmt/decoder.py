@@ -31,16 +31,17 @@ class Decoder(TrainTestInterface):
 class MlpSoftmaxDecoder(Decoder):
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
-  def __init__(self, layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model, trg_embed_dim,
+  def __init__(self, layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model, trg_embed_dim, dropout,
                fwd_lstm=None):
     self.input_dim = input_dim
+    self.dropout = dropout
     if fwd_lstm == None:
       self.fwd_lstm = dy.VanillaLSTMBuilder(layers, input_dim, lstm_dim, model)
     else:
       self.fwd_lstm = fwd_lstm
     self.mlp = MLP(input_dim + lstm_dim, mlp_hidden_dim, vocab_size, model)
     self.state = None
-    self.serialize_params = [layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model, trg_embed_dim]
+    self.serialize_params = [layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model, trg_embed_dim, dropout]
 
   def initialize(self):
     self.state = self.fwd_lstm.initial_state()
@@ -62,3 +63,6 @@ class MlpSoftmaxDecoder(Decoder):
     # minibatch mode
     else:
       return dy.pickneglogsoftmax_batch(scores, ref_action)
+
+  def set_train(self, val):
+    self.fwd_lstm.set_dropout(self.dropout if val else 0.0)
