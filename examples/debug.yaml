@@ -14,6 +14,7 @@ defaults:
     dev_src: examples/data/head.ja
     dev_trg: examples/data/head.en
     default_layer_dim: 64
+    dropout: 0.5
     encoder:
       dropout: 0.0
   decode:
