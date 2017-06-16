@@ -50,6 +50,7 @@ options = [
   Option("lr_decay", float, default_value=1.0),
   Option("lr_threshold", float, default_value=1e-5),
   Option("eval_metrics", default_value="bleu"),
+  Option("dropout", float, default_value=0.0),
   Option("encoder", dict, default_value={}),  
   Option("encoder.layers", int, default_value=1),
   Option("encoder.type", default_value="BiLSTM"),
@@ -141,6 +142,7 @@ class XnmtTrainer:
     if getattr(self.args, "encoder") is None:
       self.args.encoder = {}
     self.args.encoder["default_layer_dim"] = self.args.default_layer_dim
+    if "dropout" not in self.args.encoder: self.args.encoder["dropout"] = self.args.dropout
     if self.args.encoder.get("input_dim", None) is None: self.args.encoder["input_dim"] = self.args.input_word_embed_dim
 
     self.input_word_emb_dim = self.args.input_word_embed_dim
@@ -164,7 +166,7 @@ class XnmtTrainer:
                                         self.output_state_dim, self.model, self.args.residual_to_output)
     self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.attention_context_dim, self.output_state_dim,
                                      self.output_mlp_hidden_dim, len(self.output_reader.vocab),
-                                     self.model, self.output_word_emb_dim, decoder_rnn)
+                                     self.model, self.output_word_emb_dim, self.args.dropout, decoder_rnn)
 
     self.translator = DefaultTranslator(self.input_embedder, self.encoder, self.attender, self.output_embedder, self.decoder)
     self.model_params = ModelParams(self.encoder, self.attender, self.decoder, self.input_reader.vocab.i2w,
