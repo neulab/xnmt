@@ -11,6 +11,7 @@ defaults:
     train_trg: examples/data/head.en
     dev_src: examples/data/head.ja
     dev_trg: examples/data/head.en
+    dropout: 0.5
     encoder: 
       type: modular
       modules:
@@ -18,12 +19,11 @@ defaults:
         input_dim: 64
         output_dim: 64
         layers: 1
-        dropout: 0.5
+        dropout: 0.1
       - type: PyramidalBiLSTM
         input_dim: 64
         output_dim: 64
         layers: 1
-        dropout: 0.1
     default_layer_dim: 64
   decode:
     src_file: examples/data/head.ja

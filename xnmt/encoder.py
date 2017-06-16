@@ -123,6 +123,7 @@ class ModularEncoder(Encoder):
     for module_spec in encoder_spec["modules"]:
       module_spec = dict(module_spec)
       module_spec["default_layer_dim"] = encoder_spec["default_layer_dim"]
+      if "dropout" not in module_spec: module_spec["dropout"] = encoder_spec["dropout"]
       self.modules.append(Encoder.from_spec(module_spec, model))
     self.serialize_params = [encoder_spec, model]
 
