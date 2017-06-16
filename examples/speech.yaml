@@ -32,8 +32,9 @@ defaults:
 speech:
   train:
     encoder:
-      layers: 2
+      layers: 3
       hidden_dim: 64
+      downsampling_method: concat
     output_word_embed_dim: 64
     output_state_dim: 64
     attender_hidden_dim: 64
