@@ -12,7 +12,6 @@ defaults:
     train_trg: examples/data/train.en
     dev_src: examples/data/dev.ja
     dev_trg: examples/data/dev.en
-    default_layer_dim: 128
   decode:
     src_file: examples/data/test.ja
   evaluate:
