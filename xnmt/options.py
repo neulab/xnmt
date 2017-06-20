@@ -98,6 +98,7 @@ class OptionParser:
 
     experiments = {}
     for exp, exp_tasks in config.items():
+      if exp_tasks is None: exp_tasks = {}
       experiments[exp] = {}
       for task_name in self.tasks:
         task_values = copy.deepcopy(defaults[task_name])
