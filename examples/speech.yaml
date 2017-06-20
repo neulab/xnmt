@@ -19,6 +19,7 @@ defaults:
     # choose pyramidal LSTM encoder:
     encoder:
       type: PyramidalBiLSTM
+      downsampling_method: skip
     # indicate the dimension of the feature vectors:
     input_word_embed_dim: 240
     # indicates that the src-side data is continuous-space vectors, contained in a numpy archive (see input.py for details):
