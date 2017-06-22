@@ -5,7 +5,7 @@ import yaml
 import argparse
 from collections import OrderedDict
 import copy
-
+import random
 
 class Option:
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
@@ -30,6 +30,19 @@ class Option:
 class Args: pass
 
 
+class RandomParam(yaml.YAMLObject):
+  yaml_tag = u'!RandomParam'
+  def __init__(self, values):
+    self.values = values
+  def __repr__(self):
+    return "%s(values=%r)" % (
+            self.__class__.__name__, self.values)
+  def draw_value(self):
+    return random.choice(self.values)
+  def apply_type(self, wanted_type):
+    self.values = [wanted_type(v) for v in self.values]
+
+
 class OptionParser:
   def __init__(self):
     self.tasks = {}
@@ -43,7 +56,10 @@ class OptionParser:
       raise RuntimeError("Unknown option {} for task {}".format(option_name, task_name))
 
     option = self.tasks[task_name][option_name]
-    value = option.type(value)
+    if isinstance(value, RandomParam):
+      value.apply_type(option.type)
+    else:
+      value = option.type(value)
 
     return value
   
@@ -126,12 +142,28 @@ class OptionParser:
         for k in task_values.keys():
           if type(task_values[k]) == str:
             task_values[k] = task_values[k].replace("<EXP>", exp)
+        
+        random_search_report = self.instantiate_random_search(task_values)
+        if random_search_report:
+          task_values["random_search_report"] = random_search_report
 
         experiments[exp][task_name] = Args()
         for name, val in task_values.items():
           setattr(experiments[exp][task_name], name, val)
 
     return experiments
+  
+  def instantiate_random_search(self, task_values):
+    param_report = {}
+    for k in task_values.keys():
+      if isinstance(task_values[k], RandomParam):
+        task_values[k] = task_values[k].draw_value()
+        param_report[k] = task_values[k]
+      elif type(task_values[k]) == dict:
+        sub_report = self.instantiate_random_search(task_values[k])
+        if sub_report:
+          param_report[k] = sub_report
+    return param_report
 
   def args_from_command_line(self, task, argv):
     parser = argparse.ArgumentParser()

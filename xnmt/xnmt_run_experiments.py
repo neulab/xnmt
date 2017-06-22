@@ -121,7 +121,7 @@ if __name__ == '__main__':
     exp_tasks = config[experiment_name]
 
     print("=> Running {}".format(experiment_name))
-
+    
     exp_args = exp_tasks["experiment"]
 
     train_args = exp_tasks["train"]
@@ -137,6 +137,11 @@ if __name__ == '__main__':
 
     output = Tee(exp_args.out_file, 3)
     err_output = Tee(exp_args.err_file, 3, error=True)
+
+    for task_name in exp_tasks:
+      if hasattr(exp_tasks[task_name], "random_search_report"):
+        print("> instantiated random parameter search: %s" % exp_tasks[task_name].random_search_report)
+
     print("> Training")
 
     xnmt_trainer = xnmt_train.XnmtTrainer(train_args)
