@@ -46,7 +46,7 @@ class BeamSearch(SearchStrategy):
         decoder.add_input(output_embedder.embed(hyp.id_list[-1]))
         context = attender.calc_context(decoder.state.output())
         score = dy.log_softmax(decoder.get_scores(context)).npvalue()
-        top_ids = np.argpartition(score, -self.b)[-self.b:]
+        top_ids = np.argpartition(score, max(-len(score),-self.b))[-self.b:]
 
         for id in top_ids:
           new_list = list(hyp.id_list)
