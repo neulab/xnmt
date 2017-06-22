@@ -39,7 +39,7 @@ def xnmt_decode(args, model_elements=None):
     src_vocab = Vocab(model_params.src_vocab)
     trg_vocab = Vocab(model_params.trg_vocab)
 
-    translator = DefaultTranslator(model_params.encoder, model_params.attender, model_params.decoder)
+    translator = DefaultTranslator(model_params.input_embedder, model_params.encoder, model_params.attender, model_params.output_embedder, model_params.decoder)
 
   else:
     src_vocab, trg_vocab, translator = model_elements
