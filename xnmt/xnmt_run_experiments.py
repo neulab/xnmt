@@ -90,6 +90,7 @@ if __name__ == '__main__':
     Option("hyp_file", default_value="<EXP>.hyp", help_str="Location to write decoded output for evaluation"),
     Option("out_file", default_value="<EXP>.out", help_str="Location to write stdout messages"),
     Option("err_file", default_value="<EXP>.err", help_str="Location to write stderr messages"),
+    Option("eval_only", bool, default_value=False, help_str="Skip training and evaluate only"),
     Option("eval_metrics", default_value="bleu", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
     Option("run_for_epochs", int, help_str="How many epochs to run each test for"),
     Option("decode_every", int, default_value=0, help_str="Evaluation period in epochs. If set to 0, will never evaluate."),
@@ -148,7 +149,8 @@ if __name__ == '__main__':
 
     eval_scores = "Not evaluated"
     for i_epoch in six.moves.range(exp_args.run_for_epochs):
-      xnmt_trainer.run_epoch()
+      if not exp_args.eval_only:
+        xnmt_trainer.run_epoch()
 
       if exp_args.decode_every != 0 and (i_epoch+1) % exp_args.decode_every == 0:
         print("> Evaluating")
