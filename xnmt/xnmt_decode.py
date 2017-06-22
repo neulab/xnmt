@@ -6,6 +6,7 @@ import codecs
 import sys
 from options import OptionParser, Option
 from io import open
+import length_normalization
 
 '''
 This will be the main class to perform decoding.
@@ -22,6 +23,8 @@ options = [
   Option("post_process", default_value="none", help_str="post-processing of translation outputs: none/join-char/join-bpe"),
   Option("beam", int, default_value=1),
   Option("max_len", int, default_value=100),
+  Option("len_norm_type", str, default_value="NoNormalization"),
+  Option("len_norm_params", dict, default_value={}),
 ]
 
 NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
@@ -59,7 +62,8 @@ def xnmt_decode(args, model_elements=None):
 
   src_corpus = input_reader.read_file(args.src_file)
   
-  search_strategy=BeamSearch(b=args.beam, max_len=args.max_len, len_norm=NoNormalization())
+  len_norm_type = getattr(length_normalization, args.len_norm_type)
+  search_strategy=BeamSearch(b=args.beam, max_len=args.max_len, len_norm=len_norm_type(**args.len_norm_params))
 
   # Perform decoding
 
