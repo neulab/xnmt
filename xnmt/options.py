@@ -42,6 +42,17 @@ class RandomParam(yaml.YAMLObject):
   def apply_type(self, wanted_type):
     self.values = [wanted_type(v) for v in self.values]
 
+class RefParam(yaml.YAMLObject):
+  yaml_tag = u'!RefParam'
+  def __init__(self, ref):
+    self.ref = ref
+  def __repr__(self):
+    return "%s(ref=%r)" % (
+            self.__class__.__name__, self.ref)
+  def apply_type(self, wanted_type):
+    self.wanted_type = wanted_type
+  def get_typed(self, val):
+    return self.wanted_type(val)
 
 class OptionParser:
   def __init__(self):
@@ -56,7 +67,7 @@ class OptionParser:
       raise RuntimeError("Unknown option {} for task {}".format(option_name, task_name))
 
     option = self.tasks[task_name][option_name]
-    if isinstance(value, RandomParam):
+    if isinstance(value, RandomParam) or isinstance(value, RefParam):
       value.apply_type(option.type)
     else:
       value = option.type(value)
@@ -146,6 +157,8 @@ class OptionParser:
         random_search_report = self.instantiate_random_search(task_values)
         if random_search_report:
           task_values["random_search_report"] = random_search_report
+          
+        self.resolve_referenced_params(task_values, task_values)
 
         experiments[exp][task_name] = Args()
         for name, val in task_values.items():
@@ -164,6 +177,17 @@ class OptionParser:
         if sub_report:
           param_report[k] = sub_report
     return param_report
+  def resolve_referenced_params(self, cur_task_values, top_task_values):
+    for k in cur_task_values.keys():
+      if isinstance(cur_task_values[k], RefParam):
+        ref_str_spl = cur_task_values[k].ref.split(".")
+        resolved = top_task_values
+        for ref_str in ref_str_spl:
+          resolved = resolved[ref_str]
+        cur_task_values[k] = cur_task_values[k].get_typed(resolved)
+      elif type(cur_task_values[k]) == dict:
+        self.resolve_referenced_params(cur_task_values[k], top_task_values)
+    
 
   def args_from_command_line(self, task, argv):
     parser = argparse.ArgumentParser()
