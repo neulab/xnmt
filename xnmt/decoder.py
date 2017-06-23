@@ -32,14 +32,14 @@ class RnnDecoder(Decoder):
 class MlpSoftmaxDecoder(RnnDecoder):
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
-  def __init__(self, rnn_spec, layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model, trg_embed_dim, dropout,
-               residual_to_output):
+  def __init__(self, layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model, trg_embed_dim, dropout,
+               rnn_spec="lstm", residual_to_output=False):
     self.input_dim = input_dim
     self.dropout = dropout
     self.fwd_lstm = RnnDecoder.rnn_from_spec(rnn_spec, layers, trg_embed_dim, lstm_dim, model, residual_to_output)
     self.mlp = MLP(input_dim + lstm_dim, mlp_hidden_dim, vocab_size, model)
     self.state = None
-    self.serialize_params = [rnn_spec, layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model, trg_embed_dim, dropout, residual_to_output]
+    self.serialize_params = [layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model, trg_embed_dim, dropout, rnn_spec, residual_to_output]
 
   def initialize(self):
     self.state = self.fwd_lstm.initial_state()
