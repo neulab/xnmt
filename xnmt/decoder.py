@@ -17,6 +17,7 @@ class Decoder(TrainTestInterface):
   def calc_loss(self, x, ref_action):
     raise NotImplementedError('calc_loss must be implemented in Decoder subclasses')
 
+class RnnDecoder(Decoder):
   @staticmethod
   def rnn_from_spec(spec, num_layers, input_dim, hidden_dim, model, residual_to_output):
     decoder_type = spec.lower()
@@ -28,20 +29,17 @@ class Decoder(TrainTestInterface):
       raise RuntimeError("Unknown decoder type {}".format(spec))
 
 
-class MlpSoftmaxDecoder(Decoder):
+class MlpSoftmaxDecoder(RnnDecoder):
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
   def __init__(self, layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model, trg_embed_dim, dropout,
-               fwd_lstm=None):
+               rnn_spec="lstm", residual_to_output=False):
     self.input_dim = input_dim
     self.dropout = dropout
-    if fwd_lstm == None:
-      self.fwd_lstm = dy.VanillaLSTMBuilder(layers, input_dim, lstm_dim, model)
-    else:
-      self.fwd_lstm = fwd_lstm
+    self.fwd_lstm = RnnDecoder.rnn_from_spec(rnn_spec, layers, trg_embed_dim, lstm_dim, model, residual_to_output)
     self.mlp = MLP(input_dim + lstm_dim, mlp_hidden_dim, vocab_size, model)
     self.state = None
-    self.serialize_params = [layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model, trg_embed_dim, dropout]
+    self.serialize_params = [layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model, trg_embed_dim, dropout, rnn_spec, residual_to_output]
 
   def initialize(self):
     self.state = self.fwd_lstm.initial_state()
