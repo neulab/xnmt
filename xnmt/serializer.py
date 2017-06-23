@@ -41,7 +41,7 @@ class JSONSerializer:
     return mod
 
   def __to_spec(self, obj):
-    if type(obj) == int or type(obj) == str or type(obj) == float or type(obj) == bool:
+    if type(obj) == int or type(obj) == str or type(obj) == float or type(obj) == bool or type(obj)==unicode:
       return obj
     info = {}
     info['__class__'] = obj.__class__.__name__
