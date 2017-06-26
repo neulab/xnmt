@@ -18,7 +18,7 @@ def read_data(loc_):
     data = list()
     with open(loc_) as fp:
         for line in fp:
-            t = line.split()
+            t = line.decode('utf-8').split()
             data.append(t)
     return data
 
