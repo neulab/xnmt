@@ -2,6 +2,7 @@ import argparse
 import sys
 import os.path
 from options import Option, OptionParser
+from preproc import Normalizer, SentenceFilterer, VocabFilterer
 
 options = [
   Option("preproc_specs", list, default_value=None, required=False, help_str="A specification for a preprocessing step, including in_files (the input files), out_files (the output files), type (normalize/filter/vocab), and spec for that particular preprocessing type"),
@@ -27,15 +28,15 @@ def xnmt_preproc(args):
   for arg in args.preproc_specs:
 
     # Sanity check
-    if len(arg.in_files) != len(arg.out_files):
+    if len(arg["in_files"]) != len(arg["out_files"]):
       raise RuntimeError("Length of in_files and out_files in preprocessor must be identical")
 
     # Perform normalization
-    if arg.type == 'normalize':
-      normalizers = {my_opts["filenum"]: Normalizer.from_spec(my_opts["spec"]) for my_opts in arg.specs}
-      for i, (in_file, out_file) in zip(arg.in_files, arg.out_files):
-        if arg.overwrite or not os.path.isfile(out_file):
-          my_normalizers = normalizers.get(i, default=normalizers["all"])
+    if arg["type"] == 'normalize':
+      normalizers = {my_opts["filenum"]: Normalizer.from_spec(my_opts["spec"]) for my_opts in arg["specs"]}
+      for i, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
+        if args.overwrite or not os.path.isfile(out_file):
+          my_normalizers = normalizers.get(i, normalizers["all"])
           with open(out_file, "w") as out_stream, open(in_file, "r") as in_stream:
             for line in in_stream:
               line = line.strip()
@@ -46,33 +47,38 @@ def xnmt_preproc(args):
     # Perform filtering
     # TODO: This will only work with plain-text sentences at the moment. It would be nice if it plays well with the readers
     #       in input.py
-    elif arg.type == 'filter':
-      filters = {my_opts["filenum"]: SentenceFilterer.from_spec(my_opts["spec"]) for my_opts in arg.specs}
-      with [open(x, 'w') if arg.overwrite or not os.path.isfile(x) else None for x in arg.out_files] as out_streams:
-        if any(x is not None for x in out_streams):
-          with [open(x, 'r') for x in arg.in_files] as in_streams:
-            for in_lines in zip(*in_streams):
-              in_lists = [line.decode('utf-8').strip().split() for line in in_lines]
-              if all([my_filter.keep(in_lists) for my_filter in filters]):
-                for in_line, out_stream in zip(in_lines, out_streams):
-                  out_stream.write(in_line)
+    elif arg["type"] == 'filter':
+      filters = SentenceFilterer.from_spec(arg["specs"])
+      out_streams = [open(x, 'w') if args.overwrite or not os.path.isfile(x) else None for x in arg["out_files"]]
+      if any(x is not None for x in out_streams):
+        in_streams = [open(x, 'r') for x in arg["in_files"]]
+        for in_lines in zip(*in_streams):
+          in_lists = [line.decode('utf-8').strip().split() for line in in_lines]
+          if all([my_filter.keep(in_lists) for my_filter in filters]):
+            for in_line, out_stream in zip(in_lines, out_streams):
+              out_stream.write(in_line)
+        for x in in_streams:
+          x.close()
+      for x in out_streams:
+        if x != None:
+          x.close()
 
     # Vocabulary selection
     # TODO: This will only work with plain-text sentences at the moment. It would be nice if it plays well with the readers
     #       in input.py
-    elif arg.type == 'vocab':
-      filters = {my_opts["filenum"]: VocabFilterer.from_spec(my_opts["spec"]) for my_opts in arg.specs}
-      for i, (in_file, out_file) in zip(arg.in_files, arg.out_files):
-        if arg.overwrite or not os.path.isfile(out_file):
+    elif arg["type"] == 'vocab':
+      filters = {my_opts["filenum"]: VocabFilterer.from_spec(my_opts["spec"]) for my_opts in arg["specs"]}
+      for i, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
+        if args.overwrite or not os.path.isfile(out_file):
           with open(out_file, "w") as out_stream, open(in_file, "r") as in_stream:
-            vocab = defaultdict(lambda: 0)
+            vocab = {}
             for line in in_stream:
               for word in line.decode('utf-8').strip().split():
-                vocab[word] += 1
-            for my_filter in filters:
+                vocab[word] = vocab.get(word, 0) + 1
+            for my_filter in filters.get(i, filters["all"]):
               vocab = my_filter.filter(vocab)
             for word in vocab.keys():
-              out_stream.write(word + "\n")
+              out_stream.write((word + u"\n").encode('utf-8'))
 
     else:
       raise RuntimeError("Unknown preprocessing type {}".format(arg))

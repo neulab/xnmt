@@ -4,33 +4,33 @@ import os.path
 
 ##### Preprocessors
 
-class Preprocessor():
-  """A type of preprocessing to perform to a file. It is initialized first, then expanded."""
+class Normalizer():
+  """A type of normalization to perform to a file. It is initialized first, then expanded."""
 
   def __init__(self, spec):
-    """Initialize the preprocessor from a specification."""
+    """Initialize the normalizer from a specification."""
     pass
 
-  def preproc(self, sent):
+  def normalize(self, sent):
     """Takes a plain text string and converts it into another plain text string after preprocessing."""
-    raise RuntimeError("Subclasses of PreprocType must implement the preproc() function")
+    raise RuntimeError("Subclasses of Normalizer must implement the normalize() function")
 
   @staticmethod
   def from_spec(spec):
-    """Takes a list of preprocessor specifications, and returns the appropriate processors."""
+    """Takes a list of normalizer specifications, and returns the appropriate processors."""
     preproc_list = []
     if spec != None:
       for my_spec in spec:
         if my_spec["type"] == "lower":
-          preproc_list.append(PreprocessorLower(my_spec))
+          preproc_list.append(NormalizerLower(my_spec))
         else:
-          raise RuntimeError("Unknown preprocessing type {}".format(my_spec["type"]))
+          raise RuntimeError("Unknown normalizer type {}".format(my_spec["type"]))
     return preproc_list
 
-class PreprocessorLower(Preprocessor):
+class NormalizerLower(Normalizer):
   """Lowercase the text."""
 
-  def preproc(self, sent):
+  def normalize(self, sent):
     return sent.lower()
 
 ##### Sentence filterers
@@ -83,13 +83,15 @@ class SentenceFiltererLength():
     self.overall_min = -1
     idx_map = {"src": 0, "trg": 1}
     for k, v in spec.items():
-      if k == "max":
+      if k == "type":
+        pass
+      elif k == "max":
         self.overall_max = v
       elif k == "min":
         self.overall_min = v
       else:
         direc, idx = k.split('_')
-        idx = idx_map.get(idx_map, default=int(idx))
+        idx = idx_map.get(idx_map, int(idx))
         if direc == "max":
           self.each_max[idx] = v
         elif direc == "max":
@@ -102,8 +104,8 @@ class SentenceFiltererLength():
     for i, sent in enumerate(sents):
       if type(sent) == str:
         raise RuntimeError("length-based sentence filterer does not support `str` input at the moment")
-      my_max = self.each_max.get(i, default:self.overall_max)
-      my_min = self.each_min.get(i, default:self.overall_min)
+      my_max = self.each_max.get(i, self.overall_max)
+      my_min = self.each_min.get(i, self.overall_min)
       if len(sent) < my_min or (my_max != -1 and len(sent) > my_max):
         return False
     return True
@@ -133,10 +135,10 @@ class VocabFilterer():
       for my_spec in spec:
         if my_spec["type"] == "freq":
           preproc_list.append(VocabFiltererFreq(my_spec))
-        if my_spec["type"] == "rank":
+        elif my_spec["type"] == "rank":
           preproc_list.append(VocabFiltererRank(my_spec))
         else:
-          raise RuntimeError("Unknown preprocessing type {}".format(my_spec["type"]))
+          raise RuntimeError("Unknown VocabFilterer type {}".format(my_spec["type"]))
     return preproc_list
 
 class VocabFiltererFreq(VocabFilterer): 

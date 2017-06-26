@@ -19,36 +19,34 @@ defaults:
       - examples/data/test.ja
       - examples/data/test.en
       out_files:
-      - examples/out/train.norm.ja
-      - examples/out/train.norm.en
-      - examples/out/dev.norm.ja
-      - examples/out/dev.norm.en
-      - examples/out/test.norm.ja
-      - examples/out/test.norm.en
+      - examples/output/train.norm.ja
+      - examples/output/train.norm.en
+      - examples/output/dev.norm.ja
+      - examples/output/dev.norm.en
+      - examples/output/test.norm.ja
+      - examples/output/test.norm.en
       specs:
       - filenum: all
         spec:
         - type: lower
     - type: filter
       in_files:
-      - examples/out/train.norm.ja
-      - examples/out/train.norm.en
+      - examples/output/train.norm.ja
+      - examples/output/train.norm.en
       out_files:
-      - examples/out/train.filter.ja
-      - examples/out/train.filter.en
+      - examples/output/train.filter.ja
+      - examples/output/train.filter.en
       specs:
-      - filenum: all
-        spec:
-        - type: length
-          min: 1
-          max: 25
+      - type: length
+        min: 1
+        max: 25
     - type: vocab
       in_files:
-      - examples/out/train.norm.ja
-      - examples/out/train.norm.en
+      - examples/output/train.norm.ja
+      - examples/output/train.norm.en
       out_files:
-      - examples/out/train.vocab.ja
-      - examples/out/train.vocab.en
+      - examples/output/train.vocab.ja
+      - examples/output/train.vocab.en
       specs:
       - filenum: all
         spec:
