@@ -4,7 +4,7 @@ import os.path
 from options import Option, OptionParser
 
 options = [
-  Option("preproc_specs", default_value=None, required=False, help_str="A specification for a preprocessing step, including in_files (the input files), out_files (the output files), type (normalize/filter/vocab), and spec for that particular preprocessing type"),
+  Option("preproc_specs", list, default_value=None, required=False, help_str="A specification for a preprocessing step, including in_files (the input files), out_files (the output files), type (normalize/filter/vocab), and spec for that particular preprocessing type"),
   Option("overwrite", default_value=False, help_str="Whether to overwrite files if they already exist.")
 ]
 
