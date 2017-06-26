@@ -133,13 +133,13 @@ class ResidualBiRNNBuilder:
     self.residual_network = ResidualRNNBuilder(num_layers - 1, hidden_dim, hidden_dim, model, rnn_builder_factory,
                                                add_to_output)
 
-  def set_droupout(self, p):
+  def set_dropout(self, p):
     self.forward_layer.set_dropout(p)
-    self.backward_layer.set_droupout(p)
+    self.backward_layer.set_dropout(p)
     self.residual_network.set_dropout(p)
 
-  def disable_droupt(self):
-    self.forward_layer.disable_droupout()
+  def disable_dropout(self):
+    self.forward_layer.disable_dropout()
     self.backward_layer.disable_dropout()
     self.residual_network.disable_dropout()
 

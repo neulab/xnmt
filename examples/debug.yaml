@@ -16,6 +16,7 @@ defaults:
     default_layer_dim: 64
     dropout: 0.5
     encoder:
+      type: BiLSTM
       dropout: 0.0
   decode:
     src_file: examples/data/head.ja
@@ -24,8 +25,7 @@ defaults:
 
 debug-config-1layer:
   train:
-    encoder:
-      layers: 2
+    dropout: 0.1
 
 debug-config-2layers:
   train:
