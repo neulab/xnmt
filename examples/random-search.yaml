@@ -1,4 +1,4 @@
-# This is a super-small config just for debugging
+# Demonstrates random search over model parameters
 defaults:
   experiment:
     model_file: examples/output/<EXP>.mod
@@ -14,24 +14,23 @@ defaults:
     dev_src: examples/data/head.ja
     dev_trg: examples/data/head.en
     default_layer_dim: 64
-    dropout: 0.5
     encoder:
-      type: BiLSTM
-      dropout: 0.0
+      layers: !RandomParam
+        values: [1,2,3,4,5]
+      hidden_dim: !RandomParam
+        values: [32,64]
+    decoder_layers: !RandomParam
+      values: [1,2,3,4,5]
+    output_state_dim: !RefParam
+      ref: encoder.hidden_dim
+    attention_context_dim: !RefParam
+      ref: encoder.hidden_dim
   decode:
     src_file: examples/data/head.ja
   evaluate:
     ref_file: examples/data/head.en
 
-debug-config-1layer:
-  train:
-    dropout: 0.1
-
-debug-config-2layers:
-  train:
-    decoder_layers: 2
-
-debug-config-2layers-finetune:
-  train:
-    decoder_layers: 2
-    pretrained_model_file: examples/output/debug-config-2layers.mod
+# Here we instantiate 3 experiments, for each the random params are drawn independently
+exp1:
+exp2:
+exp3:

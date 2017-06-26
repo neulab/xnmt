@@ -1,6 +1,7 @@
-# This is a super-small config just for debugging
+# Demonstrates random search over search parameters
 defaults:
   experiment:
+    eval_only: true
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
@@ -14,24 +15,19 @@ defaults:
     dev_src: examples/data/head.ja
     dev_trg: examples/data/head.en
     default_layer_dim: 64
-    dropout: 0.5
-    encoder:
-      type: BiLSTM
-      dropout: 0.0
   decode:
+    beam: !RandomParam
+      values: [1,2,3,4,5]
     src_file: examples/data/head.ja
+    len_norm_type: PolynomialNormalization
+    len_norm_params:
+      apply_during_search: true
+      m: !RandomParam
+        values: [0.2,0.5,0.7,1.0,1.3]
   evaluate:
     ref_file: examples/data/head.en
 
-debug-config-1layer:
-  train:
-    dropout: 0.1
-
-debug-config-2layers:
-  train:
-    decoder_layers: 2
-
-debug-config-2layers-finetune:
-  train:
-    decoder_layers: 2
-    pretrained_model_file: examples/output/debug-config-2layers.mod
+# Here we instantiate 3 experiments, for each the random params are drawn independently
+exp1:
+exp2:
+exp3:

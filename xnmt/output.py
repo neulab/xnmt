@@ -36,24 +36,24 @@ class PlainTextOutput(Output):
     return self.token_strings
 
   def to_string(self):
-    return " ".join(self.token_string)
+    return u" ".join(self.token_string)
 
 class JoinedCharTextOutput(PlainTextOutput):
   '''
   Assumes a single-character vocabulary and joins them to form words;
   per default, double underscores '__' are converted to spaces   
   '''
-  def __init__(self, space_token='__'):
+  def __init__(self, space_token=u"__"):
     self.space_token = space_token
   def to_string(self):
-    return "".join(map(lambda s: ' ' if s==self.space_token else s, self.token_string))
+    return u"".join(map(lambda s: u" " if s==self.space_token else s, self.token_string))
 
 class JoinedBPETextOutput(PlainTextOutput):
   '''
   Assumes a bpe-based vocabulary and outputs the merged words;
   per default, the '@' postfix indicates subwords that should be merged   
   '''
-  def __init__(self, merge_indicator='@'):
-    self.merge_indicator_with_space = merge_indicator + " "
+  def __init__(self, merge_indicator=u"@@"):
+    self.merge_indicator_with_space = merge_indicator + u" "
   def to_string(self):
-    return " ".join(self.token_string).replace(self.merge_indicator_with_space, "")
+    return u" ".join(self.token_string).replace(self.merge_indicator_with_space, u"")
