@@ -52,7 +52,6 @@ options = [
   Option("eval_metrics", default_value="bleu"),
   Option("dropout", float, default_value=0.0),
   Option("encoder", dict, default_value={}),  
-  Option("encoder.layers", int, default_value=1),
   Option("encoder.type", default_value="BiLSTM"),
   Option("encoder.input_dim", int, required=False),
   Option("decoder_type", default_value="LSTM"),
@@ -141,8 +140,6 @@ class XnmtTrainer:
         setattr(self.args, opt, self.args.default_layer_dim)
     if getattr(self.args, "encoder") is None:
       self.args.encoder = {}
-    self.args.encoder["default_layer_dim"] = self.args.default_layer_dim
-    if "dropout" not in self.args.encoder: self.args.encoder["dropout"] = self.args.dropout
     if self.args.encoder.get("input_dim", None) is None: self.args.encoder["input_dim"] = self.args.input_word_embed_dim
 
     self.input_word_emb_dim = self.args.input_word_embed_dim
@@ -157,7 +154,8 @@ class XnmtTrainer:
 
     self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), self.output_word_emb_dim, self.model)
 
-    self.encoder = Encoder.from_spec(self.args.encoder, self.model)
+    global_train_params = {"dropout" : self.args.dropout, "default_layer_dim":self.args.default_layer_dim}
+    self.encoder = Encoder.from_spec(self.args.encoder, global_train_params, self.model)
 
     self.attender = StandardAttender(self.attention_context_dim, self.output_state_dim, self.attender_hidden_dim,
                                      self.model)
