@@ -36,7 +36,7 @@ class PlainTextOutput(Output):
     return self.token_strings
 
   def to_string(self):
-    return " ".join(self.token_string)
+    return u" ".join(self.token_string)
 
 class JoinedCharTextOutput(PlainTextOutput):
   '''
