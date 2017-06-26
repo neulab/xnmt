@@ -16,7 +16,7 @@ defaults:
     default_layer_dim: 64
     dropout: 0.5
     encoder:
-      type: PyramidalLSTM
+      type: BiLSTM
       dropout: 0.0
   decode:
     src_file: examples/data/head.ja
