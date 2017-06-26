@@ -54,7 +54,7 @@ def xnmt_decode(args, model_elements=None):
   elif args.post_process=="join-bpe":
     output_generator = JoinedBPETextOutput()
   else:
-    raise RuntimeError("Unkonwn postprocessing argument {}".format(args.postprocess)) 
+    raise RuntimeError("Unknown postprocessing argument {}".format(args.postprocess)) 
   output_generator.load_vocab(trg_vocab)
 
   src_corpus = input_reader.read_file(args.src_file)
@@ -73,12 +73,8 @@ def xnmt_decode(args, model_elements=None):
         token_string = translator.translate(src, search_strategy)
         trg_sent = output_generator.process(token_string)[0]
 
-      if isinstance(trg_sent, unicode):
-        trg_sent = trg_sent.encode('utf-8', errors='ignore')
-
-      else:  # do bytestring -> unicode -> utf8 full circle, to ensure valid utf8
-        #trg_sent = unicode(trg_sent, 'utf-8', errors='ignore').encode('utf-8', errors='ignore')
-        trg_sent = trg_sent.decode('utf-8', errors='ignore').encode('utf-8', errors='ignore')
+      assert isinstance(trg_sent, unicode), "Expected unicode as translator output, got %s" % type(trg_sent)
+      trg_sent = trg_sent.encode('utf-8', errors='ignore')
 
       fp.write(trg_sent + '\n')
 
