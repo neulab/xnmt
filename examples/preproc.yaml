@@ -1,0 +1,74 @@
+defaults:
+  experiment:
+    model_file: examples/output/<EXP>.mod
+    hyp_file: examples/output/<EXP>.hyp
+    out_file: examples/output/<EXP>.out
+    err_file: examples/output/<EXP>.err
+    run_for_epochs: 20
+    decode_every: 1
+    eval_metrics: bleu,wer
+  preproc:
+    overwrite: False
+    preproc_specs:
+    - type: normalize
+      in_files:
+      - examples/data/train.ja
+      - examples/data/train.en
+      - examples/data/dev.ja
+      - examples/data/dev.en
+      - examples/data/test.ja
+      - examples/data/test.en
+      out_files:
+      - examples/output/train.norm.ja
+      - examples/output/train.norm.en
+      - examples/output/dev.norm.ja
+      - examples/output/dev.norm.en
+      - examples/output/test.norm.ja
+      - examples/output/test.norm.en
+      specs:
+      - filenum: all
+        spec:
+        - type: lower
+    - type: filter
+      in_files:
+      - examples/output/train.norm.ja
+      - examples/output/train.norm.en
+      out_files:
+      - examples/output/train.filter.ja
+      - examples/output/train.filter.en
+      specs:
+      - type: length
+        min: 1
+        max: 25
+    - type: vocab
+      in_files:
+      - examples/output/train.norm.ja
+      - examples/output/train.norm.en
+      out_files:
+      - examples/output/train.vocab.ja
+      - examples/output/train.vocab.en
+      specs:
+      - filenum: all
+        spec:
+        - type: freq
+          min_freq: 2
+  train:
+    train_src: examples/output/train.norm.ja
+    train_trg: examples/output/train.norm.en
+    input_vocab: examples/output/train.vocab.ja
+    output_vocab: examples/output/train.vocab.ja
+    dev_src: examples/output/dev.norm.ja
+    dev_trg: examples/output/dev.norm.en
+  decode:
+    src_file: examples/output/test.norm.ja
+  evaluate:
+    ref_file: examples/output/test.norm.en
+
+standard-1layer:
+  train:
+    encoder:
+      layers: 1
+
+standard-2layer:
+  train:
+    decoder_layers: 2

@@ -7,7 +7,7 @@ and <experimentname>.err.log, and reporting on final perplexity metrics.
 import argparse
 import sys
 import os
-import xnmt_train, xnmt_decode, xnmt_evaluate
+import xnmt_preproc, xnmt_train, xnmt_decode, xnmt_evaluate
 import six
 from options import OptionParser, Option
 import random
@@ -71,6 +71,7 @@ if __name__ == '__main__':
   args = argparser.parse_args()
 
   config_parser = OptionParser()
+  config_parser.add_task("preproc", xnmt_preproc.options)
   config_parser.add_task("train", xnmt_train.options)
   config_parser.add_task("decode", xnmt_decode.options)
   config_parser.add_task("evaluate", xnmt_evaluate.options)
@@ -125,6 +126,8 @@ if __name__ == '__main__':
     
     exp_args = exp_tasks["experiment"]
 
+    preproc_args = exp_tasks["preproc"]
+
     train_args = exp_tasks["train"]
     train_args.model_file = exp_args.model_file
 
@@ -139,12 +142,16 @@ if __name__ == '__main__':
     output = Tee(exp_args.out_file, 3)
     err_output = Tee(exp_args.err_file, 3, error=True)
 
+    # Do preprocessing
+    print("> Preprocessing")
+    xnmt_preproc.xnmt_preproc(preproc_args)
+
+    # Do training
     for task_name in exp_tasks:
       if hasattr(exp_tasks[task_name], "random_search_report"):
         print("> instantiated random parameter search: %s" % exp_tasks[task_name].random_search_report)
 
     print("> Training")
-
     xnmt_trainer = xnmt_train.XnmtTrainer(train_args)
 
     eval_scores = "Not evaluated"
