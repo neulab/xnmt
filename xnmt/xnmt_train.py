@@ -14,6 +14,7 @@ from translator import *
 from model_params import *
 from loss_tracker import *
 from serializer import *
+from preproc import SentenceFilterer
 from options import Option, OptionParser, general_options
 
 '''
@@ -30,6 +31,8 @@ options = [
   Option("train_trg"),
   Option("dev_src"),
   Option("dev_trg"),
+  Option("train_filters", list, required=False, help_str="Specify filtering criteria for the training data"),
+  Option("dev_filters", list, required=False, help_str="Specify filtering criteria for the development data"),
   Option("max_src_len", int, required=False, help_str="Remove sentences from training/dev data that are longer than this on the source side"),
   Option("max_trg_len", int, required=False, help_str="Remove sentences from training/dev data that are longer than this on the target side"),
   Option("max_num_train_sents", int, required=False, help_str="Load only the first n sentences from the training data"),
@@ -172,11 +175,11 @@ class XnmtTrainer:
 
 
   def read_data(self):
+    train_filters = SentenceFilterer.from_spec(self.args.train_filters)
     self.train_src, self.train_trg = \
-        self.remove_long_sents(self.input_reader.read_file(self.args.train_src, max_num=self.args.max_num_train_sents),
-                               self.output_reader.read_file(self.args.train_trg, max_num=self.args.max_num_train_sents),
-                               self.args.max_src_len, self.args.max_trg_len,
-                               )
+        self.filter_sents(self.input_reader.read_file(self.args.train_src, max_num=self.args.max_num_train_sents),
+                          self.output_reader.read_file(self.args.train_trg, max_num=self.args.max_num_train_sents),
+                          train_filters)
     assert len(self.train_src) == len(self.train_trg)
     self.total_train_sent = len(self.train_src)
     if self.args.eval_every == None:
@@ -185,21 +188,22 @@ class XnmtTrainer:
     self.input_reader.freeze()
     self.output_reader.freeze()
 
+    dev_filters = SentenceFilterer.from_spec(self.args.dev_filters)
     self.dev_src, self.dev_trg = \
-        self.remove_long_sents(self.input_reader.read_file(self.args.dev_src),
-                               self.output_reader.read_file(self.args.dev_trg),
-                               self.args.max_src_len, self.args.max_trg_len,
-                               )
+        self.filter_sents(self.input_reader.read_file(self.args.dev_src),
+                          self.output_reader.read_file(self.args.dev_trg),
+                          dev_filters)
     assert len(self.dev_src) == len(self.dev_trg)
   
-  def remove_long_sents(self, src_sents, trg_sents, max_src_len, max_trg_len):
+  def filter_sents(self, src_sents, trg_sents, my_filters):
+    if len(my_filters) == 0:
+      return src_sents, trg_sents
     filtered_src_sents, filtered_trg_sents = [], []
     for src_sent, trg_sent in zip(src_sents, trg_sents):
-      if (max_src_len is None or len(src_sent) <= max_src_len) and (max_trg_len is None or len(trg_sent) <= max_trg_len):
+      if all([my_filter.keep((src_sent,trg_sent)) for my_filter in my_filters]):
         filtered_src_sents.append(src_sent)
         filtered_trg_sents.append(trg_sent)
-    if max_src_len or max_trg_len:
-      print("> removed %s out of %s sentences that were too long." % (len(src_sents)-len(filtered_src_sents),len(src_sents)))
+    print("> removed %s out of %s sentences that didn't pass filters." % (len(src_sents)-len(filtered_src_sents),len(src_sents)))
     return filtered_src_sents, filtered_trg_sents
 
   def run_epoch(self):
