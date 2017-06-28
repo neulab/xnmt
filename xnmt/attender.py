@@ -26,10 +26,6 @@ class StandardAttender(Attender, Serializable):
   '''
 
   yaml_tag = u'!StandardAttender'
-  def __repr__(self):
-    return "%s(input_dim=%r, state_dim=%r, hidden_dim=%r)" % (
-            self.__class__.__name__,
-            self.input_dim, self.state_dim, self.hidden_dim)
 
   def __init__(self, input_dim, state_dim, hidden_dim):
     self.input_dim = input_dim

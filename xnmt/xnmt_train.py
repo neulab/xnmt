@@ -183,6 +183,7 @@ class XnmtTrainer:
                                     self.input_reader.vocab.i2w,
                                     self.output_reader.vocab.i2w, self.translator.input_embedder,
                                     self.translator.output_embedder)
+    print self.model_serializer.dump(self.translator)
 
 
   def read_data(self):

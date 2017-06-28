@@ -36,12 +36,6 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   # For now the default behavior is hard coded.
 
   yaml_tag = u'!MlpSoftmaxDecoder'
-  def __repr__(self):
-    return "%s(layers=%r, input_dim=%r, lstm_dim=%r, mlp_hidden_dim=%r, vocab_size=%r, trg_embed_dim=%r, dropout=%r, rnn_spec=%r, residual_to_output=%r)" % (
-            self.__class__.__name__,
-            self.layers, self.input_dim, self.lstm_dim, self.mlp_hidden_dim,
-            self.vocab_size, self.trg_embed_dim, self.dropout, self.rnn_spec,
-            self.residual_to_output)
   
   def __init__(self, layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, trg_embed_dim, dropout=None,
                rnn_spec="lstm", residual_to_output=False):

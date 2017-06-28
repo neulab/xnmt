@@ -97,10 +97,6 @@ class SimpleWordEmbedder(Embedder, Serializable):
   """
 
   yaml_tag = u'!SimpleWordEmbedder'
-  def __repr__(self):
-    return "%s(vocab_size=%r, emb_dim=%r)" % (
-            self.__class__.__name__,
-            self.vocab_size, self.emb_dim)
 
   def __init__(self, vocab_size, emb_dim):
     self.vocab_size = vocab_size

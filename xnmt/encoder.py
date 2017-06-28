@@ -53,10 +53,6 @@ class BuilderEncoder(Encoder):
 
 class BiLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!BiLSTMEncoder'
-  def __repr__(self):
-    return "%s(input_dim=%r, layers=%r, hidden_dim=%r, dropout=%r)" % (
-            self.__class__.__name__,
-            self.input_dim, self.layers, self.hidden_dim, self.dropout)
 
   def __init__(self, input_dim=None, layers=1, hidden_dim=None, dropout=None):
     model = model_globals.model
