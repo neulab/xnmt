@@ -1,0 +1,58 @@
+# Small config to help refactoring to make the model completely YAML based
+defaults:
+  experiment:
+    model_file: ../examples/output/<EXP>.mod
+    hyp_file: ../examples/output/<EXP>.hyp
+    out_file: ../examples/output/<EXP>.out
+    err_file: ../examples/output/<EXP>.err
+    run_for_epochs: 2
+    decode_every: 1
+    eval_metrics: bleu,wer
+  train:
+    train_src: ../examples/data/head.ja
+    train_trg: ../examples/data/head.en
+    dev_src: ../examples/data/head.ja
+    dev_trg: ../examples/data/head.en
+    default_layer_dim: 64
+    dropout: 0.5
+    model:
+      !DefaultTranslator
+        input_embedder: !SimpleWordEmbedder
+          vocab_size: 100  # TODO: need to set implicitly
+          emb_dim: 64
+        encoder: !BiLSTMEncoder
+          layers: 1
+        attender: !StandardAttender
+          input_dim: 64
+          state_dim: 64
+          hidden_dim: 64
+        output_embedder: !SimpleWordEmbedder
+          vocab_size: 100  # TODO: need to set implicitly
+          emb_dim: 64
+        decoder: !MlpSoftmaxDecoder
+          layers: 1
+          input_dim: 64
+          lstm_dim: 64
+          mlp_hidden_dim: 64
+          vocab_size: 100
+          trg_embed_dim: 64
+    encoder:
+      type: BiLSTM
+      dropout: 0.0
+  decode:
+    src_file: ../examples/data/head.ja
+  evaluate:
+    ref_file: ../examples/data/head.en
+
+debug-config-1layer:
+  train:
+    dropout: 0.1
+
+debug-config-2layers:
+  train:
+    decoder_layers: 2
+
+debug-config-2layers-finetune:
+  train:
+    decoder_layers: 2
+    pretrained_model_file: ../examples/output/debug-config-2layers.mod

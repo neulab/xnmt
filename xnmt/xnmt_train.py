@@ -14,8 +14,10 @@ from translator import *
 from model_params import *
 from loss_tracker import *
 from serializer import *
+from yaml_serializer import *
 from preproc import SentenceFilterer
 from options import Option, OptionParser, general_options
+import model_globals
 
 '''
 This will be the main class to perform training.
@@ -54,6 +56,7 @@ options = [
   Option("lr_threshold", float, default_value=1e-5),
   Option("eval_metrics", default_value="bleu"),
   Option("dropout", float, default_value=0.0),
+  Option("model", dict, default_value={}),  
   Option("encoder", dict, default_value={}),  
   Option("encoder.type", default_value="BiLSTM"),
   Option("encoder.input_dim", int, required=False),
@@ -136,42 +139,49 @@ class XnmtTrainer:
       self.output_reader.freeze()
     self.read_data()
     
-    # Get layer sizes: replace by default if not specified
-    for opt in ["input_word_embed_dim", "output_word_embed_dim", "output_state_dim",
-                "output_mlp_hidden_dim", "attender_hidden_dim", "attention_context_dim"]:
-      if getattr(self.args, opt) is None:
-        setattr(self.args, opt, self.args.default_layer_dim)
-    if getattr(self.args, "encoder") is None:
-      self.args.encoder = {}
-    if self.args.encoder.get("input_dim", None) is None: self.args.encoder["input_dim"] = self.args.input_word_embed_dim
+#    # Get layer sizes: replace by default if not specified
+#    for opt in ["input_word_embed_dim", "output_word_embed_dim", "output_state_dim",
+#                "output_mlp_hidden_dim", "attender_hidden_dim", "attention_context_dim"]:
+#      if getattr(self.args, opt) is None:
+#        setattr(self.args, opt, self.args.default_layer_dim)
+#    if getattr(self.args, "encoder") is None:
+#      self.args.encoder = {}
+#    if self.args.encoder.get("input_dim", None) is None: self.args.encoder["input_dim"] = self.args.input_word_embed_dim
 
-    self.input_word_emb_dim = self.args.input_word_embed_dim
-    self.output_word_emb_dim = self.args.output_word_embed_dim
-    self.output_state_dim = self.args.output_state_dim
-    self.attender_hidden_dim = self.args.attender_hidden_dim
-    self.attention_context_dim = self.args.attention_context_dim
-    self.output_mlp_hidden_dim = self.args.output_mlp_hidden_dim
+    model_globals.default_layer_dim = self.args.default_layer_dim
+    model_globals.model = self.model
+    model_globals.dropout = self.args.dropout
+    
 
-    self.input_embedder = Embedder.from_spec(self.args.input_format, len(self.input_reader.vocab),
-                                             self.input_word_emb_dim, self.model)
+#    self.input_word_emb_dim = self.args.input_word_embed_dim
+#    self.output_word_emb_dim = self.args.output_word_embed_dim
+#    self.output_state_dim = self.args.output_state_dim
+#    self.attender_hidden_dim = self.args.attender_hidden_dim
+#    self.attention_context_dim = self.args.attention_context_dim
+#    self.output_mlp_hidden_dim = self.args.output_mlp_hidden_dim
 
-    self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), self.output_word_emb_dim, self.model)
-
-    global_train_params = {"dropout" : self.args.dropout, "default_layer_dim":self.args.default_layer_dim}
-    self.encoder = Encoder.from_spec(self.args.encoder, global_train_params, self.model)
-
-    self.attender = StandardAttender(self.attention_context_dim, self.output_state_dim, self.attender_hidden_dim,
-                                     self.model)
-
-    self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.attention_context_dim,
-                                     self.output_state_dim, self.output_mlp_hidden_dim,
-                                     len(self.output_reader.vocab), self.model, self.output_word_emb_dim,
-                                     self.args.dropout, self.args.decoder_type, self.args.residual_to_output)
-
-    self.translator = DefaultTranslator(self.input_embedder, self.encoder, self.attender, self.output_embedder, self.decoder)
-    self.model_params = ModelParams(self.encoder, self.attender, self.decoder, self.input_reader.vocab.i2w,
-                                    self.output_reader.vocab.i2w, self.input_embedder, self.output_embedder)
-
+#    self.input_embedder = Embedder.from_spec(self.args.input_format, len(self.input_reader.vocab),
+#                                             self.input_word_emb_dim, self.model)
+#
+#    self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), self.output_word_emb_dim, self.model)
+#
+#    global_train_params = {"dropout" : self.args.dropout, "default_layer_dim":self.args.default_layer_dim}
+#    self.encoder = Encoder.from_spec(self.args.encoder, global_train_params, self.model)
+#
+#    self.attender = StandardAttender(self.attention_context_dim, self.output_state_dim, self.attender_hidden_dim,
+#                                     self.model)
+#
+#    self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.attention_context_dim,
+#                                     self.output_state_dim, self.output_mlp_hidden_dim,
+#                                     len(self.output_reader.vocab), self.model, self.output_word_emb_dim,
+#                                     self.args.dropout, self.args.decoder_type, self.args.residual_to_output)
+#
+#    self.translator = DefaultTranslator(self.input_embedder, self.encoder, self.attender, self.output_embedder, self.decoder)
+    self.translator = init_yaml_objects(self.args.model)
+    self.model_params = ModelParams(self.translator.encoder, self.translator.attender, self.translator.decoder,
+                                    self.input_reader.vocab.i2w,
+                                    self.output_reader.vocab.i2w, self.translator.input_embedder,
+                                    self.translator.output_embedder)
 
 
   def read_data(self):

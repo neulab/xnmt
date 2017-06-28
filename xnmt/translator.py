@@ -4,6 +4,7 @@ import dynet as dy
 from batcher import *
 from search_strategy import *
 from vocab import Vocab
+from yaml_serializer import Serializable
 
 class TrainTestInterface:
   """
@@ -57,10 +58,17 @@ class Translator(TrainTestInterface):
       Translator.set_train_recursive(sub_component, val)
 
 
-class DefaultTranslator(Translator):
+class DefaultTranslator(Translator, Serializable):
   '''
   A default translator based on attentional sequence-to-sequence models.
   '''
+  
+  yaml_tag = u'!DefaultTranslator'
+  def __repr__(self):
+    return "%s(input_embedder=%r, encoder=%r, attender=%r, output_embedder=%r, decoder=%r)" % (
+            self.__class__.__name__,
+            self.input_embedder, self.encoder, self.attender, self.output_embedder, self.decoder)
+
 
   def __init__(self, input_embedder, encoder, attender, output_embedder, decoder):
     '''Constructor.
