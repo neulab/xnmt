@@ -18,6 +18,7 @@ from yaml_serializer import *
 from preproc import SentenceFilterer
 from options import Option, OptionParser, general_options
 import model_globals
+import yaml_serializer
 
 '''
 This will be the main class to perform training.
@@ -105,7 +106,7 @@ class XnmtTrainer:
 
   def create_model(self):
     if self.args.pretrained_model_file:
-      self.model_serializer = JSONSerializer()
+      self.model_serializer = yaml_serializer.YamlSerializer()
       self.model_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, self.model)
       src_vocab = Vocab(self.model_params.src_vocab)
       trg_vocab = Vocab(self.model_params.trg_vocab)
@@ -123,7 +124,7 @@ class XnmtTrainer:
       self.read_data()
       return
 
-    self.model_serializer = JSONSerializer()
+    self.model_serializer = yaml_serializer.YamlSerializer()
 
     # Read in training and dev corpora
     input_vocab, output_vocab = None, None
@@ -177,7 +178,7 @@ class XnmtTrainer:
 #                                     self.args.dropout, self.args.decoder_type, self.args.residual_to_output)
 #
 #    self.translator = DefaultTranslator(self.input_embedder, self.encoder, self.attender, self.output_embedder, self.decoder)
-    self.translator = init_yaml_objects(self.args.model)
+    self.translator = self.model_serializer.init_yaml_objects(self.args.model)
     self.model_params = ModelParams(self.translator.encoder, self.translator.attender, self.translator.decoder,
                                     self.input_reader.vocab.i2w,
                                     self.output_reader.vocab.i2w, self.translator.input_embedder,

@@ -63,9 +63,11 @@ class BiLSTMEncoder(BuilderEncoder, Serializable):
     if input_dim is None: input_dim = model_globals.default_layer_dim
     if hidden_dim is None: hidden_dim = model_globals.default_layer_dim
     if dropout is None: dropout = model_globals.dropout
+    self.input_dim = input_dim
+    self.layers = layers
+    self.hidden_dim = hidden_dim
     self.dropout = dropout
     self.builder = dy.BiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder)
-    self.serialize_params = [input_dim, layers, hidden_dim, dropout]
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 

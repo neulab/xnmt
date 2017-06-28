@@ -41,7 +41,6 @@ class StandardAttender(Attender, Serializable):
     self.pb = model.add_parameters(hidden_dim)
     self.pU = model.add_parameters((1, hidden_dim))
     self.curr_sent = None
-    self.serialize_params = [input_dim, state_dim, hidden_dim]
 
   def start_sent(self, sent):
     self.curr_sent = sent
@@ -65,3 +64,4 @@ class StandardAttender(Attender, Serializable):
     attention = self.calc_attention(state)
     I = dy.concatenate_cols(self.curr_sent)
     return I * attention
+
