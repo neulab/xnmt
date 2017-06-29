@@ -114,12 +114,12 @@ class YamlSerializer(object):
       os.makedirs(dirname)
     with open(fname, 'w') as f:
       f.write(self.dump(mod))
-    params.save_all(fname + '.data')
+    params.save(fname + '.data')
     
   def load_from_file(self, fname, param):
     with open(fname, 'r') as f:
       dict_spec = yaml.load(f)
       mod = self.create_model(dict_spec)
-    param.load_all(fname + '.data')
+    param.populate(fname + '.data')
     return mod
     
