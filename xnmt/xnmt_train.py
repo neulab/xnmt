@@ -178,7 +178,7 @@ class XnmtTrainer:
 #                                     self.args.dropout, self.args.decoder_type, self.args.residual_to_output)
 #
 #    self.translator = DefaultTranslator(self.input_embedder, self.encoder, self.attender, self.output_embedder, self.decoder)
-    self.translator = self.model_serializer.init_yaml_objects(self.args.model)
+    self.translator = self.model_serializer.create_model(self.args.model)
     self.model_params = ModelParams(self.translator.encoder, self.translator.attender, self.translator.decoder,
                                     self.input_reader.vocab.i2w,
                                     self.output_reader.vocab.i2w, self.translator.input_embedder,

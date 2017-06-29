@@ -9,9 +9,11 @@ class Attender:
   A template class for functions implementing attention.
   '''
 
-  '''
-  Implement things.
-  '''
+  def __init__(self, input_dim):
+    """
+    :param input_dim: every attender needs an input_dim
+    """
+    pass
 
   def start_sent(self, sent):
     raise NotImplementedError('start_sent must be implemented for Attender subclasses')

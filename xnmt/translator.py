@@ -80,6 +80,11 @@ class DefaultTranslator(Translator, Serializable):
     self.attender = attender
     self.output_embedder = output_embedder
     self.decoder = decoder
+  
+  def subcomponent_defaults(self):
+    return {
+            "attender.input_dim" : "encoder.input_dim",
+            }
 
   def get_train_test_components(self):
     return [self.encoder, self.decoder]
