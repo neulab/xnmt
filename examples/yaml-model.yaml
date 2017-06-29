@@ -1,18 +1,18 @@
 # Small config to help refactoring to make the model completely YAML based
 defaults:
   experiment:
-    model_file: ../examples/output/<EXP>.mod
-    hyp_file: ../examples/output/<EXP>.hyp
-    out_file: ../examples/output/<EXP>.out
-    err_file: ../examples/output/<EXP>.err
+    model_file: examples/output/<EXP>.mod
+    hyp_file: examples/output/<EXP>.hyp
+    out_file: examples/output/<EXP>.out
+    err_file: examples/output/<EXP>.err
     run_for_epochs: 2
     decode_every: 1
     eval_metrics: bleu,wer
   train:
-    train_src: ../examples/data/head.ja
-    train_trg: ../examples/data/head.en
-    dev_src: ../examples/data/head.ja
-    dev_trg: ../examples/data/head.en
+    train_src: examples/data/head.ja
+    train_trg: examples/data/head.en
+    dev_src: examples/data/head.ja
+    dev_trg: examples/data/head.en
     default_layer_dim: 64
     dropout: 0.5
     model:
@@ -38,9 +38,9 @@ defaults:
       type: BiLSTM
       dropout: 0.0
   decode:
-    src_file: ../examples/data/head.ja
+    src_file: examples/data/head.ja
   evaluate:
-    ref_file: ../examples/data/head.en
+    ref_file: examples/data/head.en
 
 debug-config-1layer:
   train:
@@ -53,4 +53,4 @@ debug-config-2layers:
 debug-config-2layers-finetune:
   train:
     decoder_layers: 2
-    pretrained_model_file: ../examples/output/debug-config-2layers.mod
+    pretrained_model_file: examples/output/debug-config-2layers.mod
