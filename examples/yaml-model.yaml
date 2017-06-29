@@ -22,20 +22,18 @@ defaults:
           emb_dim: 64
         encoder: !BiLSTMEncoder
           layers: 1
-        attender: !StandardAttender
           input_dim: 64
+        attender: !StandardAttender
           state_dim: 64
           hidden_dim: 64
+          input_dim: 64
         output_embedder: !SimpleWordEmbedder
           vocab_size: 100  # TODO: need to set implicitly
           emb_dim: 64
         decoder: !MlpSoftmaxDecoder
           layers: 1
-          input_dim: 64
-          lstm_dim: 64
           mlp_hidden_dim: 64
           vocab_size: 100
-          trg_embed_dim: 64
     encoder:
       type: BiLSTM
       dropout: 0.0
