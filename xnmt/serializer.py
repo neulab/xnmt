@@ -24,7 +24,7 @@ class JSONSerializer:
       os.makedirs(dirname)
     with open(fname, 'w') as f:
       json.dump(self.__to_spec(mod), f)
-    params.save_all(fname + '.data')
+    params.save(fname + '.data')
 
   '''
   Load a model from a file.
@@ -37,7 +37,7 @@ class JSONSerializer:
     with open(fname, 'r') as f:
       dict_spec = json.load(f)
       mod = self.__from_spec(dict_spec, param)
-    param.load_all(fname + '.data')
+    param.populate(fname + '.data')
     return mod
 
   def __to_spec(self, obj):
@@ -50,7 +50,7 @@ class JSONSerializer:
       info['__param__'] = [self.__to_spec(x) for x in obj.serialize_params]
     elif obj.__class__.__name__ == 'list' or obj.__class__.__name__ == 'dict':
       return json.dumps(obj)
-    elif obj.__class__.__name__ != 'Model':
+    elif obj.__class__.__name__ != 'ParameterCollection':
       raise NotImplementedError("Class %s is not serializable. Try adding serialize_params to it." % obj.__class__.__name__)
     return info
 
@@ -66,7 +66,7 @@ class JSONSerializer:
       raise NotImplementedError("Class %s is not deserializable. Try adding serialize_params to it." % spec.__class__.__name__)
     elif '__class__' not in spec:
       raise NotImplementedError("Dict is not deserializable. Try adding __class__ when saving it:\n %r" % spec)
-    elif spec['__class__'] == 'Model':
+    elif spec['__class__'] == 'ParameterCollection':
       return params
     elif '__param__' not in spec:
       raise NotImplementedError("Dict is not deserializable. Try adding __param__ when saving it:\n %r" % spec)
