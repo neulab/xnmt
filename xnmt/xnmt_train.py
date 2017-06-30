@@ -73,12 +73,12 @@ class XnmtTrainer:
     dy.renew_cg()
 
     self.args = args  # save for later
-    self.model = dy.Model()
+    model_globals.model = dy.Model()
 
     if args.trainer.lower() == "sgd":
-      self.trainer = dy.SimpleSGDTrainer(self.model, e0 = args.learning_rate)
+      self.trainer = dy.SimpleSGDTrainer(model_globals.model, e0 = args.learning_rate)
     elif args.trainer.lower() == "adam":
-      self.trainer = dy.AdamTrainer(self.model, alpha = args.learning_rate)
+      self.trainer = dy.AdamTrainer(model_globals.model, alpha = args.learning_rate)
     else:
       raise RuntimeError("Unknown trainer {}".format(args.trainer))
     
@@ -110,7 +110,7 @@ class XnmtTrainer:
     self.model_serializer = yaml_serializer.YamlSerializer()
 
     if self.args.pretrained_model_file:
-      self.model_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, self.model)
+      self.model_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.model)
       self.src_reader = self.model_params.src_reader
       self.trg_reader = self.model_params.trg_reader
       self.translator = self.model_params.translator
@@ -143,7 +143,7 @@ class XnmtTrainer:
 #    if self.args.encoder.get("src_dim", None) is None: self.args.encoder["src_dim"] = self.args.src_word_embed_dim
 
     model_globals.default_layer_dim = self.args.default_layer_dim
-    model_globals.model = self.model
+    model_globals.model = model_globals.model
     model_globals.dropout = self.args.dropout
     
 
@@ -155,19 +155,19 @@ class XnmtTrainer:
 #    self.trg_mlp_hidden_dim = self.args.trg_mlp_hidden_dim
 
 #    self.src_embedder = Embedder.from_spec(self.args.src_format, len(self.src_reader.vocab),
-#                                             self.src_word_emb_dim, self.model)
+#                                             self.src_word_emb_dim, model_globals.model)
 #
-#    self.trg_embedder = SimpleWordEmbedder(len(self.trg_reader.vocab), self.trg_word_emb_dim, self.model)
+#    self.trg_embedder = SimpleWordEmbedder(len(self.trg_reader.vocab), self.trg_word_emb_dim, model_globals.model)
 #
 #    global_train_params = {"dropout" : self.args.dropout, "default_layer_dim":self.args.default_layer_dim}
-#    self.encoder = Encoder.from_spec(self.args.encoder, global_train_params, self.model)
+#    self.encoder = Encoder.from_spec(self.args.encoder, global_train_params, model_globals.model)
 #
 #    self.attender = StandardAttender(self.attention_context_dim, self.trg_state_dim, self.attender_hidden_dim,
-#                                     self.model)
+#                                     model_globals.model)
 #
 #    self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.attention_context_dim,
 #                                     self.trg_state_dim, self.trg_mlp_hidden_dim,
-#                                     len(self.trg_reader.vocab), self.model, self.trg_word_emb_dim,
+#                                     len(self.trg_reader.vocab), model_globals.model, self.trg_word_emb_dim,
 #                                     self.args.dropout, self.args.decoder_type, self.args.residual_to_output)
 #
 #    self.translator = DefaultTranslator(self.src_embedder, self.encoder, self.attender, self.trg_embedder, self.decoder)
@@ -237,7 +237,7 @@ class XnmtTrainer:
 
         # Write out the model if it's the best one
         if self.logger.report_dev_and_check_model(self.args.model_file):
-          self.model_serializer.save_to_file(self.args.model_file, self.model_params, self.model)
+          self.model_serializer.save_to_file(self.args.model_file, self.model_params, model_globals.model)
         else:
           # otherwise: learning rate decay / early stopping
           if self.args.lr_decay < 1.0:
