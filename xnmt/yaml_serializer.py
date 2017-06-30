@@ -87,15 +87,13 @@ class YamlSerializer(object):
         
 
   def init_components_bottom_up(self, obj):
-    kwargs = obj.init_params
+    init_params = obj.init_params
+    serialize_params = obj.serialize_params
     for name, val in inspect.getmembers(obj):
       if isinstance(val, Serializable):
-        kwargs[name] = self.init_components_bottom_up(val)
-    try:
-      initialized_obj = obj.__class__(**kwargs)
-    except:
-      initialized_obj = obj.__class__(**kwargs)
-    initialized_obj.serialize_params = kwargs
+        init_params[name] = self.init_components_bottom_up(val)
+    initialized_obj = obj.__class__(**init_params)
+    initialized_obj.serialize_params = serialize_params
     return initialized_obj
   
   @staticmethod
