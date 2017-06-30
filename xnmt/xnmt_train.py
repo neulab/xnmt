@@ -41,14 +41,15 @@ options = [
   Option("max_num_train_sents", int, required=False, help_str="Load only the first n sentences from the training data"),
   Option("model_file"),
   Option("pretrained_model_file", default_value="", help_str="Path of pre-trained model file"),
-  Option("input_vocab", default_value="", help_str="Path of fixed input vocab file"),
-  Option("output_vocab", default_value="", help_str="Path of fixed output vocab file"),
-  Option("input_format", default_value="text", help_str="Format of input data: text/contvec"),
+  Option("src_vocab", default_value="", help_str="Path of fixed input vocab file"),
+  Option("trg_vocab", default_value="", help_str="Path of fixed output vocab file"),
+  Option("src_format", default_value="text", help_str="Format of input data: text/contvec"),
+  Option("trg_format", default_value="text", help_str="Format of output data: text/contvec"),
   Option("default_layer_dim", int, default_value=512, help_str="Default size to use for layers if not otherwise overridden"),
-  Option("input_word_embed_dim", int, required=False),
-  Option("output_word_embed_dim", int, required=False),
-  Option("output_state_dim", int, required=False),
-  Option("output_mlp_hidden_dim", int, required=False),
+  Option("src_word_embed_dim", int, required=False),
+  Option("trg_word_embed_dim", int, required=False),
+  Option("trg_state_dim", int, required=False),
+  Option("trg_mlp_hidden_dim", int, required=False),
   Option("attender_hidden_dim", int, required=False),
   Option("attention_context_dim", int, required=False),
   Option("trainer", default_value="sgd"),
@@ -60,7 +61,7 @@ options = [
   Option("model", dict, default_value={}),  
   Option("encoder", dict, default_value={}),  
   Option("encoder.type", default_value="BiLSTM"),
-  Option("encoder.input_dim", int, required=False),
+  Option("encoder.src_dim", int, required=False),
   Option("decoder_type", default_value="LSTM"),
   Option("decoder_layers", int, default_value=2),
   Option("residual_to_output", bool, default_value=True,
@@ -97,113 +98,104 @@ class XnmtTrainer:
     else:
       print('Start training in minibatch mode...')
       self.batcher = Batcher.select_batcher(args.batch_strategy)(args.batch_size)
-      if args.input_format == "contvec":
-        assert self.train_src[0].nparr.shape[1] == self.input_embedder.emb_dim, "input embed dim is different size than expected"
-        self.batcher.pad_token = np.zeros(self.input_embedder.emb_dim)
+      if args.src_format == "contvec":
+        assert self.train_src[0].nparr.shape[1] == self.src_embedder.emb_dim, "input embed dim is different size than expected"
+        self.batcher.pad_token = np.zeros(self.src_embedder.emb_dim)
       self.train_src, self.train_trg = self.batcher.pack(self.train_src, self.train_trg)
       self.dev_src, self.dev_trg = self.batcher.pack(self.dev_src, self.dev_trg)
       self.logger = BatchLossTracker(args.eval_every, self.total_train_sent)
 
   def create_model(self):
-    if self.args.pretrained_model_file:
-      self.model_serializer = yaml_serializer.YamlSerializer()
-      self.model_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, self.model)
-      src_vocab = Vocab(self.model_params.src_vocab)
-      trg_vocab = Vocab(self.model_params.trg_vocab)
-      self.encoder = self.model_params.encoder
-      self.attender = self.model_params.attender
-      self.decoder = self.model_params.decoder
-      self.input_embedder = self.model_params.input_embedder
-      self.output_embedder = self.model_params.output_embedder
-      self.translator = DefaultTranslator(self.input_embedder, self.encoder, self.attender, 
-                                          self.output_embedder, self.decoder)
-      self.input_reader = InputReader.create_input_reader(self.args.input_format, src_vocab)
-      self.output_reader = InputReader.create_input_reader("text", trg_vocab)
-      self.input_reader.freeze()
-      self.output_reader.freeze()
-      self.read_data()
-      return
 
     self.model_serializer = yaml_serializer.YamlSerializer()
 
+    if self.args.pretrained_model_file:
+      self.model_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, self.model)
+      self.src_reader = self.model_params.src_reader
+      self.trg_reader = self.model_params.trg_reader
+      self.translator = self.model_params.translator
+      self.src_reader.freeze()
+      self.trg_reader.freeze()
+      self.read_data()
+      return
+
     # Read in training and dev corpora
-    input_vocab, output_vocab = None, None
-    if self.args.input_vocab:
-      input_vocab = Vocab(vocab_file=self.args.input_vocab)
-    if self.args.output_vocab:
-      output_vocab = Vocab(vocab_file=self.args.output_vocab)
-    self.input_reader = InputReader.create_input_reader(self.args.input_format, input_vocab)
-    self.output_reader = InputReader.create_input_reader("text", output_vocab)
-    if self.args.input_vocab:
-      self.input_reader.freeze()
-    if self.args.output_vocab:
-      self.output_reader.freeze()
+    src_vocab, trg_vocab = None, None
+    if self.args.src_vocab:
+      src_vocab = Vocab(vocab_file=self.args.src_vocab)
+    if self.args.trg_vocab:
+      trg_vocab = Vocab(vocab_file=self.args.trg_vocab)
+    self.src_reader = InputReader.create_input_reader(self.args.src_format, src_vocab)
+    self.trg_reader = InputReader.create_input_reader(self.args.trg_format, trg_vocab)
+    if self.args.src_vocab:
+      self.src_reader.freeze()
+    if self.args.trg_vocab:
+      self.trg_reader.freeze()
     self.read_data()
     
 #    # Get layer sizes: replace by default if not specified
-#    for opt in ["input_word_embed_dim", "output_word_embed_dim", "output_state_dim",
-#                "output_mlp_hidden_dim", "attender_hidden_dim", "attention_context_dim"]:
+#    for opt in ["src_word_embed_dim", "trg_word_embed_dim", "trg_state_dim",
+#                "trg_mlp_hidden_dim", "attender_hidden_dim", "attention_context_dim"]:
 #      if getattr(self.args, opt) is None:
 #        setattr(self.args, opt, self.args.default_layer_dim)
 #    if getattr(self.args, "encoder") is None:
 #      self.args.encoder = {}
-#    if self.args.encoder.get("input_dim", None) is None: self.args.encoder["input_dim"] = self.args.input_word_embed_dim
+#    if self.args.encoder.get("src_dim", None) is None: self.args.encoder["src_dim"] = self.args.src_word_embed_dim
 
     model_globals.default_layer_dim = self.args.default_layer_dim
     model_globals.model = self.model
     model_globals.dropout = self.args.dropout
     
 
-#    self.input_word_emb_dim = self.args.input_word_embed_dim
-#    self.output_word_emb_dim = self.args.output_word_embed_dim
-#    self.output_state_dim = self.args.output_state_dim
+#    self.src_word_emb_dim = self.args.src_word_embed_dim
+#    self.trg_word_emb_dim = self.args.trg_word_embed_dim
+#    self.trg_state_dim = self.args.trg_state_dim
 #    self.attender_hidden_dim = self.args.attender_hidden_dim
 #    self.attention_context_dim = self.args.attention_context_dim
-#    self.output_mlp_hidden_dim = self.args.output_mlp_hidden_dim
+#    self.trg_mlp_hidden_dim = self.args.trg_mlp_hidden_dim
 
-#    self.input_embedder = Embedder.from_spec(self.args.input_format, len(self.input_reader.vocab),
-#                                             self.input_word_emb_dim, self.model)
+#    self.src_embedder = Embedder.from_spec(self.args.src_format, len(self.src_reader.vocab),
+#                                             self.src_word_emb_dim, self.model)
 #
-#    self.output_embedder = SimpleWordEmbedder(len(self.output_reader.vocab), self.output_word_emb_dim, self.model)
+#    self.trg_embedder = SimpleWordEmbedder(len(self.trg_reader.vocab), self.trg_word_emb_dim, self.model)
 #
 #    global_train_params = {"dropout" : self.args.dropout, "default_layer_dim":self.args.default_layer_dim}
 #    self.encoder = Encoder.from_spec(self.args.encoder, global_train_params, self.model)
 #
-#    self.attender = StandardAttender(self.attention_context_dim, self.output_state_dim, self.attender_hidden_dim,
+#    self.attender = StandardAttender(self.attention_context_dim, self.trg_state_dim, self.attender_hidden_dim,
 #                                     self.model)
 #
 #    self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.attention_context_dim,
-#                                     self.output_state_dim, self.output_mlp_hidden_dim,
-#                                     len(self.output_reader.vocab), self.model, self.output_word_emb_dim,
+#                                     self.trg_state_dim, self.trg_mlp_hidden_dim,
+#                                     len(self.trg_reader.vocab), self.model, self.trg_word_emb_dim,
 #                                     self.args.dropout, self.args.decoder_type, self.args.residual_to_output)
 #
-#    self.translator = DefaultTranslator(self.input_embedder, self.encoder, self.attender, self.output_embedder, self.decoder)
+#    self.translator = DefaultTranslator(self.src_embedder, self.encoder, self.attender, self.trg_embedder, self.decoder)
     self.translator = self.model_serializer.create_model(self.args.model)
-    self.model_params = ModelParams(self.translator.encoder, self.translator.attender, self.translator.decoder,
-                                    self.input_reader.vocab.i2w,
-                                    self.output_reader.vocab.i2w, self.translator.input_embedder,
-                                    self.translator.output_embedder)
+    self.model_params = ModelParams(self.translator,
+                                    self.src_reader,
+                                    self.trg_reader)
     print self.model_serializer.dump(self.translator)
 
 
   def read_data(self):
     train_filters = SentenceFilterer.from_spec(self.args.train_filters)
     self.train_src, self.train_trg = \
-        self.filter_sents(self.input_reader.read_file(self.args.train_src, max_num=self.args.max_num_train_sents),
-                          self.output_reader.read_file(self.args.train_trg, max_num=self.args.max_num_train_sents),
+        self.filter_sents(self.src_reader.read_file(self.args.train_src, max_num=self.args.max_num_train_sents),
+                          self.trg_reader.read_file(self.args.train_trg, max_num=self.args.max_num_train_sents),
                           train_filters)
     assert len(self.train_src) == len(self.train_trg)
     self.total_train_sent = len(self.train_src)
     if self.args.eval_every == None:
       self.args.eval_every = self.total_train_sent
 
-    self.input_reader.freeze()
-    self.output_reader.freeze()
+    self.src_reader.freeze()
+    self.trg_reader.freeze()
 
     dev_filters = SentenceFilterer.from_spec(self.args.dev_filters)
     self.dev_src, self.dev_trg = \
-        self.filter_sents(self.input_reader.read_file(self.args.dev_src),
-                          self.output_reader.read_file(self.args.dev_trg),
+        self.filter_sents(self.src_reader.read_file(self.args.dev_src),
+                          self.trg_reader.read_file(self.args.dev_trg),
                           dev_filters)
     assert len(self.dev_src) == len(self.dev_trg)
   

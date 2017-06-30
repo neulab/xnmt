@@ -7,19 +7,10 @@ class ModelParams(Serializable):
   """
   
   yaml_tag = "!ModelParams"
-  def __init__(self, encoder, attender, decoder, src_vocab, trg_vocab,
-               input_embedder, output_embedder):
-    self.encoder = encoder
-    self.attender = attender
-    self.decoder = decoder
-    self.src_vocab = src_vocab
-    self.trg_vocab = trg_vocab
-    self.input_embedder = input_embedder
-    self.output_embedder = output_embedder
-    self.serialize_params = {"encoder": encoder, 
-                             "attender": attender,
-                             "decoder": decoder,
-                             "src_vocab": src_vocab, 
-                             "trg_vocab": trg_vocab,
-                             "input_embedder": input_embedder,
-                             "output_embedder": output_embedder}
+  def __init__(self, translator, src_reader, trg_reader):
+    self.translator = translator
+    self.src_reader = src_reader
+    self.trg_reader = trg_reader
+    self.serialize_params = {"translator": self.translator,
+                             "src_reader": self.src_reader,
+                             "trg_reader": self.trg_reader}

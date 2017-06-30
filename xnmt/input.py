@@ -3,6 +3,7 @@ import itertools
 import os
 from collections import defaultdict
 from six.moves import zip
+from yaml_serializer import Serializable
 from vocab import *
 
 
@@ -59,16 +60,18 @@ class InputReader:
       raise RuntimeError("Unkonwn input type {}".format(file_format))
 
 
-class PlainTextReader(InputReader):
+class PlainTextReader(InputReader, Serializable):
   """
   Handles the typical case of reading plain text files,
   with one sent per line.
   """
+  yaml_tag = u'!PlainTextReader'
   def __init__(self, vocab=None):
     if vocab is None:
       self.vocab = Vocab()
     else:
       self.vocab = vocab
+    self.serialize_params = {"vocab": self.vocab}
 
   def read_file(self, filename, max_num=None):
     sents = []

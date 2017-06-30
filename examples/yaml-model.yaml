@@ -34,9 +34,6 @@ defaults:
           layers: 1
           mlp_hidden_dim: 64
           vocab_size: 100
-    encoder:
-      type: BiLSTM
-      dropout: 0.0
   decode:
     src_file: examples/data/head.ja
   evaluate:
