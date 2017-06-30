@@ -17,7 +17,14 @@ class Serializable(yaml.YAMLObject):
               in this case, the determined value is copied over to the unspecified parameters
     """
     return []
-    
+  def shared_params_post_init(self):
+    """
+    :returns: list of PostInitSharedParam; these are resolved right before the corresponding model is initialized,
+              thereby assuming that the components it depends on have already been initialized.
+              The order of initialization is determined by the order in which components are listed in __init__(),
+              and then going bottom-up
+    """
+    return []    
 class YamlSerializer(object):
   def __init__(self):
     self.representers_added = False
@@ -29,7 +36,7 @@ class YamlSerializer(object):
     """
     self.set_serialize_params_recursive(deserialized_yaml_model)
     self.share_init_params_top_down(deserialized_yaml_model)
-    return self.init_components_bottom_up(deserialized_yaml_model)
+    return self.init_components_bottom_up(deserialized_yaml_model, deserialized_yaml_model.shared_params_post_init())
     
   def set_serialize_params_recursive(self, obj):
     base_arg_names = map(lambda x: x[0], inspect.getmembers(yaml.YAMLObject))
@@ -84,14 +91,17 @@ class YamlSerializer(object):
       param_obj = getattr(param_obj, param_name_spl[0])
       param_name = param_name_spl[1]
     return param_obj, param_name
-        
 
-  def init_components_bottom_up(self, obj):
+  def init_components_bottom_up(self, obj, post_init_shared_params):
     init_params = obj.init_params
     serialize_params = obj.serialize_params
     for name, val in inspect.getmembers(obj):
       if isinstance(val, Serializable):
-        init_params[name] = self.init_components_bottom_up(val)
+        sub_post_init_shared_params = [p.move_down() for p in post_init_shared_params if p.matches_component(name)]
+        init_params[name] = self.init_components_bottom_up(val, sub_post_init_shared_params)
+    for p in post_init_shared_params:
+      if p.model == "" and p.param not in init_params:
+        init_params[p.param] = p.val()
     initialized_obj = obj.__class__(**init_params)
     initialized_obj.serialize_params = serialize_params
     return initialized_obj
@@ -121,3 +131,12 @@ class YamlSerializer(object):
     param.populate(fname + '.data')
     return mod
     
+class PostInitSharedParam(object):
+  def __init__(self, model, param, value):
+    self.model = model + "" if model.endswith(".") else "."
+    self.param = param
+    self.value = value
+  def move_down(self):
+    return PostInitSharedParam(self.model.split(".", 1)[1], self.param, self.value)
+  def matches_component(self, name):
+    return self.model.split(".")[0] == name

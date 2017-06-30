@@ -1,7 +1,7 @@
 # Small config to help refactoring to make the model completely YAML based
 defaults:
   experiment:
-    model_file: examples/output/<EXP>.mod
+    model_file: ../examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
@@ -18,7 +18,7 @@ defaults:
     model:
       !DefaultTranslator
         input_embedder: !SimpleWordEmbedder
-          vocab_size: 100  # TODO: need to set implicitly
+#          vocab_size: 100  # TODO: need to set implicitly
           emb_dim: 64
         encoder: !BiLSTMEncoder
           layers: 1
@@ -28,12 +28,12 @@ defaults:
           hidden_dim: 64
           input_dim: 64
         output_embedder: !SimpleWordEmbedder
-          vocab_size: 100  # TODO: need to set implicitly
+#          vocab_size: 100  # TODO: need to set implicitly
           emb_dim: 64
         decoder: !MlpSoftmaxDecoder
           layers: 1
           mlp_hidden_dim: 64
-          vocab_size: 100
+#          vocab_size: 100
   decode:
     src_file: examples/data/head.ja
   evaluate:

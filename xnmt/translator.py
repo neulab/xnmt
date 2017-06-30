@@ -83,10 +83,10 @@ class DefaultTranslator(Translator, Serializable):
   
   def shared_params(self):
     return [
-            ("input_embedder.emb_dim", "encoder.input_dim"),
-            ("encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"), # TODO: encoder.hidden_dim may not always exist (e.g. for CNN encoders), need to deal with that case
-            ("attender.state_dim", "decoder.lstm_dim"),
-            ("output_embedder.emb_dim", "decoder.trg_embed_dim")
+            set(["input_embedder.emb_dim", "encoder.input_dim"]),
+            set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]), # TODO: encoder.hidden_dim may not always exist (e.g. for CNN encoders), need to deal with that case
+            set(["attender.state_dim", "decoder.lstm_dim"]),
+            set(["output_embedder.emb_dim", "decoder.trg_embed_dim"]),
             ]
 
   def get_train_test_components(self):
