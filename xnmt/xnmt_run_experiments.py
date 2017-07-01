@@ -121,7 +121,7 @@ if __name__ == '__main__':
       if exp_args.decode_every != 0 and (i_epoch+1) % exp_args.decode_every == 0:
         print("> Evaluating")
         xnmt_decode.xnmt_decode(decode_args, model_elements=(
-          xnmt_trainer.src_reader.vocab, xnmt_trainer.trg_reader.vocab, xnmt_trainer.translator))
+          xnmt_trainer.model_params.src_reader.vocab, xnmt_trainer.model_params.trg_reader.vocab, xnmt_trainer.model_params.translator))
         eval_scores = []
         for evaluator in evaluators:
           evaluate_args.evaluator = evaluator

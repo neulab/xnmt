@@ -103,7 +103,6 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.emb_dim = emb_dim
     model = model_globals.model
     self.embeddings = model.add_lookup_parameters((vocab_size, emb_dim))
-    self.serialize_params = [vocab_size, emb_dim, model]
 
   def embed(self, x):
     # single mode

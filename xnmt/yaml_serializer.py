@@ -95,15 +95,19 @@ class YamlSerializer(object):
   def init_components_bottom_up(self, obj, post_init_shared_params):
     init_params = obj.init_params
     serialize_params = obj.serialize_params
-    for name, val in inspect.getmembers(obj):
-      if isinstance(val, Serializable):
-        sub_post_init_shared_params = [p.move_down() for p in post_init_shared_params if p.matches_component(name)]
-        init_params[name] = self.init_components_bottom_up(val, sub_post_init_shared_params)
+    init_args, _, _, _ = inspect.getargspec(obj.__init__)
+    for init_arg in init_args:
+      if hasattr(obj, init_arg):
+        val = getattr(obj, init_arg)
+        if isinstance(val, Serializable):
+          sub_post_init_shared_params = [p.move_down() for p in post_init_shared_params if p.matches_component(init_arg)]
+          init_params[init_arg] = self.init_components_bottom_up(val, sub_post_init_shared_params)
     for p in post_init_shared_params:
-      if p.model == "" and p.param not in init_params:
-        init_params[p.param] = p.val()
+      if p.model == "." and p.param not in init_params:
+        init_params[p.param] = p.value()
     initialized_obj = obj.__class__(**init_params)
-    initialized_obj.serialize_params = serialize_params
+    if not hasattr(initialized_obj, "serialize_params"):
+      initialized_obj.serialize_params = serialize_params
     return initialized_obj
   
   @staticmethod
@@ -133,7 +137,7 @@ class YamlSerializer(object):
     
 class PostInitSharedParam(object):
   def __init__(self, model, param, value):
-    self.model = model + "" if model.endswith(".") else "."
+    self.model = model + ("" if model.endswith(".") else ".")
     self.param = param
     self.value = value
   def move_down(self):

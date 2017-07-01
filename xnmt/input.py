@@ -5,7 +5,7 @@ from collections import defaultdict
 from six.moves import zip
 from yaml_serializer import Serializable
 from vocab import *
-
+import model_globals
 
 class Input:
   """
@@ -50,14 +50,17 @@ class ArrayInput(Input):
     return self.nparr
 
 class InputReader:
-  @staticmethod
-  def create_input_reader(file_format, vocab=None):
-    if file_format == "text":
-      return PlainTextReader(vocab)
-    elif file_format == "contvec":
-      return ContVecReader()
-    else:
-      raise RuntimeError("Unkonwn input type {}".format(file_format))
+#  @staticmethod
+#  def create_input_reader(file_format, vocab=None):
+#    if file_format == "text":
+#      return PlainTextReader(vocab)
+#    elif file_format == "contvec":
+#      return ContVecReader()
+#    else:
+#      raise RuntimeError("Unkonwn input type {}".format(file_format))
+
+  def read_train_data(self, train_data_file, max_num):
+    self.train_sents = self.read_file(self.args.train_src, max_num=max_num)
 
 
 class PlainTextReader(InputReader, Serializable):
@@ -66,12 +69,26 @@ class PlainTextReader(InputReader, Serializable):
   with one sent per line.
   """
   yaml_tag = u'!PlainTextReader'
-  def __init__(self, vocab=None):
+  def __init__(self, train_data, dev_data, 
+                          max_num_train_sents=None, max_num_dev_sents=None, 
+                          vocab=None):
     if vocab is None:
       self.vocab = Vocab()
     else:
       self.vocab = vocab
-    self.serialize_params = {"vocab": self.vocab}
+      self.freeze()
+    if not model_globals.test_only:
+      self.train_sents = self.read_file(train_data, max_num_train_sents)
+      self.dev_sents = self.read_file(dev_data, max_num_dev_sents)
+    self.freeze()
+    # overwrite serialize params, so the newly created vocab is saved:
+    self.serialize_params = {
+                             "train_data": train_data,
+                             "train_data": dev_data,
+                             "max_num_train_sents": max_num_train_sents,
+                             "max_num_dev_sents": max_num_dev_sents,
+                             "vocab": self.vocab
+                            }
 
   def read_file(self, filename, max_num=None):
     sents = []
@@ -90,7 +107,7 @@ class PlainTextReader(InputReader, Serializable):
     self.vocab.set_unk(Vocab.UNK_STR)
 
     
-class ContVecReader(InputReader):
+class ContVecReader(InputReader, Serializable):
   """
   Handles the case where sents are sequences of continuous-space vectors.
   
@@ -98,8 +115,12 @@ class ContVecReader(InputReader):
   Sentences should be named arr_0, arr_1, ... (=np default for unnamed archives).
   We can index them as sents[sent_no][word_ind,feat_ind]
   """
-  def __init__(self):
-    self.vocab = Vocab()
+  yaml_tag = "!ContVecReader"
+  
+  def __init__(self, train_data, dev_data, max_num_train_sents=None, max_num_dev_sents=None):
+    if not model_globals.test_only:
+      self.train_sents = self.read_file(train_data, max_num_train_sents)
+      self.dev_sents = self.read_file(dev_data, max_num_dev_sents)
 
   def read_file(self, filename, max_num=None):
     npzFile = np.load(filename)

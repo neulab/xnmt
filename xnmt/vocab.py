@@ -1,7 +1,11 @@
-class Vocab:
+from yaml_serializer import Serializable
+
+class Vocab(Serializable):
   '''
   Converts between strings and integer ids
   '''
+  
+  yaml_tag = "!Vocab"
 
   SS = 0
   ES = 1

@@ -7,16 +7,26 @@ class ModelParams(Serializable):
   """
   
   yaml_tag = "!ModelParams"
-  def __init__(self, translator, src_reader, trg_reader):
-    self.translator = translator
+  def __init__(self, src_reader, trg_reader, translator):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
-    self.serialize_params = {"translator": self.translator,
-                             "src_reader": self.src_reader,
-                             "trg_reader": self.trg_reader}
+    self.translator = translator
+#    self.serialize_params = {"translator": self.translator,
+#                             "src_reader": self.src_reader,
+#                             "trg_reader": self.trg_reader}
+  def shared_params(self):
+    return [
+            set(["src_reader.max_num_train_sents", "trg_reader.max_num_train_sents"]),
+            set(["src_reader.max_num_dev_sents", "trg_reader.max_num_dev_sents"]),
+            ]
   def shared_params_post_init(self):
     return [
-            PostInitSharedParam(model="translator.encoder", param="vocab_size", value=lambda: len(self.src_reader.vocab)),
-            PostInitSharedParam(model="translator.decoder", param="vocab_size", value=lambda: len(self.trg_reader.vocab)),
-            PostInitSharedParam(model="translator.output_embedder", param="vocab_size", value=lambda: len(self.trg_reader.vocab)),
+            PostInitSharedParam(model="translator.input_embedder", param="vocab_size", value=self.get_src_vocab_size),
+            PostInitSharedParam(model="translator.decoder", param="vocab_size", value=self.get_trg_vocab_size),
+            PostInitSharedParam(model="translator.output_embedder", param="vocab_size", value=self.get_trg_vocab_size),
             ]
+  def get_src_vocab_size(self):
+    return len(self.init_params["src_reader"].vocab)
+  def get_trg_vocab_size(self):
+    return len(self.init_params["trg_reader"].vocab)
+  
