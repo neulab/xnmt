@@ -11,6 +11,7 @@ from input import *
 from encoder import *
 from decoder import *
 from translator import *
+from retriever import *
 from model_params import *
 from training_corpus import *
 from loss_tracker import *

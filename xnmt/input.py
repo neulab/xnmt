@@ -120,6 +120,23 @@ class ContVecReader(InputReader, Serializable):
   def vocab_size(self):
     return None
 
+class IDReader(InputReader, Serializable):
+  """
+  Handles the case where we need to read in a single ID (like retrieval problems)
+  """
+  yaml_tag = u"!IDReader"
+  
+  def __init__(self):
+    pass
+
+  def read_file(self, filename, max_num=None):
+    with codecs.open(filename, encoding='utf-8') as f:
+      for line in f:
+        yield int(line.strip())
+
+  def vocab_size(self):
+    return None
+
 ###### CorpusParser
 
 class CorpusParser:
@@ -146,7 +163,6 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     self.trg_reader.freeze()
     training_corpus.dev_src_data = self.src_reader.read_file(training_corpus.dev_src)
     training_corpus.dev_trg_data = self.trg_reader.read_file(training_corpus.dev_trg)
-
 
 ###### Obsolete Functions
 

@@ -7,15 +7,34 @@ from vocab import Vocab
 from serializer import Serializable, DependentInitParam
 from train_test_interface import TrainTestInterface
 
+##### A class for retrieval databases
+
+# This file contains databases used for retrieval.
+# At the moment it includes only a standard database that keeps all of the things
+# to be retrieved in a list.
+
+class StandardRetrievalDatabase(Serializable):
+  """This is a database to be used for retrieval. Its database member"""
+
+  yaml_tag = u"!StandardRetrievalDatabase"
+
+  def __init__(self, reader, database_file):
+    self.reader = reader
+    self.database_file = database_file
+    self.database = reader.read_file(reader)
+
+##### The actual retriever class
+
 class Retriever(TrainTestInterface):
   '''
   A template class implementing a retrieval model.
   '''
 
-  def calc_loss(self, db_idx):
+  def calc_loss(self, src, db_idx):
     '''Calculate loss based on a database index.
 
-    :param db_idx: The index in the database of the training example.
+    :param src: The source input.
+    :param db_idx: The correct index in the database to be retrieved.
     :returns: An expression representing the loss.
     '''
     raise NotImplementedError('calc_loss must be implemented for Retriever subclasses')
@@ -72,7 +91,7 @@ class DotProductRetriever(Retriever, Serializable):
   def get_train_test_components(self):
     return [self.src_encoder, self.trg_encoder]
 
-  def calc_loss(self, db_idx):
+  def calc_loss(self, src, db_idx):
     raise NotImplementedError("calc_loss needs to calculate the max-margin objective")
 
   def index_database(self):
