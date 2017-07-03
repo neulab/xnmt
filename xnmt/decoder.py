@@ -3,7 +3,7 @@ from mlp import MLP
 import inspect
 from batcher import *
 from translator import TrainTestInterface
-from yaml_serializer import Serializable
+from serializer import Serializable
 import model_globals
 
 class Decoder(TrainTestInterface):

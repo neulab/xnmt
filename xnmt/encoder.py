@@ -6,7 +6,7 @@ import conv_encoder
 from embedder import ExpressionSequence
 from translator import TrainTestInterface
 import inspect
-from yaml_serializer import Serializable
+from serializer import Serializable
 import model_globals
 import yaml
 

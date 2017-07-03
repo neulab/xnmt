@@ -3,7 +3,7 @@ import itertools
 import os
 from collections import defaultdict
 from six.moves import zip
-from yaml_serializer import Serializable
+from serializer import Serializable
 from vocab import *
 import model_globals
 

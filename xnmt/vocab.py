@@ -1,4 +1,4 @@
-from yaml_serializer import Serializable
+from serializer import Serializable
 
 class Vocab(Serializable):
   '''
