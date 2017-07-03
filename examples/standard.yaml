@@ -1,5 +1,4 @@
-# TODO: This config file is in the old format. We need to make it match debug.yaml
-
+# Small config to help refactoring to make the model completely YAML based
 defaults:
   experiment:
     model_file: examples/output/<EXP>.mod
@@ -10,24 +9,35 @@ defaults:
     decode_every: 1
     eval_metrics: bleu,wer
   train:
-    train_src: examples/data/train.ja
-    train_trg: examples/data/train.en
-    dev_src: examples/data/dev.ja
-    dev_trg: examples/data/dev.en
-    train_filters:
-    - type: length
-      min: 1
-      max: 50
+    default_layer_dim: 512
+    dropout: 0.0
+    training_corpus: !BilingualTrainingCorpus
+      train_src: examples/data/train.ja
+      train_trg: examples/data/train.en
+      dev_src: examples/data/dev.ja
+      dev_trg: examples/data/dev.en
+    corpus_parser: !BilingualCorpusParser
+      src_reader: !PlainTextReader {}
+      trg_reader: !PlainTextReader {}
+    model: !DefaultTranslator
+      input_embedder: !SimpleWordEmbedder
+        emb_dim: 512
+      encoder: !BiLSTMEncoder
+        layers: 1
+      attender: !StandardAttender
+        hidden_dim: 512
+        state_dim: 512
+        input_dim: 512
+      output_embedder: !SimpleWordEmbedder
+        emb_dim: 512
+      decoder: !MlpSoftmaxDecoder
+        layers: 1
+        mlp_hidden_dim: 512
   decode:
     src_file: examples/data/test.ja
   evaluate:
     ref_file: examples/data/test.en
 
-standard-1layer:
+standard-dropout0.1:
   train:
-    encoder:
-      layers: 1
-
-standard-2layer:
-  train:
-    decoder_layers: 2
+    dropout: 0.1

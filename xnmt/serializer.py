@@ -107,6 +107,7 @@ class YamlSerializer(object):
       if p.component_name == "." and p.param_name not in init_params:
         init_params[p.param_name] = p.value_fct()
     init_params = {key:val for key,val in init_params.items() if key in init_args}
+    print(type(obj))
     initialized_obj = obj.__class__(**init_params)
     if not hasattr(initialized_obj, "serialize_params"):
       initialized_obj.serialize_params = serialize_params
