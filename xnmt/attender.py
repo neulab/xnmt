@@ -1,5 +1,7 @@
 import dynet as dy
 from batcher import *
+from serializer import *
+import model_globals
 
 
 class Attender:
@@ -7,9 +9,11 @@ class Attender:
   A template class for functions implementing attention.
   '''
 
-  '''
-  Implement things.
-  '''
+  def __init__(self, input_dim):
+    """
+    :param input_dim: every attender needs an input_dim
+    """
+    pass
 
   def start_sent(self, sent):
     raise NotImplementedError('start_sent must be implemented for Attender subclasses')
@@ -18,18 +22,23 @@ class Attender:
     raise NotImplementedError('calc_attention must be implemented for Attender subclasses')
 
 
-class StandardAttender(Attender):
+class StandardAttender(Attender, Serializable):
   '''
   Implements the attention model of Bahdanau et. al (2014)
   '''
 
-  def __init__(self, input_dim, state_dim, hidden_dim, model):
+  yaml_tag = u'!StandardAttender'
+
+  def __init__(self, input_dim, state_dim, hidden_dim):
+    self.input_dim = input_dim
+    self.state_dim = state_dim
+    self.hidden_dim = hidden_dim
+    model = model_globals.model
     self.pW = model.add_parameters((hidden_dim, input_dim))
     self.pV = model.add_parameters((hidden_dim, state_dim))
     self.pb = model.add_parameters(hidden_dim)
     self.pU = model.add_parameters((1, hidden_dim))
     self.curr_sent = None
-    self.serialize_params = [input_dim, state_dim, hidden_dim, model]
 
   def start_sent(self, sent):
     self.curr_sent = sent
@@ -53,3 +62,4 @@ class StandardAttender(Attender):
     attention = self.calc_attention(state)
     I = dy.concatenate_cols(self.curr_sent)
     return I * attention
+

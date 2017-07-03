@@ -6,6 +6,7 @@ import argparse
 from collections import OrderedDict
 import copy
 import random
+from serializer import Serializable
 
 class Option:
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
@@ -69,7 +70,7 @@ class OptionParser:
     option = self.tasks[task_name][option_name]
     if isinstance(value, RandomParam) or isinstance(value, RefParam):
       value.apply_type(option.type)
-    else:
+    elif not isinstance(value, Serializable):
       value = option.type(value)
 
     return value

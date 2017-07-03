@@ -7,6 +7,8 @@ import sys
 from options import OptionParser, Option
 from io import open
 import length_normalization
+from search_strategy import BeamSearch
+import dynet as dy
 
 '''
 This will be the main class to perform decoding.
@@ -32,9 +34,10 @@ NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
 def xnmt_decode(args, model_elements=None):
   """
   :param model_elements: If None, the model will be loaded from args.model_file. If set, should
-  equal (src_vocab, trg_vocab, translator).
+  equal (corpus_parser, translator).
   """
   if model_elements is None:
+    raise RuntimeError("xnmt_decode with model_element=None needs to be updated to run with the new YamlSerializer")
     model = dy.Model()
     model_serializer = JSONSerializer()
     model_params = model_serializer.load_from_file(args.model_file, model)
@@ -45,10 +48,7 @@ def xnmt_decode(args, model_elements=None):
     translator = DefaultTranslator(model_params.input_embedder, model_params.encoder, model_params.attender, model_params.output_embedder, model_params.decoder)
 
   else:
-    src_vocab, trg_vocab, translator = model_elements
-
-  input_reader = InputReader.create_input_reader(args.input_format, src_vocab)
-  input_reader.freeze()
+    corpus_parser, translator = model_elements
 
   if args.post_process=="none":
     output_generator = PlainTextOutput()
@@ -58,9 +58,9 @@ def xnmt_decode(args, model_elements=None):
     output_generator = JoinedBPETextOutput()
   else:
     raise RuntimeError("Unknown postprocessing argument {}".format(args.postprocess)) 
-  output_generator.load_vocab(trg_vocab)
+  output_generator.load_vocab(corpus_parser.trg_reader.vocab)
 
-  src_corpus = input_reader.read_file(args.src_file)
+  src_corpus = corpus_parser.src_reader.read_file(args.src_file)
   
   len_norm_type = getattr(length_normalization, args.len_norm_type)
   search_strategy=BeamSearch(b=args.beam, max_len=args.max_len, len_norm=len_norm_type(**args.len_norm_params))

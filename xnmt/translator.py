@@ -4,6 +4,7 @@ import dynet as dy
 from batcher import *
 from search_strategy import *
 from vocab import Vocab
+from serializer import Serializable, DependentInitParam
 
 class TrainTestInterface:
   """
@@ -57,10 +58,13 @@ class Translator(TrainTestInterface):
       Translator.set_train_recursive(sub_component, val)
 
 
-class DefaultTranslator(Translator):
+class DefaultTranslator(Translator, Serializable):
   '''
   A default translator based on attentional sequence-to-sequence models.
   '''
+  
+  yaml_tag = u'!DefaultTranslator'
+
 
   def __init__(self, input_embedder, encoder, attender, output_embedder, decoder):
     '''Constructor.
@@ -76,6 +80,20 @@ class DefaultTranslator(Translator):
     self.attender = attender
     self.output_embedder = output_embedder
     self.decoder = decoder
+  
+  def shared_params(self):
+    return [
+            set(["input_embedder.emb_dim", "encoder.input_dim"]),
+            set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]), # TODO: encoder.hidden_dim may not always exist (e.g. for CNN encoders), need to deal with that case
+            set(["attender.state_dim", "decoder.lstm_dim"]),
+            set(["output_embedder.emb_dim", "decoder.trg_embed_dim"]),
+            ]
+  def dependent_init_params(self):
+    return [
+            DependentInitParam(component_name="input_embedder", param_name="vocab_size", value_fct=lambda: len(self.context["corpus_parser"].src_reader.vocab)),
+            DependentInitParam(component_name="decoder", param_name="vocab_size", value_fct=lambda: len(self.context["corpus_parser"].trg_reader.vocab)),
+            DependentInitParam(component_name="output_embedder", param_name="vocab_size", value_fct=lambda: len(self.context["corpus_parser"].trg_reader.vocab)),
+            ]
 
   def get_train_test_components(self):
     return [self.encoder, self.decoder]

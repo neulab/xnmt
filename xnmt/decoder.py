@@ -3,6 +3,8 @@ from mlp import MLP
 import inspect
 from batcher import *
 from translator import TrainTestInterface
+from serializer import Serializable
+import model_globals
 
 class Decoder(TrainTestInterface):
   '''
@@ -29,12 +31,24 @@ class RnnDecoder(Decoder):
       raise RuntimeError("Unknown decoder type {}".format(spec))
 
 
-class MlpSoftmaxDecoder(RnnDecoder):
+class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
-  def __init__(self, layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, model, trg_embed_dim, dropout,
+
+  yaml_tag = u'!MlpSoftmaxDecoder'
+  
+  def __init__(self, layers, input_dim, lstm_dim, mlp_hidden_dim, vocab_size, trg_embed_dim, dropout=None,
                rnn_spec="lstm", residual_to_output=False):
+    self.layers = layers
+    self.lstm_dim = lstm_dim
+    self.mlp_hidden_dim = mlp_hidden_dim
+    self.vocab_size = vocab_size
+    self.trg_embed_dim = trg_embed_dim
+    self.rnn_spec = rnn_spec
+    self.residual_to_output = residual_to_output
+    model = model_globals.model
     self.input_dim = input_dim
+    if dropout is None: dropout = model_globals.dropout
     self.dropout = dropout
     self.fwd_lstm = RnnDecoder.rnn_from_spec(rnn_spec, layers, trg_embed_dim, lstm_dim, model, residual_to_output)
     self.mlp = MLP(input_dim + lstm_dim, mlp_hidden_dim, vocab_size, model)

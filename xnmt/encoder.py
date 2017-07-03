@@ -6,6 +6,9 @@ import conv_encoder
 from embedder import ExpressionSequence
 from translator import TrainTestInterface
 import inspect
+from serializer import Serializable
+import model_globals
+import yaml
 
 class Encoder(TrainTestInterface):
   """
@@ -48,15 +51,22 @@ class BuilderEncoder(Encoder):
   def transduce(self, sent):
     return self.builder.transduce(sent)
 
-class BiLSTMEncoder(BuilderEncoder):
-  def __init__(self, model, global_train_params, input_dim=512, layers=1, hidden_dim=None, dropout=None):
-    if hidden_dim is None: hidden_dim = global_train_params.get("default_layer_dim", 512)
-    if dropout is None: dropout = global_train_params.get("dropout", 0.0)
+class BiLSTMEncoder(BuilderEncoder, Serializable):
+  yaml_tag = u'!BiLSTMEncoder'
+
+  def __init__(self, input_dim=None, layers=1, hidden_dim=None, dropout=None):
+    model = model_globals.model
+    if input_dim is None: input_dim = model_globals.default_layer_dim
+    if hidden_dim is None: hidden_dim = model_globals.default_layer_dim
+    if dropout is None: dropout = model_globals.dropout
+    self.input_dim = input_dim
+    self.layers = layers
+    self.hidden_dim = hidden_dim
     self.dropout = dropout
     self.builder = dy.BiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder)
-    self.serialize_params = [model, global_train_params, input_dim, layers, hidden_dim, dropout]
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
+
 
 class ResidualLSTMEncoder(BuilderEncoder):
   def __init__(self, model, global_train_params, input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None):
