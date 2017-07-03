@@ -4,7 +4,7 @@ import dynet as dy
 from batcher import *
 from search_strategy import *
 from vocab import Vocab
-from yaml_serializer import Serializable, PostInitSharedParam
+from yaml_serializer import Serializable, DependentInitParam
 
 class TrainTestInterface:
   """
@@ -88,11 +88,11 @@ class DefaultTranslator(Translator, Serializable):
             set(["attender.state_dim", "decoder.lstm_dim"]),
             set(["output_embedder.emb_dim", "decoder.trg_embed_dim"]),
             ]
-  def shared_params_post_init(self):
+  def dependent_init_params(self):
     return [
-            PostInitSharedParam(model="input_embedder", param="vocab_size", value=lambda: len(self.context["corpus_parser"].src_reader.vocab)),
-            PostInitSharedParam(model="decoder", param="vocab_size", value=lambda: len(self.context["corpus_parser"].trg_reader.vocab)),
-            PostInitSharedParam(model="output_embedder", param="vocab_size", value=lambda: len(self.context["corpus_parser"].trg_reader.vocab)),
+            DependentInitParam(component_name="input_embedder", param_name="vocab_size", value_fct=lambda: len(self.context["corpus_parser"].src_reader.vocab)),
+            DependentInitParam(component_name="decoder", param_name="vocab_size", value_fct=lambda: len(self.context["corpus_parser"].trg_reader.vocab)),
+            DependentInitParam(component_name="output_embedder", param_name="vocab_size", value_fct=lambda: len(self.context["corpus_parser"].trg_reader.vocab)),
             ]
 
   def get_train_test_components(self):
