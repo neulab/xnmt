@@ -1,4 +1,3 @@
-# TODO: This config file is in the old format. We need to make it match debug.yaml
 # This config file replicates the Listen-Attend-Spell architecture: https://arxiv.org/pdf/1508.01211.pdf
 # Compared to the conventional attentional model, we remove input embeddings, instead directly read in a feature vector
 # the pyramidal LSTM reduces length of the input sequence by a factor of 2 per layer (except for the first layer).
