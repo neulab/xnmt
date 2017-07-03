@@ -8,6 +8,8 @@ from search_strategy import *
 from options import OptionParser, Option
 from io import open
 import length_normalization
+from search_strategy import BeamSearch
+import dynet as dy
 
 '''
 This will be the main class to perform decoding.
