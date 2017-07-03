@@ -29,14 +29,14 @@ class YamlSerializer(object):
   def __init__(self):
     self.representers_added = False
   
-  def create_model(self, deserialized_yaml_model):
+  def initialize_object(self, deserialized_yaml):
     """
     :param obj: deserialized YAML object (classes are resolved and class members set, but __init__() has not been called at this point)
-    :returns: models, with properly shared parameters and __init__() having been invoked 
+    :returns: the appropriate object, with properly shared parameters and __init__() having been invoked 
     """
-    self.set_serialize_params_recursive(deserialized_yaml_model)
-    self.share_init_params_top_down(deserialized_yaml_model)
-    return self.init_components_bottom_up(deserialized_yaml_model, deserialized_yaml_model.shared_params_post_init())
+    self.set_serialize_params_recursive(deserialized_yaml)
+    self.share_init_params_top_down(deserialized_yaml)
+    return self.init_components_bottom_up(deserialized_yaml, deserialized_yaml.shared_params_post_init())
     
   def set_serialize_params_recursive(self, obj):
     base_arg_names = map(lambda x: x[0], inspect.getmembers(yaml.YAMLObject))
@@ -105,7 +105,6 @@ class YamlSerializer(object):
     for p in post_init_shared_params:
       if p.model == "." and p.param not in init_params:
         init_params[p.param] = p.value()
-    print(type(obj))
     initialized_obj = obj.__class__(**init_params)
     if not hasattr(initialized_obj, "serialize_params"):
       initialized_obj.serialize_params = serialize_params
@@ -132,9 +131,10 @@ class YamlSerializer(object):
   def load_from_file(self, fname, param):
     with open(fname, 'r') as f:
       dict_spec = yaml.load(f)
-      mod = self.create_model(dict_spec)
+      corpus_parser = self.initialize_object(dict_spec.corpus_parser)
+      model = self.initialize_object(dict_spec.model)
     param.populate(fname + '.data')
-    return mod
+    return corpus_parser, model
     
 class PostInitSharedParam(object):
   def __init__(self, model, param, value):
