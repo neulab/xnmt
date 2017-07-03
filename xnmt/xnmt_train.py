@@ -128,13 +128,13 @@ class XnmtTrainer:
     self.total_train_sent = len(self.training_corpus.train_src_data)
 
   def create_model(self):
+    context={"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
     if self.args.pretrained_model_file:
-      self.corpus_parser, self.model = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.model)
+      self.corpus_parser, self.model = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.model, context=context)
     else:
       model_globals.default_layer_dim = self.args.default_layer_dim
-      model_globals.model = model_globals.model
       model_globals.dropout = self.args.dropout
-      self.model = self.model_serializer.initialize_object(self.args.model)
+      self.model = self.model_serializer.initialize_object(self.args.model, context)
     print self.model_serializer.dump(self.model)
 
     # Read in training and dev corpora

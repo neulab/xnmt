@@ -88,6 +88,7 @@ class PlainTextReader(InputReader, Serializable):
   def freeze(self):
     self.vocab.freeze()
     self.vocab.set_unk(Vocab.UNK_STR)
+    self.serialize_params["vocab"] = self.vocab
 
     
 class ContVecReader(InputReader, Serializable):

@@ -1,4 +1,4 @@
-from yaml_serializer import Serializable, PostInitSharedParam
+from yaml_serializer import Serializable
 
 class ModelParams(Serializable):
   """

@@ -4,7 +4,7 @@ import dynet as dy
 from batcher import *
 from search_strategy import *
 from vocab import Vocab
-from yaml_serializer import Serializable
+from yaml_serializer import Serializable, PostInitSharedParam
 
 class TrainTestInterface:
   """
@@ -87,6 +87,12 @@ class DefaultTranslator(Translator, Serializable):
             set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]), # TODO: encoder.hidden_dim may not always exist (e.g. for CNN encoders), need to deal with that case
             set(["attender.state_dim", "decoder.lstm_dim"]),
             set(["output_embedder.emb_dim", "decoder.trg_embed_dim"]),
+            ]
+  def shared_params_post_init(self):
+    return [
+            PostInitSharedParam(model="input_embedder", param="vocab_size", value=lambda: len(self.context["corpus_parser"].src_reader.vocab)),
+            PostInitSharedParam(model="decoder", param="vocab_size", value=lambda: len(self.context["corpus_parser"].trg_reader.vocab)),
+            PostInitSharedParam(model="output_embedder", param="vocab_size", value=lambda: len(self.context["corpus_parser"].trg_reader.vocab)),
             ]
 
   def get_train_test_components(self):
