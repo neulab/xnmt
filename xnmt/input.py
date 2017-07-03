@@ -46,7 +46,7 @@ class ArrayInput(Input):
     return self.nparr.__getitem__(key)
   def get_padded_sent(self, token, pad_len):
     if pad_len>0:
-      self.nparr = np.append(self.nparr, np.repeat(token.reshape(1,len(token)), pad_len, axis=0), axis=0)
+      self.nparr = np.append(self.nparr, np.zeros((pad_len, self.nparr.shape[1])), axis=0)
     return self
   def get_array(self):
     return self.nparr

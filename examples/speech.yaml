@@ -28,7 +28,7 @@ defaults:
         layers: 1
         downsampling_method: skip
         input_dim: 240
-        hidden_dim: 63
+        hidden_dim: 64
       attender: !StandardAttender
         state_dim: 64
         hidden_dim: 64
