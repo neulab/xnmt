@@ -1,4 +1,4 @@
-from serializer import Serializable, PostInitSharedParam
+from serializer import Serializable
 
 class BilingualTrainingCorpus(Serializable):
   """
