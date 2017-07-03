@@ -1,6 +1,6 @@
 import dynet as dy
 from batcher import *
-from yaml_serializer import *
+from serializer import *
 import model_globals
 
 

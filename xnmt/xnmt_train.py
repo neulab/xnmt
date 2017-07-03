@@ -15,11 +15,11 @@ from model_params import *
 from training_corpus import *
 from loss_tracker import *
 from serializer import *
-from yaml_serializer import *
+from serializer import *
 from preproc import SentenceFilterer
 from options import Option, OptionParser, general_options
 import model_globals
-import yaml_serializer
+import serializer
 
 '''
 This will be the main class to perform training.
@@ -91,7 +91,7 @@ class XnmtTrainer:
     self.early_stopping_reached = False
 
     # Initialize the serializer
-    self.model_serializer = yaml_serializer.YamlSerializer()
+    self.model_serializer = serializer.YamlSerializer()
 
     # Read the training corpus
     self.create_corpus()

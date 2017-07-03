@@ -1,4 +1,4 @@
-from yaml_serializer import Serializable, PostInitSharedParam
+from serializer import Serializable, PostInitSharedParam
 
 class BilingualTrainingCorpus(Serializable):
   """

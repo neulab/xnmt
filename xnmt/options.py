@@ -6,7 +6,7 @@ import argparse
 from collections import OrderedDict
 import copy
 import random
-from yaml_serializer import Serializable
+from serializer import Serializable
 
 class Option:
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):

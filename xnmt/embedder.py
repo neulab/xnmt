@@ -2,7 +2,7 @@ from __future__ import division, generators
 
 from batcher import *
 import dynet as dy
-from yaml_serializer import Serializable
+from serializer import Serializable
 import model_globals
 import yaml
 

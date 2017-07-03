@@ -4,7 +4,7 @@ import dynet as dy
 from batcher import *
 from search_strategy import *
 from vocab import Vocab
-from yaml_serializer import Serializable, DependentInitParam
+from serializer import Serializable, DependentInitParam
 
 class TrainTestInterface:
   """
