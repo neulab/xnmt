@@ -54,7 +54,6 @@ class Vocab(Serializable):
     return vocab
 
   def convert(self, w):
-    assert isinstance(w, unicode)
     if w not in self.w2i:
       if self.frozen:
         assert self.unk_token != None, 'Attempt to convert an OOV in a frozen vocabulary with no UNK token set'

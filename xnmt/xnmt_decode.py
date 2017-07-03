@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import codecs
 from output import *
 from serializer import *
 import codecs
@@ -69,7 +70,7 @@ def xnmt_decode(args, model_elements=None):
   # Perform decoding
 
   translator.set_train(False)
-  with open(args.trg_file, 'wb') as fp:  # Saving the translated output to a trg file
+  with codecs.open(args.trg_file, 'wb', encoding='utf-8') as fp:  # Saving the translated output to a trg file
     for src in src_corpus:
       if args.max_src_len is not None and len(src) > args.max_src_len:
         trg_sent = NO_DECODING_ATTEMPTED
@@ -78,9 +79,7 @@ def xnmt_decode(args, model_elements=None):
         token_string = translator.translate(src, search_strategy)
         trg_sent = output_generator.process(token_string)[0]
 
-      assert isinstance(trg_sent, unicode), "Expected unicode as translator output, got %s" % type(trg_sent)
-      trg_sent = trg_sent.encode('utf-8', errors='ignore')
-
+      #assert isinstance(trg_sent, unicode), "Expected unicode as translator output, got %s" % type(trg_sent)
       fp.write(trg_sent + '\n')
 
 
