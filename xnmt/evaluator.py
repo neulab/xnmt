@@ -1,7 +1,7 @@
 from __future__ import division, generators
 import numpy as np
 from collections import defaultdict, Counter
-from builtins import range, map
+from six.moves.builtins import range, map
 import math
 
 class Evaluator(object):
