@@ -1,7 +1,11 @@
-class Vocab:
+from serializer import Serializable
+
+class Vocab(Serializable):
   '''
   Converts between strings and integer ids
   '''
+  
+  yaml_tag = "!Vocab"
 
   SS = 0
   ES = 1
@@ -32,6 +36,7 @@ class Vocab:
     self.w2i[self.ES_STR] = self.ES
     self.i2w.append(self.SS_STR)
     self.i2w.append(self.ES_STR)
+    self.serialize_params = {"i2w" : self.i2w}
 
   @staticmethod
   def i2w_from_vocab_file(vocab_file):

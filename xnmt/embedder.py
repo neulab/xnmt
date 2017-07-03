@@ -2,6 +2,9 @@ from __future__ import division, generators
 
 from batcher import *
 import dynet as dy
+from serializer import Serializable
+import model_globals
+import yaml
 
 class Embedder:
   """
@@ -88,16 +91,18 @@ class ExpressionSequence():
       self.expr_tensor = dy.concatenate(list(map(lambda x:dy.transpose(x), self)))
     return self.expr_tensor
       
-class SimpleWordEmbedder(Embedder):
+class SimpleWordEmbedder(Embedder, Serializable):
   """
   Simple word embeddings via lookup.
   """
 
-  def __init__(self, vocab_size, emb_dim, model):
+  yaml_tag = u'!SimpleWordEmbedder'
+
+  def __init__(self, vocab_size, emb_dim):
     self.vocab_size = vocab_size
     self.emb_dim = emb_dim
+    model = model_globals.model
     self.embeddings = model.add_lookup_parameters((vocab_size, emb_dim))
-    self.serialize_params = [vocab_size, emb_dim, model]
 
   def embed(self, x):
     # single mode
@@ -119,7 +124,7 @@ class SimpleWordEmbedder(Embedder):
 
     return ExpressionSequence(expr_list=embeddings)
 
-class NoopEmbedder(Embedder):
+class NoopEmbedder(Embedder, Serializable):
   """
   This embedder performs no lookups but only passes through the inputs.
   
@@ -129,9 +134,10 @@ class NoopEmbedder(Embedder):
   This is useful e.g. to stack several encoders, where the second encoder performs no
   lookups.
   """
+
+  yaml_tag = u'!NoopEmbedder'
   def __init__(self, emb_dim, model):
     self.emb_dim = emb_dim
-    self.serialize_params = [emb_dim, model]
 
   def embed(self, x):
     if isinstance(x, dy.Expression): return x

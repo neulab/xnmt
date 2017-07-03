@@ -1,3 +1,4 @@
+# TODO: This config file is in the old format. We need to make it match debug.yaml
 # Demonstrates random search over model parameters
 defaults:
   experiment:
