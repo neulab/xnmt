@@ -12,6 +12,7 @@ from encoder import *
 from decoder import *
 from translator import *
 from model_params import *
+from training_corpus import *
 from loss_tracker import *
 from serializer import *
 from yaml_serializer import *
@@ -30,6 +31,8 @@ options = [
   Option("eval_every", int, default_value=10000, force_flag=True),
   Option("batch_size", int, default_value=32, force_flag=True),
   Option("batch_strategy", default_value="src"),
+  Option("training_corpus"),
+  Option("corpus_parser"),
 #  Option("train_src"),
 #  Option("train_trg"),
 #  Option("dev_src"),
@@ -87,6 +90,9 @@ class XnmtTrainer:
     self.learning_scale = 1.0
     self.early_stopping_reached = False
 
+    # Read the training corpus
+    self.create_corpus()
+
     # Create the model serializer
     self.create_model()
     # single mode
@@ -94,9 +100,9 @@ class XnmtTrainer:
       print('Start training in non-minibatch mode...')
       self.logger = NonBatchLossTracker(args.eval_every, self.total_train_sent)
       self.train_src, self.train_trg = \
-          self.model_params.src_reader.train_sents, self.model_params.src_reader.train_sents
+          self.training_corpus.train_src_data, self.training_corpus.train_trg_data
       self.dev_src, self.dev_trg = \
-          self.model_params.src_reader.dev_sents, self.model_params.src_reader.dev_sents
+          self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data
 
     # minibatch mode
     else:
@@ -106,10 +112,16 @@ class XnmtTrainer:
         assert self.train_src[0].nparr.shape[1] == self.src_embedder.emb_dim, "input embed dim is different size than expected"
         self.batcher.pad_token = np.zeros(self.src_embedder.emb_dim)
       self.train_src, self.train_trg = \
-          self.batcher.pack(self.model_params.src_reader.train_sents, self.model_params.src_reader.train_sents)
+          self.batcher.pack(self.training_corpus.train_src_data, self.training_corpus.train_trg_data)
       self.dev_src, self.dev_trg = \
-          self.batcher.pack(self.model_params.src_reader.dev_sents, self.model_params.src_reader.dev_sents)
+          self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
       self.logger = BatchLossTracker(args.eval_every, self.total_train_sent)
+
+  def create_corpus(self):
+    self.corpus_parser = self.args.corpus_parser
+    self.training_corpus = self.args.training_corpus
+    self.corpus_parser.read_training_corpus(self.training_corpus)
+    self.total_train_sent = len(self.training_corpus.train_src_data)
 
   def create_model(self):
 
@@ -117,11 +129,10 @@ class XnmtTrainer:
 
     if self.args.pretrained_model_file:
       self.model_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.model)
-      self.src_reader = self.model_params.src_reader
-      self.trg_reader = self.model_params.trg_reader
+      self.corpus_parser = self.model_params.corpus_parser
       self.translator = self.model_params.translator
-      self.src_reader.freeze()
-      self.trg_reader.freeze()
+      self.corpus_parser.src_reader.freeze()
+      self.corpus_parser.trg_reader.freeze()
       self.read_data()
       return
 
@@ -181,9 +192,8 @@ class XnmtTrainer:
 #    self.model_params = ModelParams(self.translator,
 #                                    self.src_reader,
 #                                    self.trg_reader)
-    self.model_params = self.model_serializer.create_model(self.args.model)
-    self.total_train_sent = len(self.model_params.src_reader.train_sents)
-    print self.model_serializer.dump(self.model_params)
+    self.translator = self.model_serializer.create_model(self.args.model)
+    print self.model_serializer.dump(self.translator)
 
 
 #  def read_data(self):
@@ -221,12 +231,12 @@ class XnmtTrainer:
   def run_epoch(self):
     self.logger.new_epoch()
 
-    self.model_params.translator.set_train(True)
+    self.translator.set_train(True)
     for batch_num, (src, trg) in enumerate(zip(self.train_src, self.train_trg)):
 
       # Loss calculation
       dy.renew_cg()
-      loss = self.model_params.translator.calc_loss(src, trg)
+      loss = self.translator.calc_loss(src, trg)
       self.logger.update_epoch_loss(src, trg, loss.value())
 
       loss.backward()
@@ -236,16 +246,16 @@ class XnmtTrainer:
       # Devel reporting
       self.logger.report_train_process()
       if self.logger.should_report_dev():
-        self.model_params.translator.set_train(False)
+        self.translator.set_train(False)
         self.logger.new_dev()
         for src, trg in zip(self.dev_src, self.dev_trg):
           dy.renew_cg()
-          loss = self.model_params.translator.calc_loss(src, trg).value()
+          loss = self.translator.calc_loss(src, trg).value()
           self.logger.update_dev_loss(trg, loss)
 
         # Write out the model if it's the best one
         if self.logger.report_dev_and_check_model(self.args.model_file):
-          self.model_serializer.save_to_file(self.args.model_file, self.model_params, model_globals.model)
+          self.model_serializer.save_to_file(self.args.model_file, ModelParams(self.corpus_parser, self.translator), model_globals.model)
         else:
           # otherwise: learning rate decay / early stopping
           if self.args.lr_decay < 1.0:
@@ -256,7 +266,7 @@ class XnmtTrainer:
             self.early_stopping_reached = True
             
         self.trainer.update_epoch()
-        self.model_params.translator.set_train(True)
+        self.translator.set_train(True)
 
     return math.exp(self.logger.epoch_loss / self.logger.epoch_words), \
            math.exp(self.logger.dev_loss / self.logger.dev_words)

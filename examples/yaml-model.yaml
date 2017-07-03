@@ -9,39 +9,36 @@ defaults:
     decode_every: 1
     eval_metrics: bleu,wer
   train:
-#    train_src: examples/data/head.ja
-#    train_trg: examples/data/head.en
-#    dev_src: examples/data/head.ja
-#    dev_trg: examples/data/head.en
     default_layer_dim: 64
     dropout: 0.5
-    model: !ModelParams
+    training_corpus: !BilingualTrainingCorpus
+      train_src: examples/data/head.ja
+      train_trg: examples/data/head.en
+      dev_src: examples/data/head.ja
+      dev_trg: examples/data/head.en
+    corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader
-        train_data: examples/data/head.ja
-        dev_data: examples/data/head.ja
         vocab: !!python/none
       trg_reader: !PlainTextReader
-        train_data: examples/data/head.en
-        dev_data: examples/data/head.en
         vocab: !!python/none
-      translator: !DefaultTranslator
-          input_embedder: !SimpleWordEmbedder
-#           vocab_size: 100  # TODO: need to set implicitly
-            emb_dim: 64
-          encoder: !BiLSTMEncoder
-            layers: 1
-            input_dim: 64
-          attender: !StandardAttender
-            state_dim: 64
-            hidden_dim: 64
-            input_dim: 64
-          output_embedder: !SimpleWordEmbedder
-#           vocab_size: 100  # TODO: need to set implicitly
-            emb_dim: 64
-          decoder: !MlpSoftmaxDecoder
-            layers: 1
-            mlp_hidden_dim: 64
-#           vocab_size: 100
+    model: !DefaultTranslator
+      input_embedder: !SimpleWordEmbedder
+        vocab_size: 100
+        emb_dim: 64
+      encoder: !BiLSTMEncoder
+        layers: 1
+        input_dim: 64
+      attender: !StandardAttender
+        state_dim: 64
+        hidden_dim: 64
+        input_dim: 64
+      output_embedder: !SimpleWordEmbedder
+        vocab_size: 100
+        emb_dim: 64
+      decoder: !MlpSoftmaxDecoder
+        layers: 1
+        vocab_size: 100
+        mlp_hidden_dim: 64
   decode:
     src_file: examples/data/head.ja
   evaluate:

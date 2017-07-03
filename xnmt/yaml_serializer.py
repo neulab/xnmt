@@ -105,6 +105,7 @@ class YamlSerializer(object):
     for p in post_init_shared_params:
       if p.model == "." and p.param not in init_params:
         init_params[p.param] = p.value()
+    print(type(obj))
     initialized_obj = obj.__class__(**init_params)
     if not hasattr(initialized_obj, "serialize_params"):
       initialized_obj.serialize_params = serialize_params
