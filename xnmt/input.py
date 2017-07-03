@@ -1,6 +1,7 @@
 import numpy as np
 import itertools
 import os
+import codecs
 from collections import defaultdict
 from six.moves import zip
 from serializer import Serializable
@@ -75,9 +76,9 @@ class PlainTextReader(InputReader, Serializable):
     if self.vocab is None:
       self.vocab = Vocab()
     sents = []
-    with open(filename) as f:
+    with codecs.open(filename, encoding='utf-8') as f:
       for line in f:
-        words = line.decode('utf-8').strip().split()
+        words = line.strip().split()
         sent = [self.vocab.convert(word) for word in words]
         sent.append(self.vocab.convert(Vocab.ES_STR))
         sents.append(SimpleSentenceInput(sent))

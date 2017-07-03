@@ -50,7 +50,8 @@ class YamlSerializer(object):
       if isinstance(val, Serializable):
         obj.serialize_params[name] = val
         self.set_serialize_params_recursive(val)
-      elif type(val) in [type(None), bool, int, float, str, unicode, datetime.datetime, list, dict, set]:
+      elif type(val) in [type(None), bool, int, float, str, datetime.datetime, list, dict, set] or \
+           sys.version_info[0] == 2 and type(val) == unicode:
         obj.serialize_params[name] = val
       else:
         continue
@@ -82,7 +83,7 @@ class YamlSerializer(object):
       if cur_val:
         if val is None: val = cur_val
         elif cur_val != val:
-          print "WARNING: inconsistent shared params %s" % str(shared_params)
+          print("WARNING: inconsistent shared params %s" % str(shared_params))
           return None
     return val
   def resolve_param_name(self, obj, param_descr):

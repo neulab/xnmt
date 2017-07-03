@@ -1,5 +1,6 @@
 import argparse
 import sys
+import codecs
 from evaluator import BLEUEvaluator, WEREvaluator, CEREvaluator
 from options import Option, OptionParser
 from xnmt_decode import NO_DECODING_ATTEMPTED
@@ -16,9 +17,9 @@ def read_data(loc_):
     """Reads the lines in the file specified in loc_ and return the list after inserting the tokens
     """
     data = list()
-    with open(loc_) as fp:
+    with codecs.open(loc_, encoding="utf-8") as fp:
         for line in fp:
-            t = line.decode('utf-8').split()
+            t = line.split()
             data.append(t)
     return data
 
