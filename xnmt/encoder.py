@@ -90,12 +90,11 @@ class ResidualBiLSTMEncoder(BuilderEncoder):
 
 class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = "!PyramidalLSTMEncoder"
-  def __init__(self, model, global_train_params, input_dim=512, layers=1, hidden_dim=None, downsampling_method="skip", dropout=None):
-    if hidden_dim is None: hidden_dim = global_train_params.get("default_layer_dim", 512)
-    if dropout is None: dropout = global_train_params.get("dropout", 0.0)
+  def __init__(self, input_dim=512, layers=1, hidden_dim=None, downsampling_method="skip", dropout=None):
+    if hidden_dim is None: hidden_dim = model_globals.default_layer_dim
+    if dropout is None: dropout = model_globals.dropout
     self.dropout = dropout
-    self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, downsampling_method)
-    self.serialize_params = [model, global_train_params, input_dim, layers, hidden_dim, downsampling_method, dropout]
+    self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim, model_globals.model, dy.VanillaLSTMBuilder, downsampling_method)
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 

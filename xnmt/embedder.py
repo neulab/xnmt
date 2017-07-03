@@ -136,7 +136,7 @@ class NoopEmbedder(Embedder, Serializable):
   """
 
   yaml_tag = u'!NoopEmbedder'
-  def __init__(self, emb_dim, model):
+  def __init__(self, emb_dim):
     self.emb_dim = emb_dim
 
   def embed(self, x):
