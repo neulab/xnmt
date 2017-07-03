@@ -69,7 +69,6 @@ class YamlSerializer(object):
         for param_descr in shared_params:
           param_obj, param_name = self.resolve_param_name(obj, param_descr)
           param_obj.init_params[param_name] = val
-    
     for _, val in inspect.getmembers(obj):
       if isinstance(val, Serializable):
         self.share_init_params_top_down(val)
@@ -107,6 +106,7 @@ class YamlSerializer(object):
     for p in post_init_shared_params:
       if p.component_name == "." and p.param_name not in init_params:
         init_params[p.param_name] = p.value_fct()
+    init_params = {key:val for key,val in init_params.items() if key in init_args}
     initialized_obj = obj.__class__(**init_params)
     if not hasattr(initialized_obj, "serialize_params"):
       initialized_obj.serialize_params = serialize_params
