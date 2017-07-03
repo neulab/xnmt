@@ -89,6 +89,9 @@ class PlainTextReader(InputReader, Serializable):
     self.vocab.freeze()
     self.vocab.set_unk(Vocab.UNK_STR)
     self.serialize_params["vocab"] = self.vocab
+  
+  def vocab_size(self):
+    return len(self.vocab)
 
     
 class ContVecReader(InputReader, Serializable):
@@ -112,6 +115,9 @@ class ContVecReader(InputReader, Serializable):
     sents = map(lambda f:ArrayInput(npzFile[f]), npzKeys)
     npzFile.close()
     return sents
+
+  def vocab_size(self):
+    return None
 
 ###### CorpusParser
 

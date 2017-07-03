@@ -4,6 +4,7 @@ from output import *
 from serializer import *
 import codecs
 import sys
+from search_strategy import *
 from options import OptionParser, Option
 from io import open
 import length_normalization

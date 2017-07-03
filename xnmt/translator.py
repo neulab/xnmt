@@ -90,9 +90,9 @@ class DefaultTranslator(Translator, Serializable):
             ]
   def shared_params_post_init(self):
     return [
-            PostInitSharedParam(model="input_embedder", param="vocab_size", value=lambda: len(self.context["corpus_parser"].src_reader.vocab)),
-            PostInitSharedParam(model="decoder", param="vocab_size", value=lambda: len(self.context["corpus_parser"].trg_reader.vocab)),
-            PostInitSharedParam(model="output_embedder", param="vocab_size", value=lambda: len(self.context["corpus_parser"].trg_reader.vocab)),
+            PostInitSharedParam(model="input_embedder", param="vocab_size", value=lambda: self.context["corpus_parser"].src_reader.vocab_size()),
+            PostInitSharedParam(model="decoder", param="vocab_size", value=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
+            PostInitSharedParam(model="output_embedder", param="vocab_size", value=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
             ]
 
   def get_train_test_components(self):

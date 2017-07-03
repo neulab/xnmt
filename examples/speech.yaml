@@ -13,33 +13,35 @@ defaults:
     decode_every: 1
     eval_metrics: cer,wer
   train:
-    train_src: examples/data/synth.contvec.npz
-    train_trg: examples/data/synth.char
-    dev_src: examples/data/synth.contvec.npz
-    dev_trg: examples/data/synth.char
-    # choose pyramidal LSTM encoder:
-    encoder:
-      type: PyramidalBiLSTM
-      downsampling_method: skip
-    # indicate the dimension of the feature vectors:
-    input_word_embed_dim: 240
-    # indicates that the src-side data is continuous-space vectors, contained in a numpy archive (see input.py for details):
-    input_format: contvec
+    training_corpus: !BilingualTrainingCorpus
+      train_src: examples/data/synth.contvec.npz
+      train_trg: examples/data/synth.char
+      dev_src: examples/data/synth.contvec.npz
+      dev_trg: examples/data/synth.char
+    corpus_parser: !BilingualCorpusParser
+      src_reader: !ContVecReader {}
+      trg_reader: !PlainTextReader {}
+    model: !DefaultTranslator
+      input_embedder: !NoopEmbedder
+        emb_dim: 240
+      encoder: !PyramidalLSTMEncoder
+        layers: 1
+        downsampling_method: skip
+        input_dim: 240
+        hidden_dim: 63
+      attender: !StandardAttender
+        state_dim: 64
+        hidden_dim: 64
+        input_dim: 64
+      output_embedder: !SimpleWordEmbedder
+        emb_dim: 64
+      decoder: !MlpSoftmaxDecoder
+        layers: 1
+        mlp_hidden_dim: 64
   decode:
     src_file: examples/data/synth.contvec.npz
-    input_format: contvec
   evaluate:
     ref_file: examples/data/synth.char
 
-speech:
-  train:
-    encoder:
-      layers: 3
-      hidden_dim: 64
-      downsampling_method: concat
-    output_word_embed_dim: 64
-    output_state_dim: 64
-    attender_hidden_dim: 64
-    output_mlp_hidden_dim: 64
-    attention_context_dim: 64
+speech-2layers:
 
