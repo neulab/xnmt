@@ -4,7 +4,7 @@ import dynet as dy
 from batcher import *
 from search_strategy import *
 from vocab import Vocab
-from serializer import Serializable, DependentInitParam, bare_component
+from serializer import Serializable, DependentInitParam
 from train_test_interface import TrainTestInterface
 from embedder import SimpleWordEmbedder
 from decoder import MlpSoftmaxDecoder

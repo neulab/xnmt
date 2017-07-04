@@ -6,6 +6,7 @@ import argparse
 from collections import OrderedDict
 import copy
 import random
+import inspect
 from serializer import Serializable
 
 class Option:
@@ -40,8 +41,6 @@ class RandomParam(yaml.YAMLObject):
             self.__class__.__name__, self.values)
   def draw_value(self):
     return random.choice(self.values)
-  def apply_type(self, wanted_type):
-    self.values = [wanted_type(v) for v in self.values]
 
 class RefParam(yaml.YAMLObject):
   yaml_tag = u'!RefParam'
@@ -50,10 +49,6 @@ class RefParam(yaml.YAMLObject):
   def __repr__(self):
     return "%s(ref=%r)" % (
             self.__class__.__name__, self.ref)
-  def apply_type(self, wanted_type):
-    self.wanted_type = wanted_type
-  def get_typed(self, val):
-    return self.wanted_type(val)
 
 class OptionParser:
   def __init__(self):
@@ -68,9 +63,7 @@ class OptionParser:
       raise RuntimeError("Unknown option {} for task {}".format(option_name, task_name))
 
     option = self.tasks[task_name][option_name]
-    if isinstance(value, RandomParam) or isinstance(value, RefParam):
-      value.apply_type(option.type)
-    elif not isinstance(value, Serializable):
+    if not (isinstance(value, RandomParam) or isinstance(value, RefParam) or isinstance(value, Serializable)):
       value = option.type(value)
 
     return value
@@ -134,25 +127,46 @@ class OptionParser:
   
   def instantiate_random_search(self, task_values):
     param_report = {}
-    for k in task_values.keys():
-      if isinstance(task_values[k], RandomParam):
-        task_values[k] = task_values[k].draw_value()
-        param_report[k] = task_values[k]
-      elif type(task_values[k]) == dict:
-        sub_report = self.instantiate_random_search(task_values[k])
+    if isinstance(task_values, dict): kvs = task_values.items()
+    elif isinstance(task_values, Serializable):
+      init_args, _, _, _ = inspect.getargspec(task_values.__init__)
+      kvs = [(key, getattr(task_values, key)) for key in init_args if hasattr(task_values, key)]
+    for k, v in kvs:
+      if isinstance(v, RandomParam):
+        v = v.draw_value()
+        if isinstance(task_values, dict):
+          task_values[k] = v
+        else:
+          setattr(task_values, k, v)
+        param_report[k] = v
+      elif isinstance(v, dict) or isinstance(v, Serializable):
+        sub_report = self.instantiate_random_search(v)
         if sub_report:
           param_report[k] = sub_report
     return param_report
+  
   def resolve_referenced_params(self, cur_task_values, top_task_values):
-    for k in cur_task_values.keys():
-      if isinstance(cur_task_values[k], RefParam):
-        ref_str_spl = cur_task_values[k].ref.split(".")
+    if isinstance(cur_task_values, dict): kvs = cur_task_values.items()
+    elif isinstance(cur_task_values, Serializable):
+      init_args, _, _, _ = inspect.getargspec(cur_task_values.__init__)
+      kvs = [(key, getattr(cur_task_values, key)) for key in init_args if hasattr(cur_task_values, key)]
+    else:
+      raise RuntimeError()
+    for k, v in kvs:
+      if isinstance(v, RefParam):
+        ref_str_spl = v.ref.split(".")
         resolved = top_task_values
         for ref_str in ref_str_spl:
-          resolved = resolved[ref_str]
-        cur_task_values[k] = cur_task_values[k].get_typed(resolved)
-      elif type(cur_task_values[k]) == dict:
-        self.resolve_referenced_params(cur_task_values[k], top_task_values)
+          if isinstance(resolved, dict):
+            resolved = resolved[ref_str]
+          else:
+            resolved = getattr(resolved, ref_str)
+        if isinstance(cur_task_values, dict):
+          cur_task_values[k] = resolved
+        elif isinstance(cur_task_values, Serializable):
+          setattr(cur_task_values, k, resolved)
+      elif isinstance(v, dict) or isinstance(v, Serializable):
+        self.resolve_referenced_params(v, top_task_values)
     
 
   def args_from_command_line(self, task, argv):

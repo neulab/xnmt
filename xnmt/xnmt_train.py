@@ -136,7 +136,6 @@ class XnmtTrainer:
       model_globals.default_layer_dim = self.args.default_layer_dim
       model_globals.dropout = self.args.dropout
       self.model = self.model_serializer.initialize_object(self.args.model, context)
-    print(self.model_serializer.dump(self.model))
 
     # Read in training and dev corpora
 #    src_vocab, trg_vocab = None, None

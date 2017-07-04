@@ -84,6 +84,7 @@ class YamlSerializer(object):
     val = None
     for param_descr in shared_params:
       param_obj, param_name = self.resolve_param_name(obj, param_descr)
+      if not isinstance(param_obj, Serializable): raise RuntimeError("attempting parameter sharing for the non-Serializable object %s of type %s, for parent object %s" % (str(param_obj), type(param_obj), str(obj)))
       init_args, _, _, _ = inspect.getargspec(param_obj.__init__)
       if param_name not in init_args: cur_val = None
       else: cur_val = param_obj.init_params.get(param_name, None)
@@ -131,6 +132,7 @@ class YamlSerializer(object):
           init_params[p.param_name()] = p.value_fct()
     try:
       initialized_obj = obj.__class__(**init_params)
+      print("initialized %s(%s)" % (obj.__class__.__name__, init_params))
     except TypeError as e:
       raise ComponentInitError("%s could not be initialized using params %s. Error message: %s" % (type(obj), init_params, str(e)))
     if not hasattr(initialized_obj, "serialize_params"):
