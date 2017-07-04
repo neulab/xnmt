@@ -146,4 +146,5 @@ if __name__ == '__main__':
 
   for line in results:
     experiment_name, eval_scores = line
+    eval_scores = u" ".join(map(str, eval_scores))
     print("{:<20}|{:<40}".format(experiment_name, eval_scores))

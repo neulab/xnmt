@@ -1,6 +1,7 @@
 import numpy as np
 import itertools
 import os
+import io
 from collections import defaultdict
 from six.moves import zip
 from serializer import Serializable
@@ -46,7 +47,7 @@ class ArrayInput(Input):
     return self.nparr.__getitem__(key)
   def get_padded_sent(self, token, pad_len):
     if pad_len>0:
-      self.nparr = np.append(self.nparr, np.repeat(token.reshape(1,len(token)), pad_len, axis=0), axis=0)
+      self.nparr = np.append(self.nparr, np.zeros((pad_len, self.nparr.shape[1])), axis=0)
     return self
   def get_array(self):
     return self.nparr
@@ -75,9 +76,9 @@ class PlainTextReader(InputReader, Serializable):
     if self.vocab is None:
       self.vocab = Vocab()
     sents = []
-    with open(filename) as f:
+    with io.open(filename, 'rt') as f:
       for line in f:
-        words = line.decode('utf-8').strip().split()
+        words = line.strip().split()
         sent = [self.vocab.convert(word) for word in words]
         sent.append(self.vocab.convert(Vocab.ES_STR))
         sents.append(SimpleSentenceInput(sent))
@@ -89,6 +90,9 @@ class PlainTextReader(InputReader, Serializable):
     self.vocab.freeze()
     self.vocab.set_unk(Vocab.UNK_STR)
     self.serialize_params["vocab"] = self.vocab
+  
+  def vocab_size(self):
+    return len(self.vocab)
 
     
 class ContVecReader(InputReader, Serializable):
@@ -112,6 +116,26 @@ class ContVecReader(InputReader, Serializable):
     sents = map(lambda f:ArrayInput(npzFile[f]), npzKeys)
     npzFile.close()
     return sents
+
+  def vocab_size(self):
+    return None
+
+class IDReader(InputReader, Serializable):
+  """
+  Handles the case where we need to read in a single ID (like retrieval problems)
+  """
+  yaml_tag = u"!IDReader"
+  
+  def __init__(self):
+    pass
+
+  def read_file(self, filename, max_num=None):
+    with io.open(filename, 'rt') as f:
+      for line in f:
+        yield int(line.strip())
+
+  def vocab_size(self):
+    return None
 
 ###### CorpusParser
 
@@ -139,7 +163,6 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     self.trg_reader.freeze()
     training_corpus.dev_src_data = self.src_reader.read_file(training_corpus.dev_src)
     training_corpus.dev_trg_data = self.trg_reader.read_file(training_corpus.dev_trg)
-
 
 ###### Obsolete Functions
 

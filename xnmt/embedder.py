@@ -124,7 +124,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
     return ExpressionSequence(expr_list=embeddings)
 
-class NoopEmbedder(Embedder):
+class NoopEmbedder(Embedder, Serializable):
   """
   This embedder performs no lookups but only passes through the inputs.
   
@@ -134,9 +134,10 @@ class NoopEmbedder(Embedder):
   This is useful e.g. to stack several encoders, where the second encoder performs no
   lookups.
   """
-  def __init__(self, emb_dim, model):
+
+  yaml_tag = u'!NoopEmbedder'
+  def __init__(self, emb_dim):
     self.emb_dim = emb_dim
-    self.serialize_params = [emb_dim, model]
 
   def embed(self, x):
     if isinstance(x, dy.Expression): return x
