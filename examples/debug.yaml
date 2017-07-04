@@ -21,7 +21,6 @@ defaults:
       trg_reader: !PlainTextReader {}
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
-#        vocab_size: 100
         emb_dim: 64
       encoder: !BiLSTMEncoder
         layers: 1
@@ -31,11 +30,9 @@ defaults:
         hidden_dim: 64
         input_dim: 64
       trg_embedder: !SimpleWordEmbedder
-#        vocab_size: 100
         emb_dim: 64
       decoder: !MlpSoftmaxDecoder
         layers: 1
-#        vocab_size: 100
         mlp_hidden_dim: 64
   decode:
     src_file: examples/data/head.ja
