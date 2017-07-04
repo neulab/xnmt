@@ -6,6 +6,7 @@ import argparse
 from collections import OrderedDict
 import copy
 import random
+import inspect
 from serializer import Serializable
 
 class Option:
@@ -40,8 +41,6 @@ class RandomParam(yaml.YAMLObject):
             self.__class__.__name__, self.values)
   def draw_value(self):
     return random.choice(self.values)
-  def apply_type(self, wanted_type):
-    self.values = [wanted_type(v) for v in self.values]
 
 class RefParam(yaml.YAMLObject):
   yaml_tag = u'!RefParam'
@@ -50,10 +49,6 @@ class RefParam(yaml.YAMLObject):
   def __repr__(self):
     return "%s(ref=%r)" % (
             self.__class__.__name__, self.ref)
-  def apply_type(self, wanted_type):
-    self.wanted_type = wanted_type
-  def get_typed(self, val):
-    return self.wanted_type(val)
 
 class OptionParser:
   def __init__(self):
@@ -68,39 +63,11 @@ class OptionParser:
       raise RuntimeError("Unknown option {} for task {}".format(option_name, task_name))
 
     option = self.tasks[task_name][option_name]
-    if isinstance(value, RandomParam) or isinstance(value, RefParam):
-      value.apply_type(option.type)
-    elif not isinstance(value, Serializable):
+    if not (isinstance(value, RandomParam) or isinstance(value, RefParam) or isinstance(value, Serializable)):
       value = option.type(value)
 
     return value
   
-  def collapse_sub_dict(self, flat_dict):
-    """
-    {"encoder":{},"encoder.layers":1}
-    => {"encoder":{"layers":1}}
-    """
-    ret = dict(flat_dict)
-    for key in flat_dict.keys():
-      if "." in key:
-        key1, key2 = key.split(".", 1)
-        if not key1 in ret:
-          ret[key1] = {}
-        ret[key1][key2] = flat_dict[key]
-        del ret[key]
-    for key, val in ret.items():
-      if type(val)==dict:
-        ret[key] = self.collapse_sub_dict(val)
-    return ret
-  def update_with_subdicts(self, dict_to_update, dict_new_vals):
-    dict_to_update.update({key:value for key,value in dict_new_vals.items() if type(value)!=dict})
-    for key,value in dict_new_vals.items():
-      if type(value)==dict:
-        if key not in dict_to_update:
-          dict_to_update[key] = value
-        else:
-          self.update_with_subdicts(dict_to_update[key], value)
-
   def args_from_config_file(self, filename):
     """
     Returns a dictionary of experiments => {task => {arguments object}}
@@ -113,15 +80,14 @@ class OptionParser:
 
     # Default values as specified in option definitions
     defaults = {
-      task_name: self.collapse_sub_dict({name: opt.default_value for name, opt in task_options.items() if
+      task_name: dict({name: opt.default_value for name, opt in task_options.items() if
                   opt.default_value is not None or not opt.required})
       for task_name, task_options in self.tasks.items()}
 
     # defaults section in the config file
     if "defaults" in config:
       for task_name, task_options in config["defaults"].items():
-        self.update_with_subdicts(defaults[task_name],
-                                  {name: self.check_and_convert(task_name, name, value) for name, value in task_options.items()})
+        defaults[task_name].update({name: self.check_and_convert(task_name, name, value) for name, value in task_options.items()})
       del config["defaults"]
 
     experiments = {}
@@ -131,21 +97,13 @@ class OptionParser:
       for task_name in self.tasks:
         task_values = copy.deepcopy(defaults[task_name])
         exp_task_values = exp_tasks.get(task_name, dict())
-        self.update_with_subdicts(task_values,
-                                  {name: self.check_and_convert(task_name, name, value) for name, value in exp_task_values.items()})
+        task_values.update({name: self.check_and_convert(task_name, name, value) for name, value in exp_task_values.items()})
 
         # Check that no required option is missing
         for _, option in self.tasks[task_name].items():
           if option.required:
             sub_task_values = task_values
             sub_option_name = option.name
-            while "." in sub_option_name:
-              key1,key2 = sub_option_name.split(".",1)
-              if key1 not in sub_task_values:
-                raise RuntimeError(
-                  "Required option not found for experiment {}, task {}: {}".format(exp, task_name, option.name))
-              sub_task_values = sub_task_values[key1]
-              sub_option_name = key2
             if sub_option_name not in sub_task_values:
               raise RuntimeError(
                 "Required option not found for experiment {}, task {}: {}".format(exp, task_name, option.name))
@@ -169,25 +127,46 @@ class OptionParser:
   
   def instantiate_random_search(self, task_values):
     param_report = {}
-    for k in task_values.keys():
-      if isinstance(task_values[k], RandomParam):
-        task_values[k] = task_values[k].draw_value()
-        param_report[k] = task_values[k]
-      elif type(task_values[k]) == dict:
-        sub_report = self.instantiate_random_search(task_values[k])
+    if isinstance(task_values, dict): kvs = task_values.items()
+    elif isinstance(task_values, Serializable):
+      init_args, _, _, _ = inspect.getargspec(task_values.__init__)
+      kvs = [(key, getattr(task_values, key)) for key in init_args if hasattr(task_values, key)]
+    for k, v in kvs:
+      if isinstance(v, RandomParam):
+        v = v.draw_value()
+        if isinstance(task_values, dict):
+          task_values[k] = v
+        else:
+          setattr(task_values, k, v)
+        param_report[k] = v
+      elif isinstance(v, dict) or isinstance(v, Serializable):
+        sub_report = self.instantiate_random_search(v)
         if sub_report:
           param_report[k] = sub_report
     return param_report
+  
   def resolve_referenced_params(self, cur_task_values, top_task_values):
-    for k in cur_task_values.keys():
-      if isinstance(cur_task_values[k], RefParam):
-        ref_str_spl = cur_task_values[k].ref.split(".")
+    if isinstance(cur_task_values, dict): kvs = cur_task_values.items()
+    elif isinstance(cur_task_values, Serializable):
+      init_args, _, _, _ = inspect.getargspec(cur_task_values.__init__)
+      kvs = [(key, getattr(cur_task_values, key)) for key in init_args if hasattr(cur_task_values, key)]
+    else:
+      raise RuntimeError()
+    for k, v in kvs:
+      if isinstance(v, RefParam):
+        ref_str_spl = v.ref.split(".")
         resolved = top_task_values
         for ref_str in ref_str_spl:
-          resolved = resolved[ref_str]
-        cur_task_values[k] = cur_task_values[k].get_typed(resolved)
-      elif type(cur_task_values[k]) == dict:
-        self.resolve_referenced_params(cur_task_values[k], top_task_values)
+          if isinstance(resolved, dict):
+            resolved = resolved[ref_str]
+          else:
+            resolved = getattr(resolved, ref_str)
+        if isinstance(cur_task_values, dict):
+          cur_task_values[k] = resolved
+        elif isinstance(cur_task_values, Serializable):
+          setattr(cur_task_values, k, resolved)
+      elif isinstance(v, dict) or isinstance(v, Serializable):
+        self.resolve_referenced_params(v, top_task_values)
     
 
   def args_from_command_line(self, task, argv):

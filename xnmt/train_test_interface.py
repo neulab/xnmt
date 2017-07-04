@@ -1,5 +1,5 @@
 
-class TrainTestInterface:
+class TrainTestInterface(object):
   """
   All subcomponents of the translator that behave differently at train and test time
   should subclass this class.
