@@ -1,7 +1,7 @@
 import numpy as np
 import itertools
 import os
-import codecs
+import io
 from collections import defaultdict
 from six.moves import zip
 from serializer import Serializable
@@ -76,7 +76,7 @@ class PlainTextReader(InputReader, Serializable):
     if self.vocab is None:
       self.vocab = Vocab()
     sents = []
-    with codecs.open(filename, encoding='utf-8') as f:
+    with io.open(filename, 'rt') as f:
       for line in f:
         words = line.strip().split()
         sent = [self.vocab.convert(word) for word in words]
@@ -130,7 +130,7 @@ class IDReader(InputReader, Serializable):
     pass
 
   def read_file(self, filename, max_num=None):
-    with codecs.open(filename, encoding='utf-8') as f:
+    with io.open(filename, 'rt') as f:
       for line in f:
         yield int(line.strip())
 
