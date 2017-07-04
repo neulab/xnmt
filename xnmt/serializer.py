@@ -42,6 +42,8 @@ class YamlSerializer(object):
     
   def set_serialize_params_recursive(self, obj):
     base_arg_names = map(lambda x: x[0], inspect.getmembers(yaml.YAMLObject))
+    if not isinstance(obj, Serializable):
+      raise RuntimeError("attempting deserialization of non-Serializable object %s of type %s" % (str(obj), type(obj)))
     init_args, _, _, _ = inspect.getargspec(obj.__init__)
     class_param_names = [x[0] for x in inspect.getmembers(obj.__class__)]
     init_args.remove("self")
