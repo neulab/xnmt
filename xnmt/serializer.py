@@ -100,7 +100,10 @@ class YamlSerializer(object):
       if isinstance(param_obj, list):
         param_obj = param_obj[int(param_name_spl[0])]
       else:
-        param_obj = getattr(param_obj, param_name_spl[0])
+        try:
+          param_obj = getattr(param_obj, param_name_spl[0])
+        except:
+          param_obj = getattr(param_obj, param_name_spl[0])
       param_name = param_name_spl[1]
     return param_obj, param_name
 
@@ -179,19 +182,3 @@ class DependentInitParam(object):
     else: return len(spl)>1 and spl[0] == candidate_component_name
   def param_name(self):
     return self.param_descr.split(".")[-1]
-  
-
-class Empty(object): pass
-def bare_component(component_cls, **kwargs):
-  """
-  This allows creating default components that are compatible with the deserialization
-  workflow: Their __init__() constructor is not called here, but only later when using
-  YamlSerializer.initialize_object()
-  :param component_cls: class type of the desired component (should be Serializable)
-  :param kwargs: init parameters when constructing the class
-  """
-  ret = Empty()
-  for key, val in kwargs.items():
-    setattr(ret, key, val)
-  ret.__class__ = component_cls
-  return ret

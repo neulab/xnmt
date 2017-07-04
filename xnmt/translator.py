@@ -50,7 +50,7 @@ class DefaultTranslator(Translator, Serializable):
   yaml_tag = u'!DefaultTranslator'
 
 
-  def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder=bare_component(MlpSoftmaxDecoder)):
+  def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder):
     '''Constructor.
 
     :param src_embedder: A word embedder for the input language
