@@ -41,8 +41,6 @@ options = [
 #  Option("max_num_train_sents", int, required=False, help_str="Load only the first n sentences from the training data"),
   Option("model_file"),
   Option("pretrained_model_file", default_value="", help_str="Path of pre-trained model file"),
-#  Option("src_vocab", default_value="", help_str="Path of fixed input vocab file"),
-#  Option("trg_vocab", default_value="", help_str="Path of fixed output vocab file"),
   Option("src_format", default_value="text", help_str="Format of input data: text/contvec"),
   Option("default_layer_dim", int, default_value=512, help_str="Default size to use for layers if not otherwise overridden"),
   Option("trainer", default_value="sgd"),
@@ -76,11 +74,10 @@ class XnmtTrainer:
     # Initialize the serializer
     self.model_serializer = serializer.YamlSerializer()
 
-    # Read the training corpus
-    self.create_corpus()
-
-    # Create the model serializer
-    self.create_model()
+    if self.args.pretrained_model_file:
+      self.load_corpus_and_model()
+    else:
+      self.create_corpus_and_model()
 
     # single mode
     if args.batch_size is None or args.batch_size == 1 or args.batch_strategy.lower() == 'none':
@@ -104,24 +101,27 @@ class XnmtTrainer:
           self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
       self.logger = BatchLossTracker(args.eval_every, self.total_train_sent)
 
-  def create_corpus(self):
+  def create_corpus_and_model(self):
     self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus)
     self.corpus_parser = self.model_serializer.initialize_object(self.args.corpus_parser)
     self.corpus_parser.read_training_corpus(self.training_corpus)
     self.total_train_sent = len(self.training_corpus.train_src_data)
-
-  def create_model(self):
     context={"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
-    if self.args.pretrained_model_file:
-      self.corpus_parser, self.model, global_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.get("model"), context=context)
-      model_globals.params = global_params
-    else:
-      model_globals.params["default_layer_dim"] = self.args.default_layer_dim
-      model_globals.params["dropout"] = self.args.dropout
-      self.model = self.model_serializer.initialize_object(self.args.model, context)
-
-
-
+    model_globals.params["default_layer_dim"] = self.args.default_layer_dim
+    model_globals.params["dropout"] = self.args.dropout
+    self.model = self.model_serializer.initialize_object(self.args.model, context)
+  
+  def load_corpus_and_model(self):
+    corpus_parser, model, global_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.get("model"))
+    self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus)
+    self.corpus_parser = self.model_serializer.initialize_object(corpus_parser)
+    self.corpus_parser.read_training_corpus(self.training_corpus)
+    model_globals.params = global_params
+    self.total_train_sent = len(self.training_corpus.train_src_data)
+    context={"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
+    self.model = self.model_serializer.initialize_object(model, context)
+    
+    
 #  def read_data(self):
 #    train_filters = SentenceFilterer.from_spec(self.args.train_filters)
 #    self.train_src, self.train_trg = \

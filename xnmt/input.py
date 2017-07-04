@@ -70,6 +70,9 @@ class PlainTextReader(InputReader, Serializable):
   yaml_tag = u'!PlainTextReader'
   def __init__(self, vocab=None):
     self.vocab = vocab
+    if vocab is not None:
+      self.vocab.freeze()
+      self.vocab.set_unk(Vocab.UNK_STR)
 
   def read_file(self, filename, max_num=None):
     if self.vocab is None:
@@ -115,9 +118,6 @@ class ContVecReader(InputReader, Serializable):
     sents = map(lambda f:ArrayInput(npzFile[f]), npzKeys)
     npzFile.close()
     return sents
-
-  def vocab_size(self):
-    return None
 
 class IDReader(InputReader, Serializable):
   """

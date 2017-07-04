@@ -25,17 +25,16 @@ class Vocab(Serializable):
       i2w = Vocab.i2w_from_vocab_file(vocab_file)
     if (i2w is not None):
       self.i2w = i2w
-      self.w2i = {word: id for (id, word) in enumerate(self.i2w)}
-      self.frozen = False
-      return
-    self.w2i = {}
-    self.i2w = []
+      self.w2i = {word: word_id for (word_id, word) in enumerate(self.i2w)}
+    else :
+      self.w2i = {}
+      self.i2w = []
+      self.unk_token = None
+      self.w2i[self.SS_STR] = self.SS
+      self.w2i[self.ES_STR] = self.ES
+      self.i2w.append(self.SS_STR)
+      self.i2w.append(self.ES_STR)
     self.frozen = False
-    self.unk_token = None
-    self.w2i[self.SS_STR] = self.SS
-    self.w2i[self.ES_STR] = self.ES
-    self.i2w.append(self.SS_STR)
-    self.i2w.append(self.ES_STR)
     self.serialize_params = {"i2w" : self.i2w}
 
   @staticmethod

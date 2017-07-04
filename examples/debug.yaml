@@ -18,7 +18,10 @@ defaults:
       dev_trg: examples/data/head.en
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
-      trg_reader: !PlainTextReader {}
+      trg_reader: !PlainTextReader
+        vocab: !Vocab
+          vocab_file: examples/data/head.en.vocab
+      
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64

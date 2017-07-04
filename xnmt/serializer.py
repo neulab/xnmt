@@ -163,11 +163,11 @@ class YamlSerializer(object):
       f.write(self.dump(mod))
     params.save(fname + '.data')
     
-  def load_from_file(self, fname, param, context={}):
+  def load_from_file(self, fname, param):
     with open(fname, 'r') as f:
       dict_spec = yaml.load(f)
-      corpus_parser = self.initialize_object(dict_spec.corpus_parser)
-      model = self.initialize_object(dict_spec.model, context=context)
+      corpus_parser = dict_spec.corpus_parser
+      model = dict_spec.model
       global_params = dict_spec.global_params
     try: # dynet v2
       param.populate(fname + '.data')
