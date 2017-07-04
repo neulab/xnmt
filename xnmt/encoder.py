@@ -52,10 +52,10 @@ class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
 
   def __init__(self, input_dim=None, layers=1, hidden_dim=None, dropout=None, bidirectional=True):
-    model = model_globals.model
-    if input_dim is None: input_dim = model_globals.default_layer_dim
-    if hidden_dim is None: hidden_dim = model_globals.default_layer_dim
-    if dropout is None: dropout = model_globals.dropout
+    model = model_globals.get("model")
+    input_dim = input_dim or model_globals.get("default_layer_dim")
+    hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
+    dropout = dropout or model_globals.get("dropout")
     self.input_dim = input_dim
     self.layers = layers
     self.hidden_dim = hidden_dim
@@ -71,9 +71,9 @@ class LSTMEncoder(BuilderEncoder, Serializable):
 class ResidualLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!ResidualLSTMEncoder'
   def __init__(self, input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
-    model = model_globals.model
-    if hidden_dim is None: hidden_dim = model_globals.default_layer_dim
-    if dropout is None: dropout = model_globals.dropout
+    model = model_globals.get("model")
+    hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
+    dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
     if bidirectional:
       self.builder = residual.ResidualBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
@@ -85,19 +85,19 @@ class ResidualLSTMEncoder(BuilderEncoder, Serializable):
 class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!PyramidalLSTMEncoder'
   def __init__(self, input_dim=512, layers=1, hidden_dim=None, downsampling_method="skip", reduce_factor=2, dropout=None):
-    if hidden_dim is None: hidden_dim = model_globals.default_layer_dim
-    if dropout is None: dropout = model_globals.dropout
+    hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
+    dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
-    self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim, model_globals.model, dy.VanillaLSTMBuilder, downsampling_method, reduce_factor)
+    self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim, model_globals.get("model"), dy.VanillaLSTMBuilder, downsampling_method, reduce_factor)
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
 class ConvBiRNNBuilder(BuilderEncoder, Serializable):
   yaml_tag = u'!ConvBiRNNBuilder'
   def init_builder(self, input_dim, layers, hidden_dim=None, chn_dim=3, num_filters=32, filter_size_time=3, filter_size_freq=3, stride=(2,2), dropout=None):
-    model = model_globals.model
-    if hidden_dim is None: hidden_dim = model_globals.default_layer_dim
-    if dropout is None: dropout = model_globals.dropout
+    model = model_globals.get("model")
+    hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
+    dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
     self.builder = conv_encoder.ConvBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder,
                                             chn_dim, num_filters, filter_size_time, filter_size_freq, stride)

@@ -6,7 +6,6 @@ from collections import defaultdict
 from six.moves import zip
 from serializer import Serializable
 from vocab import *
-import model_globals
 
 ###### Classes representing single inputs
 

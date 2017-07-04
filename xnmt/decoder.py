@@ -39,13 +39,13 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   
   def __init__(self, vocab_size, layers=1, input_dim=None, lstm_dim=None, mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False):
-    lstm_dim = lstm_dim or model_globals.default_layer_dim
-    mlp_hidden_dim = mlp_hidden_dim or model_globals.default_layer_dim
-    trg_embed_dim = trg_embed_dim or model_globals.default_layer_dim
-    input_dim = input_dim or model_globals.default_layer_dim
-    self.fwd_lstm = RnnDecoder.rnn_from_spec(rnn_spec, layers, trg_embed_dim, lstm_dim, model_globals.model, residual_to_output)
-    self.mlp = MLP(input_dim + lstm_dim, mlp_hidden_dim, vocab_size, model_globals.model)
-    self.dropout = dropout or model_globals.dropout
+    lstm_dim = lstm_dim or model_globals.get("default_layer_dim")
+    mlp_hidden_dim = mlp_hidden_dim or model_globals.get("default_layer_dim")
+    trg_embed_dim = trg_embed_dim or model_globals.get("default_layer_dim")
+    input_dim = input_dim or model_globals.get("default_layer_dim")
+    self.fwd_lstm = RnnDecoder.rnn_from_spec(rnn_spec, layers, trg_embed_dim, lstm_dim, model_globals.get("model"), residual_to_output)
+    self.mlp = MLP(input_dim + lstm_dim, mlp_hidden_dim, vocab_size, model_globals.get("model"))
+    self.dropout = dropout or model_globals.get("dropout")
     self.state = None
 
   def initialize(self):

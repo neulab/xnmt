@@ -33,7 +33,7 @@ class StandardAttender(Attender, Serializable):
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
-    model = model_globals.model
+    model = model_globals.get("model")
     self.pW = model.add_parameters((hidden_dim, input_dim))
     self.pV = model.add_parameters((hidden_dim, state_dim))
     self.pb = model.add_parameters(hidden_dim)

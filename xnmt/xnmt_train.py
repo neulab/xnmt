@@ -77,12 +77,12 @@ class XnmtTrainer:
     dy.renew_cg()
 
     self.args = args  # save for later
-    model_globals.model = dy.Model()
+    model_globals.params["model"] = dy.Model()
 
     if args.trainer.lower() == "sgd":
-      self.trainer = dy.SimpleSGDTrainer(model_globals.model, e0 = args.learning_rate)
+      self.trainer = dy.SimpleSGDTrainer(model_globals.get("model"), e0 = args.learning_rate)
     elif args.trainer.lower() == "adam":
-      self.trainer = dy.AdamTrainer(model_globals.model, alpha = args.learning_rate)
+      self.trainer = dy.AdamTrainer(model_globals.get("model"), alpha = args.learning_rate)
     else:
       raise RuntimeError("Unknown trainer {}".format(args.trainer))
     
@@ -131,10 +131,11 @@ class XnmtTrainer:
   def create_model(self):
     context={"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
     if self.args.pretrained_model_file:
-      self.corpus_parser, self.model = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.model, context=context)
+      self.corpus_parser, self.model, global_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.get("model"), context=context)
+      model_globals.params = global_params
     else:
-      model_globals.default_layer_dim = self.args.default_layer_dim
-      model_globals.dropout = self.args.dropout
+      model_globals.params["default_layer_dim"] = self.args.default_layer_dim
+      model_globals.params["dropout"] = self.args.dropout
       self.model = self.model_serializer.initialize_object(self.args.model, context)
 
     # Read in training and dev corpora
@@ -250,7 +251,9 @@ class XnmtTrainer:
 
         # Write out the model if it's the best one
         if self.logger.report_dev_and_check_model(self.args.model_file):
-          self.model_serializer.save_to_file(self.args.model_file, ModelParams(self.corpus_parser, self.model), model_globals.model)
+          self.model_serializer.save_to_file(self.args.model_file, 
+                                             ModelParams(self.corpus_parser, self.model, model_globals.params),
+                                             model_globals.get("model"))
         else:
           # otherwise: learning rate decay / early stopping
           if self.args.lr_decay < 1.0:

@@ -59,7 +59,8 @@ class YamlSerializer(object):
       elif type(val)==list:
         obj.serialize_params[name] = val
         for item in val:
-          self.set_serialize_params_recursive(item)
+          if isinstance(item, Serializable):
+            self.set_serialize_params_recursive(item)
       else:
         continue
       if not name in init_args:
@@ -126,7 +127,10 @@ class YamlSerializer(object):
           if len(sub_dependent_init_params) > 0: raise Exception("dependent_init_params currently not supported for lists of components")
           new_init_params= []
           for item in val:
-            new_init_params.append(self.init_components_bottom_up(item, []))
+            if isinstance(item, Serializable):
+              new_init_params.append(self.init_components_bottom_up(item, []))
+            else:
+              new_init_params.append(item)
           init_params[init_arg] = new_init_params
     for p in dependent_init_params:
       if p.matches_component("") and p.param_name() not in init_params:
@@ -164,11 +168,12 @@ class YamlSerializer(object):
       dict_spec = yaml.load(f)
       corpus_parser = self.initialize_object(dict_spec.corpus_parser)
       model = self.initialize_object(dict_spec.model, context=context)
+      global_params = dict_spec.global_params
     try: # dynet v2
       param.populate(fname + '.data')
     except AttributeError: # dynet v1
       param.load_all(fname + '.data')
-    return corpus_parser, model
+    return corpus_parser, model, global_params
     
 class ComponentInitError(Exception):
   pass
