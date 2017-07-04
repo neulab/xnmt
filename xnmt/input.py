@@ -158,16 +158,20 @@ class BilingualCorpusParser(CorpusParser, Serializable):
   """A class that reads in bilingual corpora, consists of two InputReaders"""
 
   yaml_tag = u"!BilingualCorpusParser"
-  def __init__(self, src_reader, trg_reader, max_src_len=None, max_trg_len=None):
+  def __init__(self, src_reader, trg_reader, max_src_len=None, max_trg_len=None, 
+               max_num_train_sents=None, max_num_dev_sents=None):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
     self.max_src_len = max_src_len
     self.max_trg_len = max_trg_len
+    self.max_num_train_sents = max_num_train_sents
+    self.max_num_dev_sents = max_num_dev_sents
 
   def read_training_corpus(self, training_corpus):
     training_corpus.train_src_data = []
     training_corpus.train_trg_data = []
-    for src_sent, trg_sent in itertools.izip(self.src_reader.read_sents(training_corpus.train_src), self.trg_reader.read_sents(training_corpus.train_trg)):
+    for src_sent, trg_sent in itertools.izip(self.src_reader.read_sents(training_corpus.train_src, self.max_num_train_sents), 
+                                             self.trg_reader.read_sents(training_corpus.train_trg, self.max_num_train_sents)):
       src_len_ok = self.max_src_len is None or len(src_sent) <= self.max_src_len
       trg_len_ok = self.max_trg_len is None or len(trg_sent) <= self.max_trg_len
       if src_len_ok and trg_len_ok:
@@ -177,7 +181,8 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     self.trg_reader.freeze()
     training_corpus.dev_src_data = []
     training_corpus.dev_trg_data = []
-    for src_sent, trg_sent in itertools.izip(self.src_reader.read_sents(training_corpus.dev_src), self.trg_reader.read_sents(training_corpus.dev_trg)):
+    for src_sent, trg_sent in itertools.izip(self.src_reader.read_sents(training_corpus.dev_src, self.max_num_dev_sents),
+                                             self.trg_reader.read_sents(training_corpus.dev_trg, self.max_num_dev_sents)):
       src_len_ok = self.max_src_len is None or len(src_sent) <= self.max_src_len
       trg_len_ok = self.max_trg_len is None or len(trg_sent) <= self.max_trg_len
       if src_len_ok and trg_len_ok:

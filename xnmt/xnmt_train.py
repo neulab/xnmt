@@ -36,7 +36,6 @@ options = [
   Option("corpus_parser"),
 #  Option("train_filters", list, required=False, help_str="Specify filtering criteria for the training data"),
 #  Option("dev_filters", list, required=False, help_str="Specify filtering criteria for the development data"),
-#  Option("max_num_train_sents", int, required=False, help_str="Load only the first n sentences from the training data"),
   Option("model_file"),
   Option("pretrained_model_file", default_value="", help_str="Path of pre-trained model file"),
   Option("src_format", default_value="text", help_str="Format of input data: text/contvec"),
