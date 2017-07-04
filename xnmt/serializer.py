@@ -51,9 +51,13 @@ class YamlSerializer(object):
       if isinstance(val, Serializable):
         obj.serialize_params[name] = val
         self.set_serialize_params_recursive(val)
-      elif type(val) in [type(None), bool, int, float, str, datetime.datetime, list, dict, set] or \
+      elif type(val) in [type(None), bool, int, float, str, datetime.datetime, dict, set] or \
            sys.version_info[0] == 2 and type(val) == unicode:
         obj.serialize_params[name] = val
+      elif type(val)==list:
+        obj.serialize_params[name] = val
+        for item in val:
+          self.set_serialize_params_recursive(item)
       else:
         continue
       if not name in init_args:
@@ -70,7 +74,9 @@ class YamlSerializer(object):
       if val:
         for param_descr in shared_params:
           param_obj, param_name = self.resolve_param_name(obj, param_descr)
-          param_obj.init_params[param_name] = val
+          init_args, _, _, _ = inspect.getargspec(param_obj.__init__)
+          if param_name in init_args:
+            param_obj.init_params[param_name] = val
     for _, val in inspect.getmembers(obj):
       if isinstance(val, Serializable):
         self.share_init_params_top_down(val)
@@ -79,8 +85,8 @@ class YamlSerializer(object):
     for param_descr in shared_params:
       param_obj, param_name = self.resolve_param_name(obj, param_descr)
       init_args, _, _, _ = inspect.getargspec(param_obj.__init__)
-      if param_name not in init_args: raise ValueError("unknown init parameter for %s: %s" % (param_obj.yaml_tag, param_name))
-      cur_val = param_obj.init_params.get(param_name, None)
+      if param_name not in init_args: cur_val = None
+      else: cur_val = param_obj.init_params.get(param_name, None)
       if cur_val:
         if val is None: val = cur_val
         elif cur_val != val:
@@ -91,26 +97,39 @@ class YamlSerializer(object):
     param_obj, param_name = obj, param_descr
     while "." in param_name:
       param_name_spl = param_name.split(".", 1)
-      param_obj = getattr(param_obj, param_name_spl[0])
+      if isinstance(param_obj, list):
+        param_obj = param_obj[int(param_name_spl[0])]
+      else:
+        param_obj = getattr(param_obj, param_name_spl[0])
       param_name = param_name_spl[1]
     return param_obj, param_name
 
-  def init_components_bottom_up(self, obj, post_init_shared_params):
+  def init_components_bottom_up(self, obj, dependent_init_params):
     init_params = obj.init_params
     serialize_params = obj.serialize_params
     init_args, _, _, _ = inspect.getargspec(obj.__init__)
+    init_args.remove("self")
     for init_arg in init_args:
       if hasattr(obj, init_arg):
         val = getattr(obj, init_arg)
         if isinstance(val, Serializable):
-          sub_post_init_shared_params = [p.move_down() for p in post_init_shared_params if p.matches_component(init_arg)]
-          init_params[init_arg] = self.init_components_bottom_up(val, sub_post_init_shared_params)
-    for p in post_init_shared_params:
-      if p.component_name == "." and p.param_name not in init_params:
-        init_params[p.param_name] = p.value_fct()
-    init_params = {key:val for key,val in init_params.items() if key in init_args}
-    print(type(obj))
-    initialized_obj = obj.__class__(**init_params)
+          sub_dependent_init_params = [p.move_down() for p in dependent_init_params if p.matches_component(init_arg)]
+          init_params[init_arg] = self.init_components_bottom_up(val, sub_dependent_init_params)
+        elif isinstance(val, list):
+          sub_dependent_init_params = [p.move_down() for p in dependent_init_params if p.matches_component(init_arg)]
+          if len(sub_dependent_init_params) > 0: raise Exception("dependent_init_params currently not supported for lists of components")
+          new_init_params= []
+          for item in val:
+            new_init_params.append(self.init_components_bottom_up(item, []))
+          init_params[init_arg] = new_init_params
+    for p in dependent_init_params:
+      if p.matches_component("") and p.param_name() not in init_params:
+        if p.param_name() in init_args:
+          init_params[p.param_name()] = p.value_fct()
+    try:
+      initialized_obj = obj.__class__(**init_params)
+    except TypeError as e:
+      raise ComponentInitError("%s could not be initialized using params %s. Error message: %s" % (type(obj), init_params, str(e)))
     if not hasattr(initialized_obj, "serialize_params"):
       initialized_obj.serialize_params = serialize_params
     return initialized_obj
@@ -144,15 +163,23 @@ class YamlSerializer(object):
       param.load_all(fname + '.data')
     return corpus_parser, model
     
+class ComponentInitError(Exception):
+  pass
 class DependentInitParam(object):
-  def __init__(self, component_name, param_name, value_fct):
-    self.component_name = component_name + ("" if component_name.endswith(".") else ".")
-    self.param_name = param_name
+  def __init__(self, param_descr, value_fct):
+    self.param_descr = param_descr
     self.value_fct = value_fct
   def move_down(self):
-    return DependentInitParam(self.component_name.split(".", 1)[1], self.param_name, self.value_fct)
-  def matches_component(self, candidate_componenet_name):
-    return self.component_name.split(".")[0] == candidate_componenet_name
+    spl = self.param_descr.split(".")
+    assert len(spl)>1
+    return DependentInitParam(".".join(spl[1:]), self.value_fct)
+  def matches_component(self, candidate_component_name):
+    spl = self.param_descr.split(".")
+    if candidate_component_name=="": return len(spl)==1
+    else: return len(spl)>1 and spl[0] == candidate_component_name
+  def param_name(self):
+    return self.param_descr.split(".")[-1]
+  
 
 class Empty(object): pass
 def bare_component(component_cls, **kwargs):

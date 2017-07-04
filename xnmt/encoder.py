@@ -107,7 +107,7 @@ class ModularEncoder(Encoder, Serializable):
     self.modules = modules
     
   def shared_params(self):
-    return [set("input_dim", "modules.0.input_dim")]
+    return [set(["input_dim", "modules.0.input_dim"])]
 
   def transduce(self, sent):
     for i, module in enumerate(self.modules):

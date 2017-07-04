@@ -74,9 +74,9 @@ class DefaultTranslator(Translator, Serializable):
             ]
   def dependent_init_params(self):
     return [
-            DependentInitParam(component_name="src_embedder", param_name="vocab_size", value_fct=lambda: self.context["corpus_parser"].src_reader.vocab_size()),
-            DependentInitParam(component_name="decoder", param_name="vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
-            DependentInitParam(component_name="trg_embedder", param_name="vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
+            DependentInitParam(param_descr="src_embedder.vocab_size", value_fct=lambda: self.context["corpus_parser"].src_reader.vocab_size()),
+            DependentInitParam(param_descr="decoder.vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
+            DependentInitParam(param_descr="trg_embedder.vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
             ]
 
   def get_train_test_components(self):
