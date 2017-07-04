@@ -21,7 +21,8 @@ defaults:
       trg_reader: !PlainTextReader
         vocab: !Vocab
           vocab_file: examples/data/head.en.vocab
-      
+      max_src_len: 15
+      max_trg_len: 15
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
