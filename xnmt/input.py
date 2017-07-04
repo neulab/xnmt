@@ -6,7 +6,6 @@ from collections import defaultdict
 from six.moves import zip
 from serializer import Serializable
 from vocab import *
-import model_globals
 
 ###### Classes representing single inputs
 
@@ -56,9 +55,13 @@ class ArrayInput(Input):
 
 class InputReader:
 
-  def read_file(self, filename, max_num=None):
+  def read_sents(self, filename, max_num=None):
+    """
+    :param filename: data file
+    :param max_num: stop reading data after the first max_num sentences
+    :returns: iterator over sentences from filename
+    """
     raise RuntimeError("Input readers must implement the read_file function")
-
   def freeze(self):
     pass
 
@@ -71,20 +74,23 @@ class PlainTextReader(InputReader, Serializable):
   yaml_tag = u'!PlainTextReader'
   def __init__(self, vocab=None):
     self.vocab = vocab
+    if vocab is not None:
+      self.vocab.freeze()
+      self.vocab.set_unk(Vocab.UNK_STR)
 
-  def read_file(self, filename, max_num=None):
+  def read_sents(self, filename, max_num=None):
     if self.vocab is None:
       self.vocab = Vocab()
-    sents = []
+    sent_count = 0
     with io.open(filename, encoding='utf-8') as f:
       for line in f:
         words = line.strip().split()
         sent = [self.vocab.convert(word) for word in words]
         sent.append(self.vocab.convert(Vocab.ES_STR))
-        sents.append(SimpleSentenceInput(sent))
-        if max_num is not None and len(sents) >= max_num:
+        yield SimpleSentenceInput(sent)
+        sent_count += 1
+        if max_num is not None and sent_count >= max_num:
           break
-    return sents
 
   def freeze(self):
     self.vocab.freeze()
@@ -108,17 +114,14 @@ class ContVecReader(InputReader, Serializable):
   def __init__(self):
     pass
 
-  def read_file(self, filename, max_num=None):
+  def read_sents(self, filename, max_num=None):
     npzFile = np.load(filename)
     npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[1]))
     if max_num is not None and max_num < len(npzKeys):
       npzKeys = npzKeys[:max_num]
-    sents = map(lambda f:ArrayInput(npzFile[f]), npzKeys)
+    for key in npzKeys:
+      yield ArrayInput(npzFile[key])
     npzFile.close()
-    return sents
-
-  def vocab_size(self):
-    return None
 
 class IDReader(InputReader, Serializable):
   """
@@ -129,10 +132,14 @@ class IDReader(InputReader, Serializable):
   def __init__(self):
     pass
 
-  def read_file(self, filename, max_num=None):
+  def read_sents(self, filename, max_num=None):
+    sent_count = 0
     with io.open(filename, encoding='utf-8') as f:
       for line in f:
         yield int(line.strip())
+        sent_count += 1
+        if max_num is not None and sent_count >= max_num:
+          break
 
   def vocab_size(self):
     return None
@@ -151,18 +158,37 @@ class BilingualCorpusParser(CorpusParser, Serializable):
   """A class that reads in bilingual corpora, consists of two InputReaders"""
 
   yaml_tag = u"!BilingualCorpusParser"
-  def __init__(self, src_reader, trg_reader):
+  def __init__(self, src_reader, trg_reader, max_src_len=None, max_trg_len=None, 
+               max_num_train_sents=None, max_num_dev_sents=None):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
-    self.serialize_params = {"src_reader": src_reader, "trg_reader": trg_reader}
+    self.max_src_len = max_src_len
+    self.max_trg_len = max_trg_len
+    self.max_num_train_sents = max_num_train_sents
+    self.max_num_dev_sents = max_num_dev_sents
 
   def read_training_corpus(self, training_corpus):
-    training_corpus.train_src_data = self.src_reader.read_file(training_corpus.train_src)
-    training_corpus.train_trg_data = self.trg_reader.read_file(training_corpus.train_trg)
+    training_corpus.train_src_data = []
+    training_corpus.train_trg_data = []
+    for src_sent, trg_sent in itertools.izip(self.src_reader.read_sents(training_corpus.train_src, self.max_num_train_sents), 
+                                             self.trg_reader.read_sents(training_corpus.train_trg, self.max_num_train_sents)):
+      src_len_ok = self.max_src_len is None or len(src_sent) <= self.max_src_len
+      trg_len_ok = self.max_trg_len is None or len(trg_sent) <= self.max_trg_len
+      if src_len_ok and trg_len_ok:
+        training_corpus.train_src_data.append(src_sent)
+        training_corpus.train_trg_data.append(trg_sent)
     self.src_reader.freeze()
     self.trg_reader.freeze()
-    training_corpus.dev_src_data = self.src_reader.read_file(training_corpus.dev_src)
-    training_corpus.dev_trg_data = self.trg_reader.read_file(training_corpus.dev_trg)
+    training_corpus.dev_src_data = []
+    training_corpus.dev_trg_data = []
+    for src_sent, trg_sent in itertools.izip(self.src_reader.read_sents(training_corpus.dev_src, self.max_num_dev_sents),
+                                             self.trg_reader.read_sents(training_corpus.dev_trg, self.max_num_dev_sents)):
+      src_len_ok = self.max_src_len is None or len(src_sent) <= self.max_src_len
+      trg_len_ok = self.max_trg_len is None or len(trg_sent) <= self.max_trg_len
+      if src_len_ok and trg_len_ok:
+        training_corpus.dev_src_data.append(src_sent)
+        training_corpus.dev_trg_data.append(trg_sent)
+    
 
 ###### Obsolete Functions
 

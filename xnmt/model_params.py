@@ -7,8 +7,8 @@ class ModelParams(Serializable):
   """
   
   yaml_tag = "!ModelParams"
-  def __init__(self, corpus_parser, model):
+  def __init__(self, corpus_parser, model, global_params):
     self.corpus_parser = corpus_parser
     self.model = model
-    # TODO: we need to store the model_globals params in here, as well
-    self.serialize_params = {"corpus_parser": corpus_parser, "model": model}
+    self.global_params = global_params
+    self.serialize_params = {"corpus_parser": corpus_parser, "model":model, "global_params": global_params}

@@ -34,28 +34,12 @@ options = [
   Option("batch_strategy", default_value="src"),
   Option("training_corpus"),
   Option("corpus_parser"),
-#  Option("train_src"),
-#  Option("train_trg"),
-#  Option("dev_src"),
-#  Option("dev_trg"),
 #  Option("train_filters", list, required=False, help_str="Specify filtering criteria for the training data"),
 #  Option("dev_filters", list, required=False, help_str="Specify filtering criteria for the development data"),
-#  Option("max_src_len", int, required=False, help_str="Remove sentences from training/dev data that are longer than this on the source side"),
-#  Option("max_trg_len", int, required=False, help_str="Remove sentences from training/dev data that are longer than this on the target side"),
-#  Option("max_num_train_sents", int, required=False, help_str="Load only the first n sentences from the training data"),
   Option("model_file"),
   Option("pretrained_model_file", default_value="", help_str="Path of pre-trained model file"),
-#  Option("src_vocab", default_value="", help_str="Path of fixed input vocab file"),
-#  Option("trg_vocab", default_value="", help_str="Path of fixed output vocab file"),
   Option("src_format", default_value="text", help_str="Format of input data: text/contvec"),
-#  Option("trg_format", default_value="text", help_str="Format of output data: text/contvec"),
   Option("default_layer_dim", int, default_value=512, help_str="Default size to use for layers if not otherwise overridden"),
-#  Option("src_word_embed_dim", int, required=False),
-#  Option("trg_word_embed_dim", int, required=False),
-#  Option("trg_state_dim", int, required=False),
-#  Option("trg_mlp_hidden_dim", int, required=False),
-#  Option("attender_hidden_dim", int, required=False),
-#  Option("attention_context_dim", int, required=False),
   Option("trainer", default_value="sgd"),
   Option("learning_rate", float, default_value=0.1),
   Option("lr_decay", float, default_value=1.0),
@@ -63,13 +47,6 @@ options = [
   Option("eval_metrics", default_value="bleu"),
   Option("dropout", float, default_value=0.0),
   Option("model", dict, default_value={}),  
-#  Option("encoder", dict, default_value={}),  
-#  Option("encoder.type", default_value="BiLSTM"),
-#  Option("encoder.src_dim", int, required=False),
-#  Option("decoder_type", default_value="LSTM"),
-#  Option("decoder_layers", int, default_value=2),
-#  Option("residual_to_output", bool, default_value=True,
-#         help_str="If using residual networks in the decoder, whether to add a residual connection to the output layer"),
 ]
 
 class XnmtTrainer:
@@ -77,12 +54,12 @@ class XnmtTrainer:
     dy.renew_cg()
 
     self.args = args  # save for later
-    model_globals.model = dy.Model()
+    model_globals.params["model"] = dy.Model()
 
     if args.trainer.lower() == "sgd":
-      self.trainer = dy.SimpleSGDTrainer(model_globals.model, e0 = args.learning_rate)
+      self.trainer = dy.SimpleSGDTrainer(model_globals.get("model"), e0 = args.learning_rate)
     elif args.trainer.lower() == "adam":
-      self.trainer = dy.AdamTrainer(model_globals.model, alpha = args.learning_rate)
+      self.trainer = dy.AdamTrainer(model_globals.get("model"), alpha = args.learning_rate)
     else:
       raise RuntimeError("Unknown trainer {}".format(args.trainer))
     
@@ -94,11 +71,10 @@ class XnmtTrainer:
     # Initialize the serializer
     self.model_serializer = serializer.YamlSerializer()
 
-    # Read the training corpus
-    self.create_corpus()
-
-    # Create the model serializer
-    self.create_model()
+    if self.args.pretrained_model_file:
+      self.load_corpus_and_model()
+    else:
+      self.create_corpus_and_model()
 
     # single mode
     if args.batch_size is None or args.batch_size == 1 or args.batch_strategy.lower() == 'none':
@@ -122,75 +98,27 @@ class XnmtTrainer:
           self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
       self.logger = BatchLossTracker(args.eval_every, self.total_train_sent)
 
-  def create_corpus(self):
+  def create_corpus_and_model(self):
     self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus)
     self.corpus_parser = self.model_serializer.initialize_object(self.args.corpus_parser)
     self.corpus_parser.read_training_corpus(self.training_corpus)
     self.total_train_sent = len(self.training_corpus.train_src_data)
-
-  def create_model(self):
     context={"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
-    if self.args.pretrained_model_file:
-      self.corpus_parser, self.model = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.model, context=context)
-    else:
-      model_globals.default_layer_dim = self.args.default_layer_dim
-      model_globals.dropout = self.args.dropout
-      self.model = self.model_serializer.initialize_object(self.args.model, context)
-
-    # Read in training and dev corpora
-#    src_vocab, trg_vocab = None, None
-#    if self.args.src_vocab:
-#      src_vocab = Vocab(vocab_file=self.args.src_vocab)
-#    if self.args.trg_vocab:
-#      trg_vocab = Vocab(vocab_file=self.args.trg_vocab)
-#    self.src_reader = InputReader.create_input_reader(self.args.src_format, src_vocab)
-#    self.trg_reader = InputReader.create_input_reader(self.args.trg_format, trg_vocab)
-#    if self.args.src_vocab:
-#      self.src_reader.freeze()
-#    if self.args.trg_vocab:
-#      self.trg_reader.freeze()
-#    self.read_data()
+    model_globals.params["default_layer_dim"] = self.args.default_layer_dim
+    model_globals.params["dropout"] = self.args.dropout
+    self.model = self.model_serializer.initialize_object(self.args.model, context)
+  
+  def load_corpus_and_model(self):
+    corpus_parser, model, global_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.get("model"))
+    self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus)
+    self.corpus_parser = self.model_serializer.initialize_object(corpus_parser)
+    self.corpus_parser.read_training_corpus(self.training_corpus)
+    model_globals.params = global_params
+    self.total_train_sent = len(self.training_corpus.train_src_data)
+    context={"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
+    self.model = self.model_serializer.initialize_object(model, context)
     
-#    # Get layer sizes: replace by default if not specified
-#    for opt in ["src_word_embed_dim", "trg_word_embed_dim", "trg_state_dim",
-#                "trg_mlp_hidden_dim", "attender_hidden_dim", "attention_context_dim"]:
-#      if getattr(self.args, opt) is None:
-#        setattr(self.args, opt, self.args.default_layer_dim)
-#    if getattr(self.args, "encoder") is None:
-#      self.args.encoder = {}
-#    if self.args.encoder.get("src_dim", None) is None: self.args.encoder["src_dim"] = self.args.src_word_embed_dim
-
-#    self.src_word_emb_dim = self.args.src_word_embed_dim
-#    self.trg_word_emb_dim = self.args.trg_word_embed_dim
-#    self.trg_state_dim = self.args.trg_state_dim
-#    self.attender_hidden_dim = self.args.attender_hidden_dim
-#    self.attention_context_dim = self.args.attention_context_dim
-#    self.trg_mlp_hidden_dim = self.args.trg_mlp_hidden_dim
-
-#    self.src_embedder = Embedder.from_spec(self.args.src_format, len(self.src_reader.vocab),
-#                                             self.src_word_emb_dim, model_globals.model)
-#
-#    self.trg_embedder = SimpleWordEmbedder(len(self.trg_reader.vocab), self.trg_word_emb_dim, model_globals.model)
-#
-#    global_train_params = {"dropout" : self.args.dropout, "default_layer_dim":self.args.default_layer_dim}
-#    self.encoder = Encoder.from_spec(self.args.encoder, global_train_params, model_globals.model)
-#
-#    self.attender = StandardAttender(self.attention_context_dim, self.trg_state_dim, self.attender_hidden_dim,
-#                                     model_globals.model)
-#
-#    self.decoder = MlpSoftmaxDecoder(self.args.decoder_layers, self.attention_context_dim,
-#                                     self.trg_state_dim, self.trg_mlp_hidden_dim,
-#                                     len(self.trg_reader.vocab), model_globals.model, self.trg_word_emb_dim,
-#                                     self.args.dropout, self.args.decoder_type, self.args.residual_to_output)
-#
-#    self.model = DefaultTranslator(self.src_embedder, self.encoder, self.attender, self.trg_embedder, self.decoder)
-
-#    self.model = self.model_serializer.create_model(self.args.model)
-#    self.model_params = ModelParams(self.model,
-#                                    self.src_reader,
-#                                    self.trg_reader)
-
-
+    
 #  def read_data(self):
 #    train_filters = SentenceFilterer.from_spec(self.args.train_filters)
 #    self.train_src, self.train_trg = \
@@ -250,7 +178,9 @@ class XnmtTrainer:
 
         # Write out the model if it's the best one
         if self.logger.report_dev_and_check_model(self.args.model_file):
-          self.model_serializer.save_to_file(self.args.model_file, ModelParams(self.corpus_parser, self.model), model_globals.model)
+          self.model_serializer.save_to_file(self.args.model_file, 
+                                             ModelParams(self.corpus_parser, self.model, model_globals.params),
+                                             model_globals.get("model"))
         else:
           # otherwise: learning rate decay / early stopping
           if self.args.lr_decay < 1.0:

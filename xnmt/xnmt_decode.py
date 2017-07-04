@@ -61,7 +61,7 @@ def xnmt_decode(args, model_elements=None):
     raise RuntimeError("Unknown postprocessing argument {}".format(args.postprocess)) 
   output_generator.load_vocab(corpus_parser.trg_reader.vocab)
 
-  src_corpus = corpus_parser.src_reader.read_file(args.src_file)
+  src_corpus = corpus_parser.src_reader.read_sents(args.src_file)
   
   len_norm_type = getattr(length_normalization, args.len_norm_type)
   search_strategy=BeamSearch(b=args.beam, max_len=args.max_len, len_norm=len_norm_type(**args.len_norm_params))
