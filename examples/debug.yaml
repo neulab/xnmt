@@ -22,7 +22,7 @@ defaults:
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
-      encoder: !BiLSTMEncoder
+      encoder: !LSTMEncoder
         layers: 1
         input_dim: 64
       attender: !StandardAttender

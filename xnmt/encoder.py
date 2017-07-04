@@ -48,10 +48,10 @@ class BuilderEncoder(Encoder):
   def transduce(self, sent):
     return self.builder.transduce(sent)
 
-class BiLSTMEncoder(BuilderEncoder, Serializable):
-  yaml_tag = u'!BiLSTMEncoder'
+class LSTMEncoder(BuilderEncoder, Serializable):
+  yaml_tag = u'!LSTMEncoder'
 
-  def __init__(self, input_dim=None, layers=1, hidden_dim=None, dropout=None):
+  def __init__(self, input_dim=None, layers=1, hidden_dim=None, dropout=None, bidirectional=True):
     model = model_globals.model
     if input_dim is None: input_dim = model_globals.default_layer_dim
     if hidden_dim is None: hidden_dim = model_globals.default_layer_dim
@@ -60,7 +60,10 @@ class BiLSTMEncoder(BuilderEncoder, Serializable):
     self.layers = layers
     self.hidden_dim = hidden_dim
     self.dropout = dropout
-    self.builder = dy.BiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder)
+    if bidirectional:
+      self.builder = dy.BiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder)
+    else:
+      self.builder = dy.VanillaLSTMBuilder(layers, input_dim, hidden_dim, model)
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
