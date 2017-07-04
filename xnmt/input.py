@@ -76,7 +76,7 @@ class PlainTextReader(InputReader, Serializable):
     if self.vocab is None:
       self.vocab = Vocab()
     sents = []
-    with io.open(filename, 'rt') as f:
+    with io.open(filename, encoding='utf-8') as f:
       for line in f:
         words = line.strip().split()
         sent = [self.vocab.convert(word) for word in words]
@@ -130,7 +130,7 @@ class IDReader(InputReader, Serializable):
     pass
 
   def read_file(self, filename, max_num=None):
-    with io.open(filename, 'rt') as f:
+    with io.open(filename, encoding='utf-8') as f:
       for line in f:
         yield int(line.strip())
 

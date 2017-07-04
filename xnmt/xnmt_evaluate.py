@@ -17,7 +17,7 @@ def read_data(loc_):
     """Reads the lines in the file specified in loc_ and return the list after inserting the tokens
     """
     data = list()
-    with io.open(loc_, 'rt') as fp:
+    with io.open(loc_, encoding='utf-8') as fp:
         for line in fp:
             t = line.split()
             data.append(t)

@@ -69,7 +69,7 @@ def xnmt_decode(args, model_elements=None):
   # Perform decoding
 
   translator.set_train(False)
-  with io.open(args.trg_file, 'wt') as fp:  # Saving the translated output to a trg file
+  with io.open(args.trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
     for src in src_corpus:
       if args.max_src_len is not None and len(src) > args.max_src_len:
         trg_sent = NO_DECODING_ATTEMPTED
