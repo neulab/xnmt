@@ -25,25 +25,6 @@ class Encoder(TrainTestInterface):
     """
     raise NotImplementedError('transduce must be implemented in Encoder subclasses')
 
-#  @staticmethod
-#  def from_spec(encoder_spec, global_train_params, model):
-#    """Create an encoder from a specification.
-#
-#    :param encoder_spec: Encoder-specific settings (encoders must consume all provided settings)
-#    :param global_train_params: dictionary with global params such as dropout and default_layer_dim, which the encoders are free to make use of.
-#    :param model: The model that we should add the parameters to
-#    """
-#    encoder_spec = dict(encoder_spec)
-#    encoder_type = encoder_spec.pop("type")
-#    encoder_spec["model"] = model
-#    encoder_spec["global_train_params"] = global_train_params
-#    known_encoders = [key for (key,val) in globals().items() if inspect.isclass(val) and issubclass(val, Encoder) and key not in ["BuilderEncoder","Encoder"]]
-#    if encoder_type not in known_encoders and encoder_type+"Encoder" not in known_encoders:
-#      raise RuntimeError("specified encoder %s is unknown, choices are: %s" 
-#                         % (encoder_type,", ".join([key for (key,val) in globals().items() if inspect.isclass(val) and issubclass(val, Encoder)])))
-#    encoder_class = globals().get(encoder_type, globals().get(encoder_type+"Encoder"))
-#    return encoder_class(**encoder_spec)
-
 class BuilderEncoder(Encoder):
   def transduce(self, sent):
     return self.builder.transduce(sent)
