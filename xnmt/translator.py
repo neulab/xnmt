@@ -4,8 +4,10 @@ import dynet as dy
 from batcher import *
 from search_strategy import *
 from vocab import Vocab
-from serializer import Serializable, DependentInitParam
+from serializer import Serializable, DependentInitParam, bare_component
 from train_test_interface import TrainTestInterface
+from embedder import SimpleWordEmbedder
+from decoder import MlpSoftmaxDecoder
 
 class Translator(TrainTestInterface):
   '''
@@ -48,7 +50,7 @@ class DefaultTranslator(Translator, Serializable):
   yaml_tag = u'!DefaultTranslator'
 
 
-  def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder):
+  def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder=bare_component(MlpSoftmaxDecoder)):
     '''Constructor.
 
     :param src_embedder: A word embedder for the input language

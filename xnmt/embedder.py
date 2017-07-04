@@ -98,11 +98,11 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   yaml_tag = u'!SimpleWordEmbedder'
 
-  def __init__(self, vocab_size, emb_dim):
+  def __init__(self, vocab_size, emb_dim = None):
     self.vocab_size = vocab_size
+    if emb_dim is None: emb_dim = model_globals.default_layer_dim
     self.emb_dim = emb_dim
-    model = model_globals.model
-    self.embeddings = model.add_lookup_parameters((vocab_size, emb_dim))
+    self.embeddings = model_globals.model.add_lookup_parameters((vocab_size, emb_dim))
 
   def embed(self, x):
     # single mode
@@ -128,7 +128,7 @@ class NoopEmbedder(Embedder, Serializable):
   """
   This embedder performs no lookups but only passes through the inputs.
   
-  Normally, then input is an Input object, which is converted to an expression.
+  Normally, the input is an Input object, which is converted to an expression.
   
   We can also input an ExpressionSequence, which is simply returned as-is.
   This is useful e.g. to stack several encoders, where the second encoder performs no

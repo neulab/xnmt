@@ -153,3 +153,18 @@ class DependentInitParam(object):
     return DependentInitParam(self.component_name.split(".", 1)[1], self.param_name, self.value_fct)
   def matches_component(self, candidate_componenet_name):
     return self.component_name.split(".")[0] == candidate_componenet_name
+
+class Empty(object): pass
+def bare_component(component_cls, **kwargs):
+  """
+  This allows creating default components that are compatible with the deserialization
+  workflow: Their __init__() constructor is not called here, but only later when using
+  YamlSerializer.initialize_object()
+  :param component_cls: class type of the desired component (should be Serializable)
+  :param kwargs: init parameters when constructing the class
+  """
+  ret = Empty()
+  for key, val in kwargs.items():
+    setattr(ret, key, val)
+  ret.__class__ = component_cls
+  return ret
