@@ -20,7 +20,7 @@ defaults:
       src_reader: !PlainTextReader {}
       trg_reader: !PlainTextReader {}
     model: !DefaultTranslator
-      input_embedder: !SimpleWordEmbedder
+      src_embedder: !SimpleWordEmbedder
 #        vocab_size: 100
         emb_dim: 64
       encoder: !BiLSTMEncoder
@@ -30,7 +30,7 @@ defaults:
         state_dim: 64
         hidden_dim: 64
         input_dim: 64
-      output_embedder: !SimpleWordEmbedder
+      trg_embedder: !SimpleWordEmbedder
 #        vocab_size: 100
         emb_dim: 64
       decoder: !MlpSoftmaxDecoder

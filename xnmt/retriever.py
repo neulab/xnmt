@@ -21,7 +21,7 @@ class StandardRetrievalDatabase(Serializable):
   def __init__(self, reader, database_file):
     self.reader = reader
     self.database_file = database_file
-    self.database = reader.read_file(reader)
+    self.database = reader.read_file(database_file)
 
 ##### The actual retriever class
 
@@ -81,6 +81,7 @@ class DotProductRetriever(Retriever, Serializable):
     :param src_encoder: An encoder for the source language
     :param trg_embedder: A word embedder for the target language
     :param trg_encoder: An encoder for the target language
+    :param database: A database of things to retrieve
     '''
     self.src_embedder = src_embedder
     self.src_encoder = src_encoder

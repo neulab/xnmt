@@ -20,7 +20,7 @@ defaults:
       src_reader: !PlainTextReader {}
       trg_reader: !PlainTextReader {}
     model: !DefaultTranslator
-      input_embedder: !SimpleWordEmbedder
+      src_embedder: !SimpleWordEmbedder
         emb_dim: 512
       encoder: !BiLSTMEncoder
         layers: 1
@@ -28,7 +28,7 @@ defaults:
         hidden_dim: 512
         state_dim: 512
         input_dim: 512
-      output_embedder: !SimpleWordEmbedder
+      trg_embedder: !SimpleWordEmbedder
         emb_dim: 512
       decoder: !MlpSoftmaxDecoder
         layers: 1

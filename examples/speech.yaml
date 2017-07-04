@@ -21,7 +21,7 @@ defaults:
       src_reader: !ContVecReader {}
       trg_reader: !PlainTextReader {}
     model: !DefaultTranslator
-      input_embedder: !NoopEmbedder
+      src_embedder: !NoopEmbedder
         emb_dim: 240
       encoder: !PyramidalLSTMEncoder
         layers: 1
@@ -32,7 +32,7 @@ defaults:
         state_dim: 64
         hidden_dim: 64
         input_dim: 64
-      output_embedder: !SimpleWordEmbedder
+      trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
       decoder: !MlpSoftmaxDecoder
         layers: 1

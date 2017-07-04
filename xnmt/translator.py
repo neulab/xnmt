@@ -48,44 +48,44 @@ class DefaultTranslator(Translator, Serializable):
   yaml_tag = u'!DefaultTranslator'
 
 
-  def __init__(self, input_embedder, encoder, attender, output_embedder, decoder):
+  def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder):
     '''Constructor.
 
-    :param input_embedder: A word embedder for the input language
+    :param src_embedder: A word embedder for the input language
     :param encoder: An encoder to generate encoded inputs
     :param attender: An attention module
-    :param output_embedder: A word embedder for the output language
+    :param trg_embedder: A word embedder for the output language
     :param decoder: A decoder
     '''
-    self.input_embedder = input_embedder
+    self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
-    self.output_embedder = output_embedder
+    self.trg_embedder = trg_embedder
     self.decoder = decoder
   
   def shared_params(self):
     return [
-            set(["input_embedder.emb_dim", "encoder.input_dim"]),
+            set(["src_embedder.emb_dim", "encoder.input_dim"]),
             set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]), # TODO: encoder.hidden_dim may not always exist (e.g. for CNN encoders), need to deal with that case
             set(["attender.state_dim", "decoder.lstm_dim"]),
-            set(["output_embedder.emb_dim", "decoder.trg_embed_dim"]),
+            set(["trg_embedder.emb_dim", "decoder.trg_embed_dim"]),
             ]
   def dependent_init_params(self):
     return [
-            DependentInitParam(component_name="input_embedder", param_name="vocab_size", value_fct=lambda: self.context["corpus_parser"].src_reader.vocab_size()),
+            DependentInitParam(component_name="src_embedder", param_name="vocab_size", value_fct=lambda: self.context["corpus_parser"].src_reader.vocab_size()),
             DependentInitParam(component_name="decoder", param_name="vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
-            DependentInitParam(component_name="output_embedder", param_name="vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
+            DependentInitParam(component_name="trg_embedder", param_name="vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
             ]
 
   def get_train_test_components(self):
     return [self.encoder, self.decoder]
 
   def calc_loss(self, src, trg):
-    embeddings = self.input_embedder.embed_sent(src)
+    embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder.transduce(embeddings)
     self.attender.start_sent(encodings)
     self.decoder.initialize()
-    self.decoder.add_input(self.output_embedder.embed(0))  # XXX: HACK, need to initialize decoder better
+    self.decoder.add_input(self.trg_embedder.embed(0))  # XXX: HACK, need to initialize decoder better
     losses = []
 
     # single mode
@@ -94,7 +94,7 @@ class DefaultTranslator(Translator, Serializable):
         context = self.attender.calc_context(self.decoder.state.output())
         word_loss = self.decoder.calc_loss(context, ref_word)
         losses.append(word_loss)
-        self.decoder.add_input(self.output_embedder.embed(ref_word))
+        self.decoder.add_input(self.trg_embedder.embed(ref_word))
 
     # minibatch mode
     else:
@@ -110,7 +110,7 @@ class DefaultTranslator(Translator, Serializable):
         word_loss = dy.sum_batches(word_loss * mask_exp)
         losses.append(word_loss)
 
-        self.decoder.add_input(self.output_embedder.embed(ref_word))
+        self.decoder.add_input(self.trg_embedder.embed(ref_word))
 
     return dy.esum(losses)
 
@@ -122,11 +122,11 @@ class DefaultTranslator(Translator, Serializable):
     if not Batcher.is_batch_sent(src):
       src = Batcher.mark_as_batch([src])
     for sents in src:
-      embeddings = self.input_embedder.embed_sent(src)
+      embeddings = self.src_embedder.embed_sent(src)
       encodings = self.encoder.transduce(embeddings)
       self.attender.start_sent(encodings)
       self.decoder.initialize()
-      output.append(search_strategy.generate_output(self.decoder, self.attender, self.output_embedder, src_length=len(sents)))
+      output.append(search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents)))
     return output
 
 
