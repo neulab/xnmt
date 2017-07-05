@@ -1,7 +1,6 @@
 from __future__ import division, generators
 import numpy as np
 from collections import defaultdict, Counter
-from six.moves.builtins import range, map
 import math
 
 class EvalScore(object):
@@ -279,8 +278,6 @@ class WEREvaluator(Evaluator):
             return -1
 
     def seq_sim(self, l1, l2):
-        l1 = list(l1)
-        l2 = list(l2)
         # compute matrix
         F = [[0] * (len(l2) + 1) for i in range((len(l1) + 1))]
         for i in range(len(l1) + 1):

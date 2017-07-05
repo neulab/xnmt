@@ -1,7 +1,7 @@
 import numpy as np
-import itertools
 import os
 import io
+import six
 from collections import defaultdict
 from six.moves import zip
 from serializer import Serializable
@@ -170,8 +170,8 @@ class BilingualCorpusParser(CorpusParser, Serializable):
   def read_training_corpus(self, training_corpus):
     training_corpus.train_src_data = []
     training_corpus.train_trg_data = []
-    for src_sent, trg_sent in itertools.izip(self.src_reader.read_sents(training_corpus.train_src, self.max_num_train_sents), 
-                                             self.trg_reader.read_sents(training_corpus.train_trg, self.max_num_train_sents)):
+    for src_sent, trg_sent in six.moves.zip(self.src_reader.read_sents(training_corpus.train_src, self.max_num_train_sents),
+                                            self.trg_reader.read_sents(training_corpus.train_trg, self.max_num_train_sents)):
       src_len_ok = self.max_src_len is None or len(src_sent) <= self.max_src_len
       trg_len_ok = self.max_trg_len is None or len(trg_sent) <= self.max_trg_len
       if src_len_ok and trg_len_ok:
@@ -181,8 +181,8 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     self.trg_reader.freeze()
     training_corpus.dev_src_data = []
     training_corpus.dev_trg_data = []
-    for src_sent, trg_sent in itertools.izip(self.src_reader.read_sents(training_corpus.dev_src, self.max_num_dev_sents),
-                                             self.trg_reader.read_sents(training_corpus.dev_trg, self.max_num_dev_sents)):
+    for src_sent, trg_sent in six.moves.zip(self.src_reader.read_sents(training_corpus.dev_src, self.max_num_dev_sents),
+                                            self.trg_reader.read_sents(training_corpus.dev_trg, self.max_num_dev_sents)):
       src_len_ok = self.max_src_len is None or len(src_sent) <= self.max_src_len
       trg_len_ok = self.max_trg_len is None or len(trg_sent) <= self.max_trg_len
       if src_len_ok and trg_len_ok:
