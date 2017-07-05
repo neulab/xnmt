@@ -4,11 +4,12 @@ import io
 from output import *
 from serializer import *
 import sys
+from retriever import *
+from translator import *
 from search_strategy import *
 from options import OptionParser, Option
 from io import open
 import length_normalization
-from search_strategy import BeamSearch
 import dynet as dy
 
 '''
@@ -35,7 +36,7 @@ NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
 def xnmt_decode(args, model_elements=None):
   """
   :param model_elements: If None, the model will be loaded from args.model_file. If set, should
-  equal (corpus_parser, translator).
+  equal (corpus_parser, generator).
   """
   if model_elements is None:
     raise RuntimeError("xnmt_decode with model_element=None needs to be updated to run with the new YamlSerializer")
@@ -46,10 +47,10 @@ def xnmt_decode(args, model_elements=None):
     src_vocab = Vocab(model_params.src_vocab)
     trg_vocab = Vocab(model_params.trg_vocab)
 
-    translator = DefaultTranslator(model_params.src_embedder, model_params.encoder, model_params.attender, model_params.trg_embedder, model_params.decoder)
+    generator = DefaultTranslator(model_params.src_embedder, model_params.encoder, model_params.attender, model_params.trg_embedder, model_params.decoder)
 
   else:
-    corpus_parser, translator = model_elements
+    corpus_parser, generator = model_elements
 
   output_generator = output_processor_for_spec(args.post_process)
 
@@ -58,20 +59,28 @@ def xnmt_decode(args, model_elements=None):
   len_norm_type = getattr(length_normalization, args.len_norm_type)
   search_strategy=BeamSearch(b=args.beam, max_len=args.max_len, len_norm=len_norm_type(**args.len_norm_params))
 
-  # Perform decoding
+  # Perform initialization
+  generator.set_train(False)
+  if issubclass(generator.__class__, Retriever):
+    generator.index_database()
 
-  translator.set_train(False)
+  # Perform generation of output
   with io.open(args.trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
     for src in src_corpus:
       if args.max_src_len is not None and len(src) > args.max_src_len:
         trg_sent = NO_DECODING_ATTEMPTED
       else:
         dy.renew_cg()
-        outputs = translator.translate(src, corpus_parser.trg_reader.vocab, search_strategy)
-        trg_sent = output_generator.process_outputs(outputs)[0]
+        if issubclass(generator.__class__, Translator):
+          outputs = generator.translate(src, corpus_parser.trg_reader.vocab, search_strategy)
+          trg_sent = output_generator.process_outputs(outputs)[0]
+          if sys.version_info[0] == 2: assert isinstance(trg_sent, unicode), "Expected unicode as generator output, got %s" % type(trg_sent)
+        elif issubclass(generator.__class__, Retriever):
+          trg_sent = generator.retrieve(src)
+        else:
+          raise RuntimeError("Unknown generator type " + generator.__class__)
 
-      if sys.version_info[0] == 2: assert isinstance(trg_sent, unicode), "Expected unicode as translator output, got %s" % type(trg_sent)
-      fp.write(trg_sent + u'\n')
+      fp.write(u"{}\n".format(trg_sent))
 def output_processor_for_spec(spec):
   if spec=="none":
     return PlainTextOutputProcessor()

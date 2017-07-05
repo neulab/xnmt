@@ -125,7 +125,8 @@ class DotProductRetriever(Retriever, Serializable):
     raise NotImplementedError("calc_loss needs to calculate the max-margin objective")
 
   def index_database(self):
-    raise NotImplementedError("index_database needs to calculate the vectors for all the elements in the database and find the closest")
+    # raise NotImplementedError("index_database needs to calculate the vectors for all the elements in the database and find the closest")
+    pass
 
   def retrieve(self, src):
     self.calc_loss(src)

@@ -153,7 +153,7 @@ class BatchLossTracker(LossTracker):
     """
 
     def count_trg_words(self, trg_words):
-        return sum(len(x) for x in trg_words)
+        return sum((1 if type(x) == int else len(x)) for x in trg_words)
 
     def count_sent_num(self, obj):
         return len(obj)
@@ -165,7 +165,7 @@ class NonBatchLossTracker(LossTracker):
     """
 
     def count_trg_words(self, trg_words):
-        return len(trg_words)
+        return (1 if type(trg_words) == int else len(trg_words))
 
     def count_sent_num(self, obj):
         return 1
