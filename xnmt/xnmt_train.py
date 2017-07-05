@@ -43,8 +43,9 @@ options = [
   Option("trainer", default_value="sgd"),
   Option("learning_rate", float, default_value=0.1),
   Option("lr_decay", float, default_value=1.0),
-  Option("lr_threshold", float, default_value=1e-5),
+  Option("lr_decay_times", int, default_value=3, help_str="Early stopping after decaying learning rate a certain number of times"),
   Option("eval_metrics", default_value="bleu"),
+  Option("restart_trainer", bool, default_value=False, help_str="Restart trainer when applying LR decay (recommended for Adam: https://arxiv.org/pdf/1706.09733.pdf)"),
   Option("dropout", float, default_value=0.0),
   Option("model", dict, default_value={}),  
 ]
@@ -56,16 +57,12 @@ class XnmtTrainer:
     self.args = args  # save for later
     model_globals.params["model"] = dy.Model()
 
-    if args.trainer.lower() == "sgd":
-      self.trainer = dy.SimpleSGDTrainer(model_globals.get("model"), e0 = args.learning_rate)
-    elif args.trainer.lower() == "adam":
-      self.trainer = dy.AdamTrainer(model_globals.get("model"), alpha = args.learning_rate)
-    else:
-      raise RuntimeError("Unknown trainer {}".format(args.trainer))
+    self.trainer = self.trainer_for_args(args)
     
     if args.lr_decay > 1.0 or args.lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
     self.learning_scale = 1.0
+    self.num_times_lr_decayed = 0
     self.early_stopping_reached = False
 
     # Initialize the serializer
@@ -97,6 +94,15 @@ class XnmtTrainer:
       self.dev_src, self.dev_trg = \
           self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
       self.logger = BatchLossTracker(args.eval_every, self.total_train_sent)
+
+  def trainer_for_args(self, args):
+    if args.trainer.lower() == "sgd":
+      trainer = dy.SimpleSGDTrainer(model_globals.get("model"), e0 = args.learning_rate)
+    elif args.trainer.lower() == "adam":
+      trainer = dy.AdamTrainer(model_globals.get("model"), alpha = args.learning_rate)
+    else:
+      raise RuntimeError("Unknown trainer {}".format(args.trainer))
+    return trainer
 
   def create_corpus_and_model(self):
     self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus)
@@ -184,11 +190,16 @@ class XnmtTrainer:
         else:
           # otherwise: learning rate decay / early stopping
           if self.args.lr_decay < 1.0:
-            self.learning_scale *= self.args.lr_decay
-            print('new learning rate: %s' % (self.learning_scale * self.args.learning_rate))
-          if self.learning_scale * self.args.learning_rate < self.args.lr_threshold:
-            print('Early stopping')
-            self.early_stopping_reached = True
+            self.num_times_lr_decayed += 1
+            if self.num_times_lr_decayed > self.args.lr_decay_times:
+              print('Early stopping')
+              self.early_stopping_reached = True
+            else:
+              self.learning_scale *= self.args.lr_decay
+              print('new learning rate: %s' % (self.learning_scale * self.args.learning_rate))
+              if self.args.restart_trainer:
+                print('restarting trainer..')
+                self.trainer = self.trainer_for_args(self.args)
             
         self.trainer.update_epoch()
         self.model.set_train(True)
