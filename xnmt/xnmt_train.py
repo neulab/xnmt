@@ -5,6 +5,7 @@ import argparse
 import math
 import sys
 import dynet as dy
+import six
 from embedder import *
 from attender import *
 from input import *
@@ -70,9 +71,9 @@ class XnmtTrainer:
     self.early_stopping_reached = False
     self.cur_attempt = 0
     
-    self.evaluators = map(lambda s: s.lower(), self.args.dev_metrics.split(","))
+    self.evaluators = list(six.moves.map(lambda s: s.lower(), self.args.dev_metrics.split(",")))
     if self.args.schedule_metric.lower() not in self.evaluators:
-              self.evaluators.append(self.args.schedule_metric.lower())    
+              self.evaluators.append(self.args.schedule_metric.lower())
     if "ppl" not in self.evaluators: self.evaluators.append("ppl")
 
     # Initialize the serializer
@@ -224,7 +225,7 @@ class XnmtTrainer:
             self.logger.report_auxiliary_score(eval_scores[metric])
         # Write out the model if it's the best one
         if self.logger.report_dev_and_check_model(self.args.model_file):
-          self.model_serializer.save_to_file(self.args.model_file, 
+          self.model_serializer.save_to_file(self.args.model_file,
                                              ModelParams(self.corpus_parser, self.model, model_globals.params),
                                              model_globals.get("model"))
           self.cur_attempt = 0
