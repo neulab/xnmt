@@ -45,7 +45,7 @@ options = [
   Option("lr_decay", float, default_value=1.0),
   Option("lr_decay_times", int, default_value=3, help_str="Early stopping after decaying learning rate a certain number of times"),
   Option("eval_metrics", default_value="bleu"),
-  Option("restart_trainer", bool, default_value=False, help_str="Restart trainer when applying LR decay (recommended for Adam: https://arxiv.org/pdf/1706.09733.pdf)"),
+  Option("restart_trainer", bool, default_value=False, help_str="Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)"),
   Option("dropout", float, default_value=0.0),
   Option("model", dict, default_value={}),  
 ]
@@ -198,8 +198,13 @@ class XnmtTrainer:
               self.learning_scale *= self.args.lr_decay
               print('new learning rate: %s' % (self.learning_scale * self.args.learning_rate))
               if self.args.restart_trainer:
-                print('restarting trainer..')
+                print('restarting trainer and reverting learned weights to best checkpoint..')
                 self.trainer = self.trainer_for_args(self.args)
+                try: # dynet v2
+                  model_globals.get("model").populate(self.args.model_file + '.data')
+                except AttributeError: # dynet v1
+                  model_globals.get("model").load_all(self.args.model_file + '.data')
+                
             
         self.trainer.update_epoch()
         self.model.set_train(True)
