@@ -103,7 +103,7 @@ class BLEUEvaluator(Evaluator):
         # BLEU Score
         bleu_score = brevity_penalty_score * precision_score
 
-        return "{}, {}(BP = {}, ratio={}, hyp_len={}, ref_len={})".format(bleu_score,
+        return "{}, {}(BP = {}, ratio={:.2f}, hyp_len={}, ref_len={})".format(bleu_score,
                                                                           '/'.join(frac_score_list),
                                                                           brevity_penalty_score,
                                                                           word_counter['candidate'] / word_counter[
@@ -193,7 +193,7 @@ class WEREvaluator(Evaluator):
             total_ref_len += len(ref_sent)
             total_hyp_len += len(hyp_sent)
         wer_score = float(total_dist) / total_ref_len
-        return "{} ( hyp_len={}, ref_len={} )".format(wer_score, total_hyp_len, total_ref_len)
+        return "{:.2f}% ( hyp_len={}, ref_len={} )".format(wer_score*100.0, total_hyp_len, total_ref_len)
 
     def dist_one_pair(self, ref_sent, hyp_sent):
         """

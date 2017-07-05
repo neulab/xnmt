@@ -29,7 +29,7 @@ This will be the main class to perform training.
 options = [
   Option("dynet-mem", int, required=False),
   Option("dynet-gpu-ids", int, required=False),
-  Option("eval_every", int, default_value=10000, force_flag=True),
+  Option("dev_every", int, default_value=10000, force_flag=True),
   Option("batch_size", int, default_value=32, force_flag=True),
   Option("batch_strategy", default_value="src"),
   Option("training_corpus"),
@@ -44,7 +44,8 @@ options = [
   Option("learning_rate", float, default_value=0.1),
   Option("lr_decay", float, default_value=1.0),
   Option("lr_decay_times", int, default_value=3, help_str="Early stopping after decaying learning rate a certain number of times"),
-  Option("eval_metrics", default_value="bleu"),
+  Option("dev_metrics", default_value="bleu", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
+  Option("schedule_use_metric", bool, default_value=False, help_str="determine learning schedule based on the first given dev_metric, instead of PPL"),
   Option("restart_trainer", bool, default_value=False, help_str="Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)"),
   Option("dropout", float, default_value=0.0),
   Option("model", dict, default_value={}),  
@@ -76,7 +77,7 @@ class XnmtTrainer:
     # single mode
     if args.batch_size is None or args.batch_size == 1 or args.batch_strategy.lower() == 'none':
       print('Start training in non-minibatch mode...')
-      self.logger = NonBatchLossTracker(args.eval_every, self.total_train_sent)
+      self.logger = NonBatchLossTracker(args.dev_every, self.total_train_sent)
       self.train_src, self.train_trg = \
           self.training_corpus.train_src_data, self.training_corpus.train_trg_data
       self.dev_src, self.dev_trg = \
@@ -93,7 +94,7 @@ class XnmtTrainer:
           self.batcher.pack(self.training_corpus.train_src_data, self.training_corpus.train_trg_data)
       self.dev_src, self.dev_trg = \
           self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
-      self.logger = BatchLossTracker(args.eval_every, self.total_train_sent)
+      self.logger = BatchLossTracker(args.dev_every, self.total_train_sent)
 
   def trainer_for_args(self, args):
     if args.trainer.lower() == "sgd":
@@ -133,8 +134,8 @@ class XnmtTrainer:
 #                          train_filters)
 #    assert len(self.train_src) == len(self.train_trg)
 #    self.total_train_sent = len(self.train_src)
-#    if self.args.eval_every == None:
-#      self.args.eval_every = self.total_train_sent
+#    if self.args.dev_every == None:
+#      self.args.dev_every = self.total_train_sent
 #
 #    self.src_reader.freeze()
 #    self.trg_reader.freeze()
@@ -200,10 +201,7 @@ class XnmtTrainer:
               if self.args.restart_trainer:
                 print('restarting trainer and reverting learned weights to best checkpoint..')
                 self.trainer = self.trainer_for_args(self.args)
-                try: # dynet v2
-                  model_globals.get("model").populate(self.args.model_file + '.data')
-                except AttributeError: # dynet v1
-                  model_globals.get("model").load_all(self.args.model_file + '.data')
+                self.revert_to_best_model()
                 
             
         self.trainer.update_epoch()
@@ -212,6 +210,11 @@ class XnmtTrainer:
     return math.exp(self.logger.epoch_loss / self.logger.epoch_words), \
            math.exp(self.logger.dev_loss / self.logger.dev_words)
 
+  def revert_to_best_model(self):
+    try: # dynet v2
+      model_globals.get("model").populate(self.args.model_file + '.data')
+    except AttributeError: # dynet v1
+      model_globals.get("model").load_all(self.args.model_file + '.data')
 
 if __name__ == "__main__":
   parser = OptionParser()
