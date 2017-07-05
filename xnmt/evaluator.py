@@ -4,6 +4,75 @@ from collections import defaultdict, Counter
 from six.moves.builtins import range, map
 import math
 
+class EvalScore(object):
+  def higher_is_better(self):
+    raise NotImplementedError()
+  def value(self):
+    raise NotImplementedError()
+  def metric_name(self):
+    raise NotImplementedError()
+  def score_str(self):
+    raise NotImplementedError()
+  def better_than(self, another_score):
+    if another_score is None or another_score.value() is None: return True
+    elif self.value() is None: return False
+    assert type(self) == type(another_score)
+    if self.higher_is_better():
+      return self.value() > another_score.value()
+    else:
+      return self.value() < another_score.value()
+  def __str__(self):
+    return "{}: {}".format(self.metric_name(), self.score_str())
+
+class PPLScore(EvalScore):
+  def __init__(self, ppl):
+    self.ppl = ppl
+  def value(self): return self.ppl
+  def metric_name(self): return "PPL"
+  def higher_is_better(self): return False
+  def score_str(self):
+    return "{:.3f}".format(self.value())
+
+class BLEUScore(EvalScore):
+  def __init__(self, bleu, frac_score_list=None, brevity_penalty_score=None, hyp_len=None, ref_len=None):
+    self.bleu = bleu
+    self.frac_score_list = frac_score_list
+    self.brevity_penalty_score = brevity_penalty_score
+    self.hyp_len = hyp_len
+    self.ref_len = ref_len
+  def value(self): return self.bleu
+  def metric_name(self): return "BLEU"
+  def higher_is_better(self): return True
+  def score_str(self):
+    if self.bleu is None:
+      return "0"
+    else:
+      return "{}, {} (BP = {}, ratio={:.2f}, hyp_len={}, ref_len={})".format(self.bleu,
+                                                                            '/'.join(self.frac_score_list),
+                                                                            self.brevity_penalty_score,
+                                                                            self.hyp_len / self.ref_len,
+                                                                            self.hyp_len,
+                                                                            self.ref_len)
+
+class WERScore(EvalScore):
+  def __init__(self, wer, hyp_len, ref_len):
+    self.wer = wer
+    self.hyp_len = hyp_len
+    self.ref_len = ref_len
+  def value(self): return self.wer
+  def metric_name(self): return "WER"
+  def higher_is_better(self): return False
+  def score_str(self):
+    return "{:.2f}% ( hyp_len={}, ref_len={} )".format(self.value()*100.0, self.hyp_len, self.ref_len)
+class CERScore(WERScore):
+  def __init__(self, cer, hyp_len, ref_len):
+    self.cer = cer
+    self.hyp_len = hyp_len
+    self.ref_len = ref_len
+  def metric_name(self): return "CER"
+  def value(self): return self.cer
+  
+
 class Evaluator(object):
     """
   A class to evaluate the quality of output.
@@ -81,7 +150,7 @@ class BLEUEvaluator(Evaluator):
         # If there are no unigrams, return BLEU score of 0
         # No need to check for higher order n-grams
         if clipped_ngram_count[1] == 0:
-            return 0.
+            return BLEUScore(bleu=None)
 
         frac_score_list = list()
         log_precision_score = 0.
@@ -102,14 +171,7 @@ class BLEUEvaluator(Evaluator):
 
         # BLEU Score
         bleu_score = brevity_penalty_score * precision_score
-
-        return "{}, {}(BP = {}, ratio={}, hyp_len={}, ref_len={})".format(bleu_score,
-                                                                          '/'.join(frac_score_list),
-                                                                          brevity_penalty_score,
-                                                                          word_counter['candidate'] / word_counter[
-                                                                              'reference'],
-                                                                          word_counter['candidate'],
-                                                                          word_counter['reference'])
+        return BLEUScore(bleu_score, frac_score_list, brevity_penalty_score, word_counter['candidate'], word_counter['reference'])
 
     # Doc to be added
     def brevity_penalty(self, r, c):
@@ -193,7 +255,7 @@ class WEREvaluator(Evaluator):
             total_ref_len += len(ref_sent)
             total_hyp_len += len(hyp_sent)
         wer_score = float(total_dist) / total_ref_len
-        return "{} ( hyp_len={}, ref_len={} )".format(wer_score, total_hyp_len, total_ref_len)
+        return WERScore(wer_score, total_hyp_len, total_ref_len)
 
     def dist_one_pair(self, ref_sent, hyp_sent):
         """
@@ -254,7 +316,8 @@ class CEREvaluator(object):
     """
         ref_char = [list("".join(ref_sent)) for ref_sent in ref]
         hyp_char = [list("".join(hyp_sent)) for hyp_sent in hyp]
-        return self.wer_evaluator.evaluate(ref_char, hyp_char)
+        wer_obj = self.wer_evaluator.evaluate(ref_char, hyp_char)
+        return CERScore(wer_obj.value(), wer_obj.hyp_len, wer_obj.ref_len)
 
 
 if __name__ == "__main__":
