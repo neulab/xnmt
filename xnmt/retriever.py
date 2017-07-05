@@ -21,7 +21,7 @@ class StandardRetrievalDatabase(Serializable):
   def __init__(self, reader, database_file):
     self.reader = reader
     self.database_file = database_file
-    self.database = reader.read_sents(database_file)
+    self.database = reader.read_file(database_file)
 
 ##### The actual retriever class
 
@@ -93,11 +93,55 @@ class DotProductRetriever(Retriever, Serializable):
     return [self.src_encoder, self.trg_encoder]
 
   def calc_loss(self, src, db_idx):
+    data = self.database[db_idx]
+    src_embeddings = self.src_embedder.embed_sent(src)
+    src_encodings = self.src_encoder.transduce(src_embeddings)
+    trg_embeddings = self.trg_embedder.embed_sent(data)
+    trg_encodings = self.trg_encoder.transduce(trg_embeddings)
+    
+    # Map the src and trg to the same space
+    self.src_encodings = dy.concatenate(src_encodings, 0)
+    self.trg_encodings = dy.concatenate(trg_encodings, 0)
+    
+    # Compute the cosine similarity
+    src_encoding_norm = dy.l2_normalize(self.src_encodings)
+    trg_encoding_norm = dy.l2_normalize(self.trg_encodings)
+    self.s = dy.dot(self.src_encodings, self.trg_encodings)
+    
+    # Compute the sum-of-all-margin cost function
+    margins = self.s - dy.diag(s) + 1
+    self.cost = dy.sum(dy.relu(margins), 0)
+
+    # Compute the sum-of-random-negative-example cost function
+    ndata = len(db_idx)
+    rand_idx_a = np.argsort(np.random.normal(size=(ndata, ndata)), axis=1)
+    rand_idx_u = np.argsort(np.random.normal(size=(ndata, ndata)), axis=1)
+    
+    margin_a = self.s[rand_idx_a] - dy.diag(s) + 1
+    self.st = dy.transpose(self.s)
+    margin_v = self.st[rand_idx_v] - dy.diag(s) + 1
+    self.rand_cost = dy.sum(dy.relu(margin_a) + dy.relu(margin_v))
+    
     raise NotImplementedError("calc_loss needs to calculate the max-margin objective")
 
   def index_database(self):
     raise NotImplementedError("index_database needs to calculate the vectors for all the elements in the database and find the closest")
 
   def retrieve(self, src):
+    self.calc_loss(src)
+    ntx = len(src)
+    similarity = self.s.value()
+    ntop = int(ntx/5)
+    top_indices = []
+    for i in range(ntop):
+        cur_indices = np.argmax(similarity, axis=1)
+        top_indices.append(cur_indices)
+        for j in range(ntx):
+            similarity[j][cur_indices[j]] = -1
+    dev = abs(top_indices - np.linspace(0, ntx-1, ntx))
+    min_dev = np.min(dev)
+    accuracy = np.mean((min_dev==0))
+    print('retrieval indices:', top_indices)
+    print('retrieval accuracy:', accuracy)
     raise NotImplementedError("retrieve needs find the example index with the largest dot product")
 
