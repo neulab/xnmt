@@ -123,7 +123,7 @@ if __name__ == '__main__':
     print('reverting learned weights to best checkpoint..')
     xnmt_trainer.revert_to_best_model()
     if evaluators:
-      print("> Evaluating")
+      print("> Evaluating test set")
       output.indent += 2
       xnmt_decode.xnmt_decode(decode_args, model_elements=(
         xnmt_trainer.corpus_parser, xnmt_trainer.model))
@@ -131,7 +131,7 @@ if __name__ == '__main__':
       for evaluator in evaluators:
         evaluate_args.evaluator = evaluator
         eval_score = xnmt_evaluate.xnmt_evaluate(evaluate_args)
-        print("{}: {}".format(evaluator, eval_score))
+        print(eval_score)
         eval_scores.append(eval_score)
       output.indent -= 2
       
@@ -148,4 +148,4 @@ if __name__ == '__main__':
   for line in results:
     experiment_name, eval_scores = line
     for i in range(len(eval_scores)):
-      print("{:<30}| {:<40}".format(experiment_name if i==0 else "", "%s %s" % (evaluators[i], eval_scores[i])))
+      print("{:<30}| {:<40}".format(experiment_name if i==0 else "", eval_scores[i]))

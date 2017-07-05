@@ -15,12 +15,11 @@ from retriever import *
 from model_params import *
 from training_corpus import *
 from loss_tracker import *
-from serializer import *
-from serializer import *
 from preproc import SentenceFilterer
 from options import Option, OptionParser, general_options
 import model_globals
 import serializer
+from evaluator import PPLScore
 
 '''
 This will be the main class to perform training.
@@ -44,8 +43,8 @@ options = [
   Option("learning_rate", float, default_value=0.1),
   Option("lr_decay", float, default_value=1.0),
   Option("lr_decay_times", int, default_value=3, help_str="Early stopping after decaying learning rate a certain number of times"),
-  Option("dev_metrics", default_value="bleu", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
-  Option("schedule_use_metric", bool, default_value=False, help_str="determine learning schedule based on the first given dev_metric, instead of PPL"),
+  Option("dev_metrics", default_value="ppl", help_str="Comma-separated list of evaluation metrics (ppl/bleu/wer/cer)"),
+  Option("schedule_metric", default_value="ppl", help_str="determine learning schedule based on this dev_metric, instead of PPL"),
   Option("restart_trainer", bool, default_value=False, help_str="Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)"),
   Option("dropout", float, default_value=0.0),
   Option("model", dict, default_value={}),  
@@ -58,7 +57,7 @@ class XnmtTrainer:
     self.args = args  # save for later
     model_globals.params["model"] = dy.Model()
 
-    self.trainer = self.trainer_for_args(args)
+    self.trainer = self.dynet_trainer_for_args(args)
     
     if args.lr_decay > 1.0 or args.lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
@@ -96,7 +95,7 @@ class XnmtTrainer:
           self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
       self.logger = BatchLossTracker(args.dev_every, self.total_train_sent)
 
-  def trainer_for_args(self, args):
+  def dynet_trainer_for_args(self, args):
     if args.trainer.lower() == "sgd":
       trainer = dy.SimpleSGDTrainer(model_globals.get("model"), e0 = args.learning_rate)
     elif args.trainer.lower() == "adam":
@@ -178,10 +177,13 @@ class XnmtTrainer:
       if self.logger.should_report_dev():
         self.model.set_train(False)
         self.logger.new_dev()
+        ppl_sum = 0.0
+        trg_words_cnt = 0
         for src, trg in zip(self.dev_src, self.dev_trg):
           dy.renew_cg()
-          loss = self.model.calc_loss(src, trg).value()
-          self.logger.update_dev_loss(trg, loss)
+          ppl_sum += self.model.calc_loss(src, trg).value()
+          trg_words_cnt += self.logger.count_trg_words(trg)
+        self.logger.set_dev_score(trg_words_cnt, PPLScore(math.exp(ppl_sum / trg_words_cnt)))
 
         # Write out the model if it's the best one
         if self.logger.report_dev_and_check_model(self.args.model_file):
@@ -200,15 +202,12 @@ class XnmtTrainer:
               print('new learning rate: %s' % (self.learning_scale * self.args.learning_rate))
               if self.args.restart_trainer:
                 print('restarting trainer and reverting learned weights to best checkpoint..')
-                self.trainer = self.trainer_for_args(self.args)
+                self.trainer = self.dynet_trainer_for_args(self.args)
                 self.revert_to_best_model()
                 
             
         self.trainer.update_epoch()
         self.model.set_train(True)
-
-    return math.exp(self.logger.epoch_loss / self.logger.epoch_words), \
-           math.exp(self.logger.dev_loss / self.logger.dev_words)
 
   def revert_to_best_model(self):
     try: # dynet v2

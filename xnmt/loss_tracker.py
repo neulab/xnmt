@@ -10,6 +10,7 @@ class LossTracker:
     """
 
     REPORT_TEMPLATE = 'Epoch %.4f: {}_ppl=%.4f (words=%d, words/sec=%.2f, time=%s)'
+    REPORT_TEMPLATE_DEV = '  Epoch %.4f dev %s (words=%d, words/sec=%.2f, time=%s)'
 
     def __init__(self, eval_every, total_train_sent):
         self.eval_train_every = 1000
@@ -25,8 +26,8 @@ class LossTracker:
         self.sent_num_not_report_dev = 0
         self.fractional_epoch = 0
 
-        self.dev_loss = 0.0
-        self.best_dev_loss = sys.float_info.max
+        self.dev_loss = None
+        self.best_dev_loss = None
         self.dev_words = 0
 
         self.last_report_words = 0
@@ -87,16 +88,14 @@ class LossTracker:
         """
         Clear dev counters for starting a new dev testing.
         """
-        self.dev_loss = 0.0
-        self.dev_words = 0
         self.dev_start_time = time.time()
 
-    def update_dev_loss(self, trg, loss):
+    def set_dev_score(self, dev_words, dev_score):
         """
         Update dev counters for each iteration.
         """
-        self.dev_loss += loss
-        self.dev_words += self.count_trg_words(trg)
+        self.dev_loss = dev_score
+        self.dev_words = dev_words
 
     def should_report_dev(self):
       return (self.sent_num_not_report_dev >= self.eval_dev_every) or (self.sent_num == self.total_train_sent)
@@ -108,14 +107,15 @@ class LossTracker:
         """
         this_report_time = time.time()
         self.sent_num_not_report_dev = self.sent_num_not_report_dev % self.eval_dev_every
-        print(LossTracker.REPORT_TEMPLATE.format('dev') % (
+        print("> Checkpoint")
+        print(LossTracker.REPORT_TEMPLATE_DEV % (
             self.fractional_epoch,
-            math.exp(self.dev_loss / self.dev_words),
+            self.dev_loss,
             self.dev_words,
             self.dev_words / (this_report_time - self.dev_start_time),
             self.format_time(this_report_time - self.start_time)))
 
-        save_model = self.dev_loss < self.best_dev_loss
+        save_model = self.dev_loss.better_than(self.best_dev_loss)
         if save_model:
             self.best_dev_loss = self.dev_loss
             print('Epoch %.4f: best dev loss, writing model to %s' % (self.fractional_epoch, model_file))
