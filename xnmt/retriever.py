@@ -21,7 +21,7 @@ class StandardRetrievalDatabase(Serializable):
   def __init__(self, reader, database_file):
     self.reader = reader
     self.database_file = database_file
-    self.database = reader.read_file(database_file)
+    self.database = reader.read_sents(database_file)
 
 ##### The actual retriever class
 

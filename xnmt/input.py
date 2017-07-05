@@ -61,7 +61,7 @@ class InputReader:
     :param max_num: stop reading data after the first max_num sentences
     :returns: iterator over sentences from filename
     """
-    raise RuntimeError("Input readers must implement the read_file function")
+    raise RuntimeError("Input readers must implement the read_sents function")
   def freeze(self):
     pass
 
@@ -258,7 +258,7 @@ class BilingualCorpusParser(CorpusParser, Serializable):
 #         return data_dict
 #     
 #     
-#     def read_file(self, split_type, data_type):
+#     def read_sents(self, split_type, data_type):
 #         return self.data[split_type][data_type]
 #         
 #     
@@ -330,8 +330,8 @@ class BilingualCorpusParser(CorpusParser, Serializable):
 #                                           eval_lang_dict=zs_eval_lang_dict, zero_shot=True, bilingual=False)
 # 
 # 
-#     #src_test_list = obj.read_file(split_type='test', data_type='src')
-#     #trg_test_list = obj.read_file(split_type='test', data_type='trg')
+#     #src_test_list = obj.read_sents(split_type='test', data_type='src')
+#     #trg_test_list = obj.read_sents(split_type='test', data_type='trg')
 #     
 #     #print len(src_test_list)
 #     #print len(trg_test_list)

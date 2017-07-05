@@ -6,7 +6,6 @@ defaults:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     run_for_epochs: 20
-    decode_every: 1
     eval_metrics: bleu,wer
   train:
     default_layer_dim: 512
@@ -23,12 +22,12 @@ defaults:
       src_embedder: !SimpleWordEmbedder
         vocab_size: 5000 # TODO: set this automatically
         emb_dim: 512
-      src_encoder: !BiLSTMEncoder
+      src_encoder: !LSTMEncoder
         layers: 1
       trg_embedder: !SimpleWordEmbedder
         vocab_size: 5000 # TODO: set this automatically
         emb_dim: 512
-      trg_encoder: !BiLSTMEncoder
+      trg_encoder: !LSTMEncoder
         layers: 1
       database: !StandardRetrievalDatabase
         reader: !PlainTextReader {}
