@@ -30,7 +30,7 @@ This will be the main class to perform training.
 options = [
   Option("dynet-mem", int, required=False),
   Option("dynet-gpu-ids", int, required=False),
-  Option("dev_every", int, default_value=10000, force_flag=True),
+  Option("dev_every", int, default_value=0, force_flag=True, help_str="dev checkpoints every n sentences (0 for only after epoch)"),
   Option("batch_size", int, default_value=32, force_flag=True),
   Option("batch_strategy", default_value="src"),
   Option("training_corpus"),
@@ -45,6 +45,7 @@ options = [
   Option("learning_rate", float, default_value=0.1),
   Option("lr_decay", float, default_value=1.0),
   Option("lr_decay_times", int, default_value=3, help_str="Early stopping after decaying learning rate a certain number of times"),
+  Option("attempts_before_lr_decay", int, default_value=1, help_str="apply LR decay after dev scores haven't improved over this many checkpoints"),
   Option("dev_metrics", default_value="", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
   Option("schedule_metric", default_value="ppl", help_str="determine learning schedule based on this dev_metric (ppl/bleu/wer/cer)"),
   Option("restart_trainer", bool, default_value=False, help_str="Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)"),
@@ -67,6 +68,7 @@ class XnmtTrainer:
     self.learning_scale = 1.0
     self.num_times_lr_decayed = 0
     self.early_stopping_reached = False
+    self.cur_attempt = 0
     
     self.evaluators = map(lambda s: s.lower(), self.args.dev_metrics.split(","))
     if self.args.schedule_metric.lower() not in self.evaluators:
@@ -215,19 +217,21 @@ class XnmtTrainer:
         else:
           self.logger.set_dev_score(trg_words_cnt, eval_scores[schedule_metric])
 
-        # Write out the model if it's the best one
         print("> Checkpoint")
         # print previously computed metrics
         for metric in self.evaluators:
           if metric != schedule_metric:
             self.logger.report_auxiliary_score(eval_scores[metric])
+        # Write out the model if it's the best one
         if self.logger.report_dev_and_check_model(self.args.model_file):
           self.model_serializer.save_to_file(self.args.model_file, 
                                              ModelParams(self.corpus_parser, self.model, model_globals.params),
                                              model_globals.get("model"))
+          self.cur_attempt = 0
         else:
           # otherwise: learning rate decay / early stopping
-          if self.args.lr_decay < 1.0:
+          self.cur_attempt += 1
+          if self.args.lr_decay < 1.0 and self.cur_attempt >= self.args.attempts_before_lr_decay:
             self.num_times_lr_decayed += 1
             if self.num_times_lr_decayed > self.args.lr_decay_times:
               print('  Early stopping')
