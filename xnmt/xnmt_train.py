@@ -192,10 +192,19 @@ class XnmtTrainer:
         if filter(lambda e: e!="ppl", self.evaluators):
           self.decode_args.src_file = self.training_corpus.dev_src
           out_file = self.args.model_file + ".dev_hyp"
+          out_file_ref = self.args.model_file + ".dev_ref"
           self.decode_args.trg_file = out_file
           xnmt_decode.xnmt_decode(self.decode_args, model_elements=(self.corpus_parser, self.model))
+          output_processor = xnmt_decode.output_processor_for_spec(self.decode_args.post_process)
+          processed = []
+          with io.open(self.training_corpus.dev_trg, encoding='utf-8') as fin:
+            for line in fin:
+              processed.append(output_processor.words_to_string(line.strip().split()) + u"\n")
+          with io.open(out_file_ref, 'wt', encoding='utf-8') as fout:
+            for line in processed:
+              fout.write(line)
           self.evaluate_args.hyp_file = out_file
-          self.evaluate_args.ref_file = self.training_corpus.dev_trg # TODO: need to apply postprocess here
+          self.evaluate_args.ref_file = out_file_ref
           for evaluator in self.evaluators:
             if evaluator=="ppl": continue
             self.evaluate_args.evaluator = evaluator
@@ -211,7 +220,7 @@ class XnmtTrainer:
         # print previously computed metrics
         for metric in self.evaluators:
           if metric != schedule_metric:
-            print("  dev %s" % eval_scores[evaluator])
+            self.logger.report_auxiliary_score(eval_scores[metric])
         if self.logger.report_dev_and_check_model(self.args.model_file):
           self.model_serializer.save_to_file(self.args.model_file, 
                                              ModelParams(self.corpus_parser, self.model, model_globals.params),

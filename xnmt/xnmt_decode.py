@@ -51,15 +51,7 @@ def xnmt_decode(args, model_elements=None):
   else:
     corpus_parser, translator = model_elements
 
-  if args.post_process=="none":
-    output_generator = PlainTextOutput()
-  elif args.post_process=="join-char":
-    output_generator = JoinedCharTextOutput()
-  elif args.post_process=="join-bpe":
-    output_generator = JoinedBPETextOutput()
-  else:
-    raise RuntimeError("Unknown postprocessing argument {}".format(args.postprocess)) 
-  output_generator.load_vocab(corpus_parser.trg_reader.vocab)
+  output_generator = output_processor_for_spec(args.post_process)
 
   src_corpus = corpus_parser.src_reader.read_sents(args.src_file)
   
@@ -75,12 +67,20 @@ def xnmt_decode(args, model_elements=None):
         trg_sent = NO_DECODING_ATTEMPTED
       else:
         dy.renew_cg()
-        token_string = translator.translate(src, search_strategy)
-        trg_sent = output_generator.process(token_string)[0]
+        outputs = translator.translate(src, corpus_parser.trg_reader.vocab, search_strategy)
+        trg_sent = output_generator.process_outputs(outputs)[0]
 
       if sys.version_info[0] == 2: assert isinstance(trg_sent, unicode), "Expected unicode as translator output, got %s" % type(trg_sent)
       fp.write(trg_sent + u'\n')
-
+def output_processor_for_spec(spec):
+  if spec=="none":
+    return PlainTextOutputProcessor()
+  elif spec=="join-char":
+    return JoinedCharTextOutputProcessor()
+  elif spec=="join-bpe":
+    return JoinedBPETextOutputProcessor()
+  else:
+    raise RuntimeError("Unknown postprocessing argument {}".format(spec))
 
 if __name__ == "__main__":
   # Parse arguments

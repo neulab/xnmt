@@ -8,6 +8,7 @@ from serializer import Serializable, DependentInitParam
 from train_test_interface import TrainTestInterface
 from embedder import SimpleWordEmbedder
 from decoder import MlpSoftmaxDecoder
+from output import TextOutput
 
 class Translator(TrainTestInterface):
   '''
@@ -116,19 +117,20 @@ class DefaultTranslator(Translator, Serializable):
 
     return dy.esum(losses)
 
-  def translate(self, src, search_strategy=None):
+  def translate(self, src, trg_vocab, search_strategy=None):
     # Not including this as a default argument is a hack to get our documentation pipeline working
     if search_strategy == None:
       search_strategy = BeamSearch(1, len_norm=NoNormalization())
-    output = []
     if not Batcher.is_batch_sent(src):
       src = Batcher.mark_as_batch([src])
+    outputs = []
     for sents in src:
       embeddings = self.src_embedder.embed_sent(src)
       encodings = self.encoder.transduce(embeddings)
       self.attender.start_sent(encodings)
       self.decoder.initialize()
-      output.append(search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents)))
-    return output
+      output_actions = search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents))
+      outputs.append(TextOutput(output_actions, trg_vocab))
+    return outputs
 
 

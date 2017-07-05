@@ -1,4 +1,3 @@
-# Small config to help refactoring to make the model completely YAML based
 defaults:
   experiment:
     model_file: examples/output/<EXP>.mod
@@ -6,13 +5,14 @@ defaults:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     run_for_epochs: 20
-    eval_metrics: bleu,wer
+    eval_metrics: bleu
   train:
     default_layer_dim: 512
     restart_trainer: True
     trainer: Adam
     learning_rate: 0.0002
     lr_decay: 0.5
+    dev_metrics: bleu
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/train.ja
       train_trg: examples/data/train.en
@@ -36,6 +36,7 @@ defaults:
         layers: 1
         mlp_hidden_dim: 512
   decode:
+    post_process: join-char
     src_file: examples/data/test.ja
   evaluate:
     ref_file: examples/data/test.en

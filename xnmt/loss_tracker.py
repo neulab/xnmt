@@ -9,8 +9,9 @@ class LossTracker:
     A template class to track training process and generate report.
     """
 
-    REPORT_TEMPLATE = 'Epoch %.4f: {}_ppl=%.4f (words=%d, words/sec=%.2f, time=%s)'
-    REPORT_TEMPLATE_DEV = '  Epoch %.4f dev %s (words=%d, words/sec=%.2f, time=%s)'
+    REPORT_TEMPLATE           = 'Epoch %.4f: {}_ppl=%.4f (words=%d, words/sec=%.2f, time=%s)'
+    REPORT_TEMPLATE_DEV       = '  Epoch %.4f dev %s (words=%d, words/sec=%.2f, time=%s)'
+    REPORT_TEMPLATE_DEV_AUX   = '  Epoch %.4f dev [auxiliary] %s'
 
     def __init__(self, eval_every, total_train_sent):
         self.eval_train_every = 1000
@@ -121,6 +122,8 @@ class LossTracker:
 
         self.last_report_train_time = time.time()
         return save_model
+    def report_auxiliary_score(self, score):
+        print(LossTracker.REPORT_TEMPLATE_DEV_AUX % (self.fractional_epoch, score))
 
     def count_trg_words(self, trg_words):
         """
