@@ -36,7 +36,6 @@ defaults:
         layers: 1
         mlp_hidden_dim: 512
   decode:
-    post_process: join-char
     src_file: examples/data/test.ja
   evaluate:
     ref_file: examples/data/test.en
