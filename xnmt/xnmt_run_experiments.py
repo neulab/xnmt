@@ -13,6 +13,7 @@ from options import OptionParser, Option
 from tee import Tee
 import random
 import numpy as np
+import copy
 
 
 if __name__ == '__main__':
@@ -95,7 +96,7 @@ if __name__ == '__main__':
 
     evaluate_args = exp_tasks["evaluate"]
     evaluate_args.hyp_file = exp_args.hyp_file
-    evaluators = exp_args.eval_metrics.split(",")
+    evaluators = map(lambda s: s.lower(), exp_args.eval_metrics.split(","))
 
     output = Tee(exp_args.out_file, 3)
     err_output = Tee(exp_args.err_file, 3, error=True)
@@ -111,6 +112,8 @@ if __name__ == '__main__':
 
     print("> Training")
     xnmt_trainer = xnmt_train.XnmtTrainer(train_args)
+    xnmt_trainer.decode_args = copy.copy(decode_args)
+    xnmt_trainer.evaluate_args = copy.copy(evaluate_args)
 
     eval_scores = "Not evaluated"
     for i_epoch in six.moves.range(exp_args.run_for_epochs):

@@ -14,7 +14,9 @@ class EvalScore(object):
   def score_str(self):
     raise NotImplementedError()
   def better_than(self, another_score):
-    if another_score is None: return True
+    if another_score is None or another_score.value() is None: return True
+    elif self.value() is None: return False
+    assert type(self) == type(another_score)
     if self.higher_is_better():
       return self.value() > another_score.value()
     else:

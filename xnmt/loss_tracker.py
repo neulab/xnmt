@@ -26,8 +26,8 @@ class LossTracker:
         self.sent_num_not_report_dev = 0
         self.fractional_epoch = 0
 
-        self.dev_loss = None
-        self.best_dev_loss = None
+        self.dev_score = None
+        self.best_dev_score = None
         self.dev_words = 0
 
         self.last_report_words = 0
@@ -94,7 +94,7 @@ class LossTracker:
         """
         Update dev counters for each iteration.
         """
-        self.dev_loss = dev_score
+        self.dev_score = dev_score
         self.dev_words = dev_words
 
     def should_report_dev(self):
@@ -107,18 +107,17 @@ class LossTracker:
         """
         this_report_time = time.time()
         self.sent_num_not_report_dev = self.sent_num_not_report_dev % self.eval_dev_every
-        print("> Checkpoint")
         print(LossTracker.REPORT_TEMPLATE_DEV % (
             self.fractional_epoch,
-            self.dev_loss,
+            self.dev_score,
             self.dev_words,
             self.dev_words / (this_report_time - self.dev_start_time),
             self.format_time(this_report_time - self.start_time)))
 
-        save_model = self.dev_loss.better_than(self.best_dev_loss)
+        save_model = self.dev_score.better_than(self.best_dev_score)
         if save_model:
-            self.best_dev_loss = self.dev_loss
-            print('Epoch %.4f: best dev loss, writing model to %s' % (self.fractional_epoch, model_file))
+            self.best_dev_score = self.dev_score
+            print('  Epoch %.4f: best dev score, writing model to %s' % (self.fractional_epoch, model_file))
 
         self.last_report_train_time = time.time()
         return save_model

@@ -19,8 +19,10 @@ from preproc import SentenceFilterer
 from options import Option, OptionParser, general_options
 import model_globals
 import serializer
+import xnmt_decode
+import xnmt_evaluate
 from evaluator import PPLScore
-
+from tee import Tee
 '''
 This will be the main class to perform training.
 '''
@@ -43,18 +45,19 @@ options = [
   Option("learning_rate", float, default_value=0.1),
   Option("lr_decay", float, default_value=1.0),
   Option("lr_decay_times", int, default_value=3, help_str="Early stopping after decaying learning rate a certain number of times"),
-  Option("dev_metrics", default_value="ppl", help_str="Comma-separated list of evaluation metrics (ppl/bleu/wer/cer)"),
-  Option("schedule_metric", default_value="ppl", help_str="determine learning schedule based on this dev_metric, instead of PPL"),
+  Option("dev_metrics", default_value="", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
+  Option("schedule_metric", default_value="ppl", help_str="determine learning schedule based on this dev_metric (ppl/bleu/wer/cer)"),
   Option("restart_trainer", bool, default_value=False, help_str="Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)"),
   Option("dropout", float, default_value=0.0),
   Option("model", dict, default_value={}),  
 ]
 
 class XnmtTrainer:
-  def __init__(self, args):
+  def __init__(self, args, output=None):
     dy.renew_cg()
 
-    self.args = args  # save for later
+    self.args = args
+    self.output = output
     model_globals.params["model"] = dy.Model()
 
     self.trainer = self.dynet_trainer_for_args(args)
@@ -64,6 +67,11 @@ class XnmtTrainer:
     self.learning_scale = 1.0
     self.num_times_lr_decayed = 0
     self.early_stopping_reached = False
+    
+    self.evaluators = map(lambda s: s.lower(), self.args.dev_metrics.split(","))
+    if self.args.schedule_metric.lower() not in self.evaluators:
+              self.evaluators.append(self.args.schedule_metric.lower())    
+    if "ppl" not in self.evaluators: self.evaluators.append("ppl")
 
     # Initialize the serializer
     self.model_serializer = serializer.YamlSerializer()
@@ -177,15 +185,33 @@ class XnmtTrainer:
       if self.logger.should_report_dev():
         self.model.set_train(False)
         self.logger.new_dev()
-        ppl_sum = 0.0
-        trg_words_cnt = 0
-        for src, trg in zip(self.dev_src, self.dev_trg):
-          dy.renew_cg()
-          ppl_sum += self.model.calc_loss(src, trg).value()
-          trg_words_cnt += self.logger.count_trg_words(trg)
-        self.logger.set_dev_score(trg_words_cnt, PPLScore(math.exp(ppl_sum / trg_words_cnt)))
+        trg_words_cnt, ppl_score = self.compute_dev_ppl()
+        schedule_metric = self.args.schedule_metric.lower()
+        
+        eval_scores = {"ppl" : ppl_score}
+        if filter(lambda e: e!="ppl", self.evaluators):
+          self.decode_args.src_file = self.training_corpus.dev_src
+          out_file = self.args.model_file + ".dev_hyp"
+          self.decode_args.trg_file = out_file
+          xnmt_decode.xnmt_decode(self.decode_args, model_elements=(self.corpus_parser, self.model))
+          self.evaluate_args.hyp_file = out_file
+          self.evaluate_args.ref_file = self.training_corpus.dev_trg # TODO: need to apply postprocess here
+          for evaluator in self.evaluators:
+            if evaluator=="ppl": continue
+            self.evaluate_args.evaluator = evaluator
+            eval_score = xnmt_evaluate.xnmt_evaluate(self.evaluate_args)
+            eval_scores[evaluator] = eval_score
+        if schedule_metric == "ppl":
+          self.logger.set_dev_score(trg_words_cnt, ppl_score)
+        else:
+          self.logger.set_dev_score(trg_words_cnt, eval_scores[schedule_metric])
 
         # Write out the model if it's the best one
+        print("> Checkpoint")
+        # print previously computed metrics
+        for metric in self.evaluators:
+          if metric != schedule_metric:
+            print("  dev %s" % eval_scores[evaluator])
         if self.logger.report_dev_and_check_model(self.args.model_file):
           self.model_serializer.save_to_file(self.args.model_file, 
                                              ModelParams(self.corpus_parser, self.model, model_globals.params),
@@ -195,13 +221,13 @@ class XnmtTrainer:
           if self.args.lr_decay < 1.0:
             self.num_times_lr_decayed += 1
             if self.num_times_lr_decayed > self.args.lr_decay_times:
-              print('Early stopping')
+              print('  Early stopping')
               self.early_stopping_reached = True
             else:
               self.learning_scale *= self.args.lr_decay
-              print('new learning rate: %s' % (self.learning_scale * self.args.learning_rate))
+              print('  new learning rate: %s' % (self.learning_scale * self.args.learning_rate))
               if self.args.restart_trainer:
-                print('restarting trainer and reverting learned weights to best checkpoint..')
+                print('  restarting trainer and reverting learned weights to best checkpoint..')
                 self.trainer = self.dynet_trainer_for_args(self.args)
                 self.revert_to_best_model()
                 
@@ -214,6 +240,15 @@ class XnmtTrainer:
       model_globals.get("model").populate(self.args.model_file + '.data')
     except AttributeError: # dynet v1
       model_globals.get("model").load_all(self.args.model_file + '.data')
+
+  def compute_dev_ppl(self):
+    ppl_sum = 0.0
+    trg_words_cnt = 0
+    for src, trg in zip(self.dev_src, self.dev_trg):
+      dy.renew_cg()
+      ppl_sum += self.model.calc_loss(src, trg).value()
+      trg_words_cnt += self.logger.count_trg_words(trg)
+    return trg_words_cnt, PPLScore(math.exp(ppl_sum / trg_words_cnt))
 
 if __name__ == "__main__":
   parser = OptionParser()
