@@ -107,7 +107,8 @@ class LossTracker:
         :return: True if the dev loss is the best and required save operations
         """
         this_report_time = time.time()
-        self.sent_num_not_report_dev = self.sent_num_not_report_dev % self.eval_dev_every
+        if self.eval_dev_every != 0:
+          self.sent_num_not_report_dev = self.sent_num_not_report_dev % self.eval_dev_every
         print(LossTracker.REPORT_TEMPLATE_DEV % (
             self.fractional_epoch,
             self.dev_score,
