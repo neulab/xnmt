@@ -104,25 +104,26 @@ class DotProductRetriever(Retriever, Serializable):
     self.trg_encodings = dy.concatenate(trg_encodings, 0)
     
     # Compute the cosine similarity
-    src_encoding_norm = dy.l2_normalize(self.src_encodings)
-    trg_encoding_norm = dy.l2_normalize(self.trg_encodings)
-    self.s = dy.dot(self.src_encodings, self.trg_encodings)
+    src_encoding_norm = dy.weight_norm(self.src_encodings)
+    trg_encoding_norm = dy.weight_norm(self.trg_encodings)
+    self.s = dy.dot_product(self.src_encodings, self.trg_encodings)
     
     # Compute the sum-of-all-margin cost function
-    margins = self.s - dy.diag(s) + 1
-    self.cost = dy.sum(dy.relu(margins), 0)
+    ndata = len(db_idx)
+    self.cost = dy.hinge(self.s, np.linspace(0, ndata-1, ndata), 1)
 
     # Compute the sum-of-random-negative-example cost function
     ndata = len(db_idx)
     rand_idx_a = np.argsort(np.random.normal(size=(ndata, ndata)), axis=1)
     rand_idx_u = np.argsort(np.random.normal(size=(ndata, ndata)), axis=1)
     
-    margin_a = self.s[rand_idx_a] - dy.diag(s) + 1
-    self.st = dy.transpose(self.s)
-    margin_v = self.st[rand_idx_v] - dy.diag(s) + 1
-    self.rand_cost = dy.sum(dy.relu(margin_a) + dy.relu(margin_v))
+    #margin_a = self.s[rand_idx_a] - dy.diag(s) + 1
+    #self.st = dy.transpose(self.s)
+    #margin_v = self.st[rand_idx_v] - dy.diag(s) + 1
+    #self.rand_cost = dy.sum(dy.relu(margin_a) + dy.relu(margin_v))
     
-    raise NotImplementedError("calc_loss needs to calculate the max-margin objective")
+    #raise NotImplementedError("calc_loss needs to calculate the max-margin objective")
+    print(self.cost.value())
 
   def index_database(self):
     # raise NotImplementedError("index_database needs to calculate the vectors for all the elements in the database and find the closest")
