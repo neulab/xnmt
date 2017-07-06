@@ -104,10 +104,7 @@ class YamlSerializer(object):
       if isinstance(param_obj, list):
         param_obj = param_obj[int(param_name_spl[0])]
       else:
-        try:
-          param_obj = getattr(param_obj, param_name_spl[0])
-        except:
-          param_obj = getattr(param_obj, param_name_spl[0])
+        param_obj = getattr(param_obj, param_name_spl[0])
       param_name = param_name_spl[1]
     return param_obj, param_name
 
@@ -169,10 +166,6 @@ class YamlSerializer(object):
       corpus_parser = dict_spec.corpus_parser
       model = dict_spec.model
       global_params = dict_spec.global_params
-    try: # dynet v2
-      param.populate(fname + '.data')
-    except AttributeError: # dynet v1
-      param.load_all(fname + '.data')
     return corpus_parser, model, global_params
     
 class ComponentInitError(Exception):
