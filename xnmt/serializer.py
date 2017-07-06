@@ -166,10 +166,6 @@ class YamlSerializer(object):
       corpus_parser = dict_spec.corpus_parser
       model = dict_spec.model
       global_params = dict_spec.global_params
-#    try: # dynet v2
-#      param.populate(fname + '.data')
-#    except AttributeError: # dynet v1
-#      param.load_all(fname + '.data')
     return corpus_parser, model, global_params
     
 class ComponentInitError(Exception):
