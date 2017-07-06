@@ -190,7 +190,7 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     :param max_src_len: filter pairs longer than this on the target side
     :param max_num_train_sents: only read the first n training sentences
     :param max_num_dev_sents: only read the first n dev sentences
-    :param sample_train_sents: sample n sentences without replacement from the training corpus
+    :param sample_train_sents: sample n sentences without replacement from the training corpus (should probably be used with a prespecified vocab)
     """
     self.src_reader = src_reader
     self.trg_reader = trg_reader
