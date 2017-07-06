@@ -71,7 +71,7 @@ class XnmtTrainer:
     self.early_stopping_reached = False
     self.cur_attempt = 0
     
-    self.evaluators = list(six.moves.map(lambda s: s.lower(), self.args.dev_metrics.split(",")))
+    self.evaluators = [s.lower() for s in self.args.dev_metrics.split(",") if s.strip()!=""]
     if self.args.schedule_metric.lower() not in self.evaluators:
               self.evaluators.append(self.args.schedule_metric.lower())
     if "ppl" not in self.evaluators: self.evaluators.append("ppl")
@@ -126,14 +126,18 @@ class XnmtTrainer:
     self.model = self.model_serializer.initialize_object(self.args.model, context)
   
   def load_corpus_and_model(self):
-    corpus_parser, model, global_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.get("model"))
     self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus)
+    corpus_parser, model, global_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.get("model"))
     self.corpus_parser = self.model_serializer.initialize_object(corpus_parser)
     self.corpus_parser.read_training_corpus(self.training_corpus)
     model_globals.params = global_params
     self.total_train_sent = len(self.training_corpus.train_src_data)
     context={"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
     self.model = self.model_serializer.initialize_object(model, context)
+    try: # dynet v2
+      model_globals.get("model").populate(self.args.pretrained_model_file + '.data')
+    except AttributeError: # dynet v1
+      model_globals.get("model").load_all(self.args.pretrained_model_file + '.data')
     
     
 #  def read_data(self):

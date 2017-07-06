@@ -35,7 +35,7 @@ def xnmt_evaluate(args):
     elif args.evaluator == "cer":
         evaluator = CEREvaluator()
     else:
-        raise RuntimeError("Unkonwn evaluation metric {}".format(args.evaluator))
+        raise RuntimeError("Unknown evaluation metric {}".format(args.evaluator))
 
     ref_corpus = read_data(args.ref_file)
     hyp_corpus = read_data(args.hyp_file)
