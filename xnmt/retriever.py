@@ -113,16 +113,24 @@ class DotProductRetriever(Retriever, Serializable):
     pass
 
   def retrieve(self, src):
-#    n = len(src)
-#    similarity = self.s.value()
-#    ntop = int(n/5)
-#
-#    top_indices = similarity.argsort()[-ntop][::-1]
-#
-#    dev = abs(top_indices - np.linspace(0, n-1, n))
-#    min_dev = np.min(dev)
-#    accuracy = np.mean((min_dev==0))
-#    print('retrieval indices:', top_indices)
-#    print('retrieval accuracy:', accuracy)
-#    raise NotImplementedError("retrieve needs find the example index with the largest dot product")
-    return 0
+    # retrieval function, inputs are the source, index of the source and the target
+    # database
+    
+    # calculate the cosine similarity between the source and all targets
+    similarity = np.dot(dy.squared_norm(database).value(),src)
+    # number of most similar targets to retrieve
+    ntop = 10
+    # retrieve the ntop target indices
+    top_indices = similarity.argsort()[-ntop:][::-1]
+    # check the correct answers' position in the top n if any
+    acc = [x for x in range(ntop) if top_indices == db_index]
+    if acc:
+      # 100% acc if correct answer is the top answer, decrease acc proportional
+      # to the position in the top answers
+      acc = 1/(acc+1)
+    else:
+      # acc is zero if it is not even in the top n
+      acc = 0
+    # print the accuracy and return the top images
+    print('accuracy = ' + acc)
+        return database[top_indices]
