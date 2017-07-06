@@ -133,4 +133,4 @@ class DotProductRetriever(Retriever, Serializable):
       acc = 0
     # print the accuracy and return the top images
     print('accuracy = ' + acc)
-        return database[top_indices]
+    return database[top_indices]
