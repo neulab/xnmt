@@ -96,30 +96,33 @@ class DotProductRetriever(Retriever, Serializable):
 
   def calc_loss(self, src, db_idx):
     src_embeddings = self.src_embedder.embed_sent(src)
-    src_encodings = self.src_encoder.transduce(src_embeddings)
+    src_encodings = dy.emax(self.src_encoder.transduce(src_embeddings))
     trg_embeddings = self.trg_embedder.embed_sent(self.database[db_idx])
-    trg_encodings = self.trg_encoder.transduce(trg_embeddings)
+    trg_encodings = dy.emax(self.trg_encoder.transduce(trg_embeddings))
 
     # calculate the cosine similarity between the sources and the targets
-    self.scores = dy.transpose(dy.squared_norm(trg_encodings)) * dy.squared_norm(src_encodings)
+    dot = dy.dot_product(src_encodings, trg_encodings)
+    denom = dy.squared_norm(src_encodings) * dy.squared_norm(trg_encodings)
+    self.scores = dy.cdiv(dot, denom)
 
-    return dy.hinge(self.scores, [x for x in range(len(db_idx))])
+    loss = dy.sum_batches(dy.hinge_batch(self.scores, list(range(len(db_idx)))))
+    return loss
 
   def index_database(self):
     # raise NotImplementedError("index_database needs to calculate the vectors for all the elements in the database and find the closest")
     pass
 
   def retrieve(self, src):
-    n = len(src)
-    similarity = self.s.value()
-    ntop = int(n/5)
-
-    top_indices = similarity.argsort()[-ntop][::-1]
-
-    dev = abs(top_indices - np.linspace(0, n-1, n))
-    min_dev = np.min(dev)
-    accuracy = np.mean((min_dev==0))
-    print('retrieval indices:', top_indices)
-    print('retrieval accuracy:', accuracy)
-    raise NotImplementedError("retrieve needs find the example index with the largest dot product")
-
+#    n = len(src)
+#    similarity = self.s.value()
+#    ntop = int(n/5)
+#
+#    top_indices = similarity.argsort()[-ntop][::-1]
+#
+#    dev = abs(top_indices - np.linspace(0, n-1, n))
+#    min_dev = np.min(dev)
+#    accuracy = np.mean((min_dev==0))
+#    print('retrieval indices:', top_indices)
+#    print('retrieval accuracy:', accuracy)
+#    raise NotImplementedError("retrieve needs find the example index with the largest dot product")
+    return 0
