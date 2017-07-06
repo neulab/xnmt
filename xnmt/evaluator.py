@@ -93,7 +93,6 @@ class Evaluator(object):
   """
     raise NotImplementedError('metric_name must be implemented in Evaluator subclasses')
 
-
 class BLEUEvaluator(Evaluator):
   # Class for computing BLEU Scores accroding to
   # K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
@@ -229,7 +228,6 @@ class BLEUEvaluator(Evaluator):
 
     return clipped_ngram_count, candidate_ngram_count
 
-
 class WEREvaluator(Evaluator):
   """
   A class to evaluate the quality of output in terms of word error rate.
@@ -316,7 +314,6 @@ class CEREvaluator(object):
     hyp_char = [list("".join(hyp_sent)) for hyp_sent in hyp]
     wer_obj = self.wer_evaluator.evaluate(ref_char, hyp_char)
     return CERScore(wer_obj.value(), wer_obj.hyp_len, wer_obj.ref_len)
-
 
 if __name__ == "__main__":
   # Example 1

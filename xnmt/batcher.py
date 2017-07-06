@@ -32,7 +32,7 @@ class Batcher:
     """
     :rtype: bool
     :param sent: a batch of sents (a list of lists of ints) OR a single sent (a list of ints)
-    :return: True if the data is a batch of sents 
+    :return: True if the data is a batch of sents
     """
     return type(sent) == Batch
 
@@ -41,7 +41,7 @@ class Batcher:
     """
     :rtype: bool
     :param word: a batch of trg words (a list of ints) OR a single trg word (an int)
-    :return: True if the data is a batch of trg words 
+    :return: True if the data is a batch of trg words
     """
     return type(word) == Batch
 
@@ -62,12 +62,20 @@ class Batcher:
     return src_result, trg_result
 
   @staticmethod
-  def pad_src_sent(batch, pad_token=Vocab.ES):
-    max_len = max([len(pair[Batcher.PAIR_SRC]) for pair in batch])
-    return map(lambda pair:
-               (pair[Batcher.PAIR_SRC].get_padded_sent(pad_token, max_len - len(pair[Batcher.PAIR_SRC])),
-                pair[Batcher.PAIR_TRG]),
-               batch)
+  def pad(batch, pad_token=Vocab.ES):
+    # Determine the type of batch
+    if len(batch) == 0:
+      return batch
+
+    first = batch[0]
+    # Case when we are dealing batch of [[f_1, f_2, ..., f_n], [e_1, e_2, ..., e_m]]
+    if isinstance(first, (list, tuple)):
+      max_len = max(len(src) for src, trg in batch)
+      return [(src.get_padded_sent(pad_token, max_len - len(src)), trg) for src, trg in  batch]
+    # Case of [[w_1, w_2, ..., w_n]]
+    else:
+      max_len = max(len(item) for item in batch)
+      return [item.get_padded_sent(pad_token, max_len - len(item)) for item in batch]
 
   @staticmethod
   def select_batcher(batcher_str):
@@ -92,7 +100,7 @@ class Batcher:
     return minibatches
 
   def pad_sent(self, batch):
-    return self.pad_src_sent(batch, self.pad_token)
+    return Batcher.pad(batch, self.pad_token)
 
   def pack(self, src, trg):
     """
@@ -115,10 +123,6 @@ class ShuffleBatcher(Batcher):
     np.random.shuffle(src_trg_pairs)
     minibatches = self.create_batches(src_trg_pairs)
     return self.separate_src_trg(minibatches)
-
-  def pad_sent(self, batch):
-    return self.pad_src_sent(batch, self.pad_token)
-
 
 class BucketBatcher(Batcher):
   """
@@ -181,9 +185,6 @@ class TargetBucketBatcher(BucketBatcher):
 
   def bucket_index(self, pair):
     return len(pair[Batcher.PAIR_TRG])
-
-  def pad_sent(self, batch):
-    return self.pad_src_sent(batch, self.pad_token)
 
 
 class TargetSourceBucketBatcher(TargetBucketBatcher):

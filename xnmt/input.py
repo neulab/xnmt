@@ -33,10 +33,12 @@ class SimpleSentenceInput(Input):
   def get_padded_sent(self, token, pad_len):
     self.l.extend([token] * pad_len)
     return self
-    
+  def __str__(self):
+    return " ".join(six.moves.map(str, self.l))
+
 class ArrayInput(Input):
   """
-  A sent based on a single numpy array; first dimension contains tokens 
+  A sent based on a single numpy array; first dimension contains tokens
   """
   def __init__(self, nparr):
     self.nparr = nparr
@@ -45,7 +47,7 @@ class ArrayInput(Input):
   def __getitem__(self, key):
     return self.nparr.__getitem__(key)
   def get_padded_sent(self, token, pad_len):
-    if pad_len>0:
+    if pad_len > 0:
       self.nparr = np.append(self.nparr, np.zeros((pad_len, self.nparr.shape[1])), axis=0)
     return self
   def get_array(self):
@@ -64,7 +66,6 @@ class InputReader:
     raise RuntimeError("Input readers must implement the read_sents function")
   def freeze(self):
     pass
-
 
 class PlainTextReader(InputReader, Serializable):
   """
@@ -96,21 +97,20 @@ class PlainTextReader(InputReader, Serializable):
     self.vocab.freeze()
     self.vocab.set_unk(Vocab.UNK_STR)
     self.serialize_params["vocab"] = self.vocab
-  
+
   def vocab_size(self):
     return len(self.vocab)
 
-    
 class ContVecReader(InputReader, Serializable):
   """
   Handles the case where sents are sequences of continuous-space vectors.
-  
+
   We assume a list of matrices (sents) serialized as .npz (with numpy.savez_compressed())
   Sentences should be named arr_0, arr_1, ... (=np default for unnamed archives).
   We can index them as sents[sent_no][word_ind,feat_ind]
   """
   yaml_tag = u"!ContVecReader"
-  
+
   def __init__(self):
     pass
 
@@ -128,7 +128,7 @@ class IDReader(InputReader, Serializable):
   Handles the case where we need to read in a single ID (like retrieval problems)
   """
   yaml_tag = u"!IDReader"
-  
+
   def __init__(self):
     pass
 
@@ -188,7 +188,6 @@ class BilingualCorpusParser(CorpusParser, Serializable):
       if src_len_ok and trg_len_ok:
         training_corpus.dev_src_data.append(src_sent)
         training_corpus.dev_trg_data.append(trg_sent)
-    
 
 ###### Obsolete Functions
 

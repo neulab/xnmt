@@ -37,7 +37,7 @@ class Embedder:
 
 class ExpressionSequence():
   """A class to represent a sequence of expressions.
-  
+
   Internal representation is either a list of expressions or a single tensor or both.
   If necessary, both forms of representation are created from the other on demand.
   """
@@ -63,8 +63,7 @@ class ExpressionSequence():
 
     :returns: length of sequence
     """
-    if self.expr_list: return len(self.expr_list)
-    else: return self.expr_tensor.dim()[0][0]
+    return len(self.expr_list) if self.expr_list else self.expr_tensor.dim()[0][0]
 
   def __iter__(self):
     """Return iterator.
@@ -85,12 +84,12 @@ class ExpressionSequence():
 
   def as_tensor(self):
     """Get a tensor.
-    :returns: the whole sequence as a tensor expression. 
+    :returns: the whole sequence as a tensor expression.
     """
     if self.expr_tensor is None:
       self.expr_tensor = dy.concatenate(list(map(lambda x:dy.transpose(x), self)))
     return self.expr_tensor
-      
+
 class SimpleWordEmbedder(Embedder, Serializable):
   """
   Simple word embeddings via lookup.
@@ -127,9 +126,9 @@ class SimpleWordEmbedder(Embedder, Serializable):
 class NoopEmbedder(Embedder, Serializable):
   """
   This embedder performs no lookups but only passes through the inputs.
-  
+
   Normally, the input is an Input object, which is converted to an expression.
-  
+
   We can also input an ExpressionSequence, which is simply returned as-is.
   This is useful e.g. to stack several encoders, where the second encoder performs no
   lookups.
@@ -152,7 +151,7 @@ class NoopEmbedder(Embedder, Serializable):
     # TODO refactor: seems a bit too many special cases that need to be distinguished
     if isinstance(sent, ExpressionSequence):
       return sent
-    
+
     batched = Batcher.is_batch_sent(sent)
     first_sent = sent[0] if batched else sent
     if hasattr(first_sent, "get_array"):
