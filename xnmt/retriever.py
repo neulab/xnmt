@@ -7,6 +7,7 @@ from search_strategy import *
 from vocab import Vocab
 from serializer import Serializable, DependentInitParam
 from train_test_interface import TrainTestInterface
+import numpy as np
 
 ##### A class for retrieval databases
 
@@ -62,12 +63,12 @@ class Retriever(TrainTestInterface):
   def set_train(self, val):
     for component in self.get_train_test_components():
       Retriever.set_train_recursive(component, val)
-
   @staticmethod
   def set_train_recursive(component, val):
     component.set_train(val)
     for sub_component in component.get_train_test_components():
       Retriever.set_train_recursive(sub_component, val)
+
 
 class DotProductRetriever(Retriever, Serializable):
   '''
@@ -90,12 +91,10 @@ class DotProductRetriever(Retriever, Serializable):
     self.trg_embedder = trg_embedder
     self.trg_encoder = trg_encoder
     self.database = database
-
   def get_train_test_components(self):
     return [self.src_encoder, self.trg_encoder]
 
   def calc_loss(self, src, db_idx):
-
     src_embeddings = self.src_embedder.embed_sent(src)
     src_encodings = self.src_encoder.transduce(src_embeddings)
     trg_embeddings = self.trg_embedder.embed_sent(self.database[db_idx])
