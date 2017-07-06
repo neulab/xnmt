@@ -71,7 +71,7 @@ class XnmtTrainer:
     self.early_stopping_reached = False
     self.cur_attempt = 0
     
-    self.evaluators = list(six.moves.map(lambda s: s.lower(), self.args.dev_metrics.split(",")))
+    self.evaluators = [s.lower() for s in self.args.dev_metrics.split(",") if s.strip()!=""]
     if self.args.schedule_metric.lower() not in self.evaluators:
               self.evaluators.append(self.args.schedule_metric.lower())
     if "ppl" not in self.evaluators: self.evaluators.append("ppl")

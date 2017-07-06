@@ -2,7 +2,6 @@
 defaults:
   experiment:
     run_for_epochs: 20
-    decode_every: 1
     eval_metrics: bleu,wer
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
