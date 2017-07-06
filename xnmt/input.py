@@ -4,9 +4,12 @@ import io
 import six
 from collections import defaultdict
 from six.moves import zip
+try:
+    import itertools.imap as map
+except ImportError:
+    pass
 from serializer import Serializable
 from vocab import *
-
 ###### Classes representing single inputs
 
 class Input:
@@ -55,15 +58,45 @@ class ArrayInput(Input):
 
 class InputReader:
 
-  def read_sents(self, filename, max_num=None):
+  def read_sents(self, filename, filter_ids=None):
     """
     :param filename: data file
-    :param max_num: stop reading data after the first max_num sentences
+    :param max_num: only read sentences with these ids (0-indexed)
     :returns: iterator over sentences from filename
     """
     raise RuntimeError("Input readers must implement the read_sents function")
+  def count_sents(self, filename):
+    """
+    inheriting classes that don't work on 1-sent-per-line textfiles should overwrite this
+    :param filename: data file
+    :returns: number of sentences in the data file
+    """
+    i = 0
+    with io.open(filename, encoding='utf-8') as f:
+      for _ in f:
+        i+=1
+    return i
   def freeze(self):
     pass
+  @staticmethod
+  def loop_textfile_filtered(filename, filter_ids=None):
+    """
+    :param filename: data file (text file)
+    :param filter_ids:
+    :returns: iterator over lines as strings (useful to implement read_sents for text-based readers)
+    """
+    sent_count = 0
+    max_id = None
+    if filter_ids is not None:
+      max_id = max(filter_ids)
+      filter_ids = set(filter_ids)
+    with io.open(filename, encoding='utf-8') as f:
+      for line in f:
+        if filter_ids is None or sent_count in filter_ids:
+          yield line
+        sent_count += 1
+        if max_id is not None and sent_count > max_id:
+          break
 
 
 class PlainTextReader(InputReader, Serializable):
@@ -78,19 +111,12 @@ class PlainTextReader(InputReader, Serializable):
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
 
-  def read_sents(self, filename, max_num=None):
+  def read_sents(self, filename, filter_ids=None):
     if self.vocab is None:
       self.vocab = Vocab()
-    sent_count = 0
-    with io.open(filename, encoding='utf-8') as f:
-      for line in f:
-        words = line.strip().split()
-        sent = [self.vocab.convert(word) for word in words]
-        sent.append(self.vocab.convert(Vocab.ES_STR))
-        yield SimpleSentenceInput(sent)
-        sent_count += 1
-        if max_num is not None and sent_count >= max_num:
-          break
+    return map(lambda l: SimpleSentenceInput([self.vocab.convert(word) for word in l.strip().split()] + \
+                                                      [self.vocab.convert(Vocab.ES_STR)]), 
+                        InputReader.loop_textfile_filtered(filename, filter_ids))
 
   def freeze(self):
     self.vocab.freeze()
@@ -114,14 +140,20 @@ class ContVecReader(InputReader, Serializable):
   def __init__(self):
     pass
 
-  def read_sents(self, filename, max_num=None):
+  def read_sents(self, filename, filter_ids=None):
     npzFile = np.load(filename)
     npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[1]))
-    if max_num is not None and max_num < len(npzKeys):
-      npzKeys = npzKeys[:max_num]
+    if filter_ids is not None:
+      npzKeys = [npzKeys[i] for i in filter_ids]
     for key in npzKeys:
       yield ArrayInput(npzFile[key])
     npzFile.close()
+    
+  def count_sents(self, filename):
+    npzFile = np.load(filename, mmap_mode="r") # for counting sentences, only read the index
+    l = len(npzFile.files)
+    npzFile.close()
+    return l
 
 class IDReader(InputReader, Serializable):
   """
@@ -132,17 +164,8 @@ class IDReader(InputReader, Serializable):
   def __init__(self):
     pass
 
-  def read_sents(self, filename, max_num=None):
-    sent_count = 0
-    with io.open(filename, encoding='utf-8') as f:
-      for line in f:
-        yield int(line.strip())
-        sent_count += 1
-        if max_num is not None and sent_count >= max_num:
-          break
-
-  def vocab_size(self):
-    return None
+  def read_sents(self, filename, filter_ids=None):
+    return map(lambda l: int(l.strip()), InputReader.loop_textfile_filtered(filename, filter_ids))
 
 ###### CorpusParser
 
@@ -159,19 +182,41 @@ class BilingualCorpusParser(CorpusParser, Serializable):
 
   yaml_tag = u"!BilingualCorpusParser"
   def __init__(self, src_reader, trg_reader, max_src_len=None, max_trg_len=None, 
-               max_num_train_sents=None, max_num_dev_sents=None):
+               max_num_train_sents=None, max_num_dev_sents=None, sample_train_sents=None):
+    """
+    :param src_reader: InputReader for source side
+    :param trg_reader: InputReader for target side
+    :param max_src_len: filter pairs longer than this on the source side
+    :param max_src_len: filter pairs longer than this on the target side
+    :param max_num_train_sents: only read the first n training sentences
+    :param max_num_dev_sents: only read the first n dev sentences
+    :param sample_train_sents: sample n sentences without replacement from the training corpus
+    """
     self.src_reader = src_reader
     self.trg_reader = trg_reader
     self.max_src_len = max_src_len
     self.max_trg_len = max_trg_len
     self.max_num_train_sents = max_num_train_sents
     self.max_num_dev_sents = max_num_dev_sents
+    self.sample_train_sents = sample_train_sents
+    if max_num_train_sents is not None and sample_train_sents is not None: raise RuntimeError("max_num_train_sents and sample_train_sents are mutually exclusive!")
 
   def read_training_corpus(self, training_corpus):
     training_corpus.train_src_data = []
     training_corpus.train_trg_data = []
-    for src_sent, trg_sent in six.moves.zip(self.src_reader.read_sents(training_corpus.train_src, self.max_num_train_sents),
-                                            self.trg_reader.read_sents(training_corpus.train_trg, self.max_num_train_sents)):
+    src_len = self.src_reader.count_sents(training_corpus.train_src)
+    trg_len = self.trg_reader.count_sents(training_corpus.train_trg)
+    if src_len != trg_len: raise RuntimeError("training src sentences don't match target sentences: %s != %s!" % (src_len, trg_len))
+    if self.sample_train_sents:
+      self.sample_train_sents = int(self.sample_train_sents)
+      filter_ids = np.random.choice(src_len, self.sample_train_sents, replace=False)
+    elif self.max_num_train_sents:
+      filter_ids = list(range(self.max_num_train_sents))
+    else:
+      filter_ids = None
+    src_train_iterator = self.src_reader.read_sents(training_corpus.train_src, filter_ids)
+    trg_train_iterator = self.trg_reader.read_sents(training_corpus.train_trg, filter_ids)
+    for src_sent, trg_sent in six.moves.zip(src_train_iterator, trg_train_iterator):
       src_len_ok = self.max_src_len is None or len(src_sent) <= self.max_src_len
       trg_len_ok = self.max_trg_len is None or len(trg_sent) <= self.max_trg_len
       if src_len_ok and trg_len_ok:
@@ -181,8 +226,16 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     self.trg_reader.freeze()
     training_corpus.dev_src_data = []
     training_corpus.dev_trg_data = []
-    for src_sent, trg_sent in six.moves.zip(self.src_reader.read_sents(training_corpus.dev_src, self.max_num_dev_sents),
-                                            self.trg_reader.read_sents(training_corpus.dev_trg, self.max_num_dev_sents)):
+    if self.max_num_dev_sents:
+      filter_ids = list(range(self.max_num_dev_sents))
+    else:
+      filter_ids = None
+    src_len = self.src_reader.count_sents(training_corpus.dev_src)
+    trg_len = self.trg_reader.count_sents(training_corpus.dev_trg)
+    if src_len != trg_len: raise RuntimeError("dev src sentences don't match target sentences: %s != %s!" % (src_len, trg_len))
+    src_dev_iterator = self.src_reader.read_sents(training_corpus.dev_src, filter_ids)
+    trg_dev_iterator = self.trg_reader.read_sents(training_corpus.dev_trg, filter_ids)
+    for src_sent, trg_sent in six.moves.zip(src_dev_iterator, trg_dev_iterator):
       src_len_ok = self.max_src_len is None or len(src_sent) <= self.max_src_len
       trg_len_ok = self.max_trg_len is None or len(trg_sent) <= self.max_trg_len
       if src_len_ok and trg_len_ok:
