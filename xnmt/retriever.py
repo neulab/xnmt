@@ -6,6 +6,7 @@ from search_strategy import *
 from vocab import Vocab
 from serializer import Serializable, DependentInitParam
 from train_test_interface import TrainTestInterface
+import numpy as np
 
 ##### A class for retrieval databases
 
@@ -93,54 +94,28 @@ class DotProductRetriever(Retriever, Serializable):
     return [self.src_encoder, self.trg_encoder]
 
   def calc_loss(self, src, db_idx):
-    data = self.database[db_idx]
     src_embeddings = self.src_embedder.embed_sent(src)
     src_encodings = self.src_encoder.transduce(src_embeddings)
-    trg_embeddings = self.trg_embedder.embed_sent(data)
+    trg_embeddings = dy.concatenate_cols([self.trg_embedder.embed_sent(self.database[x]) for x in db_idx])
     trg_encodings = self.trg_encoder.transduce(trg_embeddings)
-    
-    # Map the src and trg to the same space
-    self.src_encodings = dy.concatenate(src_encodings, 0)
-    self.trg_encodings = dy.concatenate(trg_encodings, 0)
-    
-    # Compute the cosine similarity
-    src_encoding_norm = dy.weight_norm(self.src_encodings)
-    trg_encoding_norm = dy.weight_norm(self.trg_encodings)
-    self.s = dy.dot_product(self.src_encodings, self.trg_encodings)
-    
-    # Compute the sum-of-all-margin cost function
-    ndata = len(db_idx)
-    self.cost = dy.hinge(self.s, np.linspace(0, ndata-1, ndata), 1)
 
-    # Compute the sum-of-random-negative-example cost function
-    ndata = len(db_idx)
-    rand_idx_a = np.argsort(np.random.normal(size=(ndata, ndata)), axis=1)
-    rand_idx_u = np.argsort(np.random.normal(size=(ndata, ndata)), axis=1)
-    
-    #margin_a = self.s[rand_idx_a] - dy.diag(s) + 1
-    #self.st = dy.transpose(self.s)
-    #margin_v = self.st[rand_idx_v] - dy.diag(s) + 1
-    #self.rand_cost = dy.sum(dy.relu(margin_a) + dy.relu(margin_v))
-    
-    #raise NotImplementedError("calc_loss needs to calculate the max-margin objective")
-    print(self.cost.value())
+    # calculate the cosine similarity between the sources and the targets
+    self.scores = dy.transpose(dy.weight_norm(trg_encodings, 1)) * dy.weight_norm(src_encodings, 1)
+
+    return dy.hinge(self.scores, [x for x in range(len(db_idx))])
 
   def index_database(self):
-    # raise NotImplementedError("index_database needs to calculate the vectors for all the elements in the database and find the closest")
-    pass
+    raise NotImplementedError("index_database needs to calculate the vectors for all the elements in the database and find the closest")
 
-  def retrieve(self, src):
-    self.calc_loss(src)
-    ntx = len(src)
+  def retrieve(self, src, db_idx):
+      
+    n = len(src)
     similarity = self.s.value()
-    ntop = int(ntx/5)
-    top_indices = []
-    for i in range(ntop):
-        cur_indices = np.argmax(similarity, axis=1)
-        top_indices.append(cur_indices)
-        for j in range(ntx):
-            similarity[j][cur_indices[j]] = -1
-    dev = abs(top_indices - np.linspace(0, ntx-1, ntx))
+    ntop = int(n/5)
+    
+    top_indices = similarity.argsort()[-ntop][::-1]
+    
+    dev = abs(top_indices - np.linspace(0, n-1, n))
     min_dev = np.min(dev)
     accuracy = np.mean((min_dev==0))
     print('retrieval indices:', top_indices)
