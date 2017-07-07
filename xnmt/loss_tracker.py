@@ -99,7 +99,7 @@ class LossTracker:
         self.dev_words = dev_words
 
     def should_report_dev(self):
-      return (self.sent_num_not_report_dev >= self.eval_dev_every) or (self.sent_num == self.total_train_sent)
+      return (self.eval_dev_every>0 and self.sent_num_not_report_dev >= self.eval_dev_every) or (self.sent_num == self.total_train_sent)
 
     def report_dev_and_check_model(self, model_file):
         """

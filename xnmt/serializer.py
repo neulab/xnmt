@@ -137,7 +137,7 @@ class YamlSerializer(object):
       initialized_obj = obj.__class__(**init_params)
       print("initialized %s(%s)" % (obj.__class__.__name__, init_params))
     except TypeError as e:
-      raise ComponentInitError("%s could not be initialized using params %s. Error message: %s" % (type(obj), init_params, str(e)))
+      raise ComponentInitError("%s could not be initialized using params %s, expecting params %s. Error message: %s" % (type(obj), init_params, init_args, str(e)))
     if not hasattr(initialized_obj, "serialize_params"):
       initialized_obj.serialize_params = serialize_params
     return initialized_obj
