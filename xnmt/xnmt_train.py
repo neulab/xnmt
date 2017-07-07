@@ -51,6 +51,7 @@ options = [
   Option("dev_metrics", default_value="", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
   Option("schedule_metric", default_value="ppl", help_str="determine learning schedule based on this dev_metric (ppl/bleu/wer/cer)"),
   Option("restart_trainer", bool, default_value=False, help_str="Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)"),
+  Option("reload_between_epochs", bool, default_value=False, help_str="Reload train data between epochs (useful when sampling from train data, or with noisy input data via an external tool"),
   Option("dropout", float, default_value=0.0),
   Option("model", dict, default_value={}),  
 ]
@@ -86,7 +87,7 @@ class XnmtTrainer:
       self.create_corpus_and_model()
 
     # single mode
-    if args.batch_size is None or args.batch_size == 1 or args.batch_strategy.lower() == 'none':
+    if not self.is_batch_mode():
       print('Start training in non-minibatch mode...')
       self.logger = NonBatchLossTracker(args.dev_every, self.total_train_sent)
       self.train_src, self.train_trg = \
@@ -101,11 +102,15 @@ class XnmtTrainer:
       if args.src_format == "contvec":
         assert self.train_src[0].nparr.shape[1] == self.src_embedder.emb_dim, "input embed dim is different size than expected"
         self.batcher.pad_token = np.zeros(self.src_embedder.emb_dim)
-      self.train_src, self.train_trg = \
-          self.batcher.pack(self.training_corpus.train_src_data, self.training_corpus.train_trg_data)
-      self.dev_src, self.dev_trg = \
-          self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
+      self.pack_batches()
       self.logger = BatchLossTracker(args.dev_every, self.total_train_sent)
+  def is_batch_mode(self):
+    return not (self.args.batch_size is None or self.args.batch_size == 1 or self.args.batch_strategy.lower() == 'none')
+  def pack_batches(self):
+    self.train_src, self.train_trg = \
+      self.batcher.pack(self.training_corpus.train_src_data, self.training_corpus.train_trg_data)
+    self.dev_src, self.dev_trg = \
+      self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
 
   def dynet_trainer_for_args(self, args):
     if args.trainer.lower() == "sgd":
@@ -172,6 +177,12 @@ class XnmtTrainer:
 
   def run_epoch(self):
     self.logger.new_epoch()
+    
+    if self.args.reload_between_epochs:
+      print("Reloading training data..")
+      self.corpus_parser.read_training_corpus(self.training_corpus)
+      if self.is_batch_mode():
+        self.pack_batches()
 
     self.model.set_train(True)
     for batch_num, (src, trg) in enumerate(zip(self.train_src, self.train_trg)):
