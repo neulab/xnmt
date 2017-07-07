@@ -60,7 +60,7 @@ class XnmtTrainer:
 
     self.args = args
     self.output = output
-    model_globals.params["dynet_param_collection"] = dy.Model()
+    model_globals.model_globals["dynet_param_collection"] = dy.Model()
 
     self.trainer = self.dynet_trainer_for_args(args)
     
@@ -121,8 +121,8 @@ class XnmtTrainer:
     self.corpus_parser.read_training_corpus(self.training_corpus)
     self.total_train_sent = len(self.training_corpus.train_src_data)
     context={"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
-    model_globals.params["default_layer_dim"] = self.args.default_layer_dim
-    model_globals.params["dropout"] = self.args.dropout
+    model_globals.model_globals["default_layer_dim"] = self.args.default_layer_dim
+    model_globals.model_globals["dropout"] = self.args.dropout
     self.model = self.model_serializer.initialize_object(self.args.model, context)
   
   def load_corpus_and_model(self):
@@ -227,7 +227,7 @@ class XnmtTrainer:
         # Write out the model if it's the best one
         if self.logger.report_dev_and_check_model(self.args.model_file):
           self.model_serializer.save_to_file(self.args.model_file,
-                                             ModelParams(self.corpus_parser, self.model, model_globals.params),
+                                             ModelParams(self.corpus_parser, self.model, model_globals.model_globals),
                                              model_globals.get("dynet_param_collection"))
           self.cur_attempt = 0
         else:
