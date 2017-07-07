@@ -96,30 +96,25 @@ class DotProductRetriever(Retriever, Serializable):
 
   def calc_loss(self, src, db_idx):
     src_embeddings = self.src_embedder.embed_sent(src)
-    src_encodings = dy.emax(self.src_encoder.transduce(src_embeddings))
+    src_encodings = dy.emax(self.src_encoder.transduce(src_embeddings).as_list())
     trg_embeddings = self.trg_embedder.embed_sent(self.database[db_idx])
-    trg_encodings = dy.emax(self.trg_encoder.transduce(trg_embeddings))
-
+    trg_encodings = dy.emax(self.trg_encoder.transduce(trg_embeddings).as_list())
     # calculate the cosine similarity between the sources and the targets
-    dot = dy.dot_product(src_encodings, trg_encodings)
-    denom = dy.squared_norm(src_encodings) * dy.squared_norm(trg_encodings)
-    self.scores = dy.cdiv(dot, denom)
+    dim = trg_encodings.dim()
+    trg_mtr = dy.reshape(trg_encodings, (dim[0][0], dim[1]))
 
-    loss = dy.sum_batches(dy.hinge_batch(self.scores, list(range(len(db_idx)))))
-    return loss
+    prod = dy.transpose(dy.transpose(src_encodings) * trg_mtr)
+    return dy.sum_batches(dy.hinge_batch(prod, list(range(len(db_idx)))))
 
   def index_database(self):
     # raise NotImplementedError("index_database needs to calculate the vectors for all the elements in the database and find the closest")
     pass
 
-  def retrieve(self, src):
+  def retrieve(self, src, ntop=10):
     # retrieval function, inputs are the source, index of the source and the target
     # database
-    
     # calculate the cosine similarity between the source and all targets
     similarity = np.dot(dy.squared_norm(database).value(),src)
-    # number of most similar targets to retrieve
-    ntop = 10
     # retrieve the ntop target indices
     top_indices = similarity.argsort()[-ntop:][::-1]
     # check the correct answers' position in the top n if any

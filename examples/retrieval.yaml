@@ -21,12 +21,12 @@ defaults:
       trg_reader: !IDReader {}
     model: !DotProductRetriever
       src_embedder: !SimpleWordEmbedder
-        vocab_size: 10000 # TODO: set this automatically
+        vocab_size: 20000 # TODO: set this automatically
         emb_dim: 512
       src_encoder: !LSTMEncoder
         layers: 1
       trg_embedder: !SimpleWordEmbedder
-        vocab_size: 10000 # TODO: set this automatically
+        vocab_size: 20000 # TODO: set this automatically
         emb_dim: 512
       trg_encoder: !LSTMEncoder
         layers: 1
