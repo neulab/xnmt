@@ -14,7 +14,7 @@ from tee import Tee
 import random
 import numpy as np
 import copy
-
+import model_globals
 
 if __name__ == '__main__':
   argparser = argparse.ArgumentParser()
@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
     if not exp_args.eval_only:
       print('reverting learned weights to best checkpoint..')
-      xnmt_trainer.revert_to_best_model()
+      model_globals.get("dynet_param_collection").revert_to_best_model()
     if evaluators:
       print("> Evaluating test set")
       output.indent += 2
