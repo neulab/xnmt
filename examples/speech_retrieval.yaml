@@ -1,1 +1,41 @@
-lbcdefghifj
+defaults:
+    experiment:
+        model_file: examples/output/<EXP>.mod
+        hyp_file: examples/output/<EXP>.hyp
+        out_file: examples/output/<EXP>.out
+        err_file: examples/output/<EXP>.err
+        run_for_epochs: 20
+        eval_metrics: wer
+    train:
+        default_layer_dim: 512
+        dropout: 0.0
+        dev_metrics: wer
+        training_corpus: !BilingualTrainingCorpus
+            train_src: examples/data/captions_1k.npz
+            train_trg: examples/data/flickr.ids
+            dev_src: examples/data/captions_1k.npz
+            dev_trg: examples/data/flick.ids
+        corpus_parser: !BilingualCorpusParser
+            src_reader: !ContVecReader {}
+            trg_reader: !ContVecReader {}
+        model: !DotProductRetriever
+            src_embedder: !NoopEmbedder
+                #vocab_size: 5000 # TODO: set this automatically
+                emb_dim: 40
+            src_encoder: !ConvBuilder
+                layers: 5
+            trg_embedder: !NoopEmbedder
+                emb_dim: 40
+            trg_encoder: !LinearProjectionEncoder
+                layers: 1
+            database: !StandardRetrievalDatabase
+                reader: ! ContVecReader {}
+                database_file: examples/data/images_1k.npz
+    decode:
+        src_file: examples/data/speech_1k.npz
+    evaluate:
+        ref_file: examples/data/flickr.ids
+
+standard-dropout0.1:
+    train:
+       dropout: 0.1
