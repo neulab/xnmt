@@ -42,12 +42,14 @@ def xnmt_decode(args, model_elements=None):
     raise RuntimeError("xnmt_decode with model_element=None needs to be updated to run with the new YamlSerializer")
     model = dy.Model()
     model_serializer = JSONSerializer()
-    model_params = model_serializer.load_from_file(args.model_file, model)
+    serialize_container = model_serializer.load_from_file(args.model_file, model)
 
-    src_vocab = Vocab(model_params.src_vocab)
-    trg_vocab = Vocab(model_params.trg_vocab)
+    src_vocab = Vocab(serialize_container.src_vocab)
+    trg_vocab = Vocab(serialize_container.trg_vocab)
 
-    generator = DefaultTranslator(model_params.src_embedder, model_params.encoder, model_params.attender, model_params.trg_embedder, model_params.decoder)
+    generator = DefaultTranslator(serialize_container.src_embedder, serialize_container.encoder, 
+                                  serialize_container.attender, serialize_container.trg_embedder, 
+                                  serialize_container.decoder)
 
   else:
     corpus_parser, generator = model_elements

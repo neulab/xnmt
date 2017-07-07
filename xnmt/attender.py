@@ -29,15 +29,18 @@ class StandardAttender(Attender, Serializable):
 
   yaml_tag = u'!StandardAttender'
 
-  def __init__(self, input_dim, state_dim, hidden_dim):
+  def __init__(self, input_dim=None, state_dim=None, hidden_dim=None):
+    input_dim = input_dim or model_globals.get("default_layer_dim")
+    state_dim = state_dim or model_globals.get("default_layer_dim")
+    hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
-    model = model_globals.get("model")
-    self.pW = model.add_parameters((hidden_dim, input_dim))
-    self.pV = model.add_parameters((hidden_dim, state_dim))
-    self.pb = model.add_parameters(hidden_dim)
-    self.pU = model.add_parameters((1, hidden_dim))
+    param_collection = model_globals.get("dynet_param_collection").param_col
+    self.pW = param_collection.add_parameters((hidden_dim, input_dim))
+    self.pV = param_collection.add_parameters((hidden_dim, state_dim))
+    self.pb = param_collection.add_parameters(hidden_dim)
+    self.pU = param_collection.add_parameters((1, hidden_dim))
     self.curr_sent = None
 
   def start_sent(self, sent):

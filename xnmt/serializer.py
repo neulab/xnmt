@@ -137,7 +137,7 @@ class YamlSerializer(object):
       initialized_obj = obj.__class__(**init_params)
       print("initialized %s(%s)" % (obj.__class__.__name__, init_params))
     except TypeError as e:
-      raise ComponentInitError("%s could not be initialized using params %s. Error message: %s" % (type(obj), init_params, str(e)))
+      raise ComponentInitError("%s could not be initialized using params %s, expecting params %s. Error message: %s" % (type(obj), init_params, init_args, str(e)))
     if not hasattr(initialized_obj, "serialize_params"):
       initialized_obj.serialize_params = serialize_params
     return initialized_obj
@@ -152,21 +152,21 @@ class YamlSerializer(object):
       self.representers_added = True
     return yaml.dump(ser_obj)
 
-  def save_to_file(self, fname, mod, params):
+  def save_to_file(self, fname, mod, persistent_param_collection):
     dirname = os.path.dirname(fname)
     if not os.path.exists(dirname):
       os.makedirs(dirname)
     with open(fname, 'w') as f:
       f.write(self.dump(mod))
-    params.save(fname + '.data')
+    persistent_param_collection.save(fname + '.data')
     
   def load_from_file(self, fname, param):
     with open(fname, 'r') as f:
       dict_spec = yaml.load(f)
       corpus_parser = dict_spec.corpus_parser
       model = dict_spec.model
-      global_params = dict_spec.global_params
-    return corpus_parser, model, global_params
+      model_globals = dict_spec.model_globals
+    return corpus_parser, model, model_globals
     
 class ComponentInitError(Exception):
   pass
