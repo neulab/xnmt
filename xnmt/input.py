@@ -3,7 +3,7 @@ import os
 import io
 import six
 from collections import defaultdict
-from six.moves import zip
+from six.moves import zip_longest
 try:
     import itertools.imap as map
 except ImportError:
@@ -201,18 +201,17 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     self.max_num_dev_sents = max_num_dev_sents
     self.sample_train_sents = sample_train_sents
     self.train_src_len, self.train_trg_len = None, None
-    self.dev_src_len, self.dev_trg_len = None, None
     if max_num_train_sents is not None and sample_train_sents is not None: raise RuntimeError("max_num_train_sents and sample_train_sents are mutually exclusive!")
 
   def read_training_corpus(self, training_corpus):
     training_corpus.train_src_data = []
     training_corpus.train_trg_data = []
-    if self.train_src_len is None:
-      self.train_src_len = self.src_reader.count_sents(training_corpus.train_src)
-    if self.train_trg_len is None:
-      self.train_trg_len = self.trg_reader.count_sents(training_corpus.train_trg)
-    if self.train_src_len != self.train_trg_len: raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (self.train_src_len, self.train_trg_len))
     if self.sample_train_sents:
+      if self.train_src_len is None:
+        self.train_src_len = self.src_reader.count_sents(training_corpus.train_src)
+      if self.train_trg_len is None:
+        self.train_trg_len = self.trg_reader.count_sents(training_corpus.train_trg)
+      if self.train_src_len != self.train_trg_len: raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (self.train_src_len, self.train_trg_len))
       self.sample_train_sents = int(self.sample_train_sents)
       filter_ids = np.random.choice(self.train_src_len, self.sample_train_sents, replace=False)
     elif self.max_num_train_sents:
@@ -221,7 +220,9 @@ class BilingualCorpusParser(CorpusParser, Serializable):
       filter_ids = None
     src_train_iterator = self.src_reader.read_sents(training_corpus.train_src, filter_ids)
     trg_train_iterator = self.trg_reader.read_sents(training_corpus.train_trg, filter_ids)
-    for src_sent, trg_sent in six.moves.zip(src_train_iterator, trg_train_iterator):
+    for src_sent, trg_sent in six.moves.zip_longest(src_train_iterator, trg_train_iterator):
+      if src_sent is None or trg_sent is None: 
+        raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (self.train_src_len or self.src_reader.count_sents(training_corpus.train_src), self.train_trg_len or self.trg_reader.count_sents(training_corpus.train_trg)))
       src_len_ok = self.max_src_len is None or len(src_sent) <= self.max_src_len
       trg_len_ok = self.max_trg_len is None or len(trg_sent) <= self.max_trg_len
       if src_len_ok and trg_len_ok:
@@ -237,14 +238,12 @@ class BilingualCorpusParser(CorpusParser, Serializable):
       filter_ids = list(range(self.max_num_dev_sents))
     else:
       filter_ids = None
-    if self.dev_src_len is None:
-      self.dev_src_len = self.src_reader.count_sents(training_corpus.dev_src)
-    if self.dev_trg_len is None:
-      self.dev_trg_len = self.trg_reader.count_sents(training_corpus.dev_trg)
-    if self.dev_src_len != self.dev_trg_len: raise RuntimeError("dev src sentences don't match target trg: %s != %s!" % (self.dev_src_len, self.dev_trg_len))
+      
     src_dev_iterator = self.src_reader.read_sents(training_corpus.dev_src, filter_ids)
     trg_dev_iterator = self.trg_reader.read_sents(training_corpus.dev_trg, filter_ids)
-    for src_sent, trg_sent in six.moves.zip(src_dev_iterator, trg_dev_iterator):
+    for src_sent, trg_sent in six.moves.zip_longest(src_dev_iterator, trg_dev_iterator):
+      if src_sent is None or trg_sent is None:
+        raise RuntimeError("dev src sentences don't match target trg: %s != %s!" % (self.src_reader.count_sents(training_corpus.dev_src), self.dev_trg_len), self.trg_reader.count_sents(training_corpus.dev_trg))
       src_len_ok = self.max_src_len is None or len(src_sent) <= self.max_src_len
       trg_len_ok = self.max_trg_len is None or len(trg_sent) <= self.max_trg_len
       if src_len_ok and trg_len_ok:
