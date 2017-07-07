@@ -165,8 +165,8 @@ class YamlSerializer(object):
       dict_spec = yaml.load(f)
       corpus_parser = dict_spec.corpus_parser
       model = dict_spec.model
-      global_params = dict_spec.global_params
-    return corpus_parser, model, global_params
+      model_globals = dict_spec.model_globals
+    return corpus_parser, model, model_globals
     
 class ComponentInitError(Exception):
   pass
