@@ -60,7 +60,7 @@ class XnmtTrainer:
 
     self.args = args
     self.output = output
-    model_globals.model_globals["dynet_param_collection"] = dy.Model()
+    model_globals.model_globals["dynet_param_collection"] = model_globals.PersistentParamCollection(self.args.model_file)
 
     self.trainer = self.dynet_trainer_for_args(args)
     
@@ -108,9 +108,9 @@ class XnmtTrainer:
 
   def dynet_trainer_for_args(self, args):
     if args.trainer.lower() == "sgd":
-      trainer = dy.SimpleSGDTrainer(model_globals.get("dynet_param_collection"), e0 = args.learning_rate)
+      trainer = dy.SimpleSGDTrainer(model_globals.get("dynet_param_collection").param_col, e0 = args.learning_rate)
     elif args.trainer.lower() == "adam":
-      trainer = dy.AdamTrainer(model_globals.get("dynet_param_collection"), alpha = args.learning_rate)
+      trainer = dy.AdamTrainer(model_globals.get("dynet_param_collection").param_col, alpha = args.learning_rate)
     else:
       raise RuntimeError("Unknown trainer {}".format(args.trainer))
     return trainer
@@ -134,7 +134,7 @@ class XnmtTrainer:
     self.total_train_sent = len(self.training_corpus.train_src_data)
     context={"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
     self.model = self.model_serializer.initialize_object(model, context)
-    model_globals.get("dynet_param_collection").populate(self.args.pretrained_model_file + '.data')
+    model_globals.get("dynet_param_collection").param_col.populate(self.args.pretrained_model_file + '.data')
     
     
 #  def read_data(self):
@@ -228,7 +228,7 @@ class XnmtTrainer:
         if self.logger.report_dev_and_check_model(self.args.model_file):
           self.model_serializer.save_to_file(self.args.model_file,
                                              SerializeContainer(self.corpus_parser, self.model, model_globals.model_globals),
-                                             model_globals.get("dynet_param_collection"))
+                                             model_globals.get("dynet_param_collection").param_col)
           self.cur_attempt = 0
         else:
           # otherwise: learning rate decay / early stopping
@@ -252,9 +252,9 @@ class XnmtTrainer:
 
   def revert_to_best_model(self):
     try: # dynet v2
-      model_globals.get("dynet_param_collection").populate(self.args.model_file + '.data')
+      model_globals.get("dynet_param_collection").param_col.populate(self.args.model_file + '.data')
     except AttributeError: # dynet v1
-      model_globals.get("dynet_param_collection").load_all(self.args.model_file + '.data')
+      model_globals.get("dynet_param_collection").param_col.load_all(self.args.model_file + '.data')
 
   def compute_dev_ppl(self):
     ppl_sum = 0.0

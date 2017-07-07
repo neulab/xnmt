@@ -43,8 +43,8 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     mlp_hidden_dim = mlp_hidden_dim or model_globals.get("default_layer_dim")
     trg_embed_dim = trg_embed_dim or model_globals.get("default_layer_dim")
     input_dim = input_dim or model_globals.get("default_layer_dim")
-    self.fwd_lstm = RnnDecoder.rnn_from_spec(rnn_spec, layers, trg_embed_dim, lstm_dim, model_globals.get("dynet_param_collection"), residual_to_output)
-    self.mlp = MLP(input_dim + lstm_dim, mlp_hidden_dim, vocab_size, model_globals.get("dynet_param_collection"))
+    self.fwd_lstm = RnnDecoder.rnn_from_spec(rnn_spec, layers, trg_embed_dim, lstm_dim, model_globals.get("dynet_param_collection").param_col, residual_to_output)
+    self.mlp = MLP(input_dim + lstm_dim, mlp_hidden_dim, vocab_size, model_globals.get("dynet_param_collection").param_col)
     self.dropout = dropout or model_globals.get("dropout")
     self.state = None
 
