@@ -13,7 +13,7 @@ from encoder import *
 from decoder import *
 from translator import *
 from retriever import *
-from model_params import *
+from serialize_container import *
 from training_corpus import *
 from loss_tracker import *
 from preproc import SentenceFilterer
@@ -227,7 +227,7 @@ class XnmtTrainer:
         # Write out the model if it's the best one
         if self.logger.report_dev_and_check_model(self.args.model_file):
           self.model_serializer.save_to_file(self.args.model_file,
-                                             ModelParams(self.corpus_parser, self.model, model_globals.model_globals),
+                                             SerializeContainer(self.corpus_parser, self.model, model_globals.model_globals),
                                              model_globals.get("dynet_param_collection"))
           self.cur_attempt = 0
         else:
