@@ -100,8 +100,7 @@ class XnmtTrainer:
       print('Start training in minibatch mode...')
       self.batcher = Batcher.select_batcher(args.batch_strategy)(args.batch_size)
       if args.src_format == "contvec":
-        assert self.train_src[0].nparr.shape[1] == self.src_embedder.emb_dim, "input embed dim is different size than expected"
-        self.batcher.pad_token = np.zeros(self.src_embedder.emb_dim)
+        self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
       self.pack_batches()
       self.logger = BatchLossTracker(args.dev_every, self.total_train_sent)
   def is_batch_mode(self):
