@@ -152,13 +152,13 @@ class YamlSerializer(object):
       self.representers_added = True
     return yaml.dump(ser_obj)
 
-  def save_to_file(self, fname, mod, params):
+  def save_to_file(self, fname, mod, persistent_param_collection):
     dirname = os.path.dirname(fname)
     if not os.path.exists(dirname):
       os.makedirs(dirname)
     with open(fname, 'w') as f:
       f.write(self.dump(mod))
-    params.save(fname + '.data')
+    persistent_param_collection.save(fname + '.data')
     
   def load_from_file(self, fname, param):
     with open(fname, 'r') as f:
