@@ -49,6 +49,14 @@ class ExpressionSequence():
     if self.expr_list: return self.expr_list[key]
     else: return dy.pick(self.expr_tensor, key)
 
+  def as_list(self):
+    """Get a list.
+    :returns: the whole sequence as a list with each element one of the embeddings.
+    """
+    if self.expr_list is None:
+      self.expr_list = [self[i] for i in range(len(self))]
+    return self.expr_list
+
   def as_tensor(self):
     """Get a tensor.
     :returns: the whole sequence as a tensor expression where each column is one of the embeddings.
