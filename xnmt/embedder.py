@@ -3,18 +3,23 @@ from __future__ import division, generators
 from batcher import *
 import dynet as dy
 from serializer import Serializable
+from expression_sequence import ExpressionSequence
 import model_globals
 import yaml
 
 class Embedder:
   """
-  A parent class that takes in a sent and outputs an embedded sent.
+  An embedder takes in word IDs and outputs continuous vectors.
+  
+  This can be done on a word-by-word basis, or over a sequence.
   """
 
   def embed(self, word):
     """Embed a single word.
 
-    :param word: This will generally be an integer word ID, but could also be something like a string.
+    :param word: This will generally be an integer word ID, but could also be something like a string. It could
+      also be batched, in which case the input will be a list of integers or other things.
+    :returns: A DyNet Expression corresponding to the embedding of the word(s).
     """
     raise NotImplementedError('embed must be implemented in Embedder subclasses')
 
@@ -22,6 +27,8 @@ class Embedder:
     """Embed a full sentence worth of words.
 
     :param sent: This will generally be a list of word IDs, but could also be a list of strings or some other format.
+      It could also be batched, in which case it will be a list of list.
+    :returns: An ExpressionSequence representing vectors of each word in the input.
     """
     raise NotImplementedError('embed_sent must be implemented in Embedder subclasses')
 
@@ -35,61 +42,6 @@ class Embedder:
     else:
       raise RuntimeError("Unknown input type {}".format(input_format))
 
-class ExpressionSequence():
-  """A class to represent a sequence of expressions.
-
-  Internal representation is either a list of expressions or a single tensor or both.
-  If necessary, both forms of representation are created from the other on demand.
-  """
-  def __init__(self, **kwargs):
-    """Constructor.
-
-    :param expr_list: a python list of expressions
-    :param expr_tensor: a tensor where highest dimension are the sequence items
-    :raises valueError:
-      raises an exception if neither expr_list nor expr_tensor are given,
-      or if both have inconsistent length
-    """
-    self.expr_list = kwargs.pop('expr_list', None)
-    self.expr_tensor = kwargs.pop('expr_tensor', None)
-    if not (self.expr_list or self.expr_tensor):
-      raise ValueError("must provide expr_list or expr_tensor")
-    if self.expr_list and self.expr_tensor:
-      if len(self.expr_list) != self.expr_tensor.dim()[0][0]:
-        raise ValueError("expr_list and expr_tensor must be of same length")
-
-  def __len__(self):
-    """Return length.
-
-    :returns: length of sequence
-    """
-    return len(self.expr_list) if self.expr_list else self.expr_tensor.dim()[0][0]
-
-  def __iter__(self):
-    """Return iterator.
-
-    :returns: iterator over the sequence; results in explicit conversion to list
-    """
-    if self.expr_list is None:
-      self.expr_list = [self[i] for i in range(len(self))]
-    return iter(self.expr_list)
-
-  def __getitem__(self, key):
-    """Get a single item.
-
-    :returns: sequence item (expression); does not result in explicit conversion to list
-    """
-    if self.expr_list: return self.expr_list[key]
-    else: return dy.pick(self.expr_tensor, key)
-
-  def as_tensor(self):
-    """Get a tensor.
-    :returns: the whole sequence as a tensor expression.
-    """
-    if self.expr_tensor is None:
-      self.expr_tensor = dy.concatenate(list(map(lambda x:dy.transpose(x), self)))
-    return self.expr_tensor
-
 class SimpleWordEmbedder(Embedder, Serializable):
   """
   Simple word embeddings via lookup.
@@ -101,7 +53,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.vocab_size = vocab_size
     if emb_dim is None: emb_dim = model_globals.get("default_layer_dim")
     self.emb_dim = emb_dim
-    self.embeddings = model_globals.get("model").add_lookup_parameters((vocab_size, emb_dim))
+    self.embeddings = model_globals.get("dynet_param_collection").param_col.add_lookup_parameters((vocab_size, emb_dim))
 
   def embed(self, x):
     # single mode

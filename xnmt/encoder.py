@@ -9,31 +9,28 @@ import model_globals
 
 class Encoder(TrainTestInterface):
   """
-  A parent class representing all classes that encode inputs.
+  An Encoder is a class that takes an ExpressionSequence as input and outputs another encoded ExpressionSequence.
   """
-  def __init__(self, model, global_train_params, input_dim):
-    """
-    Every encoder constructor needs to accept at least these 3 parameters 
-    """
-    raise NotImplementedError('__init__ must be implemented in Encoder subclasses')
 
   def transduce(self, sent):
-    """Encode inputs into outputs.
+    """Encode inputs representing a sequence of continuous vectors into outputs that also represent a sequence of continuous vectors.
 
-    :param sent: The input to be encoded. This is duck-typed, so it is the appropriate input for this particular type of encoder. Frequently it will be a list of word embeddings, but it can be anything else.
-    :returns: The encoded output. Frequently this will be a list of expressions representing the encoded vectors for each word.
+    :param sent: The input to be encoded. In the great majority of cases this will be an ExpressionSequence.
+      It can be something else if the encoder is over something that is not a sequence of vectors though.
+    :returns: The encoded output. In the great majority of cases this will be an ExpressionSequence.
+      It can be something else if the encoder is over something that is not a sequence of vectors though.
     """
     raise NotImplementedError('transduce must be implemented in Encoder subclasses')
 
 class BuilderEncoder(Encoder):
   def transduce(self, sent):
-    return self.builder.transduce(sent)
+    return ExpressionSequence(expr_list=self.builder.transduce(sent))
 
 class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
 
   def __init__(self, input_dim=None, layers=1, hidden_dim=None, dropout=None, bidirectional=True):
-    model = model_globals.get("model")
+    model = model_globals.get("dynet_param_collection").param_col
     input_dim = input_dim or model_globals.get("default_layer_dim")
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
@@ -52,7 +49,7 @@ class LSTMEncoder(BuilderEncoder, Serializable):
 class ResidualLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!ResidualLSTMEncoder'
   def __init__(self, input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
-    model = model_globals.get("model")
+    model = model_globals.get("dynet_param_collection").param_col
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
@@ -69,14 +66,14 @@ class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
-    self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim, model_globals.get("model"), dy.VanillaLSTMBuilder, downsampling_method, reduce_factor)
+    self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim, model_globals.get("dynet_param_collection").param_col, dy.VanillaLSTMBuilder, downsampling_method, reduce_factor)
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
 class ConvBiRNNBuilder(BuilderEncoder, Serializable):
   yaml_tag = u'!ConvBiRNNBuilder'
   def init_builder(self, input_dim, layers, hidden_dim=None, chn_dim=3, num_filters=32, filter_size_time=3, filter_size_freq=3, stride=(2,2), dropout=None):
-    model = model_globals.get("model")
+    model = model_globals.get("dynet_param_collection").param_col
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
@@ -96,8 +93,6 @@ class ModularEncoder(Encoder, Serializable):
   def transduce(self, sent):
     for i, module in enumerate(self.modules):
       sent = module.transduce(sent)
-      if i<len(self.modules)-1:
-        sent = ExpressionSequence(expr_list=sent)
     return sent
 
   def get_train_test_components(self):
