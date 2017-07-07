@@ -177,7 +177,7 @@ class XnmtTrainer:
   def run_epoch(self):
     self.logger.new_epoch()
     
-    if self.args.reload_between_epochs:
+    if self.args.reload_between_epochs and self.logger.epoch_num > 1:
       print("Reloading training data..")
       self.corpus_parser.read_training_corpus(self.training_corpus)
       if self.is_batch_mode():
