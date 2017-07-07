@@ -200,17 +200,21 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     self.max_num_train_sents = max_num_train_sents
     self.max_num_dev_sents = max_num_dev_sents
     self.sample_train_sents = sample_train_sents
+    self.train_src_len, self.train_trg_len = None, None
+    self.dev_src_len, self.dev_trg_len = None, None
     if max_num_train_sents is not None and sample_train_sents is not None: raise RuntimeError("max_num_train_sents and sample_train_sents are mutually exclusive!")
 
   def read_training_corpus(self, training_corpus):
     training_corpus.train_src_data = []
     training_corpus.train_trg_data = []
-    src_len = self.src_reader.count_sents(training_corpus.train_src)
-    trg_len = self.trg_reader.count_sents(training_corpus.train_trg)
-    if src_len != trg_len: raise RuntimeError("training src sentences don't match target sentences: %s != %s!" % (src_len, trg_len))
+    if self.train_src_len is None:
+      self.train_src_len = self.src_reader.count_sents(training_corpus.train_src)
+    if self.train_trg_len is None:
+      self.train_trg_len = self.trg_reader.count_sents(training_corpus.train_trg)
+    if self.train_src_len != self.train_trg_len: raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (self.train_src_len, self.train_trg_len))
     if self.sample_train_sents:
       self.sample_train_sents = int(self.sample_train_sents)
-      filter_ids = np.random.choice(src_len, self.sample_train_sents, replace=False)
+      filter_ids = np.random.choice(self.train_src_len, self.sample_train_sents, replace=False)
     elif self.max_num_train_sents:
       filter_ids = list(range(self.max_num_train_sents))
     else:
@@ -223,17 +227,21 @@ class BilingualCorpusParser(CorpusParser, Serializable):
       if src_len_ok and trg_len_ok:
         training_corpus.train_src_data.append(src_sent)
         training_corpus.train_trg_data.append(trg_sent)
+        
     self.src_reader.freeze()
     self.trg_reader.freeze()
+    
     training_corpus.dev_src_data = []
     training_corpus.dev_trg_data = []
     if self.max_num_dev_sents:
       filter_ids = list(range(self.max_num_dev_sents))
     else:
       filter_ids = None
-    src_len = self.src_reader.count_sents(training_corpus.dev_src)
-    trg_len = self.trg_reader.count_sents(training_corpus.dev_trg)
-    if src_len != trg_len: raise RuntimeError("dev src sentences don't match target sentences: %s != %s!" % (src_len, trg_len))
+    if self.dev_src_len is None:
+      self.dev_src_len = self.src_reader.count_sents(training_corpus.dev_src)
+    if self.dev_trg_len is None:
+      self.dev_trg_len = self.trg_reader.count_sents(training_corpus.dev_trg)
+    if self.dev_src_len != self.dev_trg_len: raise RuntimeError("dev src sentences don't match target trg: %s != %s!" % (self.dev_src_len, self.dev_trg_len))
     src_dev_iterator = self.src_reader.read_sents(training_corpus.dev_src, filter_ids)
     trg_dev_iterator = self.trg_reader.read_sents(training_corpus.dev_trg, filter_ids)
     for src_sent, trg_sent in six.moves.zip(src_dev_iterator, trg_dev_iterator):
