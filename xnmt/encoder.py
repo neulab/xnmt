@@ -33,7 +33,7 @@ class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
 
   def __init__(self, input_dim=None, layers=1, hidden_dim=None, dropout=None, bidirectional=True):
-    model = model_globals.get("model")
+    model = model_globals.get("dynet_param_collection").param_col
     input_dim = input_dim or model_globals.get("default_layer_dim")
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
@@ -52,7 +52,7 @@ class LSTMEncoder(BuilderEncoder, Serializable):
 class ResidualLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!ResidualLSTMEncoder'
   def __init__(self, input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
-    model = model_globals.get("model")
+    model = model_globals.get("dynet_param_collection").param_col
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
@@ -69,14 +69,14 @@ class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
-    self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim, model_globals.get("model"), dy.VanillaLSTMBuilder, downsampling_method, reduce_factor)
+    self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim, model_globals.get("dynet_param_collection").param_col, dy.VanillaLSTMBuilder, downsampling_method, reduce_factor)
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
 class ConvBiRNNBuilder(BuilderEncoder, Serializable):
   yaml_tag = u'!ConvBiRNNBuilder'
   def init_builder(self, input_dim, layers, hidden_dim=None, chn_dim=3, num_filters=32, filter_size_time=3, filter_size_freq=3, stride=(2,2), dropout=None):
-    model = model_globals.get("model")
+    model = model_globals.get("dynet_param_collection").param_col
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout

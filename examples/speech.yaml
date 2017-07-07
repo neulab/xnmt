@@ -11,6 +11,7 @@ defaults:
     run_for_epochs: 20
     eval_metrics: cer,wer
   train:
+    src_format: contvec
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/synth.contvec.npz
       train_trg: examples/data/synth.char
