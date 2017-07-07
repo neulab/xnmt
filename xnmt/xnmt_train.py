@@ -60,7 +60,7 @@ class XnmtTrainer:
 
     self.args = args
     self.output = output
-    model_globals.params["model"] = dy.Model()
+    model_globals.params["dynet_param_collection"] = dy.Model()
 
     self.trainer = self.dynet_trainer_for_args(args)
     
@@ -108,9 +108,9 @@ class XnmtTrainer:
 
   def dynet_trainer_for_args(self, args):
     if args.trainer.lower() == "sgd":
-      trainer = dy.SimpleSGDTrainer(model_globals.get("model"), e0 = args.learning_rate)
+      trainer = dy.SimpleSGDTrainer(model_globals.get("dynet_param_collection"), e0 = args.learning_rate)
     elif args.trainer.lower() == "adam":
-      trainer = dy.AdamTrainer(model_globals.get("model"), alpha = args.learning_rate)
+      trainer = dy.AdamTrainer(model_globals.get("dynet_param_collection"), alpha = args.learning_rate)
     else:
       raise RuntimeError("Unknown trainer {}".format(args.trainer))
     return trainer
@@ -127,17 +127,14 @@ class XnmtTrainer:
   
   def load_corpus_and_model(self):
     self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus)
-    corpus_parser, model, global_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.get("model"))
+    corpus_parser, model, global_params = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.get("dynet_param_collection"))
     self.corpus_parser = self.model_serializer.initialize_object(corpus_parser)
     self.corpus_parser.read_training_corpus(self.training_corpus)
     model_globals.params = global_params
     self.total_train_sent = len(self.training_corpus.train_src_data)
     context={"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
     self.model = self.model_serializer.initialize_object(model, context)
-    try: # dynet v2
-      model_globals.get("model").populate(self.args.pretrained_model_file + '.data')
-    except AttributeError: # dynet v1
-      model_globals.get("model").load_all(self.args.pretrained_model_file + '.data')
+    model_globals.get("dynet_param_collection").populate(self.args.pretrained_model_file + '.data')
     
     
 #  def read_data(self):
@@ -231,7 +228,7 @@ class XnmtTrainer:
         if self.logger.report_dev_and_check_model(self.args.model_file):
           self.model_serializer.save_to_file(self.args.model_file,
                                              ModelParams(self.corpus_parser, self.model, model_globals.params),
-                                             model_globals.get("model"))
+                                             model_globals.get("dynet_param_collection"))
           self.cur_attempt = 0
         else:
           # otherwise: learning rate decay / early stopping
@@ -255,9 +252,9 @@ class XnmtTrainer:
 
   def revert_to_best_model(self):
     try: # dynet v2
-      model_globals.get("model").populate(self.args.model_file + '.data')
+      model_globals.get("dynet_param_collection").populate(self.args.model_file + '.data')
     except AttributeError: # dynet v1
-      model_globals.get("model").load_all(self.args.model_file + '.data')
+      model_globals.get("dynet_param_collection").load_all(self.args.model_file + '.data')
 
   def compute_dev_ppl(self):
     ppl_sum = 0.0

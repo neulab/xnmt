@@ -33,11 +33,11 @@ class StandardAttender(Attender, Serializable):
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
-    model = model_globals.get("model")
-    self.pW = model.add_parameters((hidden_dim, input_dim))
-    self.pV = model.add_parameters((hidden_dim, state_dim))
-    self.pb = model.add_parameters(hidden_dim)
-    self.pU = model.add_parameters((1, hidden_dim))
+    param_collection = model_globals.get("dynet_param_collection")
+    self.pW = param_collection.add_parameters((hidden_dim, input_dim))
+    self.pV = param_collection.add_parameters((hidden_dim, state_dim))
+    self.pb = param_collection.add_parameters(hidden_dim)
+    self.pU = param_collection.add_parameters((1, hidden_dim))
     self.curr_sent = None
 
   def start_sent(self, sent):
