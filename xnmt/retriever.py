@@ -23,10 +23,11 @@ class StandardRetrievalDatabase(Serializable):
   def __init__(self, reader, database_file):
     self.reader = reader
     self.database_file = database_file
-    self.database = list(reader.read_sents(database_file))
+    self.data = list(reader.read_sents(database_file))
+    self.indexed = []
 
   def __getitem__(self, indices):
-    return Batcher.mark_as_batch(Batcher.pad([self.database[index] for index in indices]))
+    return Batcher.mark_as_batch(Batcher.pad([self.data[index] for index in indices]))
 
 ##### The actual retriever class
 
@@ -63,6 +64,7 @@ class Retriever(TrainTestInterface):
   def set_train(self, val):
     for component in self.get_train_test_components():
       Retriever.set_train_recursive(component, val)
+
   @staticmethod
   def set_train_recursive(component, val):
     component.set_train(val)
@@ -91,41 +93,38 @@ class DotProductRetriever(Retriever, Serializable):
     self.trg_embedder = trg_embedder
     self.trg_encoder = trg_encoder
     self.database = database
+
   def get_train_test_components(self):
     return [self.src_encoder, self.trg_encoder]
 
   def calc_loss(self, src, db_idx):
     src_embeddings = self.src_embedder.embed_sent(src)
     src_encodings = dy.emax(self.src_encoder.transduce(src_embeddings).as_list())
-    trg_embeddings = self.trg_embedder.embed_sent(self.database[db_idx])
-    trg_encodings = dy.emax(self.trg_encoder.transduce(trg_embeddings).as_list())
-    # calculate the cosine similarity between the sources and the targets
-    dim = trg_encodings.dim()
-    trg_mtr = dy.reshape(trg_encodings, (dim[0][0], dim[1]))
+    trg_encodings = self.encode_trg_example(self.database[db_idx])
 
-    prod = dy.transpose(dy.transpose(src_encodings) * trg_mtr)
-    return dy.sum_batches(dy.hinge_batch(prod, list(range(len(db_idx)))))
+    prod = dy.transpose(dy.transpose(src_encodings) * trg_encodings)
+    return dy.sum_batches(dy.hinge_batch(prod, list(six.moves.range(len(db_idx)))))
 
   def index_database(self):
-    # raise NotImplementedError("index_database needs to calculate the vectors for all the elements in the database and find the closest")
-    pass
+    self.database.indexed.clear()
+    for item in self.database.data:
+      self.database.indexed.append(self.encode_trg_example(item).value())
 
-  def retrieve(self, src, ntop=10):
-    # retrieval function, inputs are the source, index of the source and the target
-    # database
-    # calculate the cosine similarity between the source and all targets
-    similarity = np.dot(dy.squared_norm(database).value(),src)
-    # retrieve the ntop target indices
-    top_indices = similarity.argsort()[-ntop:][::-1]
-    # check the correct answers' position in the top n if any
-    acc = [x for x in range(ntop) if top_indices == db_index]
-    if acc:
-      # 100% acc if correct answer is the top answer, decrease acc proportional
-      # to the position in the top answers
-      acc = 1/(acc+1)
-    else:
-      # acc is zero if it is not even in the top n
-      acc = 0
-    # print the accuracy and return the top images
-    print('accuracy = ' + acc)
-    return database[top_indices]
+  def encode_trg_example(self, example):
+    embeddings = self.trg_embedder.embed_sent(example)
+    encodings = dy.emax(self.trg_encoder.transduce(embeddings).as_list())
+    dim = encodings.dim()
+    return dy.reshape(encodings, (dim[0][0], dim[1]))
+
+  def retrieve(self, src):
+    src_embedding = self.src_embedder.embed_sent(src)
+    src_encoding = dy.transpose(dy.emax(self.src_encoder.transduce(src_embedding).as_list()))
+    max_idx = -1
+    max_sim = -float("inf")
+    for i, trg_encoding in enumerate(self.database.indexed):
+      score = dy.dot_product(dy.inputVector(src_encoding.vec_value()), dy.inputVector(trg_encoding)).value()
+      if score > max_sim:
+        max_sim = score
+        max_idx = i
+
+    return self.database.indexed[max_idx]
