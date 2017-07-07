@@ -56,34 +56,36 @@ class ArrayInput(Input):
 
 ###### Classes that will read in a file and turn it into an input
 
-class InputReader:
+class InputReader(object):
 
   def read_sents(self, filename, filter_ids=None):
     """
     :param filename: data file
-    :param max_num: only read sentences with these ids (0-indexed)
+    :param filter_ids: only read sentences with these ids (0-indexed)
     :returns: iterator over sentences from filename
     """
     raise RuntimeError("Input readers must implement the read_sents function")
   def count_sents(self, filename):
     """
-    inheriting classes that don't work on 1-sent-per-line textfiles should overwrite this
     :param filename: data file
     :returns: number of sentences in the data file
     """
+    raise RuntimeError("Input readers must implement the count_sents function")
+  def freeze(self):
+    pass
+
+class BaseTextReader(InputReader):
+  def count_sents(self, filename):
     i = 0
     with io.open(filename, encoding='utf-8') as f:
       for _ in f:
         i+=1
     return i
-  def freeze(self):
-    pass
-  @staticmethod
-  def loop_textfile_filtered(filename, filter_ids=None):
+  def iterate_filtered(self, filename, filter_ids=None):
     """
     :param filename: data file (text file)
     :param filter_ids:
-    :returns: iterator over lines as strings (useful to implement read_sents for text-based readers)
+    :returns: iterator over lines as strings (useful for subclasses to implement read_sents)
     """
     sent_count = 0
     max_id = None
@@ -98,8 +100,7 @@ class InputReader:
         if max_id is not None and sent_count > max_id:
           break
 
-
-class PlainTextReader(InputReader, Serializable):
+class PlainTextReader(BaseTextReader, Serializable):
   """
   Handles the typical case of reading plain text files,
   with one sent per line.
@@ -116,7 +117,7 @@ class PlainTextReader(InputReader, Serializable):
       self.vocab = Vocab()
     return map(lambda l: SimpleSentenceInput([self.vocab.convert(word) for word in l.strip().split()] + \
                                                       [self.vocab.convert(Vocab.ES_STR)]), 
-                        InputReader.loop_textfile_filtered(filename, filter_ids))
+               self.iterate_filtered(filename, filter_ids))
 
   def freeze(self):
     self.vocab.freeze()
@@ -155,7 +156,7 @@ class ContVecReader(InputReader, Serializable):
     npzFile.close()
     return l
 
-class IDReader(InputReader, Serializable):
+class IDReader(BaseTextReader, Serializable):
   """
   Handles the case where we need to read in a single ID (like retrieval problems)
   """
@@ -165,7 +166,7 @@ class IDReader(InputReader, Serializable):
     pass
 
   def read_sents(self, filename, filter_ids=None):
-    return map(lambda l: int(l.strip()), InputReader.loop_textfile_filtered(filename, filter_ids))
+    return map(lambda l: int(l.strip()), self.iterate_filtered(filename, filter_ids))
 
 ###### CorpusParser
 
