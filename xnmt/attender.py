@@ -45,7 +45,7 @@ class StandardAttender(Attender, Serializable):
 
   def start_sent(self, sent):
     self.curr_sent = sent
-    I = dy.concatenate_cols(self.curr_sent)
+    I = self.curr_sent.as_tensor()
     W = dy.parameter(self.pW)
     b = dy.parameter(self.pb)
     self.WI = dy.affine_transform([b, W, I])
@@ -63,6 +63,6 @@ class StandardAttender(Attender, Serializable):
 
   def calc_context(self, state):
     attention = self.calc_attention(state)
-    I = dy.concatenate_cols(self.curr_sent)
+    I = self.curr_sent.as_tensor()
     return I * attention
 
