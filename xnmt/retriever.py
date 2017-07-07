@@ -106,9 +106,11 @@ class DotProductRetriever(Retriever, Serializable):
     return dy.sum_batches(dy.hinge_batch(prod, list(six.moves.range(len(db_idx)))))
 
   def index_database(self):
-    self.database.indexed.clear()
+    self.database.indexed = []
     for item in self.database.data:
-      self.database.indexed.append(self.encode_trg_example(item).value())
+      self.database.indexed.append(self.encode_trg_example(item).npvalue())
+
+    self.database.indexed = np.array(self.database.indexed)
 
   def encode_trg_example(self, example):
     embeddings = self.trg_embedder.embed_sent(example)
@@ -118,11 +120,11 @@ class DotProductRetriever(Retriever, Serializable):
 
   def retrieve(self, src):
     src_embedding = self.src_embedder.embed_sent(src)
-    src_encoding = dy.transpose(dy.emax(self.src_encoder.transduce(src_embedding).as_list()))
+    src_encoding = dy.transpose(dy.emax(self.src_encoder.transduce(src_embedding).as_list())).npvalue()
     max_idx = -1
     max_sim = -float("inf")
     for i, trg_encoding in enumerate(self.database.indexed):
-      score = dy.dot_product(dy.inputVector(src_encoding.vec_value()), dy.inputVector(trg_encoding)).value()
+      score = np.dot(src_encoding, trg_encoding)
       if score > max_sim:
         max_sim = score
         max_idx = i
