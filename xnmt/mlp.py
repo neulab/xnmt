@@ -13,5 +13,5 @@ class MLP(object):
     b1 = dy.parameter(self.b1)
     b2 = dy.parameter(self.b2)
 
-    h = dy.tanh(W1 * input_expr + b1)
-    return W2 * h + b2
+    h = dy.tanh(dy.affine_transform([b1, W1, input_expr]))
+    return dy.affine_transform([b2, W2, h])
