@@ -343,3 +343,21 @@ if __name__ == "__main__":
   print(obj.evaluate([reference1, reference3], [candidate1, candidate3]))
   # print("nltk BLEU scores"), print(corpus_bleu([[reference1], [reference3]],
   #                        [candidate1, candidate3]))
+
+class RecallEvaluator(object):
+  def __init__(self, n_recall=5):
+    self.n_recall=5
+
+  def metric_name(self):
+    return "Recall{}".format(str(self.n_recall))
+
+  def evaluate(self, ref, hyp):
+    print(len(hyp))
+    best_hyp = hyp[:self.n_recall]
+    return np.mean(best_hyp == ref)
+# the commit.
+
+recall_evaluator = RecallEvaluator()
+ref = np.argsort(np.random.normal(size=(10,)))
+hyp = np.arange(10)
+recall_evaluator.evaluate(ref, hyp)
