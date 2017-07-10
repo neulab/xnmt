@@ -12,9 +12,9 @@ defaults:
         dev_metrics: wer
         training_corpus: !BilingualTrainingCorpus
             train_src: examples/data/mfcc_tr.npz
-            train_trg: examples/data/flickr.ids
+            train_trg: examples/data/flickr_tr.ids
             dev_src: examples/data/mfcc_tx.npz
-            dev_trg: examples/data/flick.ids
+            dev_trg: examples/data/flickr_tx.ids
         corpus_parser: !BilingualCorpusParser
             src_reader: !ContVecReader {}
             trg_reader: !IDReader {}
@@ -34,12 +34,12 @@ defaults:
                 in_height: 4096
                 out_height: 1024 
             database: !StandardRetrievalDatabase
-                reader: ! ContVecReader {}
-                database_file: examples/data/images_subset.npz
+                reader: !ContVecReader {}
+                database_file: examples/data/vgg.npz
     decode:
         src_file: examples/data/mfcc_tx.npz
     evaluate:
-        ref_file: examples/data/flickr.ids
+        ref_file: examples/data/flickr_tx.ids
 
 standard-dropout0.1:
     train:

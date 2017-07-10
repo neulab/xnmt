@@ -97,9 +97,19 @@ class DotProductRetriever(Retriever, Serializable):
   def get_train_test_components(self):
     return [self.src_encoder, self.trg_encoder]
 
+  def exprseq_pooling(self, exprseq):
+    # Reduce to vector
+    if exprseq.expr_tensor != None:
+      if len(exprseq.expr_tensor.dim()[0]) > 1:
+        return dy.max_dim(exprseq.expr_tensor, d=1)
+      else:
+        return exprseq.expr_tensor
+    else:
+      return dy.emax(exprseq.expr_list)
+
   def calc_loss(self, src, db_idx):
     src_embeddings = self.src_embedder.embed_sent(src)
-    src_encodings = dy.emax(self.src_encoder.transduce(src_embeddings).as_list())
+    src_encodings = self.exprseq_pooling(self.src_encoder.transduce(src_embeddings))
     trg_encodings = self.encode_trg_example(self.database[db_idx])
 
     prod = dy.transpose(dy.transpose(src_encodings) * trg_encodings)
@@ -113,7 +123,7 @@ class DotProductRetriever(Retriever, Serializable):
 
   def encode_trg_example(self, example):
     embeddings = self.trg_embedder.embed_sent(example)
-    encodings = dy.emax(self.trg_encoder.transduce(embeddings).as_list())
+    encodings = self.exprseq_pooling(self.trg_encoder.transduce(embeddings))
     dim = encodings.dim()
     return dy.reshape(encodings, (dim[0][0], dim[1]))
 

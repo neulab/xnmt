@@ -160,16 +160,16 @@ class SpeechBuilder(Encoder, Serializable):
   def whoami(self): return "Conv2dBuilder"
 
   def transduce(self, src):
-    #src = src.as_tensor()
+    src = src.as_tensor()
 
     src_height = src.dim()[0][0]
     src_width = src.dim()[0][1]
-    src_channels = src.dim()[0][2]
+    src_channels = 1
     batch_size = src.dim()[1]
     
     
     src = dy.reshape(src, (src_height, src_width, src_channels), batch_size=batch_size) # ((276, 80, 3), 1)
-    print(self.filters1)
+    # print(self.filters1)
     # convolution and pooling layers    
     l1 = dy.rectify(dy.conv2d(src, dy.parameter(self.filters1), stride = [self.stride[0], self.stride[0]], is_valid = True))
     pool1 = dy.maxpooling2d(l1, (1, 4), (1,2), is_valid = True)
@@ -180,10 +180,12 @@ class SpeechBuilder(Encoder, Serializable):
     l3 = dy.rectify(dy.conv2d(pool2, dy.parameter(self.filters3), stride = [self.stride[2], self.stride[2]], is_valid = True))
 
     pool3 = dy.kmax_pooling(l3, 1, d = 1)
-    print(pool3.dim())
+    # print(pool3.dim())
     output = dy.cdiv(pool3,dy.sqrt(dy.squared_norm(pool3)))
+    output = dy.reshape(output, (self.num_filters[2],), batch_size = batch_size)
+    # print("my dim: ", output.dim())
     
-    return output
+    return ExpressionSequence(expr_tensor=output)
 
   def initial_state(self):
     return PseudoState(self)
@@ -215,10 +217,10 @@ class vgg16Builder(Encoder, Serializable):
   def whoami(self): return "vgg16Encoder"
   
   def transduce(self, src):
-    #src = src.as_tensor()
+    src = src.as_tensor()
     
     src_height = src.dim()[0][0]
-    src_width = src.dim()[0][1]
+    src_width = 1
     batch_size = src.dim()[1]
     
     W = dy.parameter(self.pW)
@@ -228,7 +230,7 @@ class vgg16Builder(Encoder, Serializable):
     # convolution and pooling layers
     l1 = (W*src)+b
     output = dy.cdiv(l1,dy.sqrt(dy.squared_norm(l1)))
-    return output
+    return ExpressionSequence(expr_tensor=output)
   
   def initial_state(self):
     return PseudoState(self)
