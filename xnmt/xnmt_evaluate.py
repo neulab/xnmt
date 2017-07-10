@@ -1,7 +1,7 @@
 import argparse
 import sys
 import io
-from evaluator import BLEUEvaluator, WEREvaluator, CEREvaluator
+from evaluator import BLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator
 from options import Option, OptionParser
 from xnmt_decode import NO_DECODING_ATTEMPTED
 
@@ -31,6 +31,8 @@ def xnmt_evaluate(args):
     evaluator = WEREvaluator()
   elif args.evaluator == "cer":
     evaluator = CEREvaluator()
+  elif args.evaluator == "recall":
+    evaluator = RecallEvaluator()
   else:
     raise RuntimeError("Unknown evaluation metric {}".format(args.evaluator))
 
