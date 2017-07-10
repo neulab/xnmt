@@ -109,8 +109,7 @@ class DotProductRetriever(Retriever, Serializable):
     self.database.indexed = []
     for item in self.database.data:
       self.database.indexed.append(self.encode_trg_example(item).npvalue())
-
-    self.database.indexed = np.array(self.database.indexed)
+    self.database.indexed = np.concatenate(self.database.indexed, axis=1)
 
   def encode_trg_example(self, example):
     embeddings = self.trg_embedder.embed_sent(example)
@@ -118,15 +117,16 @@ class DotProductRetriever(Retriever, Serializable):
     dim = encodings.dim()
     return dy.reshape(encodings, (dim[0][0], dim[1]))
 
-  def retrieve(self, src):
+  def retrieve(self, src, return_type="idxscore", nbest=5):
     src_embedding = self.src_embedder.embed_sent(src)
     src_encoding = dy.transpose(dy.emax(self.src_encoder.transduce(src_embedding).as_list())).npvalue()
-    max_idx = -1
-    max_sim = -float("inf")
-    for i, trg_encoding in enumerate(self.database.indexed):
-      score = np.dot(src_encoding, trg_encoding)
-      if score > max_sim:
-        max_sim = score
-        max_idx = i
-
-    return self.database.indexed[max_idx]
+    scores = np.dot(src_encoding, self.database.indexed)
+    kbest = np.argsort(scores, axis=1)[0,-nbest:][::-1]
+    if return_type == "idxscore":
+      return [(x,scores[0,x]) for x in kbest]
+    elif return_type == "idx":
+      return list(kbest)
+    elif return_type == "score":
+      return [scores[0,x] for x in kbest]
+    else:
+      raise RuntimeError("Illegal return_type to retrieve: {}".format(return_type))
