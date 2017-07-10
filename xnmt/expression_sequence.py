@@ -1,7 +1,7 @@
-
 import dynet as dy
+from batcher import Batcher
 
-class ExpressionSequence():
+class ExpressionSequence(object):
   """A class to represent a sequence of expressions.
   
   Internal representation is either a list of expressions or a single tensor or both.
@@ -56,3 +56,38 @@ class ExpressionSequence():
     if self.expr_tensor is None:
       self.expr_tensor = dy.concatenate_cols(self.expr_list)
     return self.expr_tensor
+
+class LazyNumpyExpressionSequence(ExpressionSequence):
+  """
+  This is initialized via numpy arrays, and dynet expressions are only created
+  once a consumer requests representation as list or tensor.
+  """
+  def __init__(self, lazy_data):
+    """
+    :param lazy_data: numpy array, or Batcher.Batch of numpy arrays
+    """
+    self.lazy_data = lazy_data
+    self.expr_list, self.expr_tensor = None, None 
+  def __len__(self):
+    if self.expr_list or self.expr_tensor:
+      return super(LazyNumpyExpressionSequence, self).__len__()
+    else:
+      if Batcher.is_batch_sent(self.lazy_data):
+        return self.lazy_data[0].shape[0] 
+      else: return self.lazy_data.shape[0]
+  def __iter__(self):
+    if not (self.expr_list or self.expr_tensor):
+      self.expr_list = [self[i] for i in range(len(self))]
+    return super(LazyNumpyExpressionSequence, self).__iter__()
+  def __getitem__(self, key):
+    if self.expr_list or self.expr_tensor:
+      return super(LazyNumpyExpressionSequence, self).__getitem__()
+    else:
+      if Batcher.is_batch_sent(self.lazy_data):
+        return dy.inputTensor([self.lazy_data[batch][key] for batch in range(len(self.lazy_data))], batched=True)
+      else:
+        return dy.inputTensor(self.lazy_data[key], batched=False)
+  def as_tensor(self):
+    if not (self.expr_list or self.expr_tensor):
+      self.expr_tensor = dy.inputTensor(self.lazy_data, batched=self.batched)
+    return super(LazyNumpyExpressionSequence, self).as_tensor()
