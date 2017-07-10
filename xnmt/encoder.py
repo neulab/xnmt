@@ -91,7 +91,7 @@ class ModularEncoder(Encoder, Serializable):
     return [set(["input_dim", "modules.0.input_dim"])]
 
   def transduce(self, sent):
-    for i, module in enumerate(self.modules):
+    for module in self.modules:
       sent = module.transduce(sent)
     return sent
 
