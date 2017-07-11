@@ -82,6 +82,9 @@ class RecallScore(WERScore):
     self.ref_len = ref_len
     self.nbest   = nbest
 
+  def score_str(self):
+    return "{:.2f}%".format(self.value() * 100.0)
+
   def value(self):
     return self.recall
 
@@ -366,16 +369,15 @@ class RecallEvaluator(object):
     return "Recall{}".format(str(self.nbest))
 
   def evaluate(self, ref, hyp):
-    ref = set(ref)
     hyp = sorted(hyp, key=lambda x:x[1], reverse=True)
     if len(hyp) > self.nbest:
-      hyp = hyp[:self.nbest]
+      hyp_best = hyp[:self.nbest]
     retrieved = set()
-    for ret_hyp in hyp:
-      for index, score in ret_hyp:
-        retrieved.add(index)
+    true_positive = 0
+    for hyp_i, ref_i in zip(hyp_best, ref):
+      if any(ref_i == idx for idx, score in hyp_i):
+        true_positive += 1
 
-    true_positive = len([x for x in retrieved if x in ref])
     score = true_positive / len(ref)
     return RecallScore(score, len(hyp), len(ref), nbest=self.nbest)
 
