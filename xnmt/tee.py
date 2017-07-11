@@ -1,6 +1,7 @@
 import sys
 import os
 import io
+import six
 
 class Tee:
   """
@@ -35,7 +36,7 @@ class Tee:
     self.close()
 
   def write(self, data):
-    self.file.write(unicode(data))
+    self.file.write(six.u(data))
     self.stdstream.write(" " * self.indent + data)
     self.flush()
 
