@@ -108,7 +108,7 @@ class HarwathSpeechEncoder(Encoder, Serializable):
     :param model
     :param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
     """
-    model = model_globals.get("dynet_param_collection").param_col  
+    model = model_globals.dynet_param_collection.param_col  
     self.filter_height = filter_height
     self.filter_width = filter_width
     self.channels = channels
@@ -173,7 +173,7 @@ class HarwathImageBuilder(Encoder, Serializable):
       :param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
       """
     
-    model = model_globals.get("dynet_param_collection").param_col 
+    model = model_globals.dynet_param_collection.param_col 
     self.in_height = in_height
     self.out_height = out_height
     
