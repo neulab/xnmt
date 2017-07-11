@@ -98,8 +98,8 @@ class ModularEncoder(Encoder, Serializable):
   def get_train_test_components(self):
     return self.modules
 
-class SpeechBuilder(Encoder, Serializable):
-  yaml_tag = u'!SpeechBuilder'
+class HarwathSpeechEncoder(Encoder, Serializable):
+  yaml_tag = u'!HarwathSpeechEncoder'
   def __init__(self, filter_height, filter_width, channels, num_filters, stride):
     """
     :param num_layers: depth of the RNN
@@ -156,8 +156,8 @@ class SpeechBuilder(Encoder, Serializable):
   def initial_state(self):
     return PseudoState(self)
 
-class vgg16Builder(Encoder, Serializable):
-  yaml_tag = u'!vgg16Builder'
+class HarwathImageBuilder(Encoder, Serializable):
+  yaml_tag = u'!HarwathImageEncoder'
   """
     Inputs are first put through 2 CNN layers, each with stride (2,2), so dimensionality
     is reduced by 4 in both directions.
