@@ -130,7 +130,6 @@ class DotProductRetriever(Retriever, Serializable):
 
   def retrieve(self, src, return_type="idxscore", nbest=5):
     src_embedding = self.src_embedder.embed_sent(src)
-    print(dy.emax(self.src_encoder.transduce(src_embedding).as_list()).dim())
     src_encoding = dy.transpose(self.exprseq_pooling(self.src_encoder.transduce(src_embedding))).npvalue()
     
     scores = np.dot(src_encoding, self.database.indexed)

@@ -5,12 +5,14 @@ defaults:
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
-    run_for_epochs: 20
-    eval_metrics: recall|nbest=5
+    run_for_epochs: 50
+    eval_metrics: recall|nbest=1,recall|nbest=3,recall|nbest=5
   train:
+    trainer: adam
+    learning_rate: 0.01
     default_layer_dim: 64
     dropout: 0.0
-    dev_metrics: recall|nbest=5
+    dev_metrics: recall|nbest=1,recall|nbest=3,recall|nbest=5
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/head.ja
       train_trg: examples/data/head.smallids

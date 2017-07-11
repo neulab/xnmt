@@ -369,15 +369,10 @@ class RecallEvaluator(object):
     return "Recall{}".format(str(self.nbest))
 
   def evaluate(self, ref, hyp):
-    hyp = sorted(hyp, key=lambda x:x[1], reverse=True)
-    if len(hyp) > self.nbest:
-      hyp_best = hyp[:self.nbest]
-    retrieved = set()
     true_positive = 0
-    for hyp_i, ref_i in zip(hyp_best, ref):
-      if any(ref_i == idx for idx, score in hyp_i):
+    for hyp_i, ref_i in zip(hyp, ref):
+      if any(ref_i == idx for idx, score in hyp_i[:self.nbest]):
         true_positive += 1
-
-    score = true_positive / len(ref)
+    score = true_positive / float(len(ref))
     return RecallScore(score, len(hyp), len(ref), nbest=self.nbest)
 
