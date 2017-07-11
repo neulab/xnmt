@@ -30,7 +30,7 @@ class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
 
   def __init__(self, input_dim=None, layers=1, hidden_dim=None, dropout=None, bidirectional=True):
-    model = model_globals.get("dynet_param_collection").param_col
+    model = model_globals.dynet_param_collection.param_col
     input_dim = input_dim or model_globals.get("default_layer_dim")
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
@@ -49,7 +49,7 @@ class LSTMEncoder(BuilderEncoder, Serializable):
 class ResidualLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!ResidualLSTMEncoder'
   def __init__(self, input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
-    model = model_globals.get("dynet_param_collection").param_col
+    model = model_globals.dynet_param_collection.param_col
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
@@ -66,14 +66,14 @@ class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
-    self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim, model_globals.get("dynet_param_collection").param_col, dy.VanillaLSTMBuilder, downsampling_method, reduce_factor)
+    self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim, model_globals.dynet_param_collection.param_col, dy.VanillaLSTMBuilder, downsampling_method, reduce_factor)
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
 class ConvBiRNNBuilder(BuilderEncoder, Serializable):
   yaml_tag = u'!ConvBiRNNBuilder'
   def init_builder(self, input_dim, layers, hidden_dim=None, chn_dim=3, num_filters=32, filter_size_time=3, filter_size_freq=3, stride=(2,2), dropout=None):
-    model = model_globals.get("dynet_param_collection").param_col
+    model = model_globals.dynet_param_collection.param_col
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
@@ -98,8 +98,8 @@ class ModularEncoder(Encoder, Serializable):
   def get_train_test_components(self):
     return self.modules
 
-class SpeechBuilder(Encoder, Serializable):
-  yaml_tag = u'!SpeechBuilder'
+class HarwathSpeechEncoder(Encoder, Serializable):
+  yaml_tag = u'!HarwathSpeechEncoder'
   def __init__(self, filter_height, filter_width, channels, num_filters, stride):
     """
     :param num_layers: depth of the RNN
@@ -156,8 +156,8 @@ class SpeechBuilder(Encoder, Serializable):
   def initial_state(self):
     return PseudoState(self)
 
-class vgg16Builder(Encoder, Serializable):
-  yaml_tag = u'!vgg16Builder'
+class HarwathImageBuilder(Encoder, Serializable):
+  yaml_tag = u'!HarwathImageEncoder'
   """
     Inputs are first put through 2 CNN layers, each with stride (2,2), so dimensionality
     is reduced by 4 in both directions.
