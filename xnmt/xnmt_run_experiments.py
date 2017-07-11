@@ -61,7 +61,7 @@ if __name__ == '__main__':
   if args.generate_doc:
     print(config_parser.generate_options_table())
     exit(0)
-    
+
   if args.dynet_seed:
     random.seed(args.dynet_seed)
     np.random.seed(args.dynet_seed)
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     exp_tasks = config[experiment_name]
 
     print("=> Running {}".format(experiment_name))
-    
+
     exp_args = exp_tasks["experiment"]
 
     preproc_args = exp_tasks["preproc"]

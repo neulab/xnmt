@@ -34,14 +34,16 @@ class PPLScore(EvalScore):
     return "{:.3f}".format(self.value())
 
 class BLEUScore(EvalScore):
-  def __init__(self, bleu, frac_score_list=None, brevity_penalty_score=None, hyp_len=None, ref_len=None):
+  def __init__(self, bleu, frac_score_list=None, brevity_penalty_score=None, hyp_len=None, ref_len=None, ngram=4):
     self.bleu = bleu
     self.frac_score_list = frac_score_list
     self.brevity_penalty_score = brevity_penalty_score
     self.hyp_len = hyp_len
     self.ref_len = ref_len
+    self.ngram   = ngram
+
   def value(self): return self.bleu
-  def metric_name(self): return "BLEU"
+  def metric_name(self): return "BLEU" + str(self.ngram)
   def higher_is_better(self): return True
   def score_str(self):
     if self.bleu is None:
@@ -72,6 +74,19 @@ class CERScore(WERScore):
     self.ref_len = ref_len
   def metric_name(self): return "CER"
   def value(self): return self.cer
+
+class RecallScore(WERScore):
+  def __init__(self, recall, hyp_len, ref_len, nbest=5):
+    self.recall  = recall
+    self.hyp_len = hyp_len
+    self.ref_len = ref_len
+    self.nbest   = nbest
+
+  def value(self):
+    return self.recall
+
+  def metric_name(self):
+    return "Recall" + str(self.nbest)
 
 class Evaluator(object):
   """
@@ -106,7 +121,7 @@ class BLEUEvaluator(Evaluator):
     self.candidate_corpus = None
 
   def metric_name(self):
-    return "BLEU score"
+    return "BLEU%d score" % (self.ngram)
 
   # Doc to be added
   def evaluate(self, ref, hyp):
@@ -149,7 +164,7 @@ class BLEUEvaluator(Evaluator):
     # If there are no unigrams, return BLEU score of 0
     # No need to check for higher order n-grams
     if clipped_ngram_count[1] == 0:
-      return BLEUScore(bleu=None)
+      return BLEUScore(bleu=None, ngram=self.ngram)
 
     frac_score_list = list()
     log_precision_score = 0.
@@ -170,7 +185,7 @@ class BLEUEvaluator(Evaluator):
 
     # BLEU Score
     bleu_score = brevity_penalty_score * precision_score
-    return BLEUScore(bleu_score, frac_score_list, brevity_penalty_score, word_counter['candidate'], word_counter['reference'])
+    return BLEUScore(bleu_score, frac_score_list, brevity_penalty_score, word_counter['candidate'], word_counter['reference'], ngram=self.ngram)
 
   # Doc to be added
   def brevity_penalty(self, r, c):
@@ -345,19 +360,23 @@ if __name__ == "__main__":
   #                        [candidate1, candidate3]))
 
 class RecallEvaluator(object):
-  def __init__(self, n_recall=5):
-    self.n_recall=5
+  def __init__(self, nbest=5):
+    self.nbest = nbest
 
   def metric_name(self):
-    return "Recall{}".format(str(self.n_recall))
+    return "Recall{}".format(str(self.nbest))
 
   def evaluate(self, ref, hyp):
-    print(len(hyp))
-    best_hyp = hyp[:self.n_recall]
-    return np.mean(best_hyp == ref)
-# the commit.
+    ref = set(ref)
+    hyp = sorted(hyp, key=lambda x:x[1], reverse=True)
+    if len(hyp) > self.nbest:
+      hyp = hyp[:self.nbest]
+    retrieved = set()
+    for ret_hyp in hyp:
+      for index, score in ret_hyp:
+        retrieved.add(index)
 
-recall_evaluator = RecallEvaluator()
-ref = np.argsort(np.random.normal(size=(10,)))
-hyp = np.arange(10)
-recall_evaluator.evaluate(ref, hyp)
+    true_positive = len([x for x in retrieved if x in ref])
+    score = true_positive / len(ref)
+    return RecallScore(score, len(hyp), len(ref), nbest=self.nbest)
+
