@@ -152,4 +152,4 @@ if __name__ == '__main__':
   for line in results:
     experiment_name, eval_scores = line
     for i in range(len(eval_scores)):
-      print("{:<30}| {:<40}".format(experiment_name if i==0 else "", eval_scores[i]))
+      print("{:<30}| {:<40}".format((experiment_name if i==0 else ""), str(eval_scores[i])))

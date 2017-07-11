@@ -261,9 +261,9 @@ class WEREvaluator(Evaluator):
     :return: tuple (levenshtein distance, reference length) 
     """
         if not self.case_sensitive:
-            hyp_sent = map(lambda w: w.lower(), hyp_sent)
+            hyp_sent = list(map(lambda w: w.lower(), hyp_sent))
         if not self.case_sensitive:
-            ref_sent = map(lambda w: w.lower(), ref_sent)
+            ref_sent = list(map(lambda w: w.lower(), ref_sent))
         return -self.seq_sim(ref_sent, hyp_sent)
 
     # gap penalty:
