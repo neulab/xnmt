@@ -2,6 +2,7 @@ from __future__ import division, generators
 import numpy as np
 from collections import defaultdict, Counter
 import math
+import six
 
 class EvalScore(object):
   def higher_is_better(self):
@@ -258,12 +259,12 @@ class WEREvaluator(Evaluator):
 
     def dist_one_pair(self, ref_sent, hyp_sent):
         """
-    :return: tuple (levenshtein distance, reference length) 
+    :return: tuple (levenshtein distance, reference length)
     """
         if not self.case_sensitive:
-            hyp_sent = list(map(lambda w: w.lower(), hyp_sent))
+            hyp_sent = list(six.moves.map(lambda w: w.lower(), hyp_sent))
         if not self.case_sensitive:
-            ref_sent = list(map(lambda w: w.lower(), ref_sent))
+            ref_sent = list(six.moves.map(lambda w: w.lower(), ref_sent))
         return -self.seq_sim(ref_sent, hyp_sent)
 
     # gap penalty:
