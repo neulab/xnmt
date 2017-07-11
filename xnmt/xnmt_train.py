@@ -62,7 +62,7 @@ class XnmtTrainer:
 
     self.args = args
     self.output = output
-    model_globals.model_globals["dynet_param_collection"] = model_globals.PersistentParamCollection(self.args.model_file, self.args.save_num_checkpoints)
+    model_globals.dynet_param_collection = model_globals.PersistentParamCollection(self.args.model_file, self.args.save_num_checkpoints)
 
     self.trainer = self.dynet_trainer_for_args(args)
     
@@ -113,9 +113,9 @@ class XnmtTrainer:
 
   def dynet_trainer_for_args(self, args):
     if args.trainer.lower() == "sgd":
-      trainer = dy.SimpleSGDTrainer(model_globals.get("dynet_param_collection").param_col, e0 = args.learning_rate)
+      trainer = dy.SimpleSGDTrainer(model_globals.dynet_param_collection.param_col, e0 = args.learning_rate)
     elif args.trainer.lower() == "adam":
-      trainer = dy.AdamTrainer(model_globals.get("dynet_param_collection").param_col, alpha = args.learning_rate)
+      trainer = dy.AdamTrainer(model_globals.dynet_param_collection.param_col, alpha = args.learning_rate)
     else:
       raise RuntimeError("Unknown trainer {}".format(args.trainer))
     return trainer
@@ -132,14 +132,14 @@ class XnmtTrainer:
   
   def load_corpus_and_model(self):
     self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus)
-    corpus_parser, model, my_model_globals = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.get("dynet_param_collection"))
+    corpus_parser, model, my_model_globals = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.dynet_param_collection)
     self.corpus_parser = self.model_serializer.initialize_object(corpus_parser)
     self.corpus_parser.read_training_corpus(self.training_corpus)
     model_globals.model_globals = my_model_globals
     self.total_train_sent = len(self.training_corpus.train_src_data)
     context={"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
     self.model = self.model_serializer.initialize_object(model, context)
-    model_globals.get("dynet_param_collection").load_from_data_file(self.args.pretrained_model_file + '.data')
+    model_globals.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
     
     
 #  def read_data(self):
@@ -239,7 +239,7 @@ class XnmtTrainer:
         if self.logger.report_dev_and_check_model(self.args.model_file):
           self.model_serializer.save_to_file(self.args.model_file,
                                              SerializeContainer(self.corpus_parser, self.model, model_globals.model_globals),
-                                             model_globals.get("dynet_param_collection"))
+                                             model_globals.dynet_param_collection)
           self.cur_attempt = 0
         else:
           # otherwise: learning rate decay / early stopping
@@ -255,7 +255,7 @@ class XnmtTrainer:
               if self.args.restart_trainer:
                 print('  restarting trainer and reverting learned weights to best checkpoint..')
                 self.trainer = self.dynet_trainer_for_args(self.args)
-                model_globals.get("dynet_param_collection").revert_to_best_model()
+                model_globals.dynet_param_collection.revert_to_best_model()
                 
             
         self.trainer.update_epoch()

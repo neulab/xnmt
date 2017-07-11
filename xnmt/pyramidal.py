@@ -33,7 +33,7 @@ class PyramidalRNNBuilder(object):
     f = rnn_builder_factory(1, input_dim, hidden_dim / 2, model)
     b = rnn_builder_factory(1, input_dim, hidden_dim / 2, model)
     self.builder_layers.append((f, b))
-    for _ in xrange(num_layers - 1):
+    for _ in range(num_layers - 1):
       layer_input_dim = hidden_dim if downsampling_method=="skip" else hidden_dim*reduce_factor
       f = rnn_builder_factory(1, layer_input_dim, hidden_dim / 2, model)
       b = rnn_builder_factory(1, layer_input_dim, hidden_dim / 2, model)
