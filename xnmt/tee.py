@@ -1,5 +1,6 @@
 import sys
 import os
+import io
 
 class Tee:
   """
@@ -11,7 +12,7 @@ class Tee:
     dirname = os.path.dirname(name)
     if not os.path.exists(dirname):
       os.makedirs(dirname)
-    self.file = open(name, 'w')
+    self.file = io.open(name, 'wt', encoding='utf-8')
     self.stdstream = sys.stderr if error else sys.stdout
     self.indent = indent
     self.error = error

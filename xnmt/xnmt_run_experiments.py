@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
     if not exp_args.eval_only:
       print('reverting learned weights to best checkpoint..')
-      model_globals.get("dynet_param_collection").revert_to_best_model()
+      model_globals.dynet_param_collection.revert_to_best_model()
     if evaluators:
       print("> Evaluating test set")
       output.indent += 2
@@ -151,4 +151,4 @@ if __name__ == '__main__':
   for line in results:
     experiment_name, eval_scores = line
     for i in range(len(eval_scores)):
-      print("{:<30}| {:<40}".format(experiment_name if i==0 else "", str(eval_scores[i])))
+      print("{:<30}| {:<40}".format((experiment_name if i==0 else ""), str(eval_scores[i])))

@@ -291,7 +291,6 @@ class WEREvaluator(Evaluator):
         F[i + 1][j + 1] = max(match, delete, insert)
     return F[len(l1)][len(l2)]
 
-
 class CEREvaluator(object):
   """
   A class to evaluate the quality of output in terms of character error rate.
