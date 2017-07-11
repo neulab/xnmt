@@ -113,6 +113,7 @@ class DotProductRetriever(Retriever, Serializable):
     trg_encodings = self.encode_trg_example(self.database[db_idx])
 
     prod = dy.transpose(dy.transpose(src_encodings) * trg_encodings)
+    print(dy.sum_batches(dy.hinge_batch(prod, list(six.moves.range(len(db_idx))))).npvalue())
     return dy.sum_batches(dy.hinge_batch(prod, list(six.moves.range(len(db_idx)))))
 
   def index_database(self):
@@ -129,7 +130,9 @@ class DotProductRetriever(Retriever, Serializable):
 
   def retrieve(self, src, return_type="idxscore", nbest=5):
     src_embedding = self.src_embedder.embed_sent(src)
-    src_encoding = dy.transpose(dy.emax(self.src_encoder.transduce(src_embedding).as_list())).npvalue()
+    print(dy.emax(self.src_encoder.transduce(src_embedding).as_list()).dim())
+    src_encoding = dy.transpose(self.exprseq_pooling(self.src_encoder.transduce(src_embedding))).npvalue()
+    
     scores = np.dot(src_encoding, self.database.indexed)
     kbest = np.argsort(scores, axis=1)[0,-nbest:][::-1]
     if return_type == "idxscore":
