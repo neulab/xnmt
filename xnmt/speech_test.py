@@ -6,7 +6,11 @@ Created on Thu Jul  6 13:10:42 2017
 @author: danny
 """
 import dynet as dy
+<<<<<<< HEAD
 import speechEncoder
+=======
+import conv2d_encoder
+>>>>>>> 440be4cb0734dbd9c7544751c799a373b083016f
 import numpy as np
 
 filter_height = [40, 1, 1]
@@ -18,7 +22,11 @@ stride = [1, 1, 1]
 
 dy.renew_cg()
 
+<<<<<<< HEAD
 x = speechEncoder.speechBuilder(filter_height, filter_width, channels, num_filters, model, stride)
+=======
+x = conv2d_encoder.speechBuilder(filter_height, filter_width, channels, num_filters, model, stride)
+>>>>>>> 440be4cb0734dbd9c7544751c799a373b083016f
 
 src = dy.inputTensor(np.random.randint(1,100,(40,1000,1,5)), batched = True)
 

@@ -3,9 +3,8 @@ from __future__ import division, generators
 from batcher import *
 import dynet as dy
 from serializer import Serializable
-from expression_sequence import ExpressionSequence
+from expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 import model_globals
-import yaml
 
 class Embedder:
   """
@@ -91,26 +90,19 @@ class NoopEmbedder(Embedder, Serializable):
     self.emb_dim = emb_dim
 
   def embed(self, x):
-    if isinstance(x, dy.Expression): return x
-    # single mode
-    if not Batcher.is_batch_word(x):
-      return dy.inputVector(x)
-    # minibatch mode
-    else:
-      return dy.inputTensor(x, batched=True)
+    return dy.inputTensor(x, batched=Batcher.is_batch_word(x))
 
   def embed_sent(self, sent):
     # TODO refactor: seems a bit too many special cases that need to be distinguished
     if isinstance(sent, ExpressionSequence):
       return sent
-
     batched = Batcher.is_batch_sent(sent)
     first_sent = sent[0] if batched else sent
     if hasattr(first_sent, "get_array"):
       if not batched:
-        return ExpressionSequence(expr_tensor=dy.inputTensor(sent.get_array(), batched=False))
+        return LazyNumpyExpressionSequence(lazy_data=sent.get_array())
       else:
-        return ExpressionSequence(expr_tensor=dy.inputTensor(map(lambda s: s.get_array(), sent), batched=True))
+        return LazyNumpyExpressionSequence(lazy_data=Batcher.mark_as_batch(map(lambda s: s.get_array(), sent)))
     else:
       if not batched:
         embeddings = [self.embed(word) for word in sent]
