@@ -98,7 +98,7 @@ class XnmtTrainer:
     # minibatch mode
     else:
       print('Start training in minibatch mode...')
-      self.batcher = Batcher.select_batcher(args.batch_strategy)(args.batch_size)
+      self.batcher = Batcher.from_spec(args.batch_strategy, args.batch_size)
       if args.src_format == "contvec":
         self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
       self.pack_batches()
@@ -184,7 +184,10 @@ class XnmtTrainer:
         self.pack_batches()
 
     self.model.set_train(True)
-    for batch_num, (src, trg) in enumerate(zip(self.train_src, self.train_trg)):
+    order = list(range(0, len(self.train_src)))
+    np.random.shuffle(order)
+    for batch_num in order:
+      src, trg = self.train_src[batch_num], self.train_trg[batch_num]
 
       # Loss calculation
       dy.renew_cg()
