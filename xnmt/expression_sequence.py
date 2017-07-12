@@ -97,5 +97,5 @@ class LazyNumpyExpressionSequence(ExpressionSequence):
         return dy.inputTensor(self.lazy_data[key], batched=False)
   def as_tensor(self):
     if not (self.expr_list or self.expr_tensor):
-      self.expr_tensor = dy.inputTensor(self.lazy_data, batched=Batcher.is_batch_sent(self.lazy_data))
+      self.expr_tensor = dy.inputTensor(self.lazy_data, batched=Batcher.is_batched(self.lazy_data))
     return super(LazyNumpyExpressionSequence, self).as_tensor()
