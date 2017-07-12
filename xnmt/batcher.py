@@ -39,8 +39,12 @@ class Batcher:
   @staticmethod
   def pad(batch, pad_token=Vocab.ES):
     # Determine the type of batch
-    max_len = max(len(item) for item in batch)
-    return [item.get_padded_sent(pad_token, max_len - len(item)) for item in batch]
+    max_len = max(Batcher.len_or_zero(item) for item in batch)
+    return [item.get_padded_sent(pad_token, max_len - len(item)) for item in batch] if max_len > 0 else batch
+
+  @staticmethod
+  def len_or_zero(val):
+    return len(val) if hasattr(val, '__len__') else 0
 
   @staticmethod
   def from_spec(batcher_spec, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES):
@@ -76,7 +80,7 @@ class Batcher:
       trg_ret, trg_curr = [], []
       my_size = 0
       for i in order:
-        my_size += len(src[i]) + len(trg[i])
+        my_size += self.len_or_zero(src[i]) + self.len_or_zero(trg[i])
         if my_size > self.batch_size:
           src_ret.append(Batch(Batcher.pad(src_curr, pad_token=self.src_pad_token)))
           trg_ret.append(Batch(Batcher.pad(trg_curr, pad_token=self.trg_pad_token)))
