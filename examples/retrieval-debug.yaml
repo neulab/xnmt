@@ -41,5 +41,3 @@ defaults:
     ref_file: examples/data/head.smallids
 
 retriever:
-  train:
-    dropout: 0.1

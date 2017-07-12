@@ -114,8 +114,9 @@ class DotProductRetriever(Retriever, Serializable):
     trg_encodings = self.encode_trg_example(self.database[db_idx])
 
     prod = dy.transpose(dy.transpose(src_encodings) * trg_encodings)
-    print(dy.sum_batches(dy.hinge_batch(prod, list(six.moves.range(len(db_idx))))).npvalue())
-    return dy.sum_batches(dy.hinge_batch(prod, list(six.moves.range(len(db_idx)))))
+    loss = dy.sum_batches(dy.hinge_batch(prod, list(six.moves.range(len(db_idx)))))
+    print(loss.npvalue())
+    return loss
 
   def index_database(self, subsample_file='xnmt/flickr_sub.ids'):
     self.database.indexed = []

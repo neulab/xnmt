@@ -9,7 +9,7 @@ class LossTracker:
     A template class to track training process and generate report.
     """
 
-    REPORT_TEMPLATE           = 'Epoch %.4f: {}_ppl=%.4f (words=%d, words/sec=%.2f, time=%s)'
+    REPORT_TEMPLATE           = 'Epoch %.4f: {}_ppl=%.3f (words=%d, words/sec=%.2f, time=%s)'
     REPORT_TEMPLATE_DEV       = '  Epoch %.4f dev %s (words=%d, words/sec=%.2f, time=%s)'
     REPORT_TEMPLATE_DEV_AUX   = '  Epoch %.4f dev [auxiliary] %s'
 

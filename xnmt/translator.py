@@ -92,7 +92,7 @@ class DefaultTranslator(Translator, Serializable):
     losses = []
 
     # single mode
-    if not Batcher.is_batch_sent(src):
+    if not Batcher.is_batched(src):
       for ref_word in trg:
         context = self.attender.calc_context(self.decoder.state.output())
         word_loss = self.decoder.calc_loss(context, ref_word)
@@ -121,7 +121,7 @@ class DefaultTranslator(Translator, Serializable):
     # Not including this as a default argument is a hack to get our documentation pipeline working
     if search_strategy == None:
       search_strategy = BeamSearch(1, len_norm=NoNormalization())
-    if not Batcher.is_batch_sent(src):
+    if not Batcher.is_batched(src):
       src = Batcher.mark_as_batch([src])
     outputs = []
     for sents in src:
