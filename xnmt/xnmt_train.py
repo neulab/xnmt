@@ -184,7 +184,10 @@ class XnmtTrainer:
         self.pack_batches()
 
     self.model.set_train(True)
-    for batch_num, (src, trg) in enumerate(zip(self.train_src, self.train_trg)):
+    order = list(range(0, len(self.train_src)))
+    np.random.shuffle(order)
+    for batch_num in order:
+      src, trg = self.train_src[batch_num], self.train_trg[batch_num]
 
       # Loss calculation
       dy.renew_cg()
