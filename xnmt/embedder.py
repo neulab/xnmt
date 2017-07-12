@@ -56,7 +56,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   def embed(self, x):
     # single mode
-    if not Batcher.is_batch_word(x):
+    if not Batcher.is_batched(x):
       return self.embeddings[x]
     # minibatch mode
     else:
@@ -64,7 +64,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   def embed_sent(self, sent):
     # single mode
-    if not Batcher.is_batch_sent(sent):
+    if not Batcher.is_batched(sent):
       embeddings = [self.embed(word) for word in sent]
     # minibatch mode
     else:
@@ -90,12 +90,13 @@ class NoopEmbedder(Embedder, Serializable):
     self.emb_dim = emb_dim
 
   def embed(self, x):
-    return dy.inputTensor(x, batched=Batcher.is_batch_word(x))
+    return dy.inputTensor(x, batched=Batcher.is_batched(x))
 
   def embed_sent(self, sent):
     # TODO refactor: seems a bit too many special cases that need to be distinguished
-    
-    batched = Batcher.is_batch_sent(sent)
+    if isinstance(sent, ExpressionSequence):
+      return sent
+    batched = Batcher.is_batched(sent)
     first_sent = sent[0] if batched else sent
     if hasattr(first_sent, "get_array"):
       if not batched:

@@ -1,6 +1,7 @@
 from __future__ import division, generators
 
 import numpy as np
+import six
 from collections import defaultdict
 from vocab import Vocab
 from collections import OrderedDict
@@ -18,32 +19,11 @@ class Batcher:
   A template class to convert a list of sents to several batches of sents.
   """
 
-  PAIR_SRC = 0
-  PAIR_TRG = 1
-
-  def __init__(self, batch_size, pad_token=None):
+  def __init__(self, batch_size, granularity='sent', src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES):
     self.batch_size = batch_size
-    # The only reason why we don't set Vocab.ES as the default is because it currently
-    # breaks our documentation pipeline
-    self.pad_token = pad_token if pad_token != None else Vocab.ES
-
-  @staticmethod
-  def is_batch_sent(sent):
-    """
-    :rtype: bool
-    :param sent: a batch of sents (a list of lists of ints) OR a single sent (a list of ints)
-    :return: True if the data is a batch of sents 
-    """
-    return type(sent) == Batch
-
-  @staticmethod
-  def is_batch_word(word):
-    """
-    :rtype: bool
-    :param word: a batch of trg words (a list of ints) OR a single trg word (an int)
-    :return: True if the data is a batch of trg words 
-    """
-    return type(word) == Batch
+    self.src_pad_token = src_pad_token
+    self.trg_pad_token = trg_pad_token
+    self.granularity = granularity
 
   @staticmethod
   def mark_as_batch(data):
@@ -53,57 +33,61 @@ class Batcher:
       return Batch(data)
 
   @staticmethod
-  def separate_src_trg(joint_result):
-    src_result = []
-    trg_result = []
-    for batch in joint_result:
-      src_result.append(Batcher.mark_as_batch([pair[Batcher.PAIR_SRC] for pair in batch]))
-      trg_result.append(Batcher.mark_as_batch([pair[Batcher.PAIR_TRG] for pair in batch]))
-    return src_result, trg_result
+  def is_batched(data):
+    return type(data) == Batch
 
   @staticmethod
-  def pad_src_sent(batch, pad_token=Vocab.ES):
-    max_len = max([len(pair[Batcher.PAIR_SRC]) for pair in batch])
-    return map(lambda pair:
-               (pair[Batcher.PAIR_SRC].get_padded_sent(pad_token, max_len - len(pair[Batcher.PAIR_SRC])),
-                pair[Batcher.PAIR_TRG]),
-               batch)
+  def pad(batch, pad_token=Vocab.ES):
+    # Determine the type of batch
+    max_len = max(len(item) for item in batch)
+    return [item.get_padded_sent(pad_token, max_len - len(item)) for item in batch]
 
   @staticmethod
-  def select_batcher(batcher_str):
-    if batcher_str == 'src':
-      return SourceBucketBatcher
-    elif batcher_str == 'trg':
-      return TargetBucketBatcher
-    elif batcher_str == 'src_trg':
-      return SourceTargetBucketBatcher
-    elif batcher_str == 'trg_src':
-      return TargetSourceBucketBatcher
-    elif batcher_str == 'shuffle':
-      return ShuffleBatcher,
-    elif batcher_str == 'word':
-      return WordTargetBucketBatcher
+  def from_spec(batcher_spec, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES):
+    if batcher_spec == 'src':
+      return SortBatcher(batch_size, sort_key=lambda x: len(x[0]), granularity='sent', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
+    elif batcher_spec == 'trg':
+      return SortBatcher(batch_size, sort_key=lambda x: len(x[1]), granularity='sent', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
+    elif batcher_spec == 'src_trg':
+      return SortBatcher(batch_size, sort_key=lambda x: len(x[0])+1.0e-6*len(x[1]), granularity='sent', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
+    elif batcher_spec == 'trg_src':
+      return SortBatcher(batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]), granularity='sent', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
+    elif batcher_spec == 'shuffle':
+      return ShuffleBatcher(batch_size, granularity='sent', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
+    elif batcher_spec == 'word_src':
+      return SortBatcher(batch_size, sort_key=lambda x: len(x[0]), granularity='word', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
+    elif batcher_spec == 'word_trg':
+      return SortBatcher(batch_size, sort_key=lambda x: len(x[1]), granularity='word', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
+    elif batcher_spec == 'word_src_trg':
+      return SortBatcher(batch_size, sort_key=lambda x: len(x[0])+1.0e-6*len(x[1]), granularity='word', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
+    elif batcher_spec == 'word_trg_src':
+      return SortBatcher(batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]), granularity='word', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
+    elif batcher_spec == 'word_shuffle':
+      return ShuffleBatcher(batch_size, granularity='word', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
+    else:
+      raise RuntimeError("Illegal batcher specification {}".format(batcher_spec))
 
-  def create_batches(self, sent_pairs):
-    minibatches = []
-    for batch_start in range(0, len(sent_pairs), self.batch_size):
-      one_batch = sent_pairs[batch_start:batch_start+self.batch_size]
-      minibatches.append(Batcher.mark_as_batch(self.pad_sent(one_batch)))
-    return minibatches
-
-  def pad_sent(self, batch):
-    return self.pad_src_sent(batch, self.pad_token)
-
-  def pack(self, src, trg):
-    """
-    Create batches from input src and trg corpus.
-    :param src: src corpus (a list of sents)
-    :param trg: trg corpus (a list of sents)
-    :return: Packed src corpus (a list of batches of sent) and packed trg corpus (a list of batches of 
-    sent)
-    """
-    raise NotImplementedError('pack() must be implemented in Batcher subclasses')
-
+  def pack_by_order(self, src, trg, order):
+    if self.granularity == 'sent':
+      src_ret = [Batch(Batcher.pad([src[y] for y in order[x:x+self.batch_size]], pad_token=self.src_pad_token)) for x in six.moves.range(0, len(order), self.batch_size)]
+      trg_ret = [Batch(Batcher.pad([trg[y] for y in order[x:x+self.batch_size]], pad_token=self.trg_pad_token)) for x in six.moves.range(0, len(order), self.batch_size)]
+    elif self.granularity == 'word':
+      src_ret, src_curr = [], []
+      trg_ret, trg_curr = [], []
+      my_size = 0
+      for i in order:
+        my_size += len(src[i]) + len(trg[i])
+        if my_size > self.batch_size:
+          src_ret.append(Batch(Batcher.pad(src_curr, pad_token=self.src_pad_token)))
+          trg_ret.append(Batch(Batcher.pad(trg_curr, pad_token=self.trg_pad_token)))
+          my_size = len(src[i]) + len(trg[i])
+          src_curr = []
+          trg_curr = []
+        src_curr.append(src[i])
+        trg_curr.append(trg[i])
+    else:
+      raise RuntimeError("Illegal granularity specification {}".format(self.granularity))
+    return src_ret, trg_ret
 
 class ShuffleBatcher(Batcher):
   """
@@ -111,117 +95,18 @@ class ShuffleBatcher(Batcher):
   """
 
   def pack(self, src, trg):
-    src_trg_pairs = list(zip(src, trg))
-    np.random.shuffle(src_trg_pairs)
-    minibatches = self.create_batches(src_trg_pairs)
-    return self.separate_src_trg(minibatches)
+    order = np.random.shuffle(range(len(src)))
+    return self.pack_by_order(src, trg, order)
 
-  def pad_sent(self, batch):
-    return self.pad_src_sent(batch, self.pad_token)
-
-
-class BucketBatcher(Batcher):
+class SortBatcher(Batcher):
   """
   A template class to create batches through bucketing sent length.
   """
 
-  def group_by_len(self, pairs):
-    buckets = defaultdict(list)
-    for pair in pairs:
-      buckets[self.bucket_index(pair)].append(pair)
-    return buckets
+  def __init__(self, batch_size, granularity='sent', src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, sort_key=lambda x: len(x[0])):
+    super(SortBatcher, self).__init__(batch_size, granularity=granularity, src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
+    self.sort_key = sort_key
 
   def pack(self, src, trg):
-    src_trg_pairs = zip(src, trg)
-    buckets = self.group_by_len(src_trg_pairs)
-    sorted_pairs = []
-    for bucket_key in sorted(buckets.keys()):
-      same_len_pairs = buckets[bucket_key]
-      self.bucket_value_sort(same_len_pairs)
-      sorted_pairs.extend(same_len_pairs)
-    result = self.create_batches(sorted_pairs)
-    np.random.shuffle(result)
-    return self.separate_src_trg(result)
-
-  def bucket_index(self, pair):
-    """
-    Specify the method to sort sents.
-    """
-    raise NotImplementedError('bucket_index() must be implemented in BucketBatcher subclasses')
-
-  def bucket_value_sort(self, pairs):
-    """
-    Specify the method to break ties for sorted sents.
-    """
-    np.random.shuffle(pairs)
-
-
-class SourceBucketBatcher(BucketBatcher):
-  """
-  A class to create batches based on the src sent length.
-  """
-
-  def bucket_index(self, pair):
-    return len(pair[Batcher.PAIR_SRC])
-
-
-class SourceTargetBucketBatcher(SourceBucketBatcher):
-  """
-  A class to create batches based on the src sent length and break ties by trg sent length.
-  """
-
-  def bucket_value_sort(self, pairs):
-    return pairs.sort(key=lambda pair: len(pair[Batcher.PAIR_TRG]))
-
-
-class TargetBucketBatcher(BucketBatcher):
-  """
-  A class to create batches based on the trg sent length.
-  """
-
-  def bucket_index(self, pair):
-    return len(pair[Batcher.PAIR_TRG])
-
-  def pad_sent(self, batch):
-    return self.pad_src_sent(batch, self.pad_token)
-
-
-class TargetSourceBucketBatcher(TargetBucketBatcher):
-  """
-  A class to create batches based on the trg sent length and break ties by src sent length.
-  """
-
-  def bucket_value_sort(self, pairs):
-    return pairs.sort(key=lambda pair: len(pair[Batcher.PAIR_SRC]))
-
-
-class WordTargetBucketBatcher(TargetBucketBatcher):
-  """
-  A class to create batches based on number of trg words, resulting in more stable memory consumption.
-  """
-
-  def pack(self, src, trg):
-    limit_trg_words = self.batch_size
-    src_trg_pairs = zip(src, trg)
-    buckets = self.group_by_len(src_trg_pairs)
-
-    result = []
-    temp_batch = []
-    temp_words = 0
-
-    for sent_len, sent_pairs in OrderedDict(buckets).items():
-      self.bucket_value_sort(sent_pairs)
-      for pair in sent_pairs:
-        if temp_words + sent_len > limit_trg_words and len(temp_batch) > 0:
-          result.append(self.pad_sent(temp_batch))
-          temp_batch = []
-          temp_words = 0
-        temp_batch.append(pair)
-        temp_words += sent_len
-
-    if temp_words != 0:
-      result.append(self.pad_sent(temp_batch))
-
-    np.random.shuffle(result)
-    print("WordTargetBucketBatcher avg batch size: %s sents" % (float(sum([len(x) for x in result]))/len(result)))
-    return self.separate_src_trg(result)
+    order = np.argsort([self.sort_key(x) for x in zip(src,trg)])
+    return self.pack_by_order(src, trg, order)
