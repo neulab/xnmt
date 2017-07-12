@@ -6,11 +6,13 @@ defaults:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     run_for_epochs: 20
-    eval_metrics: recall
+    eval_metrics: recall|nbest=1,recall|nbest=5
   train:
+    trainer: adam
+    learning_rate: 0.001
     default_layer_dim: 512
     dropout: 0.0
-    dev_metrics: recall
+    dev_metrics: recall|nbest=1,recall|nbest=5
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/train.ja
       train_trg: examples/data/train.allids
