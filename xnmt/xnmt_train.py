@@ -98,7 +98,7 @@ class XnmtTrainer:
     # minibatch mode
     else:
       print('Start training in minibatch mode...')
-      self.batcher = Batcher.select_batcher(args.batch_strategy)(args.batch_size)
+      self.batcher = Batcher.from_spec(args.batch_strategy, args.batch_size)
       if args.src_format == "contvec":
         self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
       self.pack_batches()
