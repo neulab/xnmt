@@ -145,7 +145,7 @@ class HarwathSpeechEncoder(Encoder, Serializable):
 
     l3 = dy.rectify(dy.conv2d(pool2, dy.parameter(self.filters3), stride = [self.stride[2], self.stride[2]], is_valid = True))
 
-    pool3 = dy.kmax_pooling(l3, 1, d = 1)
+    pool3 = dy.max_dim(l3, d = 1)
     # print(pool3.dim())
     output = dy.cdiv(pool3,dy.sqrt(dy.squared_norm(pool3)))
     output = dy.reshape(output, (self.num_filters[2],), batch_size = batch_size)
