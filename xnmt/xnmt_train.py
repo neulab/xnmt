@@ -53,7 +53,7 @@ options = [
   Option("restart_trainer", bool, default_value=False, help_str="Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)"),
   Option("reload_between_epochs", bool, default_value=False, help_str="Reload train data between epochs (useful when sampling from train data, or with noisy input data via an external tool"),
   Option("dropout", float, default_value=0.0),
-  Option("model", dict, default_value={}),  
+  Option("model", dict, default_value={}),
 ]
 
 class XnmtTrainer:
@@ -65,14 +65,14 @@ class XnmtTrainer:
     model_globals.dynet_param_collection = model_globals.PersistentParamCollection(self.args.model_file, self.args.save_num_checkpoints)
 
     self.trainer = self.dynet_trainer_for_args(args)
-    
+
     if args.lr_decay > 1.0 or args.lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
     self.learning_scale = 1.0
     self.num_times_lr_decayed = 0
     self.early_stopping_reached = False
     self.cur_attempt = 0
-    
+
     self.evaluators = [s.lower() for s in self.args.dev_metrics.split(",") if s.strip()!=""]
     if self.args.schedule_metric.lower() not in self.evaluators:
               self.evaluators.append(self.args.schedule_metric.lower())
@@ -129,7 +129,7 @@ class XnmtTrainer:
     model_globals.model_globals["default_layer_dim"] = self.args.default_layer_dim
     model_globals.model_globals["dropout"] = self.args.dropout
     self.model = self.model_serializer.initialize_object(self.args.model, context)
-  
+
   def load_corpus_and_model(self):
     self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus)
     corpus_parser, model, my_model_globals = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.dynet_param_collection)
@@ -140,8 +140,8 @@ class XnmtTrainer:
     context={"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
     self.model = self.model_serializer.initialize_object(model, context)
     model_globals.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
-    
-    
+
+
 #  def read_data(self):
 #    train_filters = SentenceFilterer.from_spec(self.args.train_filters)
 #    self.train_src, self.train_trg = \
@@ -162,7 +162,7 @@ class XnmtTrainer:
 #                          self.trg_reader.read_file(self.args.dev_trg),
 #                          dev_filters)
 #    assert len(self.dev_src) == len(self.dev_trg)
-  
+
 #  def filter_sents(self, src_sents, trg_sents, my_filters):
 #    if len(my_filters) == 0:
 #      return src_sents, trg_sents
@@ -176,7 +176,7 @@ class XnmtTrainer:
 
   def run_epoch(self):
     self.logger.new_epoch()
-    
+
     if self.args.reload_between_epochs and self.logger.epoch_num > 1:
       print("Reloading training data..")
       self.corpus_parser.read_training_corpus(self.training_corpus)
@@ -196,7 +196,7 @@ class XnmtTrainer:
 
       loss.backward()
       self.trainer.update(self.learning_scale)
-      
+
 
       # Devel reporting
       self.logger.report_train_process()
@@ -205,7 +205,7 @@ class XnmtTrainer:
         self.logger.new_dev()
         trg_words_cnt, ppl_score = self.compute_dev_ppl()
         schedule_metric = self.args.schedule_metric.lower()
-        
+
         eval_scores = {"ppl" : ppl_score}
         if filter(lambda e: e!="ppl", self.evaluators):
           self.decode_args.src_file = self.training_corpus.dev_src
@@ -259,8 +259,8 @@ class XnmtTrainer:
                 print('  restarting trainer and reverting learned weights to best checkpoint..')
                 self.trainer = self.dynet_trainer_for_args(self.args)
                 model_globals.dynet_param_collection.revert_to_best_model()
-                
-            
+
+
         self.trainer.update_epoch()
         self.model.set_train(True)
 

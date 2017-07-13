@@ -1,5 +1,5 @@
 """
-Stores options and default values for 
+Stores options and default values for
 """
 import yaml
 import argparse
@@ -67,7 +67,7 @@ class OptionParser:
       value = option.type(value)
 
     return value
-  
+
   def args_from_config_file(self, filename):
     """
     Returns a dictionary of experiments => {task => {arguments object}}
@@ -112,11 +112,11 @@ class OptionParser:
         for k in task_values.keys():
           if type(task_values[k]) == str:
             task_values[k] = task_values[k].replace("<EXP>", exp)
-        
+
         random_search_report = self.instantiate_random_search(task_values)
         if random_search_report:
           task_values["random_search_report"] = random_search_report
-          
+
         self.resolve_referenced_params(task_values, task_values)
 
         experiments[exp][task_name] = Args()
@@ -124,7 +124,7 @@ class OptionParser:
           setattr(experiments[exp][task_name], name, val)
 
     return experiments
-  
+
   def instantiate_random_search(self, task_values):
     param_report = {}
     if isinstance(task_values, dict): kvs = task_values.items()
@@ -144,7 +144,7 @@ class OptionParser:
         if sub_report:
           param_report[k] = sub_report
     return param_report
-  
+
   def resolve_referenced_params(self, cur_task_values, top_task_values):
     if isinstance(cur_task_values, dict): kvs = cur_task_values.items()
     elif isinstance(cur_task_values, Serializable):
@@ -167,7 +167,7 @@ class OptionParser:
           setattr(cur_task_values, k, resolved)
       elif isinstance(v, dict) or isinstance(v, Serializable):
         self.resolve_referenced_params(v, top_task_values)
-    
+
 
   def args_from_command_line(self, task, argv):
     parser = argparse.ArgumentParser()

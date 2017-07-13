@@ -46,7 +46,7 @@ class Retriever(TrainTestInterface):
     If the model is updated, assume that the indexing result is stale and no longer applicable.
     '''
     pass
-    
+
 
   def retrieve(self, src):
     '''Perform retrieval, trying to get the sentence that most closely matches in the database.
@@ -70,7 +70,7 @@ class DotProductRetriever(Retriever, Serializable):
   '''
   A retriever trains using max-margin methods.
   '''
-  
+
   yaml_tag = u'!DotProductRetriever'
 
 
@@ -88,7 +88,7 @@ class DotProductRetriever(Retriever, Serializable):
     self.trg_embedder = trg_embedder
     self.trg_encoder = trg_encoder
     self.database = database
-  
+
   def get_train_test_components(self):
     return [self.src_encoder, self.trg_encoder]
 

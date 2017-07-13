@@ -9,7 +9,7 @@ import model_globals
 class Embedder:
   """
   An embedder takes in word IDs and outputs continuous vectors.
-  
+
   This can be done on a word-by-word basis, or over a sequence.
   """
 
@@ -40,7 +40,7 @@ class Embedder:
       return NoopEmbedder(emb_dim, model)
     else:
       raise RuntimeError("Unknown input type {}".format(input_format))
-      
+
 class SimpleWordEmbedder(Embedder, Serializable):
   """
   Simple word embeddings via lookup.
@@ -77,9 +77,9 @@ class SimpleWordEmbedder(Embedder, Serializable):
 class NoopEmbedder(Embedder, Serializable):
   """
   This embedder performs no lookups but only passes through the inputs.
-  
+
   Normally, the input is an Input object, which is converted to an expression.
-  
+
   We can also input an ExpressionSequence, which is simply returned as-is.
   This is useful e.g. to stack several encoders, where the second encoder performs no
   lookups.

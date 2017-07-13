@@ -47,7 +47,7 @@ class DefaultTranslator(Translator, Serializable):
   '''
   A default translator based on attentional sequence-to-sequence models.
   '''
-  
+
   yaml_tag = u'!DefaultTranslator'
 
 
@@ -65,7 +65,7 @@ class DefaultTranslator(Translator, Serializable):
     self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
-  
+
   def shared_params(self):
     return [
             set(["src_embedder.emb_dim", "encoder.input_dim"]),

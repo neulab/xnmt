@@ -26,21 +26,21 @@ class Serializable(yaml.YAMLObject):
               The order of initialization is determined by the order in which components are listed in __init__(),
               and then going bottom-up
     """
-    return []    
+    return []
 class YamlSerializer(object):
   def __init__(self):
     self.representers_added = False
-  
+
   def initialize_object(self, deserialized_yaml, context={}):
     """
     :param obj: deserialized YAML object (classes are resolved and class members set, but __init__() has not been called at this point)
-    :returns: the appropriate object, with properly shared parameters and __init__() having been invoked 
+    :returns: the appropriate object, with properly shared parameters and __init__() having been invoked
     """
     self.set_serialize_params_recursive(deserialized_yaml)
     self.share_init_params_top_down(deserialized_yaml)
     setattr(deserialized_yaml, "context", context)
     return self.init_components_bottom_up(deserialized_yaml, deserialized_yaml.dependent_init_params())
-    
+
   def set_serialize_params_recursive(self, obj):
     base_arg_names = map(lambda x: x[0], inspect.getmembers(yaml.YAMLObject))
     if not isinstance(obj, Serializable):
@@ -66,7 +66,7 @@ class YamlSerializer(object):
       if not name in init_args:
         raise ValueError("unknown init parameter for %s: %s" % (obj.yaml_tag, name))
     obj.init_params = dict(obj.serialize_params)
-    
+
   def share_init_params_top_down(self, obj):
     """
     sets each component's init_params by extending serialize_params with the shared parameters
@@ -141,7 +141,7 @@ class YamlSerializer(object):
     if not hasattr(initialized_obj, "serialize_params"):
       initialized_obj.serialize_params = serialize_params
     return initialized_obj
-  
+
   @staticmethod
   def init_representer(dumper, obj):
     return dumper.represent_mapping(u'!' + obj.__class__.__name__, obj.serialize_params)
@@ -159,7 +159,7 @@ class YamlSerializer(object):
     with open(fname, 'w') as f:
       f.write(self.dump(mod))
     persistent_param_collection.save(fname + '.data')
-    
+
   def load_from_file(self, fname, param):
     with open(fname, 'r') as f:
       dict_spec = yaml.load(f)
@@ -167,7 +167,7 @@ class YamlSerializer(object):
       model = dict_spec.model
       model_globals = dict_spec.model_globals
     return corpus_parser, model, model_globals
-    
+
 class ComponentInitError(Exception):
   pass
 class DependentInitParam(object):

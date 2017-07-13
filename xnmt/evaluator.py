@@ -71,7 +71,7 @@ class CERScore(WERScore):
     self.ref_len = ref_len
   def metric_name(self): return "CER"
   def value(self): return self.cer
-  
+
 
 class Evaluator(object):
     """
