@@ -54,7 +54,7 @@ class YamlSerializer(object):
       if isinstance(val, Serializable):
         obj.serialize_params[name] = val
         self.set_serialize_params_recursive(val)
-      elif type(val) in [type(None), bool, int, float, str, type(six.u(val)), datetime.datetime, dict, set]:
+      elif type(val) in [type(None), bool, int, float, str, type(u""), datetime.datetime, dict, set]:
         obj.serialize_params[name] = val
       elif type(val)==list:
         obj.serialize_params[name] = val
