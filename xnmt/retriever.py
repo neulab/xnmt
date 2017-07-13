@@ -122,7 +122,7 @@ class DotProductRetriever(Retriever, Serializable):
   def index_database(self, subsample_file='xnmt/flickr_sub.ids'):
     self.database.indexed = []
     if os.path.isfile(subsample_file):
-      indices = list(np.loadtxt(subsample_file)) 
+      indices = list(np.loadtxt(subsample_file))
       #self.database.indexed = []
       print(indices)
       for index in indices:
