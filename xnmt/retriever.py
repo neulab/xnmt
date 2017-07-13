@@ -8,6 +8,7 @@ from vocab import Vocab
 from serializer import Serializable, DependentInitParam
 from train_test_interface import TrainTestInterface
 import numpy as np
+import os
 
 ##### A class for retrieval databases
 
@@ -117,10 +118,18 @@ class DotProductRetriever(Retriever, Serializable):
     print(loss.npvalue())
     return loss
 
-  def index_database(self):
+  def index_database(self, subsample_file='xnmt/flickr_sub.ids'):
     self.database.indexed = []
-    for item in self.database.data:
-      self.database.indexed.append(self.encode_trg_example(item).npvalue())
+    if os.path.isfile(subsample_file):
+      indices = list(np.loadtxt(subsample_file)) 
+      #self.database.indexed = []
+      print(indices)
+      for index in indices:
+        item = self.database.data[int(index)]
+        self.database.indexed.append(self.encode_trg_example(item).npvalue())
+    else:
+      for item in self.database.data:
+        self.database.indexed.append(self.encode_trg_example(item).npvalue())
     self.database.indexed = np.concatenate(self.database.indexed, axis=1)
 
   def encode_trg_example(self, example):
