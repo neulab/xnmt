@@ -47,8 +47,8 @@ def xnmt_decode(args, model_elements=None):
     src_vocab = Vocab(serialize_container.src_vocab)
     trg_vocab = Vocab(serialize_container.trg_vocab)
 
-    generator = DefaultTranslator(serialize_container.src_embedder, serialize_container.encoder, 
-                                  serialize_container.attender, serialize_container.trg_embedder, 
+    generator = DefaultTranslator(serialize_container.src_embedder, serialize_container.encoder,
+                                  serialize_container.attender, serialize_container.trg_embedder,
                                   serialize_container.decoder)
 
   else:
@@ -57,7 +57,7 @@ def xnmt_decode(args, model_elements=None):
   output_generator = output_processor_for_spec(args.post_process)
 
   src_corpus = corpus_parser.src_reader.read_sents(args.src_file)
-  
+
   len_norm_type = getattr(length_normalization, args.len_norm_type)
   search_strategy=BeamSearch(b=args.beam, max_len=args.max_len, len_norm=len_norm_type(**args.len_norm_params))
 

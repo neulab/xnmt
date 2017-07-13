@@ -3,7 +3,7 @@ from batcher import Batcher
 
 class ExpressionSequence(object):
   """A class to represent a sequence of expressions.
-  
+
   Internal representation is either a list of expressions or a single tensor or both.
   If necessary, both forms of representation are created from the other on demand.
   """
@@ -67,13 +67,13 @@ class LazyNumpyExpressionSequence(ExpressionSequence):
     :param lazy_data: numpy array, or Batcher.Batch of numpy arrays
     """
     self.lazy_data = lazy_data
-    self.expr_list, self.expr_tensor = None, None 
+    self.expr_list, self.expr_tensor = None, None
   def __len__(self):
     if self.expr_list or self.expr_tensor:
       return super(LazyNumpyExpressionSequence, self).__len__()
     else:
       if Batcher.is_batched(self.lazy_data):
-        return self.lazy_data[0].shape[0] 
+        return self.lazy_data[0].shape[0]
       else: return self.lazy_data.shape[0]
   def __iter__(self):
     if not (self.expr_list or self.expr_tensor):

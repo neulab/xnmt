@@ -4,16 +4,16 @@ class Vocab(Serializable):
   '''
   Converts between strings and integer ids
   '''
-  
+
   yaml_tag = "!Vocab"
 
   SS = 0
   ES = 1
-  
+
   SS_STR = u"<s>"
   ES_STR = u"</s>"
   UNK_STR = u"<unk>"
-  
+
   def __init__(self, i2w=None, vocab_file=None):
     """
     :param i2w: list of words, including <s> and </s>

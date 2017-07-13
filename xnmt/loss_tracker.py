@@ -57,9 +57,9 @@ class LossTracker:
         self.sent_num_not_report_dev += batch_sent_num
         self.epoch_words += self.count_trg_words(trg)
         self.epoch_loss += loss
-    
+
     def format_time(self, seconds):
-        return "{}-{}".format(int(seconds) // 86400, 
+        return "{}-{}".format(int(seconds) // 86400,
                               time.strftime("%H:%M:%S", time.gmtime(seconds)),
                              )
 

@@ -22,7 +22,7 @@ class TextOutput(Output):
 class OutputProcessor(object):
   def process(self, outputs):
     raise NotImplementedError()
-  
+
 class PlainTextOutputProcessor(OutputProcessor):
   '''
   Handles the typical case of writing plain text,
@@ -37,7 +37,7 @@ class PlainTextOutputProcessor(OutputProcessor):
 class JoinedCharTextOutputProcessor(PlainTextOutputProcessor):
   '''
   Assumes a single-character vocabulary and joins them to form words;
-  per default, double underscores '__' are converted to spaces   
+  per default, double underscores '__' are converted to spaces
   '''
   def __init__(self, space_token=u"__"):
     self.space_token = space_token
@@ -47,7 +47,7 @@ class JoinedCharTextOutputProcessor(PlainTextOutputProcessor):
 class JoinedBPETextOutputProcessor(PlainTextOutputProcessor):
   '''
   Assumes a bpe-based vocabulary and outputs the merged words;
-  per default, the '@' postfix indicates subwords that should be merged   
+  per default, the '@' postfix indicates subwords that should be merged
   '''
   def __init__(self, merge_indicator=u"@@"):
     self.merge_indicator_with_space = merge_indicator + u" "
