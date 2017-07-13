@@ -3,11 +3,7 @@ import os
 import io
 import six
 from collections import defaultdict
-from six.moves import zip_longest
-try:
-    import itertools.imap as map
-except ImportError:
-    pass
+from six.moves import zip_longest, map
 from serializer import Serializable
 from vocab import *
 ###### Classes representing single inputs
@@ -138,16 +134,18 @@ class ContVecReader(InputReader, Serializable):
   """
   yaml_tag = u"!ContVecReader"
 
-  def __init__(self):
-    pass
-
+  def __init__(self, transpose=False):
+    self.transpose = transpose
   def read_sents(self, filename, filter_ids=None):
     npzFile = np.load(filename, mmap_mode=None if filter_ids is None else "r")
     npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[1]))
     if filter_ids is not None:
       npzKeys = [npzKeys[i] for i in filter_ids]
     for key in npzKeys:
-      yield ArrayInput(npzFile[key])
+      inp = npzFile[key]
+      if self.transpose:
+        inp = inp.transpose()
+      yield ArrayInput(inp)
     npzFile.close()
 
   def count_sents(self, filename):

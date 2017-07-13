@@ -81,7 +81,7 @@ class LazyNumpyExpressionSequence(ExpressionSequence):
     return super(LazyNumpyExpressionSequence, self).__iter__()
   def __getitem__(self, key):
     if self.expr_list or self.expr_tensor:
-      return super(LazyNumpyExpressionSequence, self).__getitem__()
+      return super(LazyNumpyExpressionSequence, self).__getitem__(key)
     else:
       if Batcher.is_batched(self.lazy_data):
         return dy.inputTensor([self.lazy_data[batch][key] for batch in range(len(self.lazy_data))], batched=True)
