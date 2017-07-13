@@ -19,7 +19,7 @@ class LengthNormalization:
     """
     :param score_so_far:
     :param score_to_add:
-    :param new_len: length of output hyp with current word already appended 
+    :param new_len: length of output hyp with current word already appended
     :returns: new score after applying score_to_add to score_so_far
     normalization step applied during the search
     """

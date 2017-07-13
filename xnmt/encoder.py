@@ -81,12 +81,12 @@ class ConvBiRNNBuilder(BuilderEncoder, Serializable):
                                             chn_dim, num_filters, filter_size_time, filter_size_freq, stride)
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
-  
+
 class ModularEncoder(Encoder, Serializable):
   yaml_tag = u'!ModularEncoder'
   def __init__(self, input_dim, modules):
     self.modules = modules
-    
+
   def shared_params(self):
     return [set(["input_dim", "modules.0.input_dim"])]
 

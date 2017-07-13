@@ -44,10 +44,10 @@ class SentenceFilterer():
 
   def keep(self, sents):
     """Takes a list of inputs/outputs for a single sentence and decides whether to keep them.
-    
+
     In general, these inputs/outpus should already be segmented into words, so len() will return the number of words,
     not the number of characters.
-    
+
     :param sents: A list of parallel sentences.
     :returns: True if they should be used or False if they should be filtered.
     """
@@ -70,7 +70,7 @@ class SentenceFiltererLength():
 
   def __init__(self, spec):
     """Specifies the type of length limitations on the sentences that we'll be getting.
-    
+
     The limitations are passed as a dictionary with keys as follows:
       max/min: This will specify the default maximum and minimum length.
       max_INT/min_INT: This will specify limitations for a specific language (zero indexed)
@@ -121,7 +121,7 @@ class VocabFilterer():
 
   def filter(self, vocab):
     """Filter a vocabulary.
-    
+
     :param vocab: A dictionary of vocabulary words with their frequecies.
     :returns: A new dictionary with frequencies containing only the words to leave in the vocabulary.
     """
@@ -141,7 +141,7 @@ class VocabFilterer():
           raise RuntimeError("Unknown VocabFilterer type {}".format(my_spec["type"]))
     return preproc_list
 
-class VocabFiltererFreq(VocabFilterer): 
+class VocabFiltererFreq(VocabFilterer):
   """Filter the vocabulary, removing words below a particular minimum frequency"""
 
   def __init__(self, spec):
@@ -151,7 +151,7 @@ class VocabFiltererFreq(VocabFilterer):
   def filter(self, vocab):
     return {k: v for k, v in vocab.items() if v >= self.min_freq}
 
-class VocabFiltererRank(VocabFilterer): 
+class VocabFiltererRank(VocabFilterer):
   """Filter the vocabulary, removing words above a particular frequency rank"""
 
   def __init__(self, spec):

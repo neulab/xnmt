@@ -77,6 +77,7 @@ class DotProductRetriever(Retriever, Serializable):
   '''
   A retriever trains using max-margin methods.
   '''
+
   yaml_tag = u'!DotProductRetriever'
 
 
@@ -141,7 +142,7 @@ class DotProductRetriever(Retriever, Serializable):
   def retrieve(self, src, return_type="idxscore", nbest=5):
     src_embedding = self.src_embedder.embed_sent(src)
     src_encoding = dy.transpose(self.exprseq_pooling(self.src_encoder.transduce(src_embedding))).npvalue()
-    
+
     scores = np.dot(src_encoding, self.database.indexed)
     kbest = np.argsort(scores, axis=1)[0,-nbest:][::-1]
     if return_type == "idxscore":

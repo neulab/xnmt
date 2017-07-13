@@ -19,14 +19,14 @@ class PersistentParamCollection(object):
     for i in range(1,save_num_checkpoints):
       self.data_files.append(self.model_file + '.data.' + str(i))
   def revert_to_best_model(self):
-    self.param_col.populate(self.model_file + '.data')  
+    self.param_col.populate(self.model_file + '.data')
   def save(self, fname=None):
     if fname: assert fname == self.data_files[0], "%s != %s" % (fname + '.data', self.data_files[0])
     if not self.is_saved:
       self.remove_existing_history()
     self.shift_safed_checkpoints()
     self.param_col.save(self.data_files[0])
-    self.is_saved = True    
+    self.is_saved = True
   def remove_existing_history(self):
     for fname in self.data_files[1:]:
       if os.path.exists(fname):
