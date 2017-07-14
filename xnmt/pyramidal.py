@@ -6,9 +6,9 @@ class PyramidalRNNBuilder(object):
   """
   Builder for pyramidal RNNs that delegates to regular RNNs and wires them together.
   See https://arxiv.org/abs/1508.01211
-  
-  Every layer (except the first) reduces sequence length by factor 2.  
-  
+
+  Every layer (except the first) reduces sequence length by factor 2.
+
       builder = PyramidalRNNBuilder(4, 128, 100, model, VanillaLSTMBuilder)
       [o1,o2,o3] = builder.transduce([i1,i2,i3])
   """
@@ -61,12 +61,12 @@ class PyramidalRNNBuilder(object):
   def transduce(self, es):
     """
     returns the list of output Expressions obtained by adding the given inputs
-    to the current state, one by one, to both the forward and backward RNNs, 
+    to the current state, one by one, to both the forward and backward RNNs,
     and concatenating.
-        
+
     :param es: an ExpressionSequence
     """
-    
+
     es = list(es)
 
     for layer_i, (fb, bb) in enumerate(self.builder_layers):

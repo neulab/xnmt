@@ -9,7 +9,7 @@ import model_globals
 class Embedder:
   """
   An embedder takes in word IDs and outputs continuous vectors.
-  
+
   This can be done on a word-by-word basis, or over a sequence.
   """
 

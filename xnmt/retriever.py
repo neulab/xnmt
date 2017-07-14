@@ -76,6 +76,7 @@ class DotProductRetriever(Retriever, Serializable):
   '''
   A retriever trains using max-margin methods.
   '''
+
   yaml_tag = u'!DotProductRetriever'
 
 
