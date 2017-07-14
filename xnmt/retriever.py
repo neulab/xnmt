@@ -119,18 +119,16 @@ class DotProductRetriever(Retriever, Serializable):
     print(loss.npvalue())
     return loss
 
-  def index_database(self, subsample_file='xnmt/flickr_sub.ids'):
+  def index_database(self, subsample_file=None):
     self.database.indexed = []
-    if os.path.isfile(subsample_file):
+    if subsample_file != None:
       indices = list(np.loadtxt(subsample_file))
-      #self.database.indexed = []
-      print(indices)
-      for index in indices:
-        item = self.database.data[int(index)]
-        self.database.indexed.append(self.encode_trg_example(item).npvalue())
     else:
-      for item in self.database.data:
-        self.database.indexed.append(self.encode_trg_example(item).npvalue())
+      indices = range(len(self.database.data))
+    for index in indices:
+      item = self.database.data[int(index)]
+      dy.renew_cg()
+      self.database.indexed.append(self.encode_trg_example(item).npvalue())
     self.database.indexed = np.concatenate(self.database.indexed, axis=1)
 
   def encode_trg_example(self, example):
