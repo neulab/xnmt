@@ -144,7 +144,7 @@ class ContVecReader(InputReader, Serializable):
 
   def read_sents(self, filename, filter_ids=None):
     npzFile = np.load(filename, mmap_mode=None if filter_ids is None else "r")
-    npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[1]))
+    npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[-1]))
     if filter_ids is not None:
       npzKeys = [npzKeys[i] for i in filter_ids]
     for key in npzKeys:
