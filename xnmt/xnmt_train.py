@@ -68,7 +68,6 @@ class XnmtTrainer:
 
     if args.lr_decay > 1.0 or args.lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
-    self.learning_scale = 1.0
     self.num_times_lr_decayed = 0
     self.early_stopping_reached = False
     self.cur_attempt = 0
@@ -113,7 +112,7 @@ class XnmtTrainer:
 
   def dynet_trainer_for_args(self, args):
     if args.trainer.lower() == "sgd":
-      trainer = dy.SimpleSGDTrainer(model_globals.dynet_param_collection.param_col, e0 = args.learning_rate)
+      trainer = dy.SimpleSGDTrainer(model_globals.dynet_param_collection.param_col, learning_rate = args.learning_rate)
     elif args.trainer.lower() == "adam":
       trainer = dy.AdamTrainer(model_globals.dynet_param_collection.param_col, alpha = args.learning_rate)
     else:
@@ -195,7 +194,7 @@ class XnmtTrainer:
       self.logger.update_epoch_loss(src, trg, loss.value())
 
       loss.backward()
-      self.trainer.update(self.learning_scale)
+      self.trainer.update()
 
 
       # Devel reporting
@@ -253,15 +252,14 @@ class XnmtTrainer:
               print('  Early stopping')
               self.early_stopping_reached = True
             else:
-              self.learning_scale *= self.args.lr_decay
-              print('  new learning rate: %s' % (self.learning_scale * self.args.learning_rate))
+              self.trainer.learning_rate *= self.args.lr_decay
+              print('  new learning rate: %s' % self.trainer.learning_rate)
               if self.args.restart_trainer:
                 print('  restarting trainer and reverting learned weights to best checkpoint..')
                 self.trainer = self.dynet_trainer_for_args(self.args)
                 model_globals.dynet_param_collection.revert_to_best_model()
 
 
-        self.trainer.update_epoch()
         self.model.set_train(True)
 
 
