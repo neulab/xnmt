@@ -8,6 +8,7 @@ from vocab import Vocab
 from serializer import Serializable, DependentInitParam
 from train_test_interface import TrainTestInterface
 import numpy as np
+import os
 
 ##### A class for retrieval databases
 
@@ -118,9 +119,15 @@ class DotProductRetriever(Retriever, Serializable):
     print(loss.npvalue())
     return loss
 
-  def index_database(self):
+  def index_database(self, subsample_file=None):
     self.database.indexed = []
-    for item in self.database.data:
+    if subsample_file != None:
+      indices = list(np.loadtxt(subsample_file))
+    else:
+      indices = range(len(self.database.data))
+    for index in indices:
+      item = self.database.data[int(index)]
+      dy.renew_cg()
       self.database.indexed.append(self.encode_trg_example(item).npvalue())
     self.database.indexed = np.concatenate(self.database.indexed, axis=1)
 
@@ -133,7 +140,7 @@ class DotProductRetriever(Retriever, Serializable):
   def retrieve(self, src, return_type="idxscore", nbest=5):
     src_embedding = self.src_embedder.embed_sent(src)
     src_encoding = dy.transpose(self.exprseq_pooling(self.src_encoder.transduce(src_embedding))).npvalue()
-    
+
     scores = np.dot(src_encoding, self.database.indexed)
     kbest = np.argsort(scores, axis=1)[0,-nbest:][::-1]
     if return_type == "idxscore":
