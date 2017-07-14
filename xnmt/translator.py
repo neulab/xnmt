@@ -83,7 +83,7 @@ class DefaultTranslator(Translator, Serializable):
   def get_train_test_components(self):
     return [self.encoder, self.decoder]
 
-  def calc_loss(self, src, trg):
+  def calc_loss(self, src, trg, info=None):
     embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder.transduce(embeddings)
     self.attender.start_sent(encodings)
@@ -132,5 +132,3 @@ class DefaultTranslator(Translator, Serializable):
       output_actions = search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents))
       outputs.append(TextOutput(output_actions, trg_vocab))
     return outputs
-
-
