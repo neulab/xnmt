@@ -13,10 +13,10 @@ defaults:
         dropout: 0.0
         dev_metrics: recall|nbest=1,recall|nbest=5
         training_corpus: !BilingualTrainingCorpus
-            train_src: examples/data/mfcc_tr20.npz
-            train_trg: examples/data/flickr_tr20.ids
-            dev_src: examples/data/mfcc_tx20.npz
-            dev_trg: examples/data/flickr_tx20.ids
+            train_src: /pylon2/ci560op/odette/data/flickr/flickr_split/audio/train/mfsc_40k.npz #examples/data/mfcc_tr20.npz
+            train_trg: /pylon2/ci560op/odette/data/flickr/flickr_split/audio/train/flickr_tr_40k.txt  #examples/data/flickr_tr20.ids
+            dev_src: /pylon2/ci560op/odette/data/flickr/flickr_split/audio/val/mfsc_tx_40k.npz #examples/data/mfcc_tx20.npz
+            dev_trg: /pylon2/ci560op/odette/data/flickr/flickr_split/audio/val/flickr_tx_40k.txt  #examples/data/flickr_tx20.ids
         corpus_parser: !BilingualCorpusParser
             src_reader: !ContVecReader {}
             trg_reader: !IDReader {}
@@ -39,9 +39,9 @@ defaults:
                 reader: !ContVecReader {}
                 database_file: examples/data/vgg20.npz
     decode:
-        src_file: examples/data/mfcc_tx20.npz
+        src_file: /pylon2/ci560op/odette/data/flickr/flickr_split/test/mfsc_tx_40k.npz  #examples/data/mfcc_tx20.npz
     evaluate:
-        ref_file: examples/data/flickr_tx20.ids
+        ref_file: /pylon2/ci560op/odette/data/flickr/flickr_split/test/flickr_tx_40k.txt #examples/data/flickr_tx20.ids
 
 standard-dropout0.1:
     train:
