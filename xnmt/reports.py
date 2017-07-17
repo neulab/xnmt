@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import numpy as np
+import dynet as dy
 
 class DefaultTranslatorReport(object):
   
@@ -9,7 +11,8 @@ class DefaultTranslatorReport(object):
     self.trg_words = None
     self.attentions = None
 
-  def plot_attention(self, src_words, trg_words, attention_matrix, file_name, savefig=False, showfig=True):
+  @staticmethod
+  def plot_attention(src_words, trg_words, attention_matrix, file_name=None):
     """This takes in source and target words and an attention matrix (in numpy format)
     and prints a visualization of this to a file.
     :param src_words: a list of words in the source
@@ -34,32 +37,48 @@ class DefaultTranslatorReport(object):
     plt.pcolor(attention_matrix, cmap=plt.cm.Blues, vmin=0, vmax=1)
     plt.colorbar()
 
-    if savefig:
+    if file_name != None:
         plt.savefig(file_name, dpi=100)
-    if showfig:
+    else:
         plt.show()
     plt.close()
-   
-  
-  def write_report(self, path_to_report, idx, src_vocab, trg_vocab):
-    with open("{}.html".format(path_to_report)) as f:
-      f.write("<html><head><title>Translation Report</title></head><body>\n")
+    
+  def write_report(self, path_to_report, idx=None):
+    with open("{}.html".format(path_to_report), 'w') as f:
+      if idx != None:
+        f.write("<html><head><title>Translation Report for Sentence {}</title></head><body>\n".format(idx))
+        f.write("<h1>Translation Report for Sentence {}</h1>\n".format(idx))
+      else:
+        f.write("<html><head><title>Translation Report</title></head><body>\n")
+        f.write("<h1>Translation Report</h1>\n")
       src_text, trg_text = None, None
       # Print Source text
-      if self.src_text != None: f.write("<p><b>Source Text: </b> {}</p>".format(src_text))
-      if self.src_words != None: f.write("<p><b>Source Words: </b> {}".format(' '.join(src_words)))
-      if self.trg_text != None: f.write("<p><b>Target Text: </b> {}</p>".format(trg_text))
-      if self.trg_words != None: f.write("<p><b>Target Words: </b> {}".format(' '.join(trg_words)))
+      if self.src_text != None: f.write("<p><b>Source Text: </b> {}</p>\n".format(self.src_text))
+      if self.src_words != None: f.write("<p><b>Source Words: </b> {}</p>\n".format(' '.join(self.src_words)))
+      if self.trg_text != None: f.write("<p><b>Target Text: </b> {}</p>\n".format(self.trg_text))
+      if self.trg_words != None: f.write("<p><b>Target Words: </b> {}</p>\n".format(' '.join(self.trg_words)))
       # Alignments
-      # if all([x != None for x in (self.src_words, self.trg_words, self.attentions)):
-      #   pass
+      if  all([type(x) != None for x in [self.src_words, self.trg_words, self.attentions]]):
+        if type(self.attentions) == np.ndarray:
+          attention_nparray = self.attentions
+        elif type(self.attentions) == dy.Expression:
+          attention_nparray = self.attentions.npvalue()
+        elif type(self.attentions) == list:
+          attention_nparray = np.stack([x.npvalue() for x in self.attentions])
+        else:
+          raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(self.attentions)))
+        attention_file = "{}.attention.png".format(path_to_report)
+        DefaultTranslatorReport.plot_attention(self.src_words, self.trg_words, attention_nparray, file_name = attention_file)
+        f.write("<p><b>Attention:</b><br/><img src=\"{}.attention.png\"/></p>\n".format(path_to_report))
 
-# temporary call to plot_attention
-src_words = ['The', 'cat', 'was', 'sitting', 'on', 'top', 'of', 'the', 'wardrobe', '.']
-trg_words = ['Le', 'chat', 'etait', 'assis', 'sur', 'le', 'dessus', 'de', 'l\'armoire', '.']
-import numpy as np
-attention_matrix = np.random.rand(len(src_words), len(trg_words))
-print attention_matrix
+      f.write("</body></html>")
 
-report = DefaultTranslatorReport()
-report.plot_attention(src_words, trg_words, attention_matrix, 'attn_vis.png')
+if __name__ == "__main__":
+
+  # temporary call to plot_attention
+  rep = DefaultTranslatorReport()
+  rep.src_words = ['The', 'cat', 'was', 'sitting', 'on', 'top', 'of', 'the', 'wardrobe', '.']
+  rep.trg_words = ['Le', 'chat', 'etait', 'assis', 'sur', 'le', 'dessus', 'de', 'l\'armoire', '.']
+  rep.attentions = np.random.rand(len(rep.src_words), len(rep.trg_words))
+  
+  rep.write_report("/tmp/xnmt_translator_report", 1)
