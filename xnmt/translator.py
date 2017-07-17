@@ -117,7 +117,7 @@ class DefaultTranslator(Translator, Serializable):
 
     return dy.esum(losses)
 
-  def translate(self, src, trg_vocab, search_strategy=None):
+  def translate(self, src, trg_vocab, search_strategy=None, report=None):
     # Not including this as a default argument is a hack to get our documentation pipeline working
     if search_strategy == None:
       search_strategy = BeamSearch(1, len_norm=NoNormalization())
@@ -130,5 +130,8 @@ class DefaultTranslator(Translator, Serializable):
       self.attender.start_sent(encodings)
       self.decoder.initialize()
       output_actions = search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents))
+      if report != None:
+        report.trg_words = [trg_vocab[x] for x in output_actions[1:]] # The first token is the start token
+        report.attentions = self.attender.attention_vecs
       outputs.append(TextOutput(output_actions, trg_vocab))
     return outputs
