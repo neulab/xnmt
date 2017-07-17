@@ -119,7 +119,7 @@ class DotProductRetriever(Retriever, Serializable):
     print(loss.npvalue())
     return loss
 
-  def index_database(self, subsample_file=None):
+  def index_database(self, subsample_file='examples/data/flickr_subsample_index.txt'):
     self.database.indexed = []
     if subsample_file != None:
       indices = list(np.loadtxt(subsample_file))
