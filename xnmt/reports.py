@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import dynet as dy
+import os
 
 class DefaultTranslatorReport(object):
   
@@ -44,6 +45,7 @@ class DefaultTranslatorReport(object):
     plt.close()
     
   def write_report(self, path_to_report, idx=None):
+    filename_of_report = os.path.basename(path_to_report)
     with open("{}.html".format(path_to_report), 'w') as f:
       if idx != None:
         f.write("<html><head><title>Translation Report for Sentence {}</title></head><body>\n".format(idx))
@@ -64,12 +66,12 @@ class DefaultTranslatorReport(object):
         elif type(self.attentions) == dy.Expression:
           attention_nparray = self.attentions.npvalue()
         elif type(self.attentions) == list:
-          attention_nparray = np.stack([x.npvalue() for x in self.attentions])
+          attention_nparray = np.concatenate([x.npvalue() for x in self.attentions], axis=1)
         else:
           raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(self.attentions)))
         attention_file = "{}.attention.png".format(path_to_report)
         DefaultTranslatorReport.plot_attention(self.src_words, self.trg_words, attention_nparray, file_name = attention_file)
-        f.write("<p><b>Attention:</b><br/><img src=\"{}.attention.png\"/></p>\n".format(path_to_report))
+        f.write("<p><b>Attention:</b><br/><img src=\"{}.attention.png\"/></p>\n".format(filename_of_report))
 
       f.write("</body></html>")
 
