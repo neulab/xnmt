@@ -192,11 +192,11 @@ class XnmtTrainer:
       # Loss calculation
       dy.renew_cg()
       loss = self.model.calc_loss(src, trg)
+      loss = self.model.receive_decoder_loss(loss)
       self.logger.update_epoch_loss(src, trg, loss.value())
 
       loss.backward()
       self.trainer.update()
-
 
       # Devel reporting
       self.logger.report_train_process()

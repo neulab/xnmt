@@ -11,8 +11,12 @@ class TrainTestInterface(object):
     :param val: bool that indicates whether we're in training mode
     """
     pass
+
   def get_train_test_components(self):
     """
     :returns: list of subcomponents that implement TrainTestInterface and will be called recursively.
     """
     return []
+
+  def receive_decoder_loss(self, loss):
+    return loss

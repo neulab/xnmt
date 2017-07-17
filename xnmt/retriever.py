@@ -116,10 +116,9 @@ class DotProductRetriever(Retriever, Serializable):
 
     prod = dy.transpose(dy.transpose(src_encodings) * trg_encodings)
     loss = dy.sum_batches(dy.hinge_batch(prod, list(six.moves.range(len(db_idx)))))
-    print(loss.npvalue())
     return loss
 
-  def index_database(self, subsample_file='examples/data/flickr_subsample_index.txt'):
+  def index_database(self, subsample_file=None):
     self.database.indexed = []
     if subsample_file != None:
       indices = list(np.loadtxt(subsample_file))
@@ -151,3 +150,6 @@ class DotProductRetriever(Retriever, Serializable):
       return [scores[0,x] for x in kbest]
     else:
       raise RuntimeError("Illegal return_type to retrieve: {}".format(return_type))
+
+  def receive_decoder_loss(self, loss):
+    return self.src_encoder.receive_decoder_loss(loss)
