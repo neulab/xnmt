@@ -14,7 +14,7 @@ class Batch(list):
   pass
 
 
-class Batcher:
+class Batcher(object):
   """
   A template class to convert a list of sents to several batches of sents.
   """
