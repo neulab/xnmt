@@ -45,6 +45,7 @@ options = [
   Option("default_layer_dim", int, default_value=512, help_str="Default size to use for layers if not otherwise overridden"),
   Option("trainer", default_value="sgd"),
   Option("learning_rate", float, default_value=0.1),
+  Option("momentum", float, default_value = 0.9),
   Option("lr_decay", float, default_value=1.0),
   Option("lr_decay_times", int, default_value=3, help_str="Early stopping after decaying learning rate a certain number of times"),
   Option("attempts_before_lr_decay", int, default_value=1, help_str="apply LR decay after dev scores haven't improved over this many checkpoints"),
@@ -112,10 +113,16 @@ class XnmtTrainer:
 
   def dynet_trainer_for_args(self, args):
     if args.trainer.lower() == "sgd":
-      print(args)
-      trainer = dy.SimpleSGDTrainer(model_globals.dynet_param_collection.param_col, learning_rate = args.learning_rate)
+      print('sgd args are,', args.learning_rate)
+      trainer = dy.SimpleSGDTrainer(model_globals.dynet_param_collection.param_col, args.learning_rate)
     elif args.trainer.lower() == "adam":
+      print('adam args are,', args.learning_rate)
       trainer = dy.AdamTrainer(model_globals.dynet_param_collection.param_col, alpha = args.learning_rate)
+    elif args.trainer.lower() == "msgd":
+      print('msgd args are,', args.learning_rate)
+      trainer = dy.MomentumSGDTrainer(model_globals.dynet_param_collection.param_col, args.learning_rate, mom = args.momentum)
+      #### TEST ONLY ####
+      print('####TEST ONLY, if pass the momentum, ', args.momentum)
     else:
       raise RuntimeError("Unknown trainer {}".format(args.trainer))
     return trainer

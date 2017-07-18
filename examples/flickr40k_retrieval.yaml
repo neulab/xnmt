@@ -1,29 +1,33 @@
 defaults:
     experiment:
-        model_file: /pylon2/ci560op/odette/tools/xnmt_retriever/xnmt/examples/output/<EXP>.mod
-        hyp_file: /pylon2/ci560op/odette/tools/xnmt_retriever/xnmt/examples/output/<EXP>.hyp
-        out_file: /pylon2/ci560op/odette/tools/xnmt_retriever/xnmt/examples/output/<EXP>.out
-        err_file: /pylon2/ci560op/odette/tools/xnmt_retriever/xnmt/examples/output/<EXP>.err
+        model_file: examples/output/<EXP>.mod
+        hyp_file: examples/output/<EXP>.hyp
+        out_file: examples/output/<EXP>.out
+        err_file: examples/output/<EXP>.err
         run_for_epochs: 20
         eval_metrics: recall|nbest=1,recall|nbest=5
     train:
-        trainer: 'adam'
-        learning_rate: 0.01 
+        batch_strategy: 'shuffle'
+        trainer: 'msgd'
+        learning_rate: 0.00001
+        momentum: 0.9 
         default_layer_dim: 512
+        batch_size: 128
+        reload_between_epochs: True    ### Comment this out if you can allocate enough memory to use the whole training corpus every epoch (and sample_train_sents below). This is necessary in interactive sessions because the memory is limited to 4GB, but in batch sessions this may not be necessary.
         dropout: 0.0
         dev_metrics: recall|nbest=1,recall|nbest=5
         training_corpus: !BilingualTrainingCorpus
-            train_src: /pylon2/ci560op/odette/tools/xnmt_retriever/xnmt/examples/data/filelist_tr_40k.txt
-            train_trg: /pylon2/ci560op/odette/tools/xnmt_retriever/xnmt/examples/data/flickr_tr_40k.txt  #examples/data/flickr_tr20.ids
-            dev_src: /pylon2/ci560op/odette/tools/xnmt_retriever/xnmt/examples/data/filelist_val_40k.txt  #examples/data/mfcc_tx20.npz
-            dev_trg: /pylon2/ci560op/odette/tools/xnmt_retriever/xnmt/examples/data/flickr_val_40k.txt  #dev_trg: examples/data/flickr_tx20.ids
+            train_src: /pylon5/ci560op/gneubig/data/flickr/flickr40k_speech_train.npz
+            train_trg: /pylon5/ci560op/gneubig/data/flickr/flickr40k_ids_train.txt
+            dev_src: /pylon5/ci560op/gneubig/data/flickr/flickr40k_speech_val.npz
+            dev_trg: /pylon5/ci560op/gneubig/data/flickr/flickr40k_ids_val.txt
         corpus_parser: !BilingualCorpusParser
-            src_reader: !ContVecNPYReader {}
+            src_reader: !ContVecReader
+                transpose: True
             trg_reader: !IDReader {}
-            #max_num_train_sents: 100
+            sample_train_sents: 5000  ### Similarly, comment this out if reload_between_epochs is commented out
         model: !DotProductRetriever
             src_embedder: !NoopEmbedder
-                #vocab_size: 5000 # TODO: set this automatically
                 emb_dim: 40
             src_encoder: !HarwathSpeechEncoder
                 filter_height: [40, 1, 1]
@@ -38,12 +42,10 @@ defaults:
                 out_height: 1024 
             database: !StandardRetrievalDatabase
                 reader: !ContVecReader {}
-                database_file: /pylon2/ci560op/odette/tools/xnmt_retriever/xnmt/examples/data/vgg_40k.npz
+                database_file: /pylon5/ci560op/gneubig/data/flickr/flickr40k_images_all.npz
     decode:
-        src_file: /pylon2/ci560op/odette/tools/xnmt_retriever/xnmt/examples/data/filelist_tx_40k.tx  #examples/data/mfcc_tx20.npz
+        src_file: /pylon5/ci560op/gneubig/data/flickr/flickr40k_speech_test.npz
     evaluate:
-        ref_file: /pylon2/ci560op/odette/tools/xnmt_retriever/xnmt/examples/data/flickr_tx_40k.txt #examples/data/flickr_tx20.ids
+        ref_file: /pylon5/ci560op/gneubig/data/flickr/flickr40k_ids_test.npz
 
-standard-dropout0.1:
-    train:
-       dropout: 0.1
+speech_retriever_baseline:
