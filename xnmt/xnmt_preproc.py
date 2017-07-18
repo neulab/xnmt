@@ -2,7 +2,7 @@ import argparse
 import sys
 import os.path
 from options import Option, OptionParser
-from preproc import Normalizer, SentenceFilterer, VocabFilterer
+from preproc import Normalizer, SentenceFilterer, VocabFilterer, Tokenizer
 
 options = [
   Option("preproc_specs", list, default_value=None, required=False, help_str="A specification for a preprocessing step, including in_files (the input files), out_files (the output files), type (normalize/filter/vocab), and spec for that particular preprocessing type"),
@@ -30,6 +30,19 @@ def xnmt_preproc(args):
     # Sanity check
     if len(arg["in_files"]) != len(arg["out_files"]):
       raise RuntimeError("Length of in_files and out_files in preprocessor must be identical")
+
+    # Perform tokenization
+    if arg["type"] == 'tokenize':
+        tokenizers = {my_opts["filenum"]: Tokenizer.from_spec(my_opts["spec"]) for my_opts in arg["specs"]}
+        for file_num, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
+            if args.overwrite or not os.path.isfile(out_file):
+                my_tokenizers = tokenizers.get(file_num, tokenizers["all"])
+                with open(out_file, "w") as out_stream, open(in_file, "r") as in_stream:
+                    for line in in_stream:
+                        line = line.strip()
+                        for tokenizer in my_tokenizers:
+                            line = tokenizer.tokenize(line)
+                        out_stream.write(line + '\n')
 
     # Perform normalization
     if arg["type"] == 'normalize':
