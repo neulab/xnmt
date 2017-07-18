@@ -139,7 +139,6 @@ if __name__ == '__main__':
         eval_scores.append(eval_score)
       output.indent -= 2
 
-
     results.append((experiment_name, eval_scores))
 
     output.close()

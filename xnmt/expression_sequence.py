@@ -49,6 +49,14 @@ class ExpressionSequence(object):
     if self.expr_list: return self.expr_list[key]
     else: return dy.pick(self.expr_tensor, key)
 
+  def as_list(self):
+    """Get a list.
+    :returns: the whole sequence as a list with each element one of the embeddings.
+    """
+    if self.expr_list is None:
+      self.expr_list = [self[i] for i in range(len(self))]
+    return self.expr_list
+
   def as_tensor(self):
     """Get a tensor.
     :returns: the whole sequence as a tensor expression where each column is one of the embeddings.
@@ -89,5 +97,5 @@ class LazyNumpyExpressionSequence(ExpressionSequence):
         return dy.inputTensor(self.lazy_data[key], batched=False)
   def as_tensor(self):
     if not (self.expr_list or self.expr_tensor):
-      self.expr_tensor = dy.inputTensor(self.lazy_data, batched=self.batched)
+      self.expr_tensor = dy.inputTensor(self.lazy_data, batched=Batcher.is_batched(self.lazy_data))
     return super(LazyNumpyExpressionSequence, self).as_tensor()
