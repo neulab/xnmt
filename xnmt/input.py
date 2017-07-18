@@ -8,7 +8,7 @@ from serializer import Serializable
 from vocab import *
 ###### Classes representing single inputs
 
-class Input:
+class Input(object):
   """
   A template class to represent all inputs.
   """

@@ -9,7 +9,7 @@ import random
 import inspect
 from serializer import Serializable
 
-class Option:
+class Option(object):
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
     """
     Defines a configuration option
@@ -50,7 +50,7 @@ class RefParam(yaml.YAMLObject):
     return "%s(ref=%r)" % (
             self.__class__.__name__, self.ref)
 
-class OptionParser:
+class OptionParser(object):
   def __init__(self):
     self.tasks = {}
     """Options, sorted by task"""

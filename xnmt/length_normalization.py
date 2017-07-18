@@ -3,7 +3,7 @@ from __future__ import division, generators
 import numpy as np
 from scipy.stats import norm
 
-class LengthNormalization:
+class LengthNormalization(object):
   '''
   A template class to generate translation from the output probability model.
   '''

@@ -26,7 +26,6 @@ class PyramidalRNNBuilder(object):
     assert num_layers > 0
     assert hidden_dim % 2 == 0
     assert type(reduce_factor)==int or (type(reduce_factor)==list and len(reduce_factor)==num_layers-1)
-    self.serialize_params = [num_layers, input_dim, hidden_dim, model]
     self.builder_layers = []
     self.downsampling_method = downsampling_method
     self.reduce_factor = reduce_factor

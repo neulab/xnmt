@@ -4,7 +4,7 @@ import sys
 import math
 import time
 
-class LossTracker:
+class LossTracker(object):
     """
     A template class to track training process and generate report.
     """

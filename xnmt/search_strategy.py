@@ -3,7 +3,7 @@ import numpy as np
 from length_normalization import *
 from vocab import Vocab
 
-class SearchStrategy:
+class SearchStrategy(object):
   '''
   A template class to generate translation from the output probability model.
   '''

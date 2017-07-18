@@ -56,7 +56,7 @@ options = [
   Option("model", dict, default_value={}),
 ]
 
-class XnmtTrainer:
+class XnmtTrainer(object):
   def __init__(self, args, output=None):
     dy.renew_cg()
 
