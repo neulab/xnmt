@@ -99,7 +99,8 @@ class ShuffleBatcher(Batcher):
   """
 
   def pack(self, src, trg):
-    order = np.random.shuffle(range(len(src)))
+    order = list(range(len(src)))
+    order = np.random.shuffle(order)
     return self.pack_by_order(src, trg, order)
 
 class SortBatcher(Batcher):
