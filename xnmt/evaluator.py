@@ -24,11 +24,11 @@ class EvalScore(object):
   def __str__(self):
     return "{}: {}".format(self.metric_name(), self.score_str())
 
-class PPLScore(EvalScore):
-  def __init__(self, ppl):
-    self.ppl = ppl
-  def value(self): return self.ppl
-  def metric_name(self): return "PPL"
+class LossScore(EvalScore):
+  def __init__(self, loss):
+    self.loss = loss
+  def value(self): return self.loss
+  def metric_name(self): return "Loss"
   def higher_is_better(self): return False
   def score_str(self):
     return "{:.3f}".format(self.value())
