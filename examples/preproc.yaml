@@ -10,7 +10,7 @@ defaults:
   preproc:
     overwrite: False
     preproc_specs:
-    - type: normalize
+    - type: tokenize
       in_files:
       - examples/data/train.ja
       - examples/data/train.en
@@ -19,12 +19,36 @@ defaults:
       - examples/data/test.ja
       - examples/data/test.en
       out_files:
-      - examples/output/train.norm.ja
-      - examples/output/train.norm.en
-      - examples/output/dev.norm.ja
-      - examples/output/dev.norm.en
-      - examples/output/test.norm.ja
-      - examples/output/test.norm.en
+      - examples/data/train.tok.ja
+      - examples/data/train.tok.en
+      - examples/data/dev.tok.ja
+      - examples/data/dev.tok.en
+      - examples/data/test.tok.ja
+      - examples/data/test.tok.en
+      specs:
+      - filenum: all
+        spec:
+          -type: external
+          -location: /home/jhewitt/moses/scripts/tokenize.pl
+      - filenum: all
+        spec:
+          -type: bpe
+          -vocab_size: 10000
+    - type: normalize
+      in_files:
+      - examples/data/train.tok.ja
+      - examples/data/train.tok.en
+      - examples/data/dev.tok.ja
+      - examples/data/dev.tok.en
+      - examples/data/test.tok.ja
+      - examples/data/test.tok.en
+      out_files:
+      - examples/output/train.tok.norm.ja
+      - examples/output/train.tok.norm.en
+      - examples/output/dev.tok.norm.ja
+      - examples/output/dev.tok.norm.en
+      - examples/output/test.tok.norm.ja
+      - examples/output/test.tok.norm.en
       specs:
       - filenum: all
         spec:

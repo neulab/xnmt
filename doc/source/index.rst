@@ -15,6 +15,7 @@ It is coded in Python based on `DyNet <http://github.com/clab/dynet>`_.
    getting_started
    experiment_config_files
    translator_structure
+   preprocessing
    api_doc
    programming_style
 

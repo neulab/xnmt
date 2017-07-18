@@ -22,6 +22,7 @@ The various examples that you can use are:
 - ``examples/standard.yaml``: A standard neural MT model
 - ``examples/speech.yaml``: An example of speech-to-text translation
 - ``examples/debug.yaml``: A simple debugging configuration that should run super-fast
+- ``examples/preproc.yaml``: A configuration including preprocessing directives like tokenization and filtering.
 
 See ``experiments.md`` for more details about writing experiment configuration files
 that allow you to specify the various 
