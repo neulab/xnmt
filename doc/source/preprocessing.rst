@@ -10,7 +10,7 @@ documents where external executables can be plugged into the experiment framewor
 Tokenization
 ------------
 A number of tokenization methods are available out of the box; others can be plugged in either
-with some help (like [THATGOOGLEONE]) or by passing parameters through the experiment framework
+with some help (like sentencepiece) or by passing parameters through the experiment framework
 through to the external decoders.
 
 Multiple tokenizers can be run on the same text; for example, it may be (is there a citation?) that 
@@ -29,11 +29,12 @@ at tokenization first, an exact-size tokenizer like BPE should be specified (and
                           Invoked with tokenizer type ``bpe``. 
                           *Specify which files from which the encoding is determined?*
 
-3. [GOOGLETRONTHING]:     An extenral tokenizer library that permits a large number of tokenization
+3. Sentencepiece:         An extenral tokenizer library that permits a large number of tokenization
                           options, is written in C++, and is very fast. However, it must be installed
                           separately to ``xnmt``. 
                           Specification of the training file is set through the experiment framework,
                           but that (and all other) options can be passed transparently by adding them
                           to the experiment config.
 
-4. External Tokenizers:   Any external tokenizer can be used as long as it tokenizes 
+4. External Tokenizers:   Any external tokenizer can be used as long as it tokenizes stdin and outputs
+                          to stdout.
