@@ -56,7 +56,7 @@ options = [
   Option("model", dict, default_value={}),
 ]
 
-class XnmtTrainer:
+class XnmtTrainer(object):
   def __init__(self, args, output=None):
     dy.renew_cg()
 
@@ -112,11 +112,12 @@ class XnmtTrainer:
 
   def dynet_trainer_for_args(self, args):
     if args.trainer.lower() == "sgd":
-      trainer = dy.SimpleSGDTrainer(model_globals.dynet_param_collection.param_col, learning_rate = args.learning_rate)
+      trainer = dy.SimpleSGDTrainer(model_globals.dynet_param_collection.param_col)
     elif args.trainer.lower() == "adam":
-      trainer = dy.AdamTrainer(model_globals.dynet_param_collection.param_col, alpha = args.learning_rate)
+      trainer = dy.AdamTrainer(model_globals.dynet_param_collection.param_col)
     else:
       raise RuntimeError("Unknown trainer {}".format(args.trainer))
+    trainer.learning_rate = args.learning_rate
     return trainer
 
   def create_corpus_and_model(self):
