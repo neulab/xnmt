@@ -112,12 +112,11 @@ class XnmtTrainer(object):
 
   def dynet_trainer_for_args(self, args):
     if args.trainer.lower() == "sgd":
-      trainer = dy.SimpleSGDTrainer(model_globals.dynet_param_collection.param_col)
+      trainer = dy.SimpleSGDTrainer(model_globals.dynet_param_collection.param_col, learning_rate = args.learning_rate)
     elif args.trainer.lower() == "adam":
-      trainer = dy.AdamTrainer(model_globals.dynet_param_collection.param_col)
+      trainer = dy.AdamTrainer(model_globals.dynet_param_collection.param_col, alpha = args.learning_rate)
     else:
       raise RuntimeError("Unknown trainer {}".format(args.trainer))
-    trainer.learning_rate = args.learning_rate
     return trainer
 
   def create_corpus_and_model(self):
