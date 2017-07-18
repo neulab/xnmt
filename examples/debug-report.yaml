@@ -1,0 +1,47 @@
+# Small config to help refactoring to make the model completely YAML based
+defaults:
+  experiment:
+    model_file: examples/output/<EXP>.mod
+    hyp_file: examples/output/<EXP>.hyp
+    out_file: examples/output/<EXP>.out
+    err_file: examples/output/<EXP>.err
+    run_for_epochs: 20
+    eval_metrics: bleu
+  train:
+    trainer: adam
+    learning_rate: 0.01
+    default_layer_dim: 256 
+    dropout: 0.0
+    dev_metrics: bleu
+    training_corpus: !BilingualTrainingCorpus
+      train_src: examples/data/head.ja
+      train_trg: examples/data/head.en
+      dev_src: examples/data/head.ja
+      dev_trg: examples/data/head.en
+    corpus_parser: !BilingualCorpusParser
+      src_reader: !PlainTextReader {}
+      trg_reader: !PlainTextReader {}
+      max_src_len: 15
+      max_trg_len: 15
+    model: !DefaultTranslator
+      src_embedder: !SimpleWordEmbedder
+        emb_dim: 256
+      encoder: !LSTMEncoder
+        layers: 1
+        input_dim: 256
+      attender: !StandardAttender
+        state_dim: 256
+        hidden_dim: 256
+        input_dim: 256
+      trg_embedder: !SimpleWordEmbedder
+        emb_dim: 256
+      decoder: !MlpSoftmaxDecoder
+        layers: 1
+        mlp_hidden_dim: 256
+  decode:
+    src_file: examples/data/head.ja
+    report_path: examples/output/<EXP>.report
+  evaluate:
+    ref_file: examples/data/head.en
+
+debug:

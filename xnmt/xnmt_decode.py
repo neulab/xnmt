@@ -6,6 +6,7 @@ from serializer import *
 import sys
 from retriever import *
 from translator import *
+from reports import *
 from search_strategy import *
 from options import OptionParser, Option
 from io import open
@@ -25,6 +26,7 @@ options = [
   Option("max_src_len", int, required=False, help_str="Remove sentences from data to decode that are longer than this on the source side"),
   Option("input_format", default_value="text", help_str="format of input data: text/contvec"),
   Option("post_process", default_value="none", help_str="post-processing of translation outputs: none/join-char/join-bpe"),
+  Option("report_path", str, required=False, help_str="a path to which decoding reports will be written"),
   Option("beam", int, default_value=1),
   Option("max_len", int, default_value=100),
   Option("len_norm_type", str, default_value="NoNormalization"),
@@ -67,14 +69,18 @@ def xnmt_decode(args, model_elements=None):
     generator.index_database()
 
   # Perform generation of output
+  report = None
   with io.open(args.trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
-    for src in src_corpus:
+    for idx, src in enumerate(src_corpus):
       if args.max_src_len is not None and len(src) > args.max_src_len:
         trg_sent = NO_DECODING_ATTEMPTED
       else:
         dy.renew_cg()
         if issubclass(generator.__class__, Translator):
-          outputs = generator.translate(src, corpus_parser.trg_reader.vocab, search_strategy)
+          if args.report_path != None:
+            report = DefaultTranslatorReport()
+            report.src_words = [corpus_parser.src_reader.vocab[x] for x in src]
+          outputs = generator.translate(src, corpus_parser.trg_reader.vocab, search_strategy, report=report)
           trg_sent = output_generator.process_outputs(outputs)[0]
           if sys.version_info[0] == 2: assert isinstance(trg_sent, unicode), "Expected unicode as generator output, got %s" % type(trg_sent)
         elif issubclass(generator.__class__, Retriever):
@@ -83,6 +89,9 @@ def xnmt_decode(args, model_elements=None):
           raise RuntimeError("Unknown generator type " + generator.__class__)
 
       fp.write(u"{}\n".format(trg_sent))
+      if report != None:
+        report.write_report("{}.{}".format(args.report_path, idx), idx)
+
 def output_processor_for_spec(spec):
   if spec=="none":
     return PlainTextOutputProcessor()

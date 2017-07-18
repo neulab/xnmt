@@ -32,6 +32,8 @@ class SimpleSentenceInput(Input):
   def get_padded_sent(self, token, pad_len):
     self.l.extend([token] * pad_len)
     return self
+  def __str__(self):
+    return " ".join(six.moves.map(str, self.l))
 
 class ArrayInput(Input):
   """
@@ -44,7 +46,7 @@ class ArrayInput(Input):
   def __getitem__(self, key):
     return self.nparr.__getitem__(key)
   def get_padded_sent(self, token, pad_len):
-    if pad_len>0:
+    if pad_len > 0:
       self.nparr = np.append(self.nparr, np.zeros((pad_len, self.nparr.shape[1])), axis=0)
     return self
   def get_array(self):
@@ -123,7 +125,6 @@ class PlainTextReader(BaseTextReader, Serializable):
   def vocab_size(self):
     return len(self.vocab)
 
-
 class ContVecReader(InputReader, Serializable):
   """
   Handles the case where sents are sequences of continuous-space vectors.
@@ -138,7 +139,7 @@ class ContVecReader(InputReader, Serializable):
     self.transpose = transpose
   def read_sents(self, filename, filter_ids=None):
     npzFile = np.load(filename, mmap_mode=None if filter_ids is None else "r")
-    npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[1]))
+    npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[-1]))
     if filter_ids is not None:
       npzKeys = [npzKeys[i] for i in filter_ids]
     for key in npzKeys:
@@ -252,7 +253,6 @@ class BilingualCorpusParser(CorpusParser, Serializable):
       if src_len_ok and trg_len_ok:
         training_corpus.dev_src_data.append(src_sent)
         training_corpus.dev_trg_data.append(trg_sent)
-
 
 ###### Obsolete Functions
 
