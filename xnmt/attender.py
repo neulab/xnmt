@@ -4,7 +4,7 @@ from serializer import *
 import model_globals
 
 
-class Attender:
+class Attender(object):
   '''
   A template class for functions implementing attention.
   '''

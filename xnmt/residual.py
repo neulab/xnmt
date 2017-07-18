@@ -3,7 +3,7 @@ from __future__ import division, generators
 from dynet import *
 
 
-class PseudoState:
+class PseudoState(object):
   """
   Emulates a state object for python RNN builders. This allows them to be
   used with minimal changes in code that uses dy.VanillaLSTMBuilder.
@@ -26,7 +26,7 @@ class PseudoState:
     raise NotImplementedError("s() is not supported on PseudoStates")
 
 
-class ResidualRNNBuilder:
+class ResidualRNNBuilder(object):
   """
   Builder for RNNs that implements additional residual connections between layers: the output of each
   intermediate hidden layer is added to its output.
