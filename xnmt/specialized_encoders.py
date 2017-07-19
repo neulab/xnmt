@@ -1,4 +1,5 @@
 import dynet as dy
+from encoder import *
 
 # This is a file for specialized encoders that implement a particular model
 # Ideally, these will eventually be refactored to use standard components and the ModularEncoder framework,
