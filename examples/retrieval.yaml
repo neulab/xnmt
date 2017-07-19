@@ -16,8 +16,10 @@ defaults:
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/train.ja
       train_trg: examples/data/train.allids
+      train_id_file: examples/data/train.allids
       dev_src: examples/data/dev.ja
       dev_trg: examples/data/dev.allids
+      dev_id_file: examples/data/dev.allids
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
       trg_reader: !IDReader {}
@@ -37,6 +39,7 @@ defaults:
         database_file: examples/data/traindevtest.en
   decode:
     src_file: examples/data/test.ja
+    candidate_id_file: examples/data/test.allids
   evaluate:
     ref_file: examples/data/test.allids
 
