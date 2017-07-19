@@ -25,6 +25,12 @@ class Batcher(object):
     self.trg_pad_token = trg_pad_token
     self.granularity = granularity
 
+  def is_random(self):
+    """
+    :returns: True if there is some randomness in the batching process, False otherwise. Defaults to false.
+    """
+    return False
+
   @staticmethod
   def mark_as_batch(data):
     if type(data) == Batch:
@@ -102,6 +108,9 @@ class ShuffleBatcher(Batcher):
     order = list(range(len(src)))
     np.random.shuffle(order)
     return self.pack_by_order(src, trg, order)
+
+  def is_random(self):
+    return True
 
 class SortBatcher(Batcher):
   """

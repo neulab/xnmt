@@ -105,6 +105,7 @@ class XnmtTrainer(object):
   def is_batch_mode(self):
     return not (self.args.batch_size is None or self.args.batch_size == 1 or self.args.batch_strategy.lower() == 'none')
   def pack_batches(self):
+    print("packing batches")
     self.train_src, self.train_trg = \
       self.batcher.pack(self.training_corpus.train_src_data, self.training_corpus.train_trg_data)
     self.dev_src, self.dev_trg = \
@@ -176,10 +177,13 @@ class XnmtTrainer(object):
   def run_epoch(self):
     self.logger.new_epoch()
 
-    if self.args.reload_between_epochs and self.logger.epoch_num > 1:
-      print("Reloading training data..")
-      self.corpus_parser.read_training_corpus(self.training_corpus)
-      if self.is_batch_mode():
+    if self.logger.epoch_num > 1:
+      if self.args.reload_between_epochs:
+        print("Reloading training data..")
+        self.corpus_parser.read_training_corpus(self.training_corpus)
+        if self.is_batch_mode():
+          self.pack_batches()
+      elif self.is_batch_mode() and self.batcher.is_random():
         self.pack_batches()
 
     self.model.set_train(True)
