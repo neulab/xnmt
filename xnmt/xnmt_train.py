@@ -107,7 +107,6 @@ class XnmtTrainer(object):
   def is_batch_mode(self):
     return not (self.args.batch_size is None or self.args.batch_size == 1 or self.args.batch_strategy.lower() == 'none')
   def pack_batches(self):
-    print("packing batches")
     self.train_src, self.train_trg = \
       self.batcher.pack(self.training_corpus.train_src_data, self.training_corpus.train_trg_data)
     self.dev_src, self.dev_trg = \
@@ -216,6 +215,7 @@ class XnmtTrainer(object):
         eval_scores = {"loss" : loss_score}
         if filter(lambda e: e!="loss", self.evaluators):
           self.decode_args.src_file = self.training_corpus.dev_src
+          self.decode_args.candidate_id_file = self.training_corpus.dev_id_file
           out_file = self.args.model_file + ".dev_hyp"
           out_file_ref = self.args.model_file + ".dev_ref"
           self.decode_args.trg_file = out_file
