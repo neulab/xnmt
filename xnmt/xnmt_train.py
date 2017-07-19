@@ -10,6 +10,7 @@ from embedder import *
 from attender import *
 from input import *
 from encoder import *
+from specialized_encoders import *
 from decoder import *
 from translator import *
 from retriever import *
@@ -113,16 +114,11 @@ class XnmtTrainer(object):
 
   def dynet_trainer_for_args(self, args):
     if args.trainer.lower() == "sgd":
-      print('sgd args are,', args.learning_rate)
       trainer = dy.SimpleSGDTrainer(model_globals.dynet_param_collection.param_col, args.learning_rate)
     elif args.trainer.lower() == "adam":
-      print('adam args are,', args.learning_rate)
       trainer = dy.AdamTrainer(model_globals.dynet_param_collection.param_col, alpha = args.learning_rate)
     elif args.trainer.lower() == "msgd":
-      print('msgd args are,', args.learning_rate)
       trainer = dy.MomentumSGDTrainer(model_globals.dynet_param_collection.param_col, args.learning_rate, mom = args.momentum)
-      #### TEST ONLY ####
-      print('####TEST ONLY, if pass the momentum, ', args.momentum)
     else:
       raise RuntimeError("Unknown trainer {}".format(args.trainer))
     return trainer

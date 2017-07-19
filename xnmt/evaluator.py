@@ -379,7 +379,7 @@ class RecallEvaluator(object):
 class MeanAvgPrecisionEvaluator(object):
   def __init__(self, nbest=5):
     self.nbest = nbest
-  
+
   def metric_name(self):
     return "MeanAvgPrecision{}".format(str(self.nbest))
 
