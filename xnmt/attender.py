@@ -4,7 +4,7 @@ from serializer import *
 import model_globals
 
 
-class Attender:
+class Attender(object):
   '''
   A template class for functions implementing attention.
   '''
@@ -44,6 +44,7 @@ class StandardAttender(Attender, Serializable):
     self.curr_sent = None
 
   def start_sent(self, sent):
+    self.attention_vecs = []
     self.curr_sent = sent
     I = self.curr_sent.as_tensor()
     W = dy.parameter(self.pW)
@@ -58,8 +59,9 @@ class StandardAttender(Attender, Serializable):
 
     h = dy.tanh(dy.colwise_add(self.WI, V * state))
     scores = dy.transpose(U * h)
-
-    return dy.softmax(scores)
+    normalized = dy.softmax(scores)
+    self.attention_vecs.append(normalized)
+    return normalized
 
   def calc_context(self, state):
     attention = self.calc_attention(state)

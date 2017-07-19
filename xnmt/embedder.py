@@ -6,7 +6,7 @@ from serializer import Serializable
 from expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 import model_globals
 
-class Embedder:
+class Embedder(object):
   """
   An embedder takes in word IDs and outputs continuous vectors.
 
