@@ -135,7 +135,7 @@ class ContVecReader(InputReader, Serializable):
   """
   yaml_tag = u"!ContVecReader"
 
-  def __init__(self, transpose=True):
+  def __init__(self, transpose=False):
     self.transpose = transpose
   def read_sents(self, filename, filter_ids=None):
     npzFile = np.load(filename, mmap_mode=None if filter_ids is None else "r")
