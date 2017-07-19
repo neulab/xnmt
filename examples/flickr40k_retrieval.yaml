@@ -5,7 +5,7 @@ defaults:
         out_file: examples/output/<EXP>.out
         err_file: examples/output/<EXP>.err
         run_for_epochs: 20
-        eval_metrics: recall|nbest=1,recall|nbest=5
+        eval_metrics: recall|nbest=1,recall|nbest=5,mean_avg_precision|nbest=5
     train:
         batch_strategy: 'shuffle'
         trainer: 'msgd'
