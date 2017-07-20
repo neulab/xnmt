@@ -8,10 +8,13 @@ class LossBuilder(object):
     self.loss_nodes  = []
     self.loss_values = collections.defaultdict(float)
 
-  def add_node(self, loss_func, loss_args=[], loss_kwargs={}):
+  def add_node(self, loss_func, loss_args=[], loss_kwargs={}, primary=False):
     self.computed = False
+    loss_name = format_loss_name(repr(loss_func))
     loss_graph = loss_func(*loss_args, **loss_kwargs)
-    self.loss_nodes.append((format_loss_name(repr(loss_func)), loss_graph))
+    self.loss_nodes.append((loss_name, loss_graph))
+    if primary:
+      self.primary_loss = loss_name
 
   def compute(self):
     ''' Compute all the losses and delete the computational graph reference.
@@ -46,6 +49,11 @@ class LossBuilder(object):
     if not self.computed:
       raise RuntimeError("There are some uncomputed losses. Call compute() firstly.")
     return sum(loss for loss in self.loss_values.values())
+
+  def primary(self):
+    if not self.computed:
+      raise RuntimeError("There are some uncomputed losses. Call compute() firstly.")
+    return self.loss_values[self.primary_loss]
 
   def __add__(self, other):
     for name, value in self.loss_values.items():

@@ -199,7 +199,7 @@ class XnmtTrainer(object):
       # Loss calculation
       dy.renew_cg()
       loss = LossBuilder()
-      loss.add_node(self.model.calc_loss, [src, trg])
+      loss.add_node(self.model.calc_loss, [src, trg], primary=True)
       loss.add_node(self.model.calc_reinforce_loss, [-loss[-1]])
 
       # Log the loss sum
