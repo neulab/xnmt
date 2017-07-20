@@ -65,7 +65,7 @@ class DefaultTranslatorReport(object):
           self.attentions = self.attentions.npvalue()
         elif type(self.attentions) == list:
           self.attentions = np.concatenate([x.npvalue() for x in self.attentions], axis=1)
-        else if type(self.attentions) != np.ndarray:
+        elif type(self.attentions) != np.ndarray:
           raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(self.attentions)))
         attention_file = "{}.attention.png".format(path_to_report)
         DefaultTranslatorReport.plot_attention(self.src_words, self.trg_words, self.attentions, file_name = attention_file)
