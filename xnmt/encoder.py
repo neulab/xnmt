@@ -30,9 +30,20 @@ class Encoder(TrainTestInterface):
   def set_train(self, val):
     raise NotImplementedError("Unimplemented set_train for class:", self.__class__.__name__)
 
+  def calc_reinforce_loss(self, reward):
+    return None
+
 class BuilderEncoder(Encoder):
   def transduce(self, sent):
     return ExpressionSequence(expr_list=self.builder.transduce(sent))
+
+class IdentityEncoder(Encoder, Serializable):
+  yaml_tag = u'!IdentityEncoder'
+
+  def transduce(self, sent):
+    return ExpressionSequence(expr_list = sent)
+
+  def set_train(self, val): pass
 
 class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
@@ -123,10 +134,13 @@ class ModularEncoder(Encoder, Serializable):
 class SegmentingEncoder(Encoder, Serializable):
   yaml_tag = u'!SegmentingEncoder'
 
-  def __init__(self, input_dim=None, embed_encoder=None, segment_transducer=None):
+  def __init__(self, embed_encoder=None, segment_transducer=None, lmbd=None):
     model = model_globals.dynet_param_collection.param_col
 
-    self.builder = segmenting_encoder.SegmentingEncoderBuilder(input_dim, embed_encoder, segment_transducer, model)
+    self.ctr = 0
+    self.lmbd_val = lmbd["start"]
+    self.lmbd     = lmbd
+    self.builder = segmenting_encoder.SegmentingEncoderBuilder(embed_encoder, segment_transducer, model)
 
   def transduce(self, sent):
     return ExpressionSequence(expr_tensor=self.builder.transduce(sent))
@@ -134,6 +148,14 @@ class SegmentingEncoder(Encoder, Serializable):
   def set_train(self, val):
     self.builder.set_train(val)
 
-  def receive_decoder_loss(self, loss):
-    return self.builder.receive_decoder_loss(loss)
+  def calc_reinforce_loss(self, reward):
+    return self.builder.calc_reinforce_loss(reward, self.lmbd_val)
+
+  def new_epoch(self):
+    self.ctr += 1
+#    self.lmbd_val *= self.lmbd["multiplier"]
+#    self.lmbd_val = min(self.lmbd_val, self.lmbd["max"])
+#    self.lmbd_val = max(self.lmbd_val, self.lmbd["min"])
+    self.lmbd_val = 1e-2 * ((2 ** self.ctr) - 1)
+    print("Now lambda:", self.lmbd_val)
 

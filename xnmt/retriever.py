@@ -48,6 +48,9 @@ class Retriever(TrainTestInterface):
     '''
     raise NotImplementedError('calc_loss must be implemented for Retriever subclasses')
 
+  def calc_reinforce_loss(self):
+    return None
+
   def index_database(self, indices=None):
     '''A function that can be called before actually performing retrieval.
 
@@ -74,6 +77,11 @@ class Retriever(TrainTestInterface):
     for sub_component in component.get_train_test_components():
       Retriever.set_train_recursive(sub_component, val)
 
+  def calc_reinforce_loss(self, reward):
+    pass
+
+  def new_epoch(self):
+    pass
 
 class DotProductRetriever(Retriever, Serializable):
   '''
@@ -156,5 +164,9 @@ class DotProductRetriever(Retriever, Serializable):
     else:
       raise RuntimeError("Illegal return_type to retrieve: {}".format(return_type))
 
-  def receive_decoder_loss(self, loss):
-    return self.src_encoder.receive_decoder_loss(loss)
+  def calc_reinforce_loss(self, reward):
+    return self.src_encoder.calc_reinforce_loss(reward)
+
+  def new_epoch(self):
+    self.src_encoder.new_epoch()
+    self.trg_encoder.new_epoch()

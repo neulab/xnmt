@@ -18,5 +18,5 @@ class TrainTestInterface(object):
     """
     return []
 
-  def receive_decoder_loss(self, loss):
-    return None
+  def new_epoch(self):
+    pass

@@ -200,7 +200,7 @@ class XnmtTrainer(object):
       dy.renew_cg()
       loss = LossBuilder()
       loss.add_node(self.model.calc_loss, [src, trg])
-      loss.add_node(self.model.receive_decoder_loss, [loss[-1]])
+      loss.add_node(self.model.calc_reinforce_loss, [-loss[-1]])
 
       # Log the loss sum
       self.logger.update_epoch_loss(src, trg, loss)
@@ -273,6 +273,7 @@ class XnmtTrainer(object):
 
 
         self.model.set_train(True)
+        self.model.new_epoch()
 
 
   def compute_dev_loss(self):

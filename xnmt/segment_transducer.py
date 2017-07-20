@@ -5,53 +5,90 @@ import embedder
 import numpy
 from serializer import Serializable
 
-class SegmentTransducer(object):
-  def __init__(self, hidden_dim, category):
-    model = model_globals.dynet_param_collection.param_col
-    category_size, category_embed = category["size"], category["embed_dim"]
-    self.category_output = linear.Linear(hidden_dim, category_size, model)
-    self.category_embedder = embedder.SimpleWordEmbedder(category_size, category_embed)
+class SegmentTransducer(Serializable):
+  yaml_tag = "!SegmentTransducer"
 
-  def transduce(self):
-    raise RuntimeError("Should call subclass of SegmentTransducer instead!")
+  def __init__(self, encoder, transformer):
+    self.encoder = encoder
+    self.transformer = transformer
 
-  def discrete_log_likelihood(self, loss):
-    raise RuntimeError("Should call subclass of SegmentTransducer instead!")
+  def set_input_size(self, batch_size, input_len):
+    self.invoke_method_to_components("set_input_size", batch_size, input_len)
 
-class LSTMSegmentTransducer(SegmentTransducer, Serializable):
-  yaml_tag = u"!LSTMSegmentTransducer"
+  def next_item(self):
+    self.invoke_method_to_components("next_item")
 
-  def __init__(self, input_dim=None, hidden_dim=None, layers=None, category=None):
-    super(LSTMSegmentTransducer, self).__init__(hidden_dim, category)
-    model = model_globals.dynet_param_collection.param_col
-    self.rnn = dynet.VanillaLSTMBuilder(layers, input_dim, hidden_dim, model)
+  def invoke_method_to_components(self, method, *args, **kwargs):
+    for component in (self.encoder, self.transformer):
+      if hasattr(component, method):
+        getattr(component, method)(*args, **kwargs)
 
   def transduce(self, inputs):
-    encoding = self.rnn.initial_state().transduce(inputs)[-1]
+    return self.transformer.transform(self.encoder.transduce(inputs))
+
+  def disc_ll(self):
+    ''' Discrete Log Likelihood '''
+    log_ll = dynet.scalarInput(0.0)
+    if hasattr(self.encoder, "disc_ll"):
+      log_ll += self.encoder.disc_ll()
+    if hasattr(self.transformer, "disc_ll"):
+      log_ll += self.transformer.disc_ll()
+    return log_ll
+
+class SegmentTransformer(Serializable):
+  def __init__(self):
+    pass
+
+  def transform(self, encodings):
+    raise RuntimeError("Should call subclass of SegmentTransformer instead")
+
+class TailSegmentTransformer(SegmentTransformer):
+  yaml_tag = u"!TailSegmentTransformer"
+  def transform(self, encodings):
+    return encodings[-1]
+
+class AverageSegmentTransformer(SegmentTransformer):
+  yaml_tag = u"!AverageSegmentTransformer"
+  def transform(self, encodings):
+    return dynet.average(encodings.as_list())
+
+class CategorySegmentTransformer(SegmentTransformer):
+  yaml_tag = u"!CategorySegmentTransformer"
+
+  def __init__(self, input_dim=None, category_dim=None, embed_dim=None):
+    model = model_globals.dynet_param_collection.param_col
+    self.category_output = linear.Linear(input_dim, category_dim, model)
+    self.category_embedder = embedder.SimpleWordEmbedder(category_dim, embed_dim)
+
+  def set_input_size(self, batch_size, input_len):
+    self.batch_size = batch_size
+    self.input_len  = input_len
+    # Log likelihood buffer
+    self.ll_buffer = [dynet.scalarInput(0.0) for _ in range(batch_size)]
+    self.counter = 0
+
+  def next_item(self):
+    self.counter = (self.counter + 1) % self.batch_size
+
+  def transform(self, encodings):
+    encoding = encodings[-1]
     category_logsoftmax = dynet.log_softmax(self.category_output(encoding))
     # TODO change it with dynet
     p_category = dynet.exp(category_logsoftmax).npvalue()
     p_category /= p_category.sum()
     category = numpy.random.choice(len(p_category), p=p_category)
-    return self.category_embedder.embed(category), category, category_logsoftmax
 
-def sample_from_log(log_softmax):
-  # TODO Use the dynet version after it is fixed
-#  sample = log_softmax.tensor_value().categorical_sample_log_prob().as_numpy().transpose()
-#  if len(sample.shape) > 1:
-#    sample = numpy.squeeze(sample, axis=1)
-  prob = dynet.exp(log_softmax).npvalue().transpose()
-  sample = []
-  if len(prob.shape) == 2:
-    for p in prob:
-      p /= p.sum()
-      choice = numpy.random.choice(len(p), p=p)
-      sample.append(choice)
-    sample = numpy.array(sample, dtype=int)
-  elif len(prob.shape) == 1:
-    prob /= prob.sum()
-    choice = numpy.random.choice(len(prob), p=prob)
-    sample.append(choice)
-  else:
-    raise ValueError("Unexpected prob with shape:", prob.shape, "expect up to 2 dimensions only.")
-  return numpy.array(sample, dtype=int)
+    # Accumulating the log likelihood for the batch
+    self.ll_buffer[self.counter] += dynet.pick(category_logsoftmax, category)
+
+    return self.category_embedder.embed(category)
+
+  def disc_ll(self):
+    try:
+      return dynet.concatenate_to_batch(self.ll_buffer)
+    finally:
+      # Make sure that the state is not used again after the log likelihood is requested
+      del self.ll_buffer
+      del self.batch_size
+      del self.counter
+
