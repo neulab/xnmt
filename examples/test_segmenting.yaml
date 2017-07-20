@@ -8,40 +8,51 @@ defaults:
     eval_metrics: recall|nbest=1,recall|nbest=5
   train:
     trainer: 'adam'
-    learning_rate: 0.01 
+    learning_rate: 0.001 
     dropout: 0.0
     dev_metrics: recall|nbest=1,recall|nbest=5
     training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/train.ja
+      train_src: examples/data/train-char.ja
       train_trg: examples/data/train.allids
-      dev_src: examples/data/dev.ja
+      dev_src: examples/data/dev-char.ja
       dev_trg: examples/data/dev.allids
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
       trg_reader: !IDReader {}
     model: !DotProductRetriever
       src_embedder: !SimpleWordEmbedder
-        emb_dim: 128
+        emb_dim: 100
         vocab_size: 20000
       src_encoder: !SegmentingEncoder
-        input_dim: 128
-        embed_encoder:
-          hidden_dim: 128
-          layers: 1
-          bidirectional: True
-        segment_transducer: !LSTMSegmentTransducer
-          input_dim: 128
+        lmbd:
+          start: 0.00
+          multiplier: 2
+          max: 1.0
+          min: 0
+        embed_encoder: !LSTMEncoder
+          input_dim: 100
           hidden_dim: 100
           layers: 1
-          category:
-            size: 200
-            embed_dim: 128
+          bidirectional: True
+        segment_transducer: !SegmentTransducer
+          encoder: !LSTMEncoder
+            input_dim: 100
+            hidden_dim: 100
+            bidirectional: false
+            layers: 1
+#          encoder: !IdentityEncoder {}
+#          transformer: !CategorySegmentTransformer
+#            input_dim: 128
+#            category_dim: 40
+#            embed_dim: 128
+#          transformer: !TailSegmentTransformer {}
+          transformer: !AverageSegmentTransformer {}
       trg_embedder: !SimpleWordEmbedder
-        emb_dim: 128
+        emb_dim: 100
         vocab_size: 20000
       trg_encoder: !LSTMEncoder
-        input_dim: 128
-        hidden_dim: 128
+        input_dim: 100
+        hidden_dim: 100
         layers: 1
       database: !StandardRetrievalDatabase
         reader: !PlainTextReader {}
