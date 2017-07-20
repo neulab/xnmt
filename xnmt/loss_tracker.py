@@ -3,6 +3,7 @@ from __future__ import division, generators
 import sys
 import math
 import time
+import loss
 
 class LossTracker(object):
     """
@@ -20,7 +21,7 @@ class LossTracker(object):
 
         self.epoch_num = 0
 
-        self.epoch_loss = 0.0
+        self.epoch_loss = loss.LossBuilder()
         self.epoch_words = 0
         self.sent_num = 0
         self.sent_num_not_report_train = 0
@@ -40,7 +41,7 @@ class LossTracker(object):
         """
         Clear epoch-wise counters for starting a new training epoch.
         """
-        self.epoch_loss = 0.0
+        self.epoch_loss = loss.LossBuilder()
         self.epoch_words = 0
         self.epoch_num += 1
         self.sent_num = 0
@@ -73,13 +74,17 @@ class LossTracker(object):
         if print_report:
             self.sent_num_not_report_train = self.sent_num_not_report_train % self.eval_train_every
             self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
-
             this_report_time = time.time()
             print(LossTracker.REPORT_TEMPLATE.format('train') % (
-                self.fractional_epoch, self.epoch_loss / self.epoch_words,
+                self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
                 self.epoch_words,
                 (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
                 self.format_time(time.time() - self.start_time)))
+
+            # Printing all losses TODO: Maybe should be a verbose option?
+            for loss_name, loss_values in self.epoch_loss:
+              print("- %s %5.3f" % (loss_name, loss_values / self.epoch_words))
+
             self.last_report_words = self.epoch_words
             self.last_report_train_time = this_report_time
 

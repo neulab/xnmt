@@ -19,6 +19,7 @@ from training_corpus import *
 from loss_tracker import *
 from preproc import SentenceFilterer
 from options import Option, OptionParser, general_options
+from loss import LossBuilder
 import model_globals
 import serializer
 import xnmt_decode
@@ -197,11 +198,14 @@ class XnmtTrainer(object):
 
       # Loss calculation
       dy.renew_cg()
-      loss = self.model.calc_loss(src, trg)
-      loss = self.model.receive_decoder_loss(loss)
-      self.logger.update_epoch_loss(src, trg, loss.value())
+      loss = LossBuilder()
+      loss.add_node(self.model.calc_loss, [src, trg])
+      loss.add_node(self.model.receive_decoder_loss, [loss[-1]])
 
-      loss.backward()
+      # Log the loss sum
+      self.logger.update_epoch_loss(src, trg, loss)
+
+      loss.compute().backward()
       self.trainer.update()
 
       # Devel reporting
@@ -272,13 +276,14 @@ class XnmtTrainer(object):
 
 
   def compute_dev_loss(self):
-    loss_sum = 0.0
+    loss = LossBuilder()
     trg_words_cnt = 0
     for src, trg in zip(self.dev_src, self.dev_trg):
       dy.renew_cg()
-      loss_sum += self.model.calc_loss(src, trg).value()
+      loss.add_node(self.model.calc_loss, [src, trg])
       trg_words_cnt += self.logger.count_trg_words(trg)
-    return trg_words_cnt, LossScore(loss_sum / trg_words_cnt)
+      loss.compute()
+    return trg_words_cnt, LossScore(loss.sum() / trg_words_cnt)
 
 if __name__ == "__main__":
   parser = OptionParser()

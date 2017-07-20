@@ -36,6 +36,7 @@ class Translator(TrainTestInterface):
   def set_train(self, val):
     for component in self.get_train_test_components():
       Translator.set_train_recursive(component, val)
+
   @staticmethod
   def set_train_recursive(component, val):
     component.set_train(val)
@@ -110,7 +111,7 @@ class DefaultTranslator(Translator, Serializable):
         word_loss = self.decoder.calc_loss(context, ref_word)
         mask_exp = dy.inputVector([1 if i < len(single_trg) else 0 for single_trg in trg])
         mask_exp = dy.reshape(mask_exp, (1,), len(trg))
-        word_loss = dy.sum_batches(word_loss * mask_exp)
+        word_loss = word_loss * mask_exp
         losses.append(word_loss)
 
         self.decoder.add_input(self.trg_embedder.embed(ref_word))

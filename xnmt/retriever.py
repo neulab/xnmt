@@ -117,7 +117,7 @@ class DotProductRetriever(Retriever, Serializable):
     trg_encodings = self.encode_trg_example(self.database[db_idx])
 
     prod = dy.transpose(dy.transpose(src_encodings) * trg_encodings)
-    loss = dy.sum_batches(dy.hinge_batch(prod, list(six.moves.range(len(db_idx)))))
+    loss = dy.hinge_batch(prod, list(six.moves.range(len(db_idx))))
     return loss
 
   def index_database(self, indices=None):

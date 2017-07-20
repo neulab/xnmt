@@ -27,9 +27,6 @@ class Encoder(TrainTestInterface):
     """
     raise NotImplementedError('Unimplemented transduce for class:', self.__class__.__name__)
 
-  def receive_decoder_loss(self, loss):
-    return loss
-
   def set_train(self, val):
     raise NotImplementedError("Unimplemented set_train for class:", self.__class__.__name__)
 
@@ -96,7 +93,8 @@ class ConvBiRNNBuilder(BuilderEncoder, Serializable):
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
     self.builder = conv_encoder.ConvBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder,
-                                            chn_dim, num_filters, filter_size_time, filter_size_freq, stride)
+                                                 chn_dim, num_filters, filter_size_time, filter_size_freq,
+                                                 stride)
 
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
@@ -117,6 +115,10 @@ class ModularEncoder(Encoder, Serializable):
 
   def get_train_test_components(self):
     return self.modules
+
+  def set_train(self, val):
+    for module in self.modules:
+      module.set_train(val)
 
 class SegmentingEncoder(Encoder, Serializable):
   yaml_tag = u'!SegmentingEncoder'

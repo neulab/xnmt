@@ -19,4 +19,4 @@ class TrainTestInterface(object):
     return []
 
   def receive_decoder_loss(self, loss):
-    return loss
+    return None
