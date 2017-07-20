@@ -35,6 +35,9 @@ class SegmentTransducer(Serializable):
       log_ll += self.transformer.disc_ll()
     return log_ll
 
+  def set_train(self, train):
+    pass
+
 class SegmentTransformer(Serializable):
   def __init__(self):
     pass
@@ -59,6 +62,7 @@ class CategorySegmentTransformer(SegmentTransformer):
     model = model_globals.dynet_param_collection.param_col
     self.category_output = linear.Linear(input_dim, category_dim, model)
     self.category_embedder = embedder.SimpleWordEmbedder(category_dim, embed_dim)
+    self.train = True
 
   def set_input_size(self, batch_size, input_len):
     self.batch_size = batch_size
@@ -67,6 +71,9 @@ class CategorySegmentTransformer(SegmentTransformer):
     self.ll_buffer = [dynet.scalarInput(0.0) for _ in range(batch_size)]
     self.counter = 0
 
+  def set_train(self, train):
+    self.train = train
+
   def next_item(self):
     self.counter = (self.counter + 1) % self.batch_size
 
@@ -74,10 +81,12 @@ class CategorySegmentTransformer(SegmentTransformer):
     encoding = encodings[-1]
     category_logsoftmax = dynet.log_softmax(self.category_output(encoding))
     # TODO change it with dynet
-    p_category = dynet.exp(category_logsoftmax).npvalue()
-    p_category /= p_category.sum()
-    category = numpy.random.choice(len(p_category), p=p_category)
-
+    if self.train:
+      p_category = dynet.exp(category_logsoftmax).npvalue()
+      p_category /= p_category.sum()
+      category = numpy.random.choice(len(p_category), p=p_category)
+    else:
+      category = numpy.argmax(category_logsoftmax.npvalue())
     # Accumulating the log likelihood for the batch
     self.ll_buffer[self.counter] += dynet.pick(category_logsoftmax, category)
 

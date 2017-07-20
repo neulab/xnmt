@@ -22,13 +22,19 @@ class SegmentingEncoderBuilder(object):
     # The Segment transducer predict a category based on the collected vector
     self.segment_transducer = segment_transducer
 
+    self.train = True
+
+  def set_train(self, train):
+    self.train = train
+    self.segment_transducer.set_train(train)
+
   def transduce(self, src):
     num_batch = src[0].dim()[1]
     # Softmax + segment decision
     encodings = self.embed_encoder.transduce(src)
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
     # Segment decision 
-    segment_decisions = [sample_from_log(log_softmax) for log_softmax in segment_logsoftmaxes]
+    segment_decisions = [sample_from_log(log_softmax, self.train) for log_softmax in segment_logsoftmaxes]
     # The last segment decision should be equal to 1
     if len(segment_decisions) > 0:
       segment_decisions[-1] = numpy.ones(num_batch, dtype=int)
@@ -64,9 +70,6 @@ class SegmentingEncoderBuilder(object):
     # Return the encoded batch by the size of ((encode,), batch)
     return outputs
 
-  def set_train(self, val):
-    pass
-
   def calc_reinforce_loss(self, reward, lmbd):
     segment_logprob = None
     for log_softmax, segment_decision in six.moves.zip(self.segment_logsoftmaxes, self.segment_decisions):
@@ -81,7 +84,7 @@ class SegmentingEncoderBuilder(object):
 
     return (segment_logprob + self.segment_transducer.disc_ll()) * reward * lmbd
 
-def sample_from_log(log_softmax):
+def sample_from_log(log_softmax, is_train):
   # TODO Use the dynet version after it is fixed
 #  sample = log_softmax.tensor_value().categorical_sample_log_prob().as_numpy().transpose()
 #  if len(sample.shape) > 1:
@@ -90,13 +93,19 @@ def sample_from_log(log_softmax):
   sample = []
   if len(prob.shape) == 2:
     for p in prob:
-      p /= p.sum()
-      choice = numpy.random.choice(len(p), p=p)
+      if is_train:
+        p /= p.sum()
+        choice = numpy.random.choice(len(p), p=p)
+      else:
+        choice = numpy.argmax(p)
       sample.append(choice)
     sample = numpy.array(sample, dtype=int)
   elif len(prob.shape) == 1:
-    prob /= prob.sum()
-    choice = numpy.random.choice(len(prob), p=prob)
+    if is_train:
+      prob /= prob.sum()
+      choice = numpy.random.choice(len(prob), p=prob)
+    else:
+      choice = numpy.argmax(prob)
     sample.append(choice)
   else:
     raise ValueError("Unexpected prob with shape:", prob.shape, "expect up to 2 dimensions only.")
