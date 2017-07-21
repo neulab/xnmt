@@ -60,7 +60,7 @@ class DefaultTranslatorReport(object):
       if self.trg_text != None: f.write("<p><b>Target Text: </b> {}</p>\n".format(self.trg_text))
       if self.trg_words != None: f.write("<p><b>Target Words: </b> {}</p>\n".format(' '.join(self.trg_words)))
       # Alignments
-      if  all([type(x) != None for x in [self.src_words, self.trg_words, self.attentions]]):
+      if self.src_words != None and self.trg_words != None and self.attentions != None:
         if type(self.attentions) == dy.Expression:
           self.attentions = self.attentions.npvalue()
         elif type(self.attentions) == list:
