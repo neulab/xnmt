@@ -47,6 +47,7 @@ class LossTracker(object):
         self.sent_num = 0
         self.sent_num_not_report_train = 0
         self.sent_num_not_report_dev = 0
+        self.last_report_words = 0
 
     def update_epoch_loss(self, src, trg, loss):
         """
@@ -76,7 +77,7 @@ class LossTracker(object):
             self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
             this_report_time = time.time()
             print(LossTracker.REPORT_TEMPLATE.format('train') % (
-                self.fractional_epoch, self.epoch_loss.primary() / self.epoch_words,
+                self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
                 self.epoch_words,
                 (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
                 self.format_time(time.time() - self.start_time)))

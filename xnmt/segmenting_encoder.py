@@ -36,18 +36,24 @@ class SegmentingEncoderBuilder(object):
     encodings = self.embed_encoder.transduce(src)
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
     # Segment decision 
-    if self.train and False:
+    if self.train:
       segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0] for log_softmax in segment_logsoftmaxes]
     else:
-      segment_decisions = [log_softmax.npvalue().argmax(axis=0) for log_softmax in segment_logsoftmaxes]
+      segment_decisions = [log_softmax.tensor_value().argmax().as_numpy().transpose() for log_softmax in segment_logsoftmaxes]
+    
+    assert len(encodings) == len(segment_decisions), \
+           "Encoding={}, segment={}".format(len(encodings), len(segment_decisions))
+    
     # The last segment decision should be equal to 1
     if len(segment_decisions) > 0:
-      segment_decisions[-1] = numpy.ones(num_batch, dtype=int)
+      #for sg in segment_decisions:
+      segment_decisions[-1] = numpy.ones(segment_decisions[-1].shape, dtype=int)
+
     # Buffer for output
     buffers = [[] for _ in range(num_batch)]
     outputs = [[] for _ in range(num_batch)]
     self.segment_transducer.set_input_size(num_batch, len(encodings))
-
+    
     # Loop through all the frames (word / item) in input.
     for j, (encoding, segment_decision) in enumerate(six.moves.zip(encodings, segment_decisions)):
       # For each decision in the batch
@@ -86,11 +92,11 @@ class SegmentingEncoderBuilder(object):
   def calc_reinforce_loss(self, reward, lmbd):
     segment_logprob = None
     for log_softmax, segment_decision in six.moves.zip(self.segment_logsoftmaxes, self.segment_decisions):
-      softmax_decision = dy.pick_batch(log_softmax, segment_decision)
+      ll = dy.pick_batch(log_softmax, segment_decision)
       if not segment_logprob:
-        segment_logprob = softmax_decision
+        segment_logprob = ll
       else:
-        segment_logprob += softmax_decision
+        segment_logprob += ll
 
     # Segment Decision for the first item in the minibatch
     #print([x[0] for x in self.segment_decisions])

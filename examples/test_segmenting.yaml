@@ -7,6 +7,7 @@ defaults:
     run_for_epochs: 20
     eval_metrics: recall|nbest=1,recall|nbest=5
   train:
+    batch_strategy: shuffle
     trainer: adam
     learning_rate: 0.001 
     dropout: 0.0
@@ -14,8 +15,10 @@ defaults:
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/train-char.ja
       train_trg: examples/data/train.allids
+      train_id_file: examples/data/train.allids
       dev_src: examples/data/dev-char.ja
       dev_trg: examples/data/dev.allids
+      dev_id_file: examples/data/dev.allids
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
       trg_reader: !IDReader {}
@@ -27,6 +30,7 @@ defaults:
         lmbd:
           start: 0.00
           multiplier: 2
+          before: 3
           max: 1.0
           min: 0
         embed_encoder: !LSTMEncoder
@@ -42,9 +46,9 @@ defaults:
             layers: 1
 #          encoder: !IdentityEncoder {}
 #          transformer: !CategorySegmentTransformer
-#            input_dim: 128
+#            input_dim: 512
 #            category_dim: 40
-#            embed_dim: 128
+#            embed_dim: 512
           transformer: !TailSegmentTransformer {}
 #          transformer: !AverageSegmentTransformer {}
       trg_embedder: !SimpleWordEmbedder
@@ -59,6 +63,7 @@ defaults:
         database_file: examples/data/traindevtest.en
   decode:
     src_file: examples/data/test-char.ja
+    candidate_id_file: examples/data/test.allids
   evaluate:
     ref_file: examples/data/test.allids
 
