@@ -7,7 +7,7 @@ defaults:
     run_for_epochs: 20
     eval_metrics: recall|nbest=1,recall|nbest=5
   train:
-    trainer: 'adam'
+    trainer: adam
     learning_rate: 0.001 
     dropout: 0.0
     dev_metrics: recall|nbest=1,recall|nbest=5
@@ -21,7 +21,7 @@ defaults:
       trg_reader: !IDReader {}
     model: !DotProductRetriever
       src_embedder: !SimpleWordEmbedder
-        emb_dim: 100
+        emb_dim: 512
         vocab_size: 20000
       src_encoder: !SegmentingEncoder
         lmbd:
@@ -30,14 +30,14 @@ defaults:
           max: 1.0
           min: 0
         embed_encoder: !LSTMEncoder
-          input_dim: 100
-          hidden_dim: 100
+          input_dim: 512
+          hidden_dim: 512
           layers: 1
-          bidirectional: True
+          bidirectional: true
         segment_transducer: !SegmentTransducer
           encoder: !LSTMEncoder
-            input_dim: 100
-            hidden_dim: 100
+            input_dim: 512
+            hidden_dim: 512
             bidirectional: false
             layers: 1
 #          encoder: !IdentityEncoder {}
@@ -45,23 +45,23 @@ defaults:
 #            input_dim: 128
 #            category_dim: 40
 #            embed_dim: 128
-#          transformer: !TailSegmentTransformer {}
-          transformer: !AverageSegmentTransformer {}
+          transformer: !TailSegmentTransformer {}
+#          transformer: !AverageSegmentTransformer {}
       trg_embedder: !SimpleWordEmbedder
-        emb_dim: 100
+        emb_dim: 512
         vocab_size: 20000
       trg_encoder: !LSTMEncoder
-        input_dim: 100
-        hidden_dim: 100
+        input_dim: 512
+        hidden_dim: 512
         layers: 1
       database: !StandardRetrievalDatabase
         reader: !PlainTextReader {}
         database_file: examples/data/traindevtest.en
   decode:
-    src_file: examples/data/test.ja
+    src_file: examples/data/test-char.ja
   evaluate:
     ref_file: examples/data/test.allids
 
-standard-dropout0.1:
+segmenting0.1:
   train:
-     dropout: 0.1
+     dropout: 0.0

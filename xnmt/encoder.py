@@ -154,8 +154,9 @@ class SegmentingEncoder(Encoder, Serializable):
   def new_epoch(self):
     self.ctr += 1
 #    self.lmbd_val *= self.lmbd["multiplier"]
-#    self.lmbd_val = min(self.lmbd_val, self.lmbd["max"])
-#    self.lmbd_val = max(self.lmbd_val, self.lmbd["min"])
-    self.lmbd_val = 1e-2 * ((2 ** self.ctr) - 1)
+    self.lmbd_val = 1e-3 * ((2 ** self.ctr) - 10)
+    self.lmbd_val = min(self.lmbd_val, self.lmbd["max"])
+    self.lmbd_val = max(self.lmbd_val, self.lmbd["min"])
+
     print("Now lambda:", self.lmbd_val)
 

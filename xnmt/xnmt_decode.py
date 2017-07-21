@@ -6,7 +6,7 @@ from serializer import *
 import sys
 from retriever import *
 from translator import *
-from reports import *
+#from reports import *
 from search_strategy import *
 from options import OptionParser, Option
 from io import open

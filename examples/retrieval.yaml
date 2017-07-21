@@ -14,10 +14,10 @@ defaults:
     dropout: 0.0
     dev_metrics: recall|nbest=1,recall|nbest=5
     training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/train.ja
+      train_src: examples/data/train-char.ja
       train_trg: examples/data/train.allids
       train_id_file: examples/data/train.allids
-      dev_src: examples/data/dev.ja
+      dev_src: examples/data/dev-char.ja
       dev_trg: examples/data/dev.allids
       dev_id_file: examples/data/dev.allids
     corpus_parser: !BilingualCorpusParser
@@ -38,11 +38,11 @@ defaults:
         reader: !PlainTextReader {}
         database_file: examples/data/traindevtest.en
   decode:
-    src_file: examples/data/test.ja
+    src_file: examples/data/test-char.ja
     candidate_id_file: examples/data/test.allids
   evaluate:
     ref_file: examples/data/test.allids
 
 standard-dropout0.1:
   train:
-    dropout: 0.1
+     dropout: 0.0

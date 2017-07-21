@@ -61,7 +61,9 @@ class SegmentingEncoderBuilder(object):
           buffers[i].clear()
 
         self.segment_transducer.next_item()
-
+    
+    print(len(outputs))
+    print(outputs[0].dim())
     # Pooling + creating a batch of them
     outputs = dy.concatenate_to_batch(list(six.moves.map(lambda xs: dy.average(xs), outputs)))
     # Retain some information of this passes
