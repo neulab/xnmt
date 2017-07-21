@@ -15,9 +15,10 @@ class SegmentingEncoderBuilder(object):
   def __init__(self, embed_encoder=None, segment_transducer=None, model=None):
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
+    self.P0 = model.add_parameters(segment_transducer.encoder.hidden_dim)
 
     # The Segment Encoder decides whether to segment or not
-    self.segment_transform = linear.Linear(embed_encoder.hidden_dim, 3, model)
+    self.segment_transform = linear.Linear(embed_encoder.hidden_dim, len(SegmentingAction), model)
 
     # The Segment transducer predict a category based on the collected vector
     self.segment_transducer = segment_transducer
@@ -30,11 +31,15 @@ class SegmentingEncoderBuilder(object):
 
   def transduce(self, src):
     num_batch = src[0].dim()[1]
+    P0 = dy.parameter(self.P0)
     # Softmax + segment decision
     encodings = self.embed_encoder.transduce(src)
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
     # Segment decision 
-    segment_decisions = [sample_from_log(log_softmax, self.train) for log_softmax in segment_logsoftmaxes]
+    if self.train and False:
+      segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0] for log_softmax in segment_logsoftmaxes]
+    else:
+      segment_decisions = [log_softmax.npvalue().argmax(axis=0) for log_softmax in segment_logsoftmaxes]
     # The last segment decision should be equal to 1
     if len(segment_decisions) > 0:
       segment_decisions[-1] = numpy.ones(num_batch, dtype=int)
@@ -61,15 +66,21 @@ class SegmentingEncoderBuilder(object):
           buffers[i].clear()
 
         self.segment_transducer.next_item()
-    
-    print(len(outputs))
-    print(outputs[0].dim())
-    # Pooling + creating a batch of them
-    outputs = dy.concatenate_to_batch(list(six.moves.map(lambda xs: dy.average(xs), outputs)))
-    # Retain some information of this passes
+
+    # Padding
+    max_col = max(len(xs) for xs in outputs)
+    def pad(xs):
+      deficit = max_col - len(xs)
+      if deficit > 0:
+        xs.extend([P0 for _ in range(deficit)])
+      return xs
+
+    # Packing output together
+    outputs = dy.concatenate_to_batch(list(six.moves.map(lambda xs: dy.concatenate_cols(pad(xs)), outputs)))
+    # Retain some information
     self.segment_decisions = segment_decisions
     self.segment_logsoftmaxes = segment_logsoftmaxes
-    # Return the encoded batch by the size of ((encode,), batch)
+    # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return outputs
 
   def calc_reinforce_loss(self, reward, lmbd):
@@ -86,29 +97,3 @@ class SegmentingEncoderBuilder(object):
 
     return (segment_logprob + self.segment_transducer.disc_ll()) * reward * lmbd
 
-def sample_from_log(log_softmax, is_train):
-  # TODO Use the dynet version after it is fixed
-#  sample = log_softmax.tensor_value().categorical_sample_log_prob().as_numpy().transpose()
-#  if len(sample.shape) > 1:
-#    sample = numpy.squeeze(sample, axis=1)
-  prob = dy.exp(log_softmax).npvalue().transpose()
-  sample = []
-  if len(prob.shape) == 2:
-    for p in prob:
-      if is_train:
-        p /= p.sum()
-        choice = numpy.random.choice(len(p), p=p)
-      else:
-        choice = numpy.argmax(p)
-      sample.append(choice)
-    sample = numpy.array(sample, dtype=int)
-  elif len(prob.shape) == 1:
-    if is_train:
-      prob /= prob.sum()
-      choice = numpy.random.choice(len(prob), p=prob)
-    else:
-      choice = numpy.argmax(prob)
-    sample.append(choice)
-  else:
-    raise ValueError("Unexpected prob with shape:", prob.shape, "expect up to 2 dimensions only.")
-  return numpy.array(sample, dtype=int)

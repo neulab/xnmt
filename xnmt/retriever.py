@@ -123,7 +123,6 @@ class DotProductRetriever(Retriever, Serializable):
     src_embeddings = self.src_embedder.embed_sent(src)
     src_encodings = self.exprseq_pooling(self.src_encoder.transduce(src_embeddings))
     trg_encodings = self.encode_trg_example(self.database[db_idx])
-
     prod = dy.transpose(dy.transpose(src_encodings) * trg_encodings)
     loss = dy.hinge_batch(prod, list(six.moves.range(len(db_idx))))
     return loss

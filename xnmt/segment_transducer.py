@@ -82,9 +82,7 @@ class CategorySegmentTransformer(SegmentTransformer):
     category_logsoftmax = dynet.log_softmax(self.category_output(encoding))
     # TODO change it with dynet
     if self.train:
-      p_category = dynet.exp(category_logsoftmax).npvalue()
-      p_category /= p_category.sum()
-      category = numpy.random.choice(len(p_category), p=p_category)
+      category = category_logsoftmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
     else:
       category = numpy.argmax(category_logsoftmax.npvalue())
     # Accumulating the log likelihood for the batch

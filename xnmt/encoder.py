@@ -35,7 +35,16 @@ class Encoder(TrainTestInterface):
 
 class BuilderEncoder(Encoder):
   def transduce(self, sent):
-    return ExpressionSequence(expr_list=self.builder.transduce(sent))
+    out = None
+    if hasattr(self.builder, "transduce"):
+      out = self.builder.transduce(sent)
+    elif hasattr(self.builder, "initial_state"):
+      out = self.builder.initial_state().transduce(sent)
+    else:
+      raise NotImplementedError("Unimplemented transduce logic for class:",
+                                self.builder.__class__.__name__)
+
+    return ExpressionSequence(expr_list=out)
 
 class IdentityEncoder(Encoder, Serializable):
   yaml_tag = u'!IdentityEncoder'
