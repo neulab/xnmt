@@ -8,7 +8,7 @@ from serializer import Serializable
 from vocab import *
 ###### Classes representing single inputs
 
-class Input:
+class Input(object):
   """
   A template class to represent all inputs.
   """
@@ -142,10 +142,12 @@ class ContVecReader(InputReader, Serializable):
     npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[-1]))
     if filter_ids is not None:
       npzKeys = [npzKeys[i] for i in filter_ids]
-    for key in npzKeys:
+    for idx, key in enumerate(npzKeys):
       inp = npzFile[key]
       if self.transpose:
         inp = inp.transpose()
+      if idx % 1000 == 999:
+        print("Read {} lines ({:.2f}%) of {} at {}".format(idx+1, float(idx+1)/len(npzKeys)*100, filename, key))
       yield ArrayInput(inp)
     npzFile.close()
 

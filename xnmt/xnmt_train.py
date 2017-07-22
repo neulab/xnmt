@@ -10,6 +10,7 @@ from embedder import *
 from attender import *
 from input import *
 from encoder import *
+from specialized_encoders import *
 from decoder import *
 from translator import *
 from retriever import *
@@ -22,7 +23,7 @@ import model_globals
 import serializer
 import xnmt_decode
 import xnmt_evaluate
-from evaluator import PPLScore
+from evaluator import LossScore
 from tee import Tee
 '''
 This will be the main class to perform training.
@@ -45,18 +46,19 @@ options = [
   Option("default_layer_dim", int, default_value=512, help_str="Default size to use for layers if not otherwise overridden"),
   Option("trainer", default_value="sgd"),
   Option("learning_rate", float, default_value=0.1),
+  Option("momentum", float, default_value = 0.9),
   Option("lr_decay", float, default_value=1.0),
   Option("lr_decay_times", int, default_value=3, help_str="Early stopping after decaying learning rate a certain number of times"),
   Option("attempts_before_lr_decay", int, default_value=1, help_str="apply LR decay after dev scores haven't improved over this many checkpoints"),
   Option("dev_metrics", default_value="", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
-  Option("schedule_metric", default_value="ppl", help_str="determine learning schedule based on this dev_metric (ppl/bleu/wer/cer)"),
+  Option("schedule_metric", default_value="loss", help_str="determine learning schedule based on this dev_metric (loss/bleu/wer/cer)"),
   Option("restart_trainer", bool, default_value=False, help_str="Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)"),
   Option("reload_between_epochs", bool, default_value=False, help_str="Reload train data between epochs (useful when sampling from train data, or with noisy input data via an external tool"),
   Option("dropout", float, default_value=0.0),
   Option("model", dict, default_value={}),
 ]
 
-class XnmtTrainer:
+class XnmtTrainer(object):
   def __init__(self, args, output=None):
     dy.renew_cg()
 
@@ -75,7 +77,7 @@ class XnmtTrainer:
     self.evaluators = [s.lower() for s in self.args.dev_metrics.split(",") if s.strip()!=""]
     if self.args.schedule_metric.lower() not in self.evaluators:
               self.evaluators.append(self.args.schedule_metric.lower())
-    if "ppl" not in self.evaluators: self.evaluators.append("ppl")
+    if "loss" not in self.evaluators: self.evaluators.append("loss")
 
     # Initialize the serializer
     self.model_serializer = serializer.YamlSerializer()
@@ -112,9 +114,11 @@ class XnmtTrainer:
 
   def dynet_trainer_for_args(self, args):
     if args.trainer.lower() == "sgd":
-      trainer = dy.SimpleSGDTrainer(model_globals.dynet_param_collection.param_col, learning_rate = args.learning_rate)
+      trainer = dy.SimpleSGDTrainer(model_globals.dynet_param_collection.param_col, args.learning_rate)
     elif args.trainer.lower() == "adam":
       trainer = dy.AdamTrainer(model_globals.dynet_param_collection.param_col, alpha = args.learning_rate)
+    elif args.trainer.lower() == "msgd":
+      trainer = dy.MomentumSGDTrainer(model_globals.dynet_param_collection.param_col, args.learning_rate, mom = args.momentum)
     else:
       raise RuntimeError("Unknown trainer {}".format(args.trainer))
     return trainer
@@ -176,10 +180,13 @@ class XnmtTrainer:
   def run_epoch(self):
     self.logger.new_epoch()
 
-    if self.args.reload_between_epochs and self.logger.epoch_num > 1:
-      print("Reloading training data..")
-      self.corpus_parser.read_training_corpus(self.training_corpus)
-      if self.is_batch_mode():
+    if self.logger.epoch_num > 1:
+      if self.args.reload_between_epochs:
+        print("Reloading training data..")
+        self.corpus_parser.read_training_corpus(self.training_corpus)
+        if self.is_batch_mode():
+          self.pack_batches()
+      elif self.is_batch_mode() and self.batcher.is_random():
         self.pack_batches()
 
     self.model.set_train(True)
@@ -202,12 +209,13 @@ class XnmtTrainer:
       if self.logger.should_report_dev():
         self.model.set_train(False)
         self.logger.new_dev()
-        trg_words_cnt, ppl_score = self.compute_dev_ppl()
+        trg_words_cnt, loss_score = self.compute_dev_loss()
         schedule_metric = self.args.schedule_metric.lower()
 
-        eval_scores = {"ppl" : ppl_score}
-        if filter(lambda e: e!="ppl", self.evaluators):
+        eval_scores = {"loss" : loss_score}
+        if filter(lambda e: e!="loss", self.evaluators):
           self.decode_args.src_file = self.training_corpus.dev_src
+          self.decode_args.candidate_id_file = self.training_corpus.dev_id_file
           out_file = self.args.model_file + ".dev_hyp"
           out_file_ref = self.args.model_file + ".dev_ref"
           self.decode_args.trg_file = out_file
@@ -223,12 +231,12 @@ class XnmtTrainer:
           self.evaluate_args.hyp_file = out_file
           self.evaluate_args.ref_file = out_file_ref
           for evaluator in self.evaluators:
-            if evaluator=="ppl": continue
+            if evaluator=="loss": continue
             self.evaluate_args.evaluator = evaluator
             eval_score = xnmt_evaluate.xnmt_evaluate(self.evaluate_args)
             eval_scores[evaluator] = eval_score
-        if schedule_metric == "ppl":
-          self.logger.set_dev_score(trg_words_cnt, ppl_score)
+        if schedule_metric == "loss":
+          self.logger.set_dev_score(trg_words_cnt, loss_score)
         else:
           self.logger.set_dev_score(trg_words_cnt, eval_scores[schedule_metric])
 
@@ -263,14 +271,14 @@ class XnmtTrainer:
         self.model.set_train(True)
 
 
-  def compute_dev_ppl(self):
-    ppl_sum = 0.0
+  def compute_dev_loss(self):
+    loss_sum = 0.0
     trg_words_cnt = 0
     for src, trg in zip(self.dev_src, self.dev_trg):
       dy.renew_cg()
-      ppl_sum += self.model.calc_loss(src, trg).value()
+      loss_sum += self.model.calc_loss(src, trg).value()
       trg_words_cnt += self.logger.count_trg_words(trg)
-    return trg_words_cnt, PPLScore(math.exp(ppl_sum / trg_words_cnt))
+    return trg_words_cnt, LossScore(loss_sum / trg_words_cnt)
 
 if __name__ == "__main__":
   parser = OptionParser()

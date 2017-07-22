@@ -14,7 +14,7 @@ class Batch(list):
   pass
 
 
-class Batcher:
+class Batcher(object):
   """
   A template class to convert a list of sents to several batches of sents.
   """
@@ -24,6 +24,12 @@ class Batcher:
     self.src_pad_token = src_pad_token
     self.trg_pad_token = trg_pad_token
     self.granularity = granularity
+
+  def is_random(self):
+    """
+    :returns: True if there is some randomness in the batching process, False otherwise. Defaults to false.
+    """
+    return False
 
   @staticmethod
   def mark_as_batch(data):
@@ -99,8 +105,12 @@ class ShuffleBatcher(Batcher):
   """
 
   def pack(self, src, trg):
-    order = np.random.shuffle(range(len(src)))
+    order = list(range(len(src)))
+    np.random.shuffle(order)
     return self.pack_by_order(src, trg, order)
+
+  def is_random(self):
+    return True
 
 class SortBatcher(Batcher):
   """

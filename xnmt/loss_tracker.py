@@ -4,12 +4,12 @@ import sys
 import math
 import time
 
-class LossTracker:
+class LossTracker(object):
     """
     A template class to track training process and generate report.
     """
 
-    REPORT_TEMPLATE           = 'Epoch %.4f: {}_ppl=%.3f (words=%d, words/sec=%.2f, time=%s)'
+    REPORT_TEMPLATE           = 'Epoch %.4f: {}_loss/word=%.3f (words=%d, words/sec=%.2f, time=%s)'
     REPORT_TEMPLATE_DEV       = '  Epoch %.4f dev %s (words=%d, words/sec=%.2f, time=%s)'
     REPORT_TEMPLATE_DEV_AUX   = '  Epoch %.4f dev [auxiliary] %s'
 
@@ -76,7 +76,7 @@ class LossTracker:
 
             this_report_time = time.time()
             print(LossTracker.REPORT_TEMPLATE.format('train') % (
-                self.fractional_epoch, math.exp(self.epoch_loss / self.epoch_words),
+                self.fractional_epoch, self.epoch_loss / self.epoch_words,
                 self.epoch_words,
                 (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
                 self.format_time(time.time() - self.start_time)))
@@ -143,7 +143,7 @@ class LossTracker:
         self.sent_num_not_report_dev = 0
         self.sent_num_not_report_train = 0
 
-    def report_ppl(self):
+    def report_loss(self):
         pass
 
 

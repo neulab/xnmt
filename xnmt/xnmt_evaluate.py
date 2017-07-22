@@ -45,6 +45,11 @@ def xnmt_evaluate(args):
     hyp_postprocess = lambda x: ast.literal_eval(x)
     ref_postprocess = lambda x: int(x)
     evaluator = RecallEvaluator(nbest=int(nbest))
+  elif eval_type == "mean_avg_precision":
+    nbest = int(eval_param.get("nbest", 5))
+    hyp_postprocess = lambda x: ast.literal_eval(x)
+    ref_postprocess = lambda x: int(x)
+    evaluator = MeanAvgPrecisionEvaluator(nbest=int(nbest))
   else:
     raise RuntimeError("Unknown evaluation metric {}".format(eval_type))
 

@@ -1,6 +1,6 @@
 from vocab import Vocab
 
-class Output:
+class Output(object):
   '''
   A template class to represent all output.
   '''

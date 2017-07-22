@@ -60,17 +60,15 @@ class DefaultTranslatorReport(object):
       if self.trg_text != None: f.write("<p><b>Target Text: </b> {}</p>\n".format(self.trg_text))
       if self.trg_words != None: f.write("<p><b>Target Words: </b> {}</p>\n".format(' '.join(self.trg_words)))
       # Alignments
-      if  all([type(x) != None for x in [self.src_words, self.trg_words, self.attentions]]):
-        if type(self.attentions) == np.ndarray:
-          attention_nparray = self.attentions
-        elif type(self.attentions) == dy.Expression:
-          attention_nparray = self.attentions.npvalue()
+      if self.src_words != None and self.trg_words != None and self.attentions != None:
+        if type(self.attentions) == dy.Expression:
+          self.attentions = self.attentions.npvalue()
         elif type(self.attentions) == list:
-          attention_nparray = np.concatenate([x.npvalue() for x in self.attentions], axis=1)
-        else:
+          self.attentions = np.concatenate([x.npvalue() for x in self.attentions], axis=1)
+        elif type(self.attentions) != np.ndarray:
           raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(self.attentions)))
         attention_file = "{}.attention.png".format(path_to_report)
-        DefaultTranslatorReport.plot_attention(self.src_words, self.trg_words, attention_nparray, file_name = attention_file)
+        DefaultTranslatorReport.plot_attention(self.src_words, self.trg_words, self.attentions, file_name = attention_file)
         f.write("<p><b>Attention:</b><br/><img src=\"{}.attention.png\"/></p>\n".format(filename_of_report))
 
       f.write("</body></html>")

@@ -1,4 +1,4 @@
-class SentenceStats:
+class SentenceStats(object):
   '''
   to Populate the src and trg sents statistics.
   '''

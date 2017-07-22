@@ -5,7 +5,7 @@ from subprocess import Popen
 
 ##### Preprocessors
 
-class Normalizer():
+class Normalizer(object):
   """A type of normalization to perform to a file. It is initialized first, then expanded."""
 
   def __init__(self, spec):
@@ -131,7 +131,7 @@ class SentenceFilterer():
           raise RuntimeError("Unknown preprocessing type {}".format(my_spec["type"]))
     return preproc_list
 
-class SentenceFiltererLength():
+class SentenceFiltererLength(object):
   """Filters sentences by length"""
 
   def __init__(self, spec):
@@ -178,7 +178,7 @@ class SentenceFiltererLength():
 
 ##### Vocab filterers
 
-class VocabFilterer():
+class VocabFilterer(object):
   """Filters vocabulary by some criterion"""
 
   def __init__(self, spec):

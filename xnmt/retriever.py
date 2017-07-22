@@ -8,6 +8,7 @@ from vocab import Vocab
 from serializer import Serializable, DependentInitParam
 from train_test_interface import TrainTestInterface
 import numpy as np
+import os
 
 ##### A class for retrieval databases
 
@@ -20,11 +21,13 @@ class StandardRetrievalDatabase(Serializable):
 
   yaml_tag = u"!StandardRetrievalDatabase"
 
-  def __init__(self, reader, database_file):
+  def __init__(self, reader, database_file, dev_id_file=None, test_id_file=None):
     self.reader = reader
     self.database_file = database_file
     self.data = list(reader.read_sents(database_file))
     self.indexed = []
+    self.dev_id_file = dev_id_file
+    self.test_id_file = test_id_file
 
   def __getitem__(self, indices):
     return Batcher.mark_as_batch(Batcher.pad([self.data[index] for index in indices]))
@@ -45,7 +48,7 @@ class Retriever(TrainTestInterface):
     '''
     raise NotImplementedError('calc_loss must be implemented for Retriever subclasses')
 
-  def index_database(self):
+  def index_database(self, indices=None):
     '''A function that can be called before actually performing retrieval.
 
     This will perform any necessary pre-processing to make retrieval more efficient.
@@ -115,12 +118,20 @@ class DotProductRetriever(Retriever, Serializable):
 
     prod = dy.transpose(dy.transpose(src_encodings) * trg_encodings)
     loss = dy.sum_batches(dy.hinge_batch(prod, list(six.moves.range(len(db_idx)))))
-    print(loss.npvalue())
     return loss
 
-  def index_database(self):
+  def index_database(self, indices=None):
+    # Create the inverted index if necessary
+    if indices == None:
+      indices = range(len(self.database.data))
+      self.database.inverted_index = None
+    else:
+      self.database.inverted_index = indices
+    # Actually index everything
     self.database.indexed = []
-    for item in self.database.data:
+    for index in indices:
+      item = self.database.data[int(index)]
+      dy.renew_cg()
       self.database.indexed.append(self.encode_trg_example(item).npvalue())
     self.database.indexed = np.concatenate(self.database.indexed, axis=1)
 
@@ -133,13 +144,13 @@ class DotProductRetriever(Retriever, Serializable):
   def retrieve(self, src, return_type="idxscore", nbest=5):
     src_embedding = self.src_embedder.embed_sent(src)
     src_encoding = dy.transpose(self.exprseq_pooling(self.src_encoder.transduce(src_embedding))).npvalue()
-    
     scores = np.dot(src_encoding, self.database.indexed)
     kbest = np.argsort(scores, axis=1)[0,-nbest:][::-1]
+    ids = kbest if self.database.inverted_index == None else [self.database.inverted_index[x] for x in kbest]
     if return_type == "idxscore":
-      return [(x,scores[0,x]) for x in kbest]
+      return [(i,scores[0,x]) for i, x in zip(ids, kbest)]
     elif return_type == "idx":
-      return list(kbest)
+      return list(ids)
     elif return_type == "score":
       return [scores[0,x] for x in kbest]
     else:
