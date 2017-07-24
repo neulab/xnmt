@@ -2,6 +2,7 @@ import argparse
 import sys
 import os.path
 from subprocess import Popen
+import yaml
 
 ##### Preprocessors
 
@@ -36,46 +37,34 @@ class NormalizerLower(Normalizer):
 
 ###### Tokenizers
 
-class Tokenizer(Normalizer):
+class Tokenizer(Normalizer, yaml.YAMLObject):
   """Pass the text through an internal or external tokenizer."""
   def tokenize(self, sent):
     raise RuntimeError("Subclasses of Tokenizer must implement the tokenize() function")
 
-  @ staticmethod
-  def from_spec(spec):
-    """Takes a list of tokenizer specifications, an returns the appropriate processers."""
-    preproc_list = []
-    if spec != None:
-      for my_spec in spec:
-        if my_spec["type"] == "moses":
-          preproc_list.append(TokenizerExternal(my_spec))
-        elif my_spec["type"] == "external":
-          preproc_list.append(TokenizerExternal(my_spec))
-        elif my_spec["type"] == "bpe":
-          preproc_list.append(TokenizerBPE(my_spec))
-        elif my_spec["type"] == "sentencepiece":
-          preproc_list.append(TokenizerGoogle(my_spec))
-        else:
-          raise RuntimeError("Unknown toknizer type {}".format(my_spec["type"]))
+class BPETokenizer(Tokenizer):
+  """
+  Class for byte-pair encoding tokenizer.
+  """
+  yaml_tag = u'!BPETokenizer'
 
-class TokenizerBPE(Tokenizer):
-  def __init__(self, spec):
+  def __init__(self, vocab_size, train_files):
     """Determine the BPE based on the vocab size and corpora"""
-    self.location = spec["location"]
     pass
 
   def tokenize(self, sent):
     """Tokenizes a single sentence according to the determined BPE."""
-    pass
+    return ' '.join(['blick' for x in sent.split()])
 
 
-class TokenizerExternal(Tokenizer):
+class ExternalTokenizer(Tokenizer):
   """
   Class for arbitrary external tokenizer that accepts untokenized text to stdin and
   emits tokenized tezt to stdout, with passable parameters.
   """
+  yaml_tag = u'!ExternalTokenizer'
 
-  def __init__(self, spec, hard_path=None):
+  def __init__(self, path=None):
 
     """Initialize the wrapper around the external tokenizer."""
     pass
@@ -83,15 +72,16 @@ class TokenizerExternal(Tokenizer):
 
   def tokenize(self, sent):
     """Pass the sentence through the external tokenizer."""
-    pass
+    return ' '.join(['blick' for x in sent.split()])
 
-class TokenizerSentencepiece(Tokenizer):
+class SentencepieceTokenizer(Tokenizer):
   """
   A wrapper around an independent installation of the sentencepiece tokenizer
   with passable parameters.
   """
+  yaml_tag = u'!SentencepieceTokenizer'
 
-  def __init__(self, spec):
+  def __init__(self, path, args):
     """Initialize the wrapper around the Google tokenizer."""
     pass
 

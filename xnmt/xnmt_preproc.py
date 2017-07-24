@@ -33,7 +33,7 @@ def xnmt_preproc(args):
 
     # Perform tokenization
     if arg["type"] == 'tokenize':
-        tokenizers = {my_opts["filenum"]: Tokenizer.from_spec(my_opts["spec"]) for my_opts in arg["specs"]}
+        tokenizers = {my_opts["filenum"]: my_opts["tokenizers"] for my_opts in arg["specs"]}
         for file_num, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
             if args.overwrite or not os.path.isfile(out_file):
                 my_tokenizers = tokenizers.get(file_num, tokenizers["all"])
@@ -45,7 +45,7 @@ def xnmt_preproc(args):
                         out_stream.write(line + '\n')
 
     # Perform normalization
-    if arg["type"] == 'normalize':
+    elif arg["type"] == 'normalize':
       normalizers = {my_opts["filenum"]: Normalizer.from_spec(my_opts["spec"]) for my_opts in arg["specs"]}
       for i, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
         if args.overwrite or not os.path.isfile(out_file):
@@ -94,7 +94,7 @@ def xnmt_preproc(args):
               out_stream.write((word + u"\n").encode('utf-8'))
 
     else:
-      raise RuntimeError("Unknown preprocessing type {}".format(arg))
+      raise RuntimeError("Unknown preprocessing type {}".format(arg['type']))
 
 if __name__ == "__main__":
 
