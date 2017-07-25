@@ -4,7 +4,7 @@ import dynet as dy
 import os
 
 class DefaultTranslatorReport(object):
-  
+
   def __init__(self):
     self.src_text = None
     self.trg_text = None
@@ -43,7 +43,7 @@ class DefaultTranslatorReport(object):
     else:
         plt.show()
     plt.close()
-    
+
   def write_report(self, path_to_report, idx=None):
     filename_of_report = os.path.basename(path_to_report)
     with open("{}.html".format(path_to_report), 'w') as f:
@@ -60,7 +60,7 @@ class DefaultTranslatorReport(object):
       if self.trg_text != None: f.write("<p><b>Target Text: </b> {}</p>\n".format(self.trg_text))
       if self.trg_words != None: f.write("<p><b>Target Words: </b> {}</p>\n".format(' '.join(self.trg_words)))
       # Alignments
-      if self.src_words != None and self.trg_words != None and self.attentions != None:
+      if self.src_words is not None and self.trg_words is not None and self.attentions is not None:
         if type(self.attentions) == dy.Expression:
           self.attentions = self.attentions.npvalue()
         elif type(self.attentions) == list:
@@ -80,5 +80,4 @@ if __name__ == "__main__":
   rep.src_words = ['The', 'cat', 'was', 'sitting', 'on', 'top', 'of', 'the', 'wardrobe', '.']
   rep.trg_words = ['Le', 'chat', 'etait', 'assis', 'sur', 'le', 'dessus', 'de', 'l\'armoire', '.']
   rep.attentions = np.random.rand(len(rep.src_words), len(rep.trg_words))
-  
-  rep.write_report("/tmp/xnmt_translator_report", 1)
+  rep.write_report("examples/output/xnmt_translator_report", 1)

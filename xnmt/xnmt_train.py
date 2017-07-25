@@ -270,7 +270,6 @@ class XnmtTrainer(object):
 
         self.model.set_train(True)
 
-
   def compute_dev_loss(self):
     loss_sum = 0.0
     trg_words_cnt = 0

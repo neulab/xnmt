@@ -2,11 +2,11 @@ import dynet as dy
 from mlp import MLP
 import inspect
 from batcher import *
-from translator import TrainTestInterface
 from serializer import Serializable
 import model_globals
+from model import HierarchicalModel, recursive
 
-class Decoder(TrainTestInterface):
+class Decoder(HierarchicalModel):
   '''
   A template class to convert a prefix of previously generated words and
   a context vector into a probability distribution over possible next words.
@@ -39,6 +39,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
 
   def __init__(self, vocab_size, layers=1, input_dim=None, lstm_dim=None, mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False):
+    super(MlpSoftmaxDecoder, self).__init__()
     lstm_dim = lstm_dim or model_globals.get("default_layer_dim")
     mlp_hidden_dim = mlp_hidden_dim or model_globals.get("default_layer_dim")
     trg_embed_dim = trg_embed_dim or model_globals.get("default_layer_dim")
@@ -69,5 +70,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     else:
       return dy.pickneglogsoftmax_batch(scores, ref_action)
 
+  @recursive
   def set_train(self, val):
     self.fwd_lstm.set_dropout(self.dropout if val else 0.0)
+

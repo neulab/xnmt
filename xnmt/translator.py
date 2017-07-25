@@ -1,16 +1,17 @@
 from __future__ import division, generators
 
 import dynet as dy
+import length_normalization
 from batcher import *
 from search_strategy import *
 from vocab import Vocab
 from serializer import Serializable, DependentInitParam
-from train_test_interface import TrainTestInterface
 from embedder import SimpleWordEmbedder
 from decoder import MlpSoftmaxDecoder
 from output import TextOutput
+from model import recursive, HierarchicalModel, GeneratorModel
 
-class Translator(TrainTestInterface):
+class Translator(GeneratorModel):
   '''
   A template class implementing an end-to-end translator that can calculate a
   loss and generate translations.
@@ -33,15 +34,9 @@ class Translator(TrainTestInterface):
     '''
     raise NotImplementedError('translate must be implemented for Translator subclasses')
 
+  @recursive
   def set_train(self, val):
-    for component in self.get_train_test_components():
-      Translator.set_train_recursive(component, val)
-  @staticmethod
-  def set_train_recursive(component, val):
-    component.set_train(val)
-    for sub_component in component.get_train_test_components():
-      Translator.set_train_recursive(sub_component, val)
-
+    pass
 
 class DefaultTranslator(Translator, Serializable):
   '''
@@ -49,7 +44,6 @@ class DefaultTranslator(Translator, Serializable):
   '''
 
   yaml_tag = u'!DefaultTranslator'
-
 
   def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder):
     '''Constructor.
@@ -60,28 +54,32 @@ class DefaultTranslator(Translator, Serializable):
     :param trg_embedder: A word embedder for the output language
     :param decoder: A decoder
     '''
+    super(DefaultTranslator, self).__init__()
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
 
-  def shared_params(self):
-    return [
-            set(["src_embedder.emb_dim", "encoder.input_dim"]),
-            set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]), # TODO: encoder.hidden_dim may not always exist (e.g. for CNN encoders), need to deal with that case
-            set(["attender.state_dim", "decoder.lstm_dim"]),
-            set(["trg_embedder.emb_dim", "decoder.trg_embed_dim"]),
-            ]
-  def dependent_init_params(self):
-    return [
-            DependentInitParam(param_descr="src_embedder.vocab_size", value_fct=lambda: self.context["corpus_parser"].src_reader.vocab_size()),
-            DependentInitParam(param_descr="decoder.vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
-            DependentInitParam(param_descr="trg_embedder.vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
-            ]
+    self.register_hier_child(self.encoder)
+    self.register_hier_child(self.decoder)
 
-  def get_train_test_components(self):
-    return [self.encoder, self.decoder]
+  def shared_params(self):
+    return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
+            # TODO: encoder.hidden_dim may not always exist (e.g. for CNN encoders), need to deal with that case
+            set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]),
+            set(["attender.state_dim", "decoder.lstm_dim"]),
+            set(["trg_embedder.emb_dim", "decoder.trg_embed_dim"])]
+
+  def dependent_init_params(self):
+    return [DependentInitParam(param_descr="src_embedder.vocab_size", value_fct=lambda: self.context["corpus_parser"].src_reader.vocab_size()),
+            DependentInitParam(param_descr="decoder.vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
+            DependentInitParam(param_descr="trg_embedder.vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size())]
+
+  def initialize(self, args):
+      # Search Strategy
+    len_norm_type   = getattr(length_normalization, args.len_norm_type)
+    self.search_strategy = BeamSearch(b=args.beam, max_len=args.max_len, len_norm=len_norm_type(**args.len_norm_params))
 
   def calc_loss(self, src, trg, info=None):
     embeddings = self.src_embedder.embed_sent(src)
@@ -117,8 +115,9 @@ class DefaultTranslator(Translator, Serializable):
 
     return dy.esum(losses)
 
-  def translate(self, src, trg_vocab, search_strategy=None, report=None):
+  def generate(self, src):
     # Not including this as a default argument is a hack to get our documentation pipeline working
+    search_strategy = self.search_strategy
     if search_strategy == None:
       search_strategy = BeamSearch(1, len_norm=NoNormalization())
     if not Batcher.is_batched(src):
@@ -130,8 +129,9 @@ class DefaultTranslator(Translator, Serializable):
       self.attender.start_sent(encodings)
       self.decoder.initialize()
       output_actions = search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents))
-      if report != None:
-        report.trg_words = [trg_vocab[x] for x in output_actions[1:]] # The first token is the start token
-        report.attentions = self.attender.attention_vecs
-      outputs.append(TextOutput(output_actions, trg_vocab))
+      #if report != None:
+      #  report.trg_words = [trg_vocab[x] for x in output_actions[1:]] # The first token is the start token
+      #  report.attentions = self.attender.attention_vecs
+      outputs.append(TextOutput(output_actions, self.trg_vocab))
     return outputs
+
