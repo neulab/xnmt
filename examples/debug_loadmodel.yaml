@@ -1,28 +1,31 @@
 defaults:
     experiment:
-        model_file: examples/output/<EXP>.mod
-        hyp_file: examples/output/<EXP>.hyp
-        out_file: examples/output/<EXP>.out
-        err_file: examples/output/<EXP>.err
-        run_for_epochs: 20
-        eval_metrics: recall|nbest=1,recall|nbest=5
+        model_file: examples/output_debug/<EXP>.mod
+        hyp_file: examples/output_debug/<EXP>.hyp
+        out_file: examples/output_debug/<EXP>.out
+        err_file: examples/output_debug/<EXP>.err
+        run_for_epochs: 1
+        eval_only: True
+        eval_metrics: recall|nbest=1,recall|nbest=5,recall|nbest=10
     train:
+        pretrained_model_file: /pylon5/ci560op/mingxing/xnmt/examples/speech_retriever_batch128_adam0.0002.mod
+        batch_strategy: 'shuffle'
         trainer: 'adam'
-        learning_rate: 0.01 
+        learning_rate: 0.005 
         default_layer_dim: 512
         dropout: 0.0
-        dev_metrics: recall|nbest=1,recall|nbest=5
+        dev_metrics: recall|nbest=1,recall|nbest=5,recall|nbest=10
         training_corpus: !BilingualTrainingCorpus
             train_src: examples/data/mfcc_tr20.npz
             train_trg: examples/data/flickr_tr20.ids
             dev_src: examples/data/mfcc_tx20.npz
             dev_trg: examples/data/flickr_tx20.ids
         corpus_parser: !BilingualCorpusParser
-            src_reader: !ContVecReader {}
+            src_reader: !ContVecReader
+              transpose: True
             trg_reader: !IDReader {}
         model: !DotProductRetriever
             src_embedder: !NoopEmbedder
-                #vocab_size: 5000 # TODO: set this automatically
                 emb_dim: 40
             src_encoder: !HarwathSpeechEncoder
                 filter_height: [40, 1, 1]
@@ -36,14 +39,12 @@ defaults:
                 in_height: 4096
                 out_height: 1024 
             database: !StandardRetrievalDatabase
-                reader: !ContVecReader {}
+                reader: !ContVecReader
+                  transpose: True
                 database_file: examples/data/vgg20.npz
     decode:
-        report_path: examples/output/<EXP>.report
-        src_file: examples/data/mfcc_tx20.npz
+        src_file: examples/data/mfcc_tx20.npz 
     evaluate:
         ref_file: examples/data/flickr_tx20.ids
 
-standard-dropout0.1:
-    train:
-       dropout: 0.1
+speech_retriever_default:
