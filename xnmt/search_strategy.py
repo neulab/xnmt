@@ -27,8 +27,6 @@ class BeamSearch(SearchStrategy):
       self.state = state
       self.id_list = id_list
 
-
-
   def generate_output(self, decoder, attender, output_embedder, src_length=0):
     active_hyp = [self.Hypothesis(0, [0], decoder.state)]
 
@@ -43,7 +41,6 @@ class BeamSearch(SearchStrategy):
         if hyp.id_list[-1] == Vocab.ES:
           completed_hyp.append(hyp)
           continue
-
 
         decoder.state = hyp.state
         decoder.add_input(output_embedder.embed(hyp.id_list[-1]))

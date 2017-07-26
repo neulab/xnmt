@@ -1,17 +1,24 @@
 import dynet as dy
+import model
+import embedder
+import serializer
+import model_globals
+
+from decorators import recursive
+
+# All types of encoder
 import residual
 import pyramidal
 import conv_encoder
-from embedder import ExpressionSequence
-from translator import TrainTestInterface
-from serializer import Serializable
-import model_globals
 
-class Encoder(TrainTestInterface):
+# Shortcut
+Serializable = serializer.Serializable
+HierarchicalModel = model.HierarchicalModel
+
+class Encoder(HierarchicalModel):
   """
   An Encoder is a class that takes an ExpressionSequence as input and outputs another encoded ExpressionSequence.
   """
-
   def transduce(self, sent):
     """Encode inputs representing a sequence of continuous vectors into outputs that also represent a sequence of continuous vectors.
 
@@ -24,12 +31,13 @@ class Encoder(TrainTestInterface):
 
 class BuilderEncoder(Encoder):
   def transduce(self, sent):
-    return ExpressionSequence(expr_list=self.builder.transduce(sent))
+    return embedder.ExpressionSequence(expr_list=self.builder.transduce(sent))
 
 class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
 
   def __init__(self, input_dim=None, layers=1, hidden_dim=None, dropout=None, bidirectional=True):
+    super(LSTMEncoder, self).__init__()
     model = model_globals.dynet_param_collection.param_col
     input_dim = input_dim or model_globals.get("default_layer_dim")
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
@@ -42,13 +50,15 @@ class LSTMEncoder(BuilderEncoder, Serializable):
       self.builder = dy.BiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder)
     else:
       self.builder = dy.VanillaLSTMBuilder(layers, input_dim, hidden_dim, model)
+
+  @recursive
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
-
 
 class ResidualLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!ResidualLSTMEncoder'
   def __init__(self, input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
+    super(ResidualLSTMEncoder, self).__init__()
     model = model_globals.dynet_param_collection.param_col
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
@@ -57,34 +67,43 @@ class ResidualLSTMEncoder(BuilderEncoder, Serializable):
       self.builder = residual.ResidualBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
     else:
       self.builder = residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
+
+  @recursive
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
 class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!PyramidalLSTMEncoder'
   def __init__(self, input_dim=512, layers=1, hidden_dim=None, downsampling_method="skip", reduce_factor=2, dropout=None):
+    super(PyramidalLSTMEncoder, self).__init__()
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
     self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim, model_globals.dynet_param_collection.param_col, dy.VanillaLSTMBuilder, downsampling_method, reduce_factor)
+
+  @recursive
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
 class ConvBiRNNBuilder(BuilderEncoder, Serializable):
   yaml_tag = u'!ConvBiRNNBuilder'
   def init_builder(self, input_dim, layers, hidden_dim=None, chn_dim=3, num_filters=32, filter_size_time=3, filter_size_freq=3, stride=(2,2), dropout=None):
+    super(ConvBiRNNBuilder, self).__init__()
     model = model_globals.dynet_param_collection.param_col
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
     self.builder = conv_encoder.ConvBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder,
                                             chn_dim, num_filters, filter_size_time, filter_size_freq, stride)
+
+  @recursive
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
 class ModularEncoder(Encoder, Serializable):
   yaml_tag = u'!ModularEncoder'
   def __init__(self, input_dim, modules):
+    super(ModularEncoder, self).__init__()
     self.modules = modules
 
   def shared_params(self):
@@ -95,8 +114,8 @@ class ModularEncoder(Encoder, Serializable):
       sent = module.transduce(sent)
     return sent
 
-  def get_train_test_components(self):
-    return self.modules
-
-
+  @recursive
+  def set_train(self, val):
+    for module in self.modules:
+      module.set_train(val)
 
