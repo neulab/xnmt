@@ -1,4 +1,5 @@
 import dynet as dy
+import expression_sequence
 from encoder import *
 
 # This is a file for specialized encoders that implement a particular model
@@ -59,7 +60,7 @@ class HarwathSpeechEncoder(Encoder, Serializable):
     output = dy.reshape(output, (self.num_filters[2],), batch_size = batch_size)
     # print("my dim: ", output.dim())
 
-    return ExpressionSequence(expr_tensor=output)
+    return expression_sequence.ExpressionSequence(expr_tensor=output)
 
   def initial_state(self):
     return PseudoState(self)
@@ -106,7 +107,7 @@ class HarwathImageEncoder(Encoder, Serializable):
     # convolution and pooling layers
     l1 = (W*src)+b
     output = dy.cdiv(l1,dy.sqrt(dy.squared_norm(l1)))
-    return ExpressionSequence(expr_tensor=output)
+    return expression_sequence.ExpressionSequence(expr_tensor=output)
 
   def initial_state(self):
     return PseudoState(self)
