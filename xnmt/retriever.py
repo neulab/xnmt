@@ -37,7 +37,7 @@ class StandardRetrievalDatabase(Serializable):
 
 ##### The actual retriever class
 
-class Retriever(GeneratorModel, HierarchicalModel):
+class Retriever(GeneratorModel):
   '''
   A template class implementing a retrieval model.
   '''
