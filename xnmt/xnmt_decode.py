@@ -66,19 +66,23 @@ def xnmt_decode(args, model_elements=None):
   generator.set_train(False)
   generator.initialize(args)
   generator.set_vocabs(src_vocab, trg_vocab)
+  # TODO: Structure it better. not only Translator can have post processes
   if issubclass(generator.__class__, Translator):
     generator.set_post_processor(output_processor_for_spec(args.post_process))
   # Perform generation of output
-  report = None
   with io.open(args.trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
-    for idx, src in enumerate(src_corpus):
+    for i, src in enumerate(src_corpus):
+      # Do the decoding
       if args.max_src_len is not None and len(src) > args.max_src_len:
         outputs = NO_DECODING_ATTEMPTED
       else:
         dy.renew_cg()
-        outputs = generator.generate_output(src)
-
+        outputs = generator.generate_output(src, i)
+      # Printing to trg file
       fp.write(u"{}\n".format(outputs))
+      # Generating html report
+      if hasattr(generator, "generate_html_report") and args.report_path is not None:
+        generator.generate_html_report()
 
 def output_processor_for_spec(spec):
   if spec == "none":

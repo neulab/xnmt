@@ -1,17 +1,3 @@
-import functools
-
-def recursive(f):
-  def rec_f(obj, *args, **kwargs):
-    name = f.__name__
-    # Invoke the method
-    f(obj, *args, **kwargs)
-    # Invoker the method of all children, if the children has that method
-    for member in obj._hier_children:
-      if hasattr(member, name):
-        getattr(member, name)(*args, **kwargs)
-
-  return rec_f
-
 class HierarchicalModel(object):
   ''' Hierarchical Model interface '''
   def __init__(self):

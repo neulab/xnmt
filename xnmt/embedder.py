@@ -1,10 +1,11 @@
 from __future__ import division, generators
 
-from batcher import *
 import dynet as dy
+import batcher
+import model_globals
+
 from serializer import Serializable
 from expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
-import model_globals
 
 class Embedder(object):
   """
@@ -56,7 +57,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   def embed(self, x):
     # single mode
-    if not Batcher.is_batched(x):
+    if not batcher.is_batched(x):
       return self.embeddings[x]
     # minibatch mode
     else:
@@ -64,13 +65,13 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   def embed_sent(self, sent):
     # single mode
-    if not Batcher.is_batched(sent):
+    if not batcher.is_batched(sent):
       embeddings = [self.embed(word) for word in sent]
     # minibatch mode
     else:
       embeddings = []
       for word_i in range(len(sent[0])):
-        embeddings.append(self.embed(Batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
+        embeddings.append(self.embed(batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
 
     return ExpressionSequence(expr_list=embeddings)
 
@@ -90,25 +91,25 @@ class NoopEmbedder(Embedder, Serializable):
     self.emb_dim = emb_dim
 
   def embed(self, x):
-    return dy.inputTensor(x, batched=Batcher.is_batched(x))
+    return dy.inputTensor(x, batched=batcher.is_batched(x))
 
   def embed_sent(self, sent):
     # TODO refactor: seems a bit too many special cases that need to be distinguished
     if isinstance(sent, ExpressionSequence):
       return sent
-    batched = Batcher.is_batched(sent)
+    batched = batcher.is_batched(sent)
     first_sent = sent[0] if batched else sent
     if hasattr(first_sent, "get_array"):
       if not batched:
         return LazyNumpyExpressionSequence(lazy_data=sent.get_array())
       else:
-        return LazyNumpyExpressionSequence(lazy_data=Batcher.mark_as_batch(map(lambda s: s.get_array(), sent)))
+        return LazyNumpyExpressionSequence(lazy_data=batcher.mark_as_batch(map(lambda s: s.get_array(), sent)))
     else:
       if not batched:
         embeddings = [self.embed(word) for word in sent]
       else:
         embeddings = []
         for word_i in range(len(first_sent)):
-          embeddings.append(self.embed(Batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
+          embeddings.append(self.embed(batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
       return ExpressionSequence(expr_list=embeddings)
 

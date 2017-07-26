@@ -1,10 +1,14 @@
 import dynet as dy
-from mlp import MLP
-import inspect
-from batcher import *
-from serializer import Serializable
+import serializer
 import model_globals
-from model import HierarchicalModel, recursive
+import batcher
+import model
+import mlp
+import decorators
+
+# Short Name
+HierarchicalModel = model.HierarchicalModel
+Serializable = serializer.Serializable
 
 class Decoder(HierarchicalModel):
   '''
@@ -30,7 +34,6 @@ class RnnDecoder(Decoder):
     else:
       raise RuntimeError("Unknown decoder type {}".format(spec))
 
-
 class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
@@ -45,7 +48,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     trg_embed_dim = trg_embed_dim or model_globals.get("default_layer_dim")
     input_dim = input_dim or model_globals.get("default_layer_dim")
     self.fwd_lstm = RnnDecoder.rnn_from_spec(rnn_spec, layers, trg_embed_dim, lstm_dim, model_globals.dynet_param_collection.param_col, residual_to_output)
-    self.mlp = MLP(input_dim + lstm_dim, mlp_hidden_dim, vocab_size, model_globals.dynet_param_collection.param_col)
+    self.mlp = mlp.MLP(input_dim + lstm_dim, mlp_hidden_dim, vocab_size, model_globals.dynet_param_collection.param_col)
     self.dropout = dropout or model_globals.get("dropout")
     self.state = None
 
@@ -64,13 +67,13 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   def calc_loss(self, context, ref_action):
     scores = self.get_scores(context)
     # single mode
-    if not Batcher.is_batched(ref_action):
+    if not batcher.is_batched(ref_action):
       return dy.pickneglogsoftmax(scores, ref_action)
     # minibatch mode
     else:
       return dy.pickneglogsoftmax_batch(scores, ref_action)
 
-  @recursive
+  @decorators.recursive
   def set_train(self, val):
     self.fwd_lstm.set_dropout(self.dropout if val else 0.0)
 

@@ -4,14 +4,17 @@ import six
 import dynet as dy
 import numpy as np
 import os
+import batcher
+import serializer
+import model
+import decorators
 
-from batcher import *
-from vocab import Vocab
-from serializer import Serializable, DependentInitParam
-from model import HierarchicalModel, GeneratorModel, recursive
+# Shortnames
+Serializable = serializer.Serializable
+HierarchicalModel = model.HierarchicalModel
+GeneratorModel = model.GeneratorModel
 
 ##### A class for retrieval databases
-
 # This file contains databases used for retrieval.
 # At the moment it includes only a standard database that keeps all of the things
 # to be retrieved in a list.
@@ -30,7 +33,7 @@ class StandardRetrievalDatabase(Serializable):
     self.test_id_file = test_id_file
 
   def __getitem__(self, indices):
-    return Batcher.mark_as_batch(Batcher.pad([self.data[index] for index in indices]))
+    return batcher.mark_as_batch(batcher.pad([self.data[index] for index in indices]))
 
 ##### The actual retriever class
 
@@ -56,7 +59,7 @@ class Retriever(GeneratorModel, HierarchicalModel):
     '''
     pass
 
-  def generate(self, src):
+  def generate(self, src, i):
     '''Perform retrieval, trying to get the sentence that most closely matches in the database.
 
     :param src: The source.
@@ -64,7 +67,7 @@ class Retriever(GeneratorModel, HierarchicalModel):
     '''
     raise NotImplementedError('retrieve must be implemented for Retriever subclasses')
 
-  @recursive
+  @decorators.recursive
   def set_train(self, val):
     pass
 
@@ -142,7 +145,7 @@ class DotProductRetriever(Retriever, Serializable):
     dim = encodings.dim()
     return dy.reshape(encodings, (dim[0][0], dim[1]))
 
-  def generate(self, src, return_type="idxscore", nbest=5):
+  def generate(self, src, i, return_type="idxscore", nbest=5):
     src_embedding = self.src_embedder.embed_sent(src)
     src_encoding = dy.transpose(self.exprseq_pooling(self.src_encoder.transduce(src_embedding))).npvalue()
     scores = np.dot(src_encoding, self.database.indexed)

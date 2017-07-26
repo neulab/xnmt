@@ -1,11 +1,18 @@
 import dynet as dy
+import model
+import decorators
+import embedder
+import serializer
+import model_globals
+
+# All types of encoder
 import residual
 import pyramidal
 import conv_encoder
-from embedder import ExpressionSequence
-from serializer import Serializable
-import model_globals
-from model import HierarchicalModel, recursive
+
+# Shortcut
+Serializable = serializer.Serializable
+HierarchicalModel = model.HierarchicalModel
 
 class Encoder(HierarchicalModel):
   """
@@ -23,7 +30,7 @@ class Encoder(HierarchicalModel):
 
 class BuilderEncoder(Encoder):
   def transduce(self, sent):
-    return ExpressionSequence(expr_list=self.builder.transduce(sent))
+    return embedder.ExpressionSequence(expr_list=self.builder.transduce(sent))
 
 class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
@@ -43,7 +50,7 @@ class LSTMEncoder(BuilderEncoder, Serializable):
     else:
       self.builder = dy.VanillaLSTMBuilder(layers, input_dim, hidden_dim, model)
 
-  @recursive
+  @decorators.recursive
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
@@ -60,7 +67,7 @@ class ResidualLSTMEncoder(BuilderEncoder, Serializable):
     else:
       self.builder = residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
 
-  @recursive
+  @decorators.recursive
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
@@ -73,7 +80,7 @@ class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
     self.dropout = dropout
     self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim, model_globals.dynet_param_collection.param_col, dy.VanillaLSTMBuilder, downsampling_method, reduce_factor)
 
-  @recursive
+  @decorators.recursive
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
@@ -88,7 +95,7 @@ class ConvBiRNNBuilder(BuilderEncoder, Serializable):
     self.builder = conv_encoder.ConvBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder,
                                             chn_dim, num_filters, filter_size_time, filter_size_freq, stride)
 
-  @recursive
+  @decorators.recursive
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
@@ -106,7 +113,7 @@ class ModularEncoder(Encoder, Serializable):
       sent = module.transduce(sent)
     return sent
 
-  @recursive
+  @decorators.recursive
   def set_train(self, val):
     for module in self.modules:
       module.set_train(val)
