@@ -1,16 +1,28 @@
 from __future__ import division, generators
 
 import dynet as dy
-from batcher import *
-from search_strategy import *
+import numpy as np
+import length_normalization
+import decorators
+import batcher
+import six
+import plot
+import os
+
 from vocab import Vocab
 from serializer import Serializable, DependentInitParam
-from train_test_interface import TrainTestInterface
+from search_strategy import BeamSearch
 from embedder import SimpleWordEmbedder
 from decoder import MlpSoftmaxDecoder
 from output import TextOutput
+from model import HierarchicalModel, GeneratorModel
+from reports import HTMLReportable
+from decorators import recursive_assign, recursive
 
-class Translator(TrainTestInterface):
+# Reporting purposes
+from lxml import etree
+
+class Translator(GeneratorModel):
   '''
   A template class implementing an end-to-end translator that can calculate a
   loss and generate translations.
@@ -31,32 +43,23 @@ class Translator(TrainTestInterface):
     '''
     return None
 
-  def translate(self, src):
-    '''Translate a particular sentence.
-
-    :param src: The source, a sentence or a batch of sentences.
-    :returns: A translated expression.
-    '''
-    raise NotImplementedError('translate must be implemented for Translator subclasses')
-
+  @recursive
   def set_train(self, val):
-    for component in self.get_train_test_components():
-      Translator.set_train_recursive(component, val)
+    pass
 
-  @staticmethod
-  def set_train_recursive(component, val):
-    component.set_train(val)
-    for sub_component in component.get_train_test_components():
-      Translator.set_train_recursive(sub_component, val)
+  def set_vocabs(self, src_vocab, trg_vocab):
+    self.src_vocab = src_vocab
+    self.trg_vocab = trg_vocab
 
+  def set_post_processor(self, post_processor):
+    self.post_processor = post_processor
 
-class DefaultTranslator(Translator, Serializable):
+class DefaultTranslator(Translator, Serializable, HTMLReportable):
   '''
   A default translator based on attentional sequence-to-sequence models.
   '''
 
   yaml_tag = u'!DefaultTranslator'
-
 
   def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder):
     '''Constructor.
@@ -67,28 +70,33 @@ class DefaultTranslator(Translator, Serializable):
     :param trg_embedder: A word embedder for the output language
     :param decoder: A decoder
     '''
+    super(DefaultTranslator, self).__init__()
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
 
-  def shared_params(self):
-    return [
-            set(["src_embedder.emb_dim", "encoder.input_dim"]),
-            set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]), # TODO: encoder.hidden_dim may not always exist (e.g. for CNN encoders), need to deal with that case
-            set(["attender.state_dim", "decoder.lstm_dim"]),
-            set(["trg_embedder.emb_dim", "decoder.trg_embed_dim"]),
-            ]
-  def dependent_init_params(self):
-    return [
-            DependentInitParam(param_descr="src_embedder.vocab_size", value_fct=lambda: self.context["corpus_parser"].src_reader.vocab_size()),
-            DependentInitParam(param_descr="decoder.vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
-            DependentInitParam(param_descr="trg_embedder.vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
-            ]
+    self.register_hier_child(self.encoder)
+    self.register_hier_child(self.decoder)
 
-  def get_train_test_components(self):
-    return [self.encoder, self.decoder]
+  def shared_params(self):
+    return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
+            # TODO: encoder.hidden_dim may not always exist (e.g. for CNN encoders), need to deal with that case    
+            set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]),
+            set(["attender.state_dim", "decoder.lstm_dim"]),
+            set(["trg_embedder.emb_dim", "decoder.trg_embed_dim"])]
+
+  def dependent_init_params(self):
+    return [DependentInitParam(param_descr="src_embedder.vocab_size", value_fct=lambda: self.context["corpus_parser"].src_reader.vocab_size()),
+            DependentInitParam(param_descr="decoder.vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
+            DependentInitParam(param_descr="trg_embedder.vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size())]
+
+  def initialize(self, args):
+      # Search Strategy
+    len_norm_type   = getattr(length_normalization, args.len_norm_type)
+    self.search_strategy = BeamSearch(b=args.beam, max_len=args.max_len, len_norm=len_norm_type(**args.len_norm_params))
+    self.report_path = args.report_path
 
   def calc_loss(self, src, trg, info=None):
     embeddings = self.src_embedder.embed_sent(src)
@@ -99,7 +107,7 @@ class DefaultTranslator(Translator, Serializable):
     losses = []
 
     # single mode
-    if not Batcher.is_batched(src):
+    if not batcher.is_batched(src):
       for ref_word in trg:
         context = self.attender.calc_context(self.decoder.state.output())
         word_loss = self.decoder.calc_loss(context, ref_word)
@@ -111,7 +119,7 @@ class DefaultTranslator(Translator, Serializable):
       max_len = max([len(single_trg) for single_trg in trg])
 
       for i in range(max_len):
-        ref_word = Batcher.mark_as_batch([single_trg[i] if i < len(single_trg) else Vocab.ES for single_trg in trg])
+        ref_word = batcher.mark_as_batch([single_trg[i] if i < len(single_trg) else Vocab.ES for single_trg in trg])
         context = self.attender.calc_context(self.decoder.state.output())
 
         word_loss = self.decoder.calc_loss(context, ref_word)
@@ -124,12 +132,13 @@ class DefaultTranslator(Translator, Serializable):
 
     return dy.esum(losses)
 
-  def translate(self, src, trg_vocab, search_strategy=None, report=None):
+  def generate(self, src, idx):
     # Not including this as a default argument is a hack to get our documentation pipeline working
+    search_strategy = self.search_strategy
     if search_strategy == None:
       search_strategy = BeamSearch(1, len_norm=NoNormalization())
-    if not Batcher.is_batched(src):
-      src = Batcher.mark_as_batch([src])
+    if not batcher.is_batched(src):
+      src = batcher.mark_as_batch([src])
     outputs = []
     for sents in src:
       embeddings = self.src_embedder.embed_sent(src)
@@ -137,8 +146,63 @@ class DefaultTranslator(Translator, Serializable):
       self.attender.start_sent(encodings)
       self.decoder.initialize()
       output_actions = search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents))
-      if report != None:
-        report.trg_words = [trg_vocab[x] for x in output_actions[1:]] # The first token is the start token
-        report.attentions = self.attender.attention_vecs
-      outputs.append(TextOutput(output_actions, trg_vocab))
+      # In case of reporting
+      if self.report_path is not None:
+        src_words = [self.src_vocab[w] for w in sents]
+        trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
+        attentions = self.attender.attention_vecs
+        self.set_html_input(idx, src_words, trg_words, attentions)
+        self.set_html_path('{}.{}'.format(self.report_path, str(idx)))
+      # Append output to the outputs
+      outputs.append(TextOutput(output_actions, self.trg_vocab))
     return outputs
+
+  @recursive_assign
+  def html_report(self, context=None):
+    assert(context is None)
+    idx, src, trg, att = self.html_input
+    path_to_report = self.html_path
+    filename_of_report = os.path.basename(path_to_report)
+    html = etree.Element('html')
+    head = etree.SubElement(html, 'head')
+    title = etree.SubElement(head, 'title')
+    body = etree.SubElement(html, 'body')
+    report = etree.SubElement(body, 'h1')
+    if idx is not None:
+      title.text = report.text = 'Translation Report for Sentence %d' % (idx)
+    else:
+      title.text = report.text = 'Translation Report'
+    main_content = etree.SubElement(body, 'div', name='main_content')
+
+    # Generating main content
+    captions = ["Source Words", "Target Words"]
+    inputs = [src, trg]
+    for caption, inp in six.moves.zip(captions, inputs):
+      if inp is None: continue
+      sent = ' '.join(inp)
+      p = etree.SubElement(main_content, 'p')
+      p.text = "{}: {}".format(six.u(caption), six.u(sent))
+
+    attention = etree.SubElement(main_content, 'p')
+    att_text = etree.SubElement(attention, 'b')
+    att_text.text = "Attention:"
+    etree.SubElement(attention, 'br')
+    att_mtr = etree.SubElement(attention, 'img', src="{}.attention.png".format(filename_of_report))
+
+    self.attention_file = "{}.attention.png".format(path_to_report)
+
+    # return the parent context to be used as child context
+    return html
+
+  @recursive
+  def write_resources(self):
+    idx, src, trg, att = self.html_input
+    # Generating attention
+    if not any([src is None, trg is None, att is None]):
+      if type(att) == dy.Expression:
+        attentions = att.npvalue()
+      elif type(att) == list:
+        attentions = np.concatenate([x.npvalue() for x in att], axis=1)
+      elif type(att) != np.ndarray:
+        raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
+      plot.plot_attention(src, trg, attentions, file_name = self.attention_file)

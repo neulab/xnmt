@@ -1,5 +1,5 @@
 import dynet as dy
-from batcher import Batcher
+import batcher
 
 class ExpressionSequence(object):
   """A class to represent a sequence of expressions.
@@ -80,7 +80,7 @@ class LazyNumpyExpressionSequence(ExpressionSequence):
     if self.expr_list or self.expr_tensor:
       return super(LazyNumpyExpressionSequence, self).__len__()
     else:
-      if Batcher.is_batched(self.lazy_data):
+      if batcher.is_batched(self.lazy_data):
         return self.lazy_data[0].shape[0]
       else: return self.lazy_data.shape[0]
   def __iter__(self):
@@ -91,11 +91,11 @@ class LazyNumpyExpressionSequence(ExpressionSequence):
     if self.expr_list or self.expr_tensor:
       return super(LazyNumpyExpressionSequence, self).__getitem__(key)
     else:
-      if Batcher.is_batched(self.lazy_data):
+      if batcher.is_batched(self.lazy_data):
         return dy.inputTensor([self.lazy_data[batch][key] for batch in range(len(self.lazy_data))], batched=True)
       else:
         return dy.inputTensor(self.lazy_data[key], batched=False)
   def as_tensor(self):
     if not (self.expr_list or self.expr_tensor):
-      self.expr_tensor = dy.inputTensor(self.lazy_data, batched=Batcher.is_batched(self.lazy_data))
+      self.expr_tensor = dy.inputTensor(self.lazy_data, batched=batcher.is_batched(self.lazy_data))
     return super(LazyNumpyExpressionSequence, self).as_tensor()

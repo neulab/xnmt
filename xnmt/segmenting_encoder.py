@@ -40,10 +40,10 @@ class SegmentingEncoderBuilder(object):
       segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0] for log_softmax in segment_logsoftmaxes]
     else:
       segment_decisions = [log_softmax.tensor_value().argmax().as_numpy().transpose() for log_softmax in segment_logsoftmaxes]
-    
+
     assert len(encodings) == len(segment_decisions), \
            "Encoding={}, segment={}".format(len(encodings), len(segment_decisions))
-    
+
     # The last segment decision should be equal to 1
     if len(segment_decisions) > 0:
       #for sg in segment_decisions:
@@ -53,7 +53,7 @@ class SegmentingEncoderBuilder(object):
     buffers = [[] for _ in range(num_batch)]
     outputs = [[] for _ in range(num_batch)]
     self.segment_transducer.set_input_size(num_batch, len(encodings))
-    
+
     # Loop through all the frames (word / item) in input.
     for j, (encoding, segment_decision) in enumerate(six.moves.zip(encodings, segment_decisions)):
       # For each decision in the batch

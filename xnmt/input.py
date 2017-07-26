@@ -14,8 +14,10 @@ class Input(object):
   """
   def __len__(self):
     raise NotImplementedError("__len__() must be implemented by Input subclasses")
+
   def __getitem__(self):
     raise NotImplementedError("__getitem__() must be implemented by Input subclasses")
+
   def get_padded_sent(self, token, pad_len):
     raise NotImplementedError("get_padded_sent() must be implemented by Input subclasses")
 
@@ -25,13 +27,17 @@ class SimpleSentenceInput(Input):
   """
   def __init__(self, l):
     self.l = l
+
   def __len__(self):
     return self.l.__len__()
+
   def __getitem__(self, key):
     return self.l.__getitem__(key)
+
   def get_padded_sent(self, token, pad_len):
     self.l.extend([token] * pad_len)
     return self
+
   def __str__(self):
     return " ".join(six.moves.map(str, self.l))
 
@@ -41,21 +47,24 @@ class ArrayInput(Input):
   """
   def __init__(self, nparr):
     self.nparr = nparr
+
   def __len__(self):
     return self.nparr.__len__()
+
   def __getitem__(self, key):
     return self.nparr.__getitem__(key)
+
   def get_padded_sent(self, token, pad_len):
     if pad_len > 0:
       self.nparr = np.append(self.nparr, np.zeros((pad_len, self.nparr.shape[1])), axis=0)
     return self
+
   def get_array(self):
     return self.nparr
 
 ###### Classes that will read in a file and turn it into an input
 
 class InputReader(object):
-
   def read_sents(self, filename, filter_ids=None):
     """
     :param filename: data file
@@ -63,12 +72,14 @@ class InputReader(object):
     :returns: iterator over sentences from filename
     """
     raise RuntimeError("Input readers must implement the read_sents function")
+
   def count_sents(self, filename):
     """
     :param filename: data file
     :returns: number of sentences in the data file
     """
     raise RuntimeError("Input readers must implement the count_sents function")
+
   def freeze(self):
     pass
 
@@ -79,6 +90,7 @@ class BaseTextReader(InputReader):
       for _ in f:
         i+=1
     return i
+
   def iterate_filtered(self, filename, filter_ids=None):
     """
     :param filename: data file (text file)
@@ -203,9 +215,6 @@ class IDReader(BaseTextReader, Serializable):
   Handles the case where we need to read in a single ID (like retrieval problems)
   """
   yaml_tag = u"!IDReader"
-
-  def __init__(self):
-    pass
 
   def read_sents(self, filename, filter_ids=None):
     #print(filename)

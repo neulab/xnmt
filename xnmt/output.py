@@ -1,3 +1,4 @@
+import six
 from vocab import Vocab
 
 class Output(object):
@@ -16,11 +17,12 @@ class TextOutput(Output):
     self.actions = actions or []
     self.vocab = vocab
     self.filtered_tokens = set([Vocab.SS, Vocab.ES])
+
   def to_string(self):
-    return map(lambda wi: self.vocab[wi], filter(lambda wi: wi not in self.filtered_tokens, self.actions))
+    return six.moves.map(lambda wi: self.vocab[wi], filter(lambda wi: wi not in self.filtered_tokens, self.actions))
 
 class OutputProcessor(object):
-  def process(self, outputs):
+  def process_outputs(self, outputs):
     raise NotImplementedError()
 
 class PlainTextOutputProcessor(OutputProcessor):
@@ -41,6 +43,7 @@ class JoinedCharTextOutputProcessor(PlainTextOutputProcessor):
   '''
   def __init__(self, space_token=u"__"):
     self.space_token = space_token
+
   def words_to_string(self, word_list):
     return u"".join(map(lambda s: u" " if s==self.space_token else s, word_list))
 
@@ -51,5 +54,6 @@ class JoinedBPETextOutputProcessor(PlainTextOutputProcessor):
   '''
   def __init__(self, merge_indicator=u"@@"):
     self.merge_indicator_with_space = merge_indicator + u" "
+
   def words_to_string(self, word_list):
     return u" ".join(word_list).replace(self.merge_indicator_with_space, u"")

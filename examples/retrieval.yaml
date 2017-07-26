@@ -17,7 +17,7 @@ defaults:
       train_src: examples/data/train-char.ja
       train_trg: examples/data/train.allids
       train_id_file: examples/data/train.allids
-      dev_src: examples/data/dev-char.ja
+      dev_src: examples/data/dev.ja
       dev_trg: examples/data/dev.allids
       dev_id_file: examples/data/dev.allids
     corpus_parser: !BilingualCorpusParser
@@ -38,7 +38,7 @@ defaults:
         reader: !PlainTextReader {}
         database_file: examples/data/traindevtest.en
   decode:
-    src_file: examples/data/test-char.ja
+    src_file: examples/data/test.ja
     candidate_id_file: examples/data/test.allids
   evaluate:
     ref_file: examples/data/test.allids

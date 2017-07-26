@@ -2,16 +2,17 @@ from __future__ import division, generators
 
 import six
 import dynet as dy
-from batcher import *
-from search_strategy import *
-from vocab import Vocab
-from serializer import Serializable, DependentInitParam
-from train_test_interface import TrainTestInterface
 import numpy as np
 import os
+import batcher
+import serializer
+import model
+
+from decorators import recursive
+from model import GeneratorModel
+from serializer import Serializable
 
 ##### A class for retrieval databases
-
 # This file contains databases used for retrieval.
 # At the moment it includes only a standard database that keeps all of the things
 # to be retrieved in a list.
@@ -30,11 +31,10 @@ class StandardRetrievalDatabase(Serializable):
     self.test_id_file = test_id_file
 
   def __getitem__(self, indices):
-    return Batcher.mark_as_batch(Batcher.pad([self.data[index] for index in indices]))
+    return batcher.mark_as_batch(batcher.pad([self.data[index] for index in indices]))
 
 ##### The actual retriever class
-
-class Retriever(TrainTestInterface):
+class Retriever(GeneratorModel):
   '''
   A template class implementing a retrieval model.
   '''
@@ -59,7 +59,7 @@ class Retriever(TrainTestInterface):
     '''
     pass
 
-  def retrieve(self, src):
+  def generate(self, src, i):
     '''Perform retrieval, trying to get the sentence that most closely matches in the database.
 
     :param src: The source.
@@ -67,21 +67,23 @@ class Retriever(TrainTestInterface):
     '''
     raise NotImplementedError('retrieve must be implemented for Retriever subclasses')
 
+  @recursive
   def set_train(self, val):
-    for component in self.get_train_test_components():
-      Retriever.set_train_recursive(component, val)
-
-  @staticmethod
-  def set_train_recursive(component, val):
-    component.set_train(val)
-    for sub_component in component.get_train_test_components():
-      Retriever.set_train_recursive(sub_component, val)
+    pass
 
   def calc_reinforce_loss(self, reward):
     pass
 
+  @recursive
   def new_epoch(self):
     pass
+
+  def initialize(self, args):
+    candidates = None
+    if args.candidate_id_file != None:
+      with open(args.candidate_id_file, "r") as f:
+        candidates = sorted({int(x):1 for x in f}.keys())
+    self.index_database(candidates)
 
 class DotProductRetriever(Retriever, Serializable):
   '''
@@ -89,7 +91,6 @@ class DotProductRetriever(Retriever, Serializable):
   '''
 
   yaml_tag = u'!DotProductRetriever'
-
 
   def __init__(self, src_embedder, src_encoder, trg_embedder, trg_encoder, database):
     '''Constructor.
@@ -100,14 +101,15 @@ class DotProductRetriever(Retriever, Serializable):
     :param trg_encoder: An encoder for the target language
     :param database: A database of things to retrieve
     '''
+    super(DotProductRetriever, self).__init__()
     self.src_embedder = src_embedder
     self.src_encoder = src_encoder
     self.trg_embedder = trg_embedder
     self.trg_encoder = trg_encoder
     self.database = database
 
-  def get_train_test_components(self):
-    return [self.src_encoder, self.trg_encoder]
+    self.register_hier_child(self.src_encoder)
+    self.register_hier_child(self.trg_encoder)
 
   def exprseq_pooling(self, exprseq):
     # Reduce to vector
@@ -148,14 +150,14 @@ class DotProductRetriever(Retriever, Serializable):
     dim = encodings.dim()
     return dy.reshape(encodings, (dim[0][0], dim[1]))
 
-  def retrieve(self, src, return_type="idxscore", nbest=5):
+  def generate(self, src, i, return_type="idxscore", nbest=5):
     src_embedding = self.src_embedder.embed_sent(src)
     src_encoding = dy.transpose(self.exprseq_pooling(self.src_encoder.transduce(src_embedding))).npvalue()
     scores = np.dot(src_encoding, self.database.indexed)
     kbest = np.argsort(scores, axis=1)[0,-nbest:][::-1]
     ids = kbest if self.database.inverted_index == None else [self.database.inverted_index[x] for x in kbest]
     if return_type == "idxscore":
-      return [(i,scores[0,x]) for i, x in zip(ids, kbest)]
+      return [(i,scores[0,x]) for i, x in six.moves.zip(ids, kbest)]
     elif return_type == "idx":
       return list(ids)
     elif return_type == "score":
@@ -166,6 +168,7 @@ class DotProductRetriever(Retriever, Serializable):
   def calc_reinforce_loss(self, reward):
     return self.src_encoder.calc_reinforce_loss(reward)
 
+  @recursive
   def new_epoch(self):
-    self.src_encoder.new_epoch()
-    self.trg_encoder.new_epoch()
+    pass
+

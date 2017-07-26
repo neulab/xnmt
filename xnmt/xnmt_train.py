@@ -1,11 +1,12 @@
 # coding: utf-8
-from __future__ import division
+from __future__ import division, print_function
 
 import argparse
 import math
 import sys
 import dynet as dy
 import six
+import batcher
 from embedder import *
 from attender import *
 from input import *
@@ -100,13 +101,17 @@ class XnmtTrainer(object):
     # minibatch mode
     else:
       print('Start training in minibatch mode...')
-      self.batcher = Batcher.from_spec(args.batch_strategy, args.batch_size)
+      self.batcher = batcher.from_spec(args.batch_strategy, args.batch_size)
       if args.src_format == "contvec":
         self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
       self.pack_batches()
       self.logger = BatchLossTracker(args.dev_every, self.total_train_sent)
+
   def is_batch_mode(self):
-    return not (self.args.batch_size is None or self.args.batch_size == 1 or self.args.batch_strategy.lower() == 'none')
+    return not (self.args.batch_size is None or
+                self.args.batch_size == 1 or
+                self.args.batch_strategy.lower() == 'none')
+
   def pack_batches(self):
     self.train_src, self.train_trg = \
       self.batcher.pack(self.training_corpus.train_src_data, self.training_corpus.train_trg_data)
@@ -129,7 +134,7 @@ class XnmtTrainer(object):
     self.corpus_parser = self.model_serializer.initialize_object(self.args.corpus_parser)
     self.corpus_parser.read_training_corpus(self.training_corpus)
     self.total_train_sent = len(self.training_corpus.train_src_data)
-    context={"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
+    context = {"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
     model_globals.model_globals["default_layer_dim"] = self.args.default_layer_dim
     model_globals.model_globals["dropout"] = self.args.dropout
     self.model = self.model_serializer.initialize_object(self.args.model, context)
@@ -141,7 +146,7 @@ class XnmtTrainer(object):
     self.corpus_parser.read_training_corpus(self.training_corpus)
     model_globals.model_globals = my_model_globals
     self.total_train_sent = len(self.training_corpus.train_src_data)
-    context={"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
+    context = {"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
     self.model = self.model_serializer.initialize_object(model, context)
     model_globals.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
 
@@ -205,7 +210,6 @@ class XnmtTrainer(object):
 
       # Log the loss sum
       self.logger.update_epoch_loss(src, trg, loss)
-
       loss.compute().backward()
       self.trainer.update()
 
@@ -275,7 +279,6 @@ class XnmtTrainer(object):
 
         self.model.set_train(True)
         self.model.new_epoch()
-
 
   def compute_dev_loss(self):
     loss = LossBuilder()
