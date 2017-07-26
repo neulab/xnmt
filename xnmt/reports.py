@@ -2,7 +2,7 @@
 from lxml import etree
 
 class HTMLReportable(object):
-  def html_report(self, parent_context=None):
+  def html_report(self, context=None):
     raise NotImplementedError()
 
   def set_html_input(self, *inputs):

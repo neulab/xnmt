@@ -7,12 +7,10 @@ import os
 import batcher
 import serializer
 import model
-import decorators
 
-# Shortnames
-Serializable = serializer.Serializable
-HierarchicalModel = model.HierarchicalModel
-GeneratorModel = model.GeneratorModel
+from decorators import recursive
+from model import GeneratorModel
+from serializer import Serializable
 
 ##### A class for retrieval databases
 # This file contains databases used for retrieval.
@@ -67,7 +65,7 @@ class Retriever(GeneratorModel):
     '''
     raise NotImplementedError('retrieve must be implemented for Retriever subclasses')
 
-  @decorators.recursive
+  @recursive
   def set_train(self, val):
     pass
 

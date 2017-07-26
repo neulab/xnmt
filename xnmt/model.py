@@ -25,10 +25,4 @@ class GeneratorModel(HierarchicalModel):
   def initialize(self, system_args):
     pass
 
-  def set_vocabs(self, src_vocab, trg_vocab):
-    self.src_vocab = src_vocab
-    self.trg_vocab = trg_vocab
-
-  def set_post_processor(self, post_processor):
-    self.post_processor = post_processor
 

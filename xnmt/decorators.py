@@ -24,16 +24,16 @@ def recursive(f):
 def recursive_assign(f):
   ''' A decorator that behaves the same way as recursive but keep returning the context of a previous
       method invocation and pass the context to the next. We assume that the decorated method will use / modify
-      the context as needed and the first argument of the method is always the context.
+      the context as needed.
   '''
-  def rec_f(obj, ctxt, *args, **kwargs):
+  def rec_f(obj, *args, context=None, **kwargs):
     assert(issubclass(obj.__class__, model.HierarchicalModel))
     name = f.__name__
-    ctxt = f(obj, ctxt, *args, **kwargs)
+    context = f(obj, *args, context=context, **kwargs)
     for member in obj._hier_children:
       if hasattr(member, name):
-        ctxt = getattr(member, name)(ctxt, *args, **kwargs)
-    return ctxt
+        context = getattr(member, name)(*args, context=context, **kwargs)
+    return context
 
   return rec_f
 

@@ -4,7 +4,8 @@ import model_globals
 import batcher
 import model
 import mlp
-import decorators
+
+from decorators import recursive, recursive_assign
 
 # Short Name
 HierarchicalModel = model.HierarchicalModel
@@ -73,7 +74,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     else:
       return dy.pickneglogsoftmax_batch(scores, ref_action)
 
-  @decorators.recursive
+  @recursive
   def set_train(self, val):
     self.fwd_lstm.set_dropout(self.dropout if val else 0.0)
 

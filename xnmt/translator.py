@@ -17,6 +17,7 @@ from decoder import MlpSoftmaxDecoder
 from output import TextOutput
 from model import HierarchicalModel, GeneratorModel
 from reports import HTMLReportable
+from decorators import recursive_assign, recursive
 
 # Reporting purposes
 from lxml import etree
@@ -44,9 +45,16 @@ class Translator(GeneratorModel):
     '''
     raise NotImplementedError('translate must be implemented for Translator subclasses')
 
-  @decorators.recursive
+  @recursive
   def set_train(self, val):
     pass
+
+  def set_vocabs(self, src_vocab, trg_vocab):
+    self.src_vocab = src_vocab
+    self.trg_vocab = trg_vocab
+
+  def set_post_processor(self, post_processor):
+    self.post_processor = post_processor
 
 class DefaultTranslator(Translator, Serializable, HTMLReportable):
   '''
@@ -151,9 +159,9 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
       outputs.append(TextOutput(output_actions, self.trg_vocab))
     return outputs
 
-  @decorators.recursive_assign
-  def html_report(self, parent_context=None):
-    assert(parent_context is None)
+  @recursive_assign
+  def html_report(self, context=None):
+    assert(context is None)
     idx, src, trg, att = self.html_input
     path_to_report = self.html_path
     filename_of_report = os.path.basename(path_to_report)
@@ -188,7 +196,7 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
     # return the parent context to be used as child context
     return html
 
-  @decorators.recursive
+  @recursive
   def write_resources(self):
     idx, src, trg, att = self.html_input
     # Generating attention

@@ -65,10 +65,10 @@ def xnmt_decode(args, model_elements=None):
   # Perform initialization
   generator.set_train(False)
   generator.initialize(args)
-  generator.set_vocabs(src_vocab, trg_vocab)
   # TODO: Structure it better. not only Translator can have post processes
   if issubclass(generator.__class__, Translator):
     generator.set_post_processor(output_processor_for_spec(args.post_process))
+    generator.set_vocabs(src_vocab, trg_vocab)
   # Perform generation of output
   with io.open(args.trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
     for i, src in enumerate(src_corpus):
