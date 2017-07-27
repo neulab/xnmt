@@ -29,12 +29,14 @@ defaults:
       - filenum: all
         tokenizers:
         - !ExternalTokenizer
-          path: /home/jhewitt/moses/scripts/tokenize.pl
-        - !BPETokenizer
-          vocab_size: 10000
+          path: /nlp/users/johnhew/nmt/xnmt/script/code/toy_word_tokenize.py
+        - !SentencepieceTokenizer
+          path: /nlp/users/johnhew/nmt/sentencepiece/src
           train_files:
-            - examples/data/train.ja
-            - examples/data/train.en
+           - examples/data/train.ja
+           - examples/data/train.en
+          vocab_size: 10000
+          model_type: bpe
     - type: normalize
       in_files:
       - examples/data/train.tok.ja

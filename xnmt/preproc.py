@@ -1,8 +1,10 @@
 import argparse
+import io
 import sys
 import os.path
-from subprocess import Popen
+import subprocess
 import yaml
+from serializer import Serializable
 
 ##### Preprocessors
 
@@ -37,14 +39,33 @@ class NormalizerLower(Normalizer):
 
 ###### Tokenizers
 
-class Tokenizer(Normalizer, yaml.YAMLObject):
-  """Pass the text through an internal or external tokenizer."""
+class Tokenizer(Normalizer, Serializable):
+  """
+  Pass the text through an internal or external tokenizer.
+  
+  TODO: only StreamTokenizers are supported by xnmt_preproc.py right now.
+  """
+  tokenize_by_file = 0
   def tokenize(self, sent):
-    raise RuntimeError("Subclasses of Tokenizer must implement the tokenize() function")
+    raise RuntimeError("Subclasses of Tokenizer must implement tokenize() or tokenize_stream()")
+
+  def tokenize_stream(self, stream):
+    """
+    Pass a stream to a tokenizer wholesale for efficiency.
+
+    :return: A readable stream providing the tokenized file.
+
+    """
+    raise RuntimeError("Subclasses of Tokenizer must implement tokenize() or tokenize_stream()")
+
+  def detokenize(self, sent):
+    raise RuntimeError("Subclasses of Tokenizer must implement detokenize() or detokenize_stream()")
 
 class BPETokenizer(Tokenizer):
   """
   Class for byte-pair encoding tokenizer.
+
+  TODO: Unimplemented
   """
   yaml_tag = u'!BPETokenizer'
 
@@ -57,37 +78,171 @@ class BPETokenizer(Tokenizer):
     return ' '.join(['blick' for x in sent.split()])
 
 
-class ExternalTokenizer(Tokenizer):
+class StreamTokenizer(Tokenizer):
+  """
+  Class for tokenizers whose external constraints (e.g. reliance on an external
+  executable) demand that they be executed on an entire file/stream at once.
+  """
+
+  def tokenize_stream(self, stream):
+    """
+    Tokenize a file-like text stream.
+    
+    :param stream: A file-like stream of untokenized text
+    :return: A file-like stream of tokenized text
+
+    """
+    tokenized_string = self._tokenize(stream.read())
+    ram_file = io.StringIO()
+    ram_file.write(tokenized_string.decode('utf-8'))
+    ram_file.seek(0)
+    return ram_file
+
+  def detokenize_stream(self, stream):
+    """
+    Detokenize a file-like text stream.
+
+    :param stream: A tokenized file-like stream of text
+    :return: An untokenized file-like stream of text.
+
+    """
+    detokenized_string = self._detokenize(stream.read())
+    ram_file = io.StringIO()
+    ram_file.write(detokenized_string.decode('utf-8'))
+    ram_file.seek(0)
+    return ram_file
+
+
+class ExternalTokenizer(StreamTokenizer):
   """
   Class for arbitrary external tokenizer that accepts untokenized text to stdin and
   emits tokenized tezt to stdout, with passable parameters.
+
+  It is assumed that in general, external tokenizers will be more efficient when run
+  once per file, so are run as such (instead of one-execution-per-line.)
+
   """
   yaml_tag = u'!ExternalTokenizer'
+  tokenize_by_file = 1
 
-  def __init__(self, path=None):
-
-    """Initialize the wrapper around the external tokenizer."""
-    pass
-
+  def __init__(self, path, tokenizer_args={}, detokenizer_path=None, detokenizer_args={}, arg_separator=' '):
+    """Initialize the wrapper around the external tokenizer and optional detokenizer. """
+    tokenizer_options = []
+    detokenizer_options = []
+    if arg_separator != ' ':
+      tokenizer_options = [option + arg_separator + self.tokenizer_args[option]
+          for option in self.tokenizer_args]
+      detokenizer_options = [option + arg_separator + self.detokenizer_args[option]
+          for option in self.detokenizer_args]
+    else:
+      for option in tokenizer_args:
+        tokenizer_options.extend([option, self.tokenizer_args[option]])
+      for option in detokenizer_args:
+        detokenizer_options.extend([option, self.tokenizer_args[option]])
+    self.tokenizer_command = [path] + tokenizer_options
+    self.detokenizer_command = [detokenizer_path] + tokenizer_options if detokenizer_path else []
 
   def tokenize(self, sent):
-    """Pass the sentence through the external tokenizer."""
-    return ' '.join(['blick' for x in sent.split()])
+    """
+    Pass the sentence through the external tokenizer.
 
-class SentencepieceTokenizer(Tokenizer):
+    :param sent: An untokenized sentence
+    :return: A tokenized sentence
+
+    """
+    return self._tokenize(sent)
+
+  def _tokenize(self, string):
+    encode_proc = subprocess.Popen(self.tokenizer_command, stdin=subprocess.PIPE
+        , stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if isinstance(string, unicode):
+      string = string.encode('utf-8')
+    stdout, stderr = encode_proc.communicate(string)
+    if stderr:
+      sys.stderr.write(stderr + '\n')
+    return stdout
+
+  def detokenize(self, sent):
+    """
+    Detokenize a sentence or raise an error if no detokenizer was registered.
+
+    :param sent: A single line of tokenized text.
+    :return: A single line of detokenized text
+
+    """
+    return self._detokenize(sent)
+
+  def _detokenize(self, string):
+    """
+    Underlying decode call. Raises a RuntimeError
+    if no detokenizer was registered with the tokenizer.
+
+    :param string: An arbitrary tokenized string, potentially with newlines.
+    :return: A detokenized string, with newlines respected.
+
+    """
+    if not self.detokenizer_command:
+      raise RuntimeError("No detokenizer registered for this tokenizer.")
+    decode_proc = subprocess.Popen(self.detokenize_command, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    (stdout, stderr) = decode_proc.communicate(string)
+    if stderr:
+      sys.stderr.write(stderr + '\n')
+    return stdout
+
+
+class SentencepieceTokenizer(ExternalTokenizer):
   """
   A wrapper around an independent installation of the sentencepiece tokenizer
   with passable parameters.
   """
   yaml_tag = u'!SentencepieceTokenizer'
+  tokenize_by_file = 1
 
-  def __init__(self, path, args):
-    """Initialize the wrapper around the Google tokenizer."""
-    pass
+  def __init__(self, path, train_files, vocab_size, overwrite=True, model_name='sentpiece'
+      , output_format='piece', model_type='bpe', input_sentence_size=10000000
+      , encode_extra_options=None, decode_extra_options=None):
+    """
+    Initialize the wrapper around sentencepiece and train the tokenizer.
 
-  def tokenize(self, sent):
-    """Pass the sentence through the [Google] tokenizer."""
-    pass
+    If overwrite is set to False, learned model will not be overwritten, even if parameters
+    are changed.
+
+    "File" output for Sentencepiece written to StringIO temporarily before being written to disk.
+
+    """
+    self.sentpiece_path = path
+    self.model_path = model_name + '.model'
+    self.output_format = output_format
+    self.input_format = output_format
+    self.encode_extra_options = ['--extra_options='+encode_extra_options] if encode_extra_options else []
+    self.decode_extra_options = ['--extra_options='+decode_extra_options] if decode_extra_options else []
+
+    if (not overwrite and os.path.exists(self.model_path)
+        and os.path.exists(model_name + '.vocab')):
+      return
+    sentpiece_train_exec_loc = os.path.join(path, 'spm_train')
+    sentpiece_train_command = [sentpiece_train_exec_loc
+        , '--input=' + ','.join(train_files)
+        , '--model_prefix=' + str(model_name)
+        , '--vocab_size=' + str(vocab_size)
+        , '--model_type=' + str(model_type)
+        ]
+    subprocess.call(sentpiece_train_command)
+
+    sentpiece_encode_exec_loc = os.path.join(self.sentpiece_path, 'spm_encode')
+    sentpiece_encode_command = [sentpiece_encode_exec_loc
+        , '--model=' + self.model_path
+        , '--output_format=' + self.output_format
+        ] + self.encode_extra_options
+    self.tokenizer_command = sentpiece_encode_command
+
+    sentpiece_decode_exec_loc = os.path.join(self.sentpiece_path, 'spm_decode')
+    sentpiece_decode_command = [sentpiece_decode_exec_loc
+        , '--model=' + self.model_path
+        , '--input_format=' + self.input_format
+        ] + self.decode_extra_options
+    self.detokenizer_command = sentpiece_decode_command
+
 
 ##### Sentence filterers
 
