@@ -47,7 +47,6 @@ class YamlSerializer(object):
       raise RuntimeError("attempting deserialization of non-Serializable object %s of type %s" % (str(obj), type(obj)))
     init_args, _, _, _ = inspect.getargspec(obj.__init__)
     class_param_names = [x[0] for x in inspect.getmembers(obj.__class__)]
-    print(init_args)
     init_args.remove("self")
     obj.serialize_params = {}
     for name, val in inspect.getmembers(obj):
