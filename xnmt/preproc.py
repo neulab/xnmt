@@ -130,17 +130,19 @@ class ExternalTokenizer(StreamTokenizer):
     tokenizer_options = []
     detokenizer_options = []
     if arg_separator != ' ':
-      tokenizer_options = [option + arg_separator + self.tokenizer_args[option]
-          for option in self.tokenizer_args]
-      detokenizer_options = [option + arg_separator + self.detokenizer_args[option]
-          for option in self.detokenizer_args]
+      tokenizer_options = [option + arg_separator + str(tokenizer_args[option])
+          for option in tokenizer_args]
+      detokenizer_options = [option + arg_separator + str(detokenizer_args[option])
+          for option in detokenizer_args]
     else:
       for option in tokenizer_args:
-        tokenizer_options.extend([option, self.tokenizer_args[option]])
+        tokenizer_options.extend([option, str(tokenizer_args[option])])
       for option in detokenizer_args:
-        detokenizer_options.extend([option, self.tokenizer_args[option]])
+        detokenizer_options.extend([option, str(tokenizer_args[option])])
     self.tokenizer_command = [path] + tokenizer_options
     self.detokenizer_command = [detokenizer_path] + tokenizer_options if detokenizer_path else []
+    print self.tokenizer_command
+    print self.detokenizer_command
 
   def tokenize(self, sent):
     """

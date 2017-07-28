@@ -36,17 +36,17 @@ def xnmt_preproc(args):
 
     # Perform tokenization
     if arg["type"] == 'tokenize':
-        tokenizers = {my_opts["filenum"]: [model_serializer.initialize_object(tok) 
-              for tok in my_opts["tokenizers"]]
-              for my_opts in arg["specs"]}
-        paths_to_latest_fileobjs = {}
-        for file_num, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
-            if args.overwrite or not os.path.isfile(out_file):
-                my_tokenizers = tokenizers.get(file_num, tokenizers["all"])
-                with open(out_file, "w") as out_stream, open(in_file, "r") as in_stream:
-                  for tokenizer in filter(lambda x: x.tokenize_by_file, my_tokenizers):
-                    in_stream = tokenizer.tokenize_stream(in_stream)
-                  out_stream.write(in_stream.read().encode('utf-8'))
+      tokenizers = {my_opts["filenum"]: [model_serializer.initialize_object(tok) 
+            for tok in my_opts["tokenizers"]]
+            for my_opts in arg["specs"]}
+      paths_to_latest_fileobjs = {}
+      for file_num, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
+        if args.overwrite or not os.path.isfile(out_file):
+          my_tokenizers = tokenizers.get(file_num, tokenizers["all"])
+          with open(out_file, "w") as out_stream, open(in_file, "r") as in_stream:
+            for tokenizer in filter(lambda x: x.tokenize_by_file, my_tokenizers):
+              in_stream = tokenizer.tokenize_stream(in_stream)
+            out_stream.write(in_stream.read().encode('utf-8'))
 
     # Perform normalization
     elif arg["type"] == 'normalize':

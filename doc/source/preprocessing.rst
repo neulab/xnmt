@@ -18,9 +18,6 @@ running the Moses tokenizer before performing Byte-pair encoding (BPE) is prefer
 the other. It is worth noting, however, that if you want to exactly specify your vocabulary size
 at tokenization first, an exact-size tokenizer like BPE should be specified (and thus run) *last*. 
 
-
-
-
 1. Sentencepiece:         An extenral tokenizer library that permits a large number of tokenization
                           options, is written in C++, and is very fast. However, it must be installed
                           separately to ``xnmt``. 
@@ -35,7 +32,7 @@ at tokenization first, an exact-size tokenizer like BPE should be specified (and
                           The option ``detokenizer_path``, and its option dictionary, ``detokenizer_args``,
                           can optionally be used to specify a detokenizer.
 
-3. Byte-Pair Encoding:    A compression-inspired unsupervised sub-word unit encoding
+.. 3. Byte-Pair Encoding:    A compression-inspired unsupervised sub-word unit encoding
                           that performs well (Sennrich, 2016) and permits specification
                           of an exact vocabulary size. Native to ``xnmt``; written in Python.
                           Invoked with tokenizer type ``bpe``. (TODO)

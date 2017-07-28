@@ -29,9 +29,14 @@ defaults:
       - filenum: all
         tokenizers:
         - !ExternalTokenizer
-          path: /nlp/users/johnhew/nmt/xnmt/script/code/toy_word_tokenize.py
+          # Replace <XNMT_PATH> with root directory of xnmt repository
+          path: <XNMT_PATH>/script/code/toy_word_tokenize.py
+          tokenizer_args: 
+            --character: 0
         - !SentencepieceTokenizer
-          path: /nlp/users/johnhew/nmt/sentencepiece/src
+          # Replace <SENTENCEPIECE_SRC_PATH> with src/ directory of sentencepiece repository
+          # The spm_* executables should be located at <SENTENCEPIECE_SRC_PATH>
+          path: <SENTENCEPIECE_SRC_PATH>
           train_files:
            - examples/data/train.ja
            - examples/data/train.en
