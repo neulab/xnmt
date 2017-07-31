@@ -1,4 +1,5 @@
 import dynet as dy
+import expression_sequence
 import model
 import embedder
 import serializer
@@ -119,15 +120,15 @@ class ModularEncoder(Encoder, Serializable):
     for module in self.modules:
       module.set_train(val)
 
-class LinearEncoder(Encoder, Serializable):
-  yaml_tag = u'!LinearEncoder'
+class FullyConnectedEncoder(Encoder, Serializable):
+  yaml_tag = u'!FullyConnectedEncoder'
   """
     Inputs are first put through 2 CNN layers, each with stride (2,2), so dimensionality
     is reduced by 4 in both directions.
     Then, we add a configurable number of bidirectional RNN layers on top.
     """
 
-  def __init__(self, in_height, out_height):
+  def __init__(self, in_height, out_height, nonlinearity='linear'):
     """
       :param num_layers: depth of the RNN
       :param input_dim: size of the inputs
@@ -139,6 +140,7 @@ class LinearEncoder(Encoder, Serializable):
     model = model_globals.dynet_param_collection.param_col
     self.in_height = in_height
     self.out_height = out_height
+    self.nonlinearity = nonlinearity
 
     normalInit=dy.NormalInitializer(0, 0.1)
     self.pW = model.add_parameters(dim = (self.out_height, self.in_height), init=normalInit)
@@ -146,7 +148,6 @@ class LinearEncoder(Encoder, Serializable):
 
   def transduce(self, src):
     src = src.as_tensor()
-
     src_height = src.dim()[0][0]
     src_width = 1
     batch_size = src.dim()[1]
@@ -154,10 +155,44 @@ class LinearEncoder(Encoder, Serializable):
     W = dy.parameter(self.pW)
     b = dy.parameter(self.pb)
 
-    src = dy.reshape(src, (src_height, src_width), batch_size=batch_size) # ((276, 80, 3), 1)
+    #src = dy.reshape(src, (src_height, src_width), batch_size=batch_size) # ((276, 80, 3), 1)
     # convolution and pooling layers
-    l1 = (W*src)+b
-    return expression_sequence.ExpressionSequence(expr_tensor=l1)
+    #l1 = (W*src)+b
+    l1 = dy.affine_transform([b, W, src])
+    output = l1
+    if self.nonlinearity is 'linear':
+      output = l1
+    else:
+      if self.nonlinearity is 'sigmoid':
+        output = dy.logistic(l1)
+      else:
+        if self.nonlinearity is 'tanh':
+          output = 2*dy.logistic(l1) - 1
+        else:
+          if self.nonlinearity is 'relu':
+            output = dy.rectify(l1)
+    return expression_sequence.ExpressionSequence(expr_tensor=output)
 
   def initial_state(self):
     return PseudoState(self)
+
+if __name__ == '__main__':
+  # To use this code, comment out the model initialization in the class and the line for src.as_tensor()  
+  dy.renew_cg()
+  model = dy.ParameterCollection()
+  l1 = FullyConnectedEncoder(2, 1, 'sigmoid')
+  a = dy.inputTensor([1, 2])
+  b = l1.transduce(a)
+  print(b[0].npvalue())
+
+  l2 = FullyConnectedEncoder(2, 1, 'tanh')
+  c = l2.transduce(a)
+  print(c[0].npvalue())
+
+  l3 = FullyConnectedEncoder(2, 1, 'linear')
+  d = l3.transduce(a)
+  print(d[0].npvalue())
+
+  l4 = FullyConnectedEncoder(2, 1, 'relu')
+  e = l4.transduce(a)
+  print(e[0].npvalue())
