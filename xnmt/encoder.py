@@ -119,3 +119,45 @@ class ModularEncoder(Encoder, Serializable):
     for module in self.modules:
       module.set_train(val)
 
+class LinearEncoder(Encoder, Serializable):
+  yaml_tag = u'!LinearEncoder'
+  """
+    Inputs are first put through 2 CNN layers, each with stride (2,2), so dimensionality
+    is reduced by 4 in both directions.
+    Then, we add a configurable number of bidirectional RNN layers on top.
+    """
+
+  def __init__(self, in_height, out_height):
+    """
+      :param num_layers: depth of the RNN
+      :param input_dim: size of the inputs
+      :param hidden_dim: size of the outputs (and intermediate RNN layer representations)
+      :param model
+      :param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
+      """
+
+    model = model_globals.dynet_param_collection.param_col
+    self.in_height = in_height
+    self.out_height = out_height
+
+    normalInit=dy.NormalInitializer(0, 0.1)
+    self.pW = model.add_parameters(dim = (self.out_height, self.in_height), init=normalInit)
+    self.pb = model.add_parameters(dim = self.out_height)
+
+  def transduce(self, src):
+    src = src.as_tensor()
+
+    src_height = src.dim()[0][0]
+    src_width = 1
+    batch_size = src.dim()[1]
+
+    W = dy.parameter(self.pW)
+    b = dy.parameter(self.pb)
+
+    src = dy.reshape(src, (src_height, src_width), batch_size=batch_size) # ((276, 80, 3), 1)
+    # convolution and pooling layers
+    l1 = (W*src)+b
+    return expression_sequence.ExpressionSequence(expr_tensor=l1)
+
+  def initial_state(self):
+    return PseudoState(self)
