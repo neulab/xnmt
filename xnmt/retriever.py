@@ -67,15 +67,7 @@ class Retriever(GeneratorModel):
     '''
     raise NotImplementedError('retrieve must be implemented for Retriever subclasses')
 
-  @recursive
-  def set_train(self, val):
-    pass
-
   def calc_reinforce_loss(self, reward):
-    pass
-
-  @recursive
-  def new_epoch(self):
     pass
 
   def initialize(self, args):
@@ -167,8 +159,4 @@ class DotProductRetriever(Retriever, Serializable):
 
   def calc_reinforce_loss(self, reward):
     return self.src_encoder.calc_reinforce_loss(reward)
-
-  @recursive
-  def new_epoch(self):
-    pass
 

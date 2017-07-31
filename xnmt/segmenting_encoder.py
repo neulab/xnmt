@@ -3,31 +3,39 @@ import segment_transducer
 import linear
 import six
 import numpy
-import enum
 
-class SegmentingAction(enum.Enum):
-  READ = 0
-  SEGMENT = 1
-  DELETE = 2
+from enum import Enum
+from model import HierarchicalModel
+from decorators import recursive, recursive_assign
+from reports import HTMLReportable
 
-class SegmentingEncoderBuilder(object):
+class SegmentingEncoderBuilder(HierarchicalModel, HTMLReportable):
+  class SegmentingAction(Enum):
+    READ = 0
+    SEGMENT = 1
+    DELETE = 2
 
   def __init__(self, embed_encoder=None, segment_transducer=None, model=None):
+    super(SegmentingEncoderBuilder, self).__init__()
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
     self.P0 = model.add_parameters(segment_transducer.encoder.hidden_dim)
 
     # The Segment Encoder decides whether to segment or not
-    self.segment_transform = linear.Linear(embed_encoder.hidden_dim, len(SegmentingAction), model)
+    self.segment_transform = linear.Linear(embed_encoder.hidden_dim, len(self.SegmentingAction), model)
 
     # The Segment transducer predict a category based on the collected vector
     self.segment_transducer = segment_transducer
 
     self.train = True
+    self.register_hier_child(segment_transducer)
 
+  @recursive
   def set_train(self, train):
     self.train = train
-    self.segment_transducer.set_train(train)
+
+  def html_report(self, context=None):
+    print(context)
 
   def transduce(self, src):
     num_batch = src[0].dim()[1]
@@ -64,13 +72,12 @@ class SegmentingEncoderBuilder(object):
         buffers[i].append(encoding_i)
         # If segment for this particular input
         decision = int(decision)
-        if decision == SegmentingAction.SEGMENT.value:
+        if decision == self.SegmentingAction.SEGMENT.value:
           transduce_output = self.segment_transducer.transduce(buffers[i])
           outputs[i].append(transduce_output)
           buffers[i].clear()
-        elif decision == SegmentingAction.DELETE.value:
+        elif decision == self.SegmentingAction.DELETE.value:
           buffers[i].clear()
-
         self.segment_transducer.next_item()
 
     # Padding
@@ -82,10 +89,13 @@ class SegmentingEncoderBuilder(object):
       return xs
 
     # Packing output together
-    outputs = dy.concatenate_to_batch(list(six.moves.map(lambda xs: dy.concatenate_cols(pad(xs)), outputs)))
-    # Retain some information
-    self.segment_decisions = segment_decisions
-    self.segment_logsoftmaxes = segment_logsoftmaxes
+    if self.train:
+      outputs = dy.concatenate_to_batch(list(six.moves.map(lambda xs: dy.concatenate_cols(pad(xs)), outputs)))
+      # Retain some information
+      self.segment_decisions = segment_decisions
+      self.segment_logsoftmaxes = segment_logsoftmaxes
+    else:
+      outputs = dy.concatenate(outputs[0], d=1)
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return outputs
 

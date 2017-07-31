@@ -43,10 +43,6 @@ class Translator(GeneratorModel):
     '''
     return None
 
-  @recursive
-  def set_train(self, val):
-    pass
-
   def set_vocabs(self, src_vocab, trg_vocab):
     self.src_vocab = src_vocab
     self.trg_vocab = trg_vocab
@@ -183,26 +179,23 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
       p = etree.SubElement(main_content, 'p')
       p.text = "{}: {}".format(six.u(caption), six.u(sent))
 
-    attention = etree.SubElement(main_content, 'p')
-    att_text = etree.SubElement(attention, 'b')
-    att_text.text = "Attention:"
-    etree.SubElement(attention, 'br')
-    att_mtr = etree.SubElement(attention, 'img', src="{}.attention.png".format(filename_of_report))
-
-    self.attention_file = "{}.attention.png".format(path_to_report)
-
-    # return the parent context to be used as child context
-    return html
-
-  @recursive
-  def write_resources(self):
-    idx, src, trg, att = self.html_input
     # Generating attention
     if not any([src is None, trg is None, att is None]):
+      attention = etree.SubElement(main_content, 'p')
+      att_text = etree.SubElement(attention, 'b')
+      att_text.text = "Attention:"
+      etree.SubElement(attention, 'br')
+      att_mtr = etree.SubElement(attention, 'img', src="{}.attention.png".format(filename_of_report))
+      attention_file = "{}.attention.png".format(path_to_report)
+
       if type(att) == dy.Expression:
         attentions = att.npvalue()
       elif type(att) == list:
         attentions = np.concatenate([x.npvalue() for x in att], axis=1)
       elif type(att) != np.ndarray:
         raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
-      plot.plot_attention(src, trg, attentions, file_name = self.attention_file)
+      plot.plot_attention(src, trg, attentions, file_name = attention_file)
+
+    # return the parent context to be used as child context
+    return html
+

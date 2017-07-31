@@ -6,11 +6,13 @@ import model_globals
 
 from decorators import recursive
 from expression_sequence import ExpressionSequence
+from reports import HTMLReportable
 
 # The LSTM model builders
 import pyramidal
 import conv_encoder
 import residual
+import segmenting_encoder
 
 # Shortcut
 Serializable = serializer.Serializable
@@ -29,9 +31,6 @@ class Encoder(HierarchicalModel):
       It can be something else if the encoder is over something that is not a sequence of vectors though.
     """
     raise NotImplementedError('Unimplemented transduce for class:', self.__class__.__name__)
-
-  def set_train(self, val):
-    raise NotImplementedError("Unimplemented set_train for class:", self.__class__.__name__)
 
   def calc_reinforce_loss(self, reward):
     return None
@@ -135,6 +134,9 @@ class ModularEncoder(Encoder, Serializable):
     super(ModularEncoder, self).__init__()
     self.modules = modules
 
+    for module in self.modules:
+      self.register_hier_child(module)
+
   def shared_params(self):
     return [set(["input_dim", "modules.0.input_dim"])]
 
@@ -146,15 +148,11 @@ class ModularEncoder(Encoder, Serializable):
   def get_train_test_components(self):
     return self.modules
 
-  @recursive
-  def set_train(self, val):
-    for module in self.modules:
-      module.set_train(val)
-
-class SegmentingEncoder(Encoder, Serializable):
+class SegmentingEncoder(Encoder, Serializable, HTMLReportable):
   yaml_tag = u'!SegmentingEncoder'
 
   def __init__(self, embed_encoder=None, segment_transducer=None, lmbd=None):
+    super(SegmentingEncoder, self).__init__()
     model = model_globals.dynet_param_collection.param_col
 
     self.ctr = 0
@@ -162,15 +160,17 @@ class SegmentingEncoder(Encoder, Serializable):
     self.lmbd     = lmbd
     self.builder = segmenting_encoder.SegmentingEncoderBuilder(embed_encoder, segment_transducer, model)
 
+    self.register_hier_child(self.builder)
+
   def transduce(self, sent):
     return ExpressionSequence(expr_tensor=self.builder.transduce(sent))
 
-  @recursive
-  def set_train(self, val):
-    self.builder.set_train(val)
-
   def calc_reinforce_loss(self, reward):
     return self.builder.calc_reinforce_loss(reward, self.lmbd_val)
+
+  @recursive
+  def set_train(self, val):
+    pass
 
   def new_epoch(self):
     self.ctr += 1
