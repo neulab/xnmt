@@ -34,7 +34,7 @@ class HarwathSpeechEncoder(Encoder, Serializable):
                                          init=normalInit)
 
   def transduce(self, src):
-    src = src.as_tensor()
+    src = src.get().as_tensor()
 
     src_height = src.dim()[0][0]
     src_width = src.dim()[0][1]
@@ -94,7 +94,7 @@ class HarwathImageEncoder(Encoder, Serializable):
     self.pb = model.add_parameters(dim = self.out_height)
 
   def transduce(self, src):
-    src = src.as_tensor()
+    src = src.get().as_tensor()
 
     src_height = src.dim()[0][0]
     src_width = 1

@@ -8,10 +8,11 @@ import batcher
 import serializer
 import model
 
-from decorators import recursive
+from decorators import recursive, recursive_assign
 from model import GeneratorModel
 from serializer import Serializable
 from reports import HTMLReportable
+from lxml import etree
 
 ##### A class for retrieval databases
 # This file contains databases used for retrieval.
@@ -158,15 +159,19 @@ class DotProductRetriever(Retriever, Serializable, HTMLReportable):
     encodings = self.exprseq_pooling(self.trg_encoder.transduce(embeddings))
     return encodings
 
-  def generate(self, src, i, return_type="idxscore", nbest=10):
+  def generate(self, src, idx, return_type="idxscore", nbest=10):
     src_embedding = self.src_embedder.embed_sent(src)
     src_encoding = dy.transpose(self.exprseq_pooling(self.src_encoder.transduce(src_embedding))).npvalue()
     scores = np.dot(src_encoding, self.database.indexed)
     kbest = np.argsort(scores, axis=1)[0,-nbest:][::-1]
     ids = kbest if self.database.inverted_index == None else [self.database.inverted_index[x] for x in kbest]
-    if args.report_path is not None:
-      if hasattr(self.encoder, "set_html_input"):
-        self.encoder.set_html_input(src)
+    # In case of reporting
+    if self.report_path is not None:
+      src_vocab = self.get_html_resource("src_vocab")
+      src_words = [src_vocab[w] for w in src]
+      self.set_html_resource("source", src_words)
+      self.set_html_input(idx, src_words, scores, kbest)
+      self.set_html_path('{}.{}'.format(self.report_path, str(idx)))
 
     if return_type == "idxscore":
       return [(i,scores[0,x]) for i, x in six.moves.zip(ids, kbest)]
@@ -176,6 +181,14 @@ class DotProductRetriever(Retriever, Serializable, HTMLReportable):
       return [scores[0,x] for x in kbest]
     else:
       raise RuntimeError("Illegal return_type to retrieve: {}".format(return_type))
+
+  @recursive_assign
+  def html_report(self, context=None):
+    print("WARNING: Unimplemented html report for retriever!")
+    idx, src_words, scores, kbest = self.html_input
+    html = etree.Element('html')
+    # TODO(philip30): Write the logic of retriever html here
+    return html
 
   def calc_reinforce_loss(self, reward):
     return self.src_encoder.calc_reinforce_loss(reward)

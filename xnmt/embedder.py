@@ -7,6 +7,14 @@ import model_globals
 from serializer import Serializable
 from expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 
+class Embedding(object):
+  def __init__(self, expr_seq, source=None):
+    self.value  = expr_seq
+    self.source = source
+
+  def get(self):
+    return self.value
+
 class Embedder(object):
   """
   An embedder takes in word IDs and outputs continuous vectors.
@@ -73,7 +81,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
       for word_i in range(len(sent[0])):
         embeddings.append(self.embed(batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
 
-    return ExpressionSequence(expr_list=embeddings)
+    return Embedding(ExpressionSequence(expr_list=embeddings), sent)
 
 class NoopEmbedder(Embedder, Serializable):
   """
@@ -101,9 +109,10 @@ class NoopEmbedder(Embedder, Serializable):
     first_sent = sent[0] if batched else sent
     if hasattr(first_sent, "get_array"):
       if not batched:
-        return LazyNumpyExpressionSequence(lazy_data=sent.get_array())
+        return Embedding(LazyNumpyExpressionSequence(lazy_data=sent.get_array()), sent)
       else:
-        return LazyNumpyExpressionSequence(lazy_data=batcher.mark_as_batch(map(lambda s: s.get_array(), sent)))
+        return Embedding(LazyNumpyExpressionSequence(lazy_data=batcher.mark_as_batch(six.moves.map(lambda s: s.get_array(), sent))),
+                         sent)
     else:
       if not batched:
         embeddings = [self.embed(word) for word in sent]
@@ -111,5 +120,5 @@ class NoopEmbedder(Embedder, Serializable):
         embeddings = []
         for word_i in range(len(first_sent)):
           embeddings.append(self.embed(batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
-      return ExpressionSequence(expr_list=embeddings)
+      return Embedding(ExpressionSequence(expr_list=embeddings), sent)
 

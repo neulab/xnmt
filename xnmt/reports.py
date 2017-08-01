@@ -33,7 +33,10 @@ class HTMLReportable(object):
     return self.html_reportable_resources[key]
 
   def generate_html_report(self):
-    html = etree.tostring(self.html_report(), encoding='unicode', pretty_print=True)
+    html_report = self.html_report()
+    if html_report is None:
+      raise RuntimeError("Some of the html_report of childs of HTMLReportable object have not been implemented.")
+    html = etree.tostring(html_report, encoding='unicode', pretty_print=True)
     with io.open(self.html_path + '.html', 'w', encoding='utf-8') as f:
       f.write(html)
 

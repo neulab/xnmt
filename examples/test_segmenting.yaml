@@ -24,7 +24,7 @@ defaults:
       trg_reader: !IDReader {}
     model: !DotProductRetriever
       src_embedder: !SimpleWordEmbedder
-        emb_dim: 128
+        emb_dim: 32
         vocab_size: 20000
       src_encoder: !SegmentingEncoder
         lmbd:
@@ -34,35 +34,36 @@ defaults:
           max: 1.0
           min: 0
         embed_encoder: !LSTMEncoder
-          input_dim: 128
-          hidden_dim: 128
+          input_dim: 32
+          hidden_dim: 32
           layers: 1
           bidirectional: true
         segment_transducer: !SegmentTransducer
           encoder: !LSTMEncoder
-            input_dim: 128
-            hidden_dim: 128
+            input_dim: 32
+            hidden_dim: 32
             bidirectional: false
             layers: 1
 #          encoder: !IdentityEncoder {}
 #          transformer: !CategorySegmentTransformer
-#            input_dim: 128
+#            input_dim: 32
 #            category_dim: 40
-#            embed_dim: 128
+#            embed_dim: 32
           transformer: !TailSegmentTransformer {}
 #          transformer: !AverageSegmentTransformer {}
       trg_embedder: !SimpleWordEmbedder
-        emb_dim: 128
+        emb_dim: 32
         vocab_size: 20000
       trg_encoder: !LSTMEncoder
-        input_dim: 128
-        hidden_dim: 128
+        input_dim: 32
+        hidden_dim: 32
         layers: 1
       database: !StandardRetrievalDatabase
         reader: !PlainTextReader {}
         database_file: examples/data/traindevtest.en
   decode:
     src_file: examples/data/test-char.ja
+    report_path: examples/output/<EXP>.report
     candidate_id_file: examples/data/test.allids
   evaluate:
     ref_file: examples/data/test.allids

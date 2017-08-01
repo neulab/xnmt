@@ -25,21 +25,29 @@ class SimpleSentenceInput(Input):
   """
   A simple sent, represented as a list of tokens
   """
-  def __init__(self, l):
-    self.l = l
+  def __init__(self, words):
+    self.words = words
 
   def __len__(self):
-    return len(self.l)
+    return len(self.words)
 
   def __getitem__(self, key):
-    return self.l[key]
+    return self.words[key]
 
   def get_padded_sent(self, token, pad_len):
-    self.l.extend([token] * pad_len)
+    self.words.extend([token] * pad_len)
     return self
 
   def __str__(self):
-    return " ".join(six.moves.map(str, self.l))
+    return " ".join(six.moves.map(str, self.words))
+
+class SentenceInput(SimpleSentenceInput):
+  def __init__(self, words):
+    super(SentenceInput, self).__init__(words)
+    self.annotation = []
+
+  def annotate(self, key, value):
+    self.__dict__[key] = value
 
 class ArrayInput(Input):
   """
