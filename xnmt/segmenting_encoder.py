@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import dynet as dy
 import segment_transducer
 import linear
@@ -36,7 +38,7 @@ class SegmentingEncoderBuilder(HierarchicalModel, HTMLReportable):
     self.train = train
 
   def set_html_input(self, *inputs):
-    print("set_html_input,", *inputs)
+    print("set_html_input", *inputs)
 
   def transduce(self, embed_sent):
     src = embed_sent
