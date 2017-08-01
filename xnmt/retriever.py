@@ -50,7 +50,7 @@ class Retriever(GeneratorModel):
     '''
     raise NotImplementedError('calc_loss must be implemented for Retriever subclasses')
 
-  def calc_reinforce_loss(self):
+  def calc_additional_loss(self):
     return None
 
   def index_database(self, indices=None):
@@ -190,6 +190,6 @@ class DotProductRetriever(Retriever, Serializable, HTMLReportable):
     # TODO(philip30): Write the logic of retriever html here
     return html
 
-  def calc_reinforce_loss(self, reward):
+  def calc_additional_loss(self, reward):
     return self.src_encoder.calc_reinforce_loss(reward)
 

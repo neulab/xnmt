@@ -206,7 +206,7 @@ class XnmtTrainer(object):
       loss = LossBuilder()
       loss.add_node(self.model.calc_loss, [src, trg])
       ll = dy.nobackprop(-loss[-1])
-      loss.add_node(self.model.calc_reinforce_loss, [ll])
+      loss.add_node(self.model.calc_additional_loss, [ll])
 
       # Log the loss sum
       self.logger.update_epoch_loss(src, trg, loss)

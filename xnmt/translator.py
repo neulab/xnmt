@@ -37,7 +37,7 @@ class Translator(GeneratorModel):
     '''
     raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
 
-  def calc_reinforce_loss(self, reward):
+  def calc_additional_loss(self, reward):
     ''' Calculate reinforce loss based on the reward
     :param reward: The default is log likelihood (-1 * calc_loss).
     '''
