@@ -103,7 +103,8 @@ class NoopEmbedder(Embedder, Serializable):
       if not batched:
         return LazyNumpyExpressionSequence(lazy_data=sent.get_array())
       else:
-        return LazyNumpyExpressionSequence(lazy_data=batcher.mark_as_batch(map(lambda s: s.get_array(), sent)))
+        return LazyNumpyExpressionSequence(lazy_data=batcher.mark_as_batch(
+                                           six.moves.map(lambda s: s.get_array(), sent)))
     else:
       if not batched:
         embeddings = [self.embed(word) for word in sent]

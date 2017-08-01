@@ -42,7 +42,7 @@ class NormalizerLower(Normalizer):
 class Tokenizer(Normalizer, Serializable):
   """
   Pass the text through an internal or external tokenizer.
-  
+
   TODO: only StreamTokenizers are supported by xnmt_preproc.py right now.
   """
   tokenize_by_file = 0
@@ -87,7 +87,7 @@ class StreamTokenizer(Tokenizer):
   def tokenize_stream(self, stream):
     """
     Tokenize a file-like text stream.
-    
+
     :param stream: A file-like stream of untokenized text
     :return: A file-like stream of tokenized text
 

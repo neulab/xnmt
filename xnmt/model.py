@@ -1,3 +1,5 @@
+from decorators import recursive
+
 class HierarchicalModel(object):
   ''' Hierarchical Model interface '''
   def __init__(self):
@@ -22,7 +24,15 @@ class GeneratorModel(HierarchicalModel):
   def generate(self, *args, **kwargs):
     raise NotImplementedError()
 
+  @recursive
   def initialize(self, system_args):
     pass
 
+  @recursive
+  def new_epoch(self):
+    pass
+
+  @recursive
+  def set_train(self, val):
+    pass
 

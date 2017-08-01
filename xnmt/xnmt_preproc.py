@@ -36,7 +36,7 @@ def xnmt_preproc(args):
 
     # Perform tokenization
     if arg["type"] == 'tokenize':
-      tokenizers = {my_opts["filenum"]: [model_serializer.initialize_object(tok) 
+      tokenizers = {my_opts["filenum"]: [model_serializer.initialize_object(tok)
             for tok in my_opts["tokenizers"]]
             for my_opts in arg["specs"]}
       paths_to_latest_fileobjs = {}

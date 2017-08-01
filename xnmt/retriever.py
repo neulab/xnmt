@@ -8,9 +8,11 @@ import batcher
 import serializer
 import model
 
-from decorators import recursive
+from decorators import recursive, recursive_assign
 from model import GeneratorModel
 from serializer import Serializable
+from reports import HTMLReportable
+from lxml import etree
 
 ##### A class for retrieval databases
 # This file contains databases used for retrieval.
@@ -34,7 +36,6 @@ class StandardRetrievalDatabase(Serializable):
     return batcher.mark_as_batch(batcher.pad([self.data[index] for index in indices]))
 
 ##### The actual retriever class
-
 class Retriever(GeneratorModel):
   '''
   A template class implementing a retrieval model.
@@ -48,6 +49,9 @@ class Retriever(GeneratorModel):
     :returns: An expression representing the loss.
     '''
     raise NotImplementedError('calc_loss must be implemented for Retriever subclasses')
+
+  def calc_additional_loss(self):
+    return None
 
   def index_database(self, indices=None):
     '''A function that can be called before actually performing retrieval.
@@ -65,8 +69,7 @@ class Retriever(GeneratorModel):
     '''
     raise NotImplementedError('retrieve must be implemented for Retriever subclasses')
 
-  @recursive
-  def set_train(self, val):
+  def calc_reinforce_loss(self, reward):
     pass
 
   def initialize(self, args):
@@ -75,8 +78,9 @@ class Retriever(GeneratorModel):
       with open(args.candidate_id_file, "r") as f:
         candidates = sorted({int(x):1 for x in f}.keys())
     self.index_database(candidates)
+    self.report_path = args.report_path
 
-class DotProductRetriever(Retriever, Serializable):
+class DotProductRetriever(Retriever, Serializable, HTMLReportable):
   '''
   A retriever trains using max-margin methods.
   '''
@@ -118,7 +122,6 @@ class DotProductRetriever(Retriever, Serializable):
     src_embeddings = self.src_embedder.embed_sent(src)
     src_encodings = self.exprseq_pooling(self.src_encoder.transduce(src_embeddings))
     trg_encodings = self.encode_trg_example(self.database[db_idx])
-    
     dim = trg_encodings.dim()
     trg_reshaped = dy.reshape(trg_encodings, (dim[0][0], dim[1]))
     prod = dy.transpose(src_encodings) * trg_reshaped
@@ -156,12 +159,20 @@ class DotProductRetriever(Retriever, Serializable):
     encodings = self.exprseq_pooling(self.trg_encoder.transduce(embeddings))
     return encodings
 
-  def generate(self, src, i, return_type="idxscore", nbest=10):
+  def generate(self, src, idx, return_type="idxscore", nbest=10):
     src_embedding = self.src_embedder.embed_sent(src)
     src_encoding = dy.transpose(self.exprseq_pooling(self.src_encoder.transduce(src_embedding))).npvalue()
     scores = np.dot(src_encoding, self.database.indexed)
     kbest = np.argsort(scores, axis=1)[0,-nbest:][::-1]
     ids = kbest if self.database.inverted_index == None else [self.database.inverted_index[x] for x in kbest]
+    # In case of reporting
+    if self.report_path is not None:
+      src_vocab = self.get_html_resource("src_vocab")
+      src_words = [src_vocab[w] for w in src]
+      self.set_html_resource("source", src_words)
+      self.set_html_input(idx, src_words, scores, kbest)
+      self.set_html_path('{}.{}'.format(self.report_path, str(idx)))
+
     if return_type == "idxscore":
       return [(i,scores[0,x]) for i, x in six.moves.zip(ids, kbest)]
     elif return_type == "idx":
@@ -170,4 +181,15 @@ class DotProductRetriever(Retriever, Serializable):
       return [scores[0,x] for x in kbest]
     else:
       raise RuntimeError("Illegal return_type to retrieve: {}".format(return_type))
+
+  @recursive_assign
+  def html_report(self, context=None):
+    print("WARNING: Unimplemented html report for retriever!")
+    idx, src_words, scores, kbest = self.html_input
+    html = etree.Element('html')
+    # TODO(philip30): Write the logic of retriever html here
+    return html
+
+  def calc_additional_loss(self, reward):
+    return self.src_encoder.calc_reinforce_loss(reward)
 

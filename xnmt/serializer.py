@@ -83,11 +83,14 @@ class YamlSerializer(object):
     for _, val in inspect.getmembers(obj):
       if isinstance(val, Serializable):
         self.share_init_params_top_down(val)
+
   def get_val_to_share_or_none(self, obj, shared_params):
     val = None
     for param_descr in shared_params:
       param_obj, param_name = self.resolve_param_name(obj, param_descr)
-      if not isinstance(param_obj, Serializable): raise RuntimeError("attempting parameter sharing for the non-Serializable object %s of type %s, for parent object %s" % (str(param_obj), type(param_obj), str(obj)))
+      if not isinstance(param_obj, Serializable):
+        raise RuntimeError("Attempting parameter sharing for the non-Serializable "
+                            "object %s of type %s, for parent object %s" % (str(param_obj), type(param_obj), str(obj)))
       init_args, _, _, _ = inspect.getargspec(param_obj.__init__)
       if param_name not in init_args: cur_val = None
       else: cur_val = param_obj.init_params.get(param_name, None)
@@ -97,6 +100,7 @@ class YamlSerializer(object):
           print("WARNING: inconsistent shared params %s" % str(shared_params))
           return None
     return val
+
   def resolve_param_name(self, obj, param_descr):
     param_obj, param_name = obj, param_descr
     while "." in param_name:
@@ -121,7 +125,8 @@ class YamlSerializer(object):
           init_params[init_arg] = self.init_components_bottom_up(val, sub_dependent_init_params)
         elif isinstance(val, list):
           sub_dependent_init_params = [p.move_down() for p in dependent_init_params if p.matches_component(init_arg)]
-          if len(sub_dependent_init_params) > 0: raise Exception("dependent_init_params currently not supported for lists of components")
+          if len(sub_dependent_init_params) > 0:
+            raise Exception("dependent_init_params currently not supported for lists of components")
           new_init_params= []
           for item in val:
             if isinstance(item, Serializable):
@@ -137,9 +142,12 @@ class YamlSerializer(object):
       initialized_obj = obj.__class__(**init_params)
       print("initialized %s(%s)" % (obj.__class__.__name__, init_params))
     except TypeError as e:
-      raise ComponentInitError("%s could not be initialized using params %s, expecting params %s. Error message: %s" % (type(obj), init_params, init_args, str(e)))
+      raise ComponentInitError("%s could not be initialized using params %s, expecting params %s. "
+                               "Error message: %s" % (type(obj), init_params, init_args, str(e)))
+
     if not hasattr(initialized_obj, "serialize_params"):
       initialized_obj.serialize_params = serialize_params
+
     return initialized_obj
 
   @staticmethod
@@ -170,6 +178,7 @@ class YamlSerializer(object):
 
 class ComponentInitError(Exception):
   pass
+
 class DependentInitParam(object):
   def __init__(self, param_descr, value_fct):
     self.param_descr = param_descr

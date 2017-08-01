@@ -65,7 +65,6 @@ class HarwathSpeechEncoder(Encoder, Serializable):
   def initial_state(self):
     return PseudoState(self)
 
-
 # This is an image encoder that takes in features and does a linear transform from the following paper
 #  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
 class HarwathImageEncoder(Encoder, Serializable):

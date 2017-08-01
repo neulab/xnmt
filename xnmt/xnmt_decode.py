@@ -6,7 +6,7 @@ from serializer import *
 import sys
 from retriever import *
 from translator import *
-from reports import *
+#from reports import *
 from search_strategy import *
 from options import OptionParser, Option
 
@@ -57,6 +57,7 @@ def xnmt_decode(args, model_elements=None):
   else:
     corpus_parser, generator = model_elements
 
+  is_reporting = issubclass(generator.__class__, HTMLReportable) and args.report_path is not None
   # Corpus
   src_corpus = corpus_parser.src_reader.read_sents(args.src_file)
   # Vocab
@@ -69,6 +70,11 @@ def xnmt_decode(args, model_elements=None):
   if issubclass(generator.__class__, Translator):
     generator.set_post_processor(output_processor_for_spec(args.post_process))
     generator.set_vocabs(src_vocab, trg_vocab)
+
+  if is_reporting:
+    generator.set_html_resource("src_vocab", src_vocab)
+    generator.set_html_resource("trg_vocab", trg_vocab)
+
   # Perform generation of output
   with io.open(args.trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
     for i, src in enumerate(src_corpus):
@@ -80,9 +86,11 @@ def xnmt_decode(args, model_elements=None):
         outputs = generator.generate_output(src, i)
       # Printing to trg file
       fp.write(u"{}\n".format(outputs))
-      # Generating html report
-      if hasattr(generator, "generate_html_report") and args.report_path is not None:
-        generator.generate_html_report()
+
+  # Generating html report
+  if is_reporting:
+    generator.generate_html_report()
+    generator.clear_html_resources()
 
 def output_processor_for_spec(spec):
   if spec == "none":

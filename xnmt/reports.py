@@ -1,64 +1,45 @@
-
 import io
+
 from lxml import etree
+from decorators import recursive, recursive_assign
 
 class HTMLReportable(object):
+  @recursive_assign
   def html_report(self, context=None):
-    raise NotImplementedError()
+    if context is None:
+      raise NotImplementedError("Not implemented html_report for class:",
+                                self.__class__.__name__)
+    return context
 
   def set_html_input(self, *inputs):
     self.html_input = inputs
 
+  @recursive
   def set_html_path(self, report_path):
     self.html_path = report_path
 
-  def write_resources(self):
-    pass
+  @recursive
+  def set_html_resource(self, key, value):
+    if not hasattr(self, "html_reportable_resources"):
+      self.html_reportable_resources = {}
+    self.html_reportable_resources[key] = value
+
+  @recursive
+  def clear_html_resources(self):
+    if hasattr(self, "html_reportable_resources"):
+      self.html_reportable_resources.clear()
+
+  def get_html_resource(self, key):
+    return self.html_reportable_resources[key]
 
   def generate_html_report(self):
-    html = etree.tostring(self.html_report(), encoding='unicode', pretty_print=True)
-    self.write_resources()
+    html_report = self.html_report()
+    if html_report is None:
+      raise RuntimeError("Some of the html_report of childs of HTMLReportable object have not been implemented.")
+    html = etree.tostring(html_report, encoding='unicode', pretty_print=True)
     with io.open(self.html_path + '.html', 'w', encoding='utf-8') as f:
       f.write(html)
 
-#class DefaultTranslatorReport(object):
-#
-#  def __init__(self):
-#    self.src_text = None
-#    self.trg_text = None
-#    self.src_words = None
-#    self.trg_words = None
-#    self.attentions = None
-#
-#  def write_report(self, path_to_report, idx=None):
-#    filename_of_report = os.path.basename(path_to_report)
-#    with open("{}.html".format(path_to_report), 'w') as f:
-#      if idx != None:
-#        f.write("<html><head><title>Translation Report for Sentence {}</title></head><body>\n".format(idx))
-#        f.write("<h1>Translation Report for Sentence {}</h1>\n".format(idx))
-#      else:
-#        f.write("<html><head><title>Translation Report</title></head><body>\n")
-#        f.write("<h1>Translation Report</h1>\n")
-#      src_text, trg_text = None, None
-#      # Print Source text
-#      if self.src_text != None: f.write("<p><b>Source Text: </b> {}</p>\n".format(self.src_text))
-#      if self.src_words != None: f.write("<p><b>Source Words: </b> {}</p>\n".format(' '.join(self.src_words)))
-#      if self.trg_text != None: f.write("<p><b>Target Text: </b> {}</p>\n".format(self.trg_text))
-#      if self.trg_words != None: f.write("<p><b>Target Words: </b> {}</p>\n".format(' '.join(self.trg_words)))
-#      # Alignments
-#      if self.src_words is not None and self.trg_words is not None and self.attentions is not None:
-#        if type(self.attentions) == dy.Expression:
-#          self.attentions = self.attentions.npvalue()
-#        elif type(self.attentions) == list:
-#          self.attentions = np.concatenate([x.npvalue() for x in self.attentions], axis=1)
-#        elif type(self.attentions) != np.ndarray:
-#          raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(self.attentions)))
-#        attention_file = "{}.attention.png".format(path_to_report)
-#        DefaultTranslatorReport.plot_attention(self.src_words, self.trg_words, self.attentions, file_name = attention_file)
-#        f.write("<p><b>Attention:</b><br/><img src=\"{}.attention.png\"/></p>\n".format(filename_of_report))
-#
-#      f.write("</body></html>")
-#
 #if __name__ == "__main__":
 #
 #  # temporary call to plot_attention

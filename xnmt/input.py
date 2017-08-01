@@ -25,21 +25,29 @@ class SimpleSentenceInput(Input):
   """
   A simple sent, represented as a list of tokens
   """
-  def __init__(self, l):
-    self.l = l
+  def __init__(self, words):
+    self.words = words
 
   def __len__(self):
-    return self.l.__len__()
+    return len(self.words)
 
   def __getitem__(self, key):
-    return self.l.__getitem__(key)
+    return self.words[key]
 
   def get_padded_sent(self, token, pad_len):
-    self.l.extend([token] * pad_len)
+    self.words.extend([token] * pad_len)
     return self
 
   def __str__(self):
-    return " ".join(six.moves.map(str, self.l))
+    return " ".join(six.moves.map(str, self.words))
+
+class SentenceInput(SimpleSentenceInput):
+  def __init__(self, words):
+    super(SentenceInput, self).__init__(words)
+    self.annotation = []
+
+  def annotate(self, key, value):
+    self.__dict__[key] = value
 
 class ArrayInput(Input):
   """
@@ -137,40 +145,44 @@ class PlainTextReader(BaseTextReader, Serializable):
   def vocab_size(self):
     return len(self.vocab)
 
-class ContVecReader(InputReader, Serializable):
-  """
-  Handles the case where sents are sequences of continuous-space vectors.
-
-  We assume a list of matrices (sents) serialized as .npz (with numpy.savez_compressed())
-  Sentences should be named XXX_0, XXX_1, etc., where the final number after the underbar
-  indicates the order of the sentence in the corpus.
-  Within each sentence, the indices will be:
-  * sents[sent_no][feat_ind,word_ind] if transpose=False
-  * sents[sent_no][word_ind,feat_ind] if transpose=True
-  """
-  yaml_tag = u"!ContVecReader"
-
-  def __init__(self, transpose=False):
-    self.transpose = transpose
+class ContVecNPYReader(InputReader, Serializable):
+  yaml_tag = u"!ContVecNPYReader"
+  def __init__(self, transpose=True):
+      self.transpose = transpose
 
   def read_sents(self, filename, filter_ids=None):
-    npzFile = np.load(filename, mmap_mode=None if filter_ids is None else "r")
-    npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[-1]))
-    if filter_ids is not None:
-      npzKeys = [npzKeys[i] for i in filter_ids]
-    for idx, key in enumerate(npzKeys):
-      inp = npzFile[key]
-      if self.transpose:
-        inp = inp.transpose()
-      if idx % 1000 == 999:
-        print("Read {} lines ({:.2f}%) of {} at {}".format(idx+1, float(idx+1)/len(npzKeys)*100, filename, key))
-      yield ArrayInput(inp)
-    npzFile.close()
+    npyFile = []
+    flag = 0
+    with open(filename, 'r') as f:
+      while not flag:
+        cur_file = f.readline().rstrip()
+        if not cur_file:
+          flag = 1
+          break
+        else:
+          npyFile.append(cur_file)#np.load(cur_file)
+
+      if filter_ids is not None:
+        npyFile = [npyFile[i] for i in filter_ids]
+
+      for f in npyFile:
+        inp = np.load(f)
+        if self.transpose:
+          inp = inp.transpose()
+        yield ArrayInput(inp)
 
   def count_sents(self, filename):
-    npzFile = np.load(filename, mmap_mode="r") # for counting sentences, only read the index
-    l = len(npzFile.files)
-    npzFile.close()
+    # npzFile = np.load(filename, mmap_mode="r") # for counting sentences, only read the index
+    #l = len(npzFile.files)
+    # npzFile.close()
+    l = 0
+    with open(filename) as f:
+      while True:
+        line = f.readline()
+        if not line:
+          break
+        else:
+          l += 1
     return l
 
 class IDReader(BaseTextReader, Serializable):

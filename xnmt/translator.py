@@ -37,17 +37,11 @@ class Translator(GeneratorModel):
     '''
     raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
 
-  def translate(self, src):
-    '''Translate a particular sentence.
-
-    :param src: The source, a sentence or a batch of sentences.
-    :returns: A translated expression.
+  def calc_additional_loss(self, reward):
+    ''' Calculate reinforce loss based on the reward
+    :param reward: The default is log likelihood (-1 * calc_loss).
     '''
-    raise NotImplementedError('translate must be implemented for Translator subclasses')
-
-  @recursive
-  def set_train(self, val):
-    pass
+    return None
 
   def set_vocabs(self, src_vocab, trg_vocab):
     self.src_vocab = src_vocab
@@ -84,7 +78,7 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
 
   def shared_params(self):
     return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
-            # TODO: encoder.hidden_dim may not always exist (e.g. for CNN encoders), need to deal with that case    
+            # TODO: encoder.hidden_dim may not always exist (e.g. for CNN encoders), need to deal with that case
             set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]),
             set(["attender.state_dim", "decoder.lstm_dim"]),
             set(["trg_embedder.emb_dim", "decoder.trg_embed_dim"])]
@@ -127,7 +121,7 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
         word_loss = self.decoder.calc_loss(context, ref_word)
         mask_exp = dy.inputVector([1 if i < len(single_trg) else 0 for single_trg in trg])
         mask_exp = dy.reshape(mask_exp, (1,), len(trg))
-        word_loss = dy.sum_batches(word_loss * mask_exp)
+        word_loss = word_loss * mask_exp
         losses.append(word_loss)
 
         self.decoder.add_input(self.trg_embedder.embed(ref_word))
@@ -185,26 +179,23 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
       p = etree.SubElement(main_content, 'p')
       p.text = u"{}: {}".format(caption, sent)
 
-    attention = etree.SubElement(main_content, 'p')
-    att_text = etree.SubElement(attention, 'b')
-    att_text.text = "Attention:"
-    etree.SubElement(attention, 'br')
-    att_mtr = etree.SubElement(attention, 'img', src="{}.attention.png".format(filename_of_report))
-
-    self.attention_file = u"{}.attention.png".format(path_to_report)
-
-    # return the parent context to be used as child context
-    return html
-
-  @recursive
-  def write_resources(self):
-    idx, src, trg, att = self.html_input
     # Generating attention
     if not any([src is None, trg is None, att is None]):
+      attention = etree.SubElement(main_content, 'p')
+      att_text = etree.SubElement(attention, 'b')
+      att_text.text = "Attention:"
+      etree.SubElement(attention, 'br')
+      att_mtr = etree.SubElement(attention, 'img', src="{}.attention.png".format(filename_of_report))
+      attention_file = u"{}.attention.png".format(path_to_report)
+
       if type(att) == dy.Expression:
         attentions = att.npvalue()
       elif type(att) == list:
         attentions = np.concatenate([x.npvalue() for x in att], axis=1)
       elif type(att) != np.ndarray:
         raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
-      plot.plot_attention(src, trg, attentions, file_name = self.attention_file)
+      plot.plot_attention(src, trg, attentions, file_name = attention_file)
+
+    # return the parent context to be used as child context
+    return html
+
