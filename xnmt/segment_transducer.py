@@ -60,6 +60,19 @@ class AverageSegmentTransformer(SegmentTransformer):
   def transform(self, encodings):
     return dynet.average(encodings.as_list())
 
+# TODO(philip30): Complete this class!
+# To test, modify the segment transformer in examples/test_segmenting.yaml into this class!
+class DownsamplingSegmentTransformer(SegmentTransformer):
+  yaml_tag = u"!DownsamplingSegmentTransformer"
+
+  def __init__(self, sample_size=None):
+    self.sample_size = sample_size
+    # TODO(philip30): Add the dynet parameters here!
+
+  def transduce(self, inputs):
+    # TODO(philip30): Complete me
+    pass
+
 class CategorySegmentTransformer(SegmentTransformer):
   yaml_tag = u"!CategorySegmentTransformer"
 
