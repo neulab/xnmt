@@ -23,7 +23,7 @@ class Encoder(HierarchicalModel):
   """
   An Encoder is a class that takes an ExpressionSequence as input and outputs another encoded ExpressionSequence.
   """
-  def transduce(self, sent):
+  def transduce(self, embed_sent):
     """Encode inputs representing a sequence of continuous vectors into outputs that also represent a sequence of continuous vectors.
 
     :param sent: The input to be encoded. In the great majority of cases this will be an ExpressionSequence.
@@ -37,12 +37,12 @@ class Encoder(HierarchicalModel):
     return None
 
 class BuilderEncoder(Encoder):
-  def transduce(self, sent):
+  def transduce(self, embed_sent):
     out = None
     if hasattr(self.builder, "transduce"):
-      out = self.builder.transduce(sent)
+      out = self.builder.transduce(embed_sent.get())
     elif hasattr(self.builder, "initial_state"):
-      out = self.builder.initial_state().transduce(sent)
+      out = self.builder.initial_state().transduce(embed_sent.get())
     else:
       raise NotImplementedError("Unimplemented transduce logic for class:",
                                 self.builder.__class__.__name__)
@@ -52,8 +52,8 @@ class BuilderEncoder(Encoder):
 class IdentityEncoder(Encoder, Serializable):
   yaml_tag = u'!IdentityEncoder'
 
-  def transduce(self, sent):
-    return ExpressionSequence(expr_list = sent)
+  def transduce(self, embed_sent):
+    return ExpressionSequence(expr_list = sent.get())
 
 class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
@@ -141,9 +141,9 @@ class ModularEncoder(Encoder, Serializable):
   def shared_params(self):
     return [set(["input_dim", "modules.0.input_dim"])]
 
-  def transduce(self, sent):
+  def transduce(self, embed_sent):
     for module in self.modules:
-      sent = module.transduce(sent)
+      sent = module.transduce(embed_sent)
     return sent
 
   def get_train_test_components(self):
@@ -152,19 +152,20 @@ class ModularEncoder(Encoder, Serializable):
 class SegmentingEncoder(Encoder, Serializable, HTMLReportable):
   yaml_tag = u'!SegmentingEncoder'
 
-  def __init__(self, embed_encoder=None, segment_transducer=None, lmbd=None):
+  def __init__(self, embed_encoder=None, segment_transducer=None, lmbd=None, learn_segmentation=True):
     super(SegmentingEncoder, self).__init__()
     model = model_globals.dynet_param_collection.param_col
 
     self.ctr = 0
     self.lmbd_val = lmbd["start"]
     self.lmbd     = lmbd
-    self.builder = segmenting_encoder.SegmentingEncoderBuilder(embed_encoder, segment_transducer, model)
+    self.builder = segmenting_encoder.SegmentingEncoderBuilder(embed_encoder, segment_transducer,
+                                                               learn_segmentation, model)
 
     self.register_hier_child(self.builder)
 
-  def transduce(self, sent):
-    return ExpressionSequence(expr_tensor=self.builder.transduce(sent))
+  def transduce(self, embed_sent):
+    return ExpressionSequence(expr_tensor=self.builder.transduce(embed_sent))
 
   def calc_reinforce_loss(self, reward):
     return self.builder.calc_reinforce_loss(reward, self.lmbd_val)
@@ -172,10 +173,6 @@ class SegmentingEncoder(Encoder, Serializable, HTMLReportable):
   @recursive
   def set_train(self, val):
     pass
-
-  @recursive
-  def set_html_input(self, *inputs):
-    self.builder.set_html_input(*inputs)
 
   def new_epoch(self):
     self.ctr += 1
@@ -212,8 +209,8 @@ class FullyConnectedEncoder(Encoder, Serializable):
     self.pW = model.add_parameters(dim = (self.out_height, self.in_height), init=normalInit)
     self.pb = model.add_parameters(dim = self.out_height)
 
-  def transduce(self, src):
-    src = src.as_tensor()
+  def transduce(self, embed_sent):
+    src = embed_sent.get().as_tensor()
     src_height = src.dim()[0][0]
     src_width = 1
     batch_size = src.dim()[1]

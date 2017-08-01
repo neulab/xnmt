@@ -4,9 +4,10 @@ import model_globals
 import embedder
 import numpy
 
+from embedder import Embedding
 from model import HierarchicalModel
 from serializer import Serializable
-from decorators import recursive
+from decorators import recursive, recursive_assign
 from reports import HTMLReportable
 
 class SegmentTransducer(HierarchicalModel, Serializable):
@@ -28,8 +29,13 @@ class SegmentTransducer(HierarchicalModel, Serializable):
   def next_item(self):
     pass
 
+  @recursive_assign
+  def html_report(self, context):
+    # TODO(philip30): Modify HTML context in case-to-case basis
+    return context
+
   def transduce(self, inputs):
-    return self.transformer.transform(self.encoder.transduce(inputs))
+    return self.transformer.transform(self.encoder.transduce(Embedding(inputs)))
 
   def disc_ll(self):
     ''' Discrete Log Likelihood '''
