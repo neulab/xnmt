@@ -177,13 +177,13 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
     main_content = etree.SubElement(body, 'div', name='main_content')
 
     # Generating main content
-    captions = ["Source Words", "Target Words"]
+    captions = [u"Source Words", u"Target Words"]
     inputs = [src, trg]
     for caption, inp in six.moves.zip(captions, inputs):
       if inp is None: continue
       sent = ' '.join(inp)
       p = etree.SubElement(main_content, 'p')
-      p.text = "{}: {}".format(six.u(caption), six.u(sent))
+      p.text = u"{}: {}".format(caption, sent)
 
     attention = etree.SubElement(main_content, 'p')
     att_text = etree.SubElement(attention, 'b')
@@ -191,7 +191,7 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
     etree.SubElement(attention, 'br')
     att_mtr = etree.SubElement(attention, 'img', src="{}.attention.png".format(filename_of_report))
 
-    self.attention_file = "{}.attention.png".format(path_to_report)
+    self.attention_file = u"{}.attention.png".format(path_to_report)
 
     # return the parent context to be used as child context
     return html

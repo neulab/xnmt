@@ -1,4 +1,5 @@
 
+import io
 from lxml import etree
 
 class HTMLReportable(object):
@@ -17,7 +18,7 @@ class HTMLReportable(object):
   def generate_html_report(self):
     html = etree.tostring(self.html_report(), encoding='unicode', pretty_print=True)
     self.write_resources()
-    with open(self.html_path + '.html', 'w') as f:
+    with io.open(self.html_path + '.html', 'w', encoding='utf-8') as f:
       f.write(html)
 
 #class DefaultTranslatorReport(object):

@@ -17,7 +17,6 @@ def plot_attention(src_words, trg_words, attention_matrix, file_name=None):
   ax.set_xticks(np.arange(attention_matrix.shape[1]) + 0.5, minor=False)
   ax.set_yticks(np.arange(attention_matrix.shape[0]) + 0.5, minor=False)
   ax.invert_yaxis()
-  src_words = list(map(str, src_words))
 
   # label axes by words
   ax.set_xticklabels(trg_words, minor=False)
