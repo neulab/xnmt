@@ -141,8 +141,8 @@ class ExternalTokenizer(StreamTokenizer):
         detokenizer_options.extend([option, str(tokenizer_args[option])])
     self.tokenizer_command = [path] + tokenizer_options
     self.detokenizer_command = [detokenizer_path] + tokenizer_options if detokenizer_path else []
-    print self.tokenizer_command
-    print self.detokenizer_command
+    print(self.tokenizer_command)
+    print(self.detokenizer_command)
 
   def tokenize(self, sent):
     """
