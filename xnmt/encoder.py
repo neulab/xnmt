@@ -123,8 +123,6 @@ class ModularEncoder(Encoder, Serializable):
 class FullyConnectedEncoder(Encoder, Serializable):
   yaml_tag = u'!FullyConnectedEncoder'
   """
-    Inputs are first put through 2 CNN layers, each with stride (2,2), so dimensionality
-    is reduced by 4 in both directions.
     Then, we add a configurable number of bidirectional RNN layers on top.
     """
 
