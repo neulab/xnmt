@@ -78,7 +78,7 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
 
   def shared_params(self):
     return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
-            # TODO: encoder.hidden_dim may not always exist (e.g. for CNN encoders), need to deal with that case    
+            # TODO: encoder.hidden_dim may not always exist (e.g. for CNN encoders), need to deal with that case
             set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]),
             set(["attender.state_dim", "decoder.lstm_dim"]),
             set(["trg_embedder.emb_dim", "decoder.trg_embed_dim"])]

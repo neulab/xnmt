@@ -240,7 +240,7 @@ class FullyConnectedEncoder(Encoder, Serializable):
     return PseudoState(self)
 
 if __name__ == '__main__':
-  # To use this code, comment out the model initialization in the class and the line for src.as_tensor()  
+  # To use this code, comment out the model initialization in the class and the line for src.as_tensor()
   dy.renew_cg()
   model = dy.ParameterCollection()
   l1 = FullyConnectedEncoder(2, 1, 'sigmoid')

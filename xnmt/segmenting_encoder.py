@@ -46,7 +46,7 @@ class SegmentingEncoderBuilder(HierarchicalModel, HTMLReportable):
     encodings = self.embed_encoder.transduce(embed_sent)
     if self.learn_segmentation:
       segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
-      # Segment decision 
+      # Segment decision
       if self.train:
         segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0] for log_softmax in segment_logsoftmaxes]
       else:
