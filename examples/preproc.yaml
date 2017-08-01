@@ -10,7 +10,7 @@ defaults:
   preproc:
     overwrite: False
     preproc_specs:
-    - type: normalize
+    - type: tokenize
       in_files:
       - examples/data/train.ja
       - examples/data/train.en
@@ -18,6 +18,38 @@ defaults:
       - examples/data/dev.en
       - examples/data/test.ja
       - examples/data/test.en
+      out_files:
+      - examples/data/train.tok.ja
+      - examples/data/train.tok.en
+      - examples/data/dev.tok.ja
+      - examples/data/dev.tok.en
+      - examples/data/test.tok.ja
+      - examples/data/test.tok.en
+      specs:
+      - filenum: all
+        tokenizers:
+        - !ExternalTokenizer
+          # Replace <XNMT_PATH> with root directory of xnmt repository
+          path: <XNMT_PATH>/script/code/toy_word_tokenize.py
+          tokenizer_args: 
+            --character: 0
+        - !SentencepieceTokenizer
+          # Replace <SENTENCEPIECE_SRC_PATH> with src/ directory of sentencepiece repository
+          # The spm_* executables should be located at <SENTENCEPIECE_SRC_PATH>
+          path: <SENTENCEPIECE_SRC_PATH>
+          train_files:
+           - examples/data/train.ja
+           - examples/data/train.en
+          vocab_size: 10000
+          model_type: bpe
+    - type: normalize
+      in_files:
+      - examples/data/train.tok.ja
+      - examples/data/train.tok.en
+      - examples/data/dev.tok.ja
+      - examples/data/dev.tok.en
+      - examples/data/test.tok.ja
+      - examples/data/test.tok.en
       out_files:
       - examples/output/train.norm.ja
       - examples/output/train.norm.en
