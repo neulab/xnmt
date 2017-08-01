@@ -38,11 +38,11 @@ class HarwathSpeechEncoder(Encoder, Serializable):
 
     src_height = src.dim()[0][0]
     src_width = src.dim()[0][1]
-    src_channels = 1
+    # src_channels = 1
     batch_size = src.dim()[1]
 
 
-    src = dy.reshape(src, (src_height, src_width, src_channels), batch_size=batch_size) # ((276, 80, 3), 1)
+    # src = dy.reshape(src, (src_height, src_width, src_channels), batch_size=batch_size) # ((276, 80, 3), 1)
     # print(self.filters1)
     # convolution and pooling layers
     l1 = dy.rectify(dy.conv2d(src, dy.parameter(self.filters1), stride = [self.stride[0], self.stride[0]], is_valid = True))

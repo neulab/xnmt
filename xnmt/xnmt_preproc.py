@@ -2,7 +2,8 @@ import argparse
 import sys
 import os.path
 from options import Option, OptionParser
-from preproc import Normalizer, SentenceFilterer, VocabFilterer
+from preproc import Normalizer, SentenceFilterer, VocabFilterer, Tokenizer
+from serializer import YamlSerializer
 
 options = [
   Option("preproc_specs", list, default_value=None, required=False, help_str="A specification for a preprocessing step, including in_files (the input files), out_files (the output files), type (normalize/filter/vocab), and spec for that particular preprocessing type"),
@@ -25,14 +26,30 @@ def xnmt_preproc(args):
   if args.preproc_specs == None:
     return
 
+  model_serializer = YamlSerializer()
+
   for arg in args.preproc_specs:
 
     # Sanity check
     if len(arg["in_files"]) != len(arg["out_files"]):
       raise RuntimeError("Length of in_files and out_files in preprocessor must be identical")
 
+    # Perform tokenization
+    if arg["type"] == 'tokenize':
+      tokenizers = {my_opts["filenum"]: [model_serializer.initialize_object(tok) 
+            for tok in my_opts["tokenizers"]]
+            for my_opts in arg["specs"]}
+      paths_to_latest_fileobjs = {}
+      for file_num, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
+        if args.overwrite or not os.path.isfile(out_file):
+          my_tokenizers = tokenizers.get(file_num, tokenizers["all"])
+          with open(out_file, "w") as out_stream, open(in_file, "r") as in_stream:
+            for tokenizer in filter(lambda x: x.tokenize_by_file, my_tokenizers):
+              in_stream = tokenizer.tokenize_stream(in_stream)
+            out_stream.write(in_stream.read().encode('utf-8'))
+
     # Perform normalization
-    if arg["type"] == 'normalize':
+    elif arg["type"] == 'normalize':
       normalizers = {my_opts["filenum"]: Normalizer.from_spec(my_opts["spec"]) for my_opts in arg["specs"]}
       for i, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
         if args.overwrite or not os.path.isfile(out_file):
@@ -81,7 +98,7 @@ def xnmt_preproc(args):
               out_stream.write((word + u"\n").encode('utf-8'))
 
     else:
-      raise RuntimeError("Unknown preprocessing type {}".format(arg))
+      raise RuntimeError("Unknown preprocessing type {}".format(arg['type']))
 
 if __name__ == "__main__":
 

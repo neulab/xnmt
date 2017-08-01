@@ -26,14 +26,14 @@ def recursive_assign(f):
       method invocation and pass the context to the next. We assume that the decorated method will use / modify
       the context as needed.
   '''
-  def rec_f(obj, *args, context=None, **kwargs):
+  def rec_f(obj, *args, **kwargs):
     assert(issubclass(obj.__class__, model.HierarchicalModel))
     name = f.__name__
-    context = f(obj, *args, context=context, **kwargs)
+    kwargs["context"] = f(obj, *args, **kwargs)
     for member in obj._hier_children:
       if hasattr(member, name):
-        context = getattr(member, name)(*args, context=context, **kwargs)
-    return context
+        kwargs["context"] = getattr(member, name)(*args, **kwargs)
+    return kwargs["context"]
 
   return rec_f
 

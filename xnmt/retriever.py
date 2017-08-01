@@ -11,6 +11,7 @@ import model
 from decorators import recursive
 from model import GeneratorModel
 from serializer import Serializable
+from reports import HTMLReportable
 
 ##### A class for retrieval databases
 # This file contains databases used for retrieval.
@@ -76,15 +77,17 @@ class Retriever(GeneratorModel):
       with open(args.candidate_id_file, "r") as f:
         candidates = sorted({int(x):1 for x in f}.keys())
     self.index_database(candidates)
+    self.report_path = args.report_path
 
-class DotProductRetriever(Retriever, Serializable):
+class DotProductRetriever(Retriever, Serializable, HTMLReportable):
   '''
   A retriever trains using max-margin methods.
   '''
 
   yaml_tag = u'!DotProductRetriever'
 
-  def __init__(self, src_embedder, src_encoder, trg_embedder, trg_encoder, database):
+
+  def __init__(self, src_embedder, src_encoder, trg_embedder, trg_encoder, database, loss_direction="forward"):
     '''Constructor.
 
     :param src_embedder: A word embedder for the source language
@@ -99,6 +102,7 @@ class DotProductRetriever(Retriever, Serializable):
     self.trg_embedder = trg_embedder
     self.trg_encoder = trg_encoder
     self.database = database
+    self.loss_direction = loss_direction
 
     self.register_hier_child(self.src_encoder)
     self.register_hier_child(self.trg_encoder)
@@ -117,8 +121,21 @@ class DotProductRetriever(Retriever, Serializable):
     src_embeddings = self.src_embedder.embed_sent(src)
     src_encodings = self.exprseq_pooling(self.src_encoder.transduce(src_embeddings))
     trg_encodings = self.encode_trg_example(self.database[db_idx])
-    prod = dy.transpose(dy.transpose(src_encodings) * trg_encodings)
-    loss = dy.hinge_batch(prod, list(six.moves.range(len(db_idx))))
+    dim = trg_encodings.dim()
+    trg_reshaped = dy.reshape(trg_encodings, (dim[0][0], dim[1]))
+    prod = dy.transpose(src_encodings) * trg_reshaped
+    id_range = list(six.moves.range(len(db_idx)))
+    # This is ugly:
+    if self.loss_direction == "forward":
+      prod = dy.transpose(prod)
+      loss = dy.sum_batches(dy.hinge_batch(prod, id_range))
+    elif self.loss_direction == "bidirectional":
+      prod = dy.reshape(prod, (len(db_idx), len(db_idx)))
+      loss = dy.sum_elems(
+        dy.hinge_dim(prod, id_range, d=0) + dy.hinge_dim(prod, id_range, d=1))
+    else:
+      raise RuntimeError("Illegal loss direction {}".format(self.loss_direction))
+
     return loss
 
   def index_database(self, indices=None):
@@ -134,20 +151,23 @@ class DotProductRetriever(Retriever, Serializable):
       item = self.database.data[int(index)]
       dy.renew_cg()
       self.database.indexed.append(self.encode_trg_example(item).npvalue())
-    self.database.indexed = np.concatenate(self.database.indexed, axis=1)
+    self.database.indexed = np.stack(self.database.indexed, axis=1)
 
   def encode_trg_example(self, example):
     embeddings = self.trg_embedder.embed_sent(example)
     encodings = self.exprseq_pooling(self.trg_encoder.transduce(embeddings))
-    dim = encodings.dim()
-    return dy.reshape(encodings, (dim[0][0], dim[1]))
+    return encodings
 
-  def generate(self, src, i, return_type="idxscore", nbest=5):
+  def generate(self, src, i, return_type="idxscore", nbest=10):
     src_embedding = self.src_embedder.embed_sent(src)
     src_encoding = dy.transpose(self.exprseq_pooling(self.src_encoder.transduce(src_embedding))).npvalue()
     scores = np.dot(src_encoding, self.database.indexed)
     kbest = np.argsort(scores, axis=1)[0,-nbest:][::-1]
     ids = kbest if self.database.inverted_index == None else [self.database.inverted_index[x] for x in kbest]
+    if args.report_path is not None:
+      if hasattr(self.encoder, "set_html_input"):
+        self.encoder.set_html_input(src)
+
     if return_type == "idxscore":
       return [(i,scores[0,x]) for i, x in six.moves.zip(ids, kbest)]
     elif return_type == "idx":

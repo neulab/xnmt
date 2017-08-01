@@ -1,3 +1,5 @@
+import io
+
 from lxml import etree
 from decorators import recursive, recursive_assign
 
@@ -32,7 +34,7 @@ class HTMLReportable(object):
 
   def generate_html_report(self):
     html = etree.tostring(self.html_report(), encoding='unicode', pretty_print=True)
-    with open(self.html_path + '.html', 'w') as f:
+    with io.open(self.html_path + '.html', 'w', encoding='utf-8') as f:
       f.write(html)
 
 #if __name__ == "__main__":

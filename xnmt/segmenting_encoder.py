@@ -34,8 +34,11 @@ class SegmentingEncoderBuilder(HierarchicalModel, HTMLReportable):
   def set_train(self, train):
     self.train = train
 
+  def set_html_input(self, *inputs):
+    print("set_html_input,", *inputs)
+
   def html_report(self, context=None):
-    print(context)
+    print("HERE", context)
 
   def transduce(self, src):
     num_batch = src[0].dim()[1]

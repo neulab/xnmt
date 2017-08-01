@@ -1,4 +1,6 @@
+from __future__ import print_function
 
+import sys
 import dynet
 import collections
 
@@ -34,7 +36,7 @@ class LossBuilder(object):
         total_loss = loss_graph
       self.loss_values[loss_name] += value
 
-    self.loss_nodes.clear()
+    self.loss_nodes = []
     return total_loss
 
   def __getitem__(self, index):

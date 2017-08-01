@@ -24,7 +24,7 @@ defaults:
       trg_reader: !IDReader {}
     model: !DotProductRetriever
       src_embedder: !SimpleWordEmbedder
-        emb_dim: 512
+        emb_dim: 128
         vocab_size: 20000
       src_encoder: !SegmentingEncoder
         lmbd:
@@ -34,29 +34,29 @@ defaults:
           max: 1.0
           min: 0
         embed_encoder: !LSTMEncoder
-          input_dim: 512
-          hidden_dim: 512
+          input_dim: 128
+          hidden_dim: 128
           layers: 1
           bidirectional: true
         segment_transducer: !SegmentTransducer
           encoder: !LSTMEncoder
-            input_dim: 512
-            hidden_dim: 512
+            input_dim: 128
+            hidden_dim: 128
             bidirectional: false
             layers: 1
 #          encoder: !IdentityEncoder {}
 #          transformer: !CategorySegmentTransformer
-#            input_dim: 512
+#            input_dim: 128
 #            category_dim: 40
-#            embed_dim: 512
+#            embed_dim: 128
           transformer: !TailSegmentTransformer {}
 #          transformer: !AverageSegmentTransformer {}
       trg_embedder: !SimpleWordEmbedder
-        emb_dim: 512
+        emb_dim: 128
         vocab_size: 20000
       trg_encoder: !LSTMEncoder
-        input_dim: 512
-        hidden_dim: 512
+        input_dim: 128
+        hidden_dim: 128
         layers: 1
       database: !StandardRetrievalDatabase
         reader: !PlainTextReader {}

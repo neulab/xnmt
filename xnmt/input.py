@@ -29,10 +29,10 @@ class SimpleSentenceInput(Input):
     self.l = l
 
   def __len__(self):
-    return self.l.__len__()
+    return len(self.l)
 
   def __getitem__(self, key):
-    return self.l.__getitem__(key)
+    return self.l[key]
 
   def get_padded_sent(self, token, pad_len):
     self.l.extend([token] * pad_len)
@@ -49,14 +49,14 @@ class ArrayInput(Input):
     self.nparr = nparr
 
   def __len__(self):
-    return self.nparr.__len__()
+    return self.nparr.shape[1] if len(self.nparr.shape) >= 2 else 1
 
   def __getitem__(self, key):
     return self.nparr.__getitem__(key)
 
   def get_padded_sent(self, token, pad_len):
     if pad_len > 0:
-      self.nparr = np.append(self.nparr, np.zeros((pad_len, self.nparr.shape[1])), axis=0)
+      self.nparr = np.append(self.nparr, np.zeros((self.nparr.shape[0], pad_len)), axis=1)
     return self
 
   def get_array(self):
@@ -142,8 +142,11 @@ class ContVecReader(InputReader, Serializable):
   Handles the case where sents are sequences of continuous-space vectors.
 
   We assume a list of matrices (sents) serialized as .npz (with numpy.savez_compressed())
-  Sentences should be named arr_0, arr_1, ... (=np default for unnamed archives).
-  We can index them as sents[sent_no][word_ind,feat_ind]
+  Sentences should be named XXX_0, XXX_1, etc., where the final number after the underbar
+  indicates the order of the sentence in the corpus.
+  Within each sentence, the indices will be:
+  * sents[sent_no][feat_ind,word_ind] if transpose=False
+  * sents[sent_no][word_ind,feat_ind] if transpose=True
   """
   yaml_tag = u"!ContVecReader"
 
