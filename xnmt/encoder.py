@@ -128,7 +128,7 @@ class FullyConnectedEncoder(Encoder, Serializable):
     Then, we add a configurable number of bidirectional RNN layers on top.
     """
 
-  def __init__(self, in_height, out_height, nonlinearity='linear'):
+  def __init__(self, in_height, out_height, nonlinearity='linear', with_bias=True):
     """
       :param num_layers: depth of the RNN
       :param input_dim: size of the inputs
@@ -137,17 +137,17 @@ class FullyConnectedEncoder(Encoder, Serializable):
       :param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
       """
 
-    model = model_globals.dynet_param_collection.param_col
+    #model = model_globals.dynet_param_collection.param_col
     self.in_height = in_height
     self.out_height = out_height
     self.nonlinearity = nonlinearity
-
+    self.with_bias = with_bias
     normalInit=dy.NormalInitializer(0, 0.1)
     self.pW = model.add_parameters(dim = (self.out_height, self.in_height), init=normalInit)
     self.pb = model.add_parameters(dim = self.out_height)
 
   def transduce(self, src):
-    src = src.as_tensor()
+    #src = src.as_tensor()
     src_height = src.dim()[0][0]
     src_width = 1
     batch_size = src.dim()[1]
@@ -159,6 +159,8 @@ class FullyConnectedEncoder(Encoder, Serializable):
     # convolution and pooling layers
     #l1 = (W*src)+b
     l1 = dy.affine_transform([b, W, src])
+    if self.with_bias is False:
+      l1 = W * src
     output = l1
     if self.nonlinearity is 'linear':
       output = l1
@@ -171,6 +173,11 @@ class FullyConnectedEncoder(Encoder, Serializable):
         else:
           if self.nonlinearity is 'relu':
             output = dy.rectify(l1)
+          else:
+            if self.nonlinearity is 'softmax':
+              output = dy.softmax(l1)
+            else:
+              raise ValueError('The nonlinearity can only be "linear", "sigmoid", "tanh", "relu", "softmax"')
     return expression_sequence.ExpressionSequence(expr_tensor=output)
 
   def initial_state(self):
@@ -196,3 +203,13 @@ if __name__ == '__main__':
   l4 = FullyConnectedEncoder(2, 1, 'relu')
   e = l4.transduce(a)
   print(e[0].npvalue())
+
+  l6 = FullyConnectedEncoder(2, 1, 'softmax', False)
+  g = l6.transduce(a)
+  print(g[0].npvalue())
+
+  l5 = FullyConnectedEncoder(2, 1, 'random')
+  f = l5.transduce(a)
+  print(f[0].npvalue())
+
+
