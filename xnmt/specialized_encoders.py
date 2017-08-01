@@ -34,7 +34,7 @@ class HarwathSpeechEncoder(Encoder, Serializable):
                                          init=normalInit)
 
   def transduce(self, src):
-    src = src.get().as_tensor()
+    src = src.as_tensor()
 
     src_height = src.dim()[0][0]
     src_width = src.dim()[0][1]
@@ -65,7 +65,6 @@ class HarwathSpeechEncoder(Encoder, Serializable):
   def initial_state(self):
     return PseudoState(self)
 
-
 # This is an image encoder that takes in features and does a linear transform from the following paper
 #  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
 class HarwathImageEncoder(Encoder, Serializable):
@@ -94,7 +93,7 @@ class HarwathImageEncoder(Encoder, Serializable):
     self.pb = model.add_parameters(dim = self.out_height)
 
   def transduce(self, src):
-    src = src.get().as_tensor()
+    src = src.as_tensor()
 
     src_height = src.dim()[0][0]
     src_width = 1

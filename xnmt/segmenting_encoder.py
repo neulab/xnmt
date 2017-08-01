@@ -39,7 +39,7 @@ class SegmentingEncoderBuilder(HierarchicalModel, HTMLReportable):
     print("set_html_input,", *inputs)
 
   def transduce(self, embed_sent):
-    src = embed_sent.get()
+    src = embed_sent
     num_batch = src[0].dim()[1]
     P0 = dy.parameter(self.P0)
     # Softmax + segment decision

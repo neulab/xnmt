@@ -40,9 +40,9 @@ class BuilderEncoder(Encoder):
   def transduce(self, embed_sent):
     out = None
     if hasattr(self.builder, "transduce"):
-      out = self.builder.transduce(embed_sent.get())
+      out = self.builder.transduce(embed_sent)
     elif hasattr(self.builder, "initial_state"):
-      out = self.builder.initial_state().transduce(embed_sent.get())
+      out = self.builder.initial_state().transduce(embed_sent)
     else:
       raise NotImplementedError("Unimplemented transduce logic for class:",
                                 self.builder.__class__.__name__)
@@ -53,7 +53,7 @@ class IdentityEncoder(Encoder, Serializable):
   yaml_tag = u'!IdentityEncoder'
 
   def transduce(self, embed_sent):
-    return ExpressionSequence(expr_list = embed_sent.get())
+    return ExpressionSequence(expr_list = embed_sent)
 
 class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
@@ -210,7 +210,7 @@ class FullyConnectedEncoder(Encoder, Serializable):
     self.pb = model.add_parameters(dim = self.out_height)
 
   def transduce(self, embed_sent):
-    src = embed_sent.get().as_tensor()
+    src = embed_sent.as_tensor()
     src_height = src.dim()[0][0]
     src_width = 1
     batch_size = src.dim()[1]

@@ -4,7 +4,6 @@ import model_globals
 import embedder
 import numpy
 
-from embedder import Embedding
 from model import HierarchicalModel
 from serializer import Serializable
 from decorators import recursive, recursive_assign
@@ -35,7 +34,7 @@ class SegmentTransducer(HierarchicalModel, Serializable):
     return context
 
   def transduce(self, inputs):
-    return self.transformer.transform(self.encoder.transduce(Embedding(inputs)))
+    return self.transformer.transform(self.encoder.transduce(inputs))
 
   def disc_ll(self):
     ''' Discrete Log Likelihood '''
