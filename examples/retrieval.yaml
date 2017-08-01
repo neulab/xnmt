@@ -14,7 +14,7 @@ defaults:
     dropout: 0.0
     dev_metrics: recall|nbest=1,recall|nbest=5
     training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/train-char.ja
+      train_src: examples/data/train.ja
       train_trg: examples/data/train.allids
       train_id_file: examples/data/train.allids
       dev_src: examples/data/dev.ja
@@ -43,6 +43,6 @@ defaults:
   evaluate:
     ref_file: examples/data/test.allids
 
-standard-dropout0.1:
+retrieval:
   train:
      dropout: 0.0
