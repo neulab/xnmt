@@ -29,7 +29,7 @@ class TilburgSpeechEncoder(Encoder, Serializable):
     self.residual = residual
     
     normalInit=dy.NormalInitializer(0, 0.1)
-    #model = model_globals.dynet_param_collection.param_col
+    model = model_globals.dynet_param_collection.param_col
     # Convolutional layer
     self.filter_conv = model.add_parameters(dim=(self.filter_height, self.filter_width, self.channels, self.num_filters), init=normalInit)
   
@@ -43,27 +43,27 @@ class TilburgSpeechEncoder(Encoder, Serializable):
       recurH_layer = []
       recurT_layer = []
       if l == 0:
-        self.linearH.append(FullyConnectedEncoder(model, num_filters, rhn_dim, 'linear', with_bias=True))
-        self.linearT.append(FullyConnectedEncoder(model, num_filters, rhn_dim, 'linear', with_bias=True))
+        self.linearH.append(FullyConnectedEncoder(num_filters, rhn_dim, 'linear', with_bias=True))
+        self.linearT.append(FullyConnectedEncoder(num_filters, rhn_dim, 'linear', with_bias=True))
       else:
-        self.linearH.append(FullyConnectedEncoder(model, rhn_dim, rhn_dim, 'linear', with_bias=True))
-        self.linearT.append(FullyConnectedEncoder(model, rhn_dim, rhn_dim, 'linear', with_bias=True))
+        self.linearH.append(FullyConnectedEncoder(rhn_dim, rhn_dim, 'linear', with_bias=True))
+        self.linearT.append(FullyConnectedEncoder(rhn_dim, rhn_dim, 'linear', with_bias=True))
       for m in range(self.rhn_microsteps):
         if m  == 0:
           # Special case for the input layer
-          recurH_layer.append(FullyConnectedEncoder(model, rhn_dim, rhn_dim, 'linear', with_bias=False))
-          recurT_layer.append(FullyConnectedEncoder(model, rhn_dim, rhn_dim, 'linear', with_bias=False))
+          recurH_layer.append(FullyConnectedEncoder(rhn_dim, rhn_dim, 'linear', with_bias=False))
+          recurT_layer.append(FullyConnectedEncoder(rhn_dim, rhn_dim, 'linear', with_bias=False))
         else:
-          recurH_layer.append(FullyConnectedEncoder(model, rhn_dim, rhn_dim, 'tanh'))
-          recurT_layer.append(FullyConnectedEncoder(model, rhn_dim, rhn_dim, 'sigmoid'))
+          recurH_layer.append(FullyConnectedEncoder(rhn_dim, rhn_dim, 'tanh'))
+          recurT_layer.append(FullyConnectedEncoder(rhn_dim, rhn_dim, 'sigmoid'))
       self.recurH.append(recurH_layer)
       self.recurT.append(recurT_layer)
     
     # Attention layer  
-    self.attender = StandardAttender(model, self.rhn_dim, self.rhn_dim, attention_dim)
+    self.attender = StandardAttender(self.rhn_dim, self.rhn_dim, attention_dim)
     
   def transduce(self, src):
-    #src = src.as_tensor()
+    src = src.as_tensor()
     src_height = src.dim()[0][0]
     src_width = src.dim()[0][1]
     src_channels = 1
@@ -86,8 +86,8 @@ class TilburgSpeechEncoder(Encoder, Serializable):
         for m in range(self.rhn_microsteps):
           # Recurrent step
           if m == 0:
-            H = dy.tanh(self.linearH[l].transduce(dy.select_cols(rhn_in, [t])).as_tensor() + self.recurH[l][m].transduce(prev_state).as_tensor())
-            T = dy.logistic(self.linearT[l].transduce(dy.select_cols(rhn_in, [t])).as_tensor() + self.recurT[l][m].transduce(prev_state).as_tensor()) 
+            H = dy.tanh(self.linearH[l].transduce(ExpressionSequence(expr_tensor = dy.select_cols(rhn_in, [t]))).as_tensor() + self.recurH[l][m].transduce(ExpressionSequence(expr_tensor = prev_state)).as_tensor())
+            T = dy.logistic(self.linearT[l].transduce(ExpressionSequence(expr_tensor = dy.select_cols(rhn_in, [t]))).as_tensor() + self.recurT[l][m].transduce(ExpressionSequence(expr_tensor = prev_state)).as_tensor()) 
             # print('\n===> Check the type of column of rhn_in: ', dy.select_cols(rhn_in, [t])) Expression
             # print('\n===> Check the dimension of the sequence rhn_in, expected ( (64, 500), batch_size) :', rhn_in.dim()) ((64, 510), 1)
             
@@ -95,8 +95,8 @@ class TilburgSpeechEncoder(Encoder, Serializable):
             # print('\n===> Check the dimension of the T sequence, expected ((1024, ), 32) : ', T.dim()) ((1024,), 1)
             #print('\n===> Check the length of the sequence, expected 1', len(T))
           else: 
-            H = self.recurH[l][m].transduce(prev_state)
-            T = self.recurT[l][m].transduce(prev_state)
+            H = self.recurH[l][m].transduce(ExpressionSequence(expr_tensor = prev_state))
+            T = self.recurT[l][m].transduce(ExpressionSequence(expr_tensor = prev_state))
             H = H.as_tensor()
             T = T.as_tensor()
           prev_state = dy.cmult(dy.inputTensor(np.ones((self.rhn_dim, batch_size)), batched = True) - T, prev_state) + dy.cmult(T, H) 
@@ -106,12 +106,11 @@ class TilburgSpeechEncoder(Encoder, Serializable):
         # print('\n===> Check the batch_size of rhn_out[0], expected to be ((1024,), batch_size)', rhn_out[0].dim()) 
       rhn_in = dy.reshape(dy.concatenate(rhn_out), (self.rhn_dim, timestep), batch_size = batch_size) 
       print('\n===> Check the dimention of rhn_in update, expected ((1024, 510), batch_size)', rhn_in.dim())
-    
     # Compute the attention-weighted average of the activations
     self.attender.start_sent(ExpressionSequence(expr_tensor=rhn_in))
     attn_out = self.attender.calc_context(dy.inputTensor(np.zeros((self.rhn_dim))))
     
-    return attn_out
+    return ExpressionSequence(expr_tensor = attn_out)
 
   def initial_state(self):
     return PseudoState(self)
@@ -128,7 +127,7 @@ class HarwathSpeechEncoder(Encoder, Serializable):
     :param model
     :param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
     """
-    model = model_globals.dynet_param_collection.param_col
+    #model = model_globals.dynet_param_collection.param_col
     self.filter_height = filter_height
     self.filter_width = filter_width
     self.channels = channels
