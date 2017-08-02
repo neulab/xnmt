@@ -1,6 +1,8 @@
 import dynet as dy
+from attender import *
 from encoder import *
 import numpy as np
+from expression_sequence import *
 
 # This is a file for specialized encoders that implement a particular model
 # Ideally, these will eventually be refactored to use standard components and the ModularEncoder framework,
@@ -11,79 +13,104 @@ import numpy as np
 class TilburgSpeechEncoder(Encoder, Serializable):
   yaml_tag = u'!TilburgSpeechEncoder'
   def __init__(self, filter_height, filter_width, channels, num_filters, stride, rhn_num_hidden_layers, rhn_dim, rhn_microsteps, attention_dim, residual= False):
-  """
-  :param etc.
+    """
+    :param etc.
 
-  """
-  self.filter_height = filter_height
-  self.filter_width = filter_width
-  self.channels = channels
-  self.num_filters = num_filters
-  self.stride = stride
-  self.rhn_num_hidden_layers = rhn_num_hidden_layers
-  self.rhn_dim = rhn_dim
-  self.rhn_microsteps = rhn_microsteps
-  self.attention_dim = attention_dim
-  self.residual = residual
-
-  model = model_globals.dynet_param_collection.param_col
-  # Convolutional layer
-  self.filter_conv = model.add_parameters(dim=(self.filter_height, self.filter_width, self.channels, self.num_filters), init=normalInit)
+    """
+    self.filter_height = filter_height
+    self.filter_width = filter_width
+    self.channels = channels
+    self.num_filters = num_filters
+    self.stride = stride
+    self.rhn_num_hidden_layers = rhn_num_hidden_layers
+    self.rhn_dim = rhn_dim
+    self.rhn_microsteps = rhn_microsteps
+    self.attention_dim = attention_dim
+    self.residual = residual
+    
+    normalInit=dy.NormalInitializer(0, 0.1)
+    #model = model_globals.dynet_param_collection.param_col
+    # Convolutional layer
+    self.filter_conv = model.add_parameters(dim=(self.filter_height, self.filter_width, self.channels, self.num_filters), init=normalInit)
   
-  # Recurrent highway layer
-  self.recurH = []
-  self.recurT = []
-  self.W_ins = []
-  for _ in range(rhn_num_hidden_layers):
-    recurH_layer = []
-    recurT_layer = []
-    W_in = model.add_parameter(dim=(self.rhn_dim, self.num_filters), init=normalInit) 
-    self.W_ins.append(W_in)
-    for l in range(microsteps):
-      recurH_layer.append(FullConnectedEncoder(rhn_dim, rhn_dim, 'tanh'))
-      recurT_layer.append(FullConnectedEncoder(rhn_dim, rhn_dim, 'sigmoid'))
-    self.recurH.append(recurH_layer)
-    self.recurT.append(recurT_layer)
-  # Attention layer  
-  self.attender = StandardAttender(rhn_dim, self.num_filters, attention_dim) 
-
+    # Recurrent highway layer
+    self.recurH = []
+    self.recurT = []
+    self.linearH = []
+    self.linearT = []
+    
+    for l in range(rhn_num_hidden_layers):
+      recurH_layer = []
+      recurT_layer = []
+      if l == 0:
+        self.linearH.append(FullyConnectedEncoder(model, num_filters, rhn_dim, 'linear', with_bias=True))
+        self.linearT.append(FullyConnectedEncoder(model, num_filters, rhn_dim, 'linear', with_bias=True))
+      else:
+        self.linearH.append(FullyConnectedEncoder(model, rhn_dim, rhn_dim, 'linear', with_bias=True))
+        self.linearT.append(FullyConnectedEncoder(model, rhn_dim, rhn_dim, 'linear', with_bias=True))
+      for m in range(self.rhn_microsteps):
+        if m  == 0:
+          # Special case for the input layer
+          recurH_layer.append(FullyConnectedEncoder(model, rhn_dim, rhn_dim, 'linear', with_bias=False))
+          recurT_layer.append(FullyConnectedEncoder(model, rhn_dim, rhn_dim, 'linear', with_bias=False))
+        else:
+          recurH_layer.append(FullyConnectedEncoder(model, rhn_dim, rhn_dim, 'tanh'))
+          recurT_layer.append(FullyConnectedEncoder(model, rhn_dim, rhn_dim, 'sigmoid'))
+      self.recurH.append(recurH_layer)
+      self.recurT.append(recurT_layer)
+    
+    # Attention layer  
+    self.attender = StandardAttender(model, self.rhn_dim, self.rhn_dim, attention_dim)
+    
   def transduce(self, src):
-    src = src.as_tensor()
+    #src = src.as_tensor()
     src_height = src.dim()[0][0]
     src_width = src.dim()[0][1]
     src_channels = 1
     batch_size = src.dim()[1]
     src = dy.reshape(src, (src_height, src_width, src_channels), batch_size=batch_size) # ((276, 80, 3), 1)
-    print('\n===> Check the shape of the input, expected (40, 1000, 1)', src.npvalue().shape)
+    print('\n===> Check the shape of the input, expected (40, 1000, 1) : ', src.npvalue().shape)
     #TODO 
     ''' Check the activation function '''
     l1 = dy.rectify(dy.conv2d(src, dy.parameter(self.filter_conv), stride = [self.stride, self.stride], is_valid = True))
-    print('\n===> Check the shape of the output of the Conv, expected (1, 1000, 64)', l1.npvalue().shape)
+    print('\n===> Check the shape of the output of the Conv, expected (1, 500, 64) : ', l1.npvalue().shape)
     timestep = l1.npvalue().shape[1]
-    rhn_in = dy.transpose(dy.reshape(l1, [timestep, l1.npvalue().shape[2]], batch_size = batch_size))
-    rhn_out = []
+    rhn_in = dy.transpose(dy.reshape(l1, (timestep, l1.npvalue().shape[2]), batch_size = batch_size))
+    # print('\n===> rhn_in dimention, expected ((64,510), batch_size) : ', rhn_in.dim())  
     for l in range(self.rhn_num_hidden_layers):
       # initialize a random vector for the first state vector 
-      prev_state = dy.inputTensor(np.random.normal(size=(self.rhn_dim,)))
-      curr_state = prev_state
-      for t in range(timestep): 
-        for m in range(self.microsteps):
-            # Recurrent step
-            if m == 0:
-              curr_state = (1 - T) * prev_state + T * H + self.W_ins[l] * dy.select_col(rhn_in, t)
-              if self.residual:
-                curr_state = curr_state + dy.select_col(rhn_in, t)
-            else: 
-              H = self.recH[l][m].transduce(dy.select_col(src, t))
-              T = self.recT[l][m].transduce(dy.select_col(src, t))
-              curr_state = (1 - T) * prev_state + T * H
-            rhn_out.append(curr_state)
-        prev_state = curr_state 
-      rhn_in = rhn_out
+      print('layer',l)
       rhn_out = []
+      prev_state = dy.inputTensor(np.random.normal(size=(self.rhn_dim,)))
+      for t in range(timestep): 
+        for m in range(self.rhn_microsteps):
+          # Recurrent step
+          if m == 0:
+            H = dy.tanh(self.linearH[l].transduce(dy.select_cols(rhn_in, [t])).as_tensor() + self.recurH[l][m].transduce(prev_state).as_tensor())
+            T = dy.logistic(self.linearT[l].transduce(dy.select_cols(rhn_in, [t])).as_tensor() + self.recurT[l][m].transduce(prev_state).as_tensor()) 
+            # print('\n===> Check the type of column of rhn_in: ', dy.select_cols(rhn_in, [t])) Expression
+            # print('\n===> Check the dimension of the sequence rhn_in, expected ( (64, 500), batch_size) :', rhn_in.dim()) ((64, 510), 1)
+            
+            # print('\n===> Check the type of T, expected expression : ', T[0]) Expression
+            # print('\n===> Check the dimension of the T sequence, expected ((1024, ), 32) : ', T.dim()) ((1024,), 1)
+            #print('\n===> Check the length of the sequence, expected 1', len(T))
+          else: 
+            H = self.recurH[l][m].transduce(prev_state)
+            T = self.recurT[l][m].transduce(prev_state)
+            H = H.as_tensor()
+            T = T.as_tensor()
+          prev_state = dy.cmult(dy.inputTensor(np.ones((self.rhn_dim, batch_size)), batched = True) - T, prev_state) + dy.cmult(T, H) 
+        #print('\n===> Check the dimention of the state, expected ((1024,), batch_size) : ', prev_state.dim())
+        rhn_out.append(prev_state)
+        # print('\n===> Check the length of the rhn_out, expected to be 510', len(rhn_out)) 
+        # print('\n===> Check the batch_size of rhn_out[0], expected to be ((1024,), batch_size)', rhn_out[0].dim()) 
+      rhn_in = dy.reshape(dy.concatenate(rhn_out), (self.rhn_dim, timestep), batch_size = batch_size) 
+      print('\n===> Check the dimention of rhn_in update, expected ((1024, 510), batch_size)', rhn_in.dim())
     
     # Compute the attention-weighted average of the activations
-    attn_out = self.attender.calc_context(rhn_out)
+    self.attender.start_sent(ExpressionSequence(expr_tensor=rhn_in))
+    attn_out = self.attender.calc_context(dy.inputTensor(np.zeros((self.rhn_dim))))
+    
     return attn_out
 
   def initial_state(self):
@@ -199,3 +226,10 @@ class HarwathImageEncoder(Encoder, Serializable):
 
   def initial_state(self):
     return PseudoState(self)
+
+if __name__ == '__main__':
+  model = dy.ParameterCollection()
+  src = dy.inputTensor([np.random.normal(size=(37, 1024)), np.random.normal(size=(37, 1024))])
+  encoder = TilburgSpeechEncoder(37, 6, 1, 64, 2, 2, 1024, 2, 128)
+  out = encoder.transduce(src)
+  print(out.dim())

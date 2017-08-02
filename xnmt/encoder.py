@@ -126,7 +126,8 @@ class FullyConnectedEncoder(Encoder, Serializable):
     Then, we add a configurable number of bidirectional RNN layers on top.
     """
 
-  def __init__(self, in_height, out_height, nonlinearity='linear'):
+  # Remove the parameter model after debugging
+  def __init__(self, model, in_height, out_height, nonlinearity='linear', with_bias = True):
     """
       :param num_layers: depth of the RNN
       :param input_dim: size of the inputs
@@ -135,28 +136,35 @@ class FullyConnectedEncoder(Encoder, Serializable):
       :param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
       """
 
-    model = model_globals.dynet_param_collection.param_col
+    #model = model_globals.dynet_param_collection.param_col
     self.in_height = in_height
     self.out_height = out_height
     self.nonlinearity = nonlinearity
+    self.with_bias = with_bias
 
     normalInit=dy.NormalInitializer(0, 0.1)
     self.pW = model.add_parameters(dim = (self.out_height, self.in_height), init=normalInit)
-    self.pb = model.add_parameters(dim = self.out_height)
+    if with_bias:
+      self.pb = model.add_parameters(dim = self.out_height)
 
   def transduce(self, src):
-    src = src.as_tensor()
+    #src = src.as_tensor()
     src_height = src.dim()[0][0]
     src_width = 1
     batch_size = src.dim()[1]
 
     W = dy.parameter(self.pW)
-    b = dy.parameter(self.pb)
+    if self.with_bias:
+      b = dy.parameter(self.pb)
 
     #src = dy.reshape(src, (src_height, src_width), batch_size=batch_size) # ((276, 80, 3), 1)
     # convolution and pooling layers
     #l1 = (W*src)+b
-    l1 = dy.affine_transform([b, W, src])
+    if self.with_bias:
+      l1 = dy.affine_transform([b, W, src])
+    else:
+      l1 = W*src
+
     output = l1
     if self.nonlinearity is 'linear':
       output = l1

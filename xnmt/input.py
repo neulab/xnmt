@@ -162,6 +162,10 @@ class ContVecReader(InputReader, Serializable):
       inp = npzFile[key]
       if self.transpose:
         inp = inp.transpose()
+      if inp.shape[1] < 100:
+        tmp = np.zeros((inp.shape[0], 100))
+        tmp[:, :inp.shape[1]] = inp
+        inp = tmp  
       if idx % 1000 == 999:
         print("Read {} lines ({:.2f}%) of {} at {}".format(idx+1, float(idx+1)/len(npzKeys)*100, filename, key))
       yield ArrayInput(inp)
