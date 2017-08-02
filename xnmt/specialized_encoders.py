@@ -42,12 +42,17 @@ class TilburgSpeechEncoder(Encoder, Serializable):
     for l in range(rhn_num_hidden_layers):
       recurH_layer = []
       recurT_layer = []
+<<<<<<< HEAD
       if l == 0:
         self.linearH.append(FullyConnectedEncoder(model, num_filters, rhn_dim, 'linear', with_bias=True))
         self.linearT.append(FullyConnectedEncoder(model, num_filters, rhn_dim, 'linear', with_bias=True))
       else:
         self.linearH.append(FullyConnectedEncoder(model, rhn_dim, rhn_dim, 'linear', with_bias=True))
         self.linearT.append(FullyConnectedEncoder(model, rhn_dim, rhn_dim, 'linear', with_bias=True))
+=======
+      self.linearH.append(FullyConnectedEncoder(model, num_filters, rhn_dim, 'linear', with_bias=True))
+      self.linearT.append(FullyConnectedEncoder(model, num_filters, rhn_dim, 'linear', with_bias=True))
+>>>>>>> c213bc6d0deb20272fb5bd41beaeb884d738c313
       for m in range(self.rhn_microsteps):
         if m  == 0:
           # Special case for the input layer
@@ -76,7 +81,11 @@ class TilburgSpeechEncoder(Encoder, Serializable):
     print('\n===> Check the shape of the output of the Conv, expected (1, 500, 64) : ', l1.npvalue().shape)
     timestep = l1.npvalue().shape[1]
     rhn_in = dy.transpose(dy.reshape(l1, (timestep, l1.npvalue().shape[2]), batch_size = batch_size))
+<<<<<<< HEAD
     # print('\n===> rhn_in dimention, expected ((64,510), batch_size) : ', rhn_in.dim())  
+=======
+    rhn_out = []
+>>>>>>> c213bc6d0deb20272fb5bd41beaeb884d738c313
     for l in range(self.rhn_num_hidden_layers):
       # initialize a random vector for the first state vector 
       print('layer',l)
@@ -88,17 +97,34 @@ class TilburgSpeechEncoder(Encoder, Serializable):
           if m == 0:
             H = dy.tanh(self.linearH[l].transduce(dy.select_cols(rhn_in, [t])).as_tensor() + self.recurH[l][m].transduce(prev_state).as_tensor())
             T = dy.logistic(self.linearT[l].transduce(dy.select_cols(rhn_in, [t])).as_tensor() + self.recurT[l][m].transduce(prev_state).as_tensor()) 
+<<<<<<< HEAD
             # print('\n===> Check the type of column of rhn_in: ', dy.select_cols(rhn_in, [t])) Expression
             # print('\n===> Check the dimension of the sequence rhn_in, expected ( (64, 500), batch_size) :', rhn_in.dim()) ((64, 510), 1)
             
             # print('\n===> Check the type of T, expected expression : ', T[0]) Expression
             # print('\n===> Check the dimension of the T sequence, expected ((1024, ), 32) : ', T.dim()) ((1024,), 1)
             #print('\n===> Check the length of the sequence, expected 1', len(T))
+=======
+            print('\n===> Check the type of column of rhn_in: ', dy.select_cols(rhn_in, [t]))
+            print('\n===> Check the dimension of the sequence thn_in, expected ( (64, 500), batch_size) :', rhn_in.dim())
+            
+            #H = self.linearH[m].transduce(dy.select_cols(rhn_in, [t]))
+            #T = self.linearT[m].transduce(dy.select_cols(rhn_in, [t]))
+            print('\n===> Check the type of T, expected expression : ', T[0])
+            print('\n===> Check the dimension of the T sequence, expected ((1024, ), 32) : ', T.dim())
+            #print('\n===> Check the length of the sequence, expected 1', len(T))
+
+            curr_state = dy.cmult((dy.inputTensor(np.ones((self.rhn_dim,))) - T), prev_state) + dy.cmult(T, H)
+            rhn_out.append(curr_state)
+            #if self.residual :
+             # curr_state = curr_state + dy.select_cols(rhn_in, [t])
+>>>>>>> c213bc6d0deb20272fb5bd41beaeb884d738c313
           else: 
             H = self.recurH[l][m].transduce(prev_state)
             T = self.recurT[l][m].transduce(prev_state)
             H = H.as_tensor()
             T = T.as_tensor()
+<<<<<<< HEAD
           prev_state = dy.cmult(dy.inputTensor(np.ones((self.rhn_dim, batch_size)), batched = True) - T, prev_state) + dy.cmult(T, H) 
         #print('\n===> Check the dimention of the state, expected ((1024,), batch_size) : ', prev_state.dim())
         rhn_out.append(prev_state)
@@ -106,9 +132,23 @@ class TilburgSpeechEncoder(Encoder, Serializable):
         # print('\n===> Check the batch_size of rhn_out[0], expected to be ((1024,), batch_size)', rhn_out[0].dim()) 
       rhn_in = dy.reshape(dy.concatenate(rhn_out), (self.rhn_dim, timestep), batch_size = batch_size) 
       print('\n===> Check the dimention of rhn_in update, expected ((1024, 510), batch_size)', rhn_in.dim())
+=======
+
+            curr_state = dy.cmult((dy.inputTensor(np.ones((self.rhn_dim,))) - T), prev_state) + dy.cmult(T, H)
+        prev_state = curr_state 
+      rhn_in = rhn_out
+      rhn_out = []
+>>>>>>> c213bc6d0deb20272fb5bd41beaeb884d738c313
     
+    rhn_out = rhn_in
+    print('\n===> Chect the length of the rhn output, expected 510 : ', len(rhn_out))
+    print('\n===> Check the dimension of rhn output, expected ((1024,), 32) : ', rhn_out[0].dim()[0], rhn_out[0].dim()[1])
     # Compute the attention-weighted average of the activations
+<<<<<<< HEAD
     self.attender.start_sent(ExpressionSequence(expr_tensor=rhn_in))
+=======
+    self.attender.start_sent(ExpressionSequence(expr_tensor=dy.concatenate(rhn_out, d=1)))
+>>>>>>> c213bc6d0deb20272fb5bd41beaeb884d738c313
     attn_out = self.attender.calc_context(dy.inputTensor(np.zeros((self.rhn_dim))))
     
     return attn_out
@@ -229,7 +269,12 @@ class HarwathImageEncoder(Encoder, Serializable):
 
 if __name__ == '__main__':
   model = dy.ParameterCollection()
+<<<<<<< HEAD
   src = dy.inputTensor([np.random.normal(size=(37, 1024)), np.random.normal(size=(37, 1024))])
   encoder = TilburgSpeechEncoder(37, 6, 1, 64, 2, 2, 1024, 2, 128)
+=======
+  src = dy.inputTensor(np.random.normal(size=(37, 1024)))
+  encoder = TilburgSpeechEncoder(37, 6, 1, 64, 2, 1, 1024, 2, 128)
+>>>>>>> c213bc6d0deb20272fb5bd41beaeb884d738c313
   out = encoder.transduce(src)
   print(out.dim())
