@@ -29,14 +29,14 @@ class StandardAttender(Attender, Serializable):
 
   yaml_tag = u'!StandardAttender'
   # Remove pmtr param_collection when not debugging
-  def __init__(self, param_collection, input_dim=None, state_dim=None, hidden_dim=None):
+  def __init__(self, input_dim=None, state_dim=None, hidden_dim=None):
     input_dim = input_dim or model_globals.get("default_layer_dim")
     state_dim = state_dim or model_globals.get("default_layer_dim")
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
-    #param_collection = model_globals.dynet_param_collection.param_col
+    param_collection = model_globals.dynet_param_collection.param_col
     self.pW = param_collection.add_parameters((hidden_dim, input_dim))
     self.pV = param_collection.add_parameters((hidden_dim, state_dim))
     self.pb = param_collection.add_parameters(hidden_dim)
@@ -46,6 +46,7 @@ class StandardAttender(Attender, Serializable):
   def start_sent(self, sent):
     self.attention_vecs = []
     self.curr_sent = sent
+    #I = self.curr_sent
     I = self.curr_sent.as_tensor()
     W = dy.parameter(self.pW)
     b = dy.parameter(self.pb)
@@ -68,3 +69,11 @@ class StandardAttender(Attender, Serializable):
     I = self.curr_sent.as_tensor()
     return I * attention
 
+if __name__ == '__main__':
+  model = dy.ParameterCollection()
+  input = [dy.inputTensor(np.zeros((1024,)))]
+  state = [dy.inputTensor(np.random.normal(size=(1024,))) for i in range(100)]
+  a = StandardAttender(model, 1024, 1024, 128)
+  a.start_sent(input)
+  out = [a.calc_context(state)]
+  print(out.dim[0])
