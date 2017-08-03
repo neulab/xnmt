@@ -127,7 +127,7 @@ class FullyConnectedEncoder(Encoder, Serializable):
     """
 
   # Remove the parameter model after debugging
-  def __init__(self, model, in_height, out_height, nonlinearity='linear', with_bias = True):
+  def __init__(self, in_height, out_height, nonlinearity='linear', with_bias = True):
     """
       :param num_layers: depth of the RNN
       :param input_dim: size of the inputs
@@ -136,7 +136,7 @@ class FullyConnectedEncoder(Encoder, Serializable):
       :param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
       """
 
-    #model = model_globals.dynet_param_collection.param_col
+    model = model_globals.dynet_param_collection.param_col
     self.in_height = in_height
     self.out_height = out_height
     self.nonlinearity = nonlinearity
@@ -148,7 +148,7 @@ class FullyConnectedEncoder(Encoder, Serializable):
       self.pb = model.add_parameters(dim = self.out_height)
 
   def transduce(self, src):
-    #src = src.as_tensor()
+    src = src.as_tensor()
     src_height = src.dim()[0][0]
     src_width = 1
     batch_size = src.dim()[1]
@@ -173,7 +173,7 @@ class FullyConnectedEncoder(Encoder, Serializable):
         output = dy.logistic(l1)
       else:
         if self.nonlinearity is 'tanh':
-          output = 2*dy.logistic(l1) - 1
+          output = dy.tanh(l1)
         else:
           if self.nonlinearity is 'relu':
             output = dy.rectify(l1)
