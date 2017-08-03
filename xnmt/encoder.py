@@ -142,8 +142,9 @@ class FullyConnectedEncoder(Encoder, Serializable):
     self.nonlinearity = nonlinearity
     self.with_bias = with_bias
 
-    normalInit=dy.NormalInitializer(0, 0.1)
-    self.pW = model.add_parameters(dim = (self.out_height, self.in_height), init=normalInit)
+    # normalInit=dy.NormalInitializer(0, 0.1)
+    # self.pW = model.add_parameters(dim = (self.out_height, self.in_height), init=normalInit)
+    self.pW = model.add_parameters(dim = (self.out_height, self.in_height))
     if with_bias:
       self.pb = model.add_parameters(dim = self.out_height)
 
