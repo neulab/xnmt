@@ -54,7 +54,7 @@ class TilburgSpeechEncoder(Encoder, Serializable):
           recurH_layer.append(FullyConnectedEncoder(rhn_dim, rhn_dim, 'linear', with_bias=False))
           recurT_layer.append(FullyConnectedEncoder(rhn_dim, rhn_dim, 'linear', with_bias=False))
         else:
-          recurH_layer.append(FullyConnectedEncoder(rhn_dim, rhn_dim, 'tanh'))
+          recurH_layer.append(FullyConnectedEncoder(rhn_dim, rhn_dim, 'sigmoid'))
           recurT_layer.append(FullyConnectedEncoder(rhn_dim, rhn_dim, 'sigmoid'))
       self.recurH.append(recurH_layer)
       self.recurT.append(recurT_layer)
@@ -69,13 +69,14 @@ class TilburgSpeechEncoder(Encoder, Serializable):
     src_channels = 1
     batch_size = src.dim()[1]
     src = dy.reshape(src, (src_height, src_width, src_channels), batch_size=batch_size) # ((276, 80, 3), 1)
-    print('\n===> Check the shape of the input, expected (40, 1000, 1) : ', src.npvalue().shape)
+    #print('\n===> Check the shape of the input, expected (40, 1000, 1) : ', src.npvalue().shape)
     #TODO 
     ''' Check the activation function '''
     l1 = dy.rectify(dy.conv2d(src, dy.parameter(self.filter_conv), stride = [self.stride, self.stride], is_valid = True))
-    print('\n===> Check the shape of the output of the Conv, expected (1, 500, 64) : ', l1.npvalue().shape)
+    #print('\n===> Check the shape of the output of the Conv, expected (1, 500, 64) : ', l1.npvalue().shape)
     timestep = l1.npvalue().shape[1]
     rhn_in = dy.transpose(dy.reshape(l1, (timestep, l1.npvalue().shape[2]), batch_size = batch_size))
+    #print('\n===> Check the value of rhn_in, expected not always the same: ', rhn_in.npvalue().shape)
     # print('\n===> rhn_in dimention, expected ((64,510), batch_size) : ', rhn_in.dim())  
     for l in range(self.rhn_num_hidden_layers):
       # initialize a random vector for the first state vector 
@@ -86,12 +87,11 @@ class TilburgSpeechEncoder(Encoder, Serializable):
         for m in range(self.rhn_microsteps):
           # Recurrent step
           if m == 0:
-            H = dy.tanh(self.linearH[l].transduce(ExpressionSequence(expr_tensor = dy.select_cols(rhn_in, [t]))).as_tensor() + self.recurH[l][m].transduce(ExpressionSequence(expr_tensor = prev_state)).as_tensor())
-            T = dy.logistic(self.linearT[l].transduce(ExpressionSequence(expr_tensor = dy.select_cols(rhn_in, [t]))).as_tensor() + self.recurT[l][m].transduce(ExpressionSequence(expr_tensor = prev_state)).as_tensor()) 
-            # print('\n===> Check the type of column of rhn_in: ', dy.select_cols(rhn_in, [t])) Expression
-            # print('\n===> Check the dimension of the sequence rhn_in, expected ( (64, 500), batch_size) :', rhn_in.dim()) ((64, 510), 1)
-            
-            # print('\n===> Check the type of T, expected expression : ', T[0]) Expression
+            H = dy.tanh(self.linearH[l].transduce(ExpressionSequence(expr_tensor = dy.pick(rhn_in, t, 1))).as_tensor() + self.recurH[l][m].transduce(ExpressionSequence(expr_tensor = prev_state)).as_tensor())
+            T = dy.logistic(self.linearT[l].transduce(ExpressionSequence(expr_tensor = dy.pick(rhn_in, t, 1))).as_tensor() + self.recurT[l][m].transduce(ExpressionSequence(expr_tensor = prev_state)).as_tensor()) 
+         
+            # print('\n===> Check the value  of the gates across batch: ', (self.linearT[l].transduce(ExpressionSequence(expr_tensor = dy.pick(rhn_in, t, 1))).as_tensor()).npvalue()[0])
+           
             # print('\n===> Check the dimension of the T sequence, expected ((1024, ), 32) : ', T.dim()) ((1024,), 1)
             #print('\n===> Check the length of the sequence, expected 1', len(T))
           else: 
@@ -99,17 +99,22 @@ class TilburgSpeechEncoder(Encoder, Serializable):
             T = self.recurT[l][m].transduce(ExpressionSequence(expr_tensor = prev_state))
             H = H.as_tensor()
             T = T.as_tensor()
-          prev_state = dy.cmult(dy.inputTensor(np.ones((self.rhn_dim, batch_size)), batched = True) - T, prev_state) + dy.cmult(T, H) 
-        #print('\n===> Check the dimention of the state, expected ((1024,), batch_size) : ', prev_state.dim())
+          prev_state = dy.cmult(dy.inputTensor(np.ones((self.rhn_dim, batch_size)), batched = True) - T, prev_state) + dy.cmult(T, H)
+          #print('\n===> Check the value T*H', np.any(dy.cmult(T, H).npvalue() == float('nan'))) 
+          # print('\n===> Check the dimension of the sequence rhn_in, expected ( (64, 500), batch_size) :', rhn_in.dim())
+          #print('\n===> Check the dimention of the state, expected ((1024,), batch_size) : ', prev_state.npvalue()[:, 0], prev_state.npvalue().shape[0])
         rhn_out.append(prev_state)
-        # print('\n===> Check the length of the rhn_out, expected to be 510', len(rhn_out)) 
-        # print('\n===> Check the batch_size of rhn_out[0], expected to be ((1024,), batch_size)', rhn_out[0].dim()) 
+        #print('\n===> Check the length of the rhn_out, expected to be 510', len(rhn_out)) 
+        #print('\n===> Check the batch_size of rhn_out[0], expected to be ((1024,), batch_size)', rhn_out[0].dim()) 
       rhn_in = dy.reshape(dy.concatenate(rhn_out), (self.rhn_dim, timestep), batch_size = batch_size) 
-      print('\n===> Check the dimention of rhn_in update, expected ((1024, 510), batch_size)', rhn_in.dim())
+      #print('\n===> Check the dimention of rhn_in update, expected ((1024, 510), batch_size)', rhn_in.npvalue().shape[0])
+      #print('\n===> Check the gate values, expected not always the same: ', H.npvalue()[0], T.npvalue()[0])
+      print('\n===> Check whether nan is in rhn_in, expected False:', rhn_in.npvalue(), np.any(rhn_in.npvalue() == float('nan')))
     # Compute the attention-weighted average of the activations
-    self.attender.start_sent(ExpressionSequence(expr_tensor=rhn_in))
-    attn_out = self.attender.calc_context(dy.inputTensor(np.zeros((self.rhn_dim))))
-    
+    attn_out = dy.max_dim(rhn_in, d = 1)
+    #self.attender.start_sent(ExpressionSequence(expr_tensor=rhn_in))
+    #attn_out = self.attender.calc_context(dy.inputTensor(np.zeros((self.rhn_dim))))
+    print('forward finished')
     return ExpressionSequence(expr_tensor = attn_out)
 
   def initial_state(self):

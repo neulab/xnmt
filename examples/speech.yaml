@@ -24,15 +24,26 @@ defaults:
     model: !DefaultTranslator
       src_embedder: !NoopEmbedder
         emb_dim: 240
-      encoder: !PyramidalLSTMEncoder
-        layers: 1
-        downsampling_method: skip
-        input_dim: 240
-        hidden_dim: 64
+      encoder: !TilburgSpeechEncoder
+        filter_height: 240
+        filter_width: 6
+        channels: 1
+        num_filters: 64
+        stride: 2
+        rhn_num_hidden_layers: 2
+        rhn_dim: 1024
+        rhn_microsteps: 2
+        attention_dim: 128
+        residual: False       
+#      encoder: !PyramidalLSTMEncoder
+#        layers: 1
+#        downsampling_method: skip
+#        input_dim: 240
+#        hidden_dim: 64
       attender: !StandardAttender
-        state_dim: 64
-        hidden_dim: 64
-        input_dim: 64
+        state_dim: 1024
+        hidden_dim: 128
+        input_dim: 1024
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
       decoder: !MlpSoftmaxDecoder
