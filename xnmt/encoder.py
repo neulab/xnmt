@@ -53,7 +53,7 @@ class IdentityEncoder(Encoder, Serializable):
   yaml_tag = u'!IdentityEncoder'
 
   def transduce(self, embed_sent):
-    return ExpressionSequence(expr_list = embed_sent)
+    return embed_sent
 
 class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
