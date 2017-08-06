@@ -113,9 +113,9 @@ class XnmtTrainer(object):
                 self.args.batch_strategy.lower() == 'none')
 
   def pack_batches(self):
-    self.train_src, self.train_trg = \
+    self.train_src, self.train_src_mask, self.train_trg, self.train_trg_mask = \
       self.batcher.pack(self.training_corpus.train_src_data, self.training_corpus.train_trg_data)
-    self.dev_src, self.dev_trg = \
+    self.dev_src, self.dev_src_mask, self.dev_trg, self.dev_trg_mask = \
       self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
 
   def dynet_trainer_for_args(self, args):
@@ -199,12 +199,12 @@ class XnmtTrainer(object):
     order = list(range(0, len(self.train_src)))
     np.random.shuffle(order)
     for batch_num in order:
-      src, trg = self.train_src[batch_num], self.train_trg[batch_num]
+      src, src_mask, trg, trg_mask = self.train_src[batch_num], self.train_src_mask[batch_num], self.train_trg[batch_num], self.train_trg_mask[batch_num]
 
       # Loss calculation
       dy.renew_cg()
       loss = LossBuilder()
-      loss.add_node(self.model.calc_loss, [src, trg])
+      loss.add_node(self.model.calc_loss, [src, trg], {"src_mask": src_mask, "trg_mask": trg_mask})
       ll = dy.nobackprop(-loss[-1])
       loss.add_node(self.model.calc_additional_loss, [ll])
 
@@ -283,9 +283,9 @@ class XnmtTrainer(object):
   def compute_dev_loss(self):
     loss = LossBuilder()
     trg_words_cnt = 0
-    for src, trg in zip(self.dev_src, self.dev_trg):
+    for src, src_mask, trg, trg_mask in zip(self.dev_src, self.dev_src_mask, self.dev_trg, self.dev_trg_mask):
       dy.renew_cg()
-      loss.add_node(self.model.calc_loss, [src, trg])
+      loss.add_node(self.model.calc_loss, [src, trg], {"src_mask": src_mask, "trg_mask": trg_mask})
       trg_words_cnt += self.logger.count_trg_words(trg)
       loss.compute()
     return trg_words_cnt, LossScore(loss.sum() / trg_words_cnt)

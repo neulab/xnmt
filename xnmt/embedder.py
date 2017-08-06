@@ -23,7 +23,7 @@ class Embedder(object):
     """
     raise NotImplementedError('embed must be implemented in Embedder subclasses')
 
-  def embed_sent(self, sent):
+  def embed_sent(self, sent, mask=None):
     """Embed a full sentence worth of words.
 
     :param sent: This will generally be a list of word IDs, but could also be a list of strings or some other format.
@@ -63,7 +63,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
     else:
       return self.embeddings.batch(x)
 
-  def embed_sent(self, sent):
+  def embed_sent(self, sent, mask=None):
     # single mode
     if not batcher.is_batched(sent):
       embeddings = [self.embed(word) for word in sent]
@@ -73,7 +73,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
       for word_i in range(len(sent[0])):
         embeddings.append(self.embed(batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
 
-    return ExpressionSequence(expr_list=embeddings)
+    return ExpressionSequence(expr_list=embeddings, mask=mask)
 
 class NoopEmbedder(Embedder, Serializable):
   """
@@ -93,7 +93,7 @@ class NoopEmbedder(Embedder, Serializable):
   def embed(self, x):
     return dy.inputTensor(x, batched=batcher.is_batched(x))
 
-  def embed_sent(self, sent):
+  def embed_sent(self, sent, mask=None):
     # TODO refactor: seems a bit too many special cases that need to be distinguished
     if isinstance(sent, ExpressionSequence):
       return sent
@@ -104,7 +104,8 @@ class NoopEmbedder(Embedder, Serializable):
         return LazyNumpyExpressionSequence(lazy_data=sent.get_array())
       else:
         return LazyNumpyExpressionSequence(lazy_data=batcher.mark_as_batch(
-                                           six.moves.map(lambda s: s.get_array(), sent)))
+                                            six.moves.map(lambda s: s.get_array(), sent)),
+                                           mask=mask)
     else:
       if not batched:
         embeddings = [self.embed(word) for word in sent]
@@ -112,5 +113,5 @@ class NoopEmbedder(Embedder, Serializable):
         embeddings = []
         for word_i in range(len(first_sent)):
           embeddings.append(self.embed(batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
-      return ExpressionSequence(expr_list=embeddings)
+      return ExpressionSequence(expr_list=embeddings, mask=mask)
 

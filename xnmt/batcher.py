@@ -32,18 +32,27 @@ class Batcher(object):
     return False
 
   def pack_by_order(self, src, trg, order):
+    src_ret, src_curr, src_masks = [], [], []
+    trg_ret, trg_curr, trg_masks = [], [], []
     if self.granularity == 'sent':
-      src_ret = [Batch(pad([src[y] for y in order[x:x+self.batch_size]], pad_token=self.src_pad_token)) for x in six.moves.range(0, len(order), self.batch_size)]
-      trg_ret = [Batch(pad([trg[y] for y in order[x:x+self.batch_size]], pad_token=self.trg_pad_token)) for x in six.moves.range(0, len(order), self.batch_size)]
+      for x in six.moves.range(0, len(order), self.batch_size):
+        src_id, src_mask = pad([src[y] for y in order[x:x+self.batch_size]], pad_token=self.src_pad_token)
+        src_ret.append(Batch(src_id))
+        src_masks.append(src_mask)
+        trg_id, trg_mask = pad([trg[y] for y in order[x:x+self.batch_size]], pad_token=self.trg_pad_token)
+        trg_ret.append(Batch(trg_id))
+        trg_masks.append(trg_mask)
     elif self.granularity == 'word':
-      src_ret, src_curr = [], []
-      trg_ret, trg_curr = [], []
       my_size = 0
       for i in order:
         my_size += self.len_or_zero(src[i]) + self.len_or_zero(trg[i])
         if my_size > self.batch_size:
-          src_ret.append(Batch(pad(src_curr, pad_token=self.src_pad_token)))
-          trg_ret.append(Batch(pad(trg_curr, pad_token=self.trg_pad_token)))
+          src_id, src_mask = pad(src_curr, pad_token=self.src_pad_token)
+          src_ret.append(Batch(src_id))
+          src_masks.append(src_mask)
+          trg_id, trg_mask = pad(trg_curr, pad_token=self.trg_pad_token)
+          trg_ret.append(Batch(trg_id))
+          trg_masks.append(trg_mask)
           my_size = len(src[i]) + len(trg[i])
           src_curr = []
           trg_curr = []
@@ -51,7 +60,16 @@ class Batcher(object):
         trg_curr.append(trg[i])
     else:
       raise RuntimeError("Illegal granularity specification {}".format(self.granularity))
-    return src_ret, trg_ret
+    return src_ret, src_masks, trg_ret, trg_masks
+
+class InOrderBatcher(Batcher):
+  """
+  A class to create batches in order of the original corpus.
+  """
+
+  def pack(self, src, trg):
+    order = list(range(len(src)))
+    return self.pack_by_order(src, trg, order)
 
 class ShuffleBatcher(Batcher):
   """
@@ -92,9 +110,14 @@ def is_batched(data):
   return type(data) == Batch
 
 def pad(batch, pad_token=Vocab.ES):
-  # Determine the type of batch
   max_len = max(len_or_zero(item) for item in batch)
-  return [item.get_padded_sent(pad_token, max_len - len(item)) for item in batch] if max_len > 0 else batch
+  masks = np.zeros([len(batch), max_len])
+  for i, v in enumerate(batch):
+    for j in range(len_or_zero(v), max_len):
+      masks[i,j] = 1.0
+  print("mask:",masks)
+  padded_items = [item.get_padded_sent(pad_token, max_len - len(item)) for item in batch] if max_len > 0 else batch
+  return padded_items, masks
 
 def len_or_zero(val):
   return len(val) if hasattr(val, '__len__') else 0
@@ -110,6 +133,8 @@ def from_spec(batcher_spec, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vo
     return SortBatcher(batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]), granularity='sent', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
   elif batcher_spec == 'shuffle':
     return ShuffleBatcher(batch_size, granularity='sent', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
+  elif batcher_spec == 'inorder':
+    return InOrderBatcher(batch_size, granularity='sent', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
   elif batcher_spec == 'word_src':
     return SortBatcher(batch_size, sort_key=lambda x: len(x[0]), granularity='word', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
   elif batcher_spec == 'word_trg':
