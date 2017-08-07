@@ -5,6 +5,7 @@ import segment_transducer
 import linear
 import six
 import numpy
+import expression_sequence
 
 from enum import Enum
 from model import HierarchicalModel
@@ -77,7 +78,8 @@ class SegmentingEncoderBuilder(HierarchicalModel, HTMLReportable):
         # If segment for this particular input
         decision = int(decision)
         if decision == self.SegmentingAction.SEGMENT.value:
-          transduce_output = self.segment_transducer.transduce(buffers[i])
+          expr_seq = expression_sequence.ExpressionSequence(expr_list=buffers[i])
+          transduce_output = self.segment_transducer.transduce(expr_seq)
           outputs[i].append(transduce_output)
           buffers[i] = []
         elif decision == self.SegmentingAction.DELETE.value:
