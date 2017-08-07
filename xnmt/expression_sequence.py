@@ -7,7 +7,7 @@ class ExpressionSequence(object):
   Internal representation is either a list of expressions or a single tensor or both.
   If necessary, both forms of representation are created from the other on demand.
   """
-  def __init__(self, **kwargs):
+  def __init__(self, expr_list=None, expr_tensor=None, mask=None):
     """Constructor.
 
     :param expr_list: a python list of expressions
@@ -17,9 +17,9 @@ class ExpressionSequence(object):
       raises an exception if neither expr_list nor expr_tensor are given,
       or if both have inconsistent length
     """
-    self.expr_list = kwargs.pop('expr_list', None)
-    self.expr_tensor = kwargs.pop('expr_tensor', None)
-    self.mask = kwargs.pop('mask', None)
+    self.expr_list = expr_list
+    self.expr_tensor = expr_tensor
+    self.mask = mask
     if not (self.expr_list or self.expr_tensor):
       raise ValueError("must provide expr_list or expr_tensor")
     if self.expr_list and self.expr_tensor:
