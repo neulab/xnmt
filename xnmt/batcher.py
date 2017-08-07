@@ -111,11 +111,14 @@ def is_batched(data):
 
 def pad(batch, pad_token=Vocab.ES):
   max_len = max(len_or_zero(item) for item in batch)
+  min_len = min(len_or_zero(item) for item in batch)
+  if min_len == max_len:
+    return batch, None
   masks = np.zeros([len(batch), max_len])
   for i, v in enumerate(batch):
     for j in range(len_or_zero(v), max_len):
       masks[i,j] = 1.0
-  padded_items = [item.get_padded_sent(pad_token, max_len - len(item)) for item in batch] if max_len > 0 else batch
+  padded_items = [item.get_padded_sent(pad_token, max_len - len(item)) for item in batch]
   return padded_items, masks
 
 def len_or_zero(val):

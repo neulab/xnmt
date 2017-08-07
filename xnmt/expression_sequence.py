@@ -72,9 +72,8 @@ class ExpressionSequence(object):
     """
     if type(self.mask) != type(None):
       if self.expr_tensor:
-        if self.mask.sum() > 0:
-          my_mask = dy.inputTensor(np.expand_dims(self.mask, axis=0) * val, batched=True)
-          self.expr_tensor = dy.csum(self.expr_tensor, my_mask)
+        my_mask = dy.inputTensor(np.expand_dims(self.mask, axis=0) * val, batched=True)
+        self.expr_tensor = dy.csum(self.expr_tensor, my_mask)
       if self.expr_list:
         for i in range(len(self.expr_list)):
           col_mask = self.mask[:,i]
