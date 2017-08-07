@@ -1,41 +1,25 @@
 from __future__ import print_function
 
 import sys
-import dynet
+import dynet as dy
 import collections
 
 class LossBuilder(object):
   def __init__(self):
-    self.computed = True
     self.loss_nodes  = []
     self.loss_values = collections.defaultdict(float)
 
-  def add_node(self, loss_func, loss_args=[], loss_kwargs={}):
-    self.computed = False
-    loss_name = format_loss_name(repr(loss_func))
-    loss_graph = loss_func(*loss_args, **loss_kwargs)
-    self.loss_nodes.append((loss_name, loss_graph))
+  def add_loss(self, loss_name, loss_expr):
+    if loss_expr.dim()[1] > 1:
+      loss_expr = dy.sum_batches(loss_expr)
+    self.loss_nodes.append((loss_name, loss_expr))
 
   def compute(self):
     ''' Compute all the losses and delete the computational graph reference.
     '''
-    self.computed = True
-    total_loss  = None
-    for loss_name, loss_graph in self.loss_nodes:
-      if loss_graph is None:
-        continue
-
-      # TODO(philip30): Handle unbatched version here?
-      value = loss_graph.npvalue()
-      loss_graph = dynet.sum_batches(loss_graph)
-      value = value.sum()
-
-      if total_loss is not None:
-        total_loss += loss_graph
-      else:
-        total_loss = loss_graph
-      self.loss_values[loss_name] += value
-
+    total_loss = dy.esum([x[1] for x in self.loss_nodes])
+    for loss_name, loss_expr in self.loss_nodes:
+      self.loss_values[loss_name] += loss_expr.value()
     self.loss_nodes = []
     return total_loss
 
@@ -46,7 +30,7 @@ class LossBuilder(object):
     return iter(self.loss_values.items())
 
   def sum(self):
-    if not self.computed:
+    if len(self.loss_nodes) != 0:
       raise RuntimeError("There are some uncomputed losses. Call compute() firstly.")
     return sum(loss for loss in self.loss_values.values())
 
@@ -58,7 +42,3 @@ class LossBuilder(object):
   def __repr__(self):
     loss_str = ", ".join(["%s %f" % (loss_name, loss_value) for loss_name, loss_value in self.loss_values.items()])
     return "{Loss Builder: %s}" % (loss_str)
-
-def format_loss_name(loss_name):
-  cols = loss_name.split()
-  return cols[2]

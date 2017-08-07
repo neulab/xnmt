@@ -28,11 +28,13 @@ class Translator(GeneratorModel):
   loss and generate translations.
   '''
 
-  def calc_loss(self, src, trg):
+  def calc_loss(self, src, trg, src_mask=None, trg_mask=None):
     '''Calculate loss based on input-output pairs.
 
     :param src: The source, a sentence or a batch of sentences.
     :param trg: The target, a sentence or a batch of sentences.
+    :param src_mask: A numpy array specifying the masking over the source, where rows are time steps, and columns are batch IDs.
+    :param trg_mask: A numpy array specifying the masking over the target, where rows are time steps, and columns are batch IDs.
     :returns: An expression representing the loss.
     '''
     raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
@@ -94,8 +96,8 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
     self.search_strategy = BeamSearch(b=args.beam, max_len=args.max_len, len_norm=len_norm_type(**args.len_norm_params))
     self.report_path = args.report_path
 
-  def calc_loss(self, src, trg, info=None):
-    embeddings = self.src_embedder.embed_sent(src)
+  def calc_loss(self, src, trg, src_mask=None, trg_mask=None, info=None):
+    embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
     encodings = self.encoder.transduce(embeddings)
     self.attender.start_sent(encodings)
     self.decoder.initialize()

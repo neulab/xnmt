@@ -7,17 +7,19 @@ class ExpressionSequence(object):
   Internal representation is either a list of expressions or a single tensor or both.
   If necessary, both forms of representation are created from the other on demand.
   """
-  def __init__(self, **kwargs):
+  def __init__(self, expr_list=None, expr_tensor=None, mask=None):
     """Constructor.
 
     :param expr_list: a python list of expressions
     :param expr_tensor: a tensor where highest dimension are the sequence items
+    :param mask: a numpy array consisting of whether things should be batched or not
     :raises valueError:
       raises an exception if neither expr_list nor expr_tensor are given,
       or if both have inconsistent length
     """
-    self.expr_list = kwargs.pop('expr_list', None)
-    self.expr_tensor = kwargs.pop('expr_tensor', None)
+    self.expr_list = expr_list
+    self.expr_tensor = expr_tensor
+    self.mask = mask
     if not (self.expr_list or self.expr_tensor):
       raise ValueError("must provide expr_list or expr_tensor")
     if self.expr_list and self.expr_tensor:
@@ -65,17 +67,31 @@ class ExpressionSequence(object):
       self.expr_tensor = dy.concatenate_cols(self.expr_list)
     return self.expr_tensor
 
+  def apply_additive_mask(self, val):
+    """Add a constant to all masked values
+    """
+    if type(self.mask) != type(None):
+      if self.expr_tensor:
+        my_mask = dy.inputTensor(np.expand_dims(self.mask, axis=0) * val, batched=True)
+        self.expr_tensor = dy.csum(self.expr_tensor, my_mask)
+      if self.expr_list:
+        for i in range(len(self.expr_list)):
+          col_mask = self.mask[:,i]
+          if col_mask.sum() > 0:
+            self.expr_list[i] += dy.inputTensor(col_mask * val, batched=True)
+
 class LazyNumpyExpressionSequence(ExpressionSequence):
   """
   This is initialized via numpy arrays, and dynet expressions are only created
   once a consumer requests representation as list or tensor.
   """
-  def __init__(self, lazy_data):
+  def __init__(self, lazy_data, mask=None):
     """
     :param lazy_data: numpy array, or Batcher.Batch of numpy arrays
     """
     self.lazy_data = lazy_data
     self.expr_list, self.expr_tensor = None, None
+    self.mask = mask
   def __len__(self):
     if self.expr_list or self.expr_tensor:
       return super(LazyNumpyExpressionSequence, self).__len__()

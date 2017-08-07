@@ -46,8 +46,7 @@ class BuilderEncoder(Encoder):
     else:
       raise NotImplementedError("Unimplemented transduce logic for class:",
                                 self.builder.__class__.__name__)
-
-    return ExpressionSequence(expr_list=out)
+    return ExpressionSequence(expr_list=out, mask=embed_sent.mask)
 
 class IdentityEncoder(Encoder, Serializable):
   yaml_tag = u'!IdentityEncoder'

@@ -35,8 +35,11 @@ class SimpleSentenceInput(Input):
     return self.words[key]
 
   def get_padded_sent(self, token, pad_len):
-    self.words.extend([token] * pad_len)
-    return self
+    if pad_len == 0:
+      return self
+    new_words = list(self.words)
+    new_words.extend([token] * pad_len)
+    return SimpleSentenceInput(new_words)
 
   def __str__(self):
     return " ".join(six.moves.map(str, self.words))
@@ -63,9 +66,10 @@ class ArrayInput(Input):
     return self.nparr.__getitem__(key)
 
   def get_padded_sent(self, token, pad_len):
-    if pad_len > 0:
-      self.nparr = np.append(self.nparr, np.zeros((self.nparr.shape[0], pad_len)), axis=1)
-    return self
+    if pad_len == 0:
+      return self
+    new_nparr = np.append(self.nparr, np.zeros((self.nparr.shape[0], pad_len)), axis=1)
+    return ArrayInput(new_nparr)
 
   def get_array(self):
     return self.nparr

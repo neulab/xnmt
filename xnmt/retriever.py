@@ -33,7 +33,8 @@ class StandardRetrievalDatabase(Serializable):
     self.test_id_file = test_id_file
 
   def __getitem__(self, indices):
-    return batcher.mark_as_batch(batcher.pad([self.data[index] for index in indices]))
+    trg_examples, trg_masks = batcher.pad([self.data[index] for index in indices])
+    return batcher.mark_as_batch(trg_examples), trg_masks
 
 ##### The actual retriever class
 class Retriever(GeneratorModel):
@@ -110,6 +111,7 @@ class DotProductRetriever(Retriever, Serializable, HTMLReportable):
 
   def exprseq_pooling(self, exprseq):
     # Reduce to vector
+    exprseq.apply_additive_mask(-1e10)
     if exprseq.expr_tensor != None:
       if len(exprseq.expr_tensor.dim()[0]) > 1:
         return dy.max_dim(exprseq.expr_tensor, d=1)
@@ -118,13 +120,25 @@ class DotProductRetriever(Retriever, Serializable, HTMLReportable):
     else:
       return dy.emax(exprseq.expr_list)
 
-  def calc_loss(self, src, db_idx):
-    src_embeddings = self.src_embedder.embed_sent(src)
+  def calc_loss(self, src, db_idx, src_mask=None, trg_mask=None):
+    src_embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
     src_encodings = self.exprseq_pooling(self.src_encoder.transduce(src_embeddings))
-    trg_encodings = self.encode_trg_example(self.database[db_idx])
+    trg_batch, trg_mask = self.database[db_idx]
+    # print("trg_mask=\n",trg_mask)
+    trg_encodings = self.encode_trg_example(trg_batch, mask=trg_mask)
     dim = trg_encodings.dim()
     trg_reshaped = dy.reshape(trg_encodings, (dim[0][0], dim[1]))
+    # ### DEBUG
+    # trg_npv = trg_reshaped.npvalue()
+    # for i in range(dim[1]):
+    #   print("--- trg_reshaped {}: {}".format(i,list(trg_npv[:,i])))
+    # ### DEBUG
     prod = dy.transpose(src_encodings) * trg_reshaped
+    # ### DEBUG
+    # prod_npv = prod.npvalue()
+    # for i in range(dim[1]):
+    #   print("--- prod {}: {}".format(i,list(prod_npv[0].transpose()[i])))
+    # ### DEBUG
     id_range = list(six.moves.range(len(db_idx)))
     # This is ugly:
     if self.loss_direction == "forward":
@@ -152,10 +166,14 @@ class DotProductRetriever(Retriever, Serializable, HTMLReportable):
       item = self.database.data[int(index)]
       dy.renew_cg()
       self.database.indexed.append(self.encode_trg_example(item).npvalue())
+    # ### DEBUG
+    # for i, x in enumerate(self.database.indexed):
+    #   print("--- database {}: {}".format(i,list(x)))
+    # ### DEBUG
     self.database.indexed = np.stack(self.database.indexed, axis=1)
 
-  def encode_trg_example(self, example):
-    embeddings = self.trg_embedder.embed_sent(example)
+  def encode_trg_example(self, example, mask=None):
+    embeddings = self.trg_embedder.embed_sent(example, mask=mask)
     encodings = self.exprseq_pooling(self.trg_encoder.transduce(embeddings))
     return encodings
 
@@ -163,7 +181,9 @@ class DotProductRetriever(Retriever, Serializable, HTMLReportable):
     src_embedding = self.src_embedder.embed_sent(src)
     src_encoding = dy.transpose(self.exprseq_pooling(self.src_encoder.transduce(src_embedding))).npvalue()
     scores = np.dot(src_encoding, self.database.indexed)
+    # print("--- scores: {}".format(list(scores[0])))
     kbest = np.argsort(scores, axis=1)[0,-nbest:][::-1]
+    # print("--- kbest: {}".format(kbest))
     ids = kbest if self.database.inverted_index == None else [self.database.inverted_index[x] for x in kbest]
     # In case of reporting
     if self.report_path is not None:

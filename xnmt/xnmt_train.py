@@ -113,9 +113,9 @@ class XnmtTrainer(object):
                 self.args.batch_strategy.lower() == 'none')
 
   def pack_batches(self):
-    self.train_src, self.train_trg = \
+    self.train_src, self.train_src_mask, self.train_trg, self.train_trg_mask = \
       self.batcher.pack(self.training_corpus.train_src_data, self.training_corpus.train_trg_data)
-    self.dev_src, self.dev_trg = \
+    self.dev_src, self.dev_src_mask, self.dev_trg, self.dev_trg_mask = \
       self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
 
   def dynet_trainer_for_args(self, args):
@@ -199,18 +199,20 @@ class XnmtTrainer(object):
     order = list(range(0, len(self.train_src)))
     np.random.shuffle(order)
     for batch_num in order:
-      src, trg = self.train_src[batch_num], self.train_trg[batch_num]
+      src, src_mask, trg, trg_mask = self.train_src[batch_num], self.train_src_mask[batch_num], self.train_trg[batch_num], self.train_trg_mask[batch_num]
 
       # Loss calculation
       dy.renew_cg()
-      loss = LossBuilder()
-      loss.add_node(self.model.calc_loss, [src, trg])
-      ll = dy.nobackprop(-loss[-1])
-      loss.add_node(self.model.calc_additional_loss, [ll])
+      loss_builder = LossBuilder()
+      standard_loss = self.model.calc_loss(src, trg, src_mask=src_mask, trg_mask=trg_mask)
+      loss_builder.add_loss("loss", standard_loss)
+      additional_loss = self.model.calc_additional_loss(dy.nobackprop(-standard_loss))
+      if additional_loss != None:
+        loss_builder.add_loss("additional_loss", additional_loss)
 
       # Log the loss sum
-      self.logger.update_epoch_loss(src, trg, loss)
-      loss.compute().backward()
+      self.logger.update_epoch_loss(src, trg, loss_builder)
+      loss_builder.compute().backward()
       self.trainer.update()
 
       # Devel reporting
@@ -281,14 +283,15 @@ class XnmtTrainer(object):
         self.model.new_epoch()
 
   def compute_dev_loss(self):
-    loss = LossBuilder()
+    loss_builder = LossBuilder()
     trg_words_cnt = 0
-    for src, trg in zip(self.dev_src, self.dev_trg):
+    for src, src_mask, trg, trg_mask in zip(self.dev_src, self.dev_src_mask, self.dev_trg, self.dev_trg_mask):
       dy.renew_cg()
-      loss.add_node(self.model.calc_loss, [src, trg])
+      standard_loss = self.model.calc_loss(src, trg, src_mask=src_mask, trg_mask=trg_mask)
+      loss_builder.add_loss("loss", standard_loss)
       trg_words_cnt += self.logger.count_trg_words(trg)
-      loss.compute()
-    return trg_words_cnt, LossScore(loss.sum() / trg_words_cnt)
+      loss_builder.compute()
+    return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
 
 if __name__ == "__main__":
   parser = OptionParser()
