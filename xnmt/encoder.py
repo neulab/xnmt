@@ -141,11 +141,10 @@ class ModularEncoder(Encoder, Serializable):
   def shared_params(self):
     return [set(["input_dim", "modules.0.input_dim"])]
 
-  def transduce(self, embed_sent):
-    #pdb.set_trace()
+  def transduce(self, sent):
     for module in self.modules:
-      embed_sent = module.transduce(embed_sent)
-    return embed_sent
+      sent = module.transduce(sent)
+    return sent
 
   def get_train_test_components(self):
     return self.modules
