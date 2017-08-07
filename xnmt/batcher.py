@@ -115,7 +115,6 @@ def pad(batch, pad_token=Vocab.ES):
   for i, v in enumerate(batch):
     for j in range(len_or_zero(v), max_len):
       masks[i,j] = 1.0
-  print("mask:",masks)
   padded_items = [item.get_padded_sent(pad_token, max_len - len(item)) for item in batch] if max_len > 0 else batch
   return padded_items, masks
 

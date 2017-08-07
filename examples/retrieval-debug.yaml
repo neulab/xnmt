@@ -27,12 +27,12 @@ defaults:
         vocab_size: 20 # TODO: set this automatically
         emb_dim: 16
       src_encoder: !LSTMEncoder
-        bidirectional: False
+        bidirectional: True
       trg_embedder: !SimpleWordEmbedder
         vocab_size: 20 # TODO: set this automatically
         emb_dim: 16
       trg_encoder: !LSTMEncoder
-        bidirectional: False
+        bidirectional: True
       database: !StandardRetrievalDatabase
         reader: !PlainTextReader {}
         database_file: examples/data/debug.en

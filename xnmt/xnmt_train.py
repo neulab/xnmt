@@ -203,14 +203,16 @@ class XnmtTrainer(object):
 
       # Loss calculation
       dy.renew_cg()
-      loss = LossBuilder()
-      loss.add_node(self.model.calc_loss, [src, trg], {"src_mask": src_mask, "trg_mask": trg_mask})
-      ll = dy.nobackprop(-loss[-1])
-      loss.add_node(self.model.calc_additional_loss, [ll])
+      loss_builder = LossBuilder()
+      standard_loss = self.model.calc_loss(src, trg, src_mask=src_mask, trg_mask=trg_mask)
+      loss_builder.add_loss("loss", standard_loss)
+      additional_loss = self.model.calc_additional_loss(dy.nobackprop(-standard_loss))
+      if additional_loss != None:
+        loss_builder.add_loss("additional_loss", additional_loss)
 
       # Log the loss sum
-      self.logger.update_epoch_loss(src, trg, loss)
-      loss.compute().backward()
+      self.logger.update_epoch_loss(src, trg, loss_builder)
+      loss_builder.compute().backward()
       self.trainer.update()
 
       # Devel reporting
@@ -281,14 +283,15 @@ class XnmtTrainer(object):
         self.model.new_epoch()
 
   def compute_dev_loss(self):
-    loss = LossBuilder()
+    loss_builder = LossBuilder()
     trg_words_cnt = 0
     for src, src_mask, trg, trg_mask in zip(self.dev_src, self.dev_src_mask, self.dev_trg, self.dev_trg_mask):
       dy.renew_cg()
-      loss.add_node(self.model.calc_loss, [src, trg], {"src_mask": src_mask, "trg_mask": trg_mask})
+      standard_loss = self.model.calc_loss(src, trg, src_mask=src_mask, trg_mask=trg_mask)
+      loss_builder.add_loss("loss", standard_loss)
       trg_words_cnt += self.logger.count_trg_words(trg)
-      loss.compute()
-    return trg_words_cnt, LossScore(loss.sum() / trg_words_cnt)
+      loss_builder.compute()
+    return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
 
 if __name__ == "__main__":
   parser = OptionParser()

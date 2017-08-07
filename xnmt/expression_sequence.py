@@ -72,11 +72,14 @@ class ExpressionSequence(object):
     """
     if type(self.mask) != type(None):
       if self.expr_tensor:
-        my_mask = dy.inputTensor(np.expand_dims(self.mask, axis=0) * val, batched=True)
-        self.expr_tensor = dy.csum(self.expr_tensor, my_mask)
+        if self.mask.sum() > 0:
+          my_mask = dy.inputTensor(np.expand_dims(self.mask, axis=0) * val, batched=True)
+          self.expr_tensor = dy.csum(self.expr_tensor, my_mask)
       if self.expr_list:
         for i in range(len(self.expr_list)):
-          self.expr_list[i] += dy.inputTensor(self.mask[:,i] * val, batched=True)
+          col_mask = self.mask[:,i]
+          if col_mask.sum() > 0:
+            self.expr_list[i] += dy.inputTensor(col_mask * val, batched=True)
 
 class LazyNumpyExpressionSequence(ExpressionSequence):
   """
