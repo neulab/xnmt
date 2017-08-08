@@ -3,7 +3,6 @@ from batcher import *
 from serializer import *
 import model_globals
 
-
 class Attender(object):
   '''
   A template class for functions implementing attention.
@@ -49,9 +48,13 @@ class StandardAttender(Attender, Serializable):
     I = self.curr_sent.as_tensor()
     W = dy.parameter(self.pW)
     b = dy.parameter(self.pb)
+
     self.WI = dy.affine_transform([b, W, I])
-    if len(self.curr_sent)==1:
-      self.WI = dy.reshape(self.WI, (self.WI.dim()[0][0],1), batch_size=self.WI.dim()[1])
+    wi_dim = self.WI.dim()
+    # TODO(philip30): dynet affine transform bug, should be fixed upstream
+    # if the input size is "1" then the last dimension will be dropped.
+    if len(wi_dim[0]) == 1:
+      self.WI = dy.reshape(self.WI, (wi_dim[0][0], 1), batch_size=wi_dim[1])
 
   def calc_attention(self, state):
     V = dy.parameter(self.pV)
