@@ -27,12 +27,12 @@ defaults:
         emb_dim: 32
         vocab_size: 20000
       src_encoder: !SegmentingEncoder
-        lmbd:
-          start: 0.00
-          multiplier: 2
-          before: 3
+        lmbd_learning:
+          initial: 0.1
+          warmup: 0
+          grow: 2
           max: 1.0
-          min: 0
+          min: 0 
         embed_encoder: !LSTMEncoder
           input_dim: 32
           hidden_dim: 32
