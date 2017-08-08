@@ -56,12 +56,9 @@ defaults:
   decode:
     src_file: examples/data/test-char.ja
     report_path: examples/output/<EXP>.report
-    segmentation_path: examples/output/<EXP>.segment
-
+    report_type: html, file
   evaluate:
     ref_file: examples/data/test.en
 
-debug-config-1layer:
-  train:
-    dropout: 0.1
+debug-segmenting:
 

@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import io
 import dynet as dy
 import segment_transducer
 import linear
@@ -10,11 +11,11 @@ import expression_sequence
 from enum import Enum
 from model import HierarchicalModel
 from decorators import recursive, recursive_assign, recursive_sum
-from reports import HTMLReportable
+from reports import Reportable
 from xml.sax.saxutils import escape, unescape
 from lxml import etree
 
-class SegmentingEncoderBuilder(HierarchicalModel, HTMLReportable):
+class SegmentingEncoderBuilder(HierarchicalModel, Reportable):
   class SegmentingAction(Enum):
     READ = 0
     SEGMENT = 1
@@ -99,7 +100,7 @@ class SegmentingEncoderBuilder(HierarchicalModel, HTMLReportable):
       self.segment_decisions = segment_decisions
       self.segment_logsoftmaxes = segment_logsoftmaxes
     if not self.train:
-      self.set_html_input(segment_decisions)
+      self.set_report_input(segment_decisions)
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return outputs
 
@@ -119,37 +120,43 @@ class SegmentingEncoderBuilder(HierarchicalModel, HTMLReportable):
 
   @recursive_assign
   def html_report(self, context):
-    segment_decision = self.html_input[0]
+    segment_decision = self.get_report_input()[0]
     segment_decision = list(six.moves.map(lambda x: int(x[0]), segment_decision))
-    src_words = list(six.moves.map(escape, self.get_html_resource("src_words")))
+    src_words = list(six.moves.map(escape, self.get_report_resource("src_words")))
     main_content = context.xpath("//body/div[@name='main_content']")[0]
-    # construct the sub element by string
-    assert(len(segment_decision) == len(src_words))
+    # construct the sub element from string
+    segmented = self.apply_segmentation(src_words, segment_decision)
+    segmented = [(x if not delete else ("<font color='red'><del>" + x + "</del></font>")) for x, delete in segmented]
+    segment_html = "<p>Segmentation: " + ", ".join(segmented) + "</p>"
+    main_content.insert(2, etree.fromstring(segment_html))
+
+    return context
+
+  @recursive
+  def file_report(self):
+    segment_decision = self.get_report_input()[0]
+    segment_decision = list(six.moves.map(lambda x: int(x[0]), segment_decision))
+    src_words = self.get_report_resource("src_words")
+    segmented = self.apply_segmentation(src_words, segment_decision)
+    segmented = [x for x, delete in segmented]
+
+    with io.open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
+      print(" ".join(segmented[:-1]), file=segmentation_file)
+
+  def apply_segmentation(self, words, segmentation):
+    assert(len(words) == len(segmentation))
     segmented = []
     temp = ""
-    for decision, word in zip(segment_decision, src_words):
+    for decision, word in zip(segmentation, words):
       if decision == self.SegmentingAction.READ.value:
         temp += word
       elif decision == self.SegmentingAction.SEGMENT.value:
         temp += word
-        segmented.append(temp)
+        segmented.append((temp, False))
         temp = ""
-      else:
-        if temp:
-          segmented.append(temp)
-        segmented.append("<font color='red'><del>" + word + "</del></font>")
+      else: # Case: DELETE
+        if temp: segmented.append((temp, False))
+        segmented.append((word, True))
         temp = ""
-    segment_html = "<p>Segmentation: " + ", ".join(segmented) + "</p>"
-    main_content.insert(2, etree.fromstring(segment_html))
-
-    segmentation_file = self.get_html_resource("segmentation_file")
-    if segmentation_file:
-      segmented = list(six.moves.map(lambda x: x if not x.startswith("<font") \
-                                                 else x[len("<font color='red'><del>"):-len("</del></font>")],
-                                     segmented[:-1]))
-      segmented = list(six.moves.map(unescape, segmented))
-      print(" ".join(segmented), file=segmentation_file)
-
-    return context
-
-
+    if temp: segmented.append((temp, False))
+    return segmented

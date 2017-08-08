@@ -7,9 +7,9 @@ import numpy
 from model import HierarchicalModel
 from serializer import Serializable
 from decorators import recursive, recursive_assign
-from reports import HTMLReportable
+from reports import Reportable
 
-class SegmentTransducer(HierarchicalModel, Serializable):
+class SegmentTransducer(HierarchicalModel, Serializable, Reportable):
   yaml_tag = "!SegmentTransducer"
 
   def __init__(self, encoder, transformer):

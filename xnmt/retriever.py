@@ -11,7 +11,7 @@ import model
 from decorators import recursive, recursive_assign
 from model import GeneratorModel
 from serializer import Serializable
-from reports import HTMLReportable
+from reports import Reportable
 from lxml import etree
 
 ##### A class for retrieval databases
@@ -75,7 +75,7 @@ class Retriever(GeneratorModel):
     self.index_database(candidates)
     self.report_path = args.report_path
 
-class DotProductRetriever(Retriever, Serializable, HTMLReportable):
+class DotProductRetriever(Retriever, Serializable, Reportable):
   '''
   A retriever trains using max-margin methods.
   '''

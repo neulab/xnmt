@@ -10,7 +10,7 @@ import model_globals
 import pdb
 from decorators import recursive
 from expression_sequence import ExpressionSequence
-from reports import HTMLReportable
+from reports import Reportable
 
 # The LSTM model builders
 import pyramidal
@@ -148,7 +148,7 @@ class ModularEncoder(Encoder, Serializable):
   def get_train_test_components(self):
     return self.modules
 
-class SegmentingEncoder(Encoder, Serializable, HTMLReportable):
+class SegmentingEncoder(Encoder, Serializable, Reportable):
   yaml_tag = u'!SegmentingEncoder'
 
   def __init__(self, embed_encoder=None, segment_transducer=None, lmbd_learning=None, learn_segmentation=True):
