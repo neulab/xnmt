@@ -39,12 +39,6 @@ class Translator(GeneratorModel):
     '''
     raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
 
-  def calc_additional_loss(self, reward):
-    ''' Calculate reinforce loss based on the reward
-    :param reward: The default is log likelihood (-1 * calc_loss).
-    '''
-    return None
-
   def set_vocabs(self, src_vocab, trg_vocab):
     self.src_vocab = src_vocab
     self.trg_vocab = trg_vocab
@@ -150,7 +144,9 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
         trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
         attentions = self.attender.attention_vecs
         self.set_html_input(idx, src_words, trg_words, attentions)
+        self.set_html_resource("src_words", src_words)
         self.set_html_path('{}.{}'.format(self.report_path, str(idx)))
+        self.generate_html_report()
       # Append output to the outputs
       outputs.append(TextOutput(output_actions, self.trg_vocab))
     return outputs

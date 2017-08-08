@@ -1,3 +1,6 @@
+from __future__ import print_function
+
+import sys
 import dynet as dy
 import expression_sequence
 import model
@@ -32,9 +35,6 @@ class Encoder(HierarchicalModel):
       It can be something else if the encoder is over something that is not a sequence of vectors though.
     """
     raise NotImplementedError('Unimplemented transduce for class:', self.__class__.__name__)
-
-  def calc_reinforce_loss(self, reward):
-    return None
 
 class BuilderEncoder(Encoder):
   def transduce(self, embed_sent):
@@ -151,23 +151,28 @@ class ModularEncoder(Encoder, Serializable):
 class SegmentingEncoder(Encoder, Serializable, HTMLReportable):
   yaml_tag = u'!SegmentingEncoder'
 
-  def __init__(self, embed_encoder=None, segment_transducer=None, lmbd=None, learn_segmentation=True):
+  def __init__(self, embed_encoder=None, segment_transducer=None, lmbd_learning=None, learn_segmentation=True):
     super(SegmentingEncoder, self).__init__()
     model = model_globals.dynet_param_collection.param_col
 
     self.ctr = 0
-    self.lmbd_val = lmbd["start"]
-    self.lmbd     = lmbd
+    self.lmbd     = lmbd_learning["initial"]
+    self.lmbd_max = lmbd_learning["max"]
+    self.lmbd_min = lmbd_learning["min"]
+    self.lmbd_grw = lmbd_learning["grow"]
+    self.warmup   = lmbd_learning["warmup"]
     self.builder = segmenting_encoder.SegmentingEncoderBuilder(embed_encoder, segment_transducer,
                                                                learn_segmentation, model)
 
     self.register_hier_child(self.builder)
 
   def transduce(self, embed_sent):
-    return ExpressionSequence(expr_tensor=self.builder.transduce(embed_sent))
+    lmbd = 0 if self.ctr < self.warmup else self.lmbd
+    return ExpressionSequence(expr_tensor=self.builder.transduce(embed_sent, lmbd))
 
-  def calc_reinforce_loss(self, reward):
-    return self.builder.calc_reinforce_loss(reward, self.lmbd_val)
+  def calc_additional_loss(self, reward):
+    lmbd = 0 if self.ctr < self.warmup else self.lmbd
+    return self.builder.calc_additional_loss(reward, lmbd)
 
   @recursive
   def set_train(self, val):
@@ -175,12 +180,12 @@ class SegmentingEncoder(Encoder, Serializable, HTMLReportable):
 
   def new_epoch(self):
     self.ctr += 1
-#    self.lmbd_val *= self.lmbd["multiplier"]
-    self.lmbd_val = 1e-3 * (2 * (2 ** (self.ctr-self.lmbd["before"]) -1))
-    self.lmbd_val = min(self.lmbd_val, self.lmbd["max"])
-    self.lmbd_val = max(self.lmbd_val, self.lmbd["min"])
 
-    print("Now lambda:", self.lmbd_val)
+    if self.ctr > self.warmup:
+      self.lmbd *= self.lmbd_grw
+      self.lmbd = min(self.lmbd, self.lmbd_max)
+      self.lmbd = max(self.lmbd, self.lmbd_min)
+      print("Now lambda:", self.lmbd, file=sys.stderr)
 
 class FullyConnectedEncoder(Encoder, Serializable):
   yaml_tag = u'!FullyConnectedEncoder'

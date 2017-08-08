@@ -30,7 +30,6 @@ class SegmentTransducer(HierarchicalModel, Serializable):
 
   @recursive_assign
   def html_report(self, context):
-    # TODO(philip30): Modify HTML context in case-to-case basis
     return context
 
   def transduce(self, inputs):

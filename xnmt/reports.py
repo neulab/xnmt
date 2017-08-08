@@ -30,7 +30,7 @@ class HTMLReportable(object):
       self.html_reportable_resources.clear()
 
   def get_html_resource(self, key):
-    return self.html_reportable_resources[key]
+    return self.html_reportable_resources.get(key, None)
 
   def generate_html_report(self):
     html_report = self.html_report()

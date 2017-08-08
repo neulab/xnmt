@@ -1,4 +1,4 @@
-from decorators import recursive
+from decorators import recursive, recursive_sum
 
 class HierarchicalModel(object):
   ''' Hierarchical Model interface '''
@@ -35,4 +35,14 @@ class GeneratorModel(HierarchicalModel):
   @recursive
   def set_train(self, val):
     pass
+
+  def calc_loss(self, src, trg, src_mask=None, trg_mask=None):
+    raise NotImplementedError()
+
+  @recursive_sum
+  def calc_additional_loss(self, reward):
+    ''' Calculate reinforce loss based on the reward
+    :param reward: The default is log likelihood (-1 * calc_loss).
+    '''
+    return None
 

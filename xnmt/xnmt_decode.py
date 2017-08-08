@@ -27,6 +27,7 @@ options = [
   Option("post_process", default_value="none", help_str="post-processing of translation outputs: none/join-char/join-bpe"),
   Option("candidate_id_file", required=False, default_value=None, help_str="if we are doing something like retrieval where we select from fixed candidates, sometimes we want to limit our candidates to a certain subset of the full set. this setting allows us to do this."),
   Option("report_path", str, required=False, help_str="a path to which decoding reports will be written"),
+  Option("segmentation_path", str, required=False, help_str="a path to which segmentation encoding segmentation will be written."),
   Option("beam", int, default_value=1),
   Option("max_len", int, default_value=100),
   Option("len_norm_type", str, default_value="NoNormalization"),
@@ -75,6 +76,10 @@ def xnmt_decode(args, model_elements=None):
     generator.set_html_resource("src_vocab", src_vocab)
     generator.set_html_resource("trg_vocab", trg_vocab)
 
+  if args.segmentation_path is not None:
+    segmentation_file = io.open(args.segmentation_path, encoding='utf-8', mode='w')
+    generator.set_html_resource("segmentation_file", segmentation_file)
+
   # Perform generation of output
   with io.open(args.trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
     for i, src in enumerate(src_corpus):
@@ -87,10 +92,8 @@ def xnmt_decode(args, model_elements=None):
       # Printing to trg file
       fp.write(u"{}\n".format(outputs))
 
-  # Generating html report
-  if is_reporting:
-    generator.generate_html_report()
-    generator.clear_html_resources()
+  if args.segmentation_path is not None:
+    segmentation_file.close()
 
 def output_processor_for_spec(spec):
   if spec == "none":
