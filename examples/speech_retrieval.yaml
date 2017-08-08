@@ -4,7 +4,7 @@ defaults:
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
-    run_for_epochs: 20
+    run_for_epochs: 2
     eval_metrics: recall|nbest=1,recall|nbest=5
   train:
     trainer: 'adam'
@@ -22,14 +22,18 @@ defaults:
       trg_reader: !IDReader {}
     model: !DotProductRetriever
       src_embedder: !NoopEmbedder
-        #vocab_size: 5000 # TODO: set this automatically
         emb_dim: 40
-      src_encoder: !HarwathSpeechEncoder
-        filter_height: [40, 1, 1]
-        filter_width: [5, 25, 25]
-        channels: [1, 64, 512]
-        num_filters: [64, 512, 1024]
-        stride: [1, 1, 1]
+      src_encoder: !TilburgSpeechEncoder
+        filter_height: 40
+        filter_width: 6
+        channels: 1
+        num_filters: 64
+        stride: 2
+        rhn_num_hidden_layers: 2
+        rhn_dim: 1024
+        rhn_microsteps: 2
+        attention_dim: 128
+        residual: True
       trg_embedder: !NoopEmbedder
         emb_dim: 40
       trg_encoder: !HarwathImageEncoder
@@ -39,7 +43,6 @@ defaults:
         reader: !ContVecReader {}
         database_file: examples/data/vgg20.npz
   decode:
-    report_path: examples/output/<EXP>.report
     src_file: examples/data/mfcc_tx20.npz
   evaluate:
     ref_file: examples/data/flickr_tx20.ids
