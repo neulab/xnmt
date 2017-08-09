@@ -8,6 +8,107 @@ from encoder import *
 
 # This is a CNN-based encoder that was used in the following paper:
 #  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
+
+def padding(src, src_height, src_width,filter_width, stride, batch_size, channel=1):
+   ''' do padding for the sequence input along the time step (for example speech), so that so that the output of convolutional layer has the same size(time) of the input.
+
+       note that for padding image(two dimensional padding), please refer to dyne.conv2d(..., is_valid = False)
+   '''
+   # pad before put into convolutional layer
+   pad_size = (stride-1)*src_width+filter_width-stride
+   if pad_size>0 and int(pad_size) % 2 ==0:
+     border = int(pad_size) / 2
+     src = dy.concatenate([dy.zeroes((src_height, border, channel), batch_size = batch_size), src, dy.zeroes((src_height, border, channel), batch_size = batch_size)], d=1) # do concatenate along cols
+   elif pad_size>0:
+     print('Padding error ===> input\'s bords are padded with zeros so that the output of convolutional layer has the same size of the input')
+     print('                   can not satisfy above constraint, invalid input size or filter width or stride ')
+     raise ValueError('invalid input size or filter width or stride for convolutional layer')
+   return src
+
+
+class TilburgSpeechEncoder(Encoder, Serializable):
+  yaml_tag = u'!TilburgSpeechEncoder'
+  def __init__(self, filter_height, filter_width, channels, num_filters, stride, rhn_num_hidden_layers, rhn_dim, rhn_microsteps, attention_dim, residual= False):
+    """
+    :param etc.
+    """
+    self.filter_height = filter_height
+    self.filter_width = filter_width
+    self.channels = channels
+    self.num_filters = num_filters
+    self.stride = stride
+    self.rhn_num_hidden_layers = rhn_num_hidden_layers
+    self.rhn_dim = rhn_dim
+    self.rhn_microsteps = rhn_microsteps
+    self.attention_dim = attention_dim
+    self.residual = residual
+
+    model = model_globals.dynet_param_collection.param_col
+    # Convolutional layer
+    self.filter_conv = model.add_parameters(dim=(self.filter_height, self.filter_width, self.channels, self.num_filters))
+    # Recurrent highway layer
+    self.recur  = []
+    self.linear = []
+    self.init   = []
+    self.attention = []
+
+    input_dim = num_filters
+    for l in range(rhn_num_hidden_layers):
+      self.init.append(model.add_parameters((rhn_dim,)))
+      self.linear.append((model.add_parameters((rhn_dim, input_dim)),
+                          model.add_parameters((rhn_dim, input_dim,))))
+      input_dim = rhn_dim
+      recur_layer = []
+      for m in range(self.rhn_microsteps):
+        recur_layer.append((model.add_parameters((rhn_dim, rhn_dim)),
+                            model.add_parameters((rhn_dim,)),
+                            model.add_parameters((rhn_dim, rhn_dim,)),
+                            model.add_parameters((rhn_dim,))))
+      self.recur.append(recur_layer)
+    # Attention layer
+    self.attention.append((model.add_parameters((attention_dim, rhn_dim)),
+                           model.add_parameters(attention_dim, )))
+
+  def transduce(self, src):
+    src = src.as_tensor()
+    # convolutional layer
+    src = padding(src, src.dim()[0][0], src.dim()[0][1], self.filter_width, self.stride, src.dim()[1])
+    l1 = dy.rectify(dy.conv2d(src, dy.parameter(self.filter_conv), stride = [self.stride, self.stride], is_valid = True))
+    timestep = l1.dim()[0][1]
+    features = l1.dim()[0][2]
+    batch_size = l1.dim()[1]
+    # transpose l1 to be (timesetp, dim), but keep the batch_size.
+    rhn_in = dy.reshape(l1, (timestep, features), batch_size = batch_size)
+    rhn_in = [dy.pick(rhn_in, i) for i in range(timestep)]
+    for l in range(self.rhn_num_hidden_layers):
+      rhn_out = []
+      # initialize a random vector for the first state vector, keep the same batch size.
+      prev_state = dy.parameter(self.init[l])
+      # begin recurrent high way network
+      for t in range(timestep):
+        for m in range(0, self.rhn_microsteps):
+          H = dy.affine_transform([dy.parameter(self.recur[l][m][1]), dy.parameter(self.recur[l][m][0]),  prev_state])
+          T = dy.affine_transform([dy.parameter(self.recur[l][m][3]), dy.parameter(self.recur[l][m][2]),  prev_state])
+          if m == 0:
+            H += dy.parameter(self.linear[l][0]) * rhn_in[t]
+            T += dy.parameter(self.linear[l][1]) * rhn_in[t]
+          H = dy.tanh(H)
+          T = dy.logistic(T)
+          prev_state = dy.cmult(1 - T, prev_state) + dy.cmult(T, H) # ((1024, ), batch_size)
+        rhn_out.append(prev_state)
+      if self.residual and l>0:
+        rhn_out = [sum(x) for x in zip(rhn_out, rhn_in)]
+      rhn_in = rhn_out
+    # Compute the attention-weighted average of the activations
+    rhn_in = dy.concatenate_cols(rhn_in)
+    scores = dy.transpose(dy.parameter(self.attention[0][1]))*dy.tanh(dy.parameter(self.attention[0][0])*rhn_in) # ((1,510), batch_size)
+    scores = dy.reshape(scores, (scores.dim()[0][1],), batch_size = scores.dim()[1])
+    attn_out = rhn_in*dy.softmax(scores) # # rhn_in.as_tensor() is ((1024,510), batch_size) softmax is ((510,), batch_size)
+    return expression_sequence.ExpressionSequence(expr_tensor = attn_out)
+
+  def initial_state(self):
+    return PseudoState(self)
+
 class HarwathSpeechEncoder(Encoder, Serializable):
   yaml_tag = u'!HarwathSpeechEncoder'
   def __init__(self, filter_height, filter_width, channels, num_filters, stride):
@@ -24,6 +125,7 @@ class HarwathSpeechEncoder(Encoder, Serializable):
     self.channels = channels
     self.num_filters = num_filters
     self.stride = stride # (2,2)
+    self.hidden_states = {}
 
     normalInit=dy.NormalInitializer(0, 0.1)
     self.filters1 = model.add_parameters(dim=(self.filter_height[0], self.filter_width[0], self.channels[0], self.num_filters[0]),
@@ -41,24 +143,23 @@ class HarwathSpeechEncoder(Encoder, Serializable):
     # src_channels = 1
     batch_size = src.dim()[1]
 
-
-    # src = dy.reshape(src, (src_height, src_width, src_channels), batch_size=batch_size) # ((276, 80, 3), 1)
-    # print(self.filters1)
     # convolution and pooling layers
-    l1 = dy.rectify(dy.conv2d(src, dy.parameter(self.filters1), stride = [self.stride[0], self.stride[0]], is_valid = True))
-    pool1 = dy.maxpooling2d(l1, (1, 4), (1,2), is_valid = True)
+    # src dim is ((40, 1000), 128)
+    src = padding(src, src_height, src_width, self.filter_width[0], self.stride[0], batch_size) # after padding at the two bords ((40, 1004, 1), 128)
+    l1 = dy.rectify(dy.conv2d(src, dy.parameter(self.filters1), stride = [self.stride[0], self.stride[0]], is_valid = True)) # ((1, 1000, 64), 128)
+    pool1 = dy.maxpooling2d(l1, (1, 4), (1,2), is_valid = True) #((1, 499, 64), 128)
 
-    l2 = dy.rectify(dy.conv2d(pool1, dy.parameter(self.filters2), stride = [self.stride[1], self.stride[1]], is_valid = True))
-    pool2 = dy.maxpooling2d(l2, (1, 4), (1,2), is_valid = True)
+    pool1 = padding(pool1, pool1.dim()[0][0], pool1.dim()[0][1], self.filter_width[1], self.stride[1], batch_size, channel = pool1.dim()[0][2])
+    l2 = dy.rectify(dy.conv2d(pool1, dy.parameter(self.filters2), stride = [self.stride[1], self.stride[1]], is_valid = True))# ((1, 499, 512), 128)
+    pool2 = dy.maxpooling2d(l2, (1, 4), (1,2), is_valid = True)#((1, 248, 512), 128)
 
-    l3 = dy.rectify(dy.conv2d(pool2, dy.parameter(self.filters3), stride = [self.stride[2], self.stride[2]], is_valid = True))
-
+    pool2 = padding(pool2, pool2.dim()[0][0], pool2.dim()[0][1], self.filter_width[2], self.stride[2], batch_size, channel = pool2.dim()[0][2])
+    l3 = dy.rectify(dy.conv2d(pool2, dy.parameter(self.filters3), stride = [self.stride[2], self.stride[2]], is_valid = True))# ((1, 248, 1024), 128)
     pool3 = dy.max_dim(l3, d = 1)
-    # print(pool3.dim())
+
     my_norm = dy.l2_norm(pool3) + 1e-6
     output = dy.cdiv(pool3,my_norm)
     output = dy.reshape(output, (self.num_filters[2],), batch_size = batch_size)
-    # print("my dim: ", output.dim())
 
     return expression_sequence.ExpressionSequence(expr_tensor=output)
 

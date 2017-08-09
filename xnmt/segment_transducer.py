@@ -7,9 +7,9 @@ import numpy
 from model import HierarchicalModel
 from serializer import Serializable
 from decorators import recursive, recursive_assign
-from reports import HTMLReportable
+from reports import Reportable
 
-class SegmentTransducer(HierarchicalModel, Serializable):
+class SegmentTransducer(HierarchicalModel, Serializable, Reportable):
   yaml_tag = "!SegmentTransducer"
 
   def __init__(self, encoder, transformer):
@@ -30,7 +30,6 @@ class SegmentTransducer(HierarchicalModel, Serializable):
 
   @recursive_assign
   def html_report(self, context):
-    # TODO(philip30): Modify HTML context in case-to-case basis
     return context
 
   def transduce(self, inputs):

@@ -31,33 +31,32 @@ class Batcher(object):
     """
     return False
 
+  def add_single_batch(self, src_curr, trg_curr, src_ret, trg_ret, src_masks, trg_masks):
+     src_id, src_mask = pad(src_curr, pad_token=self.src_pad_token)
+     src_ret.append(Batch(src_id))
+     src_masks.append(src_mask)
+     trg_id, trg_mask = pad(trg_curr, pad_token=self.trg_pad_token)
+     trg_ret.append(Batch(trg_id))
+     trg_masks.append(trg_mask)
+
   def pack_by_order(self, src, trg, order):
     src_ret, src_curr, src_masks = [], [], []
     trg_ret, trg_curr, trg_masks = [], [], []
     if self.granularity == 'sent':
       for x in six.moves.range(0, len(order), self.batch_size):
-        src_id, src_mask = pad([src[y] for y in order[x:x+self.batch_size]], pad_token=self.src_pad_token)
-        src_ret.append(Batch(src_id))
-        src_masks.append(src_mask)
-        trg_id, trg_mask = pad([trg[y] for y in order[x:x+self.batch_size]], pad_token=self.trg_pad_token)
-        trg_ret.append(Batch(trg_id))
-        trg_masks.append(trg_mask)
+        self.add_single_batch([src[y] for y in order[x:x+self.batch_size]], [trg[y] for y in order[x:x+self.batch_size]], src_ret, trg_ret, src_masks, trg_masks)
     elif self.granularity == 'word':
       my_size = 0
       for i in order:
-        my_size += self.len_or_zero(src[i]) + self.len_or_zero(trg[i])
+        my_size += len_or_zero(src[i]) + len_or_zero(trg[i])
         if my_size > self.batch_size:
-          src_id, src_mask = pad(src_curr, pad_token=self.src_pad_token)
-          src_ret.append(Batch(src_id))
-          src_masks.append(src_mask)
-          trg_id, trg_mask = pad(trg_curr, pad_token=self.trg_pad_token)
-          trg_ret.append(Batch(trg_id))
-          trg_masks.append(trg_mask)
+          self.add_single_batch(src_curr, trg_curr, src_ret, trg_ret, src_masks, trg_masks)
           my_size = len(src[i]) + len(trg[i])
           src_curr = []
           trg_curr = []
         src_curr.append(src[i])
         trg_curr.append(trg[i])
+      self.add_single_batch(src_curr, trg_curr, src_ret, trg_ret, src_masks, trg_masks)
     else:
       raise RuntimeError("Illegal granularity specification {}".format(self.granularity))
     return src_ret, src_masks, trg_ret, trg_masks

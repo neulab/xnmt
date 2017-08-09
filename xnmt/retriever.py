@@ -11,7 +11,7 @@ import model
 from decorators import recursive, recursive_assign
 from model import GeneratorModel
 from serializer import Serializable
-from reports import HTMLReportable
+from reports import Reportable
 from lxml import etree
 
 ##### A class for retrieval databases
@@ -51,9 +51,6 @@ class Retriever(GeneratorModel):
     '''
     raise NotImplementedError('calc_loss must be implemented for Retriever subclasses')
 
-  def calc_additional_loss(self):
-    return None
-
   def index_database(self, indices=None):
     '''A function that can be called before actually performing retrieval.
 
@@ -70,9 +67,6 @@ class Retriever(GeneratorModel):
     '''
     raise NotImplementedError('retrieve must be implemented for Retriever subclasses')
 
-  def calc_reinforce_loss(self, reward):
-    pass
-
   def initialize(self, args):
     candidates = None
     if args.candidate_id_file != None:
@@ -81,7 +75,7 @@ class Retriever(GeneratorModel):
     self.index_database(candidates)
     self.report_path = args.report_path
 
-class DotProductRetriever(Retriever, Serializable, HTMLReportable):
+class DotProductRetriever(Retriever, Serializable, Reportable):
   '''
   A retriever trains using max-margin methods.
   '''
@@ -209,7 +203,4 @@ class DotProductRetriever(Retriever, Serializable, HTMLReportable):
     html = etree.Element('html')
     # TODO(philip30): Write the logic of retriever html here
     return html
-
-  def calc_additional_loss(self, reward):
-    return self.src_encoder.calc_reinforce_loss(reward)
 

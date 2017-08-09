@@ -16,7 +16,7 @@ from embedder import SimpleWordEmbedder
 from decoder import MlpSoftmaxDecoder
 from output import TextOutput
 from model import HierarchicalModel, GeneratorModel
-from reports import HTMLReportable
+from reports import Reportable
 from decorators import recursive_assign, recursive
 
 # Reporting purposes
@@ -39,12 +39,6 @@ class Translator(GeneratorModel):
     '''
     raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
 
-  def calc_additional_loss(self, reward):
-    ''' Calculate reinforce loss based on the reward
-    :param reward: The default is log likelihood (-1 * calc_loss).
-    '''
-    return None
-
   def set_vocabs(self, src_vocab, trg_vocab):
     self.src_vocab = src_vocab
     self.trg_vocab = trg_vocab
@@ -52,7 +46,7 @@ class Translator(GeneratorModel):
   def set_post_processor(self, post_processor):
     self.post_processor = post_processor
 
-class DefaultTranslator(Translator, Serializable, HTMLReportable):
+class DefaultTranslator(Translator, Serializable, Reportable):
   '''
   A default translator based on attentional sequence-to-sequence models.
   '''
@@ -95,6 +89,7 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
     len_norm_type   = getattr(length_normalization, args.len_norm_type)
     self.search_strategy = BeamSearch(b=args.beam, max_len=args.max_len, len_norm=len_norm_type(**args.len_norm_params))
     self.report_path = args.report_path
+    self.report_type = args.report_type
 
   def calc_loss(self, src, trg, src_mask=None, trg_mask=None, info=None):
     embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
@@ -149,8 +144,10 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
         src_words = [self.src_vocab[w] for w in sents]
         trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
         attentions = self.attender.attention_vecs
-        self.set_html_input(idx, src_words, trg_words, attentions)
-        self.set_html_path('{}.{}'.format(self.report_path, str(idx)))
+        self.set_report_input(idx, src_words, trg_words, attentions)
+        self.set_report_resource("src_words", src_words)
+        self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
+        self.generate_report(self.report_type)
       # Append output to the outputs
       outputs.append(TextOutput(output_actions, self.trg_vocab))
     return outputs
@@ -158,8 +155,8 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
   @recursive_assign
   def html_report(self, context=None):
     assert(context is None)
-    idx, src, trg, att = self.html_input
-    path_to_report = self.html_path
+    idx, src, trg, att = self.get_report_input()
+    path_to_report = self.get_report_path()
     filename_of_report = os.path.basename(path_to_report)
     html = etree.Element('html')
     head = etree.SubElement(html, 'head')
@@ -200,4 +197,8 @@ class DefaultTranslator(Translator, Serializable, HTMLReportable):
 
     # return the parent context to be used as child context
     return html
+
+  @recursive
+  def file_report(self):
+    pass
 

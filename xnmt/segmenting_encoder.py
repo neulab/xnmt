@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import io
 import dynet as dy
 import segment_transducer
 import linear
@@ -9,10 +10,12 @@ import expression_sequence
 
 from enum import Enum
 from model import HierarchicalModel
-from decorators import recursive, recursive_assign
-from reports import HTMLReportable
+from decorators import recursive, recursive_assign, recursive_sum
+from reports import Reportable
+from xml.sax.saxutils import escape, unescape
+from lxml import etree
 
-class SegmentingEncoderBuilder(HierarchicalModel, HTMLReportable):
+class SegmentingEncoderBuilder(HierarchicalModel, Reportable):
   class SegmentingAction(Enum):
     READ = 0
     SEGMENT = 1
@@ -38,10 +41,7 @@ class SegmentingEncoderBuilder(HierarchicalModel, HTMLReportable):
   def set_train(self, train):
     self.train = train
 
-  def set_html_input(self, *inputs):
-    print("set_html_input", *inputs)
-
-  def transduce(self, embed_sent):
+  def transduce(self, embed_sent, curr_lmbd):
     src = embed_sent
     num_batch = src[0].dim()[1]
     P0 = dy.parameter(self.P0)
@@ -50,8 +50,10 @@ class SegmentingEncoderBuilder(HierarchicalModel, HTMLReportable):
     if self.learn_segmentation:
       segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
       # Segment decision
-      if self.train:
+      if self.train or curr_lmbd == 0:
         segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0] for log_softmax in segment_logsoftmaxes]
+        if num_batch == 1:
+          segment_decisions = list(six.moves.map(lambda x: numpy.array([x]), segment_decisions))
       else:
         segment_decisions = [log_softmax.tensor_value().argmax().as_numpy().transpose() for log_softmax in segment_logsoftmaxes]
     else:
@@ -97,10 +99,13 @@ class SegmentingEncoderBuilder(HierarchicalModel, HTMLReportable):
     if self.train and self.learn_segmentation:
       self.segment_decisions = segment_decisions
       self.segment_logsoftmaxes = segment_logsoftmaxes
+    if not self.train:
+      self.set_report_input(segment_decisions)
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return outputs
 
-  def calc_reinforce_loss(self, reward, lmbd):
+  @recursive_sum
+  def calc_additional_loss(self, reward, lmbd):
     if self.learn_segmentation:
       segment_logprob = None
       for log_softmax, segment_decision in six.moves.zip(self.segment_logsoftmaxes, self.segment_decisions):
@@ -113,3 +118,45 @@ class SegmentingEncoderBuilder(HierarchicalModel, HTMLReportable):
     else:
       return None
 
+  @recursive_assign
+  def html_report(self, context):
+    segment_decision = self.get_report_input()[0]
+    segment_decision = list(six.moves.map(lambda x: int(x[0]), segment_decision))
+    src_words = list(six.moves.map(escape, self.get_report_resource("src_words")))
+    main_content = context.xpath("//body/div[@name='main_content']")[0]
+    # construct the sub element from string
+    segmented = self.apply_segmentation(src_words, segment_decision)
+    segmented = [(x if not delete else ("<font color='red'><del>" + x + "</del></font>")) for x, delete in segmented]
+    segment_html = "<p>Segmentation: " + ", ".join(segmented) + "</p>"
+    main_content.insert(2, etree.fromstring(segment_html))
+
+    return context
+
+  @recursive
+  def file_report(self):
+    segment_decision = self.get_report_input()[0]
+    segment_decision = list(six.moves.map(lambda x: int(x[0]), segment_decision))
+    src_words = self.get_report_resource("src_words")
+    segmented = self.apply_segmentation(src_words, segment_decision)
+    segmented = [x for x, delete in segmented]
+
+    with io.open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
+      print(" ".join(segmented[:-1]), file=segmentation_file)
+
+  def apply_segmentation(self, words, segmentation):
+    assert(len(words) == len(segmentation))
+    segmented = []
+    temp = ""
+    for decision, word in zip(segmentation, words):
+      if decision == self.SegmentingAction.READ.value:
+        temp += word
+      elif decision == self.SegmentingAction.SEGMENT.value:
+        temp += word
+        segmented.append((temp, False))
+        temp = ""
+      else: # Case: DELETE
+        if temp: segmented.append((temp, False))
+        segmented.append((word, True))
+        temp = ""
+    if temp: segmented.append((temp, False))
+    return segmented

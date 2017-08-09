@@ -39,6 +39,9 @@ class LossBuilder(object):
       other.loss_values[name] += value
     return other
 
+  def __len__(self):
+    return len(self.loss_values)
+
   def __repr__(self):
     loss_str = ", ".join(["%s %f" % (loss_name, loss_value) for loss_name, loss_value in self.loss_values.items()])
     return "{Loss Builder: %s}" % (loss_str)

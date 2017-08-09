@@ -25,10 +25,10 @@ defaults:
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
       encoder: !SegmentingEncoder
-        lmbd:
-          start: 0.00
-          multiplier: 2
-          before: 3
+        lmbd_learning:
+          initial: 0.1
+          warmup: 0
+          grow: 2
           max: 1.0
           min: 0
         embed_encoder: !LSTMEncoder
@@ -55,18 +55,10 @@ defaults:
         mlp_hidden_dim: 64
   decode:
     src_file: examples/data/test-char.ja
+    report_path: examples/output/<EXP>.report
+    report_type: html, file
   evaluate:
     ref_file: examples/data/test.en
 
-debug-config-1layer:
-  train:
-    dropout: 0.1
+debug-segmenting:
 
-debug-config-2layers:
-  train:
-    dropout: 0.2
-
-debug-config-2layers-finetune:
-  train:
-    dropout: 0.2
-    pretrained_model_file: examples/output/debug-config-2layers.mod
