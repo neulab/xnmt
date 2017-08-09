@@ -14,8 +14,6 @@ def padding(src, src_height, src_width,filter_width, stride, batch_size, channel
 
        note that for padding image(two dimensional padding), please refer to dyne.conv2d(..., is_valid = False)
    '''
-   # make sure the src is the right shape 
-   src = dy.reshape(src, (src_height, src_width, channel), batch_size=batch_size)
    # pad before put into convolutional layer
    pad_size = (stride-1)*src_width+filter_width-stride
    if pad_size>0 and int(pad_size) % 2 ==0:
@@ -25,7 +23,7 @@ def padding(src, src_height, src_width,filter_width, stride, batch_size, channel
      print('Padding error ===> input\'s bords are padded with zeros so that the output of convolutional layer has the same size of the input')
      print('                   can not satisfy above constraint, invalid input size or filter width or stride ')
      raise ValueError('invalid input size or filter width or stride for convolutional layer')
-   return src 
+   return src
 
 
 class TilburgSpeechEncoder(Encoder, Serializable):
@@ -150,12 +148,12 @@ class HarwathSpeechEncoder(Encoder, Serializable):
     src = padding(src, src_height, src_width, self.filter_width[0], self.stride[0], batch_size) # after padding at the two bords ((40, 1004, 1), 128)
     l1 = dy.rectify(dy.conv2d(src, dy.parameter(self.filters1), stride = [self.stride[0], self.stride[0]], is_valid = True)) # ((1, 1000, 64), 128)
     pool1 = dy.maxpooling2d(l1, (1, 4), (1,2), is_valid = True) #((1, 499, 64), 128)
+
     pool1 = padding(pool1, pool1.dim()[0][0], pool1.dim()[0][1], self.filter_width[1], self.stride[1], batch_size, channel = pool1.dim()[0][2])
-    
     l2 = dy.rectify(dy.conv2d(pool1, dy.parameter(self.filters2), stride = [self.stride[1], self.stride[1]], is_valid = True))# ((1, 499, 512), 128)
     pool2 = dy.maxpooling2d(l2, (1, 4), (1,2), is_valid = True)#((1, 248, 512), 128)
+
     pool2 = padding(pool2, pool2.dim()[0][0], pool2.dim()[0][1], self.filter_width[2], self.stride[2], batch_size, channel = pool2.dim()[0][2])
-    
     l3 = dy.rectify(dy.conv2d(pool2, dy.parameter(self.filters3), stride = [self.stride[2], self.stride[2]], is_valid = True))# ((1, 248, 1024), 128)
     pool3 = dy.max_dim(l3, d = 1)
 
