@@ -199,7 +199,10 @@ class XnmtTrainer(object):
     order = list(range(0, len(self.train_src)))
     np.random.shuffle(order)
     for batch_num in order:
-      src, src_mask, trg, trg_mask = self.train_src[batch_num], self.train_src_mask[batch_num], self.train_trg[batch_num], self.train_trg_mask[batch_num]
+      if self.is_batch_mode():
+        src, src_mask, trg, trg_mask = self.train_src[batch_num], self.train_src_mask[batch_num], self.train_trg[batch_num], self.train_trg_mask[batch_num]
+      else:
+        src, src_mask, trg, trg_mask = self.train_src[batch_num], None, self.train_trg[batch_num], None
 
       # Loss calculation
       dy.renew_cg()
@@ -285,11 +288,13 @@ class XnmtTrainer(object):
   def compute_dev_loss(self):
     loss_builder = LossBuilder()
     trg_words_cnt = 0
-    for src, src_mask, trg, trg_mask in zip(self.dev_src, self.dev_src_mask, self.dev_trg, self.dev_trg_mask):
+    for i in range(len(self.dev_src)): 
       dy.renew_cg()
-      standard_loss = self.model.calc_loss(src, trg, src_mask=src_mask, trg_mask=trg_mask)
+      src_mask = self.dev_src_mask[i] if self.is_batch_mode() else None
+      trg_mask = self.dev_trg_mask[i] if self.is_batch_mode() else None
+      standard_loss = self.model.calc_loss(self.dev_src[i], self.dev_trg[i], src_mask=src_mask, trg_mask=trg_mask)
       loss_builder.add_loss("loss", standard_loss)
-      trg_words_cnt += self.logger.count_trg_words(trg)
+      trg_words_cnt += self.logger.count_trg_words(self.dev_trg[i])
       loss_builder.compute()
     return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
 
