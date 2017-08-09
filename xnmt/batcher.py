@@ -45,7 +45,7 @@ class Batcher(object):
     elif self.granularity == 'word':
       my_size = 0
       for i in order:
-        my_size += self.len_or_zero(src[i]) + self.len_or_zero(trg[i])
+        my_size += len_or_zero(src[i]) + len_or_zero(trg[i])
         if my_size > self.batch_size:
           src_id, src_mask = pad(src_curr, pad_token=self.src_pad_token)
           src_ret.append(Batch(src_id))
