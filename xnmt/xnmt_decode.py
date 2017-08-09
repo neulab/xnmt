@@ -27,6 +27,7 @@ options = [
   Option("post_process", default_value="none", help_str="post-processing of translation outputs: none/join-char/join-bpe"),
   Option("candidate_id_file", required=False, default_value=None, help_str="if we are doing something like retrieval where we select from fixed candidates, sometimes we want to limit our candidates to a certain subset of the full set. this setting allows us to do this."),
   Option("report_path", str, required=False, help_str="a path to which decoding reports will be written"),
+  Option("report_type", str, default_value="html", required=False, help_str="report to generate file/html. Can be multiple, separate with comma."),
   Option("beam", int, default_value=1),
   Option("max_len", int, default_value=100),
   Option("len_norm_type", str, default_value="NoNormalization"),
@@ -57,7 +58,7 @@ def xnmt_decode(args, model_elements=None):
   else:
     corpus_parser, generator = model_elements
 
-  is_reporting = issubclass(generator.__class__, HTMLReportable) and args.report_path is not None
+  is_reporting = issubclass(generator.__class__, Reportable) and args.report_path is not None
   # Corpus
   src_corpus = corpus_parser.src_reader.read_sents(args.src_file)
   # Vocab
@@ -72,8 +73,8 @@ def xnmt_decode(args, model_elements=None):
     generator.set_vocabs(src_vocab, trg_vocab)
 
   if is_reporting:
-    generator.set_html_resource("src_vocab", src_vocab)
-    generator.set_html_resource("trg_vocab", trg_vocab)
+    generator.set_report_resource("src_vocab", src_vocab)
+    generator.set_report_resource("trg_vocab", trg_vocab)
 
   # Perform generation of output
   with io.open(args.trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
@@ -86,11 +87,6 @@ def xnmt_decode(args, model_elements=None):
         outputs = generator.generate_output(src, i)
       # Printing to trg file
       fp.write(u"{}\n".format(outputs))
-
-  # Generating html report
-  if is_reporting:
-    generator.generate_html_report()
-    generator.clear_html_resources()
 
 def output_processor_for_spec(spec):
   if spec == "none":

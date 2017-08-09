@@ -3,6 +3,7 @@ from __future__ import division, generators
 import dynet as dy
 import batcher
 import model_globals
+import six
 
 from serializer import Serializable
 from expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
