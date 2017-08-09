@@ -189,21 +189,11 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
 
 class FullyConnectedEncoder(Encoder, Serializable):
   yaml_tag = u'!FullyConnectedEncoder'
-  """
-    Inputs are first put through 2 CNN layers, each with stride (2,2), so dimensionality
-    is reduced by 4 in both directions.
-    Then, we add a configurable number of bidirectional RNN layers on top.
-    """
-
   def __init__(self, in_height, out_height, nonlinearity='linear'):
     """
-      :param num_layers: depth of the RNN
-      :param input_dim: size of the inputs
-      :param hidden_dim: size of the outputs (and intermediate RNN layer representations)
-      :param model
-      :param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
-      """
-
+      :param in_height, out_height: input and output dimension of the affine transform 
+      :param nonlinearity: nonlinear activation function
+    """
     model = model_globals.dynet_param_collection.param_col
     self.in_height = in_height
     self.out_height = out_height
@@ -221,23 +211,17 @@ class FullyConnectedEncoder(Encoder, Serializable):
 
     W = dy.parameter(self.pW)
     b = dy.parameter(self.pb)
-
-    #src = dy.reshape(src, (src_height, src_width), batch_size=batch_size) # ((276, 80, 3), 1)
-    # convolution and pooling layers
-    #l1 = (W*src)+b
+ 
     l1 = dy.affine_transform([b, W, src])
     output = l1
     if self.nonlinearity is 'linear':
       output = l1
-    else:
-      if self.nonlinearity is 'sigmoid':
-        output = dy.logistic(l1)
-      else:
-        if self.nonlinearity is 'tanh':
-          output = 2*dy.logistic(l1) - 1
-        else:
-          if self.nonlinearity is 'relu':
-            output = dy.rectify(l1)
+    elif  self.nonlinearity is 'sigmoid':
+      output = dy.logistic(l1)
+    elif self.nonlinearity is 'tanh':
+      output = 2*dy.logistic(l1) - 1
+    elif self.nonlinearity is 'relu':
+      output = dy.rectify(l1)
     return expression_sequence.ExpressionSequence(expr_tensor=output)
 
   def initial_state(self):
