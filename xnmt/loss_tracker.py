@@ -82,9 +82,9 @@ class LossTracker(object):
                 (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
                 self.format_time(time.time() - self.start_time)))
 
-            # Printing all losses TODO: Maybe should be a verbose option?
-            for loss_name, loss_values in self.epoch_loss:
-              print("- %s %5.3f" % (loss_name, loss_values / self.epoch_words))
+            if len(self.epoch_loss) > 1:
+              for loss_name, loss_values in self.epoch_loss:
+                print("- %s %5.3f" % (loss_name, loss_values / self.epoch_words))
 
             self.last_report_words = self.epoch_words
             self.last_report_train_time = this_report_time
