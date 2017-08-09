@@ -27,7 +27,7 @@ def read_data(loc_, post_process=None):
 def eval_or_empty_list(x):
   try:
     return ast.literal_eval(x)
-  else:
+  except:
     return []
 
 def xnmt_evaluate(args):
