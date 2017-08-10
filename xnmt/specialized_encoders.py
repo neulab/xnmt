@@ -14,7 +14,7 @@ def padding(src, min_size):
   # pad before put into convolutional layer
   src_dim = src.dim()
   if src_dim[0][1] >= min_size:
-    return src 
+    return src
   pad_size = min_size - src_dim[0][1]
   channels = src_dim[0][2] if len(src_dim[0]) >= 3 else 1
   if pad_size == 1:
