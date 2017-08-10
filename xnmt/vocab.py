@@ -1,3 +1,4 @@
+import io
 from serializer import Serializable
 
 class Vocab(Serializable):
@@ -44,9 +45,9 @@ class Vocab(Serializable):
     """
     vocab = [Vocab.SS_STR, Vocab.ES_STR]
     reserved = set([Vocab.SS_STR, Vocab.ES_STR, Vocab.UNK_STR])
-    with open(vocab_file) as f:
+    with io.open(vocab_file, encoding='utf-8') as f:
       for line in f:
-        word = line.decode('utf-8').strip()
+        word = line.strip()
         if word in reserved:
           raise RuntimeError("Vocab file {} contains a reserved word: {}" % (vocab_file, word))
         vocab.append(word)
