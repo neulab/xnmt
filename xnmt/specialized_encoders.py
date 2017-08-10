@@ -18,7 +18,7 @@ def padding(src, min_size):
   pad_size = min_size - src_dim[0][1]
   channels = src_dim[0][2] if len(src_dim[0]) >= 3 else 1
   if pad_size == 1:
-    return dy.concatenate_cols(src, dy.zeroes(src_dim[0][0], 1, channels))
+    return dy.concatenate_cols(src, dy.zeroes((src_dim[0][0], 1, channels)))
   else:
     left_border = int(pad_size) / 2
     right_border = (int(pad_size)+1) / 2
