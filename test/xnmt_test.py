@@ -3,6 +3,7 @@ import dynet as dy
 import random
 import unittest
 
+import xnmt
 import batcher
 import input
 import specialized_encoders
@@ -50,6 +51,6 @@ class TestSpecializedEncoders(unittest.TestCase):
                  stride= [1, 1, 1])
     expseq = expression_sequence.ExpressionSequence(expr_list = [dy.zeroes([2])])
     enc.transduce(expseq)
-    
+
 if __name__ == '__main__':
   unittest.main()

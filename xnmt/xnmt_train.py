@@ -288,7 +288,7 @@ class XnmtTrainer(object):
   def compute_dev_loss(self):
     loss_builder = LossBuilder()
     trg_words_cnt = 0
-    for i in range(len(self.dev_src)): 
+    for i in range(len(self.dev_src)):
       dy.renew_cg()
       src_mask = self.dev_src_mask[i] if self.is_batch_mode() else None
       trg_mask = self.dev_trg_mask[i] if self.is_batch_mode() else None
