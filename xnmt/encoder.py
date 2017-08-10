@@ -68,9 +68,9 @@ class LSTMEncoder(BuilderEncoder, Serializable):
     self.hidden_dim = hidden_dim
     self.dropout = dropout
     if bidirectional:
-      self.builder = dy.BiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder)
+      self.builder = dy.BiRNNBuilder(layers, input_dim, hidden_dim, model, dy.CompactVanillaLSTMBuilder)
     else:
-      self.builder = dy.VanillaLSTMBuilder(layers, input_dim, hidden_dim, model)
+      self.builder = dy.CompactVanillaLSTMBuilder(layers, input_dim, hidden_dim, model)
 
   @recursive
   def set_train(self, val):
@@ -86,9 +86,9 @@ class ResidualLSTMEncoder(BuilderEncoder, Serializable):
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
     if bidirectional:
-      self.builder = residual.ResidualBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
+      self.builder = residual.ResidualBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.CompactVanillaLSTMBuilder, residual_to_output)
     else:
-      self.builder = residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
+      self.builder = residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.CompactVanillaLSTMBuilder, residual_to_output)
 
   @recursive
   def set_train(self, val):
@@ -119,7 +119,7 @@ class ConvBiRNNBuilder(BuilderEncoder, Serializable):
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
-    self.builder = conv_encoder.ConvBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder,
+    self.builder = conv_encoder.ConvBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.CompactVanillaLSTMBuilder,
                                                  chn_dim, num_filters, filter_size_time, filter_size_freq,
                                                  stride)
 
