@@ -147,11 +147,11 @@ class HarwathSpeechEncoder(Encoder, Serializable):
 
     # convolution and pooling layers
     # src dim is ((40, 1000), 128)
-    src = padding(src, self.filter_width[0]*4)
+    src = padding(src, self.filter_width[0]+3)
     l1 = dy.rectify(dy.conv2d(src, dy.parameter(self.filters1), stride = [self.stride[0], self.stride[0]], is_valid = True)) # ((1, 1000, 64), 128)
     pool1 = dy.maxpooling2d(l1, (1, 4), (1,2), is_valid = True) #((1, 499, 64), 128)
 
-    pool1 = padding(pool1, self.filter_width[1]*4)
+    pool1 = padding(pool1, self.filter_width[1]+3)
     l2 = dy.rectify(dy.conv2d(pool1, dy.parameter(self.filters2), stride = [self.stride[1], self.stride[1]], is_valid = True))# ((1, 499, 512), 128)
     pool2 = dy.maxpooling2d(l2, (1, 4), (1,2), is_valid = True)#((1, 248, 512), 128)
 
