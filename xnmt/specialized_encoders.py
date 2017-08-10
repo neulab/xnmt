@@ -17,7 +17,7 @@ def padding(src, src_height, src_width,filter_width, stride, batch_size, channel
    # pad before put into convolutional layer
    pad_size = (stride-1)*src_width+filter_width-stride
    left_border = int(pad_size) / 2
-   righ_border = (int(pad_size)+1) / 2
+   right_border = (int(pad_size)+1) / 2
    left_src = dy.concatenate([dy.zeroes((src_height, left_border, channel), batch_size = batch_size), src, dy.zeroes((src_height, right_border, channel), batch_size = batch_size)], d=1) # do concatenate along cols
    return src
 
