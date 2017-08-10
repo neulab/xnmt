@@ -1,7 +1,8 @@
 from setuptools import setup, find_packages
 import sys
 import io
-import xnmt
+
+sys.path.append("./xnmt")
 
 with io.open("requirements.txt", encoding="utf-8") as req_fp:
   install_requires = req_fp.readlines()
