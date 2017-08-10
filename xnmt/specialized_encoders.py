@@ -16,13 +16,9 @@ def padding(src, src_height, src_width,filter_width, stride, batch_size, channel
    '''
    # pad before put into convolutional layer
    pad_size = (stride-1)*src_width+filter_width-stride
-   if pad_size>0 and int(pad_size) % 2 ==0:
-     border = int(pad_size) / 2
-     src = dy.concatenate([dy.zeroes((src_height, border, channel), batch_size = batch_size), src, dy.zeroes((src_height, border, channel), batch_size = batch_size)], d=1) # do concatenate along cols
-   elif pad_size>0:
-     print('Padding error ===> input\'s bords are padded with zeros so that the output of convolutional layer has the same size of the input')
-     print('                   can not satisfy above constraint, invalid input size or filter width or stride ')
-     raise ValueError('invalid input size or filter width or stride for convolutional layer')
+   left_border = int(pad_size) / 2
+   righ_border = (int(pad_size)+1) / 2
+   left_src = dy.concatenate([dy.zeroes((src_height, left_border, channel), batch_size = batch_size), src, dy.zeroes((src_height, right_border, channel), batch_size = batch_size)], d=1) # do concatenate along cols
    return src
 
 
