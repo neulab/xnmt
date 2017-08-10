@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Reads experiments descriptions in the passed configuration file
 and runs them sequentially, logging outputs to files called <experimentname>.log
@@ -7,14 +9,17 @@ and <experimentname>.err.log, and reporting on final perplexity metrics.
 import argparse
 import sys
 import os
-import xnmt_preproc, xnmt_train, xnmt_decode, xnmt_evaluate
 import six
-from options import OptionParser, Option
-from tee import Tee
 import random
 import numpy as np
+
+# XNMT imports
+import xnmt
 import copy
 import model_globals
+import xnmt_preproc, xnmt_train, xnmt_decode, xnmt_evaluate
+from options import OptionParser, Option
+from tee import Tee
 
 if __name__ == '__main__':
   argparser = argparse.ArgumentParser()
