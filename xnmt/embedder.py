@@ -55,6 +55,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
       ret = self.embeddings.batch(x)
     if self.weight_noise > 0.0:
       ret = dy.noise(ret, self.weight_noise)
+    return ret
 
   def embed_sent(self, sent, mask=None):
     # single mode
