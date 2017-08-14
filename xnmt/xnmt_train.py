@@ -280,7 +280,7 @@ class XnmtTrainer(object):
               print('  new learning rate: %s' % self.trainer.learning_rate)
               if self.args.restart_trainer:
                 print('  restarting trainer and reverting learned weights to best checkpoint..')
-                self.trainer = self.dynet_trainer_for_args(self.args)
+                self.trainer.restart()
                 model_globals.dynet_param_collection.revert_to_best_model()
 
 
