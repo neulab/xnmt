@@ -153,12 +153,20 @@ class ContVecReader(InputReader, Serializable):
   """
   Handles the case where sents are sequences of continuous-space vectors.
 
-  We assume a list of matrices (sents) serialized as .npz (with numpy.savez_compressed())
-  Sentences should be named XXX_0, XXX_1, etc., where the final number after the underbar
-  indicates the order of the sentence in the corpus.
-  Within each sentence, the indices will be:
-  * sents[sent_no][feat_ind,word_ind] if transpose=False
-  * sents[sent_no][word_ind,feat_ind] if transpose=True
+  The input is a ".npz" file, which consists of multiply ".npy" files, each
+  corresponding to a single sequence of continuous features. This can be
+  created in two ways:
+  * Use the builtin function numpy.savez_compressed()
+  * Create a bunch of .npy files, and run "zip" on them to zip them into an archive.
+
+  The file names should be named XXX_0, XXX_1, etc., where the final number after the underbar
+  indicates the order of the sequence in the corpus. This is done automatically by
+  numpy.savez_compressed(), in which case the names will be arr_0, arr_1, etc.
+
+  Each numpy file will be a 2D matrix representing a sequence of vectors. They can
+  be in either order, depending on the value of the "transpose" variable:
+  * sents[sent_id][feat_ind,word_ind] if transpose=False
+  * sents[sent_id][word_ind,feat_ind] if transpose=True
   """
   yaml_tag = u"!ContVecReader"
 

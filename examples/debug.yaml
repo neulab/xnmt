@@ -10,6 +10,7 @@ defaults:
   train:
     default_layer_dim: 64
     dropout: 0.5
+    weight_noise: 0.1
     dev_metrics: bleu
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/head.ja

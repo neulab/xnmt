@@ -68,9 +68,9 @@ class LSTMEncoder(BuilderEncoder, Serializable):
     self.hidden_dim = hidden_dim
     self.dropout = dropout
     if bidirectional:
-      self.builder = dy.BiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder)
+      self.builder = dy.BiRNNBuilder(layers, input_dim, hidden_dim, model, dy.CompactVanillaLSTMBuilder)
     else:
-      self.builder = dy.VanillaLSTMBuilder(layers, input_dim, hidden_dim, model)
+      self.builder = dy.CompactVanillaLSTMBuilder(layers, input_dim, hidden_dim, model)
 
   @recursive
   def set_train(self, val):
@@ -86,9 +86,9 @@ class ResidualLSTMEncoder(BuilderEncoder, Serializable):
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
     if bidirectional:
-      self.builder = residual.ResidualBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
+      self.builder = residual.ResidualBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.CompactVanillaLSTMBuilder, residual_to_output)
     else:
-      self.builder = residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
+      self.builder = residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.CompactVanillaLSTMBuilder, residual_to_output)
 
   @recursive
   def set_train(self, val):
@@ -105,7 +105,7 @@ class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
     self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim,
                                                  model_globals.dynet_param_collection.param_col, dy.CompactVanillaLSTMBuilder,
                                                  downsampling_method, reduce_factor)
- 
+
   @recursive
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
@@ -119,7 +119,7 @@ class ConvBiRNNBuilder(BuilderEncoder, Serializable):
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
-    self.builder = conv_encoder.ConvBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder,
+    self.builder = conv_encoder.ConvBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.CompactVanillaLSTMBuilder,
                                                  chn_dim, num_filters, filter_size_time, filter_size_freq,
                                                  stride)
 
@@ -191,7 +191,7 @@ class FullyConnectedEncoder(Encoder, Serializable):
   yaml_tag = u'!FullyConnectedEncoder'
   def __init__(self, in_height, out_height, nonlinearity='linear'):
     """
-      :param in_height, out_height: input and output dimension of the affine transform 
+      :param in_height, out_height: input and output dimension of the affine transform
       :param nonlinearity: nonlinear activation function
     """
     model = model_globals.dynet_param_collection.param_col
@@ -211,7 +211,7 @@ class FullyConnectedEncoder(Encoder, Serializable):
 
     W = dy.parameter(self.pW)
     b = dy.parameter(self.pb)
- 
+
     l1 = dy.affine_transform([b, W, src])
     output = l1
     if self.nonlinearity is 'linear':
@@ -231,7 +231,7 @@ class FullyConnectedEncoder(Encoder, Serializable):
 class ConvConnectedEncoder(Encoder, Serializable):
   yaml_tag = u'!ConvConnectedEncoder'
   """
-    Input goes through through a first convolution in time and space, no stride, 
+    Input goes through through a first convolution in time and space, no stride,
     dimension is not reduced, then CNN layer for each frame several times
     Embedding sequence has same length as Input sequence
     """
@@ -240,7 +240,7 @@ class ConvConnectedEncoder(Encoder, Serializable):
     """
       :param num_layers: num layers after first receptor conv
       :param input_dim: size of the inputs
-      :param window_receptor: window for the receptor 
+      :param window_receptor: window for the receptor
       :param ouput_dim: size of the outputs
       :param internal_dim: size of hidden dimension, internal dimension
       :param non_linearity: Non linearity to apply between layers
@@ -263,7 +263,7 @@ class ConvConnectedEncoder(Encoder, Serializable):
 
     glorotInit=dy.GlorotInitializer(is_lookup=False, gain=self.gain)
     normalInit=dy.NormalInitializer(0, 0.1)
-     
+
     self.pConv1 = model.add_parameters(dim = (self.input_dim,self.window_receptor,1,self.internal_dim),init=normalInit)
     self.pBias1 = model.add_parameters(dim = (self.internal_dim))
     self.builder_layers = []
@@ -279,7 +279,7 @@ class ConvConnectedEncoder(Encoder, Serializable):
 
   def transduce(self, embed_sent):
     src = embed_sent.as_tensor()
-    
+
     sent_len = src.dim()[0][1]
     src_width = 1
     batch_size = src.dim()[1]
@@ -292,7 +292,7 @@ class ConvConnectedEncoder(Encoder, Serializable):
     bias1 = dy.parameter(self.pBias1)
     src_chn = dy.reshape(src,(self.input_dim,padded_sent_len,1),batch_size=batch_size)
     cnn_layer1 = dy.conv2d_bias(src_chn,conv1,bias1,stride=[1,1])
-    
+
     hidden_layer = dy.reshape(cnn_layer1,(self.internal_dim,sent_len,1),batch_size=batch_size)
     if self.non_linearity is 'linear':
         hidden_layer = hidden_layer
@@ -302,7 +302,7 @@ class ConvConnectedEncoder(Encoder, Serializable):
         hidden_layer = dy.rectify(hidden_layer)
     elif self.non_linearity is 'sigmoid':
         hidden_layer = dy.logistic(hidden_layer)
-    
+
     for conv_hid, bias_hid in self.builder_layers:
         hidden_layer = dy.conv2d_bias(hidden_layer, dy.parameter(conv_hid),dy.parameter(bias_hid),stride=[1,1])
         hidden_layer = dy.reshape(hidden_layer,(self.internal_dim,sent_len,1),batch_size=batch_size)
@@ -320,7 +320,7 @@ class ConvConnectedEncoder(Encoder, Serializable):
     #output = dy.reshape(output, (self.output_dim,sent_len),batch_size=batch_size)
     output = dy.reshape(output, (sent_len,self.output_dim),batch_size=batch_size)
     return expression_sequence.ExpressionSequence(expr_tensor=output)
-  
+
   def initial_state(self):
     return PseudoState(self)
 

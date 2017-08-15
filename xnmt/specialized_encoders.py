@@ -6,24 +6,23 @@ from encoder import *
 # Ideally, these will eventually be refactored to use standard components and the ModularEncoder framework,
 #  (for more flexibility), but for ease of implementation it is no problem to perform an initial implementation here.
 
-# This is a CNN-based encoder that was used in the following paper:
-#  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
+def padding(src, min_size):
+  ''' do padding for the sequence input along the time step (for example speech), so that so that the output of convolutional layer has the same size(time) of the input.
 
-def padding(src, src_height, src_width,filter_width, stride, batch_size, channel=1):
-   ''' do padding for the sequence input along the time step (for example speech), so that so that the output of convolutional layer has the same size(time) of the input.
-
-       note that for padding image(two dimensional padding), please refer to dyne.conv2d(..., is_valid = False)
-   '''
-   # pad before put into convolutional layer
-   pad_size = (stride-1)*src_width+filter_width-stride
-   if pad_size>0 and int(pad_size) % 2 ==0:
-     border = int(pad_size) / 2
-     src = dy.concatenate([dy.zeroes((src_height, border, channel), batch_size = batch_size), src, dy.zeroes((src_height, border, channel), batch_size = batch_size)], d=1) # do concatenate along cols
-   elif pad_size>0:
-     print('Padding error ===> input\'s bords are padded with zeros so that the output of convolutional layer has the same size of the input')
-     print('                   can not satisfy above constraint, invalid input size or filter width or stride ')
-     raise ValueError('invalid input size or filter width or stride for convolutional layer')
-   return src
+      note that for padding image(two dimensional padding), please refer to dyne.conv2d(..., is_valid = False)
+  '''
+  # pad before put into convolutional layer
+  src_dim = src.dim()
+  if src_dim[0][1] >= min_size:
+    return src
+  pad_size = min_size - src_dim[0][1]
+  channels = src_dim[0][2] if len(src_dim[0]) >= 3 else 1
+  if pad_size == 1:
+    return dy.concatenate([src, dy.zeroes((src_dim[0][0], 1, channels))], d=1)
+  else:
+    left_border = int(pad_size) / 2
+    right_border = (int(pad_size)+1) / 2
+    return dy.concatenate([dy.zeroes((src_dim[0][0], left_border, channels)), src, dy.zeroes((src_dim[0][0], right_border, channels))], d=1) # do concatenate along cols
 
 
 class TilburgSpeechEncoder(Encoder, Serializable):
@@ -109,6 +108,8 @@ class TilburgSpeechEncoder(Encoder, Serializable):
   def initial_state(self):
     return PseudoState(self)
 
+# This is a CNN-based encoder that was used in the following paper:
+#  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
 class HarwathSpeechEncoder(Encoder, Serializable):
   yaml_tag = u'!HarwathSpeechEncoder'
   def __init__(self, filter_height, filter_width, channels, num_filters, stride):
@@ -145,15 +146,15 @@ class HarwathSpeechEncoder(Encoder, Serializable):
 
     # convolution and pooling layers
     # src dim is ((40, 1000), 128)
-    src = padding(src, src_height, src_width, self.filter_width[0], self.stride[0], batch_size) # after padding at the two bords ((40, 1004, 1), 128)
+    src = padding(src, self.filter_width[0]+3)
     l1 = dy.rectify(dy.conv2d(src, dy.parameter(self.filters1), stride = [self.stride[0], self.stride[0]], is_valid = True)) # ((1, 1000, 64), 128)
     pool1 = dy.maxpooling2d(l1, (1, 4), (1,2), is_valid = True) #((1, 499, 64), 128)
 
-    pool1 = padding(pool1, pool1.dim()[0][0], pool1.dim()[0][1], self.filter_width[1], self.stride[1], batch_size, channel = pool1.dim()[0][2])
+    pool1 = padding(pool1, self.filter_width[1]+3)
     l2 = dy.rectify(dy.conv2d(pool1, dy.parameter(self.filters2), stride = [self.stride[1], self.stride[1]], is_valid = True))# ((1, 499, 512), 128)
     pool2 = dy.maxpooling2d(l2, (1, 4), (1,2), is_valid = True)#((1, 248, 512), 128)
 
-    pool2 = padding(pool2, pool2.dim()[0][0], pool2.dim()[0][1], self.filter_width[2], self.stride[2], batch_size, channel = pool2.dim()[0][2])
+    pool2 = padding(pool2, self.filter_width[2])
     l3 = dy.rectify(dy.conv2d(pool2, dy.parameter(self.filters3), stride = [self.stride[2], self.stride[2]], is_valid = True))# ((1, 248, 1024), 128)
     pool3 = dy.max_dim(l3, d = 1)
 

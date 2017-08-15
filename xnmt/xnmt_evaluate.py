@@ -24,6 +24,12 @@ def read_data(loc_, post_process=None):
       data.append(t)
   return data
 
+def eval_or_empty_list(x):
+  try:
+    return ast.literal_eval(x)
+  except:
+    return []
+
 def xnmt_evaluate(args):
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
   """
@@ -42,7 +48,7 @@ def xnmt_evaluate(args):
     evaluator = CEREvaluator()
   elif eval_type == "recall":
     nbest = int(eval_param.get("nbest", 5))
-    hyp_postprocess = lambda x: ast.literal_eval(x)
+    hyp_postprocess = lambda x: eval_or_empty_list(x)
     ref_postprocess = lambda x: int(x)
     evaluator = RecallEvaluator(nbest=int(nbest))
   elif eval_type == "mean_avg_precision":

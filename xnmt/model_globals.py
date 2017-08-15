@@ -5,6 +5,7 @@ dynet_param_collection = None
 
 model_globals = {
           "dropout" : 0.0,
+          "weight_noise" : 0.0,
           "default_layer_dim" : 512,
           }
 get = model_globals.get # shortcut

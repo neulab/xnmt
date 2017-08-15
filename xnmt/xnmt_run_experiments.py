@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Reads experiments descriptions in the passed configuration file
 and runs them sequentially, logging outputs to files called <experimentname>.log
@@ -7,16 +9,18 @@ and <experimentname>.err.log, and reporting on final perplexity metrics.
 import argparse
 import sys
 import os
-import xnmt_preproc, xnmt_train, xnmt_decode, xnmt_evaluate
 import six
-from options import OptionParser, Option
-from tee import Tee
 import random
 import numpy as np
+
+# XNMT imports
 import copy
 import model_globals
+import xnmt_preproc, xnmt_train, xnmt_decode, xnmt_evaluate
+from options import OptionParser, Option
+from tee import Tee
 
-if __name__ == '__main__':
+def main(overwrite_args=None):
   argparser = argparse.ArgumentParser()
   argparser.add_argument("--dynet-mem", type=int)
   argparser.add_argument("--dynet-seed", type=int)
@@ -24,11 +28,12 @@ if __name__ == '__main__':
   argparser.add_argument("--dynet-viz", action='store_true', help="use visualization")
   argparser.add_argument("--dynet-gpu", action='store_true', help="use GPU acceleration")
   argparser.add_argument("--dynet-gpu-ids", type=int)
+  argparser.add_argument("--dynet-weight-decay", type=float)
   argparser.add_argument("--generate-doc", action='store_true', help="Do not run, output documentation instead")
   argparser.add_argument("experiments_file")
   argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
   argparser.set_defaults(generate_doc=False)
-  args = argparser.parse_args()
+  args = argparser.parse_args(overwrite_args)
 
   config_parser = OptionParser()
   config_parser.add_task("preproc", xnmt_preproc.options)
@@ -152,3 +157,6 @@ if __name__ == '__main__':
     experiment_name, eval_scores = line
     for i in range(len(eval_scores)):
       print("{:<30}| {:<40}".format((experiment_name if i==0 else ""), str(eval_scores[i])))
+
+if __name__ == '__main__':
+  sys.exit(main())
