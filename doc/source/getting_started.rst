@@ -26,3 +26,9 @@ The various examples that you can use are:
 
 See ``experiments.md`` for more details about writing experiment configuration files
 that allow you to specify the various 
+
+Running unit tests
+------------------
+
+From the main directory, run: ``python -m unittest discover``
+
