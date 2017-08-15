@@ -14,7 +14,6 @@ import random
 import numpy as np
 
 # XNMT imports
-import xnmt
 import copy
 import model_globals
 import xnmt_preproc, xnmt_train, xnmt_decode, xnmt_evaluate
