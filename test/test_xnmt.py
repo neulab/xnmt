@@ -37,6 +37,10 @@ class TestBatcher(unittest.TestCase):
     self.assertEqual([[0, 0, 0, 0, 0, 0]], [x.words for x in src[4]])
     self.assertEqual([[0, 0, 0, 0]], [x.words for x in trg[4]])
 
+class TestRunningConfig(unittest.TestCase):
+  def test_debug_yaml(self):
+    import xnmt.xnmt_run_experiments as xnmt_run_experiments
+    xnmt_run_experiments.main(["examples/debug.yaml"])
   
 # TODO: fix or delete test
 #class TestSpecializedEncoders(unittest.TestCase):
