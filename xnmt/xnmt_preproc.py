@@ -1,6 +1,7 @@
 import argparse
 import sys
 import os.path
+import io
 from options import Option, OptionParser
 from preproc import Normalizer, SentenceFilterer, VocabFilterer, Tokenizer
 from serializer import YamlSerializer
@@ -43,10 +44,11 @@ def xnmt_preproc(args):
       for file_num, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
         if args.overwrite or not os.path.isfile(out_file):
           my_tokenizers = tokenizers.get(file_num, tokenizers["all"])
-          with open(out_file, "w") as out_stream, open(in_file, "r") as in_stream:
+          with io.open(out_file, "w", encoding='utf-8') as out_stream, \
+               io.open(in_file, "r", encoding='utf-8') as in_stream:
             for tokenizer in filter(lambda x: x.tokenize_by_file, my_tokenizers):
               in_stream = tokenizer.tokenize_stream(in_stream)
-            out_stream.write(in_stream.read().encode('utf-8'))
+            out_stream.write(in_stream.read())
 
     # Perform normalization
     elif arg["type"] == 'normalize':
@@ -54,7 +56,8 @@ def xnmt_preproc(args):
       for i, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
         if args.overwrite or not os.path.isfile(out_file):
           my_normalizers = normalizers.get(i, normalizers["all"])
-          with open(out_file, "w") as out_stream, open(in_file, "r") as in_stream:
+          with io.open(out_file, "w", encoding='utf-8') as out_stream, \
+               io.open(in_file, "r", encoding='utf-8') as in_stream:
             for line in in_stream:
               line = line.strip()
               for normalizer in my_normalizers:
@@ -66,11 +69,11 @@ def xnmt_preproc(args):
     #       in input.py
     elif arg["type"] == 'filter':
       filters = SentenceFilterer.from_spec(arg["specs"])
-      out_streams = [open(x, 'w') if args.overwrite or not os.path.isfile(x) else None for x in arg["out_files"]]
+      out_streams = [io.open(x, 'w', encoding='utf-8') if args.overwrite or not os.path.isfile(x) else None for x in arg["out_files"]]
       if any(x is not None for x in out_streams):
-        in_streams = [open(x, 'r') for x in arg["in_files"]]
+        in_streams = [io.open(x, 'r', encoding='utf-8') for x in arg["in_files"]]
         for in_lines in zip(*in_streams):
-          in_lists = [line.decode('utf-8').strip().split() for line in in_lines]
+          in_lists = [line.strip().split() for line in in_lines]
           if all([my_filter.keep(in_lists) for my_filter in filters]):
             for in_line, out_stream in zip(in_lines, out_streams):
               out_stream.write(in_line)
@@ -87,15 +90,16 @@ def xnmt_preproc(args):
       filters = {my_opts["filenum"]: VocabFilterer.from_spec(my_opts["spec"]) for my_opts in arg["specs"]}
       for i, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
         if args.overwrite or not os.path.isfile(out_file):
-          with open(out_file, "w") as out_stream, open(in_file, "r") as in_stream:
+          with io.open(out_file, "w", encoding='utf-8') as out_stream, \
+               io.open(in_file, "r", encoding='utf-8') as in_stream:
             vocab = {}
             for line in in_stream:
-              for word in line.decode('utf-8').strip().split():
+              for word in line.strip().split():
                 vocab[word] = vocab.get(word, 0) + 1
             for my_filter in filters.get(i, filters["all"]):
               vocab = my_filter.filter(vocab)
             for word in vocab.keys():
-              out_stream.write((word + u"\n").encode('utf-8'))
+              out_stream.write((word + u"\n"))
 
     else:
       raise RuntimeError("Unknown preprocessing type {}".format(arg['type']))
