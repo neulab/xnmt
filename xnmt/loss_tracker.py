@@ -105,7 +105,10 @@ class LossTracker(object):
         self.dev_words = dev_words
 
     def should_report_dev(self):
-      return (self.eval_dev_every>0 and self.sent_num_not_report_dev >= self.eval_dev_every) or (self.sent_num == self.total_train_sent)
+      if self.eval_dev_every>0:
+        return self.sent_num_not_report_dev >= self.eval_dev_every or (self.sent_num == self.total_train_sent)
+      else:
+        return self.sent_num_not_report_dev >= self.total_train_sent
 
     def report_dev_and_check_model(self, model_file):
         """
@@ -113,8 +116,8 @@ class LossTracker(object):
         :return: True if the dev loss is the best and required save operations
         """
         this_report_time = time.time()
-        if self.eval_dev_every != 0:
-          self.sent_num_not_report_dev = self.sent_num_not_report_dev % self.eval_dev_every
+        self.sent_num_not_report_dev = self.sent_num_not_report_dev % (self.eval_dev_every if self.eval_dev_every != 0 else self.total_train_sent)
+        self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
         print(LossTracker.REPORT_TEMPLATE_DEV % (
             self.fractional_epoch,
             self.dev_score,
