@@ -96,7 +96,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     encodings = self.encoder.transduce(embeddings)
     self.attender.start_sent(encodings)
     # Initialize the hidden state from the encoder
-    self.decoder.initialize(encodings[-1])
+    self.decoder.initialize(self.encoder.get_final_state())
     losses = []
 
     # single mode

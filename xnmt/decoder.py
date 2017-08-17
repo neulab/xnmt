@@ -54,10 +54,17 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     mlp_hidden_dim = model_globals.default_if_none(mlp_hidden_dim)
     trg_embed_dim  = model_globals.default_if_none(trg_embed_dim)
     input_dim      = model_globals.default_if_none(input_dim)
+    # Input feeding
+    self.input_feeding = input_feeding
+    self.lstm_dim = lstm_dim
+    lstm_input = trg_embed_dim
+    if input_feeding:
+      lstm_input += lstm_dim
+
     # LSTM
     self.fwd_lstm  = RnnDecoder.rnn_from_spec(spec       = rnn_spec,
                                               num_layers = layers,
-                                              input_dim  = trg_embed_dim,
+                                              input_dim  = lstm_input,
                                               hidden_dim = lstm_dim,
                                               model = param_col(),
                                               residual_to_output = residual_to_output)
@@ -68,28 +75,32 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     self.vocab_projector = linear.Linear(input_dim = mlp_hidden_dim,
                                          output_dim = vocab_size,
                                          model = param_col())
-    # Input feeding
-    self.input_feeding = input_feeding
-    if input_feeding:
-      self.feeding_projector = linear.Linear(input_dim = trg_embed_dim + lstm_dim,
-                                             output_dim = trg_embed_dim,
-                                             model = param_col())
     # Dropout
     self.dropout = dropout or model_globals.get("dropout")
     # Mutable state
     self.state = None
     self.h_t = None
 
-  def initialize(self, last_encoding):
+  def initialize(self, h_f):
+    if not h_f:
+      raise ValueError("The encoder does not support get_final_state() yet. " +
+                       "Error in initializing decoder.")
     state = self.fwd_lstm.initial_state()
-    state = state.set_s(es=[last_encoding, dy.tanh(last_encoding)])
+    state = state.set_s([h_f, dy.tanh(h_f)])
     self.state = state
     self.h_t = None
 
   def add_input(self, trg_embedding):
     inp = trg_embedding
-    if self.input_feeding and self.h_t is not None:
-      inp = self.feeding_projector(dy.concatenate([self.h_t, inp]))
+    if self.input_feeding:
+      if self.h_t is not None:
+        # Append with the last state of the decoder
+        inp = dy.concatenate([inp, self.h_t])
+      else:
+        # Append with zero
+        zero = dy.zeros(self.lstm_dim, batch_size=inp.dim()[1])
+        inp = dy.concatenate([inp, zero])
+    # The next state of the decoder
     self.state = self.state.add_input(inp)
 
   def get_scores(self, context):

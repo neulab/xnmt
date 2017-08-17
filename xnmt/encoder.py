@@ -36,17 +36,27 @@ class Encoder(HierarchicalModel):
     """
     raise NotImplementedError('Unimplemented transduce for class:', self.__class__.__name__)
 
+  def get_final_state(self):
+    """ Return the state that represents the transduced sequence """
+    return None
+
 class BuilderEncoder(Encoder):
   def transduce(self, embed_sent):
-    out = None
+    states = None
     if hasattr(self.builder, "transduce"):
-      out = self.builder.transduce(embed_sent)
+      states = self.builder.add_inputs(embed_sent)
     elif hasattr(self.builder, "initial_state"):
-      out = self.builder.initial_state().transduce(embed_sent)
+      states = self.builder.initial_state().add_inputs(embed_sent)
     else:
       raise NotImplementedError("Unimplemented transduce logic for class:",
                                 self.builder.__class__.__name__)
-    return ExpressionSequence(expr_list=out, mask=embed_sent.mask)
+    output_expr = [dy.concatenate([state_f.h()[-1], state_b.h()[-1]]) for state_f, state_b in states]
+    self.final_encoder_state = states[-1]
+    return ExpressionSequence(expr_list=output_expr, mask=embed_sent.mask)
+
+  def get_final_state(self):
+    return dy.concatenate([self.final_encoder_state[0].s()[-1], \
+                           self.final_encoder_state[1].s()[-1]])
 
 class IdentityEncoder(Encoder, Serializable):
   yaml_tag = u'!IdentityEncoder'
