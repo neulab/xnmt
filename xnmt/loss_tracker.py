@@ -117,6 +117,7 @@ class LossTracker(object):
         """
         this_report_time = time.time()
         self.sent_num_not_report_dev = self.sent_num_not_report_dev % (self.eval_dev_every if self.eval_dev_every != 0 else self.total_train_sent)
+        self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
         print(LossTracker.REPORT_TEMPLATE_DEV % (
             self.fractional_epoch,
             self.dev_score,
