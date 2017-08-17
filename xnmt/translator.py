@@ -136,7 +136,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     for sents in src:
       embeddings = self.src_embedder.embed_sent(src)
       encodings = self.encoder.transduce(embeddings)
-      self.attender.start_sent(encodings)
+      self.attender.start_sent(self.encoder.get_final_state())
       self.decoder.initialize(encodings[-1])
       output_actions = search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents))
       # In case of reporting
