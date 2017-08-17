@@ -92,10 +92,12 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.report_type = args.report_type
 
   def calc_loss(self, src, trg, src_mask=None, trg_mask=None, info=None):
+    self.src_embedder.start_sent()
     embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
     encodings = self.encoder.transduce(embeddings)
     self.attender.start_sent(encodings)
     self.decoder.initialize()
+    self.trg_embedder.start_sent()
     self.decoder.add_input(self.trg_embedder.embed(0))  # XXX: HACK, need to initialize decoder better
     losses = []
 

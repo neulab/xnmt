@@ -1,14 +1,16 @@
 from __future__ import division, generators
 
+import numpy as np
 import dynet as dy
 import batcher
 import model_globals
 import six
-
+import model
+from decorators import recursive
 from serializer import Serializable
 from expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 
-class Embedder(object):
+class Embedder(model.HierarchicalModel):
   """
   An embedder takes in word IDs and outputs continuous vectors.
 
@@ -32,6 +34,11 @@ class Embedder(object):
     :returns: An ExpressionSequence representing vectors of each word in the input.
     """
     raise NotImplementedError('embed_sent must be implemented in Embedder subclasses')
+  
+  def start_sent(self):
+    """Called before starting to embed a sentence for means of sentence-level initialization.
+    """
+    pass
 
 class SimpleWordEmbedder(Embedder, Serializable):
   """
@@ -40,20 +47,41 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   yaml_tag = u'!SimpleWordEmbedder'
 
-  def __init__(self, vocab_size, emb_dim = None, weight_noise = None):
+  def __init__(self, vocab_size, emb_dim = None, weight_noise = None, word_dropout = 0.0):
+    """
+    :param vocab_size:
+    :param emb_dim:
+    :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
+    :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287 
+    """
     self.vocab_size = vocab_size
     self.emb_dim = emb_dim or model_globals.get("default_layer_dim")
     self.weight_noise = weight_noise or model_globals.get("weight_noise")
+    self.word_dropout = word_dropout
     self.embeddings = model_globals.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, emb_dim))
+    self.word_id_mask = set()
+    self.train = False
 
+  def start_sent(self):
+    if self.word_dropout > 0.0:
+      self.word_id_mask = set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False))
+  @recursive
+  def set_train(self, val):
+    self.train = val
   def embed(self, x):
     # single mode
     if not batcher.is_batched(x):
-      ret = self.embeddings[x]
+      if self.train and x in self.word_id_mask:
+        ret = dy.zeros((self.emb_dim,))
+      else:
+        ret = self.embeddings[x]
     # minibatch mode
     else:
       ret = self.embeddings.batch(x)
-    if self.weight_noise > 0.0:
+      if self.train and any(xi in self.word_id_mask for xi in x):
+        dropout_mask = dy.inputTensor(np.transpose([[0.0]*self.emb_dim if xi in self.word_id_mask else [1.0]*self.emb_dim for xi in x]), batched=True)
+        ret = dy.cmult(ret, dropout_mask)
+    if self.train and self.weight_noise > 0.0:
       ret = dy.noise(ret, self.weight_noise)
     return ret
 

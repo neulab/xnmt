@@ -25,6 +25,7 @@ defaults:
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
+        word_dropout: 0.1
       encoder: !LSTMEncoder
         layers: 1
         input_dim: 64
@@ -35,6 +36,7 @@ defaults:
         input_dim: 64
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
+        word_dropout: 0.2
       decoder: !MlpSoftmaxDecoder
         layers: 1
         mlp_hidden_dim: 64
