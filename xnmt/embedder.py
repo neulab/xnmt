@@ -54,6 +54,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
     :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
     :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287 
     """
+    super(SimpleWordEmbedder, self).__init__()
     self.vocab_size = vocab_size
     self.emb_dim = emb_dim or model_globals.get("default_layer_dim")
     self.weight_noise = weight_noise or model_globals.get("weight_noise")
