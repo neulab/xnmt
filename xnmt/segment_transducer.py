@@ -13,7 +13,6 @@ class SegmentTransducer(HierarchicalModel, Serializable, Reportable):
   yaml_tag = "!SegmentTransducer"
 
   def __init__(self, encoder, transformer):
-    super(SegmentTransducer, self).__init__()
     self.encoder = encoder
     self.transformer = transformer
 
@@ -75,7 +74,6 @@ class CategorySegmentTransformer(SegmentTransformer):
   yaml_tag = u"!CategorySegmentTransformer"
 
   def __init__(self, input_dim=None, category_dim=None, embed_dim=None):
-    super(CategorySegmentTransformer, self).__init__()
     model = model_globals.dynet_param_collection.param_col
     self.category_output = linear.Linear(input_dim, category_dim, model)
     self.category_embedder = embedder.SimpleWordEmbedder(category_dim, embed_dim)

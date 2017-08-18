@@ -14,7 +14,7 @@ def recursive(f):
     # Invoke the method manually with its arguments
     f(obj, *args, **kwargs)
     # For all the descendant, also invoke the method with same argument
-    for member in obj._hier_children:
+    for member in obj.get_hier_children():
       if hasattr(member, name):
         getattr(member, name)(*args, **kwargs)
 
@@ -30,7 +30,7 @@ def recursive_assign(f):
     assert(issubclass(obj.__class__, model.HierarchicalModel))
     name = f.__name__
     kwargs["context"] = f(obj, *args, **kwargs)
-    for member in obj._hier_children:
+    for member in obj.get_hier_children():
       if hasattr(member, name):
         kwargs["context"] = getattr(member, name)(*args, **kwargs)
     return kwargs["context"]
@@ -44,7 +44,7 @@ def recursive_sum(f):
     assert(issubclass(obj.__class__, model.HierarchicalModel))
     name = f.__name__
     result_parent = f(obj, *args, **kwargs)
-    for member in obj._hier_children:
+    for member in obj.get_hier_children():
       if hasattr(member, name):
         result_child = getattr(member, name)(*args, **kwargs)
         if result_child:

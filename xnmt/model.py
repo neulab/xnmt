@@ -2,15 +2,18 @@ from decorators import recursive, recursive_sum
 
 class HierarchicalModel(object):
   ''' Hierarchical Model interface '''
-  def __init__(self):
-    self._hier_children = []
 
   def register_hier_child(self, child):
     if hasattr(child, "register_hier_child"):
+      if not hasattr(self, "_hier_children"):
+        self._hier_children = []
       self._hier_children.append(child)
     else:
       print("Skipping hierarchical construction:", child.__class__.__name__,
             "is not a subclass of HierarchicalModel")
+  def get_hier_children(self):
+    if hasattr(self, "_hier_children"): return self._hier_children
+    else: return []
 
 class GeneratorModel(HierarchicalModel):
   def generate_output(self, *args, **kwargs):

@@ -22,7 +22,6 @@ class SegmentingEncoderBuilder(HierarchicalModel, Reportable):
     DELETE = 2
 
   def __init__(self, embed_encoder=None, segment_transducer=None, learn_segmentation=True, model=None):
-    super(SegmentingEncoderBuilder, self).__init__()
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
     self.P0 = model.add_parameters(segment_transducer.encoder.hidden_dim)

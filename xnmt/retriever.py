@@ -92,7 +92,6 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
     :param trg_encoder: An encoder for the target language
     :param database: A database of things to retrieve
     '''
-    super(DotProductRetriever, self).__init__()
     self.src_embedder = src_embedder
     self.src_encoder = src_encoder
     self.trg_embedder = trg_embedder

@@ -62,7 +62,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     :param trg_embedder: A word embedder for the output language
     :param decoder: A decoder
     '''
-    super(DefaultTranslator, self).__init__()
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
@@ -71,6 +70,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
     self.register_hier_child(self.encoder)
     self.register_hier_child(self.decoder)
+    self.register_hier_child(self.src_embedder)
+    self.register_hier_child(self.trg_embedder)
 
   def shared_params(self):
     return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
@@ -92,11 +93,13 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.report_type = args.report_type
 
   def calc_loss(self, src, trg, src_mask=None, trg_mask=None, info=None):
+    self.src_embedder.start_sent()
     embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
     encodings = self.encoder.transduce(embeddings)
     self.attender.start_sent(encodings)
     # Initialize the hidden state from the encoder
     self.decoder.initialize(self.encoder.get_final_state())
+    self.trg_embedder.start_sent()
     losses = []
 
     # single mode
