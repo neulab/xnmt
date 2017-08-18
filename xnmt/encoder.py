@@ -38,7 +38,7 @@ class Encoder(HierarchicalModel):
 
   def get_final_state(self):
     """ Return the state that represents the transduced sequence """
-    return None
+    return NotImplementedError('Unimplemented get_final_state for class:', self.__class__.__name__)
 
 class BuilderEncoder(Encoder):
   def transduce(self, embed_sent):
@@ -55,14 +55,20 @@ class BuilderEncoder(Encoder):
     return ExpressionSequence(expr_list=output_expr, mask=embed_sent.mask)
 
   def get_final_state(self):
-    return dy.concatenate([self.final_encoder_state[0].s()[-1], \
-                           self.final_encoder_state[1].s()[-1]])
+    final_state = self.final_encoder_state
+    if len(final_state) == 2:
+      return [dy.concatenate([f, w]) for f, w in zip(final_state[0].s(), final_state[1].s())]
+    else:
+      return final_state.s()
 
 class IdentityEncoder(Encoder, Serializable):
   yaml_tag = u'!IdentityEncoder'
 
   def transduce(self, embed_sent):
     return embed_sent
+
+  def get_final_state(self):
+    return None
 
 class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
@@ -155,8 +161,8 @@ class ModularEncoder(Encoder, Serializable):
       sent = module.transduce(sent)
     return sent
 
-  def get_train_test_components(self):
-    return self.modules
+  def get_final_state(self):
+    return self.modules[-1].get_final_state()
 
 class SegmentingEncoder(Encoder, Serializable, Reportable):
   yaml_tag = u'!SegmentingEncoder'
@@ -236,7 +242,6 @@ class FullyConnectedEncoder(Encoder, Serializable):
 
   def initial_state(self):
     return PseudoState(self)
-
 
 class ConvConnectedEncoder(Encoder, Serializable):
   yaml_tag = u'!ConvConnectedEncoder'
@@ -333,8 +338,6 @@ class ConvConnectedEncoder(Encoder, Serializable):
 
   def initial_state(self):
     return PseudoState(self)
-
-
 
 if __name__ == '__main__':
   # To use this code, comment out the model initialization in the class and the line for src.as_tensor()

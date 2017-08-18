@@ -81,12 +81,9 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     self.state = None
     self.h_t = None
 
-  def initialize(self, h_f):
-    if not h_f:
-      raise ValueError("The encoder does not support get_final_state() yet. " +
-                       "Error in initializing decoder.")
+  def initialize(self, encoder_state):
     state = self.fwd_lstm.initial_state()
-    state = state.set_s([h_f, dy.tanh(h_f)])
+    state = state.set_s(encoder_state)
     self.state = state
     self.h_t = None
 
