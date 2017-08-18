@@ -58,7 +58,6 @@ class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
 
   def __init__(self, input_dim=None, layers=1, hidden_dim=None, dropout=None, bidirectional=True):
-    super(LSTMEncoder, self).__init__()
     model = model_globals.dynet_param_collection.param_col
     input_dim = input_dim or model_globals.get("default_layer_dim")
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
@@ -80,7 +79,6 @@ class ResidualLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!ResidualLSTMEncoder'
 
   def __init__(self, input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
-    super(ResidualLSTMEncoder, self).__init__()
     model = model_globals.dynet_param_collection.param_col
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
@@ -98,7 +96,6 @@ class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!PyramidalLSTMEncoder'
 
   def __init__(self, input_dim=512, layers=1, hidden_dim=None, downsampling_method="skip", reduce_factor=2, dropout=None):
-    super(PyramidalLSTMEncoder, self).__init__()
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
@@ -114,7 +111,6 @@ class ConvBiRNNBuilder(BuilderEncoder, Serializable):
   yaml_tag = u'!ConvBiRNNBuilder'
 
   def init_builder(self, input_dim, layers, hidden_dim=None, chn_dim=3, num_filters=32, filter_size_time=3, filter_size_freq=3, stride=(2,2), dropout=None):
-    super(ConvBiRNNBuilder, self).__init__()
     model = model_globals.dynet_param_collection.param_col
     hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
     dropout = dropout or model_globals.get("dropout")
@@ -131,7 +127,6 @@ class ModularEncoder(Encoder, Serializable):
   yaml_tag = u'!ModularEncoder'
 
   def __init__(self, input_dim, modules):
-    super(ModularEncoder, self).__init__()
     self.modules = modules
 
     for module in self.modules:
@@ -152,7 +147,6 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
   yaml_tag = u'!SegmentingEncoder'
 
   def __init__(self, embed_encoder=None, segment_transducer=None, lmbd_learning=None, learn_segmentation=True):
-    super(SegmentingEncoder, self).__init__()
     model = model_globals.dynet_param_collection.param_col
 
     self.ctr = 0

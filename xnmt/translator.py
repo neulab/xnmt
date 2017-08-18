@@ -62,7 +62,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     :param trg_embedder: A word embedder for the output language
     :param decoder: A decoder
     '''
-    super(DefaultTranslator, self).__init__()
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
