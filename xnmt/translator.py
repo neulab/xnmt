@@ -71,6 +71,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
     self.register_hier_child(self.encoder)
     self.register_hier_child(self.decoder)
+    self.register_hier_child(self.src_embedder)
+    self.register_hier_child(self.trg_embedder)
 
   def shared_params(self):
     return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
