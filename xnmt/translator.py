@@ -97,9 +97,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
     encodings = self.encoder.transduce(embeddings)
     self.attender.start_sent(encodings)
-    self.decoder.initialize()
+    # Initialize the hidden state from the encoder
+    self.decoder.initialize(self.encoder.get_final_state())
     self.trg_embedder.start_sent()
-    self.decoder.add_input(self.trg_embedder.embed(0))  # XXX: HACK, need to initialize decoder better
     losses = []
 
     # single mode
@@ -140,7 +140,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       embeddings = self.src_embedder.embed_sent(src)
       encodings = self.encoder.transduce(embeddings)
       self.attender.start_sent(encodings)
-      self.decoder.initialize()
+      self.decoder.initialize(self.encoder.get_final_state())
       output_actions = search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents))
       # In case of reporting
       if self.report_path is not None:

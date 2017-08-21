@@ -40,6 +40,7 @@ defaults:
       decoder: !MlpSoftmaxDecoder
         layers: 1
         mlp_hidden_dim: 64
+        input_feeding: true
   decode:
     src_file: examples/data/head.ja
   evaluate:
