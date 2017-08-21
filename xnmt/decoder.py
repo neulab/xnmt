@@ -4,12 +4,14 @@ import model_globals
 import batcher
 import model
 import mlp
+import linear
 
 from decorators import recursive, recursive_assign
 
 # Short Name
 HierarchicalModel = model.HierarchicalModel
 Serializable = serializer.Serializable
+param_col = lambda: model_globals.dynet_param_collection.param_col
 
 class Decoder(HierarchicalModel):
   '''
@@ -31,7 +33,9 @@ class RnnDecoder(Decoder):
     if decoder_type == "lstm":
       return dy.VanillaLSTMBuilder(num_layers, input_dim, hidden_dim, model)
     elif decoder_type == "residuallstm":
-      return residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim, model, dy.VanillaLSTMBuilder, residual_to_output)
+      return residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim,
+                                         model, dy.VanillaLSTMBuilder,
+                                         residual_to_output)
     else:
       raise RuntimeError("Unknown decoder type {}".format(spec))
 
@@ -41,28 +45,63 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
 
   yaml_tag = u'!MlpSoftmaxDecoder'
 
-  def __init__(self, vocab_size, layers=1, input_dim=None, lstm_dim=None, mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
-               rnn_spec="lstm", residual_to_output=False):
-    lstm_dim = lstm_dim or model_globals.get("default_layer_dim")
-    mlp_hidden_dim = mlp_hidden_dim or model_globals.get("default_layer_dim")
-    trg_embed_dim = trg_embed_dim or model_globals.get("default_layer_dim")
-    input_dim = input_dim or model_globals.get("default_layer_dim")
-    self.fwd_lstm = RnnDecoder.rnn_from_spec(rnn_spec, layers, trg_embed_dim, lstm_dim, model_globals.dynet_param_collection.param_col, residual_to_output)
-    self.mlp = mlp.MLP(input_dim + lstm_dim, mlp_hidden_dim, vocab_size, model_globals.dynet_param_collection.param_col)
-    self.dropout = dropout or model_globals.get("dropout")
-    self.state = None
+  def __init__(self, vocab_size, layers=1, input_dim=None, lstm_dim=None,
+               mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
+               rnn_spec="lstm", residual_to_output=False, input_feeding=False):
+    # Define dim
+    lstm_dim       = model_globals.default_if_none(lstm_dim)
+    mlp_hidden_dim = model_globals.default_if_none(mlp_hidden_dim)
+    trg_embed_dim  = model_globals.default_if_none(trg_embed_dim)
+    input_dim      = model_globals.default_if_none(input_dim)
+    # Input feeding
+    self.input_feeding = input_feeding
+    self.lstm_dim = lstm_dim
+    lstm_input = trg_embed_dim
+    if input_feeding:
+      lstm_input += lstm_dim
 
-  def initialize(self):
-    self.state = self.fwd_lstm.initial_state()
+    # LSTM
+    self.fwd_lstm  = RnnDecoder.rnn_from_spec(spec       = rnn_spec,
+                                              num_layers = layers,
+                                              input_dim  = lstm_input,
+                                              hidden_dim = lstm_dim,
+                                              model = param_col(),
+                                              residual_to_output = residual_to_output)
+    # MLP
+    self.context_projector = linear.Linear(input_dim  = input_dim + lstm_dim,
+                                           output_dim = mlp_hidden_dim,
+                                           model = param_col())
+    self.vocab_projector = linear.Linear(input_dim = mlp_hidden_dim,
+                                         output_dim = vocab_size,
+                                         model = param_col())
+    # Dropout
+    self.dropout = dropout or model_globals.get("dropout")
+    # Mutable state
+    self.state = None
+    self.h_t = None
+
+  def initialize(self, encoder_state):
+    state = self.fwd_lstm.initial_state()
+    state = state.set_s(encoder_state)
+    self.state = state
+    self.h_t = None
 
   def add_input(self, trg_embedding):
-    self.state = self.state.add_input(trg_embedding)
+    inp = trg_embedding
+    if self.input_feeding:
+      if self.h_t is not None:
+        # Append with the last state of the decoder
+        inp = dy.concatenate([inp, self.h_t])
+      else:
+        # Append with zero
+        zero = dy.zeros(self.lstm_dim, batch_size=inp.dim()[1])
+        inp = dy.concatenate([inp, zero])
+    # The next state of the decoder
+    self.state = self.state.add_input(inp)
 
   def get_scores(self, context):
-    mlp_input = dy.concatenate([context, self.state.output()])
-    # mlp_input = dy.reshape(mlp_input, (mlp_input.dim()[0][0],))
-    scores = self.mlp(mlp_input)
-    return scores
+    self.h_t = self.context_projector(dy.concatenate([context, self.state.output()]))
+    return self.vocab_projector(self.h_t)
 
   def calc_loss(self, context, ref_action):
     scores = self.get_scores(context)

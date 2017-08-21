@@ -1,0 +1,9 @@
+This contains config files that serve a dual purpose:
+- documentation of features
+- integration tests
+
+In other words, configs should have these properties:
+ - be informative and self-explanatory
+ - run with the data contained in the repo
+ - run reasonably fast (ideally seconds)
+ - be included in test_run.py

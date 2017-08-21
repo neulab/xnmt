@@ -28,7 +28,7 @@ defaults:
       encoder: !LSTMEncoder
         layers: 1
         input_dim: 64
-        bidirectional: true
+        bidirectional: True
       attender: !StandardAttender
         state_dim: 64
         hidden_dim: 64
@@ -38,6 +38,7 @@ defaults:
       decoder: !MlpSoftmaxDecoder
         layers: 1
         mlp_hidden_dim: 64
+        input_feeding: True
   decode:
     src_file: examples/data/head.ja
   evaluate:
