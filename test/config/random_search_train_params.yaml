@@ -1,17 +1,15 @@
-# Small config to help refactoring to make the model completely YAML based
+# Demonstrates random search over model parameters
 defaults:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
-    run_for_epochs: 2
-    eval_metrics: bleu
+    run_for_epochs: 1
+    eval_metrics: bleu,wer
   train:
-    default_layer_dim: 64
-    dropout: 0.5
-    weight_noise: 0.1
-    dev_metrics: bleu
+    default_layer_dim: !RandomParam
+      values: [32,64]
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/head.ja
       train_trg: examples/data/head.en
@@ -20,40 +18,27 @@ defaults:
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
       trg_reader: !PlainTextReader {}
-      max_src_len: 15
-      max_trg_len: 15
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
-        word_dropout: 0.1
       encoder: !LSTMEncoder
-        layers: 1
-        input_dim: 64
-        bidirectional: true
+        layers: !RandomParam
+          values: [1,2,3,4,5]
       attender: !StandardAttender
         state_dim: 64
         hidden_dim: 64
         input_dim: 64
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
-        word_dropout: 0.2
       decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 64
+        layers: !RefParam
+          ref: model.encoder.layers
   decode:
     src_file: examples/data/head.ja
   evaluate:
     ref_file: examples/data/head.en
 
-debug-config-1layer:
-  train:
-    dropout: 0.1
-
-debug-config-2layers:
-  train:
-    dropout: 0.2
-
-debug-config-2layers-finetune:
-  train:
-    dropout: 0.2
-    pretrained_model_file: examples/output/debug-config-2layers.mod
+# Here we instantiate 3 experiments, for each the random params are drawn independently
+exp1:
+exp2:
+exp3:

@@ -1,4 +1,3 @@
-# Small config to help refactoring to make the model completely YAML based
 defaults:
   experiment:
     model_file: examples/output/<EXP>.mod
