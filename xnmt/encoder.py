@@ -17,6 +17,7 @@ import pyramidal
 import conv_encoder
 import residual
 import segmenting_encoder
+import lstm
 
 # Shortcut
 Serializable = serializer.Serializable
@@ -67,7 +68,7 @@ class LSTMEncoder(BuilderEncoder, Serializable):
     self.hidden_dim = hidden_dim
     self.dropout = dropout
     if bidirectional:
-      self.builder = dy.BiRNNBuilder(layers, input_dim, hidden_dim, model, dy.CompactVanillaLSTMBuilder)
+      self.builder = lstm.BiCompactLSTMBuilder(layers, input_dim, hidden_dim, model)
     else:
       self.builder = dy.CompactVanillaLSTMBuilder(layers, input_dim, hidden_dim, model)
 
@@ -100,7 +101,7 @@ class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
     self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim,
-                                                 model_globals.dynet_param_collection.param_col, dy.CompactVanillaLSTMBuilder,
+                                                 model_globals.dynet_param_collection.param_col,
                                                  downsampling_method, reduce_factor)
 
   @recursive

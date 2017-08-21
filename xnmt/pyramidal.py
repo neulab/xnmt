@@ -1,6 +1,6 @@
 import dynet as dy
 from residual import PseudoState
-import numpy as np
+import lstm
 
 class PyramidalRNNBuilder(object):
   """
@@ -12,7 +12,7 @@ class PyramidalRNNBuilder(object):
       builder = PyramidalRNNBuilder(4, 128, 100, model, VanillaLSTMBuilder)
       [o1,o2,o3] = builder.transduce([i1,i2,i3])
   """
-  def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory,
+  def __init__(self, num_layers, input_dim, hidden_dim, model,
                downsampling_method="concat", reduce_factor=2):
     """
     :param num_layers: depth of the PyramidalRNN
@@ -26,16 +26,18 @@ class PyramidalRNNBuilder(object):
     assert num_layers > 0
     assert hidden_dim % 2 == 0
     assert type(reduce_factor)==int or (type(reduce_factor)==list and len(reduce_factor)==num_layers-1)
+    assert downsampling_method in ["concat", "skip"]
     self.builder_layers = []
     self.downsampling_method = downsampling_method
     self.reduce_factor = reduce_factor
-    f = rnn_builder_factory(1, input_dim, hidden_dim / 2, model)
-    b = rnn_builder_factory(1, input_dim, hidden_dim / 2, model)
+    self.input_dim = input_dim
+    f = lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim / 2, model)
+    b = lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim / 2, model)
     self.builder_layers.append((f, b))
     for _ in range(num_layers - 1):
       layer_input_dim = hidden_dim if downsampling_method=="skip" else hidden_dim*reduce_factor
-      f = rnn_builder_factory(1, layer_input_dim, hidden_dim / 2, model)
-      b = rnn_builder_factory(1, layer_input_dim, hidden_dim / 2, model)
+      f = lstm.CustomCompactLSTMBuilder(1, layer_input_dim, hidden_dim / 2, model)
+      b = lstm.CustomCompactLSTMBuilder(1, layer_input_dim, hidden_dim / 2, model)
       self.builder_layers.append((f, b))
 
   def reduce_factor_for_layer(self, layer_i):
@@ -67,18 +69,21 @@ class PyramidalRNNBuilder(object):
     """
 
     es = list(es)
+    zero_pad = None
+    batch_size = es[0].dim()[1]
 
     for layer_i, (fb, bb) in enumerate(self.builder_layers):
       reduce_factor = self.reduce_factor_for_layer(layer_i)
-      if self.downsampling_method=="concat" and len(es)%reduce_factor!=0:
-        zero_pad = dy.inputTensor(np.zeros(es[0].dim()[0]+(es[0].dim()[1],)), batched=True)
-        while len(es)%reduce_factor != 0:
-          es.append(zero_pad)
+      while self.downsampling_method=="concat" and len(es) % reduce_factor != 0:
+        if zero_pad is None:
+          zero_pad = dy.zeros(dim=self.input_dim, batch_size=batch_size)
+        es.append(zero_pad)
       fs = fb.initial_state().transduce(es)
       bs = bb.initial_state().transduce(reversed(es))
       if layer_i < len(self.builder_layers) - 1:
         if self.downsampling_method=="skip":
-          es = [dy.concatenate([f, b]) for f, b in zip(fs[::reduce_factor], bs[::reduce_factor][::-1])]
+#          es = [dy.concatenate([f, b]) for f, b in zip(fs[::reduce_factor], bs[::reduce_factor][::-1])]
+          es = [[f, b] for f, b in zip(fs[::reduce_factor], bs[::reduce_factor][::-1])]
         elif self.downsampling_method=="concat":
           es_len = len(es)
           es = []
@@ -87,10 +92,12 @@ class PyramidalRNNBuilder(object):
             for j in range(reduce_factor):
               concat_states.append(fs[i+j])
               concat_states.append(bs[len(es)-reduce_factor+j-i])
-            es.append(dy.concatenate(concat_states))
+#            es.append(dy.concatenate(concat_states))
+            es.append(concat_states)
         else:
           raise RuntimeError("unknown downsampling_method %s" % self.downsampling_method)
       else:
+        # concat final outputs
         es = [dy.concatenate([f, b]) for f, b in zip(fs, reversed(bs))]
     return es
 
