@@ -26,6 +26,7 @@ import serializer
 import xnmt_decode
 import xnmt_evaluate
 from evaluator import LossScore
+from subprocess import Popen
 from tee import Tee
 '''
 This will be the main class to perform training.
@@ -55,7 +56,8 @@ options = [
   Option("dev_metrics", default_value="", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
   Option("schedule_metric", default_value="loss", help_str="determine learning schedule based on this dev_metric (loss/bleu/wer/cer)"),
   Option("restart_trainer", bool, default_value=False, help_str="Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)"),
-  Option("reload_between_epochs", bool, default_value=False, help_str="Reload train data between epochs (useful when sampling from train data, or with noisy input data via an external tool"),
+  #Option("reload_between_epochs", bool, default_value=False, help_str="Reload train data between epochs (useful when sampling from train data, or with noisy input data via an external tool"),
+  Option("reload_command", default_value=None, required=False, help_str="Command to change the input data after each epoch. --epoch EPOCH_NUM will be appended to the command."),
   Option("dropout", float, default_value=0.0),
   Option("weight_noise", float, default_value=0.0),
   Option("model", dict, default_value={}),
@@ -81,6 +83,10 @@ class XnmtTrainer(object):
     if self.args.schedule_metric.lower() not in self.evaluators:
               self.evaluators.append(self.args.schedule_metric.lower())
     if "loss" not in self.evaluators: self.evaluators.append("loss")
+
+    if args.reload_command is not None:
+        self._augmentation_handle = None
+        self._augment_data_initial()
 
     # Initialize the serializer
     self.model_serializer = serializer.YamlSerializer()
@@ -153,7 +159,35 @@ class XnmtTrainer(object):
     context = {"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
     self.model = self.model_serializer.initialize_object(model, context)
     model_globals.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
+    
+  def _augment_data_initial(self):
+    augment_command = self.args.reload_command
+    print('initial augmentation')
+    if self._augmentation_handle is None:
+      # first run
+      self._augmentation_handle = Popen(augment_command + " --epoch 0", shell=True)
+      self._augmentation_handle.wait()
 
+  def _augment_data_next_epoch(self):
+    augment_command = self.args.reload_command
+    if self._augmentation_handle is None:
+      # first run
+      self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.logger.epoch_num, shell=True)
+      self._augmentation_handle.wait()
+   
+    self._augmentation_handle.poll()
+    retcode = self._augmentation_handle.returncode
+    if retcode is not None:
+      if self.logger.epoch_num > 0:
+        print('using reloaded data')
+      # reload the data   
+      self.corpus_parser.read_training_corpus(self.training_corpus)
+      if self.is_batch_mode():
+        self.pack_batches()
+      # restart data generation
+      self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.logger.epoch_num, shell=True)
+    else:
+      print('new data set is not ready yet, using data from last epoch.')
 
 #  def read_data(self):
 #    train_filters = SentenceFilterer.from_spec(self.args.train_filters)
@@ -190,14 +224,8 @@ class XnmtTrainer(object):
   def run_epoch(self):
     self.logger.new_epoch()
 
-    if self.logger.epoch_num > 1:
-      if self.args.reload_between_epochs:
-        print("Reloading training data..")
-        self.corpus_parser.read_training_corpus(self.training_corpus)
-        if self.is_batch_mode():
-          self.pack_batches()
-      elif self.is_batch_mode() and self.batcher.is_random():
-        self.pack_batches()
+    if self.args.reload_command is not None:
+      self._augment_data_next_epoch()
 
     self.model.set_train(True)
     order = list(range(0, len(self.train_src)))

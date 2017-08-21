@@ -1,0 +1,54 @@
+# This config file replicates the Listen-Attend-Spell architecture: https://arxiv.org/pdf/1508.01211.pdf
+# Compared to the conventional attentional model, we remove input embeddings, instead directly read in a feature vector
+# the pyramidal LSTM reduces length of the input sequence by a factor of 2 per layer (except for the first layer).
+# Output units should be characters according to the paper.
+defaults:
+  experiment:
+    model_file: test/tmp/output/<EXP>.mod
+    hyp_file: test/tmp/output/<EXP>.hyp
+    out_file: test/tmp/output/<EXP>.out
+    err_file: test/tmp/output/<EXP>.err
+    run_for_epochs: 10
+    eval_metrics: cer,wer
+  train:
+    reload_command: >-
+      python script/code/reload_example.py
+      --initial-dir examples/data/
+      --tmp-basedir test/tmp/reload-tmp
+      --target-dir test/tmp/reload
+      --break-features
+    src_format: contvec
+    training_corpus: !BilingualTrainingCorpus
+      train_src: test/tmp/reload/synth.contvec.npz
+      train_trg: test/tmp/reload/synth.char
+      dev_src: test/tmp/reload/synth.contvec.npz
+      dev_trg: test/tmp/reload/synth.char
+    corpus_parser: !BilingualCorpusParser
+      src_reader: !ContVecReader
+        transpose: True
+      trg_reader: !PlainTextReader {}
+    model: !DefaultTranslator
+      src_embedder: !NoopEmbedder
+        emb_dim: 240
+      encoder: !PyramidalLSTMEncoder
+        layers: 1
+        downsampling_method: skip
+        input_dim: 240
+        hidden_dim: 64
+      attender: !StandardAttender
+        state_dim: 64
+        hidden_dim: 64
+        input_dim: 64
+      trg_embedder: !SimpleWordEmbedder
+        emb_dim: 64
+      decoder: !MlpSoftmaxDecoder
+        layers: 1
+        mlp_hidden_dim: 64
+        bridge: !CopyBridge {}
+  decode:
+    src_file: test/tmp/reload/synth.contvec.npz
+  evaluate:
+    ref_file: test/tmp/reload/synth.char
+
+speech-2layers:
+

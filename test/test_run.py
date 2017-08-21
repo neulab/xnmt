@@ -31,5 +31,13 @@ class TestRunningConfig(unittest.TestCase):
   def test_load_model(self):
     run.main(["test/config/load_model.yaml"])
 
+  def test_reload(self):
+    run.main(["test/config/reload.yaml"])
+
+  def test_reload_exc(self):
+    with self.assertRaises(ValueError) as context:
+      run.main(["test/config/reload_exception.yaml"])
+    self.assertTrue('VanillaLSTMGates: x_t has inconsistent dimension' in context.exception)
+
 if __name__ == "__main__":
   unittest.main()
