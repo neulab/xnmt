@@ -4,11 +4,19 @@ import os
 dynet_param_collection = None
 
 model_globals = {
-          "dropout" : 0.0,
-          "weight_noise" : 0.0,
-          "default_layer_dim" : 512,
-          }
-get = model_globals.get # shortcut
+  "dropout" : 0.0,
+  "weight_noise" : 0.0,
+  "default_layer_dim" : 512,
+}
+
+def get(key):
+  return model_globals.get(key)
+
+def default_if_none(value):
+  if not value:
+    return get("default_layer_dim")
+  else:
+    return value
 
 class PersistentParamCollection(object):
   def __init__(self, model_file, save_num_checkpoints=1):
