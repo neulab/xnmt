@@ -48,6 +48,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   def __init__(self, vocab_size, layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=False):
+    self.lstm_layers = layers
     # Define dim
     lstm_dim       = model_globals.default_if_none(lstm_dim)
     mlp_hidden_dim = model_globals.default_if_none(mlp_hidden_dim)
@@ -82,8 +83,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
 
   def initialize(self, encoder_states):
     dec_state = self.fwd_lstm.initial_state()
-    # {new_c[0],...,new_c[n],new_h[0],...,new_h[n]}
-    decoder_init = [enc_state.cell_expr() for enc_state in encoder_states] + [enc_state.main_expr() for enc_state in encoder_states]
+    decoder_init = [enc_state.cell_expr() for enc_state in encoder_states[-self.lstm_layers:]] + [enc_state.main_expr() for enc_state in encoder_states[-self.lstm_layers:]]
     dec_state = dec_state.set_s(decoder_init)
     self.state = dec_state
     self.h_t = None

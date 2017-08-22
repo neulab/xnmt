@@ -1,6 +1,6 @@
 import dynet as dy
 from residual import PseudoState
-
+from encoder import FinalEncoderState
 
 class LSTMState(object):
   def __init__(self, builder, h_t=None, c_t=None, state_idx=-1, prev_state=None):
@@ -42,6 +42,9 @@ class CustomCompactLSTMBuilder(object):
     
     self.dropout_rate = 0.0
     self.weightnoise_std = 0.0
+    
+  def get_final_states(self):
+    return self._final_states
 
   def whoami(self): return "CustomCompactLSTMBuilder"
   
@@ -60,6 +63,7 @@ class CustomCompactLSTMBuilder(object):
     self.weightnoise_std = 0.0
     
   def initial_state(self, vecs=None):
+    self._final_states = None
     self.Wx = dy.parameter(self.p_Wx)
     self.Wh = dy.parameter(self.p_Wh)
     self.b = dy.parameter(self.p_b)
@@ -103,8 +107,11 @@ class CustomCompactLSTMBuilder(object):
     """
     self.initial_state()
     xs = list(xs)
-    if hasattr(xs[0], "dim"): batch_size = xs[0].dim()[1]
-    else: batch_size = xs[0][0].dim()[1]
+    try:
+      if hasattr(xs[0], "dim"): batch_size = xs[0].dim()[1]
+      else: batch_size = xs[0][0].dim()[1]
+    except:
+      print("break")
     h = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
     c = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
     for pos_i in range(len(xs)):
@@ -121,6 +128,7 @@ class CustomCompactLSTMBuilder(object):
       c_t = dy.vanilla_lstm_c(c[-1], gates_t)
       c.append(c_t)
       h.append(dy.vanilla_lstm_h(c_t, gates_t))
+    self._final_states = [FinalEncoderState(h[-1], c[-1])]
     return h
   
 class BiCompactLSTMBuilder:
@@ -135,6 +143,9 @@ class BiCompactLSTMBuilder:
     self.backward_layers = [CustomCompactLSTMBuilder(1, input_dim, hidden_dim/2, model)]
     self.forward_layers += [CustomCompactLSTMBuilder(1, hidden_dim, hidden_dim/2, model) for _ in range(num_layers-1)]
     self.backward_layers += [CustomCompactLSTMBuilder(1, hidden_dim, hidden_dim/2, model) for _ in range(num_layers-1)]
+
+  def get_final_states(self):
+    return self._final_states
 
   def set_dropout(self, p):
     for layer in self.forward_layers + self.backward_layers:
@@ -155,13 +166,18 @@ class BiCompactLSTMBuilder:
   def transduce(self, es):
     # first layer
     forward_es = self.forward_layers[0].initial_state().transduce(es)
-    rev_backward_es = self.backward_layers[0].initial_state().transduce(reversed(es))
+    rev_backward_es = self.backward_layers[0].initial_state().transduce(list(reversed(es)))
 
     for layer_i in range(1, len(self.forward_layers)):
-      new_forward_es = self.forward_layers[layer_i].initial_state().transduce(zip(forward_es, reversed(rev_backward_es)))
-      rev_backward_es = reversed(self.backward_layers[layer_i].initial_state().transduce(zip(reversed(forward_es), rev_backward_es)))
+      new_forward_es = self.forward_layers[layer_i].initial_state().transduce(zip(forward_es, reversed(list(rev_backward_es))))
+      rev_backward_es = list(reversed(self.backward_layers[layer_i].initial_state().transduce(zip(reversed(forward_es), rev_backward_es))))
       forward_es = new_forward_es
-      
+    
+    self._final_states = [FinalEncoderState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
+                                                            self.backward_layers[layer_i].get_final_states()[0].main_expr()]),
+                                            dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].cell_expr(),
+                                                            self.backward_layers[layer_i].get_final_states()[0].cell_expr()])) \
+                          for layer_i in range(len(self.forward_layers))]
     return [dy.concatenate([f,b]) for f,b in zip(forward_es, reversed(list(rev_backward_es)))]
 
   def initial_state(self):

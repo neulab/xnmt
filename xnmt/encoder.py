@@ -10,14 +10,6 @@ from decorators import recursive
 from expression_sequence import ExpressionSequence
 from reports import Reportable
 
-# The LSTM model builders
-import pyramidal
-import conv_encoder
-import residual
-import segmenting_encoder
-import lstm
-
-
 class FinalEncoderState(object):
   """
   Represents the final encoder state; Currently handles a main (hidden) state and a cell
@@ -39,6 +31,14 @@ class FinalEncoderState(object):
     if self._cell_expr is None:
       self._cell_expr = 0.5 * dy.log( dy.cdiv(1.+self._main_expr, 1.-self._main_expr) )
     return self._cell_expr
+
+# The LSTM model builders
+import pyramidal
+import conv_encoder
+import residual
+import segmenting_encoder
+import lstm
+
 
 
 class Encoder(HierarchicalModel):
@@ -120,7 +120,7 @@ class LSTMEncoder(BuilderEncoder, Serializable):
     if bidirectional:
       self.builder = lstm.BiCompactLSTMBuilder(layers, input_dim, hidden_dim, model)
     else:
-      self.builder = dy.CompactVanillaLSTMBuilder(layers, input_dim, hidden_dim, model)
+      self.builder = lstm.CustomCompactLSTMBuilder(layers, input_dim, hidden_dim, model)
 
   @recursive
   def set_train(self, val):
