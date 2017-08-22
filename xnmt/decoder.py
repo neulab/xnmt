@@ -130,6 +130,9 @@ class Bridge(Serializable):
     raise NotImplementedError("decoder_init() must be implemented by Bridge subclasses")
 
 class NoBridge(Bridge):
+  """
+  This bridge initializes the decoder with zero vectors, disregarding the encoder final states.
+  """
   yaml_tag = u'!NoBridge'
   def __init__(self, dec_layers, dec_dim = None):
     self.dec_layers = dec_layers
@@ -140,6 +143,12 @@ class NoBridge(Bridge):
     return [z] * (self.dec_layers * 2)
 
 class CopyBridge(Bridge):
+  """
+  This bridge copies final states from the encoder to the decoder initial states.
+  Requires that:
+  - encoder / decoder dimensions match for every layer
+  - num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
+  """
   yaml_tag = u'!CopyBridge'
   def __init__(self, dec_layers, dec_dim = None):
     self.dec_layers = dec_layers

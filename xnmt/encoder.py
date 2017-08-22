@@ -37,28 +37,6 @@ class Encoder(HierarchicalModel):
     return NotImplementedError('Unimplemented get_final_state for class:', self.__class__.__name__)
 
 
-
-#class BuilderEncoder(Encoder):
-#  def transduce(self, embed_sent):
-#    states = None
-#    if hasattr(self.builder, "transduce"):
-#      states = self.builder.add_inputs(embed_sent)
-#    elif hasattr(self.builder, "initial_state"):
-#      states = self.builder.initial_state().add_inputs(embed_sent)
-#    else:
-#      raise NotImplementedError("Unimplemented transduce logic for class:",
-#                                self.builder.__class__.__name__)
-#    output_expr = [dy.concatenate([state_f.h()[-1], state_b.h()[-1]]) for state_f, state_b in states]
-#    self.final_encoder_state = states[-1]
-#    return ExpressionSequence(expr_list=output_expr, mask=embed_sent.mask)
-#
-#  def get_final_state(self):
-#    final_state = self.final_encoder_state
-#    if len(final_state) == 2:
-#      return [dy.concatenate([f, w]) for f, w in zip(final_state[0].s(), final_state[1].s())]
-#    else:
-#      return final_state.s()
-
 class BuilderEncoder(Encoder):
   def __init__(self):
     self._final_states = None
