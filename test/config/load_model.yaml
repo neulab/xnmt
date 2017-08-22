@@ -22,50 +22,33 @@ defaults:
       trg_reader: !PlainTextReader {}
       max_src_len: 15
       max_trg_len: 15
-    dropout: 0.1
+    model: !DefaultTranslator
+      src_embedder: !SimpleWordEmbedder
+        emb_dim: 64
+      encoder: !LSTMEncoder
+        layers: 2
+        input_dim: 64
+        bidirectional: True
+      attender: !StandardAttender
+        state_dim: 64
+        hidden_dim: 64
+        input_dim: 64
+      trg_embedder: !SimpleWordEmbedder
+        emb_dim: 64
+      decoder: !MlpSoftmaxDecoder
+        layers: 1
+        mlp_hidden_dim: 64
+        input_feeding: True
   decode:
     src_file: examples/data/head.ja
   evaluate:
     ref_file: examples/data/head.en
 
-exp1-lstm-encoder:
+debug-config-2layers:
   train:
-    model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      encoder: !LSTMEncoder
-        layers: 2
-        input_dim: 64
-        bidirectional: True
-      attender: !StandardAttender
-        state_dim: 64
-        hidden_dim: 64
-        input_dim: 64
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 64
-        input_feeding: True
+    dropout: 0.2
 
-exp1-lstm-encoder:
+debug-config-2layers-finetune:
   train:
-    model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      encoder: !LSTMEncoder
-        layers: 2
-        input_dim: 64
-        bidirectional: True
-      attender: !StandardAttender
-        state_dim: 64
-        hidden_dim: 64
-        input_dim: 64
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 64
-        input_feeding: True
-
-
+    dropout: 0.2
+    pretrained_model_file: examples/output/debug-config-2layers.mod
