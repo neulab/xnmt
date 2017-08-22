@@ -26,7 +26,7 @@ defaults:
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
       encoder: !LSTMEncoder
-        layers: 1
+        layers: 2
         input_dim: 64
         bidirectional: True
       attender: !StandardAttender
@@ -36,7 +36,7 @@ defaults:
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
       decoder: !MlpSoftmaxDecoder
-        layers: 1
+        layers: 2
         mlp_hidden_dim: 64
         input_feeding: True
   decode:

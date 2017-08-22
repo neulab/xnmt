@@ -3,11 +3,9 @@ from __future__ import print_function
 import sys
 import dynet as dy
 import expression_sequence
-import model
-import embedder
-import serializer
+from model import HierarchicalModel
+from serializer import Serializable
 import model_globals
-import pdb
 from decorators import recursive
 from expression_sequence import ExpressionSequence
 from reports import Reportable
@@ -19,9 +17,29 @@ import residual
 import segmenting_encoder
 import lstm
 
-# Shortcut
-Serializable = serializer.Serializable
-HierarchicalModel = model.HierarchicalModel
+
+class FinalEncoderState(object):
+  """
+  Represents the final encoder state; Currently handles a main (hidden) state and a cell
+  state. If cell state is not provided, it is created as tanh^{-1}(hidden state).
+  Could in the future be extended to handle dimensions other than h and c.
+  """
+  def __init__(self, main_expr, cell_expr=None):
+    """
+    :param main_expr: expression for hidden state
+    :param cell_expr: expression for cell state, if exists
+    """
+    self._main_expr = main_expr
+    self._cell_expr = cell_expr
+  def main_expr(self): return self._main_expr
+  def cell_expr(self):
+    """
+    returns: cell state; if not given, it is inferred as inverse tanh of main expression
+    """
+    if self._cell_expr is None:
+      self._cell_expr = 0.5 * dy.log( dy.cdiv(1.+self._main_expr, 1.-self._main_expr) )
+    return self._cell_expr
+
 
 class Encoder(HierarchicalModel):
   """
@@ -41,26 +59,42 @@ class Encoder(HierarchicalModel):
     """ Return the state that represents the transduced sequence """
     return NotImplementedError('Unimplemented get_final_state for class:', self.__class__.__name__)
 
-class BuilderEncoder(Encoder):
-  def transduce(self, embed_sent):
-    states = None
-    if hasattr(self.builder, "transduce"):
-      states = self.builder.add_inputs(embed_sent)
-    elif hasattr(self.builder, "initial_state"):
-      states = self.builder.initial_state().add_inputs(embed_sent)
-    else:
-      raise NotImplementedError("Unimplemented transduce logic for class:",
-                                self.builder.__class__.__name__)
-    output_expr = [dy.concatenate([state_f.h()[-1], state_b.h()[-1]]) for state_f, state_b in states]
-    self.final_encoder_state = states[-1]
-    return ExpressionSequence(expr_list=output_expr, mask=embed_sent.mask)
 
-  def get_final_state(self):
-    final_state = self.final_encoder_state
-    if len(final_state) == 2:
-      return [dy.concatenate([f, w]) for f, w in zip(final_state[0].s(), final_state[1].s())]
+
+#class BuilderEncoder(Encoder):
+#  def transduce(self, embed_sent):
+#    states = None
+#    if hasattr(self.builder, "transduce"):
+#      states = self.builder.add_inputs(embed_sent)
+#    elif hasattr(self.builder, "initial_state"):
+#      states = self.builder.initial_state().add_inputs(embed_sent)
+#    else:
+#      raise NotImplementedError("Unimplemented transduce logic for class:",
+#                                self.builder.__class__.__name__)
+#    output_expr = [dy.concatenate([state_f.h()[-1], state_b.h()[-1]]) for state_f, state_b in states]
+#    self.final_encoder_state = states[-1]
+#    return ExpressionSequence(expr_list=output_expr, mask=embed_sent.mask)
+#
+#  def get_final_state(self):
+#    final_state = self.final_encoder_state
+#    if len(final_state) == 2:
+#      return [dy.concatenate([f, w]) for f, w in zip(final_state[0].s(), final_state[1].s())]
+#    else:
+#      return final_state.s()
+
+class BuilderEncoder(Encoder):
+  def __init__(self):
+    self._final_states = None
+  def transduce(self, sent):
+    output = ExpressionSequence(expr_list=self.builder.transduce(sent))
+    if hasattr(self.builder, "get_final_states"):
+      self._final_states = self.builder.get_final_states()
     else:
-      return final_state.s()
+      self._final_states = [FinalEncoderState(output[-1])]
+    return output
+  def get_final_states(self):
+    return self._final_states
+
 
 class IdentityEncoder(Encoder, Serializable):
   yaml_tag = u'!IdentityEncoder'

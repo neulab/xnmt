@@ -80,10 +80,12 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     self.state = None
     self.h_t = None
 
-  def initialize(self, encoder_state):
-    state = self.fwd_lstm.initial_state()
-    state = state.set_s(encoder_state)
-    self.state = state
+  def initialize(self, encoder_states):
+    dec_state = self.fwd_lstm.initial_state()
+    # {new_c[0],...,new_c[n],new_h[0],...,new_h[n]}
+    decoder_init = [enc_state.cell_expr() for enc_state in encoder_states] + [enc_state.main_expr() for enc_state in encoder_states]
+    dec_state = dec_state.set_s(decoder_init)
+    self.state = dec_state
     self.h_t = None
 
   def add_input(self, trg_embedding):
