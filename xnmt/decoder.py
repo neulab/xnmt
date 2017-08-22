@@ -31,11 +31,10 @@ class RnnDecoder(Decoder):
   def rnn_from_spec(spec, num_layers, input_dim, hidden_dim, model, residual_to_output):
     decoder_type = spec.lower()
     if decoder_type == "lstm":
-      return dy.VanillaLSTMBuilder(num_layers, input_dim, hidden_dim, model)
+      return dy.CompactVanillaLSTMBuilder(num_layers, input_dim, hidden_dim, model)
     elif decoder_type == "residuallstm":
       return residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim,
-                                         model, dy.VanillaLSTMBuilder,
-                                         residual_to_output)
+                                         model, residual_to_output)
     else:
       raise RuntimeError("Unknown decoder type {}".format(spec))
 
@@ -47,8 +46,10 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
 
   def __init__(self, vocab_size, layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
-               rnn_spec="lstm", residual_to_output=False, input_feeding=False):
+               rnn_spec="lstm", residual_to_output=False, input_feeding=False,
+               bridge=None):
     self.lstm_layers = layers
+    self.bridge = bridge
     # Define dim
     lstm_dim       = model_globals.default_if_none(lstm_dim)
     mlp_hidden_dim = model_globals.default_if_none(mlp_hidden_dim)
@@ -81,10 +82,10 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     self.state = None
     self.h_t = None
 
-  def initialize(self, encoder_states):
+  def initialize(self, enc_final_states):
     dec_state = self.fwd_lstm.initial_state()
-    decoder_init = [enc_state.cell_expr() for enc_state in encoder_states[-self.lstm_layers:]] + [enc_state.main_expr() for enc_state in encoder_states[-self.lstm_layers:]]
-    dec_state = dec_state.set_s(decoder_init)
+    if self.bridge is not None:
+      dec_state = dec_state.set_s(self.bridge.decoder_init(enc_final_states))
     self.state = dec_state
     self.h_t = None
 
@@ -118,3 +119,21 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   def set_train(self, val):
     self.fwd_lstm.set_dropout(self.dropout if val else 0.0)
 
+class Bridge(object):
+  """
+  Responsible for initializing the decoder LSTM, based on the final encoder state
+  """
+  def decoder_init(self, dec_layers, dec_dim, enc_final_states):
+    raise NotImplementedError("decoder_init() must be implemented by Bridge subclasses")
+class CopyBridge(Bridge):
+  def __init__(self, dec_layers, dec_dim):
+    self.dec_layers = dec_layers
+    self.dec_dim = dec_dim
+  def decoder_init(self, enc_final_states):
+    if self.dec_layers > len(enc_final_states): 
+      raise RuntimeError("CopyBridge requires dec_layers <= len(enc_final_states), but got %s and %s" % (self.dec_layers, len(enc_final_states)))
+    if enc_final_states[0].main_expr().dim()[0][0] != self.dec_dim:
+      raise RuntimeError("CopyBridge requires enc_dim == dec_dim, but got %s and %s" % (enc_final_states[0].main_expr().dim()[0][0], self.dec_dim))
+    return [enc_state.cell_expr() for enc_state in enc_final_states[-self.dec_layers:]] \
+         + [enc_state.main_expr() for enc_state in enc_final_states[-self.dec_layers:]]
+    

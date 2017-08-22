@@ -1,5 +1,5 @@
 import dynet as dy
-from residual import PseudoState
+from encoder_state import FinalEncoderState, PseudoState
 import lstm
 
 class PyramidalRNNBuilder(object):
@@ -40,7 +40,10 @@ class PyramidalRNNBuilder(object):
       b = lstm.CustomCompactLSTMBuilder(1, layer_input_dim, hidden_dim / 2, model)
       self.builder_layers.append((f, b))
 
-  def reduce_factor_for_layer(self, layer_i):
+  def get_final_states(self):
+    return self._final_states
+
+  def _reduce_factor_for_layer(self, layer_i):
     if layer_i >= len(self.builder_layers)-1:
       return 1
     elif type(self.reduce_factor)==int:
@@ -73,7 +76,7 @@ class PyramidalRNNBuilder(object):
     batch_size = es[0].dim()[1]
 
     for layer_i, (fb, bb) in enumerate(self.builder_layers):
-      reduce_factor = self.reduce_factor_for_layer(layer_i)
+      reduce_factor = self._reduce_factor_for_layer(layer_i)
       while self.downsampling_method=="concat" and len(es) % reduce_factor != 0:
         if zero_pad is None:
           zero_pad = dy.zeros(dim=self.input_dim, batch_size=batch_size)
@@ -99,6 +102,13 @@ class PyramidalRNNBuilder(object):
       else:
         # concat final outputs
         es = [dy.concatenate([f, b]) for f, b in zip(fs, reversed(bs))]
+    
+    self._final_states = [FinalEncoderState(dy.concatenate([fb.get_final_states()[0].main_expr(),
+                                                            bb.get_final_states()[0].main_expr()]),
+                                            dy.concatenate([fb.get_final_states()[0].cell_expr(),
+                                                            bb.get_final_states()[0].cell_expr()])) \
+                          for (fb, bb) in self.builder_layers]
+    
     return es
 
   def initial_state(self):

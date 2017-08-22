@@ -9,36 +9,13 @@ import model_globals
 from decorators import recursive
 from expression_sequence import ExpressionSequence
 from reports import Reportable
-
-class FinalEncoderState(object):
-  """
-  Represents the final encoder state; Currently handles a main (hidden) state and a cell
-  state. If cell state is not provided, it is created as tanh^{-1}(hidden state).
-  Could in the future be extended to handle dimensions other than h and c.
-  """
-  def __init__(self, main_expr, cell_expr=None):
-    """
-    :param main_expr: expression for hidden state
-    :param cell_expr: expression for cell state, if exists
-    """
-    self._main_expr = main_expr
-    self._cell_expr = cell_expr
-  def main_expr(self): return self._main_expr
-  def cell_expr(self):
-    """
-    returns: cell state; if not given, it is inferred as inverse tanh of main expression
-    """
-    if self._cell_expr is None:
-      self._cell_expr = 0.5 * dy.log( dy.cdiv(1.+self._main_expr, 1.-self._main_expr) )
-    return self._cell_expr
+from encoder_state import FinalEncoderState
 
 # The LSTM model builders
 import pyramidal
-import conv_encoder
 import residual
 import segmenting_encoder
 import lstm
-
 
 
 class Encoder(HierarchicalModel):
@@ -95,7 +72,6 @@ class BuilderEncoder(Encoder):
   def get_final_states(self):
     return self._final_states
 
-
 class IdentityEncoder(Encoder, Serializable):
   yaml_tag = u'!IdentityEncoder'
 
@@ -135,9 +111,9 @@ class ResidualLSTMEncoder(BuilderEncoder, Serializable):
     dropout = dropout or model_globals.get("dropout")
     self.dropout = dropout
     if bidirectional:
-      self.builder = residual.ResidualBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.CompactVanillaLSTMBuilder, residual_to_output)
+      self.builder = residual.ResidualBiRNNBuilder(layers, input_dim, hidden_dim, model, residual_to_output)
     else:
-      self.builder = residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, dy.CompactVanillaLSTMBuilder, residual_to_output)
+      self.builder = residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, residual_to_output)
 
   @recursive
   def set_train(self, val):
@@ -153,22 +129,6 @@ class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
     self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim,
                                                  model_globals.dynet_param_collection.param_col,
                                                  downsampling_method, reduce_factor)
-
-  @recursive
-  def set_train(self, val):
-    self.builder.set_dropout(self.dropout if val else 0.0)
-
-class ConvBiRNNBuilder(BuilderEncoder, Serializable):
-  yaml_tag = u'!ConvBiRNNBuilder'
-
-  def init_builder(self, input_dim, layers, hidden_dim=None, chn_dim=3, num_filters=32, filter_size_time=3, filter_size_freq=3, stride=(2,2), dropout=None):
-    model = model_globals.dynet_param_collection.param_col
-    hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
-    dropout = dropout or model_globals.get("dropout")
-    self.dropout = dropout
-    self.builder = conv_encoder.ConvBiRNNBuilder(layers, input_dim, hidden_dim, model, dy.CompactVanillaLSTMBuilder,
-                                                 chn_dim, num_filters, filter_size_time, filter_size_freq,
-                                                 stride)
 
   @recursive
   def set_train(self, val):
@@ -191,8 +151,8 @@ class ModularEncoder(Encoder, Serializable):
       sent = module.transduce(sent)
     return sent
 
-  def get_final_state(self):
-    return self.modules[-1].get_final_state()
+  def get_final_states(self):
+    return reduce(lambda x, y: x.get_final_states() + y.get_final_states(), self.modules)
 
 class SegmentingEncoder(Encoder, Serializable, Reportable):
   yaml_tag = u'!SegmentingEncoder'
@@ -248,11 +208,11 @@ class FullyConnectedEncoder(Encoder, Serializable):
     self.pW = model.add_parameters(dim = (self.out_height, self.in_height), init=normalInit)
     self.pb = model.add_parameters(dim = self.out_height)
 
+  def get_final_states(self):
+    return self._final_states
+
   def transduce(self, embed_sent):
     src = embed_sent.as_tensor()
-    src_height = src.dim()[0][0]
-    src_width = 1
-    batch_size = src.dim()[1]
 
     W = dy.parameter(self.pW)
     b = dy.parameter(self.pb)
@@ -267,7 +227,9 @@ class FullyConnectedEncoder(Encoder, Serializable):
       output = 2*dy.logistic(l1) - 1
     elif self.nonlinearity is 'relu':
       output = dy.rectify(l1)
-    return expression_sequence.ExpressionSequence(expr_tensor=output)
+    output_seq = expression_sequence.ExpressionSequence(expr_tensor=output)
+    self._final_states = [FinalEncoderState(output_seq[-1])]
+    return output_seq
 
   def initial_state(self):
     return PseudoState(self)
@@ -305,13 +267,12 @@ class ConvConnectedEncoder(Encoder, Serializable):
     elif self.non_linearity == 'sigmoid':
         self.gain = 4.0
 
-    glorotInit=dy.GlorotInitializer(is_lookup=False, gain=self.gain)
     normalInit=dy.NormalInitializer(0, 0.1)
 
     self.pConv1 = model.add_parameters(dim = (self.input_dim,self.window_receptor,1,self.internal_dim),init=normalInit)
     self.pBias1 = model.add_parameters(dim = (self.internal_dim))
     self.builder_layers = []
-    for index in range(num_layers):
+    for _ in range(num_layers):
         conv = model.add_parameters(dim = (self.internal_dim,1,1,self.internal_dim),init=normalInit)
         bias = model.add_parameters(dim = (self.internal_dim))
         self.builder_layers.append((conv,bias))
@@ -320,6 +281,9 @@ class ConvConnectedEncoder(Encoder, Serializable):
     self.last_bias = model.add_parameters(dim = (self.output_dim))
 
   def whoami(self): return "ConvConnectedEncoder"
+
+  def get_final_states(self):
+    return self._final_states
 
   def transduce(self, embed_sent):
     src = embed_sent.as_tensor()
@@ -361,9 +325,10 @@ class ConvConnectedEncoder(Encoder, Serializable):
     last_conv = dy.parameter(self.last_conv)
     last_bias = dy.parameter(self.last_bias)
     output = dy.conv2d_bias(hidden_layer,last_conv,last_bias,stride=[1,1])
-    #output = dy.reshape(output, (self.output_dim,sent_len),batch_size=batch_size)
     output = dy.reshape(output, (sent_len,self.output_dim),batch_size=batch_size)
-    return expression_sequence.ExpressionSequence(expr_tensor=output)
+    output_seq = expression_sequence.ExpressionSequence(expr_tensor=output)
+    self._final_states = [FinalEncoderState(output_seq[-1])]
+    return output_seq
 
   def initial_state(self):
     return PseudoState(self)

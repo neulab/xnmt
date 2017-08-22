@@ -1,6 +1,5 @@
 import dynet as dy
-from residual import PseudoState
-from encoder import FinalEncoderState
+from encoder_state import FinalEncoderState, PseudoState
 
 class LSTMState(object):
   def __init__(self, builder, h_t=None, c_t=None, state_idx=-1, prev_state=None):
