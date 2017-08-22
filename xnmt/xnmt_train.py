@@ -139,6 +139,8 @@ class XnmtTrainer(object):
     model_globals.model_globals["default_layer_dim"] = self.args.default_layer_dim
     model_globals.model_globals["dropout"] = self.args.dropout
     model_globals.model_globals["weight_noise"] = self.args.weight_noise
+    if not self.args.model:
+      raise RuntimeError("No model specified!")
     self.model = self.model_serializer.initialize_object(self.args.model, context)
 
   def load_corpus_and_model(self):

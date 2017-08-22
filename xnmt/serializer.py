@@ -108,6 +108,8 @@ class YamlSerializer(object):
       if isinstance(param_obj, list):
         param_obj = param_obj[int(param_name_spl[0])]
       else:
+        if not hasattr(param_obj, param_name_spl[0]):
+          raise RuntimeError("%s object has no attribute '%s'. Did you forget to specify this in the YAML config?" % (type(param_obj), param_name_spl[0]))
         param_obj = getattr(param_obj, param_name_spl[0])
       param_name = param_name_spl[1]
     return param_obj, param_name

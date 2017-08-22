@@ -38,6 +38,7 @@ defaults:
       decoder: !MlpSoftmaxDecoder
         layers: 1
         mlp_hidden_dim: 64
+        bridge: !CopyBridge {}
   decode:
     src_file: examples/data/synth.contvec.npz
   evaluate:

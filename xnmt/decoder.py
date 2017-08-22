@@ -48,8 +48,6 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=False,
                bridge=None):
-    self.lstm_layers = layers
-    self.bridge = bridge
     # Define dim
     lstm_dim       = model_globals.default_if_none(lstm_dim)
     mlp_hidden_dim = model_globals.default_if_none(mlp_hidden_dim)
@@ -61,6 +59,9 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     lstm_input = trg_embed_dim
     if input_feeding:
       lstm_input += lstm_dim
+    # Bridge
+    self.lstm_layers = layers
+    self.bridge = bridge or NoBridge(self.lstm_layers, self.lstm_dim)
 
     # LSTM
     self.fwd_lstm  = RnnDecoder.rnn_from_spec(spec       = rnn_spec,
@@ -82,11 +83,13 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     self.state = None
     self.h_t = None
 
+  def shared_params(self):
+    return [set(["layers", "bridge.dec_layers"]),
+            set(["lstm_dim", "bridge.dec_dim"])]
+
   def initialize(self, enc_final_states):
     dec_state = self.fwd_lstm.initial_state()
-    if self.bridge is not None:
-      dec_state = dec_state.set_s(self.bridge.decoder_init(enc_final_states))
-    self.state = dec_state
+    self.state = dec_state.set_s(self.bridge.decoder_init(enc_final_states))
     self.h_t = None
 
   def add_input(self, trg_embedding):
@@ -119,16 +122,28 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   def set_train(self, val):
     self.fwd_lstm.set_dropout(self.dropout if val else 0.0)
 
-class Bridge(object):
+class Bridge(Serializable):
   """
   Responsible for initializing the decoder LSTM, based on the final encoder state
   """
   def decoder_init(self, dec_layers, dec_dim, enc_final_states):
     raise NotImplementedError("decoder_init() must be implemented by Bridge subclasses")
-class CopyBridge(Bridge):
-  def __init__(self, dec_layers, dec_dim):
+
+class NoBridge(Bridge):
+  yaml_tag = u'!NoBridge'
+  def __init__(self, dec_layers, dec_dim = None):
     self.dec_layers = dec_layers
-    self.dec_dim = dec_dim
+    self.dec_dim = dec_dim or model_globals.get("default_layer_dim")
+  def decoder_init(self, enc_final_states):
+    batch_size = enc_final_states[0].main_expr().dim()[1]
+    z = dy.zeros(self.dec_dim, batch_size)
+    return [z] * (self.dec_layers * 2)
+
+class CopyBridge(Bridge):
+  yaml_tag = u'!CopyBridge'
+  def __init__(self, dec_layers, dec_dim = None):
+    self.dec_layers = dec_layers
+    self.dec_dim = dec_dim or model_globals.get("default_layer_dim")
   def decoder_init(self, enc_final_states):
     if self.dec_layers > len(enc_final_states): 
       raise RuntimeError("CopyBridge requires dec_layers <= len(enc_final_states), but got %s and %s" % (self.dec_layers, len(enc_final_states)))

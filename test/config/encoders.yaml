@@ -28,7 +28,7 @@ defaults:
   evaluate:
     ref_file: examples/data/head.en
 
-exp1-lstm-encoder:
+exp1-lstm-#encoder:
   train:
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
@@ -47,7 +47,7 @@ exp1-lstm-encoder:
         layers: 1
         mlp_hidden_dim: 64
         input_feeding: True
-
+        bridge: !CopyBridge {}
 exp2-residual-encoder:
   train:
     model: !DefaultTranslator
@@ -67,8 +67,8 @@ exp2-residual-encoder:
         layers: 2
         mlp_hidden_dim: 64
         input_feeding: True
-
-exp3-pyramidal-encoder:
+        bridge: !CopyBridge {}
+exp3-pyr#amidal-encoder:
   train:
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
@@ -86,8 +86,9 @@ exp3-pyramidal-encoder:
         layers: 2
         mlp_hidden_dim: 64
         input_feeding: True
+        bridge: !CopyBridge {}
 
-exp0-modular-encoder:
+exp4-modular-encoder:
   train:
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
@@ -113,4 +114,5 @@ exp0-modular-encoder:
         layers: 3
         mlp_hidden_dim: 64
         input_feeding: True
+        bridge: !CopyBridge {}
 
