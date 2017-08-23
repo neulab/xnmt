@@ -65,24 +65,25 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.word_id_mask = set()
     self.train = False
 
-  def start_sent(self):
-    if self.word_dropout > 0.0:
-      self.word_id_mask = set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False))
+  def start_sent(self):    self.word_id_mask = None
   @recursive
   def set_train(self, val):
     self.train = val
   def embed(self, x):
+    if self.word_dropout > 0.0 and self.word_id_mask is None:
+      batch_size = len(x) if batcher.is_batched(x) else 1
+      self.word_id_mask = [set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False)) for _ in range(batch_size)]
     # single mode
     if not batcher.is_batched(x):
-      if self.train and x in self.word_id_mask:
+      if self.train and x in self.word_id_mask[0]:
         ret = dy.zeros((self.emb_dim,))
       else:
         ret = self.embeddings[x]
     # minibatch mode
     else:
       ret = self.embeddings.batch(x)
-      if self.train and any(xi in self.word_id_mask for xi in x):
-        dropout_mask = dy.inputTensor(np.transpose([[0.0]*self.emb_dim if xi in self.word_id_mask else [1.0]*self.emb_dim for xi in x]), batched=True)
+      if self.train and self.word_id_mask and any(x[i] in self.word_id_mask[i] for i in range(len(x))):
+        dropout_mask = dy.inputTensor(np.transpose([[0.0]*self.emb_dim if x[i] in self.word_id_mask[i] else [1.0]*self.emb_dim for i in range(len(x))]), batched=True)
         ret = dy.cmult(ret, dropout_mask)
     if self.train and self.weight_noise > 0.0:
       ret = dy.noise(ret, self.weight_noise)
