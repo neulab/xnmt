@@ -33,6 +33,7 @@ defaults:
       decoder: !MlpSoftmaxDecoder
         layers: 1
         mlp_hidden_dim: 64
+        bridge: !CopyBridge {}
   decode:
     beam: !RandomParam
       values: [1,2,3,4,5]

@@ -111,6 +111,7 @@ defaults:
       decoder: !MlpSoftmaxDecoder
         layers: 1
         mlp_hidden_dim: 512
+        bridge: !NoBridge {}
   decode:
     src_file: examples/output/test.norm.ja
   evaluate:

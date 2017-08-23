@@ -25,8 +25,11 @@ class TestRunningConfig(unittest.TestCase):
   def test_translator_report(self):
     run.main(["test/config/translator_report.yaml"])
 
-  def test_translator(self):
-    run.main(["test/config/translator.yaml"])
+  def test_encoders(self):
+    run.main(["test/config/encoders.yaml"])
+
+  def test_load_model(self):
+    run.main(["test/config/load_model.yaml"])
 
 if __name__ == "__main__":
   unittest.main()
