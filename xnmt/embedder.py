@@ -62,10 +62,11 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.weight_noise = weight_noise or model_globals.get("weight_noise")
     self.word_dropout = word_dropout
     self.embeddings = model_globals.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, emb_dim))
-    self.word_id_mask = set()
+    self.word_id_mask = None
     self.train = False
 
-  def start_sent(self):    self.word_id_mask = None
+  def start_sent(self):
+    self.word_id_mask = None
   @recursive
   def set_train(self, val):
     self.train = val
