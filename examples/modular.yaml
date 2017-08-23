@@ -48,4 +48,5 @@ modular:
       decoder: !MlpSoftmaxDecoder
         layers: 1
         mlp_hidden_dim: 64
+        bridge: !NoBridge {}
 

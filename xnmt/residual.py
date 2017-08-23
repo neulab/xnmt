@@ -1,30 +1,8 @@
 from __future__ import division, generators
 
-from dynet import *
-
-
-class PseudoState(object):
-  """
-  Emulates a state object for python RNN builders. This allows them to be
-  used with minimal changes in code that uses dy.VanillaLSTMBuilder.
-  """
-  def __init__(self, network, output=None):
-    self.network = network
-    self._output = output
-
-  def add_input(self, e):
-    self._output = self.network.transduce([e])[0]
-    return self
-
-  def output(self):
-    return self._output
-
-  def h(self):
-    raise NotImplementedError("h() is not supported on PseudoStates")
-
-  def s(self):
-    raise NotImplementedError("s() is not supported on PseudoStates")
-
+import dynet as dy
+import lstm
+from encoder_state import FinalEncoderState, PseudoState
 
 class ResidualRNNBuilder(object):
   """
@@ -35,25 +13,27 @@ class ResidualRNNBuilder(object):
                               \_________________/  \_ ... _/ \_(if add_to_output)_/
   """
 
-  def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory, add_to_output=False):
+  def __init__(self, num_layers, input_dim, hidden_dim, model, add_to_output=False):
     """
     :param num_layers: depth of the RNN (> 0)
     :param input_dim: size of the inputs
     :param hidden_dim: size of the outputs (and intermediate layer representations)
     :param model:
-    :param rnn_builder_factory: RNNBuilder subclass, e.g. VanillaLSTMBuilder
     :param add_to_output: whether to add a residual connection to the output layer
     """
     assert num_layers > 0
     self.builder_layers = []
-    self.builder_layers.append(rnn_builder_factory(1, input_dim, hidden_dim, model))
+    self.builder_layers.append(lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim, model))
     for _ in range(num_layers - 1):
-      self.builder_layers.append(rnn_builder_factory(1, hidden_dim, hidden_dim, model))
+      self.builder_layers.append(lstm.CustomCompactLSTMBuilder(1, hidden_dim, hidden_dim, model))
 
     self.add_to_output = add_to_output
 
   def whoami(self):
     return "ResidualRNNBuilder"
+
+  def get_final_states(self):
+    return self._final_states
 
   def set_dropout(self, p):
     for l in self.builder_layers:
@@ -103,18 +83,22 @@ class ResidualRNNBuilder(object):
     add_inputs and this function.
     """
     es = self.builder_layers[0].initial_state().transduce(es)
+    self._final_states = [self.builder_layers[0].get_final_states()[0]]
 
     if len(self.builder_layers) == 1:
       return es
 
     for l in self.builder_layers[1:]:
       es = self._sum_lists(l.initial_state().transduce(es), es)
+      self._final_states.append(FinalEncoderState(es[-1], l.get_final_states()[0].cell_expr()))
 
     last_output = self.builder_layers[-1].initial_state().transduce(es)
 
     if self.add_to_output:
+      self._final_states.append(FinalEncoderState(last_output[-1], self.builder_layers[-1].get_final_states()[0].cell_expr()))
       return self._sum_lists(last_output, es)
     else:
+      self._final_states.append(self.builder_layers[-1].get_final_states()[0])
       return last_output
 
   def initial_state(self):
@@ -125,13 +109,16 @@ class ResidualBiRNNBuilder:
   """
   A residual network with bidirectional first layer
   """
-  def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory, add_to_output=False):
+  def __init__(self, num_layers, input_dim, hidden_dim, model, add_to_output=False):
     assert num_layers > 1
     assert hidden_dim % 2 == 0
-    self.forward_layer = rnn_builder_factory(1, input_dim, hidden_dim/2, model)
-    self.backward_layer = rnn_builder_factory(1, input_dim, hidden_dim/2, model)
-    self.residual_network = ResidualRNNBuilder(num_layers - 1, hidden_dim, hidden_dim, model, rnn_builder_factory,
+    self.forward_layer = lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim/2, model)
+    self.backward_layer = lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim/2, model)
+    self.residual_network = ResidualRNNBuilder(num_layers - 1, hidden_dim, hidden_dim, model,
                                                add_to_output)
+
+  def get_final_states(self):
+    return self._final_states
 
   def set_dropout(self, p):
     self.forward_layer.set_dropout(p)
@@ -149,8 +136,14 @@ class ResidualBiRNNBuilder:
   def transduce(self, es):
     forward_e = self.forward_layer.initial_state().transduce(es)
     backward_e = self.backward_layer.initial_state().transduce(reversed(es))
+    self._final_states = [FinalEncoderState(dy.concatenate([self.forward_layer.get_final_states()[0].main_expr(),
+                                                            self.backward_layer.get_final_states()[0].main_expr()]),
+                                            dy.concatenate([self.forward_layer.get_final_states()[0].cell_expr(),
+                                                            self.backward_layer.get_final_states()[0].cell_expr()]))]
 
-    return self.residual_network.transduce([concatenate([f,b]) for f,b in zip(forward_e, reversed(backward_e))])
+    output = self.residual_network.transduce([dy.concatenate([f,b]) for f,b in zip(forward_e, reversed(backward_e))])
+    self._final_states += self.residual_network.get_final_states()
+    return output
 
   def initial_state(self):
     return PseudoState(self)

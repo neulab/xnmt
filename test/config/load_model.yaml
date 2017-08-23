@@ -26,7 +26,7 @@ defaults:
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
       encoder: !LSTMEncoder
-        layers: 1
+        layers: 2
         input_dim: 64
         bidirectional: True
       attender: !StandardAttender
@@ -39,14 +39,11 @@ defaults:
         layers: 1
         mlp_hidden_dim: 64
         input_feeding: True
+        bridge: !CopyBridge {}
   decode:
     src_file: examples/data/head.ja
   evaluate:
     ref_file: examples/data/head.en
-
-debug-config-1layer:
-  train:
-    dropout: 0.1
 
 debug-config-2layers:
   train:

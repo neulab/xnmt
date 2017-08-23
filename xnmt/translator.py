@@ -98,7 +98,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     encodings = self.encoder.transduce(embeddings)
     self.attender.start_sent(encodings)
     # Initialize the hidden state from the encoder
-    self.decoder.initialize(self.encoder.get_final_state())
+    self.decoder.initialize(self.encoder.get_final_states())
     self.trg_embedder.start_sent()
     losses = []
 
@@ -140,7 +140,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       embeddings = self.src_embedder.embed_sent(src)
       encodings = self.encoder.transduce(embeddings)
       self.attender.start_sent(encodings)
-      self.decoder.initialize(self.encoder.get_final_state())
+      self.decoder.initialize(self.encoder.get_final_states())
       output_actions = search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents))
       # In case of reporting
       if self.report_path is not None:

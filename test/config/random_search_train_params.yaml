@@ -33,6 +33,7 @@ defaults:
       decoder: !MlpSoftmaxDecoder
         layers: !RefParam
           ref: model.encoder.layers
+        bridge: !CopyBridge {}
   decode:
     src_file: examples/data/head.ja
   evaluate:
