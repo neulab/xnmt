@@ -42,6 +42,9 @@ class CustomCompactLSTMBuilder(object):
     self.dropout_rate = 0.0
     self.weightnoise_std = 0.0
     
+    self.dropout_mask_x = None
+    self.dropout_mask_h = None
+    
   def get_final_states(self):
     return self._final_states
 
@@ -66,7 +69,8 @@ class CustomCompactLSTMBuilder(object):
     self.Wx = dy.parameter(self.p_Wx)
     self.Wh = dy.parameter(self.p_Wh)
     self.b = dy.parameter(self.p_b)
-    self.set_dropout_masks()
+    self.dropout_mask_x = None
+    self.dropout_mask_h = None
     if vecs is not None:
       assert len(vecs)==2
       return LSTMState(self, h_t=vecs[0], c_t=vecs[1])
@@ -80,8 +84,11 @@ class CustomCompactLSTMBuilder(object):
       self.dropout_mask_h = dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size)
     
   def add_input(self, x_t, prev_state):
+    batch_size = x_t.dim()[1]
+    if self.dropout_rate > 0.0 and (self.dropout_mask_x is None or self.dropout_mask_h is None):
+      self.set_dropout_masks(batch_size=batch_size)
     if prev_state is None or prev_state.h_t is None:
-      h_tm1 = dy.zeroes(dim=(self.hidden_dim,), batch_size=x_t.dim()[1])
+      h_tm1 = dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)
     else:
       h_tm1 = prev_state.h_t
     if prev_state is None or prev_state.c_t is None:
@@ -106,11 +113,10 @@ class CustomCompactLSTMBuilder(object):
     """
     self.initial_state()
     xs = list(xs)
-    try:
-      if hasattr(xs[0], "dim"): batch_size = xs[0].dim()[1]
-      else: batch_size = xs[0][0].dim()[1]
-    except:
-      print("break")
+    if hasattr(xs[0], "dim"): batch_size = xs[0].dim()[1]
+    else: batch_size = xs[0][0].dim()[1]
+    if self.dropout_rate > 0.0:
+      self.set_dropout_masks(batch_size=batch_size)
     h = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
     c = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
     for pos_i in range(len(xs)):
