@@ -113,7 +113,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
     # minibatch mode
     else:
-      assert src_mask is not None
       max_len = max([len(single_trg) for single_trg in trg])
 
       for i in range(max_len):
