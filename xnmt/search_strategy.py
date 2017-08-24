@@ -39,28 +39,27 @@ class BeamSearch(SearchStrategy):
     
     if forced_trg_ids is not None: assert self.beam_size == 1
     
-    active_hyp = [self.Hypothesis(0, [0], decoder.state)]
+    active_hyp = [self.Hypothesis(0, [], decoder.state)]
 
     completed_hyp = []
     length = 0
 
     while len(completed_hyp) < self.beam_size and length < self.max_len:
-      length += 1
       new_set = []
       for hyp in active_hyp:
 
-        if hyp.id_list[-1] == Vocab.ES:
-          completed_hyp.append(hyp)
-          continue
-
         decoder.state = hyp.state
-        decoder.add_input(output_embedder.embed(hyp.id_list[-1] if forced_trg_ids is None else forced_trg_ids[len(hyp.id_list)-1]))
+        if length > 0: # don't feed in the initial start-of-sentence token
+          if hyp.id_list[-1] == Vocab.ES:
+            completed_hyp.append(hyp)
+            continue
+          decoder.add_input(output_embedder.embed(hyp.id_list[-1] if forced_trg_ids is None else forced_trg_ids[length-1]))
         context = attender.calc_context(decoder.state.output())
         score = dy.log_softmax(decoder.get_scores(context)).npvalue()
         if forced_trg_ids is None:
           top_ids = np.argpartition(score, max(-len(score),-self.beam_size))[-self.beam_size:]
         else:
-          top_ids = [forced_trg_ids[len(hyp.id_list)-1]]
+          top_ids = [forced_trg_ids[length]]
 
         for cur_id in top_ids:
           new_list = list(hyp.id_list)
@@ -68,6 +67,7 @@ class BeamSearch(SearchStrategy):
           new_set.append(self.Hypothesis(self.len_norm.normalize_partial(hyp.score, score[cur_id], len(new_list)),
                                          new_list,
                                          decoder.state))
+      length += 1
 
       active_hyp = sorted(new_set, key=lambda x: x.score, reverse=True)[:self.beam_size]
 

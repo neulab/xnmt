@@ -37,10 +37,10 @@ class TestForcedDecoding(unittest.TestCase):
     dy.renew_cg()
     outputs = self.model.generate_output(self.training_corpus.train_src_data[sent_id], sent_id, 
                                          forced_trg_ids=self.training_corpus.train_trg_data[sent_id])
-    self.assertItemsEqual(self.training_corpus.train_trg_data[sent_id], outputs[0][0][1:])
+    self.assertItemsEqual(self.training_corpus.train_trg_data[sent_id], outputs[0][0])
 
   def test_forced_decoding(self):
-    for i in range(5):
+    for i in range(1):
       self.assert_forced_decoding(sent_id=i)
       
 class TestTrainTestLoss(unittest.TestCase):
