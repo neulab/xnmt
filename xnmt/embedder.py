@@ -1,7 +1,7 @@
 from __future__ import division, generators
 
 import numpy as np
-import dynet as dy
+import _dynet as dy
 import batcher
 import model_globals
 import six
@@ -35,10 +35,6 @@ class Embedder(model.HierarchicalModel):
     """
     raise NotImplementedError('embed_sent must be implemented in Embedder subclasses')
   
-  def start_sent(self):
-    """Called before starting to embed a sentence for means of sentence-level initialization.
-    """
-    pass
   @recursive
   def set_train(self, val):
     pass
@@ -61,15 +57,18 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.emb_dim = emb_dim or model_globals.get("default_layer_dim")
     self.weight_noise = weight_noise or model_globals.get("weight_noise")
     self.word_dropout = word_dropout
-    self.embeddings = model_globals.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, emb_dim))
+    self.embeddings = model_globals.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim))
     self.word_id_mask = None
     self.train = False
 
+  @recursive
   def start_sent(self):
     self.word_id_mask = None
+    
   @recursive
   def set_train(self, val):
     self.train = val
+    
   def embed(self, x):
     if self.word_dropout > 0.0 and self.word_id_mask is None:
       batch_size = len(x) if batcher.is_batched(x) else 1

@@ -27,6 +27,18 @@ class Serializable(yaml.YAMLObject):
               and then going bottom-up
     """
     return []
+  def overwrite_serialize_param(self, key, val):
+    """
+    Overwrites serialize params to something other than specified in the YAML file.
+    This is helpful to fix certain model properties (e.g. a vocab) rather than creating it anew
+    when serializing and deserializing the component.
+    
+    :param key:
+    :param val:
+    """
+    if not hasattr(self, "serialize_params") or self.serialize_params is None:
+      self.serialize_params = {}
+    self.serialize_params[key] = val
 class YamlSerializer(object):
   def __init__(self):
     self.representers_added = False

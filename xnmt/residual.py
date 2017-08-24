@@ -1,6 +1,6 @@
 from __future__ import division, generators
 
-import dynet as dy
+import _dynet as dy
 import lstm
 from encoder_state import FinalEncoderState, PseudoState
 

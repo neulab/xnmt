@@ -1,4 +1,4 @@
-import dynet as dy
+import _dynet as dy
 from encoder_state import FinalEncoderState, PseudoState
 
 class LSTMState(object):

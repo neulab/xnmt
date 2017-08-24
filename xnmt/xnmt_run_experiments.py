@@ -159,4 +159,5 @@ def main(overwrite_args=None):
       print("{:<30}| {:<40}".format((experiment_name if i==0 else ""), str(eval_scores[i])))
 
 if __name__ == '__main__':
+  import _dynet ; dyparams = _dynet.DynetParams() ; dyparams.from_args() ; dyparams.init()
   sys.exit(main())

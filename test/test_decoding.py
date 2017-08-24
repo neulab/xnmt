@@ -1,0 +1,85 @@
+import unittest
+
+import _dynet as dy ; dyparams = dy.DynetParams() ; dyparams.init()
+
+import xnmt.model_globals as model_globals
+from xnmt.translator import DefaultTranslator
+from xnmt.embedder import SimpleWordEmbedder
+from xnmt.encoder import LSTMEncoder
+from xnmt.attender import StandardAttender
+from xnmt.decoder import MlpSoftmaxDecoder
+from xnmt.training_corpus import BilingualTrainingCorpus
+from xnmt.input import BilingualCorpusParser, PlainTextReader
+
+class TestForcedDecoding(unittest.TestCase):
+  
+  def setUp(self):
+    model_globals.dynet_param_collection = model_globals.PersistentParamCollection("some_file", 1)
+    self.model = DefaultTranslator(
+              src_embedder=SimpleWordEmbedder(vocab_size=100),
+              encoder=LSTMEncoder(),
+              attender=StandardAttender(),
+              trg_embedder=SimpleWordEmbedder(vocab_size=100),
+              decoder=MlpSoftmaxDecoder(vocab_size=100),
+            )
+    self.model.set_train(False)
+    self.model.initialize_generator()
+
+    self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
+                                              train_trg = "examples/data/head.en",
+                                              dev_src = "examples/data/head.ja",
+                                              dev_trg = "examples/data/head.en")
+    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(), 
+                                          trg_reader = PlainTextReader())
+    self.corpus_parser.read_training_corpus(self.training_corpus)
+
+  def assert_forced_decoding(self, sent_id):
+    dy.renew_cg()
+    outputs = self.model.generate_output(self.training_corpus.train_src_data[sent_id], sent_id, 
+                                         forced_trg_ids=self.training_corpus.train_trg_data[sent_id])
+    self.assertItemsEqual(self.training_corpus.train_trg_data[sent_id], outputs[0][0][1:])
+
+  def test_forced_decoding(self):
+    for i in range(5):
+      self.assert_forced_decoding(sent_id=i)
+      
+class TestTrainTestLoss(unittest.TestCase):
+
+  def setUp(self):
+    model_globals.dynet_param_collection = model_globals.PersistentParamCollection("some_file", 1)
+    self.model = DefaultTranslator(
+              src_embedder=SimpleWordEmbedder(vocab_size=100),
+              encoder=LSTMEncoder(),
+              attender=StandardAttender(),
+              trg_embedder=SimpleWordEmbedder(vocab_size=100),
+              decoder=MlpSoftmaxDecoder(vocab_size=100), # TODO: should test with copy bridge here
+            )
+    self.model.set_train(False)
+    self.model.initialize_generator()
+
+    self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
+                                              train_trg = "examples/data/head.en",
+                                              dev_src = "examples/data/head.ja",
+                                              dev_trg = "examples/data/head.en")
+    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(), 
+                                          trg_reader = PlainTextReader())
+    self.corpus_parser.read_training_corpus(self.training_corpus)
+
+  def test_single(self):
+    dy.renew_cg()
+    train_loss = self.model.calc_loss(src=self.training_corpus.train_src_data[0], 
+                                      trg=self.training_corpus.train_trg_data[0],
+                                      src_mask=None, trg_mask=None).value()
+    dy.renew_cg()
+    self.model.initialize_generator()
+    outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0, 
+                                         forced_trg_ids=self.training_corpus.train_trg_data[0])
+    output_score = outputs[0][1]
+    self.assertAlmostEqual(-output_score, train_loss)
+
+  def test_batched(self):
+    pass # TODO
+
+
+if __name__ == '__main__':
+  unittest.main()

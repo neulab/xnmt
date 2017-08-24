@@ -4,7 +4,7 @@ from __future__ import division, print_function
 import argparse
 import math
 import sys
-import dynet as dy
+import _dynet as dy
 import six
 import batcher
 from embedder import *

@@ -6,11 +6,10 @@ from serializer import *
 import sys
 from retriever import *
 from translator import *
-#from reports import *
 from search_strategy import *
 from options import OptionParser, Option
 
-import dynet as dy
+import _dynet as dy
 
 '''
 This will be the main class to perform decoding.
@@ -30,8 +29,7 @@ options = [
   Option("report_type", str, default_value="html", required=False, help_str="report to generate file/html. Can be multiple, separate with comma."),
   Option("beam", int, default_value=1),
   Option("max_len", int, default_value=100),
-  Option("len_norm_type", str, default_value="NoNormalization"),
-  Option("len_norm_params", dict, default_value={}),
+  Option("len_norm_type", str, required=False),
 ]
 
 NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
@@ -66,11 +64,12 @@ def xnmt_decode(args, model_elements=None):
   trg_vocab = corpus_parser.trg_reader.vocab if hasattr(corpus_parser.trg_reader, "vocab") else None
   # Perform initialization
   generator.set_train(False)
-  generator.initialize(args)
+  generator.initialize_generator(**args.params_as_dict)
   # TODO: Structure it better. not only Translator can have post processes
   if issubclass(generator.__class__, Translator):
     generator.set_post_processor(output_processor_for_spec(args.post_process))
-    generator.set_vocabs(src_vocab, trg_vocab)
+    generator.set_trg_vocab(trg_vocab)
+    generator.set_reporting_src_vocab(src_vocab)
 
   if is_reporting:
     generator.set_report_resource("src_vocab", src_vocab)

@@ -1,4 +1,4 @@
-import dynet as dy
+import _dynet as dy
 
 class Linear(object):
   def __init__(self, input_dim, output_dim, model):

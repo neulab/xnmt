@@ -1,4 +1,4 @@
-import dynet
+import _dynet as dy 
 import linear
 import model_globals
 import embedder
@@ -36,7 +36,7 @@ class SegmentTransducer(HierarchicalModel, Serializable, Reportable):
 
   def disc_ll(self):
     ''' Discrete Log Likelihood '''
-    log_ll = dynet.scalarInput(0.0)
+    log_ll = dy.scalarInput(0.0)
     if hasattr(self.encoder, "disc_ll"):
       log_ll += self.encoder.disc_ll()
     if hasattr(self.transformer, "disc_ll"):
@@ -55,7 +55,7 @@ class TailSegmentTransformer(SegmentTransformer):
 class AverageSegmentTransformer(SegmentTransformer):
   yaml_tag = u"!AverageSegmentTransformer"
   def transform(self, encodings):
-    return dynet.average(encodings.as_list())
+    return dy.average(encodings.as_list())
 
 # TODO(philip30): Complete this class!
 # To test, modify the segment transformer in examples/test_segmenting.yaml into this class!
@@ -84,7 +84,7 @@ class CategorySegmentTransformer(SegmentTransformer):
     self.batch_size = batch_size
     self.input_len  = input_len
     # Log likelihood buffer
-    self.ll_buffer = [dynet.scalarInput(0.0) for _ in range(batch_size)]
+    self.ll_buffer = [dy.scalarInput(0.0) for _ in range(batch_size)]
     self.counter = 0
 
   @recursive
@@ -97,19 +97,19 @@ class CategorySegmentTransformer(SegmentTransformer):
 
   def transform(self, encodings):
     encoding = encodings[-1]
-    category_logsoftmax = dynet.log_softmax(self.category_output(encoding))
+    category_logsoftmax = dy.log_softmax(self.category_output(encoding))
     if self.train:
       category = category_logsoftmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
     else:
       category = category_logsoftmax.tensor_value().argmax().as_numpy().transpose()
     # Accumulating the log likelihood for the batch
-    self.ll_buffer[self.counter] += dynet.pick(category_logsoftmax, category)
+    self.ll_buffer[self.counter] += dy.pick(category_logsoftmax, category)
 
     return self.category_embedder.embed(category)
 
   def disc_ll(self):
     try:
-      return dynet.concatenate_to_batch(self.ll_buffer)
+      return dy.concatenate_to_batch(self.ll_buffer)
     finally:
       # Make sure that the state is not used again after the log likelihood is requested
       del self.ll_buffer

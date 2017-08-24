@@ -1,4 +1,4 @@
-import dynet as dy
+import _dynet as dy
 import linear
 
 class MLP(object):

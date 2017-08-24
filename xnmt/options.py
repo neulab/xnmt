@@ -122,6 +122,7 @@ class OptionParser(object):
         experiments[exp][task_name] = Args()
         for name, val in task_values.items():
           setattr(experiments[exp][task_name], name, val)
+        setattr(experiments[exp][task_name], "params_as_dict", task_values)
 
     return experiments
 

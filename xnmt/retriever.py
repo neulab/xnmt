@@ -1,7 +1,7 @@
 from __future__ import division, generators
 
 import six
-import dynet as dy
+import _dynet as dy
 import numpy as np
 import os
 import batcher
@@ -63,17 +63,18 @@ class Retriever(GeneratorModel):
     '''Perform retrieval, trying to get the sentence that most closely matches in the database.
 
     :param src: The source.
+    :param i: Id of the input (for reporting)
     :returns: The ID of the example that most closely matches in the database.
     '''
-    raise NotImplementedError('retrieve must be implemented for Retriever subclasses')
+    raise NotImplementedError('generate must be implemented for Retriever subclasses')
 
-  def initialize(self, args):
+  def initialize_generator(self, **kwargs):
     candidates = None
-    if args.candidate_id_file != None:
-      with open(args.candidate_id_file, "r") as f:
+    if kwargs["candidate_id_file"] != None:
+      with open(kwargs["candidate_id_file"], "r") as f:
         candidates = sorted({int(x):1 for x in f}.keys())
     self.index_database(candidates)
-    self.report_path = args.report_path
+    self.report_path = kwargs["report_path"]
 
 class DotProductRetriever(Retriever, Serializable, Reportable):
   '''

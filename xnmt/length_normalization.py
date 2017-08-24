@@ -7,11 +7,11 @@ class LengthNormalization(object):
   '''
   A template class to generate translation from the output probability model.
   '''
-  def normalize_completed(self, completed_hyps, src_length=0):
+  def normalize_completed(self, completed_hyps, src_length=None):
     """
     normalization step applied to completed hypotheses after search
     :param completed hyps: list of completed Hypothesis objects, will be normalized in-place
-    :param src_length: length of source sequence
+    :param src_length: length of source sequence (None if not given)
     :returns: None
     """
     raise NotImplementedError('normalize_completed must be implemented in LengthNormalization subclasses')
@@ -29,7 +29,8 @@ class NoNormalization(LengthNormalization):
   '''
   Adding no form of length normalization
   '''
-  def normalize_completed(self, completed_hyps, src_length=0):
+  yaml_tag = u'!NoNormalization'
+  def normalize_completed(self, completed_hyps, src_length=None):
     pass
 
 
@@ -37,11 +38,13 @@ class AdditiveNormalization(LengthNormalization):
   '''
   Adding a fixed word penalty everytime the word is added.
   '''
+  yaml_tag = u'!AdditiveNormalization'
+  
   def __init__(self, penalty=-0.1, apply_during_search=False):
     self.penalty = penalty
     self.apply_during_search = apply_during_search
 
-  def normalize_completed(self, completed_hyps, src_length=0):
+  def normalize_completed(self, completed_hyps, src_length=None):
     if not self.apply_during_search:
       for hyp in completed_hyps:
         hyp.score += (len(hyp.id_list) * self.penalty)
@@ -54,11 +57,13 @@ class PolynomialNormalization(LengthNormalization):
   '''
   Dividing by the length (raised to some power (default 1))
   '''
+  yaml_tag = u'!PolynomialNormalization'
+  
   def __init__(self, m=1, apply_during_search=False):
     self.m = m
     self.apply_during_search = apply_during_search
 
-  def normalize_completed(self, completed_hyps, src_length=0):
+  def normalize_completed(self, completed_hyps, src_length=None):
     if not self.apply_during_search:
       for hyp in completed_hyps:
         hyp.score /= pow(len(hyp.id_list), self.m)
@@ -73,6 +78,8 @@ class MultinomialNormalization(LengthNormalization):
   Tree-to-Sequence Attentional Neural Machine Translation
   https://arxiv.org/pdf/1603.06075.pdf
   '''
+  yaml_tag = u'!MultinomialNormalization'
+  
   def __init__(self, sent_stats):
     self.stats = sent_stats
 
@@ -83,11 +90,11 @@ class MultinomialNormalization(LengthNormalization):
       return (src_stat.trg_len_distribution.get(trg_length, 0) + 1) / (src_stat.num_sents + v)
     return 1
 
-  def normalize_completed(self, completed_hyps, src_length=0):
+  def normalize_completed(self, completed_hyps, src_length=None):
     """
     :type src_length: length of the src sent
     """
-    assert (src_length > 0), "Length of Source Sentence is required"
+    assert (src_length is not None), "Length of Source Sentence is required"
     for hyp in completed_hyps:
       hyp.score += np.log(self.trg_length_prob(src_length, len(hyp.id_list)))
 
@@ -99,6 +106,7 @@ class GaussianNormalization(LengthNormalization):
    sents in the training set.
    refer: https://arxiv.org/pdf/1509.04942.pdf
   '''
+  yaml_tag = u'!GaussianNormalization'
   def __init__(self, sent_stats):
     self.stats = sent_stats.trg_stat
     self.num_sent = sent_stats.num_pair
@@ -117,6 +125,6 @@ class GaussianNormalization(LengthNormalization):
   def trg_length_prob(self, trg_length):
     return self.distr.pdf(trg_length)
 
-  def normalize_completed(self, completed_hyps, src_length=0):
+  def normalize_completed(self, completed_hyps, src_length=None):
     for hyp in completed_hyps:
       hyp.score /= self.trg_length_prob(len(hyp.id_list))

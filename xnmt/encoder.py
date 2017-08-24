@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import sys
-import dynet as dy
+import _dynet as dy
 import expression_sequence
 from model import HierarchicalModel
 from serializer import Serializable
@@ -35,7 +35,6 @@ class Encoder(HierarchicalModel):
   def get_final_state(self):
     """ Return the state that represents the transduced sequence """
     return NotImplementedError('Unimplemented get_final_state for class:', self.__class__.__name__)
-
 
 class BuilderEncoder(Encoder):
   def __init__(self):

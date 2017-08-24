@@ -1,4 +1,4 @@
-import dynet as dy
+import _dynet as dy
 import batcher
 
 class ExpressionSequence(object):

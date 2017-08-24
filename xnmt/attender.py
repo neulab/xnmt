@@ -1,4 +1,4 @@
-import dynet as dy
+import _dynet as dy
 from batcher import *
 from serializer import *
 import model_globals
@@ -14,8 +14,8 @@ class Attender(object):
     """
     pass
 
-  def start_sent(self, sent):
-    raise NotImplementedError('start_sent must be implemented for Attender subclasses')
+  def init_sent(self, sent):
+    raise NotImplementedError('init_sent must be implemented for Attender subclasses')
 
   def calc_attention(self, state):
     raise NotImplementedError('calc_attention must be implemented for Attender subclasses')
@@ -42,7 +42,7 @@ class StandardAttender(Attender, Serializable):
     self.pU = param_collection.add_parameters((1, hidden_dim))
     self.curr_sent = None
 
-  def start_sent(self, sent):
+  def init_sent(self, sent):
     self.attention_vecs = []
     self.curr_sent = sent
     I = self.curr_sent.as_tensor()

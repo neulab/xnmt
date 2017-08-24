@@ -28,7 +28,7 @@ class GeneratorModel(HierarchicalModel):
     raise NotImplementedError()
 
   @recursive
-  def initialize(self, system_args):
+  def initialize_generator(self, **kwargs):
     pass
 
   @recursive
@@ -37,6 +37,10 @@ class GeneratorModel(HierarchicalModel):
 
   @recursive
   def set_train(self, val):
+    pass
+
+  @recursive
+  def start_sent(self):
     pass
 
   def calc_loss(self, src, trg, src_mask=None, trg_mask=None):
