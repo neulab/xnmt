@@ -134,7 +134,7 @@ class CustomCompactLSTMBuilder(object):
       c.append(c_t)
       h.append(dy.vanilla_lstm_h(c_t, gates_t))
     self._final_states = [FinalEncoderState(h[-1], c[-1])]
-    return h
+    return h[1:]
   
 class BiCompactLSTMBuilder:
   """

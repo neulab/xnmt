@@ -29,10 +29,20 @@ class TestEncoder(unittest.TestCase):
     encodings = model.encoder.transduce(embeddings)
     self.assertEqual(len(embeddings), len(encodings))
     
-  def test_lstm_encoder_len(self):
+  def test_uni_lstm_encoder_len(self):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(vocab_size=100),
-              encoder=LSTMEncoder(),
+              encoder=LSTMEncoder(layers=3, bidirectional=True),
+              attender=StandardAttender(),
+              trg_embedder=SimpleWordEmbedder(vocab_size=100),
+              decoder=MlpSoftmaxDecoder(vocab_size=100),
+            )
+    self.assert_in_out_len_equal(model)
+
+  def test_bi_lstm_encoder_len(self):
+    model = DefaultTranslator(
+              src_embedder=SimpleWordEmbedder(vocab_size=100),
+              encoder=LSTMEncoder(layers=1, bidirectional=False),
               attender=StandardAttender(),
               trg_embedder=SimpleWordEmbedder(vocab_size=100),
               decoder=MlpSoftmaxDecoder(vocab_size=100),
