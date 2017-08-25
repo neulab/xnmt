@@ -23,8 +23,8 @@ class PersistentParamCollection(object):
     self.model_file = model_file
     self.param_col = dy.Model()
     self.is_saved = False
-    assert save_num_checkpoints >= 1
-    self.data_files = [self.model_file + '.data']
+    assert save_num_checkpoints >= 1 or (model_file is None and save_num_checkpoints==0)
+    if save_num_checkpoints>0: self.data_files = [self.model_file + '.data']
     for i in range(1,save_num_checkpoints):
       self.data_files.append(self.model_file + '.data.' + str(i))
   def revert_to_best_model(self):

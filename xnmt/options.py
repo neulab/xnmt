@@ -28,9 +28,10 @@ class Option(object):
     self.force_flag = force_flag
     self.help = help_str
 
-
-class Args: pass
-
+class Args(object):
+  def __init__(self, **kwargs):
+    for key,val in kwargs.items():
+      setattr(self, key, val)
 
 class RandomParam(yaml.YAMLObject):
   yaml_tag = u'!RandomParam'

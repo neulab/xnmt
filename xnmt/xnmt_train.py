@@ -62,12 +62,18 @@ options = [
 ]
 
 class XnmtTrainer(object):
-  def __init__(self, args, output=None):
+  def __init__(self, args, need_deserialization=True):
+    """
+    :param args: xnmt.options.Args instance corresponding to the options given above
+    :param need_deserialization: Whether we need to invoke model_serializer.initialize_object on objects in args;
+        This is usually the case when these have been deserialized from a YAML file, but not when instantiating XnmtTrainer manually.
+    """
     dy.renew_cg()
 
+    self.need_deserialization = need_deserialization
     self.args = args
-    self.output = output
-    model_globals.dynet_param_collection = model_globals.PersistentParamCollection(self.args.model_file, self.args.save_num_checkpoints)
+    if model_globals.dynet_param_collection is None:
+      model_globals.dynet_param_collection = model_globals.PersistentParamCollection(self.args.model_file, self.args.save_num_checkpoints)
 
     self.trainer = self.dynet_trainer_for_args(args)
 
@@ -131,8 +137,8 @@ class XnmtTrainer(object):
     return trainer
 
   def create_corpus_and_model(self):
-    self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus)
-    self.corpus_parser = self.model_serializer.initialize_object(self.args.corpus_parser)
+    self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus) if self.need_deserialization else self.args.training_corpus
+    self.corpus_parser = self.model_serializer.initialize_object(self.args.corpus_parser) if self.need_deserialization else self.args.corpus_parser
     self.corpus_parser.read_training_corpus(self.training_corpus)
     self.total_train_sent = len(self.training_corpus.train_src_data)
     context = {"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
@@ -141,17 +147,17 @@ class XnmtTrainer(object):
     model_globals.model_globals["weight_noise"] = self.args.weight_noise
     if not self.args.model:
       raise RuntimeError("No model specified!")
-    self.model = self.model_serializer.initialize_object(self.args.model, context)
+    self.model = self.model_serializer.initialize_object(self.args.model, context) if self.need_deserialization else self.args.model
 
   def load_corpus_and_model(self):
-    self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus)
+    self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus) if self.need_deserialization else self.args.training_corpus
     corpus_parser, model, my_model_globals = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.dynet_param_collection)
-    self.corpus_parser = self.model_serializer.initialize_object(corpus_parser)
+    self.corpus_parser = self.model_serializer.initialize_object(corpus_parser) if self.need_deserialization else self.args.corpus_parser
     self.corpus_parser.read_training_corpus(self.training_corpus)
     model_globals.model_globals = my_model_globals
     self.total_train_sent = len(self.training_corpus.train_src_data)
     context = {"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
-    self.model = self.model_serializer.initialize_object(model, context)
+    self.model = self.model_serializer.initialize_object(model, context) if self.need_deserialization else self.args.model
     model_globals.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
 
 
@@ -187,7 +193,11 @@ class XnmtTrainer(object):
 #    print("> removed %s out of %s sentences that didn't pass filters." % (len(src_sents)-len(filtered_src_sents),len(src_sents)))
 #    return filtered_src_sents, filtered_trg_sents
 
-  def run_epoch(self):
+  # TODO: run_epoch could use some refactoring
+  def run_epoch(self, update_weights=True):
+    """
+    :param update_weights: Whether to perform backward pass & update weights (useful for debugging)
+    """
     self.logger.new_epoch()
 
     if self.logger.epoch_num > 1:
@@ -199,7 +209,7 @@ class XnmtTrainer(object):
       elif self.is_batch_mode() and self.batcher.is_random():
         self.pack_batches()
 
-    self.model.set_train(True)
+    self.model.set_train(update_weights)
     order = list(range(0, len(self.train_src)))
     np.random.shuffle(order)
     for batch_num in order:
@@ -219,8 +229,11 @@ class XnmtTrainer(object):
 
       # Log the loss sum
       self.logger.update_epoch_loss(src, trg, loss_builder)
-      loss_builder.compute().backward()
-      self.trainer.update()
+      if(update_weights):
+        loss_builder.compute().backward()
+        self.trainer.update()
+      else:
+        loss_builder.compute()
 
       # Devel reporting
       self.logger.report_train_process()
@@ -234,9 +247,10 @@ class XnmtTrainer(object):
         if filter(lambda e: e!="loss", self.evaluators):
           self.decode_args.src_file = self.training_corpus.dev_src
           self.decode_args.candidate_id_file = self.training_corpus.dev_id_file
-          out_file = self.args.model_file + ".dev_hyp"
-          out_file_ref = self.args.model_file + ".dev_ref"
-          self.decode_args.trg_file = out_file
+          if self.args.model_file:
+            out_file = self.args.model_file + ".dev_hyp"
+            out_file_ref = self.args.model_file + ".dev_ref"
+            self.decode_args.trg_file = out_file
           xnmt_decode.xnmt_decode(self.decode_args, model_elements=(self.corpus_parser, self.model))
           output_processor = xnmt_decode.output_processor_for_spec(self.decode_args.post_process)
           processed = []
@@ -246,8 +260,9 @@ class XnmtTrainer(object):
           with io.open(out_file_ref, 'wt', encoding='utf-8') as fout:
             for line in processed:
               fout.write(line)
-          self.evaluate_args.hyp_file = out_file
-          self.evaluate_args.ref_file = out_file_ref
+          if self.args.model_file:
+            self.evaluate_args.hyp_file = out_file
+            self.evaluate_args.ref_file = out_file_ref
           for evaluator in self.evaluators:
             if evaluator=="loss": continue
             self.evaluate_args.evaluator = evaluator
@@ -265,9 +280,10 @@ class XnmtTrainer(object):
             self.logger.report_auxiliary_score(eval_scores[metric])
         # Write out the model if it's the best one
         if self.logger.report_dev_and_check_model(self.args.model_file):
-          self.model_serializer.save_to_file(self.args.model_file,
-                                             SerializeContainer(self.corpus_parser, self.model, model_globals.model_globals),
-                                             model_globals.dynet_param_collection)
+          if self.args.model_file is not None:
+            self.model_serializer.save_to_file(self.args.model_file,
+                                               SerializeContainer(self.corpus_parser, self.model, model_globals.model_globals),
+                                               model_globals.dynet_param_collection)
           self.cur_attempt = 0
         else:
           # otherwise: learning rate decay / early stopping
