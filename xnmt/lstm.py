@@ -121,7 +121,7 @@ class CustomCompactLSTMBuilder(object):
     c = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
     for pos_i in range(len(xs)):
       x_t = xs[pos_i]
-      if type(x_t) == dy.Expression:
+      if isinstance(x_t, dy.Expression):
         x_t = [x_t]
       elif type(x_t) != list:
         x_t = list(x_t)

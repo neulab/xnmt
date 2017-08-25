@@ -15,6 +15,7 @@ from output import TextOutput
 from model import GeneratorModel
 from reports import Reportable
 from decorators import recursive_assign, recursive
+import serializer
 
 # Reporting purposes
 from lxml import etree
@@ -89,7 +90,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     if kwargs.get("len_norm_type", None) is None: 
       len_norm = length_normalization.NoNormalization()
     else:
-      len_norm = self.model_serializer.initialize_object(kwargs["len_norm_type"])
+      len_norm = serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
     self.search_strategy = BeamSearch(kwargs.get("beam", 1), len_norm=len_norm)
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)

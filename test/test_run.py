@@ -1,4 +1,8 @@
 import unittest
+
+
+import _dynet as dy ; dyparams = dy.DynetParams() ; dyparams.set_random_seed(13); dyparams.init()
+
 import xnmt.xnmt_run_experiments as run
 
 class TestRunningConfig(unittest.TestCase):

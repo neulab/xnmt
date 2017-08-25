@@ -50,7 +50,7 @@ class TestBatchTraining(unittest.TestCase):
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc), 
                                         trg=mark_as_batch(trg_sents_trunc),
                                         src_mask=None, trg_mask=None).value()
-    self.assertAlmostEqual(single_loss, sum(batched_loss))
+    self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)
   
   def test_loss_model1(self):
     model = DefaultTranslator(

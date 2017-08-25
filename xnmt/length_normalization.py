@@ -3,6 +3,8 @@ from __future__ import division, generators
 import numpy as np
 from scipy.stats import norm
 
+from serializer import Serializable
+
 class LengthNormalization(object):
   '''
   A template class to generate translation from the output probability model.
@@ -25,7 +27,7 @@ class LengthNormalization(object):
     """
     return score_so_far + score_to_add # default behavior: add up the log probs
 
-class NoNormalization(LengthNormalization):
+class NoNormalization(LengthNormalization, Serializable):
   '''
   Adding no form of length normalization
   '''
@@ -34,7 +36,7 @@ class NoNormalization(LengthNormalization):
     pass
 
 
-class AdditiveNormalization(LengthNormalization):
+class AdditiveNormalization(LengthNormalization, Serializable):
   '''
   Adding a fixed word penalty everytime the word is added.
   '''
@@ -52,7 +54,7 @@ class AdditiveNormalization(LengthNormalization):
     return score_so_far + score_to_add + (self.penalty if self.apply_during_search else 0.0)
 
 
-class PolynomialNormalization(LengthNormalization):
+class PolynomialNormalization(LengthNormalization, Serializable):
   '''
   Dividing by the length (raised to some power (default 1))
   '''
@@ -73,7 +75,7 @@ class PolynomialNormalization(LengthNormalization):
       return score_so_far + score_to_add
 
 
-class MultinomialNormalization(LengthNormalization):
+class MultinomialNormalization(LengthNormalization, Serializable):
   '''
   The algorithm followed by:
   Tree-to-Sequence Attentional Neural Machine Translation
@@ -100,7 +102,7 @@ class MultinomialNormalization(LengthNormalization):
       hyp.score += np.log(self.trg_length_prob(src_length, len(hyp.id_list)))
 
 
-class GaussianNormalization(LengthNormalization):
+class GaussianNormalization(LengthNormalization, Serializable):
   '''
    The Gaussian regularization encourages the inference
    to select sents that have similar lengths as the
