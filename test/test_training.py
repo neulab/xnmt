@@ -13,8 +13,9 @@ from xnmt.input import BilingualCorpusParser, PlainTextReader
 from xnmt.batcher import mark_as_batch
 import xnmt.xnmt_train
 from xnmt.options import Args
+from xnmt.vocab import Vocab
 
-class TestBatchTraining(unittest.TestCase):
+class TestTruncatedBatchTraining(unittest.TestCase):
   
   def setUp(self):
     model_globals.dynet_param_collection = model_globals.PersistentParamCollection("some_file", 1)
@@ -87,7 +88,78 @@ class TestBatchTraining(unittest.TestCase):
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
     
+class TestBatchTraining(unittest.TestCase):
+  
+  def setUp(self):
+    model_globals.dynet_param_collection = model_globals.PersistentParamCollection("some_file", 1)
+    self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
+                                              train_trg = "examples/data/head.en",
+                                              dev_src = "examples/data/head.ja",
+                                              dev_trg = "examples/data/head.en")
+    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(), 
+                                          trg_reader = PlainTextReader())
+    self.corpus_parser.read_training_corpus(self.training_corpus)
+
+  def assert_single_loss_equals_batch_loss(self, model, batch_size=5):
+    """
+    Tests whether single loss equals batch loss.
+    Here we don't truncate and use masking (implicitly applied in calc_loss).
+    """
+    batch_size = 5
+    src_sents = self.training_corpus.train_src_data[:batch_size]
+    src_max = max([len(x) for x in src_sents])
+    src_sents_padded = [[w for w in s] + [Vocab.ES]*(src_max-len(s)) for s in src_sents]
+    trg_sents = self.training_corpus.train_trg_data[:batch_size]
+    trg_max = max([len(x) for x in trg_sents])
+    trg_sents_padded = [[w for w in s] + [Vocab.ES]*(trg_max-len(s)) for s in trg_sents]
     
+    single_loss = 0.0
+    for sent_id in range(batch_size):
+      dy.renew_cg()
+      train_loss = model.calc_loss(src=src_sents_padded[sent_id], 
+                                   trg=trg_sents_padded[sent_id]).value()
+      single_loss += train_loss
+    
+    dy.renew_cg()
+    
+    batched_loss = model.calc_loss(src=mark_as_batch(src_sents_padded), 
+                                        trg=mark_as_batch(trg_sents_padded)).value()
+    self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)
+  
+  def test_loss_model1(self):
+    model = DefaultTranslator(
+              src_embedder=SimpleWordEmbedder(vocab_size=100),
+              encoder=LSTMEncoder(),
+              attender=StandardAttender(),
+              trg_embedder=SimpleWordEmbedder(vocab_size=100),
+              decoder=MlpSoftmaxDecoder(vocab_size=100),
+            )
+    model.set_train(False)
+    self.assert_single_loss_equals_batch_loss(model)
+
+  def test_loss_model2(self):
+    model = DefaultTranslator(
+              src_embedder=SimpleWordEmbedder(vocab_size=100),
+              encoder=PyramidalLSTMEncoder(layers=3),
+              attender=StandardAttender(),
+              trg_embedder=SimpleWordEmbedder(vocab_size=100),
+              decoder=MlpSoftmaxDecoder(vocab_size=100),
+            )
+    model.set_train(False)
+    self.assert_single_loss_equals_batch_loss(model)
+
+  def test_loss_model3(self):
+    model = DefaultTranslator(
+              src_embedder=SimpleWordEmbedder(vocab_size=100),
+              encoder=LSTMEncoder(layers=3),
+              attender=StandardAttender(),
+              trg_embedder=SimpleWordEmbedder(vocab_size=100),
+              decoder=MlpSoftmaxDecoder(vocab_size=100, bridge=CopyBridge(dec_layers=1)),
+            )
+    model.set_train(False)
+    self.assert_single_loss_equals_batch_loss(model)
+    
+
 class TestTrainDevLoss(unittest.TestCase):
   
   def test_train_dev_loss_equal(self):
