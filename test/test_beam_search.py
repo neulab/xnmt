@@ -23,7 +23,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
               decoder=MlpSoftmaxDecoder(vocab_size=100),
             )
     self.model.set_train(False)
-    self.model.initialize_generator()
+    self.model.initialize_generator(beam=1)
 
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
                                               train_trg = "examples/data/head.en",
@@ -55,7 +55,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
               decoder=MlpSoftmaxDecoder(vocab_size=100, bridge=CopyBridge(dec_layers=1)),
             )
     self.model.set_train(False)
-    self.model.initialize_generator()
+    self.model.initialize_generator(beam=1)
 
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
                                               train_trg = "examples/data/head.en",
@@ -71,7 +71,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
                                       trg=self.training_corpus.train_trg_data[0],
                                       src_mask=None, trg_mask=None).value()
     dy.renew_cg()
-    self.model.initialize_generator()
+    self.model.initialize_generator(beam=1)
     outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0, 
                                          forced_trg_ids=self.training_corpus.train_trg_data[0])
     output_score = outputs[0][1]
@@ -89,7 +89,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
               decoder=MlpSoftmaxDecoder(vocab_size=100, bridge=CopyBridge(dec_layers=1)),
             )
     self.model.set_train(False)
-    self.model.initialize_generator()
+    self.model.initialize_generator(beam=1)
 
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
                                               train_trg = "examples/data/head.en",
@@ -101,7 +101,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
 
   def test_single(self):
     dy.renew_cg()
-    self.model.initialize_generator()
+    self.model.initialize_generator(beam=1)
     outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0, 
                                          forced_trg_ids=self.training_corpus.train_trg_data[0])
     output_score = outputs[0][1]
@@ -112,6 +112,44 @@ class TestFreeDecodingLoss(unittest.TestCase):
                                       src_mask=None, trg_mask=None).value()
 
     self.assertAlmostEqual(-output_score, train_loss, places=5)
+
+class TestGreedyVsBeam(unittest.TestCase):
+  """
+  Test if greedy search produces same output as beam search with beam 1.
+  """
+  def setUp(self):
+    model_globals.dynet_param_collection = model_globals.PersistentParamCollection("some_file", 1)
+    self.model = DefaultTranslator(
+              src_embedder=SimpleWordEmbedder(vocab_size=100),
+              encoder=LSTMEncoder(),
+              attender=StandardAttender(),
+              trg_embedder=SimpleWordEmbedder(vocab_size=100),
+              decoder=MlpSoftmaxDecoder(vocab_size=100, bridge=CopyBridge(dec_layers=1)),
+            )
+    self.model.set_train(False)
+
+    self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
+                                              train_trg = "examples/data/head.en",
+                                              dev_src = "examples/data/head.ja",
+                                              dev_trg = "examples/data/head.en")
+    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(), 
+                                          trg_reader = PlainTextReader())
+    self.corpus_parser.read_training_corpus(self.training_corpus)
+
+  def test_greedy_vs_beam(self):
+    dy.renew_cg()
+    self.model.initialize_generator(beam=1)
+    outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0, 
+                                         forced_trg_ids=self.training_corpus.train_trg_data[0])
+    output_score1 = outputs[0][1]
+
+    dy.renew_cg()
+    self.model.initialize_generator()
+    outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0, 
+                                         forced_trg_ids=self.training_corpus.train_trg_data[0])
+    output_score2 = outputs[0][1]
+
+    self.assertAlmostEqual(output_score1, output_score2)
 
 
 if __name__ == '__main__':

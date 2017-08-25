@@ -10,7 +10,7 @@ import os
 
 from vocab import Vocab
 from serializer import Serializable, DependentInitParam
-from search_strategy import BeamSearch
+from search_strategy import BeamSearch, GreedySearch
 from output import TextOutput
 from model import GeneratorModel
 from reports import Reportable
@@ -91,7 +91,14 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       len_norm = length_normalization.NoNormalization()
     else:
       len_norm = serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
-    self.search_strategy = BeamSearch(kwargs.get("beam", 1), len_norm=len_norm)
+    search_args = {}
+    if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs.get["max_len"]
+    if kwargs.get("beam", None) is None:
+      self.search_strategy = GreedySearch(**search_args)
+    else:
+      search_args["beam_size"] = kwargs.get("beam", 1)
+      search_args["len_norm"] = len_norm
+      self.search_strategy = BeamSearch(**search_args)
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)
 
