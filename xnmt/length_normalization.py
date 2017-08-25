@@ -49,8 +49,7 @@ class AdditiveNormalization(LengthNormalization):
       for hyp in completed_hyps:
         hyp.score += (len(hyp.id_list) * self.penalty)
   def normalize_partial(self, score_so_far, score_to_add, new_len):
-    if self.apply_during_search:
-      return score_so_far + score_to_add + self.penalty
+    return score_so_far + score_to_add + (self.penalty if self.apply_during_search else 0.0)
 
 
 class PolynomialNormalization(LengthNormalization):
@@ -70,6 +69,8 @@ class PolynomialNormalization(LengthNormalization):
   def normalize_partial(self, score_so_far, score_to_add, new_len):
     if self.apply_during_search:
       return (score_so_far * pow(new_len-1, self.m) + score_to_add) / pow(new_len, self.m)
+    else:
+      return score_so_far + score_to_add
 
 
 class MultinomialNormalization(LengthNormalization):

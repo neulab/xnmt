@@ -35,17 +35,27 @@ class TestBeamSearch(unittest.TestCase):
 
   def test_scores_improve(self):
     """
-    tests whether beam search improves loss
+    Tests whether beam search improves loss.
+    Increasing beam size is not guaranteed to improve the score, but let's at least test
+    that beam size 5 is usually better than beam size 1
     """
-    prev_score = None
-    for beam_size in range(1,11):
-      dy.renew_cg()
-      self.model.initialize_generator(beam=beam_size)
-      outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0)
-      output_score = outputs[0][1]
-      if prev_score is not None:
-        self.assertTrue(output_score >= prev_score)
-      prev_score = output_score
+    better_times = 0
+    worse_times = 0
+    for sent_id in range(10):
+      prev_score = None
+      for beam_size in [1,5]:
+        dy.renew_cg()
+        self.model.initialize_generator(beam=beam_size)
+        outputs = self.model.generate_output(self.training_corpus.train_src_data[sent_id], 0)
+        output_score = outputs[0][1]
+        if prev_score is not None:
+          if output_score > prev_score:
+            better_times += 1
+          elif output_score < prev_score:
+            worse_times += 1 
+        prev_score = output_score
+    self.assertGreater(better_times, worse_times*3)
+        
 
 
 

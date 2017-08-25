@@ -75,10 +75,7 @@ class TestTrainTestLoss(unittest.TestCase):
     outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0, 
                                          forced_trg_ids=self.training_corpus.train_trg_data[0])
     output_score = outputs[0][1]
-    self.assertAlmostEqual(-output_score, train_loss)
-
-  def test_batched(self):
-    pass # TODO
+    self.assertAlmostEqual(-output_score, train_loss, places=5)
 
 
 if __name__ == '__main__':

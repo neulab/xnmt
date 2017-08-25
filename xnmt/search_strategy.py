@@ -26,6 +26,10 @@ class BeamSearch(SearchStrategy):
       self.score = score
       self.state = state
       self.id_list = id_list
+    def __str__(self):
+      return "hypo S=%s ids=%s" % (self.score, self.id_list)
+    def __repr__(self):
+      return "hypo S=%s |ids|=%s" % (self.score, len(self.id_list))
 
   def generate_output(self, decoder, attender, output_embedder, src_length=None, forced_trg_ids=None):
     """
