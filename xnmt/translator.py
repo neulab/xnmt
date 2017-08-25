@@ -103,29 +103,20 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.decoder.initialize(self.encoder.get_final_states())
     losses = []
 
-    # single mode
-    if not batcher.is_batched(src):
-      for ref_word in trg:
-        context = self.attender.calc_context(self.decoder.state.output())
-        word_loss = self.decoder.calc_loss(context, ref_word)
-        losses.append(word_loss)
-        self.decoder.add_input(self.trg_embedder.embed(ref_word))
-
-    # minibatch mode
-    else:
-      max_len = max([len(single_trg) for single_trg in trg])
-
-      for i in range(max_len):
-        ref_word = batcher.mark_as_batch([single_trg[i] if i < len(single_trg) else Vocab.ES for single_trg in trg])
-        context = self.attender.calc_context(self.decoder.state.output())
-
-        word_loss = self.decoder.calc_loss(context, ref_word)
-        # TODO: unecessary, since we have trg_mask given?
+    max_len = max([len(single_trg) for single_trg in trg]) if batcher.is_batched(src) else len(trg)
+    for i in range(max_len):
+      ref_word = trg[i] if not batcher.is_batched(src) \
+                      else batcher.mark_as_batch([single_trg[i] if i < len(single_trg) else Vocab.ES for single_trg in trg])
+ 
+      context = self.attender.calc_context(self.decoder.state.output())
+      word_loss = self.decoder.calc_loss(context, ref_word)
+      if batcher.is_batched(src):
+        # TODO: unnecessary, since we have trg_mask given?
         mask_exp = dy.inputVector([1 if i < len(single_trg) else 0 for single_trg in trg])
         mask_exp = dy.reshape(mask_exp, (1,), len(trg))
         word_loss = word_loss * mask_exp
-        losses.append(word_loss)
-
+      losses.append(word_loss)
+      if i<max_len-1:
         self.decoder.add_input(self.trg_embedder.embed(ref_word))
 
     return dy.esum(losses)
