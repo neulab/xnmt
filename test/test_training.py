@@ -114,5 +114,34 @@ class TestTrainDevLoss(unittest.TestCase):
     self.assertAlmostEqual(xnmt_trainer.logger.epoch_loss.loss_values['loss'] / xnmt_trainer.logger.epoch_words,
                            xnmt_trainer.logger.dev_score.loss)
 
+class TestOverfitting(unittest.TestCase):
+  
+  def test_overfitting(self):
+    model_globals.dynet_param_collection = model_globals.PersistentParamCollection(None, 0)
+    model_globals.model_globals["default_layer_dim"] = 16
+    task_options = xnmt.xnmt_train.options
+    train_args = dict({opt.name: opt.default_value for opt in task_options if
+                                opt.default_value is not None or not opt.required})
+    train_args['training_corpus'] = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
+                                                            train_trg = "examples/data/head.en",
+                                                            dev_src = "examples/data/head.ja",
+                                                            dev_trg = "examples/data/head.en")
+    train_args['corpus_parser'] = BilingualCorpusParser(src_reader = PlainTextReader(), 
+                                                        trg_reader = PlainTextReader())
+    train_args['model'] = DefaultTranslator(src_embedder=SimpleWordEmbedder(vocab_size=100),
+                                            encoder=LSTMEncoder(),
+                                            attender=StandardAttender(),
+                                            trg_embedder=SimpleWordEmbedder(vocab_size=100),
+                                            decoder=MlpSoftmaxDecoder(vocab_size=100),
+                                            )
+    train_args['model_file'] = None
+    train_args['save_num_checkpoints'] = 0
+    xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(args=Args(**train_args), need_deserialization=False)
+    for _ in range(1000):
+      xnmt_trainer.run_epoch(update_weights=True)
+    self.assertAlmostEqual(0.0, 
+                           xnmt_trainer.logger.epoch_loss.loss_values['loss'] / xnmt_trainer.logger.epoch_words,
+                           places=2)
+
 if __name__ == '__main__':
   unittest.main()
