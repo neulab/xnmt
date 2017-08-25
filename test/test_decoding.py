@@ -7,7 +7,7 @@ from xnmt.translator import DefaultTranslator
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.encoder import LSTMEncoder
 from xnmt.attender import StandardAttender
-from xnmt.decoder import MlpSoftmaxDecoder
+from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
 from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
 
@@ -52,7 +52,7 @@ class TestTrainTestLoss(unittest.TestCase):
               encoder=LSTMEncoder(),
               attender=StandardAttender(),
               trg_embedder=SimpleWordEmbedder(vocab_size=100),
-              decoder=MlpSoftmaxDecoder(vocab_size=100), # TODO: should test with copy bridge here
+              decoder=MlpSoftmaxDecoder(vocab_size=100, bridge=CopyBridge(dec_layers=1)),
             )
     self.model.set_train(False)
     self.model.initialize_generator()
