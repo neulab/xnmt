@@ -92,7 +92,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     else:
       len_norm = serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
     search_args = {}
-    if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs.get["max_len"]
+    if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
     if kwargs.get("beam", None) is None:
       self.search_strategy = GreedySearch(**search_args)
     else:
