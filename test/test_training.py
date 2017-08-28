@@ -181,7 +181,7 @@ class TestTrainDevLoss(unittest.TestCase):
                                             )
     train_args['model_file'] = None
     train_args['save_num_checkpoints'] = 0
-    xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(args=Args(**train_args), need_deserialization=False)
+    xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(args=Args(**train_args), need_deserialization=False, create_param_collection=False)
     xnmt_trainer.run_epoch(update_weights=False)
     self.assertAlmostEqual(xnmt_trainer.logger.epoch_loss.loss_values['loss'] / xnmt_trainer.logger.epoch_words,
                            xnmt_trainer.logger.dev_score.loss)
@@ -208,7 +208,7 @@ class TestOverfitting(unittest.TestCase):
                                             )
     train_args['model_file'] = None
     train_args['save_num_checkpoints'] = 0
-    xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(args=Args(**train_args), need_deserialization=False)
+    xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(args=Args(**train_args), need_deserialization=False, create_param_collection=False)
     for _ in range(1000):
       xnmt_trainer.run_epoch(update_weights=True)
     self.assertAlmostEqual(0.0, 

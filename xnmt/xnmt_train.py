@@ -62,7 +62,7 @@ options = [
 ]
 
 class XnmtTrainer(object):
-  def __init__(self, args, need_deserialization=True):
+  def __init__(self, args, need_deserialization=True, create_param_collection=True):
     """
     :param args: xnmt.options.Args instance corresponding to the options given above
     :param need_deserialization: Whether we need to invoke model_serializer.initialize_object on objects in args;
@@ -72,7 +72,7 @@ class XnmtTrainer(object):
 
     self.need_deserialization = need_deserialization
     self.args = args
-    if model_globals.dynet_param_collection is None:
+    if create_param_collection:
       model_globals.dynet_param_collection = model_globals.PersistentParamCollection(self.args.model_file, self.args.save_num_checkpoints)
 
     self.trainer = self.dynet_trainer_for_args(args)
