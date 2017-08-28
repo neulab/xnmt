@@ -29,7 +29,7 @@ def modify_audio(npz_original, npz_new, char_original, char_new, num_epoch, brea
   feats = numpy.load(npz_original)
   new_feats = []
   new_size = (num_epoch % (len(feats.keys()) - 1)) + 1
-  print('epoch: %d size: %d' %(num_epoch, new_size))
+  #print('epoch: %d size: %d' %(num_epoch, new_size))
   for i in range(0, new_size):
     feat = feats['arr_%d' % i]
     if break_feats:
@@ -97,4 +97,4 @@ def main():
 
 if __name__ == "__main__":
   main()
-  print "--done--"
+  #print "--done--"

@@ -56,8 +56,9 @@ options = [
   Option("dev_metrics", default_value="", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
   Option("schedule_metric", default_value="loss", help_str="determine learning schedule based on this dev_metric (loss/bleu/wer/cer)"),
   Option("restart_trainer", bool, default_value=False, help_str="Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)"),
-  #Option("reload_between_epochs", bool, default_value=False, help_str="Reload train data between epochs (useful when sampling from train data, or with noisy input data via an external tool"),
-  Option("reload_command", default_value=None, required=False, help_str="Command to change the input data after each epoch. --epoch EPOCH_NUM will be appended to the command."),
+  Option("reload_command", default_value=None, required=False, help_str="Command to change the input data after each epoch. "
+                                                                        "--epoch EPOCH_NUM will be appended to the command."
+                                                                        "To just reload the data after each epoch set the command to 'true'"),
   Option("dropout", float, default_value=0.0),
   Option("weight_noise", float, default_value=0.0),
   Option("model", dict, default_value={}),
