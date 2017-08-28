@@ -58,7 +58,7 @@ options = [
   Option("restart_trainer", bool, default_value=False, help_str="Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)"),
   Option("reload_command", default_value=None, required=False, help_str="Command to change the input data after each epoch. "
                                                                         "--epoch EPOCH_NUM will be appended to the command."
-                                                                        "To just reload the data after each epoch set the command to 'true'"),
+                                                                        "To just reload the data after each epoch set the command to 'true'."),
   Option("dropout", float, default_value=0.0),
   Option("weight_noise", float, default_value=0.0),
   Option("model", dict, default_value={}),
@@ -185,6 +185,7 @@ class XnmtTrainer(object):
       self.corpus_parser.read_training_corpus(self.training_corpus)
       if self.is_batch_mode():
         self.pack_batches()
+      self.logger.total_train_sent = len(self.training_corpus.train_src_data)
       # restart data generation
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.logger.epoch_num, shell=True)
     else:
