@@ -35,9 +35,9 @@ class LossBuilder(object):
     return sum(loss for loss in self.loss_values.values())
 
   def __add__(self, other):
-    for name, value in self.loss_values.items():
-      other.loss_values[name] += value
-    return other
+    for name, value in other.loss_values.items():
+      self.loss_values[name] += value
+    return self
 
   def __len__(self):
     return len(self.loss_values)
