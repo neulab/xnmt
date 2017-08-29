@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import io
-import _dynet as dy
+import dynet as dy
 import segment_transducer
 import linear
 import six

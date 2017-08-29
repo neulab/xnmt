@@ -1,4 +1,4 @@
-import _dynet as dy
+import dynet as dy
 from batcher import *
 from serializer import *
 import model_globals

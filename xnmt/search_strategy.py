@@ -1,4 +1,4 @@
-import _dynet as dy
+import dynet as dy
 import numpy as np
 from length_normalization import *
 from vocab import Vocab

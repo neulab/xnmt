@@ -1,7 +1,7 @@
 from __future__ import division, generators
 
 import numpy as np
-import _dynet as dy
+import dynet as dy
 import batcher
 import model_globals
 import six

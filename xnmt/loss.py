@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import sys
-import _dynet as dy
+import dynet as dy
 import collections
 
 class LossBuilder(object):

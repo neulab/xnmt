@@ -1,6 +1,7 @@
 import unittest
 
-import _dynet as dy ; dyparams = dy.DynetParams() ; dyparams.set_random_seed(13); dyparams.init()
+import dynet_config
+import dynet as dy
 
 import xnmt.model_globals as model_globals
 from xnmt.translator import DefaultTranslator

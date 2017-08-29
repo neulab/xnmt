@@ -1,7 +1,7 @@
 from __future__ import division, generators
 
 import six
-import _dynet as dy
+import dynet as dy
 import numpy as np
 import os
 import batcher

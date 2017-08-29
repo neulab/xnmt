@@ -1,6 +1,6 @@
 from __future__ import division, generators
 
-import _dynet as dy
+import dynet as dy
 import numpy as np
 import length_normalization
 import batcher

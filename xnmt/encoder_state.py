@@ -1,4 +1,4 @@
-import _dynet as dy
+import dynet as dy
 
 class FinalEncoderState(object):
   """

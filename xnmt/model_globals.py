@@ -1,4 +1,4 @@
-import _dynet as dy
+import dynet as dy
 import os
 
 dynet_param_collection = None

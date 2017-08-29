@@ -9,7 +9,7 @@ from translator import *
 from search_strategy import *
 from options import OptionParser, Option
 
-import _dynet as dy
+import dynet as dy
 
 '''
 This will be the main class to perform decoding.
