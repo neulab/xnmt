@@ -75,7 +75,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
       self.word_id_mask = [set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False)) for _ in range(batch_size)]
     # single mode
     if not batcher.is_batched(x):
-      if self.train and x in self.word_id_mask[0]:
+      if self.train and self.word_id_mask and x in self.word_id_mask[0]:
         ret = dy.zeros((self.emb_dim,))
       else:
         ret = self.embeddings[x]
