@@ -17,10 +17,13 @@ class LossBuilder(object):
   def compute(self):
     ''' Compute all the losses and delete the computational graph reference.
     '''
+    if hasattr(self, "computed"):
+      raise RuntimeError("Shouldn't compute twice from the same loss builder!")
     total_loss = dy.esum([x[1] for x in self.loss_nodes])
     for loss_name, loss_expr in self.loss_nodes:
       self.loss_values[loss_name] += loss_expr.value()
     self.loss_nodes = []
+    self.computed = True
     return total_loss
 
   def __getitem__(self, index):

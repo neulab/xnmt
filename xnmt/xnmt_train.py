@@ -212,14 +212,15 @@ class XnmtTrainer(object):
       dy.renew_cg()
       loss_builder = LossBuilder()
       standard_loss = self.model.calc_loss(src, trg, src_mask=src_mask, trg_mask=trg_mask)
+
       loss_builder.add_loss("loss", standard_loss)
       additional_loss = self.model.calc_additional_loss(dy.nobackprop(-standard_loss))
       if additional_loss != None:
         loss_builder.add_loss("additional_loss", additional_loss)
 
       # Log the loss sum
-      self.logger.update_epoch_loss(src, trg, loss_builder)
       loss_builder.compute().backward()
+      self.logger.update_epoch_loss(src, trg, loss_builder)
       self.trainer.update()
 
       # Devel reporting
