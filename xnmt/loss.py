@@ -34,7 +34,7 @@ class LossBuilder(object):
       raise RuntimeError("There are some uncomputed losses. Call compute() firstly.")
     return sum(loss for loss in self.loss_values.values())
 
-  def __add__(self, other):
+  def __iadd__(self, other):
     for name, value in other.loss_values.items():
       self.loss_values[name] += value
     return self
