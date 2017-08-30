@@ -96,7 +96,9 @@ class SimpleWordEmbedder(Embedder, Serializable):
     # minibatch mode
     else:
       embeddings = []
-      for word_i in range(len(sent[0])):
+      seq_len = len(sent[0])
+      for single_sent in sent: assert len(single_sent)==seq_len
+      for word_i in range(seq_len):
         embeddings.append(self.embed(batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
 
     return ExpressionSequence(expr_list=embeddings, mask=mask)
