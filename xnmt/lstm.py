@@ -1,5 +1,5 @@
 import dynet as dy
-from encoder_state import FinalEncoderState, PseudoState
+from xnmt.encoder_state import FinalEncoderState, PseudoState
 
 class LSTMState(object):
   def __init__(self, builder, h_t=None, c_t=None, state_idx=-1, prev_state=None):
@@ -121,7 +121,7 @@ class CustomCompactLSTMBuilder(object):
     c = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
     for pos_i in range(len(xs)):
       x_t = xs[pos_i]
-      if type(x_t) == dy.Expression:
+      if isinstance(x_t, dy.Expression):
         x_t = [x_t]
       elif type(x_t) != list:
         x_t = list(x_t)
@@ -134,7 +134,7 @@ class CustomCompactLSTMBuilder(object):
       c.append(c_t)
       h.append(dy.vanilla_lstm_h(c_t, gates_t))
     self._final_states = [FinalEncoderState(h[-1], c[-1])]
-    return h
+    return h[1:]
   
 class BiCompactLSTMBuilder:
   """

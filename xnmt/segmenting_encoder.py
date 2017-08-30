@@ -1,19 +1,20 @@
 from __future__ import print_function
 
 import io
-import dynet as dy
-import segment_transducer
-import linear
 import six
-import numpy
-import expression_sequence
-
 from enum import Enum
-from model import HierarchicalModel
-from decorators import recursive, recursive_assign, recursive_sum
-from reports import Reportable
 from xml.sax.saxutils import escape, unescape
 from lxml import etree
+import numpy
+import dynet as dy
+
+import xnmt.segment_transducer
+import xnmt.linear
+import xnmt.expression_sequence
+
+from xnmt.model import HierarchicalModel
+from xnmt.decorators import recursive, recursive_assign, recursive_sum
+from xnmt.reports import Reportable
 
 class SegmentingEncoderBuilder(HierarchicalModel, Reportable):
   class SegmentingAction(Enum):
@@ -24,11 +25,11 @@ class SegmentingEncoderBuilder(HierarchicalModel, Reportable):
   def __init__(self, embed_encoder=None, segment_transducer=None, learn_segmentation=True, model=None):
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
-    self.P0 = model.add_parameters(segment_transducer.encoder.hidden_dim)
+    self.P0 = model.add_parameters(xnmt.segment_transducer.encoder.hidden_dim)
     self.learn_segmentation = learn_segmentation
 
     # The Segment Encoder decides whether to segment or not
-    self.segment_transform = linear.Linear(embed_encoder.hidden_dim, len(self.SegmentingAction), model)
+    self.segment_transform = xnmt.linear.Linear(embed_encoder.hidden_dim, len(self.SegmentingAction), model)
 
     # The Segment transducer predict a category based on the collected vector
     self.segment_transducer = segment_transducer
@@ -79,7 +80,7 @@ class SegmentingEncoderBuilder(HierarchicalModel, Reportable):
         # If segment for this particular input
         decision = int(decision)
         if decision == self.SegmentingAction.SEGMENT.value:
-          expr_seq = expression_sequence.ExpressionSequence(expr_list=buffers[i])
+          expr_seq = xnmt.expression_sequence.ExpressionSequence(expr_list=buffers[i])
           transduce_output = self.segment_transducer.transduce(expr_seq)
           outputs[i].append(transduce_output)
           buffers[i] = []

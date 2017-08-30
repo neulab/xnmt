@@ -4,15 +4,13 @@ import six
 import dynet as dy
 import numpy as np
 import os
-import batcher
-import serializer
-import model
-
-from decorators import recursive, recursive_assign
-from model import GeneratorModel
-from serializer import Serializable
-from reports import Reportable
 from lxml import etree
+
+import xnmt.batcher
+from xnmt.decorators import recursive, recursive_assign
+from xnmt.model import GeneratorModel
+from xnmt.serializer import Serializable
+from xnmt.reports import Reportable
 
 ##### A class for retrieval databases
 # This file contains databases used for retrieval.
@@ -33,8 +31,8 @@ class StandardRetrievalDatabase(Serializable):
     self.test_id_file = test_id_file
 
   def __getitem__(self, indices):
-    trg_examples, trg_masks = batcher.pad([self.data[index] for index in indices])
-    return batcher.mark_as_batch(trg_examples), trg_masks
+    trg_examples, trg_masks = xnmt.batcher.pad([self.data[index] for index in indices])
+    return xnmt.batcher.mark_as_batch(trg_examples), trg_masks
 
 ##### The actual retriever class
 class Retriever(GeneratorModel):
@@ -63,17 +61,18 @@ class Retriever(GeneratorModel):
     '''Perform retrieval, trying to get the sentence that most closely matches in the database.
 
     :param src: The source.
+    :param i: Id of the input (for reporting)
     :returns: The ID of the example that most closely matches in the database.
     '''
-    raise NotImplementedError('retrieve must be implemented for Retriever subclasses')
+    raise NotImplementedError('generate must be implemented for Retriever subclasses')
 
-  def initialize(self, args):
+  def initialize_generator(self, **kwargs):
     candidates = None
-    if args.candidate_id_file != None:
-      with open(args.candidate_id_file, "r") as f:
+    if kwargs["candidate_id_file"] != None:
+      with open(kwargs["candidate_id_file"], "r") as f:
         candidates = sorted({int(x):1 for x in f}.keys())
     self.index_database(candidates)
-    self.report_path = args.report_path
+    self.report_path = kwargs["report_path"]
 
 class DotProductRetriever(Retriever, Serializable, Reportable):
   '''

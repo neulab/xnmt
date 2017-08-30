@@ -1,23 +1,22 @@
 from __future__ import division, generators
 
-import dynet as dy
-import numpy as np
-import length_normalization
-import decorators
-import batcher
 import six
 import plot
 import os
+import dynet as dy
+import numpy as np
 
-from vocab import Vocab
-from serializer import Serializable, DependentInitParam
-from search_strategy import BeamSearch
-from embedder import SimpleWordEmbedder
-from decoder import MlpSoftmaxDecoder
-from output import TextOutput
-from model import HierarchicalModel, GeneratorModel
-from reports import Reportable
-from decorators import recursive_assign, recursive
+import xnmt.length_normalization
+import xnmt.batcher
+
+from xnmt.vocab import Vocab
+from xnmt.serializer import Serializable, DependentInitParam
+from xnmt.search_strategy import BeamSearch, GreedySearch
+from xnmt.output import TextOutput
+from xnmt.model import GeneratorModel
+from xnmt.reports import Reportable
+from xnmt.decorators import recursive_assign, recursive
+import xnmt.serializer
 
 # Reporting purposes
 from lxml import etree
@@ -39,8 +38,12 @@ class Translator(GeneratorModel):
     '''
     raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
 
-  def set_vocabs(self, src_vocab, trg_vocab):
-    self.src_vocab = src_vocab
+  def set_trg_vocab(self, trg_vocab=None):
+    """
+    Set target vocab for generating outputs.
+    
+    :param trg_vocab: target vocab, or None to generate word ids
+    """
     self.trg_vocab = trg_vocab
 
   def set_post_processor(self, post_processor):
@@ -75,76 +78,83 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
   def shared_params(self):
     return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
-            # TODO: encoder.hidden_dim may not always exist (e.g. for CNN encoders), need to deal with that case
             set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]),
             set(["attender.state_dim", "decoder.lstm_dim"]),
             set(["trg_embedder.emb_dim", "decoder.trg_embed_dim"])]
 
   def dependent_init_params(self):
-    return [DependentInitParam(param_descr="src_embedder.vocab_size", value_fct=lambda: self.context["corpus_parser"].src_reader.vocab_size()),
-            DependentInitParam(param_descr="decoder.vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size()),
-            DependentInitParam(param_descr="trg_embedder.vocab_size", value_fct=lambda: self.context["corpus_parser"].trg_reader.vocab_size())]
+    return [DependentInitParam(param_descr="src_embedder.vocab_size", value_fct=lambda: self.context.corpus_parser.src_reader.vocab_size()),
+            DependentInitParam(param_descr="decoder.vocab_size", value_fct=lambda: self.context.corpus_parser.trg_reader.vocab_size()),
+            DependentInitParam(param_descr="trg_embedder.vocab_size", value_fct=lambda: self.context.corpus_parser.trg_reader.vocab_size())]
 
-  def initialize(self, args):
-      # Search Strategy
-    len_norm_type   = getattr(length_normalization, args.len_norm_type)
-    self.search_strategy = BeamSearch(b=args.beam, max_len=args.max_len, len_norm=len_norm_type(**args.len_norm_params))
-    self.report_path = args.report_path
-    self.report_type = args.report_type
+  def initialize_generator(self, **kwargs):
+    if kwargs.get("len_norm_type", None) is None: 
+      len_norm = xnmt.length_normalization.NoNormalization()
+    else:
+      len_norm = xnmt.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
+    search_args = {}
+    if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
+    if kwargs.get("beam", None) is None:
+      self.search_strategy = GreedySearch(**search_args)
+    else:
+      search_args["beam_size"] = kwargs.get("beam", 1)
+      search_args["len_norm"] = len_norm
+      self.search_strategy = BeamSearch(**search_args)
+    self.report_path = kwargs.get("report_path", None)
+    self.report_type = kwargs.get("report_type", None)
 
   def calc_loss(self, src, trg, src_mask=None, trg_mask=None, info=None):
-    self.src_embedder.start_sent()
+    """
+    :param src: source sequence (unbatched, or batched + padded)
+    :param trg: target sequence (unbatched, or batched + padded)
+    :param src_mask: binary mask denoting src padding, passed to embedder
+    :param trg_mask: binary mask denoting trg padding; losses will be accumulated only if trg_mask[batch,pos]==0
+    :returns: (possibly batched) loss expression
+    """
+    self.start_sent()
     embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
     encodings = self.encoder.transduce(embeddings)
-    self.attender.start_sent(encodings)
+    self.attender.init_sent(encodings)
     # Initialize the hidden state from the encoder
     self.decoder.initialize(self.encoder.get_final_states())
-    self.trg_embedder.start_sent()
     losses = []
 
-    # single mode
-    if not batcher.is_batched(src):
-      for ref_word in trg:
-        context = self.attender.calc_context(self.decoder.state.output())
-        word_loss = self.decoder.calc_loss(context, ref_word)
-        losses.append(word_loss)
-        self.decoder.add_input(self.trg_embedder.embed(ref_word))
-
-    # minibatch mode
-    else:
-      max_len = max([len(single_trg) for single_trg in trg])
-
-      for i in range(max_len):
-        ref_word = batcher.mark_as_batch([single_trg[i] if i < len(single_trg) else Vocab.ES for single_trg in trg])
-        context = self.attender.calc_context(self.decoder.state.output())
-
-        word_loss = self.decoder.calc_loss(context, ref_word)
-        mask_exp = dy.inputVector([1 if i < len(single_trg) else 0 for single_trg in trg])
-        mask_exp = dy.reshape(mask_exp, (1,), len(trg))
+    seq_len = len(trg[0]) if xnmt.batcher.is_batched(src) else len(trg)
+    if xnmt.batcher.is_batched(src):
+      for j, single_trg in enumerate(trg):
+        assert len(single_trg) == seq_len # assert consistent length
+        assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
+    for i in range(seq_len):
+      ref_word = trg[i] if not xnmt.batcher.is_batched(src) \
+                      else xnmt.batcher.mark_as_batch([single_trg[i] for single_trg in trg])
+ 
+      context = self.attender.calc_context(self.decoder.state.output())
+      word_loss = self.decoder.calc_loss(context, ref_word)
+      if xnmt.batcher.is_batched(src) and trg_mask is not None:
+        mask_exp = dy.inputTensor((1.0 - trg_mask)[:,i:i+1].transpose(),batched=True)
         word_loss = word_loss * mask_exp
-        losses.append(word_loss)
-
+      losses.append(word_loss)
+      if i < seq_len-1:
         self.decoder.add_input(self.trg_embedder.embed(ref_word))
 
     return dy.esum(losses)
 
-  def generate(self, src, idx):
-    # Not including this as a default argument is a hack to get our documentation pipeline working
-    search_strategy = self.search_strategy
-    if search_strategy == None:
-      search_strategy = BeamSearch(1, len_norm=NoNormalization())
-    if not batcher.is_batched(src):
-      src = batcher.mark_as_batch([src])
+  def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
+    if not xnmt.batcher.is_batched(src):
+      src = xnmt.batcher.mark_as_batch([src])
+    else:
+      assert src_mask is not None
     outputs = []
     for sents in src:
-      embeddings = self.src_embedder.embed_sent(src)
+      self.start_sent()
+      embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
       encodings = self.encoder.transduce(embeddings)
-      self.attender.start_sent(encodings)
+      self.attender.init_sent(encodings)
       self.decoder.initialize(self.encoder.get_final_states())
-      output_actions = search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents))
+      output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents), forced_trg_ids=forced_trg_ids)
       # In case of reporting
       if self.report_path is not None:
-        src_words = [self.src_vocab[w] for w in sents]
+        src_words = [self.reporting_src_vocab[w] for w in sents]
         trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
         attentions = self.attender.attention_vecs
         self.set_report_input(idx, src_words, trg_words, attentions)
@@ -152,8 +162,17 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
         self.generate_report(self.report_type)
       # Append output to the outputs
-      outputs.append(TextOutput(output_actions, self.trg_vocab))
+      if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
+        outputs.append(TextOutput(output_actions, self.trg_vocab))
+      else:
+        outputs.append((output_actions, score))
     return outputs
+
+  def set_reporting_src_vocab(self, src_vocab):
+    """
+    Sets source vocab for reporting purposes.
+    """
+    self.reporting_src_vocab = src_vocab
 
   @recursive_assign
   def html_report(self, context=None):

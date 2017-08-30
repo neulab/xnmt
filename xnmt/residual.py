@@ -1,8 +1,8 @@
 from __future__ import division, generators
 
 import dynet as dy
-import lstm
-from encoder_state import FinalEncoderState, PseudoState
+import xnmt.lstm
+from xnmt.encoder_state import FinalEncoderState, PseudoState
 
 class ResidualRNNBuilder(object):
   """
@@ -23,9 +23,9 @@ class ResidualRNNBuilder(object):
     """
     assert num_layers > 0
     self.builder_layers = []
-    self.builder_layers.append(lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim, model))
+    self.builder_layers.append(xnmt.lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim, model))
     for _ in range(num_layers - 1):
-      self.builder_layers.append(lstm.CustomCompactLSTMBuilder(1, hidden_dim, hidden_dim, model))
+      self.builder_layers.append(xnmt.lstm.CustomCompactLSTMBuilder(1, hidden_dim, hidden_dim, model))
 
     self.add_to_output = add_to_output
 
@@ -112,8 +112,8 @@ class ResidualBiRNNBuilder:
   def __init__(self, num_layers, input_dim, hidden_dim, model, add_to_output=False):
     assert num_layers > 1
     assert hidden_dim % 2 == 0
-    self.forward_layer = lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim/2, model)
-    self.backward_layer = lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim/2, model)
+    self.forward_layer = xnmt.lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim/2, model)
+    self.backward_layer = xnmt.lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim/2, model)
     self.residual_network = ResidualRNNBuilder(num_layers - 1, hidden_dim, hidden_dim, model,
                                                add_to_output)
 

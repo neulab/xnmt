@@ -2,15 +2,14 @@ from __future__ import division, generators
 
 import numpy as np
 import dynet as dy
-import batcher
-import model_globals
+import xnmt.batcher
 import six
-import model
-from decorators import recursive
-from serializer import Serializable
-from expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
+from xnmt.model import HierarchicalModel
+from xnmt.decorators import recursive
+from xnmt.serializer import Serializable
+from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 
-class Embedder(model.HierarchicalModel):
+class Embedder(HierarchicalModel):
   """
   An embedder takes in word IDs and outputs continuous vectors.
 
@@ -35,10 +34,6 @@ class Embedder(model.HierarchicalModel):
     """
     raise NotImplementedError('embed_sent must be implemented in Embedder subclasses')
   
-  def start_sent(self):
-    """Called before starting to embed a sentence for means of sentence-level initialization.
-    """
-    pass
   @recursive
   def set_train(self, val):
     pass
@@ -50,7 +45,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   yaml_tag = u'!SimpleWordEmbedder'
 
-  def __init__(self, vocab_size, emb_dim = None, weight_noise = None, word_dropout = 0.0):
+  def __init__(self, context, vocab_size, emb_dim = None, weight_noise = None, word_dropout = 0.0):
     """
     :param vocab_size:
     :param emb_dim:
@@ -58,25 +53,28 @@ class SimpleWordEmbedder(Embedder, Serializable):
     :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287 
     """
     self.vocab_size = vocab_size
-    self.emb_dim = emb_dim or model_globals.get("default_layer_dim")
-    self.weight_noise = weight_noise or model_globals.get("weight_noise")
+    self.emb_dim = emb_dim or context.default_layer_dim
+    self.weight_noise = weight_noise or context.weight_noise
     self.word_dropout = word_dropout
-    self.embeddings = model_globals.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, emb_dim))
+    self.embeddings = context.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim))
     self.word_id_mask = None
     self.train = False
 
+  @recursive
   def start_sent(self):
     self.word_id_mask = None
+    
   @recursive
   def set_train(self, val):
     self.train = val
+    
   def embed(self, x):
     if self.word_dropout > 0.0 and self.word_id_mask is None:
-      batch_size = len(x) if batcher.is_batched(x) else 1
+      batch_size = len(x) if xnmt.batcher.is_batched(x) else 1
       self.word_id_mask = [set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False)) for _ in range(batch_size)]
     # single mode
-    if not batcher.is_batched(x):
-      if self.train and x in self.word_id_mask[0]:
+    if not xnmt.batcher.is_batched(x):
+      if self.train and self.word_id_mask and x in self.word_id_mask[0]:
         ret = dy.zeros((self.emb_dim,))
       else:
         ret = self.embeddings[x]
@@ -92,13 +90,16 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   def embed_sent(self, sent, mask=None):
     # single mode
-    if not batcher.is_batched(sent):
+    if not xnmt.batcher.is_batched(sent):
       embeddings = [self.embed(word) for word in sent]
     # minibatch mode
     else:
       embeddings = []
-      for word_i in range(len(sent[0])):
-        embeddings.append(self.embed(batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
+      seq_len = len(sent[0])
+      for single_sent in sent: assert len(single_sent)==seq_len
+      for word_i in range(seq_len):
+        batch = xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])
+        embeddings.append(self.embed(batch))
 
     return ExpressionSequence(expr_list=embeddings, mask=mask)
 
@@ -118,19 +119,19 @@ class NoopEmbedder(Embedder, Serializable):
     self.emb_dim = emb_dim
 
   def embed(self, x):
-    return dy.inputTensor(x, batched=batcher.is_batched(x))
+    return dy.inputTensor(x, batched=xnmt.batcher.is_batched(x))
 
   def embed_sent(self, sent, mask=None):
     # TODO refactor: seems a bit too many special cases that need to be distinguished
     if isinstance(sent, ExpressionSequence):
       return sent
-    batched = batcher.is_batched(sent)
+    batched = xnmt.batcher.is_batched(sent)
     first_sent = sent[0] if batched else sent
     if hasattr(first_sent, "get_array"):
       if not batched:
         return LazyNumpyExpressionSequence(lazy_data=sent.get_array())
       else:
-        return LazyNumpyExpressionSequence(lazy_data=batcher.mark_as_batch(
+        return LazyNumpyExpressionSequence(lazy_data=xnmt.batcher.mark_as_batch(
                                             six.moves.map(lambda s: s.get_array(), sent)),
                                            mask=mask)
     else:
@@ -139,6 +140,6 @@ class NoopEmbedder(Embedder, Serializable):
       else:
         embeddings = []
         for word_i in range(len(first_sent)):
-          embeddings.append(self.embed(batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
+          embeddings.append(self.embed(xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
       return ExpressionSequence(expr_list=embeddings, mask=mask)
 
