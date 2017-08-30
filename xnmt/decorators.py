@@ -6,7 +6,7 @@ def recursive(f):
   '''
   # Wrapper to the method to call recursively, instead of invoking only f()
   def rec_f(obj, *args, **kwargs):
-    from model import HierarchicalModel
+    from xnmt.model import HierarchicalModel
     assert(issubclass(obj.__class__, HierarchicalModel))
     # Reflect the method name
     name = f.__name__
@@ -26,7 +26,7 @@ def recursive_assign(f):
       the context as needed.
   '''
   def rec_f(obj, *args, **kwargs):
-    from model import HierarchicalModel
+    from xnmt.model import HierarchicalModel
     assert(issubclass(obj.__class__, HierarchicalModel))
     name = f.__name__
     kwargs["context"] = f(obj, *args, **kwargs)
@@ -41,7 +41,7 @@ def recursive_sum(f):
   ''' A decorator that behaves the same way as recursive but summing up all the non None results.
   '''
   def rec_f(obj, *args, **kwargs):
-    from model import HierarchicalModel
+    from xnmt.model import HierarchicalModel
     assert(issubclass(obj.__class__, HierarchicalModel))
     name = f.__name__
     result_parent = f(obj, *args, **kwargs)

@@ -1,6 +1,6 @@
 import dynet as dy
-from encoder_state import FinalEncoderState, PseudoState
-import lstm
+from xnmt.encoder_state import FinalEncoderState, PseudoState
+import xnmt.lstm
 
 class PyramidalRNNBuilder(object):
   """
@@ -31,13 +31,13 @@ class PyramidalRNNBuilder(object):
     self.downsampling_method = downsampling_method
     self.reduce_factor = reduce_factor
     self.input_dim = input_dim
-    f = lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim / 2, model)
-    b = lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim / 2, model)
+    f = xnmt.lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim / 2, model)
+    b = xnmt.lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim / 2, model)
     self.builder_layers.append((f, b))
     for _ in range(num_layers - 1):
       layer_input_dim = hidden_dim if downsampling_method=="skip" else hidden_dim*reduce_factor
-      f = lstm.CustomCompactLSTMBuilder(1, layer_input_dim, hidden_dim / 2, model)
-      b = lstm.CustomCompactLSTMBuilder(1, layer_input_dim, hidden_dim / 2, model)
+      f = xnmt.lstm.CustomCompactLSTMBuilder(1, layer_input_dim, hidden_dim / 2, model)
+      b = xnmt.lstm.CustomCompactLSTMBuilder(1, layer_input_dim, hidden_dim / 2, model)
       self.builder_layers.append((f, b))
 
   def get_final_states(self):

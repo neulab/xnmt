@@ -2,19 +2,18 @@ from __future__ import print_function
 
 import sys
 import dynet as dy
-import expression_sequence
-from model import HierarchicalModel
-from serializer import Serializable
-from decorators import recursive
-from expression_sequence import ExpressionSequence
-from reports import Reportable
-from encoder_state import FinalEncoderState
+from xnmt.model import HierarchicalModel
+from xnmt.serializer import Serializable
+from xnmt.decorators import recursive
+from xnmt.expression_sequence import ExpressionSequence
+from xnmt.reports import Reportable
+from xnmt.encoder_state import FinalEncoderState
 
 # The LSTM model builders
-import pyramidal
-import residual
-import segmenting_encoder
-import lstm
+import xnmt.pyramidal
+import xnmt.residual
+import xnmt.segmenting_encoder
+import xnmt.lstm
 
 
 class Encoder(HierarchicalModel):
@@ -70,9 +69,9 @@ class LSTMEncoder(BuilderEncoder, Serializable):
     self.hidden_dim = hidden_dim
     self.dropout = dropout
     if bidirectional:
-      self.builder = lstm.BiCompactLSTMBuilder(layers, input_dim, hidden_dim, model)
+      self.builder = xnmt.lstm.BiCompactLSTMBuilder(layers, input_dim, hidden_dim, model)
     else:
-      self.builder = lstm.CustomCompactLSTMBuilder(layers, input_dim, hidden_dim, model)
+      self.builder = xnmt.lstm.CustomCompactLSTMBuilder(layers, input_dim, hidden_dim, model)
 
   @recursive
   def set_train(self, val):
@@ -87,9 +86,9 @@ class ResidualLSTMEncoder(BuilderEncoder, Serializable):
     dropout = dropout or context.dropout
     self.dropout = dropout
     if bidirectional:
-      self.builder = residual.ResidualBiRNNBuilder(layers, input_dim, hidden_dim, model, residual_to_output)
+      self.builder = xnmt.residual.ResidualBiRNNBuilder(layers, input_dim, hidden_dim, model, residual_to_output)
     else:
-      self.builder = residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, residual_to_output)
+      self.builder = xnmt.residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, residual_to_output)
 
   @recursive
   def set_train(self, val):
@@ -102,7 +101,7 @@ class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
     hidden_dim = hidden_dim or context.default_layer_dim
     dropout = dropout or context.dropout
     self.dropout = dropout
-    self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim,
+    self.builder = xnmt.pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim,
                                                  context.dynet_param_collection.param_col,
                                                  downsampling_method, reduce_factor)
 
@@ -145,7 +144,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     self.lmbd_min = lmbd_learning["min"]
     self.lmbd_grw = lmbd_learning["grow"]
     self.warmup   = lmbd_learning["warmup"]
-    self.builder = segmenting_encoder.SegmentingEncoderBuilder(embed_encoder, segment_transducer,
+    self.builder = xnmt.segmenting_encoder.SegmentingEncoderBuilder(embed_encoder, segment_transducer,
                                                                learn_segmentation, model)
 
     self.register_hier_child(self.builder)
@@ -206,7 +205,7 @@ class FullyConnectedEncoder(Encoder, Serializable):
       output = 2*dy.logistic(l1) - 1
     elif self.nonlinearity is 'relu':
       output = dy.rectify(l1)
-    output_seq = expression_sequence.ExpressionSequence(expr_tensor=output)
+    output_seq = ExpressionSequence(expr_tensor=output)
     self._final_states = [FinalEncoderState(output_seq[-1])]
     return output_seq
 
@@ -305,7 +304,7 @@ class ConvConnectedEncoder(Encoder, Serializable):
     last_bias = dy.parameter(self.last_bias)
     output = dy.conv2d_bias(hidden_layer,last_conv,last_bias,stride=[1,1])
     output = dy.reshape(output, (sent_len,self.output_dim),batch_size=batch_size)
-    output_seq = expression_sequence.ExpressionSequence(expr_tensor=output)
+    output_seq = ExpressionSequence(expr_tensor=output)
     self._final_states = [FinalEncoderState(output_seq[-1])]
     return output_seq
 

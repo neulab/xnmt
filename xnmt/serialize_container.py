@@ -1,4 +1,4 @@
-from serializer import Serializable
+from xnmt.serializer import Serializable
 
 class SerializeContainer(Serializable):
   """

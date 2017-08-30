@@ -1,6 +1,6 @@
 import dynet as dy
-from batcher import *
-from serializer import *
+from xnmt.batcher import *
+from xnmt.serializer import *
 
 class Attender(object):
   '''

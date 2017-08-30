@@ -4,15 +4,13 @@ import six
 import dynet as dy
 import numpy as np
 import os
-import batcher
-import serializer
-import model
-
-from decorators import recursive, recursive_assign
-from model import GeneratorModel
-from serializer import Serializable
-from reports import Reportable
 from lxml import etree
+
+import xnmt.batcher
+from xnmt.decorators import recursive, recursive_assign
+from xnmt.model import GeneratorModel
+from xnmt.serializer import Serializable
+from xnmt.reports import Reportable
 
 ##### A class for retrieval databases
 # This file contains databases used for retrieval.
@@ -33,8 +31,8 @@ class StandardRetrievalDatabase(Serializable):
     self.test_id_file = test_id_file
 
   def __getitem__(self, indices):
-    trg_examples, trg_masks = batcher.pad([self.data[index] for index in indices])
-    return batcher.mark_as_batch(trg_examples), trg_masks
+    trg_examples, trg_masks = xnmt.batcher.pad([self.data[index] for index in indices])
+    return xnmt.batcher.mark_as_batch(trg_examples), trg_masks
 
 ##### The actual retriever class
 class Retriever(GeneratorModel):

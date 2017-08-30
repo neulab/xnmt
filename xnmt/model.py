@@ -1,4 +1,4 @@
-from decorators import recursive, recursive_sum
+from xnmt.decorators import recursive, recursive_sum
 
 class HierarchicalModel(object):
   ''' Hierarchical Model interface '''

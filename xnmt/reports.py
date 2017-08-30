@@ -2,7 +2,7 @@ import io
 import six
 
 from lxml import etree
-from decorators import recursive, recursive_assign
+from xnmt.decorators import recursive, recursive_assign
 
 class Reportable(object):
   @recursive_assign

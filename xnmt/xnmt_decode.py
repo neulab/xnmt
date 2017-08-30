@@ -1,15 +1,17 @@
 # coding: utf-8
 
 import io
-from output import *
-from serializer import *
 import sys
-from retriever import *
-from translator import *
-from search_strategy import *
-from options import OptionParser, Option
 
 import dynet as dy
+
+from xnmt.output import *
+from xnmt.serializer import *
+from xnmt.retriever import *
+from xnmt.translator import *
+from xnmt.search_strategy import *
+from xnmt.options import OptionParser, Option
+
 
 '''
 This will be the main class to perform decoding.

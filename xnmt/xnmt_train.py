@@ -6,27 +6,28 @@ import math
 import sys
 import dynet as dy
 import six
-import batcher
-from embedder import *
-from attender import *
-from input import *
-from encoder import *
-from specialized_encoders import *
-from decoder import *
-from translator import *
-from retriever import *
-from serialize_container import *
-from training_corpus import *
-from loss_tracker import *
-from preproc import SentenceFilterer
-from options import Option, OptionParser, general_options
-from loss import LossBuilder
-from model_context import ModelContext, PersistentParamCollection
-import serializer
-import xnmt_decode
-import xnmt_evaluate
-from evaluator import LossScore
-from tee import Tee
+
+import xnmt.batcher
+from xnmt.embedder import *
+from xnmt.attender import *
+from xnmt.input import *
+from xnmt.encoder import *
+from xnmt.specialized_encoders import *
+from xnmt.decoder import *
+from xnmt.translator import *
+from xnmt.retriever import *
+from xnmt.serialize_container import *
+from xnmt.training_corpus import *
+from xnmt.loss_tracker import *
+from xnmt.preproc import SentenceFilterer
+from xnmt.options import Option, OptionParser, general_options
+from xnmt.loss import LossBuilder
+from xnmt.model_context import ModelContext, PersistentParamCollection
+import xnmt.serializer
+import xnmt.xnmt_decode
+import xnmt.xnmt_evaluate
+from xnmt.evaluator import LossScore
+from xnmt.tee import Tee
 '''
 This will be the main class to perform training.
 '''
@@ -92,7 +93,7 @@ class XnmtTrainer(object):
     if "loss" not in self.evaluators: self.evaluators.append("loss")
 
     # Initialize the serializer
-    self.model_serializer = serializer.YamlSerializer()
+    self.model_serializer = xnmt.serializer.YamlSerializer()
 
     if self.args.pretrained_model_file:
       self.load_corpus_and_model()
@@ -111,7 +112,7 @@ class XnmtTrainer(object):
     # minibatch mode
     else:
       print('Start training in minibatch mode...')
-      self.batcher = batcher.from_spec(args.batch_strategy, args.batch_size)
+      self.batcher = xnmt.batcher.from_spec(args.batch_strategy, args.batch_size)
       if args.src_format == "contvec":
         self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
       self.pack_batches()
@@ -249,15 +250,15 @@ class XnmtTrainer(object):
         schedule_metric = self.args.schedule_metric.lower()
 
         eval_scores = {"loss" : loss_score}
-        if filter(lambda e: e!="loss", self.evaluators):
+        if len(list(filter(lambda e: e!="loss", self.evaluators)))>0:
           self.decode_args.src_file = self.training_corpus.dev_src
           self.decode_args.candidate_id_file = self.training_corpus.dev_id_file
           if self.args.model_file:
             out_file = self.args.model_file + ".dev_hyp"
             out_file_ref = self.args.model_file + ".dev_ref"
             self.decode_args.trg_file = out_file
-          xnmt_decode.xnmt_decode(self.decode_args, model_elements=(self.corpus_parser, self.model))
-          output_processor = xnmt_decode.output_processor_for_spec(self.decode_args.post_process)
+          xnmt.xnmt_decode.xnmt_decode(self.decode_args, model_elements=(self.corpus_parser, self.model))
+          output_processor = xnmt.xnmt_decode.output_processor_for_spec(self.decode_args.post_process)
           processed = []
           with io.open(self.training_corpus.dev_trg, encoding='utf-8') as fin:
             for line in fin:
@@ -271,7 +272,7 @@ class XnmtTrainer(object):
           for evaluator in self.evaluators:
             if evaluator=="loss": continue
             self.evaluate_args.evaluator = evaluator
-            eval_score = xnmt_evaluate.xnmt_evaluate(self.evaluate_args)
+            eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(self.evaluate_args)
             eval_scores[evaluator] = eval_score
         if schedule_metric == "loss":
           self.logger.set_dev_score(trg_words_cnt, loss_score)

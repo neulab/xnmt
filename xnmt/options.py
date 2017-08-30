@@ -7,7 +7,7 @@ from collections import OrderedDict
 import copy
 import random
 import inspect
-from serializer import Serializable
+from xnmt.serializer import Serializable
 
 class Option(object):
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):

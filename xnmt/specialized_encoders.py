@@ -1,6 +1,6 @@
 import dynet as dy
-import expression_sequence
-from encoder import *
+import xnmt.expression_sequence
+from xnmt.encoder import *
 
 # This is a file for specialized encoders that implement a particular model
 # Ideally, these will eventually be refactored to use standard components and the ModularEncoder framework,
@@ -103,7 +103,7 @@ class TilburgSpeechEncoder(Encoder, Serializable):
     scores = dy.transpose(dy.parameter(self.attention[0][1]))*dy.tanh(dy.parameter(self.attention[0][0])*rhn_in) # ((1,510), batch_size)
     scores = dy.reshape(scores, (scores.dim()[0][1],), batch_size = scores.dim()[1])
     attn_out = rhn_in*dy.softmax(scores) # # rhn_in.as_tensor() is ((1024,510), batch_size) softmax is ((510,), batch_size)
-    return expression_sequence.ExpressionSequence(expr_tensor = attn_out)
+    return xnmt.expression_sequence.ExpressionSequence(expr_tensor = attn_out)
 
   def initial_state(self):
     return PseudoState(self)
@@ -162,7 +162,7 @@ class HarwathSpeechEncoder(Encoder, Serializable):
     output = dy.cdiv(pool3,my_norm)
     output = dy.reshape(output, (self.num_filters[2],), batch_size = batch_size)
 
-    return expression_sequence.ExpressionSequence(expr_tensor=output)
+    return xnmt.expression_sequence.ExpressionSequence(expr_tensor=output)
 
   def initial_state(self):
     return PseudoState(self)
@@ -208,7 +208,7 @@ class HarwathImageEncoder(Encoder, Serializable):
     # convolution and pooling layers
     l1 = (W*src)+b
     output = dy.cdiv(l1,dy.sqrt(dy.squared_norm(l1)))
-    return expression_sequence.ExpressionSequence(expr_tensor=output)
+    return xnmt.expression_sequence.ExpressionSequence(expr_tensor=output)
 
   def initial_state(self):
     return PseudoState(self)

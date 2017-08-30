@@ -1,12 +1,13 @@
 import dynet as dy 
-import linear
-import embedder
 import numpy
 
-from model import HierarchicalModel
-from serializer import Serializable
-from decorators import recursive, recursive_assign
-from reports import Reportable
+import xnmt.linear
+import xnmt.embedder
+
+from xnmt.model import HierarchicalModel
+from xnmt.serializer import Serializable
+from xnmt.decorators import recursive, recursive_assign
+from xnmt.reports import Reportable
 
 class SegmentTransducer(HierarchicalModel, Serializable, Reportable):
   yaml_tag = "!SegmentTransducer"
@@ -74,8 +75,8 @@ class CategorySegmentTransformer(SegmentTransformer):
 
   def __init__(self, input_dim=None, category_dim=None, embed_dim=None):
     model = model_globals.dynet_param_collection.param_col
-    self.category_output = linear.Linear(input_dim, category_dim, model)
-    self.category_embedder = embedder.SimpleWordEmbedder(category_dim, embed_dim)
+    self.category_output = xnmt.linear.Linear(input_dim, category_dim, model)
+    self.category_embedder = xnmt.embedder.SimpleWordEmbedder(category_dim, embed_dim)
     self.train = True
 
   @recursive

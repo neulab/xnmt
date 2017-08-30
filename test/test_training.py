@@ -109,12 +109,14 @@ class TestBatchTraining(unittest.TestCase):
   def assert_single_loss_equals_batch_loss(self, model, batch_size=5):
     """
     Tests whether single loss equals batch loss.
-    Here we don't truncate and use masking (implicitly applied in calc_loss).
+    Here we don't truncate the target side and use masking.
     """
     batch_size = 5
+    batch_size = 5
     src_sents = self.training_corpus.train_src_data[:batch_size]
-    src_max = max([len(x) for x in src_sents])
-    src_sents_padded = [[w for w in s] + [Vocab.ES]*(src_max-len(s)) for s in src_sents]
+    src_min = min([len(x) for x in src_sents])
+    src_sents_trunc = [s[:src_min] for s in src_sents]
+    for single_sent in src_sents_trunc: single_sent[src_min-1] = Vocab.ES
     trg_sents = self.training_corpus.train_trg_data[:batch_size]
     trg_max = max([len(x) for x in trg_sents])
     trg_masks = np.zeros([batch_size, trg_max])
@@ -126,14 +128,13 @@ class TestBatchTraining(unittest.TestCase):
     single_loss = 0.0
     for sent_id in range(batch_size):
       dy.renew_cg()
-      train_loss = model.calc_loss(src=src_sents_padded[sent_id], 
-                                   trg=trg_sents_padded[sent_id],
-                                   trg_mask=trg_masks[i:i+1,:]).value()
+      train_loss = model.calc_loss(src=src_sents_trunc[sent_id], 
+                                   trg=trg_sents[sent_id]).value()
       single_loss += train_loss
     
     dy.renew_cg()
     
-    batched_loss = model.calc_loss(src=mark_as_batch(src_sents_padded), 
+    batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc), 
                                    trg=mark_as_batch(trg_sents_padded),
                                    trg_mask=trg_masks).value()
     self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)

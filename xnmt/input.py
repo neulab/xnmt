@@ -4,8 +4,8 @@ import io
 import six
 from collections import defaultdict
 from six.moves import zip_longest, map
-from serializer import Serializable
-from vocab import *
+from xnmt.serializer import Serializable
+from xnmt.vocab import *
 ###### Classes representing single inputs
 
 class Input(object):

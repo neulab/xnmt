@@ -13,6 +13,11 @@ from xnmt.input import BilingualCorpusParser, PlainTextReader
 from xnmt.model_context import ModelContext, PersistentParamCollection
 
 class TestForcedDecodingOutputs(unittest.TestCase):
+
+  def assertItemsEqual(self, l1, l2):
+    self.assertEqual(len(l1), len(l2))
+    for i in range(len(l1)):
+      self.assertEqual(l1[i], l2[i])
   
   def setUp(self):
     self.model_context = ModelContext()

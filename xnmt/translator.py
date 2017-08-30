@@ -1,21 +1,22 @@
 from __future__ import division, generators
 
-import dynet as dy
-import numpy as np
-import length_normalization
-import batcher
 import six
 import plot
 import os
+import dynet as dy
+import numpy as np
 
-from vocab import Vocab
-from serializer import Serializable, DependentInitParam
-from search_strategy import BeamSearch, GreedySearch
-from output import TextOutput
-from model import GeneratorModel
-from reports import Reportable
-from decorators import recursive_assign, recursive
-import serializer
+import xnmt.length_normalization
+import xnmt.batcher
+
+from xnmt.vocab import Vocab
+from xnmt.serializer import Serializable, DependentInitParam
+from xnmt.search_strategy import BeamSearch, GreedySearch
+from xnmt.output import TextOutput
+from xnmt.model import GeneratorModel
+from xnmt.reports import Reportable
+from xnmt.decorators import recursive_assign, recursive
+import xnmt.serializer
 
 # Reporting purposes
 from lxml import etree
@@ -88,9 +89,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
   def initialize_generator(self, **kwargs):
     if kwargs.get("len_norm_type", None) is None: 
-      len_norm = length_normalization.NoNormalization()
+      len_norm = xnmt.length_normalization.NoNormalization()
     else:
-      len_norm = serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
+      len_norm = xnmt.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
     search_args = {}
     if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
     if kwargs.get("beam", None) is None:
@@ -118,18 +119,18 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.decoder.initialize(self.encoder.get_final_states())
     losses = []
 
-    seq_len = len(trg[0]) if batcher.is_batched(src) else len(trg)
-    if batcher.is_batched(src):
+    seq_len = len(trg[0]) if xnmt.batcher.is_batched(src) else len(trg)
+    if xnmt.batcher.is_batched(src):
       for j, single_trg in enumerate(trg):
         assert len(single_trg) == seq_len # assert consistent length
         assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
     for i in range(seq_len):
-      ref_word = trg[i] if not batcher.is_batched(src) \
-                      else batcher.mark_as_batch([single_trg[i] for single_trg in trg])
+      ref_word = trg[i] if not xnmt.batcher.is_batched(src) \
+                      else xnmt.batcher.mark_as_batch([single_trg[i] for single_trg in trg])
  
       context = self.attender.calc_context(self.decoder.state.output())
       word_loss = self.decoder.calc_loss(context, ref_word)
-      if batcher.is_batched(src) and trg_mask is not None:
+      if xnmt.batcher.is_batched(src) and trg_mask is not None:
         mask_exp = dy.inputTensor((1.0 - trg_mask)[:,i:i+1].transpose(),batched=True)
         word_loss = word_loss * mask_exp
       losses.append(word_loss)
@@ -139,8 +140,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     return dy.esum(losses)
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
-    if not batcher.is_batched(src):
-      src = batcher.mark_as_batch([src])
+    if not xnmt.batcher.is_batched(src):
+      src = xnmt.batcher.mark_as_batch([src])
     else:
       assert src_mask is not None
     outputs = []

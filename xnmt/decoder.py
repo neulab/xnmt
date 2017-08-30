@@ -1,15 +1,10 @@
 import dynet as dy
-import serializer
-import batcher
-import model
-import mlp
-import linear
+from xnmt.serializer import Serializable
+import xnmt.batcher
+from xnmt.model import HierarchicalModel
+import xnmt.linear
 
-from decorators import recursive, recursive_assign
-
-# Short Name
-HierarchicalModel = model.HierarchicalModel
-Serializable = serializer.Serializable
+from xnmt.decorators import recursive, recursive_assign
 
 class Decoder(HierarchicalModel):
   '''
@@ -70,10 +65,10 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                                               model = param_col,
                                               residual_to_output = residual_to_output)
     # MLP
-    self.context_projector = linear.Linear(input_dim  = input_dim + lstm_dim,
+    self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + lstm_dim,
                                            output_dim = mlp_hidden_dim,
                                            model = param_col)
-    self.vocab_projector = linear.Linear(input_dim = mlp_hidden_dim,
+    self.vocab_projector = xnmt.linear.Linear(input_dim = mlp_hidden_dim,
                                          output_dim = vocab_size,
                                          model = param_col)
     # Dropout
@@ -111,7 +106,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   def calc_loss(self, context, ref_action):
     scores = self.get_scores(context)
     # single mode
-    if not batcher.is_batched(ref_action):
+    if not xnmt.batcher.is_batched(ref_action):
       return dy.pickneglogsoftmax(scores, ref_action)
     # minibatch mode
     else:
