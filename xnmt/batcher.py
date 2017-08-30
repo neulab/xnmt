@@ -2,10 +2,10 @@ from __future__ import division, generators
 
 import numpy as np
 import six
-import vocab
+import xnmt.vocab
 
 # Shortnames
-Vocab = vocab.Vocab
+Vocab = xnmt.vocab.Vocab
 
 class Batch(list):
   """
@@ -101,9 +101,11 @@ class SortBatcher(Batcher):
 # Module level functions
 def mark_as_batch(data):
   if type(data) == Batch:
-    return data
+    ret = data
   else:
-    return Batch(data)
+    ret = Batch(data)
+  return ret
+    
 
 def is_batched(data):
   return type(data) == Batch

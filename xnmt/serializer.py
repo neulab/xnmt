@@ -27,6 +27,18 @@ class Serializable(yaml.YAMLObject):
               and then going bottom-up
     """
     return []
+  def overwrite_serialize_param(self, key, val):
+    """
+    Overwrites serialize params to something other than specified in the YAML file.
+    This is helpful to fix certain model properties (e.g. a vocab) rather than creating it anew
+    when serializing and deserializing the component.
+    
+    :param key:
+    :param val:
+    """
+    if not hasattr(self, "serialize_params") or self.serialize_params is None:
+      self.serialize_params = {}
+    self.serialize_params[key] = val
 class YamlSerializer(object):
   def __init__(self):
     self.representers_added = False
@@ -39,7 +51,7 @@ class YamlSerializer(object):
     self.set_serialize_params_recursive(deserialized_yaml)
     self.share_init_params_top_down(deserialized_yaml)
     setattr(deserialized_yaml, "context", context)
-    return self.init_components_bottom_up(deserialized_yaml, deserialized_yaml.dependent_init_params())
+    return self.init_components_bottom_up(deserialized_yaml, deserialized_yaml.dependent_init_params(), context=context)
 
   def set_serialize_params_recursive(self, obj):
     base_arg_names = map(lambda x: x[0], inspect.getmembers(yaml.YAMLObject))
@@ -114,7 +126,7 @@ class YamlSerializer(object):
       param_name = param_name_spl[1]
     return param_obj, param_name
 
-  def init_components_bottom_up(self, obj, dependent_init_params):
+  def init_components_bottom_up(self, obj, dependent_init_params, context):
     init_params = obj.init_params
     serialize_params = obj.serialize_params
     init_args, _, _, _ = inspect.getargspec(obj.__init__)
@@ -124,7 +136,7 @@ class YamlSerializer(object):
         val = getattr(obj, init_arg)
         if isinstance(val, Serializable):
           sub_dependent_init_params = [p.move_down() for p in dependent_init_params if p.matches_component(init_arg)]
-          init_params[init_arg] = self.init_components_bottom_up(val, sub_dependent_init_params)
+          init_params[init_arg] = self.init_components_bottom_up(val, sub_dependent_init_params, context)
         elif isinstance(val, list):
           sub_dependent_init_params = [p.move_down() for p in dependent_init_params if p.matches_component(init_arg)]
           if len(sub_dependent_init_params) > 0:
@@ -132,7 +144,7 @@ class YamlSerializer(object):
           new_init_params= []
           for item in val:
             if isinstance(item, Serializable):
-              new_init_params.append(self.init_components_bottom_up(item, []))
+              new_init_params.append(self.init_components_bottom_up(item, [], context))
             else:
               new_init_params.append(item)
           init_params[init_arg] = new_init_params
@@ -140,6 +152,7 @@ class YamlSerializer(object):
       if p.matches_component("") and p.param_name() not in init_params:
         if p.param_name() in init_args:
           init_params[p.param_name()] = p.value_fct()
+    if "context" in init_args: init_params["context"] = context # pass context to constructor if it expects a "context" object
     try:
       initialized_obj = obj.__class__(**init_params)
       print("initialized %s(%s)" % (obj.__class__.__name__, init_params))
@@ -154,7 +167,11 @@ class YamlSerializer(object):
 
   @staticmethod
   def init_representer(dumper, obj):
-    return dumper.represent_mapping(u'!' + obj.__class__.__name__, obj.serialize_params)
+    if type(obj.serialize_params)==list: 
+      serialize_params = {param:getattr(obj, param) for param in obj.serialize_params}
+    else: 
+      serialize_params = obj.serialize_params
+    return dumper.represent_mapping(u'!' + obj.__class__.__name__, serialize_params)
   def dump(self, ser_obj):
     if not self.representers_added:
       for SerializableChild in Serializable.__subclasses__():
@@ -175,8 +192,8 @@ class YamlSerializer(object):
       dict_spec = yaml.load(f)
       corpus_parser = dict_spec.corpus_parser
       model = dict_spec.model
-      model_globals = dict_spec.model_globals
-    return corpus_parser, model, model_globals
+      model_context = dict_spec.model_context
+    return corpus_parser, model, model_context
 
 class ComponentInitError(Exception):
   pass

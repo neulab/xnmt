@@ -7,7 +7,7 @@ from collections import OrderedDict
 import copy
 import random
 import inspect
-from serializer import Serializable
+from xnmt.serializer import Serializable
 
 class Option(object):
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
@@ -28,9 +28,10 @@ class Option(object):
     self.force_flag = force_flag
     self.help = help_str
 
-
-class Args: pass
-
+class Args(object):
+  def __init__(self, **kwargs):
+    for key,val in kwargs.items():
+      setattr(self, key, val)
 
 class RandomParam(yaml.YAMLObject):
   yaml_tag = u'!RandomParam'
@@ -122,6 +123,7 @@ class OptionParser(object):
         experiments[exp][task_name] = Args()
         for name, val in task_values.items():
           setattr(experiments[exp][task_name], name, val)
+        setattr(experiments[exp][task_name], "params_as_dict", task_values)
 
     return experiments
 

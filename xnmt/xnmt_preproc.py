@@ -2,9 +2,10 @@ import argparse
 import sys
 import os.path
 import io
-from options import Option, OptionParser
-from preproc import Normalizer, SentenceFilterer, VocabFilterer, Tokenizer
-from serializer import YamlSerializer
+
+from xnmt.options import Option, OptionParser
+from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer, Tokenizer
+from xnmt.serializer import YamlSerializer
 
 options = [
   Option("preproc_specs", list, default_value=None, required=False, help_str="A specification for a preprocessing step, including in_files (the input files), out_files (the output files), type (normalize/filter/vocab), and spec for that particular preprocessing type"),

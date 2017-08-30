@@ -3,7 +3,7 @@ from __future__ import division, generators
 import sys
 import math
 import time
-import loss
+import xnmt.loss
 
 class LossTracker(object):
     """
@@ -21,7 +21,7 @@ class LossTracker(object):
 
         self.epoch_num = 0
 
-        self.epoch_loss = loss.LossBuilder()
+        self.epoch_loss = xnmt.loss.LossBuilder()
         self.epoch_words = 0
         self.sent_num = 0
         self.sent_num_not_report_train = 0
@@ -41,7 +41,7 @@ class LossTracker(object):
         """
         Clear epoch-wise counters for starting a new training epoch.
         """
-        self.epoch_loss = loss.LossBuilder()
+        self.epoch_loss = xnmt.loss.LossBuilder()
         self.epoch_words = 0
         self.epoch_num += 1
         self.sent_num = 0

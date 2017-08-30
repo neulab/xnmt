@@ -1,4 +1,9 @@
 import unittest
+
+
+import dynet_config
+import dynet as dy
+
 import xnmt.xnmt_run_experiments as run
 
 class TestRunningConfig(unittest.TestCase):

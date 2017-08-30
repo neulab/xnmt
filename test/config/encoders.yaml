@@ -32,6 +32,7 @@ exp1-lstm-encoder:
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
+        word_dropout: 0.3
       encoder: !LSTMEncoder
         layers: 2
         input_dim: 64
@@ -42,6 +43,7 @@ exp1-lstm-encoder:
         input_dim: 64
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
+        word_dropout: 0.3
       decoder: !MlpSoftmaxDecoder
         layers: 1
         mlp_hidden_dim: 64

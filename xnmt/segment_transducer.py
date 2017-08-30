@@ -1,13 +1,13 @@
-import dynet
-import linear
-import model_globals
-import embedder
+import dynet as dy 
 import numpy
 
-from model import HierarchicalModel
-from serializer import Serializable
-from decorators import recursive, recursive_assign
-from reports import Reportable
+import xnmt.linear
+import xnmt.embedder
+
+from xnmt.model import HierarchicalModel
+from xnmt.serializer import Serializable
+from xnmt.decorators import recursive, recursive_assign
+from xnmt.reports import Reportable
 
 class SegmentTransducer(HierarchicalModel, Serializable, Reportable):
   yaml_tag = "!SegmentTransducer"
@@ -36,7 +36,7 @@ class SegmentTransducer(HierarchicalModel, Serializable, Reportable):
 
   def disc_ll(self):
     ''' Discrete Log Likelihood '''
-    log_ll = dynet.scalarInput(0.0)
+    log_ll = dy.scalarInput(0.0)
     if hasattr(self.encoder, "disc_ll"):
       log_ll += self.encoder.disc_ll()
     if hasattr(self.transformer, "disc_ll"):
@@ -55,7 +55,7 @@ class TailSegmentTransformer(SegmentTransformer):
 class AverageSegmentTransformer(SegmentTransformer):
   yaml_tag = u"!AverageSegmentTransformer"
   def transform(self, encodings):
-    return dynet.average(encodings.as_list())
+    return dy.average(encodings.as_list())
 
 # TODO(philip30): Complete this class!
 # To test, modify the segment transformer in examples/test_segmenting.yaml into this class!
@@ -75,8 +75,8 @@ class CategorySegmentTransformer(SegmentTransformer):
 
   def __init__(self, input_dim=None, category_dim=None, embed_dim=None):
     model = model_globals.dynet_param_collection.param_col
-    self.category_output = linear.Linear(input_dim, category_dim, model)
-    self.category_embedder = embedder.SimpleWordEmbedder(category_dim, embed_dim)
+    self.category_output = xnmt.linear.Linear(input_dim, category_dim, model)
+    self.category_embedder = xnmt.embedder.SimpleWordEmbedder(category_dim, embed_dim)
     self.train = True
 
   @recursive
@@ -84,7 +84,7 @@ class CategorySegmentTransformer(SegmentTransformer):
     self.batch_size = batch_size
     self.input_len  = input_len
     # Log likelihood buffer
-    self.ll_buffer = [dynet.scalarInput(0.0) for _ in range(batch_size)]
+    self.ll_buffer = [dy.scalarInput(0.0) for _ in range(batch_size)]
     self.counter = 0
 
   @recursive
@@ -97,19 +97,19 @@ class CategorySegmentTransformer(SegmentTransformer):
 
   def transform(self, encodings):
     encoding = encodings[-1]
-    category_logsoftmax = dynet.log_softmax(self.category_output(encoding))
+    category_logsoftmax = dy.log_softmax(self.category_output(encoding))
     if self.train:
       category = category_logsoftmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
     else:
       category = category_logsoftmax.tensor_value().argmax().as_numpy().transpose()
     # Accumulating the log likelihood for the batch
-    self.ll_buffer[self.counter] += dynet.pick(category_logsoftmax, category)
+    self.ll_buffer[self.counter] += dy.pick(category_logsoftmax, category)
 
     return self.category_embedder.embed(category)
 
   def disc_ll(self):
     try:
-      return dynet.concatenate_to_batch(self.ll_buffer)
+      return dy.concatenate_to_batch(self.ll_buffer)
     finally:
       # Make sure that the state is not used again after the log likelihood is requested
       del self.ll_buffer

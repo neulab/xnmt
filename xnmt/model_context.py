@@ -1,30 +1,26 @@
 import dynet as dy
 import os
+from xnmt.serializer import Serializable
 
-dynet_param_collection = None
-
-model_globals = {
-  "dropout" : 0.0,
-  "weight_noise" : 0.0,
-  "default_layer_dim" : 512,
-}
-
-def get(key):
-  return model_globals.get(key)
-
-def default_if_none(value):
-  if not value:
-    return get("default_layer_dim")
-  else:
-    return value
+class ModelContext(Serializable):
+  yaml_tag = u'!ModelContext'
+  def __init__(self):
+    self.dropout = 0.0
+    self.weight_noise = 0.0
+    self.default_layer_dim = 512
+    self.dynet_param_collection = None
+    self.serialize_params = ["dropout", "weight_noise", "default_layer_dim"]
+  def update(self, other):
+    for param in self.serialize_params:
+      setattr(self, param, getattr(other, param))
 
 class PersistentParamCollection(object):
   def __init__(self, model_file, save_num_checkpoints=1):
     self.model_file = model_file
     self.param_col = dy.Model()
     self.is_saved = False
-    assert save_num_checkpoints >= 1
-    self.data_files = [self.model_file + '.data']
+    assert save_num_checkpoints >= 1 or (model_file is None and save_num_checkpoints==0)
+    if save_num_checkpoints>0: self.data_files = [self.model_file + '.data']
     for i in range(1,save_num_checkpoints):
       self.data_files.append(self.model_file + '.data.' + str(i))
   def revert_to_best_model(self):

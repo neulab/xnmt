@@ -2,20 +2,18 @@ from __future__ import print_function
 
 import sys
 import dynet as dy
-import expression_sequence
-from model import HierarchicalModel
-from serializer import Serializable
-import model_globals
-from decorators import recursive
-from expression_sequence import ExpressionSequence
-from reports import Reportable
-from encoder_state import FinalEncoderState
+from xnmt.model import HierarchicalModel
+from xnmt.serializer import Serializable
+from xnmt.decorators import recursive
+from xnmt.expression_sequence import ExpressionSequence
+from xnmt.reports import Reportable
+from xnmt.encoder_state import FinalEncoderState
 
 # The LSTM model builders
-import pyramidal
-import residual
-import segmenting_encoder
-import lstm
+import xnmt.pyramidal
+import xnmt.residual
+import xnmt.segmenting_encoder
+import xnmt.lstm
 
 
 class Encoder(HierarchicalModel):
@@ -35,7 +33,6 @@ class Encoder(HierarchicalModel):
   def get_final_state(self):
     """ Return the state that represents the transduced sequence """
     return NotImplementedError('Unimplemented get_final_state for class:', self.__class__.__name__)
-
 
 class BuilderEncoder(Encoder):
   def __init__(self):
@@ -62,19 +59,19 @@ class IdentityEncoder(Encoder, Serializable):
 class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
 
-  def __init__(self, input_dim=None, layers=1, hidden_dim=None, dropout=None, bidirectional=True):
-    model = model_globals.dynet_param_collection.param_col
-    input_dim = input_dim or model_globals.get("default_layer_dim")
-    hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
-    dropout = dropout or model_globals.get("dropout")
+  def __init__(self, context, input_dim=None, layers=1, hidden_dim=None, dropout=None, bidirectional=True):
+    model = context.dynet_param_collection.param_col
+    input_dim = input_dim or context.default_layer_dim
+    hidden_dim = hidden_dim or context.default_layer_dim
+    dropout = dropout or context.dropout
     self.input_dim = input_dim
     self.layers = layers
     self.hidden_dim = hidden_dim
     self.dropout = dropout
     if bidirectional:
-      self.builder = lstm.BiCompactLSTMBuilder(layers, input_dim, hidden_dim, model)
+      self.builder = xnmt.lstm.BiCompactLSTMBuilder(layers, input_dim, hidden_dim, model)
     else:
-      self.builder = lstm.CustomCompactLSTMBuilder(layers, input_dim, hidden_dim, model)
+      self.builder = xnmt.lstm.CustomCompactLSTMBuilder(layers, input_dim, hidden_dim, model)
 
   @recursive
   def set_train(self, val):
@@ -83,15 +80,15 @@ class LSTMEncoder(BuilderEncoder, Serializable):
 class ResidualLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!ResidualLSTMEncoder'
 
-  def __init__(self, input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
-    model = model_globals.dynet_param_collection.param_col
-    hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
-    dropout = dropout or model_globals.get("dropout")
+  def __init__(self, context, input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
+    model = context.dynet_param_collection.param_col
+    hidden_dim = hidden_dim or context.default_layer_dim
+    dropout = dropout or context.dropout
     self.dropout = dropout
     if bidirectional:
-      self.builder = residual.ResidualBiRNNBuilder(layers, input_dim, hidden_dim, model, residual_to_output)
+      self.builder = xnmt.residual.ResidualBiRNNBuilder(layers, input_dim, hidden_dim, model, residual_to_output)
     else:
-      self.builder = residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, residual_to_output)
+      self.builder = xnmt.residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, residual_to_output)
 
   @recursive
   def set_train(self, val):
@@ -100,12 +97,12 @@ class ResidualLSTMEncoder(BuilderEncoder, Serializable):
 class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!PyramidalLSTMEncoder'
 
-  def __init__(self, input_dim=512, layers=1, hidden_dim=None, downsampling_method="skip", reduce_factor=2, dropout=None):
-    hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
-    dropout = dropout or model_globals.get("dropout")
+  def __init__(self, context, input_dim=512, layers=1, hidden_dim=None, downsampling_method="skip", reduce_factor=2, dropout=None):
+    hidden_dim = hidden_dim or context.default_layer_dim
+    dropout = dropout or context.dropout
     self.dropout = dropout
-    self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim,
-                                                 model_globals.dynet_param_collection.param_col,
+    self.builder = xnmt.pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim,
+                                                 context.dynet_param_collection.param_col,
                                                  downsampling_method, reduce_factor)
 
   @recursive
@@ -130,13 +127,16 @@ class ModularEncoder(Encoder, Serializable):
     return sent
 
   def get_final_states(self):
-    return reduce(lambda x, y: x.get_final_states() + y.get_final_states(), self.modules)
+    final_states = []
+    for mod in self.modules:
+      final_states += mod.get_final_states()
+    return final_states
 
 class SegmentingEncoder(Encoder, Serializable, Reportable):
   yaml_tag = u'!SegmentingEncoder'
 
-  def __init__(self, embed_encoder=None, segment_transducer=None, lmbd_learning=None, learn_segmentation=True):
-    model = model_globals.dynet_param_collection.param_col
+  def __init__(self, context, embed_encoder=None, segment_transducer=None, lmbd_learning=None, learn_segmentation=True):
+    model = context.dynet_param_collection.param_col
 
     self.ctr = 0
     self.lmbd     = lmbd_learning["initial"]
@@ -144,7 +144,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     self.lmbd_min = lmbd_learning["min"]
     self.lmbd_grw = lmbd_learning["grow"]
     self.warmup   = lmbd_learning["warmup"]
-    self.builder = segmenting_encoder.SegmentingEncoderBuilder(embed_encoder, segment_transducer,
+    self.builder = xnmt.segmenting_encoder.SegmentingEncoderBuilder(embed_encoder, segment_transducer,
                                                                learn_segmentation, model)
 
     self.register_hier_child(self.builder)
@@ -172,12 +172,12 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
 
 class FullyConnectedEncoder(Encoder, Serializable):
   yaml_tag = u'!FullyConnectedEncoder'
-  def __init__(self, in_height, out_height, nonlinearity='linear'):
+  def __init__(self, context, in_height, out_height, nonlinearity='linear'):
     """
       :param in_height, out_height: input and output dimension of the affine transform
       :param nonlinearity: nonlinear activation function
     """
-    model = model_globals.dynet_param_collection.param_col
+    model = context.dynet_param_collection.param_col
     self.in_height = in_height
     self.out_height = out_height
     self.nonlinearity = nonlinearity
@@ -205,7 +205,7 @@ class FullyConnectedEncoder(Encoder, Serializable):
       output = 2*dy.logistic(l1) - 1
     elif self.nonlinearity is 'relu':
       output = dy.rectify(l1)
-    output_seq = expression_sequence.ExpressionSequence(expr_tensor=output)
+    output_seq = ExpressionSequence(expr_tensor=output)
     self._final_states = [FinalEncoderState(output_seq[-1])]
     return output_seq
 
@@ -220,7 +220,7 @@ class ConvConnectedEncoder(Encoder, Serializable):
     Embedding sequence has same length as Input sequence
     """
 
-  def __init__(self, input_dim, window_receptor,output_dim,num_layers,internal_dim,non_linearity='linear'):
+  def __init__(self, context, input_dim, window_receptor,output_dim,num_layers,internal_dim,non_linearity='linear'):
     """
       :param num_layers: num layers after first receptor conv
       :param input_dim: size of the inputs
@@ -230,7 +230,7 @@ class ConvConnectedEncoder(Encoder, Serializable):
       :param non_linearity: Non linearity to apply between layers
       """
 
-    model = model_globals.dynet_param_collection.param_col
+    model = context.dynet_param_collection.param_col
     self.input_dim = input_dim
     self.window_receptor = window_receptor
     self.internal_dim = internal_dim
@@ -304,7 +304,7 @@ class ConvConnectedEncoder(Encoder, Serializable):
     last_bias = dy.parameter(self.last_bias)
     output = dy.conv2d_bias(hidden_layer,last_conv,last_bias,stride=[1,1])
     output = dy.reshape(output, (sent_len,self.output_dim),batch_size=batch_size)
-    output_seq = expression_sequence.ExpressionSequence(expr_tensor=output)
+    output_seq = ExpressionSequence(expr_tensor=output)
     self._final_states = [FinalEncoderState(output_seq[-1])]
     return output_seq
 

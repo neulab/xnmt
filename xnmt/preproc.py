@@ -4,7 +4,7 @@ import sys
 import os.path
 import subprocess
 import yaml
-from serializer import Serializable
+from xnmt.serializer import Serializable
 
 ##### Preprocessors
 
