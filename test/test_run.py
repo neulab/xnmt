@@ -21,11 +21,8 @@ class TestRunningConfig(unittest.TestCase):
 #  def test_retrieval(self):
 #    run.main(["test/config/retrieval.yaml"])
 #
-#  def test_segmenting(self):
-#    run.main(["test/config/segmenting.yaml"])
-#
-#  def test_segmenting2(self):
-#    run.main(["test/config/segmenting2.yaml"])
+  def test_segmenting(self):
+    run.main(["test/config/segmenting.yaml"])
 
   def test_translator_report(self):
     run.main(["test/config/translator_report.yaml"])
