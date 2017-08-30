@@ -129,7 +129,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
  
       context = self.attender.calc_context(self.decoder.state.output())
       word_loss = self.decoder.calc_loss(context, ref_word)
-      if batcher.is_batched(src):
+      if batcher.is_batched(src) and trg_mask is not None:
         mask_exp = dy.inputTensor((1.0 - trg_mask)[:,i:i+1].transpose(),batched=True)
         word_loss = word_loss * mask_exp
       losses.append(word_loss)
