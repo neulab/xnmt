@@ -103,6 +103,13 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.report_type = kwargs.get("report_type", None)
 
   def calc_loss(self, src, trg, src_mask=None, trg_mask=None, info=None):
+    """
+    :param src: source sequence (unbatched, or batched + padded)
+    :param trg: target sequence (unbatched, or batched + padded)
+    :param src_mask: binary mask denoting src padding, passed to embedder
+    :param trg_mask: binary mask denoting trg padding; losses will be accumulated only if trg_mask[batch,pos]==0
+    :returns: (possibly batched) loss expression
+    """
     self.start_sent()
     embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
     encodings = self.encoder.transduce(embeddings)
@@ -111,20 +118,22 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.decoder.initialize(self.encoder.get_final_states())
     losses = []
 
-    max_len = max([len(single_trg) for single_trg in trg]) if batcher.is_batched(src) else len(trg)
-    for i in range(max_len):
+    seq_len = len(trg[0]) if batcher.is_batched(src) else len(trg)
+    if batcher.is_batched(src):
+      for j, single_trg in enumerate(trg):
+        assert len(single_trg) == seq_len # assert consistent length
+        assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
+    for i in range(seq_len):
       ref_word = trg[i] if not batcher.is_batched(src) \
-                      else batcher.mark_as_batch([single_trg[i] if i < len(single_trg) else Vocab.ES for single_trg in trg])
+                      else batcher.mark_as_batch([single_trg[i] for single_trg in trg])
  
       context = self.attender.calc_context(self.decoder.state.output())
       word_loss = self.decoder.calc_loss(context, ref_word)
       if batcher.is_batched(src):
-        # TODO: unnecessary, since we have trg_mask given?
-        mask_exp = dy.inputVector([1 if i < len(single_trg) else 0 for single_trg in trg])
-        mask_exp = dy.reshape(mask_exp, (1,), len(trg))
+        mask_exp = dy.inputTensor((1.0 - trg_mask)[:,i:i+1].transpose(),batched=True)
         word_loss = word_loss * mask_exp
       losses.append(word_loss)
-      if i<max_len-1:
+      if i < seq_len-1:
         self.decoder.add_input(self.trg_embedder.embed(ref_word))
 
     return dy.esum(losses)
