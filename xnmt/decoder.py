@@ -1,6 +1,5 @@
 import dynet as dy
 import serializer
-import model_globals
 import batcher
 import model
 import mlp
@@ -11,7 +10,6 @@ from decorators import recursive, recursive_assign
 # Short Name
 HierarchicalModel = model.HierarchicalModel
 Serializable = serializer.Serializable
-param_col = lambda: model_globals.dynet_param_collection.param_col
 
 class Decoder(HierarchicalModel):
   '''
@@ -44,15 +42,16 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
 
   yaml_tag = u'!MlpSoftmaxDecoder'
 
-  def __init__(self, vocab_size, layers=1, input_dim=None, lstm_dim=None,
+  def __init__(self, context, vocab_size, layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=False,
                bridge=None):
+    param_col = context.dynet_param_collection.param_col
     # Define dim
-    lstm_dim       = model_globals.default_if_none(lstm_dim)
-    mlp_hidden_dim = model_globals.default_if_none(mlp_hidden_dim)
-    trg_embed_dim  = model_globals.default_if_none(trg_embed_dim)
-    input_dim      = model_globals.default_if_none(input_dim)
+    lstm_dim       = lstm_dim or context.default_layer_dim
+    mlp_hidden_dim = mlp_hidden_dim or context.default_layer_dim
+    trg_embed_dim  = trg_embed_dim or context.default_layer_dim
+    input_dim      = input_dim or context.default_layer_dim
     # Input feeding
     self.input_feeding = input_feeding
     self.lstm_dim = lstm_dim
@@ -61,24 +60,24 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
       lstm_input += lstm_dim
     # Bridge
     self.lstm_layers = layers
-    self.bridge = bridge or NoBridge(self.lstm_layers, self.lstm_dim)
+    self.bridge = bridge or NoBridge(context, self.lstm_layers, self.lstm_dim)
 
     # LSTM
     self.fwd_lstm  = RnnDecoder.rnn_from_spec(spec       = rnn_spec,
                                               num_layers = layers,
                                               input_dim  = lstm_input,
                                               hidden_dim = lstm_dim,
-                                              model = param_col(),
+                                              model = param_col,
                                               residual_to_output = residual_to_output)
     # MLP
     self.context_projector = linear.Linear(input_dim  = input_dim + lstm_dim,
                                            output_dim = mlp_hidden_dim,
-                                           model = param_col())
+                                           model = param_col)
     self.vocab_projector = linear.Linear(input_dim = mlp_hidden_dim,
                                          output_dim = vocab_size,
-                                         model = param_col())
+                                         model = param_col)
     # Dropout
-    self.dropout = dropout or model_globals.get("dropout")
+    self.dropout = dropout or context.dropout
     # Mutable state
     self.state = None
     self.h_t = None
@@ -122,27 +121,27 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   def set_train(self, val):
     self.fwd_lstm.set_dropout(self.dropout if val else 0.0)
 
-class Bridge(Serializable):
+class Bridge(object):
   """
   Responsible for initializing the decoder LSTM, based on the final encoder state
   """
   def decoder_init(self, dec_layers, dec_dim, enc_final_states):
     raise NotImplementedError("decoder_init() must be implemented by Bridge subclasses")
 
-class NoBridge(Bridge):
+class NoBridge(Bridge, Serializable):
   """
   This bridge initializes the decoder with zero vectors, disregarding the encoder final states.
   """
   yaml_tag = u'!NoBridge'
-  def __init__(self, dec_layers, dec_dim = None):
+  def __init__(self, context, dec_layers, dec_dim = None):
     self.dec_layers = dec_layers
-    self.dec_dim = dec_dim or model_globals.get("default_layer_dim")
+    self.dec_dim = dec_dim or context.default_layer_dim
   def decoder_init(self, enc_final_states):
     batch_size = enc_final_states[0].main_expr().dim()[1]
     z = dy.zeros(self.dec_dim, batch_size)
     return [z] * (self.dec_layers * 2)
 
-class CopyBridge(Bridge):
+class CopyBridge(Bridge, Serializable):
   """
   This bridge copies final states from the encoder to the decoder initial states.
   Requires that:
@@ -150,9 +149,9 @@ class CopyBridge(Bridge):
   - num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
   """
   yaml_tag = u'!CopyBridge'
-  def __init__(self, dec_layers, dec_dim = None):
+  def __init__(self, context, dec_layers, dec_dim = None):
     self.dec_layers = dec_layers
-    self.dec_dim = dec_dim or model_globals.get("default_layer_dim")
+    self.dec_dim = dec_dim or context.default_layer_dim
   def decoder_init(self, enc_final_states):
     if self.dec_layers > len(enc_final_states): 
       raise RuntimeError("CopyBridge requires dec_layers <= len(enc_final_states), but got %s and %s" % (self.dec_layers, len(enc_final_states)))

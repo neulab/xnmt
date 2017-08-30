@@ -3,7 +3,6 @@ from __future__ import division, generators
 import numpy as np
 import dynet as dy
 import batcher
-import model_globals
 import six
 import model
 from decorators import recursive
@@ -46,7 +45,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   yaml_tag = u'!SimpleWordEmbedder'
 
-  def __init__(self, vocab_size, emb_dim = None, weight_noise = None, word_dropout = 0.0):
+  def __init__(self, context, vocab_size, emb_dim = None, weight_noise = None, word_dropout = 0.0):
     """
     :param vocab_size:
     :param emb_dim:
@@ -54,10 +53,10 @@ class SimpleWordEmbedder(Embedder, Serializable):
     :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287 
     """
     self.vocab_size = vocab_size
-    self.emb_dim = emb_dim or model_globals.get("default_layer_dim")
-    self.weight_noise = weight_noise or model_globals.get("weight_noise")
+    self.emb_dim = emb_dim or context.default_layer_dim
+    self.weight_noise = weight_noise or context.weight_noise
     self.word_dropout = word_dropout
-    self.embeddings = model_globals.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim))
+    self.embeddings = context.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim))
     self.word_id_mask = None
     self.train = False
 

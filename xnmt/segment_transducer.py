@@ -1,6 +1,5 @@
 import dynet as dy 
 import linear
-import model_globals
 import embedder
 import numpy
 

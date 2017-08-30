@@ -1,22 +1,18 @@
 import dynet as dy
 import os
+from serializer import Serializable
 
-dynet_param_collection = None
-
-model_globals = {
-  "dropout" : 0.0,
-  "weight_noise" : 0.0,
-  "default_layer_dim" : 512,
-}
-
-def get(key):
-  return model_globals.get(key)
-
-def default_if_none(value):
-  if not value:
-    return get("default_layer_dim")
-  else:
-    return value
+class ModelContext(Serializable):
+  yaml_tag = u'!ModelContext'
+  def __init__(self):
+    self.dropout = 0.0
+    self.weight_noise = 0.0
+    self.default_layer_dim = 512
+    self.dynet_param_collection = None
+    self.serialize_params = ["dropout", "weight_noise", "default_layer_dim"]
+  def update(self, other):
+    for param in self.serialize_params:
+      setattr(self, param, getattr(other, param))
 
 class PersistentParamCollection(object):
   def __init__(self, model_file, save_num_checkpoints=1):

@@ -21,7 +21,7 @@ from loss_tracker import *
 from preproc import SentenceFilterer
 from options import Option, OptionParser, general_options
 from loss import LossBuilder
-import model_globals
+from model_context import ModelContext, PersistentParamCollection
 import serializer
 import xnmt_decode
 import xnmt_evaluate
@@ -62,7 +62,7 @@ options = [
 ]
 
 class XnmtTrainer(object):
-  def __init__(self, args, need_deserialization=True, create_param_collection=True):
+  def __init__(self, args, need_deserialization=True, param_collection=None):
     """
     :param args: xnmt.options.Args instance corresponding to the options given above
     :param need_deserialization: Whether we need to invoke model_serializer.initialize_object on objects in args;
@@ -72,10 +72,13 @@ class XnmtTrainer(object):
 
     self.need_deserialization = need_deserialization
     self.args = args
-    if create_param_collection:
-      model_globals.dynet_param_collection = model_globals.PersistentParamCollection(self.args.model_file, self.args.save_num_checkpoints)
+    self.model_context = ModelContext()
+    if param_collection:
+      self.model_context.dynet_param_collection = param_collection
+    else:
+      self.model_context.dynet_param_collection = PersistentParamCollection(self.args.model_file, self.args.save_num_checkpoints)
 
-    self.trainer = self.dynet_trainer_for_args(args)
+    self.trainer = self.dynet_trainer_for_args(args, self.model_context)
 
     if args.lr_decay > 1.0 or args.lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
@@ -125,13 +128,13 @@ class XnmtTrainer(object):
     self.dev_src, self.dev_src_mask, self.dev_trg, self.dev_trg_mask = \
       self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
 
-  def dynet_trainer_for_args(self, args):
+  def dynet_trainer_for_args(self, args, model_context):
     if args.trainer.lower() == "sgd":
-      trainer = dy.SimpleSGDTrainer(model_globals.dynet_param_collection.param_col, args.learning_rate)
+      trainer = dy.SimpleSGDTrainer(model_context.dynet_param_collection.param_col, args.learning_rate)
     elif args.trainer.lower() == "adam":
-      trainer = dy.AdamTrainer(model_globals.dynet_param_collection.param_col, alpha = args.learning_rate)
+      trainer = dy.AdamTrainer(model_context.dynet_param_collection.param_col, alpha = args.learning_rate)
     elif args.trainer.lower() == "msgd":
-      trainer = dy.MomentumSGDTrainer(model_globals.dynet_param_collection.param_col, args.learning_rate, mom = args.momentum)
+      trainer = dy.MomentumSGDTrainer(model_context.dynet_param_collection.param_col, args.learning_rate, mom = args.momentum)
     else:
       raise RuntimeError("Unknown trainer {}".format(args.trainer))
     return trainer
@@ -141,24 +144,26 @@ class XnmtTrainer(object):
     self.corpus_parser = self.model_serializer.initialize_object(self.args.corpus_parser) if self.need_deserialization else self.args.corpus_parser
     self.corpus_parser.read_training_corpus(self.training_corpus)
     self.total_train_sent = len(self.training_corpus.train_src_data)
-    context = {"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
-    model_globals.model_globals["default_layer_dim"] = self.args.default_layer_dim
-    model_globals.model_globals["dropout"] = self.args.dropout
-    model_globals.model_globals["weight_noise"] = self.args.weight_noise
+    self.model_context.corpus_parser = self.corpus_parser
+    self.model_context.training_corpus = self.training_corpus
+    self.model_context.default_layer_dim = self.args.default_layer_dim
+    self.model_context.dropout = self.args.dropout
+    self.model_context.weight_noise = self.args.weight_noise
     if not self.args.model:
       raise RuntimeError("No model specified!")
-    self.model = self.model_serializer.initialize_object(self.args.model, context) if self.need_deserialization else self.args.model
+    self.model = self.model_serializer.initialize_object(self.args.model, self.model_context) if self.need_deserialization else self.args.model
 
   def load_corpus_and_model(self):
     self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus) if self.need_deserialization else self.args.training_corpus
-    corpus_parser, model, my_model_globals = self.model_serializer.load_from_file(self.args.pretrained_model_file, model_globals.dynet_param_collection)
+    corpus_parser, model, my_model_context = self.model_serializer.load_from_file(self.args.pretrained_model_file, self.model_context.dynet_param_collection)
     self.corpus_parser = self.model_serializer.initialize_object(corpus_parser) if self.need_deserialization else self.args.corpus_parser
     self.corpus_parser.read_training_corpus(self.training_corpus)
-    model_globals.model_globals = my_model_globals
+    self.model_context.update(my_model_context)
     self.total_train_sent = len(self.training_corpus.train_src_data)
-    context = {"corpus_parser" : self.corpus_parser, "training_corpus":self.training_corpus}
-    self.model = self.model_serializer.initialize_object(model, context) if self.need_deserialization else self.args.model
-    model_globals.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
+    self.model_context.corpus_parser = self.corpus_parser
+    self.model_context.training_corpus = self.training_corpus
+    self.model = self.model_serializer.initialize_object(model, self.model_context) if self.need_deserialization else self.args.model
+    self.model_context.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
 
 
 #  def read_data(self):
@@ -282,8 +287,8 @@ class XnmtTrainer(object):
         if self.logger.report_dev_and_check_model(self.args.model_file):
           if self.args.model_file is not None:
             self.model_serializer.save_to_file(self.args.model_file,
-                                               SerializeContainer(self.corpus_parser, self.model, model_globals.model_globals),
-                                               model_globals.dynet_param_collection)
+                                               SerializeContainer(self.corpus_parser, self.model, self.model_context),
+                                               self.model_context.dynet_param_collection)
           self.cur_attempt = 0
         else:
           # otherwise: learning rate decay / early stopping
@@ -299,7 +304,7 @@ class XnmtTrainer(object):
               if self.args.restart_trainer:
                 print('  restarting trainer and reverting learned weights to best checkpoint..')
                 self.trainer.restart()
-                model_globals.dynet_param_collection.revert_to_best_model()
+                self.model_context.dynet_param_collection.revert_to_best_model()
 
 
         self.model.set_train(True)

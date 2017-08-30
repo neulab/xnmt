@@ -3,7 +3,6 @@ import unittest
 import dynet_config
 import dynet as dy
 
-import xnmt.model_globals as model_globals
 from xnmt.translator import DefaultTranslator
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.encoder import LSTMEncoder
@@ -11,17 +10,19 @@ from xnmt.attender import StandardAttender
 from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
 from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
+from xnmt.model_context import ModelContext, PersistentParamCollection
 
 class TestForcedDecodingOutputs(unittest.TestCase):
   
   def setUp(self):
-    model_globals.dynet_param_collection = model_globals.PersistentParamCollection("some_file", 1)
+    self.model_context = ModelContext()
+    self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     self.model = DefaultTranslator(
-              src_embedder=SimpleWordEmbedder(vocab_size=100),
-              encoder=LSTMEncoder(),
-              attender=StandardAttender(),
-              trg_embedder=SimpleWordEmbedder(vocab_size=100),
-              decoder=MlpSoftmaxDecoder(vocab_size=100),
+              src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
+              encoder=LSTMEncoder(self.model_context),
+              attender=StandardAttender(self.model_context),
+              trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
     self.model.set_train(False)
     self.model.initialize_generator()
@@ -47,13 +48,14 @@ class TestForcedDecodingOutputs(unittest.TestCase):
 class TestForcedDecodingLoss(unittest.TestCase):
 
   def setUp(self):
-    model_globals.dynet_param_collection = model_globals.PersistentParamCollection("some_file", 1)
+    self.model_context = ModelContext()
+    self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     self.model = DefaultTranslator(
-              src_embedder=SimpleWordEmbedder(vocab_size=100),
-              encoder=LSTMEncoder(),
-              attender=StandardAttender(),
-              trg_embedder=SimpleWordEmbedder(vocab_size=100),
-              decoder=MlpSoftmaxDecoder(vocab_size=100, bridge=CopyBridge(dec_layers=1)),
+              src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
+              encoder=LSTMEncoder(self.model_context),
+              attender=StandardAttender(self.model_context),
+              trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )
     self.model.set_train(False)
     self.model.initialize_generator()
@@ -81,13 +83,14 @@ class TestForcedDecodingLoss(unittest.TestCase):
 class TestFreeDecodingLoss(unittest.TestCase):
 
   def setUp(self):
-    model_globals.dynet_param_collection = model_globals.PersistentParamCollection("some_file", 1)
+    self.model_context = ModelContext()
+    self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     self.model = DefaultTranslator(
-              src_embedder=SimpleWordEmbedder(vocab_size=100),
-              encoder=LSTMEncoder(),
-              attender=StandardAttender(),
-              trg_embedder=SimpleWordEmbedder(vocab_size=100),
-              decoder=MlpSoftmaxDecoder(vocab_size=100, bridge=CopyBridge(dec_layers=1)),
+              src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
+              encoder=LSTMEncoder(self.model_context),
+              attender=StandardAttender(self.model_context),
+              trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )
     self.model.set_train(False)
     self.model.initialize_generator()

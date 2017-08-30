@@ -15,7 +15,6 @@ import numpy as np
 
 # XNMT imports
 import copy
-import model_globals
 import xnmt_preproc, xnmt_train, xnmt_decode, xnmt_evaluate
 from options import OptionParser, Option
 from tee import Tee
@@ -131,7 +130,7 @@ def main(overwrite_args=None):
 
     if not exp_args.eval_only:
       print('reverting learned weights to best checkpoint..')
-      model_globals.dynet_param_collection.revert_to_best_model()
+      xnmt_trainer.model_context.dynet_param_collection.revert_to_best_model()
     if evaluators:
       print("> Evaluating test set")
       output.indent += 2

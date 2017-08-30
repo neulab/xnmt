@@ -5,7 +5,6 @@ import dynet as dy
 import expression_sequence
 from model import HierarchicalModel
 from serializer import Serializable
-import model_globals
 from decorators import recursive
 from expression_sequence import ExpressionSequence
 from reports import Reportable
@@ -61,11 +60,11 @@ class IdentityEncoder(Encoder, Serializable):
 class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
 
-  def __init__(self, input_dim=None, layers=1, hidden_dim=None, dropout=None, bidirectional=True):
-    model = model_globals.dynet_param_collection.param_col
-    input_dim = input_dim or model_globals.get("default_layer_dim")
-    hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
-    dropout = dropout or model_globals.get("dropout")
+  def __init__(self, context, input_dim=None, layers=1, hidden_dim=None, dropout=None, bidirectional=True):
+    model = context.dynet_param_collection.param_col
+    input_dim = input_dim or context.default_layer_dim
+    hidden_dim = hidden_dim or context.default_layer_dim
+    dropout = dropout or context.dropout
     self.input_dim = input_dim
     self.layers = layers
     self.hidden_dim = hidden_dim
@@ -82,10 +81,10 @@ class LSTMEncoder(BuilderEncoder, Serializable):
 class ResidualLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!ResidualLSTMEncoder'
 
-  def __init__(self, input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
-    model = model_globals.dynet_param_collection.param_col
-    hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
-    dropout = dropout or model_globals.get("dropout")
+  def __init__(self, context, input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
+    model = context.dynet_param_collection.param_col
+    hidden_dim = hidden_dim or context.default_layer_dim
+    dropout = dropout or context.dropout
     self.dropout = dropout
     if bidirectional:
       self.builder = residual.ResidualBiRNNBuilder(layers, input_dim, hidden_dim, model, residual_to_output)
@@ -99,12 +98,12 @@ class ResidualLSTMEncoder(BuilderEncoder, Serializable):
 class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!PyramidalLSTMEncoder'
 
-  def __init__(self, input_dim=512, layers=1, hidden_dim=None, downsampling_method="skip", reduce_factor=2, dropout=None):
-    hidden_dim = hidden_dim or model_globals.get("default_layer_dim")
-    dropout = dropout or model_globals.get("dropout")
+  def __init__(self, context, input_dim=512, layers=1, hidden_dim=None, downsampling_method="skip", reduce_factor=2, dropout=None):
+    hidden_dim = hidden_dim or context.default_layer_dim
+    dropout = dropout or context.dropout
     self.dropout = dropout
     self.builder = pyramidal.PyramidalRNNBuilder(layers, input_dim, hidden_dim,
-                                                 model_globals.dynet_param_collection.param_col,
+                                                 context.dynet_param_collection.param_col,
                                                  downsampling_method, reduce_factor)
 
   @recursive
@@ -129,13 +128,16 @@ class ModularEncoder(Encoder, Serializable):
     return sent
 
   def get_final_states(self):
-    return reduce(lambda x, y: x.get_final_states() + y.get_final_states(), self.modules)
+    final_states = []
+    for mod in self.modules:
+      final_states += mod.get_final_states()
+    return final_states
 
 class SegmentingEncoder(Encoder, Serializable, Reportable):
   yaml_tag = u'!SegmentingEncoder'
 
-  def __init__(self, embed_encoder=None, segment_transducer=None, lmbd_learning=None, learn_segmentation=True):
-    model = model_globals.dynet_param_collection.param_col
+  def __init__(self, context, embed_encoder=None, segment_transducer=None, lmbd_learning=None, learn_segmentation=True):
+    model = context.dynet_param_collection.param_col
 
     self.ctr = 0
     self.lmbd     = lmbd_learning["initial"]
@@ -171,12 +173,12 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
 
 class FullyConnectedEncoder(Encoder, Serializable):
   yaml_tag = u'!FullyConnectedEncoder'
-  def __init__(self, in_height, out_height, nonlinearity='linear'):
+  def __init__(self, context, in_height, out_height, nonlinearity='linear'):
     """
       :param in_height, out_height: input and output dimension of the affine transform
       :param nonlinearity: nonlinear activation function
     """
-    model = model_globals.dynet_param_collection.param_col
+    model = context.dynet_param_collection.param_col
     self.in_height = in_height
     self.out_height = out_height
     self.nonlinearity = nonlinearity
@@ -219,7 +221,7 @@ class ConvConnectedEncoder(Encoder, Serializable):
     Embedding sequence has same length as Input sequence
     """
 
-  def __init__(self, input_dim, window_receptor,output_dim,num_layers,internal_dim,non_linearity='linear'):
+  def __init__(self, context, input_dim, window_receptor,output_dim,num_layers,internal_dim,non_linearity='linear'):
     """
       :param num_layers: num layers after first receptor conv
       :param input_dim: size of the inputs
@@ -229,7 +231,7 @@ class ConvConnectedEncoder(Encoder, Serializable):
       :param non_linearity: Non linearity to apply between layers
       """
 
-    model = model_globals.dynet_param_collection.param_col
+    model = context.dynet_param_collection.param_col
     self.input_dim = input_dim
     self.window_receptor = window_receptor
     self.internal_dim = internal_dim
