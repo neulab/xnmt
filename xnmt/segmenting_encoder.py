@@ -73,7 +73,6 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     # Whether to learn deletion or not
     self.learn_delete = learn_delete
     # Other Parameters
-    self.P0 = model.add_parameters(segment_transducer.encoder.hidden_dim)
     self.length_prior = length_prior
     self.lmbd = reinforcement_param
 
@@ -152,7 +151,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
         self.segment_transducer.next_item()
     # Padding
     max_col = max(len(xs) for xs in outputs)
-    P0 = dy.parameter(self.P0)
+    P0 = dy.vecInput(self.segment_transducer.encoder.hidden_dim)
     def pad(xs):
       deficit = max_col - len(xs)
       if deficit > 0:
