@@ -3,7 +3,6 @@ from xnmt.serializer import Serializable
 import xnmt.batcher
 from xnmt.model import HierarchicalModel
 import xnmt.linear
-
 from xnmt.decorators import recursive, recursive_assign
 
 class Decoder(HierarchicalModel):
@@ -81,10 +80,11 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     return [set(["layers", "bridge.dec_layers"]),
             set(["lstm_dim", "bridge.dec_dim"])]
 
-  def initialize(self, enc_final_states):
+  def initialize(self, enc_final_states, ss_expr):
     dec_state = self.fwd_lstm.initial_state()
     self.state = dec_state.set_s(self.bridge.decoder_init(enc_final_states))
     self.h_t = None
+    self.add_input(ss_expr)
 
   def add_input(self, trg_embedding):
     inp = trg_embedding

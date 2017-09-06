@@ -17,6 +17,8 @@ from xnmt.model import GeneratorModel
 from xnmt.reports import Reportable
 from xnmt.decorators import recursive_assign, recursive
 import xnmt.serializer
+from xnmt.batcher import mark_as_batch, is_batched
+from xnmt.vocab import Vocab
 
 # Reporting purposes
 from lxml import etree
@@ -116,7 +118,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     encodings = self.encoder.transduce(embeddings)
     self.attender.init_sent(encodings)
     # Initialize the hidden state from the encoder
-    self.decoder.initialize(self.encoder.get_final_states())
+    ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
+    self.decoder.initialize(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
     losses = []
 
     seq_len = len(trg[0]) if xnmt.batcher.is_batched(src) else len(trg)
@@ -150,7 +153,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
       encodings = self.encoder.transduce(embeddings)
       self.attender.init_sent(encodings)
-      self.decoder.initialize(self.encoder.get_final_states())
+      ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
+      self.decoder.initialize(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
       output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents), forced_trg_ids=forced_trg_ids)
       # In case of reporting
       if self.report_path is not None:
