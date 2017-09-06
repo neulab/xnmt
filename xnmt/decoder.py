@@ -100,7 +100,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     self.state = self.state.add_input(inp)
 
   def get_scores(self, context):
-    self.h_t = self.context_projector(dy.concatenate([context, self.state.output()]))
+    self.h_t = dy.tanh(self.context_projector(dy.concatenate([context, self.state.output()])))
     return self.vocab_projector(self.h_t)
 
   def calc_loss(self, context, ref_action):
