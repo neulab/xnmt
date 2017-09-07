@@ -139,7 +139,7 @@ class ReversedExpressionSequence(ExpressionSequence):
     if base_expr_seq.mask is None:
       self.mask = None
     else:
-      self.mask = base_expr_seq.mask[::-1]
+      self.mask = base_expr_seq.mask[:,::-1]
     
   def __len__(self):
     return len(self.base_expr_seq)
