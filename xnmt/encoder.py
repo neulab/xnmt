@@ -38,6 +38,7 @@ class BuilderEncoder(Encoder):
   def __init__(self):
     self._final_states = None
   def transduce(self, sent):
+    sent = ExpressionSequence(expr_list = sent.as_list(), mask=None) # TODO: debug, remove
     output = self.builder.transduce(sent)
     if not isinstance(output, ExpressionSequence):
       output = ExpressionSequence(expr_list=output)

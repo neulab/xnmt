@@ -51,7 +51,7 @@ class TestBatchVariantsEqual(unittest.TestCase):
     xnmt_trainer.model_context = self.model_context
     
     self.model_context.dynet_param_collection.save()
-    for _ in range(10):
+    for _ in range(1):
       xnmt_trainer.run_epoch(update_weights=True)
     loss_unshuffled = xnmt_trainer.logger.epoch_loss.loss_values['loss']
     print("loss_unshuffled:", loss_unshuffled)
@@ -95,7 +95,7 @@ class TestBatchVariantsEqual(unittest.TestCase):
 
     self.model_context.dynet_param_collection.revert_to_best_model()
 
-    for _ in range(10):
+    for _ in range(1):
       xnmt_trainer.run_epoch(update_weights=True)
     loss_shuffled = xnmt_trainer.logger.epoch_loss.loss_values['loss']
     print("loss_shuffled:", loss_shuffled)
