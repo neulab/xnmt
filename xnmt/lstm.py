@@ -140,14 +140,14 @@ class CustomCompactLSTMBuilder(object):
         gates_t = dy.vanilla_lstm_gates_concat(x_t, h[-1], self.Wx, self.Wh, self.b, self.weightnoise_std)
       c_t = dy.vanilla_lstm_c(c[-1], gates_t)
       h_t = dy.vanilla_lstm_h(c_t, gates_t)
-      if expr_seq[0].mask is None:
-        c.append(c_t)
-        h.append(h_t)
-      else:
-        mask_expr = dy.inputTensor(np.expand_dims(expr_seq[0].mask.transpose(), axis=1)[pos_i:pos_i+1], batched=True)
-        inv_mask_expr = dy.inputTensor(1.0 - np.expand_dims(expr_seq[0].mask.transpose(), axis=1)[pos_i:pos_i+1], batched=True)
-        c.append(dy.cmult(c_t, inv_mask_expr) + dy.cmult(c[-1], mask_expr))
-        h.append(dy.cmult(h_t, inv_mask_expr) + dy.cmult(h[-1], mask_expr))
+#      if expr_seq[0].mask is None:
+      c.append(c_t)
+      h.append(h_t)
+#      else:
+#        mask_expr = dy.inputTensor(np.expand_dims(expr_seq[0].mask.transpose(), axis=1)[pos_i:pos_i+1], batched=True)
+#        inv_mask_expr = dy.inputTensor(1.0 - np.expand_dims(expr_seq[0].mask.transpose(), axis=1)[pos_i:pos_i+1], batched=True)
+#        c.append(dy.cmult(c_t, inv_mask_expr) + dy.cmult(c[-1], mask_expr))
+#        h.append(dy.cmult(h_t, inv_mask_expr) + dy.cmult(h[-1], mask_expr))
     self._final_states = [FinalEncoderState(h[-1], c[-1])]
     return ExpressionSequence(expr_list=h[1:], mask=expr_seq[0].mask)
   

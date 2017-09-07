@@ -24,6 +24,7 @@ from xnmt.model_context import ModelContext, PersistentParamCollection
 class TestBatchVariantsEqual(unittest.TestCase):
   
   def test_shuffled_trainfile_1(self):
+    # PART 1
     tmp_dir = "examples/output/"
     self.model_context = ModelContext()
     self.model_context.default_layer_dim = 8
