@@ -1,6 +1,8 @@
 from __future__ import print_function
 
 import sys
+import math
+import numpy as np
 import dynet as dy
 from xnmt.model import HierarchicalModel
 from xnmt.serializer import Serializable
@@ -33,12 +35,21 @@ class Encoder(HierarchicalModel):
   def get_final_state(self):
     """ Return the state that represents the transduced sequence """
     return NotImplementedError('Unimplemented get_final_state for class:', self.__class__.__name__)
+  def get_enc_mask(self, input_sent, output_sent):
+    """
+    :param input_sent:
+    :param output_sent:
+    :returns: numpy array or None
+    """
+    assert len(input_sent) == len(output_sent), "encoders that change the sequence length must overwrite get_enc_mask"
+    return input_sent.mask
 
 class BuilderEncoder(Encoder):
   def __init__(self):
     self._final_states = None
   def transduce(self, sent):
-    output = ExpressionSequence(expr_list=self.builder.transduce(sent))
+    sent_transd = self.builder.transduce(sent)
+    output = ExpressionSequence(expr_list=sent_transd, mask=self.get_enc_mask(sent, sent_transd))
     if hasattr(self.builder, "get_final_states"):
       self._final_states = self.builder.get_final_states()
     else:
@@ -109,12 +120,18 @@ class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
+  def get_enc_mask(self, input_sent, output_sent):
+    if input_sent.mask is None: return None
+    reduce_factor = math.ceil(float(len(input_sent)) / len(output_sent))
+    return np.array([[input_sent.mask[b,int(i*reduce_factor)] for i in range(len(output_sent))] for b in range(len(input_sent.mask))])
+
 class ModularEncoder(Encoder, Serializable):
   yaml_tag = u'!ModularEncoder'
 
   def __init__(self, input_dim, modules):
     self.modules = modules
-
+    self.mask = None
+    
     for module in self.modules:
       self.register_hier_child(module)
 
@@ -122,8 +139,11 @@ class ModularEncoder(Encoder, Serializable):
     return [set(["input_dim", "modules.0.input_dim"])]
 
   def transduce(self, sent):
+    self.mask = sent.mask
     for module in self.modules:
-      sent = module.transduce(sent)
+      enc_sent = module.transduce(sent)
+      self.mask = module.get_enc_mask(sent, enc_sent)
+      sent = enc_sent
     return sent
 
   def get_final_states(self):
@@ -131,6 +151,9 @@ class ModularEncoder(Encoder, Serializable):
     for mod in self.modules:
       final_states += mod.get_final_states()
     return final_states
+
+  def get_enc_mask(self, input_sent, output_sent):
+    return self.mask
 
 class SegmentingEncoder(Encoder, Serializable, Reportable):
   yaml_tag = u'!SegmentingEncoder'
@@ -160,6 +183,9 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
   @recursive
   def set_train(self, val):
     pass
+
+  def get_enc_mask(self, input_sent, output_sent):
+    return None
 
   def new_epoch(self):
     self.ctr += 1
@@ -211,6 +237,8 @@ class FullyConnectedEncoder(Encoder, Serializable):
 
   def initial_state(self):
     return PseudoState(self)
+  def get_enc_mask(self, input_sent, output_sent):
+    return None
 
 class ConvConnectedEncoder(Encoder, Serializable):
   yaml_tag = u'!ConvConnectedEncoder'
@@ -307,6 +335,8 @@ class ConvConnectedEncoder(Encoder, Serializable):
     output_seq = ExpressionSequence(expr_tensor=output)
     self._final_states = [FinalEncoderState(output_seq[-1])]
     return output_seq
+  def get_enc_mask(self, input_sent, output_sent):
+    return None
 
   def initial_state(self):
     return PseudoState(self)
