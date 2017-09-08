@@ -12,7 +12,7 @@ class ExpressionSequence(object):
 
     :param expr_list: a python list of expressions
     :param expr_tensor: a tensor where highest dimension are the sequence items
-    :param mask: a numpy array consisting of whether things should be batched or not
+    :param mask: a numpy array consisting of whether things should be masked or not
     :raises valueError:
       raises an exception if neither expr_list nor expr_tensor are given,
       or if both have inconsistent length
@@ -58,6 +58,12 @@ class ExpressionSequence(object):
     if self.expr_list is None:
       self.expr_list = [self[i] for i in range(len(self))]
     return self.expr_list
+  
+  def has_list(self):
+    """
+    :returns: False if as_list() will result in creating additional expressions, True otherwise
+    """
+    return self.expr_list is not None
 
   def as_tensor(self):
     """Get a tensor.
@@ -66,6 +72,12 @@ class ExpressionSequence(object):
     if self.expr_tensor is None:
       self.expr_tensor = dy.concatenate_cols(self.expr_list)
     return self.expr_tensor
+  
+  def has_tensor(self):
+    """
+    :returns: False if as_tensor() will result in creating additional expressions, True otherwise
+    """
+    return self.expr_tensor is not None
 
   def apply_additive_mask(self, val):
     """Add a constant to all masked values
@@ -115,3 +127,49 @@ class LazyNumpyExpressionSequence(ExpressionSequence):
     if not (self.expr_list or self.expr_tensor):
       self.expr_tensor = dy.inputTensor(self.lazy_data, batched=xnmt.batcher.is_batched(self.lazy_data))
     return super(LazyNumpyExpressionSequence, self).as_tensor()
+
+class ReversedExpressionSequence(ExpressionSequence):
+  """
+  A reversed expression sequences, where expressions are created in a lazy fashion
+  """
+  def __init__(self, base_expr_seq):
+    self.base_expr_seq = base_expr_seq
+    self.expr_tensor = None
+    self.expr_list = None
+    if base_expr_seq.mask is None:
+      self.mask = None
+    else:
+      self.mask = base_expr_seq.mask[:,::-1]
+    
+  def __len__(self):
+    return len(self.base_expr_seq)
+
+  def __iter__(self):
+    if self.expr_list is None:
+      self.expr_list = list(reversed(self.base_expr_seq.as_list()))
+    return iter(self.expr_list)
+  
+  def __getitem__(self, key):
+    return self.base_expr_seq[len(self) - key - 1]
+
+  def as_list(self):
+    if self.expr_list is None:
+      self.expr_list = list(reversed(self.base_expr_seq.as_list()))
+    return self.expr_list
+  
+  def has_list(self):
+    return self.base_expr_seq.has_list()
+
+  def as_tensor(self):
+    # note: this is quite memory hungry and should be avoided if possible
+    if self.expr_tensor is None:
+      if self.expr_list is None:
+        self.expr_list = list(reversed(self.base_expr_seq.as_list()))
+      self.expr_tensor = dy.concatenate_cols(self.expr_list)
+    return self.expr_tensor
+  
+  def has_tensor(self):
+    return self.expr_tensor is not None
+    
+    
+    

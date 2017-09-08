@@ -48,8 +48,9 @@ class BuilderEncoder(Encoder):
   def __init__(self):
     self._final_states = None
   def transduce(self, sent):
-    sent_transd = self.builder.transduce(sent)
-    output = ExpressionSequence(expr_list=sent_transd, mask=self.get_enc_mask(sent, sent_transd))
+    output = self.builder.transduce(sent)
+    if not isinstance(output, ExpressionSequence):
+      output = ExpressionSequence(expr_list=output, mask=self.get_enc_mask(sent, output))
     if hasattr(self.builder, "get_final_states"):
       self._final_states = self.builder.get_final_states()
     else:
