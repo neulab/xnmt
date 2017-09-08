@@ -119,7 +119,10 @@ class CustomCompactLSTMBuilder(object):
     self.initial_state()
     if isinstance(expr_seq, ExpressionSequence):
       expr_seq = [expr_seq]
-    batch_size = expr_seq[0][0].dim()[1]
+    try:
+      batch_size = expr_seq[0][0].dim()[1]
+    except AttributeError: 
+      batch_size = expr_seq[0][0].dim()[1]
     seq_len = len(expr_seq[0])
     
     if self.dropout_rate > 0.0:

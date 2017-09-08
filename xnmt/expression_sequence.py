@@ -25,6 +25,13 @@ class ExpressionSequence(object):
     if self.expr_list and self.expr_tensor:
       if len(self.expr_list) != self.expr_tensor.dim()[0][0]:
         raise ValueError("expr_list and expr_tensor must be of same length")
+    if expr_list:
+      if not isinstance(expr_list,list): 
+        raise ValueError("expr_list must be list, was:", type(expr_list))
+      if not isinstance(expr_list[0],dy.Expression): 
+        raise ValueError("expr_list must contain dynet expressions, found:", type(expr_list[0]))
+    if expr_tensor:
+      if not isinstance(expr_tensor,dy.Expression): raise ValueError("expr_tensor must be dynet expression, was:", type(expr_tensor))
 
   def __len__(self):
     """Return length.
