@@ -8,6 +8,7 @@ import dynet as dy
 from enum import Enum
 from xml.sax.saxutils import escape, unescape
 from lxml import etree
+from scipy.stats import poisson
 
 import xnmt.segment_transducer as segment_transducer
 import xnmt.linear as linear
@@ -134,6 +135,8 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     # Buffer for output
     buffers = [[] for _ in range(batch_size)]
     outputs = [[] for _ in range(batch_size)]
+    last_segment = [-1 for _ in range(batch_size)]
+    length_prior = [0 for _ in range(batch_size)]
     self.segment_transducer.set_input_size(batch_size, len(encodings))
     # Loop through all the frames (word / item) in input.
     for j, (encoding, segment_decision) in enumerate(six.moves.zip(encodings, segment_decisions)):
@@ -152,6 +155,9 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
           transduce_output = self.segment_transducer.transduce(expr_seq)
           outputs[i].append(transduce_output)
           buffers[i] = []
+          # Calculate length prior
+          length_prior[i] += numpy.log(poisson.pmf(j - last_segment[i], self.length_prior))
+          last_segment[i] = j
         self.segment_transducer.next_item()
     # Padding
     max_col = max(len(xs) for xs in outputs)
@@ -167,6 +173,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
       lmbd = self.lmbd.get_value(self.warmup_counter)
       self.segment_decisions = segment_decisions
       self.segment_logsoftmaxes = segment_logsoftmaxes
+      self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
       self.bs = list(six.moves.map(lambda x: self.baseline(dy.nobackprop(x)), encodings))
     if not self.train:
       self.set_report_input(segment_decisions)
@@ -190,6 +197,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
   def calc_additional_loss(self, reward):
     if self.learn_segmentation:
       lmbd = self.lmbd.get_value(self.warmup_counter)
+      reward += self.segment_length_prior
       ret = LossBuilder()
       reinforce_loss = []
       baseline_loss = []
