@@ -19,6 +19,7 @@ from xnmt.reports import Reportable
 from xnmt.serializer import Serializable
 from xnmt.encoder import Encoder
 from xnmt.encoder_state import FinalEncoderState
+from xnmt.loss import LossBuilder
 
 class SegmentingAction(Enum):
   """
@@ -67,7 +68,10 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     self.segment_transform = linear.Linear(input_dim  = embed_encoder.hidden_dim,
                                            output_dim = 3 if learn_delete else 2,
                                            model=model)
-
+    # The baseline linear regression model
+    self.baseline = linear.Linear(input_dim = embed_encoder.hidden_dim,
+                                  output_dim = 1,
+                                  model = model)
     # Whether to learn segmentation or not
     self.learn_segmentation = learn_segmentation
     # Whether to learn deletion or not
@@ -160,8 +164,10 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     outputs = dy.concatenate_to_batch(list(six.moves.map(lambda xs: dy.concatenate_cols(pad(xs)), outputs)))
     # Packing output together
     if self.train and self.learn_segmentation:
+      lmbd = self.lmbd.get_value(self.warmup_counter)
       self.segment_decisions = segment_decisions
       self.segment_logsoftmaxes = segment_logsoftmaxes
+      self.bs = list(six.moves.map(lambda x: self.baseline(dy.nobackprop(x)), encodings))
     if not self.train:
       self.set_report_input(segment_decisions)
     self._final_encoder_state = [FinalEncoderState(encodings[-1])]
@@ -182,17 +188,23 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
 
   @recursive_sum
   def calc_additional_loss(self, reward):
-    # TODO(philip30): fix this
-    lmbd = self.lmbd.get_value(self.warmup_counter)
-    if self.learn_segmentation and lmbd > 0:
-      segment_logprob = None
-      for log_softmax, segment_decision in six.moves.zip(self.segment_logsoftmaxes, self.segment_decisions):
-        ll = dy.pick_batch(log_softmax, segment_decision)
-        if not segment_logprob:
-          segment_logprob = ll
-        else:
-          segment_logprob += ll
-      return (segment_logprob + self.segment_transducer.disc_ll()) * reward * lmbd
+    if self.learn_segmentation:
+      lmbd = self.lmbd.get_value(self.warmup_counter)
+      ret = LossBuilder()
+      reinforce_loss = []
+      baseline_loss = []
+      # Calculating the loss of the baseline and reinforce
+      for i, baseline in enumerate(self.bs):
+        baseline_loss.append(dy.squared_distance(reward, baseline))
+        if lmbd > 0:
+          ll = dy.pick_batch(self.segment_logsoftmaxes[i], self.segment_decisions[i])
+          r_i = reward - baseline
+          reinforce_loss.append(r_i * -dy.exp(ll))
+      # Putting up all the losses
+      if lmbd > 0:
+        ret.add_loss("Reinforce", dy.esum(reinforce_loss) * lmbd)
+      ret.add_loss("Baseline", dy.esum(baseline_loss))
+      return ret
     else:
       return None
 
@@ -205,8 +217,9 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     # construct the sub element from string
     segmented = self.apply_segmentation(src_words, segment_decision)
     segmented = [(x if not delete else ("<font color='red'><del>" + x + "</del></font>")) for x, delete in segmented]
-    segment_html = "<p>Segmentation: " + ", ".join(segmented) + "</p>"
-    main_content.insert(2, etree.fromstring(segment_html))
+    if len(segmented) > 0:
+      segment_html = "<p>Segmentation: " + ", ".join(segmented) + "</p>"
+      main_content.insert(2, etree.fromstring(segment_html))
 
     return context
 
@@ -217,9 +230,9 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     src_words = self.get_report_resource("src_words")
     segmented = self.apply_segmentation(src_words, segment_decision)
     segmented = [x for x, delete in segmented]
-
-    with io.open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
-      print(" ".join(segmented[:-1]), file=segmentation_file)
+    if len(segmented) > 0:
+      with io.open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
+        print(" ".join(segmented[:-1]), file=segmentation_file)
 
   def apply_segmentation(self, words, segmentation):
     assert(len(words) == len(segmentation))

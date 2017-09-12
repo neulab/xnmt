@@ -48,8 +48,8 @@ def recursive_sum(f):
     for member in obj.get_hier_children():
       if hasattr(member, name):
         result_child = getattr(member, name)(*args, **kwargs)
-        if result_child:
-          if not result_parent:
+        if result_child is not None:
+          if result_parent is None:
             result_parent = result_child
           else:
             result_parent += result_child
