@@ -81,6 +81,12 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     return [set(["layers", "bridge.dec_layers"]),
             set(["lstm_dim", "bridge.dec_dim"])]
 
+  def get_state(self):
+    return (self.state, self.h_t)
+
+  def set_state(self, params):
+    self.state, self.h_t = params
+
   def initialize(self, enc_final_states):
     dec_state = self.fwd_lstm.initial_state()
     self.state = dec_state.set_s(self.bridge.decoder_init(enc_final_states))
