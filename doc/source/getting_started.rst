@@ -7,6 +7,8 @@ Prerequisites
 Before running ``xnmt`` you must install the Python bindings for
 `DyNet <http://github.com/clab/dynet>`_.
 
+Please run ``python setup.py install`` for normal usage or ``python setup.py develop`` for development.
+
 Training/testing a Model
 ------------------------
 
