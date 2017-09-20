@@ -1,8 +1,11 @@
 from __future__ import division, generators
 import numpy as np
-from collections import defaultdict, Counter
 import math
 import six
+import functools
+from collections import defaultdict, Counter, deque
+
+from xnmt.vocab import Vocab
 
 class EvalScore(object):
   def higher_is_better(self):
@@ -111,20 +114,58 @@ class Evaluator(object):
   """
     raise NotImplementedError('metric_name must be implemented in Evaluator subclasses')
 
+  def evaluate_fast(self, ref, hyp):
+    raise NotImplementedError('evaluate_fast is not implemented for:', self.__class__.__name__)
+
+def numeric_ngram_stats(sentence, gram):
+  stats = [defaultdict(int) for _ in range(gram)]
+  for ngram in range(gram):
+    window = deque()
+    for word in sentence:
+      if word == Vocab.ES:
+        continue
+      window.append(word)
+      if len(window) > ngram+1:
+        window.popleft()
+      if len(window) == ngram+1:
+        stats[ngram][hash(tuple(window))] += 1
+  return stats
+
 class BLEUEvaluator(Evaluator):
   # Class for computing BLEU Scores accroding to
   # K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
-  def __init__(self, ngram=4):
+  def __init__(self, ngram=4, smooth=1):
     """
     :param ngram: default value of 4 is generally used
     """
     self.ngram = ngram
     self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
+    self.smooth = smooth
     self.reference_corpus = None
     self.candidate_corpus = None
 
   def metric_name(self):
     return "BLEU%d score" % (self.ngram)
+
+  def evaluate_fast(self, ref, hyp):
+    ''' Copied from nmtrain toolkit (tested).'''
+    hyp_stats = numeric_ngram_stats(hyp, gram=self.ngram)
+    ref_stats = numeric_ngram_stats(ref, gram=self.ngram)
+    log_precision = 0
+    for i, (hyp_stat, ref_stat) in enumerate(zip(hyp_stats, ref_stats)):
+      tp, denom = 0, 0
+      for word, word_count in hyp_stat.items():
+        tp += min(word_count, ref_stat.get(word, 0))
+      denom = sum(hyp_stat.values())
+      log_precision += math.log((tp + self.smooth) / (denom + self.smooth))
+    len_hyp = len(hyp)
+    len_ref = len(ref)
+    if len(ref) != 0 and len_hyp < len_ref:
+      log_bp = 1 - (len_ref / len_hyp)
+    else:
+      log_bp = 0
+    score =  math.exp(log_precision / self.ngram + log_bp)
+    return score
 
   # Doc to be added
   def evaluate(self, ref, hyp):

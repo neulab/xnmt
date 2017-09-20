@@ -17,6 +17,7 @@ from xnmt.model import GeneratorModel
 from xnmt.reports import Reportable
 from xnmt.decorators import recursive_assign, recursive
 import xnmt.serializer
+import xnmt.evaluator
 
 # Reporting purposes
 from lxml import etree
@@ -235,17 +236,34 @@ class TranslatorMLELoss(Serializable):
 
     return dy.esum(losses)
 
-def sample_sequence_from_softmax(translator, length):
-  for _ in range(length):
-    context = self.attender.calc_context(self.decoder.state.output())
-    scores = self.decoder.get_scores(context)
-
 class TranslatorReinforceLoss(Serializable):
   yaml_tag = '!TranslatorReinforceLoss'
 
-  def __init__(self, evaluation_metric, sample_length=50):
+  def __init__(self, evaluation_metric=None, sample_length=50):
     self.sample_length = sample_length
-    self.evaluation_metric = evaluation_metric
+    if evaluation_metric is None:
+      self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(4)
+    else:
+      self.evaluation_metric = evaluation_metric
 
   def __call__(self, translator, src, trg, src_mask, trg_mask):
-    sequence = 1
+    samples = []
+    logsofts = []
+    for i in range(self.sample_length):
+      context = translator.attender.calc_context(translator.decoder.state.output())
+      logsoft = dy.log_softmax(translator.decoder.get_scores(context))
+      sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]
+      logsofts.append(logsoft)
+      samples.append(np.expand_dims(sample, axis=1))
+      translator.decoder.add_input(translator.trg_embedder.embed(xnmt.batcher.mark_as_batch(sample)))
+      if all(sample == Vocab.ES):
+        break
+    samples = np.concatenate(samples, axis=1)
+    eval_score = []
+    for trg_i, sample_i in zip(trg, samples):
+      eval_score.append(self.evaluation_metric.evaluate_fast(trg_i, sample_i))
+
+    return dy.sum_elems(dy.cmult(dy.inputTensor(eval_score, batched=True), dy.esum(logsofts)))
+
+class TranslatorMinRiskLoss(Serializable):
+  yaml_tag = 'TranslatorMinRiskLoss'
