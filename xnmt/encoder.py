@@ -14,6 +14,7 @@ import xnmt.pyramidal
 import xnmt.residual
 import xnmt.segmenting_encoder
 import xnmt.lstm
+import xnmt.transformer
 
 
 class Encoder(HierarchicalModel):
@@ -34,6 +35,7 @@ class Encoder(HierarchicalModel):
     """ Return the state that represents the transduced sequence """
     return NotImplementedError('Unimplemented get_final_state for class:', self.__class__.__name__)
 
+
 class BuilderEncoder(Encoder):
   def __init__(self):
     self._final_states = None
@@ -47,6 +49,7 @@ class BuilderEncoder(Encoder):
   def get_final_states(self):
     return self._final_states
 
+
 class IdentityEncoder(Encoder, Serializable):
   yaml_tag = u'!IdentityEncoder'
 
@@ -55,6 +58,7 @@ class IdentityEncoder(Encoder, Serializable):
 
   def get_final_state(self):
     return None
+
 
 class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
@@ -77,6 +81,7 @@ class LSTMEncoder(BuilderEncoder, Serializable):
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
+
 class ResidualLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!ResidualLSTMEncoder'
 
@@ -94,6 +99,7 @@ class ResidualLSTMEncoder(BuilderEncoder, Serializable):
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
+
 class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!PyramidalLSTMEncoder'
 
@@ -108,6 +114,7 @@ class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
   @recursive
   def set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
+
 
 class ModularEncoder(Encoder, Serializable):
   yaml_tag = u'!ModularEncoder'
@@ -131,6 +138,7 @@ class ModularEncoder(Encoder, Serializable):
     for mod in self.modules:
       final_states += mod.get_final_states()
     return final_states
+
 
 class SegmentingEncoder(Encoder, Serializable, Reportable):
   yaml_tag = u'!SegmentingEncoder'
@@ -169,6 +177,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
       self.lmbd = min(self.lmbd, self.lmbd_max)
       self.lmbd = max(self.lmbd, self.lmbd_min)
       print("Now lambda:", self.lmbd, file=sys.stderr)
+
 
 class FullyConnectedEncoder(Encoder, Serializable):
   yaml_tag = u'!FullyConnectedEncoder'
@@ -211,6 +220,7 @@ class FullyConnectedEncoder(Encoder, Serializable):
 
   def initial_state(self):
     return PseudoState(self)
+
 
 class ConvConnectedEncoder(Encoder, Serializable):
   yaml_tag = u'!ConvConnectedEncoder'
@@ -310,6 +320,24 @@ class ConvConnectedEncoder(Encoder, Serializable):
 
   def initial_state(self):
     return PseudoState(self)
+
+
+class TransformerEncoder(BuilderEncoder, Serializable):
+  yaml_tag = u'!TransformerEncoder'
+
+  def __init__(self, context, input_dim=512, layers=1, hidden_dim=512, dropout=0.5, **kwargs):
+    model = context.dynet_param_collection.param_col
+    self.input_dim = input_dim
+    self.hidden_dim = hidden_dim
+    assert(input_dim == hidden_dim)
+    self.dropout = dropout
+    self.layers = layers
+    self.builder = xnmt.transformer.TransformerEncoderLayer(input_dim, hidden_dim, model)
+
+  @recursive
+  def set_train(self, val):
+    self.builder.set_dropout(self.dropout if val else 0.0)
+
 
 if __name__ == '__main__':
   # To use this code, comment out the model initialization in the class and the line for src.as_tensor()
