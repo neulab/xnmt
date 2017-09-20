@@ -167,39 +167,6 @@ class XnmtTrainer(object):
     self.model_context.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
 
 
-#  def read_data(self):
-#    train_filters = SentenceFilterer.from_spec(self.args.train_filters)
-#    self.train_src, self.train_trg = \
-#        self.filter_sents(self.src_reader.read_file(self.args.train_src, max_num=self.args.max_num_train_sents),
-#                          self.trg_reader.read_file(self.args.train_trg, max_num=self.args.max_num_train_sents),
-#                          train_filters)
-#    assert len(self.train_src) == len(self.train_trg)
-#    self.total_train_sent = len(self.train_src)
-#    if self.args.dev_every == None:
-#      self.args.dev_every = self.total_train_sent
-#
-#    self.src_reader.freeze()
-#    self.trg_reader.freeze()
-#
-#    dev_filters = SentenceFilterer.from_spec(self.args.dev_filters)
-#    self.dev_src, self.dev_trg = \
-#        self.filter_sents(self.src_reader.read_file(self.args.dev_src),
-#                          self.trg_reader.read_file(self.args.dev_trg),
-#                          dev_filters)
-#    assert len(self.dev_src) == len(self.dev_trg)
-
-#  def filter_sents(self, src_sents, trg_sents, my_filters):
-#    if len(my_filters) == 0:
-#      return src_sents, trg_sents
-#    filtered_src_sents, filtered_trg_sents = [], []
-#    for src_sent, trg_sent in zip(src_sents, trg_sents):
-#      if all([my_filter.keep((src_sent,trg_sent)) for my_filter in my_filters]):
-#        filtered_src_sents.append(src_sent)
-#        filtered_trg_sents.append(trg_sent)
-#    print("> removed %s out of %s sentences that didn't pass filters." % (len(src_sents)-len(filtered_src_sents),len(src_sents)))
-#    return filtered_src_sents, filtered_trg_sents
-
-  # TODO: run_epoch could use some refactoring
   def run_epoch(self, update_weights=True):
     """
     :param update_weights: Whether to perform backward pass & update weights (useful for debugging)
@@ -220,9 +187,11 @@ class XnmtTrainer(object):
     np.random.shuffle(order)
     for batch_num in order:
       if self.is_batch_mode():
-        src, src_mask, trg, trg_mask = self.train_src[batch_num], self.train_src_mask[batch_num], self.train_trg[batch_num], self.train_trg_mask[batch_num]
+        src, src_mask = self.train_src[batch_num], self.train_src_mask[batch_num]
+        trg, trg_mask = self.train_trg[batch_num], self.train_trg_mask[batch_num]
       else:
-        src, src_mask, trg, trg_mask = self.train_src[batch_num], None, self.train_trg[batch_num], None
+        src, src_mask = self.train_src[batch_num], None
+        trg, trg_mask = self.train_trg[batch_num], None
 
       # Loss calculation
       dy.renew_cg()
@@ -244,72 +213,80 @@ class XnmtTrainer(object):
       # Devel reporting
       self.logger.report_train_process()
       if self.logger.should_report_dev():
-        self.model.set_train(False)
-        self.logger.new_dev()
-        trg_words_cnt, loss_score = self.compute_dev_loss()
-        schedule_metric = self.args.schedule_metric.lower()
+        self.dev_evaluation()
 
-        eval_scores = {"loss" : loss_score}
-        if len(list(filter(lambda e: e!="loss", self.evaluators)))>0:
-          self.decode_args.src_file = self.training_corpus.dev_src
-          self.decode_args.candidate_id_file = self.training_corpus.dev_id_file
-          if self.args.model_file:
-            out_file = self.args.model_file + ".dev_hyp"
-            out_file_ref = self.args.model_file + ".dev_ref"
-            self.decode_args.trg_file = out_file
-          xnmt.xnmt_decode.xnmt_decode(self.decode_args, model_elements=(self.corpus_parser, self.model))
-          output_processor = xnmt.xnmt_decode.output_processor_for_spec(self.decode_args.post_process)
-          processed = []
-          with io.open(self.training_corpus.dev_trg, encoding='utf-8') as fin:
-            for line in fin:
-              processed.append(output_processor.words_to_string(line.strip().split()) + u"\n")
-          with io.open(out_file_ref, 'wt', encoding='utf-8') as fout:
-            for line in processed:
-              fout.write(line)
-          if self.args.model_file:
-            self.evaluate_args.hyp_file = out_file
-            self.evaluate_args.ref_file = out_file_ref
-          for evaluator in self.evaluators:
-            if evaluator=="loss": continue
-            self.evaluate_args.evaluator = evaluator
-            eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(self.evaluate_args)
-            eval_scores[evaluator] = eval_score
-        if schedule_metric == "loss":
-          self.logger.set_dev_score(trg_words_cnt, loss_score)
+      self.model.new_epoch()
+
+  def dev_evaluation(self, out_ext=".dev_hyp", ref_ext=".dev_ref", encoding='utf-8'):
+    self.model.set_train(False)
+    self.logger.new_dev()
+    trg_words_cnt, loss_score = self.compute_dev_loss()
+    schedule_metric = self.args.schedule_metric.lower()
+
+    eval_scores = {"loss" : loss_score}
+    if len(list(filter(lambda e: e!="loss", self.evaluators))) > 0:
+      self.decode_args.src_file = self.training_corpus.dev_src
+      self.decode_args.candidate_id_file = self.training_corpus.dev_id_file
+      if self.args.model_file:
+        out_file = self.args.model_file + out_ext
+        out_file_ref = self.args.model_file + ref_ext
+        self.decode_args.trg_file = out_file
+      # Decoding + post_processing
+      xnmt.xnmt_decode.xnmt_decode(self.decode_args, model_elements=(self.corpus_parser, self.model))
+      output_processor = xnmt.xnmt_decode.output_processor_for_spec(self.decode_args.post_process)
+      # Copy Trg to Ref
+      processed = []
+      with io.open(self.training_corpus.dev_trg, encoding=encoding) as fin:
+        for line in fin:
+          processed.append(output_processor.words_to_string(line.strip().split()) + u"\n")
+      with io.open(out_file_ref, 'wt', encoding=encoding) as fout:
+        for line in processed:
+          fout.write(line)
+      # Evaluation
+      if self.args.model_file:
+        self.evaluate_args.hyp_file = out_file
+        self.evaluate_args.ref_file = out_file_ref
+      for evaluator in self.evaluators:
+        if evaluator=="loss": continue
+        self.evaluate_args.evaluator = evaluator
+        eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(self.evaluate_args)
+        eval_scores[evaluator] = eval_score
+    # Logging
+    if schedule_metric == "loss":
+      self.logger.set_dev_score(trg_words_cnt, loss_score)
+    else:
+      self.logger.set_dev_score(trg_words_cnt, eval_scores[schedule_metric])
+
+    print("> Checkpoint")
+    # print previously computed metrics
+    for metric in self.evaluators:
+      if metric != schedule_metric:
+        self.logger.report_auxiliary_score(eval_scores[metric])
+    # Write out the model if it's the best one
+    if self.logger.report_dev_and_check_model(self.args.model_file):
+      if self.args.model_file is not None:
+        self.model_serializer.save_to_file(self.args.model_file,
+                                           SerializeContainer(self.corpus_parser, self.model, self.model_context),
+                                           self.model_context.dynet_param_collection)
+      self.cur_attempt = 0
+    else:
+      # otherwise: learning rate decay / early stopping
+      self.cur_attempt += 1
+      if self.args.lr_decay < 1.0 and self.cur_attempt >= self.args.attempts_before_lr_decay:
+        self.num_times_lr_decayed += 1
+        if self.num_times_lr_decayed > self.args.lr_decay_times:
+          print('  Early stopping')
+          self.early_stopping_reached = True
         else:
-          self.logger.set_dev_score(trg_words_cnt, eval_scores[schedule_metric])
+          self.trainer.learning_rate *= self.args.lr_decay
+          print('  new learning rate: %s' % self.trainer.learning_rate)
+          if self.args.restart_trainer:
+            print('  restarting trainer and reverting learned weights to best checkpoint..')
+            self.trainer.restart()
+            self.model_context.dynet_param_collection.revert_to_best_model()
 
-        print("> Checkpoint")
-        # print previously computed metrics
-        for metric in self.evaluators:
-          if metric != schedule_metric:
-            self.logger.report_auxiliary_score(eval_scores[metric])
-        # Write out the model if it's the best one
-        if self.logger.report_dev_and_check_model(self.args.model_file):
-          if self.args.model_file is not None:
-            self.model_serializer.save_to_file(self.args.model_file,
-                                               SerializeContainer(self.corpus_parser, self.model, self.model_context),
-                                               self.model_context.dynet_param_collection)
-          self.cur_attempt = 0
-        else:
-          # otherwise: learning rate decay / early stopping
-          self.cur_attempt += 1
-          if self.args.lr_decay < 1.0 and self.cur_attempt >= self.args.attempts_before_lr_decay:
-            self.num_times_lr_decayed += 1
-            if self.num_times_lr_decayed > self.args.lr_decay_times:
-              print('  Early stopping')
-              self.early_stopping_reached = True
-            else:
-              self.trainer.learning_rate *= self.args.lr_decay
-              print('  new learning rate: %s' % self.trainer.learning_rate)
-              if self.args.restart_trainer:
-                print('  restarting trainer and reverting learned weights to best checkpoint..')
-                self.trainer.restart()
-                self.model_context.dynet_param_collection.revert_to_best_model()
-
-
-        self.model.set_train(True)
-        self.model.new_epoch()
+    self.model.set_train(True)
+    return
 
   def compute_dev_loss(self):
     loss_builder = LossBuilder()
