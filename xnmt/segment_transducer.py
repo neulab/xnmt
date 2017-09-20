@@ -1,4 +1,4 @@
-import dynet as dy 
+import dynet as dy
 import numpy
 
 import xnmt.linear
@@ -73,8 +73,8 @@ class DownsamplingSegmentTransformer(SegmentTransformer):
 class CategorySegmentTransformer(SegmentTransformer):
   yaml_tag = u"!CategorySegmentTransformer"
 
-  def __init__(self, input_dim=None, category_dim=None, embed_dim=None):
-    model = model_globals.dynet_param_collection.param_col
+  def __init__(self, context, input_dim=None, category_dim=None, embed_dim=None):
+    model = context.dynet_param_collection.param_col
     self.category_output = xnmt.linear.Linear(input_dim, category_dim, model)
     self.category_embedder = xnmt.embedder.SimpleWordEmbedder(category_dim, embed_dim)
     self.train = True

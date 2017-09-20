@@ -10,9 +10,12 @@ class LossBuilder(object):
     self.loss_values = collections.defaultdict(float)
 
   def add_loss(self, loss_name, loss_expr):
-    if loss_expr.dim()[1] > 1:
-      loss_expr = dy.sum_batches(loss_expr)
-    self.loss_nodes.append((loss_name, loss_expr))
+    if type(loss_expr) == LossBuilder:
+      self.loss_nodes.extend(loss_expr.loss_nodes)
+    else:
+      if loss_expr.dim()[1] > 1:
+        loss_expr = dy.sum_batches(loss_expr)
+      self.loss_nodes.append((loss_name, loss_expr))
 
   def compute(self):
     ''' Compute all the losses and delete the computational graph reference.
