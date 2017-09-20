@@ -18,7 +18,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
     self.assertEqual(len(l1), len(l2))
     for i in range(len(l1)):
       self.assertEqual(l1[i], l2[i])
-  
+
   def setUp(self):
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
@@ -36,20 +36,20 @@ class TestForcedDecodingOutputs(unittest.TestCase):
                                               train_trg = "examples/data/head.en",
                                               dev_src = "examples/data/head.ja",
                                               dev_trg = "examples/data/head.en")
-    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(), 
+    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
                                           trg_reader = PlainTextReader())
     self.corpus_parser.read_training_corpus(self.training_corpus)
 
   def assert_forced_decoding(self, sent_id):
     dy.renew_cg()
-    outputs = self.model.generate_output(self.training_corpus.train_src_data[sent_id], sent_id, 
+    outputs = self.model.generate_output(self.training_corpus.train_src_data[sent_id], sent_id,
                                          forced_trg_ids=self.training_corpus.train_trg_data[sent_id])
     self.assertItemsEqual(self.training_corpus.train_trg_data[sent_id], outputs[0][0])
 
   def test_forced_decoding(self):
     for i in range(1):
       self.assert_forced_decoding(sent_id=i)
-      
+
 class TestForcedDecodingLoss(unittest.TestCase):
 
   def setUp(self):
@@ -69,18 +69,18 @@ class TestForcedDecodingLoss(unittest.TestCase):
                                               train_trg = "examples/data/head.en",
                                               dev_src = "examples/data/head.ja",
                                               dev_trg = "examples/data/head.en")
-    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(), 
+    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
                                           trg_reader = PlainTextReader())
     self.corpus_parser.read_training_corpus(self.training_corpus)
 
   def test_single(self):
     dy.renew_cg()
-    train_loss = self.model.calc_loss(src=self.training_corpus.train_src_data[0], 
+    train_loss = self.model.calc_loss(src=self.training_corpus.train_src_data[0],
                                       trg=self.training_corpus.train_trg_data[0],
                                       src_mask=None, trg_mask=None).value()
     dy.renew_cg()
     self.model.initialize_generator()
-    outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0, 
+    outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0,
                                          forced_trg_ids=self.training_corpus.train_trg_data[0])
     output_score = outputs[0][1]
     self.assertAlmostEqual(-output_score, train_loss, places=5)
@@ -104,19 +104,19 @@ class TestFreeDecodingLoss(unittest.TestCase):
                                               train_trg = "examples/data/head.en",
                                               dev_src = "examples/data/head.ja",
                                               dev_trg = "examples/data/head.en")
-    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(), 
+    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
                                           trg_reader = PlainTextReader())
     self.corpus_parser.read_training_corpus(self.training_corpus)
 
   def test_single(self):
     dy.renew_cg()
     self.model.initialize_generator()
-    outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0, 
+    outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0,
                                          forced_trg_ids=self.training_corpus.train_trg_data[0])
     output_score = outputs[0][1]
 
     dy.renew_cg()
-    train_loss = self.model.calc_loss(src=self.training_corpus.train_src_data[0], 
+    train_loss = self.model.calc_loss(src=self.training_corpus.train_src_data[0],
                                       trg=outputs[0][0],
                                       src_mask=None, trg_mask=None).value()
 
