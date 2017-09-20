@@ -33,7 +33,7 @@ class GreedySearch(SearchStrategy):
       score += logsoftmax[cur_id]
       word_ids.append(cur_id)
 
-    return word_ids, score    
+    return word_ids, score
 
 class BeamSearch(SearchStrategy):
 
@@ -65,9 +65,9 @@ class BeamSearch(SearchStrategy):
     :param forced_trg_ids: list of word ids, if given will force to generate this is the target sequence
     :returns: (id list, score)
     """
-    
+
     if forced_trg_ids is not None: assert self.beam_size == 1
-    
+
     active_hyp = [self.Hypothesis(0, [], decoder.get_state())]
 
     completed_hyp = []

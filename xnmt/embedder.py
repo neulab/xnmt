@@ -33,7 +33,7 @@ class Embedder(HierarchicalModel):
     :returns: An ExpressionSequence representing vectors of each word in the input.
     """
     raise NotImplementedError('embed_sent must be implemented in Embedder subclasses')
-  
+
   @recursive
   def set_train(self, val):
     pass
@@ -50,7 +50,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
     :param vocab_size:
     :param emb_dim:
     :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
-    :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287 
+    :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
     """
     self.vocab_size = vocab_size
     self.emb_dim = emb_dim or context.default_layer_dim
@@ -63,11 +63,11 @@ class SimpleWordEmbedder(Embedder, Serializable):
   @recursive
   def start_sent(self):
     self.word_id_mask = None
-    
+
   @recursive
   def set_train(self, val):
     self.train = val
-    
+
   def embed(self, x):
     if self.word_dropout > 0.0 and self.word_id_mask is None:
       batch_size = len(x) if xnmt.batcher.is_batched(x) else 1

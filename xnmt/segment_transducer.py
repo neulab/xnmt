@@ -1,4 +1,4 @@
-import dynet as dy 
+import dynet as dy
 import numpy
 
 import xnmt.linear

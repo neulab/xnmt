@@ -32,7 +32,7 @@ class Serializable(yaml.YAMLObject):
     Overwrites serialize params to something other than specified in the YAML file.
     This is helpful to fix certain model properties (e.g. a vocab) rather than creating it anew
     when serializing and deserializing the component.
-    
+
     :param key:
     :param val:
     """
@@ -167,9 +167,9 @@ class YamlSerializer(object):
 
   @staticmethod
   def init_representer(dumper, obj):
-    if type(obj.serialize_params)==list: 
+    if type(obj.serialize_params)==list:
       serialize_params = {param:getattr(obj, param) for param in obj.serialize_params}
-    else: 
+    else:
       serialize_params = obj.serialize_params
     return dumper.represent_mapping(u'!' + obj.__class__.__name__, serialize_params)
   def dump(self, ser_obj):

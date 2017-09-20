@@ -102,13 +102,13 @@ class PyramidalRNNBuilder(object):
       else:
         # concat final outputs
         es = [dy.concatenate([f, b]) for f, b in zip(fs, reversed(bs))]
-    
+
     self._final_states = [FinalEncoderState(dy.concatenate([fb.get_final_states()[0].main_expr(),
                                                             bb.get_final_states()[0].main_expr()]),
                                             dy.concatenate([fb.get_final_states()[0].cell_expr(),
                                                             bb.get_final_states()[0].cell_expr()])) \
                           for (fb, bb) in self.builder_layers]
-    
+
     return es
 
   def initial_state(self):
