@@ -242,28 +242,36 @@ class TranslatorReinforceLoss(Serializable):
   def __init__(self, evaluation_metric=None, sample_length=50):
     self.sample_length = sample_length
     if evaluation_metric is None:
-      self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(4)
+      self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
 
   def __call__(self, translator, src, trg, src_mask, trg_mask):
     samples = []
     logsofts = []
+    done = [False for _ in range(len(trg))]
     for i in range(self.sample_length):
       context = translator.attender.calc_context(translator.decoder.state.output())
       logsoft = dy.log_softmax(translator.decoder.get_scores(context))
       sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]
+      # Keep track of previously sampled EOS
+      sample = [sample_i if not done_i else Vocab.ES for sample_i, done_i in zip(sample, done)]
+      # Appending and feeding in the decoder
       logsofts.append(logsoft)
-      samples.append(np.expand_dims(sample, axis=1))
+      samples.append(sample)
       translator.decoder.add_input(translator.trg_embedder.embed(xnmt.batcher.mark_as_batch(sample)))
-      if all(sample == Vocab.ES):
+      # Check if we are done.
+      done = list(six.moves.map(lambda x: x == Vocab.ES, sample))
+      if all(done):
         break
-    samples = np.concatenate(samples, axis=1)
+    samples = np.stack(samples, axis=1).tolist()
     eval_score = []
     for trg_i, sample_i in zip(trg, samples):
       eval_score.append(self.evaluation_metric.evaluate_fast(trg_i, sample_i))
 
     return dy.sum_elems(dy.cmult(dy.inputTensor(eval_score, batched=True), dy.esum(logsofts)))
 
+# To be implemented
 class TranslatorMinRiskLoss(Serializable):
   yaml_tag = 'TranslatorMinRiskLoss'
+
