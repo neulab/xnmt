@@ -141,7 +141,7 @@ class BLEUEvaluator(Evaluator):
     return "BLEU%d score" % (self.ngram)
 
   def evaluate_fast(self, ref, hyp):
-    return xnmt_cython.bleu_sentence(self.ngram, self.smooth, ref.words, hyp)
+    return xnmt_cython.bleu_sentence(self.ngram, self.smooth, ref.words, hyp, Vocab.ES)
 
   # Doc to be added
   def evaluate(self, ref, hyp):
