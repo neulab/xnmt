@@ -1,58 +1,7 @@
 import dynet as dy
 import math
 import numpy as np
-
-
-class AffineTransform(object):
-    def __init__(self, input_size, output_size, model):
-        self.input_size = input_size
-        self.output_size = output_size
-        self.p_W = model.add_parameters(dim=(output_size, input_size))
-        self.p_b = model.add_parameters(dim=output_size, init=dy.ConstInitializer(0.0))
-
-    def transduce(self, input):
-        W = dy.parameter(self.p_W)
-        b = dy.parameter(self.p_b)
-        out = dy.affine_transform([b, W, input])
-        return out
-
-    def __repr__(self):
-        return "AffineTransform ({} --> {})".format(self.input_size, self.output_size)
-
-
-class LayerNorm(object):
-    def __init__(self, d_hid, model):
-        self.p_g = model.add_parameters(dim=d_hid, init=dy.ConstInitializer(1.0))
-        self.p_b = model.add_parameters(dim=d_hid, init=dy.ConstInitializer(0.0))
-
-    def transduce(self, input):
-        g = dy.parameter(self.p_g)
-        b = dy.parameter(self.p_b)
-        return dy.layer_norm(input, g, b)
-
-    def __repr__(self):
-        return "LayerNorm module"
-
-
-class PositionwiseFeedForward(object):
-    """ A two-layer Feed-Forward-Network."""
-
-    def __init__(self, size, hidden_size, model):
-        """
-        Args:
-            size(int): the size of input for the first-layer of the FFN.
-            hidden_size(int): the hidden layer size of the second-layer
-                              of the FNN.
-            droput(float): dropout probability(0-1.0).
-        """
-        self.w_1 = AffineTransform(size, hidden_size, model)
-        self.w_2 = AffineTransform(hidden_size, size, model)
-        self.layer_norm = LayerNorm(size, model)
-
-    def transduce(self, x, p):
-        residual = x
-        output = dy.dropout(self.w_2.transduce(dy.rectify(self.w_1.transduce(x))), p)
-        return self.layer_norm.transduce(output + residual)
+from xnmt.nn import Linear, LayerNorm, PositionwiseFeedForward
 
 
 class MultiHeadedAttention(object):
@@ -63,13 +12,13 @@ class MultiHeadedAttention(object):
         self.head_count = head_count
 
         # Linear Projection of keys
-        self.linear_keys = AffineTransform(model_dim, head_count * self.dim_per_head, model)
+        self.linear_keys = Linear(model_dim, head_count * self.dim_per_head, model)
 
         # Linear Projection of values
-        self.linear_values = AffineTransform(model_dim, head_count * self.dim_per_head, model)
+        self.linear_values = Linear(model_dim, head_count * self.dim_per_head, model)
 
         # Linear Projection of query
-        self.linear_query = AffineTransform(model_dim, head_count * self.dim_per_head, model)
+        self.linear_query = Linear(model_dim, head_count * self.dim_per_head, model)
 
         # Layer Norm Module
         self.layer_norm = LayerNorm(model_dim, model)
@@ -96,9 +45,9 @@ class MultiHeadedAttention(object):
 
         # Concatenate all the words together for doing vectorized affine transform
         # key_up = shape_projection(self.linear_keys.transduce(dy.concatenate_to_batch(list(key))))
-        key_up = shape_projection(self.linear_keys.transduce(key))
-        value_up = shape_projection(self.linear_keys.transduce(value))
-        query_up = shape_projection(self.linear_keys.transduce(query))
+        key_up = shape_projection(self.linear_keys(key))
+        value_up = shape_projection(self.linear_keys(value))
+        query_up = shape_projection(self.linear_keys(query))
 
         scaled = query_up * dy.transpose(key_up)
         scaled = scaled / math.sqrt(self.dim_per_head)
@@ -124,7 +73,7 @@ class MultiHeadedAttention(object):
 
         # Adding dropout and layer normalization
         res = dy.dropout(out, p) + residual
-        ret = self.layer_norm.transduce(res)
+        ret = self.layer_norm(res)
 
         return ret
 
