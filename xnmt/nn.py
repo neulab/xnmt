@@ -42,7 +42,7 @@ class PositionwiseFeedForward(object):
         self.w_2 = Linear(hidden_size, size, model)
         self.layer_norm = LayerNorm(size, model)
 
-    def transduce(self, x, p):
+    def __call__(self, x, p=0.):
         residual = x
         output = dy.dropout(self.w_2(dy.rectify(self.w_1(x))), p)
         return self.layer_norm(output + residual)

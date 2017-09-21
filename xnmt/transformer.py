@@ -23,7 +23,7 @@ class MultiHeadedAttention(object):
         # Layer Norm Module
         self.layer_norm = LayerNorm(model_dim, model)
 
-    def transduce(self, input, key, value, query, mask=None, p=0.1):
+    def transduce(self, input, key, value, query, mask=None, p=0.):
         sent_expr_list = list(input)
         # residual = dy.concatenate_to_batch(list(query))
         residual = query
@@ -97,7 +97,7 @@ class TransformerEncoderLayer(object):
         input_ = dy.reshape(input_, (model_dim,), batch_size=MBS * seq_len)
 
         mid = self.self_attn.transduce(input, input_, input_, input_, mask=input.mask, p=self.dropout)
-        out = self.feed_forward.transduce(mid, p=self.dropout)
+        out = self.feed_forward(mid, p=self.dropout)
 
         # Check for Nan
         assert (np.isnan(out.npvalue()).any() == False)
