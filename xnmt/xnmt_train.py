@@ -26,6 +26,7 @@ from xnmt.model_context import ModelContext, PersistentParamCollection
 import xnmt.serializer
 import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
+import xnmt.segmenting_encoder
 from xnmt.evaluator import LossScore
 from xnmt.tee import Tee
 '''
