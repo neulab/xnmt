@@ -8,12 +8,10 @@
 using std::vector;
 using std::unordered_map;
 using std::deque;
-using namespace std;
 
 namespace xnmt {
 
 typedef std::vector<std::unordered_map<size_t, int>> NGramStats;
-typedef std::unordered_map<size_t, int> cache;
 
 // https://stackoverflow.com/questions/20511347/a-good-hash-function-for-a-vector
 size_t deque_hash (const deque<int> vec) {
@@ -62,10 +60,10 @@ double evaluate_bleu_sentence(const vector<int>& ref, const vector<int>& hyp,
     auto hyp_stat_i = hyp_stat[i];
     int tp = 0;
     int denom = 0;
-    for (auto it=ref_stat_i.begin(); it != ref_stat_i.end(); ++it) {
-      int ref_count = it->second;
+    for (auto ref_it=ref_stat_i.begin(); ref_it != ref_stat_i.end(); ++ref_it) {
+      int ref_count = ref_it->second;
       int hyp_count = 0;
-      auto hyp_it = hyp_stat_i.find(it->first);
+      auto hyp_it = hyp_stat_i.find(ref_it->first);
       if (hyp_it != hyp_stat_i.end()) {
         hyp_count = hyp_it->second;
       }
