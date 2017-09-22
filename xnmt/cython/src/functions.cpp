@@ -35,9 +35,10 @@ NGramStats calculate_stats(const vector<int>& sents, unsigned int ngram) {
         size_t hash = deque_hash(buffer);
         auto it = current_map.find(hash);
         if (it == current_map.end()) {
-          current_map.insert(std::make_pair(hash, 0));
+          current_map.insert(std::make_pair(hash, 1));
+        } else {
+          ++(it->second);
         }
-        current_map[hash]++;
         buffer.pop_front();
       } 
     }
