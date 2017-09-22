@@ -134,7 +134,11 @@ class BLEUEvaluator(Evaluator):
     return "BLEU%d score" % (self.ngram)
 
   def evaluate_fast(self, ref, hyp):
-    from xnmt.cython import xnmt_cython
+    try:
+      from xnmt.cython import xnmt_cython
+    except:
+      print("BLEU evaluate fast requires xnmt cython installation step.",
+            "please check the documentation.")
     return xnmt_cython.bleu_sentence(self.ngram, self.smooth, ref, hyp)
 
   # Doc to be added
