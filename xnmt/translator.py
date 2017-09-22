@@ -267,7 +267,14 @@ class TranslatorReinforceLoss(Serializable):
     samples = np.stack(samples, axis=1).tolist()
     eval_score = []
     for trg_i, sample_i in zip(trg, samples):
-      eval_score.append(self.evaluation_metric.evaluate_fast(trg_i, sample_i))
+      # Removing EOS
+      try:
+        idx = next(word for word in sample_i if word == Vocab.ES)
+        sample_i = sample_i[:idx]
+      except StopIteration:
+        pass
+      # Calculate the evaluation score
+      eval_score.append(self.evaluation_metric.evaluate_fast(trg_i.words, sample_i))
 
     return dy.sum_elems(dy.cmult(dy.inputTensor(eval_score, batched=True), dy.esum(logsofts)))
 

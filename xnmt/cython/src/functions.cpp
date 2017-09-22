@@ -22,25 +22,22 @@ size_t deque_hash (const deque<int> vec) {
   return seed;
 }
 
-NGramStats calculate_stats(const vector<int>& sents, unsigned int ngram, int eos_sym) {
+NGramStats calculate_stats(const vector<int>& sents, unsigned int ngram) {
   NGramStats stat;
-  deque<int> buffer;
   for (size_t i=0; i < ngram; ++i) {
+    deque<int> buffer;
     unordered_map<size_t, int> current_map; 
-    for (const int word : sents) {
-      if (word == eos_sym) {
-        break;
-      }
+    for (size_t j=0; j < sents.size(); ++j) {
+      int word = sents[j];
       buffer.push_back(word);
       size_t size = buffer.size();
-      if (size == ngram) {
+      if (size == i+1) {
         size_t hash = deque_hash(buffer);
         auto it = current_map.find(hash);
         if (it == current_map.end()) {
           current_map.insert(std::make_pair(hash, 0));
-        } else {
-          current_map.insert(std::make_pair(hash, it->second+1));
         }
+        current_map[hash]++;
         buffer.pop_front();
       } 
     }
@@ -50,9 +47,9 @@ NGramStats calculate_stats(const vector<int>& sents, unsigned int ngram, int eos
 }
 
 double evaluate_bleu_sentence(const vector<int>& ref, const vector<int>& hyp,
-                              int ngram, int smooth, int eos_sym) {
-  NGramStats ref_stat = calculate_stats(ref, ngram, eos_sym);
-  NGramStats hyp_stat = calculate_stats(hyp, ngram, eos_sym);
+                              int ngram, int smooth) {
+  NGramStats ref_stat = calculate_stats(ref, ngram);
+  NGramStats hyp_stat = calculate_stats(hyp, ngram);
   double log_precision = 0;
   double log_bp = 0;
   for (int i=0; i < ngram; ++i) {
@@ -68,9 +65,13 @@ double evaluate_bleu_sentence(const vector<int>& ref, const vector<int>& hyp,
         hyp_count = hyp_it->second;
       }
       tp += std::min(ref_count, hyp_count);
-      denom += hyp_count;
     }
-    log_precision += log(static_cast<double>(tp + smooth) / (denom + smooth));
+    for (auto hyp_it=hyp_stat_i.begin(); hyp_it != hyp_stat_i.end(); ++hyp_it) {
+      denom += hyp_it->second;
+    }
+    int s = i == 0 ? 0 : smooth;
+    double lp = log((static_cast<double>(tp + s)) / (denom + s));
+    log_precision += lp;
   }
   int len_hyp = hyp.size();
   int len_ref = ref.size();

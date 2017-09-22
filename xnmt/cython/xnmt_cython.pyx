@@ -1,7 +1,7 @@
 from libcpp.vector cimport vector
 
 cdef extern from "src/functions.h" namespace "xnmt":
-  double evaluate_bleu_sentence(vector[int] ref, vector[int] hyp, int ngram, int smooth, int eos_sym)
+  double evaluate_bleu_sentence(vector[int] ref, vector[int] hyp, int ngram, int smooth)
 
-def bleu_sentence(int ngram, int smooth, list ref, list hyp, int eos_sym):
-  return evaluate_bleu_sentence(ref, hyp, ngram, smooth, eos_sym)
+def bleu_sentence(int ngram, int smooth, list ref, list hyp):
+  return evaluate_bleu_sentence(ref, hyp, ngram, smooth)

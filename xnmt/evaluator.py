@@ -118,12 +118,6 @@ class Evaluator(object):
   def evaluate_fast(self, ref, hyp):
     raise NotImplementedError('evaluate_fast is not implemented for:', self.__class__.__name__)
 
-def numeric_ngram_stats(sentence, gram):
-  stats = [defaultdict(int) for _ in range(gram)]
-  for ngram in range(gram):
-    window = deque()
-  return stats
-
 class BLEUEvaluator(Evaluator):
   # Class for computing BLEU Scores accroding to
   # K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
@@ -141,7 +135,7 @@ class BLEUEvaluator(Evaluator):
     return "BLEU%d score" % (self.ngram)
 
   def evaluate_fast(self, ref, hyp):
-    return xnmt_cython.bleu_sentence(self.ngram, self.smooth, ref.words, hyp, Vocab.ES)
+    return xnmt_cython.bleu_sentence(self.ngram, self.smooth, ref, hyp)
 
   # Doc to be added
   def evaluate(self, ref, hyp):
