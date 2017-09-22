@@ -6,7 +6,6 @@ import functools
 from collections import defaultdict, Counter, deque
 
 from xnmt.vocab import Vocab
-from xnmt.cython import xnmt_cython
 
 class EvalScore(object):
   def higher_is_better(self):
@@ -135,6 +134,7 @@ class BLEUEvaluator(Evaluator):
     return "BLEU%d score" % (self.ngram)
 
   def evaluate_fast(self, ref, hyp):
+    from xnmt.cython import xnmt_cython
     return xnmt_cython.bleu_sentence(self.ngram, self.smooth, ref, hyp)
 
   # Doc to be added
