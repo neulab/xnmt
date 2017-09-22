@@ -14,7 +14,7 @@ namespace xnmt {
 typedef std::vector<std::unordered_map<size_t, int>> NGramStats;
 
 // https://stackoverflow.com/questions/20511347/a-good-hash-function-for-a-vector
-size_t deque_hash (const deque<int> vec) {
+size_t deque_hash (const deque<int>& vec) {
   std::size_t seed = vec.size();
   for(int i : vec) {
     seed ^= i + 0x9e3779b9 + (seed << 6) + (seed >> 2);
