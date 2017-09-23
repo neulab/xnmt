@@ -32,10 +32,9 @@ defaults:
         input_dim: 512
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 512
-      decoder: !MlpSoftmaxDecoder
+      decoder: !SoftmaxDecoder
         layers: 1
-        mlp_hidden_dim: 512
-        bridge: !CopyBridge {}
+        bridge: '!NoBridge'
   decode:
     src_file: examples/data/test.ja
   evaluate:
