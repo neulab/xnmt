@@ -1,3 +1,5 @@
+from __future__ import division
+
 import dynet as dy
 from xnmt.serializer import Serializable
 import xnmt.batcher
@@ -40,13 +42,15 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   def __init__(self, context, vocab_size, layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=False,
-               bridge=None):
+               bridge=None, eps=0.1):
     param_col = context.dynet_param_collection.param_col
     # Define dim
     lstm_dim       = lstm_dim or context.default_layer_dim
     mlp_hidden_dim = mlp_hidden_dim or context.default_layer_dim
     trg_embed_dim  = trg_embed_dim or context.default_layer_dim
     input_dim      = input_dim or context.default_layer_dim
+    self.vocab_size = vocab_size
+    self.eps = eps
     # Input feeding
     self.input_feeding = input_feeding
     self.lstm_dim = lstm_dim
@@ -116,7 +120,9 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
       return dy.pickneglogsoftmax(scores, ref_action)
     # minibatch mode
     else:
-      return dy.pickneglogsoftmax_batch(scores, ref_action)
+      ce_loss_term = (1 - self.eps) * (dy.exp(-dy.pickneglogsoftmax_batch(scores, ref_action)))
+      label_smoothing_term = self.eps / self.vocab_size
+      return -dy.log(ce_loss_term + label_smoothing_term)
 
   @recursive
   def set_train(self, val):

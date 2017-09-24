@@ -36,6 +36,7 @@ defaults:
         layers: 1
         mlp_hidden_dim: 512
         bridge: !CopyBridge {}
+        eps: 0.1
   decode:
     src_file: examples/data/test.ja
   evaluate:
@@ -44,3 +45,4 @@ defaults:
 standard-dropout0.1:
   train:
     dropout: 0.1
+
