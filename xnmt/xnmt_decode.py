@@ -32,7 +32,7 @@ options = [
   Option("beam", int, default_value=1),
   Option("max_len", int, default_value=100),
   Option("len_norm_type", str, required=False),
-  Option("eps", float, required=True, default_value=0.1, help_str="label smoothing parameter")
+  Option("label_smoothing", float, required=True, default_value=0.1, help_str="label smoothing parameter")
 ]
 
 NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
