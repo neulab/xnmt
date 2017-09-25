@@ -12,7 +12,7 @@ class LSTMState(object):
   def add_input(self, x_t):
     h_t, c_t = self.builder.add_input(x_t, self.prev_state)
     return LSTMState(self.builder, h_t, c_t, self.state_idx+1, prev_state=self)
-      
+
   def transduce(self, xs):
     return self.builder.transduce(xs)
 
@@ -33,37 +33,37 @@ class CustomCompactLSTMBuilder(object):
     if layers!=1: raise RuntimeError("CustomCompactLSTMBuilder supports only exactly one layer")
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
-  
+
     # [i; f; o; g]
     self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim))
     self.p_Wh = model.add_parameters(dim=(hidden_dim*4, hidden_dim))
     self.p_b  = model.add_parameters(dim=(hidden_dim*4,), init=dy.ConstInitializer(0.0))
-    
+
     self.dropout_rate = 0.0
     self.weightnoise_std = 0.0
-    
+
     self.dropout_mask_x = None
     self.dropout_mask_h = None
-    
+
   def get_final_states(self):
     return self._final_states
 
   def whoami(self): return "CustomCompactLSTMBuilder"
-  
+
   def set_dropout(self, p):
     if not 0.0 <= p <= 1.0:
       raise Exception("dropout rate must be a probability (>=0 and <=1)")
     self.dropout_rate = p
   def disable_dropout(self):
     self.dropout_rate = 0.0
-    
+
   def set_weightnoise(self, std):
     if not 0.0 <= std:
       raise Exception("weight noise must have standard deviation >=0")
     self.weightnoise_std = std
   def disable_weightnoise(self):
     self.weightnoise_std = 0.0
-    
+
   def initial_state(self, vecs=None):
     self._final_states = None
     self.Wx = dy.parameter(self.p_Wx)
@@ -82,7 +82,7 @@ class CustomCompactLSTMBuilder(object):
       scale = 1.0 / retention_rate
       self.dropout_mask_x = dy.random_bernoulli((self.input_dim,), retention_rate, scale, batch_size=batch_size)
       self.dropout_mask_h = dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size)
-    
+
   def add_input(self, x_t, prev_state):
     batch_size = x_t.dim()[1]
     if self.dropout_rate > 0.0 and (self.dropout_mask_x is None or self.dropout_mask_h is None):
@@ -106,7 +106,7 @@ class CustomCompactLSTMBuilder(object):
       c_t = dy.vanilla_lstm_c(c_tm1, gates_t)
     h_t = dy.vanilla_lstm_h(c_t, gates_t)
     return h_t, c_t
-    
+
   def transduce(self, xs):
     """
     :param xs: list of expressions or list of list of expressions (where each inner list will be concatenated)
@@ -135,7 +135,7 @@ class CustomCompactLSTMBuilder(object):
       h.append(dy.vanilla_lstm_h(c_t, gates_t))
     self._final_states = [FinalEncoderState(h[-1], c[-1])]
     return h[1:]
-  
+
 class BiCompactLSTMBuilder:
   """
   This implements a bidirectional LSTM and requires about 8.5% less memory per timestep
@@ -177,7 +177,7 @@ class BiCompactLSTMBuilder:
       new_forward_es = self.forward_layers[layer_i].initial_state().transduce(zip(forward_es, reversed(list(rev_backward_es))))
       rev_backward_es = list(reversed(self.backward_layers[layer_i].initial_state().transduce(zip(reversed(forward_es), rev_backward_es))))
       forward_es = new_forward_es
-    
+
     self._final_states = [FinalEncoderState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
                                                             self.backward_layers[layer_i].get_final_states()[0].main_expr()]),
                                             dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].cell_expr(),
@@ -200,14 +200,14 @@ class CustomLSTMBuilder(object):
     if layers!=1: raise RuntimeError("CustomLSTMBuilder supports only exactly one layer")
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
-  
+
     # [i; f; o; g]
     self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim))
     self.p_Wh = model.add_parameters(dim=(hidden_dim*4, hidden_dim))
     self.p_b  = model.add_parameters(dim=(hidden_dim*4,), init=dy.ConstInitializer(0.0))
-    
+
   def whoami(self): return "CustomLSTMBuilder"
-  
+
   def set_dropout(self, p):
     if p>0.0: raise RuntimeError("CustomLSTMBuilder does not support dropout")
   def disable_dropout(self):
@@ -237,4 +237,4 @@ class CustomLSTMBuilder(object):
         c.append(dy.cmult(i_ft, c[-1]) + dy.cmult(i_it, i_gt))
       h.append(dy.cmult(i_ot, dy.tanh(c[-1])))
     return h
-  
+

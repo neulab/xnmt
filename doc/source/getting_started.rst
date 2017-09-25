@@ -34,3 +34,10 @@ Running unit tests
 
 From the main directory, run: ``python -m unittest discover``
 
+Cython Modules
+------------------
+
+If you wish to use all the modules in xnmt that need cython, you need to build the cython extensions by this command::
+
+  python setup.py build_ext --inplace --use-cython-extensions
+

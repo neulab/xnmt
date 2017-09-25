@@ -105,7 +105,7 @@ def mark_as_batch(data):
   else:
     ret = Batch(data)
   return ret
-    
+
 
 def is_batched(data):
   return type(data) == Batch
