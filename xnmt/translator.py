@@ -224,3 +224,21 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def file_report(self):
     pass
 
+
+class TransformerTranslator(DefaultTranslator):
+  yaml_tag = u'!TransformerTranslator'
+
+  def calc_loss(self, src, trg, src_mask=None, trg_mask=None, info=None):
+    self.start_sent()
+    src_embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
+    encodings = self.encoder.transduce(src_embeddings)
+    trg_embeddings = self.trg_embedder.embed_sent(trg, mask=trg_mask)
+    self.decoder.initialize(src_mask, trg_mask)
+    self.decoder.calc_loss(encodings, trg_embeddings)
+
+    return
+
+
+
+
+

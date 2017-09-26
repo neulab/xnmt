@@ -6,7 +6,7 @@ import dynet as dy
 from xnmt.translator import DefaultTranslator
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.encoder import LSTMEncoder, ResidualLSTMEncoder
-from xnmt.attender import StandardAttender
+from xnmt.attender import TransformerAttender
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
@@ -35,7 +35,7 @@ class TestEncoder(unittest.TestCase):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=LSTMEncoder(self.model_context, layers=3, bidirectional=True),
-              attender=StandardAttender(self.model_context),
+              attender=TransformerAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
@@ -45,7 +45,7 @@ class TestEncoder(unittest.TestCase):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=LSTMEncoder(self.model_context, layers=1, bidirectional=False),
-              attender=StandardAttender(self.model_context),
+              attender=TransformerAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
@@ -55,7 +55,7 @@ class TestEncoder(unittest.TestCase):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=ResidualLSTMEncoder(self.model_context, layers=3),
-              attender=StandardAttender(self.model_context),
+              attender=TransformerAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )

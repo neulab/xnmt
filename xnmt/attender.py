@@ -70,3 +70,15 @@ class StandardAttender(Attender, Serializable):
     I = self.curr_sent.as_tensor()
     return I * attention
 
+
+class TransformerAttender(Attender, Serializable):
+  yaml_tag = u'!TransformerAttender'
+
+  def __init__(self, context, input_dim=None, state_dim=None, hidden_dim=None):
+    input_dim = input_dim or context.default_layer_dim
+    state_dim = state_dim or context.default_layer_dim
+    hidden_dim = hidden_dim or context.default_layer_dim
+    self.input_dim = input_dim
+    self.state_dim = state_dim
+    self.hidden_dim = hidden_dim
+    param_collection = context.dynet_param_collection.param_col

@@ -1,5 +1,7 @@
 import dynet as dy
+import numpy as np
 import xnmt.batcher
+
 
 class ExpressionSequence(object):
   """A class to represent a sequence of expressions.
@@ -32,7 +34,7 @@ class ExpressionSequence(object):
     :returns: length of sequence
     """
     if self.expr_list: return len(self.expr_list)
-    else: return self.expr_tensor.dim()[0][0]
+    else: return self.expr_tensor.dim()[0][1]  # Earlier it was [0][0], but 0 is the number of dims
 
   def __iter__(self):
     """Return iterator.
