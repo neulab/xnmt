@@ -126,26 +126,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     # Initialize the hidden state from the encoder
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
     self.decoder.initialize(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
-    losses = []
-
-    seq_len = len(trg[0]) if xnmt.batcher.is_batched(src) else len(trg)
-    if xnmt.batcher.is_batched(src):
-      for j, single_trg in enumerate(trg):
-        assert len(single_trg) == seq_len # assert consistent length
-        assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
-    for i in range(seq_len):
-      ref_word = trg[i] if not xnmt.batcher.is_batched(src) \
-                      else xnmt.batcher.mark_as_batch([single_trg[i] for single_trg in trg])
- 
-      context = self.attender.calc_context(self.decoder.state.output())
-      word_loss = self.decoder.calc_loss(context, ref_word)
-      if xnmt.batcher.is_batched(src) and trg_mask is not None:
-        mask_exp = dy.inputTensor((1.0 - trg_mask)[:,i:i+1].transpose(),batched=True)
-        word_loss = word_loss * mask_exp
-      losses.append(word_loss)
-      if i < seq_len-1:
-        self.decoder.add_input(self.trg_embedder.embed(ref_word))
-
     return self.loss_calculator(self, src, trg, src_mask, trg_mask)
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
@@ -189,7 +169,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     assert(context is None)
     idx, src, trg, att = self.get_report_input()
     path_to_report = self.get_report_path()
-    filename_of_report = os.path.basename(path_to_report)
     html = etree.Element('html')
     head = etree.SubElement(html, 'head')
     title = etree.SubElement(head, 'title')
@@ -216,7 +195,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       att_text = etree.SubElement(attention, 'b')
       att_text.text = "Attention:"
       etree.SubElement(attention, 'br')
-      att_mtr = etree.SubElement(attention, 'img', src="{}.attention.png".format(filename_of_report))
       attention_file = u"{}.attention.png".format(path_to_report)
 
       if type(att) == dy.Expression:
@@ -273,7 +251,7 @@ class TranslatorReinforceLoss(Serializable):
     samples = []
     logsofts = []
     done = [False for _ in range(len(trg))]
-    for i in range(self.sample_length):
+    for _ in range(self.sample_length):
       context = translator.attender.calc_context(translator.decoder.state.output())
       logsoft = dy.log_softmax(translator.decoder.get_scores(context))
       sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]

@@ -112,7 +112,6 @@ class TestBatchTraining(unittest.TestCase):
     Here we don't truncate the target side and use masking.
     """
     batch_size = 5
-    batch_size = 5
     src_sents = self.training_corpus.train_src_data[:batch_size]
     src_min = min([len(x) for x in src_sents])
     src_sents_trunc = [s[:src_min] for s in src_sents]
