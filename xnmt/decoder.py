@@ -81,6 +81,12 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     return [set(["layers", "bridge.dec_layers"]),
             set(["lstm_dim", "bridge.dec_dim"])]
 
+  def get_state(self):
+    return (self.state, self.h_t)
+
+  def set_state(self, params):
+    self.state, self.h_t = params
+
   def initialize(self, enc_final_states):
     dec_state = self.fwd_lstm.initial_state()
     self.state = dec_state.set_s(self.bridge.decoder_init(enc_final_states))
@@ -148,10 +154,10 @@ class CopyBridge(Bridge, Serializable):
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim or context.default_layer_dim
   def decoder_init(self, enc_final_states):
-    if self.dec_layers > len(enc_final_states): 
+    if self.dec_layers > len(enc_final_states):
       raise RuntimeError("CopyBridge requires dec_layers <= len(enc_final_states), but got %s and %s" % (self.dec_layers, len(enc_final_states)))
     if enc_final_states[0].main_expr().dim()[0][0] != self.dec_dim:
       raise RuntimeError("CopyBridge requires enc_dim == dec_dim, but got %s and %s" % (enc_final_states[0].main_expr().dim()[0][0], self.dec_dim))
     return [enc_state.cell_expr() for enc_state in enc_final_states[-self.dec_layers:]] \
          + [enc_state.main_expr() for enc_state in enc_final_states[-self.dec_layers:]]
-    
+

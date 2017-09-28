@@ -7,6 +7,8 @@ Prerequisites
 Before running ``xnmt`` you must install the Python bindings for
 `DyNet <http://github.com/clab/dynet>`_.
 
+Please run ``python setup.py install`` for normal usage or ``python setup.py develop`` for development.
+
 Training/testing a Model
 ------------------------
 
@@ -31,4 +33,11 @@ Running unit tests
 ------------------
 
 From the main directory, run: ``python -m unittest discover``
+
+Cython Modules
+------------------
+
+If you wish to use all the modules in xnmt that need cython, you need to build the cython extensions by this command::
+
+  python setup.py build_ext --inplace --use-cython-extensions
 

@@ -14,7 +14,6 @@ from xnmt.encoder_state import FinalEncoderState
 # The LSTM model builders
 import xnmt.pyramidal
 import xnmt.residual
-import xnmt.segmenting_encoder
 import xnmt.lstm
 
 
@@ -136,44 +135,6 @@ class ModularEncoder(Encoder, Serializable):
     for mod in self.modules:
       final_states += mod.get_final_states()
     return final_states
-
-class SegmentingEncoder(Encoder, Serializable, Reportable):
-  yaml_tag = u'!SegmentingEncoder'
-
-  def __init__(self, context, embed_encoder=None, segment_transducer=None, lmbd_learning=None, learn_segmentation=True):
-    model = context.dynet_param_collection.param_col
-
-    self.ctr = 0
-    self.lmbd     = lmbd_learning["initial"]
-    self.lmbd_max = lmbd_learning["max"]
-    self.lmbd_min = lmbd_learning["min"]
-    self.lmbd_grw = lmbd_learning["grow"]
-    self.warmup   = lmbd_learning["warmup"]
-    self.builder = xnmt.segmenting_encoder.SegmentingEncoderBuilder(embed_encoder, segment_transducer,
-                                                               learn_segmentation, model)
-
-    self.register_hier_child(self.builder)
-
-  def transduce(self, embed_sent):
-    lmbd = 0 if self.ctr < self.warmup else self.lmbd
-    return ExpressionSequence(expr_tensor=self.builder.transduce(embed_sent, lmbd))
-
-  def calc_additional_loss(self, reward):
-    lmbd = 0 if self.ctr < self.warmup else self.lmbd
-    return self.builder.calc_additional_loss(reward, lmbd)
-
-  @recursive
-  def set_train(self, val):
-    pass
-
-  def new_epoch(self):
-    self.ctr += 1
-
-    if self.ctr > self.warmup:
-      self.lmbd *= self.lmbd_grw
-      self.lmbd = min(self.lmbd, self.lmbd_max)
-      self.lmbd = max(self.lmbd, self.lmbd_min)
-      print("Now lambda:", self.lmbd, file=sys.stderr)
 
 class FullyConnectedEncoder(Encoder, Serializable):
   yaml_tag = u'!FullyConnectedEncoder'

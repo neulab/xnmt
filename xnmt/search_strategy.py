@@ -33,7 +33,7 @@ class GreedySearch(SearchStrategy):
       score += logsoftmax[cur_id]
       word_ids.append(cur_id)
 
-    return word_ids, score    
+    return word_ids, score
 
 class BeamSearch(SearchStrategy):
 
@@ -65,10 +65,10 @@ class BeamSearch(SearchStrategy):
     :param forced_trg_ids: list of word ids, if given will force to generate this is the target sequence
     :returns: (id list, score)
     """
-    
+
     if forced_trg_ids is not None: assert self.beam_size == 1
-    
-    active_hyp = [self.Hypothesis(0, [], decoder.state)]
+
+    active_hyp = [self.Hypothesis(0, [], decoder.get_state())]
 
     completed_hyp = []
     length = 0
@@ -77,7 +77,7 @@ class BeamSearch(SearchStrategy):
       new_set = []
       for hyp in active_hyp:
 
-        decoder.state = hyp.state
+        decoder.set_state(hyp.state)
         if length > 0: # don't feed in the initial start-of-sentence token
           if hyp.id_list[-1] == Vocab.ES:
             completed_hyp.append(hyp)
@@ -95,7 +95,7 @@ class BeamSearch(SearchStrategy):
           new_list.append(cur_id)
           new_set.append(self.Hypothesis(self.len_norm.normalize_partial(hyp.score, score[cur_id], len(new_list)),
                                          new_list,
-                                         decoder.state))
+                                         decoder.get_state()))
       length += 1
 
       active_hyp = sorted(new_set, key=lambda x: x.score, reverse=True)[:self.beam_size]

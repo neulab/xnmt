@@ -4,3 +4,4 @@ scipy>=0.19.0
 lxml
 dynet
 matplotlib
+cython
