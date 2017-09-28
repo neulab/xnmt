@@ -18,6 +18,8 @@ from xnmt.reports import Reportable
 from xnmt.decorators import recursive_assign, recursive
 import xnmt.serializer
 import xnmt.evaluator
+from xnmt.batcher import mark_as_batch, is_batched
+from xnmt.vocab import Vocab
 
 # Reporting purposes
 from lxml import etree
@@ -122,7 +124,27 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     encodings = self.encoder.transduce(embeddings)
     self.attender.init_sent(encodings)
     # Initialize the hidden state from the encoder
-    self.decoder.initialize(self.encoder.get_final_states())
+    ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
+    self.decoder.initialize(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
+    losses = []
+
+    seq_len = len(trg[0]) if xnmt.batcher.is_batched(src) else len(trg)
+    if xnmt.batcher.is_batched(src):
+      for j, single_trg in enumerate(trg):
+        assert len(single_trg) == seq_len # assert consistent length
+        assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
+    for i in range(seq_len):
+      ref_word = trg[i] if not xnmt.batcher.is_batched(src) \
+                      else xnmt.batcher.mark_as_batch([single_trg[i] for single_trg in trg])
+ 
+      context = self.attender.calc_context(self.decoder.state.output())
+      word_loss = self.decoder.calc_loss(context, ref_word)
+      if xnmt.batcher.is_batched(src) and trg_mask is not None:
+        mask_exp = dy.inputTensor((1.0 - trg_mask)[:,i:i+1].transpose(),batched=True)
+        word_loss = word_loss * mask_exp
+      losses.append(word_loss)
+      if i < seq_len-1:
+        self.decoder.add_input(self.trg_embedder.embed(ref_word))
 
     return self.loss_calculator(self, src, trg, src_mask, trg_mask)
 
@@ -137,7 +159,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
       encodings = self.encoder.transduce(embeddings)
       self.attender.init_sent(encodings)
-      self.decoder.initialize(self.encoder.get_final_states())
+      ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
+      self.decoder.initialize(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
       output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents), forced_trg_ids=forced_trg_ids)
       # In case of reporting
       if self.report_path is not None:
