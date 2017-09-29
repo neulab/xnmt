@@ -36,6 +36,7 @@ This will be the main class to perform training.
 options = [
   Option("dynet-mem", int, required=False),
   Option("dynet-gpu-ids", int, required=False),
+  Option("dynet-gpus", int, required=False),
   Option("dev_every", int, default_value=0, force_flag=True, help_str="dev checkpoints every n sentences (0 for only after epoch)"),
   Option("batch_size", int, default_value=32, force_flag=True),
   Option("batch_strategy", default_value="src"),

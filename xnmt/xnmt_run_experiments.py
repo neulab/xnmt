@@ -28,6 +28,7 @@ def main(overwrite_args=None):
   argparser.add_argument("--dynet-viz", action='store_true', help="use visualization")
   argparser.add_argument("--dynet-gpu", action='store_true', help="use GPU acceleration")
   argparser.add_argument("--dynet-gpu-ids", type=int)
+  argparser.add_argument("--dynet-gpus", type=int)
   argparser.add_argument("--dynet-weight-decay", type=float)
   argparser.add_argument("--generate-doc", action='store_true', help="Do not run, output documentation instead")
   argparser.add_argument("experiments_file")
