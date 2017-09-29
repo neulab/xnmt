@@ -247,6 +247,9 @@ class TransformerTranslator(DefaultTranslator):
     self.decoder.initialize(src_mask, trg_mask)
     loss = self.decoder.calc_loss((encodings, dec_input_embeddings), ref_list)
 
+    # Masking for loss
+    mask_loss = dy.inputTensor((1 - trg_mask.ravel()).reshape(1, -1), batched=True)
+    loss = dy.cmult(loss, mask_loss)
     return loss
 
 
