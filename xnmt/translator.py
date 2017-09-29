@@ -224,8 +224,7 @@ class TranslatorMLELoss(Serializable):
       context = translator.attender.calc_context(translator.decoder.state.output())
       word_loss = translator.decoder.calc_loss(context, ref_word)
       if xnmt.batcher.is_batched(src) and trg_mask is not None:
-        mask_exp = dy.inputTensor((1.0 - trg_mask.np_arr)[:,i:i+1].transpose(),batched=True)
-        word_loss = word_loss * mask_exp
+        word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
       losses.append(word_loss)
       if i < seq_len-1:
         translator.decoder.add_input(translator.trg_embedder.embed(ref_word))

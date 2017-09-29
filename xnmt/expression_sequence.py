@@ -146,7 +146,7 @@ class ReversedExpressionSequence(ExpressionSequence):
     if base_expr_seq.mask is None:
       self.mask = None
     else:
-      self.mask = xnmt.batcher.Mask(base_expr_seq.mask.np_arr[:,::-1])
+      self.mask = base_expr_seq.mask.reversed()
     
   def __len__(self):
     return len(self.base_expr_seq)
