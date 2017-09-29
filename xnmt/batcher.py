@@ -28,14 +28,16 @@ class Mask(object):
   def add_to_tensor_expr(self, tensor_expr, multiplicator=None):
     # TODO: check if all zeros, in that case we can just return tensor_expr
     # TODO: might cache these expressions to save memory
-    if multiplicator is None:
-      mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1) * multiplicator, batched=True)
+    if np.count_nonzero(self.np_arr) == 0:
+      return tensor_expr
     else:
-      mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1), batched=True)
-    return tensor_expr + mask_expr
+      if multiplicator is None:
+        mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1) * multiplicator, batched=True)
+      else:
+        mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1), batched=True)
+      return tensor_expr + mask_expr
 
   def cmult_by_timestep_expr(self, expr, timestep, inverse=False):
-    # TODO: check if all zeros or all ones
     # TODO: might cache these expressions to save memory
     """
     :param expr: a dynet expression corresponding to one timestep
@@ -43,8 +45,12 @@ class Mask(object):
     :param inverse: True will keep the unmasked parts, False will zero out the unmasked parts
     """
     if inverse:
+      if np.count_nonzero(self.np_arr[:,timestep:timestep+1]) == 0:
+        return expr  
       mask_exp = dy.inputTensor((1.0 - self.np_arr)[:,timestep:timestep+1].transpose(), batched=True)
     else:
+      if np.count_nonzero(self.np_arr[:,timestep:timestep+1]) == self.np_arr[:,timestep:timestep+1].size:
+        return expr
       mask_exp = dy.inputTensor(self.np_arr[:,timestep:timestep+1].transpose(), batched=True)
     return dy.cmult(expr, mask_exp)
     
