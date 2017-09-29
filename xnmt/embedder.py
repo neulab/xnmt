@@ -25,11 +25,11 @@ class Embedder(HierarchicalModel):
     """
     raise NotImplementedError('embed must be implemented in Embedder subclasses')
 
-  def embed_sent(self, sent, mask=None):
+  def embed_sent(self, sent):
     """Embed a full sentence worth of words.
 
     :param sent: This will generally be a list of word IDs, but could also be a list of strings or some other format.
-      It could also be batched, in which case it will be a list of list.
+      It could also be batched, in which case it will be a (possibly masked) Batch object
     :returns: An ExpressionSequence representing vectors of each word in the input.
     """
     raise NotImplementedError('embed_sent must be implemented in Embedder subclasses')
@@ -88,7 +88,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
       ret = dy.noise(ret, self.weight_noise)
     return ret
 
-  def embed_sent(self, sent, mask=None):
+  def embed_sent(self, sent):
     # single mode
     if not xnmt.batcher.is_batched(sent):
       embeddings = [self.embed(word) for word in sent]
@@ -101,7 +101,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
         batch = xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])
         embeddings.append(self.embed(batch))
 
-    return ExpressionSequence(expr_list=embeddings, mask=mask)
+    return ExpressionSequence(expr_list=embeddings, mask=sent.mask if xnmt.batcher.is_batched(sent) else None)
 
 class NoopEmbedder(Embedder, Serializable):
   """
@@ -121,7 +121,7 @@ class NoopEmbedder(Embedder, Serializable):
   def embed(self, x):
     return dy.inputTensor(x, batched=xnmt.batcher.is_batched(x))
 
-  def embed_sent(self, sent, mask=None):
+  def embed_sent(self, sent):
     # TODO refactor: seems a bit too many special cases that need to be distinguished
     if isinstance(sent, ExpressionSequence):
       return sent
@@ -132,8 +132,8 @@ class NoopEmbedder(Embedder, Serializable):
         return LazyNumpyExpressionSequence(lazy_data=sent.get_array())
       else:
         return LazyNumpyExpressionSequence(lazy_data=xnmt.batcher.mark_as_batch(
-                                            six.moves.map(lambda s: s.get_array(), sent)),
-                                           mask=mask)
+                                           six.moves.map(lambda s: s.get_array(), sent)),
+                                           mask=sent.mask)
     else:
       if not batched:
         embeddings = [self.embed(word) for word in sent]
@@ -141,5 +141,5 @@ class NoopEmbedder(Embedder, Serializable):
         embeddings = []
         for word_i in range(len(first_sent)):
           embeddings.append(self.embed(xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
-      return ExpressionSequence(expr_list=embeddings, mask=mask)
+      return ExpressionSequence(expr_list=embeddings, mask=sent.mask)
 

@@ -126,9 +126,9 @@ class XnmtTrainer(object):
                 self.args.batch_strategy.lower() == 'none')
 
   def pack_batches(self):
-    self.train_src, self.train_src_mask, self.train_trg, self.train_trg_mask = \
+    self.train_src, self.train_trg = \
       self.batcher.pack(self.training_corpus.train_src_data, self.training_corpus.train_trg_data)
-    self.dev_src, self.dev_src_mask, self.dev_trg, self.dev_trg_mask = \
+    self.dev_src, self.dev_trg = \
       self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
 
   def dynet_trainer_for_args(self, args, model_context):
@@ -188,17 +188,13 @@ class XnmtTrainer(object):
     order = list(range(0, len(self.train_src)))
     np.random.shuffle(order)
     for batch_num in order:
-      if self.is_batch_mode():
-        src, src_mask = self.train_src[batch_num], self.train_src_mask[batch_num]
-        trg, trg_mask = self.train_trg[batch_num], self.train_trg_mask[batch_num]
-      else:
-        src, src_mask = self.train_src[batch_num], None
-        trg, trg_mask = self.train_trg[batch_num], None
+      src = self.train_src[batch_num]
+      trg = self.train_trg[batch_num]
 
       # Loss calculation
       dy.renew_cg()
       loss_builder = LossBuilder()
-      standard_loss = self.model.calc_loss(src, trg, src_mask=src_mask, trg_mask=trg_mask)
+      standard_loss = self.model.calc_loss(src, trg)
 
       loss_builder.add_loss("loss", standard_loss)
       additional_loss = self.model.calc_additional_loss(dy.nobackprop(-standard_loss))
@@ -295,9 +291,7 @@ class XnmtTrainer(object):
     trg_words_cnt = 0
     for i in range(len(self.dev_src)):
       dy.renew_cg()
-      src_mask = self.dev_src_mask[i] if self.is_batch_mode() else None
-      trg_mask = self.dev_trg_mask[i] if self.is_batch_mode() else None
-      standard_loss = self.model.calc_loss(self.dev_src[i], self.dev_trg[i], src_mask=src_mask, trg_mask=trg_mask)
+      standard_loss = self.model.calc_loss(self.dev_src[i], self.dev_trg[i])
       loss_builder.add_loss("loss", standard_loss)
       trg_words_cnt += self.logger.count_trg_words(self.dev_trg[i])
       loss_builder.compute()

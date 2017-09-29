@@ -11,7 +11,7 @@ from xnmt.attender import StandardAttender
 from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
 from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
-from xnmt.batcher import mark_as_batch
+from xnmt.batcher import mark_as_batch, Mask
 import xnmt.xnmt_train
 from xnmt.options import Args
 from xnmt.vocab import Vocab
@@ -49,15 +49,13 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     for sent_id in range(batch_size):
       dy.renew_cg()
       train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
-                                        trg=trg_sents_trunc[sent_id],
-                                        src_mask=None, trg_mask=None).value()
+                                        trg=trg_sents_trunc[sent_id]).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
-                                        trg=mark_as_batch(trg_sents_trunc),
-                                        src_mask=None, trg_mask=None).value()
+                                        trg=mark_as_batch(trg_sents_trunc)).value()
     self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)
 
   def test_loss_model1(self):
@@ -118,10 +116,10 @@ class TestBatchTraining(unittest.TestCase):
     for single_sent in src_sents_trunc: single_sent[src_min-1] = Vocab.ES
     trg_sents = self.training_corpus.train_trg_data[:batch_size]
     trg_max = max([len(x) for x in trg_sents])
-    trg_masks = np.zeros([batch_size, trg_max])
+    trg_masks = Mask(np.zeros([batch_size, trg_max]))
     for i in range(batch_size):
       for j in range(len(trg_sents[i]), trg_max):
-        trg_masks[i,j] = 1.0
+        trg_masks.np_arr[i,j] = 1.0
     trg_sents_padded = [[w for w in s] + [Vocab.ES]*(trg_max-len(s)) for s in trg_sents]
 
     single_loss = 0.0
@@ -134,8 +132,7 @@ class TestBatchTraining(unittest.TestCase):
     dy.renew_cg()
 
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
-                                   trg=mark_as_batch(trg_sents_padded),
-                                   trg_mask=trg_masks).value()
+                                   trg=mark_as_batch(trg_sents_padded, trg_masks)).value()
     self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)
 
   def test_loss_model1(self):

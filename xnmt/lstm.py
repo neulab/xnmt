@@ -141,8 +141,8 @@ class CustomCompactLSTMBuilder(object):
         c.append(c_t)
         h.append(h_t)
       else:
-        mask_expr = dy.inputTensor(expr_seq[0].mask.transpose()[pos_i:pos_i+1], batched=True)
-        inv_mask_expr = dy.inputTensor(1.0 - expr_seq[0].mask.transpose()[pos_i:pos_i+1], batched=True)
+        mask_expr = dy.inputTensor(expr_seq[0].mask.np_arr.transpose()[pos_i:pos_i+1], batched=True)
+        inv_mask_expr = dy.inputTensor(1.0 - expr_seq[0].mask.np_arr.transpose()[pos_i:pos_i+1], batched=True)
         c.append(dy.cmult(c_t, inv_mask_expr) + dy.cmult(c[-1], mask_expr))
         h.append(dy.cmult(h_t, inv_mask_expr) + dy.cmult(h[-1], mask_expr))
     self._final_states = [FinalEncoderState(h[-1], c[-1])]
