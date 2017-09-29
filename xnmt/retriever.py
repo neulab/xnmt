@@ -7,10 +7,11 @@ import os
 from lxml import etree
 
 import xnmt.batcher
-from xnmt.decorators import recursive, recursive_assign
+from xnmt.decorators import recursive_assign
 from xnmt.model import GeneratorModel
 from xnmt.serializer import Serializable
 from xnmt.reports import Reportable
+from xnmt.expression_sequence import ExpressionSequence
 
 ##### A class for retrieval databases
 # This file contains databases used for retrieval.
@@ -103,7 +104,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
 
   def exprseq_pooling(self, exprseq):
     # Reduce to vector
-    exprseq.apply_additive_mask(-1e10)
+    exprseq = ExpressionSequence(expr_tensor=exprseq.mask.add_to_tensor_expr(exprseq.as_tensor(),-1e10), mask=exprseq.mask)
     if exprseq.expr_tensor != None:
       if len(exprseq.expr_tensor.dim()[0]) > 1:
         return dy.max_dim(exprseq.expr_tensor, d=1)

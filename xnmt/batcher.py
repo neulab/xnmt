@@ -26,7 +26,6 @@ class Mask(object):
     return Mask(self.np_arr[:,::-1])
   
   def add_to_tensor_expr(self, tensor_expr, multiplicator=None):
-    # TODO: check if all zeros, in that case we can just return tensor_expr
     # TODO: might cache these expressions to save memory
     if np.count_nonzero(self.np_arr) == 0:
       return tensor_expr
