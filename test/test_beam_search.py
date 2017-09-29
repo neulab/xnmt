@@ -76,8 +76,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
   def test_single(self):
     dy.renew_cg()
     train_loss = self.model.calc_loss(src=self.training_corpus.train_src_data[0],
-                                      trg=self.training_corpus.train_trg_data[0],
-                                      src_mask=None, trg_mask=None).value()
+                                      trg=self.training_corpus.train_trg_data[0]).value()
     dy.renew_cg()
     self.model.initialize_generator(beam=1)
     outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0,
@@ -117,8 +116,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
 
     dy.renew_cg()
     train_loss = self.model.calc_loss(src=self.training_corpus.train_src_data[0],
-                                      trg=outputs[0][0],
-                                      src_mask=None, trg_mask=None).value()
+                                      trg=outputs[0][0]).value()
 
     self.assertAlmostEqual(-output_score, train_loss, places=5)
 

@@ -86,19 +86,6 @@ class ExpressionSequence(object):
     """
     return self.expr_tensor is not None
 
-  def apply_additive_mask(self, val):
-    """Add a constant to all masked values
-    """
-    if type(self.mask) != type(None):
-      if self.expr_tensor:
-        my_mask = dy.inputTensor(np.expand_dims(self.mask, axis=0) * val, batched=True)
-        self.expr_tensor = dy.csum(self.expr_tensor, my_mask)
-      if self.expr_list:
-        for i in range(len(self.expr_list)):
-          col_mask = self.mask[:,i]
-          if col_mask.sum() > 0:
-            self.expr_list[i] += dy.inputTensor(col_mask * val, batched=True)
-
 class LazyNumpyExpressionSequence(ExpressionSequence):
   """
   This is initialized via numpy arrays, and dynet expressions are only created
@@ -146,7 +133,7 @@ class ReversedExpressionSequence(ExpressionSequence):
     if base_expr_seq.mask is None:
       self.mask = None
     else:
-      self.mask = base_expr_seq.mask[:,::-1]
+      self.mask = base_expr_seq.mask.reversed()
     
   def __len__(self):
     return len(self.base_expr_seq)

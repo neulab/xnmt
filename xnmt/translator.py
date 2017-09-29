@@ -2,7 +2,6 @@ from __future__ import division, generators
 
 import six
 import plot
-import os
 import dynet as dy
 import numpy as np
 
@@ -19,7 +18,6 @@ from xnmt.decorators import recursive_assign, recursive
 import xnmt.serializer
 import xnmt.evaluator
 from xnmt.batcher import mark_as_batch, is_batched
-from xnmt.vocab import Vocab
 
 # Reporting purposes
 from lxml import etree
@@ -30,13 +28,11 @@ class Translator(GeneratorModel):
   loss and generate translations.
   '''
 
-  def calc_loss(self, src, trg, src_mask=None, trg_mask=None):
+  def calc_loss(self, src, trg):
     '''Calculate loss based on input-output pairs.
 
     :param src: The source, a sentence or a batch of sentences.
     :param trg: The target, a sentence or a batch of sentences.
-    :param src_mask: A numpy array specifying the masking over the source, where rows are time steps, and columns are batch IDs.
-    :param trg_mask: A numpy array specifying the masking over the target, where rows are time steps, and columns are batch IDs.
     :returns: An expression representing the loss.
     '''
     raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
@@ -111,22 +107,20 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)
 
-  def calc_loss(self, src, trg, src_mask=None, trg_mask=None, info=None, loss='mle'):
+  def calc_loss(self, src, trg):
     """
     :param src: source sequence (unbatched, or batched + padded)
-    :param trg: target sequence (unbatched, or batched + padded)
-    :param src_mask: binary mask denoting src padding, passed to embedder
-    :param trg_mask: binary mask denoting trg padding; losses will be accumulated only if trg_mask[batch,pos]==0
+    :param trg: target sequence (unbatched, or batched + padded); losses will be accumulated only if trg_mask[batch,pos]==0, or no mask is set
     :returns: (possibly batched) loss expression
     """
     self.start_sent()
-    embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
+    embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder.transduce(embeddings)
     self.attender.init_sent(encodings)
     # Initialize the hidden state from the encoder
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
     self.decoder.initialize(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
-    return self.loss_calculator(self, src, trg, src_mask, trg_mask)
+    return self.loss_calculator(self, src, trg)
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
@@ -136,7 +130,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     outputs = []
     for sents in src:
       self.start_sent()
-      embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
+      embeddings = self.src_embedder.embed_sent(src)
       encodings = self.encoder.transduce(embeddings)
       self.attender.init_sent(encodings)
       ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
@@ -215,13 +209,14 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 class TranslatorMLELoss(Serializable):
   yaml_tag = '!TranslatorMLELoss'
 
-  def __call__(self, translator, src, trg, src_mask, trg_mask):
+  def __call__(self, translator, src, trg):
+    trg_mask = trg.mask if xnmt.batcher.is_batched(trg) else None
     losses = []
     seq_len = len(trg[0]) if xnmt.batcher.is_batched(src) else len(trg)
     if xnmt.batcher.is_batched(src):
       for j, single_trg in enumerate(trg):
         assert len(single_trg) == seq_len # assert consistent length
-        assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
+        assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask.np_arr[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
     for i in range(seq_len):
       ref_word = trg[i] if not xnmt.batcher.is_batched(src) \
                       else xnmt.batcher.mark_as_batch([single_trg[i] for single_trg in trg])
@@ -229,8 +224,7 @@ class TranslatorMLELoss(Serializable):
       context = translator.attender.calc_context(translator.decoder.state.output())
       word_loss = translator.decoder.calc_loss(context, ref_word)
       if xnmt.batcher.is_batched(src) and trg_mask is not None:
-        mask_exp = dy.inputTensor((1.0 - trg_mask)[:,i:i+1].transpose(),batched=True)
-        word_loss = word_loss * mask_exp
+        word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
       losses.append(word_loss)
       if i < seq_len-1:
         translator.decoder.add_input(translator.trg_embedder.embed(ref_word))
@@ -247,7 +241,8 @@ class TranslatorReinforceLoss(Serializable):
     else:
       self.evaluation_metric = evaluation_metric
 
-  def __call__(self, translator, src, trg, src_mask, trg_mask):
+  def __call__(self, translator, src, trg):
+    # TODO: apply trg.mask ?
     samples = []
     logsofts = []
     done = [False for _ in range(len(trg))]
