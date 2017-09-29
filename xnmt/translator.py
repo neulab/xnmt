@@ -18,6 +18,8 @@ from xnmt.reports import Reportable
 from xnmt.decorators import recursive_assign, recursive
 import xnmt.serializer
 import xnmt.evaluator
+from xnmt.batcher import mark_as_batch, is_batched
+from xnmt.vocab import Vocab
 
 # Reporting purposes
 from lxml import etree
@@ -122,8 +124,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     encodings = self.encoder.transduce(embeddings)
     self.attender.init_sent(encodings)
     # Initialize the hidden state from the encoder
-    self.decoder.initialize(self.encoder.get_final_states())
-
+    ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
+    self.decoder.initialize(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
     return self.loss_calculator(self, src, trg, src_mask, trg_mask)
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
@@ -137,7 +139,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
       encodings = self.encoder.transduce(embeddings)
       self.attender.init_sent(encodings)
-      self.decoder.initialize(self.encoder.get_final_states())
+      ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
+      self.decoder.initialize(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
       output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents), forced_trg_ids=forced_trg_ids)
       # In case of reporting
       if self.report_path is not None:
@@ -166,7 +169,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     assert(context is None)
     idx, src, trg, att = self.get_report_input()
     path_to_report = self.get_report_path()
-    filename_of_report = os.path.basename(path_to_report)
     html = etree.Element('html')
     head = etree.SubElement(html, 'head')
     title = etree.SubElement(head, 'title')
@@ -193,7 +195,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       att_text = etree.SubElement(attention, 'b')
       att_text.text = "Attention:"
       etree.SubElement(attention, 'br')
-      att_mtr = etree.SubElement(attention, 'img', src="{}.attention.png".format(filename_of_report))
       attention_file = u"{}.attention.png".format(path_to_report)
 
       if type(att) == dy.Expression:
@@ -250,7 +251,7 @@ class TranslatorReinforceLoss(Serializable):
     samples = []
     logsofts = []
     done = [False for _ in range(len(trg))]
-    for i in range(self.sample_length):
+    for _ in range(self.sample_length):
       context = translator.attender.calc_context(translator.decoder.state.output())
       logsoft = dy.log_softmax(translator.decoder.get_scores(context))
       sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]

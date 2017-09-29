@@ -1,5 +1,7 @@
 import dynet as dy
+import numpy as np
 from xnmt.encoder_state import FinalEncoderState, PseudoState
+from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
 
 class LSTMState(object):
   def __init__(self, builder, h_t=None, c_t=None, state_idx=-1, prev_state=None):
@@ -100,27 +102,30 @@ class CustomCompactLSTMBuilder(object):
       gates_t = dy.vanilla_lstm_gates_dropout(x_t, h_tm1, self.Wx, self.Wh, self.b, self.dropout_mask_x, self.dropout_mask_h, self.weightnoise_std)
     else:
       gates_t = dy.vanilla_lstm_gates(x_t, h_tm1, self.Wx, self.Wh, self.b, self.weightnoise_std)
-    try:
-      c_t = dy.vanilla_lstm_c(c_tm1, gates_t)
-    except ValueError:
-      c_t = dy.vanilla_lstm_c(c_tm1, gates_t)
+    c_t = dy.vanilla_lstm_c(c_tm1, gates_t)
     h_t = dy.vanilla_lstm_h(c_t, gates_t)
     return h_t, c_t
-
-  def transduce(self, xs):
+    
+  def transduce(self, expr_seq):
     """
-    :param xs: list of expressions or list of list of expressions (where each inner list will be concatenated)
+    transduce the sequence, applying masks if given (masked timesteps simply copy previous h / c)
+    
+    :param expr_seq: expression sequence or list of expression sequences (where each inner list will be concatenated)
+    :returns: expression sequence
     """
     self.initial_state()
-    xs = list(xs)
-    if hasattr(xs[0], "dim"): batch_size = xs[0].dim()[1]
-    else: batch_size = xs[0][0].dim()[1]
+    if isinstance(expr_seq, ExpressionSequence):
+      expr_seq = [expr_seq]
+    batch_size = expr_seq[0][0].dim()[1]
+    seq_len = len(expr_seq[0])
+    
     if self.dropout_rate > 0.0:
       self.set_dropout_masks(batch_size=batch_size)
+      
     h = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
     c = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
-    for pos_i in range(len(xs)):
-      x_t = xs[pos_i]
+    for pos_i in range(seq_len):
+      x_t = [expr_seq[j][pos_i] for j in range(len(expr_seq))]
       if isinstance(x_t, dy.Expression):
         x_t = [x_t]
       elif type(x_t) != list:
@@ -131,10 +136,17 @@ class CustomCompactLSTMBuilder(object):
       else:
         gates_t = dy.vanilla_lstm_gates_concat(x_t, h[-1], self.Wx, self.Wh, self.b, self.weightnoise_std)
       c_t = dy.vanilla_lstm_c(c[-1], gates_t)
-      c.append(c_t)
-      h.append(dy.vanilla_lstm_h(c_t, gates_t))
+      h_t = dy.vanilla_lstm_h(c_t, gates_t)
+      if expr_seq[0].mask is None:
+        c.append(c_t)
+        h.append(h_t)
+      else:
+        mask_expr = dy.inputTensor(expr_seq[0].mask.transpose()[pos_i:pos_i+1], batched=True)
+        inv_mask_expr = dy.inputTensor(1.0 - expr_seq[0].mask.transpose()[pos_i:pos_i+1], batched=True)
+        c.append(dy.cmult(c_t, inv_mask_expr) + dy.cmult(c[-1], mask_expr))
+        h.append(dy.cmult(h_t, inv_mask_expr) + dy.cmult(h[-1], mask_expr))
     self._final_states = [FinalEncoderState(h[-1], c[-1])]
-    return h[1:]
+    return ExpressionSequence(expr_list=h[1:], mask=expr_seq[0].mask)
 
 class BiCompactLSTMBuilder:
   """
@@ -169,13 +181,14 @@ class BiCompactLSTMBuilder:
       layer.disable_weightnoise()
 
   def transduce(self, es):
+    mask = es.mask
     # first layer
     forward_es = self.forward_layers[0].initial_state().transduce(es)
-    rev_backward_es = self.backward_layers[0].initial_state().transduce(list(reversed(es)))
+    rev_backward_es = self.backward_layers[0].initial_state().transduce(ReversedExpressionSequence(es))
 
     for layer_i in range(1, len(self.forward_layers)):
-      new_forward_es = self.forward_layers[layer_i].initial_state().transduce(zip(forward_es, reversed(list(rev_backward_es))))
-      rev_backward_es = list(reversed(self.backward_layers[layer_i].initial_state().transduce(zip(reversed(forward_es), rev_backward_es))))
+      new_forward_es = self.forward_layers[layer_i].initial_state().transduce([forward_es, ReversedExpressionSequence(rev_backward_es)])
+      rev_backward_es = ExpressionSequence(self.backward_layers[layer_i].initial_state().transduce([ReversedExpressionSequence(forward_es), rev_backward_es]).as_list(), mask=mask)
       forward_es = new_forward_es
 
     self._final_states = [FinalEncoderState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
@@ -183,7 +196,7 @@ class BiCompactLSTMBuilder:
                                             dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].cell_expr(),
                                                             self.backward_layers[layer_i].get_final_states()[0].cell_expr()])) \
                           for layer_i in range(len(self.forward_layers))]
-    return [dy.concatenate([f,b]) for f,b in zip(forward_es, reversed(list(rev_backward_es)))]
+    return ExpressionSequence(expr_list=[dy.concatenate([forward_es[i],rev_backward_es[-i-1]]) for i in range(len(forward_es))], mask=mask)
 
   def initial_state(self):
     return PseudoState(self)
