@@ -173,7 +173,7 @@ class TransformerDecoderLayer(object):
     # Check for Nan
     assert (np.isnan(out.npvalue()).any() == False)
     out_list = expr_to_sequence(out, seq_len, batch_size)
-    return out_list
+    return out_list, out
 
   def _get_attn_subsequent_mask(self, size):
       """

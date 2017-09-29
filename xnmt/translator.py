@@ -3,13 +3,15 @@ from __future__ import division, generators
 import six
 import plot
 import os
+import itertools
 import dynet as dy
 import numpy as np
 
 import xnmt.length_normalization
 import xnmt.batcher
-
+from xnmt.expression_sequence import ExpressionSequence
 from xnmt.vocab import Vocab
+from xnmt.batcher import mark_as_batch, is_batched
 from xnmt.serializer import Serializable, DependentInitParam
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.output import TextOutput
@@ -232,11 +234,20 @@ class TransformerTranslator(DefaultTranslator):
     self.start_sent()
     src_embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
     encodings = self.encoder.transduce(src_embeddings)
-    trg_embeddings = self.trg_embedder.embed_sent(trg, mask=trg_mask)
-    self.decoder.initialize(src_mask, trg_mask)
-    self.decoder.calc_loss(encodings, trg_embeddings)
 
-    return
+    # Calculating the embedding of the START TOKEN
+    ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
+    ss_embeddings = self.trg_embedder.embed(ss)
+
+    # Appending the embedding of START_TOKEN at time step 1 and removing the last time step embedding
+    trg_embeddings = self.trg_embedder.embed_sent(trg, mask=trg_mask)
+    dec_input_embeddings = ExpressionSequence([ss_embeddings] + trg_embeddings.expr_list[:-1])
+    ref_list = xnmt.batcher.mark_as_batch(list(itertools.chain.from_iterable(map(lambda x: x.words, trg))))
+
+    self.decoder.initialize(src_mask, trg_mask)
+    loss = self.decoder.calc_loss((encodings, dec_input_embeddings), ref_list)
+
+    return loss
 
 
 

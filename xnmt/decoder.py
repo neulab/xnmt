@@ -199,12 +199,13 @@ class TransformerDecoder(Decoder, Serializable):
     self.src_mask = src_mask
     self.trg_mask = trg_mask
 
-  def get_scores(self, context, ref):
-    self.state = self.builder.transduce(context, ref, self.src_mask, self.trg_mask)
+  def get_scores(self, encodings, dec_input_embeddings):
+    _, self.state = self.builder.transduce(encodings, dec_input_embeddings, self.src_mask, self.trg_mask)
     return self.vocab_projector(self.state)
 
   def calc_loss(self, context, ref_action):
-    scores = self.get_scores(context, ref_action)
+    encodings, dec_input_embeddings = context
+    scores = self.get_scores(encodings, dec_input_embeddings)
     # single mode
     if not xnmt.batcher.is_batched(ref_action):
       return dy.pickneglogsoftmax(scores, ref_action)
