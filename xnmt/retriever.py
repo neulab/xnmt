@@ -115,6 +115,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
 
   def calc_loss(self, src, db_idx, src_mask=None, trg_mask=None):
     src_embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
+    self.src_encoder.set_input(src)
     src_encodings = self.exprseq_pooling(self.src_encoder.transduce(src_embeddings))
     trg_batch, trg_mask = self.database[db_idx]
     # print("trg_mask=\n",trg_mask)
@@ -167,11 +168,13 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
 
   def encode_trg_example(self, example, mask=None):
     embeddings = self.trg_embedder.embed_sent(example, mask=mask)
+    self.trg_encoder.set_input(example)
     encodings = self.exprseq_pooling(self.trg_encoder.transduce(embeddings))
     return encodings
 
   def generate(self, src, idx, return_type="idxscore", nbest=10):
     src_embedding = self.src_embedder.embed_sent(src)
+    self.src_encoder.set_input(src)
     src_encoding = dy.transpose(self.exprseq_pooling(self.src_encoder.transduce(src_embedding))).npvalue()
     scores = np.dot(src_encoding, self.database.indexed)
     # print("--- scores: {}".format(list(scores[0])))

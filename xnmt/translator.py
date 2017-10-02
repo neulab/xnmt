@@ -115,6 +115,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     """
     self.start_sent()
     embeddings = self.src_embedder.embed_sent(src)
+    self.encoder.set_input(src)
     encodings = self.encoder.transduce(embeddings)
     self.attender.init_sent(encodings)
     # Initialize the hidden state from the encoder
@@ -131,6 +132,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     for sents in src:
       self.start_sent()
       embeddings = self.src_embedder.embed_sent(src)
+      self.encoder.set_input(src)
       encodings = self.encoder.transduce(embeddings)
       self.attender.init_sent(encodings)
       ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS

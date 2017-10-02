@@ -41,13 +41,13 @@ class ScalarParam(Serializable):
     self.max_value = max_value
 
   def get_value(self, warmup_counter=None):
-    if warmup_counter is None or warmup_counter >= self.warmup:
+    if warmup_counter is None or warmup_counter > self.warmup:
       return self.value
     else:
       return 0.0
 
   def grow_param(self, warmup_counter=None):
-    if warmup_counter is None or warmup_counter >= self.warmup:
+    if warmup_counter is None or warmup_counter > self.warmup:
       self.value *= self.grow
       self.value = max(self.min_value, self.value)
       self.value = min(self.max_value, self.value)
@@ -59,7 +59,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
   yaml_tag = u'!SegmentingEncoder'
 
   def __init__(self, context, embed_encoder=None, segment_transducer=None, learn_segmentation=True,
-               reinforcement_param=None, length_prior=3.5, learn_delete=False):
+               reinforcement_param=None, length_prior=3.5, learn_delete=False, baseline_scaling=1000):
     model = context.dynet_param_collection.param_col
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
@@ -73,6 +73,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     self.baseline = linear.Linear(input_dim = embed_encoder.hidden_dim,
                                   output_dim = 1,
                                   model = model)
+    self.baseline_scaling = baseline_scaling
     # Whether to learn segmentation or not
     self.learn_segmentation = learn_segmentation
     # Whether to learn deletion or not
@@ -88,9 +89,17 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     self.register_hier_child(embed_encoder)
     self.register_hier_child(segment_transducer)
 
-  def sample_segmentation(self, encodings, batch_size):
+  def sample_segmentation(self, encodings, batch_size, src=None):
     lmbd = self.lmbd.get_value(self.warmup_counter)
-    if lmbd == 0: # Indicates that it is still warmup time
+    segment_logsoftmaxes = None
+    if not self.learn_segmentation: # Indicates that prior segmentation is given
+      segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
+      for i, sent in enumerate(src):
+        if "segment" not in sent.annotation:
+          raise ValueError("If segmentation is not learned, SegmentationTextReader should be used to read in the input.")
+        segment_decisions[i][sent.annotation["segment"]] = 1
+      segment_decisions = numpy.split(segment_decisions, len(encodings), 1)
+    elif lmbd == 0: # Indicates that it is still warmup time
       randoms = numpy.random.poisson(lam=self.length_prior, size=batch_size * len(encodings))
       segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
       idx = 0
@@ -103,7 +112,6 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
           current += randoms[idx]
         decision[-1] = 1
       segment_decisions = numpy.split(segment_decisions, len(encodings), 1)
-      segment_logsoftmaxes = None
     else:
       segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
       if self.train:
@@ -124,8 +132,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     if self.learn_segmentation:
       segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size)
     else:
-      # TODO(philip30): Implement the reader for segment decision!
-      pass
+      segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size, self._src)
     # Some checks
     assert len(encodings) == len(segment_decisions), \
            "Encoding={}, segment={}".format(len(encodings), len(segment_decisions))
@@ -169,11 +176,13 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
       return xs
     outputs = dy.concatenate_to_batch(list(six.moves.map(lambda xs: dy.concatenate_cols(pad(xs)), outputs)))
     # Packing output together
-    if self.train and self.learn_segmentation:
-      lmbd = self.lmbd.get_value(self.warmup_counter)
+    if self.train:
       self.segment_decisions = segment_decisions
       self.segment_logsoftmaxes = segment_logsoftmaxes
-      self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
+      if self.learn_segmentation:
+        self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
+      else:
+        self.segment_length_prior = None
       self.bs = list(six.moves.map(lambda x: self.baseline(dy.nobackprop(x)), encodings))
     if not self.train:
       self.set_report_input(segment_decisions)
@@ -191,30 +200,32 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
   def new_epoch(self):
     self.lmbd.grow_param(self.warmup_counter)
     self.warmup_counter += 1
-    print("Now Lambda:", self.lmbd)
+    lmbd = self.lmbd.get_value(self.warmup_counter)
+    if lmbd > 0.0:
+      print("Now Lambda:", lmbd)
 
   @recursive_sum
   def calc_additional_loss(self, reward):
-    if self.learn_segmentation:
-      lmbd = self.lmbd.get_value(self.warmup_counter)
+    ret = LossBuilder()
+    if self.segment_length_prior is not None:
       reward += self.segment_length_prior
-      ret = LossBuilder()
+    # Baseline Loss
+    baseline_loss = []
+    for i, baseline in enumerate(self.bs):
+      baseline_loss.append(dy.squared_distance(reward, baseline) / self.baseline_scaling)
+    ret.add_loss("Baseline", dy.esum(baseline_loss))
+    # Reinforce Loss
+    lmbd = self.lmbd.get_value(self.warmup_counter)
+    if self.learn_segmentation and lmbd > 0.0:
       reinforce_loss = []
-      baseline_loss = []
       # Calculating the loss of the baseline and reinforce
       for i, baseline in enumerate(self.bs):
-        baseline_loss.append(dy.squared_distance(reward, baseline))
-        if lmbd > 0:
-          ll = dy.pick_batch(self.segment_logsoftmaxes[i], self.segment_decisions[i])
-          r_i = reward - baseline
-          reinforce_loss.append(r_i * -dy.exp(ll))
-      # Putting up all the losses
-      if lmbd > 0:
-        ret.add_loss("Reinforce", dy.esum(reinforce_loss) * lmbd)
-      ret.add_loss("Baseline", dy.esum(baseline_loss))
-      return ret
-    else:
-      return None
+        ll = dy.pick_batch(self.segment_logsoftmaxes[i], self.segment_decisions[i])
+        r_i = reward - baseline
+        reinforce_loss.append(r_i * ll)
+      ret.add_loss("Reinforce", dy.esum(reinforce_loss) * lmbd)
+    # Total Loss
+    return ret
 
   @recursive_assign
   def html_report(self, context):

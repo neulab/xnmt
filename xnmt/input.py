@@ -39,7 +39,7 @@ class SimpleSentenceInput(Input):
       return self
     new_words = list(self.words)
     new_words.extend([token] * pad_len)
-    return SimpleSentenceInput(new_words)
+    return self.__class__(new_words)
 
   def __str__(self):
     return " ".join(six.moves.map(str, self.words))
@@ -47,10 +47,15 @@ class SimpleSentenceInput(Input):
 class SentenceInput(SimpleSentenceInput):
   def __init__(self, words):
     super(SentenceInput, self).__init__(words)
-    self.annotation = []
+    self.annotation = {}
 
   def annotate(self, key, value):
-    self.__dict__[key] = value
+    self.annotation[key] = value
+
+  def get_padded_sent(self, token, pad_len):
+    sent = super(SentenceInput, self).get_padded_sent(token, pad_len)
+    sent.annotation = self.annotation
+    return sent
 
 class ArrayInput(Input):
   """

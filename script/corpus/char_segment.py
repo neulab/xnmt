@@ -13,12 +13,14 @@ with open(args.input_file) as file_fp, \
      open(args.output_character, "w") as char_out, \
      open(args.output_segmentation, "w") as seg_out:
   for line in file_fp:
+    ctr = 0
     line = line.strip().split()
     char_line = []
     seg_line = []
     for word in line:
       char_line.append(" ".join(word))
-      seg_line.append(str(len(word)))
+      ctr += len(word)
+      seg_line.append(str(ctr-1))
     print(" ".join(char_line), file=char_out)
     print(" ".join(seg_line), file=seg_out)
 

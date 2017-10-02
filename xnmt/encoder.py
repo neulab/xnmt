@@ -35,6 +35,14 @@ class Encoder(HierarchicalModel):
     """ Return the state that represents the transduced sequence """
     return NotImplementedError('Unimplemented get_final_state for class:', self.__class__.__name__)
 
+  def set_input(self, src):
+    """ Hold a reference to the original source sentence.
+        Notes:
+          - philip30: I belive this is not a good practice. But this is the best way we can do without modifying the return value of the embedder.
+          This function will hold the reference to the original input sentence.
+    """
+    self._src = src
+
 class BuilderEncoder(Encoder):
   def __init__(self):
     self._final_states = None

@@ -168,12 +168,12 @@ class XnmtTrainer(object):
     self.model = self.model_serializer.initialize_object(model, self.model_context) if self.need_deserialization else self.args.model
     self.model_context.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
 
-
   def run_epoch(self, update_weights=True):
     """
     :param update_weights: Whether to perform backward pass & update weights (useful for debugging)
     """
     self.logger.new_epoch()
+    self.model.new_epoch()
 
     if self.logger.epoch_num > 1:
       if self.args.reload_between_epochs:
@@ -190,7 +190,6 @@ class XnmtTrainer(object):
     for batch_num in order:
       src = self.train_src[batch_num]
       trg = self.train_trg[batch_num]
-
       # Loss calculation
       dy.renew_cg()
       loss_builder = LossBuilder()
@@ -212,8 +211,6 @@ class XnmtTrainer(object):
       self.logger.report_train_process()
       if self.logger.should_report_dev():
         self.dev_evaluation()
-
-      self.model.new_epoch()
 
   def dev_evaluation(self, out_ext=".dev_hyp", ref_ext=".dev_ref", encoding='utf-8'):
     self.model.set_train(False)
