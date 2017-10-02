@@ -33,5 +33,8 @@ class TestRunningConfig(unittest.TestCase):
   def test_load_model(self):
     run.main(["test/config/load_model.yaml"])
 
+  def test_translator_loss(self):
+    run.main(["test/config/translator_loss.yaml"])
+
 if __name__ == "__main__":
   unittest.main()

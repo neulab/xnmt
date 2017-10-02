@@ -41,7 +41,7 @@ class AdditiveNormalization(LengthNormalization, Serializable):
   Adding a fixed word penalty everytime the word is added.
   '''
   yaml_tag = u'!AdditiveNormalization'
-  
+
   def __init__(self, penalty=-0.1, apply_during_search=False):
     self.penalty = penalty
     self.apply_during_search = apply_during_search
@@ -59,7 +59,7 @@ class PolynomialNormalization(LengthNormalization, Serializable):
   Dividing by the length (raised to some power (default 1))
   '''
   yaml_tag = u'!PolynomialNormalization'
-  
+
   def __init__(self, m=1, apply_during_search=False):
     self.m = m
     self.apply_during_search = apply_during_search
@@ -82,7 +82,7 @@ class MultinomialNormalization(LengthNormalization, Serializable):
   https://arxiv.org/pdf/1603.06075.pdf
   '''
   yaml_tag = u'!MultinomialNormalization'
-  
+
   def __init__(self, sent_stats):
     self.stats = sent_stats
 

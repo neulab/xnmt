@@ -1,6 +1,7 @@
 import dynet as dy
 from xnmt.encoder_state import FinalEncoderState, PseudoState
 import xnmt.lstm
+from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
 
 class PyramidalRNNBuilder(object):
   """
@@ -71,45 +72,49 @@ class PyramidalRNNBuilder(object):
     :param es: an ExpressionSequence
     """
 
-    es = list(es)
+    es_list = [es]
     zero_pad = None
-    batch_size = es[0].dim()[1]
+    batch_size = es_list[0][0].dim()[1]
 
     for layer_i, (fb, bb) in enumerate(self.builder_layers):
       reduce_factor = self._reduce_factor_for_layer(layer_i)
-      while self.downsampling_method=="concat" and len(es) % reduce_factor != 0:
-        if zero_pad is None:
-          zero_pad = dy.zeros(dim=self.input_dim, batch_size=batch_size)
-        es.append(zero_pad)
-      fs = fb.initial_state().transduce(es)
-      bs = bb.initial_state().transduce(reversed(es))
+      while self.downsampling_method=="concat" and len(es_list[0]) % reduce_factor != 0:
+        for es_i in range(len(es_list)):
+          expr_list = es_list[es_i].as_list()
+          if zero_pad is None:
+            zero_pad = dy.zeros(dim=self.input_dim, batch_size=batch_size)
+          expr_list.append(zero_pad)
+          es_list[es_i] = ExpressionSequence(expr_list = expr_list)
+      fs = fb.initial_state().transduce(es_list)
+      bs = bb.initial_state().transduce([ReversedExpressionSequence(es_item) for es_item in es_list])
       if layer_i < len(self.builder_layers) - 1:
         if self.downsampling_method=="skip":
-#          es = [dy.concatenate([f, b]) for f, b in zip(fs[::reduce_factor], bs[::reduce_factor][::-1])]
-          es = [[f, b] for f, b in zip(fs[::reduce_factor], bs[::reduce_factor][::-1])]
+          es_list = [ExpressionSequence(expr_list=fs[::reduce_factor]), ExpressionSequence(expr_list=bs[::reduce_factor][::-1])]
         elif self.downsampling_method=="concat":
-          es_len = len(es)
-          es = []
+          es_len = len(es_list[0])
+          es_list_fwd = []
+          es_list_bwd = []
           for i in range(0, es_len, reduce_factor):
-            concat_states = []
             for j in range(reduce_factor):
-              concat_states.append(fs[i+j])
-              concat_states.append(bs[len(es)-reduce_factor+j-i])
-#            es.append(dy.concatenate(concat_states))
-            es.append(concat_states)
+              if i==0:
+                es_list_fwd.append([])
+                es_list_bwd.append([])
+              es_list_fwd[j].append(fs[i+j])
+              es_list_bwd[j].append(bs[len(es_list[0])-reduce_factor+j-i])
+          es_list = [ExpressionSequence(expr_list=es_list_fwd[j]) for j in range(reduce_factor)] + [ExpressionSequence(expr_list=es_list_bwd[j]) for j in range(reduce_factor)]
         else:
           raise RuntimeError("unknown downsampling_method %s" % self.downsampling_method)
       else:
         # concat final outputs
-        es = [dy.concatenate([f, b]) for f, b in zip(fs, reversed(bs))]
-    
+        ret_es = ExpressionSequence(expr_list=[dy.concatenate([f, b]) for f, b in zip(fs, ReversedExpressionSequence(bs))])
+
     self._final_states = [FinalEncoderState(dy.concatenate([fb.get_final_states()[0].main_expr(),
                                                             bb.get_final_states()[0].main_expr()]),
                                             dy.concatenate([fb.get_final_states()[0].cell_expr(),
                                                             bb.get_final_states()[0].cell_expr()])) \
                           for (fb, bb) in self.builder_layers]
     
-    return es
+    return ret_es
 
   def initial_state(self):
     return PseudoState(self)

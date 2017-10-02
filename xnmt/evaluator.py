@@ -1,8 +1,11 @@
 from __future__ import division, generators
 import numpy as np
-from collections import defaultdict, Counter
 import math
 import six
+import functools
+from collections import defaultdict, Counter, deque
+
+from xnmt.vocab import Vocab
 
 class EvalScore(object):
   def higher_is_better(self):
@@ -111,20 +114,32 @@ class Evaluator(object):
   """
     raise NotImplementedError('metric_name must be implemented in Evaluator subclasses')
 
+  def evaluate_fast(self, ref, hyp):
+    raise NotImplementedError('evaluate_fast is not implemented for:', self.__class__.__name__)
+
 class BLEUEvaluator(Evaluator):
   # Class for computing BLEU Scores accroding to
   # K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
-  def __init__(self, ngram=4):
+  def __init__(self, ngram=4, smooth=0):
     """
     :param ngram: default value of 4 is generally used
     """
     self.ngram = ngram
     self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
+    self.smooth = smooth
     self.reference_corpus = None
     self.candidate_corpus = None
 
   def metric_name(self):
     return "BLEU%d score" % (self.ngram)
+
+  def evaluate_fast(self, ref, hyp):
+    try:
+      from xnmt.cython import xnmt_cython
+    except:
+      print("BLEU evaluate fast requires xnmt cython installation step.",
+            "please check the documentation.")
+    return xnmt_cython.bleu_sentence(self.ngram, self.smooth, ref, hyp)
 
   # Doc to be added
   def evaluate(self, ref, hyp):

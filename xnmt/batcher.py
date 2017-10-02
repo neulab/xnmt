@@ -1,18 +1,58 @@
 from __future__ import division, generators
 
-import numpy as np
 import six
-import xnmt.vocab
-
-# Shortnames
-Vocab = xnmt.vocab.Vocab
+import numpy as np
+import dynet as dy
+from xnmt.vocab import Vocab
 
 class Batch(list):
   """
-  A marker class to indicate a batch.
+  Specialization of list that indicates a (mini)batch of things, together with an optional mask.
+  Should be treated as immutable object.
   """
-  pass
+  def __init__(self, batch_list, mask=None):
+    super(Batch, self).__init__(batch_list)
+    self.mask = mask
+  
+class Mask(object):
+  """
+  Masks are represented as numpy array of dimensions batchsize x seq_len, with parts
+  belonging to the sequence set to 0, and parts that should be masked set to 1
+  """
+  def __init__(self, np_arr):
+    self.np_arr = np_arr
+  
+  def reversed(self):
+    return Mask(self.np_arr[:,::-1])
+  
+  def add_to_tensor_expr(self, tensor_expr, multiplicator=None):
+    # TODO: might cache these expressions to save memory
+    if np.count_nonzero(self.np_arr) == 0:
+      return tensor_expr
+    else:
+      if multiplicator is None:
+        mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1) * multiplicator, batched=True)
+      else:
+        mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1), batched=True)
+      return tensor_expr + mask_expr
 
+  def cmult_by_timestep_expr(self, expr, timestep, inverse=False):
+    # TODO: might cache these expressions to save memory
+    """
+    :param expr: a dynet expression corresponding to one timestep
+    :param timestep: index of current timestep
+    :param inverse: True will keep the unmasked parts, False will zero out the unmasked parts
+    """
+    if inverse:
+      if np.count_nonzero(self.np_arr[:,timestep:timestep+1]) == 0:
+        return expr  
+      mask_exp = dy.inputTensor((1.0 - self.np_arr)[:,timestep:timestep+1].transpose(), batched=True)
+    else:
+      if np.count_nonzero(self.np_arr[:,timestep:timestep+1]) == self.np_arr[:,timestep:timestep+1].size:
+        return expr
+      mask_exp = dy.inputTensor(self.np_arr[:,timestep:timestep+1].transpose(), batched=True)
+    return dy.cmult(expr, mask_exp)
+    
 
 class Batcher(object):
   """
@@ -31,35 +71,33 @@ class Batcher(object):
     """
     return False
 
-  def add_single_batch(self, src_curr, trg_curr, src_ret, trg_ret, src_masks, trg_masks):
-     src_id, src_mask = pad(src_curr, pad_token=self.src_pad_token)
-     src_ret.append(Batch(src_id))
-     src_masks.append(src_mask)
-     trg_id, trg_mask = pad(trg_curr, pad_token=self.trg_pad_token)
-     trg_ret.append(Batch(trg_id))
-     trg_masks.append(trg_mask)
+  def add_single_batch(self, src_curr, trg_curr, src_ret, trg_ret):
+    src_id, src_mask = pad(src_curr, pad_token=self.src_pad_token)
+    src_ret.append(Batch(src_id, src_mask))
+    trg_id, trg_mask = pad(trg_curr, pad_token=self.trg_pad_token)
+    trg_ret.append(Batch(trg_id, trg_mask))
 
   def pack_by_order(self, src, trg, order):
-    src_ret, src_curr, src_masks = [], [], []
-    trg_ret, trg_curr, trg_masks = [], [], []
+    src_ret, src_curr = [], []
+    trg_ret, trg_curr = [], []
     if self.granularity == 'sent':
       for x in six.moves.range(0, len(order), self.batch_size):
-        self.add_single_batch([src[y] for y in order[x:x+self.batch_size]], [trg[y] for y in order[x:x+self.batch_size]], src_ret, trg_ret, src_masks, trg_masks)
+        self.add_single_batch([src[y] for y in order[x:x+self.batch_size]], [trg[y] for y in order[x:x+self.batch_size]], src_ret, trg_ret)
     elif self.granularity == 'word':
       my_size = 0
       for i in order:
         my_size += len_or_zero(src[i]) + len_or_zero(trg[i])
         if my_size > self.batch_size:
-          self.add_single_batch(src_curr, trg_curr, src_ret, trg_ret, src_masks, trg_masks)
+          self.add_single_batch(src_curr, trg_curr, src_ret, trg_ret)
           my_size = len(src[i]) + len(trg[i])
           src_curr = []
           trg_curr = []
         src_curr.append(src[i])
         trg_curr.append(trg[i])
-      self.add_single_batch(src_curr, trg_curr, src_ret, trg_ret, src_masks, trg_masks)
+      self.add_single_batch(src_curr, trg_curr, src_ret, trg_ret)
     else:
       raise RuntimeError("Illegal granularity specification {}".format(self.granularity))
-    return src_ret, src_masks, trg_ret, trg_masks
+    return src_ret, trg_ret
 
 class InOrderBatcher(Batcher):
   """
@@ -99,13 +137,13 @@ class SortBatcher(Batcher):
     return self.pack_by_order(src, trg, order)
 
 # Module level functions
-def mark_as_batch(data):
-  if type(data) == Batch:
+def mark_as_batch(data, mask=None):
+  if type(data) == Batch and mask is None:
     ret = data
   else:
-    ret = Batch(data)
+    ret = Batch(data, mask)
   return ret
-    
+
 
 def is_batched(data):
   return type(data) == Batch
@@ -120,7 +158,7 @@ def pad(batch, pad_token=Vocab.ES):
     for j in range(len_or_zero(v), max_len):
       masks[i,j] = 1.0
   padded_items = [item.get_padded_sent(pad_token, max_len - len(item)) for item in batch]
-  return padded_items, masks
+  return padded_items, Mask(masks)
 
 def len_or_zero(val):
   return len(val) if hasattr(val, '__len__') else 0

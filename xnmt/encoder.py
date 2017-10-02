@@ -1,6 +1,8 @@
 from __future__ import print_function
 
 import sys
+import math
+import numpy as np
 import dynet as dy
 from xnmt.model import HierarchicalModel
 from xnmt.serializer import Serializable
@@ -37,7 +39,9 @@ class BuilderEncoder(Encoder):
   def __init__(self):
     self._final_states = None
   def transduce(self, sent):
-    output = ExpressionSequence(expr_list=self.builder.transduce(sent))
+    output = self.builder.transduce(sent)
+    if not isinstance(output, ExpressionSequence):
+      output = ExpressionSequence(expr_list=output)
     if hasattr(self.builder, "get_final_states"):
       self._final_states = self.builder.get_final_states()
     else:
@@ -113,7 +117,7 @@ class ModularEncoder(Encoder, Serializable):
 
   def __init__(self, input_dim, modules):
     self.modules = modules
-
+    
     for module in self.modules:
       self.register_hier_child(module)
 
@@ -122,7 +126,8 @@ class ModularEncoder(Encoder, Serializable):
 
   def transduce(self, sent):
     for module in self.modules:
-      sent = module.transduce(sent)
+      enc_sent = module.transduce(sent)
+      sent = enc_sent
     return sent
 
   def get_final_states(self):

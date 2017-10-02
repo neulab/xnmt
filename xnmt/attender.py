@@ -61,6 +61,8 @@ class StandardAttender(Attender, Serializable):
 
     h = dy.tanh(dy.colwise_add(self.WI, V * state))
     scores = dy.transpose(U * h)
+    if self.curr_sent.mask is not None:
+      scores = self.curr_sent.mask.add_to_tensor_expr(scores, multiplicator = -100.0)
     normalized = dy.softmax(scores)
     self.attention_vecs.append(normalized)
     return normalized
