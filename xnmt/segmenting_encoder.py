@@ -175,14 +175,11 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
         xs.extend([P0 for _ in range(deficit)])
       return xs
     outputs = dy.concatenate_to_batch(list(six.moves.map(lambda xs: dy.concatenate_cols(pad(xs)), outputs)))
+    self.segment_decisions = segment_decisions
+    self.segment_logsoftmaxes = segment_logsoftmaxes
     # Packing output together
-    if self.train:
-      self.segment_decisions = segment_decisions
-      self.segment_logsoftmaxes = segment_logsoftmaxes
-      if self.learn_segmentation:
-        self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
-      else:
-        self.segment_length_prior = None
+    if self.train and self.learn_segmentation:
+      self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
       self.bs = list(six.moves.map(lambda x: self.baseline(dy.nobackprop(x)), encodings))
     if not self.train:
       self.set_report_input(segment_decisions)
@@ -206,9 +203,10 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
 
   @recursive_sum
   def calc_additional_loss(self, reward):
+    if not self.learn_segmentation:
+      return None
     ret = LossBuilder()
-    if self.segment_length_prior is not None:
-      reward += self.segment_length_prior
+    reward += self.segment_length_prior
     # Baseline Loss
     baseline_loss = []
     for i, baseline in enumerate(self.bs):
@@ -216,13 +214,13 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     ret.add_loss("Baseline", dy.esum(baseline_loss))
     # Reinforce Loss
     lmbd = self.lmbd.get_value(self.warmup_counter)
-    if self.learn_segmentation and lmbd > 0.0:
+    if lmbd > 0.0:
       reinforce_loss = []
       # Calculating the loss of the baseline and reinforce
       for i, baseline in enumerate(self.bs):
         ll = dy.pick_batch(self.segment_logsoftmaxes[i], self.segment_decisions[i])
         r_i = reward - baseline
-        reinforce_loss.append(r_i * ll)
+        reinforce_loss.append(r_i * -ll)
       ret.add_loss("Reinforce", dy.esum(reinforce_loss) * lmbd)
     # Total Loss
     return ret
