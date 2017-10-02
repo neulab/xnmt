@@ -143,3 +143,46 @@ class NoopEmbedder(Embedder, Serializable):
           embeddings.append(self.embed(xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
       return ExpressionSequence(expr_list=embeddings, mask=sent.mask)
 
+class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
+  """
+  Simple word embeddings via lookup. Initial pretrained embeddings must be supplied in FastText text format.
+  """
+
+  yaml_tag = u'!PretrainedSimpleWordEmbedder'
+
+  def _read_fasttext_embeddings(self, vocab, embeddings_file_handle):
+    # The first line contains the number of words and the embedding dimension
+    _, dimension = next(embeddings_file_handle).split()
+    if int(dimension) != self.emb_dim:
+      raise Exception("An embedding size of {} was specified, but the pretrained embeddings have size {}"
+                      .format(self.emb_dim, dimension))
+
+    # Poor man's Glorot initializer for missing embeddings
+    bound = np.sqrt(6/(len(vocab) + self.emb_dim))
+
+    vecs = {}
+    for line in embeddings_file_handle:
+      line = line.split()
+      if line[0] in vocab.w2i:
+        vecs[vocab.w2i[line[0]]] = line[1:]
+
+    return np.array([vecs[i] if i in vecs else np.random.uniform(-bound, bound, self.emb_dim) for i in range(len(vocab))], dtype='float')
+
+  def __init__(self, context, vocab, filename, emb_dim=None, weight_noise=None, word_dropout=0.0):
+    """
+    :param vocab_size:
+    :param emb_dim:
+    :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
+    :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
+    """
+    self.vocab_size = len(vocab)
+    self.emb_dim = emb_dim or context.default_layer_dim
+    self.weight_noise = weight_noise or context.weight_noise
+    self.word_dropout = word_dropout
+    self.word_id_mask = None
+    self.train = False
+
+    with open(filename) as embeddings_file:
+      initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
+    self.embeddings = context.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim),
+                                                                                     init=dy.NumpyInitializer(initial_embeddings))
