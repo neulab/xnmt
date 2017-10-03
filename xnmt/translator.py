@@ -13,7 +13,7 @@ from xnmt.expression_sequence import ExpressionSequence
 from xnmt.vocab import Vocab
 from xnmt.batcher import mark_as_batch, is_batched
 from xnmt.serializer import Serializable, DependentInitParam
-from xnmt.search_strategy import BeamSearch, GreedySearch
+from xnmt.search_strategy import BeamSearch, GreedySearch, TransformerBeamSearch
 from xnmt.output import TextOutput
 from xnmt.model import GeneratorModel
 from xnmt.reports import Reportable
@@ -230,6 +230,23 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 class TransformerTranslator(DefaultTranslator):
   yaml_tag = u'!TransformerTranslator'
 
+  def initialize_generator(self, **kwargs):
+    if kwargs.get("len_norm_type", None) is None:
+      len_norm = xnmt.length_normalization.NoNormalization()
+    else:
+      len_norm = xnmt.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
+    search_args = {}
+    if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
+    if kwargs.get("beam", None) is None:
+      self.search_strategy = GreedySearch(**search_args)
+    else:
+      search_args["beam_size"] = kwargs.get("beam", 1)
+      search_args["len_norm"] = len_norm
+      self.search_strategy = TransformerBeamSearch(**search_args)
+    self.report_path = kwargs.get("report_path", None)
+    self.report_type = kwargs.get("report_type", None)
+
+
   def calc_loss(self, src, trg, src_mask=None, trg_mask=None, info=None):
     self.start_sent()
     src_embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
@@ -248,9 +265,44 @@ class TransformerTranslator(DefaultTranslator):
     loss = self.decoder.calc_loss((encodings, dec_input_embeddings), ref_list)
 
     # Masking for loss
-    mask_loss = dy.inputTensor((1 - trg_mask.ravel()).reshape(1, -1), batched=True)
-    loss = dy.cmult(loss, mask_loss)
+    if trg_mask is not None:
+      mask_loss = dy.inputTensor((1 - trg_mask.ravel()).reshape(1, -1), batched=True)
+      loss = dy.cmult(loss, mask_loss)
+
     return loss
+
+  def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
+    if not xnmt.batcher.is_batched(src):
+      src = xnmt.batcher.mark_as_batch([src])
+    else:
+      assert src_mask is not None
+    outputs = []
+    for sents in src:
+      self.start_sent()
+
+      src_embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
+      encodings = self.encoder.transduce(src_embeddings)
+
+      self.decoder.initialize(src_mask, None)
+      output_actions, score = self.search_strategy.generate_output(self.decoder, encodings, self.trg_embedder,
+                                                                   src_length=len(sents), forced_trg_ids=forced_trg_ids)
+
+      # In case of reporting
+      if self.report_path is not None:
+        src_words = [self.reporting_src_vocab[w] for w in sents]
+        trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
+        attentions = self.attender.attention_vecs
+        self.set_report_input(idx, src_words, trg_words, attentions)
+        self.set_report_resource("src_words", src_words)
+        self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
+        self.generate_report(self.report_type)
+      # Append output to the outputs
+      if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
+        outputs.append(TextOutput(output_actions, self.trg_vocab))
+      else:
+        outputs.append((output_actions, score))
+    return outputs
+
 
 
 
