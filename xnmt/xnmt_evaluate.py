@@ -2,9 +2,10 @@ import argparse
 import sys
 import io
 import ast
-from evaluator import BLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator
-from options import Option, OptionParser
-from xnmt_decode import NO_DECODING_ATTEMPTED
+
+from xnmt.evaluator import BLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator
+from xnmt.options import Option, OptionParser
+from xnmt.xnmt_decode import NO_DECODING_ATTEMPTED
 
 options = [
   Option("ref_file", help_str="path of the reference file"),

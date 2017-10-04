@@ -9,7 +9,7 @@ class TestBatcher(unittest.TestCase):
     src_sents = [xnmt.input.SimpleSentenceInput([0] * i) for i in range(1,7)]
     trg_sents = [xnmt.input.SimpleSentenceInput([0] * ((i+3)%6 + 1)) for i in range(1,7)]
     my_batcher = xnmt.batcher.from_spec("src", 3, src_pad_token=1, trg_pad_token=2)
-    src, src_mask, trg, trg_mask = my_batcher.pack(src_sents, trg_sents)
+    src, trg = my_batcher.pack(src_sents, trg_sents)
     self.assertEqual([[0, 1, 1], [0, 0, 1], [0, 0, 0]], [x.words for x in src[0]])
     self.assertEqual([[0, 0, 0, 0, 0, 2], [0, 0, 0, 0, 0, 0], [0, 2, 2, 2, 2, 2]], [x.words for x in trg[0]])
     self.assertEqual([[0, 0, 0, 0, 1, 1], [0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0]], [x.words for x in src[1]])
@@ -19,7 +19,7 @@ class TestBatcher(unittest.TestCase):
     src_sents = [xnmt.input.SimpleSentenceInput([0] * i) for i in range(1,7)]
     trg_sents = [xnmt.input.SimpleSentenceInput([0] * ((i+3)%6 + 1)) for i in range(1,7)]
     my_batcher = xnmt.batcher.from_spec("word_src", 12, src_pad_token=1, trg_pad_token=2)
-    src, src_mask, trg, trg_mask = my_batcher.pack(src_sents, trg_sents)
+    src, trg = my_batcher.pack(src_sents, trg_sents)
     self.assertEqual([[0]], [x.words for x in src[0]])
     self.assertEqual([[0, 0, 0, 0, 0]], [x.words for x in trg[0]])
     self.assertEqual([[0, 0, 1], [0, 0, 0]], [x.words for x in src[1]])

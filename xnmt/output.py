@@ -1,5 +1,5 @@
 import six
-from vocab import Vocab
+from xnmt.vocab import Vocab
 
 class Output(object):
   '''

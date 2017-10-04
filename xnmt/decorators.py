@@ -1,5 +1,3 @@
-import model
-
 def recursive(f):
   '''A decorator to wrap a method of a HierarchicalModel to (1) firstly invoke the method,
      and (2) call all the direct descendants of the HierarchicalModel to also invoke the method.
@@ -8,7 +6,8 @@ def recursive(f):
   '''
   # Wrapper to the method to call recursively, instead of invoking only f()
   def rec_f(obj, *args, **kwargs):
-    assert(issubclass(obj.__class__, model.HierarchicalModel))
+    from xnmt.model import HierarchicalModel
+    assert(issubclass(obj.__class__, HierarchicalModel))
     # Reflect the method name
     name = f.__name__
     # Invoke the method manually with its arguments
@@ -27,7 +26,8 @@ def recursive_assign(f):
       the context as needed.
   '''
   def rec_f(obj, *args, **kwargs):
-    assert(issubclass(obj.__class__, model.HierarchicalModel))
+    from xnmt.model import HierarchicalModel
+    assert(issubclass(obj.__class__, HierarchicalModel))
     name = f.__name__
     kwargs["context"] = f(obj, *args, **kwargs)
     for member in obj.get_hier_children():
@@ -41,14 +41,15 @@ def recursive_sum(f):
   ''' A decorator that behaves the same way as recursive but summing up all the non None results.
   '''
   def rec_f(obj, *args, **kwargs):
-    assert(issubclass(obj.__class__, model.HierarchicalModel))
+    from xnmt.model import HierarchicalModel
+    assert(issubclass(obj.__class__, HierarchicalModel))
     name = f.__name__
     result_parent = f(obj, *args, **kwargs)
     for member in obj.get_hier_children():
       if hasattr(member, name):
         result_child = getattr(member, name)(*args, **kwargs)
-        if result_child:
-          if not result_parent:
+        if result_child is not None:
+          if result_parent is None:
             result_parent = result_child
           else:
             result_parent += result_child

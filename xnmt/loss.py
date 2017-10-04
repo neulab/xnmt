@@ -10,9 +10,12 @@ class LossBuilder(object):
     self.loss_values = collections.defaultdict(float)
 
   def add_loss(self, loss_name, loss_expr):
-    if loss_expr.dim()[1] > 1:
-      loss_expr = dy.sum_batches(loss_expr)
-    self.loss_nodes.append((loss_name, loss_expr))
+    if type(loss_expr) == LossBuilder:
+      self.loss_nodes.extend(loss_expr.loss_nodes)
+    else:
+      if loss_expr.dim()[1] > 1:
+        loss_expr = dy.sum_batches(loss_expr)
+      self.loss_nodes.append((loss_name, loss_expr))
 
   def compute(self):
     ''' Compute all the losses and delete the computational graph reference.
@@ -34,10 +37,10 @@ class LossBuilder(object):
       raise RuntimeError("There are some uncomputed losses. Call compute() firstly.")
     return sum(loss for loss in self.loss_values.values())
 
-  def __add__(self, other):
-    for name, value in self.loss_values.items():
-      other.loss_values[name] += value
-    return other
+  def __iadd__(self, other):
+    for name, value in other.loss_values.items():
+      self.loss_values[name] += value
+    return self
 
   def __len__(self):
     return len(self.loss_values)

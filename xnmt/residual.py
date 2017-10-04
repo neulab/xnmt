@@ -1,8 +1,9 @@
 from __future__ import division, generators
 
 import dynet as dy
-import lstm
-from encoder_state import FinalEncoderState, PseudoState
+import xnmt.lstm
+from xnmt.encoder_state import FinalEncoderState, PseudoState
+from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
 
 class ResidualRNNBuilder(object):
   """
@@ -23,9 +24,9 @@ class ResidualRNNBuilder(object):
     """
     assert num_layers > 0
     self.builder_layers = []
-    self.builder_layers.append(lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim, model))
+    self.builder_layers.append(xnmt.lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim, model))
     for _ in range(num_layers - 1):
-      self.builder_layers.append(lstm.CustomCompactLSTMBuilder(1, hidden_dim, hidden_dim, model))
+      self.builder_layers.append(xnmt.lstm.CustomCompactLSTMBuilder(1, hidden_dim, hidden_dim, model))
 
     self.add_to_output = add_to_output
 
@@ -89,14 +90,14 @@ class ResidualRNNBuilder(object):
       return es
 
     for l in self.builder_layers[1:]:
-      es = self._sum_lists(l.initial_state().transduce(es), es)
+      es = ExpressionSequence(expr_list=self._sum_lists(l.initial_state().transduce(es), es))
       self._final_states.append(FinalEncoderState(es[-1], l.get_final_states()[0].cell_expr()))
 
     last_output = self.builder_layers[-1].initial_state().transduce(es)
 
     if self.add_to_output:
       self._final_states.append(FinalEncoderState(last_output[-1], self.builder_layers[-1].get_final_states()[0].cell_expr()))
-      return self._sum_lists(last_output, es)
+      return ExpressionSequence(expr_list=self._sum_lists(last_output, es))
     else:
       self._final_states.append(self.builder_layers[-1].get_final_states()[0])
       return last_output
@@ -112,8 +113,8 @@ class ResidualBiRNNBuilder:
   def __init__(self, num_layers, input_dim, hidden_dim, model, add_to_output=False):
     assert num_layers > 1
     assert hidden_dim % 2 == 0
-    self.forward_layer = lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim/2, model)
-    self.backward_layer = lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim/2, model)
+    self.forward_layer = xnmt.lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim/2, model)
+    self.backward_layer = xnmt.lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim/2, model)
     self.residual_network = ResidualRNNBuilder(num_layers - 1, hidden_dim, hidden_dim, model,
                                                add_to_output)
 
@@ -135,13 +136,13 @@ class ResidualBiRNNBuilder:
 
   def transduce(self, es):
     forward_e = self.forward_layer.initial_state().transduce(es)
-    backward_e = self.backward_layer.initial_state().transduce(reversed(es))
+    backward_e = self.backward_layer.initial_state().transduce(ReversedExpressionSequence(es))
     self._final_states = [FinalEncoderState(dy.concatenate([self.forward_layer.get_final_states()[0].main_expr(),
                                                             self.backward_layer.get_final_states()[0].main_expr()]),
                                             dy.concatenate([self.forward_layer.get_final_states()[0].cell_expr(),
                                                             self.backward_layer.get_final_states()[0].cell_expr()]))]
 
-    output = self.residual_network.transduce([dy.concatenate([f,b]) for f,b in zip(forward_e, reversed(backward_e))])
+    output = self.residual_network.transduce(ExpressionSequence(expr_list=[dy.concatenate([f,b]) for f,b in zip(forward_e, ReversedExpressionSequence(backward_e))]))
     self._final_states += self.residual_network.get_final_states()
     return output
 

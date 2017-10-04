@@ -1,4 +1,9 @@
 import unittest
+
+
+import dynet_config
+import dynet as dy
+
 import xnmt.xnmt_run_experiments as run
 
 class TestRunningConfig(unittest.TestCase):
@@ -16,11 +21,8 @@ class TestRunningConfig(unittest.TestCase):
 #  def test_retrieval(self):
 #    run.main(["test/config/retrieval.yaml"])
 #
-#  def test_segmenting(self):
-#    run.main(["test/config/segmenting.yaml"])
-#
-#  def test_segmenting2(self):
-#    run.main(["test/config/segmenting2.yaml"])
+  def test_segmenting(self):
+    run.main(["test/config/segmenting.yaml"])
 
   def test_translator_report(self):
     run.main(["test/config/translator_report.yaml"])
@@ -38,6 +40,9 @@ class TestRunningConfig(unittest.TestCase):
     with self.assertRaises(ValueError) as context:
       run.main(["test/config/reload_exception.yaml"])
     self.assertTrue('VanillaLSTMGates: x_t has inconsistent dimension' in context.exception)
+
+  def test_translator_loss(self):
+    run.main(["test/config/translator_loss.yaml"])
 
 if __name__ == "__main__":
   unittest.main()

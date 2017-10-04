@@ -2,6 +2,11 @@ __pycache__
 .DS_Store
 *.swp
 *.pyc
+*.so
 examples/output
 doc/build
 xnmt.egg-info
+build/
+xnmt/cython/*.cpp
+xnmt/cython/*.c
+xnmt/cython/*.so

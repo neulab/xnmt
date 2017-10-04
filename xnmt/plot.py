@@ -13,7 +13,7 @@ def plot_attention(src_words, trg_words, attention_matrix, file_name=None):
   :param attention_matrix: a two-dimensional numpy array of values between zero and one,
     where rows correspond to source words, and columns correspond to target words
   :param file_name: the name of the file to which we write the attention
-  """ 
+  """
   fig, ax = plt.subplots()
   # put the major ticks at the middle of each cell
   ax.set_xticks(np.arange(attention_matrix.shape[1]) + 0.5, minor=False)
