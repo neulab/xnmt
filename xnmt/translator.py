@@ -277,7 +277,7 @@ class TranslatorReinforceLoss(Serializable):
       # Calculate the evaluation score
       eval_score.append(self.evaluation_metric.evaluate_fast(trg_i.words, sample_i))
 
-    return dy.sum_elems(dy.cmult(dy.inputTensor(eval_score, batched=True), dy.esum(logsofts)))
+    return -dy.sum_elems(dy.cmult(dy.inputTensor(eval_score, batched=True), dy.esum(logsofts)))
 
 # To be implemented
 class TranslatorMinRiskLoss(Serializable):
