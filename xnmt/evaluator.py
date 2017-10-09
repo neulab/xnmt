@@ -52,7 +52,7 @@ class BLEUScore(EvalScore):
     if self.bleu is None:
       return "0"
     else:
-      return "{}, {} (BP = {}, ratio={:.2f}, hyp_len={}, ref_len={})".format(self.bleu,
+      return "{}, {} (BP = {:.6f}, ratio={:.2f}, hyp_len={}, ref_len={})".format(self.bleu,
                                                                             '/'.join(self.frac_score_list),
                                                                             self.brevity_penalty_score,
                                                                             self.hyp_len / self.ref_len,
@@ -194,7 +194,7 @@ class BLEUEvaluator(Evaluator):
       else:
         frac_score = clipped_ngram_count[ngram_type] / candidate_ngram_count[ngram_type]
         log_precision_score += self.weights[ngram_type - 1] * math.log(frac_score)
-      frac_score_list.append(str(frac_score))
+      frac_score_list.append("%.6f" % frac_score)
 
     precision_score = math.exp(log_precision_score)
 
