@@ -5,7 +5,7 @@ from xnmt.expression_sequence import ExpressionSequence
 from xnmt.nn import *
 
 MAX_SIZE = 5000
-MIN_VAL = -10000
+MIN_VAL = -10000   # This value is close to NEG INFINITY
 
 
 class MultiHeadedAttention(object):
@@ -27,13 +27,9 @@ class MultiHeadedAttention(object):
     # Layer Norm Module
     self.layer_norm = LayerNorm(model_dim, model)
 
-  def __call__(self, key, value, query, mask=None, p=0.):
-
-    # residual = dy.concatenate_to_batch(list(query))
+  def __call__(self, key, value, query, mask, p):
     residual = TimeDistributed()(query)
     batch_size = key[0].dim()[1]
-
-    # Finding the number words in a sentence
 
     def shape_projection(x):
       total_words = x.dim()[1]
@@ -83,9 +79,6 @@ class MultiHeadedAttention(object):
     ret = self.layer_norm(res)
     return ret
 
-  def __repr__(self):
-    return "MultiHeadedAttention from `Attention is all you need` paper"
-
 
 def expr_to_sequence(expr_, seq_len, batch_size):
   out_list = []
@@ -97,11 +90,8 @@ def expr_to_sequence(expr_, seq_len, batch_size):
 
 class TransformerEncoderLayer(object):
   def __init__(self, size, rnn_size, model, head_count=8, hidden_size=2048):
-    # Self Attention
-    self.self_attn = MultiHeadedAttention(head_count, size, model)
-
-    # Feed Forward
-    self.feed_forward = PositionwiseFeedForward(size, hidden_size, model)
+    self.self_attn = MultiHeadedAttention(head_count, size, model)  # Self Attention
+    self.feed_forward = PositionwiseFeedForward(size, hidden_size, model)  # Feed Forward
     self.head_count = head_count
 
   def set_dropout(self, dropout):
@@ -118,26 +108,18 @@ class TransformerEncoderLayer(object):
     mid = self.self_attn(input, input, input, mask=m_src, p=self.dropout)
     out = self.feed_forward(mid, p=self.dropout)
 
-    # Check for Nan
-    assert (np.isnan(out.npvalue()).any() == False)
-
+    assert (np.isnan(out.npvalue()).any() == False)  # Check for Nan
     out_list = expr_to_sequence(out, seq_len, batch_size)
     return out_list
 
 
 class TransformerDecoderLayer(object):
   def __init__(self, size, rnn_size, model, head_count=8, hidden_size=2048):
-    # Self Attention
-    self.self_attn = MultiHeadedAttention(head_count, size, model)
+    self.self_attn = MultiHeadedAttention(head_count, size, model)  # Self Attention
+    self.context_attn = MultiHeadedAttention(head_count, size, model)  # Context Attention
+    self.feed_forward = PositionwiseFeedForward(size, hidden_size, model)  # Feed Forward
 
-    # Context Attention
-    self.context_attn = MultiHeadedAttention(head_count, size, model)
-
-    # Feed Forward
-    self.feed_forward = PositionwiseFeedForward(size, hidden_size, model)
-
-    # Decoder Attention Mask
-    self.mask = self._get_attn_subsequent_mask(MAX_SIZE)
+    self.mask = self._get_attn_subsequent_mask(MAX_SIZE)  # Decoder Attention Mask
     self.head_count = head_count
 
   def set_dropout(self, dropout):
@@ -157,8 +139,7 @@ class TransformerDecoderLayer(object):
       dec_mask = (tmp > 0).astype(np.float64)
 
     query = self.self_attn(input, input, input, mask=dec_mask, p=self.dropout)
-    # Check for Nan
-    assert (np.isnan(query.npvalue()).any() == False)
+    assert (np.isnan(query.npvalue()).any() == False)  # Check for Nan
 
     query_list = expr_to_sequence(query, seq_len, batch_size)
     query = ExpressionSequence(query_list)

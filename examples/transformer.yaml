@@ -9,9 +9,10 @@ defaults:
   train:
     default_layer_dim: 512
     restart_trainer: True
-    trainer: Adam
-    learning_rate: 0.0002
-    lr_decay: 0.5
+    trainer: AIAYNAdam
+    learning_rate: 1.0
+    lr_decay: 1.0
+    warmup_steps: 4000
     dev_metrics: bleu
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/train.ja
@@ -41,6 +42,6 @@ defaults:
   evaluate:
     ref_file: examples/data/test.en
 
-standard-dropout0.1:
+standard-dropout0.5:
   train:
-    dropout: 0.1
+    dropout: 0.5

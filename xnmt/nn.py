@@ -1,4 +1,5 @@
 import dynet as dy
+import numpy as np
 
 
 class Linear(object):
@@ -22,9 +23,6 @@ class LayerNorm(object):
     g = dy.parameter(self.p_g)
     b = dy.parameter(self.p_b)
     return dy.layer_norm(input, g, b)
-
-  def __repr__(self):
-    return "LayerNorm module"
 
 
 class TimeDistributed(object):
@@ -50,7 +48,21 @@ class PositionwiseFeedForward(object):
     self.w_2 = Linear(hidden_size, size, model)
     self.layer_norm = LayerNorm(size, model)
 
-  def __call__(self, x, p=0.0):
+  def __call__(self, x, p):
     residual = x
     output = dy.dropout(self.w_2(dy.rectify(self.w_1(x))), p)
     return self.layer_norm(output + residual)
+
+
+class AIAYNAdamTrainer(object):
+  def __init__(self, param_col, learning_rate, dim, warmup_steps, beta_1=0.9, beta_2=0.999, eps=1e-8):
+    self.optimizer = dy.AdamTrainer(param_col, alpha=learning_rate, beta_1=beta_1, beta_2=beta_2, eps=eps)
+    self.dim = dim
+    self.warmup_steps = warmup_steps
+    self.steps = 0
+
+  def update(self):
+    self.steps += 1
+    decay = (self.dim**(-0.5)) * np.min([self.steps**(-0.5), self.steps * (self.warmup_steps**(-1.5))])
+    self.optimizer.learning_rate = self.optimizer.learning_rate * decay
+    self.optimizer.update()
