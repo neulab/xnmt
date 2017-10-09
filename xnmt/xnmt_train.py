@@ -196,7 +196,7 @@ class XnmtTrainer(object):
       standard_loss = self.model.calc_loss(src, trg)
 
       loss_builder.add_loss("loss", standard_loss)
-      additional_loss = self.model.calc_additional_loss(dy.nobackprop(-standard_loss))
+      additional_loss = self.model.calc_additional_loss(dy.nobackprop(-standard_loss / len(trg[0])))
       if additional_loss != None:
         loss_builder.add_loss("additional_loss", additional_loss)
 

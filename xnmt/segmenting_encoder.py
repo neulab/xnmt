@@ -144,6 +144,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     outputs = [[] for _ in range(batch_size)]
     last_segment = [-1 for _ in range(batch_size)]
     length_prior = [0 for _ in range(batch_size)]
+    length_div = [0 for _ in range(batch_size)]
     self.segment_transducer.set_input_size(batch_size, len(encodings))
     # Loop through all the frames (word / item) in input.
     for j, (encoding, segment_decision) in enumerate(six.moves.zip(encodings, segment_decisions)):
@@ -164,8 +165,11 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
           buffers[i] = []
           # Calculate length prior
           length_prior[i] += numpy.log(poisson.pmf(j - last_segment[i], self.length_prior))
+          length_div[i] += 1
           last_segment[i] = j
         self.segment_transducer.next_item()
+    length_prior = list(six.moves.map(lambda i: length_prior[i] / length_div[i],
+                                      range(len(length_prior))))
     # Padding
     max_col = max(len(xs) for xs in outputs)
     P0 = dy.vecInput(self.segment_transducer.encoder.hidden_dim)
@@ -210,7 +214,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     # Baseline Loss
     baseline_loss = []
     for i, baseline in enumerate(self.bs):
-      baseline_loss.append(dy.squared_distance(reward, baseline) / self.baseline_scaling)
+      baseline_loss.append(dy.squared_distance(reward, baseline))
     ret.add_loss("Baseline", dy.esum(baseline_loss))
     # Reinforce Loss
     lmbd = self.lmbd.get_value(self.warmup_counter)
@@ -220,8 +224,8 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
       for i, baseline in enumerate(self.bs):
         ll = dy.pick_batch(self.segment_logsoftmaxes[i], self.segment_decisions[i])
         r_i = reward - baseline
-        reinforce_loss.append(r_i * -ll)
-      ret.add_loss("Reinforce", dy.esum(reinforce_loss) * lmbd)
+        reinforce_loss.append(r_i * ll)
+      ret.add_loss("Reinforce", -dy.esum(reinforce_loss) * lmbd)
     # Total Loss
     return ret
 
@@ -249,7 +253,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     segmented = [x for x, delete in segmented]
     if len(segmented) > 0:
       with io.open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
-        print(" ".join(segmented[:-1]), file=segmentation_file)
+        print(" ".join(segmented), file=segmentation_file)
 
   def apply_segmentation(self, words, segmentation):
     assert(len(words) == len(segmentation))
