@@ -174,19 +174,20 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     in_vocab = 0
     missing = 0
 
-    vecs = {}
+    embeddings = np.empty((len(vocab), self.emb_dim), dtype='float')
+    found = np.zeros(len(vocab), dtype='bool_')
+
     for line in embeddings_file_handle:
       total_embs += 1
-      line = line.split()
-      if line[0] in vocab.w2i:
+      word, vals = line.strip().split(' ', 1)
+      if word in vocab.w2i:
         in_vocab += 1
-        vecs[vocab.w2i[line[0]]] = line[1:]
+        index = vocab.w2i[word]
+        embeddings[index] = np.fromstring(vals, sep=" ")
+        found[index] = True
 
-    embeddings = np.empty((len(vocab), self.emb_dim), dtype='float')
     for i in range(len(vocab)):
-      if i in vecs:
-        embeddings[i] = vecs[i]
-      else:
+      if not found[i]:
         missing += 1
         embeddings[i] = np.random.uniform(-bound, bound, self.emb_dim)
 
