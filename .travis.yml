@@ -7,4 +7,5 @@ install:
   - pip install -r requirements.txt
 script:
   - python setup.py develop
+  - python setup.py build_ext --inplace --use-cython-extensions
   - python -m unittest discover
