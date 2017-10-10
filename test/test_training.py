@@ -1,7 +1,7 @@
 import unittest
 
 import dynet_config
-dynet_config.set(random_seed=0)
+dynet_config.set(random_seed=1)
 
 import dynet as dy
 import numpy as np
@@ -202,6 +202,7 @@ class TestTrainDevLoss(unittest.TestCase):
 class TestOverfitting(unittest.TestCase):
 
   def test_overfitting(self):
+    dy.renew_cg(immediate_compute=True, check_validity=True)
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     self.model_context.default_layer_dim = 16
