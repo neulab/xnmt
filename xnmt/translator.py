@@ -267,14 +267,19 @@ class TranslatorReinforceLoss(Serializable):
     for trg_i, sample_i in zip(trg, samples):
       # Removing EOS
       try:
-        idx = next(word for word in sample_i if word == Vocab.ES)
+        idx = sample_i.index(Vocab.ES)
         sample_i = sample_i[:idx]
-      except StopIteration:
+      except ValueError:
+        pass
+      try:
+        idx = trg_i.words.index(Vocab.ES)
+        trg_i.words = trg_i.words[:idx]
+      except ValueError:
         pass
       # Calculate the evaluation score
       eval_score.append(self.evaluation_metric.evaluate_fast(trg_i.words, sample_i))
 
-    return dy.sum_elems(dy.cmult(dy.inputTensor(eval_score, batched=True), dy.esum(logsofts)))
+    return -dy.sum_elems(dy.cmult(dy.inputTensor(eval_score, batched=True), dy.esum(logsofts)))
 
 # To be implemented
 class TranslatorMinRiskLoss(Serializable):
