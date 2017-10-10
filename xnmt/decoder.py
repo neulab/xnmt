@@ -161,3 +161,25 @@ class CopyBridge(Bridge, Serializable):
     return [enc_state.cell_expr() for enc_state in enc_final_states[-self.dec_layers:]] \
          + [enc_state.main_expr() for enc_state in enc_final_states[-self.dec_layers:]]
 
+class LinearBridge(Bridge, Serializable):
+  """
+  This bridge does a linear transform of final states from the encoder to the decoder initial states.
+  Requires that:
+  - num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
+  """
+  yaml_tag = u'!LinearBridge'
+  def __init__(self, context, dec_layers, enc_dim = None, dec_dim = None):
+    param_col = context.dynet_param_collection.param_col
+    self.dec_layers = dec_layers
+    self.enc_dim = enc_dim or context.default_layer_dim
+    self.dec_dim = dec_dim or context.default_layer_dim
+    self.projector = xnmt.linear.Linear(input_dim  = enc_dim,
+                                           output_dim = dec_dim,
+                                           model = param_col)
+  def decoder_init(self, enc_final_states):
+    if self.dec_layers > len(enc_final_states):
+      raise RuntimeError("LinearBridge requires dec_layers <= len(enc_final_states), but got %s and %s" % (self.dec_layers, len(enc_final_states)))
+    if enc_final_states[0].main_expr().dim()[0][0] != self.enc_dim:
+      raise RuntimeError("LinearBridge requires enc_dim == %s, but got %s" % (self.enc_dim, enc_final_states[0].main_expr().dim()[0][0]))
+    decoder_init = [self.projector(enc_state.main_expr()) for enc_state in enc_final_states[-self.dec_layers:]]
+    return decoder_init + [dy.tanh(dec) for dec in decoder_init]
