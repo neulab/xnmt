@@ -119,8 +119,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.attender.init_sent(encodings)
     # Initialize the hidden state from the encoder
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
-    self.decoder.initialize(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
-    return self.loss_calculator(self, src, trg)
+    dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
+    return self.loss_calculator(self, dec_state, src, trg)
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
@@ -134,7 +134,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       encodings = self.encoder.transduce(embeddings)
       self.attender.init_sent(encodings)
       ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
-      self.decoder.initialize(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
+      dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
       output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents), forced_trg_ids=forced_trg_ids)
       # In case of reporting
       if self.report_path is not None:
@@ -209,7 +209,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 class TranslatorMLELoss(Serializable):
   yaml_tag = '!TranslatorMLELoss'
 
-  def __call__(self, translator, src, trg):
+  def __call__(self, translator, dec_state, src, trg):
     trg_mask = trg.mask if xnmt.batcher.is_batched(trg) else None
     losses = []
     seq_len = len(trg[0]) if xnmt.batcher.is_batched(src) else len(trg)
@@ -221,13 +221,13 @@ class TranslatorMLELoss(Serializable):
       ref_word = trg[i] if not xnmt.batcher.is_batched(src) \
                       else xnmt.batcher.mark_as_batch([single_trg[i] for single_trg in trg])
 
-      context = translator.attender.calc_context(translator.decoder.state.output())
-      word_loss = translator.decoder.calc_loss(context, ref_word)
+      dec_state.context = translator.attender.calc_context(dec_state.rnn_state.output())
+      word_loss = translator.decoder.calc_loss(dec_state, ref_word)
       if xnmt.batcher.is_batched(src) and trg_mask is not None:
         word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
       losses.append(word_loss)
       if i < seq_len-1:
-        translator.decoder.add_input(translator.trg_embedder.embed(ref_word))
+        dec_state = translator.decoder.add_input(dec_state, translator.trg_embedder.embed(ref_word))
 
     return dy.esum(losses)
 
@@ -241,21 +241,21 @@ class TranslatorReinforceLoss(Serializable):
     else:
       self.evaluation_metric = evaluation_metric
 
-  def __call__(self, translator, src, trg):
+  def __call__(self, translator, dec_state, src, trg):
     # TODO: apply trg.mask ?
     samples = []
     logsofts = []
     done = [False for _ in range(len(trg))]
     for _ in range(self.sample_length):
-      context = translator.attender.calc_context(translator.decoder.state.output())
-      logsoft = dy.log_softmax(translator.decoder.get_scores(context))
+      dec_state.context = translator.attender.calc_context(dec_state.rnn_state.output())
+      logsoft = dy.log_softmax(translator.decoder.get_scores(dec_state))
       sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]
       # Keep track of previously sampled EOS
       sample = [sample_i if not done_i else Vocab.ES for sample_i, done_i in zip(sample, done)]
       # Appending and feeding in the decoder
       logsofts.append(logsoft)
       samples.append(sample)
-      translator.decoder.add_input(translator.trg_embedder.embed(xnmt.batcher.mark_as_batch(sample)))
+      dec_state = translator.decoder.add_input(dec_state, translator.trg_embedder.embed(xnmt.batcher.mark_as_batch(sample)))
       # Check if we are done.
       done = list(six.moves.map(lambda x: x == Vocab.ES, sample))
       if all(done):
