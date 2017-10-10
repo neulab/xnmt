@@ -1,6 +1,8 @@
 import unittest
 
 import dynet_config
+dynet_config.set(random_seed=0)
+
 import dynet as dy
 import numpy as np
 
