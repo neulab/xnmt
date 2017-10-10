@@ -43,3 +43,6 @@ class Tee(object):
   def flush(self):
     self.file.flush()
     self.stdstream.flush()
+
+  def getvalue(self):
+    return self.stdstream.getvalue()
