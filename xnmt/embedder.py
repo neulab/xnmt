@@ -4,6 +4,7 @@ import numpy as np
 import dynet as dy
 import xnmt.batcher
 import six
+import io
 from xnmt.model import HierarchicalModel
 from xnmt.decorators import recursive
 from xnmt.serializer import Serializable
@@ -143,6 +144,7 @@ class NoopEmbedder(Embedder, Serializable):
           embeddings.append(self.embed(xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
       return ExpressionSequence(expr_list=embeddings, mask=sent.mask)
 
+
 class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
   """
   Simple word embeddings via lookup. Initial pretrained embeddings must be supplied in FastText text format.
@@ -151,7 +153,15 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
   yaml_tag = u'!PretrainedSimpleWordEmbedder'
 
   def _read_fasttext_embeddings(self, vocab, embeddings_file_handle):
-    # The first line contains the number of words and the embedding dimension
+    """
+    Reads FastText embeddings from a file. Also prints stats about the loaded embeddings for sanity checking.
+
+    :param vocab: a `Vocab` object containing the vocabulary for the experiment
+    :param embeddings_file_handle: A file handle on the embeddings file. The embeddings must be in FastText text
+     format.
+    :return: A tuple of (total number of embeddings read, # embeddings that match vocabulary words, # vocabulary words
+     without a matching embedding, embeddings array).
+    """
     _, dimension = next(embeddings_file_handle).split()
     if int(dimension) != self.emb_dim:
       raise Exception("An embedding size of {} was specified, but the pretrained embeddings have size {}"
@@ -160,18 +170,32 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     # Poor man's Glorot initializer for missing embeddings
     bound = np.sqrt(6/(len(vocab) + self.emb_dim))
 
+    total_embs = 0
+    in_vocab = 0
+    missing = 0
+
     vecs = {}
     for line in embeddings_file_handle:
+      total_embs += 1
       line = line.split()
       if line[0] in vocab.w2i:
+        in_vocab += 1
         vecs[vocab.w2i[line[0]]] = line[1:]
 
-    return np.array([vecs[i] if i in vecs else np.random.uniform(-bound, bound, self.emb_dim) for i in range(len(vocab))], dtype='float')
+    embeddings = np.empty((len(vocab), self.emb_dim), dtype='float')
+    for i in range(len(vocab)):
+      if i in vecs:
+        embeddings[i] = vecs[i]
+      else:
+        missing += 1
+        embeddings[i] = np.random.uniform(-bound, bound, self.emb_dim)
+
+    return total_embs, in_vocab, missing, embeddings
 
   def __init__(self, context, vocab, filename, emb_dim=None, weight_noise=None, word_dropout=0.0):
     """
-    :param vocab_size:
-    :param emb_dim:
+    :param vocab: a `Vocab` object containing the vocabulary for the experiment
+    :param filename: Filename for the pretrained embeddings
     :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
     :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
     """
@@ -182,7 +206,10 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     self.word_id_mask = None
     self.train = False
 
-    with open(filename) as embeddings_file:
-      initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
+    with io.open(filename, encoding='utf-8') as embeddings_file:
+      total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
     self.embeddings = context.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim),
-                                                                                     init=dy.NumpyInitializer(initial_embeddings))
+                                                                                     init=dy.NumpyInitializer(initial_embeddings.T))
+
+    print("{} vocabulary matches out of {} total embeddings; {} vocabulary words without a pretrained embedding "
+          "out of {}".format(in_vocab, total_embs, missing, len(vocab)))
