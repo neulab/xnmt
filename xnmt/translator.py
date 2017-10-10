@@ -116,7 +116,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     encodings = self.encoder.transduce(embeddings)
     self.attender.init_sent(encodings)
     # Initialize the hidden state from the encoder
-    self.decoder.initialize(self.encoder.get_final_states())
+    dec_state = self.decoder.initial_state(self.encoder.get_final_states())
     losses = []
 
     seq_len = len(trg[0]) if xnmt.batcher.is_batched(src) else len(trg)
@@ -128,14 +128,14 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       ref_word = trg[i] if not xnmt.batcher.is_batched(src) \
                       else xnmt.batcher.mark_as_batch([single_trg[i] for single_trg in trg])
  
-      context = self.attender.calc_context(self.decoder.state.output())
-      word_loss = self.decoder.calc_loss(context, ref_word)
+      dec_state.context = self.attender.calc_context(dec_state.rnn_state.output())
+      word_loss = self.decoder.calc_loss(dec_state, ref_word)
       if xnmt.batcher.is_batched(src) and trg_mask is not None:
         mask_exp = dy.inputTensor((1.0 - trg_mask)[:,i:i+1].transpose(),batched=True)
         word_loss = word_loss * mask_exp
       losses.append(word_loss)
       if i < seq_len-1:
-        self.decoder.add_input(self.trg_embedder.embed(ref_word))
+        dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(ref_word))
 
     return dy.esum(losses)
 
@@ -150,8 +150,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
       encodings = self.encoder.transduce(embeddings)
       self.attender.init_sent(encodings)
-      self.decoder.initialize(self.encoder.get_final_states())
-      output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents), forced_trg_ids=forced_trg_ids)
+      dec_state = self.decoder.initial_state(self.encoder.get_final_states())
+      output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, dec_state, src_length=len(sents), forced_trg_ids=forced_trg_ids)
       # In case of reporting
       if self.report_path is not None:
         src_words = [self.reporting_src_vocab[w] for w in sents]
