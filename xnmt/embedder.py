@@ -208,8 +208,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
 
     with io.open(filename, encoding='utf-8') as embeddings_file:
       total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
-    self.embeddings = context.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim),
-                                                                                     init=dy.NumpyInitializer(initial_embeddings.T))
+    self.embeddings = context.dynet_param_collection.param_col.lookup_parameters_from_numpy(initial_embeddings)
 
     print("{} vocabulary matches out of {} total embeddings; {} vocabulary words without a pretrained embedding "
           "out of {}".format(in_vocab, total_embs, missing, len(vocab)))

@@ -18,6 +18,9 @@ class PretrainedSimpleWordEmbedderSanityTest(unittest.TestCase):
     self.context.dynet_param_collection = PersistentParamCollection(None, 0)
 
   def test_load(self):
+    """
+    Checks that the embeddings can be loaded, have the right dimension, and that one line matches.
+    """
     embedder = PretrainedSimpleWordEmbedder(self.context, self.input_reader.vocab, 'examples/data/wiki.ja.vec.small', 300)
     self.assertEqual(embedder.embeddings.shape()[::-1], (self.input_reader.vocab_size(), 300))
 

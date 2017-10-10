@@ -91,7 +91,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
             DependentInitParam(param_descr="decoder.vocab_size", value_fct=lambda: self.context.corpus_parser.trg_reader.vocab_size()),
             DependentInitParam(param_descr="trg_embedder.vocab_size", value_fct=lambda: self.context.corpus_parser.trg_reader.vocab_size()),
             DependentInitParam(param_descr="src_embedder.vocab", value_fct=lambda: self.context.corpus_parser.src_reader.vocab),
-            DependentInitParam(param_descr="decoder.vocab", value_fct=lambda: self.context.corpus_parser.trg_reader.vocab),
             DependentInitParam(param_descr="trg_embedder.vocab", value_fct=lambda: self.context.corpus_parser.trg_reader.vocab)]
 
   def initialize_generator(self, **kwargs):
