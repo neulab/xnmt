@@ -46,17 +46,19 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   yaml_tag = u'!SimpleWordEmbedder'
 
-  def __init__(self, context, vocab_size, emb_dim = None, weight_noise = None, word_dropout = 0.0):
+  def __init__(self, context, vocab_size, emb_dim = None, weight_noise = None, word_dropout = 0.0, fix_norm = None):
     """
     :param vocab_size:
     :param emb_dim:
     :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
     :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
+    :param fix_norm: fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
     """
     self.vocab_size = vocab_size
     self.emb_dim = emb_dim or context.default_layer_dim
     self.weight_noise = weight_noise or context.weight_noise
     self.word_dropout = word_dropout
+    self.fix_norm = fix_norm
     self.embeddings = context.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim))
     self.word_id_mask = None
     self.train = False
@@ -79,9 +81,17 @@ class SimpleWordEmbedder(Embedder, Serializable):
         ret = dy.zeros((self.emb_dim,))
       else:
         ret = self.embeddings[x]
+        if self.fix_norm != None:
+          ret = dy.cdiv(ret, dy.l2_norm(ret))
+          if self.fix_norm != 1:
+            ret *= self.fix_norm
     # minibatch mode
     else:
       ret = self.embeddings.batch(x)
+      if self.fix_norm != None:
+        ret = dy.cdiv(ret, dy.l2_norm(ret))
+        if self.fix_norm != 1:
+          ret *= self.fix_norm
       if self.train and self.word_id_mask and any(x[i] in self.word_id_mask[i] for i in range(len(x))):
         dropout_mask = dy.inputTensor(np.transpose([[0.0]*self.emb_dim if x[i] in self.word_id_mask[i] else [1.0]*self.emb_dim for i in range(len(x))]), batched=True)
         ret = dy.cmult(ret, dropout_mask)
