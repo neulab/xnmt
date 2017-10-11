@@ -1,0 +1,46 @@
+# A standard training run, should almost never break
+defaults:
+  experiment:
+    model_file: examples/output/<EXP>.mod
+    hyp_file: examples/output/<EXP>.hyp
+    out_file: examples/output/<EXP>.out
+    err_file: examples/output/<EXP>.err
+    run_for_epochs: 20
+    eval_metrics: bleu,wer
+  train:
+    trainer: Adam
+    learning_rate: 0.01
+    dev_metrics: bleu
+    default_layer_dim: 32
+    training_corpus: !BilingualTrainingCorpus
+      train_src: examples/data/abc.txt
+      train_trg: examples/data/abc.txt
+      dev_src: examples/data/abc.txt
+      dev_trg: examples/data/abc.txt
+    corpus_parser: !BilingualCorpusParser
+      src_reader: !PlainTextReader
+        vocab: !Vocab
+          vocab_file: examples/data/abc.vocab
+      trg_reader: !PlainTextReader
+        vocab: !Vocab
+          vocab_file: examples/data/abc.vocab
+    model: !DefaultTranslator
+      src_embedder: !SimpleWordEmbedder
+        emb_dim: 64
+      encoder: !LSTMEncoder
+        layers: 1
+      attender: !StandardAttender
+        state_dim: 64
+        hidden_dim: 64
+        input_dim: 64
+      trg_embedder: !SimpleWordEmbedder
+        emb_dim: 64
+      decoder: !MlpSoftmaxDecoder
+        layers: 1
+        bridge: !CopyBridge {}
+  decode:
+    src_file: examples/data/abc.txt
+  evaluate:
+    ref_file: examples/data/abc.txt
+
+standard:
