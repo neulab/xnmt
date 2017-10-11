@@ -7,7 +7,7 @@ class SearchStrategy(object):
   '''
   A template class to generate translation from the output probability model.
   '''
-  def generate_output(self, decoder, attender, output_embedder, src_length=None, forced_trg_ids=None):
+  def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
     raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')
 
 class GreedySearch(SearchStrategy):
@@ -16,15 +16,15 @@ class GreedySearch(SearchStrategy):
   '''
   def __init__(self, max_len=100):
     self.max_len = max_len
-  def generate_output(self, decoder, attender, output_embedder, src_length=None, forced_trg_ids=None):
+  def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
     score = 0.0
     word_ids = []
 
     while (word_ids==[] or word_ids[-1]!=Vocab.ES) and len(word_ids) < self.max_len:
       if len(word_ids) > 0: # don't feed in the initial start-of-sentence token
-        decoder.add_input(output_embedder.embed(word_ids[-1] if forced_trg_ids is None else forced_trg_ids[len(word_ids)-1]))
-      context = attender.calc_context(decoder.state.output())
-      logsoftmax = dy.log_softmax(decoder.get_scores(context)).npvalue()
+        dec_state = decoder.add_input(dec_state, output_embedder.embed(word_ids[-1] if forced_trg_ids is None else forced_trg_ids[len(word_ids)-1]))
+      dec_state.context = attender.calc_context(dec_state.rnn_state.output())
+      logsoftmax = dy.log_softmax(decoder.get_scores(dec_state)).npvalue()
       if forced_trg_ids is None:
         cur_id = np.argmax(logsoftmax)
       else:
