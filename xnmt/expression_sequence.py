@@ -23,7 +23,7 @@ class ExpressionSequence(object):
     if not (self.expr_list or self.expr_tensor):
       raise ValueError("must provide expr_list or expr_tensor")
     if self.expr_list and self.expr_tensor:
-      if len(self.expr_list) != self.expr_tensor.dim()[0][0]:
+      if len(self.expr_list) != self.expr_tensor.dim()[0][1]:
         raise ValueError("expr_list and expr_tensor must be of same length")
     if expr_list:
       if not isinstance(expr_list,list): 
@@ -39,7 +39,7 @@ class ExpressionSequence(object):
     :returns: length of sequence
     """
     if self.expr_list: return len(self.expr_list)
-    else: return self.expr_tensor.dim()[0][0]
+    else: return self.expr_tensor.dim()[0][1]
 
   def __iter__(self):
     """Return iterator.
