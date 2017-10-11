@@ -30,7 +30,7 @@ class Mask(object):
     if np.count_nonzero(self.np_arr) == 0:
       return tensor_expr
     else:
-      if multiplicator is None:
+      if multiplicator is not None:
         mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1) * multiplicator, batched=True)
       else:
         mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1), batched=True)
