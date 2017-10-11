@@ -1,0 +1,43 @@
+# A standard training run, should almost never break
+defaults:
+  experiment:
+    model_file: examples/output/<EXP>.mod
+    hyp_file: examples/output/<EXP>.hyp
+    out_file: examples/output/<EXP>.out
+    err_file: examples/output/<EXP>.err
+    run_for_epochs: 2
+    eval_metrics: bleu,wer
+  train:
+    dev_metrics: bleu
+    default_layer_dim: 32
+    training_corpus: !BilingualTrainingCorpus
+      train_src: examples/data/head.ja
+      train_trg: examples/data/head.en
+      dev_src: examples/data/head.ja
+      dev_trg: examples/data/head.en
+    corpus_parser: !BilingualCorpusParser
+      src_reader: !PlainTextReader {}
+      trg_reader: !PlainTextReader {}
+    model: !DefaultTranslator
+      src_embedder: !SimpleWordEmbedder
+        emb_dim: 64
+      encoder: !LSTMEncoder
+        layers: 1
+      attender: !StandardAttender
+        state_dim: 64
+        hidden_dim: 64
+        input_dim: 64
+      trg_embedder: !SimpleWordEmbedder
+        emb_dim: 64
+      decoder: !MlpSoftmaxDecoder
+        layers: 1
+        bridge: !CopyBridge {}
+  decode:
+    len_norm_type: !PolynomialNormalization
+      apply_during_search: true
+      m: 1
+    src_file: examples/data/head.ja
+  evaluate:
+    ref_file: examples/data/head.en
+
+standard:

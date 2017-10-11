@@ -6,6 +6,9 @@ import xnmt.xnmt_run_experiments as run
 
 class TestRunningConfig(unittest.TestCase):
 
+  def test_standard_run(self):
+    run.main(["test/config/standard.yaml"])
+
   def test_random_search_test_params(self):
     run.main(["test/config/random_search_test_params.yaml"])
 

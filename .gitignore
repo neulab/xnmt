@@ -3,6 +3,7 @@ __pycache__
 *.swp
 *.pyc
 *.so
+.idea
 examples/output
 doc/build
 xnmt.egg-info
