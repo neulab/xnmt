@@ -17,7 +17,7 @@ if "--use-cython-extensions" in sys.argv:
                           sources=['xnmt/cython/xnmt_cython.pyx',
                                    'xnmt/cython/src/functions.cpp'],
                           language='c++',
-                          extra_compile_args=["-std=c++11"],
+                          extra_compile_args=["-std=c++11", "-stdlib=libc++"],
                           extra_link_args=["-std=c++11"])
   ext_modules = cythonize(extensions)
 
