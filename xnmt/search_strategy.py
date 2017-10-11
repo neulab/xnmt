@@ -7,7 +7,7 @@ class SearchStrategy(object):
   '''
   A template class to generate translation from the output probability model.
   '''
-  def generate_output(self, decoder, attender, output_embedder, src_length=None, forced_trg_ids=None):
+  def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
     raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')
 
 class GreedySearch(SearchStrategy):
@@ -16,15 +16,15 @@ class GreedySearch(SearchStrategy):
   '''
   def __init__(self, max_len=100):
     self.max_len = max_len
-  def generate_output(self, decoder, attender, output_embedder, src_length=None, forced_trg_ids=None):
+  def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
     score = 0.0
     word_ids = []
 
     while (word_ids==[] or word_ids[-1]!=Vocab.ES) and len(word_ids) < self.max_len:
       if len(word_ids) > 0: # don't feed in the initial start-of-sentence token
-        decoder.add_input(output_embedder.embed(word_ids[-1] if forced_trg_ids is None else forced_trg_ids[len(word_ids)-1]))
-      context = attender.calc_context(decoder.state.output())
-      logsoftmax = dy.log_softmax(decoder.get_scores(context)).npvalue()
+        dec_state = decoder.add_input(dec_state, output_embedder.embed(word_ids[-1] if forced_trg_ids is None else forced_trg_ids[len(word_ids)-1]))
+      dec_state.context = attender.calc_context(dec_state.rnn_state.output())
+      logsoftmax = dy.log_softmax(decoder.get_scores(dec_state)).npvalue()
       if forced_trg_ids is None:
         cur_id = np.argmax(logsoftmax)
       else:
@@ -56,11 +56,12 @@ class BeamSearch(SearchStrategy):
     def __repr__(self):
       return "hypo S=%s |ids|=%s" % (self.score, len(self.id_list))
 
-  def generate_output(self, decoder, attender, output_embedder, src_length=None, forced_trg_ids=None):
+  def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
     """
     :param decoder: decoder.Decoder subclass
     :param attender: attender.Attender subclass
     :param output_embedder: embedder.Embedder subclass
+    :param dec_state: The decoder state
     :param src_length: length of src sequence, required for some types of length normalization
     :param forced_trg_ids: list of word ids, if given will force to generate this is the target sequence
     :returns: (id list, score)
@@ -68,7 +69,7 @@ class BeamSearch(SearchStrategy):
 
     if forced_trg_ids is not None: assert self.beam_size == 1
 
-    active_hyp = [self.Hypothesis(0, [], decoder.get_state())]
+    active_hyp = [self.Hypothesis(0, [], dec_state)]
 
     completed_hyp = []
     length = 0
@@ -77,14 +78,14 @@ class BeamSearch(SearchStrategy):
       new_set = []
       for hyp in active_hyp:
 
-        decoder.set_state(hyp.state)
+        dec_state = hyp.state
         if length > 0: # don't feed in the initial start-of-sentence token
           if hyp.id_list[-1] == Vocab.ES:
             completed_hyp.append(hyp)
             continue
-          decoder.add_input(output_embedder.embed(hyp.id_list[-1] if forced_trg_ids is None else forced_trg_ids[length-1]))
-        context = attender.calc_context(decoder.state.output())
-        score = dy.log_softmax(decoder.get_scores(context)).npvalue()
+          dec_state = decoder.add_input(dec_state, output_embedder.embed(hyp.id_list[-1] if forced_trg_ids is None else forced_trg_ids[length-1]))
+        dec_state.context = attender.calc_context(dec_state.rnn_state.output())
+        score = dy.log_softmax(decoder.get_scores(dec_state)).npvalue()
         if forced_trg_ids is None:
           top_ids = np.argpartition(score, max(-len(score),-self.beam_size))[-self.beam_size:]
         else:
@@ -95,7 +96,7 @@ class BeamSearch(SearchStrategy):
           new_list.append(cur_id)
           new_set.append(self.Hypothesis(self.len_norm.normalize_partial(hyp.score, score[cur_id], len(new_list)),
                                          new_list,
-                                         decoder.get_state()))
+                                         dec_state))
       length += 1
 
       active_hyp = sorted(new_set, key=lambda x: x.score, reverse=True)[:self.beam_size]

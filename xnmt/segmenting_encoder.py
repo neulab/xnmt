@@ -240,7 +240,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     segmented = [x for x, delete in segmented]
     if len(segmented) > 0:
       with io.open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
-        print(" ".join(segmented[:-1]), file=segmentation_file)
+        print(u" ".join(segmented[:-1]), file=segmentation_file)
 
   def apply_segmentation(self, words, segmentation):
     assert(len(words) == len(segmentation))

@@ -1,8 +1,6 @@
 import unittest
 
-
-import dynet_config
-import dynet as dy
+import os, shutil
 
 import xnmt.xnmt_run_experiments as run
 
@@ -39,10 +37,14 @@ class TestRunningConfig(unittest.TestCase):
   def test_reload_exc(self):
     with self.assertRaises(ValueError) as context:
       run.main(["test/config/reload_exception.yaml"])
-    self.assertTrue('VanillaLSTMGates: x_t has inconsistent dimension' in context.exception)
+    self.assertEqual(str(context.exception), 'VanillaLSTMGates: x_t has inconsistent dimension')
 
   def test_translator_loss(self):
     run.main(["test/config/translator_loss.yaml"])
+
+  def tearDown(self):
+    if os.path.isdir("test/tmp"):
+     shutil.rmtree("test/tmp")
 
 if __name__ == "__main__":
   unittest.main()
