@@ -1,6 +1,5 @@
 import unittest
 
-import dynet_config
 import dynet as dy
 import numpy as np
 

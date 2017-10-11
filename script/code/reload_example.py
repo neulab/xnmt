@@ -91,7 +91,7 @@ def main():
     modify_audio(npz_initial, npz_new, txt_initial, txt_new, args.epoch, break_feats=args.break_features)
     safelink(current_version_dir, args.target_dir)
   else:
-    print 'first run'
+    print('first run')
     safelink(args.initial_dir, args.target_dir)
 
 
