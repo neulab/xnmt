@@ -20,6 +20,7 @@ defaults:
       trg_reader: !PlainTextReader {}
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder &src_emb
+        __anchor: src_emb
         emb_dim: 64
       encoder: !LSTMEncoder
         layers: 1

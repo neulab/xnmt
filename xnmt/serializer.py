@@ -62,6 +62,7 @@ class Serializable(yaml.YAMLObject):
 class YamlSerializer(object):
   def __init__(self):
     self.representers_added = False
+    self.initialized_anchors = {}
 
   def initialize_object(self, deserialized_yaml, context={}):
     """
@@ -182,8 +183,8 @@ class YamlSerializer(object):
           init_params[p.param_name()] = p.value_fct()
     if "context" in init_args: init_params["context"] = context # pass context to constructor if it expects a "context" object
     try:
-      if self.get_anchor(obj):
-        initialized_obj = self.get_anchor(obj)
+      if self.get_initialized_anchor(obj):
+        initialized_obj = self.get_initialized_anchor(obj)
       else:
         initialized_obj = obj.__class__(**init_params)
         self.track_initialized(obj, initialized_obj)
@@ -197,10 +198,15 @@ class YamlSerializer(object):
 
     return initialized_obj
   
-  def get_anchor(self, obj):
-    return None # TODO: if obj is an alias, return the already initialized anchor that this alias is referencing
+  def get_initialized_anchor(self, obj):
+    anchor = getattr(obj, "__anchor", None)
+    if anchor and anchor in self.initialized_anchors:
+      return self.initialized_anchors[anchor]
+    return None
   def track_initialized(self, obj, initialized_obj):
-    pass # TODO: keep track of initialized obj, so that it can be returned by get_anchor
+    anchor = getattr(obj, "__anchor", None)
+    if anchor:
+      self.initialized_anchors[anchor] = initialized_obj
 
   @staticmethod
   def init_representer(dumper, obj):
