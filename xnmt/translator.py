@@ -241,7 +241,7 @@ class TranslatorMLELoss(Serializable):
 class TranslatorReinforceLoss(Serializable, HierarchicalModel):
   yaml_tag = '!TranslatorReinforceLoss'
 
-  def __init__(self, evaluation_metric=None, sample_length=50, use_baseline=True):
+  def __init__(self, evaluation_metric=None, sample_length=50, use_baseline=False):
     self.sample_length = sample_length
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
@@ -295,7 +295,11 @@ class TranslatorReinforceLoss(Serializable, HierarchicalModel):
       score = 0 if not len(sample_i) else self.evaluation_metric.evaluate_fast(trg_i.words, sample_i)
       self.eval_score.append(score)
       self.trueScore = dy.inputTensor(self.eval_score, batched=True)
-    return dy.sum_elems(dy.cmult(self.bs - self.trueScore, dy.esum(logsofts)))
+
+    final_score = -self.trueScore
+    if self.use_baseline:
+      final_score = self.bs - self.trueScore
+    return dy.sum_elems(dy.cmult(final_score , dy.esum(logsofts)))
 
   @recursive_sum
   def calc_additional_loss(self, _):
