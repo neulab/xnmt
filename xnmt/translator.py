@@ -244,15 +244,15 @@ class TranslatorReinforceLoss(Serializable):
       self.pW = self.param_collection.add_parameters((1, dim))
       self.pb = self.param_collection.add_parameters(1)
 
-    def forward(self, input, dim):
-      input = dy.inputTensor(np.reshape(input, (dim[0][0], dim[1])), batched=True)
+    def predict_score(self, h_t, dim):
+      h_t = dy.inputTensor(np.reshape(h_t, (dim[0][0], dim[1])), batched=True)
       W = dy.parameter(self.pW)
       B = dy.parameter(self.pb)
-      output = B + W * input
+      output = B + W * h_t
       return output
 
-    def calc_loss(self, input, true, dim):
-      output = self.forward(input, dim)
+    def calc_loss(self, h_t, true, dim):
+      output = self.predict_score(h_t, dim)
       true = dy.inputTensor(true, batched=True)
       err = dy.squared_distance(true, output)
       return dy.sum_batches(err)
@@ -290,7 +290,7 @@ class TranslatorReinforceLoss(Serializable):
 
     decode_hidden_state = h_t.value()
     dim = h_t.dim()
-    pred = self.regressor.forward(decode_hidden_state, dim)
+    pred = self.regressor.predict_score(decode_hidden_state, dim)
 
     samples = np.stack(samples, axis=1).tolist()
     eval_score = []
