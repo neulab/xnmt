@@ -10,15 +10,18 @@ import xnmt.length_normalization
 import xnmt.batcher
 
 from xnmt.vocab import Vocab
+from xnmt.model import HierarchicalModel
 from xnmt.serializer import Serializable, DependentInitParam
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.output import TextOutput
+import xnmt.linear as linear
 from xnmt.model import GeneratorModel
 from xnmt.reports import Reportable
-from xnmt.decorators import recursive_assign, recursive
+from xnmt.decorators import recursive_assign, recursive, recursive_sum
 import xnmt.serializer
 import xnmt.evaluator
 from xnmt.batcher import mark_as_batch, is_batched
+from xnmt.loss import LossBuilder
 
 # Reporting purposes
 from lxml import etree
@@ -75,7 +78,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       self.loss_calculator = TranslatorMLELoss()
     else:
       self.loss_calculator = loss_calculator
-
+    if (issubclass(self.loss_calculator.__class__, HierarchicalModel)):
+      self.register_hier_child(self.loss_calculator)
     self.register_hier_child(self.encoder)
     self.register_hier_child(self.decoder)
     self.register_hier_child(self.src_embedder)
@@ -234,36 +238,17 @@ class TranslatorMLELoss(Serializable):
 
     return dy.esum(losses)
 
-class TranslatorReinforceLoss(Serializable):
+class TranslatorReinforceLoss(Serializable, HierarchicalModel):
   yaml_tag = '!TranslatorReinforceLoss'
 
-  class Regressor():
-    def __init__(self, dim):
-      self.param_collection = dy.Model()
-      self.trainer = dy.AdamTrainer(self.param_collection)
-      self.pW = self.param_collection.add_parameters((1, dim))
-      self.pb = self.param_collection.add_parameters(1)
-
-    def predict_score(self, h_t, dim):
-      h_t = dy.inputTensor(np.reshape(h_t, (dim[0][0], dim[1])), batched=True)
-      W = dy.parameter(self.pW)
-      B = dy.parameter(self.pb)
-      output = B + W * h_t
-      return output
-
-    def calc_loss(self, h_t, true, dim):
-      output = self.predict_score(h_t, dim)
-      true = dy.inputTensor(true, batched=True)
-      err = dy.squared_distance(true, output)
-      return dy.sum_batches(err)
-
-  def __init__(self, evaluation_metric=None, sample_length=50):
+  def __init__(self, evaluation_metric=None, sample_length=50, use_baseline=True):
     self.sample_length = sample_length
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
-    self.regressor = None
+    self.baseline = None
+    self.use_baseline = use_baseline
 
   def __call__(self, translator, dec_state, src, trg):
     # TODO: apply trg.mask ?
@@ -284,16 +269,16 @@ class TranslatorReinforceLoss(Serializable):
       done = list(six.moves.map(lambda x: x == Vocab.ES, sample))
       if all(done):
         break
-    h_t = dy.tanh(translator.decoder.context_projector(dy.concatenate([dec_state.rnn_state.output(), dec_state.context])))
-    if not self.regressor:
-      self.regressor = self.Regressor(h_t.dim()[0][0])
 
-    decode_hidden_state = h_t.value()
-    dim = h_t.dim()
-    pred = self.regressor.predict_score(decode_hidden_state, dim)
+    if self.use_baseline:
+      h_t = dy.tanh(translator.decoder.context_projector(dy.concatenate([dec_state.rnn_state.output(), dec_state.context])))
+      if not self.baseline:
+        model = translator.decoder.param_col
+        self.baseline = linear.Linear(input_dim=h_t.dim()[0][0], output_dim=1, model=model)
+      self.bs = self.baseline(dy.nobackprop(h_t))
 
     samples = np.stack(samples, axis=1).tolist()
-    eval_score = []
+    self.eval_score = []
     for trg_i, sample_i in zip(trg, samples):
       # Removing EOS
       try:
@@ -307,16 +292,19 @@ class TranslatorReinforceLoss(Serializable):
       except ValueError:
         pass
       # Calculate the evaluation score
-      score = self.evaluation_metric.evaluate_fast(trg_i.words, sample_i)
-      eval_score.append(0 if math.isnan(score) else score)
+      score = 0 if not len(sample_i) else self.evaluation_metric.evaluate_fast(trg_i.words, sample_i)
+      self.eval_score.append(score)
+      self.trueScore = dy.inputTensor(self.eval_score, batched=True)
+    return dy.sum_elems(dy.cmult(self.bs - self.trueScore, dy.esum(logsofts)))
 
-    true = dy.inputTensor(eval_score, batched=True)
-    loss_exp = self.regressor.calc_loss(decode_hidden_state, eval_score, dim)
-    loss_exp.backward()
-    self.regressor.trainer.update()
-
-    return dy.sum_elems(dy.cmult(true - pred, dy.esum(logsofts)))
-
+  @recursive_sum
+  def calc_additional_loss(self, _):
+    if not self.use_baseline:
+        return None
+    ret = LossBuilder()
+    baseline_loss = dy.squared_distance(self.trueScore, self.bs)
+    ret.add_loss("Baseline", dy.sum_batches(baseline_loss))
+    return ret
 
 # To be implemented
 class TranslatorMinRiskLoss(Serializable):
