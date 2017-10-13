@@ -2,6 +2,7 @@ from __future__ import division, generators
 
 import six
 import plot
+import math
 import dynet as dy
 import numpy as np
 
@@ -277,7 +278,8 @@ class TranslatorReinforceLoss(Serializable):
       except ValueError:
         pass
       # Calculate the evaluation score
-      eval_score.append(self.evaluation_metric.evaluate_fast(trg_i.words, sample_i))
+      score = self.evaluation_metric.evaluate_fast(trg_i.words, sample_i)
+      eval_score.append(0 if math.isnan(score) else score)
 
     return -dy.sum_elems(dy.cmult(dy.inputTensor(eval_score, batched=True), dy.esum(logsofts)))
 
