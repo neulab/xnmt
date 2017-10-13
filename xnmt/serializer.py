@@ -8,24 +8,42 @@ import copy
 
 class Serializable(yaml.YAMLObject):
   """
-  implementing classes MUST specify a unique yaml_tag class attribute
+  All model components that appear in a YAML file must inherit from Serializable.
+  Implementing classes must specify a unique yaml_tag class attribute, e.g. yaml_tag = u"!Serializable" 
   """
   def __init__(self):
-    self.serialize_params = None # parameters that are in the YAML file
-    self.init_params = None # params passed to __init__, i.e. serialize_params plus shared parameters
+    # below attributes are automatically set when deserializing (i.e., creating actual objects based on a YAML file)
+    # should never be changed manually
+    
+    # attributes that are in the YAML file (see Serializable.overwrite_serialize_param() for customizing this)
+    self.serialize_params = None
+    
+    # params passed to __init__, i.e. serialize_params plus shared parameters
+    self.init_params = None 
+    
   def shared_params(self):
     """
-    :returns: list of tuples referencing a param of this component or a subcompononent;
-              param values to be shared are determined if at least one parameter is specified and multiple parameters don't conflict.
-              in this case, the determined value is copied over to the unspecified parameters
+    This can be overwritten to specify what parameters of this component and its subcomponents are shared.
+    Parameter sharing is performed before any components are initialized, and can therefore only
+    include basic data types that are already present in the YAML file (e.g. # dimensions, etc.)
+    Sharing is performed if at least one parameter is specified and multiple shared parameters don't conflict.
+    In case of conflict a warning is printed, and no sharing is performed.
+    The ordering of shared parameters is irrelevant.
+    
+    :returns: list of sets referencing params of this component or a subcompononent
+              e.g.:
+              return [set(["input_dim", "sub_module.input_dim", submodules_list.0.input_dim"])]
+              (the '.0' syntax is available to access elements in a list of subcomponents) 
     """
     return []
   def dependent_init_params(self):
     """
-    :returns: list of DependentInitParam; these are resolved right before the corresponding model is initialized,
-              thereby assuming that the components it depends on have already been initialized.
-              The order of initialization is determined by the order in which components are listed in __init__(),
-              and then going bottom-up
+    This can be overwritten to share parameters that require dependent components already having been initialized.
+    The order of initialization is determined by the order in which components are listed in __init__(),
+              and then going bottom-up.
+    NOTE: currently only supported for top of component hierarchy
+    
+    :returns: list of DependentInitParam instances
     """
     return []
   def overwrite_serialize_param(self, key, val):
@@ -34,26 +52,30 @@ class Serializable(yaml.YAMLObject):
     This is helpful to fix certain model properties (e.g. a vocab) rather than creating it anew
     when serializing and deserializing the component.
 
-    :param key:
-    :param val:
+    :param key: name of parameter (string)
+    :param val: value of parameter (Serializable)
     """
     if not hasattr(self, "serialize_params") or self.serialize_params is None:
       self.serialize_params = {}
     self.serialize_params[key] = val
+
 class YamlSerializer(object):
   def __init__(self):
     self.representers_added = False
 
   def initialize_object(self, deserialized_yaml, context={}):
     """
+    Initializes a hierarchy of deserialized YAML objects.
+    
     :param deserialized_yaml: deserialized YAML object (classes are resolved and class members set, but __init__() has not been called at this point)
     :param context: this is passed to __init__ of every created object that expects a argument named context 
     :returns: the appropriate object, with properly shared parameters and __init__() having been invoked
     """
-    deserialized_yaml = copy.deepcopy(deserialized_yaml)
-    self.set_serialize_params_recursive(deserialized_yaml)
-    self.share_init_params_top_down(deserialized_yaml)
+    deserialized_yaml = copy.deepcopy(deserialized_yaml)   # make a copy to avoid side effects
+    self.set_serialize_params_recursive(deserialized_yaml) # sets each component's serialize_params to represent attributes specified in YAML file
+    self.share_init_params_top_down(deserialized_yaml)     # invoke shared_params mechanism, set each component's init_params accordingly
     setattr(deserialized_yaml, "context", context)
+    # finally, initialize each component via __init__(**init_params)
     return self.init_components_bottom_up(deserialized_yaml, deserialized_yaml.dependent_init_params(), context=context)
 
   def set_serialize_params_recursive(self, obj):
@@ -86,8 +108,9 @@ class YamlSerializer(object):
 
   def share_init_params_top_down(self, obj):
     """
-    sets each component's init_params by extending serialize_params with the shared parameters
-    :param obj: model hierarchy with prepared serialize_params=init_params
+    Sets each component's init_params by extending serialize_params with the shared parameters
+    
+    :param obj: model hierarchy with prepared serialize_params==init_params
     """
     for shared_params in obj.shared_params():
       val = self.get_val_to_share_or_none(obj, shared_params)
@@ -159,7 +182,11 @@ class YamlSerializer(object):
           init_params[p.param_name()] = p.value_fct()
     if "context" in init_args: init_params["context"] = context # pass context to constructor if it expects a "context" object
     try:
-      initialized_obj = obj.__class__(**init_params)
+      if self.get_anchor(obj):
+        initialized_obj = self.get_anchor(obj)
+      else:
+        initialized_obj = obj.__class__(**init_params)
+        self.track_initialized(obj, initialized_obj)
       print("initialized %s(%s)" % (obj.__class__.__name__, init_params))
     except TypeError as e:
       raise ComponentInitError("%s could not be initialized using params %s, expecting params %s. "
@@ -169,6 +196,11 @@ class YamlSerializer(object):
       initialized_obj.serialize_params = serialize_params
 
     return initialized_obj
+  
+  def get_anchor(self, obj):
+    return None # TODO: if obj is an alias, return the already initialized anchor that this alias is referencing
+  def track_initialized(self, obj, initialized_obj):
+    pass # TODO: keep track of initialized obj, so that it can be returned by get_anchor
 
   @staticmethod
   def init_representer(dumper, obj):
@@ -203,7 +235,7 @@ class YamlSerializer(object):
 class ComponentInitError(Exception):
   pass
 
-class DependentInitParam(object):
+class DependentInitParam(Serializable):
   def __init__(self, param_descr, value_fct):
     self.param_descr = param_descr
     self.value_fct = value_fct
