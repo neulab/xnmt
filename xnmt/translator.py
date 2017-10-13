@@ -237,12 +237,33 @@ class TranslatorMLELoss(Serializable):
 class TranslatorReinforceLoss(Serializable):
   yaml_tag = '!TranslatorReinforceLoss'
 
+  class Regressor():
+    def __init__(self, dim):
+      self.param_collection = dy.Model()
+      self.trainer = dy.AdamTrainer(self.param_collection)
+      self.pW = self.param_collection.add_parameters((1, dim))
+      self.pb = self.param_collection.add_parameters(1)
+
+    def forward(self, input, dim):
+      input = dy.inputTensor(np.reshape(input, (dim[0][0], dim[1])), batched=True)
+      W = dy.parameter(self.pW)
+      B = dy.parameter(self.pb)
+      output = B + W * input
+      return output
+
+    def calc_loss(self, input, true, dim):
+      output = self.forward(input, dim)
+      true = dy.inputTensor(true, batched=True)
+      err = dy.squared_distance(true, output)
+      return dy.sum_batches(err)
+
   def __init__(self, evaluation_metric=None, sample_length=50):
     self.sample_length = sample_length
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
+    self.regressor = None
 
   def __call__(self, translator, dec_state, src, trg):
     # TODO: apply trg.mask ?
@@ -263,6 +284,14 @@ class TranslatorReinforceLoss(Serializable):
       done = list(six.moves.map(lambda x: x == Vocab.ES, sample))
       if all(done):
         break
+    h_t = dy.tanh(translator.decoder.context_projector(dy.concatenate([dec_state.rnn_state.output(), dec_state.context])))
+    if not self.regressor:
+      self.regressor = self.Regressor(h_t.dim()[0][0])
+
+    decode_hidden_state = h_t.value()
+    dim = h_t.dim()
+    pred = self.regressor.forward(decode_hidden_state, dim)
+
     samples = np.stack(samples, axis=1).tolist()
     eval_score = []
     for trg_i, sample_i in zip(trg, samples):
@@ -281,7 +310,13 @@ class TranslatorReinforceLoss(Serializable):
       score = self.evaluation_metric.evaluate_fast(trg_i.words, sample_i)
       eval_score.append(0 if math.isnan(score) else score)
 
-    return -dy.sum_elems(dy.cmult(dy.inputTensor(eval_score, batched=True), dy.esum(logsofts)))
+    true = dy.inputTensor(eval_score, batched=True)
+    loss_exp = self.regressor.calc_loss(decode_hidden_state, eval_score, dim)
+    loss_exp.backward()
+    self.regressor.trainer.update()
+
+    return dy.sum_elems(dy.cmult(true - pred, dy.esum(logsofts)))
+
 
 # To be implemented
 class TranslatorMinRiskLoss(Serializable):
