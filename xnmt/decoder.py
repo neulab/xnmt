@@ -115,6 +115,11 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     return self.vocab_projector(self.h_t)
 
   def calc_loss(self, context, ref_action):
+    """
+    Label Smoothing is implemented with reference to Section 7 of the paper
+    "Rethinking the Inception Architecture for Computer Vision"
+    (https://arxiv.org/pdf/1512.00567.pdf)
+    """
     scores = self.get_scores(context)
     # single mode
     if not xnmt.batcher.is_batched(ref_action):
@@ -126,8 +131,8 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     if self.label_smoothing == 0.0:
       return log_loss
     else:
-      ce_term = (1 - self.label_smoothing) * (dy.exp(-log_loss))
-      return -dy.log(ce_term + self.label_smoothing_term)
+      lsr_term = -1 * self.label_smoothing * dy.mean_elems(dy.log_softmax(scores))
+      return (1 - self.label_smoothing) * log_loss + lsr_term
 
   @recursive
   def set_train(self, val):
