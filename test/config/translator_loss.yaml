@@ -46,4 +46,6 @@ reinforce:
         layers: 1
         mlp_hidden_dim: 32
         bridge: !NoBridge {}
-      loss_calculator: !TranslatorReinforceLoss {}
+      loss_calculator: !TranslatorReinforceLoss
+        use_baseline: True
+        decoder_hidden_dim: 32
