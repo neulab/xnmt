@@ -47,6 +47,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
                bridge=None):
     param_col = context.dynet_param_collection.param_col
+    self.param_col = param_col
     # Define dim
     lstm_dim       = lstm_dim or context.default_layer_dim
     mlp_hidden_dim = mlp_hidden_dim or context.default_layer_dim

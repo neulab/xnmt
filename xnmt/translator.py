@@ -2,6 +2,7 @@ from __future__ import division, generators
 
 import six
 import plot
+import math
 import dynet as dy
 import numpy as np
 
@@ -9,15 +10,18 @@ import xnmt.length_normalization
 import xnmt.batcher
 
 from xnmt.vocab import Vocab
+from xnmt.model import HierarchicalModel
 from xnmt.serializer import Serializable, DependentInitParam
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.output import TextOutput
+import xnmt.linear as linear
 from xnmt.model import GeneratorModel
 from xnmt.reports import Reportable
-from xnmt.decorators import recursive_assign, recursive
+from xnmt.decorators import recursive_assign, recursive, recursive_sum
 import xnmt.serializer
 import xnmt.evaluator
 from xnmt.batcher import mark_as_batch, is_batched
+from xnmt.loss import LossBuilder
 
 # Reporting purposes
 from lxml import etree
@@ -75,6 +79,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     else:
       self.loss_calculator = loss_calculator
 
+    self.register_hier_child(self.loss_calculator)
     self.register_hier_child(self.encoder)
     self.register_hier_child(self.decoder)
     self.register_hier_child(self.src_embedder)
@@ -233,23 +238,34 @@ class TranslatorMLELoss(Serializable):
 
     return dy.esum(losses)
 
-class TranslatorReinforceLoss(Serializable):
+class TranslatorReinforceLoss(Serializable, HierarchicalModel):
   yaml_tag = '!TranslatorReinforceLoss'
 
-  def __init__(self, evaluation_metric=None, sample_length=50):
+  def __init__(self, context, evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):
     self.sample_length = sample_length
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
+    self.use_baseline = use_baseline
+
+    if self.use_baseline:
+      model = context.dynet_param_collection.param_col
+      decoder_hidden_dim = decoder_hidden_dim or context.default_layer_dim
+      self.baseline = linear.Linear(input_dim=decoder_hidden_dim, output_dim=1, model=model)
 
   def __call__(self, translator, dec_state, src, trg):
     # TODO: apply trg.mask ?
     samples = []
     logsofts = []
+    self.bs = []
     done = [False for _ in range(len(trg))]
     for _ in range(self.sample_length):
       dec_state.context = translator.attender.calc_context(dec_state.rnn_state.output())
+      if self.use_baseline:
+        h_t = dy.tanh(
+          translator.decoder.context_projector(dy.concatenate([dec_state.rnn_state.output(), dec_state.context])))
+        self.bs.append(self.baseline(dy.nobackprop(h_t)))
       logsoft = dy.log_softmax(translator.decoder.get_scores(dec_state))
       sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]
       # Keep track of previously sampled EOS
@@ -262,8 +278,9 @@ class TranslatorReinforceLoss(Serializable):
       done = list(six.moves.map(lambda x: x == Vocab.ES, sample))
       if all(done):
         break
+
     samples = np.stack(samples, axis=1).tolist()
-    eval_score = []
+    self.eval_score = []
     for trg_i, sample_i in zip(trg, samples):
       # Removing EOS
       try:
@@ -277,9 +294,23 @@ class TranslatorReinforceLoss(Serializable):
       except ValueError:
         pass
       # Calculate the evaluation score
-      eval_score.append(self.evaluation_metric.evaluate_fast(trg_i.words, sample_i))
+      score = 0 if not len(sample_i) else self.evaluation_metric.evaluate_fast(trg_i.words, sample_i)
+      self.eval_score.append(score)
+      self.true_score = dy.inputTensor(self.eval_score, batched=True)
 
-    return -dy.sum_elems(dy.cmult(dy.inputTensor(eval_score, batched=True), dy.esum(logsofts)))
+    if self.use_baseline:
+      for i, (score, _) in enumerate(zip(self.bs, logsofts)):
+        logsofts[i] = dy.cmult(logsofts[i], score - self.true_score)
+
+    loss = LossBuilder()
+    loss.add_loss("Reinforce", dy.sum_elems(dy.esum(logsofts)))
+
+    if self.use_baseline:
+      baseline_loss = []
+      for bs in self.bs:
+        baseline_loss.append(dy.squared_distance(self.true_score, bs))
+      loss.add_loss("Baseline", dy.sum_batches(dy.esum(baseline_loss)))
+    return loss
 
 # To be implemented
 class TranslatorMinRiskLoss(Serializable):
