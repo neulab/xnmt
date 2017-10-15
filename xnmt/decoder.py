@@ -57,7 +57,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     self.lstm_dim = lstm_dim
     lstm_input = trg_embed_dim
     if input_feeding:
-      lstm_input += lstm_dim
+      lstm_input += input_dim
     # Bridge
     self.lstm_layers = layers
     self.bridge = bridge or NoBridge(context, self.lstm_layers, self.lstm_dim)
