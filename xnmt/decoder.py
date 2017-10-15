@@ -52,6 +52,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     mlp_hidden_dim = mlp_hidden_dim or context.default_layer_dim
     trg_embed_dim  = trg_embed_dim or context.default_layer_dim
     input_dim      = input_dim or context.default_layer_dim
+    self.input_dim = input_dim
     # Input feeding
     self.input_feeding = input_feeding
     self.lstm_dim = lstm_dim
@@ -91,9 +92,8 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     """
     rnn_state = self.fwd_lstm.initial_state()
     rnn_state = rnn_state.set_s(self.bridge.decoder_init(enc_final_states))
-    # TODO: This is commented out because it has inconsistent dimension for now
-    # rnn_state = rnn_state.add_input(ss_expr)
-    zeros = dy.zeros(self.lstm_dim) if self.input_feeding else None
+    zeros = dy.zeros(self.input_dim) if self.input_feeding else None
+    rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]))
     return MlpSoftmaxDecoderState(rnn_state=rnn_state, context=zeros)
 
   def add_input(self, mlp_dec_state, trg_embedding):
