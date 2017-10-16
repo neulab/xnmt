@@ -224,7 +224,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
       for i, baseline in enumerate(self.bs):
         ll = dy.pick_batch(self.segment_logsoftmaxes[i], self.segment_decisions[i])
         r_i = reward - baseline
-        reinforce_loss.append(r_i * ll)
+        reinforce_loss.append(dy.logistic(r_i) * ll)
       ret.add_loss("Reinforce", -dy.esum(reinforce_loss) * lmbd)
     # Total Loss
     return ret
