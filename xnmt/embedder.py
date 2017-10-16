@@ -5,8 +5,7 @@ import dynet as dy
 import xnmt.batcher
 import six
 import io
-from xnmt.model import HierarchicalModel
-from xnmt.decorators import recursive
+from xnmt.hier_model import HierarchicalModel, recursive
 from xnmt.serializer import Serializable
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 

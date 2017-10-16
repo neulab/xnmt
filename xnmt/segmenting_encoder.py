@@ -14,8 +14,7 @@ import xnmt.segment_transducer as segment_transducer
 import xnmt.linear as linear
 import xnmt.expression_sequence as expression_sequence
 
-from xnmt.model import HierarchicalModel
-from xnmt.decorators import recursive, recursive_assign, recursive_sum
+from xnmt.hier_model import recursive, recursive_assign, recursive_sum
 from xnmt.reports import Reportable
 from xnmt.serializer import Serializable
 from xnmt.encoder import Encoder
