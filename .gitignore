@@ -12,3 +12,4 @@ xnmt/cython/*.cpp
 xnmt/cython/*.c
 xnmt/cython/*.so
 test/tmp
+/*.yaml

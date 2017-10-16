@@ -58,8 +58,8 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
   yaml_tag = u'!SegmentingEncoder'
 
   def __init__(self, context, embed_encoder=None, segment_transducer=None, learn_segmentation=True,
-               reinforcement_param=None, length_prior=3.5, learn_delete=False, baseline_scaling=1000,
-               length_prior_alpha=1.0):
+               reinforcement_param=None, length_prior=3.5, learn_delete=False,
+               length_prior_alpha=1.0, use_baseline=True):
     model = context.dynet_param_collection.param_col
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
@@ -73,7 +73,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     self.baseline = linear.Linear(input_dim = embed_encoder.hidden_dim,
                                   output_dim = 1,
                                   model = model)
-    self.baseline_scaling = baseline_scaling
+    self.use_baseline = use_baseline
     # Whether to learn segmentation or not
     self.learn_segmentation = learn_segmentation
     # Whether to learn deletion or not
@@ -185,7 +185,8 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     # Packing output together
     if self.train and self.learn_segmentation:
       self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
-      self.bs = list(six.moves.map(lambda x: self.baseline(dy.nobackprop(x)), encodings))
+      if self.use_baseline:
+        self.bs = list(six.moves.map(lambda x: self.baseline(dy.nobackprop(x)), encodings))
     if not self.train:
       self.set_report_input(segment_decisions)
     self._final_encoder_state = [FinalEncoderState(encodings[-1])]
@@ -213,19 +214,24 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     ret = LossBuilder()
     if self.length_prior_alpha > 0:
       reward += self.segment_length_prior * self.length_prior_alpha
+    reward = dy.cdiv(reward - dy.mean_batches(reward), dy.std_batches(reward))
     # Baseline Loss
-    baseline_loss = []
-    for i, baseline in enumerate(self.bs):
-      baseline_loss.append(dy.squared_distance(reward, baseline))
-    ret.add_loss("Baseline", dy.esum(baseline_loss))
+    if self.use_baseline:
+      baseline_loss = []
+      for i, baseline in enumerate(self.bs):
+        baseline_loss.append(dy.squared_distance(reward, baseline))
+      ret.add_loss("Baseline", dy.esum(baseline_loss))
     # Reinforce Loss
     lmbd = self.lmbd.get_value(self.warmup_counter)
     if lmbd > 0.0:
       reinforce_loss = []
       # Calculating the loss of the baseline and reinforce
-      for i, baseline in enumerate(self.bs):
+      for i in range(len(self.segment_decisions)):
         ll = dy.pick_batch(self.segment_logsoftmaxes[i], self.segment_decisions[i])
-        r_i = reward - baseline
+        if self.use_baseline:
+          r_i = reward - self.bs[i]
+        else:
+          r_i = reward
         reinforce_loss.append(dy.logistic(r_i) * ll)
       ret.add_loss("Reinforce", -dy.esum(reinforce_loss) * lmbd)
     # Total Loss
