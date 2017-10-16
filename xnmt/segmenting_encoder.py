@@ -58,7 +58,8 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
   yaml_tag = u'!SegmentingEncoder'
 
   def __init__(self, context, embed_encoder=None, segment_transducer=None, learn_segmentation=True,
-               reinforcement_param=None, length_prior=3.5, learn_delete=False, baseline_scaling=1000):
+               reinforcement_param=None, length_prior=3.5, learn_delete=False, baseline_scaling=1000,
+               length_prior_alpha=1.0):
     model = context.dynet_param_collection.param_col
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
@@ -79,6 +80,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     self.learn_delete = learn_delete
     # Other Parameters
     self.length_prior = length_prior
+    self.length_prior_alpha = length_prior_alpha
     self.lmbd = reinforcement_param
 
     # States of the object
@@ -209,7 +211,8 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     if not self.learn_segmentation:
       return None
     ret = LossBuilder()
-    reward += self.segment_length_prior
+    if self.length_prior_alpha > 0:
+      reward += self.segment_length_prior * self.length_prior_alpha
     # Baseline Loss
     baseline_loss = []
     for i, baseline in enumerate(self.bs):
