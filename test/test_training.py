@@ -1,6 +1,5 @@
 import unittest
 
-import dynet_config
 import dynet as dy
 import numpy as np
 
@@ -220,9 +219,11 @@ class TestOverfitting(unittest.TestCase):
                                             )
     train_args['model_file'] = None
     train_args['save_num_checkpoints'] = 0
+    train_args['trainer'] = "adam"
+    train_args['learning_rate'] = 0.1
     xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(args=Args(**train_args), need_deserialization=False, param_collection=self.model_context.dynet_param_collection)
     xnmt_trainer.model_context = self.model_context
-    for _ in range(1000):
+    for _ in range(50):
       xnmt_trainer.run_epoch(update_weights=True)
     self.assertAlmostEqual(0.0,
                            xnmt_trainer.logger.epoch_loss.loss_values['loss'] / xnmt_trainer.logger.epoch_words,

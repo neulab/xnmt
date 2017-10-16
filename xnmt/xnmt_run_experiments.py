@@ -11,6 +11,7 @@ import sys
 import os
 import six
 import random
+import shutil
 import numpy as np
 
 # XNMT imports
@@ -57,6 +58,7 @@ def main(overwrite_args=None):
     Option("hyp_file", default_value="<EXP>.hyp", help_str="Location to write decoded output for evaluation"),
     Option("out_file", default_value="<EXP>.out", help_str="Location to write stdout messages"),
     Option("err_file", default_value="<EXP>.err", help_str="Location to write stderr messages"),
+    Option("cfg_file", default_value="<EXP>.yaml", help_str="Location to write a copy of the YAML configuration file"),
     Option("eval_only", bool, default_value=False, help_str="Skip training and evaluate only"),
     Option("eval_metrics", default_value="bleu", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
     Option("run_for_epochs", int, help_str="How many epochs to run each test for"),
@@ -90,6 +92,8 @@ def main(overwrite_args=None):
     print("=> Running {}".format(experiment_name))
 
     exp_args = exp_tasks["experiment"]
+    if exp_args.cfg_file != None:
+      shutil.copyfile(args.experiments_file, exp_args.cfg_file)
 
     preproc_args = exp_tasks["preproc"]
 

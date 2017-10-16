@@ -7,8 +7,7 @@ import os
 from lxml import etree
 
 import xnmt.batcher
-from xnmt.decorators import recursive_assign
-from xnmt.model import GeneratorModel
+from xnmt.hier_model import GeneratorModel, recursive_assign
 from xnmt.serializer import Serializable
 from xnmt.reports import Reportable
 from xnmt.expression_sequence import ExpressionSequence

@@ -4,8 +4,8 @@ import numpy as np
 import dynet as dy
 import xnmt.batcher
 import six
-from xnmt.model import HierarchicalModel
-from xnmt.decorators import recursive
+import io
+from xnmt.hier_model import HierarchicalModel, recursive
 from xnmt.serializer import Serializable
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 
@@ -45,17 +45,19 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   yaml_tag = u'!SimpleWordEmbedder'
 
-  def __init__(self, context, vocab_size, emb_dim = None, weight_noise = None, word_dropout = 0.0):
+  def __init__(self, context, vocab_size, emb_dim = None, weight_noise = None, word_dropout = 0.0, fix_norm = None):
     """
     :param vocab_size:
     :param emb_dim:
     :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
     :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
+    :param fix_norm: fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
     """
     self.vocab_size = vocab_size
     self.emb_dim = emb_dim or context.default_layer_dim
     self.weight_noise = weight_noise or context.weight_noise
     self.word_dropout = word_dropout
+    self.fix_norm = fix_norm
     self.embeddings = context.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim))
     self.word_id_mask = None
     self.train = False
@@ -78,9 +80,17 @@ class SimpleWordEmbedder(Embedder, Serializable):
         ret = dy.zeros((self.emb_dim,))
       else:
         ret = self.embeddings[x]
+        if self.fix_norm != None:
+          ret = dy.cdiv(ret, dy.l2_norm(ret))
+          if self.fix_norm != 1:
+            ret *= self.fix_norm
     # minibatch mode
     else:
       ret = self.embeddings.batch(x)
+      if self.fix_norm != None:
+        ret = dy.cdiv(ret, dy.l2_norm(ret))
+        if self.fix_norm != 1:
+          ret *= self.fix_norm
       if self.train and self.word_id_mask and any(x[i] in self.word_id_mask[i] for i in range(len(x))):
         dropout_mask = dy.inputTensor(np.transpose([[0.0]*self.emb_dim if x[i] in self.word_id_mask[i] else [1.0]*self.emb_dim for i in range(len(x))]), batched=True)
         ret = dy.cmult(ret, dropout_mask)
@@ -143,3 +153,72 @@ class NoopEmbedder(Embedder, Serializable):
           embeddings.append(self.embed(xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
       return ExpressionSequence(expr_list=embeddings, mask=sent.mask)
 
+
+class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
+  """
+  Simple word embeddings via lookup. Initial pretrained embeddings must be supplied in FastText text format.
+  """
+
+  yaml_tag = u'!PretrainedSimpleWordEmbedder'
+
+  def _read_fasttext_embeddings(self, vocab, embeddings_file_handle):
+    """
+    Reads FastText embeddings from a file. Also prints stats about the loaded embeddings for sanity checking.
+
+    :param vocab: a `Vocab` object containing the vocabulary for the experiment
+    :param embeddings_file_handle: A file handle on the embeddings file. The embeddings must be in FastText text
+     format.
+    :return: A tuple of (total number of embeddings read, # embeddings that match vocabulary words, # vocabulary words
+     without a matching embedding, embeddings array).
+    """
+    _, dimension = next(embeddings_file_handle).split()
+    if int(dimension) != self.emb_dim:
+      raise Exception("An embedding size of {} was specified, but the pretrained embeddings have size {}"
+                      .format(self.emb_dim, dimension))
+
+    # Poor man's Glorot initializer for missing embeddings
+    bound = np.sqrt(6/(len(vocab) + self.emb_dim))
+
+    total_embs = 0
+    in_vocab = 0
+    missing = 0
+
+    embeddings = np.empty((len(vocab), self.emb_dim), dtype='float')
+    found = np.zeros(len(vocab), dtype='bool_')
+
+    for line in embeddings_file_handle:
+      total_embs += 1
+      word, vals = line.strip().split(' ', 1)
+      if word in vocab.w2i:
+        in_vocab += 1
+        index = vocab.w2i[word]
+        embeddings[index] = np.fromstring(vals, sep=" ")
+        found[index] = True
+
+    for i in range(len(vocab)):
+      if not found[i]:
+        missing += 1
+        embeddings[i] = np.random.uniform(-bound, bound, self.emb_dim)
+
+    return total_embs, in_vocab, missing, embeddings
+
+  def __init__(self, context, vocab, filename, emb_dim=None, weight_noise=None, word_dropout=0.0):
+    """
+    :param vocab: a `Vocab` object containing the vocabulary for the experiment
+    :param filename: Filename for the pretrained embeddings
+    :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
+    :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
+    """
+    self.vocab_size = len(vocab)
+    self.emb_dim = emb_dim or context.default_layer_dim
+    self.weight_noise = weight_noise or context.weight_noise
+    self.word_dropout = word_dropout
+    self.word_id_mask = None
+    self.train = False
+
+    with io.open(filename, encoding='utf-8') as embeddings_file:
+      total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
+    self.embeddings = context.dynet_param_collection.param_col.lookup_parameters_from_numpy(initial_embeddings)
+
+    print("{} vocabulary matches out of {} total embeddings; {} vocabulary words without a pretrained embedding "
+          "out of {}".format(in_vocab, total_embs, missing, len(vocab)))

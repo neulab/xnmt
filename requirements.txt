@@ -5,3 +5,4 @@ lxml
 dynet
 matplotlib
 cython
+enum34

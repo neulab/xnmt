@@ -12,12 +12,15 @@ with io.open("requirements.txt", encoding="utf-8") as req_fp:
 
 ext_modules = []
 if "--use-cython-extensions" in sys.argv:
+  extra_compile_args = ["-std=c++11"]
+  if sys.platform == "darwin":
+    extra_compile_args.append("-mmacosx-version-min=10.9")
   sys.argv.remove("--use-cython-extensions")
   extensions = Extension('xnmt.cython.xnmt_cython',
                           sources=['xnmt/cython/xnmt_cython.pyx',
                                    'xnmt/cython/src/functions.cpp'],
                           language='c++',
-                          extra_compile_args=["-std=c++11"],
+                          extra_compile_args=extra_compile_args,
                           extra_link_args=["-std=c++11"])
   ext_modules = cythonize(extensions)
 

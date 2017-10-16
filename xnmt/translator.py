@@ -2,6 +2,7 @@ from __future__ import division, generators
 
 import six
 import plot
+import math
 import dynet as dy
 import numpy as np
 
@@ -9,15 +10,16 @@ import xnmt.length_normalization
 import xnmt.batcher
 
 from xnmt.vocab import Vocab
+from xnmt.hier_model import HierarchicalModel, GeneratorModel, recursive_assign, recursive
 from xnmt.serializer import Serializable, DependentInitParam
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.output import TextOutput
-from xnmt.model import GeneratorModel
+import xnmt.linear as linear
 from xnmt.reports import Reportable
-from xnmt.decorators import recursive_assign, recursive
 import xnmt.serializer
 import xnmt.evaluator
 from xnmt.batcher import mark_as_batch, is_batched
+from xnmt.loss import LossBuilder
 
 # Reporting purposes
 from lxml import etree
@@ -75,6 +77,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     else:
       self.loss_calculator = loss_calculator
 
+    self.register_hier_child(self.loss_calculator)
     self.register_hier_child(self.encoder)
     self.register_hier_child(self.decoder)
     self.register_hier_child(self.src_embedder)
@@ -89,7 +92,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def dependent_init_params(self):
     return [DependentInitParam(param_descr="src_embedder.vocab_size", value_fct=lambda: self.context.corpus_parser.src_reader.vocab_size()),
             DependentInitParam(param_descr="decoder.vocab_size", value_fct=lambda: self.context.corpus_parser.trg_reader.vocab_size()),
-            DependentInitParam(param_descr="trg_embedder.vocab_size", value_fct=lambda: self.context.corpus_parser.trg_reader.vocab_size())]
+            DependentInitParam(param_descr="trg_embedder.vocab_size", value_fct=lambda: self.context.corpus_parser.trg_reader.vocab_size()),
+            DependentInitParam(param_descr="src_embedder.vocab", value_fct=lambda: self.context.corpus_parser.src_reader.vocab),
+            DependentInitParam(param_descr="trg_embedder.vocab", value_fct=lambda: self.context.corpus_parser.trg_reader.vocab)]
 
   def initialize_generator(self, **kwargs):
     if kwargs.get("len_norm_type", None) is None:
@@ -120,8 +125,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.attender.init_sent(encodings)
     # Initialize the hidden state from the encoder
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
-    self.decoder.initialize(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
-    return self.loss_calculator(self, src, trg)
+    dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
+    return self.loss_calculator(self, dec_state, src, trg)
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
@@ -136,8 +141,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       encodings = self.encoder.transduce(embeddings)
       self.attender.init_sent(encodings)
       ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
-      self.decoder.initialize(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
-      output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, src_length=len(sents), forced_trg_ids=forced_trg_ids)
+      dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
+      output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, dec_state, src_length=len(sents), forced_trg_ids=forced_trg_ids)
       # In case of reporting
       if self.report_path is not None:
         src_words = [self.reporting_src_vocab[w] for w in sents]
@@ -211,7 +216,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 class TranslatorMLELoss(Serializable):
   yaml_tag = '!TranslatorMLELoss'
 
-  def __call__(self, translator, src, trg):
+  def __call__(self, translator, dec_state, src, trg):
     trg_mask = trg.mask if xnmt.batcher.is_batched(trg) else None
     losses = []
     seq_len = len(trg[0]) if xnmt.batcher.is_batched(src) else len(trg)
@@ -223,58 +228,89 @@ class TranslatorMLELoss(Serializable):
       ref_word = trg[i] if not xnmt.batcher.is_batched(src) \
                       else xnmt.batcher.mark_as_batch([single_trg[i] for single_trg in trg])
 
-      context = translator.attender.calc_context(translator.decoder.state.output())
-      word_loss = translator.decoder.calc_loss(context, ref_word)
+      dec_state.context = translator.attender.calc_context(dec_state.rnn_state.output())
+      word_loss = translator.decoder.calc_loss(dec_state, ref_word)
       if xnmt.batcher.is_batched(src) and trg_mask is not None:
         word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
       losses.append(word_loss)
       if i < seq_len-1:
-        translator.decoder.add_input(translator.trg_embedder.embed(ref_word))
+        dec_state = translator.decoder.add_input(dec_state, translator.trg_embedder.embed(ref_word))
 
     return dy.esum(losses)
 
-class TranslatorReinforceLoss(Serializable):
+class TranslatorReinforceLoss(Serializable, HierarchicalModel):
   yaml_tag = '!TranslatorReinforceLoss'
 
-  def __init__(self, evaluation_metric=None, sample_length=50):
+  def __init__(self, context, evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):
     self.sample_length = sample_length
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
+    self.use_baseline = use_baseline
 
-  def __call__(self, translator, src, trg):
+    if self.use_baseline:
+      model = context.dynet_param_collection.param_col
+      decoder_hidden_dim = decoder_hidden_dim or context.default_layer_dim
+      self.baseline = linear.Linear(input_dim=decoder_hidden_dim, output_dim=1, model=model)
+
+  def __call__(self, translator, dec_state, src, trg):
     # TODO: apply trg.mask ?
     samples = []
     logsofts = []
+    self.bs = []
     done = [False for _ in range(len(trg))]
     for _ in range(self.sample_length):
-      context = translator.attender.calc_context(translator.decoder.state.output())
-      logsoft = dy.log_softmax(translator.decoder.get_scores(context))
+      dec_state.context = translator.attender.calc_context(dec_state.rnn_state.output())
+      if self.use_baseline:
+        h_t = dy.tanh(
+          translator.decoder.context_projector(dy.concatenate([dec_state.rnn_state.output(), dec_state.context])))
+        self.bs.append(self.baseline(dy.nobackprop(h_t)))
+      logsoft = dy.log_softmax(translator.decoder.get_scores(dec_state))
       sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]
       # Keep track of previously sampled EOS
       sample = [sample_i if not done_i else Vocab.ES for sample_i, done_i in zip(sample, done)]
       # Appending and feeding in the decoder
       logsofts.append(logsoft)
       samples.append(sample)
-      translator.decoder.add_input(translator.trg_embedder.embed(xnmt.batcher.mark_as_batch(sample)))
+      dec_state = translator.decoder.add_input(dec_state, translator.trg_embedder.embed(xnmt.batcher.mark_as_batch(sample)))
       # Check if we are done.
       done = list(six.moves.map(lambda x: x == Vocab.ES, sample))
       if all(done):
         break
+
     samples = np.stack(samples, axis=1).tolist()
-    eval_score = []
+    self.eval_score = []
     for trg_i, sample_i in zip(trg, samples):
       # Removing EOS
       try:
-        idx = next(word for word in sample_i if word == Vocab.ES)
+        idx = sample_i.index(Vocab.ES)
         sample_i = sample_i[:idx]
-      except StopIteration:
+      except ValueError:
+        pass
+      try:
+        idx = trg_i.words.index(Vocab.ES)
+        trg_i.words = trg_i.words[:idx]
+      except ValueError:
         pass
       # Calculate the evaluation score
-      eval_score.append(self.evaluation_metric.evaluate_fast(trg_i.words, sample_i))
+      score = 0 if not len(sample_i) else self.evaluation_metric.evaluate_fast(trg_i.words, sample_i)
+      self.eval_score.append(score)
+      self.true_score = dy.inputTensor(self.eval_score, batched=True)
 
-    return dy.sum_elems(dy.cmult(dy.inputTensor(eval_score, batched=True), dy.esum(logsofts)))
+    if self.use_baseline:
+      for i, (score, _) in enumerate(zip(self.bs, logsofts)):
+        logsofts[i] = dy.cmult(logsofts[i], score - self.true_score)
+
+    loss = LossBuilder()
+    loss.add_loss("Reinforce", dy.sum_elems(dy.esum(logsofts)))
+
+    if self.use_baseline:
+      baseline_loss = []
+      for bs in self.bs:
+        baseline_loss.append(dy.squared_distance(self.true_score, bs))
+      loss.add_loss("Baseline", dy.sum_batches(dy.esum(baseline_loss)))
+    return loss
 
 # To be implemented
 class TranslatorMinRiskLoss(Serializable):

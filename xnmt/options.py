@@ -1,5 +1,5 @@
 """
-Stores options and default values for
+Stores options and default values
 """
 import yaml
 import argparse

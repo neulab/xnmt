@@ -283,14 +283,14 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     training_corpus.train_src_data = []
     training_corpus.train_trg_data = []
     if self.sample_train_sents:
-      self.train_src_len = self.train_src_len or self.src_reader.count_sents(training_corpus.train_src)
-      self.train_trg_len = self.train_trg_len or self.trg_reader.count_sents(training_corpus.train_trg)
+      self.train_src_len = self.src_reader.count_sents(training_corpus.train_src)
+      self.train_trg_len = self.trg_reader.count_sents(training_corpus.train_trg)
       if self.train_src_len != self.train_trg_len: raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (self.train_src_len, self.train_trg_len))
       self.sample_train_sents = int(self.sample_train_sents)
       filter_ids = np.random.choice(self.train_src_len, self.sample_train_sents, replace=False)
     elif self.max_num_train_sents:
-      self.train_src_len = self.train_src_len or self.src_reader.count_sents(training_corpus.train_src)
-      self.train_trg_len = self.train_trg_len or self.trg_reader.count_sents(training_corpus.train_trg)
+      self.train_src_len = self.src_reader.count_sents(training_corpus.train_src)
+      self.train_trg_len = self.trg_reader.count_sents(training_corpus.train_trg)
       if self.train_src_len != self.train_trg_len: raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (self.train_src_len, self.train_trg_len))
       filter_ids = list(range(min(self.max_num_train_sents, self.train_trg_len)))
     else:

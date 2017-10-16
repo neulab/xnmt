@@ -4,11 +4,9 @@ defaults:
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
-    cfg_file: examples/output/<EXP>.yaml
     run_for_epochs: 20
     eval_metrics: bleu
   train:
-    dropout: 0.1
     default_layer_dim: 512
     restart_trainer: True
     trainer: Adam
@@ -24,21 +22,26 @@ defaults:
       src_reader: !PlainTextReader {}
       trg_reader: !PlainTextReader {}
     model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder {}
+      src_embedder: !PretrainedSimpleWordEmbedder
+        filename: ../wiki.ja.vec
+        emb_dim: 300
       encoder: !LSTMEncoder
         layers: 1
-      attender: !StandardAttender {}
-      trg_embedder: !SimpleWordEmbedder {}
+      attender: !StandardAttender
+        hidden_dim: 512
+        state_dim: 512
+        input_dim: 512
+      trg_embedder: !SimpleWordEmbedder
+        emb_dim: 512
       decoder: !MlpSoftmaxDecoder
         layers: 1
         mlp_hidden_dim: 512
         bridge: !CopyBridge {}
   decode:
-    beam: 5
-    len_norm_type: !PolynomialNormalization
-      apply_during_search: true
     src_file: examples/data/test.ja
   evaluate:
     ref_file: examples/data/test.en
 
-standard:
+standard-dropout0.1:
+  train:
+    dropout: 0.1

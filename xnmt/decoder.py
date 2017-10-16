@@ -1,9 +1,8 @@
 import dynet as dy
 from xnmt.serializer import Serializable
 import xnmt.batcher
-from xnmt.model import HierarchicalModel
+from xnmt.hier_model import HierarchicalModel, recursive
 import xnmt.linear
-from xnmt.decorators import recursive, recursive_assign
 
 class Decoder(HierarchicalModel):
   '''
@@ -30,6 +29,12 @@ class RnnDecoder(Decoder):
     else:
       raise RuntimeError("Unknown decoder type {}".format(spec))
 
+class MlpSoftmaxDecoderState:
+  """A state holding all the information needed for MLPSoftmaxDecoder"""
+  def __init__(self, rnn_state=None, context=None):
+    self.rnn_state = rnn_state
+    self.context = context
+
 class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
@@ -38,20 +43,22 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
 
   def __init__(self, context, vocab_size, layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
-               rnn_spec="lstm", residual_to_output=False, input_feeding=False,
+               rnn_spec="lstm", residual_to_output=False, input_feeding=True,
                bridge=None):
     param_col = context.dynet_param_collection.param_col
+    self.param_col = param_col
     # Define dim
     lstm_dim       = lstm_dim or context.default_layer_dim
     mlp_hidden_dim = mlp_hidden_dim or context.default_layer_dim
     trg_embed_dim  = trg_embed_dim or context.default_layer_dim
     input_dim      = input_dim or context.default_layer_dim
+    self.input_dim = input_dim
     # Input feeding
     self.input_feeding = input_feeding
     self.lstm_dim = lstm_dim
     lstm_input = trg_embed_dim
     if input_feeding:
-      lstm_input += lstm_dim
+      lstm_input += input_dim
     # Bridge
     self.lstm_layers = layers
     self.bridge = bridge or NoBridge(context, self.lstm_layers, self.lstm_dim)
@@ -72,45 +79,47 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                                          model = param_col)
     # Dropout
     self.dropout = dropout or context.dropout
-    # Mutable state
-    self.state = None
-    self.h_t = None
 
   def shared_params(self):
     return [set(["layers", "bridge.dec_layers"]),
             set(["lstm_dim", "bridge.dec_dim"])]
 
-  def get_state(self):
-    return (self.state, self.h_t)
+  def initial_state(self, enc_final_states, ss_expr):
+    """Get the initial state of the decoder given the encoder final states.
 
-  def set_state(self, params):
-    self.state, self.h_t = params
+    :param enc_final_states: The encoder final states.
+    :returns: An MlpSoftmaxDecoderState
+    """
+    rnn_state = self.fwd_lstm.initial_state()
+    rnn_state = rnn_state.set_s(self.bridge.decoder_init(enc_final_states))
+    zeros = dy.zeros(self.input_dim) if self.input_feeding else None
+    rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]))
+    return MlpSoftmaxDecoderState(rnn_state=rnn_state, context=zeros)
 
-  def initialize(self, enc_final_states, ss_expr):
-    dec_state = self.fwd_lstm.initial_state()
-    self.state = dec_state.set_s(self.bridge.decoder_init(enc_final_states))
-    self.h_t = None
-    self.add_input(ss_expr)
+  def add_input(self, mlp_dec_state, trg_embedding):
+    """Add an input and update the state.
 
-  def add_input(self, trg_embedding):
+    :param mlp_dec_state: An MlpSoftmaxDecoderState object containing the current state.
+    :param trg_embedding: The embedding of the word to input.
+    :returns: The update MLP decoder state.
+    """
     inp = trg_embedding
     if self.input_feeding:
-      if self.h_t is not None:
-        # Append with the last state of the decoder
-        inp = dy.concatenate([inp, self.h_t])
-      else:
-        # Append with zero
-        zero = dy.zeros(self.lstm_dim, batch_size=inp.dim()[1])
-        inp = dy.concatenate([inp, zero])
-    # The next state of the decoder
-    self.state = self.state.add_input(inp)
+      inp = dy.concatenate([inp, mlp_dec_state.context])
+    return MlpSoftmaxDecoderState(rnn_state=mlp_dec_state.rnn_state.add_input(inp),
+                                  context=mlp_dec_state.context)
 
-  def get_scores(self, context):
-    self.h_t = dy.tanh(self.context_projector(dy.concatenate([context, self.state.output()])))
-    return self.vocab_projector(self.h_t)
+  def get_scores(self, mlp_dec_state):
+    """Get scores given a current state.
 
-  def calc_loss(self, context, ref_action):
-    scores = self.get_scores(context)
+    :param mlp_dec_state: An MlpSoftmaxDecoderState object.
+    :returns: Scores over the vocabulary given this state.
+    """
+    h_t = dy.tanh(self.context_projector(dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context])))
+    return self.vocab_projector(h_t)
+
+  def calc_loss(self, mlp_dec_state, ref_action):
+    scores = self.get_scores(mlp_dec_state)
     # single mode
     if not xnmt.batcher.is_batched(ref_action):
       return dy.pickneglogsoftmax(scores, ref_action)
@@ -161,3 +170,25 @@ class CopyBridge(Bridge, Serializable):
     return [enc_state.cell_expr() for enc_state in enc_final_states[-self.dec_layers:]] \
          + [enc_state.main_expr() for enc_state in enc_final_states[-self.dec_layers:]]
 
+class LinearBridge(Bridge, Serializable):
+  """
+  This bridge does a linear transform of final states from the encoder to the decoder initial states.
+  Requires that:
+  - num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
+  """
+  yaml_tag = u'!LinearBridge'
+  def __init__(self, context, dec_layers, enc_dim = None, dec_dim = None):
+    param_col = context.dynet_param_collection.param_col
+    self.dec_layers = dec_layers
+    self.enc_dim = enc_dim or context.default_layer_dim
+    self.dec_dim = dec_dim or context.default_layer_dim
+    self.projector = xnmt.linear.Linear(input_dim  = enc_dim,
+                                           output_dim = dec_dim,
+                                           model = param_col)
+  def decoder_init(self, enc_final_states):
+    if self.dec_layers > len(enc_final_states):
+      raise RuntimeError("LinearBridge requires dec_layers <= len(enc_final_states), but got %s and %s" % (self.dec_layers, len(enc_final_states)))
+    if enc_final_states[0].main_expr().dim()[0][0] != self.enc_dim:
+      raise RuntimeError("LinearBridge requires enc_dim == %s, but got %s" % (self.enc_dim, enc_final_states[0].main_expr().dim()[0][0]))
+    decoder_init = [self.projector(enc_state.main_expr()) for enc_state in enc_final_states[-self.dec_layers:]]
+    return decoder_init + [dy.tanh(dec) for dec in decoder_init]

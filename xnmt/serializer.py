@@ -4,6 +4,7 @@ import datetime
 import os
 import sys
 import six
+import copy
 
 class Serializable(yaml.YAMLObject):
   """
@@ -45,9 +46,11 @@ class YamlSerializer(object):
 
   def initialize_object(self, deserialized_yaml, context={}):
     """
-    :param obj: deserialized YAML object (classes are resolved and class members set, but __init__() has not been called at this point)
+    :param deserialized_yaml: deserialized YAML object (classes are resolved and class members set, but __init__() has not been called at this point)
+    :param context: this is passed to __init__ of every created object that expects a argument named context 
     :returns: the appropriate object, with properly shared parameters and __init__() having been invoked
     """
+    deserialized_yaml = copy.deepcopy(deserialized_yaml)
     self.set_serialize_params_recursive(deserialized_yaml)
     self.share_init_params_top_down(deserialized_yaml)
     setattr(deserialized_yaml, "context", context)
@@ -62,6 +65,8 @@ class YamlSerializer(object):
     init_args.remove("self")
     obj.serialize_params = {}
     for name, val in inspect.getmembers(obj):
+      if name=="context":
+        raise ValueError("'context' is a reserved specifier, please rename argument")
       if name in base_arg_names or name.startswith("__") or name in ["serialize_params", "init_params"] or name in class_param_names: continue
       if isinstance(val, Serializable):
         obj.serialize_params[name] = val
