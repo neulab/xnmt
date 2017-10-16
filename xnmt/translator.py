@@ -10,14 +10,12 @@ import xnmt.length_normalization
 import xnmt.batcher
 
 from xnmt.vocab import Vocab
-from xnmt.model import HierarchicalModel
+from xnmt.hier_model import HierarchicalModel, GeneratorModel, recursive_assign, recursive
 from xnmt.serializer import Serializable, DependentInitParam
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.output import TextOutput
 import xnmt.linear as linear
-from xnmt.model import GeneratorModel
 from xnmt.reports import Reportable
-from xnmt.decorators import recursive_assign, recursive, recursive_sum
 import xnmt.serializer
 import xnmt.evaluator
 from xnmt.batcher import mark_as_batch, is_batched
