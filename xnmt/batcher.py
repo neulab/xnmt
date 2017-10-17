@@ -1,6 +1,7 @@
 from __future__ import division, generators
 
 import six
+import random
 import numpy as np
 import dynet as dy
 from xnmt.vocab import Vocab
@@ -125,7 +126,8 @@ class SortBatcher(Batcher):
   """
   A template class to create batches through bucketing sent length.
   """
-
+  __eps = 0.00001 # random numbers interval for breaking ties
+  
   def __init__(self, batch_size, granularity='sent', src_pad_token=Vocab.ES,
                trg_pad_token=Vocab.ES, sort_key=lambda x: len(x[0])):
     super(SortBatcher, self).__init__(batch_size, granularity=granularity,
@@ -133,8 +135,11 @@ class SortBatcher(Batcher):
     self.sort_key = sort_key
 
   def pack(self, src, trg):
-    order = np.argsort([self.sort_key(x) for x in six.moves.zip(src,trg)])
+    order = np.argsort([self.sort_key(x) + random.uniform(-SortBatcher.__eps, SortBatcher.__eps) for x in six.moves.zip(src,trg)])
     return self.pack_by_order(src, trg, order)
+
+  def is_random(self):
+    return True # ties are broken randomly
 
 # Module level functions
 def mark_as_batch(data, mask=None):
