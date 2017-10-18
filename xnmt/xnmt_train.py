@@ -39,8 +39,7 @@ options = [
   Option("dynet-gpu-ids", int, required=False),
   Option("dynet-gpus", int, required=False),
   Option("dev_every", int, default_value=0, force_flag=True, help_str="dev checkpoints every n sentences (0 for only after epoch)"),
-  Option("batch_size", int, default_value=32, force_flag=True),
-  Option("batch_strategy", default_value="src"),
+  Option("batcher", default_value=None, required=False),
   Option("training_corpus"),
   Option("corpus_parser"),
 #  Option("train_filters", list, required=False, help_str="Specify filtering criteria for the training data"),
@@ -110,8 +109,9 @@ class XnmtTrainer(object):
       self.create_corpus_and_model()
 
     # single mode
-    if not self.is_batch_mode():
+    if self.args.batcher is None:
       print('Start training in non-minibatch mode...')
+      self.batcher = None
       self.logger = NonBatchLossTracker(args.dev_every, self.total_train_sent)
       self.train_src, self.train_trg = \
           self.training_corpus.train_src_data, self.training_corpus.train_trg_data
@@ -121,16 +121,11 @@ class XnmtTrainer(object):
     # minibatch mode
     else:
       print('Start training in minibatch mode...')
-      self.batcher = xnmt.batcher.from_spec(args.batch_strategy, args.batch_size)
+      self.batcher = self.model_serializer.initialize_object(self.args.batcher) if self.need_deserialization else self.args.batcher
       if args.src_format == "contvec":
         self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
       self.pack_batches()
       self.logger = BatchLossTracker(args.dev_every, self.total_train_sent)
-
-  def is_batch_mode(self):
-    return not (self.args.batch_size is None or
-                self.args.batch_size == 1 or
-                self.args.batch_strategy.lower() == 'none')
 
   def pack_batches(self):
     self.train_src, self.train_trg = \
@@ -197,7 +192,7 @@ class XnmtTrainer(object):
         print('using reloaded data')
       # reload the data   
       self.corpus_parser.read_training_corpus(self.training_corpus)
-      if self.is_batch_mode():
+      if self.batcher:
         self.pack_batches()
       self.logger.total_train_sent = len(self.training_corpus.train_src_data)
       # restart data generation

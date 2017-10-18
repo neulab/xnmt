@@ -5,6 +5,7 @@ import random
 import numpy as np
 import dynet as dy
 from xnmt.vocab import Vocab
+from xnmt.serializer import Serializable
 
 class Batch(list):
   """
@@ -100,10 +101,13 @@ class Batcher(object):
       raise RuntimeError("Illegal granularity specification {}".format(self.granularity))
     return src_ret, trg_ret
 
-class InOrderBatcher(Batcher):
+class InOrderBatcher(Batcher, Serializable):
+  yaml_tag = u"!InOrderBatcher"
   """
   A class to create batches in order of the original corpus.
   """
+  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES):
+    super(InOrderBatcher, self).__init__(batch_size, src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
 
   def pack(self, src, trg):
     order = list(range(len(src)))
@@ -126,20 +130,25 @@ class SortBatcher(Batcher):
   """
   A template class to create batches through bucketing sent length.
   """
-  __eps = 0.00001 # random numbers interval for breaking ties
+  __tiebreaker_eps = 1.0e-7
   
   def __init__(self, batch_size, granularity='sent', src_pad_token=Vocab.ES,
-               trg_pad_token=Vocab.ES, sort_key=lambda x: len(x[0])):
+               trg_pad_token=Vocab.ES, sort_key=lambda x: len(x[0]),
+               break_ties_randomly=True):
     super(SortBatcher, self).__init__(batch_size, granularity=granularity,
                                       src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
     self.sort_key = sort_key
+    self.break_ties_randomly = break_ties_randomly
 
   def pack(self, src, trg):
-    order = np.argsort([self.sort_key(x) + random.uniform(-SortBatcher.__eps, SortBatcher.__eps) for x in six.moves.zip(src,trg)])
+    if self.break_ties_randomly:
+      order = np.argsort([self.sort_key(x) + random.uniform(-SortBatcher.__tiebreaker_eps, SortBatcher.__tiebreaker_eps) for x in six.moves.zip(src,trg)])
+    else:
+      order = np.argsort([self.sort_key(x) for x in six.moves.zip(src,trg)])
     return self.pack_by_order(src, trg, order)
 
   def is_random(self):
-    return True # ties are broken randomly
+    return self.break_ties_randomly
 
 # Module level functions
 def mark_as_batch(data, mask=None):
@@ -168,29 +177,75 @@ def pad(batch, pad_token=Vocab.ES):
 def len_or_zero(val):
   return len(val) if hasattr(val, '__len__') else 0
 
-def from_spec(batcher_spec, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES):
-  if batcher_spec == 'src':
-    return SortBatcher(batch_size, sort_key=lambda x: len(x[0]), granularity='sent', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
-  elif batcher_spec == 'trg':
-    return SortBatcher(batch_size, sort_key=lambda x: len(x[1]), granularity='sent', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
-  elif batcher_spec == 'src_trg':
-    return SortBatcher(batch_size, sort_key=lambda x: len(x[0])+1.0e-6*len(x[1]), granularity='sent', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
-  elif batcher_spec == 'trg_src':
-    return SortBatcher(batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]), granularity='sent', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
-  elif batcher_spec == 'shuffle':
-    return ShuffleBatcher(batch_size, granularity='sent', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
-  elif batcher_spec == 'inorder':
-    return InOrderBatcher(batch_size, granularity='sent', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
-  elif batcher_spec == 'word_src':
-    return SortBatcher(batch_size, sort_key=lambda x: len(x[0]), granularity='word', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
-  elif batcher_spec == 'word_trg':
-    return SortBatcher(batch_size, sort_key=lambda x: len(x[1]), granularity='word', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
-  elif batcher_spec == 'word_src_trg':
-    return SortBatcher(batch_size, sort_key=lambda x: len(x[0])+1.0e-6*len(x[1]), granularity='word', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
-  elif batcher_spec == 'word_trg_src':
-    return SortBatcher(batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]), granularity='word', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
-  elif batcher_spec == 'word_shuffle':
-    return ShuffleBatcher(batch_size, granularity='word', src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
-  else:
-    raise RuntimeError("Illegal batcher specification {}".format(batcher_spec))
+class SrcBatcher(SortBatcher, Serializable):
+  yaml_tag = u"!SrcBatcher"
+  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True):
+    super(SrcBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[0]), granularity='sent', 
+                                     src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                                     break_ties_randomly=break_ties_randomly)
+
+class TrgBatcher(SortBatcher, Serializable):
+  yaml_tag = u"!TrgBatcher"
+  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True):
+    super(TrgBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[1]), granularity='sent',
+                                     src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                                     break_ties_randomly=break_ties_randomly)
+
+class SrcTrgBatcher(SortBatcher, Serializable):
+  yaml_tag = u"!SrcTrgBatcher"
+  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True):
+    super(SrcTrgBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[0])+1.0e-6*len(x[1]), 
+                                        granularity='sent', 
+                                        src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                                        break_ties_randomly=break_ties_randomly)
+
+class TrgSrcBatcher(SortBatcher, Serializable):
+  yaml_tag = u"!TrgSrcBatcher"
+  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True):
+    super(TrgSrcBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]), 
+                                        granularity='sent',
+                                        src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                                        break_ties_randomly=break_ties_randomly)
+
+class SentShuffleBatcher(ShuffleBatcher, Serializable):
+  yaml_tag = u"!SentShuffleBatcher"
+  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES):
+    super(SentShuffleBatcher, self).__init__(batch_size, granularity='sent', src_pad_token=src_pad_token,
+                                             trg_pad_token=trg_pad_token)
+
+class WordShuffleBatcher(ShuffleBatcher, Serializable):
+  yaml_tag = u"!WordShuffleBatcher"
+  def __init__(self, words_per_batch, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES):
+    super(WordShuffleBatcher, self).__init__(words_per_batch, granularity='word', src_pad_token=src_pad_token,
+                                             trg_pad_token=trg_pad_token)
+
+class WordSrcBatcher(SortBatcher, Serializable):
+  yaml_tag = u"!WordSrcBatcher"
+  def __init__(self, words_per_batch, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True):
+    super(WordSrcBatcher, self).__init__(words_per_batch, sort_key=lambda x: len(x[0]), granularity='word',
+                                         src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                                         break_ties_randomly=break_ties_randomly)
+  
+class WordTrgBatcher(SortBatcher, Serializable):
+  yaml_tag = u"!WordTrgBatcher"
+  def __init__(self, words_per_batch, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True):
+    super(WordTrgBatcher, self).__init__(words_per_batch, sort_key=lambda x: len(x[1]), granularity='word',
+                                         src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                                         break_ties_randomly=break_ties_randomly)
+
+class WordSrcTrgBatcher(SortBatcher, Serializable):
+  yaml_tag = u"!WordSrcTrgBatcher"
+  def __init__(self, words_per_batch, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True):
+    super(WordSrcTrgBatcher, self).__init__(words_per_batch, sort_key=lambda x: len(x[0])+1.0e-6*len(x[1]), 
+                                            granularity='word',
+                                            src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                                            break_ties_randomly=break_ties_randomly)
+
+class WordTrgSrcBatcher(SortBatcher, Serializable):
+  yaml_tag = u"!WordTrgSrcBatcher"
+  def __init__(self, words_per_batch, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True):
+    super(WordTrgSrcBatcher, self).__init__(words_per_batch, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]),
+                                            granularity='word',
+                                            src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                                            break_ties_randomly=break_ties_randomly)
 
