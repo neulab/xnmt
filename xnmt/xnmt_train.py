@@ -173,6 +173,8 @@ class XnmtTrainer(object):
     self.model_context.corpus_parser = self.corpus_parser
     self.model_context.training_corpus = self.training_corpus
     self.model = self.model_serializer.initialize_object(model, self.model_context) if self.need_deserialization else self.args.model
+    arg_model = self.model_serializer.initialize_object(self.args.model, self.model_context) if self.need_deserialization else self.args.model
+    self.model.loss_calculator = arg_model.loss_calculator
     self.model_context.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
     
   def _augment_data_initial(self):
