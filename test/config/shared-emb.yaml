@@ -6,38 +6,40 @@ defaults:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     run_for_epochs: 2
-    eval_metrics: bleu,wer
   train:
-    dev_metrics: bleu
     default_layer_dim: 32
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/head.ja
       train_trg: examples/data/head.en
-      dev_src: examples/data/head.ja
-      dev_trg: examples/data/head.en
+      dev_src: &dev_src examples/data/head.ja  # here we share the value of a field
+      dev_trg: &dev_trg examples/data/head.en 
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
       trg_reader: !PlainTextReader {}
     model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder &src_emb
-        __anchor: src_emb
-        emb_dim: 64
-      encoder: !LSTMEncoder
-        layers: 1
-      attender: !StandardAttender
-        state_dim: 64
-        hidden_dim: 64
-        input_dim: 64
-      trg_embedder: *src_emb
+      src_embedder: !SimpleWordEmbedder &src_emb1 
+        # src and trg embedders will point to the exact same object and memory and use the same DyNet parameters
+        __xnmt_id: src_emb # this is realized by specifying a __xnmt_id 
+        emb_dim: 32
+      encoder: !ModularEncoder
+        modules:
+        # In contrast, here we only share the configuration of two components, but both are still initialized separately
+        # and do not share any parameters. This is the result of not specifying the __xnmt_id
+        - !LSTMEncoder &lstm_enc1
+            layers: 1
+        - *lstm_enc1
+      attender: !StandardAttender {}
+      trg_embedder: *src_emb1
       decoder: !MlpSoftmaxDecoder
         layers: 1
         bridge: !CopyBridge {}
   decode:
-    len_norm_type: !PolynomialNormalization
-      apply_during_search: true
-      m: 1
-    src_file: examples/data/head.ja
+    src_file: *dev_src
   evaluate:
-    ref_file: examples/data/head.en
+    ref_file: *dev_trg
 
-standard:
+a.pretrain:
+
+b.load:
+  train:
+    pretrained_model_file: examples/output/a.pretrain.mod

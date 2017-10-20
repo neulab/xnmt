@@ -62,7 +62,7 @@ class Serializable(yaml.YAMLObject):
 class YamlSerializer(object):
   def __init__(self):
     self.representers_added = False
-    self.initialized_anchors = {}
+    self.initialized_shared_components = {}
 
   def initialize_object(self, deserialized_yaml, yaml_context={}):
     """
@@ -182,32 +182,42 @@ class YamlSerializer(object):
         if p.param_name() in init_args:
           init_params[p.param_name()] = p.value_fct()
     if "yaml_context" in init_args: init_params["yaml_context"] = yaml_context # pass yaml_context to constructor if it expects a "yaml_context" argument
+    
+    initialized_obj = self.reuse_or_init_component(obj, init_params, init_args, serialize_params)
+
+    return initialized_obj
+  
+  def reuse_or_init_component(self, obj, init_params, init_args, serialize_params):
+    """
+    :param obj: uninitialized object
+    :param init_params: named parameters that should be passed to the object's __init__()
+    :param init_args: list of arguments expected by __init__()
+    :param serialize_params: serialize_params for the object to be created
+    :returns: initialized object (if obj has __xnmt_id and another object with the same
+                                  __xnmt_id has been initialized previously, we will
+                                  simply return that object, otherwise create it)
+    """
     try:
-      if self.get_initialized_anchor(obj):
-        initialized_obj = self.get_initialized_anchor(obj)
+      xnmt_id = getattr(obj, "__xnmt_id", None)
+      if xnmt_id and xnmt_id in self.initialized_shared_components:
+        initialized_obj = self.initialized_shared_components[xnmt_id]
+        print("reusing %s(%s)" % (obj.__class__.__name__, init_params))
       else:
         initialized_obj = obj.__class__(**init_params)
-        self.track_initialized(obj, initialized_obj)
-      print("initialized %s(%s)" % (obj.__class__.__name__, init_params))
+        if xnmt_id:
+          self.initialized_shared_components[xnmt_id] = initialized_obj
+        print("initialized %s(%s)" % (obj.__class__.__name__, init_params))
     except TypeError as e:
       raise ComponentInitError("%s could not be initialized using params %s, expecting params %s. "
                                "Error message: %s" % (type(obj), init_params, init_args, str(e)))
 
     if not hasattr(initialized_obj, "serialize_params"):
       initialized_obj.serialize_params = serialize_params
+    if xnmt_id:
+      initialized_obj.serialize_params["__xnmt_id"] = xnmt_id
 
     return initialized_obj
   
-  def get_initialized_anchor(self, obj):
-    anchor = getattr(obj, "__anchor", None)
-    if anchor and anchor in self.initialized_anchors:
-      return self.initialized_anchors[anchor]
-    return None
-  def track_initialized(self, obj, initialized_obj):
-    anchor = getattr(obj, "__anchor", None)
-    if anchor:
-      self.initialized_anchors[anchor] = initialized_obj
-
   @staticmethod
   def init_representer(dumper, obj):
     if type(obj.serialize_params)==list:
