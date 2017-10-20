@@ -4,9 +4,8 @@ import numpy
 import xnmt.linear
 import xnmt.embedder
 
-from xnmt.model import HierarchicalModel
+from xnmt.hier_model import HierarchicalModel, recursive, recursive_assign
 from xnmt.serializer import Serializable
-from xnmt.decorators import recursive, recursive_assign
 from xnmt.reports import Reportable
 
 class SegmentTransducer(HierarchicalModel, Serializable, Reportable):

@@ -1,9 +1,8 @@
 import dynet as dy
 from xnmt.serializer import Serializable
 import xnmt.batcher
-from xnmt.model import HierarchicalModel
+from xnmt.hier_model import HierarchicalModel, recursive
 import xnmt.linear
-from xnmt.decorators import recursive, recursive_assign
 
 class Decoder(HierarchicalModel):
   '''
@@ -46,18 +45,19 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
                bridge=None):
-    param_col = yaml_context.dynet_param_collection.param_col
+    param_col = context.dynet_param_collection.param_col
     # Define dim
     lstm_dim       = lstm_dim or yaml_context.default_layer_dim
     mlp_hidden_dim = mlp_hidden_dim or yaml_context.default_layer_dim
     trg_embed_dim  = trg_embed_dim or yaml_context.default_layer_dim
     input_dim      = input_dim or yaml_context.default_layer_dim
+    self.input_dim = input_dim
     # Input feeding
     self.input_feeding = input_feeding
     self.lstm_dim = lstm_dim
     lstm_input = trg_embed_dim
     if input_feeding:
-      lstm_input += lstm_dim
+      lstm_input += input_dim
     # Bridge
     self.lstm_layers = layers
     self.bridge = bridge or NoBridge(yaml_context, self.lstm_layers, self.lstm_dim)
@@ -91,9 +91,8 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     """
     rnn_state = self.fwd_lstm.initial_state()
     rnn_state = rnn_state.set_s(self.bridge.decoder_init(enc_final_states))
-    # TODO: This is commented out because it has inconsistent dimension for now
-    # rnn_state = rnn_state.add_input(ss_expr)
-    zeros = dy.zeros(self.lstm_dim) if self.input_feeding else None
+    zeros = dy.zeros(self.input_dim) if self.input_feeding else None
+    rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]))
     return MlpSoftmaxDecoderState(rnn_state=rnn_state, context=zeros)
 
   def add_input(self, mlp_dec_state, trg_embedding):

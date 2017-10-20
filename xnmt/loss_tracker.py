@@ -168,15 +168,3 @@ class BatchLossTracker(LossTracker):
 
   def count_sent_num(self, obj):
     return len(obj)
-
-
-class NonBatchLossTracker(LossTracker):
-  """
-  A class to track training process and generate report for non-minibatch mode.
-  """
-
-  def count_trg_words(self, trg_words):
-    return (1 if type(trg_words) == int else len(trg_words))
-
-  def count_sent_num(self, obj):
-    return 1

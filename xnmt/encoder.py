@@ -4,11 +4,9 @@ import sys
 import math
 import numpy as np
 import dynet as dy
-from xnmt.model import HierarchicalModel
+from xnmt.hier_model import HierarchicalModel, recursive
 from xnmt.serializer import Serializable
-from xnmt.decorators import recursive
 from xnmt.expression_sequence import ExpressionSequence
-from xnmt.reports import Reportable
 from xnmt.encoder_state import FinalEncoderState
 
 # The LSTM model builders
@@ -135,6 +133,10 @@ class ModularEncoder(Encoder, Serializable):
     for mod in self.modules:
       final_states += mod.get_final_states()
     return final_states
+
+  @recursive
+  def set_train(self, val):
+    pass
 
 class FullyConnectedEncoder(Encoder, Serializable):
   yaml_tag = u'!FullyConnectedEncoder'

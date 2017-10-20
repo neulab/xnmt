@@ -13,6 +13,8 @@ defaults:
     default_layer_dim: 32
     dropout: 0.0
     dev_metrics: bleu
+    batcher: !SrcBatcher
+      batch_size: 32
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/head.ja
       train_trg: examples/data/head.en
@@ -46,4 +48,6 @@ reinforce:
         layers: 1
         mlp_hidden_dim: 32
         bridge: !NoBridge {}
-      loss_calculator: !TranslatorReinforceLoss {}
+      loss_calculator: !TranslatorReinforceLoss
+        use_baseline: True
+        decoder_hidden_dim: 32
