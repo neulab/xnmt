@@ -64,20 +64,20 @@ class YamlSerializer(object):
     self.representers_added = False
     self.initialized_anchors = {}
 
-  def initialize_object(self, deserialized_yaml, context={}):
+  def initialize_object(self, deserialized_yaml, yaml_context={}):
     """
     Initializes a hierarchy of deserialized YAML objects.
     
     :param deserialized_yaml: deserialized YAML object (classes are resolved and class members set, but __init__() has not been called at this point)
-    :param context: this is passed to __init__ of every created object that expects a argument named context 
+    :param yaml_context: this is passed to __init__ of every created object that expects a argument named yaml_context 
     :returns: the appropriate object, with properly shared parameters and __init__() having been invoked
     """
     deserialized_yaml = copy.deepcopy(deserialized_yaml)   # make a copy to avoid side effects
     self.set_serialize_params_recursive(deserialized_yaml) # sets each component's serialize_params to represent attributes specified in YAML file
     self.share_init_params_top_down(deserialized_yaml)     # invoke shared_params mechanism, set each component's init_params accordingly
-    setattr(deserialized_yaml, "context", context)
+    setattr(deserialized_yaml, "yaml_context", yaml_context)
     # finally, initialize each component via __init__(**init_params)
-    return self.init_components_bottom_up(deserialized_yaml, deserialized_yaml.dependent_init_params(), context=context)
+    return self.init_components_bottom_up(deserialized_yaml, deserialized_yaml.dependent_init_params(), yaml_context=yaml_context)
 
   def set_serialize_params_recursive(self, obj):
     base_arg_names = map(lambda x: x[0], inspect.getmembers(yaml.YAMLObject))
@@ -88,8 +88,8 @@ class YamlSerializer(object):
     init_args.remove("self")
     obj.serialize_params = {}
     for name, val in inspect.getmembers(obj):
-      if name=="context":
-        raise ValueError("'context' is a reserved specifier, please rename argument")
+      if name=="yaml_context":
+        raise ValueError("'yaml_context' is a reserved specifier, please rename argument")
       if name in base_arg_names or name.startswith("__") or name in ["serialize_params", "init_params"] or name in class_param_names: continue
       if isinstance(val, Serializable):
         obj.serialize_params[name] = val
@@ -155,7 +155,7 @@ class YamlSerializer(object):
       param_name = param_name_spl[1]
     return param_obj, param_name
 
-  def init_components_bottom_up(self, obj, dependent_init_params, context):
+  def init_components_bottom_up(self, obj, dependent_init_params, yaml_context):
     init_params = obj.init_params
     serialize_params = obj.serialize_params
     init_args, _, _, _ = inspect.getargspec(obj.__init__)
@@ -165,7 +165,7 @@ class YamlSerializer(object):
         val = getattr(obj, init_arg)
         if isinstance(val, Serializable):
           sub_dependent_init_params = [p.move_down() for p in dependent_init_params if p.matches_component(init_arg)]
-          init_params[init_arg] = self.init_components_bottom_up(val, sub_dependent_init_params, context)
+          init_params[init_arg] = self.init_components_bottom_up(val, sub_dependent_init_params, yaml_context)
         elif isinstance(val, list):
           sub_dependent_init_params = [p.move_down() for p in dependent_init_params if p.matches_component(init_arg)]
           if len(sub_dependent_init_params) > 0:
@@ -173,7 +173,7 @@ class YamlSerializer(object):
           new_init_params= []
           for item in val:
             if isinstance(item, Serializable):
-              new_init_params.append(self.init_components_bottom_up(item, [], context))
+              new_init_params.append(self.init_components_bottom_up(item, [], yaml_context))
             else:
               new_init_params.append(item)
           init_params[init_arg] = new_init_params
@@ -181,7 +181,7 @@ class YamlSerializer(object):
       if p.matches_component("") and p.param_name() not in init_params:
         if p.param_name() in init_args:
           init_params[p.param_name()] = p.value_fct()
-    if "context" in init_args: init_params["context"] = context # pass context to constructor if it expects a "context" object
+    if "yaml_context" in init_args: init_params["yaml_context"] = yaml_context # pass yaml_context to constructor if it expects a "yaml_context" argument
     try:
       if self.get_initialized_anchor(obj):
         initialized_obj = self.get_initialized_anchor(obj)

@@ -46,7 +46,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   yaml_tag = u'!SimpleWordEmbedder'
 
-  def __init__(self, context, vocab_size, emb_dim = None, weight_noise = None, word_dropout = 0.0, fix_norm = None):
+  def __init__(self, yaml_context, vocab_size, emb_dim = None, weight_noise = None, word_dropout = 0.0, fix_norm = None):
     """
     :param vocab_size:
     :param emb_dim:
@@ -55,11 +55,11 @@ class SimpleWordEmbedder(Embedder, Serializable):
     :param fix_norm: fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
     """
     self.vocab_size = vocab_size
-    self.emb_dim = emb_dim or context.default_layer_dim
-    self.weight_noise = weight_noise or context.weight_noise
+    self.emb_dim = emb_dim or yaml_context.default_layer_dim
+    self.weight_noise = weight_noise or yaml_context.weight_noise
     self.word_dropout = word_dropout
     self.fix_norm = fix_norm
-    self.embeddings = context.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim))
+    self.embeddings = yaml_context.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim))
     self.word_id_mask = None
     self.train = False
 
@@ -203,7 +203,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
 
     return total_embs, in_vocab, missing, embeddings
 
-  def __init__(self, context, vocab, filename, emb_dim=None, weight_noise=None, word_dropout=0.0):
+  def __init__(self, yaml_context, vocab, filename, emb_dim=None, weight_noise=None, word_dropout=0.0):
     """
     :param vocab: a `Vocab` object containing the vocabulary for the experiment
     :param filename: Filename for the pretrained embeddings
@@ -211,15 +211,15 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
     """
     self.vocab_size = len(vocab)
-    self.emb_dim = emb_dim or context.default_layer_dim
-    self.weight_noise = weight_noise or context.weight_noise
+    self.emb_dim = emb_dim or yaml_context.default_layer_dim
+    self.weight_noise = weight_noise or yaml_context.weight_noise
     self.word_dropout = word_dropout
     self.word_id_mask = None
     self.train = False
 
     with io.open(filename, encoding='utf-8') as embeddings_file:
       total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
-    self.embeddings = context.dynet_param_collection.param_col.lookup_parameters_from_numpy(initial_embeddings)
+    self.embeddings = yaml_context.dynet_param_collection.param_col.lookup_parameters_from_numpy(initial_embeddings)
 
     print("{} vocabulary matches out of {} total embeddings; {} vocabulary words without a pretrained embedding "
           "out of {}".format(in_vocab, total_embs, missing, len(vocab)))
