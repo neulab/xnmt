@@ -24,6 +24,7 @@ from xnmt.options import Option, OptionParser, general_options
 from xnmt.loss import LossBuilder
 from xnmt.model_context import ModelContext, PersistentParamCollection
 import xnmt.serializer
+import xnmt.training_strategy
 import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
 import xnmt.segmenting_encoder
@@ -43,6 +44,7 @@ options = [
   Option("batch_strategy", default_value="src"),
   Option("training_corpus"),
   Option("corpus_parser"),
+  Option("training_strategy"),
 #  Option("train_filters", list, required=False, help_str="Specify filtering criteria for the training data"),
 #  Option("dev_filters", list, required=False, help_str="Specify filtering criteria for the development data"),
   Option("model_file"),
@@ -109,6 +111,8 @@ class XnmtTrainer(object):
     else:
       self.create_corpus_and_model()
 
+    self.model.initialize_trainer(self.training_strategy)
+
     # single mode
     if not self.is_batch_mode():
       print('Start training in non-minibatch mode...')
@@ -162,6 +166,7 @@ class XnmtTrainer(object):
     if not self.args.model:
       raise RuntimeError("No model specified!")
     self.model = self.model_serializer.initialize_object(self.args.model, self.model_context) if self.need_deserialization else self.args.model
+    self.training_strategy = self.model_serializer.initialize_object(self.args.training_strategy, self.model_context) if self.need_deserialization else self.args.training_strategy
 
   def load_corpus_and_model(self):
     self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus) if self.need_deserialization else self.args.training_corpus
@@ -173,10 +178,9 @@ class XnmtTrainer(object):
     self.model_context.corpus_parser = self.corpus_parser
     self.model_context.training_corpus = self.training_corpus
     self.model = self.model_serializer.initialize_object(model, self.model_context) if self.need_deserialization else self.args.model
-    arg_model = self.model_serializer.initialize_object(self.args.model, self.model_context) if self.need_deserialization else self.args.model
-    self.model.loss_calculator = arg_model.loss_calculator
     self.model_context.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
-    
+    self.training_strategy = self.model_serializer.initialize_object(self.args.training_strategy, self.model_context) if self.need_deserialization else self.args.training_strategy
+
   def _augment_data_initial(self):
     augment_command = self.args.reload_command
     print('initial augmentation')
