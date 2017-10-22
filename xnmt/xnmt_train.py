@@ -40,8 +40,7 @@ options = [
   Option("dynet-gpu-ids", int, required=False),
   Option("dynet-gpus", int, required=False),
   Option("dev_every", int, default_value=0, force_flag=True, help_str="dev checkpoints every n sentences (0 for only after epoch)"),
-  Option("batch_size", int, default_value=32, force_flag=True),
-  Option("batch_strategy", default_value="src"),
+  Option("batcher", default_value=None, required=False, help_str="Type of batcher. Defaults to SrcBatcher of batch size 32."),
   Option("training_corpus"),
   Option("corpus_parser"),
   Option("training_strategy"),
@@ -113,28 +112,14 @@ class XnmtTrainer(object):
 
     self.model.initialize_trainer(self.training_strategy)
 
-    # single mode
-    if not self.is_batch_mode():
-      print('Start training in non-minibatch mode...')
-      self.logger = NonBatchLossTracker(args.dev_every, self.total_train_sent)
-      self.train_src, self.train_trg = \
-          self.training_corpus.train_src_data, self.training_corpus.train_trg_data
-      self.dev_src, self.dev_trg = \
-          self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data
-
-    # minibatch mode
+    if self.args.batcher is None:
+      self.batcher = SrcBatcher(32)
     else:
-      print('Start training in minibatch mode...')
-      self.batcher = xnmt.batcher.from_spec(args.batch_strategy, args.batch_size)
-      if args.src_format == "contvec":
-        self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
-      self.pack_batches()
-      self.logger = BatchLossTracker(args.dev_every, self.total_train_sent)
-
-  def is_batch_mode(self):
-    return not (self.args.batch_size is None or
-                self.args.batch_size == 1 or
-                self.args.batch_strategy.lower() == 'none')
+      self.batcher = self.model_serializer.initialize_object(self.args.batcher) if self.need_deserialization else self.args.batcher
+    if args.src_format == "contvec":
+      self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
+    self.pack_batches()
+    self.logger = BatchLossTracker(args.dev_every, self.total_train_sent)
 
   def pack_batches(self):
     self.train_src, self.train_trg = \
@@ -203,8 +188,7 @@ class XnmtTrainer(object):
         print('using reloaded data')
       # reload the data   
       self.corpus_parser.read_training_corpus(self.training_corpus)
-      if self.is_batch_mode():
-        self.pack_batches()
+      self.pack_batches()
       self.logger.total_train_sent = len(self.training_corpus.train_src_data)
       # restart data generation
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.logger.epoch_num, shell=True)

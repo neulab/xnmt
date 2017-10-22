@@ -10,7 +10,7 @@ from xnmt.attender import StandardAttender
 from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
 from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
-from xnmt.batcher import mark_as_batch, Mask
+from xnmt.batcher import mark_as_batch, Mask, SrcBatcher
 import xnmt.xnmt_train
 from xnmt.options import Args
 from xnmt.vocab import Vocab
@@ -198,6 +198,7 @@ class TestTrainDevLoss(unittest.TestCase):
                                             )
     train_args['model_file'] = None
     train_args['save_num_checkpoints'] = 0
+    train_args['batcher'] = SrcBatcher(batch_size=5, break_ties_randomly=False)
     xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(args=Args(**train_args), need_deserialization=False, param_collection=self.model_context.dynet_param_collection)
     xnmt_trainer.model_context = self.model_context
     xnmt_trainer.run_epoch(update_weights=False)
@@ -230,6 +231,7 @@ class TestOverfitting(unittest.TestCase):
     train_args['save_num_checkpoints'] = 0
     train_args['trainer'] = "adam"
     train_args['learning_rate'] = 0.1
+    train_args['batcher'] = SrcBatcher(batch_size=10, break_ties_randomly=False)
     xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(args=Args(**train_args), need_deserialization=False, param_collection=self.model_context.dynet_param_collection)
     xnmt_trainer.model_context = self.model_context
     for _ in range(50):

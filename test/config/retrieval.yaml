@@ -7,7 +7,8 @@ defaults:
     run_for_epochs: 1
     eval_metrics: recall|nbest=1,recall|nbest=3,recall|nbest=5
   train:
-    batch_strategy: inorder
+    batcher: !InOrderBatcher
+      batch_size: 1
     trainer: adam
     learning_rate: 0.1
     default_layer_dim: 16
