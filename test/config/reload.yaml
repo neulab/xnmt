@@ -26,7 +26,7 @@ defaults:
       src_reader: !ContVecReader
         transpose: True
       trg_reader: !PlainTextReader {}
-    training_strategy: !DefaultTrainingStrategy
+    training_strategy: !DefaultTrainingStrategy {}
     model: !DefaultTranslator
       src_embedder: !NoopEmbedder
         emb_dim: 240
