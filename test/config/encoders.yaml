@@ -22,6 +22,7 @@ defaults:
       trg_reader: !PlainTextReader {}
       max_src_len: 15
       max_trg_len: 15
+     training_strategy: !DefaultTrainingStrategy
   decode:
     src_file: examples/data/head.ja
   evaluate:

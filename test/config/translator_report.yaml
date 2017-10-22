@@ -23,6 +23,7 @@ defaults:
       trg_reader: !PlainTextReader {}
       max_src_len: 15
       max_trg_len: 15
+    training_strategy: !DefaultTrainingStrategy
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 32
