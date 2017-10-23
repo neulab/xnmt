@@ -23,8 +23,8 @@ from xnmt.preproc import SentenceFilterer
 from xnmt.options import Option, OptionParser, general_options
 from xnmt.loss import LossBuilder
 from xnmt.model_context import ModelContext, PersistentParamCollection
+from xnmt.training_strategy import TrainingStrategy, TrainingMLELoss
 import xnmt.serializer
-import xnmt.training_strategy
 import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
 import xnmt.segmenting_encoder
@@ -43,7 +43,7 @@ options = [
   Option("batcher", default_value=None, required=False, help_str="Type of batcher. Defaults to SrcBatcher of batch size 32."),
   Option("training_corpus"),
   Option("corpus_parser"),
-  Option("training_strategy"),
+  Option("training_strategy", required=False),
 #  Option("train_filters", list, required=False, help_str="Specify filtering criteria for the training data"),
 #  Option("dev_filters", list, required=False, help_str="Specify filtering criteria for the development data"),
   Option("model_file"),
@@ -110,7 +110,7 @@ class XnmtTrainer(object):
     else:
       self.create_corpus_and_model()
 
-    self.model.initialize_trainer(self.training_strategy)
+    self.model.initialize_training_strategy(self.training_strategy)
 
     if self.args.batcher is None:
       self.batcher = SrcBatcher(32)
@@ -151,7 +151,10 @@ class XnmtTrainer(object):
     if not self.args.model:
       raise RuntimeError("No model specified!")
     self.model = self.model_serializer.initialize_object(self.args.model, self.model_context) if self.need_deserialization else self.args.model
-    self.training_strategy = self.model_serializer.initialize_object(self.args.training_strategy, self.model_context) if self.need_deserialization else self.args.training_strategy
+    if self.args.training_strategy:
+      self.training_strategy = self.model_serializer.initialize_object(self.args.training_strategy, self.model_context) if self.need_deserialization else self.args.training_strategy
+    else:
+      self.training_strategy = TrainingStrategy(TrainingMLELoss())
 
   def load_corpus_and_model(self):
     self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus) if self.need_deserialization else self.args.training_corpus
@@ -164,7 +167,10 @@ class XnmtTrainer(object):
     self.model_context.training_corpus = self.training_corpus
     self.model = self.model_serializer.initialize_object(model, self.model_context) if self.need_deserialization else self.args.model
     self.model_context.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
-    self.training_strategy = self.model_serializer.initialize_object(self.args.training_strategy, self.model_context) if self.need_deserialization else self.args.training_strategy
+    if self.args.training_strategy:
+      self.training_strategy = self.model_serializer.initialize_object(self.args.training_strategy, self.model_context) if self.need_deserialization else self.args.training_strategy
+    else:
+      self.training_strategy = TrainingStrategy(TrainingMLELoss())
 
   def _augment_data_initial(self):
     augment_command = self.args.reload_command

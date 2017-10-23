@@ -104,7 +104,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)
 
-  def initialize_trainer(self, training_strategy):
+  def initialize_training_strategy(self, training_strategy):
     self.loss_calculator = training_strategy
 
   def calc_loss(self, src, trg):
