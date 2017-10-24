@@ -32,6 +32,10 @@ defaults:
 
 reinforce:
   train:
+    training_strategy: !DefaultTrainingStrategy
+      loss_calculator: !TrainingReinforceLoss
+        use_baseline: True
+        decoder_hidden_dim: 32
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 32
@@ -48,6 +52,4 @@ reinforce:
         layers: 1
         mlp_hidden_dim: 32
         bridge: !NoBridge {}
-      loss_calculator: !TranslatorReinforceLoss
-        use_baseline: True
-        decoder_hidden_dim: 32
+
