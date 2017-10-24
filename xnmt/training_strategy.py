@@ -88,6 +88,7 @@ class TrainingReinforceLoss(Serializable, HierarchicalModel):
       # Keep track of previously sampled EOS
       sample = [sample_i if not done_i else Vocab.ES for sample_i, done_i in zip(sample, done)]
       # Appending and feeding in the decoder
+      logsoft = dy.pick_batch(logsoft, sample)
       logsofts.append(logsoft)
       samples.append(sample)
       dec_state = translator.decoder.add_input(dec_state, translator.trg_embedder.embed(xnmt.batcher.mark_as_batch(sample)))
@@ -113,8 +114,8 @@ class TrainingReinforceLoss(Serializable, HierarchicalModel):
       # Calculate the evaluation score
       score = 0 if not len(sample_i) else self.evaluation_metric.evaluate_fast(trg_i.words, sample_i)
       self.eval_score.append(score)
-      self.true_score = dy.inputTensor(self.eval_score, batched=True)
 
+    self.true_score = dy.inputTensor(self.eval_score, batched=True)
     loss = LossBuilder()
 
     if self.use_baseline:
