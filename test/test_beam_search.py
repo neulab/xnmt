@@ -11,6 +11,7 @@ from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
 from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
 from xnmt.model_context import ModelContext, PersistentParamCollection
+from xnmt.training_strategy import TrainingStrategy
 
 class TestForcedDecodingOutputs(unittest.TestCase):
 
@@ -29,6 +30,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
+    self.model.initialize_training_strategy(TrainingStrategy())
     self.model.set_train(False)
     self.model.initialize_generator(beam=1)
 
@@ -62,6 +64,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )
+    self.model.initialize_training_strategy(TrainingStrategy())
     self.model.set_train(False)
     self.model.initialize_generator(beam=1)
 
@@ -96,6 +99,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )
+    self.model.initialize_training_strategy(TrainingStrategy())
     self.model.set_train(False)
     self.model.initialize_generator(beam=1)
 
@@ -134,6 +138,7 @@ class TestGreedyVsBeam(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )
+    self.model.initialize_training_strategy(TrainingStrategy())
     self.model.set_train(False)
 
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",

@@ -8,8 +8,8 @@ defaults:
     run_for_epochs: 20
     eval_metrics: bleu
   train:
-    batcher: !SrcBatcher
-      batch_size: 10
+    batcher: !WordSrcBatcher
+      avg_batch_size: 10
     dropout: 0.1
     default_layer_dim: 512
     restart_trainer: True
