@@ -9,7 +9,7 @@ defaults:
     eval_metrics: bleu
   train:
     batcher: !WordSrcBatcher
-      words_per_batch: 1
+      avg_batch_size: 10
     dropout: 0.1
     default_layer_dim: 512
     restart_trainer: True
