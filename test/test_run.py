@@ -45,9 +45,12 @@ class TestRunningConfig(unittest.TestCase):
   def test_translator_loss(self):
     run.main(["test/config/translator_loss.yaml"])
 
+  def test_component_sharing(self):
+    run.main(["test/config/component_sharing.yaml"])
+
   def tearDown(self):
     if os.path.isdir("test/tmp"):
-     shutil.rmtree("test/tmp")
+      shutil.rmtree("test/tmp")
 
 if __name__ == "__main__":
   unittest.main()

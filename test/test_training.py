@@ -10,11 +10,12 @@ from xnmt.attender import StandardAttender
 from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
 from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
-from xnmt.batcher import mark_as_batch, Mask
+from xnmt.batcher import mark_as_batch, Mask, SrcBatcher
 import xnmt.xnmt_train
 from xnmt.options import Args
 from xnmt.vocab import Vocab
 from xnmt.model_context import ModelContext, PersistentParamCollection
+from xnmt.training_strategy import TrainingStrategy
 
 class TestTruncatedBatchTraining(unittest.TestCase):
 
@@ -65,6 +66,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
+    model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
@@ -76,6 +78,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
+    model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
@@ -87,6 +90,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )
+    model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
@@ -142,6 +146,7 @@ class TestBatchTraining(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
+    model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
@@ -153,6 +158,7 @@ class TestBatchTraining(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
+    model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
@@ -164,6 +170,7 @@ class TestBatchTraining(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )
+    model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
@@ -182,6 +189,7 @@ class TestTrainDevLoss(unittest.TestCase):
                                                             dev_trg = "examples/data/head.en")
     train_args['corpus_parser'] = BilingualCorpusParser(src_reader = PlainTextReader(),
                                                         trg_reader = PlainTextReader())
+    train_args['training_strategy'] = TrainingStrategy()
     train_args['model'] = DefaultTranslator(src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
                                             encoder=LSTMEncoder(self.model_context),
                                             attender=StandardAttender(self.model_context),
@@ -190,6 +198,7 @@ class TestTrainDevLoss(unittest.TestCase):
                                             )
     train_args['model_file'] = None
     train_args['save_num_checkpoints'] = 0
+    train_args['batcher'] = SrcBatcher(batch_size=5, break_ties_randomly=False)
     xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(args=Args(**train_args), need_deserialization=False, param_collection=self.model_context.dynet_param_collection)
     xnmt_trainer.model_context = self.model_context
     xnmt_trainer.run_epoch(update_weights=False)
@@ -211,6 +220,7 @@ class TestOverfitting(unittest.TestCase):
                                                             dev_trg = "examples/data/head.en")
     train_args['corpus_parser'] = BilingualCorpusParser(src_reader = PlainTextReader(),
                                                         trg_reader = PlainTextReader())
+    train_args['training_strategy'] = TrainingStrategy()
     train_args['model'] = DefaultTranslator(src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
                                             encoder=LSTMEncoder(self.model_context),
                                             attender=StandardAttender(self.model_context),
@@ -221,6 +231,7 @@ class TestOverfitting(unittest.TestCase):
     train_args['save_num_checkpoints'] = 0
     train_args['trainer'] = "adam"
     train_args['learning_rate'] = 0.1
+    train_args['batcher'] = SrcBatcher(batch_size=10, break_ties_randomly=False)
     xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(args=Args(**train_args), need_deserialization=False, param_collection=self.model_context.dynet_param_collection)
     xnmt_trainer.model_context = self.model_context
     for _ in range(50):

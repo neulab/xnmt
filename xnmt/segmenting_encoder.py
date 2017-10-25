@@ -57,9 +57,9 @@ class ScalarParam(Serializable):
 class SegmentingEncoder(Encoder, Serializable, Reportable):
   yaml_tag = u'!SegmentingEncoder'
 
-  def __init__(self, context, embed_encoder=None, segment_transducer=None, learn_segmentation=True,
+  def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None, learn_segmentation=True,
                reinforcement_param=None, length_prior=3.5, learn_delete=False):
-    model = context.dynet_param_collection.param_col
+    model = yaml_context.dynet_param_collection.param_col
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
     # The Segment transducer predict a category based on the collected vector
