@@ -19,6 +19,7 @@ from xnmt.retriever import *
 from xnmt.serialize_container import *
 from xnmt.training_corpus import *
 from xnmt.loss_tracker import *
+from xnmt.segmenting_encoder import *
 from xnmt.preproc import SentenceFilterer
 from xnmt.options import Option, OptionParser, general_options
 from xnmt.loss import LossBuilder
@@ -27,7 +28,6 @@ from xnmt.training_strategy import TrainingStrategy, TrainingMLELoss
 import xnmt.serializer
 import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
-import xnmt.segmenting_encoder
 from xnmt.evaluator import LossScore
 from xnmt.tee import Tee
 from subprocess import Popen

@@ -9,7 +9,7 @@ import xnmt.length_normalization
 import xnmt.batcher
 
 from xnmt.vocab import Vocab
-from xnmt.hier_model import GeneratorModel, xnmt_event_handler, handle_xnmt_event
+from xnmt.hier_model import GeneratorModel, register_xnmt_event_assign, register_handler
 from xnmt.serializer import Serializable, DependentInitParam
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.output import TextOutput
@@ -46,7 +46,6 @@ class Translator(GeneratorModel):
   def set_post_processor(self, post_processor):
     self.post_processor = post_processor
 
-@xnmt_event_handler
 class DefaultTranslator(Translator, Serializable, Reportable):
   '''
   A default translator based on attentional sequence-to-sequence models.
@@ -63,6 +62,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     :param trg_embedder: A word embedder for the output language
     :param decoder: A decoder
     '''
+    register_handler(self)
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
@@ -153,8 +153,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     """
     self.reporting_src_vocab = src_vocab
 
-  @handle_xnmt_event
-  def on_html_report(self, context=None):
+  @register_xnmt_event_assign
+  def html_report(self, context=None):
     assert(context is None)
     idx, src, trg, att = self.get_report_input()
     path_to_report = self.get_report_path()

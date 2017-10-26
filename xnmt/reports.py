@@ -2,15 +2,12 @@ import io
 import six
 
 from lxml import etree
-from xnmt.hier_model import register_xnmt_event
+from xnmt.hier_model import register_xnmt_event, register_xnmt_event_assign
 
 class Reportable(object):
-  @register_xnmt_event
+  @register_xnmt_event_assign
   def html_report(self, context=None):
-    if context is None:
-      raise NotImplementedError("Not implemented html_report for class:",
-                                self.__class__.__name__)
-    return context
+    raise NotImplementedError()
 
   ### Getter + Setter for particular report py
   def set_report_input(self, *inputs):
@@ -42,15 +39,17 @@ class Reportable(object):
 
   # Methods to generate report
   def generate_html_report(self):
-    html_report = self.html_report()
-    if html_report is None:
-      raise RuntimeError("Some of the html_report of childs of HTMLReportable object have not been implemented.")
+    html_report = self.html_report(context=None)
     html = etree.tostring(html_report, encoding='unicode', pretty_print=True)
     with io.open(self.__report_path + '.html', 'w', encoding='utf-8') as f:
       f.write(html)
 
   def generate_file_report(self):
     self.file_report()
+  
+  @register_xnmt_event
+  def file_report(self):
+    pass
 
   ### Public acessible Methods
   def generate_report(self, report_type):

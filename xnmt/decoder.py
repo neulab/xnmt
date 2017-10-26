@@ -1,7 +1,7 @@
 import dynet as dy
 from xnmt.serializer import Serializable
 import xnmt.batcher
-from xnmt.hier_model import xnmt_event_handler, handle_xnmt_event
+from xnmt.hier_model import register_handler, handle_xnmt_event
 import xnmt.linear
 
 class Decoder(object):
@@ -35,7 +35,6 @@ class MlpSoftmaxDecoderState(object):
     self.rnn_state = rnn_state
     self.context = context
 
-@xnmt_event_handler
 class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
@@ -46,6 +45,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
                bridge=None):
+    register_handler(self)
     param_col = yaml_context.dynet_param_collection.param_col
     # Define dim
     lstm_dim       = lstm_dim or yaml_context.default_layer_dim

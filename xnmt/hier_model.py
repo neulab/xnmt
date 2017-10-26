@@ -22,15 +22,9 @@ handler_instances = []
 handler_method_names = set()
 event_names = set()
 
-def xnmt_event_handler(c):
-    orig_init = c.__init__
-    def handler_init(self, *args, **kwargs):
-        orig_init(self, *args, **kwargs)
-        handler_instances.append(self)
-    c.__orig_init_args__, _, _, _ = inspect.getargspec(c.__init__)
-    c.__init__ = handler_init
-    return c
-
+def register_handler(inst):
+    handler_instances.append(inst)
+    
 def register_xnmt_event(f):
     def wrapper(obj, *args, **kwargs):
         assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(handler_method_names-event_names)
@@ -43,12 +37,12 @@ def register_xnmt_event(f):
                     raise RuntimeError("attempted to call unregistered handler {}".format(f.__name__))
     event_names.add(f.__name__)
     return wrapper
+  
 def register_xnmt_event_assign(f):
     def wrapper(obj, *args, **kwargs):
         assert "context" in kwargs, "register_xnmt_event_assign requires \"context\" in kwargs"
         assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(handler_method_names-event_names)
         kwargs["context"] = f(obj, *args, **kwargs)
-        print("context: ", kwargs["context"])
         for handler in handler_instances:
             bound_handler = getattr(handler, "on_" + f.__name__, None)
             if bound_handler:
@@ -56,10 +50,10 @@ def register_xnmt_event_assign(f):
                 if type(ret)!=tuple or len(ret)!=2 or ret[1][3:]!=f.__name__:
                     raise RuntimeError("attempted to call unregistered handler {}".format(f.__name__))
                 kwargs["context"] = ret[0]
-                print("context: ", kwargs["context"])
         return kwargs["context"]
     event_names.add(f.__name__)
     return wrapper
+  
 def register_xnmt_event_sum(f):
     def wrapper(obj, *args, **kwargs):
         assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(handler_method_names-event_names)
@@ -76,13 +70,14 @@ def register_xnmt_event_sum(f):
         return res
     event_names.add(f.__name__)
     return wrapper
+  
 def handle_xnmt_event(f):
     def wrapper(obj, *args, **kwargs):
         return f(obj, *args, **kwargs), f.__name__
     assert f.__name__.startswith("on_"), "xnmt event handlers must be named on_*, found {}".format(f.__name__)
     handler_method_names.add(f.__name__[3:])
     return wrapper
-
+  
 #class HierarchicalModel(object):
 #  ''' Hierarchical Model interface '''
 #
@@ -98,7 +93,6 @@ def handle_xnmt_event(f):
 #    if hasattr(self, "_hier_children"): return self._hier_children
 #    else: return []
 
-@xnmt_event_handler
 class GeneratorModel(object):
   def generate_output(self, *args, **kwargs):
     # Generate the output

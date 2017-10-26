@@ -13,7 +13,7 @@ from scipy.stats import poisson
 import xnmt.linear as linear
 import xnmt.expression_sequence as expression_sequence
 
-from xnmt.hier_model import xnmt_event_handler, handle_xnmt_event
+from xnmt.hier_model import register_handler, handle_xnmt_event
 from xnmt.reports import Reportable
 from xnmt.serializer import Serializable
 from xnmt.encoder import Encoder
@@ -53,12 +53,12 @@ class ScalarParam(Serializable):
   def __repr__(self):
     return str(self.value)
 
-@xnmt_event_handler
 class SegmentingEncoder(Encoder, Serializable, Reportable):
   yaml_tag = u'!SegmentingEncoder'
 
   def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None, learn_segmentation=True,
                reinforcement_param=None, length_prior=3.5, learn_delete=False):
+    register_handler(self)
     model = yaml_context.dynet_param_collection.param_col
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
@@ -228,8 +228,8 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
 
     return context
 
-  #@handle_xnmt_event TODO: seems this event doesn't exist
-  def file_report(self):
+  @handle_xnmt_event
+  def on_file_report(self):
     segment_decision = self.get_report_input()[0]
     segment_decision = list(six.moves.map(lambda x: int(x[0]), segment_decision))
     src_words = self.get_report_resource("src_words")

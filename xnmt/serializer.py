@@ -219,11 +219,8 @@ class YamlSerializer(object):
     return initialized_obj
   
   def get_init_args(self, obj):
-    if hasattr(obj, "__orig_init_args__"):
-      return obj.__orig_init_args__
-    else:
-      init_args, _, _, _ = inspect.getargspec(obj.__init__)
-      return init_args
+    init_args, _, _, _ = inspect.getargspec(obj.__init__)
+    return init_args
   
   @staticmethod
   def init_representer(dumper, obj):

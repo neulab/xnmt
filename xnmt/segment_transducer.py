@@ -3,15 +3,15 @@ import dynet as dy
 import xnmt.linear
 import xnmt.embedder
 
-from xnmt.hier_model import xnmt_event_handler, handle_xnmt_event, register_xnmt_event
+from xnmt.hier_model import register_handler, handle_xnmt_event, register_xnmt_event
 from xnmt.serializer import Serializable
 from xnmt.reports import Reportable
 
-@xnmt_event_handler
 class SegmentTransducer(Serializable, Reportable):
-  yaml_tag = "!SegmentTransducer"
+  yaml_tag = u"!SegmentTransducer"
 
   def __init__(self, encoder, transformer):
+    register_handler(self)
     self.encoder = encoder
     self.transformer = transformer
 
@@ -22,10 +22,6 @@ class SegmentTransducer(Serializable, Reportable):
   @register_xnmt_event
   def next_item(self):
     pass
-
-  @handle_xnmt_event
-  def on_html_report(self, context):
-    return context
 
   def transduce(self, inputs):
     return self.transformer.transform(self.encoder.transduce(inputs))
@@ -66,11 +62,11 @@ class DownsamplingSegmentTransformer(SegmentTransformer):
     # TODO(philip30): Complete me
     pass
 
-@xnmt_event_handler
 class CategorySegmentTransformer(SegmentTransformer):
   yaml_tag = u"!CategorySegmentTransformer"
 
   def __init__(self, yaml_context, input_dim=None, category_dim=None, embed_dim=None):
+    register_handler(self)
     model = yaml_context.dynet_param_collection.param_col
     self.category_output = xnmt.linear.Linear(input_dim, category_dim, model)
     self.category_embedder = xnmt.embedder.SimpleWordEmbedder(category_dim, embed_dim)

@@ -4,7 +4,7 @@ import sys
 import math
 import numpy as np
 import dynet as dy
-from xnmt.hier_model import xnmt_event_handler, handle_xnmt_event
+from xnmt.hier_model import register_handler, handle_xnmt_event
 from xnmt.serializer import Serializable
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.encoder_state import FinalEncoderState
@@ -57,11 +57,11 @@ class IdentityEncoder(Encoder, Serializable):
   def get_final_state(self):
     return None
 
-@xnmt_event_handler
 class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
 
   def __init__(self, yaml_context, input_dim=None, layers=1, hidden_dim=None, dropout=None, bidirectional=True):
+    register_handler(self)
     model = yaml_context.dynet_param_collection.param_col
     input_dim = input_dim or yaml_context.default_layer_dim
     hidden_dim = hidden_dim or yaml_context.default_layer_dim
@@ -79,11 +79,11 @@ class LSTMEncoder(BuilderEncoder, Serializable):
   def on_set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
-@xnmt_event_handler
 class ResidualLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!ResidualLSTMEncoder'
 
   def __init__(self, yaml_context, input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
+    register_handler(self)
     model = yaml_context.dynet_param_collection.param_col
     hidden_dim = hidden_dim or yaml_context.default_layer_dim
     dropout = dropout or yaml_context.dropout
@@ -97,11 +97,11 @@ class ResidualLSTMEncoder(BuilderEncoder, Serializable):
   def on_set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
-@xnmt_event_handler
 class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!PyramidalLSTMEncoder'
 
   def __init__(self, yaml_context, input_dim=512, layers=1, hidden_dim=None, downsampling_method="skip", reduce_factor=2, dropout=None):
+    register_handler(self)
     hidden_dim = hidden_dim or yaml_context.default_layer_dim
     dropout = dropout or yaml_context.dropout
     self.dropout = dropout
