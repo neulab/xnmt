@@ -80,8 +80,7 @@ class TrainingReinforceLoss(Serializable, HierarchicalModel):
     for _ in range(self.sample_length):
       dec_state.context = translator.attender.calc_context(dec_state.rnn_state.output())
       if self.use_baseline:
-        h_t = dy.tanh(
-          translator.decoder.context_projector(dy.concatenate([dec_state.rnn_state.output(), dec_state.context])))
+        h_t = dy.tanh(translator.decoder.context_projector(dy.concatenate([dec_state.rnn_state.output(), dec_state.context])))
         self.bs.append(self.baseline(dy.nobackprop(h_t)))
       logsoft = dy.log_softmax(translator.decoder.get_scores(dec_state))
       sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]
@@ -114,7 +113,6 @@ class TrainingReinforceLoss(Serializable, HierarchicalModel):
       # Calculate the evaluation score
       score = 0 if not len(sample_i) else self.evaluation_metric.evaluate_fast(trg_i.words, sample_i)
       self.eval_score.append(score)
-
     self.true_score = dy.inputTensor(self.eval_score, batched=True)
     loss = LossBuilder()
 
@@ -130,7 +128,7 @@ class TrainingReinforceLoss(Serializable, HierarchicalModel):
       baseline_loss = []
       for bs in self.bs:
         baseline_loss.append(dy.squared_distance(self.true_score, bs))
-      loss.add_loss("Baseline", dy.sum_batches(dy.esum(baseline_loss)))
+      loss.add_loss("Baseline", dy.sum_elems(dy.esum(baseline_loss)))
     return loss
 
 # To be implemented
