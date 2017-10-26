@@ -2,16 +2,20 @@
 from __future__ import division, print_function
 
 import argparse
-import math
 import sys
-import dynet as dy
 import six
+from subprocess import Popen
 
+import dynet as dy
+
+# all Serializable objects must be imported here, otherwise we get in trouble with the
+# YAML parser
 import xnmt.batcher
 from xnmt.embedder import *
 from xnmt.attender import *
 from xnmt.input import *
 from xnmt.encoder import *
+import xnmt.segmenting_transducer
 from xnmt.specialized_encoders import *
 from xnmt.decoder import *
 from xnmt.translator import *
@@ -20,7 +24,6 @@ from xnmt.serialize_container import *
 from xnmt.training_corpus import *
 from xnmt.loss_tracker import *
 from xnmt.segmenting_encoder import *
-from xnmt.preproc import SentenceFilterer
 from xnmt.options import Option, OptionParser, general_options
 from xnmt.loss import LossBuilder
 from xnmt.model_context import ModelContext, PersistentParamCollection
@@ -29,8 +32,6 @@ import xnmt.serializer
 import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
 from xnmt.evaluator import LossScore
-from xnmt.tee import Tee
-from subprocess import Popen
 '''
 This will be the main class to perform training.
 '''

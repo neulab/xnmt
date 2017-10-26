@@ -3,9 +3,10 @@ import dynet as dy
 import xnmt.linear
 import xnmt.embedder
 
-from xnmt.hier_model import register_handler, handle_xnmt_event, register_xnmt_event
 from xnmt.serializer import Serializable
+from xnmt.hier_model import register_handler, handle_xnmt_event, register_xnmt_event
 from xnmt.reports import Reportable
+
 
 class SegmentTransducer(Serializable, Reportable):
   yaml_tag = u"!SegmentTransducer"
@@ -108,4 +109,6 @@ class CategorySegmentTransformer(SegmentTransformer):
       del self.ll_buffer
       del self.batch_size
       del self.counter
+
+
 
