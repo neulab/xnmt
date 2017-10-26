@@ -1,76 +1,105 @@
-def recursive(f):
-  '''A decorator to wrap a method of a HierarchicalModel to (1) firstly invoke the method,
-     and (2) call all the direct descendants of the HierarchicalModel to also invoke the method.
-     if the descdendant also decorate the method with the 'recursive', this process will be replicated
-     until it reaches object with no descendant or the method is not marked with recursive.
-  '''
-  # Wrapper to the method to call recursively, instead of invoking only f()
-  def rec_f(obj, *args, **kwargs):
-    assert(issubclass(obj.__class__, HierarchicalModel))
-    # Reflect the method name
-    name = f.__name__
-    # Invoke the method manually with its arguments
-    f(obj, *args, **kwargs)
-    # For all the descendant, also invoke the method with same argument
-    for member in obj.get_hier_children():
-      if hasattr(member, name):
-        getattr(member, name)(*args, **kwargs)
+"""
+Event handling decorators:
 
-  # Return the wrapper
-  return rec_f
+@xnmt_event_handler
+- class decorator, required for all classes that use at least one @handle_xnmt_event 
+  method decorator.
+  Note: decorator does not carry over from a base class, but needs to be specified again
+        for inheriting classes
 
-def recursive_assign(f):
-  ''' A decorator that behaves the same way as recursive but keep returning the context of a previous
-      method invocation and pass the context to the next. We assume that the decorated method will use / modify
-      the context as needed.
-  '''
-  def rec_f(obj, *args, **kwargs):
-    assert(issubclass(obj.__class__, HierarchicalModel))
-    name = f.__name__
-    kwargs["context"] = f(obj, *args, **kwargs)
-    for member in obj.get_hier_children():
-      if hasattr(member, name):
-        kwargs["context"] = getattr(member, name)(*args, **kwargs)
-    return kwargs["context"]
+@register_xnmt_event
+@register_xnmt_event_assign
+@register_xnmt_event_sum
 
-  return rec_f
+@handle_xnmt_event
+- method decorator. Whenever a method of the same name decorated with @register_xnmt_event* is invoked, 
+  this method is invoked (provided that the class is decorated with @xnmt_event_handler)
+"""
 
-def recursive_sum(f):
-  ''' A decorator that behaves the same way as recursive but summing up all the non None results.
-  '''
-  def rec_f(obj, *args, **kwargs):
-    assert(issubclass(obj.__class__, HierarchicalModel))
-    name = f.__name__
-    result_parent = f(obj, *args, **kwargs)
-    for member in obj.get_hier_children():
-      if hasattr(member, name):
-        result_child = getattr(member, name)(*args, **kwargs)
-        if result_child is not None:
-          if result_parent is None:
-            result_parent = result_child
-          else:
-            result_parent += result_child
-    return result_parent
+import inspect 
 
-  return rec_f
+handler_instances = []
+handler_method_names = set()
+event_names = set()
 
+def xnmt_event_handler(c):
+    orig_init = c.__init__
+    def handler_init(self, *args, **kwargs):
+        orig_init(self, *args, **kwargs)
+        handler_instances.append(self)
+    c.__orig_init_args__, _, _, _ = inspect.getargspec(c.__init__)
+    c.__init__ = handler_init
+    return c
 
-class HierarchicalModel(object):
-  ''' Hierarchical Model interface '''
+def register_xnmt_event(f):
+    def wrapper(obj, *args, **kwargs):
+        assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(handler_method_names-event_names)
+        f(obj, *args, **kwargs)
+        for handler in handler_instances:
+            bound_handler = getattr(handler, "on_" + f.__name__, None)
+            if bound_handler:
+                ret = bound_handler(*args, **kwargs)
+                if type(ret)!=tuple or len(ret)!=2 or ret[1][3:]!=f.__name__:
+                    raise RuntimeError("attempted to call unregistered handler {}".format(f.__name__))
+    event_names.add(f.__name__)
+    return wrapper
+def register_xnmt_event_assign(f):
+    def wrapper(obj, *args, **kwargs):
+        assert "context" in kwargs, "register_xnmt_event_assign requires \"context\" in kwargs"
+        assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(handler_method_names-event_names)
+        kwargs["context"] = f(obj, *args, **kwargs)
+        print("context: ", kwargs["context"])
+        for handler in handler_instances:
+            bound_handler = getattr(handler, "on_" + f.__name__, None)
+            if bound_handler:
+                ret = bound_handler(*args, **kwargs)
+                if type(ret)!=tuple or len(ret)!=2 or ret[1][3:]!=f.__name__:
+                    raise RuntimeError("attempted to call unregistered handler {}".format(f.__name__))
+                kwargs["context"] = ret[0]
+                print("context: ", kwargs["context"])
+        return kwargs["context"]
+    event_names.add(f.__name__)
+    return wrapper
+def register_xnmt_event_sum(f):
+    def wrapper(obj, *args, **kwargs):
+        assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(handler_method_names-event_names)
+        res = f(obj, *args, **kwargs)
+        for handler in handler_instances:
+            bound_handler = getattr(handler, "on_" + f.__name__, None)
+            if bound_handler:
+                ret = bound_handler(*args, **kwargs)
+                if type(ret)!=tuple or len(ret)!=2 or ret[1][3:]!=f.__name__:
+                    raise RuntimeError("attempted to call unregistered handler {}".format(f.__name__))
+                tmp = ret[0]
+                if res is None: res = tmp
+                elif tmp is not None: res = res + tmp
+        return res
+    event_names.add(f.__name__)
+    return wrapper
+def handle_xnmt_event(f):
+    def wrapper(obj, *args, **kwargs):
+        return f(obj, *args, **kwargs), f.__name__
+    assert f.__name__.startswith("on_"), "xnmt event handlers must be named on_*, found {}".format(f.__name__)
+    handler_method_names.add(f.__name__[3:])
+    return wrapper
 
-  def register_hier_child(self, child):
-    if hasattr(child, "register_hier_child"):
-      if not hasattr(self, "_hier_children"):
-        self._hier_children = []
-      self._hier_children.append(child)
-    else:
-      print("Skipping hierarchical construction:", child.__class__.__name__,
-            "is not a subclass of HierarchicalModel")
-  def get_hier_children(self):
-    if hasattr(self, "_hier_children"): return self._hier_children
-    else: return []
+#class HierarchicalModel(object):
+#  ''' Hierarchical Model interface '''
+#
+#  def register_hier_child(self, child):
+#    if hasattr(child, "register_hier_child"):
+#      if not hasattr(self, "_hier_children"):
+#        self._hier_children = []
+#      self._hier_children.append(child)
+#    else:
+#      print("Skipping hierarchical construction:", child.__class__.__name__,
+#            "is not a subclass of HierarchicalModel")
+#  def get_hier_children(self):
+#    if hasattr(self, "_hier_children"): return self._hier_children
+#    else: return []
 
-class GeneratorModel(HierarchicalModel):
+@xnmt_event_handler
+class GeneratorModel(object):
   def generate_output(self, *args, **kwargs):
     # Generate the output
     generation_output = self.generate(*args, **kwargs)
@@ -82,26 +111,26 @@ class GeneratorModel(HierarchicalModel):
   def generate(self, *args, **kwargs):
     raise NotImplementedError()
 
-  @recursive
+  @register_xnmt_event
   def initialize_generator(self, **kwargs):
     pass
 
-  @recursive
+  @register_xnmt_event
   def new_epoch(self):
     pass
 
-  @recursive
+  @register_xnmt_event
   def set_train(self, val):
     pass
 
-  @recursive
+  @register_xnmt_event
   def start_sent(self):
     pass
 
   def calc_loss(self, src, trg, src_mask=None, trg_mask=None):
     raise NotImplementedError()
 
-  @recursive_sum
+  @register_xnmt_event_sum
   def calc_additional_loss(self, reward):
     ''' Calculate reinforce loss based on the reward
     :param reward: The default is log likelihood (-1 * calc_loss).

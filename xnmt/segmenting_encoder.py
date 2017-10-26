@@ -10,11 +10,10 @@ from xml.sax.saxutils import escape, unescape
 from lxml import etree
 from scipy.stats import poisson
 
-import xnmt.segment_transducer as segment_transducer
 import xnmt.linear as linear
 import xnmt.expression_sequence as expression_sequence
 
-from xnmt.hier_model import recursive, recursive_assign, recursive_sum
+from xnmt.hier_model import xnmt_event_handler, handle_xnmt_event
 from xnmt.reports import Reportable
 from xnmt.serializer import Serializable
 from xnmt.encoder import Encoder
@@ -54,6 +53,7 @@ class ScalarParam(Serializable):
   def __repr__(self):
     return str(self.value)
 
+@xnmt_event_handler
 class SegmentingEncoder(Encoder, Serializable, Reportable):
   yaml_tag = u'!SegmentingEncoder'
 
@@ -84,8 +84,6 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     self.train = True
     self.warmup_counter = 0
     # Register all the children 
-    self.register_hier_child(embed_encoder)
-    self.register_hier_child(segment_transducer)
 
   def sample_segmentation(self, encodings, batch_size):
     lmbd = self.lmbd.get_value(self.warmup_counter)
@@ -180,8 +178,8 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return expression_sequence.ExpressionSequence(expr_tensor=outputs)
 
-  @recursive
-  def set_train(self, train):
+  @handle_xnmt_event
+  def on_set_train(self, train):
     self.train = train
 
   def get_final_states(self):
@@ -192,8 +190,8 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     self.warmup_counter += 1
     print("Now Lambda:", self.lmbd)
 
-  @recursive_sum
-  def calc_additional_loss(self, reward):
+  @handle_xnmt_event
+  def on_calc_additional_loss(self, reward):
     if self.learn_segmentation:
       lmbd = self.lmbd.get_value(self.warmup_counter)
       reward += self.segment_length_prior
@@ -215,8 +213,8 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     else:
       return None
 
-  @recursive_assign
-  def html_report(self, context):
+  @handle_xnmt_event
+  def on_html_report(self, context):
     segment_decision = self.get_report_input()[0]
     segment_decision = list(six.moves.map(lambda x: int(x[0]), segment_decision))
     src_words = list(six.moves.map(escape, self.get_report_resource("src_words")))
@@ -230,7 +228,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
 
     return context
 
-  @recursive
+  #@handle_xnmt_event TODO: seems this event doesn't exist
   def file_report(self):
     segment_decision = self.get_report_input()[0]
     segment_decision = list(six.moves.map(lambda x: int(x[0]), segment_decision))

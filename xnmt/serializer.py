@@ -83,7 +83,7 @@ class YamlSerializer(object):
     base_arg_names = map(lambda x: x[0], inspect.getmembers(yaml.YAMLObject))
     if not isinstance(obj, Serializable):
       raise RuntimeError("attempting deserialization of non-Serializable object %s of type %s" % (str(obj), type(obj)))
-    init_args, _, _, _ = inspect.getargspec(obj.__init__)
+    init_args = self.get_init_args(obj)
     class_param_names = [x[0] for x in inspect.getmembers(obj.__class__)]
     init_args.remove("self")
     obj.serialize_params = {}
@@ -118,7 +118,7 @@ class YamlSerializer(object):
       if val:
         for param_descr in shared_params:
           param_obj, param_name = self.resolve_param_name(obj, param_descr)
-          init_args, _, _, _ = inspect.getargspec(param_obj.__init__)
+          init_args = self.get_init_args(param_obj)
           if param_name in init_args:
             param_obj.init_params[param_name] = val
     for _, val in inspect.getmembers(obj):
@@ -132,7 +132,7 @@ class YamlSerializer(object):
       if not isinstance(param_obj, Serializable):
         raise RuntimeError("Attempting parameter sharing for the non-Serializable "
                             "object %s of type %s, for parent object %s" % (str(param_obj), type(param_obj), str(obj)))
-      init_args, _, _, _ = inspect.getargspec(param_obj.__init__)
+      init_args = self.get_init_args(param_obj)
       if param_name not in init_args: cur_val = None
       else: cur_val = param_obj.init_params.get(param_name, None)
       if cur_val:
@@ -158,7 +158,7 @@ class YamlSerializer(object):
   def init_components_bottom_up(self, obj, dependent_init_params, yaml_context):
     init_params = obj.init_params
     serialize_params = obj.serialize_params
-    init_args, _, _, _ = inspect.getargspec(obj.__init__)
+    init_args = self.get_init_args(obj)
     init_args.remove("self")
     for init_arg in init_args:
       if hasattr(obj, init_arg):
@@ -217,6 +217,13 @@ class YamlSerializer(object):
       initialized_obj.serialize_params["__xnmt_id"] = xnmt_id
 
     return initialized_obj
+  
+  def get_init_args(self, obj):
+    if hasattr(obj, "__orig_init_args__"):
+      return obj.__orig_init_args__
+    else:
+      init_args, _, _, _ = inspect.getargspec(obj.__init__)
+      return init_args
   
   @staticmethod
   def init_representer(dumper, obj):

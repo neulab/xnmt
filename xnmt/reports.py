@@ -2,19 +2,15 @@ import io
 import six
 
 from lxml import etree
-from xnmt.hier_model import recursive, recursive_assign
+from xnmt.hier_model import register_xnmt_event
 
 class Reportable(object):
-  @recursive_assign
+  @register_xnmt_event
   def html_report(self, context=None):
     if context is None:
       raise NotImplementedError("Not implemented html_report for class:",
                                 self.__class__.__name__)
     return context
-
-  @recursive
-  def file_report(self):
-    pass
 
   ### Getter + Setter for particular report py
   def set_report_input(self, *inputs):
@@ -26,19 +22,17 @@ class Reportable(object):
   def get_report_path(self):
     return self.__report_path
 
-  ### Methods that are applied recursively to the childs
-  ### of HierarchicalModel
-  @recursive
+  @register_xnmt_event
   def set_report_path(self, report_path):
     self.__report_path = report_path
 
-  @recursive
+  @register_xnmt_event
   def set_report_resource(self, key, value):
     if not hasattr(self, "__reportable_resources"):
       self.__reportable_resources = {}
     self.__reportable_resources[key] = value
 
-  @recursive
+  @register_xnmt_event
   def clear_report_resources(self):
     if hasattr(self, "clear_resources"):
       self.__reportable_resources.clear()

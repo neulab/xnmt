@@ -2,7 +2,6 @@ from __future__ import division, generators
 
 import six
 import plot
-import math
 import dynet as dy
 import numpy as np
 
@@ -10,13 +9,12 @@ import xnmt.length_normalization
 import xnmt.batcher
 
 from xnmt.vocab import Vocab
-from xnmt.hier_model import GeneratorModel, recursive_assign, recursive
+from xnmt.hier_model import GeneratorModel, xnmt_event_handler, handle_xnmt_event
 from xnmt.serializer import Serializable, DependentInitParam
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.output import TextOutput
 from xnmt.reports import Reportable
 import xnmt.serializer
-import xnmt.evaluator
 from xnmt.batcher import mark_as_batch, is_batched
 
 # Reporting purposes
@@ -48,6 +46,7 @@ class Translator(GeneratorModel):
   def set_post_processor(self, post_processor):
     self.post_processor = post_processor
 
+@xnmt_event_handler
 class DefaultTranslator(Translator, Serializable, Reportable):
   '''
   A default translator based on attentional sequence-to-sequence models.
@@ -69,11 +68,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
-
-    self.register_hier_child(self.encoder)
-    self.register_hier_child(self.decoder)
-    self.register_hier_child(self.src_embedder)
-    self.register_hier_child(self.trg_embedder)
 
   def shared_params(self):
     return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
@@ -159,8 +153,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     """
     self.reporting_src_vocab = src_vocab
 
-  @recursive_assign
-  def html_report(self, context=None):
+  @handle_xnmt_event
+  def on_html_report(self, context=None):
     assert(context is None)
     idx, src, trg, att = self.get_report_input()
     path_to_report = self.get_report_path()
@@ -203,7 +197,4 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     # return the parent context to be used as child context
     return html
 
-  @recursive
-  def file_report(self):
-    pass
 

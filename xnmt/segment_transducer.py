@@ -1,33 +1,30 @@
 import dynet as dy
-import numpy
 
 import xnmt.linear
 import xnmt.embedder
 
-from xnmt.hier_model import HierarchicalModel, recursive, recursive_assign
+from xnmt.hier_model import xnmt_event_handler, handle_xnmt_event, register_xnmt_event
 from xnmt.serializer import Serializable
 from xnmt.reports import Reportable
 
-class SegmentTransducer(HierarchicalModel, Serializable, Reportable):
+@xnmt_event_handler
+class SegmentTransducer(Serializable, Reportable):
   yaml_tag = "!SegmentTransducer"
 
   def __init__(self, encoder, transformer):
     self.encoder = encoder
     self.transformer = transformer
 
-    self.register_hier_child(encoder)
-    self.register_hier_child(transformer)
-
-  @recursive
+  @register_xnmt_event
   def set_input_size(self, batch_size, input_len):
     pass
 
-  @recursive
+  @register_xnmt_event
   def next_item(self):
     pass
 
-  @recursive_assign
-  def html_report(self, context):
+  @handle_xnmt_event
+  def on_html_report(self, context):
     return context
 
   def transduce(self, inputs):
@@ -42,7 +39,7 @@ class SegmentTransducer(HierarchicalModel, Serializable, Reportable):
       log_ll += self.transformer.disc_ll()
     return log_ll
 
-class SegmentTransformer(HierarchicalModel, Serializable):
+class SegmentTransformer(Serializable):
   def transform(self, encodings):
     raise RuntimeError("Should call subclass of SegmentTransformer instead")
 
@@ -69,6 +66,7 @@ class DownsamplingSegmentTransformer(SegmentTransformer):
     # TODO(philip30): Complete me
     pass
 
+@xnmt_event_handler
 class CategorySegmentTransformer(SegmentTransformer):
   yaml_tag = u"!CategorySegmentTransformer"
 
@@ -78,7 +76,7 @@ class CategorySegmentTransformer(SegmentTransformer):
     self.category_embedder = xnmt.embedder.SimpleWordEmbedder(category_dim, embed_dim)
     self.train = True
 
-  @recursive
+  @register_xnmt_event
   def set_input_size(self, batch_size, input_len):
     self.batch_size = batch_size
     self.input_len  = input_len
@@ -86,11 +84,11 @@ class CategorySegmentTransformer(SegmentTransformer):
     self.ll_buffer = [dy.scalarInput(0.0) for _ in range(batch_size)]
     self.counter = 0
 
-  @recursive
-  def set_train(self, train):
+  @handle_xnmt_event
+  def on_set_train(self, train):
     self.train = train
 
-  @recursive
+  @register_xnmt_event
   def next_item(self):
     self.counter = (self.counter + 1) % self.batch_size
 

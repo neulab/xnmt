@@ -5,11 +5,11 @@ import dynet as dy
 import xnmt.batcher
 import six
 import io
-from xnmt.hier_model import HierarchicalModel, recursive
+from xnmt.hier_model import xnmt_event_handler, handle_xnmt_event
 from xnmt.serializer import Serializable
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 
-class Embedder(HierarchicalModel):
+class Embedder(object):
   """
   An embedder takes in word IDs and outputs continuous vectors.
 
@@ -34,10 +34,7 @@ class Embedder(HierarchicalModel):
     """
     raise NotImplementedError('embed_sent must be implemented in Embedder subclasses')
 
-  @recursive
-  def set_train(self, val):
-    pass
-
+@xnmt_event_handler
 class SimpleWordEmbedder(Embedder, Serializable):
   """
   Simple word embeddings via lookup.
@@ -62,12 +59,12 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.word_id_mask = None
     self.train = False
 
-  @recursive
-  def start_sent(self):
+  @handle_xnmt_event
+  def on_start_sent(self):
     self.word_id_mask = None
 
-  @recursive
-  def set_train(self, val):
+  @handle_xnmt_event
+  def on_set_train(self, val):
     self.train = val
 
   def embed(self, x):

@@ -4,7 +4,7 @@ import sys
 import math
 import numpy as np
 import dynet as dy
-from xnmt.hier_model import HierarchicalModel, recursive
+from xnmt.hier_model import xnmt_event_handler, handle_xnmt_event
 from xnmt.serializer import Serializable
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.encoder_state import FinalEncoderState
@@ -15,7 +15,7 @@ import xnmt.residual
 import xnmt.lstm
 
 
-class Encoder(HierarchicalModel):
+class Encoder(object):
   """
   An Encoder is a class that takes an ExpressionSequence as input and outputs another encoded ExpressionSequence.
   """
@@ -57,6 +57,7 @@ class IdentityEncoder(Encoder, Serializable):
   def get_final_state(self):
     return None
 
+@xnmt_event_handler
 class LSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!LSTMEncoder'
 
@@ -74,10 +75,11 @@ class LSTMEncoder(BuilderEncoder, Serializable):
     else:
       self.builder = xnmt.lstm.CustomCompactLSTMBuilder(layers, input_dim, hidden_dim, model)
 
-  @recursive
-  def set_train(self, val):
+  @handle_xnmt_event
+  def on_set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
+@xnmt_event_handler
 class ResidualLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!ResidualLSTMEncoder'
 
@@ -91,10 +93,11 @@ class ResidualLSTMEncoder(BuilderEncoder, Serializable):
     else:
       self.builder = xnmt.residual.ResidualRNNBuilder(layers, input_dim, hidden_dim, model, residual_to_output)
 
-  @recursive
-  def set_train(self, val):
+  @handle_xnmt_event
+  def on_set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
+@xnmt_event_handler
 class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
   yaml_tag = u'!PyramidalLSTMEncoder'
 
@@ -106,8 +109,8 @@ class PyramidalLSTMEncoder(BuilderEncoder, Serializable):
                                                  yaml_context.dynet_param_collection.param_col,
                                                  downsampling_method, reduce_factor)
 
-  @recursive
-  def set_train(self, val):
+  @handle_xnmt_event
+  def on_set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
 
 class ModularEncoder(Encoder, Serializable):
@@ -116,9 +119,6 @@ class ModularEncoder(Encoder, Serializable):
   def __init__(self, input_dim, modules):
     self.modules = modules
     
-    for module in self.modules:
-      self.register_hier_child(module)
-
   def shared_params(self):
     return [set(["input_dim", "modules.0.input_dim"])]
 
@@ -133,10 +133,6 @@ class ModularEncoder(Encoder, Serializable):
     for mod in self.modules:
       final_states += mod.get_final_states()
     return final_states
-
-  @recursive
-  def set_train(self, val):
-    pass
 
 class FullyConnectedEncoder(Encoder, Serializable):
   yaml_tag = u'!FullyConnectedEncoder'
