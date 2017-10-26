@@ -11,10 +11,12 @@ from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
 from xnmt.model_context import ModelContext, PersistentParamCollection
+import xnmt.events
 
 class TestEncoder(unittest.TestCase):
 
   def setUp(self):
+    xnmt.events.clear()
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",

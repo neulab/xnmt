@@ -4,7 +4,7 @@ import xnmt.linear
 import xnmt.embedder
 
 from xnmt.serializer import Serializable
-from xnmt.hier_model import register_handler, handle_xnmt_event, register_xnmt_event
+from xnmt.events import register_handler, handle_xnmt_event, register_xnmt_event
 from xnmt.reports import Reportable
 
 

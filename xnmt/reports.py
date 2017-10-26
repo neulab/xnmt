@@ -2,7 +2,7 @@ import io
 import six
 
 from lxml import etree
-from xnmt.hier_model import register_xnmt_event, register_xnmt_event_assign
+from xnmt.events import register_xnmt_event, register_xnmt_event_assign
 
 class Reportable(object):
   @register_xnmt_event_assign

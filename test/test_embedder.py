@@ -9,10 +9,12 @@ from itertools import islice
 from xnmt.input import PlainTextReader
 from xnmt.embedder import PretrainedSimpleWordEmbedder
 from xnmt.model_context import ModelContext, PersistentParamCollection
+import xnmt.events
 
 
 class PretrainedSimpleWordEmbedderSanityTest(unittest.TestCase):
   def setUp(self):
+    xnmt.events.clear()
     self.input_reader = PlainTextReader()
     list(self.input_reader.read_sents('examples/data/head.ja'))
     self.input_reader.freeze()

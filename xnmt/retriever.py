@@ -3,11 +3,11 @@ from __future__ import division, generators
 import six
 import dynet as dy
 import numpy as np
-import os
 from lxml import etree
 
 import xnmt.batcher
-from xnmt.hier_model import GeneratorModel, handle_xnmt_event
+from xnmt.events import handle_xnmt_event
+from xnmt.generator import GeneratorModel
 from xnmt.serializer import Serializable
 from xnmt.reports import Reportable
 from xnmt.expression_sequence import ExpressionSequence

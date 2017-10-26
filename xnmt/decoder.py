@@ -1,7 +1,7 @@
 import dynet as dy
 from xnmt.serializer import Serializable
 import xnmt.batcher
-from xnmt.hier_model import register_handler, handle_xnmt_event
+from xnmt.events import register_handler, handle_xnmt_event
 import xnmt.linear
 
 class Decoder(object):

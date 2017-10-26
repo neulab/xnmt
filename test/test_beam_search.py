@@ -12,6 +12,7 @@ from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.training_strategy import TrainingStrategy
+import xnmt.events
 
 class TestForcedDecodingOutputs(unittest.TestCase):
 
@@ -21,6 +22,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
       self.assertEqual(l1[i], l2[i])
 
   def setUp(self):
+    xnmt.events.clear()
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     self.model = DefaultTranslator(
@@ -55,6 +57,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
 class TestForcedDecodingLoss(unittest.TestCase):
 
   def setUp(self):
+    xnmt.events.clear()
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     self.model = DefaultTranslator(
@@ -90,6 +93,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
 class TestFreeDecodingLoss(unittest.TestCase):
 
   def setUp(self):
+    xnmt.events.clear()
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     self.model = DefaultTranslator(
@@ -129,6 +133,7 @@ class TestGreedyVsBeam(unittest.TestCase):
   Test if greedy search produces same output as beam search with beam 1.
   """
   def setUp(self):
+    xnmt.events.clear()
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     self.model = DefaultTranslator(

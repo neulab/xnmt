@@ -9,7 +9,8 @@ import xnmt.length_normalization
 import xnmt.batcher
 
 from xnmt.vocab import Vocab
-from xnmt.hier_model import GeneratorModel, register_xnmt_event_assign, register_handler
+from xnmt.events import register_xnmt_event_assign, register_handler
+from xnmt.generator import GeneratorModel
 from xnmt.serializer import Serializable, DependentInitParam
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.output import TextOutput

@@ -13,7 +13,7 @@ from scipy.stats import poisson
 import xnmt.linear as linear
 import xnmt.expression_sequence as expression_sequence
 
-from xnmt.hier_model import register_handler, handle_xnmt_event
+from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.reports import Reportable
 from xnmt.serializer import Serializable
 from xnmt.encoder import Encoder

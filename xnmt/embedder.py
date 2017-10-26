@@ -5,7 +5,7 @@ import dynet as dy
 import xnmt.batcher
 import six
 import io
-from xnmt.hier_model import register_handler, handle_xnmt_event
+from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.serializer import Serializable
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 

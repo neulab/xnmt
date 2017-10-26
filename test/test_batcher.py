@@ -2,8 +2,12 @@ import unittest
 
 import xnmt.batcher
 import xnmt.input
+import xnmt.events
 
 class TestBatcher(unittest.TestCase):
+
+  def setUp(self):
+    xnmt.events.clear()
 
   def test_batch_src(self):
     src_sents = [xnmt.input.SimpleSentenceInput([0] * i) for i in range(1,7)]

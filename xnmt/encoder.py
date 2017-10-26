@@ -4,7 +4,7 @@ import sys
 import math
 import numpy as np
 import dynet as dy
-from xnmt.hier_model import register_handler, handle_xnmt_event
+from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.serializer import Serializable
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.encoder_state import FinalEncoderState

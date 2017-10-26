@@ -16,10 +16,12 @@ from xnmt.options import Args
 from xnmt.vocab import Vocab
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.training_strategy import TrainingStrategy
+import xnmt.events
 
 class TestTruncatedBatchTraining(unittest.TestCase):
 
   def setUp(self):
+    xnmt.events.clear()
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
@@ -97,6 +99,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
 class TestBatchTraining(unittest.TestCase):
 
   def setUp(self):
+    xnmt.events.clear()
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
@@ -176,6 +179,9 @@ class TestBatchTraining(unittest.TestCase):
 
 
 class TestTrainDevLoss(unittest.TestCase):
+  
+  def setUp(self):
+    xnmt.events.clear()
 
   def test_train_dev_loss_equal(self):
     self.model_context = ModelContext()
@@ -206,6 +212,9 @@ class TestTrainDevLoss(unittest.TestCase):
                            xnmt_trainer.logger.dev_score.loss)
 
 class TestOverfitting(unittest.TestCase):
+
+  def setUp(self):
+    xnmt.events.clear()
 
   def test_overfitting(self):
     self.model_context = ModelContext()
