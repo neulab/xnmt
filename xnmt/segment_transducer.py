@@ -25,7 +25,7 @@ class SegmentTransducer(Serializable, Reportable):
     pass
 
   def transduce(self, inputs):
-    return self.transformer.transform(self.encoder.transduce(inputs))
+    return self.transformer.transform(self.encoder(inputs))
 
   def disc_ll(self):
     ''' Discrete Log Likelihood '''
