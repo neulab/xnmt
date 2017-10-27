@@ -23,7 +23,7 @@ defaults:
     model: !DotProductRetriever
       src_embedder: !NoopEmbedder
         emb_dim: 40
-      src_encoder: !TilburgSpeechEncoder
+      src_encoder: !TilburgSpeechSeqTransducer
         filter_height: 40
         filter_width: 6
         channels: 1

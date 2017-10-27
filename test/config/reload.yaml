@@ -29,7 +29,7 @@ defaults:
     model: !DefaultTranslator
       src_embedder: !NoopEmbedder
         emb_dim: 240
-      encoder: !PyramidalLSTMEncoder
+      encoder: !PyramidalLSTMSeqTransducer
         layers: 1
         downsampling_method: skip
         input_dim: 240

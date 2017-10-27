@@ -16,8 +16,7 @@ import xnmt.expression_sequence as expression_sequence
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.reports import Reportable
 from xnmt.serializer import Serializable
-from xnmt.encoder import Encoder
-from xnmt.encoder_state import FinalEncoderState
+from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import LossBuilder
 
 class SegmentingAction(Enum):
@@ -53,8 +52,8 @@ class ScalarParam(Serializable):
   def __repr__(self):
     return str(self.value)
 
-class SegmentingEncoder(Encoder, Serializable, Reportable):
-  yaml_tag = u'!SegmentingEncoder'
+class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
+  yaml_tag = u'!SegmentingSeqTransducer'
 
   def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None, learn_segmentation=True,
                reinforcement_param=None, length_prior=3.5, learn_delete=False):
@@ -114,10 +113,10 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
                              for log_softmax in segment_logsoftmaxes]
     return segment_decisions, segment_logsoftmaxes
 
-  def transduce(self, embed_sent):
+  def __call__(self, embed_sent):
     batch_size = embed_sent[0].dim()[1]
     # Softmax + segment decision
-    encodings = self.embed_encoder.transduce(embed_sent)
+    encodings = self.embed_encoder(embed_sent)
     if self.learn_segmentation:
       segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size)
     else:
@@ -174,7 +173,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
       self.bs = list(six.moves.map(lambda x: self.baseline(dy.nobackprop(x)), encodings))
     if not self.train:
       self.set_report_input(segment_decisions)
-    self._final_encoder_state = [FinalEncoderState(encodings[-1])]
+    self._final_encoder_state = [FinalTransducerState(encodings[-1])]
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return expression_sequence.ExpressionSequence(expr_tensor=outputs)
 
@@ -185,6 +184,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
   def get_final_states(self):
     return self._final_encoder_state
 
+  # TODO: handle as global event?
   def new_epoch(self):
     self.lmbd.grow_param(self.warmup_counter)
     self.warmup_counter += 1

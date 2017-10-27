@@ -34,11 +34,11 @@ defaults:
       # DyNet parameters)
       src_embedder: !SimpleWordEmbedder &emb_conf1
         emb_dim: 32
-      encoder: !ModularEncoder
+      encoder: !ModularSeqTransducer
         modules:
         # reference-sharing between first and second encoder layer. This means, for purposes of illustration, 
         # both layers share DyNet parameters!
-        - !LSTMEncoder &lstm_enc1
+        - !LSTMSeqTransducer &lstm_enc1
             __xnmt_id: lstm_enc1 # this id must be unique and is recommended but not required to match the YAML anchor
             layers: 1
         - *lstm_enc1

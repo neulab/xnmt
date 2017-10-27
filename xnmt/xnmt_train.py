@@ -14,8 +14,12 @@ import xnmt.batcher
 from xnmt.embedder import *
 from xnmt.attender import *
 from xnmt.input import *
-from xnmt.encoder import *
-import xnmt.segmenting_transducer
+import xnmt.lstm
+import xnmt.pyramidal
+import xnmt.conv
+import xnmt.ff
+import xnmt.segment_transducer
+import xnmt.residual
 from xnmt.specialized_encoders import *
 from xnmt.decoder import *
 from xnmt.translator import *

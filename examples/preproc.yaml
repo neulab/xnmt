@@ -100,7 +100,7 @@ defaults:
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 512
-      encoder: !LSTMEncoder
+      encoder: !LSTMSeqTransducer
         layers: 1
       attender: !StandardAttender
         hidden_dim: 512

@@ -21,7 +21,7 @@ defaults:
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
-      encoder: !LSTMEncoder
+      encoder: !LSTMSeqTransducer
         layers: !RandomParam
           values: [1,2,3,4,5]
       attender: !StandardAttender

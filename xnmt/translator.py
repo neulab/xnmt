@@ -111,7 +111,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     assert hasattr(self, "loss_calculator")
     self.start_sent()
     embeddings = self.src_embedder.embed_sent(src)
-    encodings = self.encoder.transduce(embeddings)
+    encodings = self.encoder(embeddings)
     self.attender.init_sent(encodings)
     # Initialize the hidden state from the encoder
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
@@ -127,7 +127,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     for sents in src:
       self.start_sent()
       embeddings = self.src_embedder.embed_sent(src)
-      encodings = self.encoder.transduce(embeddings)
+      encodings = self.encoder(embeddings)
       self.attender.init_sent(encodings)
       ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
       dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
