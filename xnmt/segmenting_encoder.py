@@ -31,6 +31,7 @@ class ScalarParam(Serializable):
   yaml_tag = u'!ScalarParam'
 
   def __init__(self, initial=0.1, warmup=0, grow=1, min_value=0.0, max_value=1.0):
+    register_handler(self)
     self.value = initial
     self.warmup = warmup
     self.grow = grow
