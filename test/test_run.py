@@ -3,8 +3,12 @@ import unittest
 import os, shutil
 
 import xnmt.xnmt_run_experiments as run
+import xnmt.events
 
 class TestRunningConfig(unittest.TestCase):
+
+  def setUp(self):
+    xnmt.events.clear()
 
   def test_standard_run(self):
     run.main(["test/config/standard.yaml"])

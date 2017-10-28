@@ -5,11 +5,11 @@ import dynet as dy
 import xnmt.batcher
 import six
 import io
-from xnmt.hier_model import HierarchicalModel, recursive
+from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.serializer import Serializable
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 
-class Embedder(HierarchicalModel):
+class Embedder(object):
   """
   An embedder takes in word IDs and outputs continuous vectors.
 
@@ -34,10 +34,6 @@ class Embedder(HierarchicalModel):
     """
     raise NotImplementedError('embed_sent must be implemented in Embedder subclasses')
 
-  @recursive
-  def set_train(self, val):
-    pass
-
 class SimpleWordEmbedder(Embedder, Serializable):
   """
   Simple word embeddings via lookup.
@@ -53,6 +49,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
     :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
     :param fix_norm: fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
     """
+    register_handler(self)
     self.vocab_size = vocab_size
     self.emb_dim = emb_dim or yaml_context.default_layer_dim
     self.weight_noise = weight_noise or yaml_context.weight_noise
@@ -62,12 +59,12 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.word_id_mask = None
     self.train = False
 
-  @recursive
-  def start_sent(self):
+  @handle_xnmt_event
+  def on_start_sent(self):
     self.word_id_mask = None
 
-  @recursive
-  def set_train(self, val):
+  @handle_xnmt_event
+  def on_set_train(self, val):
     self.train = val
 
   def embed(self, x):

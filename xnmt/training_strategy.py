@@ -4,7 +4,6 @@ import six
 import dynet as dy
 import numpy as np
 
-from xnmt.hier_model import HierarchicalModel
 from xnmt.loss import LossBuilder
 from xnmt.serializer import Serializable
 from xnmt.vocab import Vocab
@@ -13,7 +12,7 @@ import xnmt.evaluator
 import xnmt.linear as linear
 
 
-class TrainingStrategy(Serializable, HierarchicalModel):
+class TrainingStrategy(Serializable):
   '''
   A template class implementing the training strategy and corresponding loss calculation.
   '''
@@ -24,8 +23,6 @@ class TrainingStrategy(Serializable, HierarchicalModel):
       self.loss_calculator = TrainingMLELoss()
     else:
       self.loss_calculator = loss_calculator
-
-    self.register_hier_child(self.loss_calculator)
 
   def __call__(self, translator, dec_state, src, trg):
       return self.loss_calculator(translator, dec_state, src, trg)
@@ -56,7 +53,7 @@ class TrainingMLELoss(Serializable):
 
     return dy.esum(losses)
 
-class TrainingReinforceLoss(Serializable, HierarchicalModel):
+class TrainingReinforceLoss(Serializable):
   yaml_tag = '!TrainingReinforceLoss'
 
   def __init__(self, yaml_context, evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):

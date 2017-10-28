@@ -10,15 +10,13 @@ from xml.sax.saxutils import escape, unescape
 from lxml import etree
 from scipy.stats import poisson
 
-import xnmt.segment_transducer as segment_transducer
 import xnmt.linear as linear
 import xnmt.expression_sequence as expression_sequence
 
-from xnmt.hier_model import recursive, recursive_assign, recursive_sum
+from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.reports import Reportable
 from xnmt.serializer import Serializable
-from xnmt.encoder import Encoder
-from xnmt.encoder_state import FinalEncoderState
+from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import LossBuilder
 
 class SegmentingAction(Enum):
@@ -33,6 +31,7 @@ class ScalarParam(Serializable):
   yaml_tag = u'!ScalarParam'
 
   def __init__(self, initial=0.1, warmup=0, grow=1, min_value=0.0, max_value=1.0):
+    register_handler(self)
     self.value = initial
     self.warmup = warmup
     self.grow = grow
@@ -54,11 +53,12 @@ class ScalarParam(Serializable):
   def __repr__(self):
     return str(self.value)
 
-class SegmentingEncoder(Encoder, Serializable, Reportable):
-  yaml_tag = u'!SegmentingEncoder'
+class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
+  yaml_tag = u'!SegmentingSeqTransducer'
 
   def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None, learn_segmentation=True,
                reinforcement_param=None, length_prior=3.5, learn_delete=False):
+    register_handler(self)
     model = yaml_context.dynet_param_collection.param_col
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
@@ -84,8 +84,6 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     self.train = True
     self.warmup_counter = 0
     # Register all the children 
-    self.register_hier_child(embed_encoder)
-    self.register_hier_child(segment_transducer)
 
   def sample_segmentation(self, encodings, batch_size):
     lmbd = self.lmbd.get_value(self.warmup_counter)
@@ -116,10 +114,10 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
                              for log_softmax in segment_logsoftmaxes]
     return segment_decisions, segment_logsoftmaxes
 
-  def transduce(self, embed_sent):
+  def __call__(self, embed_sent):
     batch_size = embed_sent[0].dim()[1]
     # Softmax + segment decision
-    encodings = self.embed_encoder.transduce(embed_sent)
+    encodings = self.embed_encoder(embed_sent)
     if self.learn_segmentation:
       segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size)
     else:
@@ -176,24 +174,25 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
       self.bs = list(six.moves.map(lambda x: self.baseline(dy.nobackprop(x)), encodings))
     if not self.train:
       self.set_report_input(segment_decisions)
-    self._final_encoder_state = [FinalEncoderState(encodings[-1])]
+    self._final_encoder_state = [FinalTransducerState(encodings[-1])]
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return expression_sequence.ExpressionSequence(expr_tensor=outputs)
 
-  @recursive
-  def set_train(self, train):
+  @handle_xnmt_event
+  def on_set_train(self, train):
     self.train = train
 
   def get_final_states(self):
     return self._final_encoder_state
 
+  # TODO: handle as global event?
   def new_epoch(self):
     self.lmbd.grow_param(self.warmup_counter)
     self.warmup_counter += 1
     print("Now Lambda:", self.lmbd)
 
-  @recursive_sum
-  def calc_additional_loss(self, reward):
+  @handle_xnmt_event
+  def on_calc_additional_loss(self, reward):
     if self.learn_segmentation:
       lmbd = self.lmbd.get_value(self.warmup_counter)
       reward += self.segment_length_prior
@@ -215,8 +214,8 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     else:
       return None
 
-  @recursive_assign
-  def html_report(self, context):
+  @handle_xnmt_event
+  def on_html_report(self, context):
     segment_decision = self.get_report_input()[0]
     segment_decision = list(six.moves.map(lambda x: int(x[0]), segment_decision))
     src_words = list(six.moves.map(escape, self.get_report_resource("src_words")))
@@ -230,8 +229,8 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
 
     return context
 
-  @recursive
-  def file_report(self):
+  @handle_xnmt_event
+  def on_file_report(self):
     segment_decision = self.get_report_input()[0]
     segment_decision = list(six.moves.map(lambda x: int(x[0]), segment_decision))
     src_words = self.get_report_resource("src_words")

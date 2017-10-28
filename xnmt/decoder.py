@@ -1,10 +1,10 @@
 import dynet as dy
 from xnmt.serializer import Serializable
 import xnmt.batcher
-from xnmt.hier_model import HierarchicalModel, recursive
+from xnmt.events import register_handler, handle_xnmt_event
 import xnmt.linear
 
-class Decoder(HierarchicalModel):
+class Decoder(object):
   '''
   A template class to convert a prefix of previously generated words and
   a context vector into a probability distribution over possible next words.
@@ -45,6 +45,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
                bridge=None):
+    register_handler(self)
     param_col = yaml_context.dynet_param_collection.param_col
     # Define dim
     lstm_dim       = lstm_dim or yaml_context.default_layer_dim
@@ -126,8 +127,8 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     else:
       return dy.pickneglogsoftmax_batch(scores, ref_action)
 
-  @recursive
-  def set_train(self, val):
+  @handle_xnmt_event
+  def on_set_train(self, val):
     self.fwd_lstm.set_dropout(self.dropout if val else 0.0)
 
 class Bridge(object):

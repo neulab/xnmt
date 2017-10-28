@@ -33,7 +33,7 @@ exp1-lstm-encoder:
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
         word_dropout: 0.3
-      encoder: !LSTMEncoder
+      encoder: !LSTMSeqTransducer
         layers: 2
         input_dim: 64
         bidirectional: True
@@ -54,7 +54,7 @@ exp2-residual-encoder:
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
-      encoder: !ResidualLSTMEncoder
+      encoder: !ResidualLSTMSeqTransducer
         layers: 2
         input_dim: 64
         bidirectional: True
@@ -74,7 +74,7 @@ exp3-pyramidal-encoder:
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
-      encoder: !PyramidalLSTMEncoder
+      encoder: !PyramidalLSTMSeqTransducer
         layers: 3
         input_dim: 64
       attender: !StandardAttender
@@ -94,14 +94,14 @@ exp4-modular-encoder:
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
-      encoder: !ModularEncoder
+      encoder: !ModularSeqTransducer
         modules:
-        - !LSTMEncoder
+        - !LSTMSeqTransducer
             input_dim: 64
             hidden_dim: 64
             layers: 1
             dropout: 0.1
-        - !PyramidalLSTMEncoder
+        - !PyramidalLSTMSeqTransducer
             input_dim: 64
             hidden_dim: 64
             layers: 2

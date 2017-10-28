@@ -3,11 +3,11 @@ from __future__ import division, generators
 import six
 import dynet as dy
 import numpy as np
-import os
 from lxml import etree
 
 import xnmt.batcher
-from xnmt.hier_model import GeneratorModel, recursive_assign
+from xnmt.events import handle_xnmt_event
+from xnmt.generator import GeneratorModel
 from xnmt.serializer import Serializable
 from xnmt.reports import Reportable
 from xnmt.expression_sequence import ExpressionSequence
@@ -97,9 +97,6 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
     self.trg_encoder = trg_encoder
     self.database = database
     self.loss_direction = loss_direction
-
-    self.register_hier_child(self.src_encoder)
-    self.register_hier_child(self.trg_encoder)
 
   def exprseq_pooling(self, exprseq):
     # Reduce to vector
@@ -194,8 +191,8 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
     else:
       raise RuntimeError("Illegal return_type to retrieve: {}".format(return_type))
 
-  @recursive_assign
-  def html_report(self, context=None):
+  @handle_xnmt_event
+  def on_html_report(self, context=None):
     print("WARNING: Unimplemented html report for retriever!")
     idx, src_words, scores, kbest = self.html_input
     html = etree.Element('html')

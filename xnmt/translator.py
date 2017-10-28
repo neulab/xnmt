@@ -2,7 +2,6 @@ from __future__ import division, generators
 
 import six
 import plot
-import math
 import dynet as dy
 import numpy as np
 
@@ -10,13 +9,13 @@ import xnmt.length_normalization
 import xnmt.batcher
 
 from xnmt.vocab import Vocab
-from xnmt.hier_model import GeneratorModel, recursive_assign, recursive
+from xnmt.events import register_xnmt_event_assign, register_handler
+from xnmt.generator import GeneratorModel
 from xnmt.serializer import Serializable, DependentInitParam
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.output import TextOutput
 from xnmt.reports import Reportable
 import xnmt.serializer
-import xnmt.evaluator
 from xnmt.batcher import mark_as_batch, is_batched
 
 # Reporting purposes
@@ -64,16 +63,12 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     :param trg_embedder: A word embedder for the output language
     :param decoder: A decoder
     '''
+    register_handler(self)
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
-
-    self.register_hier_child(self.encoder)
-    self.register_hier_child(self.decoder)
-    self.register_hier_child(self.src_embedder)
-    self.register_hier_child(self.trg_embedder)
 
   def shared_params(self):
     return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
@@ -116,7 +111,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     assert hasattr(self, "loss_calculator")
     self.start_sent()
     embeddings = self.src_embedder.embed_sent(src)
-    encodings = self.encoder.transduce(embeddings)
+    encodings = self.encoder(embeddings)
     self.attender.init_sent(encodings)
     # Initialize the hidden state from the encoder
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
@@ -132,7 +127,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     for sents in src:
       self.start_sent()
       embeddings = self.src_embedder.embed_sent(src)
-      encodings = self.encoder.transduce(embeddings)
+      encodings = self.encoder(embeddings)
       self.attender.init_sent(encodings)
       ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
       dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
@@ -159,7 +154,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     """
     self.reporting_src_vocab = src_vocab
 
-  @recursive_assign
+  @register_xnmt_event_assign
   def html_report(self, context=None):
     assert(context is None)
     idx, src, trg, att = self.get_report_input()
@@ -203,7 +198,4 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     # return the parent context to be used as child context
     return html
 
-  @recursive
-  def file_report(self):
-    pass
 
