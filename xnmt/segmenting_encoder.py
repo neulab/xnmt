@@ -5,7 +5,7 @@ import six
 import numpy
 import dynet as dy
 
-from enum import Enum
+#from enum import Enum
 from xml.sax.saxutils import escape, unescape
 from lxml import etree
 from scipy.stats import poisson
@@ -19,7 +19,7 @@ from xnmt.serializer import Serializable
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import LossBuilder
 
-class SegmentingAction(Enum):
+class SegmentingAction(object): # TODO
   """
   The enumeration of possible action.
   """
@@ -140,13 +140,13 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       for i, decision in enumerate(segment_decision):
         # If segment for this particular input
         decision = int(decision)
-        if decision == SegmentingAction.DELETE.value:
+        if decision == SegmentingAction.DELETE: # TODO .value:
           continue
         # Get the particular encoding for that batch item
         encoding_i = dy.pick_batch_elem(encoding, i)
         # Append the encoding for this item to the buffer
         buffers[i].append(encoding_i)
-        if decision == SegmentingAction.SEGMENT.value:
+        if decision == SegmentingAction.SEGMENT: # TODO .value:
           expr_seq = expression_sequence.ExpressionSequence(expr_list=buffers[i])
           transduce_output = self.segment_transducer.transduce(expr_seq)
           outputs[i].append(transduce_output)
@@ -244,9 +244,9 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     segmented = []
     temp = ""
     for decision, word in zip(segmentation, words):
-      if decision == SegmentingAction.READ.value:
+      if decision == SegmentingAction.READ: # TODO .value:
         temp += word
-      elif decision == SegmentingAction.SEGMENT.value:
+      elif decision == SegmentingAction.SEGMENT: # TODO .value:
         temp += word
         segmented.append((temp, False))
         temp = ""
