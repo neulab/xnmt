@@ -165,7 +165,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
           outputs[i].append(transduce_output)
           buffers[i] = []
           # Calculate length prior
-          length_prior[i] += numpy.log(poisson.pmf(j - last_segment[i], self.length_prior))
+          length_prior[i] += numpy.log(poisson.pmf(j - last_segment[i], self.length_prior) + 1e-10)
           length_div[i] += 1
           last_segment[i] = j
         self.segment_transducer.next_item()
