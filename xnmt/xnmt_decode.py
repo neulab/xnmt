@@ -68,7 +68,7 @@ def xnmt_decode(args, model_elements=None):
   if args.mode == "forced":
     if args.ref_file == None:
       raise RuntimeError("When performing {} decoding of mode, must specify reference file".format(args.mode))
-    ref_corpus = corpus_parser.trg_reader.read_sents(args.ref_file)
+    ref_corpus = list(corpus_parser.trg_reader.read_sents(args.ref_file))
   else:
     ref_corpus = None
   # Vocab
@@ -97,7 +97,6 @@ def xnmt_decode(args, model_elements=None):
       else:
         dy.renew_cg()
         ref_ids = ref_corpus[i] if ref_corpus != None else None
-        print(ref_ids)
         outputs = generator.generate_output(src, i, forced_trg_ids=ref_ids)
       # Printing to trg file
       fp.write(u"{}\n".format(outputs))
