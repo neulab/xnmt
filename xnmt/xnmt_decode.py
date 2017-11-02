@@ -23,7 +23,8 @@ options = [
   Option("dynet-gpus", int, required=False),
   Option("model_file", force_flag=True, required=True, help_str="pretrained (saved) model path"),
   Option("src_file", help_str="path of input src file to be translated"),
-  Option("trg_file", help_str="path of file where expected trg translatons will be written"),
+  Option("trg_file", help_str="path of file where trg translatons will be written"),
+  Option("ref_file", str, required=False, help_str="path of file with reference translations, e.g. for forced decoding"),
   Option("max_src_len", int, required=False, help_str="Remove sentences from data to decode that are longer than this on the source side"),
   Option("input_format", default_value="text", help_str="format of input data: text/contvec"),
   Option("post_process", default_value="none", help_str="post-processing of translation outputs: none/join-char/join-bpe"),
@@ -33,6 +34,7 @@ options = [
   Option("beam", int, default_value=1),
   Option("max_len", int, default_value=100),
   Option("len_norm_type", str, required=False),
+  Option("mode", str, default_value="onebest", help_str="type of decoding to perform. onebest: generate one best. forced: perform forced decoding."),
 ]
 
 NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
@@ -62,12 +64,20 @@ def xnmt_decode(args, model_elements=None):
   is_reporting = issubclass(generator.__class__, Reportable) and args.report_path is not None
   # Corpus
   src_corpus = corpus_parser.src_reader.read_sents(args.src_file)
+  # Get reference if it exists and is necessary
+  if args.mode == "forced":
+    if args.ref_file == None:
+      raise RuntimeError("When performing {} decoding of mode, must specify reference file".format(args.mode))
+    ref_corpus = corpus_parser.trg_reader.read_sents(args.ref_file)
+  else:
+    ref_corpus = None
   # Vocab
   src_vocab = corpus_parser.src_reader.vocab if hasattr(corpus_parser.src_reader, "vocab") else None
   trg_vocab = corpus_parser.trg_reader.vocab if hasattr(corpus_parser.trg_reader, "vocab") else None
   # Perform initialization
   generator.set_train(False)
   generator.initialize_generator(**args.params_as_dict)
+
   # TODO: Structure it better. not only Translator can have post processes
   if issubclass(generator.__class__, Translator):
     generator.set_post_processor(output_processor_for_spec(args.post_process))
@@ -86,7 +96,9 @@ def xnmt_decode(args, model_elements=None):
         outputs = NO_DECODING_ATTEMPTED
       else:
         dy.renew_cg()
-        outputs = generator.generate_output(src, i)
+        ref_ids = ref_corpus[i] if ref_corpus != None else None
+        print(ref_ids)
+        outputs = generator.generate_output(src, i, forced_trg_ids=ref_ids)
       # Printing to trg file
       fp.write(u"{}\n".format(outputs))
 
