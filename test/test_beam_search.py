@@ -48,7 +48,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
     dy.renew_cg()
     outputs = self.model.generate_output(self.training_corpus.train_src_data[sent_id], sent_id,
                                          forced_trg_ids=self.training_corpus.train_trg_data[sent_id])
-    self.assertItemsEqual(self.training_corpus.train_trg_data[sent_id], outputs[0][0])
+    self.assertItemsEqual(self.training_corpus.train_trg_data[sent_id], outputs[0].actions)
 
   def test_forced_decoding(self):
     for i in range(1):
@@ -87,8 +87,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
     self.model.initialize_generator(beam=1)
     outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0,
                                          forced_trg_ids=self.training_corpus.train_trg_data[0])
-    output_score = outputs[0][1]
-    self.assertAlmostEqual(-output_score, train_loss, places=5)
+    self.assertAlmostEqual(-outputs[0].score, train_loss, places=5)
 
 class TestFreeDecodingLoss(unittest.TestCase):
 
@@ -120,13 +119,11 @@ class TestFreeDecodingLoss(unittest.TestCase):
     self.model.initialize_generator(beam=1)
     outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0,
                                          forced_trg_ids=self.training_corpus.train_trg_data[0])
-    output_score = outputs[0][1]
-
     dy.renew_cg()
     train_loss = self.model.calc_loss(src=self.training_corpus.train_src_data[0],
-                                      trg=outputs[0][0]).value()
+                                      trg=outputs[0].actions).value()
 
-    self.assertAlmostEqual(-output_score, train_loss, places=5)
+    self.assertAlmostEqual(-outputs[0].score, train_loss, places=5)
 
 class TestGreedyVsBeam(unittest.TestCase):
   """
@@ -159,13 +156,13 @@ class TestGreedyVsBeam(unittest.TestCase):
     self.model.initialize_generator(beam=1)
     outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0,
                                          forced_trg_ids=self.training_corpus.train_trg_data[0])
-    output_score1 = outputs[0][1]
+    output_score1 = outputs[0].score
 
     dy.renew_cg()
     self.model.initialize_generator()
     outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0,
                                          forced_trg_ids=self.training_corpus.train_trg_data[0])
-    output_score2 = outputs[0][1]
+    output_score2 = outputs[0].score
 
     self.assertAlmostEqual(output_score1, output_score2)
 
