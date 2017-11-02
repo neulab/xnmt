@@ -142,10 +142,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
         self.generate_report(self.report_type)
       # Append output to the outputs
-      if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
-        outputs.append(TextOutput(output_actions, self.trg_vocab))
-      else:
-        outputs.append((output_actions, score))
+      outputs.append(TextOutput(actions=output_actions,
+                                vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
+                                score=score))
     return outputs
 
   def set_reporting_src_vocab(self, src_vocab):

@@ -34,7 +34,7 @@ options = [
   Option("beam", int, default_value=1),
   Option("max_len", int, default_value=100),
   Option("len_norm_type", str, required=False),
-  Option("mode", str, default_value="onebest", help_str="type of decoding to perform. onebest: generate one best. forced: perform forced decoding."),
+  Option("mode", str, default_value="onebest", help_str="type of decoding to perform. onebest: generate one best. forced: perform forced decoding. forceddebug: perform forced decoding, calculate training loss, and make suer the scores are identical for debugging purposes."),
 ]
 
 NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
@@ -65,9 +65,9 @@ def xnmt_decode(args, model_elements=None):
   # Corpus
   src_corpus = corpus_parser.src_reader.read_sents(args.src_file)
   # Get reference if it exists and is necessary
-  if args.mode == "forced":
+  if args.mode == "forced" or args.mode == "forceddebug":
     if args.ref_file == None:
-      raise RuntimeError("When performing {} decoding of mode, must specify reference file".format(args.mode))
+      raise RuntimeError("When performing {} decoding, must specify reference file".format(args.mode))
     ref_corpus = list(corpus_parser.trg_reader.read_sents(args.ref_file))
   else:
     ref_corpus = None
@@ -93,13 +93,13 @@ def xnmt_decode(args, model_elements=None):
     for i, src in enumerate(src_corpus):
       # Do the decoding
       if args.max_src_len is not None and len(src) > args.max_src_len:
-        outputs = NO_DECODING_ATTEMPTED
+        output = NO_DECODING_ATTEMPTED
       else:
         dy.renew_cg()
         ref_ids = ref_corpus[i] if ref_corpus != None else None
-        outputs = generator.generate_output(src, i, forced_trg_ids=ref_ids)
+        output = generator.generate_output(src, i, forced_trg_ids=ref_ids)
       # Printing to trg file
-      fp.write(u"{}\n".format(outputs))
+      fp.write(u"{}\n".format(output))
 
 def output_processor_for_spec(spec):
   if spec == "none":
