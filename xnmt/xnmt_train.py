@@ -330,11 +330,11 @@ class XnmtTrainer(object):
   def compute_dev_loss(self):
     loss_builder = LossBuilder()
     trg_words_cnt = 0
-    for i in range(len(self.dev_src)):
+    for src, trg in zip(self.dev_src, self.dev_trg):
       dy.renew_cg()
-      standard_loss = self.model.calc_loss(self.dev_src[i], self.dev_trg[i])
+      standard_loss = self.model.calc_loss(src, trg)
       loss_builder.add_loss("loss", standard_loss)
-      trg_words_cnt += self.logger.count_trg_words(self.dev_trg[i])
+      trg_words_cnt += self.logger.count_trg_words(trg)
       loss_builder.compute()
     return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
 
