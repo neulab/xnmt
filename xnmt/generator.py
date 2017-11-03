@@ -7,7 +7,7 @@ class GeneratorModel(object):
     # Post process it
     if hasattr(self, "post_processor"):
       self.post_processor.process_outputs(generation_output)
-    return generation_output[0]
+    return generation_output
 
   def generate(self, *args, **kwargs):
     raise NotImplementedError()
