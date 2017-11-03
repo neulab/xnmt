@@ -28,7 +28,7 @@ defaults:
       encoder: !LSTMSeqTransducer
         layers: 1
         input_dim: 256
-      attender: !StandardAttender
+      attender: !MlpAttender
         state_dim: 256
         hidden_dim: 256
         input_dim: 256

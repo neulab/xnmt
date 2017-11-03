@@ -19,13 +19,12 @@ class Attender(object):
   def calc_attention(self, state):
     raise NotImplementedError('calc_attention must be implemented for Attender subclasses')
 
-
-class StandardAttender(Attender, Serializable):
+class MlpAttender(Attender, Serializable):
   '''
   Implements the attention model of Bahdanau et. al (2014)
   '''
 
-  yaml_tag = u'!StandardAttender'
+  yaml_tag = u'!MlpAttender'
 
   def __init__(self, yaml_context, input_dim=None, state_dim=None, hidden_dim=None):
     input_dim = input_dim or yaml_context.default_layer_dim
@@ -72,3 +71,29 @@ class StandardAttender(Attender, Serializable):
     I = self.curr_sent.as_tensor()
     return I * attention
 
+class DotAttender(Attender, Serializable):
+  '''
+  Implements dot product attention of Luong et al. (2015)
+  '''
+
+  yaml_tag = u'!DotAttender'
+
+  def __init__(self, yaml_context):
+    self.curr_sent = None
+
+  def init_sent(self, sent):
+    self.curr_sent = sent
+    I = self.curr_sent.as_tensor()
+
+  def calc_attention(self, state):
+    scores = I * state
+    if self.curr_sent.mask is not None:
+      scores = self.curr_sent.mask.add_to_tensor_expr(scores, multiplicator = -100.0)
+    normalized = dy.softmax()
+    self.attention_vecs.append(normalized)
+    return normalized
+
+  def calc_context(self, state):
+    attention = self.calc_attention(state)
+    I = self.curr_sent.as_tensor()
+    return I * attention

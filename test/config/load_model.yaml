@@ -29,7 +29,7 @@ defaults:
         layers: 2
         input_dim: 64
         bidirectional: True
-      attender: !StandardAttender
+      attender: !MlpAttender
         state_dim: 64
         hidden_dim: 64
         input_dim: 64
