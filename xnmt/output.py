@@ -33,7 +33,8 @@ class PlainTextOutputProcessor(OutputProcessor):
   with one sent per line.
   '''
   def process_outputs(self, outputs):
-    return [self.words_to_string(output.to_string()) for output in outputs]
+    for output in outputs:
+      output.plaintext = self.words_to_string(output.to_string())
 
   def words_to_string(self, word_list):
     return u" ".join(word_list)
