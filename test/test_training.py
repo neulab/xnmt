@@ -7,7 +7,7 @@ from xnmt.translator import DefaultTranslator
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.lstm import LSTMSeqTransducer
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
-from xnmt.attender import MlpAttender
+from xnmt.attender import MlpAttender, DotAttender
 from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
 from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
@@ -92,6 +92,18 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               attender=MlpAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
+            )
+    model.initialize_training_strategy(TrainingStrategy())
+    model.set_train(False)
+    self.assert_single_loss_equals_batch_loss(model)
+
+  def test_loss_model4(self):
+    model = DefaultTranslator(
+              src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
+              encoder=LSTMSeqTransducer(self.model_context),
+              attender=DotAttender(self.model_context),
+              trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
     model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)

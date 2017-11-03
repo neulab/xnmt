@@ -1,3 +1,4 @@
+import math
 import dynet as dy
 from xnmt.batcher import *
 from xnmt.serializer import *
@@ -73,23 +74,29 @@ class MlpAttender(Attender, Serializable):
 
 class DotAttender(Attender, Serializable):
   '''
-  Implements dot product attention of Luong et al. (2015)
+  Implements dot product attention of https://arxiv.org/abs/1508.04025
+  Also (optionally) perform scaling of https://arxiv.org/abs/1706.03762
   '''
 
   yaml_tag = u'!DotAttender'
 
-  def __init__(self, yaml_context):
+  def __init__(self, yaml_context, scale=True):
     self.curr_sent = None
+    self.attention_vecs = None
+    self.scale = scale
 
   def init_sent(self, sent):
     self.curr_sent = sent
-    I = self.curr_sent.as_tensor()
+    self.attention_vecs = []
+    self.I = dy.transpose(self.curr_sent.as_tensor())
 
   def calc_attention(self, state):
-    scores = I * state
+    scores = self.I * state
+    if self.scale:
+      scores /= math.sqrt(state.dim()[0][0])
     if self.curr_sent.mask is not None:
       scores = self.curr_sent.mask.add_to_tensor_expr(scores, multiplicator = -100.0)
-    normalized = dy.softmax()
+    normalized = dy.softmax(scores)
     self.attention_vecs.append(normalized)
     return normalized
 
