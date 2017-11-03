@@ -33,10 +33,18 @@ defaults:
         layers: 1
         bridge: !CopyBridge {}
   decode:
-    mode: forced
     src_file: examples/data/head.ja
-    ref_file: examples/data/head.en
   evaluate:
     ref_file: examples/data/head.en
 
 standard:
+
+forced:
+  decode:
+    mode: forced
+    ref_file: examples/data/head.en
+
+forceddebug:
+  decode:
+    mode: forceddebug
+    ref_file: examples/data/head.en

@@ -63,7 +63,7 @@ def xnmt_decode(args, model_elements=None):
 
   is_reporting = issubclass(generator.__class__, Reportable) and args.report_path is not None
   # Corpus
-  src_corpus = corpus_parser.src_reader.read_sents(args.src_file)
+  src_corpus = list(corpus_parser.src_reader.read_sents(args.src_file))
   # Get reference if it exists and is necessary
   if args.mode == "forced" or args.mode == "forceddebug":
     if args.ref_file == None:
@@ -88,6 +88,18 @@ def xnmt_decode(args, model_elements=None):
     generator.set_report_resource("src_vocab", src_vocab)
     generator.set_report_resource("trg_vocab", trg_vocab)
 
+  # If we're debugging, calculate the loss for each target sentence
+  ref_scores = None
+  if args.mode == 'forceddebug':
+    batcher = xnmt.batcher.InOrderBatcher(32) # Arbitrary
+    batched_src, batched_ref = batcher.pack(src_corpus, ref_corpus)
+    ref_scores = []
+    for src, ref in zip(batched_src, batched_ref):
+      dy.renew_cg()
+      loss_expr = generator.calc_loss(src, ref)
+      ref_scores.extend(loss_expr.value())
+    ref_scores = [-x for x in ref_scores]
+
   # Perform generation of output
   with io.open(args.trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
     for i, src in enumerate(src_corpus):
@@ -98,8 +110,11 @@ def xnmt_decode(args, model_elements=None):
         dy.renew_cg()
         ref_ids = ref_corpus[i] if ref_corpus != None else None
         output = generator.generate_output(src, i, forced_trg_ids=ref_ids)
+        # If debugging forced decoding, make sure it matches
+        if ref_scores != None and (abs(output[0].score-ref_scores[i]) / abs(ref_scores[i])) > 1e-5:
+          print('Forced decoding score {} and loss {} do not match at sentence {}'.format(output[0].score, ref_scores[i], i))
       # Printing to trg file
-      fp.write(u"{}\n".format(output))
+      fp.write(u"{}\n".format(output[0].plaintext))
 
 def output_processor_for_spec(spec):
   if spec == "none":
