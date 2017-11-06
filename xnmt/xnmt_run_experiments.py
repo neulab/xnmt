@@ -126,12 +126,8 @@ def main(overwrite_args=None):
     xnmt_trainer.evaluate_args = copy.copy(evaluate_args)
 
     eval_scores = "Not evaluated"
-    for i_epoch in six.moves.range(exp_args.run_for_epochs):
-      if not exp_args.eval_only:
-        xnmt_trainer.run_epoch()
-
-      if xnmt_trainer.early_stopping_reached:
-        break
+    if not exp_args.eval_only:
+      xnmt_trainer.run_epochs(exp_args.run_for_epochs)
 
     if not exp_args.eval_only:
       print('reverting learned weights to best checkpoint..')

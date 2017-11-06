@@ -4,6 +4,7 @@ from __future__ import division, print_function
 import argparse
 import sys
 import six
+from six.moves import range
 from subprocess import Popen
 
 import dynet as dy
@@ -206,7 +207,15 @@ class XnmtTrainer(object):
     else:
       print('new data set is not ready yet, using data from last epoch.')
 
-  def run_epoch(self, update_weights=True):
+  def run_epochs(self, num_epochs=None):
+    epoch_i = 0
+    while True:
+      self.one_epoch()
+      epoch_i += 1
+      if self.early_stopping_reached or (num_epochs is not None and epoch_i >= num_epochs):
+        break
+
+  def one_epoch(self, update_weights=True):
     """
     :param update_weights: Whether to perform backward pass & update weights (useful for debugging)
     """
@@ -346,5 +355,4 @@ if __name__ == "__main__":
 
   xnmt_trainer = XnmtTrainer(args)
 
-  while not xnmt_trainer.early_stopping_reached:
-    xnmt_trainer.run_epoch()
+  xnmt_trainer.run_epochs()
