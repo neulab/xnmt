@@ -59,7 +59,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
 
   def __init__(self, context, embed_encoder=None, segment_transducer=None, learn_segmentation=True,
                reinforcement_param=None, length_prior=3.5, learn_delete=False,
-               length_prior_alpha=1.0, use_baseline=True):
+               length_prior_alpha=1.0, use_baseline=True, segmentation_warmup_counter=None):
     model = context.dynet_param_collection.param_col
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
@@ -86,6 +86,7 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
     # States of the object
     self.train = True
     self.warmup_counter = 0
+    self.segmentation_warmup_counter = segmentation_warmup_counter
     # Register all the children 
     self.register_hier_child(embed_encoder)
     self.register_hier_child(segment_transducer)
@@ -93,7 +94,8 @@ class SegmentingEncoder(Encoder, Serializable, Reportable):
   def sample_segmentation(self, encodings, batch_size, src=None):
     lmbd = self.lmbd.get_value(self.warmup_counter)
     segment_logsoftmaxes = None
-    if not self.learn_segmentation: # Indicates that prior segmentation is given
+    if src is not None and \
+       (self.segmentation_warmup_counter is None or self.warmup_counter >= self.segmentation_warmup_counter): # Indicates that prior segmentation is given
       segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
       for i, sent in enumerate(src):
         if "segment" not in sent.annotation:
