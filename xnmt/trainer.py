@@ -6,7 +6,7 @@ The purpose of this module is mostly to expose the DyNet trainers to YAML serial
 but may also be extended to customize trainers / training schedules
 """
 
-class XnmtTrainer(object):
+class XnmtOptimizer(object):
   def update(self): return self.optimizer.update()
   def update_epoch(self, r = 1.0): return self.optimizer.update_epoch(r)
   def status(self): return self.optimizer.status()
@@ -20,30 +20,30 @@ class XnmtTrainer(object):
   def learning_rate(self, value):
       self.optimizer.learning_rate = value
 
-class SimpleSGDTrainer(XnmtTrainer, Serializable):
+class SimpleSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!SimpleSGDTrainer'
   def __init__(self, yaml_context, e0 = 0.1):
     self.optimizer = dy.SimpleSGDTrainer(yaml_context.dynet_param_collection.param_col, 
                                          e0=e0)
-class MomentumSGDTrainer(XnmtTrainer, Serializable):
+class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!MomentumSGDTrainer'
   def __init__(self, yaml_context, e0 = 0.01, mom = 0.9):
     self.optimizer = dy.MomentumSGDTrainer(yaml_context.dynet_param_collection.param_col, 
                                            e0=e0, mom=mom)
 
-class AdagradTrainer(XnmtTrainer, Serializable):
+class AdagradTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!AdagradTrainer'
   def __init__(self, yaml_context, e0 = 0.1, eps = 1e-20):
     self.optimizer = dy.AdagradTrainer(yaml_context.dynet_param_collection.param_col, 
                                        e0=e0, eps=eps)
 
-class AdadeltaTrainer(XnmtTrainer, Serializable):
+class AdadeltaTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!AdadeltaTrainer'
   def __init__(self, yaml_context, eps = 1e-6, rho = 0.95):
     self.optimizer = dy.AdadeltaTrainer(yaml_context.dynet_param_collection.param_col, 
                                         eps=eps, rho=rho)
 
-class AdamTrainer(XnmtTrainer, Serializable):
+class AdamTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!AdamTrainer'
   def __init__(self, yaml_context, alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
     self.optimizer = dy.AdamTrainer(yaml_context.dynet_param_collection.param_col, 
