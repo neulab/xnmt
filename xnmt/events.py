@@ -105,7 +105,11 @@ def register_xnmt_event_sum(f):
   
 def handle_xnmt_event(f):
   def wrapper(obj, *args, **kwargs):
-    return f(obj, *args, **kwargs), f.__name__
+    try:
+      return f(obj, *args, **kwargs), f.__name__
+    except:
+      print("Error handling xnmt event at object:", obj.__class__.__name__)
+      raise
   assert f.__name__.startswith("on_"), "xnmt event handlers must be named on_*, found {}".format(f.__name__)
   handler_method_names.add(f.__name__[3:])
   return wrapper

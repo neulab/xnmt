@@ -212,6 +212,7 @@ class XnmtTrainer(object):
     """
 
     self.logger.new_epoch()
+    self.model.new_epoch()
 
     if self.args.reload_command is not None:
       self._augment_data_next_epoch()
@@ -222,7 +223,6 @@ class XnmtTrainer(object):
     for batch_num in order:
       src = self.train_src[batch_num]
       trg = self.train_trg[batch_num]
-
       # Loss calculation
       dy.renew_cg()
       loss_builder = LossBuilder()
@@ -253,8 +253,6 @@ class XnmtTrainer(object):
       self.logger.report_train_process()
       if self.logger.should_report_dev():
         self.dev_evaluation()
-
-      self.model.new_epoch()
 
   def dev_evaluation(self, out_ext=".dev_hyp", ref_ext=".dev_ref", encoding='utf-8'):
     self.model.set_train(False)

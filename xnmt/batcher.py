@@ -15,7 +15,7 @@ class Batch(list):
   def __init__(self, batch_list, mask=None):
     super(Batch, self).__init__(batch_list)
     self.mask = mask
-  
+
 class Mask(object):
   """
   Masks are represented as numpy array of dimensions batchsize x seq_len, with parts
@@ -23,10 +23,10 @@ class Mask(object):
   """
   def __init__(self, np_arr):
     self.np_arr = np_arr
-  
+
   def reversed(self):
     return Mask(self.np_arr[:,::-1])
-  
+
   def add_to_tensor_expr(self, tensor_expr, multiplicator=None):
     # TODO: might cache these expressions to save memory
     if np.count_nonzero(self.np_arr) == 0:
@@ -47,14 +47,13 @@ class Mask(object):
     """
     if inverse:
       if np.count_nonzero(self.np_arr[:,timestep:timestep+1]) == 0:
-        return expr  
+        return expr
       mask_exp = dy.inputTensor((1.0 - self.np_arr)[:,timestep:timestep+1].transpose(), batched=True)
     else:
       if np.count_nonzero(self.np_arr[:,timestep:timestep+1]) == self.np_arr[:,timestep:timestep+1].size:
         return expr
       mask_exp = dy.inputTensor(self.np_arr[:,timestep:timestep+1].transpose(), batched=True)
     return dy.cmult(expr, mask_exp)
-    
 
 class Batcher(object):
   """

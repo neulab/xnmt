@@ -2,8 +2,8 @@ import numpy as np
 import os
 import io
 import six
+import ast
 from collections import defaultdict
-from six.moves import zip_longest, map
 from xnmt.serializer import Serializable
 from xnmt.vocab import *
 ###### Classes representing single inputs
@@ -39,7 +39,7 @@ class SimpleSentenceInput(Input):
       return self
     new_words = list(self.words)
     new_words.extend([token] * pad_len)
-    return SimpleSentenceInput(new_words)
+    return self.__class__(new_words)
 
   def __str__(self):
     return " ".join(six.moves.map(str, self.words))
@@ -47,10 +47,15 @@ class SimpleSentenceInput(Input):
 class SentenceInput(SimpleSentenceInput):
   def __init__(self, words):
     super(SentenceInput, self).__init__(words)
-    self.annotation = []
+    self.annotation = {}
 
   def annotate(self, key, value):
-    self.__dict__[key] = value
+    self.annotation[key] = value
+
+  def get_padded_sent(self, token, pad_len):
+    sent = super(SentenceInput, self).get_padded_sent(token, pad_len)
+    sent.annotation = self.annotation
+    return sent
 
 class ArrayInput(Input):
   """
@@ -97,11 +102,11 @@ class InputReader(object):
 
 class BaseTextReader(InputReader):
   def count_sents(self, filename):
-    i = 0
-    with io.open(filename, encoding='utf-8') as f:
-      for _ in f:
-        i+=1
-    return i
+    f = io.open(filename, encoding='utf-8')
+    try:
+      return sum(1 for _ in f)
+    finally:
+      f.close()
 
   def iterate_filtered(self, filename, filter_ids=None):
     """
@@ -137,7 +142,7 @@ class PlainTextReader(BaseTextReader, Serializable):
   def read_sents(self, filename, filter_ids=None):
     if self.vocab is None:
       self.vocab = Vocab()
-    return map(lambda l: SimpleSentenceInput([self.vocab.convert(word) for word in l.strip().split()] + \
+    return six.moves.map(lambda l: SimpleSentenceInput([self.vocab.convert(word) for word in l.strip().split()] + \
                                                       [self.vocab.convert(Vocab.ES_STR)]),
                self.iterate_filtered(filename, filter_ids))
 
@@ -148,6 +153,42 @@ class PlainTextReader(BaseTextReader, Serializable):
 
   def vocab_size(self):
     return len(self.vocab)
+
+class SegmentationTextReader(PlainTextReader):
+  yaml_tag = u'!SegmentationTextReader'
+
+  def read_sents(self, filename, filter_ids=None):
+    if self.vocab is None:
+      self.vocab = Vocab()
+    def convert(line, segmentation):
+      line = line.strip().split()
+      ret = SentenceInput(list(six.moves.map(self.vocab.convert, line)) + [self.vocab.convert(Vocab.ES_STR)])
+      ret.annotate("segment", list(six.moves.map(int, segmentation.strip().split())))
+      return ret
+
+    if type(filename) != list:
+      try:
+        filename = ast.literal_eval(filename)
+      except:
+        print("Reading %s with a PlainTextReader instead..." % filename)
+        return super(SegmentationTextReader, self).read_sents(filename)
+
+    max_id = None
+    if filter_ids is not None:
+      max_id = max(filter_ids)
+      filter_ids = set(filter_ids)
+    data = []
+    with io.open(filename[0], encoding='utf-8') as char_inp,\
+         io.open(filename[1], encoding='utf-8') as seg_inp:
+      for sent_count, (char_line, seg_line) in enumerate(zip(char_inp, seg_inp)):
+        if filter_ids is None or sent_count in filter_ids:
+          data.append(convert(char_line, seg_line))
+        if max_id is not None and sent_count > max_id:
+          break
+    return data
+
+  def count_sents(self, filename):
+    return super(SegmentationTextReader, self).count_sents(filename[0])
 
 class ContVecReader(InputReader, Serializable):
   """

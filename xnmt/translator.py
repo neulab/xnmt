@@ -109,7 +109,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     :returns: (possibly batched) loss expression
     """
     assert hasattr(self, "loss_calculator")
-    self.start_sent()
+    self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder(embeddings)
     self.attender.init_sent(encodings)
@@ -125,7 +125,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       assert src_mask is not None
     outputs = []
     for sents in src:
-      self.start_sent()
+      self.start_sent(src)
       embeddings = self.src_embedder.embed_sent(src)
       encodings = self.encoder(embeddings)
       self.attender.init_sent(encodings)

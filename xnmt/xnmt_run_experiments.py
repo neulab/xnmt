@@ -139,8 +139,8 @@ def main(overwrite_args=None):
     if evaluators:
       print("> Evaluating test set")
       output.indent += 2
-      xnmt.xnmt_decode.xnmt_decode(decode_args, model_elements=(
-        xnmt_trainer.corpus_parser, xnmt_trainer.model))
+      xnmt.xnmt_decode.xnmt_decode(decode_args,
+                                   model_elements=(xnmt_trainer.corpus_parser, xnmt_trainer.model))
       eval_scores = []
       for evaluator in evaluators:
         evaluate_args.evaluator = evaluator

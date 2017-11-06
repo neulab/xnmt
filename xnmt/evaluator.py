@@ -139,6 +139,7 @@ class BLEUEvaluator(Evaluator):
     except:
       print("BLEU evaluate fast requires xnmt cython installation step.",
             "please check the documentation.")
+      raise
     return xnmt_cython.bleu_sentence(self.ngram, self.smooth, ref, hyp)
 
   # Doc to be added
