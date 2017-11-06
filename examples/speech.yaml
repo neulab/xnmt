@@ -12,6 +12,7 @@ defaults:
     eval_metrics: cer,wer
   train:
     src_format: contvec
+    trainer: !AdamTrainer {}
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/synth.contvec.npz
       train_trg: examples/data/synth.char

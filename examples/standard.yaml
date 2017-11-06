@@ -13,8 +13,8 @@ defaults:
     dropout: 0.1
     default_layer_dim: 512
     restart_trainer: True
-    trainer: Adam
-    learning_rate: 0.0002
+    trainer: !AdamTrainer
+      alpha: 0.0002
     lr_decay: 0.5
     dev_metrics: bleu
     training_corpus: !BilingualTrainingCorpus

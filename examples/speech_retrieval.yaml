@@ -7,8 +7,8 @@ defaults:
     run_for_epochs: 2
     eval_metrics: recall|nbest=1,recall|nbest=5
   train:
-    trainer: 'adam'
-    learning_rate: 0.01 
+    trainer: !AdamTrainer
+      alpha: 0.01 
     default_layer_dim: 512
     dropout: 0.0
     dev_metrics: recall|nbest=1,recall|nbest=5

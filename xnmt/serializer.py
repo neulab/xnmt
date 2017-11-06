@@ -161,6 +161,7 @@ class YamlSerializer(object):
     init_args = self.get_init_args(obj)
     init_args.remove("self")
     for init_arg in init_args:
+      if init_arg=="yaml_context": continue
       if hasattr(obj, init_arg):
         val = getattr(obj, init_arg)
         if isinstance(val, Serializable):

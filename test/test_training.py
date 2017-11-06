@@ -18,6 +18,7 @@ from xnmt.vocab import Vocab
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.training_strategy import TrainingStrategy
 import xnmt.events
+from xnmt.trainer import AdamTrainer
 
 class TestTruncatedBatchTraining(unittest.TestCase):
 
@@ -204,6 +205,7 @@ class TestTrainDevLoss(unittest.TestCase):
                                             decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
                                             )
     train_args['model_file'] = None
+    train_args['trainer'] = None
     train_args['save_num_checkpoints'] = 0
     train_args['batcher'] = SrcBatcher(batch_size=5, break_ties_randomly=False)
     xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(args=Args(**train_args), need_deserialization=False, param_collection=self.model_context.dynet_param_collection)
@@ -239,8 +241,7 @@ class TestOverfitting(unittest.TestCase):
                                             )
     train_args['model_file'] = None
     train_args['save_num_checkpoints'] = 0
-    train_args['trainer'] = "adam"
-    train_args['learning_rate'] = 0.1
+    train_args['trainer'] = AdamTrainer(self.model_context, alpha=0.1)
     train_args['batcher'] = SrcBatcher(batch_size=10, break_ties_randomly=False)
     xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(args=Args(**train_args), need_deserialization=False, param_collection=self.model_context.dynet_param_collection)
     xnmt_trainer.model_context = self.model_context

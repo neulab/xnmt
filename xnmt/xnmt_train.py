@@ -37,6 +37,7 @@ import xnmt.serializer
 import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
 from xnmt.evaluator import LossScore
+import xnmt.trainer
 '''
 This will be the main class to perform training.
 '''
@@ -57,9 +58,7 @@ options = [
   Option("pretrained_model_file", default_value="", help_str="Path of pre-trained model file"),
   Option("src_format", default_value="text", help_str="Format of input data: text/contvec"),
   Option("default_layer_dim", int, default_value=512, help_str="Default size to use for layers if not otherwise overridden"),
-  Option("trainer", default_value="sgd"),
-  Option("learning_rate", float, default_value=0.1),
-  Option("momentum", float, default_value = 0.9),
+  Option("trainer", default_value=None, required=False, help_str="Trainer object, default is SGD with learning rate 0.1"),
   Option("lr_decay", float, default_value=1.0),
   Option("lr_decay_times", int, default_value=3, help_str="Early stopping after decaying learning rate a certain number of times"),
   Option("attempts_before_lr_decay", int, default_value=1, help_str="apply LR decay after dev scores haven't improved over this many checkpoints"),
@@ -91,7 +90,6 @@ class XnmtTrainer(object):
     else:
       self.model_context.dynet_param_collection = PersistentParamCollection(self.args.model_file, self.args.save_num_checkpoints)
 
-    self.trainer = self.dynet_trainer_for_args(args, self.model_context)
 
     if args.lr_decay > 1.0 or args.lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
@@ -111,6 +109,7 @@ class XnmtTrainer(object):
     # Initialize the serializer
     self.model_serializer = xnmt.serializer.YamlSerializer()
 
+
     if self.args.pretrained_model_file:
       self.load_corpus_and_model()
     else:
@@ -127,22 +126,16 @@ class XnmtTrainer(object):
     self.pack_batches()
     self.logger = BatchLossTracker(args.dev_every, self.total_train_sent)
 
+    if args.trainer is None:
+      self.trainer = dy.SimpleSGDTrainer(self.model_context.dynet_param_collection.param_col, 0.1)
+    else:
+      self.trainer = self.model_serializer.initialize_object(args.trainer, yaml_context=self.model_context) if self.need_deserialization else args.trainer
+
   def pack_batches(self):
     self.train_src, self.train_trg = \
       self.batcher.pack(self.training_corpus.train_src_data, self.training_corpus.train_trg_data)
     self.dev_src, self.dev_trg = \
       self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
-
-  def dynet_trainer_for_args(self, args, model_context):
-    if args.trainer.lower() == "sgd":
-      trainer = dy.SimpleSGDTrainer(model_context.dynet_param_collection.param_col, args.learning_rate)
-    elif args.trainer.lower() == "adam":
-      trainer = dy.AdamTrainer(model_context.dynet_param_collection.param_col, alpha = args.learning_rate)
-    elif args.trainer.lower() == "msgd":
-      trainer = dy.MomentumSGDTrainer(model_context.dynet_param_collection.param_col, args.learning_rate, mom = args.momentum)
-    else:
-      raise RuntimeError("Unknown trainer {}".format(args.trainer))
-    return trainer
 
   def create_corpus_and_model(self):
     self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus) if self.need_deserialization else self.args.training_corpus
@@ -310,6 +303,7 @@ class XnmtTrainer(object):
     for metric in self.evaluators:
       if metric != schedule_metric:
         self.logger.report_auxiliary_score(eval_scores[metric])
+    
     # Write out the model if it's the best one
     if self.logger.report_dev_and_check_model(self.args.model_file):
       if self.args.model_file is not None:
