@@ -3,7 +3,7 @@ from serializer import Serializable
 
 """
 The purpose of this module is mostly to expose the DyNet trainers to YAML serialization,
-but may also be extended to customize trainers / training schedules
+but may also be extended to customize optimizers / training schedules
 """
 
 class XnmtOptimizer(object):
@@ -24,27 +24,27 @@ class SimpleSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!SimpleSGDTrainer'
   def __init__(self, yaml_context, e0 = 0.1):
     self.optimizer = dy.SimpleSGDTrainer(yaml_context.dynet_param_collection.param_col, 
-                                         e0=e0)
+                                         e0)
 class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!MomentumSGDTrainer'
   def __init__(self, yaml_context, e0 = 0.01, mom = 0.9):
     self.optimizer = dy.MomentumSGDTrainer(yaml_context.dynet_param_collection.param_col, 
-                                           e0=e0, mom=mom)
+                                           e0, mom)
 
 class AdagradTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!AdagradTrainer'
   def __init__(self, yaml_context, e0 = 0.1, eps = 1e-20):
     self.optimizer = dy.AdagradTrainer(yaml_context.dynet_param_collection.param_col, 
-                                       e0=e0, eps=eps)
+                                       e0, eps=eps)
 
 class AdadeltaTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!AdadeltaTrainer'
   def __init__(self, yaml_context, eps = 1e-6, rho = 0.95):
     self.optimizer = dy.AdadeltaTrainer(yaml_context.dynet_param_collection.param_col, 
-                                        eps=eps, rho=rho)
+                                        eps, rho)
 
 class AdamTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!AdamTrainer'
   def __init__(self, yaml_context, alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
     self.optimizer = dy.AdamTrainer(yaml_context.dynet_param_collection.param_col, 
-                                    alpha=alpha, beta_1=beta_1, beta_2=beta_2, eps=eps)
+                                    alpha, beta_1, beta_2, eps)

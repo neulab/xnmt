@@ -18,7 +18,7 @@ from xnmt.vocab import Vocab
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.training_strategy import TrainingStrategy
 import xnmt.events
-from xnmt.trainer import AdamTrainer
+from xnmt.optimizer import AdamTrainer
 
 class TestTruncatedBatchTraining(unittest.TestCase):
 

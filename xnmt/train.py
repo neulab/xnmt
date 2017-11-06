@@ -37,7 +37,7 @@ import xnmt.serializer
 import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
 from xnmt.evaluator import LossScore
-import xnmt.trainer
+import xnmt.optimizer
 '''
 This will be the main class to perform training.
 '''
@@ -127,7 +127,7 @@ class XnmtTrainer(object):
     self.logger = BatchLossTracker(args.dev_every, self.total_train_sent)
 
     if args.trainer is None:
-      self.trainer = dy.SimpleSGDTrainer(self.model_context.dynet_param_collection.param_col, 0.1)
+      self.trainer = xnmt.optimizer.SimpleSGDTrainer(self.model_context, 0.1)
     else:
       self.trainer = self.model_serializer.initialize_object(args.trainer, yaml_context=self.model_context) if self.need_deserialization else args.trainer
 
