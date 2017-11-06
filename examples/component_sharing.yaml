@@ -38,7 +38,7 @@ defaults:
         modules:
         # reference-sharing between first and second encoder layer. This means, for purposes of illustration, 
         # both layers share DyNet parameters!
-        - !LSTMSeqTransducer &lstm_enc1
+        - !BiLSTMSeqTransducer &lstm_enc1
             __xnmt_id: lstm_enc1 # this id must be unique and is recommended but not required to match the YAML anchor
             layers: 1
         - *lstm_enc1

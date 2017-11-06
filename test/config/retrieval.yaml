@@ -26,13 +26,11 @@ defaults:
       src_embedder: !SimpleWordEmbedder
         vocab_size: 20 # TODO: set this automatically
         emb_dim: 16
-      src_encoder: !LSTMSeqTransducer
-        bidirectional: True
+      src_encoder: !BiLSTMSeqTransducer {}
       trg_embedder: !SimpleWordEmbedder
         vocab_size: 20 # TODO: set this automatically
         emb_dim: 16
-      trg_encoder: !LSTMSeqTransducer
-        bidirectional: True
+      trg_encoder: !BiLSTMSeqTransducer {}
       database: !StandardRetrievalDatabase
         reader: !PlainTextReader {}
         database_file: examples/data/debug.en

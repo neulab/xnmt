@@ -27,12 +27,12 @@ defaults:
       src_embedder: !SimpleWordEmbedder
         vocab_size: 20000 # TODO: set this automatically
         emb_dim: 512
-      src_encoder: !LSTMSeqTransducer
+      src_encoder: !BiLSTMSeqTransducer
         layers: 1
       trg_embedder: !SimpleWordEmbedder
         vocab_size: 20000 # TODO: set this automatically
         emb_dim: 512
-      trg_encoder: !LSTMSeqTransducer
+      trg_encoder: !BiLSTMSeqTransducer
         layers: 1
       database: !StandardRetrievalDatabase
         reader: !PlainTextReader {}

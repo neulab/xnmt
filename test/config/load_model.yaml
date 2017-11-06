@@ -25,10 +25,9 @@ defaults:
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
-      encoder: !LSTMSeqTransducer
+      encoder: !BiLSTMSeqTransducer
         layers: 2
         input_dim: 64
-        bidirectional: True
       attender: !StandardAttender
         state_dim: 64
         hidden_dim: 64

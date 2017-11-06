@@ -30,6 +30,9 @@ class ExpressionSequence(object):
         raise ValueError("expr_list must be list, was:", type(expr_list))
       if not isinstance(expr_list[0],dy.Expression): 
         raise ValueError("expr_list must contain dynet expressions, found:", type(expr_list[0]))
+      for e in expr_list[1:]:
+        if e.dim() != expr_list[0].dim():
+          raise AssertionError()
     if expr_tensor:
       if not isinstance(expr_tensor,dy.Expression): raise ValueError("expr_tensor must be dynet expression, was:", type(expr_tensor))
 

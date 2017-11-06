@@ -24,16 +24,14 @@ defaults:
       src_embedder: !SimpleWordEmbedder
         emb_dim: 16
       encoder: !SegmentingSeqTransducer
-        embed_encoder: !LSTMSeqTransducer
+        embed_encoder: !BiLSTMSeqTransducer
           input_dim: 16
           hidden_dim: 16
           layers: 1
-          bidirectional: True
         segment_transducer: !SegmentTransducer
-          encoder: !LSTMSeqTransducer
+          encoder: !BiLSTMSeqTransducer
             input_dim: 16
             hidden_dim: 16
-            bidirectional: True
             layers: 1
           transformer: !TailSegmentTransformer {}
         learn_segmentation: True

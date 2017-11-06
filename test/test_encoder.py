@@ -5,7 +5,7 @@ import dynet as dy
 
 from xnmt.translator import DefaultTranslator
 from xnmt.embedder import SimpleWordEmbedder
-from xnmt.lstm import LSTMSeqTransducer
+from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.residual import ResidualLSTMSeqTransducer
 from xnmt.attender import StandardAttender
 from xnmt.decoder import MlpSoftmaxDecoder
@@ -28,26 +28,35 @@ class TestEncoder(unittest.TestCase):
                                           trg_reader = PlainTextReader())
     self.corpus_parser.read_training_corpus(self.training_corpus)
 
+  @xnmt.events.register_xnmt_event
+  def set_train(self, val):
+    pass
+  @xnmt.events.register_xnmt_event
+  def start_sent(self):
+    pass
+
   def assert_in_out_len_equal(self, model):
     dy.renew_cg()
+    self.set_train(True)
+    self.start_sent()
     embeddings = model.src_embedder.embed_sent(self.training_corpus.train_src_data[0])
     encodings = model.encoder(embeddings)
     self.assertEqual(len(embeddings), len(encodings))
 
-  def test_uni_lstm_encoder_len(self):
+  def test_bi_lstm_encoder_len(self):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              encoder=LSTMSeqTransducer(self.model_context, layers=3, bidirectional=True),
+              encoder=BiLSTMSeqTransducer(self.model_context, layers=3),
               attender=StandardAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
     self.assert_in_out_len_equal(model)
 
-  def test_bi_lstm_encoder_len(self):
+  def test_uni_lstm_encoder_len(self):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              encoder=LSTMSeqTransducer(self.model_context, layers=1, bidirectional=False),
+              encoder=UniLSTMSeqTransducer(self.model_context),
               attender=StandardAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
