@@ -8,6 +8,8 @@ defaults:
     run_for_epochs: 20
     eval_metrics: bleu
   train:
+    batcher: !WordSrcBatcher
+      avg_batch_size: 10
     dropout: 0.1
     default_layer_dim: 512
     restart_trainer: True
@@ -25,7 +27,7 @@ defaults:
       trg_reader: !PlainTextReader {}
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder {}
-      encoder: !LSTMEncoder
+      encoder: !LSTMSeqTransducer
         layers: 1
       attender: !StandardAttender {}
       trg_embedder: !SimpleWordEmbedder {}

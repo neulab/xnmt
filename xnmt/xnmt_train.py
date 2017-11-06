@@ -2,16 +2,24 @@
 from __future__ import division, print_function
 
 import argparse
-import math
 import sys
-import dynet as dy
 import six
+from subprocess import Popen
 
+import dynet as dy
+
+# all Serializable objects must be imported here, otherwise we get in trouble with the
+# YAML parser
 import xnmt.batcher
 from xnmt.embedder import *
 from xnmt.attender import *
 from xnmt.input import *
-from xnmt.encoder import *
+import xnmt.lstm
+import xnmt.pyramidal
+import xnmt.conv
+import xnmt.ff
+import xnmt.segment_transducer
+import xnmt.residual
 from xnmt.specialized_encoders import *
 from xnmt.decoder import *
 from xnmt.translator import *
@@ -19,17 +27,15 @@ from xnmt.retriever import *
 from xnmt.serialize_container import *
 from xnmt.training_corpus import *
 from xnmt.loss_tracker import *
-from xnmt.preproc import SentenceFilterer
+from xnmt.segmenting_encoder import *
 from xnmt.options import Option, OptionParser, general_options
 from xnmt.loss import LossBuilder
 from xnmt.model_context import ModelContext, PersistentParamCollection
+from xnmt.training_strategy import TrainingStrategy, TrainingMLELoss
 import xnmt.serializer
 import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
-import xnmt.segmenting_encoder
 from xnmt.evaluator import LossScore
-from xnmt.tee import Tee
-from subprocess import Popen
 '''
 This will be the main class to perform training.
 '''
@@ -39,10 +45,10 @@ options = [
   Option("dynet-gpu-ids", int, required=False),
   Option("dynet-gpus", int, required=False),
   Option("dev_every", int, default_value=0, force_flag=True, help_str="dev checkpoints every n sentences (0 for only after epoch)"),
-  Option("batch_size", int, default_value=32, force_flag=True),
-  Option("batch_strategy", default_value="src"),
+  Option("batcher", default_value=None, required=False, help_str="Type of batcher. Defaults to SrcBatcher of batch size 32."),
   Option("training_corpus"),
   Option("corpus_parser"),
+  Option("training_strategy", required=False),
 #  Option("train_filters", list, required=False, help_str="Specify filtering criteria for the training data"),
 #  Option("dev_filters", list, required=False, help_str="Specify filtering criteria for the development data"),
   Option("model_file"),
@@ -109,28 +115,16 @@ class XnmtTrainer(object):
     else:
       self.create_corpus_and_model()
 
-    # single mode
-    if not self.is_batch_mode():
-      print('Start training in non-minibatch mode...')
-      self.logger = NonBatchLossTracker(args.dev_every, self.total_train_sent)
-      self.train_src, self.train_trg = \
-          self.training_corpus.train_src_data, self.training_corpus.train_trg_data
-      self.dev_src, self.dev_trg = \
-          self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data
+    self.model.initialize_training_strategy(self.training_strategy)
 
-    # minibatch mode
+    if self.args.batcher is None:
+      self.batcher = SrcBatcher(32)
     else:
-      print('Start training in minibatch mode...')
-      self.batcher = xnmt.batcher.from_spec(args.batch_strategy, args.batch_size)
-      if args.src_format == "contvec":
-        self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
-      self.pack_batches()
-      self.logger = BatchLossTracker(args.dev_every, self.total_train_sent)
-
-  def is_batch_mode(self):
-    return not (self.args.batch_size is None or
-                self.args.batch_size == 1 or
-                self.args.batch_strategy.lower() == 'none')
+      self.batcher = self.model_serializer.initialize_object(self.args.batcher) if self.need_deserialization else self.args.batcher
+    if args.src_format == "contvec":
+      self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
+    self.pack_batches()
+    self.logger = BatchLossTracker(args.dev_every, self.total_train_sent)
 
   def pack_batches(self):
     self.train_src, self.train_trg = \
@@ -162,6 +156,10 @@ class XnmtTrainer(object):
     if not self.args.model:
       raise RuntimeError("No model specified!")
     self.model = self.model_serializer.initialize_object(self.args.model, self.model_context) if self.need_deserialization else self.args.model
+    if self.args.training_strategy:
+      self.training_strategy = self.model_serializer.initialize_object(self.args.training_strategy, self.model_context) if self.need_deserialization else self.args.training_strategy
+    else:
+      self.training_strategy = TrainingStrategy(TrainingMLELoss())
 
   def load_corpus_and_model(self):
     self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus) if self.need_deserialization else self.args.training_corpus
@@ -174,7 +172,11 @@ class XnmtTrainer(object):
     self.model_context.training_corpus = self.training_corpus
     self.model = self.model_serializer.initialize_object(model, self.model_context) if self.need_deserialization else self.args.model
     self.model_context.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
-    
+    if self.args.training_strategy:
+      self.training_strategy = self.model_serializer.initialize_object(self.args.training_strategy, self.model_context) if self.need_deserialization else self.args.training_strategy
+    else:
+      self.training_strategy = TrainingStrategy(TrainingMLELoss())
+
   def _augment_data_initial(self):
     augment_command = self.args.reload_command
     print('initial augmentation')
@@ -197,8 +199,7 @@ class XnmtTrainer(object):
         print('using reloaded data')
       # reload the data   
       self.corpus_parser.read_training_corpus(self.training_corpus)
-      if self.is_batch_mode():
-        self.pack_batches()
+      self.pack_batches()
       self.logger.total_train_sent = len(self.training_corpus.train_src_data)
       # restart data generation
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.logger.epoch_num, shell=True)
@@ -327,11 +328,11 @@ class XnmtTrainer(object):
   def compute_dev_loss(self):
     loss_builder = LossBuilder()
     trg_words_cnt = 0
-    for i in range(len(self.dev_src)):
+    for src, trg in zip(self.dev_src, self.dev_trg):
       dy.renew_cg()
-      standard_loss = self.model.calc_loss(self.dev_src[i], self.dev_trg[i])
+      standard_loss = self.model.calc_loss(src, trg)
       loss_builder.add_loss("loss", standard_loss)
-      trg_words_cnt += self.logger.count_trg_words(self.dev_trg[i])
+      trg_words_cnt += self.logger.count_trg_words(trg)
       loss_builder.compute()
     return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
 

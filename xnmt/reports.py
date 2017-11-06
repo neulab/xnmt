@@ -2,19 +2,12 @@ import io
 import six
 
 from lxml import etree
-from xnmt.hier_model import recursive, recursive_assign
+from xnmt.events import register_xnmt_event, register_xnmt_event_assign, handle_xnmt_event
 
 class Reportable(object):
-  @recursive_assign
+  @register_xnmt_event_assign
   def html_report(self, context=None):
-    if context is None:
-      raise NotImplementedError("Not implemented html_report for class:",
-                                self.__class__.__name__)
-    return context
-
-  @recursive
-  def file_report(self):
-    pass
+    raise NotImplementedError()
 
   ### Getter + Setter for particular report py
   def set_report_input(self, *inputs):
@@ -26,20 +19,30 @@ class Reportable(object):
   def get_report_path(self):
     return self.__report_path
 
-  ### Methods that are applied recursively to the childs
-  ### of HierarchicalModel
-  @recursive
+  @register_xnmt_event
   def set_report_path(self, report_path):
     self.__report_path = report_path
+  @handle_xnmt_event
+  def on_set_report_path(self, report_path):
+    self.__report_path = report_path
 
-  @recursive
+  @register_xnmt_event
   def set_report_resource(self, key, value):
     if not hasattr(self, "__reportable_resources"):
       self.__reportable_resources = {}
     self.__reportable_resources[key] = value
+  @handle_xnmt_event
+  def on_set_report_resource(self, key, value):
+    if not hasattr(self, "__reportable_resources"):
+      self.__reportable_resources = {}
+    self.__reportable_resources[key] = value
 
-  @recursive
+  @register_xnmt_event
   def clear_report_resources(self):
+    if hasattr(self, "clear_resources"):
+      self.__reportable_resources.clear()
+  @handle_xnmt_event
+  def on_clear_report_resources(self):
     if hasattr(self, "clear_resources"):
       self.__reportable_resources.clear()
 
@@ -48,15 +51,17 @@ class Reportable(object):
 
   # Methods to generate report
   def generate_html_report(self):
-    html_report = self.html_report()
-    if html_report is None:
-      raise RuntimeError("Some of the html_report of childs of HTMLReportable object have not been implemented.")
+    html_report = self.html_report(context=None)
     html = etree.tostring(html_report, encoding='unicode', pretty_print=True)
     with io.open(self.__report_path + '.html', 'w', encoding='utf-8') as f:
       f.write(html)
 
   def generate_file_report(self):
     self.file_report()
+  
+  @register_xnmt_event
+  def file_report(self):
+    pass
 
   ### Public acessible Methods
   def generate_report(self, report_type):

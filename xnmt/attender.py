@@ -27,14 +27,14 @@ class StandardAttender(Attender, Serializable):
 
   yaml_tag = u'!StandardAttender'
 
-  def __init__(self, context, input_dim=None, state_dim=None, hidden_dim=None):
-    input_dim = input_dim or context.default_layer_dim
-    state_dim = state_dim or context.default_layer_dim
-    hidden_dim = hidden_dim or context.default_layer_dim
+  def __init__(self, yaml_context, input_dim=None, state_dim=None, hidden_dim=None):
+    input_dim = input_dim or yaml_context.default_layer_dim
+    state_dim = state_dim or yaml_context.default_layer_dim
+    hidden_dim = hidden_dim or yaml_context.default_layer_dim
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
-    param_collection = context.dynet_param_collection.param_col
+    param_collection = yaml_context.dynet_param_collection.param_col
     self.pW = param_collection.add_parameters((hidden_dim, input_dim))
     self.pV = param_collection.add_parameters((hidden_dim, state_dim))
     self.pb = param_collection.add_parameters(hidden_dim)

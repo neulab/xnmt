@@ -1,7 +1,49 @@
+from __future__ import division, generators
+
 import dynet as dy
-from xnmt.encoder_state import FinalEncoderState, PseudoState
-import xnmt.lstm
+
+from xnmt.lstm import CustomCompactLSTMBuilder, PseudoState
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
+from xnmt.serializer import Serializable
+from xnmt.events import register_handler, handle_xnmt_event
+from xnmt.transducer import SeqTransducer, FinalTransducerState
+
+
+class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
+  yaml_tag = u'!PyramidalLSTMSeqTransducer'
+
+  def __init__(self, yaml_context, input_dim=512, layers=1, hidden_dim=None, downsampling_method="skip", reduce_factor=2, dropout=None):
+    register_handler(self)
+    self._final_states = None
+    hidden_dim = hidden_dim or yaml_context.default_layer_dim
+    dropout = dropout or yaml_context.dropout
+    self.dropout = dropout
+    self.builder = PyramidalRNNBuilder(layers, input_dim, hidden_dim,
+                                                 yaml_context.dynet_param_collection.param_col,
+                                                 downsampling_method, reduce_factor)
+
+  @handle_xnmt_event
+  def on_start_sent(self, *args, **kwargs):
+    self._final_states = None
+
+  @handle_xnmt_event
+  def on_set_train(self, val):
+    self.builder.set_dropout(self.dropout if val else 0.0)
+
+  def __call__(self, sent):
+    output = self.builder.transduce(sent)
+    if not isinstance(output, ExpressionSequence):
+      output = ExpressionSequence(expr_list=output)
+    if hasattr(self.builder, "get_final_states"):
+      self._final_states = self.builder.get_final_states()
+    else:
+      self._final_states = [FinalTransducerState(output[-1])]
+    return output
+
+  def get_final_states(self):
+    assert self._final_states is not None, "PyramidalLSTMSeqTransducer.__call__() must be invoked before PyramidalLSTMSeqTransducer.get_final_states()"
+    return self._final_states
+
 
 class PyramidalRNNBuilder(object):
   """
@@ -32,13 +74,13 @@ class PyramidalRNNBuilder(object):
     self.downsampling_method = downsampling_method
     self.reduce_factor = reduce_factor
     self.input_dim = input_dim
-    f = xnmt.lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim / 2, model)
-    b = xnmt.lstm.CustomCompactLSTMBuilder(1, input_dim, hidden_dim / 2, model)
+    f = CustomCompactLSTMBuilder(1, input_dim, hidden_dim / 2, model)
+    b = CustomCompactLSTMBuilder(1, input_dim, hidden_dim / 2, model)
     self.builder_layers.append((f, b))
     for _ in range(num_layers - 1):
       layer_input_dim = hidden_dim if downsampling_method=="skip" else hidden_dim*reduce_factor
-      f = xnmt.lstm.CustomCompactLSTMBuilder(1, layer_input_dim, hidden_dim / 2, model)
-      b = xnmt.lstm.CustomCompactLSTMBuilder(1, layer_input_dim, hidden_dim / 2, model)
+      f = CustomCompactLSTMBuilder(1, layer_input_dim, hidden_dim / 2, model)
+      b = CustomCompactLSTMBuilder(1, layer_input_dim, hidden_dim / 2, model)
       self.builder_layers.append((f, b))
 
   def get_final_states(self):
@@ -108,7 +150,7 @@ class PyramidalRNNBuilder(object):
         # concat final outputs
         ret_es = ExpressionSequence(expr_list=[dy.concatenate([f, b]) for f, b in zip(fs, ReversedExpressionSequence(bs))])
 
-    self._final_states = [FinalEncoderState(dy.concatenate([fb.get_final_states()[0].main_expr(),
+    self._final_states = [FinalTransducerState(dy.concatenate([fb.get_final_states()[0].main_expr(),
                                                             bb.get_final_states()[0].main_expr()]),
                                             dy.concatenate([fb.get_final_states()[0].cell_expr(),
                                                             bb.get_final_states()[0].cell_expr()])) \

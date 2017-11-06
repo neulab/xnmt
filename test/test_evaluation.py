@@ -3,9 +3,11 @@ import xnmt.evaluator as evaluator
 import unittest
 
 from xnmt.vocab import Vocab
+import xnmt.events
 
 class TestBLEU(unittest.TestCase):
   def setUp(self):
+    xnmt.events.clear()
     self.hyp = ["the taro met the hanako".split()]
     self.ref = ["taro met hanako".split()]
 

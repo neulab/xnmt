@@ -1,7 +1,75 @@
+from __future__ import division, generators
+
 import dynet as dy
-import numpy as np
-from xnmt.encoder_state import FinalEncoderState, PseudoState
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
+from xnmt.serializer import Serializable
+from xnmt.events import register_handler, handle_xnmt_event
+from xnmt.transducer import SeqTransducer, FinalTransducerState
+
+
+class LSTMSeqTransducer(SeqTransducer, Serializable):
+  yaml_tag = u'!LSTMSeqTransducer'
+
+  def __init__(self, yaml_context, input_dim=None, layers=1, hidden_dim=None, dropout=None, bidirectional=True):
+    register_handler(self)
+    model = yaml_context.dynet_param_collection.param_col
+    input_dim = input_dim or yaml_context.default_layer_dim
+    hidden_dim = hidden_dim or yaml_context.default_layer_dim
+    dropout = dropout or yaml_context.dropout
+    self.input_dim = input_dim
+    self.layers = layers
+    self.hidden_dim = hidden_dim
+    self.dropout = dropout
+    if bidirectional:
+      self.builder = BiCompactLSTMBuilder(layers, input_dim, hidden_dim, model)
+    else:
+      self.builder = CustomCompactLSTMBuilder(layers, input_dim, hidden_dim, model)
+
+  @handle_xnmt_event
+  def on_set_train(self, val):
+    self.builder.set_dropout(self.dropout if val else 0.0)
+
+  @handle_xnmt_event
+  def on_start_sent(self, *args, **kwargs):
+    self._final_states = None
+
+  def __call__(self, sent):
+    output = self.builder.transduce(sent)
+    if not isinstance(output, ExpressionSequence):
+      output = ExpressionSequence(expr_list=output)
+    if hasattr(self.builder, "get_final_states"):
+      self._final_states = self.builder.get_final_states()
+    else:
+      self._final_states = [FinalTransducerState(output[-1])]
+    return output
+
+  def get_final_states(self):
+    assert self._final_states is not None, "LSTMSeqTransducer.__call__() must be invoked before LSTMSeqTransducer.get_final_states()"
+    return self._final_states
+
+
+class PseudoState(object):
+  """
+  Emulates a state object for python RNN builders. This allows them to be
+  used with minimal changes in code that uses dy.VanillaLSTMBuilder.
+  """
+  def __init__(self, network, output=None):
+    self.network = network
+    self._output = output
+
+  def add_input(self, e):
+    self._output = self.network.transduce([e])[0]
+    return self
+
+  def output(self):
+    return self._output
+
+  def h(self):
+    raise NotImplementedError("h() is not supported on PseudoStates")
+
+  def s(self):
+    raise NotImplementedError("s() is not supported on PseudoStates")
+
 
 class LSTMState(object):
   def __init__(self, builder, h_t=None, c_t=None, state_idx=-1, prev_state=None):
@@ -143,7 +211,7 @@ class CustomCompactLSTMBuilder(object):
       else:
         c.append(expr_seq[0].mask.cmult_by_timestep_expr(c_t,pos_i,True) + expr_seq[0].mask.cmult_by_timestep_expr(c[-1],pos_i,False))
         h.append(expr_seq[0].mask.cmult_by_timestep_expr(h_t,pos_i,True) + expr_seq[0].mask.cmult_by_timestep_expr(h[-1],pos_i,False))
-    self._final_states = [FinalEncoderState(h[-1], c[-1])]
+    self._final_states = [FinalTransducerState(h[-1], c[-1])]
     return ExpressionSequence(expr_list=h[1:], mask=expr_seq[0].mask)
 
 class BiCompactLSTMBuilder:
@@ -189,7 +257,7 @@ class BiCompactLSTMBuilder:
       rev_backward_es = ExpressionSequence(self.backward_layers[layer_i].initial_state().transduce([ReversedExpressionSequence(forward_es), rev_backward_es]).as_list(), mask=mask)
       forward_es = new_forward_es
 
-    self._final_states = [FinalEncoderState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
+    self._final_states = [FinalTransducerState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
                                                             self.backward_layers[layer_i].get_final_states()[0].main_expr()]),
                                             dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].cell_expr(),
                                                             self.backward_layers[layer_i].get_final_states()[0].cell_expr()])) \

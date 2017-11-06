@@ -1,0 +1,60 @@
+# This illustrates component and parameter sharing.
+# Here, 3 different ways of sharing are distinguished, with increasing complexity.
+# This follows YAML syntax: '&' denotes a named anchor, '*' denotes a reference to an anchor.
+#
+# - value-sharing: sharing a simple parameter value (e.g. a string or a scalar)
+# - config-sharing: sharing the configuration of a complex component.
+#                   this means we copy a component: the component is created twice with identical configuration.
+# - reference-sharing: sharing reference to a complex object.
+#                   this means the component is only created once, which also leads to DyNet parameters being shared.
+#                   Since YAML doesn't distinguish between a copy and a reference, we implement reference-sharing
+#                   by adding a unique __xnmt_id field to the component that is to be shared. During deserialization,
+#                   whenever a component's __xnmt_id is equal to the corresponding field of a component that has
+#                   has already been initialized, we re-use that initialized component instead of creating a new one.
+
+defaults:
+  experiment:
+    model_file: examples/output/<EXP>.mod
+    hyp_file: examples/output/<EXP>.hyp
+    out_file: examples/output/<EXP>.out
+    err_file: examples/output/<EXP>.err
+    run_for_epochs: 2
+  train:
+    default_layer_dim: 32
+    training_corpus: !BilingualTrainingCorpus
+      train_src: examples/data/head.ja
+      train_trg: examples/data/head.en
+      dev_src: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and decode.src_file
+      dev_trg: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
+    corpus_parser: !BilingualCorpusParser
+      src_reader: !PlainTextReader {}
+      trg_reader: !PlainTextReader {}
+    model: !DefaultTranslator
+      # config-sharing between src_embedder and trg_embedder (both are configured in the same way, but do not share
+      # DyNet parameters)
+      src_embedder: !SimpleWordEmbedder &emb_conf1
+        emb_dim: 32
+      encoder: !ModularSeqTransducer
+        modules:
+        # reference-sharing between first and second encoder layer. This means, for purposes of illustration, 
+        # both layers share DyNet parameters!
+        - !LSTMSeqTransducer &lstm_enc1
+            __xnmt_id: lstm_enc1 # this id must be unique and is recommended but not required to match the YAML anchor
+            layers: 1
+        - *lstm_enc1
+      attender: !StandardAttender {}
+      trg_embedder: *emb_conf1
+      decoder: !MlpSoftmaxDecoder
+        layers: 1
+        bridge: !CopyBridge {}
+  decode:
+    src_file: *dev_src
+  evaluate:
+    ref_file: *dev_trg
+
+# let's test that both deserialization and serialization works:
+a.pretrain:
+
+b.load:
+  train:
+    pretrained_model_file: examples/output/a.pretrain.mod

@@ -3,8 +3,12 @@ import unittest
 import os, shutil
 
 import xnmt.xnmt_run_experiments as run
+import xnmt.events
 
 class TestRunningConfig(unittest.TestCase):
+
+  def setUp(self):
+    xnmt.events.clear()
 
   def test_standard_run(self):
     run.main(["test/config/standard.yaml"])
@@ -24,6 +28,12 @@ class TestRunningConfig(unittest.TestCase):
 #
   def test_segmenting(self):
     run.main(["test/config/segmenting.yaml"])
+
+  def test_prior_segmenting(self):
+    run.main(["test/config/prior-segmenting.yaml"])
+
+  def test_forced(self):
+    run.main(["test/config/forced.yaml"])
 
   def test_translator_report(self):
     run.main(["test/config/translator_report.yaml"])
@@ -45,12 +55,12 @@ class TestRunningConfig(unittest.TestCase):
   def test_translator_loss(self):
     run.main(["test/config/translator_loss.yaml"])
 
+  def test_component_sharing(self):
+    run.main(["test/config/component_sharing.yaml"])
+
   def tearDown(self):
     if os.path.isdir("test/tmp"):
-      try:
-        shutil.rmtree("test/tmp")
-      except:
-        pass
+      shutil.rmtree("test/tmp")
 
 if __name__ == "__main__":
   unittest.main()

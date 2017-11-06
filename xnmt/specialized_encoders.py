@@ -1,9 +1,13 @@
+from __future__ import division, print_function
+
 import dynet as dy
-import xnmt.expression_sequence
-from xnmt.encoder import *
+
+from xnmt.expression_sequence import ExpressionSequence
+from xnmt.serializer import Serializable
+from xnmt.transducer import Transducer, SeqTransducer
 
 # This is a file for specialized encoders that implement a particular model
-# Ideally, these will eventually be refactored to use standard components and the ModularEncoder framework,
+# Ideally, these will eventually be refactored to use standard components and the ModularSeqTransducer framework,
 #  (for more flexibility), but for ease of implementation it is no problem to perform an initial implementation here.
 
 def padding(src, min_size):
@@ -25,9 +29,9 @@ def padding(src, min_size):
     return dy.concatenate([dy.zeroes((src_dim[0][0], left_border, channels)), src, dy.zeroes((src_dim[0][0], right_border, channels))], d=1) # do concatenate along cols
 
 
-class TilburgSpeechEncoder(Encoder, Serializable):
-  yaml_tag = u'!TilburgSpeechEncoder'
-  def __init__(self, filter_height, filter_width, channels, num_filters, stride, rhn_num_hidden_layers, rhn_dim, rhn_microsteps, attention_dim, residual= False):
+class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
+  yaml_tag = u'!TilburgSpeechSeqTransducer'
+  def __init__(self, yaml_context, filter_height, filter_width, channels, num_filters, stride, rhn_num_hidden_layers, rhn_dim, rhn_microsteps, attention_dim, residual= False):
     """
     :param etc.
     """
@@ -42,7 +46,7 @@ class TilburgSpeechEncoder(Encoder, Serializable):
     self.attention_dim = attention_dim
     self.residual = residual
 
-    model = model_globals.dynet_param_collection.param_col
+    model = yaml_context.dynet_param_collection.param_col
     # Convolutional layer
     self.filter_conv = model.add_parameters(dim=(self.filter_height, self.filter_width, self.channels, self.num_filters))
     # Recurrent highway layer
@@ -52,13 +56,13 @@ class TilburgSpeechEncoder(Encoder, Serializable):
     self.attention = []
 
     input_dim = num_filters
-    for l in range(rhn_num_hidden_layers):
+    for _ in range(rhn_num_hidden_layers):
       self.init.append(model.add_parameters((rhn_dim,)))
       self.linear.append((model.add_parameters((rhn_dim, input_dim)),
                           model.add_parameters((rhn_dim, input_dim,))))
       input_dim = rhn_dim
       recur_layer = []
-      for m in range(self.rhn_microsteps):
+      for _ in range(self.rhn_microsteps):
         recur_layer.append((model.add_parameters((rhn_dim, rhn_dim)),
                             model.add_parameters((rhn_dim,)),
                             model.add_parameters((rhn_dim, rhn_dim,)),
@@ -68,7 +72,7 @@ class TilburgSpeechEncoder(Encoder, Serializable):
     self.attention.append((model.add_parameters((attention_dim, rhn_dim)),
                            model.add_parameters(attention_dim, )))
 
-  def transduce(self, src):
+  def __call__(self, src):
     src = src.as_tensor()
     # convolutional layer
     src = padding(src, src.dim()[0][0], src.dim()[0][1], self.filter_width, self.stride, src.dim()[1])
@@ -103,16 +107,13 @@ class TilburgSpeechEncoder(Encoder, Serializable):
     scores = dy.transpose(dy.parameter(self.attention[0][1]))*dy.tanh(dy.parameter(self.attention[0][0])*rhn_in) # ((1,510), batch_size)
     scores = dy.reshape(scores, (scores.dim()[0][1],), batch_size = scores.dim()[1])
     attn_out = rhn_in*dy.softmax(scores) # # rhn_in.as_tensor() is ((1024,510), batch_size) softmax is ((510,), batch_size)
-    return xnmt.expression_sequence.ExpressionSequence(expr_tensor = attn_out)
-
-  def initial_state(self):
-    return PseudoState(self)
+    return ExpressionSequence(expr_tensor = attn_out)
 
 # This is a CNN-based encoder that was used in the following paper:
 #  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
-class HarwathSpeechEncoder(Encoder, Serializable):
-  yaml_tag = u'!HarwathSpeechEncoder'
-  def __init__(self, filter_height, filter_width, channels, num_filters, stride):
+class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
+  yaml_tag = u'!HarwathSpeechSeqTransducer'
+  def __init__(self, yaml_context, filter_height, filter_width, channels, num_filters, stride):
     """
     :param num_layers: depth of the RNN
     :param input_dim: size of the inputs
@@ -120,7 +121,7 @@ class HarwathSpeechEncoder(Encoder, Serializable):
     :param model
     :param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
     """
-    model = model_globals.dynet_param_collection.param_col
+    model = yaml_context.dynet_param_collection.param_col
     self.filter_height = filter_height
     self.filter_width = filter_width
     self.channels = channels
@@ -136,7 +137,7 @@ class HarwathSpeechEncoder(Encoder, Serializable):
     self.filters3 = model.add_parameters(dim=(self.filter_height[2], self.filter_width[2], self.channels[2], self.num_filters[2]),
                                          init=normalInit)
 
-  def transduce(self, src):
+  def __call__(self, src):
     src = src.as_tensor()
 
     src_height = src.dim()[0][0]
@@ -162,22 +163,20 @@ class HarwathSpeechEncoder(Encoder, Serializable):
     output = dy.cdiv(pool3,my_norm)
     output = dy.reshape(output, (self.num_filters[2],), batch_size = batch_size)
 
-    return xnmt.expression_sequence.ExpressionSequence(expr_tensor=output)
+    return ExpressionSequence(expr_tensor=output)
 
-  def initial_state(self):
-    return PseudoState(self)
 
 # This is an image encoder that takes in features and does a linear transform from the following paper
 #  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
-class HarwathImageEncoder(Encoder, Serializable):
-  yaml_tag = u'!HarwathImageEncoder'
+class HarwathImageTransducer(Transducer, Serializable):
+  yaml_tag = u'!HarwathImageTransducer'
   """
     Inputs are first put through 2 CNN layers, each with stride (2,2), so dimensionality
     is reduced by 4 in both directions.
     Then, we add a configurable number of bidirectional RNN layers on top.
     """
 
-  def __init__(self, in_height, out_height):
+  def __init__(self, yaml_context, in_height, out_height):
     """
       :param num_layers: depth of the RNN
       :param input_dim: size of the inputs
@@ -186,7 +185,7 @@ class HarwathImageEncoder(Encoder, Serializable):
       :param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
       """
 
-    model = model_globals.dynet_param_collection.param_col
+    model = yaml_context.dynet_param_collection.param_col
     self.in_height = in_height
     self.out_height = out_height
 
@@ -194,7 +193,7 @@ class HarwathImageEncoder(Encoder, Serializable):
     self.pW = model.add_parameters(dim = (self.out_height, self.in_height), init=normalInit)
     self.pb = model.add_parameters(dim = self.out_height)
 
-  def transduce(self, src):
+  def __call__(self, src):
     src = src.as_tensor()
 
     src_height = src.dim()[0][0]
@@ -208,7 +207,5 @@ class HarwathImageEncoder(Encoder, Serializable):
     # convolution and pooling layers
     l1 = (W*src)+b
     output = dy.cdiv(l1,dy.sqrt(dy.squared_norm(l1)))
-    return xnmt.expression_sequence.ExpressionSequence(expr_tensor=output)
+    return ExpressionSequence(expr_tensor=output)
 
-  def initial_state(self):
-    return PseudoState(self)

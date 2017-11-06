@@ -13,13 +13,15 @@ class Output(object):
     raise NotImplementedError('All outputs must implement to_string.')
 
 class TextOutput(Output):
-  def __init__(self, actions=None, vocab=None):
+  def __init__(self, actions=None, vocab=None, score=None):
     self.actions = actions or []
     self.vocab = vocab
+    self.score = score
     self.filtered_tokens = set([Vocab.SS, Vocab.ES])
 
   def to_string(self):
-    return six.moves.map(lambda wi: self.vocab[wi], filter(lambda wi: wi not in self.filtered_tokens, self.actions))
+    map_func = lambda wi: self.vocab[wi] if self.vocab != None else str
+    return six.moves.map(map_func, filter(lambda wi: wi not in self.filtered_tokens, self.actions))
 
 class OutputProcessor(object):
   def process_outputs(self, outputs):
@@ -31,7 +33,8 @@ class PlainTextOutputProcessor(OutputProcessor):
   with one sent per line.
   '''
   def process_outputs(self, outputs):
-    return [self.words_to_string(output.to_string()) for output in outputs]
+    for output in outputs:
+      output.plaintext = self.words_to_string(output.to_string())
 
   def words_to_string(self, word_list):
     return u" ".join(word_list)

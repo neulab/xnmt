@@ -149,7 +149,7 @@ class PlainTextReader(BaseTextReader, Serializable):
   def freeze(self):
     self.vocab.freeze()
     self.vocab.set_unk(Vocab.UNK_STR)
-    self.overwrite_serialize_param("vocab", self.vocab)
+    self.overwrite_serialize_param(u"vocab", self.vocab)
 
   def vocab_size(self):
     return len(self.vocab)

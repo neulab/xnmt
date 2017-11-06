@@ -56,7 +56,9 @@ class ExpressionSequence(object):
     :returns: sequence item (expression); does not result in explicit conversion to list
     """
     if self.expr_list: return self.expr_list[key]
-    else: return dy.pick(self.expr_tensor, key)
+    else:
+      if key < 0: key += len(self)
+      return dy.pick(self.expr_tensor, key, dim=len(self.expr_tensor.dim()[0])-1)
 
   def as_list(self):
     """Get a list.
