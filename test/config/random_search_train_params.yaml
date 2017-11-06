@@ -24,7 +24,7 @@ defaults:
       encoder: !LSTMSeqTransducer
         layers: !RandomParam
           values: [1,2,3,4,5]
-      attender: !StandardAttender
+      attender: !MlpAttender
         state_dim: 64
         hidden_dim: 64
         input_dim: 64

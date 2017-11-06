@@ -37,7 +37,7 @@ exp1-lstm-encoder:
         layers: 2
         input_dim: 64
         bidirectional: True
-      attender: !StandardAttender
+      attender: !MlpAttender
         state_dim: 64
         hidden_dim: 64
         input_dim: 64
@@ -58,7 +58,7 @@ exp2-residual-encoder:
         layers: 2
         input_dim: 64
         bidirectional: True
-      attender: !StandardAttender
+      attender: !MlpAttender
         state_dim: 64
         hidden_dim: 64
         input_dim: 64
@@ -77,7 +77,7 @@ exp3-pyramidal-encoder:
       encoder: !PyramidalLSTMSeqTransducer
         layers: 3
         input_dim: 64
-      attender: !StandardAttender
+      attender: !MlpAttender
         state_dim: 64
         hidden_dim: 64
         input_dim: 64
@@ -105,7 +105,7 @@ exp4-modular-encoder:
             input_dim: 64
             hidden_dim: 64
             layers: 2
-      attender: !StandardAttender
+      attender: !MlpAttender
         state_dim: 64
         hidden_dim: 64
         input_dim: 64

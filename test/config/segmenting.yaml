@@ -45,7 +45,7 @@ defaults:
           min_value: 0.0
           max_value: 1.0
         length_prior: 3.5
-      attender: !StandardAttender
+      attender: !MlpAttender
         state_dim: 16
         hidden_dim: 16
         input_dim: 16
