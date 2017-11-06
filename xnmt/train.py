@@ -340,13 +340,3 @@ class XnmtTrainer(object):
       trg_words_cnt += self.logger.count_trg_words(trg)
       loss_builder.compute()
     return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
-
-if __name__ == "__main__":
-  parser = OptionParser()
-  parser.add_task("train", general_options + options)
-  args = parser.args_from_command_line("train", sys.argv[1:])
-  print("Starting xnmt-train:\nArguments: %r" % (args))
-
-  xnmt_trainer = XnmtTrainer(args)
-
-  xnmt_trainer.run_epochs()

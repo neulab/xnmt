@@ -12,7 +12,7 @@ from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
 from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
 from xnmt.batcher import mark_as_batch, Mask, SrcBatcher
-import xnmt.xnmt_train
+import xnmt.train
 from xnmt.options import Args
 from xnmt.vocab import Vocab
 from xnmt.model_context import ModelContext, PersistentParamCollection
@@ -188,7 +188,7 @@ class TestTrainDevLoss(unittest.TestCase):
   def test_train_dev_loss_equal(self):
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
-    task_options = xnmt.xnmt_train.options
+    task_options = xnmt.train.options
     train_args = dict({opt.name: opt.default_value for opt in task_options if
                                 opt.default_value is not None or not opt.required})
     train_args['training_corpus'] = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
@@ -208,7 +208,7 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['trainer'] = None
     train_args['save_num_checkpoints'] = 0
     train_args['batcher'] = SrcBatcher(batch_size=5, break_ties_randomly=False)
-    xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(args=Args(**train_args), need_deserialization=False, param_collection=self.model_context.dynet_param_collection)
+    xnmt_trainer = xnmt.train.XnmtTrainer(args=Args(**train_args), need_deserialization=False, param_collection=self.model_context.dynet_param_collection)
     xnmt_trainer.model_context = self.model_context
     xnmt_trainer.one_epoch(update_weights=False)
     self.assertAlmostEqual(xnmt_trainer.logger.epoch_loss.loss_values['loss'] / xnmt_trainer.logger.epoch_words,
@@ -223,7 +223,7 @@ class TestOverfitting(unittest.TestCase):
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     self.model_context.default_layer_dim = 16
-    task_options = xnmt.xnmt_train.options
+    task_options = xnmt.train.options
     train_args = dict({opt.name: opt.default_value for opt in task_options if
                                 opt.default_value is not None or not opt.required})
     train_args['training_corpus'] = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
@@ -243,7 +243,7 @@ class TestOverfitting(unittest.TestCase):
     train_args['save_num_checkpoints'] = 0
     train_args['trainer'] = AdamTrainer(self.model_context, alpha=0.1)
     train_args['batcher'] = SrcBatcher(batch_size=10, break_ties_randomly=False)
-    xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(args=Args(**train_args), need_deserialization=False, param_collection=self.model_context.dynet_param_collection)
+    xnmt_trainer = xnmt.train.XnmtTrainer(args=Args(**train_args), need_deserialization=False, param_collection=self.model_context.dynet_param_collection)
     xnmt_trainer.model_context = self.model_context
     for _ in range(50):
       xnmt_trainer.one_epoch(update_weights=True)

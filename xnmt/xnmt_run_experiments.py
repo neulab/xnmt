@@ -16,7 +16,7 @@ import numpy as np
 
 # XNMT imports
 import copy
-import xnmt.xnmt_preproc, xnmt.xnmt_train, xnmt.xnmt_decode, xnmt.xnmt_evaluate
+import xnmt.xnmt_preproc, xnmt.train, xnmt.xnmt_decode, xnmt.xnmt_evaluate
 from xnmt.options import OptionParser, Option
 from xnmt.tee import Tee
 
@@ -39,7 +39,7 @@ def main(overwrite_args=None):
 
   config_parser = OptionParser()
   config_parser.add_task("preproc", xnmt.xnmt_preproc.options)
-  config_parser.add_task("train", xnmt.xnmt_train.options)
+  config_parser.add_task("train", xnmt.train.options)
   config_parser.add_task("decode", xnmt.xnmt_decode.options)
   config_parser.add_task("evaluate", xnmt.xnmt_evaluate.options)
 
@@ -121,7 +121,7 @@ def main(overwrite_args=None):
         print("> instantiated random parameter search: %s" % exp_tasks[task_name].random_search_report)
 
     print("> Training")
-    xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(train_args)
+    xnmt_trainer = xnmt.train.XnmtTrainer(train_args)
     xnmt_trainer.decode_args = copy.copy(decode_args)
     xnmt_trainer.evaluate_args = copy.copy(evaluate_args)
 
