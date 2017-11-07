@@ -87,7 +87,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
     else:
-      len_norm = xnmt.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
+      len_norm = xnmt.serializer.YamlSerializer().initialize_if_needed(kwargs["len_norm_type"])
     search_args = {}
     if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
     if kwargs.get("beam", None) is None:

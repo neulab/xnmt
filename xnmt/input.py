@@ -204,7 +204,7 @@ class IDReader(BaseTextReader, Serializable):
 
 ###### CorpusParser
 
-class CorpusParser:
+class CorpusParser(object):
   """A class that can read in corpora for training and testing"""
 
   def read_training_corpus(self, training_corpus):

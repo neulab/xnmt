@@ -33,7 +33,7 @@ from xnmt.options import Option, OptionParser, general_options
 from xnmt.loss import LossBuilder
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.training_strategy import TrainingStrategy, TrainingMLELoss
-import xnmt.serializer
+from xnmt.serializer import YamlSerializer
 import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
 from xnmt.evaluator import LossScore
@@ -74,15 +74,13 @@ options = [
 ]
 
 class XnmtTrainer(object):
-  def __init__(self, args, yaml_context=None, need_deserialization=True):
+  def __init__(self, args, yaml_context=None):
     """
     :param args: xnmt.options.Args instance corresponding to the options given above
-    :param need_deserialization: Whether we need to invoke model_serializer.initialize_object on objects in args;
         This is usually the case when these have been deserialized from a YAML file, but not when instantiating XnmtTrainer manually.
     """
     dy.renew_cg()
 
-    self.need_deserialization = need_deserialization
     self.args = args
     if yaml_context:
       self.model_context = yaml_context
@@ -107,7 +105,7 @@ class XnmtTrainer(object):
         self._augment_data_initial()
 
     # Initialize the serializer
-    self.model_serializer = xnmt.serializer.YamlSerializer()
+    self.model_serializer = YamlSerializer()
 
 
     if self.args.pretrained_model_file:
@@ -120,7 +118,7 @@ class XnmtTrainer(object):
     if self.args.batcher is None:
       self.batcher = SrcBatcher(32)
     else:
-      self.batcher = self.model_serializer.initialize_object(self.args.batcher) if self.need_deserialization else self.args.batcher
+      self.batcher = self.model_serializer.initialize_if_needed(self.args.batcher) 
     if args.src_format == "contvec":
       self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
     self.pack_batches()
@@ -129,7 +127,7 @@ class XnmtTrainer(object):
     if args.trainer is None:
       self.trainer = xnmt.optimizer.SimpleSGDTrainer(self.model_context, 0.1)
     else:
-      self.trainer = self.model_serializer.initialize_object(args.trainer, yaml_context=self.model_context) if self.need_deserialization else args.trainer
+      self.trainer = self.model_serializer.initialize_if_needed(args.trainer, yaml_context=self.model_context) 
 
   def pack_batches(self):
     self.train_src, self.train_trg = \
@@ -138,8 +136,8 @@ class XnmtTrainer(object):
       self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
 
   def create_corpus_and_model(self):
-    self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus) if self.need_deserialization else self.args.training_corpus
-    self.corpus_parser = self.model_serializer.initialize_object(self.args.corpus_parser) if self.need_deserialization else self.args.corpus_parser
+    self.training_corpus = self.model_serializer.initialize_if_needed(self.args.training_corpus)
+    self.corpus_parser = self.model_serializer.initialize_if_needed(self.args.corpus_parser)
     self.corpus_parser.read_training_corpus(self.training_corpus)
     self.total_train_sent = len(self.training_corpus.train_src_data)
     self.model_context.corpus_parser = self.corpus_parser
@@ -149,25 +147,26 @@ class XnmtTrainer(object):
     self.model_context.weight_noise = self.args.weight_noise
     if not self.args.model:
       raise RuntimeError("No model specified!")
-    self.model = self.model_serializer.initialize_object(self.args.model, self.model_context) if self.need_deserialization else self.args.model
+    self.model = self.model_serializer.initialize_if_needed(self.args.model, self.model_context)
     if self.args.training_strategy:
-      self.training_strategy = self.model_serializer.initialize_object(self.args.training_strategy, self.model_context) if self.need_deserialization else self.args.training_strategy
+      self.training_strategy = self.model_serializer.initialize_if_needed(self.args.training_strategy, self.model_context)
     else:
       self.training_strategy = TrainingStrategy(TrainingMLELoss())
 
   def load_corpus_and_model(self):
-    self.training_corpus = self.model_serializer.initialize_object(self.args.training_corpus) if self.need_deserialization else self.args.training_corpus
+    self.training_corpus = self.model_serializer.initialize_if_needed(self.args.training_corpus)
     corpus_parser, model, my_model_context = self.model_serializer.load_from_file(self.args.pretrained_model_file, self.model_context.dynet_param_collection)
-    self.corpus_parser = self.model_serializer.initialize_object(corpus_parser) if self.need_deserialization else self.args.corpus_parser
+    my_model_context = my_model_context.data # TODO: hack, refactor
+    self.corpus_parser = self.model_serializer.initialize_if_needed(corpus_parser)
     self.corpus_parser.read_training_corpus(self.training_corpus)
     self.model_context.update(my_model_context)
     self.total_train_sent = len(self.training_corpus.train_src_data)
     self.model_context.corpus_parser = self.corpus_parser
     self.model_context.training_corpus = self.training_corpus
-    self.model = self.model_serializer.initialize_object(model, self.model_context) if self.need_deserialization else self.args.model
+    self.model = self.model_serializer.initialize_if_needed(model, self.model_context)
     self.model_context.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
     if self.args.training_strategy:
-      self.training_strategy = self.model_serializer.initialize_object(self.args.training_strategy, self.model_context) if self.need_deserialization else self.args.training_strategy
+      self.training_strategy = self.model_serializer.initialize_if_needed(self.args.training_strategy, self.model_context)
     else:
       self.training_strategy = TrainingStrategy(TrainingMLELoss())
 

@@ -63,15 +63,22 @@ class YamlSerializer(object):
   def __init__(self):
     self.representers_added = False
     self.initialized_shared_components = {}
+    
+  def initialize_if_needed(self, obj, yaml_context={}):
+    if YamlSerializer.is_initialized(obj): return obj
+    else: return self.initialize_object(deserialized_yaml_wrapper=obj, yaml_context=yaml_context)
 
-  def initialize_object(self, deserialized_yaml, yaml_context={}):
+  def initialize_object(self, deserialized_yaml_wrapper, yaml_context={}):
     """
     Initializes a hierarchy of deserialized YAML objects.
     
-    :param deserialized_yaml: deserialized YAML object (classes are resolved and class members set, but __init__() has not been called at this point)
+    :param deserialized_yaml_wrapper: deserialized YAML data inside a UninitializedYamlObject wrapper (classes are resolved and class members set, but __init__() has not been called at this point)
     :param yaml_context: this is passed to __init__ of every created object that expects a argument named yaml_context 
     :returns: the appropriate object, with properly shared parameters and __init__() having been invoked
     """
+    if YamlSerializer.is_initialized(deserialized_yaml_wrapper):
+      raise AssertionError()
+    deserialized_yaml = deserialized_yaml_wrapper.data
     deserialized_yaml = copy.deepcopy(deserialized_yaml)   # make a copy to avoid side effects
     self.set_serialize_params_recursive(deserialized_yaml) # sets each component's serialize_params to represent attributes specified in YAML file
     self.share_init_params_top_down(deserialized_yaml)     # invoke shared_params mechanism, set each component's init_params accordingly
@@ -248,10 +255,25 @@ class YamlSerializer(object):
   def load_from_file(self, fname, param):
     with open(fname, 'r') as f:
       dict_spec = yaml.load(f)
-      corpus_parser = dict_spec.corpus_parser
-      model = dict_spec.model
-      model_context = dict_spec.model_context
+      corpus_parser = UninitializedYamlObject(dict_spec.corpus_parser)
+      model = UninitializedYamlObject(dict_spec.model)
+      model_context = UninitializedYamlObject(dict_spec.model_context)
     return corpus_parser, model, model_context
+
+  @staticmethod
+  def is_initialized(obj):
+    """
+    :returns: True if a serializable object's __init__ has been invoked (either programmatically or through YAML deserialization)
+              False if __init__ has not been invoked, i.e. the object has been produced by the YAML parser but is not ready to use
+    """
+    return type(obj) != UninitializedYamlObject
+
+class UninitializedYamlObject(object):
+  """
+  Wrapper class to indicate an object created by the YAML parser that still needs initialization.
+  """
+  def __init__(self, data):
+    self.data = data
 
 class ComponentInitError(Exception):
   pass

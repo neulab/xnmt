@@ -19,6 +19,7 @@ import copy
 import xnmt.xnmt_preproc, xnmt.train, xnmt.xnmt_decode, xnmt.xnmt_evaluate
 from xnmt.options import OptionParser, Option
 from xnmt.tee import Tee
+from xnmt.serializer import UninitializedYamlObject
 
 def main(overwrite_args=None):
   argparser = argparse.ArgumentParser()
@@ -99,6 +100,13 @@ def main(overwrite_args=None):
 
     train_args = exp_tasks["train"]
     train_args.model_file = exp_args.model_file
+    # TODO: hack, need to refactor
+    if hasattr(train_args, "batcher") and train_args.batcher is not None: train_args.batcher = UninitializedYamlObject(train_args.batcher)
+    if hasattr(train_args, "trainer") and train_args.trainer is not None: train_args.trainer = UninitializedYamlObject(train_args.trainer)
+    if hasattr(train_args, "training_corpus") and train_args.training_corpus is not None: train_args.training_corpus = UninitializedYamlObject(train_args.training_corpus)
+    if hasattr(train_args, "corpus_parser") and train_args.corpus_parser is not None: train_args.corpus_parser = UninitializedYamlObject(train_args.corpus_parser)
+    if hasattr(train_args, "model") and train_args.model is not None: train_args.model = UninitializedYamlObject(train_args.model)
+    if hasattr(train_args, "training_strategy") and train_args.training_strategy is not None: train_args.training_strategy = UninitializedYamlObject(train_args.training_strategy)
 
     decode_args = exp_tasks["decode"]
     decode_args.trg_file = exp_args.hyp_file
