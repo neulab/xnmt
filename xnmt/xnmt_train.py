@@ -191,13 +191,13 @@ class XnmtTrainer(object):
       # first run
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.logger.epoch_num, shell=True)
       self._augmentation_handle.wait()
-   
+
     self._augmentation_handle.poll()
     retcode = self._augmentation_handle.returncode
     if retcode is not None:
       if self.logger.epoch_num > 0:
         print('using reloaded data')
-      # reload the data   
+      # reload the data
       self.corpus_parser.read_training_corpus(self.training_corpus)
       self.pack_batches()
       self.logger.total_train_sent = len(self.training_corpus.train_src_data)

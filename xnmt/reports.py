@@ -58,7 +58,7 @@ class Reportable(object):
 
   def generate_file_report(self):
     self.file_report()
-  
+
   @register_xnmt_event
   def file_report(self):
     pass

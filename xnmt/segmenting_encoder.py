@@ -87,7 +87,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.train = True
     self.warmup_counter = 0
     self.segmentation_warmup_counter = segmentation_warmup_counter
-    # Register all the children 
+    # Register all the children
 
   @handle_xnmt_event
   def on_start_sent(self, src=None):
