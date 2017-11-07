@@ -39,33 +39,33 @@ def main(overwrite_args=None):
   args = argparser.parse_args(overwrite_args)
 
   config_parser = OptionParser()
-  config_parser.add_task("preproc", xnmt.xnmt_preproc.options)
-  config_parser.add_task("train", xnmt.train.options)
-  config_parser.add_task("decode", xnmt.xnmt_decode.options)
-  config_parser.add_task("evaluate", xnmt.xnmt_evaluate.options)
+  config_parser.add_task("preproc", None)
+  config_parser.add_task("train", None)
+  config_parser.add_task("decode", None)
+  config_parser.add_task("evaluate", None)
 
   # Tweak the options to make config files less repetitive:
   # - Delete evaluate:evaluator, replace with exp:eval_metrics
   # - Delete decode:hyp_file, evaluate:hyp_file, replace with exp:hyp_file
   # - Delete train:model, decode:model_file, replace with exp:model_file
-  config_parser.remove_option("evaluate", "evaluator")
-  config_parser.remove_option("decode", "trg_file")
-  config_parser.remove_option("evaluate", "hyp_file")
-  config_parser.remove_option("train", "model_file")
-  config_parser.remove_option("decode", "model_file")
+#  config_parser.remove_option("evaluate", "evaluator")
+#  config_parser.remove_option("decode", "trg_file")
+#  config_parser.remove_option("evaluate", "hyp_file")
+#  config_parser.remove_option("train", "model_file")
+#  config_parser.remove_option("decode", "model_file")
 
-  experiment_options = [
-    Option("model_file", default_value="<EXP>.mod", help_str="Location to write the model file"),
-    Option("hyp_file", default_value="<EXP>.hyp", help_str="Location to write decoded output for evaluation"),
-    Option("out_file", default_value="<EXP>.out", help_str="Location to write stdout messages"),
-    Option("err_file", default_value="<EXP>.err", help_str="Location to write stderr messages"),
-    Option("cfg_file", default_value=None, help_str="Location to write a copy of the YAML configuration file", required=False),
-    Option("eval_only", bool, default_value=False, help_str="Skip training and evaluate only"),
-    Option("eval_metrics", default_value="bleu", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
-    Option("run_for_epochs", int, help_str="How many epochs to run each test for"),
-  ]
+#  experiment_options = [
+#    Option("model_file", default_value="<EXP>.mod", help_str="Location to write the model file"),
+#    Option("hyp_file", default_value="<EXP>.hyp", help_str="Location to write decoded output for evaluation"),
+#    Option("out_file", default_value="<EXP>.out", help_str="Location to write stdout messages"),
+#    Option("err_file", default_value="<EXP>.err", help_str="Location to write stderr messages"),
+#    Option("cfg_file", default_value=None, help_str="Location to write a copy of the YAML configuration file", required=False),
+#    Option("eval_only", bool, default_value=False, help_str="Skip training and evaluate only"),
+#    Option("eval_metrics", default_value="bleu", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
+#    Option("run_for_epochs", int, help_str="How many epochs to run each test for"),
+#  ]
 
-  config_parser.add_task("experiment", experiment_options)
+  config_parser.add_task("experiment", None)
 
   if args.generate_doc:
     print(config_parser.generate_options_table())

@@ -56,17 +56,17 @@ class OptionParser(object):
     """Options, sorted by task"""
 
   def add_task(self, task_name, task_options):
-    self.tasks[task_name] = OrderedDict([(opt.name, opt) for opt in task_options])
+    self.tasks[task_name] = {} #OrderedDict([(opt.name, opt) for opt in task_options])
 
-  def check_and_convert(self, task_name, option_name, value):
-    if option_name not in self.tasks[task_name]:
-      raise RuntimeError("Unknown option {} for task {}".format(option_name, task_name))
-
-    option = self.tasks[task_name][option_name]
-    if not (isinstance(value, RandomParam) or isinstance(value, RefParam) or isinstance(value, Serializable)):
-      value = option.type(value)
-
-    return value
+#  def check_and_convert(self, task_name, option_name, value):
+#    if option_name not in self.tasks[task_name]:
+#      raise RuntimeError("Unknown option {} for task {}".format(option_name, task_name))
+#
+#    option = self.tasks[task_name][option_name]
+#    if not (isinstance(value, RandomParam) or isinstance(value, RefParam) or isinstance(value, Serializable)):
+#      value = option.type(value)
+#
+#    return value
 
   def args_from_config_file(self, filename):
     """
@@ -93,7 +93,8 @@ class OptionParser(object):
 #        task_values = copy.deepcopy(defaults[task_name])
         task_values = {}
         exp_task_values = exp_tasks.get(task_name, dict())
-        task_values.update({name: self.check_and_convert(task_name, name, value) for name, value in exp_task_values.items()})
+        #task_values.update({name: self.check_and_convert(task_name, name, value) for name, value in exp_task_values.items()})
+        task_values = dict(exp_task_values)
 
         # Check that no required option is missing
         for _, option in self.tasks[task_name].items():

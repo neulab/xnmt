@@ -7,10 +7,10 @@ from xnmt.options import Option, OptionParser, Args
 from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer, Tokenizer
 from xnmt.serializer import YamlSerializer
 
-options = [
-  Option("preproc_specs", list, default_value=None, required=False, help_str="A specification for a preprocessing step, including in_files (the input files), out_files (the output files), type (normalize/filter/vocab), and spec for that particular preprocessing type"),
-  Option("overwrite", default_value=False, help_str="Whether to overwrite files if they already exist.")
-]
+#options = [
+#  Option("preproc_specs", list, default_value=None, required=False, help_str="A specification for a preprocessing step, including in_files (the input files), out_files (the output files), type (normalize/filter/vocab), and spec for that particular preprocessing type"),
+#  Option("overwrite", default_value=False, help_str="Whether to overwrite files if they already exist.")
+#]
 
 # The types of arguments that preproc_spec expects
 #   Option("in_files", help_str="list of paths to the input files"),
