@@ -10,7 +10,7 @@ from xnmt.serializer import *
 from xnmt.retriever import *
 from xnmt.translator import *
 from xnmt.search_strategy import *
-from xnmt.options import OptionParser, Option
+from xnmt.options import OptionParser, Option, Args
 
 
 '''
@@ -18,9 +18,6 @@ This will be the main class to perform decoding.
 '''
 
 options = [
-  Option("dynet-mem", int, required=False),
-  Option("dynet-gpu-ids", int, required=False),
-  Option("dynet-gpus", int, required=False),
   Option("model_file", force_flag=True, required=True, help_str="pretrained (saved) model path"),
   Option("src_file", help_str="path of input src file to be translated"),
   Option("trg_file", help_str="path of file where trg translatons will be written"),
@@ -39,9 +36,13 @@ options = [
 
 NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
 
-def xnmt_decode(args, model_elements=None):
+def xnmt_decode(args=None, model_elements=None, model_file=None, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
+                input_format="text", post_process="none", candidate_id_file=None, report_path=None, report_type="html",
+                beam=1, max_len=100, len_norm_type=None, mode="onebest",
+                random_search_report=None, # TODO: hack, remove
+                ):
   """
-  :param model_elements: If None, the model will be loaded from args.model_file. If set, should
+  :param model_elements: If None, the model will be loaded from args["model_file"]. If set, should
   equal (corpus_parser, generator).
   """
   if model_elements is None:
@@ -60,15 +61,19 @@ def xnmt_decode(args, model_elements=None):
 #
   else:
     corpus_parser, generator = model_elements
+  
+  if args is None: args = Args(model_file=model_file, src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
+                input_format=input_format, post_process=post_process, candidate_id_file=candidate_id_file, report_path=report_path, report_type=report_type,
+                beam=beam, max_len=max_len, len_norm_type=len_norm_type, mode=mode)
 
-  is_reporting = issubclass(generator.__class__, Reportable) and args.report_path is not None
+  is_reporting = issubclass(generator.__class__, Reportable) and args["report_path"] is not None
   # Corpus
-  src_corpus = list(corpus_parser.src_reader.read_sents(args.src_file))
+  src_corpus = list(corpus_parser.src_reader.read_sents(args["src_file"]))
   # Get reference if it exists and is necessary
-  if args.mode == "forced" or args.mode == "forceddebug":
-    if args.ref_file == None:
-      raise RuntimeError("When performing {} decoding, must specify reference file".format(args.mode))
-    ref_corpus = list(corpus_parser.trg_reader.read_sents(args.ref_file))
+  if args["mode"] == "forced" or args["mode"] == "forceddebug":
+    if args["ref_file"] == None:
+      raise RuntimeError("When performing {} decoding, must specify reference file".format(args["mode"]))
+    ref_corpus = list(corpus_parser.trg_reader.read_sents(args["ref_file"]))
   else:
     ref_corpus = None
   # Vocab
@@ -76,11 +81,11 @@ def xnmt_decode(args, model_elements=None):
   trg_vocab = corpus_parser.trg_reader.vocab if hasattr(corpus_parser.trg_reader, "vocab") else None
   # Perform initialization
   generator.set_train(False)
-  generator.initialize_generator(**args.params_as_dict)
+  generator.initialize_generator(**args.get_dict())
 
   # TODO: Structure it better. not only Translator can have post processes
   if issubclass(generator.__class__, Translator):
-    generator.set_post_processor(output_processor_for_spec(args.post_process))
+    generator.set_post_processor(output_processor_for_spec(args["post_process"]))
     generator.set_trg_vocab(trg_vocab)
     generator.set_reporting_src_vocab(src_vocab)
 
@@ -90,7 +95,7 @@ def xnmt_decode(args, model_elements=None):
 
   # If we're debugging, calculate the loss for each target sentence
   ref_scores = None
-  if args.mode == 'forceddebug':
+  if args["mode"] == 'forceddebug':
     batcher = xnmt.batcher.InOrderBatcher(32) # Arbitrary
     batched_src, batched_ref = batcher.pack(src_corpus, ref_corpus)
     ref_scores = []
@@ -101,10 +106,10 @@ def xnmt_decode(args, model_elements=None):
     ref_scores = [-x for x in ref_scores]
 
   # Perform generation of output
-  with io.open(args.trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
+  with io.open(args["trg_file"], 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
     for i, src in enumerate(src_corpus):
       # Do the decoding
-      if args.max_src_len is not None and len(src) > args.max_src_len:
+      if args["max_src_len"] is not None and len(src) > args["max_src_len"]:
         output = NO_DECODING_ATTEMPTED
       else:
         dy.renew_cg()

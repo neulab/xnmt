@@ -93,61 +93,69 @@ def main(overwrite_args=None):
     print("=> Running {}".format(experiment_name))
 
     exp_args = exp_tasks["experiment"]
-    if exp_args.cfg_file != None:
-      shutil.copyfile(args.experiments_file, exp_args.cfg_file)
+    # TODO: hack, refactor
+    if not "model_file" in exp_args: exp_args["model_file"] = "<EXP>.mod"
+    if not "hyp_file" in exp_args: exp_args["hyp_file"] = "<EXP>.hyp"
+    if not "out_file" in exp_args: exp_args["out_file"] = "<EXP>.out"
+    if not "err_file" in exp_args: exp_args["model_file"] = "<EXP>.err"
+    if not "cfg_file" in exp_args: exp_args["cfg_file"] = None
+    if not "eval_only" in exp_args: exp_args["eval_only"] = False
+    if not "eval_metrics" in exp_args: exp_args["eval_metrics"] = "bleu"
+    if "cfg_file" in exp_args and exp_args["cfg_file"] != None:
+      shutil.copyfile(args["experiments_file"], exp_args["cfg_file"])
 
     preproc_args = exp_tasks["preproc"]
 
     train_args = exp_tasks["train"]
-    train_args.model_file = exp_args.model_file
+    train_args["model_file"] = exp_args["model_file"]
     # TODO: hack, need to refactor
-    if hasattr(train_args, "batcher") and train_args.batcher is not None: train_args.batcher = UninitializedYamlObject(train_args.batcher)
-    if hasattr(train_args, "trainer") and train_args.trainer is not None: train_args.trainer = UninitializedYamlObject(train_args.trainer)
-    if hasattr(train_args, "training_corpus") and train_args.training_corpus is not None: train_args.training_corpus = UninitializedYamlObject(train_args.training_corpus)
-    if hasattr(train_args, "corpus_parser") and train_args.corpus_parser is not None: train_args.corpus_parser = UninitializedYamlObject(train_args.corpus_parser)
-    if hasattr(train_args, "model") and train_args.model is not None: train_args.model = UninitializedYamlObject(train_args.model)
-    if hasattr(train_args, "training_strategy") and train_args.training_strategy is not None: train_args.training_strategy = UninitializedYamlObject(train_args.training_strategy)
+    if "batcher" in train_args and train_args["batcher"] is not None: train_args["batcher"] = UninitializedYamlObject(train_args["batcher"])
+    if "trainer" in train_args and train_args["trainer"] is not None: train_args["trainer"] = UninitializedYamlObject(train_args["trainer"])
+    if "training_corpus" in train_args and train_args["training_corpus"] is not None: train_args["training_corpus"] = UninitializedYamlObject(train_args["training_corpus"])
+    if "corpus_parser" in train_args and train_args["corpus_parser"] is not None: train_args["corpus_parser"] = UninitializedYamlObject(train_args["corpus_parser"])
+    if "model" in train_args and train_args["model"] is not None: train_args["model"] = UninitializedYamlObject(train_args["model"])
+    if "training_strategy" in train_args and train_args["training_strategy"] is not None: train_args["training_strategy"] = UninitializedYamlObject(train_args["training_strategy"])
 
     decode_args = exp_tasks["decode"]
-    decode_args.trg_file = exp_args.hyp_file
-    decode_args.model_file = None  # The model is passed to the decoder directly
+    decode_args["trg_file"] = exp_args["hyp_file"]
+    decode_args["model_file"] = None  # The model is passed to the decoder directly
 
     evaluate_args = exp_tasks["evaluate"]
-    evaluate_args.hyp_file = exp_args.hyp_file
-    evaluators = map(lambda s: s.lower(), exp_args.eval_metrics.split(","))
+    evaluate_args["hyp_file"] = exp_args["hyp_file"]
+    evaluators = map(lambda s: s.lower(), exp_args["eval_metrics"].split(","))
 
-    output = Tee(exp_args.out_file, 3)
-    err_output = Tee(exp_args.err_file, 3, error=True)
+    output = Tee(exp_args["out_file"], 3)
+    err_output = Tee(exp_args["err_file"], 3, error=True)
 
     # Do preprocessing
     print("> Preprocessing")
-    xnmt.xnmt_preproc.xnmt_preproc(preproc_args)
+    xnmt.xnmt_preproc.xnmt_preproc(**preproc_args.get_dict())
 
     # Do training
     for task_name in exp_tasks:
-      if hasattr(exp_tasks[task_name], "random_search_report"):
-        print("> instantiated random parameter search: %s" % exp_tasks[task_name].random_search_report)
+      if "random_search_report" in exp_tasks[task_name]:
+        print("> instantiated random parameter search: %s" % exp_tasks[task_name]["random_search_report"])
 
     print("> Training")
-    xnmt_trainer = xnmt.train.XnmtTrainer(train_args)
+    xnmt_trainer = xnmt.train.XnmtTrainer(**train_args.get_dict())
     xnmt_trainer.decode_args = copy.copy(decode_args)
     xnmt_trainer.evaluate_args = copy.copy(evaluate_args)
 
     eval_scores = "Not evaluated"
-    if not exp_args.eval_only:
-      xnmt_trainer.run_epochs(exp_args.run_for_epochs)
+    if not exp_args["eval_only"]:
+      xnmt_trainer.run_epochs(exp_args["run_for_epochs"])
 
-    if not exp_args.eval_only:
+    if not exp_args["eval_only"]:
       print('reverting learned weights to best checkpoint..')
       xnmt_trainer.model_context.dynet_param_collection.revert_to_best_model()
     if evaluators:
       print("> Evaluating test set")
       output.indent += 2
-      xnmt.xnmt_decode.xnmt_decode(decode_args, model_elements=(
-        xnmt_trainer.corpus_parser, xnmt_trainer.model))
+      xnmt.xnmt_decode.xnmt_decode(model_elements=(
+        xnmt_trainer.corpus_parser, xnmt_trainer.model), **decode_args.get_dict())
       eval_scores = []
       for evaluator in evaluators:
-        evaluate_args.evaluator = evaluator
+        evaluate_args["evaluator"] = evaluator
         eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(evaluate_args)
         print(eval_score)
         eval_scores.append(eval_score)

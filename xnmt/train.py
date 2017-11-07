@@ -29,7 +29,7 @@ from xnmt.serialize_container import *
 from xnmt.training_corpus import *
 from xnmt.loss_tracker import *
 from xnmt.segmenting_encoder import *
-from xnmt.options import Option, OptionParser, general_options
+from xnmt.options import Option, OptionParser, general_options, Args
 from xnmt.loss import LossBuilder
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.training_strategy import TrainingStrategy, TrainingMLELoss
@@ -38,6 +38,7 @@ import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
 from xnmt.evaluator import LossScore
 import xnmt.optimizer
+
 '''
 This will be the main class to perform training.
 '''
@@ -74,33 +75,46 @@ options = [
 ]
 
 class XnmtTrainer(object):
-  def __init__(self, args, yaml_context=None):
+  def __init__(self, args=None, yaml_context=None, dev_every=0, batcher=None, training_corpus=None,
+               corpus_parser=None, training_strategy=None, model_file=None, save_num_checkpoints=1,
+               pretrained_model_file="", src_format="text", default_layer_dim=512,
+               trainer=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
+               dev_metrics="", schedule_metric="loss", restart_trainer=False,reload_command=None,
+               dropout=0.0, weight_noise=0.0, model={},
+               random_search_report=None, # TODO: hack, remove this
+               ):
     """
     :param args: xnmt.options.Args instance corresponding to the options given above
         This is usually the case when these have been deserialized from a YAML file, but not when instantiating XnmtTrainer manually.
     """
     dy.renew_cg()
 
+    if args is None: args = Args(dev_every=dev_every, batcher=batcher, training_corpus=training_corpus,
+               corpus_parser=corpus_parser, training_strategy=training_strategy, model_file=model_file, save_num_checkpoints=save_num_checkpoints,
+               pretrained_model_file=pretrained_model_file, src_format=src_format, default_layer_dim=default_layer_dim,
+               trainer=trainer, lr_decay=lr_decay, lr_decay_times=lr_decay_times, attempts_before_lr_decay=attempts_before_lr_decay,
+               dev_metrics=dev_metrics, schedule_metric=schedule_metric, restart_trainer=restart_trainer,reload_command=reload_command,
+               dropout=dropout, weight_noise=weight_noise, model=model)
     self.args = args
     if yaml_context:
       self.model_context = yaml_context
     else:
       self.model_context = ModelContext()
-      self.model_context.dynet_param_collection = PersistentParamCollection(self.args.model_file, self.args.save_num_checkpoints)
+      self.model_context.dynet_param_collection = PersistentParamCollection(self.args["model_file"], self.args["save_num_checkpoints"])
 
 
-    if args.lr_decay > 1.0 or args.lr_decay <= 0.0:
+    if args["lr_decay"] > 1.0 or args["lr_decay"] <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
     self.num_times_lr_decayed = 0
     self.early_stopping_reached = False
     self.cur_attempt = 0
 
-    self.evaluators = [s.lower() for s in self.args.dev_metrics.split(",") if s.strip()!=""]
-    if self.args.schedule_metric.lower() not in self.evaluators:
-              self.evaluators.append(self.args.schedule_metric.lower())
+    self.evaluators = [s.lower() for s in self.args["dev_metrics"].split(",") if s.strip()!=""]
+    if self.args["schedule_metric"].lower() not in self.evaluators:
+              self.evaluators.append(self.args["schedule_metric"].lower())
     if "loss" not in self.evaluators: self.evaluators.append("loss")
 
-    if args.reload_command is not None:
+    if args["reload_command"] is not None:
         self._augmentation_handle = None
         self._augment_data_initial()
 
@@ -108,26 +122,26 @@ class XnmtTrainer(object):
     self.model_serializer = YamlSerializer()
 
 
-    if self.args.pretrained_model_file:
+    if self.args["pretrained_model_file"]:
       self.load_corpus_and_model()
     else:
       self.create_corpus_and_model()
 
     self.model.initialize_training_strategy(self.training_strategy)
 
-    if self.args.batcher is None:
+    if self.args["batcher"] is None:
       self.batcher = SrcBatcher(32)
     else:
-      self.batcher = self.model_serializer.initialize_if_needed(self.args.batcher) 
-    if args.src_format == "contvec":
+      self.batcher = self.model_serializer.initialize_if_needed(self.args["batcher"]) 
+    if args["src_format"] == "contvec":
       self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
     self.pack_batches()
-    self.logger = BatchLossTracker(args.dev_every, self.total_train_sent)
+    self.logger = BatchLossTracker(args["dev_every"], self.total_train_sent)
 
-    if args.trainer is None:
+    if args["trainer"] is None:
       self.trainer = xnmt.optimizer.SimpleSGDTrainer(self.model_context, 0.1)
     else:
-      self.trainer = self.model_serializer.initialize_if_needed(args.trainer, yaml_context=self.model_context) 
+      self.trainer = self.model_serializer.initialize_if_needed(args["trainer"], yaml_context=self.model_context) 
 
   def pack_batches(self):
     self.train_src, self.train_trg = \
@@ -136,26 +150,26 @@ class XnmtTrainer(object):
       self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
 
   def create_corpus_and_model(self):
-    self.training_corpus = self.model_serializer.initialize_if_needed(self.args.training_corpus)
-    self.corpus_parser = self.model_serializer.initialize_if_needed(self.args.corpus_parser)
+    self.training_corpus = self.model_serializer.initialize_if_needed(self.args["training_corpus"])
+    self.corpus_parser = self.model_serializer.initialize_if_needed(self.args["corpus_parser"])
     self.corpus_parser.read_training_corpus(self.training_corpus)
     self.total_train_sent = len(self.training_corpus.train_src_data)
     self.model_context.corpus_parser = self.corpus_parser
     self.model_context.training_corpus = self.training_corpus
-    self.model_context.default_layer_dim = self.args.default_layer_dim
-    self.model_context.dropout = self.args.dropout
-    self.model_context.weight_noise = self.args.weight_noise
-    if not self.args.model:
+    self.model_context.default_layer_dim = self.args["default_layer_dim"]
+    self.model_context.dropout = self.args["dropout"]
+    self.model_context.weight_noise = self.args["weight_noise"]
+    if not self.args["model"]:
       raise RuntimeError("No model specified!")
-    self.model = self.model_serializer.initialize_if_needed(self.args.model, self.model_context)
-    if self.args.training_strategy:
-      self.training_strategy = self.model_serializer.initialize_if_needed(self.args.training_strategy, self.model_context)
+    self.model = self.model_serializer.initialize_if_needed(self.args["model"], self.model_context)
+    if self.args["training_strategy"]:
+      self.training_strategy = self.model_serializer.initialize_if_needed(self.args["training_strategy"], self.model_context)
     else:
       self.training_strategy = TrainingStrategy(TrainingMLELoss())
 
   def load_corpus_and_model(self):
-    self.training_corpus = self.model_serializer.initialize_if_needed(self.args.training_corpus)
-    corpus_parser, model, my_model_context = self.model_serializer.load_from_file(self.args.pretrained_model_file, self.model_context.dynet_param_collection)
+    self.training_corpus = self.model_serializer.initialize_if_needed(self.args["training_corpus"])
+    corpus_parser, model, my_model_context = self.model_serializer.load_from_file(self.args["pretrained_model_file"], self.model_context.dynet_param_collection)
     my_model_context = my_model_context.data # TODO: hack, refactor
     self.corpus_parser = self.model_serializer.initialize_if_needed(corpus_parser)
     self.corpus_parser.read_training_corpus(self.training_corpus)
@@ -164,14 +178,14 @@ class XnmtTrainer(object):
     self.model_context.corpus_parser = self.corpus_parser
     self.model_context.training_corpus = self.training_corpus
     self.model = self.model_serializer.initialize_if_needed(model, self.model_context)
-    self.model_context.dynet_param_collection.load_from_data_file(self.args.pretrained_model_file + '.data')
-    if self.args.training_strategy:
-      self.training_strategy = self.model_serializer.initialize_if_needed(self.args.training_strategy, self.model_context)
+    self.model_context.dynet_param_collection.load_from_data_file(self.args["pretrained_model_file"] + '.data')
+    if self.args["training_strategy"]:
+      self.training_strategy = self.model_serializer.initialize_if_needed(self.args["training_strategy"], self.model_context)
     else:
       self.training_strategy = TrainingStrategy(TrainingMLELoss())
 
   def _augment_data_initial(self):
-    augment_command = self.args.reload_command
+    augment_command = self.args["reload_command"]
     print('initial augmentation')
     if self._augmentation_handle is None:
       # first run
@@ -179,7 +193,7 @@ class XnmtTrainer(object):
       self._augmentation_handle.wait()
 
   def _augment_data_next_epoch(self):
-    augment_command = self.args.reload_command
+    augment_command = self.args["reload_command"]
     if self._augmentation_handle is None:
       # first run
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.logger.epoch_num, shell=True)
@@ -214,7 +228,7 @@ class XnmtTrainer(object):
 
     self.logger.new_epoch()
 
-    if self.args.reload_command is not None:
+    if self.args["reload_command"] is not None:
       self._augment_data_next_epoch()
 
     self.model.set_train(update_weights)
@@ -261,19 +275,19 @@ class XnmtTrainer(object):
     self.model.set_train(False)
     self.logger.new_dev()
     trg_words_cnt, loss_score = self.compute_dev_loss()
-    schedule_metric = self.args.schedule_metric.lower()
+    schedule_metric = self.args["schedule_metric"].lower()
 
     eval_scores = {"loss" : loss_score}
     if len(list(filter(lambda e: e!="loss", self.evaluators))) > 0:
-      self.decode_args.src_file = self.training_corpus.dev_src
-      self.decode_args.candidate_id_file = self.training_corpus.dev_id_file
-      if self.args.model_file:
-        out_file = self.args.model_file + out_ext
-        out_file_ref = self.args.model_file + ref_ext
-        self.decode_args.trg_file = out_file
+      self.decode_args["src_file"] = self.training_corpus.dev_src
+      self.decode_args["candidate_id_file"] = self.training_corpus.dev_id_file
+      if self.args["model_file"]:
+        out_file = self.args["model_file"] + out_ext
+        out_file_ref = self.args["model_file"] + ref_ext
+        self.decode_args["trg_file"] = out_file
       # Decoding + post_processing
-      xnmt.xnmt_decode.xnmt_decode(self.decode_args, model_elements=(self.corpus_parser, self.model))
-      output_processor = xnmt.xnmt_decode.output_processor_for_spec(self.decode_args.post_process)
+      xnmt.xnmt_decode.xnmt_decode(model_elements=(self.corpus_parser, self.model), **self.decode_args.get_dict())
+      output_processor = xnmt.xnmt_decode.output_processor_for_spec(self.decode_args.get("post_process", "none")) # TODO: hack, refactor
       # Copy Trg to Ref
       processed = []
       with io.open(self.training_corpus.dev_trg, encoding=encoding) as fin:
@@ -283,12 +297,12 @@ class XnmtTrainer(object):
         for line in processed:
           fout.write(line)
       # Evaluation
-      if self.args.model_file:
-        self.evaluate_args.hyp_file = out_file
-        self.evaluate_args.ref_file = out_file_ref
+      if self.args["model_file"]:
+        self.evaluate_args["hyp_file"] = out_file
+        self.evaluate_args["ref_file"] = out_file_ref
       for evaluator in self.evaluators:
         if evaluator=="loss": continue
-        self.evaluate_args.evaluator = evaluator
+        self.evaluate_args["evaluator"] = evaluator
         eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(self.evaluate_args)
         eval_scores[evaluator] = eval_score
     # Logging
@@ -304,24 +318,24 @@ class XnmtTrainer(object):
         self.logger.report_auxiliary_score(eval_scores[metric])
     
     # Write out the model if it's the best one
-    if self.logger.report_dev_and_check_model(self.args.model_file):
-      if self.args.model_file is not None:
-        self.model_serializer.save_to_file(self.args.model_file,
+    if self.logger.report_dev_and_check_model(self.args["model_file"]):
+      if self.args["model_file"] is not None:
+        self.model_serializer.save_to_file(self.args["model_file"],
                                            SerializeContainer(self.corpus_parser, self.model, self.model_context),
                                            self.model_context.dynet_param_collection)
       self.cur_attempt = 0
     else:
       # otherwise: learning rate decay / early stopping
       self.cur_attempt += 1
-      if self.args.lr_decay < 1.0 and self.cur_attempt >= self.args.attempts_before_lr_decay:
+      if self.args["lr_decay"] < 1.0 and self.cur_attempt >= self.args["attempts_before_lr_decay"]:
         self.num_times_lr_decayed += 1
-        if self.num_times_lr_decayed > self.args.lr_decay_times:
+        if self.num_times_lr_decayed > self.args["lr_decay_times"]:
           print('  Early stopping')
           self.early_stopping_reached = True
         else:
-          self.trainer.learning_rate *= self.args.lr_decay
+          self.trainer.learning_rate *= self.args["lr_decay"]
           print('  new learning rate: %s' % self.trainer.learning_rate)
-          if self.args.restart_trainer:
+          if self.args["restart_trainer"]:
             print('  restarting trainer and reverting learned weights to best checkpoint..')
             self.trainer.restart()
             self.model_context.dynet_param_collection.revert_to_best_model()

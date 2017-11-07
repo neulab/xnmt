@@ -28,11 +28,10 @@ class Option(object):
     self.force_flag = force_flag
     self.help = help_str
 
-class Args(object):
-  def __init__(self, **kwargs):
-    for key,val in kwargs.items():
-      setattr(self, key, val)
-
+class Args(dict):
+  def get_dict(self):
+    return dict(self)
+          
 class RandomParam(yaml.YAMLObject):
   yaml_tag = u'!RandomParam'
   def __init__(self, values):
@@ -80,10 +79,10 @@ class OptionParser(object):
       raise RuntimeError("Could not read configuration file {}: {}".format(filename, e))
 
     # Default values as specified in option definitions
-    defaults = {
-      task_name: dict({name: opt.default_value for name, opt in task_options.items() if
-                  opt.default_value is not None or not opt.required})
-      for task_name, task_options in self.tasks.items()}
+#    defaults = {
+#      task_name: dict({name: opt.default_value for name, opt in task_options.items() if
+#                  opt.default_value is not None or not opt.required})
+#      for task_name, task_options in self.tasks.items()}
 
     experiments = {}
     for exp, exp_tasks in config.items():
@@ -91,7 +90,8 @@ class OptionParser(object):
       if exp_tasks is None: exp_tasks = {}
       experiments[exp] = {}
       for task_name in self.tasks:
-        task_values = copy.deepcopy(defaults[task_name])
+#        task_values = copy.deepcopy(defaults[task_name])
+        task_values = {}
         exp_task_values = exp_tasks.get(task_name, dict())
         task_values.update({name: self.check_and_convert(task_name, name, value) for name, value in exp_task_values.items()})
 
@@ -117,8 +117,7 @@ class OptionParser(object):
 
         experiments[exp][task_name] = Args()
         for name, val in task_values.items():
-          setattr(experiments[exp][task_name], name, val)
-        setattr(experiments[exp][task_name], "params_as_dict", task_values)
+          experiments[exp][task_name][name] = val
 
     return experiments
 

@@ -3,7 +3,7 @@ import sys
 import os.path
 import io
 
-from xnmt.options import Option, OptionParser
+from xnmt.options import Option, OptionParser, Args
 from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer, Tokenizer
 from xnmt.serializer import YamlSerializer
 
@@ -21,16 +21,18 @@ options = [
 
 ##### Main function
 
-def xnmt_preproc(args):
+def xnmt_preproc(args=None, preproc_specs=None, overwrite=False):
   """Preprocess and filter the input files, and create the vocabulary
   """
+  
+  if args is None: args = Args(preproc_specs=preproc_specs, overwrite=overwrite)
 
-  if args.preproc_specs == None:
+  if args["preproc_specs"] == None:
     return
 
   model_serializer = YamlSerializer()
 
-  for arg in args.preproc_specs:
+  for arg in args["preproc_specs"]:
 
     # Sanity check
     if len(arg["in_files"]) != len(arg["out_files"]):
@@ -43,7 +45,7 @@ def xnmt_preproc(args):
             for my_opts in arg["specs"]}
       paths_to_latest_fileobjs = {}
       for file_num, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
-        if args.overwrite or not os.path.isfile(out_file):
+        if args["overwrite"] or not os.path.isfile(out_file):
           my_tokenizers = tokenizers.get(file_num, tokenizers["all"])
           with io.open(out_file, "w", encoding='utf-8') as out_stream, \
                io.open(in_file, "r", encoding='utf-8') as in_stream:
@@ -55,7 +57,7 @@ def xnmt_preproc(args):
     elif arg["type"] == 'normalize':
       normalizers = {my_opts["filenum"]: Normalizer.from_spec(my_opts["spec"]) for my_opts in arg["specs"]}
       for i, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
-        if args.overwrite or not os.path.isfile(out_file):
+        if args["overwrite"] or not os.path.isfile(out_file):
           my_normalizers = normalizers.get(i, normalizers["all"])
           with io.open(out_file, "w", encoding='utf-8') as out_stream, \
                io.open(in_file, "r", encoding='utf-8') as in_stream:
@@ -70,7 +72,7 @@ def xnmt_preproc(args):
     #       in input.py
     elif arg["type"] == 'filter':
       filters = SentenceFilterer.from_spec(arg["specs"])
-      out_streams = [io.open(x, 'w', encoding='utf-8') if args.overwrite or not os.path.isfile(x) else None for x in arg["out_files"]]
+      out_streams = [io.open(x, 'w', encoding='utf-8') if args["overwrite"] or not os.path.isfile(x) else None for x in arg["out_files"]]
       if any(x is not None for x in out_streams):
         in_streams = [io.open(x, 'r', encoding='utf-8') for x in arg["in_files"]]
         for in_lines in zip(*in_streams):
@@ -90,7 +92,7 @@ def xnmt_preproc(args):
     elif arg["type"] == 'vocab':
       filters = {my_opts["filenum"]: VocabFilterer.from_spec(my_opts["spec"]) for my_opts in arg["specs"]}
       for i, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
-        if args.overwrite or not os.path.isfile(out_file):
+        if args["overwrite"] or not os.path.isfile(out_file):
           with io.open(out_file, "w", encoding='utf-8') as out_stream, \
                io.open(in_file, "r", encoding='utf-8') as in_stream:
             vocab = {}
