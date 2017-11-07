@@ -75,7 +75,7 @@ options = [
 ]
 
 class XnmtTrainer(object):
-  def __init__(self, args=None, yaml_context=None, dev_every=0, batcher=None, training_corpus=None,
+  def __init__(self, yaml_context=None, dev_every=0, batcher=None, training_corpus=None,
                corpus_parser=None, training_strategy=None, model_file=None, save_num_checkpoints=1,
                pretrained_model_file="", src_format="text", default_layer_dim=512,
                trainer=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
@@ -89,7 +89,7 @@ class XnmtTrainer(object):
     """
     dy.renew_cg()
 
-    if args is None: args = Args(dev_every=dev_every, batcher=batcher, training_corpus=training_corpus,
+    args = Args(dev_every=dev_every, batcher=batcher, training_corpus=training_corpus,
                corpus_parser=corpus_parser, training_strategy=training_strategy, model_file=model_file, save_num_checkpoints=save_num_checkpoints,
                pretrained_model_file=pretrained_model_file, src_format=src_format, default_layer_dim=default_layer_dim,
                trainer=trainer, lr_decay=lr_decay, lr_decay_times=lr_decay_times, attempts_before_lr_decay=attempts_before_lr_decay,
@@ -303,7 +303,7 @@ class XnmtTrainer(object):
       for evaluator in self.evaluators:
         if evaluator=="loss": continue
         self.evaluate_args["evaluator"] = evaluator
-        eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(self.evaluate_args)
+        eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(**self.evaluate_args)
         eval_scores[evaluator] = eval_score
     # Logging
     if schedule_metric == "loss":

@@ -156,7 +156,7 @@ def main(overwrite_args=None):
       eval_scores = []
       for evaluator in evaluators:
         evaluate_args["evaluator"] = evaluator
-        eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(evaluate_args)
+        eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(**evaluate_args)
         print(eval_score)
         eval_scores.append(eval_score)
       output.indent -= 2

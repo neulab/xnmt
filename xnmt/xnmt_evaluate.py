@@ -31,10 +31,10 @@ def eval_or_empty_list(x):
   except:
     return []
 
-def xnmt_evaluate(args=None, ref_file=None, hyp_file=None, evaluator="bleu"):
+def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu"):
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
   """
-  if args is None: args = Args(ref_file=ref_file, hyp_file=hyp_file, evaluator=evaluator)
+  args = Args(ref_file=ref_file, hyp_file=hyp_file, evaluator=evaluator)
   cols = args["evaluator"].split("|")
   eval_type  = cols[0]
   eval_param = {} if len(cols) == 1 else {key: value for key, value in [param.split("=") for param in cols[1].split()]}

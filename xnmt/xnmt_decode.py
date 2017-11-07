@@ -36,7 +36,7 @@ options = [
 
 NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
 
-def xnmt_decode(args=None, model_elements=None, model_file=None, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
+def xnmt_decode(model_elements=None, model_file=None, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
                 input_format="text", post_process="none", candidate_id_file=None, report_path=None, report_type="html",
                 beam=1, max_len=100, len_norm_type=None, mode="onebest",
                 random_search_report=None, # TODO: hack, remove
@@ -62,7 +62,7 @@ def xnmt_decode(args=None, model_elements=None, model_file=None, src_file=None, 
   else:
     corpus_parser, generator = model_elements
   
-  if args is None: args = Args(model_file=model_file, src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
+  args = Args(model_file=model_file, src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
                 input_format=input_format, post_process=post_process, candidate_id_file=candidate_id_file, report_path=report_path, report_type=report_type,
                 beam=beam, max_len=max_len, len_norm_type=len_norm_type, mode=mode)
 

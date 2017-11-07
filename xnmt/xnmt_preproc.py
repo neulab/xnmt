@@ -21,11 +21,11 @@ options = [
 
 ##### Main function
 
-def xnmt_preproc(args=None, preproc_specs=None, overwrite=False):
+def xnmt_preproc(preproc_specs=None, overwrite=False):
   """Preprocess and filter the input files, and create the vocabulary
   """
   
-  if args is None: args = Args(preproc_specs=preproc_specs, overwrite=overwrite)
+  args = Args(preproc_specs=preproc_specs, overwrite=overwrite)
 
   if args["preproc_specs"] == None:
     return
