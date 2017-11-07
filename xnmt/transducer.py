@@ -7,21 +7,21 @@ from xnmt.serializer import Serializable
 class Transducer(object):
   """
   A transducer takes an input and transduces it into some output.
-  
+
   Inputs and outputs can be DyNet expressions, ExpressionSequences, or anything else.
-  
+
   The goal is to make XNMT as modular as possible. It will be the responsibility of
   the user to ensure a transducer is being used in the correct context (i.e., supports
   correct input and output data types), therefore the expected data types should be made
   clear via appropriate argument naming and documentation.
-  
+
   Transducers in general will have at least two methods:
   - __init__(...), should be used to configure the transducer. If possible, configuration
     should be transparent to a user and not require understanding of implementation
     details. If the transducer uses DyNet parameters, these must be initialized here.
     If appropriate, yaml_context argument should be used to access global configuration
     and DyNet parameters
-  - __call__(...), will perform the actual transduction and return the result 
+  - __call__(...), will perform the actual transduction and return the result
   """
   def __call__(self, *args, **kwargs):
     """
@@ -42,7 +42,7 @@ class SeqTransducer(Transducer):
     :returns: result of transduction, an ExpressionSequence object
     """
     raise NotImplementedError("subclasses must implement __call__()")
-  
+
   def get_final_states(self):
     """
     :returns: A list of FinalTransducerState objects corresponding to a fixed-dimension
@@ -86,7 +86,7 @@ class ModularSeqTransducer(SeqTransducer, Serializable):
 
   def __init__(self, input_dim, modules):
     self.modules = modules
-    
+
   def shared_params(self):
     return [set(["input_dim", "modules.0.input_dim"])]
 
@@ -106,7 +106,7 @@ class IdentityTransducer(Transducer, Serializable):
   """
   A transducer that simply returns the input.
   """
-  
+
   yaml_tag = u'!IdentityTransducer'
 
   def __call__(self, x):

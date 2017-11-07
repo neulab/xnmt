@@ -27,7 +27,7 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
   @handle_xnmt_event
   def on_set_train(self, val):
     self.builder.set_dropout(self.dropout if val else 0.0)
-  
+
   @handle_xnmt_event
   def on_start_sent(self, *args, **kwargs):
     self._final_states = None
@@ -45,7 +45,7 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
 
 class ResidualRNNBuilder(object):
   """
-  
+
   Builder for RNNs that implements additional residual connections between layers: the output of each
   intermediate hidden layer is added to its output.
 

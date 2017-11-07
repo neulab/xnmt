@@ -173,11 +173,11 @@ class CustomCompactLSTMBuilder(object):
     c_t = dy.vanilla_lstm_c(c_tm1, gates_t)
     h_t = dy.vanilla_lstm_h(c_t, gates_t)
     return h_t, c_t
-    
+
   def transduce(self, expr_seq):
     """
     transduce the sequence, applying masks if given (masked timesteps simply copy previous h / c)
-    
+
     :param expr_seq: expression sequence or list of expression sequences (where each inner list will be concatenated)
     :returns: expression sequence
     """
@@ -186,10 +186,10 @@ class CustomCompactLSTMBuilder(object):
       expr_seq = [expr_seq]
     batch_size = expr_seq[0][0].dim()[1]
     seq_len = len(expr_seq[0])
-    
+
     if self.dropout_rate > 0.0:
       self.set_dropout_masks(batch_size=batch_size)
-      
+
     h = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
     c = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
     for pos_i in range(seq_len):
