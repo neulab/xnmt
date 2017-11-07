@@ -1,5 +1,4 @@
-# Small config to help refactoring to make the model completely YAML based
-defaults:
+reinforce:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -25,13 +24,6 @@ defaults:
       trg_reader: !PlainTextReader {}
       max_src_len: 15
       max_trg_len: 15
-  decode:
-    src_file: examples/data/head.ja
-  evaluate:
-    ref_file: examples/data/head.en
-
-reinforce:
-  train:
     training_strategy: !DefaultTrainingStrategy
       loss_calculator: !TrainingReinforceLoss
         use_baseline: True
@@ -52,4 +44,9 @@ reinforce:
         layers: 1
         mlp_hidden_dim: 32
         bridge: !NoBridge {}
+  decode:
+    src_file: examples/data/head.ja
+  evaluate:
+    ref_file: examples/data/head.en
+
 

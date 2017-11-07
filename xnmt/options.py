@@ -85,14 +85,9 @@ class OptionParser(object):
                   opt.default_value is not None or not opt.required})
       for task_name, task_options in self.tasks.items()}
 
-    # defaults section in the config file
-    if "defaults" in config:
-      for task_name, task_options in config["defaults"].items():
-        defaults[task_name].update({name: self.check_and_convert(task_name, name, value) for name, value in task_options.items()})
-      del config["defaults"]
-
     experiments = {}
     for exp, exp_tasks in config.items():
+      if exp=="defaults": continue
       if exp_tasks is None: exp_tasks = {}
       experiments[exp] = {}
       for task_name in self.tasks:

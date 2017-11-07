@@ -1,5 +1,4 @@
-# Small config to help refactoring to make the model completely YAML based
-defaults:
+retrieval:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -43,6 +42,4 @@ defaults:
   evaluate:
     ref_file: examples/data/test.allids
 
-retrieval:
-  train:
-     dropout: 0.0
+

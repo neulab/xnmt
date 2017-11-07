@@ -2,7 +2,7 @@
 # Compared to the conventional attentional model, we remove input embeddings, instead directly read in a feature vector
 # the pyramidal LSTM reduces length of the input sequence by a factor of 2 per layer (except for the first layer).
 # Output units should be characters according to the paper.
-defaults:
+speech-2layers:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -44,6 +44,3 @@ defaults:
     src_file: examples/data/synth.contvec.npz
   evaluate:
     ref_file: examples/data/synth.char
-
-speech-2layers:
-

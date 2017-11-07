@@ -1,4 +1,4 @@
-defaults:
+standard:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -42,5 +42,3 @@ defaults:
     src_file: examples/data/test.ja
   evaluate:
     ref_file: examples/data/test.en
-
-standard:

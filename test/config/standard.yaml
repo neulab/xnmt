@@ -1,5 +1,5 @@
 # A standard training run, should almost never break
-defaults:
+standard:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -39,5 +39,3 @@ defaults:
     src_file: examples/data/head.ja
   evaluate:
     ref_file: examples/data/head.en
-
-standard:

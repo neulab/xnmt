@@ -1,5 +1,4 @@
-# Small config to help refactoring to make the model completely YAML based
-defaults:
+defaults: &defaults
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -7,7 +6,7 @@ defaults:
     err_file: examples/output/<EXP>.err
     run_for_epochs: 2
     eval_metrics: bleu
-  train:
+  train: &defaults_train
     default_layer_dim: 64
     dropout: 0.5
     weight_noise: 0.1
@@ -28,7 +27,9 @@ defaults:
     ref_file: examples/data/head.en
 
 exp1-lstm-encoder:
+  << : *defaults
   train:
+    << : *defaults_train
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
@@ -49,7 +50,9 @@ exp1-lstm-encoder:
         input_feeding: True
         bridge: !CopyBridge {}
 exp2-residual-encoder:
+  << : *defaults
   train:
+    << : *defaults_train
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
@@ -68,7 +71,9 @@ exp2-residual-encoder:
         input_feeding: True
         bridge: !CopyBridge {}
 exp3-pyramidal-encoder:
+  << : *defaults
   train:
+    << : *defaults_train
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
@@ -89,7 +94,9 @@ exp3-pyramidal-encoder:
         bridge: !CopyBridge {}
 
 exp4-modular-encoder:
+  << : *defaults
   train:
+    << : *defaults_train
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64

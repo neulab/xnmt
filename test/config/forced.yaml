@@ -1,5 +1,4 @@
-# A standard training run, should almost never break
-defaults:
+defaults: &defaults
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -32,19 +31,24 @@ defaults:
       decoder: !MlpSoftmaxDecoder
         layers: 1
         bridge: !CopyBridge {}
-  decode:
+  decode: &defaults_decode
     src_file: examples/data/head.ja
   evaluate:
     ref_file: examples/data/head.en
 
 standard:
+  << : *defaults
 
 forced:
+  << : *defaults
   decode:
+    << : *defaults_decode
     mode: forced
     ref_file: examples/data/head.en
 
 forceddebug:
+  << : *defaults
   decode:
+    << : *defaults_decode
     mode: forceddebug
     ref_file: examples/data/head.en

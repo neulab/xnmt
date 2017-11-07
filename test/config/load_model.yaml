@@ -1,5 +1,4 @@
-# Small config to help refactoring to make the model completely YAML based
-defaults:
+defaults: &defaults
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -7,7 +6,7 @@ defaults:
     err_file: examples/output/<EXP>.err
     run_for_epochs: 2
     eval_metrics: bleu
-  train:
+  train: &defaults_train
     default_layer_dim: 64
     dropout: 0.5
     weight_noise: 0.1
@@ -45,10 +44,14 @@ defaults:
     ref_file: examples/data/head.en
 
 debug-config-2layers:
+  << : *defaults
   train:
+    << : *defaults_train
     dropout: 0.2
 
 debug-config-2layers-finetune:
+  << : *defaults
   train:
+    << : *defaults_train
     dropout: 0.2
     pretrained_model_file: examples/output/debug-config-2layers.mod

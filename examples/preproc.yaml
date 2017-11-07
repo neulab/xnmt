@@ -1,5 +1,5 @@
 # TODO: This config file is in the old format. We need to make it match debug.yaml
-defaults:
+standard-preproc:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -85,6 +85,7 @@ defaults:
         - type: freq
           min_freq: 2
   train:
+    dropout: 0.1
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/output/train.norm.ja
       train_trg: examples/output/train.norm.en
@@ -116,7 +117,3 @@ defaults:
     src_file: examples/output/test.norm.ja
   evaluate:
     ref_file: examples/output/test.norm.en
-
-standard-preproc:
-  train:
-    dropout: 0.1

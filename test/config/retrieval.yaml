@@ -1,4 +1,4 @@
-defaults:
+retriever:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -38,5 +38,3 @@ defaults:
     src_file: examples/data/debug.ja
   evaluate:
     ref_file: examples/data/debug.smallids
-
-retriever:

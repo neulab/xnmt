@@ -1,5 +1,5 @@
 # Demonstrates random search over model parameters
-defaults:
+defaults: &defaults
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -41,5 +41,8 @@ defaults:
 
 # Here we instantiate 3 experiments, for each the random params are drawn independently
 exp1:
+  << : *defaults
 exp2:
+  << : *defaults
 exp3:
+  << : *defaults

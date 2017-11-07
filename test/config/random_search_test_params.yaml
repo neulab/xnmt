@@ -1,5 +1,5 @@
 # Demonstrates random search over search parameters
-defaults:
+defaults: &defaults
   experiment:
     eval_only: true
     model_file: examples/output/<EXP>.mod
@@ -47,5 +47,8 @@ defaults:
 
 # Here we instantiate 3 experiments, for each the random params are drawn independently
 exp1:
+  << : *defaults
 exp2:
+  << : *defaults
 exp3:
+  << : *defaults

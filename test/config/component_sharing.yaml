@@ -12,14 +12,14 @@
 #                   whenever a component's __xnmt_id is equal to the corresponding field of a component that has
 #                   has already been initialized, we re-use that initialized component instead of creating a new one.
 
-defaults:
+defaults: &defaults
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     run_for_epochs: 2
-  train:
+  train: &defaults_train
     default_layer_dim: 32
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/head.ja
@@ -54,7 +54,10 @@ defaults:
 
 # let's test that both deserialization and serialization works:
 a.pretrain:
-
+  << : *defaults
+  
 b.load:
+  << : *defaults
   train:
+    << : *defaults_train
     pretrained_model_file: examples/output/a.pretrain.mod

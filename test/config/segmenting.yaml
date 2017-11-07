@@ -1,4 +1,4 @@
-defaults:
+debug-segmenting:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -59,6 +59,3 @@ defaults:
     report_type: html, file
   evaluate:
     ref_file: examples/data/test-head5.en
-
-debug-segmenting:
-

@@ -1,4 +1,4 @@
-defaults:
+standard-dropout0.1:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -10,7 +10,7 @@ defaults:
     trainer: !AdamTrainer
       alpha: 0.01 
     default_layer_dim: 512
-    dropout: 0.0
+    dropout: 0.1
     dev_metrics: recall|nbest=1,recall|nbest=5
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/mfcc_tr20.npz
@@ -46,7 +46,3 @@ defaults:
     src_file: examples/data/mfcc_tx20.npz
   evaluate:
     ref_file: examples/data/flickr_tx20.ids
-
-standard-dropout0.1:
-  train:
-    dropout: 0.1
