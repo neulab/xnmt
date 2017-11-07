@@ -40,15 +40,9 @@ class RandomParam(yaml.YAMLObject):
     return "%s(values=%r)" % (
             self.__class__.__name__, self.values)
   def draw_value(self):
-    return random.choice(self.values)
-
-class RefParam(yaml.YAMLObject):
-  yaml_tag = u'!RefParam'
-  def __init__(self, ref):
-    self.ref = ref
-  def __repr__(self):
-    return "%s(ref=%r)" % (
-            self.__class__.__name__, self.ref)
+    if not hasattr(self, "drawn_value"):
+      self.drawn_value = random.choice(self.values)
+    return self.drawn_value
 
 class OptionParser(object):
   def __init__(self):
@@ -114,7 +108,7 @@ class OptionParser(object):
         if random_search_report:
           task_values["random_search_report"] = random_search_report
 
-        self.resolve_referenced_params(task_values, task_values)
+#        self.resolve_referenced_params(task_values, task_values)
 
         experiments[exp][task_name] = Args()
         for name, val in task_values.items():
@@ -142,28 +136,28 @@ class OptionParser(object):
           param_report[k] = sub_report
     return param_report
 
-  def resolve_referenced_params(self, cur_task_values, top_task_values):
-    if isinstance(cur_task_values, dict): kvs = cur_task_values.items()
-    elif isinstance(cur_task_values, Serializable):
-      init_args, _, _, _ = inspect.getargspec(cur_task_values.__init__)
-      kvs = [(key, getattr(cur_task_values, key)) for key in init_args if hasattr(cur_task_values, key)]
-    else:
-      raise RuntimeError()
-    for k, v in kvs:
-      if isinstance(v, RefParam):
-        ref_str_spl = v.ref.split(".")
-        resolved = top_task_values
-        for ref_str in ref_str_spl:
-          if isinstance(resolved, dict):
-            resolved = resolved[ref_str]
-          else:
-            resolved = getattr(resolved, ref_str)
-        if isinstance(cur_task_values, dict):
-          cur_task_values[k] = resolved
-        elif isinstance(cur_task_values, Serializable):
-          setattr(cur_task_values, k, resolved)
-      elif isinstance(v, dict) or isinstance(v, Serializable):
-        self.resolve_referenced_params(v, top_task_values)
+#  def resolve_referenced_params(self, cur_task_values, top_task_values):
+#    if isinstance(cur_task_values, dict): kvs = cur_task_values.items()
+#    elif isinstance(cur_task_values, Serializable):
+#      init_args, _, _, _ = inspect.getargspec(cur_task_values.__init__)
+#      kvs = [(key, getattr(cur_task_values, key)) for key in init_args if hasattr(cur_task_values, key)]
+#    else:
+#      raise RuntimeError()
+#    for k, v in kvs:
+#      if isinstance(v, RefParam):
+#        ref_str_spl = v.ref.split(".")
+#        resolved = top_task_values
+#        for ref_str in ref_str_spl:
+#          if isinstance(resolved, dict):
+#            resolved = resolved[ref_str]
+#          else:
+#            resolved = getattr(resolved, ref_str)
+#        if isinstance(cur_task_values, dict):
+#          cur_task_values[k] = resolved
+#        elif isinstance(cur_task_values, Serializable):
+#          setattr(cur_task_values, k, resolved)
+#      elif isinstance(v, dict) or isinstance(v, Serializable):
+#        self.resolve_referenced_params(v, top_task_values)
 
 
   def args_from_command_line(self, task, argv):

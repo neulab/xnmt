@@ -33,7 +33,7 @@ from xnmt.options import Option, OptionParser, general_options, Args
 from xnmt.loss import LossBuilder
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.training_strategy import TrainingStrategy, TrainingMLELoss
-from xnmt.serializer import YamlSerializer
+from xnmt.serializer import YamlSerializer, Serializable
 import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
 from xnmt.evaluator import LossScore
@@ -74,7 +74,8 @@ This will be the main class to perform training.
 #  Option("model", dict, default_value={}),
 #]
 
-class XnmtTrainer(object):
+class XnmtTrainer(Serializable):
+  yaml_tag = u'!XnmtTrainer'
   def __init__(self, yaml_context=None, dev_every=0, batcher=None, training_corpus=None,
                corpus_parser=None, training_strategy=None, model_file=None, save_num_checkpoints=1,
                pretrained_model_file="", src_format="text", default_layer_dim=512,

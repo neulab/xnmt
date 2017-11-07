@@ -22,7 +22,8 @@ defaults: &defaults
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
       encoder: !BiLSTMSeqTransducer
-        layers: !RandomParam
+        layers: !RandomParam &rnd_num_layers
+          __xnmt_id: rnd_num_layers
           values: [1,2,3,4,5]
       attender: !StandardAttender
         state_dim: 64
@@ -31,8 +32,7 @@ defaults: &defaults
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
       decoder: !MlpSoftmaxDecoder
-        layers: !RefParam
-          ref: model.encoder.layers
+        layers: *rnd_num_layers
         bridge: !CopyBridge {}
   decode:
     src_file: examples/data/head.ja

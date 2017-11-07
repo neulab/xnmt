@@ -138,6 +138,7 @@ def main(overwrite_args=None):
 
     print("> Training")
     xnmt_trainer = xnmt.train.XnmtTrainer(**train_args.get_dict())
+#    xnmt_trainer = YamlSerializer().initialize_if_needed(train_args)
     xnmt_trainer.decode_args = copy.copy(decode_args)
     xnmt_trainer.evaluate_args = copy.copy(evaluate_args)
 
