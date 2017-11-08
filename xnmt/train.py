@@ -44,14 +44,13 @@ This will be the main class to perform training.
 
 class XnmtTrainer(Serializable):
   yaml_tag = u'!XnmtTrainer'
-  def __init__(self, training_corpus, corpus_parser, model_file, model, yaml_context=None,
+  def __init__(self, corpus_parser, model_file, model, yaml_context=None,
                dev_every=0, batcher=None, training_strategy=None, save_num_checkpoints=1,
                pretrained_model_file="", src_format="text", default_layer_dim=512,
                trainer=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
                reload_command=None, dropout=0.0, weight_noise=0.0):
     """
-    :param training_corpus:
     :param corpus_parser:
     :param model_file:
     :param model:
@@ -78,7 +77,7 @@ class XnmtTrainer(Serializable):
     """
     dy.renew_cg()
 
-    args = dict(dev_every=dev_every, batcher=batcher, training_corpus=training_corpus,
+    args = dict(dev_every=dev_every, batcher=batcher, 
                corpus_parser=corpus_parser, training_strategy=training_strategy, model_file=model_file, save_num_checkpoints=save_num_checkpoints,
                pretrained_model_file=pretrained_model_file, src_format=src_format, default_layer_dim=default_layer_dim,
                trainer=trainer, lr_decay=lr_decay, lr_decay_times=lr_decay_times, attempts_before_lr_decay=attempts_before_lr_decay,
@@ -141,17 +140,16 @@ class XnmtTrainer(Serializable):
 
   def pack_batches(self):
     self.train_src, self.train_trg = \
-      self.batcher.pack(self.training_corpus.train_src_data, self.training_corpus.train_trg_data)
+      self.batcher.pack(self.corpus_parser.training_corpus.train_src_data, self.corpus_parser.training_corpus.train_trg_data)
     self.dev_src, self.dev_trg = \
-      self.batcher.pack(self.training_corpus.dev_src_data, self.training_corpus.dev_trg_data)
+      self.batcher.pack(self.corpus_parser.training_corpus.dev_src_data, self.corpus_parser.training_corpus.dev_trg_data)
 
   def create_corpus_and_model(self):
-    self.training_corpus = self.model_serializer.initialize_if_needed(self.args["training_corpus"])
-    self.corpus_parser = self.model_serializer.initialize_if_needed(self.args["corpus_parser"])
-    self.corpus_parser.read_training_corpus(self.training_corpus)
-    self.total_train_sent = len(self.training_corpus.train_src_data)
+    self.corpus_parser = self.args["corpus_parser"]
+#    self.corpus_parser.read_training_corpus(self.training_corpus)
+    self.total_train_sent = len(self.corpus_parser.training_corpus.train_src_data)
     self.model_context.corpus_parser = self.corpus_parser # TODO: hack, refactor
-    self.model_context.training_corpus = self.training_corpus
+    self.model_context.training_corpus = self.corpus_parser.training_corpus
     self.model_context.default_layer_dim = self.args["default_layer_dim"]
     self.model_context.dropout = self.args["dropout"]
     self.model_context.weight_noise = self.args["weight_noise"]
@@ -164,15 +162,14 @@ class XnmtTrainer(Serializable):
       self.training_strategy = TrainingStrategy(TrainingMLELoss())
 
   def load_corpus_and_model(self):
-    self.training_corpus = self.model_serializer.initialize_if_needed(self.args["training_corpus"])
     corpus_parser, model, my_model_context = self.model_serializer.load_from_file(self.args["pretrained_model_file"], self.model_context.dynet_param_collection)
     my_model_context = my_model_context.data # TODO: hack, refactor
     self.corpus_parser = self.model_serializer.initialize_if_needed(corpus_parser)
-    self.corpus_parser.read_training_corpus(self.training_corpus)
+#    self.corpus_parser.read_training_corpus(self.training_corpus)
     self.model_context.update(my_model_context)
-    self.total_train_sent = len(self.training_corpus.train_src_data)
+    self.total_train_sent = len(self.corpus_parser.training_corpus.train_src_data)
     self.model_context.corpus_parser = self.corpus_parser
-    self.model_context.training_corpus = self.training_corpus
+    self.model_context.training_corpus = self.corpus_parser.training_corpus
     self.model = self.model_serializer.initialize_if_needed(model, self.model_context)
     self.model_context.dynet_param_collection.load_from_data_file(self.args["pretrained_model_file"] + '.data')
     if self.args["training_strategy"]:
@@ -201,9 +198,9 @@ class XnmtTrainer(Serializable):
       if self.logger.epoch_num > 0:
         print('using reloaded data')
       # reload the data   
-      self.corpus_parser.read_training_corpus(self.training_corpus)
+      self.corpus_parser._read_training_corpus(self.corpus_parser.training_corpus) # TODO: fix
       self.pack_batches()
-      self.logger.total_train_sent = len(self.training_corpus.train_src_data)
+      self.logger.total_train_sent = len(self.corpus_parser.training_corpus.train_src_data)
       # restart data generation
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.logger.epoch_num, shell=True)
     else:
@@ -275,8 +272,8 @@ class XnmtTrainer(Serializable):
 
     eval_scores = {"loss" : loss_score}
     if len(list(filter(lambda e: e!="loss", self.evaluators))) > 0:
-      self.decode_args["src_file"] = self.training_corpus.dev_src
-      self.decode_args["candidate_id_file"] = self.training_corpus.dev_id_file
+      self.decode_args["src_file"] = self.corpus_parser.training_corpus.dev_src
+      self.decode_args["candidate_id_file"] = self.corpus_parser.training_corpus.dev_id_file
       if self.args["model_file"]:
         out_file = self.args["model_file"] + out_ext
         out_file_ref = self.args["model_file"] + ref_ext
@@ -286,7 +283,7 @@ class XnmtTrainer(Serializable):
       output_processor = xnmt.xnmt_decode.output_processor_for_spec(self.decode_args.get("post_process", "none")) # TODO: hack, refactor
       # Copy Trg to Ref
       processed = []
-      with io.open(self.training_corpus.dev_trg, encoding=encoding) as fin:
+      with io.open(self.corpus_parser.training_corpus.dev_trg, encoding=encoding) as fin:
         for line in fin:
           processed.append(output_processor.words_to_string(line.strip().split()) + u"\n")
       with io.open(out_file_ref, 'wt', encoding=encoding) as fout:

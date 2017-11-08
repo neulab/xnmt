@@ -97,10 +97,10 @@ def main(overwrite_args=None):
     preproc_args = exp_tasks.get("preproc", {})
 
     train_args = exp_tasks["train"]
+    train_args.model_file = exp_args["model_file"] # TODO: can we use param sharing for this?
     model_context = ModelContext()
-    model_context.dynet_param_collection = PersistentParamCollection(exp_args["model_file"], 1) # TODO: set file properly
+    model_context.dynet_param_collection = PersistentParamCollection(exp_args["model_file"], 1)
     train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
-#    train_args.model_file = exp_args["model_file"]
     # TODO: hack, use param sharing
     # TODO: hack, need to refactor
 #    if "batcher" in train_args and train_args["batcher"] is not None: train_args["batcher"] = UninitializedYamlObject(train_args["batcher"])

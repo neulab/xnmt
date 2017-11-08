@@ -6,7 +6,7 @@ retriever:
     err_file: examples/output/<EXP>.err
     run_for_epochs: 1
     eval_metrics: recall|nbest=1,recall|nbest=3,recall|nbest=5
-  train:
+  train: !XnmtTrainer
     batcher: !InOrderBatcher
       batch_size: 1
     trainer: !AdamTrainer
@@ -14,14 +14,14 @@ retriever:
     default_layer_dim: 16
     dropout: 0.0
     dev_metrics: recall|nbest=1,recall|nbest=3,recall|nbest=5
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/debug.ja
-      train_trg: examples/data/debug.smallids
-      dev_src: examples/data/debug.ja
-      dev_trg: examples/data/debug.smallids
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
       trg_reader: !IDReader {}
+      training_corpus: !BilingualTrainingCorpus
+        train_src: examples/data/debug.ja
+        train_trg: examples/data/debug.smallids
+        dev_src: examples/data/debug.ja
+        dev_trg: examples/data/debug.smallids
     model: !DotProductRetriever
       src_embedder: !SimpleWordEmbedder
         vocab_size: 20 # TODO: set this automatically

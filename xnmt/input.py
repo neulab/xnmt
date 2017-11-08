@@ -207,8 +207,8 @@ class IDReader(BaseTextReader, Serializable):
 class CorpusParser(object):
   """A class that can read in corpora for training and testing"""
 
-  def read_training_corpus(self, training_corpus):
-    """Read in the training corpus"""
+  def _read_training_corpus(self, training_corpus):
+    """Read in the training corpus (should be called in the __init__)"""
     raise RuntimeError("CorpusParsers must implement read_training_corpus to read in the training/dev corpora")
 
 
@@ -216,7 +216,7 @@ class BilingualCorpusParser(CorpusParser, Serializable):
   """A class that reads in bilingual corpora, consists of two InputReaders"""
 
   yaml_tag = u"!BilingualCorpusParser"
-  def __init__(self, src_reader, trg_reader, max_src_len=None, max_trg_len=None,
+  def __init__(self, training_corpus, src_reader, trg_reader, max_src_len=None, max_trg_len=None,
                max_num_train_sents=None, max_num_dev_sents=None, sample_train_sents=None):
     """
     :param src_reader: InputReader for source side
@@ -227,6 +227,7 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     :param max_num_dev_sents: only read the first n dev sentences
     :param sample_train_sents: sample n sentences without replacement from the training corpus (should probably be used with a prespecified vocab)
     """
+    self.training_corpus = training_corpus
     self.src_reader = src_reader
     self.trg_reader = trg_reader
     self.max_src_len = max_src_len
@@ -237,8 +238,9 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     self.train_src_len, self.train_trg_len = None, None
     self.dev_src_len, self.dev_trg_len = None, None
     if max_num_train_sents is not None and sample_train_sents is not None: raise RuntimeError("max_num_train_sents and sample_train_sents are mutually exclusive!")
+    self._read_training_corpus(self.training_corpus)
 
-  def read_training_corpus(self, training_corpus):
+  def _read_training_corpus(self, training_corpus):
     training_corpus.train_src_data = []
     training_corpus.train_trg_data = []
     if self.sample_train_sents:

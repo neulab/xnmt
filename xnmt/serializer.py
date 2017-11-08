@@ -96,10 +96,16 @@ class YamlSerializer(object):
     class_param_names = [x[0] for x in inspect.getmembers(obj.__class__)]
     init_args.remove("self")
     obj.serialize_params = {}
-    for name, val in inspect.getmembers(obj):
+    if hasattr(obj, "kwargs"):
+      for k, v in obj.kwargs.items():
+        if hasattr(obj, k):
+          raise ValueError("kwargs %s already specified as class member for object %s" % (str(k), str(obj)))
+        setattr(obj, k, v)
+    items = inspect.getmembers(obj)
+    for name, val in items:
       if name=="yaml_context":
         raise ValueError("'yaml_context' is a reserved specifier, please rename argument")
-      if name in base_arg_names or name.startswith("_") or name in ["serialize_params", "init_params"] or name in class_param_names: continue
+      if name in base_arg_names or name.startswith("_") or name in ["serialize_params", "init_params", "kwargs"] or name in class_param_names: continue
       if isinstance(val, Serializable):
         obj.serialize_params[name] = val
         self.set_serialize_params_recursive(val)

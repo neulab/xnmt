@@ -19,16 +19,16 @@ defaults: &defaults
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     run_for_epochs: 2
-  train: &defaults_train
+  train: !XnmtTrainer &defaults_train
     default_layer_dim: 32
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/head.ja
-      train_trg: examples/data/head.en
-      dev_src: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and decode.src_file
-      dev_trg: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
       trg_reader: !PlainTextReader {}
+      training_corpus: !BilingualTrainingCorpus
+        train_src: examples/data/head.ja
+        train_trg: examples/data/head.en
+        dev_src: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and decode.src_file
+        dev_trg: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
     model: !DefaultTranslator
       # config-sharing between src_embedder and trg_embedder (both are configured in the same way, but do not share
       # DyNet parameters)

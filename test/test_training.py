@@ -29,9 +29,9 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                               train_trg = "examples/data/head.en",
                                               dev_src = "examples/data/head.ja",
                                               dev_trg = "examples/data/head.en")
-    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
-                                          trg_reader = PlainTextReader())
-    self.corpus_parser.read_training_corpus(self.training_corpus)
+    self.corpus_parser = BilingualCorpusParser(training_corpus = self.training_corpus,
+                                               src_reader = PlainTextReader(),
+                                               trg_reader = PlainTextReader())
 
   def assert_single_loss_equals_batch_loss(self, model, batch_size=5):
     """
@@ -107,9 +107,9 @@ class TestBatchTraining(unittest.TestCase):
                                               train_trg = "examples/data/head.en",
                                               dev_src = "examples/data/head.ja",
                                               dev_trg = "examples/data/head.en")
-    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
-                                          trg_reader = PlainTextReader())
-    self.corpus_parser.read_training_corpus(self.training_corpus)
+    self.corpus_parser = BilingualCorpusParser(training_corpus = self.training_corpus,
+                                               src_reader = PlainTextReader(),
+                                               trg_reader = PlainTextReader())
 
   def assert_single_loss_equals_batch_loss(self, model, batch_size=5):
     """
@@ -188,11 +188,12 @@ class TestTrainDevLoss(unittest.TestCase):
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     train_args = {}
-    train_args['training_corpus'] = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
+    training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
                                                             train_trg = "examples/data/head.en",
                                                             dev_src = "examples/data/head.ja",
                                                             dev_trg = "examples/data/head.en")
-    train_args['corpus_parser'] = BilingualCorpusParser(src_reader = PlainTextReader(),
+    train_args['corpus_parser'] = BilingualCorpusParser(training_corpus = training_corpus,
+                                                        src_reader = PlainTextReader(),
                                                         trg_reader = PlainTextReader())
     train_args['training_strategy'] = TrainingStrategy()
     train_args['model'] = DefaultTranslator(src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
@@ -221,11 +222,12 @@ class TestOverfitting(unittest.TestCase):
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     self.model_context.default_layer_dim = 16
     train_args = {}
-    train_args['training_corpus'] = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
+    training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
                                                             train_trg = "examples/data/head.en",
                                                             dev_src = "examples/data/head.ja",
                                                             dev_trg = "examples/data/head.en")
-    train_args['corpus_parser'] = BilingualCorpusParser(src_reader = PlainTextReader(),
+    train_args['corpus_parser'] = BilingualCorpusParser(training_corpus = training_corpus,
+                                                        src_reader = PlainTextReader(),
                                                         trg_reader = PlainTextReader())
     train_args['training_strategy'] = TrainingStrategy()
     train_args['model'] = DefaultTranslator(src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
