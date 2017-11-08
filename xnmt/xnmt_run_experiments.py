@@ -13,13 +13,14 @@ import six
 import random
 import shutil
 import numpy as np
+import copy
 
 # XNMT imports
-import copy
 import xnmt.xnmt_preproc, xnmt.train, xnmt.xnmt_decode, xnmt.xnmt_evaluate
 from xnmt.options import OptionParser
 from xnmt.tee import Tee
-from xnmt.serializer import UninitializedYamlObject
+from xnmt.serializer import YamlSerializer, UninitializedYamlObject
+from xnmt.model_context import ModelContext, PersistentParamCollection
 
 def main(overwrite_args=None):
   argparser = argparse.ArgumentParser()
@@ -96,6 +97,9 @@ def main(overwrite_args=None):
     preproc_args = exp_tasks.get("preproc", {})
 
     train_args = exp_tasks["train"]
+#    model_context = ModelContext()
+#    model_context.dynet_param_collection = PersistentParamCollection("some_file", 1) # TODO: set file properly
+#    train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
     # TODO: hack, use param sharing
     train_args["model_file"] = exp_args["model_file"]
     # TODO: hack, need to refactor
@@ -126,6 +130,7 @@ def main(overwrite_args=None):
       print("> instantiated random parameter search: %s" % exp_tasks["random_search_report"])
 
     print("> Training")
+    xnmt_trainer = train_args
     xnmt_trainer = xnmt.train.XnmtTrainer(**train_args)
 #    xnmt_trainer = YamlSerializer().initialize_if_needed(train_args)
     xnmt_trainer.decode_args = copy.copy(decode_args)

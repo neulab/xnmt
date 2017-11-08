@@ -41,7 +41,7 @@ class Serializable(yaml.YAMLObject):
     This can be overwritten to share parameters that require dependent components already having been initialized.
     The order of initialization is determined by the order in which components are listed in __init__(),
               and then going bottom-up.
-    NOTE: currently only supported for top of component hierarchy
+    NOTE: currently only supported for top of component hierarchy, and not across lists of subcomponents
     
     :returns: list of DependentInitParam instances
     """

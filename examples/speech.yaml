@@ -10,7 +10,7 @@ speech-2layers:
     err_file: examples/output/<EXP>.err
     run_for_epochs: 20
     eval_metrics: cer,wer
-  train:
+  train: #!XnmtTrainer
     src_format: contvec
     trainer: !AdamTrainer {}
     training_corpus: !BilingualTrainingCorpus
