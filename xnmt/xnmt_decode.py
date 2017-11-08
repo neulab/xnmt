@@ -10,7 +10,7 @@ from xnmt.serializer import *
 from xnmt.retriever import *
 from xnmt.translator import *
 from xnmt.search_strategy import *
-from xnmt.options import OptionParser, Option, Args
+from xnmt.options import OptionParser, Option
 
 
 '''
@@ -60,7 +60,7 @@ def xnmt_decode(model_elements=None, model_file=None, src_file=None, trg_file=No
   else:
     corpus_parser, generator = model_elements
   
-  args = Args(model_file=model_file, src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
+  args = dict(model_file=model_file, src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
                 input_format=input_format, post_process=post_process, candidate_id_file=candidate_id_file, report_path=report_path, report_type=report_type,
                 beam=beam, max_len=max_len, len_norm_type=len_norm_type, mode=mode)
 

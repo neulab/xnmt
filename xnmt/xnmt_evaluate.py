@@ -4,7 +4,7 @@ import io
 import ast
 
 from xnmt.evaluator import BLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator
-from xnmt.options import Option, OptionParser, Args
+from xnmt.options import Option, OptionParser
 from xnmt.xnmt_decode import NO_DECODING_ATTEMPTED
 
 #options = [
@@ -34,7 +34,7 @@ def eval_or_empty_list(x):
 def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu"):
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
   """
-  args = Args(ref_file=ref_file, hyp_file=hyp_file, evaluator=evaluator)
+  args = dict(ref_file=ref_file, hyp_file=hyp_file, evaluator=evaluator)
   cols = args["evaluator"].split("|")
   eval_type  = cols[0]
   eval_param = {} if len(cols) == 1 else {key: value for key, value in [param.split("=") for param in cols[1].split()]}

@@ -29,7 +29,7 @@ from xnmt.serialize_container import *
 from xnmt.training_corpus import *
 from xnmt.loss_tracker import *
 from xnmt.segmenting_encoder import *
-from xnmt.options import Option, OptionParser, general_options, Args
+from xnmt.options import Option, OptionParser, general_options
 from xnmt.loss import LossBuilder
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.training_strategy import TrainingStrategy, TrainingMLELoss
@@ -83,12 +83,12 @@ class XnmtTrainer(Serializable):
                dev_metrics="", schedule_metric="loss", restart_trainer=False,reload_command=None,
                dropout=0.0, weight_noise=0.0, model={}):
     """
-    :param args: xnmt.options.Args instance corresponding to the options given above
+    :param args: dict instance corresponding to the options given above
         This is usually the case when these have been deserialized from a YAML file, but not when instantiating XnmtTrainer manually.
     """
     dy.renew_cg()
 
-    args = Args(dev_every=dev_every, batcher=batcher, training_corpus=training_corpus,
+    args = dict(dev_every=dev_every, batcher=batcher, training_corpus=training_corpus,
                corpus_parser=corpus_parser, training_strategy=training_strategy, model_file=model_file, save_num_checkpoints=save_num_checkpoints,
                pretrained_model_file=pretrained_model_file, src_format=src_format, default_layer_dim=default_layer_dim,
                trainer=trainer, lr_decay=lr_decay, lr_decay_times=lr_decay_times, attempts_before_lr_decay=attempts_before_lr_decay,

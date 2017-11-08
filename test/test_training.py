@@ -13,7 +13,6 @@ from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
 from xnmt.batcher import mark_as_batch, Mask, SrcBatcher
 import xnmt.train
-from xnmt.options import Args
 from xnmt.vocab import Vocab
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.training_strategy import TrainingStrategy

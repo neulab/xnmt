@@ -3,7 +3,7 @@ import sys
 import os.path
 import io
 
-from xnmt.options import Option, OptionParser, Args
+from xnmt.options import Option, OptionParser
 from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer, Tokenizer
 from xnmt.serializer import YamlSerializer
 
@@ -25,7 +25,7 @@ def xnmt_preproc(preproc_specs=None, overwrite=False):
   """Preprocess and filter the input files, and create the vocabulary
   """
   
-  args = Args(preproc_specs=preproc_specs, overwrite=overwrite)
+  args = dict(preproc_specs=preproc_specs, overwrite=overwrite)
 
   if args["preproc_specs"] == None:
     return
