@@ -110,7 +110,6 @@ def xnmt_preproc(preproc_specs=None, overwrite=False):
 if __name__ == "__main__":
 
   parser = OptionParser()
-  parser.add_task("preproc", options)
   args = parser.args_from_command_line("preproc", sys.argv[1:])
 
   xnmt_preproc(args)

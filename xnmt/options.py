@@ -45,9 +45,6 @@ class OptionParser(object):
     self.tasks = {}
     """Options, sorted by task"""
 
-  def add_task(self, task_name, task_options):
-    self.tasks[task_name] = {} #OrderedDict([(opt.name, opt) for opt in task_options])
-
   def args_from_config_file(self, filename):
     """
     Returns a dictionary of experiments => {task => {arguments object}}
@@ -121,11 +118,6 @@ class OptionParser(object):
 #                            type=option.type, help=option.help)
 #
 #    return parser.parse_args(argv)
-
-  def remove_option(self, task, option_name):
-    if option_name not in self.tasks[task]:
-      raise RuntimeError("Tried to remove nonexistent option {} for task {}".format(option_name, task))
-    del self.tasks[task][option_name]
 
   def generate_options_table(self):
     """

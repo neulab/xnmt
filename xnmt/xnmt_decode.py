@@ -132,7 +132,6 @@ def output_processor_for_spec(spec):
 if __name__ == "__main__":
   # Parse arguments
   parser = OptionParser()
-  parser.add_task("decode", options)
   args = parser.args_from_command_line("decode", sys.argv[1:])
   # Load model
   xnmt_decode(args)

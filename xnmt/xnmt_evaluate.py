@@ -74,7 +74,6 @@ def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu"):
 if __name__ == "__main__":
 
   parser = OptionParser()
-  parser.add_task("evaluate", options)
   args = parser.args_from_command_line("evaluate", sys.argv[1:])
 
   score = xnmt_evaluate(args)

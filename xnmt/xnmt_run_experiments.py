@@ -39,20 +39,11 @@ def main(overwrite_args=None):
   args = argparser.parse_args(overwrite_args)
 
   config_parser = OptionParser()
-  config_parser.add_task("preproc", None)
-  config_parser.add_task("train", None)
-  config_parser.add_task("decode", None)
-  config_parser.add_task("evaluate", None)
 
   # Tweak the options to make config files less repetitive:
   # - Delete evaluate:evaluator, replace with exp:eval_metrics
   # - Delete decode:hyp_file, evaluate:hyp_file, replace with exp:hyp_file
   # - Delete train:model, decode:model_file, replace with exp:model_file
-#  config_parser.remove_option("evaluate", "evaluator")
-#  config_parser.remove_option("decode", "trg_file")
-#  config_parser.remove_option("evaluate", "hyp_file")
-#  config_parser.remove_option("train", "model_file")
-#  config_parser.remove_option("decode", "model_file")
 
 #  experiment_options = [
 #    Option("model_file", default_value="<EXP>.mod", help_str="Location to write the model file"),
@@ -64,8 +55,6 @@ def main(overwrite_args=None):
 #    Option("eval_metrics", default_value="bleu", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
 #    Option("run_for_epochs", int, help_str="How many epochs to run each test for"),
 #  ]
-
-  config_parser.add_task("experiment", None)
 
   if args.generate_doc:
     print(config_parser.generate_options_table())
