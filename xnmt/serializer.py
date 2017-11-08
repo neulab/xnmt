@@ -97,7 +97,7 @@ class YamlSerializer(object):
     for name, val in inspect.getmembers(obj):
       if name=="yaml_context":
         raise ValueError("'yaml_context' is a reserved specifier, please rename argument")
-      if name in base_arg_names or name.startswith("__") or name in ["serialize_params", "init_params"] or name in class_param_names: continue
+      if name in base_arg_names or name.startswith("_") or name in ["serialize_params", "init_params"] or name in class_param_names: continue
       if isinstance(val, Serializable):
         obj.serialize_params[name] = val
         self.set_serialize_params_recursive(val)
@@ -201,12 +201,12 @@ class YamlSerializer(object):
     :param init_params: named parameters that should be passed to the object's __init__()
     :param init_args: list of arguments expected by __init__()
     :param serialize_params: serialize_params for the object to be created
-    :returns: initialized object (if obj has __xnmt_id and another object with the same
-                                  __xnmt_id has been initialized previously, we will
+    :returns: initialized object (if obj has _xnmt_id and another object with the same
+                                  _xnmt_id has been initialized previously, we will
                                   simply return that object, otherwise create it)
     """
     try:
-      xnmt_id = getattr(obj, "__xnmt_id", None)
+      xnmt_id = getattr(obj, "_xnmt_id", None)
       if xnmt_id and xnmt_id in self.initialized_shared_components:
         initialized_obj = self.initialized_shared_components[xnmt_id]
         print("reusing %s(%s)" % (obj.__class__.__name__, init_params))
@@ -222,7 +222,7 @@ class YamlSerializer(object):
     if not hasattr(initialized_obj, "serialize_params"):
       initialized_obj.serialize_params = serialize_params
     if xnmt_id:
-      initialized_obj.serialize_params["__xnmt_id"] = xnmt_id
+      initialized_obj.serialize_params["_xnmt_id"] = xnmt_id
 
     return initialized_obj
   
@@ -273,6 +273,8 @@ class UninitializedYamlObject(object):
   Wrapper class to indicate an object created by the YAML parser that still needs initialization.
   """
   def __init__(self, data):
+    if isinstance(data, UninitializedYamlObject):
+      raise AssertionError
     self.data = data
 
 class ComponentInitError(Exception):

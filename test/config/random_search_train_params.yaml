@@ -23,7 +23,7 @@ defaults: &defaults
         emb_dim: 64
       encoder: !BiLSTMSeqTransducer
         layers: !RandomParam &rnd_num_layers
-          __xnmt_id: rnd_num_layers
+          _xnmt_id: rnd_num_layers
           values: [1,2,3,4,5]
       attender: !StandardAttender
         state_dim: 64
@@ -44,5 +44,5 @@ exp1:
   << : *defaults
 exp2:
   << : *defaults
-exp3:
-  << : *defaults
+#exp3:
+#  << : *defaults

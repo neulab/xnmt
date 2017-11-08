@@ -38,9 +38,7 @@ NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
 
 def xnmt_decode(model_elements=None, model_file=None, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
                 input_format="text", post_process="none", candidate_id_file=None, report_path=None, report_type="html",
-                beam=1, max_len=100, len_norm_type=None, mode="onebest",
-                random_search_report=None, # TODO: hack, remove
-                ):
+                beam=1, max_len=100, len_norm_type=None, mode="onebest"):
   """
   :param model_elements: If None, the model will be loaded from args["model_file"]. If set, should
   equal (corpus_parser, generator).
@@ -81,7 +79,7 @@ def xnmt_decode(model_elements=None, model_file=None, src_file=None, trg_file=No
   trg_vocab = corpus_parser.trg_reader.vocab if hasattr(corpus_parser.trg_reader, "vocab") else None
   # Perform initialization
   generator.set_train(False)
-  generator.initialize_generator(**args.get_dict())
+  generator.initialize_generator(**args)
 
   # TODO: Structure it better. not only Translator can have post processes
   if issubclass(generator.__class__, Translator):

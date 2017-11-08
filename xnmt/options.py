@@ -29,8 +29,7 @@ class Option(object):
     self.help = help_str
 
 class Args(dict):
-  def get_dict(self):
-    return dict(self)
+  pass
           
 class RandomParam(yaml.YAMLObject):
   yaml_tag = u'!RandomParam'
@@ -40,7 +39,7 @@ class RandomParam(yaml.YAMLObject):
     return "%s(values=%r)" % (
             self.__class__.__name__, self.values)
   def draw_value(self):
-    if not hasattr(self, "drawn_value"):
+    if not hasattr(self, 'drawn_value'):
       self.drawn_value = random.choice(self.values)
     return self.drawn_value
 
@@ -78,63 +77,96 @@ class OptionParser(object):
 #                  opt.default_value is not None or not opt.required})
 #      for task_name, task_options in self.tasks.items()}
 
-    experiments = {}
-    for exp, exp_tasks in config.items():
-      if exp=="defaults": continue
-      if exp_tasks is None: exp_tasks = {}
-      experiments[exp] = {}
+    experiments  = config
+    if "defaults" in experiments: del experiments["defaults"]
+    for exp in experiments:
+      experiments[exp] = copy.deepcopy(experiments[exp])
+      random_search_report = self.instantiate_random_search(experiments[exp])
+      if random_search_report:
+        experiments[exp]['random_search_report'] = random_search_report
+      self.replace_placeholder(experiments[exp], exp)
       for task_name in self.tasks:
-#        task_values = copy.deepcopy(defaults[task_name])
-        task_values = {}
-        exp_task_values = exp_tasks.get(task_name, dict())
-        #task_values.update({name: self.check_and_convert(task_name, name, value) for name, value in exp_task_values.items()})
-        task_values = dict(exp_task_values)
+        if not task_name in experiments[exp]:
+          experiments[exp][task_name] = {}
+    
 
-        # Check that no required option is missing
-        for _, option in self.tasks[task_name].items():
-          if option.required:
-            sub_task_values = task_values
-            sub_option_name = option.name
-            if sub_option_name not in sub_task_values:
-              raise RuntimeError(
-                "Required option not found for experiment {}, task {}: {}".format(exp, task_name, option.name))
-
-        # Replace the special token "<EXP>" with the experiment name if necessary
-        for k in task_values.keys():
-          if type(task_values[k]) == str:
-            task_values[k] = task_values[k].replace("<EXP>", exp)
-
-        random_search_report = self.instantiate_random_search(task_values)
-        if random_search_report:
-          task_values["random_search_report"] = random_search_report
-
-#        self.resolve_referenced_params(task_values, task_values)
-
-        experiments[exp][task_name] = Args()
-        for name, val in task_values.items():
-          experiments[exp][task_name][name] = val
+#    experiments = {}
+#    for exp, exp_tasks in config.items():
+#      if exp=="defaults": continue
+#      if exp_tasks is None: exp_tasks = {}
+#      experiments[exp] = {}
+#      for task_name in self.tasks:
+##        task_values = copy.deepcopy(defaults[task_name])
+#        task_values = {}
+#        exp_task_values = exp_tasks.get(task_name, dict())
+#        #task_values.update({name: self.check_and_convert(task_name, name, value) for name, value in exp_task_values.items()})
+#        task_values = dict(exp_task_values)
+#
+#        # Check that no required option is missing
+#        for _, option in self.tasks[task_name].items():
+#          if option.required:
+#            sub_task_values = task_values
+#            sub_option_name = option.name
+#            if sub_option_name not in sub_task_values:
+#              raise RuntimeError(
+#                "Required option not found for experiment {}, task {}: {}".format(exp, task_name, option.name))
+#
+#        # Replace the special token "<EXP>" with the experiment name if necessary
+#        for k in task_values.keys():
+#          if type(task_values[k]) == str:
+#            task_values[k] = task_values[k].replace("<EXP>", exp)
+#
+#        random_search_report = self.instantiate_random_search(task_values)
+#        if random_search_report:
+#          task_values["random_search_report"] = random_search_report
+#
+##        self.resolve_referenced_params(task_values, task_values)
+#
+#        experiments[exp][task_name] = Args()
+#        for name, val in task_values.items():
+#          experiments[exp][task_name][name] = val
 
     return experiments
 
-  def instantiate_random_search(self, task_values):
+  def instantiate_random_search(self, exp_values, initialized_random_params={}):
     param_report = {}
-    if isinstance(task_values, dict): kvs = task_values.items()
-    elif isinstance(task_values, Serializable):
-      init_args, _, _, _ = inspect.getargspec(task_values.__init__)
-      kvs = [(key, getattr(task_values, key)) for key in init_args if hasattr(task_values, key)]
+    if isinstance(exp_values, dict): kvs = exp_values.items()
+    elif isinstance(exp_values, Serializable):
+      init_args, _, _, _ = inspect.getargspec(exp_values.__init__)
+      kvs = [(key, getattr(exp_values, key)) for key in init_args if hasattr(exp_values, key)]
     for k, v in kvs:
       if isinstance(v, RandomParam):
+        if hasattr(v, "_xnmt_id") and v._xnmt_id in initialized_random_params:
+          v = initialized_random_params[v._xnmt_id]
         v = v.draw_value()
-        if isinstance(task_values, dict):
-          task_values[k] = v
+        if hasattr(v, "_xnmt_id"):
+          initialized_random_params[v._xnmt_id] = v
+        if isinstance(exp_values, dict):
+          exp_values[k] = v
         else:
-          setattr(task_values, k, v)
+          setattr(exp_values, k, v)
         param_report[k] = v
       elif isinstance(v, dict) or isinstance(v, Serializable):
-        sub_report = self.instantiate_random_search(v)
+        sub_report = self.instantiate_random_search(v, initialized_random_params)
         if sub_report:
           param_report[k] = sub_report
     return param_report
+
+  def replace_placeholder(self, exp_values, value, placeholder="<EXP>"):
+    if isinstance(exp_values, dict): kvs = exp_values.items()
+    elif isinstance(exp_values, Serializable):
+      init_args, _, _, _ = inspect.getargspec(exp_values.__init__)
+      kvs = [(key, getattr(exp_values, key)) for key in init_args if hasattr(exp_values, key)]
+    for k, v in kvs:
+      if isinstance(v, str):
+        if placeholder in v:
+          if isinstance(exp_values, dict):
+            exp_values[k] = v.replace(placeholder, value)
+          else:
+            setattr(exp_values, k, v.replace(placeholder, value))
+      elif isinstance(v, dict) or isinstance(v, Serializable):
+        self.replace_placeholder(v, value, placeholder)
+
 
 #  def resolve_referenced_params(self, cur_task_values, top_task_values):
 #    if isinstance(cur_task_values, dict): kvs = cur_task_values.items()

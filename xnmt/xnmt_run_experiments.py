@@ -91,7 +91,7 @@ def main(overwrite_args=None):
     exp_tasks = config[experiment_name]
 
     print("=> Running {}".format(experiment_name))
-
+    
     exp_args = exp_tasks["experiment"]
     # TODO: hack, refactor
     if not "model_file" in exp_args: exp_args["model_file"] = "<EXP>.mod"
@@ -129,15 +129,14 @@ def main(overwrite_args=None):
 
     # Do preprocessing
     print("> Preprocessing")
-    xnmt.xnmt_preproc.xnmt_preproc(**preproc_args.get_dict())
+    xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
 
     # Do training
-    for task_name in exp_tasks:
-      if "random_search_report" in exp_tasks[task_name]:
-        print("> instantiated random parameter search: %s" % exp_tasks[task_name]["random_search_report"])
+    if "random_search_report" in exp_tasks:
+      print("> instantiated random parameter search: %s" % exp_tasks["random_search_report"])
 
     print("> Training")
-    xnmt_trainer = xnmt.train.XnmtTrainer(**train_args.get_dict())
+    xnmt_trainer = xnmt.train.XnmtTrainer(**train_args)
 #    xnmt_trainer = YamlSerializer().initialize_if_needed(train_args)
     xnmt_trainer.decode_args = copy.copy(decode_args)
     xnmt_trainer.evaluate_args = copy.copy(evaluate_args)
@@ -153,7 +152,7 @@ def main(overwrite_args=None):
       print("> Evaluating test set")
       output.indent += 2
       xnmt.xnmt_decode.xnmt_decode(model_elements=(
-        xnmt_trainer.corpus_parser, xnmt_trainer.model), **decode_args.get_dict())
+        xnmt_trainer.corpus_parser, xnmt_trainer.model), **decode_args)
       eval_scores = []
       for evaluator in evaluators:
         evaluate_args["evaluator"] = evaluator

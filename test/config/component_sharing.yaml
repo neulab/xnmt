@@ -8,8 +8,8 @@
 # - reference-sharing: sharing reference to a complex object.
 #                   this means the component is only created once, which also leads to DyNet parameters being shared.
 #                   Since YAML doesn't distinguish between a copy and a reference, we implement reference-sharing
-#                   by adding a unique __xnmt_id field to the component that is to be shared. During deserialization,
-#                   whenever a component's __xnmt_id is equal to the corresponding field of a component that has
+#                   by adding a unique _xnmt_id field to the component that is to be shared. During deserialization,
+#                   whenever a component's _xnmt_id is equal to the corresponding field of a component that has
 #                   has already been initialized, we re-use that initialized component instead of creating a new one.
 
 defaults: &defaults
@@ -39,7 +39,7 @@ defaults: &defaults
         # reference-sharing between first and second encoder layer. This means, for purposes of illustration, 
         # both layers share DyNet parameters!
         - !BiLSTMSeqTransducer &lstm_enc1
-            __xnmt_id: lstm_enc1 # this id must be unique and is recommended but not required to match the YAML anchor
+            _xnmt_id: lstm_enc1 # this id must be unique and is recommended but not required to match the YAML anchor
             layers: 1
         - *lstm_enc1
       attender: !StandardAttender {}

@@ -81,9 +81,7 @@ class XnmtTrainer(Serializable):
                pretrained_model_file="", src_format="text", default_layer_dim=512,
                trainer=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,reload_command=None,
-               dropout=0.0, weight_noise=0.0, model={},
-               random_search_report=None, # TODO: hack, remove this
-               ):
+               dropout=0.0, weight_noise=0.0, model={}):
     """
     :param args: xnmt.options.Args instance corresponding to the options given above
         This is usually the case when these have been deserialized from a YAML file, but not when instantiating XnmtTrainer manually.
@@ -287,7 +285,7 @@ class XnmtTrainer(Serializable):
         out_file_ref = self.args["model_file"] + ref_ext
         self.decode_args["trg_file"] = out_file
       # Decoding + post_processing
-      xnmt.xnmt_decode.xnmt_decode(model_elements=(self.corpus_parser, self.model), **self.decode_args.get_dict())
+      xnmt.xnmt_decode.xnmt_decode(model_elements=(self.corpus_parser, self.model), **self.decode_args)
       output_processor = xnmt.xnmt_decode.output_processor_for_spec(self.decode_args.get("post_process", "none")) # TODO: hack, refactor
       # Copy Trg to Ref
       processed = []
