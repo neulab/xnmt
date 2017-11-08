@@ -92,7 +92,7 @@ def main(overwrite_args=None):
 
     print("=> Running {}".format(experiment_name))
     
-    exp_args = exp_tasks["experiment"]
+    exp_args = exp_tasks.get("experiment", {})
     # TODO: hack, refactor
     if not "model_file" in exp_args: exp_args["model_file"] = "<EXP>.mod"
     if not "hyp_file" in exp_args: exp_args["hyp_file"] = "<EXP>.hyp"
@@ -104,9 +104,10 @@ def main(overwrite_args=None):
     if "cfg_file" in exp_args and exp_args["cfg_file"] != None:
       shutil.copyfile(args["experiments_file"], exp_args["cfg_file"])
 
-    preproc_args = exp_tasks["preproc"]
+    preproc_args = exp_tasks.get("preproc", {})
 
     train_args = exp_tasks["train"]
+    # TODO: hack, use param sharing
     train_args["model_file"] = exp_args["model_file"]
     # TODO: hack, need to refactor
     if "batcher" in train_args and train_args["batcher"] is not None: train_args["batcher"] = UninitializedYamlObject(train_args["batcher"])
@@ -116,11 +117,11 @@ def main(overwrite_args=None):
     if "model" in train_args and train_args["model"] is not None: train_args["model"] = UninitializedYamlObject(train_args["model"])
     if "training_strategy" in train_args and train_args["training_strategy"] is not None: train_args["training_strategy"] = UninitializedYamlObject(train_args["training_strategy"])
 
-    decode_args = exp_tasks["decode"]
+    decode_args = exp_tasks.get("decode", {})
     decode_args["trg_file"] = exp_args["hyp_file"]
     decode_args["model_file"] = None  # The model is passed to the decoder directly
 
-    evaluate_args = exp_tasks["evaluate"]
+    evaluate_args = exp_tasks.get("evaluate", {})
     evaluate_args["hyp_file"] = exp_args["hyp_file"]
     evaluators = map(lambda s: s.lower(), exp_args["eval_metrics"].split(","))
 
