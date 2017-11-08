@@ -132,6 +132,13 @@ class XnmtTrainer(Serializable):
     else:
       self.trainer = self.model_serializer.initialize_if_needed(args["trainer"], yaml_context=self.model_context) 
 
+  def dependent_init_params(self, initialized_subcomponents):
+    return [DependentInitParam(param_descr="model.src_embedder.vocab_size", value_fct=lambda: initialized_subcomponents["corpus_parser"].src_reader.vocab_size()),
+            DependentInitParam(param_descr="model.decoder.vocab_size", value_fct=lambda: initialized_subcomponents["corpus_parser"].trg_reader.vocab_size()),
+            DependentInitParam(param_descr="model.trg_embedder.vocab_size", value_fct=lambda: initialized_subcomponents["corpus_parser"].trg_reader.vocab_size()),
+            DependentInitParam(param_descr="model.src_embedder.vocab", value_fct=lambda: initialized_subcomponents["corpus_parser"].src_reader.vocab),
+            DependentInitParam(param_descr="model.trg_embedder.vocab", value_fct=lambda: initialized_subcomponents["corpus_parser"].trg_reader.vocab)]
+
   def pack_batches(self):
     self.train_src, self.train_trg = \
       self.batcher.pack(self.training_corpus.train_src_data, self.training_corpus.train_trg_data)
@@ -143,7 +150,7 @@ class XnmtTrainer(Serializable):
     self.corpus_parser = self.model_serializer.initialize_if_needed(self.args["corpus_parser"])
     self.corpus_parser.read_training_corpus(self.training_corpus)
     self.total_train_sent = len(self.training_corpus.train_src_data)
-    self.model_context.corpus_parser = self.corpus_parser
+    self.model_context.corpus_parser = self.corpus_parser # TODO: hack, refactor
     self.model_context.training_corpus = self.training_corpus
     self.model_context.default_layer_dim = self.args["default_layer_dim"]
     self.model_context.dropout = self.args["dropout"]

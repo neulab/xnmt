@@ -97,18 +97,18 @@ def main(overwrite_args=None):
     preproc_args = exp_tasks.get("preproc", {})
 
     train_args = exp_tasks["train"]
-#    model_context = ModelContext()
-#    model_context.dynet_param_collection = PersistentParamCollection("some_file", 1) # TODO: set file properly
-#    train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
+    model_context = ModelContext()
+    model_context.dynet_param_collection = PersistentParamCollection(exp_args["model_file"], 1) # TODO: set file properly
+    train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
+#    train_args.model_file = exp_args["model_file"]
     # TODO: hack, use param sharing
-    train_args["model_file"] = exp_args["model_file"]
     # TODO: hack, need to refactor
-    if "batcher" in train_args and train_args["batcher"] is not None: train_args["batcher"] = UninitializedYamlObject(train_args["batcher"])
-    if "trainer" in train_args and train_args["trainer"] is not None: train_args["trainer"] = UninitializedYamlObject(train_args["trainer"])
-    if "training_corpus" in train_args and train_args["training_corpus"] is not None: train_args["training_corpus"] = UninitializedYamlObject(train_args["training_corpus"])
-    if "corpus_parser" in train_args and train_args["corpus_parser"] is not None: train_args["corpus_parser"] = UninitializedYamlObject(train_args["corpus_parser"])
-    if "model" in train_args and train_args["model"] is not None: train_args["model"] = UninitializedYamlObject(train_args["model"])
-    if "training_strategy" in train_args and train_args["training_strategy"] is not None: train_args["training_strategy"] = UninitializedYamlObject(train_args["training_strategy"])
+#    if "batcher" in train_args and train_args["batcher"] is not None: train_args["batcher"] = UninitializedYamlObject(train_args["batcher"])
+#    if "trainer" in train_args and train_args["trainer"] is not None: train_args["trainer"] = UninitializedYamlObject(train_args["trainer"])
+#    if "training_corpus" in train_args and train_args["training_corpus"] is not None: train_args["training_corpus"] = UninitializedYamlObject(train_args["training_corpus"])
+#    if "corpus_parser" in train_args and train_args["corpus_parser"] is not None: train_args["corpus_parser"] = UninitializedYamlObject(train_args["corpus_parser"])
+#    if "model" in train_args and train_args["model"] is not None: train_args["model"] = UninitializedYamlObject(train_args["model"])
+#    if "training_strategy" in train_args and train_args["training_strategy"] is not None: train_args["training_strategy"] = UninitializedYamlObject(train_args["training_strategy"])
 
     decode_args = exp_tasks.get("decode", {})
     decode_args["trg_file"] = exp_args["hyp_file"]
@@ -131,7 +131,7 @@ def main(overwrite_args=None):
 
     print("> Training")
     xnmt_trainer = train_args
-    xnmt_trainer = xnmt.train.XnmtTrainer(**train_args)
+#    xnmt_trainer = xnmt.train.XnmtTrainer(**train_args)
 #    xnmt_trainer = YamlSerializer().initialize_if_needed(train_args)
     xnmt_trainer.decode_args = copy.copy(decode_args)
     xnmt_trainer.evaluate_args = copy.copy(evaluate_args)

@@ -36,13 +36,14 @@ class Serializable(yaml.YAMLObject):
               (the '.0' syntax is available to access elements in a list of subcomponents) 
     """
     return []
-  def dependent_init_params(self):
+  def dependent_init_params(self, initialized_subcomponents):
     """
     This can be overwritten to share parameters that require dependent components already having been initialized.
     The order of initialization is determined by the order in which components are listed in __init__(),
               and then going bottom-up.
     NOTE: currently only supported for top of component hierarchy, and not across lists of subcomponents
     
+    :param initialized_subcomponents: dict
     :returns: list of DependentInitParam instances
     """
     return []
@@ -82,9 +83,10 @@ class YamlSerializer(object):
     deserialized_yaml = copy.deepcopy(deserialized_yaml)   # make a copy to avoid side effects
     self.set_serialize_params_recursive(deserialized_yaml) # sets each component's serialize_params to represent attributes specified in YAML file
     self.share_init_params_top_down(deserialized_yaml)     # invoke shared_params mechanism, set each component's init_params accordingly
-    setattr(deserialized_yaml, "yaml_context", yaml_context)
+#    setattr(deserialized_yaml, "yaml_context", yaml_context)
     # finally, initialize each component via __init__(**init_params)
-    return self.init_components_bottom_up(deserialized_yaml, deserialized_yaml.dependent_init_params(), yaml_context=yaml_context)
+    deserialized_yaml._initialized_subcomponents = {}
+    return self.init_components_bottom_up(deserialized_yaml, deserialized_yaml.dependent_init_params(deserialized_yaml._initialized_subcomponents), yaml_context=yaml_context)
 
   def set_serialize_params_recursive(self, obj):
     base_arg_names = map(lambda x: x[0], inspect.getmembers(yaml.YAMLObject))
@@ -173,7 +175,10 @@ class YamlSerializer(object):
         val = getattr(obj, init_arg)
         if isinstance(val, Serializable):
           sub_dependent_init_params = [p.move_down() for p in dependent_init_params if p.matches_component(init_arg)]
+          val._initialized_subcomponents = {}
+          sub_dependent_init_params += val.dependent_init_params(val._initialized_subcomponents)
           init_params[init_arg] = self.init_components_bottom_up(val, sub_dependent_init_params, yaml_context)
+          obj._initialized_subcomponents[init_arg] = init_params[init_arg]
         elif isinstance(val, list):
           sub_dependent_init_params = [p.move_down() for p in dependent_init_params if p.matches_component(init_arg)]
           if len(sub_dependent_init_params) > 0:

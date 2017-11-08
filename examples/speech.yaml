@@ -10,7 +10,8 @@ speech-2layers:
     err_file: examples/output/<EXP>.err
     run_for_epochs: 20
     eval_metrics: cer,wer
-  train: #!XnmtTrainer
+  train: !XnmtTrainer
+    model_file: examples/output/<EXP>.mod
     src_format: contvec
     trainer: !AdamTrainer {}
     training_corpus: !BilingualTrainingCorpus
@@ -21,7 +22,9 @@ speech-2layers:
     corpus_parser: !BilingualCorpusParser
       src_reader: !ContVecReader
         transpose: True
-      trg_reader: !PlainTextReader {}
+      trg_reader: !PlainTextReader
+        vocab: !Vocab
+          vocab_file: examples/data/head.en.vocab
     model: !DefaultTranslator
       src_embedder: !NoopEmbedder
         emb_dim: 240
