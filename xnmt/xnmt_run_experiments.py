@@ -17,7 +17,7 @@ import numpy as np
 # XNMT imports
 import copy
 import xnmt.xnmt_preproc, xnmt.train, xnmt.xnmt_decode, xnmt.xnmt_evaluate
-from xnmt.options import OptionParser, Option
+from xnmt.options import OptionParser
 from xnmt.tee import Tee
 from xnmt.serializer import UninitializedYamlObject
 

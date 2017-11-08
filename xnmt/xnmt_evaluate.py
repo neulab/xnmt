@@ -4,14 +4,8 @@ import io
 import ast
 
 from xnmt.evaluator import BLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator
-from xnmt.options import Option, OptionParser
+from xnmt.options import OptionParser
 from xnmt.xnmt_decode import NO_DECODING_ATTEMPTED
-
-#options = [
-#  Option("ref_file", help_str="path of the reference file"),
-#  Option("hyp_file", help_str="path of the hypothesis trg file"),
-#  Option("evaluator", default_value="bleu", help_str="Evaluation metrics (bleu/wer/cer)")
-#]
 
 def read_data(loc_, post_process=None):
   """Reads the lines in the file specified in loc_ and return the list after inserting the tokens
@@ -33,6 +27,9 @@ def eval_or_empty_list(x):
 
 def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu"):
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
+  :param ref_file: path of the reference file
+  :param hyp_file: path of the hypothesis trg file
+  :param evaluator: Evaluation metrics (bleu/wer/cer)
   """
   args = dict(ref_file=ref_file, hyp_file=hyp_file, evaluator=evaluator)
   cols = args["evaluator"].split("|")

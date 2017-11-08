@@ -17,31 +17,27 @@ from xnmt.options import OptionParser, Option
 This will be the main class to perform decoding.
 '''
 
-#options = [
-#  Option("model_file", force_flag=True, required=True, help_str="pretrained (saved) model path"),
-#  Option("src_file", help_str="path of input src file to be translated"),
-#  Option("trg_file", help_str="path of file where trg translatons will be written"),
-#  Option("ref_file", str, required=False, help_str="path of file with reference translations, e.g. for forced decoding"),
-#  Option("max_src_len", int, required=False, help_str="Remove sentences from data to decode that are longer than this on the source side"),
-#  Option("input_format", default_value="text", help_str="format of input data: text/contvec"),
-#  Option("post_process", default_value="none", help_str="post-processing of translation outputs: none/join-char/join-bpe"),
-#  Option("candidate_id_file", required=False, default_value=None, help_str="if we are doing something like retrieval where we select from fixed candidates, sometimes we want to limit our candidates to a certain subset of the full set. this setting allows us to do this."),
-#  Option("report_path", str, required=False, help_str="a path to which decoding reports will be written"),
-#  Option("report_type", str, default_value="html", required=False, help_str="report to generate file/html. Can be multiple, separate with comma."),
-#  Option("beam", int, default_value=1),
-#  Option("max_len", int, default_value=100),
-#  Option("len_norm_type", str, required=False),
-#  Option("mode", str, default_value="onebest", help_str="type of decoding to perform. onebest: generate one best. forced: perform forced decoding. forceddebug: perform forced decoding, calculate training loss, and make suer the scores are identical for debugging purposes."),
-#]
-
 NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
 
-def xnmt_decode(model_elements=None, model_file=None, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
+def xnmt_decode(src_file, trg_file, model_elements=None, model_file=None, ref_file=None, max_src_len=None,
                 input_format="text", post_process="none", candidate_id_file=None, report_path=None, report_type="html",
                 beam=1, max_len=100, len_norm_type=None, mode="onebest"):
   """
-  :param model_elements: If None, the model will be loaded from args["model_file"]. If set, should
-  equal (corpus_parser, generator).
+  :param src_file: path of input src file to be translated
+  :param trg_file: path of file where trg translatons will be written
+  :param model_elements: If None, the model will be loaded from model_file. If set, should equal (corpus_parser, generator).
+  :param model_file: pretrained (saved) model path (required onless model_elements is given)
+  :param ref_file: path of file with reference translations, e.g. for forced decoding
+  :param max_src_len (int): Remove sentences from data to decode that are longer than this on the source side
+  :param input_format: format of input data: text/contvec
+  :param post_process: post-processing of translation outputs: none/join-char/join-bpe
+  :param candidate_id_file: if we are doing something like retrieval where we select from fixed candidates, sometimes we want to limit our candidates to a certain subset of the full set. this setting allows us to do this.
+  :param report_path: a path to which decoding reports will be written
+  :param report_type: report to generate file/html. Can be multiple, separate with comma.
+  :param beam (int):
+  :param max_len (int):
+  :param len_norm_type:
+  :param mode: type of decoding to perform. onebest: generate one best. forced: perform forced decoding. forceddebug: perform forced decoding, calculate training loss, and make suer the scores are identical for debugging purposes.
   """
   if model_elements is None:
     raise RuntimeError("xnmt_decode with model_element=None needs to be updated to run with the new YamlSerializer")

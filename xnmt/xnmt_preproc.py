@@ -3,26 +3,21 @@ import sys
 import os.path
 import io
 
-from xnmt.options import Option, OptionParser
-from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer, Tokenizer
+from xnmt.options import OptionParser
+from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer
 from xnmt.serializer import YamlSerializer
-
-#options = [
-#  Option("preproc_specs", list, default_value=None, required=False, help_str="A specification for a preprocessing step, including in_files (the input files), out_files (the output files), type (normalize/filter/vocab), and spec for that particular preprocessing type"),
-#  Option("overwrite", default_value=False, help_str="Whether to overwrite files if they already exist.")
-#]
-
-# The types of arguments that preproc_spec expects
-#   Option("in_files", help_str="list of paths to the input files"),
-#   Option("out_files", help_str="list of paths for the output files"),
-#   Option("type", help_str="type of preprocessing (normalize,filter,vocab)"),
-#   Option("spec", help_str="The specifications describing which type of processing to use. For normalize and vocab, should consist of the 'lang' and 'spec', where 'lang' can either be 'all' to apply the same type of processing to all languages, or a zero-indexed integer indicating which language to process."),
-
 
 ##### Main function
 
 def xnmt_preproc(preproc_specs=None, overwrite=False):
   """Preprocess and filter the input files, and create the vocabulary
+  :param preproc_specs (list): A specification for a preprocessing step, including in_files (the input files), out_files (the output files), type (normalize/filter/vocab), and spec for that particular preprocessing type
+                               The types of arguments that preproc_spec expects:
+                                     Option("in_files", help_str="list of paths to the input files"),
+                                     Option("out_files", help_str="list of paths for the output files"),
+                                     Option("type", help_str="type of preprocessing (normalize,filter,vocab)"),
+                                     Option("spec", help_str="The specifications describing which type of processing to use. For normalize and vocab, should consist of the 'lang' and 'spec', where 'lang' can either be 'all' to apply the same type of processing to all languages, or a zero-indexed integer indicating which language to process."),
+  :param overwrite (bool): Whether to overwrite files if they already exist.
   """
   
   args = dict(preproc_specs=preproc_specs, overwrite=overwrite)

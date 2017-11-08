@@ -29,7 +29,6 @@ from xnmt.serialize_container import *
 from xnmt.training_corpus import *
 from xnmt.loss_tracker import *
 from xnmt.segmenting_encoder import *
-from xnmt.options import Option, OptionParser, general_options
 from xnmt.loss import LossBuilder
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.training_strategy import TrainingStrategy, TrainingMLELoss
@@ -43,48 +42,39 @@ import xnmt.optimizer
 This will be the main class to perform training.
 '''
 
-#options = [
-#  Option("dynet-mem", int, required=False),
-#  Option("dynet-gpu-ids", int, required=False),
-#  Option("dynet-gpus", int, required=False),
-#  Option("dev_every", int, default_value=0, force_flag=True, help_str="dev checkpoints every n sentences (0 for only after epoch)"),
-#  Option("batcher", default_value=None, required=False, help_str="Type of batcher. Defaults to SrcBatcher of batch size 32."),
-#  Option("training_corpus"),
-#  Option("corpus_parser"),
-#  Option("training_strategy", required=False),
-##  Option("train_filters", list, required=False, help_str="Specify filtering criteria for the training data"),
-##  Option("dev_filters", list, required=False, help_str="Specify filtering criteria for the development data"),
-#  Option("model_file"),
-#  Option("save_num_checkpoints", int, default_value=1, help_str="Save recent n best checkpoints"),
-#  Option("pretrained_model_file", default_value="", help_str="Path of pre-trained model file"),
-#  Option("src_format", default_value="text", help_str="Format of input data: text/contvec"),
-#  Option("default_layer_dim", int, default_value=512, help_str="Default size to use for layers if not otherwise overridden"),
-#  Option("trainer", default_value=None, required=False, help_str="Trainer object, default is SGD with learning rate 0.1"),
-#  Option("lr_decay", float, default_value=1.0),
-#  Option("lr_decay_times", int, default_value=3, help_str="Early stopping after decaying learning rate a certain number of times"),
-#  Option("attempts_before_lr_decay", int, default_value=1, help_str="apply LR decay after dev scores haven't improved over this many checkpoints"),
-#  Option("dev_metrics", default_value="", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
-#  Option("schedule_metric", default_value="loss", help_str="determine learning schedule based on this dev_metric (loss/bleu/wer/cer)"),
-#  Option("restart_trainer", bool, default_value=False, help_str="Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)"),
-#  Option("reload_command", default_value=None, required=False, help_str="Command to change the input data after each epoch. "
-#                                                                        "--epoch EPOCH_NUM will be appended to the command."
-#                                                                        "To just reload the data after each epoch set the command to 'true'."),
-#  Option("dropout", float, default_value=0.0),
-#  Option("weight_noise", float, default_value=0.0),
-#  Option("model", dict, default_value={}),
-#]
-
 class XnmtTrainer(Serializable):
   yaml_tag = u'!XnmtTrainer'
-  def __init__(self, yaml_context=None, dev_every=0, batcher=None, training_corpus=None,
-               corpus_parser=None, training_strategy=None, model_file=None, save_num_checkpoints=1,
+  def __init__(self, training_corpus, corpus_parser, model_file, model, yaml_context=None,
+               dev_every=0, batcher=None, training_strategy=None, save_num_checkpoints=1,
                pretrained_model_file="", src_format="text", default_layer_dim=512,
                trainer=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
-               dev_metrics="", schedule_metric="loss", restart_trainer=False,reload_command=None,
-               dropout=0.0, weight_noise=0.0, model={}):
+               dev_metrics="", schedule_metric="loss", restart_trainer=False,
+               reload_command=None, dropout=0.0, weight_noise=0.0):
     """
-    :param args: dict instance corresponding to the options given above
-        This is usually the case when these have been deserialized from a YAML file, but not when instantiating XnmtTrainer manually.
+    :param training_corpus:
+    :param corpus_parser:
+    :param model_file:
+    :param model:
+    :param yaml_context: (TODO: remove default value)
+    :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
+    :param batcher: Type of batcher. Defaults to SrcBatcher of batch size 32.
+    :param training_strategy:
+    :param save_num_checkpoints (int): Save recent n best checkpoints
+    :param pretrained_model_file: Path of pre-trained model file
+    :param src_format: Format of input data: text/contvec
+    :param default_layer_dim: Default size to use for layers if not otherwise overridden
+    :param trainer: Trainer object, default is SGD with learning rate 0.1
+    :param lr_decay (float):
+    :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
+    :param attempts_before_lr_decay (int): apply LR decay after dev scores haven't improved over this many checkpoints
+    :param dev_metrics: Comma-separated list of evaluation metrics (bleu/wer/cer)
+    :param schedule_metric: determine learning schedule based on this dev_metric (loss/bleu/wer/cer)
+    :param restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
+    :param reload_command: Command to change the input data after each epoch.
+                           --epoch EPOCH_NUM will be appended to the command.
+                           To just reload the data after each epoch set the command to 'true'.
+    :param dropout (float): 
+    :param weight_noise (float):
     """
     dy.renew_cg()
 
