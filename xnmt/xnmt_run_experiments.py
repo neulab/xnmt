@@ -100,6 +100,9 @@ def main(overwrite_args=None):
     train_args.model_file = exp_args["model_file"] # TODO: can we use param sharing for this?
     model_context = ModelContext()
     model_context.dynet_param_collection = PersistentParamCollection(exp_args["model_file"], 1)
+    if hasattr(train_args, "glob"):
+      for k in train_args.glob:
+        setattr(model_context, k, train_args.glob[k])
     train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
     
     # TODO: hack, need to refactor

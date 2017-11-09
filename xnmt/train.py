@@ -43,12 +43,12 @@ This will be the main class to perform training.
 
 class XnmtTrainer(Serializable):
   yaml_tag = u'!XnmtTrainer'
-  def __init__(self, corpus_parser, model_file, model, yaml_context=None,
+  def __init__(self, corpus_parser, model_file, model, yaml_context=None, glob={},
                dev_every=0, batcher=None, training_strategy=None, save_num_checkpoints=1,
-               pretrained_model_file="", src_format="text", default_layer_dim=512,
+               pretrained_model_file="", src_format="text",
                trainer=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
-               reload_command=None, dropout=0.0, weight_noise=0.0):
+               reload_command=None):
     """
     :param corpus_parser:
     :param model_file:
@@ -78,10 +78,10 @@ class XnmtTrainer(Serializable):
 
     args = dict(dev_every=dev_every, batcher=batcher, 
                corpus_parser=corpus_parser, training_strategy=training_strategy, model_file=model_file, save_num_checkpoints=save_num_checkpoints,
-               pretrained_model_file=pretrained_model_file, src_format=src_format, default_layer_dim=default_layer_dim,
+               pretrained_model_file=pretrained_model_file, src_format=src_format, default_layer_dim=glob.get("default_layer_dim", 512),
                trainer=trainer, lr_decay=lr_decay, lr_decay_times=lr_decay_times, attempts_before_lr_decay=attempts_before_lr_decay,
                dev_metrics=dev_metrics, schedule_metric=schedule_metric, restart_trainer=restart_trainer,reload_command=reload_command,
-               dropout=dropout, weight_noise=weight_noise, model=model)
+               dropout=glob.get("dropout", 0.0), weight_noise=glob.get("weight_noise", 0.0), model=model)
     self.args = args
     if yaml_context:
       self.model_context = yaml_context

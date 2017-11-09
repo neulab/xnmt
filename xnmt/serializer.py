@@ -98,7 +98,7 @@ class YamlSerializer(object):
         with open(obj.pretrained_model_file) as stream:
           saved_obj = yaml.load(stream)
       except IOError as e:
-        raise RuntimeError("Could not read configuration file {}: {}".format(obj.saved_model_file, e))
+        raise RuntimeError("Could not read configuration file {}: {}".format(obj.pretrained_model_file, e))
       saved_obj_items = inspect.getmembers(saved_obj)
       for name, _ in saved_obj_items:
         if not hasattr(obj, name):

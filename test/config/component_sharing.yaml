@@ -12,7 +12,7 @@
 #                   whenever a component's _xnmt_id is equal to the corresponding field of a component that has
 #                   has already been initialized, we re-use that initialized component instead of creating a new one.
 
-defaults: &defaults
+exp1.pretrain: &defaults
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -21,7 +21,8 @@ defaults: &defaults
     run_for_epochs: 2
   train: !XnmtTrainer
     kwargs: &defaults_train
-      default_layer_dim: 32
+      globs:
+        default_layer_dim: 32
       corpus_parser: !BilingualCorpusParser
         src_reader: !PlainTextReader {}
         trg_reader: !PlainTextReader {}
@@ -53,13 +54,7 @@ defaults: &defaults
   evaluate:
     ref_file: *dev_trg
 
-# let's test that both deserialization and serialization works:
-a.pretrain:
-  << : *defaults
-  
-b.load:
+exp2.load:
   << : *defaults
   train: !XnmtTrainer
-    kwargs:
-      << : *defaults_train
-      pretrained_model_file: examples/output/a.pretrain.mod
+    pretrained_model_file: examples/output/exp1.pretrain.mod
