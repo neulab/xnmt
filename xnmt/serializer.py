@@ -81,12 +81,43 @@ class YamlSerializer(object):
       raise AssertionError()
     deserialized_yaml = deserialized_yaml_wrapper.data
     deserialized_yaml = copy.deepcopy(deserialized_yaml)   # make a copy to avoid side effects
+    YamlSerializer.apply_to_serializable_recursive(deserialized_yaml, self.resolve_saved_model_file)
     self.set_serialize_params_recursive(deserialized_yaml) # sets each component's serialize_params to represent attributes specified in YAML file
     self.share_init_params_top_down(deserialized_yaml)     # invoke shared_params mechanism, set each component's init_params accordingly
 #    setattr(deserialized_yaml, "yaml_context", yaml_context)
     # finally, initialize each component via __init__(**init_params)
     deserialized_yaml._initialized_subcomponents = {}
     return self.init_components_bottom_up(deserialized_yaml, deserialized_yaml.dependent_init_params(deserialized_yaml._initialized_subcomponents), yaml_context=yaml_context)
+
+  def resolve_saved_model_file(self, obj):
+    """
+    Load the saved object and copy over attributes, unless they are overwritten in obj
+    """
+    if hasattr(obj, "pretrained_model_file"):
+      try:
+        with open(obj.pretrained_model_file) as stream:
+          saved_obj = yaml.load(stream)
+      except IOError as e:
+        raise RuntimeError("Could not read configuration file {}: {}".format(obj.saved_model_file, e))
+      saved_obj_items = inspect.getmembers(saved_obj)
+      for name, _ in saved_obj_items:
+        if not hasattr(obj, name):
+          if name!="model_file":
+            setattr(obj, name, getattr(saved_obj, name))
+
+  @staticmethod
+  def apply_to_serializable_recursive(base_obj, method):
+    if isinstance(base_obj, Serializable):
+      method(base_obj)
+      items = inspect.getmembers(base_obj)
+      for _, val in items:
+        YamlSerializer.apply_to_serializable_recursive(val, method)
+    elif isinstance(base_obj, dict):
+      for k in base_obj:
+        YamlSerializer.apply_to_serializable_recursive(base_obj[k], method)
+    elif isinstance(base_obj, list):
+      for item in base_obj:
+        YamlSerializer.apply_to_serializable_recursive(item, method)
 
   def set_serialize_params_recursive(self, obj):
     base_arg_names = map(lambda x: x[0], inspect.getmembers(yaml.YAMLObject))
@@ -96,11 +127,7 @@ class YamlSerializer(object):
     class_param_names = [x[0] for x in inspect.getmembers(obj.__class__)]
     init_args.remove("self")
     obj.serialize_params = {}
-    if hasattr(obj, "kwargs"):
-      for k, v in obj.kwargs.items():
-        if hasattr(obj, k):
-          raise ValueError("kwargs %s already specified as class member for object %s" % (str(k), str(obj)))
-        setattr(obj, k, v)
+#    self.resolve_kwargs(obj)
     items = inspect.getmembers(obj)
     for name, val in items:
       if name=="yaml_context":
@@ -121,6 +148,18 @@ class YamlSerializer(object):
       if not name in init_args:
         raise ValueError("unknown init parameter for %s: %s" % (obj.yaml_tag, name))
     obj.init_params = dict(obj.serialize_params)
+
+#  def resolve_kwargs(self, obj):
+#    """
+#    If obj has a kwargs attribute (dictionary), set the dictionary items as attributes
+#    of the object via setattr (asserting that there are no collisions).
+#    """
+#    if hasattr(obj, "kwargs"):
+#      for k, v in obj.kwargs.items():
+#        if hasattr(obj, k):
+#          raise ValueError("kwargs %s already specified as class member for object %s" % (str(k), str(obj)))
+#        setattr(obj, k, v)
+#      delattr(obj, "kwargs")
 
   def share_init_params_top_down(self, obj):
     """
@@ -268,7 +307,7 @@ class YamlSerializer(object):
       dict_spec = yaml.load(f)
       corpus_parser = UninitializedYamlObject(dict_spec.corpus_parser)
       model = UninitializedYamlObject(dict_spec.model)
-      model_context = UninitializedYamlObject(dict_spec.model_context)
+      model_context = UninitializedYamlObject(dict_spec)
     return corpus_parser, model, model_context
 
   @staticmethod

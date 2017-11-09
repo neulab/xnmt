@@ -7,7 +7,7 @@ from collections import OrderedDict
 import copy
 import random
 import inspect
-from xnmt.serializer import Serializable
+from xnmt.serializer import Serializable, YamlSerializer
 
 class Option(object):
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
@@ -57,14 +57,29 @@ class OptionParser(object):
 
     experiments  = config
     if "defaults" in experiments: del experiments["defaults"]
+    
+    YamlSerializer.apply_to_serializable_recursive(experiments, self.resolve_kwargs)
+    
     for exp in experiments:
       experiments[exp] = copy.deepcopy(experiments[exp])
       random_search_report = self.instantiate_random_search(experiments[exp])
       if random_search_report:
         experiments[exp]['random_search_report'] = random_search_report
       self.replace_placeholder(experiments[exp], exp)
-    
+
     return experiments
+  
+  def resolve_kwargs(self, obj):
+    """
+    If obj has a kwargs attribute (dictionary), set the dictionary items as attributes
+    of the object via setattr (asserting that there are no collisions).
+    """
+    if hasattr(obj, "kwargs"):
+      for k, v in obj.kwargs.items():
+        if hasattr(obj, k):
+          raise ValueError("kwargs %s already specified as class member for object %s" % (str(k), str(obj)))
+        setattr(obj, k, v)
+      delattr(obj, "kwargs")
 
   def instantiate_random_search(self, exp_values, initialized_random_params={}):
     param_report = {}

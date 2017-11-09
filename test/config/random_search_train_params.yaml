@@ -44,5 +44,5 @@ exp1:
   << : *defaults
 exp2:
   << : *defaults
-#exp3:
-#  << : *defaults
+exp3:
+  << : *defaults

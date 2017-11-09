@@ -101,7 +101,7 @@ def main(overwrite_args=None):
     model_context = ModelContext()
     model_context.dynet_param_collection = PersistentParamCollection(exp_args["model_file"], 1)
     train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
-    # TODO: hack, use param sharing
+    
     # TODO: hack, need to refactor
 #    if "batcher" in train_args and train_args["batcher"] is not None: train_args["batcher"] = UninitializedYamlObject(train_args["batcher"])
 #    if "trainer" in train_args and train_args["trainer"] is not None: train_args["trainer"] = UninitializedYamlObject(train_args["trainer"])
@@ -131,8 +131,6 @@ def main(overwrite_args=None):
 
     print("> Training")
     xnmt_trainer = train_args
-#    xnmt_trainer = xnmt.train.XnmtTrainer(**train_args)
-#    xnmt_trainer = YamlSerializer().initialize_if_needed(train_args)
     xnmt_trainer.decode_args = copy.copy(decode_args)
     xnmt_trainer.evaluate_args = copy.copy(evaluate_args)
 

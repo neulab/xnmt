@@ -25,7 +25,6 @@ from xnmt.specialized_encoders import *
 from xnmt.decoder import *
 from xnmt.translator import *
 from xnmt.retriever import *
-from xnmt.serialize_container import *
 from xnmt.training_corpus import *
 from xnmt.loss_tracker import *
 from xnmt.segmenting_encoder import *
@@ -109,11 +108,7 @@ class XnmtTrainer(Serializable):
     # Initialize the serializer
     self.model_serializer = YamlSerializer()
 
-
-    if self.args["pretrained_model_file"]:
-      self.load_corpus_and_model()
-    else:
-      self.create_corpus_and_model()
+    self.create_corpus_and_model()
 
     self.model.initialize_training_strategy(self.training_strategy)
 
@@ -160,22 +155,24 @@ class XnmtTrainer(Serializable):
       self.training_strategy = self.model_serializer.initialize_if_needed(self.args["training_strategy"], self.model_context)
     else:
       self.training_strategy = TrainingStrategy(TrainingMLELoss())
-
-  def load_corpus_and_model(self):
-    corpus_parser, model, my_model_context = self.model_serializer.load_from_file(self.args["pretrained_model_file"], self.model_context.dynet_param_collection)
-    my_model_context = my_model_context.data # TODO: hack, refactor
-    self.corpus_parser = self.model_serializer.initialize_if_needed(corpus_parser)
-#    self.corpus_parser.read_training_corpus(self.training_corpus)
-    self.model_context.update(my_model_context)
-    self.total_train_sent = len(self.corpus_parser.training_corpus.train_src_data)
-    self.model_context.corpus_parser = self.corpus_parser
-    self.model_context.training_corpus = self.corpus_parser.training_corpus
-    self.model = self.model_serializer.initialize_if_needed(model, self.model_context)
-    self.model_context.dynet_param_collection.load_from_data_file(self.args["pretrained_model_file"] + '.data')
-    if self.args["training_strategy"]:
-      self.training_strategy = self.model_serializer.initialize_if_needed(self.args["training_strategy"], self.model_context)
-    else:
-      self.training_strategy = TrainingStrategy(TrainingMLELoss())
+    if self.args.get("pretrained_model_file", None):
+      self.model_context.dynet_param_collection.load_from_data_file(self.args["pretrained_model_file"] + '.data')
+    
+#  def load_corpus_and_model(self):
+#    corpus_parser, model, my_model_context = self.model_serializer.load_from_file(self.args["pretrained_model_file"], self.model_context.dynet_param_collection)
+#    my_model_context = my_model_context.data # TODO: hack, refactor
+#    self.corpus_parser = self.model_serializer.initialize_if_needed(corpus_parser)
+##    self.corpus_parser.read_training_corpus(self.training_corpus)
+#    self.model_context.update(my_model_context)
+#    self.total_train_sent = len(self.corpus_parser.training_corpus.train_src_data)
+#    self.model_context.corpus_parser = self.corpus_parser
+#    self.model_context.training_corpus = self.corpus_parser.training_corpus
+#    self.model = self.model_serializer.initialize_if_needed(model, self.model_context)
+#    self.model_context.dynet_param_collection.load_from_data_file(self.args["pretrained_model_file"] + '.data')
+#    if self.args["training_strategy"]:
+#      self.training_strategy = self.model_serializer.initialize_if_needed(self.args["training_strategy"], self.model_context)
+#    else:
+#      self.training_strategy = TrainingStrategy(TrainingMLELoss())
 
   def _augment_data_initial(self):
     augment_command = self.args["reload_command"]
@@ -314,7 +311,8 @@ class XnmtTrainer(Serializable):
     if self.logger.report_dev_and_check_model(self.args["model_file"]):
       if self.args["model_file"] is not None:
         self.model_serializer.save_to_file(self.args["model_file"],
-                                           SerializeContainer(self.corpus_parser, self.model, self.model_context),
+#                                           SerializeContainer(self.corpus_parser, self.model, self.model_context),
+                                           self,
                                            self.model_context.dynet_param_collection)
       self.cur_attempt = 0
     else:

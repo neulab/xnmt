@@ -206,9 +206,19 @@ class IDReader(BaseTextReader, Serializable):
 
 class CorpusParser(object):
   """A class that can read in corpora for training and testing"""
+  
+  def __init__(self):
+    """
+    After __init__, the vocabularies must be available because they will be needed to
+    initialize other components (in particular, embedders). Currently this is done by
+    calling _read_train_corpus here, but when a vocab is prespecified the data could also
+    be loaded in a lazy fashion (would be useful to avoid loading training data when we
+    only want to do inference; TODO)
+    """
+    pass
 
   def _read_training_corpus(self, training_corpus):
-    """Read in the training corpus (should be called in the __init__)"""
+    """Read in the training corpus"""
     raise RuntimeError("CorpusParsers must implement read_training_corpus to read in the training/dev corpora")
 
 
