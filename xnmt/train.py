@@ -60,7 +60,6 @@ class XnmtTrainer(Serializable):
     :param save_num_checkpoints (int): Save recent n best checkpoints
     :param pretrained_model_file: Path of pre-trained model file
     :param src_format: Format of input data: text/contvec
-    :param default_layer_dim: Default size to use for layers if not otherwise overridden
     :param trainer: Trainer object, default is SGD with learning rate 0.1
     :param lr_decay (float):
     :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
@@ -71,8 +70,6 @@ class XnmtTrainer(Serializable):
     :param reload_command: Command to change the input data after each epoch.
                            --epoch EPOCH_NUM will be appended to the command.
                            To just reload the data after each epoch set the command to 'true'.
-    :param dropout (float): 
-    :param weight_noise (float):
     """
     dy.renew_cg()
 
@@ -145,8 +142,6 @@ class XnmtTrainer(Serializable):
     if not hasattr(self.corpus_parser.training_corpus, "train_src_data"): # TODO: not so pretty, needs refactoring
       self.corpus_parser._read_training_corpus(self.corpus_parser.training_corpus)
     self.total_train_sent = len(self.corpus_parser.training_corpus.train_src_data)
-    self.model_context.corpus_parser = self.corpus_parser # TODO: hack, refactor
-    self.model_context.training_corpus = self.corpus_parser.training_corpus
     self.model_context.default_layer_dim = self.args["default_layer_dim"]
     self.model_context.dropout = self.args["dropout"]
     self.model_context.weight_noise = self.args["weight_noise"]
@@ -297,7 +292,6 @@ class XnmtTrainer(Serializable):
     if self.logger.report_dev_and_check_model(self.args["model_file"]):
       if self.args["model_file"] is not None:
         self.model_serializer.save_to_file(self.args["model_file"],
-#                                           SerializeContainer(self.corpus_parser, self.model, self.model_context),
                                            self,
                                            self.model_context.dynet_param_collection)
       self.cur_attempt = 0

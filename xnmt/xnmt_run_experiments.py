@@ -41,22 +41,6 @@ def main(overwrite_args=None):
 
   config_parser = OptionParser()
 
-  # Tweak the options to make config files less repetitive:
-  # - Delete evaluate:evaluator, replace with exp:eval_metrics
-  # - Delete decode:hyp_file, evaluate:hyp_file, replace with exp:hyp_file
-  # - Delete train:model, decode:model_file, replace with exp:model_file
-
-#  experiment_options = [
-#    Option("model_file", default_value="<EXP>.mod", help_str="Location to write the model file"),
-#    Option("hyp_file", default_value="<EXP>.hyp", help_str="Location to write decoded output for evaluation"),
-#    Option("out_file", default_value="<EXP>.out", help_str="Location to write stdout messages"),
-#    Option("err_file", default_value="<EXP>.err", help_str="Location to write stderr messages"),
-#    Option("cfg_file", default_value=None, help_str="Location to write a copy of the YAML configuration file", required=False),
-#    Option("eval_only", bool, default_value=False, help_str="Skip training and evaluate only"),
-#    Option("eval_metrics", default_value="bleu", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
-#    Option("run_for_epochs", int, help_str="How many epochs to run each test for"),
-#  ]
-
   if args.generate_doc:
     print(config_parser.generate_options_table())
     exit(0)
@@ -83,7 +67,7 @@ def main(overwrite_args=None):
     print("=> Running {}".format(experiment_name))
     
     exp_args = exp_tasks.get("experiment", {})
-    # TODO: hack, refactor
+    # TODO: refactor
     if not "model_file" in exp_args: exp_args["model_file"] = "<EXP>.mod"
     if not "hyp_file" in exp_args: exp_args["hyp_file"] = "<EXP>.hyp"
     if not "out_file" in exp_args: exp_args["out_file"] = "<EXP>.out"
@@ -109,14 +93,6 @@ def main(overwrite_args=None):
         setattr(model_context, k, train_args.glob[k])
     train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
     
-    # TODO: hack, need to refactor
-#    if "batcher" in train_args and train_args["batcher"] is not None: train_args["batcher"] = UninitializedYamlObject(train_args["batcher"])
-#    if "trainer" in train_args and train_args["trainer"] is not None: train_args["trainer"] = UninitializedYamlObject(train_args["trainer"])
-#    if "training_corpus" in train_args and train_args["training_corpus"] is not None: train_args["training_corpus"] = UninitializedYamlObject(train_args["training_corpus"])
-#    if "corpus_parser" in train_args and train_args["corpus_parser"] is not None: train_args["corpus_parser"] = UninitializedYamlObject(train_args["corpus_parser"])
-#    if "model" in train_args and train_args["model"] is not None: train_args["model"] = UninitializedYamlObject(train_args["model"])
-#    if "training_strategy" in train_args and train_args["training_strategy"] is not None: train_args["training_strategy"] = UninitializedYamlObject(train_args["training_strategy"])
-
     decode_args = exp_tasks.get("decode", {})
     decode_args["trg_file"] = exp_args["hyp_file"]
     decode_args["model_file"] = None  # The model is passed to the decoder directly
