@@ -26,9 +26,9 @@ class ExpressionSequence(object):
       if len(self.expr_list) != self.expr_tensor.dim()[0][-1]:
         raise ValueError("expr_list and expr_tensor must be of same length")
     if expr_list:
-      if not isinstance(expr_list,list): 
+      if not isinstance(expr_list,list):
         raise ValueError("expr_list must be list, was:", type(expr_list))
-      if not isinstance(expr_list[0],dy.Expression): 
+      if not isinstance(expr_list[0],dy.Expression):
         raise ValueError("expr_list must contain dynet expressions, found:", type(expr_list[0]))
       for e in expr_list[1:]:
         if e.dim() != expr_list[0].dim():
@@ -70,7 +70,7 @@ class ExpressionSequence(object):
     if self.expr_list is None:
       self.expr_list = [self[i] for i in range(len(self))]
     return self.expr_list
-  
+
   def has_list(self):
     """
     :returns: False if as_list() will result in creating additional expressions, True otherwise
@@ -84,7 +84,7 @@ class ExpressionSequence(object):
     if self.expr_tensor is None:
       self.expr_tensor = dy.concatenate_cols(self.expr_list)
     return self.expr_tensor
-  
+
   def has_tensor(self):
     """
     :returns: False if as_tensor() will result in creating additional expressions, True otherwise
@@ -139,7 +139,7 @@ class ReversedExpressionSequence(ExpressionSequence):
       self.mask = None
     else:
       self.mask = base_expr_seq.mask.reversed()
-    
+
   def __len__(self):
     return len(self.base_expr_seq)
 
@@ -147,7 +147,7 @@ class ReversedExpressionSequence(ExpressionSequence):
     if self.expr_list is None:
       self.expr_list = list(reversed(self.base_expr_seq.as_list()))
     return iter(self.expr_list)
-  
+
   def __getitem__(self, key):
     return self.base_expr_seq[len(self) - key - 1]
 
@@ -155,7 +155,7 @@ class ReversedExpressionSequence(ExpressionSequence):
     if self.expr_list is None:
       self.expr_list = list(reversed(self.base_expr_seq.as_list()))
     return self.expr_list
-  
+
   def has_list(self):
     return self.base_expr_seq.has_list()
 
@@ -166,9 +166,9 @@ class ReversedExpressionSequence(ExpressionSequence):
         self.expr_list = list(reversed(self.base_expr_seq.as_list()))
       self.expr_tensor = dy.concatenate_cols(self.expr_list)
     return self.expr_tensor
-  
+
   def has_tensor(self):
     return self.expr_tensor is not None
-    
-    
-    
+
+
+

@@ -7,7 +7,7 @@ from xnmt.translator import DefaultTranslator
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
-from xnmt.attender import StandardAttender
+from xnmt.attender import MlpAttender, DotAttender
 from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
 from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
@@ -65,7 +65,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.model_context),
-              attender=StandardAttender(self.model_context),
+              attender=MlpAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
@@ -77,7 +77,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=PyramidalLSTMSeqTransducer(self.model_context, layers=3),
-              attender=StandardAttender(self.model_context),
+              attender=MlpAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
@@ -89,9 +89,21 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.model_context, layers=3),
-              attender=StandardAttender(self.model_context),
+              attender=MlpAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
+            )
+    model.initialize_training_strategy(TrainingStrategy())
+    model.set_train(False)
+    self.assert_single_loss_equals_batch_loss(model)
+
+  def test_loss_model4(self):
+    model = DefaultTranslator(
+              src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
+              encoder=BiLSTMSeqTransducer(self.model_context),
+              attender=DotAttender(self.model_context),
+              trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
     model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)
@@ -146,7 +158,7 @@ class TestBatchTraining(unittest.TestCase):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.model_context),
-              attender=StandardAttender(self.model_context),
+              attender=MlpAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
@@ -158,7 +170,7 @@ class TestBatchTraining(unittest.TestCase):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=PyramidalLSTMSeqTransducer(self.model_context, layers=3),
-              attender=StandardAttender(self.model_context),
+              attender=MlpAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
@@ -170,7 +182,7 @@ class TestBatchTraining(unittest.TestCase):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.model_context, layers=3),
-              attender=StandardAttender(self.model_context),
+              attender=MlpAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )
@@ -198,7 +210,7 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['training_strategy'] = TrainingStrategy()
     train_args['model'] = DefaultTranslator(src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
                                             encoder=BiLSTMSeqTransducer(self.model_context),
-                                            attender=StandardAttender(self.model_context),
+                                            attender=MlpAttender(self.model_context),
                                             trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
                                             decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
                                             )
@@ -232,7 +244,7 @@ class TestOverfitting(unittest.TestCase):
     train_args['training_strategy'] = TrainingStrategy()
     train_args['model'] = DefaultTranslator(src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
                                             encoder=BiLSTMSeqTransducer(self.model_context),
-                                            attender=StandardAttender(self.model_context),
+                                            attender=MlpAttender(self.model_context),
                                             trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
                                             decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
                                             )

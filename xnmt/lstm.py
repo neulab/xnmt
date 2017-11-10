@@ -59,7 +59,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   def __call__(self, expr_seq):
     """
     transduce the sequence, applying masks if given (masked timesteps simply copy previous h / c)
-    
+
     :param expr_seq: expression sequence or list of expression sequences (where each inner list will be concatenated)
     :returns: expression sequence
     """
@@ -70,7 +70,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     
     if self.dropout_rate > 0.0 and self.train:
       self.set_dropout_masks(batch_size=batch_size)
-      
+
     h = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
     c = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
     for pos_i in range(seq_len):

@@ -11,7 +11,7 @@ class LossTracker(object):
   A template class to track training process and generate report.
   """
 
-  REPORT_TEMPLATE           = 'Epoch %.4f: {}_loss/word=%.3f (words=%d, words/sec=%.2f, time=%s)'
+  REPORT_TEMPLATE           = 'Epoch %.4f: {}_loss/word=%.6f (words=%d, words/sec=%.2f, time=%s)'
   REPORT_TEMPLATE_DEV       = '  Epoch %.4f dev %s (words=%d, words/sec=%.2f, time=%s)'
   REPORT_TEMPLATE_DEV_AUX   = '  Epoch %.4f dev [auxiliary] %s'
 
@@ -85,7 +85,7 @@ class LossTracker(object):
 
       if len(self.epoch_loss) > 1:
         for loss_name, loss_values in self.epoch_loss:
-          print("- %s %5.3f" % (loss_name, loss_values / self.epoch_words))
+          print("- %s %5.6f" % (loss_name, loss_values / self.epoch_words))
 
       self.last_report_words = self.epoch_words
       self.last_report_train_time = this_report_time

@@ -1,4 +1,4 @@
-debug-segmenting:
+defaults:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -6,21 +6,24 @@ debug-segmenting:
     err_file: examples/output/<EXP>.err
     run_for_epochs: 2
     eval_metrics: bleu
-  train: !XnmtTrainer
-    glob:
-      default_layer_dim: 16
-      dropout: 0.5
+  train:
+    default_layer_dim: 16
+    dropout: 0.5
     dev_metrics: bleu
     corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
+      src_reader: !SegmentationTextReader {}
       trg_reader: !PlainTextReader {}
       max_src_len: 15
       max_trg_len: 15
       training_corpus: !BilingualTrainingCorpus
-        train_src: examples/data/train-char.ja
-        train_trg: examples/data/train.en
-        dev_src: examples/data/dev-char-head5.ja
-        dev_trg: examples/data/dev-head5.en
+        train_src:
+          - examples/data/head-char.ja
+          - examples/data/head-seg.ja
+        train_trg: examples/data/head.en
+        dev_src:
+          - examples/data/head-char.ja
+          - examples/data/head-seg.ja
+        dev_trg: examples/data/head.en
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 16
@@ -35,7 +38,7 @@ debug-segmenting:
             hidden_dim: 16
             layers: 1
           transformer: !TailSegmentTransformer {}
-        learn_segmentation: True
+        learn_segmentation: False
         learn_delete: False
         reinforcement_param: !ScalarParam
           initial: 0.1
@@ -55,8 +58,11 @@ debug-segmenting:
         mlp_hidden_dim: 16
         bridge: !CopyBridge {}
   decode:
-    src_file: examples/data/test-char-head5.ja
-    report_path: examples/output/<EXP>.report
-    report_type: html, file
+    src_file: 
+      - examples/data/head-char.ja
+      - examples/data/head-seg.ja
   evaluate:
-    ref_file: examples/data/test-head5.en
+    ref_file: examples/data/head.en
+
+prior-segmenting:
+

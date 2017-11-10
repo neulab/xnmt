@@ -60,7 +60,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.train = False
 
   @handle_xnmt_event
-  def on_start_sent(self):
+  def on_start_sent(self, src):
     self.word_id_mask = None
 
   @handle_xnmt_event

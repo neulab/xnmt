@@ -120,11 +120,11 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
 
   def calc_loss(self, mlp_dec_state, ref_action):
     scores = self.get_scores(mlp_dec_state)
-    # single mode     
-    if not xnmt.batcher.is_batched(ref_action):   
-      return dy.pickneglogsoftmax(scores, ref_action)   
-    # minibatch mode    
-    else:   
+    # single mode
+    if not xnmt.batcher.is_batched(ref_action):
+      return dy.pickneglogsoftmax(scores, ref_action)
+    # minibatch mode
+    else:
       return dy.pickneglogsoftmax_batch(scores, ref_action)
 
   @handle_xnmt_event

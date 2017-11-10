@@ -29,6 +29,9 @@ class TestRunningConfig(unittest.TestCase):
   def test_segmenting(self):
     run.main(["test/config/segmenting.yaml"])
 
+  def test_prior_segmenting(self):
+    run.main(["test/config/prior-segmenting.yaml"])
+
   def test_forced(self):
     run.main(["test/config/forced.yaml"])
 

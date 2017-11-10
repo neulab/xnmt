@@ -7,7 +7,7 @@ from xnmt.translator import DefaultTranslator
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.residual import ResidualLSTMSeqTransducer
-from xnmt.attender import StandardAttender
+from xnmt.attender import MlpAttender
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
@@ -47,7 +47,7 @@ class TestEncoder(unittest.TestCase):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.model_context, layers=3),
-              attender=StandardAttender(self.model_context),
+              attender=MlpAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
@@ -57,7 +57,7 @@ class TestEncoder(unittest.TestCase):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=UniLSTMSeqTransducer(self.model_context),
-              attender=StandardAttender(self.model_context),
+              attender=MlpAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
@@ -67,7 +67,7 @@ class TestEncoder(unittest.TestCase):
     model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=ResidualLSTMSeqTransducer(self.model_context, layers=3),
-              attender=StandardAttender(self.model_context),
+              attender=MlpAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )

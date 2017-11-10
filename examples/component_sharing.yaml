@@ -43,7 +43,7 @@ exp1.pretrain: &defaults
           _xnmt_id: lstm_enc1 # this id must be unique and is recommended but not required to match the YAML anchor
           layers: 1
         - *lstm_enc1
-      attender: !StandardAttender {}
+      attender: !MlpAttender {}
       trg_embedder: *emb_conf1
       decoder: !MlpSoftmaxDecoder
         layers: 1

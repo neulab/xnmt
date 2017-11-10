@@ -30,7 +30,7 @@ speech-2layers:
         downsampling_method: skip
         input_dim: 240
         hidden_dim: 64
-      attender: !StandardAttender
+      attender: !MlpAttender
         state_dim: 64
         hidden_dim: 64
         input_dim: 64

@@ -29,7 +29,7 @@ standard-dropout0.1:
         emb_dim: 300
       encoder: !BiLSTMSeqTransducer
         layers: 1
-      attender: !StandardAttender
+      attender: !MlpAttender
         hidden_dim: 512
         state_dim: 512
         input_dim: 512

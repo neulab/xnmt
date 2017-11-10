@@ -6,7 +6,7 @@ import dynet as dy
 from xnmt.translator import DefaultTranslator
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.lstm import BiLSTMSeqTransducer
-from xnmt.attender import StandardAttender
+from xnmt.attender import MlpAttender
 from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
 from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
@@ -28,7 +28,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
     self.model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.model_context),
-              attender=StandardAttender(self.model_context),
+              attender=MlpAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
@@ -63,7 +63,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
     self.model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.model_context),
-              attender=StandardAttender(self.model_context),
+              attender=MlpAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )
@@ -99,7 +99,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
     self.model = DefaultTranslator(
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.model_context),
-              attender=StandardAttender(self.model_context),
+              attender=MlpAttender(self.model_context),
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )

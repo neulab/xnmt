@@ -25,7 +25,7 @@ class GeneratorModel(object):
     pass
 
   @register_xnmt_event
-  def start_sent(self):
+  def start_sent(self, src):
     pass
 
   def calc_loss(self, src, trg, src_mask=None, trg_mask=None):

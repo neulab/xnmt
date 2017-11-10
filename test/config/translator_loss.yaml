@@ -35,7 +35,7 @@ reinforce:
       encoder: !BiLSTMSeqTransducer
         layers: 1
         input_dim: 32
-      attender: !StandardAttender
+      attender: !MlpAttender
         state_dim: 32
         hidden_dim: 32
         input_dim: 32

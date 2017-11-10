@@ -118,5 +118,5 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
                                             dy.concatenate([fb.get_final_states()[0].cell_expr(),
                                                             bb.get_final_states()[0].cell_expr()])) \
                           for (fb, bb) in self.builder_layers]
-    
+
     return ret_es
