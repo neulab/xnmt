@@ -83,7 +83,6 @@ class YamlSerializer(object):
     deserialized_yaml = copy.deepcopy(deserialized_yaml)   # make a copy to avoid side effects
     self.set_serialize_params_recursive(deserialized_yaml) # sets each component's serialize_params to represent attributes specified in YAML file
     self.share_init_params_top_down(deserialized_yaml)     # invoke shared_params mechanism, set each component's init_params accordingly
-#    setattr(deserialized_yaml, "yaml_context", yaml_context)
     # finally, initialize each component via __init__(**init_params)
     deserialized_yaml._initialized_subcomponents = {}
     return self.init_components_bottom_up(deserialized_yaml, deserialized_yaml.dependent_init_params(deserialized_yaml._initialized_subcomponents), yaml_context=yaml_context)
@@ -110,7 +109,6 @@ class YamlSerializer(object):
     class_param_names = [x[0] for x in inspect.getmembers(obj.__class__)]
     init_args.remove("self")
     obj.serialize_params = {}
-#    self.resolve_kwargs(obj)
     items = inspect.getmembers(obj)
     for name, val in items:
       if name=="yaml_context":
@@ -131,18 +129,6 @@ class YamlSerializer(object):
       if not name in init_args:
         raise ValueError("unknown init parameter for %s: %s" % (obj.yaml_tag, name))
     obj.init_params = dict(obj.serialize_params)
-
-#  def resolve_kwargs(self, obj):
-#    """
-#    If obj has a kwargs attribute (dictionary), set the dictionary items as attributes
-#    of the object via setattr (asserting that there are no collisions).
-#    """
-#    if hasattr(obj, "kwargs"):
-#      for k, v in obj.kwargs.items():
-#        if hasattr(obj, k):
-#          raise ValueError("kwargs %s already specified as class member for object %s" % (str(k), str(obj)))
-#        setattr(obj, k, v)
-#      delattr(obj, "kwargs")
 
   def share_init_params_top_down(self, obj):
     """
