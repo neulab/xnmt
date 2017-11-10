@@ -37,12 +37,12 @@ class TestForcedDecodingOutputs(unittest.TestCase):
     self.model.initialize_generator(beam=1)
 
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
-                                              train_trg = "examples/data/head.en",
-                                              dev_src = "examples/data/head.ja",
-                                              dev_trg = "examples/data/head.en")
+                                                   train_trg = "examples/data/head.en",
+                                                   dev_src = "examples/data/head.ja",
+                                                   dev_trg = "examples/data/head.en")
     self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
-                                          trg_reader = PlainTextReader())
-    self.corpus_parser.read_training_corpus(self.training_corpus)
+                                               trg_reader = PlainTextReader(),
+                                               training_corpus = self.training_corpus)
 
   def assert_forced_decoding(self, sent_id):
     dy.renew_cg()
@@ -72,12 +72,12 @@ class TestForcedDecodingLoss(unittest.TestCase):
     self.model.initialize_generator(beam=1)
 
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
-                                              train_trg = "examples/data/head.en",
-                                              dev_src = "examples/data/head.ja",
-                                              dev_trg = "examples/data/head.en")
+                                                   train_trg = "examples/data/head.en",
+                                                   dev_src = "examples/data/head.ja",
+                                                   dev_trg = "examples/data/head.en")
     self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
-                                          trg_reader = PlainTextReader())
-    self.corpus_parser.read_training_corpus(self.training_corpus)
+                                               trg_reader = PlainTextReader(),
+                                               training_corpus = self.training_corpus)
 
   def test_single(self):
     dy.renew_cg()
@@ -107,12 +107,12 @@ class TestFreeDecodingLoss(unittest.TestCase):
     self.model.initialize_generator(beam=1)
 
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
-                                              train_trg = "examples/data/head.en",
-                                              dev_src = "examples/data/head.ja",
-                                              dev_trg = "examples/data/head.en")
+                                                   train_trg = "examples/data/head.en",
+                                                   dev_src = "examples/data/head.ja",
+                                                   dev_trg = "examples/data/head.en")
     self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
-                                          trg_reader = PlainTextReader())
-    self.corpus_parser.read_training_corpus(self.training_corpus)
+                                               trg_reader = PlainTextReader(),
+                                               training_corpus = self.training_corpus)
 
   def test_single(self):
     dy.renew_cg()
@@ -144,12 +144,12 @@ class TestGreedyVsBeam(unittest.TestCase):
     self.model.set_train(False)
 
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
-                                              train_trg = "examples/data/head.en",
-                                              dev_src = "examples/data/head.ja",
-                                              dev_trg = "examples/data/head.en")
+                                                   train_trg = "examples/data/head.en",
+                                                   dev_src = "examples/data/head.ja",
+                                                   dev_trg = "examples/data/head.en")
     self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
-                                          trg_reader = PlainTextReader())
-    self.corpus_parser.read_training_corpus(self.training_corpus)
+                                               trg_reader = PlainTextReader(),
+                                               training_corpus = self.training_corpus)
 
   def test_greedy_vs_beam(self):
     dy.renew_cg()

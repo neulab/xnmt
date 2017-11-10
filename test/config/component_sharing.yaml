@@ -33,17 +33,18 @@ exp1.pretrain: &defaults
     model: !DefaultTranslator
       # config-sharing between src_embedder and trg_embedder (both are configured in the same way, but do not share
       # DyNet parameters)
-      src_embedder: !SimpleWordEmbedder
+      src_embedder: !SimpleWordEmbedder &emb_conf1
         emb_dim: 32
       encoder: !ModularSeqTransducer
         modules:
         # reference-sharing between first and second encoder layer. This means, for purposes of illustration, 
         # both layers share DyNet parameters!
-        - !BiLSTMSeqTransducer
-            layers: 1
+        - !BiLSTMSeqTransducer &lstm_enc1
+          _xnmt_id: lstm_enc1 # this id must be unique and is recommended but not required to match the YAML anchor
+          layers: 1
+        - *lstm_enc1
       attender: !StandardAttender {}
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 32
+      trg_embedder: *emb_conf1
       decoder: !MlpSoftmaxDecoder
         layers: 1
         bridge: !CopyBridge {}
@@ -53,16 +54,7 @@ exp1.pretrain: &defaults
     ref_file: *dev_trg
 
 exp2.load:
-  experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
-    run_for_epochs: 2
+  << : *defaults
   train: !XnmtTrainer
     pretrained_model_file: examples/output/exp1.pretrain.mod
     model_file: examples/output/<EXP>.mod
-  decode:
-    src_file: *dev_src
-  evaluate:
-    ref_file: *dev_trg

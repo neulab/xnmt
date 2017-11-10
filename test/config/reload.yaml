@@ -14,9 +14,12 @@ reload:
       --target-dir test/tmp/reload
     src_format: contvec
     corpus_parser: !BilingualCorpusParser
+      lazy_read: True
       src_reader: !ContVecReader
         transpose: True
-      trg_reader: !PlainTextReader {}
+      trg_reader: !PlainTextReader
+        vocab: !Vocab
+          vocab_file: examples/data/head.en.vocab
       training_corpus: !BilingualTrainingCorpus
         train_src: test/tmp/reload/synth.contvec.npz
         train_trg: test/tmp/reload/synth.char

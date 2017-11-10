@@ -7,24 +7,25 @@ standard:
     cfg_file: examples/output/<EXP>.yaml
     run_for_epochs: 20
     eval_metrics: bleu
-  train:
+  train: !XnmtTrainer
     batcher: !WordSrcBatcher
       avg_batch_size: 10
-    dropout: 0.1
-    default_layer_dim: 512
+    glob:
+      dropout: 0.1
+      default_layer_dim: 512
     restart_trainer: True
     trainer: !AdamTrainer
       alpha: 0.0002
     lr_decay: 0.5
     dev_metrics: bleu
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/train.ja
-      train_trg: examples/data/train.en
-      dev_src: examples/data/dev.ja
-      dev_trg: examples/data/dev.en
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
       trg_reader: !PlainTextReader {}
+      training_corpus: !BilingualTrainingCorpus
+        train_src: examples/data/train.ja
+        train_trg: examples/data/train.en
+        dev_src: examples/data/dev.ja
+        dev_trg: examples/data/dev.en
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder {}
       encoder: !BiLSTMSeqTransducer

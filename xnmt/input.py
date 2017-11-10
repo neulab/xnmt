@@ -227,7 +227,8 @@ class BilingualCorpusParser(CorpusParser, Serializable):
 
   yaml_tag = u"!BilingualCorpusParser"
   def __init__(self, training_corpus, src_reader, trg_reader, max_src_len=None, max_trg_len=None,
-               max_num_train_sents=None, max_num_dev_sents=None, sample_train_sents=None):
+               max_num_train_sents=None, max_num_dev_sents=None, sample_train_sents=None,
+               lazy_read=False):
     """
     :param src_reader: InputReader for source side
     :param trg_reader: InputReader for target side
@@ -236,6 +237,7 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     :param max_num_train_sents: only read the first n training sentences
     :param max_num_dev_sents: only read the first n dev sentences
     :param sample_train_sents: sample n sentences without replacement from the training corpus (should probably be used with a prespecified vocab)
+    :param lazy_read: if True we don't read the training corpus upon initialization (requires the input reader vocabs being prespecified)
     """
     self.training_corpus = training_corpus
     self.src_reader = src_reader
@@ -248,7 +250,8 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     self.train_src_len, self.train_trg_len = None, None
     self.dev_src_len, self.dev_trg_len = None, None
     if max_num_train_sents is not None and sample_train_sents is not None: raise RuntimeError("max_num_train_sents and sample_train_sents are mutually exclusive!")
-    self._read_training_corpus(self.training_corpus)
+    if not lazy_read:
+      self._read_training_corpus(self.training_corpus)
 
   def _read_training_corpus(self, training_corpus):
     training_corpus.train_src_data = []

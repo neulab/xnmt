@@ -92,7 +92,7 @@ def main(overwrite_args=None):
     if not "eval_only" in exp_args: exp_args["eval_only"] = False
     if not "eval_metrics" in exp_args: exp_args["eval_metrics"] = "bleu"
     if "cfg_file" in exp_args and exp_args["cfg_file"] != None:
-      shutil.copyfile(args["experiments_file"], exp_args["cfg_file"])
+      shutil.copyfile(args.experiments_file, exp_args["cfg_file"])
 
     preproc_args = exp_tasks.get("preproc", {})
 

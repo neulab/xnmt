@@ -21,12 +21,12 @@ class TestEncoder(unittest.TestCase):
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
-                                              train_trg = "examples/data/head.en",
-                                              dev_src = "examples/data/head.ja",
-                                              dev_trg = "examples/data/head.en")
+                                                   train_trg = "examples/data/head.en",
+                                                   dev_src = "examples/data/head.ja",
+                                                   dev_trg = "examples/data/head.en")
     self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
-                                          trg_reader = PlainTextReader())
-    self.corpus_parser.read_training_corpus(self.training_corpus)
+                                               trg_reader = PlainTextReader(),
+                                               training_corpus = self.training_corpus)
 
   @xnmt.events.register_xnmt_event
   def set_train(self, val):

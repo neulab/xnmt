@@ -141,7 +141,8 @@ class XnmtTrainer(Serializable):
 
   def create_corpus_and_model(self):
     self.corpus_parser = self.args["corpus_parser"]
-#    self.corpus_parser.read_training_corpus(self.training_corpus)
+    if not hasattr(self.corpus_parser.training_corpus, "train_src_data"): # TODO: needs refactoring
+      self.corpus_parser._read_training_corpus(self.corpus_parser.training_corpus)
     self.total_train_sent = len(self.corpus_parser.training_corpus.train_src_data)
     self.model_context.corpus_parser = self.corpus_parser # TODO: hack, refactor
     self.model_context.training_corpus = self.corpus_parser.training_corpus
