@@ -95,7 +95,11 @@ def main(overwrite_args=None):
       shutil.copyfile(args.experiments_file, exp_args["cfg_file"])
 
     preproc_args = exp_tasks.get("preproc", {})
+    # Do preprocessing
+    print("> Preprocessing")
+    xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
 
+    print("> Initializing XnmtTrainer")
     train_args = exp_tasks["train"]
     train_args.model_file = exp_args["model_file"] # TODO: can we use param sharing for this?
     model_context = ModelContext()
@@ -123,10 +127,6 @@ def main(overwrite_args=None):
 
     output = Tee(exp_args["out_file"], 3)
     err_output = Tee(exp_args["err_file"], 3, error=True)
-
-    # Do preprocessing
-    print("> Preprocessing")
-    xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
 
     # Do training
     if "random_search_report" in exp_tasks:

@@ -5,7 +5,7 @@ import io
 
 from xnmt.options import OptionParser
 from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer
-from xnmt.serializer import YamlSerializer
+from xnmt.serializer import YamlSerializer, UninitializedYamlObject
 
 ##### Main function
 
@@ -35,10 +35,9 @@ def xnmt_preproc(preproc_specs=None, overwrite=False):
 
     # Perform tokenization
     if arg["type"] == 'tokenize':
-      tokenizers = {my_opts["filenum"]: [model_serializer.initialize_object(tok)
+      tokenizers = {my_opts["filenum"]: [model_serializer.initialize_if_needed(UninitializedYamlObject(tok))
             for tok in my_opts["tokenizers"]]
             for my_opts in arg["specs"]}
-      paths_to_latest_fileobjs = {}
       for file_num, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
         if args["overwrite"] or not os.path.isfile(out_file):
           my_tokenizers = tokenizers.get(file_num, tokenizers["all"])
