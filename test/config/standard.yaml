@@ -9,7 +9,8 @@ standard:
     eval_metrics: bleu,wer
   train: !XnmtTrainer
     dev_metrics: bleu
-    default_layer_dim: 32
+    glob:
+      default_layer_dim: 32
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
       trg_reader: !PlainTextReader {}

@@ -9,8 +9,9 @@ reinforce:
   train: !XnmtTrainer
     trainer: !AdamTrainer
       alpha: 0.01
-    default_layer_dim: 32
-    dropout: 0.0
+    glob:
+      default_layer_dim: 32
+      dropout: 0.0
     dev_metrics: bleu
     batcher: !SrcBatcher
       batch_size: 32

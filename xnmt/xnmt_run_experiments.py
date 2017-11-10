@@ -65,20 +65,20 @@ def main(overwrite_args=None):
     random.seed(args.dynet_seed)
     np.random.seed(args.dynet_seed)
 
-  config = config_parser.args_from_config_file(args.experiments_file)
+  config_experiment_names = config_parser.experiment_names_from_file(args.experiments_file)
 
   results = []
 
   # Check ahead of time that all experiments exist, to avoid bad surprises
-  experiment_names = args.experiment_name or config.keys()
+  experiment_names = args.experiment_name or config_experiment_names
 
   if args.experiment_name:
-    nonexistent = set(experiment_names).difference(config.keys())
+    nonexistent = set(experiment_names).difference(config_experiment_names)
     if len(nonexistent) != 0:
       raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
 
-  for experiment_name in sorted(experiment_names):
-    exp_tasks = config[experiment_name]
+  for experiment_name in config_experiment_names:
+    exp_tasks = config_parser.parse_experiment(args.experiments_file, experiment_name)
 
     print("=> Running {}".format(experiment_name))
     

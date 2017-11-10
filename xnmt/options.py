@@ -45,7 +45,17 @@ class OptionParser(object):
     self.tasks = {}
     """Options, sorted by task"""
 
-  def args_from_config_file(self, filename):
+  def experiment_names_from_file(self, filename):
+    try:
+      with open(filename) as stream:
+        experiments = yaml.load(stream)
+    except IOError as e:
+      raise RuntimeError("Could not read configuration file {}: {}".format(filename, e))
+
+    if "defaults" in experiments: del experiments["defaults"]
+    return sorted(experiments.keys())
+    
+  def parse_experiment(self, filename, exp_name):
     """
     Returns a dictionary of experiments => {task => {arguments object}}
     """
@@ -55,19 +65,33 @@ class OptionParser(object):
     except IOError as e:
       raise RuntimeError("Could not read configuration file {}: {}".format(filename, e))
 
-    experiments  = config
-    if "defaults" in experiments: del experiments["defaults"]
+    experiment = config[exp_name]    
+    YamlSerializer.apply_to_serializable_recursive(experiment, self.resolve_kwargs)
     
-    YamlSerializer.apply_to_serializable_recursive(experiments, self.resolve_kwargs)
+    YamlSerializer.apply_to_serializable_recursive(experiment, self.resolve_saved_model_file)
     
-    for exp in experiments:
-      experiments[exp] = copy.deepcopy(experiments[exp])
-      random_search_report = self.instantiate_random_search(experiments[exp])
-      if random_search_report:
-        experiments[exp]['random_search_report'] = random_search_report
-      self.replace_placeholder(experiments[exp], exp)
+    random_search_report = self.instantiate_random_search(experiment)
+    if random_search_report:
+      experiment['random_search_report'] = random_search_report
+    self.replace_placeholder(experiment, exp_name)
 
-    return experiments
+    return experiment
+
+  def resolve_saved_model_file(self, obj):
+    """
+    Load the saved object and copy over attributes, unless they are overwritten in obj
+    """
+    if hasattr(obj, "pretrained_model_file"):
+      try:
+        with open(obj.pretrained_model_file) as stream:
+          saved_obj = yaml.load(stream)
+      except IOError as e:
+        raise RuntimeError("Could not read configuration file {}: {}".format(obj.pretrained_model_file, e))
+      saved_obj_items = inspect.getmembers(saved_obj)
+      for name, _ in saved_obj_items:
+        if not hasattr(obj, name):
+          if name!="model_file":
+            setattr(obj, name, getattr(saved_obj, name))
   
   def resolve_kwargs(self, obj):
     """

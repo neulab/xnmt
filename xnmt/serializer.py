@@ -81,29 +81,12 @@ class YamlSerializer(object):
       raise AssertionError()
     deserialized_yaml = deserialized_yaml_wrapper.data
     deserialized_yaml = copy.deepcopy(deserialized_yaml)   # make a copy to avoid side effects
-    YamlSerializer.apply_to_serializable_recursive(deserialized_yaml, self.resolve_saved_model_file)
     self.set_serialize_params_recursive(deserialized_yaml) # sets each component's serialize_params to represent attributes specified in YAML file
     self.share_init_params_top_down(deserialized_yaml)     # invoke shared_params mechanism, set each component's init_params accordingly
 #    setattr(deserialized_yaml, "yaml_context", yaml_context)
     # finally, initialize each component via __init__(**init_params)
     deserialized_yaml._initialized_subcomponents = {}
     return self.init_components_bottom_up(deserialized_yaml, deserialized_yaml.dependent_init_params(deserialized_yaml._initialized_subcomponents), yaml_context=yaml_context)
-
-  def resolve_saved_model_file(self, obj):
-    """
-    Load the saved object and copy over attributes, unless they are overwritten in obj
-    """
-    if hasattr(obj, "pretrained_model_file"):
-      try:
-        with open(obj.pretrained_model_file) as stream:
-          saved_obj = yaml.load(stream)
-      except IOError as e:
-        raise RuntimeError("Could not read configuration file {}: {}".format(obj.pretrained_model_file, e))
-      saved_obj_items = inspect.getmembers(saved_obj)
-      for name, _ in saved_obj_items:
-        if not hasattr(obj, name):
-          if name!="model_file":
-            setattr(obj, name, getattr(saved_obj, name))
 
   @staticmethod
   def apply_to_serializable_recursive(base_obj, method):
