@@ -76,6 +76,7 @@ class XnmtTrainer(Serializable):
     """
     dy.renew_cg()
 
+    # TODO: don't need to keep a dedicated args object any longer
     args = dict(dev_every=dev_every, batcher=batcher, 
                corpus_parser=corpus_parser, training_strategy=training_strategy, model_file=model_file, save_num_checkpoints=save_num_checkpoints,
                pretrained_model_file=pretrained_model_file, src_format=src_format, default_layer_dim=glob.get("default_layer_dim", 512),
@@ -115,7 +116,7 @@ class XnmtTrainer(Serializable):
     if self.args["batcher"] is None:
       self.batcher = SrcBatcher(32)
     else:
-      self.batcher = self.model_serializer.initialize_if_needed(self.args["batcher"]) 
+      self.batcher = self.args["batcher"]
     if args["src_format"] == "contvec":
       self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
     self.pack_batches()
@@ -124,7 +125,7 @@ class XnmtTrainer(Serializable):
     if args["trainer"] is None:
       self.trainer = xnmt.optimizer.SimpleSGDTrainer(self.model_context, 0.1)
     else:
-      self.trainer = self.model_serializer.initialize_if_needed(args["trainer"], yaml_context=self.model_context) 
+      self.trainer = args["trainer"] 
 
   def dependent_init_params(self, initialized_subcomponents):
     return [DependentInitParam(param_descr="model.src_embedder.vocab_size", value_fct=lambda: initialized_subcomponents["corpus_parser"].src_reader.vocab_size()),
@@ -141,7 +142,7 @@ class XnmtTrainer(Serializable):
 
   def create_corpus_and_model(self):
     self.corpus_parser = self.args["corpus_parser"]
-    if not hasattr(self.corpus_parser.training_corpus, "train_src_data"): # TODO: needs refactoring
+    if not hasattr(self.corpus_parser.training_corpus, "train_src_data"): # TODO: not so pretty, needs refactoring
       self.corpus_parser._read_training_corpus(self.corpus_parser.training_corpus)
     self.total_train_sent = len(self.corpus_parser.training_corpus.train_src_data)
     self.model_context.corpus_parser = self.corpus_parser # TODO: hack, refactor
@@ -151,30 +152,14 @@ class XnmtTrainer(Serializable):
     self.model_context.weight_noise = self.args["weight_noise"]
     if not self.args["model"]:
       raise RuntimeError("No model specified!")
-    self.model = self.model_serializer.initialize_if_needed(self.args["model"], self.model_context)
+    self.model = self.args["model"]
     if self.args["training_strategy"]:
-      self.training_strategy = self.model_serializer.initialize_if_needed(self.args["training_strategy"], self.model_context)
+      self.training_strategy = self.args["training_strategy"]
     else:
       self.training_strategy = TrainingStrategy(TrainingMLELoss())
     if self.args.get("pretrained_model_file", None):
       self.model_context.dynet_param_collection.load_from_data_file(self.args["pretrained_model_file"] + '.data')
     
-#  def load_corpus_and_model(self):
-#    corpus_parser, model, my_model_context = self.model_serializer.load_from_file(self.args["pretrained_model_file"], self.model_context.dynet_param_collection)
-#    my_model_context = my_model_context.data # TODO: hack, refactor
-#    self.corpus_parser = self.model_serializer.initialize_if_needed(corpus_parser)
-##    self.corpus_parser.read_training_corpus(self.training_corpus)
-#    self.model_context.update(my_model_context)
-#    self.total_train_sent = len(self.corpus_parser.training_corpus.train_src_data)
-#    self.model_context.corpus_parser = self.corpus_parser
-#    self.model_context.training_corpus = self.corpus_parser.training_corpus
-#    self.model = self.model_serializer.initialize_if_needed(model, self.model_context)
-#    self.model_context.dynet_param_collection.load_from_data_file(self.args["pretrained_model_file"] + '.data')
-#    if self.args["training_strategy"]:
-#      self.training_strategy = self.model_serializer.initialize_if_needed(self.args["training_strategy"], self.model_context)
-#    else:
-#      self.training_strategy = TrainingStrategy(TrainingMLELoss())
-
   def _augment_data_initial(self):
     augment_command = self.args["reload_command"]
     print('initial augmentation')
