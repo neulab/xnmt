@@ -84,7 +84,7 @@ standard-preproc:
         spec:
         - type: freq
           min_freq: 2
-  train: !XnmtTrainer
+  train: !TrainingRegimen
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader
         vocab: !Vocab

@@ -83,7 +83,7 @@ def main(overwrite_args=None):
     print("> Preprocessing")
     xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
 
-    print("> Initializing XnmtTrainer")
+    print("> Initializing TrainingRegimen")
     train_args = exp_tasks["train"]
     train_args.model_file = exp_args["model_file"] # TODO: can we use param sharing for this?
     model_context = ModelContext()
@@ -109,22 +109,22 @@ def main(overwrite_args=None):
       print("> instantiated random parameter search: %s" % exp_tasks["random_search_report"])
 
     print("> Training")
-    xnmt_trainer = train_args
-    xnmt_trainer.decode_args = copy.copy(decode_args)
-    xnmt_trainer.evaluate_args = copy.copy(evaluate_args)
+    training_regimen = train_args
+    training_regimen.decode_args = copy.copy(decode_args)
+    training_regimen.evaluate_args = copy.copy(evaluate_args)
 
     eval_scores = "Not evaluated"
     if not exp_args["eval_only"]:
-      xnmt_trainer.run_epochs(exp_args["run_for_epochs"])
+      training_regimen.run_epochs(exp_args["run_for_epochs"])
 
     if not exp_args["eval_only"]:
       print('reverting learned weights to best checkpoint..')
-      xnmt_trainer.model_context.dynet_param_collection.revert_to_best_model()
+      training_regimen.model_context.dynet_param_collection.revert_to_best_model()
     if evaluators:
       print("> Evaluating test set")
       output.indent += 2
       xnmt.xnmt_decode.xnmt_decode(model_elements=(
-        xnmt_trainer.corpus_parser, xnmt_trainer.model), **decode_args)
+        training_regimen.corpus_parser, training_regimen.model), **decode_args)
       eval_scores = []
       for evaluator in evaluators:
         evaluate_args["evaluator"] = evaluator

@@ -6,7 +6,7 @@ prior-segmenting:
     err_file: examples/output/<EXP>.err
     run_for_epochs: 2
     eval_metrics: bleu
-  train: !XnmtTrainer
+  train: !TrainingRegimen
     glob:
       default_layer_dim: 16
       dropout: 0.5

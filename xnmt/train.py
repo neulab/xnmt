@@ -41,8 +41,8 @@ import xnmt.optimizer
 This will be the main class to perform training.
 '''
 
-class XnmtTrainer(Serializable):
-  yaml_tag = u'!XnmtTrainer'
+class TrainingRegimen(Serializable):
+  yaml_tag = u'!TrainingRegimen'
   def __init__(self, corpus_parser, model_file, model, yaml_context=None, glob={},
                dev_every=0, batcher=None, training_strategy=None, save_num_checkpoints=1,
                pretrained_model_file="", src_format="text",

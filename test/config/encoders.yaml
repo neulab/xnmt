@@ -6,7 +6,7 @@ defaults: &defaults
     err_file: examples/output/<EXP>.err
     run_for_epochs: 2
     eval_metrics: bleu
-  train: !XnmtTrainer
+  train: !TrainingRegimen
     kwargs: &defaults_train
       glob:
         default_layer_dim: 64
@@ -30,7 +30,7 @@ defaults: &defaults
 
 exp1-lstm-encoder:
   << : *defaults
-  train: !XnmtTrainer
+  train: !TrainingRegimen
     kwargs:
       << : *defaults_train
       model: !DefaultTranslator
@@ -54,7 +54,7 @@ exp1-lstm-encoder:
           bridge: !CopyBridge {}
 exp2-residual-encoder:
   << : *defaults
-  train: !XnmtTrainer
+  train: !TrainingRegimen
     kwargs:
       << : *defaults_train
       model: !DefaultTranslator
@@ -76,7 +76,7 @@ exp2-residual-encoder:
           bridge: !CopyBridge {}
 exp3-pyramidal-encoder:
   << : *defaults
-  train: !XnmtTrainer
+  train: !TrainingRegimen
     kwargs:
       << : *defaults_train
       model: !DefaultTranslator
@@ -101,7 +101,7 @@ exp3-pyramidal-encoder:
 
 exp4-modular-encoder:
   << : *defaults
-  train: !XnmtTrainer
+  train: !TrainingRegimen
     kwargs:
       << : *defaults_train
       model: !DefaultTranslator

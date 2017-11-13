@@ -19,7 +19,7 @@ exp1.pretrain: &defaults
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     run_for_epochs: 2
-  train: !XnmtTrainer
+  train: !TrainingRegimen
     glob:
       default_layer_dim: 32
     corpus_parser: !BilingualCorpusParser
@@ -55,6 +55,6 @@ exp1.pretrain: &defaults
 
 exp2.load:
   << : *defaults
-  train: !XnmtTrainer
+  train: !TrainingRegimen
     pretrained_model_file: examples/output/exp1.pretrain.mod
     model_file: examples/output/<EXP>.mod

@@ -6,7 +6,7 @@ reinforce:
     err_file: examples/output/<EXP>.err
     run_for_epochs: 1
     eval_metrics: bleu
-  train: !XnmtTrainer
+  train: !TrainingRegimen
     trainer: !AdamTrainer
       alpha: 0.01
     glob:

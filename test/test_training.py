@@ -218,11 +218,11 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['trainer'] = None
     train_args['save_num_checkpoints'] = 0
     train_args['batcher'] = SrcBatcher(batch_size=5, break_ties_randomly=False)
-    xnmt_trainer = xnmt.train.XnmtTrainer(yaml_context=self.model_context, **train_args)
-    xnmt_trainer.model_context = self.model_context
-    xnmt_trainer.one_epoch(update_weights=False)
-    self.assertAlmostEqual(xnmt_trainer.logger.epoch_loss.loss_values['loss'] / xnmt_trainer.logger.epoch_words,
-                           xnmt_trainer.logger.dev_score.loss)
+    training_regimen = xnmt.train.TrainingRegimen(yaml_context=self.model_context, **train_args)
+    training_regimen.model_context = self.model_context
+    training_regimen.one_epoch(update_weights=False)
+    self.assertAlmostEqual(training_regimen.logger.epoch_loss.loss_values['loss'] / training_regimen.logger.epoch_words,
+                           training_regimen.logger.dev_score.loss)
 
 class TestOverfitting(unittest.TestCase):
 
@@ -252,12 +252,12 @@ class TestOverfitting(unittest.TestCase):
     train_args['save_num_checkpoints'] = 0
     train_args['trainer'] = AdamTrainer(self.model_context, alpha=0.1)
     train_args['batcher'] = SrcBatcher(batch_size=10, break_ties_randomly=False)
-    xnmt_trainer = xnmt.train.XnmtTrainer(yaml_context=self.model_context, **train_args)
-    xnmt_trainer.model_context = self.model_context
+    training_regimen = xnmt.train.TrainingRegimen(yaml_context=self.model_context, **train_args)
+    training_regimen.model_context = self.model_context
     for _ in range(50):
-      xnmt_trainer.one_epoch(update_weights=True)
+      training_regimen.one_epoch(update_weights=True)
     self.assertAlmostEqual(0.0,
-                           xnmt_trainer.logger.epoch_loss.loss_values['loss'] / xnmt_trainer.logger.epoch_words,
+                           training_regimen.logger.epoch_loss.loss_values['loss'] / training_regimen.logger.epoch_words,
                            places=2)
 
 if __name__ == '__main__':

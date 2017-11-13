@@ -7,7 +7,7 @@ standard:
     cfg_file: examples/output/<EXP>.yaml
     run_for_epochs: 20
     eval_metrics: bleu
-  train: !XnmtTrainer
+  train: !TrainingRegimen
     batcher: !WordSrcBatcher
       avg_batch_size: 10
     glob:

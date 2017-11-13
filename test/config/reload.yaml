@@ -6,7 +6,7 @@ reload:
     err_file: test/tmp/output/<EXP>.err
     run_for_epochs: 10
     eval_metrics: cer,wer
-  train: !XnmtTrainer
+  train: !TrainingRegimen
     reload_command: >-
       python script/code/reload_example.py
       --initial-dir examples/data/
