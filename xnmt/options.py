@@ -7,7 +7,7 @@ from collections import OrderedDict
 import copy
 import random
 import inspect
-from xnmt.serializer import Serializable
+from xnmt.serializer import Serializable, YamlSerializer
 
 class Option(object):
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
@@ -28,11 +28,6 @@ class Option(object):
     self.force_flag = force_flag
     self.help = help_str
 
-class Args(object):
-  def __init__(self, **kwargs):
-    for key,val in kwargs.items():
-      setattr(self, key, val)
-
 class RandomParam(yaml.YAMLObject):
   yaml_tag = u'!RandomParam'
   def __init__(self, values):
@@ -41,35 +36,26 @@ class RandomParam(yaml.YAMLObject):
     return "%s(values=%r)" % (
             self.__class__.__name__, self.values)
   def draw_value(self):
-    return random.choice(self.values)
-
-class RefParam(yaml.YAMLObject):
-  yaml_tag = u'!RefParam'
-  def __init__(self, ref):
-    self.ref = ref
-  def __repr__(self):
-    return "%s(ref=%r)" % (
-            self.__class__.__name__, self.ref)
+    if not hasattr(self, 'drawn_value'):
+      self.drawn_value = random.choice(self.values)
+    return self.drawn_value
 
 class OptionParser(object):
   def __init__(self):
     self.tasks = {}
     """Options, sorted by task"""
 
-  def add_task(self, task_name, task_options):
-    self.tasks[task_name] = OrderedDict([(opt.name, opt) for opt in task_options])
+  def experiment_names_from_file(self, filename):
+    try:
+      with open(filename) as stream:
+        experiments = yaml.load(stream)
+    except IOError as e:
+      raise RuntimeError("Could not read configuration file {}: {}".format(filename, e))
 
-  def check_and_convert(self, task_name, option_name, value):
-    if option_name not in self.tasks[task_name]:
-      raise RuntimeError("Unknown option {} for task {}".format(option_name, task_name))
-
-    option = self.tasks[task_name][option_name]
-    if not (isinstance(value, RandomParam) or isinstance(value, RefParam) or isinstance(value, Serializable)):
-      value = option.type(value)
-
-    return value
-
-  def args_from_config_file(self, filename):
+    if "defaults" in experiments: del experiments["defaults"]
+    return sorted(experiments.keys())
+    
+  def parse_experiment(self, filename, exp_name):
     """
     Returns a dictionary of experiments => {task => {arguments object}}
     """
@@ -79,113 +65,100 @@ class OptionParser(object):
     except IOError as e:
       raise RuntimeError("Could not read configuration file {}: {}".format(filename, e))
 
-    # Default values as specified in option definitions
-    defaults = {
-      task_name: dict({name: opt.default_value for name, opt in task_options.items() if
-                  opt.default_value is not None or not opt.required})
-      for task_name, task_options in self.tasks.items()}
+    experiment = config[exp_name]    
+    YamlSerializer.apply_to_serializable_recursive(experiment, self.resolve_kwargs)
+    
+    YamlSerializer.apply_to_serializable_recursive(experiment, self.resolve_saved_model_file)
+    
+    random_search_report = self.instantiate_random_search(experiment)
+    if random_search_report:
+      experiment['random_search_report'] = random_search_report
+    self.replace_placeholder(experiment, exp_name)
 
-    # defaults section in the config file
-    if "defaults" in config:
-      for task_name, task_options in config["defaults"].items():
-        defaults[task_name].update({name: self.check_and_convert(task_name, name, value) for name, value in task_options.items()})
-      del config["defaults"]
+    return experiment
 
-    experiments = {}
-    for exp, exp_tasks in config.items():
-      if exp_tasks is None: exp_tasks = {}
-      experiments[exp] = {}
-      for task_name in self.tasks:
-        task_values = copy.deepcopy(defaults[task_name])
-        exp_task_values = exp_tasks.get(task_name, dict())
-        task_values.update({name: self.check_and_convert(task_name, name, value) for name, value in exp_task_values.items()})
+  def resolve_saved_model_file(self, obj):
+    """
+    Load the saved object and copy over attributes, unless they are overwritten in obj
+    """
+    if hasattr(obj, "pretrained_model_file"):
+      try:
+        with open(obj.pretrained_model_file) as stream:
+          saved_obj = yaml.load(stream)
+      except IOError as e:
+        raise RuntimeError("Could not read configuration file {}: {}".format(obj.pretrained_model_file, e))
+      saved_obj_items = inspect.getmembers(saved_obj)
+      for name, _ in saved_obj_items:
+        if not hasattr(obj, name):
+          if name!="model_file":
+            setattr(obj, name, getattr(saved_obj, name))
+  
+  def resolve_kwargs(self, obj):
+    """
+    If obj has a kwargs attribute (dictionary), set the dictionary items as attributes
+    of the object via setattr (asserting that there are no collisions).
+    """
+    if hasattr(obj, "kwargs"):
+      for k, v in obj.kwargs.items():
+        if hasattr(obj, k):
+          raise ValueError("kwargs %s already specified as class member for object %s" % (str(k), str(obj)))
+        setattr(obj, k, v)
+      delattr(obj, "kwargs")
 
-        # Check that no required option is missing
-        for _, option in self.tasks[task_name].items():
-          if option.required:
-            sub_task_values = task_values
-            sub_option_name = option.name
-            if sub_option_name not in sub_task_values:
-              raise RuntimeError(
-                "Required option not found for experiment {}, task {}: {}".format(exp, task_name, option.name))
-
-        # Replace the special token "<EXP>" with the experiment name if necessary
-        for k in task_values.keys():
-          if type(task_values[k]) == str:
-            task_values[k] = task_values[k].replace("<EXP>", exp)
-
-        random_search_report = self.instantiate_random_search(task_values)
-        if random_search_report:
-          task_values["random_search_report"] = random_search_report
-
-        self.resolve_referenced_params(task_values, task_values)
-
-        experiments[exp][task_name] = Args()
-        for name, val in task_values.items():
-          setattr(experiments[exp][task_name], name, val)
-        setattr(experiments[exp][task_name], "params_as_dict", task_values)
-
-    return experiments
-
-  def instantiate_random_search(self, task_values):
+  def instantiate_random_search(self, exp_values, initialized_random_params={}):
     param_report = {}
-    if isinstance(task_values, dict): kvs = task_values.items()
-    elif isinstance(task_values, Serializable):
-      init_args, _, _, _ = inspect.getargspec(task_values.__init__)
-      kvs = [(key, getattr(task_values, key)) for key in init_args if hasattr(task_values, key)]
+    if isinstance(exp_values, dict): kvs = exp_values.items()
+    elif isinstance(exp_values, Serializable):
+      init_args, _, _, _ = inspect.getargspec(exp_values.__init__)
+      kvs = [(key, getattr(exp_values, key)) for key in init_args if hasattr(exp_values, key)]
+    else:
+      raise RuntimeError("unexpected type %s" % (type(exp_values)))
     for k, v in kvs:
       if isinstance(v, RandomParam):
+        if hasattr(v, "_xnmt_id") and v._xnmt_id in initialized_random_params:
+          v = initialized_random_params[v._xnmt_id]
         v = v.draw_value()
-        if isinstance(task_values, dict):
-          task_values[k] = v
+        if hasattr(v, "_xnmt_id"):
+          initialized_random_params[v._xnmt_id] = v
+        if isinstance(exp_values, dict):
+          exp_values[k] = v
         else:
-          setattr(task_values, k, v)
+          setattr(exp_values, k, v)
         param_report[k] = v
       elif isinstance(v, dict) or isinstance(v, Serializable):
-        sub_report = self.instantiate_random_search(v)
+        sub_report = self.instantiate_random_search(v, initialized_random_params)
         if sub_report:
           param_report[k] = sub_report
     return param_report
 
-  def resolve_referenced_params(self, cur_task_values, top_task_values):
-    if isinstance(cur_task_values, dict): kvs = cur_task_values.items()
-    elif isinstance(cur_task_values, Serializable):
-      init_args, _, _, _ = inspect.getargspec(cur_task_values.__init__)
-      kvs = [(key, getattr(cur_task_values, key)) for key in init_args if hasattr(cur_task_values, key)]
-    else:
-      raise RuntimeError()
+  def replace_placeholder(self, exp_values, value, placeholder="<EXP>"):
+    if isinstance(exp_values, dict): kvs = exp_values.items()
+    elif isinstance(exp_values, Serializable):
+      init_args, _, _, _ = inspect.getargspec(exp_values.__init__)
+      kvs = [(key, getattr(exp_values, key)) for key in init_args if hasattr(exp_values, key)]
     for k, v in kvs:
-      if isinstance(v, RefParam):
-        ref_str_spl = v.ref.split(".")
-        resolved = top_task_values
-        for ref_str in ref_str_spl:
-          if isinstance(resolved, dict):
-            resolved = resolved[ref_str]
+      if isinstance(v, str):
+        if placeholder in v:
+          if isinstance(exp_values, dict):
+            exp_values[k] = v.replace(placeholder, value)
           else:
-            resolved = getattr(resolved, ref_str)
-        if isinstance(cur_task_values, dict):
-          cur_task_values[k] = resolved
-        elif isinstance(cur_task_values, Serializable):
-          setattr(cur_task_values, k, resolved)
+            setattr(exp_values, k, v.replace(placeholder, value))
       elif isinstance(v, dict) or isinstance(v, Serializable):
-        self.resolve_referenced_params(v, top_task_values)
+        self.replace_placeholder(v, value, placeholder)
 
 
   def args_from_command_line(self, task, argv):
-    parser = argparse.ArgumentParser()
-    for option in self.tasks[task].values():
-      if option.required and not option.force_flag:
-        parser.add_argument(option.name, type=option.type, help=option.help)
-      else:
-        parser.add_argument("--" + option.name, default=option.default_value, required=option.required,
-                            type=option.type, help=option.help)
-
-    return parser.parse_args(argv)
-
-  def remove_option(self, task, option_name):
-    if option_name not in self.tasks[task]:
-      raise RuntimeError("Tried to remove nonexistent option {} for task {}".format(option_name, task))
-    del self.tasks[task][option_name]
+    raise NotImplementedError("")
+  # old code:
+#    parser = argparse.ArgumentParser()
+#    for option in self.tasks[task].values():
+#      if option.required and not option.force_flag:
+#        parser.add_argument(option.name, type=option.type, help=option.help)
+#      else:
+#        parser.add_argument("--" + option.name, default=option.default_value, required=option.required,
+#                            type=option.type, help=option.help)
+#
+#    return parser.parse_args(argv)
 
   def generate_options_table(self):
     """

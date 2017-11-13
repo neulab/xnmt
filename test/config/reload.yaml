@@ -1,8 +1,4 @@
-# This config file replicates the Listen-Attend-Spell architecture: https://arxiv.org/pdf/1508.01211.pdf
-# Compared to the conventional attentional model, we remove input embeddings, instead directly read in a feature vector
-# the pyramidal LSTM reduces length of the input sequence by a factor of 2 per layer (except for the first layer).
-# Output units should be characters according to the paper.
-defaults:
+reload:
   experiment:
     model_file: test/tmp/output/<EXP>.mod
     hyp_file: test/tmp/output/<EXP>.hyp
@@ -10,22 +6,25 @@ defaults:
     err_file: test/tmp/output/<EXP>.err
     run_for_epochs: 10
     eval_metrics: cer,wer
-  train:
+  train: !TrainingRegimen
     reload_command: >-
       python script/code/reload_example.py
       --initial-dir examples/data/
       --tmp-basedir test/tmp/reload-tmp
       --target-dir test/tmp/reload
     src_format: contvec
-    training_corpus: !BilingualTrainingCorpus
-      train_src: test/tmp/reload/synth.contvec.npz
-      train_trg: test/tmp/reload/synth.char
-      dev_src: test/tmp/reload/synth.contvec.npz
-      dev_trg: test/tmp/reload/synth.char
     corpus_parser: !BilingualCorpusParser
+      lazy_read: True
       src_reader: !ContVecReader
         transpose: True
-      trg_reader: !PlainTextReader {}
+      trg_reader: !PlainTextReader
+        vocab: !Vocab
+          vocab_file: examples/data/head.en.vocab
+      training_corpus: !BilingualTrainingCorpus
+        train_src: test/tmp/reload/synth.contvec.npz
+        train_trg: test/tmp/reload/synth.char
+        dev_src: test/tmp/reload/synth.contvec.npz
+        dev_trg: test/tmp/reload/synth.char
     model: !DefaultTranslator
       src_embedder: !NoopEmbedder
         emb_dim: 240
@@ -48,6 +47,4 @@ defaults:
     src_file: test/tmp/reload/synth.contvec.npz
   evaluate:
     ref_file: test/tmp/reload/synth.char
-
-speech-2layers:
 

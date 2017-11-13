@@ -1,4 +1,4 @@
-defaults:
+standard-dropout0.1:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -6,26 +6,28 @@ defaults:
     err_file: examples/output/<EXP>.err
     run_for_epochs: 20
     eval_metrics: bleu
-  train:
-    default_layer_dim: 512
+  train: !TrainingRegimen
+    glob:
+      default_layer_dim: 512
+      dropout: 0.1
     restart_trainer: True
-    trainer: Adam
-    learning_rate: 0.0002
+    trainer: !AdamTrainer
+      alpha: 0.0002
     lr_decay: 0.5
     dev_metrics: bleu
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/train.ja
-      train_trg: examples/data/train.en
-      dev_src: examples/data/dev.ja
-      dev_trg: examples/data/dev.en
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
       trg_reader: !PlainTextReader {}
+      training_corpus: !BilingualTrainingCorpus
+        train_src: examples/data/train.ja
+        train_trg: examples/data/train.en
+        dev_src: examples/data/dev.ja
+        dev_trg: examples/data/dev.en
     model: !DefaultTranslator
       src_embedder: !PretrainedSimpleWordEmbedder
-        filename: ../wiki.ja.vec
+        filename: examples/data/wiki.ja.vec.small
         emb_dim: 300
-      encoder: !LSTMSeqTransducer
+      encoder: !BiLSTMSeqTransducer
         layers: 1
       attender: !MlpAttender
         hidden_dim: 512
@@ -41,7 +43,3 @@ defaults:
     src_file: examples/data/test.ja
   evaluate:
     ref_file: examples/data/test.en
-
-standard-dropout0.1:
-  train:
-    dropout: 0.1

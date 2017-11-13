@@ -13,12 +13,14 @@ import six
 import random
 import shutil
 import numpy as np
+import copy
 
 # XNMT imports
-import copy
-import xnmt.xnmt_preproc, xnmt.xnmt_train, xnmt.xnmt_decode, xnmt.xnmt_evaluate
-from xnmt.options import OptionParser, Option
+import xnmt.xnmt_preproc, xnmt.xnmt_decode, xnmt.xnmt_evaluate, xnmt.train
+from xnmt.options import OptionParser
 from xnmt.tee import Tee
+from xnmt.serializer import YamlSerializer, UninitializedYamlObject
+from xnmt.model_context import ModelContext, PersistentParamCollection
 
 def main(overwrite_args=None):
   argparser = argparse.ArgumentParser()
@@ -38,33 +40,6 @@ def main(overwrite_args=None):
   args = argparser.parse_args(overwrite_args)
 
   config_parser = OptionParser()
-  config_parser.add_task("preproc", xnmt.xnmt_preproc.options)
-  config_parser.add_task("train", xnmt.xnmt_train.options)
-  config_parser.add_task("decode", xnmt.xnmt_decode.options)
-  config_parser.add_task("evaluate", xnmt.xnmt_evaluate.options)
-
-  # Tweak the options to make config files less repetitive:
-  # - Delete evaluate:evaluator, replace with exp:eval_metrics
-  # - Delete decode:hyp_file, evaluate:hyp_file, replace with exp:hyp_file
-  # - Delete train:model, decode:model_file, replace with exp:model_file
-  config_parser.remove_option("evaluate", "evaluator")
-  config_parser.remove_option("decode", "trg_file")
-  config_parser.remove_option("evaluate", "hyp_file")
-  config_parser.remove_option("train", "model_file")
-  config_parser.remove_option("decode", "model_file")
-
-  experiment_options = [
-    Option("model_file", default_value="<EXP>.mod", help_str="Location to write the model file"),
-    Option("hyp_file", default_value="<EXP>.hyp", help_str="Location to write decoded output for evaluation"),
-    Option("out_file", default_value="<EXP>.out", help_str="Location to write stdout messages"),
-    Option("err_file", default_value="<EXP>.err", help_str="Location to write stderr messages"),
-    Option("cfg_file", default_value=None, help_str="Location to write a copy of the YAML configuration file", required=False),
-    Option("eval_only", bool, default_value=False, help_str="Skip training and evaluate only"),
-    Option("eval_metrics", default_value="bleu", help_str="Comma-separated list of evaluation metrics (bleu/wer/cer)"),
-    Option("run_for_epochs", int, help_str="How many epochs to run each test for"),
-  ]
-
-  config_parser.add_task("experiment", experiment_options)
 
   if args.generate_doc:
     print(config_parser.generate_options_table())
@@ -74,77 +49,86 @@ def main(overwrite_args=None):
     random.seed(args.dynet_seed)
     np.random.seed(args.dynet_seed)
 
-  config = config_parser.args_from_config_file(args.experiments_file)
+  config_experiment_names = config_parser.experiment_names_from_file(args.experiments_file)
 
   results = []
 
   # Check ahead of time that all experiments exist, to avoid bad surprises
-  experiment_names = args.experiment_name or config.keys()
+  experiment_names = args.experiment_name or config_experiment_names
 
   if args.experiment_name:
-    nonexistent = set(experiment_names).difference(config.keys())
+    nonexistent = set(experiment_names).difference(config_experiment_names)
     if len(nonexistent) != 0:
       raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
 
-  for experiment_name in sorted(experiment_names):
-    exp_tasks = config[experiment_name]
+  for experiment_name in config_experiment_names:
+    exp_tasks = config_parser.parse_experiment(args.experiments_file, experiment_name)
 
     print("=> Running {}".format(experiment_name))
+    
+    exp_args = exp_tasks.get("experiment", {})
+    # TODO: refactor
+    if not "model_file" in exp_args: exp_args["model_file"] = "<EXP>.mod"
+    if not "hyp_file" in exp_args: exp_args["hyp_file"] = "<EXP>.hyp"
+    if not "out_file" in exp_args: exp_args["out_file"] = "<EXP>.out"
+    if not "err_file" in exp_args: exp_args["model_file"] = "<EXP>.err"
+    if not "cfg_file" in exp_args: exp_args["cfg_file"] = None
+    if not "eval_only" in exp_args: exp_args["eval_only"] = False
+    if not "eval_metrics" in exp_args: exp_args["eval_metrics"] = "bleu"
+    if "cfg_file" in exp_args and exp_args["cfg_file"] != None:
+      shutil.copyfile(args.experiments_file, exp_args["cfg_file"])
 
-    exp_args = exp_tasks["experiment"]
-    if exp_args.cfg_file != None:
-      shutil.copyfile(args.experiments_file, exp_args.cfg_file)
-
-    preproc_args = exp_tasks["preproc"]
-
-    train_args = exp_tasks["train"]
-    train_args.model_file = exp_args.model_file
-
-    decode_args = exp_tasks["decode"]
-    decode_args.trg_file = exp_args.hyp_file
-    decode_args.model_file = None  # The model is passed to the decoder directly
-
-    evaluate_args = exp_tasks["evaluate"]
-    evaluate_args.hyp_file = exp_args.hyp_file
-    evaluators = map(lambda s: s.lower(), exp_args.eval_metrics.split(","))
-
-    output = Tee(exp_args.out_file, 3)
-    err_output = Tee(exp_args.err_file, 3, error=True)
-
+    preproc_args = exp_tasks.get("preproc", {})
     # Do preprocessing
     print("> Preprocessing")
-    xnmt.xnmt_preproc.xnmt_preproc(preproc_args)
+    xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
+
+    print("> Initializing TrainingRegimen")
+    train_args = exp_tasks["train"]
+    train_args.model_file = exp_args["model_file"] # TODO: can we use param sharing for this?
+    model_context = ModelContext()
+    model_context.dynet_param_collection = PersistentParamCollection(exp_args["model_file"], 1)
+    if hasattr(train_args, "glob"):
+      for k in train_args.glob:
+        setattr(model_context, k, train_args.glob[k])
+    train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
+    
+    decode_args = exp_tasks.get("decode", {})
+    decode_args["trg_file"] = exp_args["hyp_file"]
+    decode_args["model_file"] = None  # The model is passed to the decoder directly
+
+    evaluate_args = exp_tasks.get("evaluate", {})
+    evaluate_args["hyp_file"] = exp_args["hyp_file"]
+    evaluators = map(lambda s: s.lower(), exp_args["eval_metrics"].split(","))
+
+    output = Tee(exp_args["out_file"], 3)
+    err_output = Tee(exp_args["err_file"], 3, error=True)
 
     # Do training
-    for task_name in exp_tasks:
-      if hasattr(exp_tasks[task_name], "random_search_report"):
-        print("> instantiated random parameter search: %s" % exp_tasks[task_name].random_search_report)
+    if "random_search_report" in exp_tasks:
+      print("> instantiated random parameter search: %s" % exp_tasks["random_search_report"])
 
     print("> Training")
-    xnmt_trainer = xnmt.xnmt_train.XnmtTrainer(train_args)
-    xnmt_trainer.decode_args = copy.copy(decode_args)
-    xnmt_trainer.evaluate_args = copy.copy(evaluate_args)
+    training_regimen = train_args
+    training_regimen.decode_args = copy.copy(decode_args)
+    training_regimen.evaluate_args = copy.copy(evaluate_args)
 
     eval_scores = "Not evaluated"
-    for i_epoch in six.moves.range(exp_args.run_for_epochs):
-      if not exp_args.eval_only:
-        xnmt_trainer.run_epoch()
+    if not exp_args["eval_only"]:
+      training_regimen.run_epochs(exp_args["run_for_epochs"])
 
-      if xnmt_trainer.early_stopping_reached:
-        break
-
-    if not exp_args.eval_only:
+    if not exp_args["eval_only"]:
       print('reverting learned weights to best checkpoint..')
-      xnmt_trainer.model_context.dynet_param_collection.revert_to_best_model()
+      training_regimen.model_context.dynet_param_collection.revert_to_best_model()
     if evaluators:
       print("> Evaluating test set")
       output.indent += 2
-      xnmt.xnmt_decode.xnmt_decode(decode_args,
-                                   model_elements=(xnmt_trainer.corpus_parser, xnmt_trainer.model))
+      xnmt.xnmt_decode.xnmt_decode(model_elements=(
+        training_regimen.corpus_parser, training_regimen.model), **decode_args)
       eval_scores = []
       for evaluator in evaluators:
-        evaluate_args.evaluator = evaluator
-        eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(evaluate_args)
+        evaluate_args["evaluator"] = evaluator
+        eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(**evaluate_args)
         print(eval_score)
         eval_scores.append(eval_score)
       output.indent -= 2

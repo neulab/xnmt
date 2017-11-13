@@ -76,18 +76,11 @@ class DefaultTranslator(Translator, Serializable, Reportable):
             set(["attender.state_dim", "decoder.lstm_dim"]),
             set(["trg_embedder.emb_dim", "decoder.trg_embed_dim"])]
 
-  def dependent_init_params(self):
-    return [DependentInitParam(param_descr="src_embedder.vocab_size", value_fct=lambda: self.yaml_context.corpus_parser.src_reader.vocab_size()),
-            DependentInitParam(param_descr="decoder.vocab_size", value_fct=lambda: self.yaml_context.corpus_parser.trg_reader.vocab_size()),
-            DependentInitParam(param_descr="trg_embedder.vocab_size", value_fct=lambda: self.yaml_context.corpus_parser.trg_reader.vocab_size()),
-            DependentInitParam(param_descr="src_embedder.vocab", value_fct=lambda: self.yaml_context.corpus_parser.src_reader.vocab),
-            DependentInitParam(param_descr="trg_embedder.vocab", value_fct=lambda: self.yaml_context.corpus_parser.trg_reader.vocab)]
-
   def initialize_generator(self, **kwargs):
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
     else:
-      len_norm = xnmt.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
+      len_norm = xnmt.serializer.YamlSerializer().initialize_if_needed(kwargs["len_norm_type"])
     search_args = {}
     if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
     if kwargs.get("beam", None) is None:

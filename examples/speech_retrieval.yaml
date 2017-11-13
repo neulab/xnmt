@@ -1,4 +1,4 @@
-defaults:
+standard-dropout0.1:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -6,20 +6,21 @@ defaults:
     err_file: examples/output/<EXP>.err
     run_for_epochs: 2
     eval_metrics: recall|nbest=1,recall|nbest=5
-  train:
-    trainer: 'adam'
-    learning_rate: 0.01 
-    default_layer_dim: 512
-    dropout: 0.0
+  train: !TrainingRegimen
+    trainer: !AdamTrainer
+      alpha: 0.01 
+    glob:
+      default_layer_dim: 512
+      dropout: 0.1
     dev_metrics: recall|nbest=1,recall|nbest=5
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/mfcc_tr20.npz
-      train_trg: examples/data/flickr_tr20.ids
-      dev_src: examples/data/mfcc_tx20.npz
-      dev_trg: examples/data/flickr_tx20.ids
     corpus_parser: !BilingualCorpusParser
       src_reader: !ContVecReader {}
       trg_reader: !IDReader {}
+      training_corpus: !BilingualTrainingCorpus
+        train_src: examples/data/mfcc_tr20.npz
+        train_trg: examples/data/flickr_tr20.ids
+        dev_src: examples/data/mfcc_tx20.npz
+        dev_trg: examples/data/flickr_tx20.ids
     model: !DotProductRetriever
       src_embedder: !NoopEmbedder
         emb_dim: 40
@@ -36,7 +37,7 @@ defaults:
         residual: True
       trg_embedder: !NoopEmbedder
         emb_dim: 40
-      trg_encoder: !HarwathImageEncoder
+      trg_encoder: !HarwathImageTransducer
         in_height: 4096
         out_height: 1024 
       database: !StandardRetrievalDatabase
@@ -46,7 +47,3 @@ defaults:
     src_file: examples/data/mfcc_tx20.npz
   evaluate:
     ref_file: examples/data/flickr_tx20.ids
-
-standard-dropout0.1:
-  train:
-    dropout: 0.1

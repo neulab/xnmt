@@ -245,10 +245,20 @@ class IDReader(BaseTextReader, Serializable):
 
 ###### CorpusParser
 
-class CorpusParser:
+class CorpusParser(object):
   """A class that can read in corpora for training and testing"""
+  
+  def __init__(self):
+    """
+    After __init__, the vocabularies must be available because they will be needed to
+    initialize other components (in particular, embedders). Currently this is done by
+    calling _read_train_corpus here, but when a vocab is prespecified the data could also
+    be loaded in a lazy fashion (would be useful to avoid loading training data when we
+    only want to do inference; TODO)
+    """
+    pass
 
-  def read_training_corpus(self, training_corpus):
+  def _read_training_corpus(self, training_corpus):
     """Read in the training corpus"""
     raise RuntimeError("CorpusParsers must implement read_training_corpus to read in the training/dev corpora")
 
@@ -257,8 +267,9 @@ class BilingualCorpusParser(CorpusParser, Serializable):
   """A class that reads in bilingual corpora, consists of two InputReaders"""
 
   yaml_tag = u"!BilingualCorpusParser"
-  def __init__(self, src_reader, trg_reader, max_src_len=None, max_trg_len=None,
-               max_num_train_sents=None, max_num_dev_sents=None, sample_train_sents=None):
+  def __init__(self, training_corpus, src_reader, trg_reader, max_src_len=None, max_trg_len=None,
+               max_num_train_sents=None, max_num_dev_sents=None, sample_train_sents=None,
+               lazy_read=False):
     """
     :param src_reader: InputReader for source side
     :param trg_reader: InputReader for target side
@@ -267,7 +278,9 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     :param max_num_train_sents: only read the first n training sentences
     :param max_num_dev_sents: only read the first n dev sentences
     :param sample_train_sents: sample n sentences without replacement from the training corpus (should probably be used with a prespecified vocab)
+    :param lazy_read: if True we don't read the training corpus upon initialization (requires the input reader vocabs being prespecified)
     """
+    self.training_corpus = training_corpus
     self.src_reader = src_reader
     self.trg_reader = trg_reader
     self.max_src_len = max_src_len
@@ -278,8 +291,10 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     self.train_src_len, self.train_trg_len = None, None
     self.dev_src_len, self.dev_trg_len = None, None
     if max_num_train_sents is not None and sample_train_sents is not None: raise RuntimeError("max_num_train_sents and sample_train_sents are mutually exclusive!")
+    if not lazy_read:
+      self._read_training_corpus(self.training_corpus)
 
-  def read_training_corpus(self, training_corpus):
+  def _read_training_corpus(self, training_corpus):
     training_corpus.train_src_data = []
     training_corpus.train_trg_data = []
     if self.sample_train_sents:

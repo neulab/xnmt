@@ -199,7 +199,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
 
     return total_embs, in_vocab, missing, embeddings
 
-  def __init__(self, yaml_context, vocab, filename, emb_dim=None, weight_noise=None, word_dropout=0.0):
+  def __init__(self, yaml_context, vocab, filename, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm = None):
     """
     :param vocab: a `Vocab` object containing the vocabulary for the experiment
     :param filename: Filename for the pretrained embeddings
@@ -212,6 +212,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     self.word_dropout = word_dropout
     self.word_id_mask = None
     self.train = False
+    self.fix_norm = fix_norm
 
     with io.open(filename, encoding='utf-8') as embeddings_file:
       total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)

@@ -36,13 +36,14 @@ class Serializable(yaml.YAMLObject):
               (the '.0' syntax is available to access elements in a list of subcomponents)
     """
     return []
-  def dependent_init_params(self):
+  def dependent_init_params(self, initialized_subcomponents):
     """
     This can be overwritten to share parameters that require dependent components already having been initialized.
     The order of initialization is determined by the order in which components are listed in __init__(),
               and then going bottom-up.
-    NOTE: currently only supported for top of component hierarchy
-
+    NOTE: currently only supported for top of component hierarchy, and not across lists of subcomponents
+    
+    :param initialized_subcomponents: dict
     :returns: list of DependentInitParam instances
     """
     return []
@@ -63,21 +64,48 @@ class YamlSerializer(object):
   def __init__(self):
     self.representers_added = False
     self.initialized_shared_components = {}
+    
+  def initialize_if_needed(self, obj, yaml_context={}):
+    if YamlSerializer.is_initialized(obj): return obj
+    else: return self.initialize_object(deserialized_yaml_wrapper=obj, yaml_context=yaml_context)
 
-  def initialize_object(self, deserialized_yaml, yaml_context={}):
+  def initialize_object(self, deserialized_yaml_wrapper, yaml_context={}):
     """
     Initializes a hierarchy of deserialized YAML objects.
+<<<<<<< HEAD
+    
+    :param deserialized_yaml_wrapper: deserialized YAML data inside a UninitializedYamlObject wrapper (classes are resolved and class members set, but __init__() has not been called at this point)
+    :param yaml_context: this is passed to __init__ of every created object that expects a argument named yaml_context 
+=======
 
     :param deserialized_yaml: deserialized YAML object (classes are resolved and class members set, but __init__() has not been called at this point)
     :param yaml_context: this is passed to __init__ of every created object that expects a argument named yaml_context
+>>>>>>> master
     :returns: the appropriate object, with properly shared parameters and __init__() having been invoked
     """
+    if YamlSerializer.is_initialized(deserialized_yaml_wrapper):
+      raise AssertionError()
+    deserialized_yaml = deserialized_yaml_wrapper.data
     deserialized_yaml = copy.deepcopy(deserialized_yaml)   # make a copy to avoid side effects
     self.set_serialize_params_recursive(deserialized_yaml) # sets each component's serialize_params to represent attributes specified in YAML file
     self.share_init_params_top_down(deserialized_yaml)     # invoke shared_params mechanism, set each component's init_params accordingly
-    setattr(deserialized_yaml, "yaml_context", yaml_context)
     # finally, initialize each component via __init__(**init_params)
-    return self.init_components_bottom_up(deserialized_yaml, deserialized_yaml.dependent_init_params(), yaml_context=yaml_context)
+    deserialized_yaml._initialized_subcomponents = {}
+    return self.init_components_bottom_up(deserialized_yaml, deserialized_yaml.dependent_init_params(deserialized_yaml._initialized_subcomponents), yaml_context=yaml_context)
+
+  @staticmethod
+  def apply_to_serializable_recursive(base_obj, method):
+    if isinstance(base_obj, Serializable):
+      method(base_obj)
+      items = inspect.getmembers(base_obj)
+      for _, val in items:
+        YamlSerializer.apply_to_serializable_recursive(val, method)
+    elif isinstance(base_obj, dict):
+      for k in base_obj:
+        YamlSerializer.apply_to_serializable_recursive(base_obj[k], method)
+    elif isinstance(base_obj, list):
+      for item in base_obj:
+        YamlSerializer.apply_to_serializable_recursive(item, method)
 
   def set_serialize_params_recursive(self, obj):
     base_arg_names = map(lambda x: x[0], inspect.getmembers(yaml.YAMLObject))
@@ -87,10 +115,11 @@ class YamlSerializer(object):
     class_param_names = [x[0] for x in inspect.getmembers(obj.__class__)]
     init_args.remove("self")
     obj.serialize_params = {}
-    for name, val in inspect.getmembers(obj):
+    items = inspect.getmembers(obj)
+    for name, val in items:
       if name=="yaml_context":
         raise ValueError("'yaml_context' is a reserved specifier, please rename argument")
-      if name in base_arg_names or name.startswith("__") or name in ["serialize_params", "init_params"] or name in class_param_names: continue
+      if name in base_arg_names or name.startswith("_") or name in ["serialize_params", "init_params", "kwargs"] or name in class_param_names: continue
       if isinstance(val, Serializable):
         obj.serialize_params[name] = val
         self.set_serialize_params_recursive(val)
@@ -161,11 +190,15 @@ class YamlSerializer(object):
     init_args = self.get_init_args(obj)
     init_args.remove("self")
     for init_arg in init_args:
+      if init_arg=="yaml_context": continue
       if hasattr(obj, init_arg):
         val = getattr(obj, init_arg)
         if isinstance(val, Serializable):
           sub_dependent_init_params = [p.move_down() for p in dependent_init_params if p.matches_component(init_arg)]
+          val._initialized_subcomponents = {}
+          sub_dependent_init_params += val.dependent_init_params(val._initialized_subcomponents)
           init_params[init_arg] = self.init_components_bottom_up(val, sub_dependent_init_params, yaml_context)
+          obj._initialized_subcomponents[init_arg] = init_params[init_arg]
         elif isinstance(val, list):
           sub_dependent_init_params = [p.move_down() for p in dependent_init_params if p.matches_component(init_arg)]
           if len(sub_dependent_init_params) > 0:
@@ -193,12 +226,12 @@ class YamlSerializer(object):
     :param init_params: named parameters that should be passed to the object's __init__()
     :param init_args: list of arguments expected by __init__()
     :param serialize_params: serialize_params for the object to be created
-    :returns: initialized object (if obj has __xnmt_id and another object with the same
-                                  __xnmt_id has been initialized previously, we will
+    :returns: initialized object (if obj has _xnmt_id and another object with the same
+                                  _xnmt_id has been initialized previously, we will
                                   simply return that object, otherwise create it)
     """
     try:
-      xnmt_id = getattr(obj, "__xnmt_id", None)
+      xnmt_id = getattr(obj, "_xnmt_id", None)
       if xnmt_id and xnmt_id in self.initialized_shared_components:
         initialized_obj = self.initialized_shared_components[xnmt_id]
         print("reusing %s(%s)" % (obj.__class__.__name__, init_params))
@@ -214,7 +247,7 @@ class YamlSerializer(object):
     if not hasattr(initialized_obj, "serialize_params"):
       initialized_obj.serialize_params = serialize_params
     if xnmt_id:
-      initialized_obj.serialize_params["__xnmt_id"] = xnmt_id
+      initialized_obj.serialize_params["_xnmt_id"] = xnmt_id
 
     return initialized_obj
 
@@ -247,10 +280,27 @@ class YamlSerializer(object):
   def load_from_file(self, fname, param):
     with open(fname, 'r') as f:
       dict_spec = yaml.load(f)
-      corpus_parser = dict_spec.corpus_parser
-      model = dict_spec.model
-      model_context = dict_spec.model_context
+      corpus_parser = UninitializedYamlObject(dict_spec.corpus_parser)
+      model = UninitializedYamlObject(dict_spec.model)
+      model_context = UninitializedYamlObject(dict_spec)
     return corpus_parser, model, model_context
+
+  @staticmethod
+  def is_initialized(obj):
+    """
+    :returns: True if a serializable object's __init__ has been invoked (either programmatically or through YAML deserialization)
+              False if __init__ has not been invoked, i.e. the object has been produced by the YAML parser but is not ready to use
+    """
+    return type(obj) != UninitializedYamlObject
+
+class UninitializedYamlObject(object):
+  """
+  Wrapper class to indicate an object created by the YAML parser that still needs initialization.
+  """
+  def __init__(self, data):
+    if isinstance(data, UninitializedYamlObject):
+      raise AssertionError
+    self.data = data
 
 class ComponentInitError(Exception):
   pass

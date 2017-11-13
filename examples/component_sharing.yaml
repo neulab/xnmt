@@ -8,27 +8,28 @@
 # - reference-sharing: sharing reference to a complex object.
 #                   this means the component is only created once, which also leads to DyNet parameters being shared.
 #                   Since YAML doesn't distinguish between a copy and a reference, we implement reference-sharing
-#                   by adding a unique __xnmt_id field to the component that is to be shared. During deserialization,
-#                   whenever a component's __xnmt_id is equal to the corresponding field of a component that has
+#                   by adding a unique _xnmt_id field to the component that is to be shared. During deserialization,
+#                   whenever a component's _xnmt_id is equal to the corresponding field of a component that has
 #                   has already been initialized, we re-use that initialized component instead of creating a new one.
 
-defaults:
+exp1.pretrain: &exp1
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     run_for_epochs: 2
-  train:
-    default_layer_dim: 32
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/head.ja
-      train_trg: examples/data/head.en
-      dev_src: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and decode.src_file
-      dev_trg: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
+  train: !TrainingRegimen
+    glob:
+      default_layer_dim: 32
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
       trg_reader: !PlainTextReader {}
+      training_corpus: !BilingualTrainingCorpus
+        train_src: examples/data/head.ja
+        train_trg: examples/data/head.en
+        dev_src: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and decode.src_file
+        dev_trg: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
     model: !DefaultTranslator
       # config-sharing between src_embedder and trg_embedder (both are configured in the same way, but do not share
       # DyNet parameters)
@@ -38,9 +39,9 @@ defaults:
         modules:
         # reference-sharing between first and second encoder layer. This means, for purposes of illustration, 
         # both layers share DyNet parameters!
-        - !LSTMSeqTransducer &lstm_enc1
-            __xnmt_id: lstm_enc1 # this id must be unique and is recommended but not required to match the YAML anchor
-            layers: 1
+        - !BiLSTMSeqTransducer &lstm_enc1
+          _xnmt_id: lstm_enc1 # this id must be unique and is recommended but not required to match the YAML anchor
+          layers: 1
         - *lstm_enc1
       attender: !MlpAttender {}
       trg_embedder: *emb_conf1
@@ -52,9 +53,8 @@ defaults:
   evaluate:
     ref_file: *dev_trg
 
-# let's test that both deserialization and serialization works:
-a.pretrain:
-
-b.load:
-  train:
-    pretrained_model_file: examples/output/a.pretrain.mod
+exp2.load:
+  << : *exp1
+  train: !TrainingRegimen
+    pretrained_model_file: examples/output/exp1.pretrain.mod
+    model_file: examples/output/<EXP>.mod

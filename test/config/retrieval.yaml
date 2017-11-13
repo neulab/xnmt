@@ -1,4 +1,4 @@
-defaults:
+retriever:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -6,33 +6,32 @@ defaults:
     err_file: examples/output/<EXP>.err
     run_for_epochs: 1
     eval_metrics: recall|nbest=1,recall|nbest=3,recall|nbest=5
-  train:
+  train: !TrainingRegimen
     batcher: !InOrderBatcher
       batch_size: 1
-    trainer: adam
-    learning_rate: 0.1
-    default_layer_dim: 16
-    dropout: 0.0
+    trainer: !AdamTrainer
+      alpha: 0.1
+    glob:
+      default_layer_dim: 16
+      dropout: 0.0
     dev_metrics: recall|nbest=1,recall|nbest=3,recall|nbest=5
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/debug.ja
-      train_trg: examples/data/debug.smallids
-      dev_src: examples/data/debug.ja
-      dev_trg: examples/data/debug.smallids
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
       trg_reader: !IDReader {}
+      training_corpus: !BilingualTrainingCorpus
+        train_src: examples/data/debug.ja
+        train_trg: examples/data/debug.smallids
+        dev_src: examples/data/debug.ja
+        dev_trg: examples/data/debug.smallids
     model: !DotProductRetriever
       src_embedder: !SimpleWordEmbedder
         vocab_size: 20 # TODO: set this automatically
         emb_dim: 16
-      src_encoder: !LSTMSeqTransducer
-        bidirectional: True
+      src_encoder: !BiLSTMSeqTransducer {}
       trg_embedder: !SimpleWordEmbedder
         vocab_size: 20 # TODO: set this automatically
         emb_dim: 16
-      trg_encoder: !LSTMSeqTransducer
-        bidirectional: True
+      trg_encoder: !BiLSTMSeqTransducer {}
       database: !StandardRetrievalDatabase
         reader: !PlainTextReader {}
         database_file: examples/data/debug.en
@@ -40,5 +39,3 @@ defaults:
     src_file: examples/data/debug.ja
   evaluate:
     ref_file: examples/data/debug.smallids
-
-retriever:

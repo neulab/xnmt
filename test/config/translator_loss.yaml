@@ -1,5 +1,4 @@
-# Small config to help refactoring to make the model completely YAML based
-defaults:
+reinforce:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -7,31 +6,25 @@ defaults:
     err_file: examples/output/<EXP>.err
     run_for_epochs: 1
     eval_metrics: bleu
-  train:
-    trainer: adam
-    learning_rate: 0.01
-    default_layer_dim: 32
-    dropout: 0.0
+  train: !TrainingRegimen
+    trainer: !AdamTrainer
+      alpha: 0.01
+    glob:
+      default_layer_dim: 32
+      dropout: 0.0
     dev_metrics: bleu
     batcher: !SrcBatcher
       batch_size: 32
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/head.ja
-      train_trg: examples/data/head.en
-      dev_src: examples/data/head.ja
-      dev_trg: examples/data/head.en
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
       trg_reader: !PlainTextReader {}
       max_src_len: 15
       max_trg_len: 15
-  decode:
-    src_file: examples/data/head.ja
-  evaluate:
-    ref_file: examples/data/head.en
-
-reinforce:
-  train:
+      training_corpus: !BilingualTrainingCorpus
+        train_src: examples/data/head.ja
+        train_trg: examples/data/head.en
+        dev_src: examples/data/head.ja
+        dev_trg: examples/data/head.en
     training_strategy: !DefaultTrainingStrategy
       loss_calculator: !TrainingReinforceLoss
         use_baseline: True
@@ -39,7 +32,7 @@ reinforce:
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 32
-      encoder: !LSTMSeqTransducer
+      encoder: !BiLSTMSeqTransducer
         layers: 1
         input_dim: 32
       attender: !MlpAttender
@@ -52,4 +45,9 @@ reinforce:
         layers: 1
         mlp_hidden_dim: 32
         bridge: !NoBridge {}
+  decode:
+    src_file: examples/data/head.ja
+  evaluate:
+    ref_file: examples/data/head.en
+
 

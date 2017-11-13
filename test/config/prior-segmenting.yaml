@@ -1,4 +1,4 @@
-defaults:
+prior-segmenting:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -6,38 +6,37 @@ defaults:
     err_file: examples/output/<EXP>.err
     run_for_epochs: 2
     eval_metrics: bleu
-  train:
-    default_layer_dim: 16
-    dropout: 0.5
+  train: !TrainingRegimen
+    glob:
+      default_layer_dim: 16
+      dropout: 0.5
     dev_metrics: bleu
     corpus_parser: !BilingualCorpusParser
       src_reader: !SegmentationTextReader {}
       trg_reader: !PlainTextReader {}
       max_src_len: 15
       max_trg_len: 15
-    training_corpus: !BilingualTrainingCorpus
-      train_src:
-        - examples/data/head-char.ja
-        - examples/data/head-seg.ja
-      train_trg: examples/data/head.en
-      dev_src:
-        - examples/data/head-char.ja
-        - examples/data/head-seg.ja
-      dev_trg: examples/data/head.en
+      training_corpus: !BilingualTrainingCorpus
+        train_src:
+          - examples/data/head-char.ja
+          - examples/data/head-seg.ja
+        train_trg: examples/data/head.en
+        dev_src:
+          - examples/data/head-char.ja
+          - examples/data/head-seg.ja
+        dev_trg: examples/data/head.en
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
         emb_dim: 16
       encoder: !SegmentingSeqTransducer
-        embed_encoder: !LSTMSeqTransducer
+        embed_encoder: !BiLSTMSeqTransducer
           input_dim: 16
           hidden_dim: 16
           layers: 1
-          bidirectional: True
         segment_transducer: !SegmentTransducer
-          encoder: !LSTMSeqTransducer
+          encoder: !BiLSTMSeqTransducer
             input_dim: 16
             hidden_dim: 16
-            bidirectional: True
             layers: 1
           transformer: !TailSegmentTransformer {}
         learn_segmentation: False
@@ -65,6 +64,4 @@ defaults:
       - examples/data/head-seg.ja
   evaluate:
     ref_file: examples/data/head.en
-
-prior-segmenting:
 
