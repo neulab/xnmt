@@ -38,7 +38,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     self.train = val
 
   @handle_xnmt_event
-  def on_start_sent(self, *args, **kwargs):
+  def on_start_sent(self, src):
     self._final_states = None
     self.Wx = dy.parameter(self.p_Wx)
     self.Wh = dy.parameter(self.p_Wh)
@@ -117,7 +117,7 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
     self.backward_layers += [UniLSTMSeqTransducer(yaml_context, hidden_dim, hidden_dim/2, dropout, weightnoise_std) for _ in range(layers-1)]
 
   @handle_xnmt_event
-  def on_start_sent(self, *args, **kwargs):
+  def on_start_sent(self, src):
     self._final_states = None
 
   def get_final_states(self):

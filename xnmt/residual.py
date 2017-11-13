@@ -35,8 +35,8 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = u'!ResidualLSTMSeqTransducer'
 
   def __init__(self, yaml_context, input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
-    self._final_states = None
     register_handler(self)
+    self._final_states = None
     hidden_dim = hidden_dim or yaml_context.default_layer_dim
     if bidirectional:
       self.builder = ResidualBiRNNBuilder(yaml_context, layers, input_dim, hidden_dim, residual_to_output, dropout=dropout)
@@ -44,11 +44,7 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
       self.builder = ResidualRNNBuilder(yaml_context, layers, input_dim, hidden_dim, residual_to_output, dropout=dropout)
 
   @handle_xnmt_event
-  def on_set_train(self, val):
-    self.builder.set_dropout(self.dropout if val else 0.0)
-
-  @handle_xnmt_event
-  def on_start_sent(self, *args, **kwargs):
+  def on_start_sent(self, src):
     self._final_states = None
 
   def __call__(self, sent):

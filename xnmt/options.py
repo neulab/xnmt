@@ -111,6 +111,8 @@ class OptionParser(object):
     elif isinstance(exp_values, Serializable):
       init_args, _, _, _ = inspect.getargspec(exp_values.__init__)
       kvs = [(key, getattr(exp_values, key)) for key in init_args if hasattr(exp_values, key)]
+    else:
+      raise RuntimeError("unexpected type %s" % (type(exp_values)))
     for k, v in kvs:
       if isinstance(v, RandomParam):
         if hasattr(v, "_xnmt_id") and v._xnmt_id in initialized_random_params:

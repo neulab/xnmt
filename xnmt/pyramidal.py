@@ -54,7 +54,7 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
       self.builder_layers.append((f, b))
 
   @handle_xnmt_event
-  def on_start_sent(self, *args, **kwargs):
+  def on_start_sent(self, src):
     self._final_states = None
 
   def get_final_states(self):

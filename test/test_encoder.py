@@ -32,14 +32,15 @@ class TestEncoder(unittest.TestCase):
   def set_train(self, val):
     pass
   @xnmt.events.register_xnmt_event
-  def start_sent(self):
+  def start_sent(self, src):
     pass
 
   def assert_in_out_len_equal(self, model):
     dy.renew_cg()
     self.set_train(True)
-    self.start_sent()
-    embeddings = model.src_embedder.embed_sent(self.training_corpus.train_src_data[0])
+    src = self.training_corpus.train_src_data[0]
+    self.start_sent(src)
+    embeddings = model.src_embedder.embed_sent(src)
     encodings = model.encoder(embeddings)
     self.assertEqual(len(embeddings), len(encodings))
 

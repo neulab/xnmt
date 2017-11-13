@@ -1,4 +1,4 @@
-defaults:
+prior-segmenting:
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -6,9 +6,10 @@ defaults:
     err_file: examples/output/<EXP>.err
     run_for_epochs: 2
     eval_metrics: bleu
-  train:
-    default_layer_dim: 16
-    dropout: 0.5
+  train: !XnmtTrainer
+    glob:
+      default_layer_dim: 16
+      dropout: 0.5
     dev_metrics: bleu
     corpus_parser: !BilingualCorpusParser
       src_reader: !SegmentationTextReader {}
@@ -63,6 +64,4 @@ defaults:
       - examples/data/head-seg.ja
   evaluate:
     ref_file: examples/data/head.en
-
-prior-segmenting:
 
