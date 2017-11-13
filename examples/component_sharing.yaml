@@ -12,7 +12,7 @@
 #                   whenever a component's _xnmt_id is equal to the corresponding field of a component that has
 #                   has already been initialized, we re-use that initialized component instead of creating a new one.
 
-exp1.pretrain: &defaults
+exp1.pretrain: &exp1
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -54,7 +54,7 @@ exp1.pretrain: &defaults
     ref_file: *dev_trg
 
 exp2.load:
-  << : *defaults
+  << : *exp1
   train: !TrainingRegimen
     pretrained_model_file: examples/output/exp1.pretrain.mod
     model_file: examples/output/<EXP>.mod

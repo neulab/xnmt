@@ -1,4 +1,4 @@
-exp1-pretrain-model: &defaults
+exp1-pretrain-model: &exp1
   experiment:
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
@@ -44,7 +44,7 @@ exp1-pretrain-model: &defaults
 
 
 exp2-finetune-model:
-  << : *defaults
+  << : *exp1
   train: !TrainingRegimen # load the pretrained model, but overwrite the corpus parser to finetune on different data (here: finetune on small sentences only)
     pretrained_model_file: examples/output/exp1-pretrain-model.mod
     corpus_parser: !BilingualCorpusParser
