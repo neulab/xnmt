@@ -21,6 +21,7 @@ defaults:
       max_src_len: 15
       max_trg_len: 15
     model: !DefaultTranslator
+      calc_global_fertility: True
       src_embedder: !SimpleWordEmbedder
         emb_dim: 16
       encoder: !SegmentingSeqTransducer

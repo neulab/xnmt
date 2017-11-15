@@ -19,6 +19,7 @@ defaults:
       src_reader: !PlainTextReader {}
       trg_reader: !PlainTextReader {}
     model: !DefaultTranslator
+      calc_global_fertility: True
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
       encoder: !LSTMSeqTransducer

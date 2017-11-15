@@ -9,12 +9,13 @@ import xnmt.length_normalization
 import xnmt.batcher
 
 from xnmt.vocab import Vocab
-from xnmt.events import register_xnmt_event_assign, register_handler
+from xnmt.events import register_xnmt_event_assign, register_handler, handle_xnmt_event
 from xnmt.generator import GeneratorModel
 from xnmt.serializer import Serializable, DependentInitParam
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.output import TextOutput
 from xnmt.reports import Reportable
+from xnmt.loss import LossBuilder
 import xnmt.serializer
 from xnmt.batcher import mark_as_batch, is_batched
 
@@ -54,7 +55,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
   yaml_tag = u'!DefaultTranslator'
 
-  def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder):
+  def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder,
+               calc_global_fertility=False):
     '''Constructor.
 
     :param src_embedder: A word embedder for the input language
@@ -69,6 +71,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
+    self.calc_global_fertility = calc_global_fertility
 
   def shared_params(self):
     return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
@@ -102,6 +105,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def initialize_training_strategy(self, training_strategy):
     self.loss_calculator = training_strategy
 
+  @handle_xnmt_event
+  def on_set_train(self, val):
+    self.is_train = val
+
   def calc_loss(self, src, trg):
     """
     :param src: source sequence (unbatched, or batched + padded)
@@ -116,7 +123,15 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     # Initialize the hidden state from the encoder
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
     dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
-    return self.loss_calculator(self, dec_state, src, trg)
+    model_loss = self.loss_calculator(self, dec_state, src, trg)
+
+    if self.is_train and self.calc_global_fertility:
+      loss = LossBuilder()
+      loss.add_loss("mle", model_loss)
+      loss.add_loss("fertility", self.global_fertility(self.attender.attention_vecs))
+      model_loss = loss
+
+    return model_loss
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
@@ -146,6 +161,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
                                 vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
                                 score=score))
     return outputs
+
+  def global_fertility(self, a):
+    return dy.sum_elems(dy.square(1-dy.esum(a)))
 
   def set_reporting_src_vocab(self, src_vocab):
     """
