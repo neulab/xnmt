@@ -104,7 +104,7 @@ def xnmt_decode(src_file, trg_file, model_elements=None, model_file=None, ref_fi
     for i, src in enumerate(src_corpus):
       # Do the decoding
       if args["max_src_len"] is not None and len(src) > args["max_src_len"]:
-        output = NO_DECODING_ATTEMPTED
+        output_txt = NO_DECODING_ATTEMPTED
       else:
         dy.renew_cg()
         ref_ids = ref_corpus[i] if ref_corpus != None else None
@@ -112,8 +112,9 @@ def xnmt_decode(src_file, trg_file, model_elements=None, model_file=None, ref_fi
         # If debugging forced decoding, make sure it matches
         if ref_scores != None and (abs(output[0].score-ref_scores[i]) / abs(ref_scores[i])) > 1e-5:
           print('Forced decoding score {} and loss {} do not match at sentence {}'.format(output[0].score, ref_scores[i], i))
+        output_txt = output[0].plaintext
       # Printing to trg file
-      fp.write(u"{}\n".format(output[0].plaintext))
+      fp.write(u"{}\n".format(output_txt))
 
 def output_processor_for_spec(spec):
   if spec == "none":
