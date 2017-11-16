@@ -49,6 +49,7 @@ class LossTracker(object):
     self.sent_num_not_report_train = 0
     self.sent_num_not_report_dev = 0
     self.last_report_words = 0
+    self.last_report_train_time = time.time()
 
   def update_epoch_loss(self, src, trg, loss):
     """
@@ -132,7 +133,6 @@ class LossTracker(object):
       self.best_dev_score = self.dev_score
       print('  Epoch %.4f: best dev score, writing model to %s' % (self.fractional_epoch, model_file))
 
-    self.last_report_train_time = time.time()
     return save_model
 
   def report_auxiliary_score(self, score):
