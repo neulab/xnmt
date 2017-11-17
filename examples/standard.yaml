@@ -36,6 +36,7 @@ standard:
         layers: 1
         mlp_hidden_dim: 512
         bridge: !CopyBridge {}
+        label_smoothing: 0.1
   decode:
     beam: 5
     len_norm_type: !PolynomialNormalization

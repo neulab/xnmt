@@ -44,7 +44,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   def __init__(self, yaml_context, vocab_size, layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
-               bridge=None):
+               bridge=None, label_smoothing=0.0):
     register_handler(self)
     param_col = yaml_context.dynet_param_collection.param_col
     # Define dim
@@ -53,6 +53,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     trg_embed_dim  = trg_embed_dim or yaml_context.default_layer_dim
     input_dim      = input_dim or yaml_context.default_layer_dim
     self.input_dim = input_dim
+    self.label_smoothing = label_smoothing
     # Input feeding
     self.input_feeding = input_feeding
     self.lstm_dim = lstm_dim
@@ -119,13 +120,32 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     return self.vocab_projector(h_t)
 
   def calc_loss(self, mlp_dec_state, ref_action):
+    """
+        Label Smoothing is implemented with reference to Section 7 of the paper
+        "Rethinking the Inception Architecture for Computer Vision"
+        (https://arxiv.org/pdf/1512.00567.pdf)
+        """
     scores = self.get_scores(mlp_dec_state)
-    # single mode
-    if not xnmt.batcher.is_batched(ref_action):
-      return dy.pickneglogsoftmax(scores, ref_action)
-    # minibatch mode
+
+    if self.label_smoothing == 0.0:
+      # single mode
+      if not xnmt.batcher.is_batched(ref_action):
+        return dy.pickneglogsoftmax(scores, ref_action)
+      # minibatch mode
+      else:
+        return dy.pickneglogsoftmax_batch(scores, ref_action)
+
     else:
-      return dy.pickneglogsoftmax_batch(scores, ref_action)
+      log_prob = dy.log_softmax(scores)
+      if not xnmt.batcher.is_batched(ref_action):
+        pre_loss = -dy.pick(log_prob, ref_action)
+      else:
+        pre_loss = -dy.pick_batch(log_prob, ref_action)
+
+      pre_loss = dy.mean_batches(pre_loss)
+      ls_loss = -dy.mean_batches(dy.mean_elems(log_prob))
+      loss = ((1 - self.label_smoothing) * pre_loss) + (self.label_smoothing * ls_loss)
+      return loss
 
   @handle_xnmt_event
   def on_set_train(self, val):
