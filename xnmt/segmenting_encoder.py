@@ -219,7 +219,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     ret = LossBuilder()
     if self.length_prior_alpha > 0:
       reward += self.segment_length_prior * self.length_prior_alpha
-    reward = dy.cdiv(reward - dy.mean_batches(reward), dy.std_batches(reward))
+
+    reward = dy.cdiv(reward - dy.mean_batches(reward), 1e-10 + dy.std_batches(reward))
     # Baseline Loss
     if self.use_baseline:
       baseline_loss = []

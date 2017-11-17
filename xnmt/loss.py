@@ -23,7 +23,6 @@ class LossBuilder(object):
     total_loss = dy.esum([x[1] for x in self.loss_nodes])
     for loss_name, loss_expr in self.loss_nodes:
       self.loss_values[loss_name] += loss_expr.value()
-    self.loss_nodes = []
     return total_loss
 
   def __getitem__(self, index):
@@ -33,8 +32,6 @@ class LossBuilder(object):
     return iter(self.loss_values.items())
 
   def sum(self):
-    if len(self.loss_nodes) != 0:
-      raise RuntimeError("There are some uncomputed losses. Call compute() firstly.")
     return sum(loss for loss in self.loss_values.values())
 
   def __iadd__(self, other):

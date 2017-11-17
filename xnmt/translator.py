@@ -163,7 +163,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     return outputs
 
   def global_fertility(self, a):
-    return dy.sum_elems(dy.square(1-dy.esum(a)))
+    return dy.sum_elems(dy.square(1 - dy.esum(a)))
 
   def set_reporting_src_vocab(self, src_vocab):
     """
