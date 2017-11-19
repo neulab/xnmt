@@ -58,7 +58,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None, learn_segmentation=True,
                reinforcement_param=None, length_prior=3.5, learn_delete=False,
-               length_prior_alpha=1.0, use_baseline=True, segmentation_warmup_counter=None):
+               length_prior_alpha=1.0, use_baseline=True, segmentation_warmup_counter=None,
+               learn_during_warmup):
     register_handler(self)
     model = yaml_context.dynet_param_collection.param_col
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
@@ -95,7 +96,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   def sample_segmentation(self, encodings, batch_size, src=None):
     lmbd = self.lmbd.get_value(self.warmup_counter)
-    segment_logsoftmaxes = None
+    segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
     if src is not None and \
        (self.segmentation_warmup_counter is None or self.warmup_counter >= self.segmentation_warmup_counter): # Indicates that prior segmentation is given
       segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
@@ -118,7 +119,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         decision[-1] = 1
       segment_decisions = numpy.split(segment_decisions, len(encodings), 1)
     else:
-      segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
       if self.train:
         # Sample from the softmax
         segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
@@ -229,7 +229,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       ret.add_loss("Baseline", dy.esum(baseline_loss))
     # Reinforce Loss
     lmbd = self.lmbd.get_value(self.warmup_counter)
-    if lmbd > 0.0:
+    if lmbd > 0.0 or self.learn_during_warmup:
       reinforce_loss = []
       # Calculating the loss of the baseline and reinforce
       for i in range(len(self.segment_decisions)):
