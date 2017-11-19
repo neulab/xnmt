@@ -23,6 +23,7 @@ class LossBuilder(object):
     total_loss = dy.esum([x[1] for x in self.loss_nodes])
     for loss_name, loss_expr in self.loss_nodes:
       self.loss_values[loss_name] += loss_expr.value()
+    self.loss_nodes = []
     return total_loss
 
   def __getitem__(self, index):
