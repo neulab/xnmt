@@ -206,6 +206,7 @@ class YamlSerializer(object):
           new_init_params= []
           for item in val:
             if isinstance(item, Serializable):
+              item._initialized_subcomponents = {}
               new_init_params.append(self.init_components_bottom_up(item, [], yaml_context))
             else:
               new_init_params.append(item)
