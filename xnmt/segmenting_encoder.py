@@ -58,8 +58,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None, learn_segmentation=True,
                reinforcement_param=None, length_prior=3.5, learn_delete=False,
-               length_prior_alpha=1.0, use_baseline=True, segmentation_warmup_counter=None,
-               learn_during_warmup):
+               length_prior_alpha=1.0, use_baseline=True, segmentation_warmup_counter=None):
     register_handler(self)
     model = yaml_context.dynet_param_collection.param_col
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
@@ -88,56 +87,73 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.train = True
     self.warmup_counter = 0
     self.segmentation_warmup_counter = segmentation_warmup_counter
-    # Register all the children
 
   @handle_xnmt_event
   def on_start_sent(self, src=None):
     self._src = src
 
+  def sample_from_prior(self, encodings, batch_size, src):
+    segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
+    for i, sent in enumerate(src):
+      if "segment" not in sent.annotation:
+        raise ValueError("If segmentation is not learned, SegmentationTextReader should be used to read in the input.")
+      segment_decisions[i][sent.annotation["segment"]] = 1
+    segment_decisionss = numpy.split(segment_decisions, len(encodings), 1)
+    return segment_decisions
+
+  def sample_from_poisson(self, encodings, batch_size):
+    randoms = numpy.random.poisson(lam=self.length_prior, size=batch_size * len(encodings))
+    segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
+    idx = 0
+    # Filling up the segmentation matrix based on the poisson distribution
+    for decision in segment_decisions:
+      current = randoms[idx]
+      while current < len(decision):
+        decision[current] = 1
+        idx = (idx + 1) % len(randoms)
+        current += randoms[idx]
+      decision[-1] = 1
+    segment_decisions = numpy.split(segment_decisions, len(encodings), 1)
+    return segment_decisions
+
+  def sample_from_softmax(self, encodings):
+    # Sample from the softmax
+    if self.train:
+      segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
+                           for log_softmax in segment_logsoftmaxes]
+      if batch_size == 1:
+        segment_decisions = list(six.moves.map(lambda x: numpy.array([x]), segment_decisions))
+    else:
+      segment_decisions = [log_softmax.tensor_value().argmax().as_numpy().transpose()
+                           for log_softmax in segment_logsoftmaxes]
+    return segment_decisions
+
+  def is_segmentation_warmup(self):
+    return self.segmentation_warmup_counter is not None and self.warmup_counter <= self.segmentation_warmup_counter
+
   def sample_segmentation(self, encodings, batch_size, src=None):
     lmbd = self.lmbd.get_value(self.warmup_counter)
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
-    if src is not None and \
-       (self.segmentation_warmup_counter is None or self.warmup_counter >= self.segmentation_warmup_counter): # Indicates that prior segmentation is given
-      segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
-      for i, sent in enumerate(src):
-        if "segment" not in sent.annotation:
-          raise ValueError("If segmentation is not learned, SegmentationTextReader should be used to read in the input.")
-        segment_decisions[i][sent.annotation["segment"]] = 1
-      segment_decisions = numpy.split(segment_decisions, len(encodings), 1)
-    elif lmbd == 0: # Indicates that it is still warmup time
-      randoms = numpy.random.poisson(lam=self.length_prior, size=batch_size * len(encodings))
-      segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
-      idx = 0
-      # Filling up the segmentation matrix based on the poisson distribution
-      for decision in segment_decisions:
-        current = randoms[idx]
-        while current < len(decision):
-          decision[current] = 1
-          idx = (idx + 1) % len(randoms)
-          current += randoms[idx]
-        decision[-1] = 1
-      segment_decisions = numpy.split(segment_decisions, len(encodings), 1)
-    else:
-      if self.train:
-        # Sample from the softmax
-        segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
-                             for log_softmax in segment_logsoftmaxes]
-        if batch_size == 1:
-          segment_decisions = list(six.moves.map(lambda x: numpy.array([x]), segment_decisions))
+    if self.is_segmentation_warmup():
+      if src is not None and hasattr(src, "annotations"):
+        segment_decisions = self.sample_from_prior(encodings, batch_size, src)
       else:
-        segment_decisions = [log_softmax.tensor_value().argmax().as_numpy().transpose()
-                             for log_softmax in segment_logsoftmaxes]
+        segment_decisions = self.sample_from_poisson(encodings, batch_size)
+    else:
+      if src is not None and hasattr(src, "annotations"):
+        segment_decisions = self.sample_from_prior(encodings, batch_size, src)
+      elif lmbd == 0:
+        segment_decisions = self.sample_from_poisson(encodings, batch_size)
+      else:
+        segment_decisions = self.sample_from_softmax(encodings)
+
     return segment_decisions, segment_logsoftmaxes
 
   def __call__(self, embed_sent):
     batch_size = embed_sent[0].dim()[1]
     # Softmax + segment decision
     encodings = self.embed_encoder(embed_sent)
-    if self.learn_segmentation:
-      segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size)
-    else:
-      segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size, self._src)
+    segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size, self._src)
     # Some checks
     assert len(encodings) == len(segment_decisions), \
            "Encoding={}, segment={}".format(len(encodings), len(segment_decisions))
@@ -187,11 +203,12 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.segment_decisions = segment_decisions
     self.segment_logsoftmaxes = segment_logsoftmaxes
     # Packing output together
-    if self.train and self.learn_segmentation:
-      self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
-      if self.use_baseline:
-        self.bs = list(six.moves.map(lambda x: self.baseline(dy.nobackprop(x)), encodings))
-    if not self.train:
+    if self.train:
+      if self.learn_segmentation:
+        self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
+        if self.use_baseline:
+          self.bs = list(six.moves.map(lambda x: self.baseline(dy.nobackprop(x)), encodings))
+    else:
       self.set_report_input(segment_decisions)
     self._final_encoder_state = [FinalTransducerState(encodings[-1])]
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
@@ -219,8 +236,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     ret = LossBuilder()
     if self.length_prior_alpha > 0:
       reward += self.segment_length_prior * self.length_prior_alpha
-
-    reward = dy.cdiv(reward - dy.mean_batches(reward), 1e-10 + dy.std_batches(reward))
+    # reward z-score normalization
+    reward = dy.cdiv(reward - dy.mean_batches(reward), dy.std_batches(reward) + 1e-10)
     # Baseline Loss
     if self.use_baseline:
       baseline_loss = []
@@ -229,7 +246,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       ret.add_loss("Baseline", dy.esum(baseline_loss))
     # Reinforce Loss
     lmbd = self.lmbd.get_value(self.warmup_counter)
-    if lmbd > 0.0 or self.learn_during_warmup:
+    if lmbd > 0.0:
       reinforce_loss = []
       # Calculating the loss of the baseline and reinforce
       for i in range(len(self.segment_decisions)):
