@@ -82,6 +82,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.length_prior = length_prior
     self.length_prior_alpha = length_prior_alpha
     self.lmbd = reinforcement_param
+    self.P0 = model.add_parameters(self.segment_transducer.encoder.hidden_dim)
 
     # States of the object
     self.train = False
@@ -187,7 +188,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                                       range(len(length_prior))))
     # Padding
     max_col = max(len(xs) for xs in outputs)
-    P0 = dy.vecInput(self.segment_transducer.encoder.hidden_dim)
+    P0 = dy.parameter(self.P0)
     def pad(xs):
       deficit = max_col - len(xs)
       if deficit > 0:
