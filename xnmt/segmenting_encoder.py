@@ -84,7 +84,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.lmbd = reinforcement_param
 
     # States of the object
-    self.train = True
+    self.train = False
     self.warmup_counter = 0
     self.segmentation_warmup_counter = segmentation_warmup_counter
 
@@ -98,8 +98,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       if "segment" not in sent.annotation:
         raise ValueError("If segmentation is not learned, SegmentationTextReader should be used to read in the input.")
       segment_decisions[i][sent.annotation["segment"]] = 1
-    segment_decisionss = numpy.split(segment_decisions, len(encodings), 1)
-    return segment_decisions
+    return numpy.split(segment_decisions, len(encodings), 1)
 
   def sample_from_poisson(self, encodings, batch_size):
     randoms = numpy.random.poisson(lam=self.length_prior, size=batch_size * len(encodings))
@@ -113,10 +112,9 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         idx = (idx + 1) % len(randoms)
         current += randoms[idx]
       decision[-1] = 1
-    segment_decisions = numpy.split(segment_decisions, len(encodings), 1)
-    return segment_decisions
+    return numpy.split(segment_decisions, len(encodings), 1)
 
-  def sample_from_softmax(self, encodings):
+  def sample_from_softmax(self, encodings, batch_size, segment_logsoftmaxes):
     # Sample from the softmax
     if self.train:
       segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
@@ -134,18 +132,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def sample_segmentation(self, encodings, batch_size, src=None):
     lmbd = self.lmbd.get_value(self.warmup_counter)
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
-    if self.is_segmentation_warmup():
-      if src is not None and hasattr(src, "annotations"):
-        segment_decisions = self.sample_from_prior(encodings, batch_size, src)
-      else:
-        segment_decisions = self.sample_from_poisson(encodings, batch_size)
+    if self.learn_segmentation and not self.train:
+      segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
+    elif src is not None and hasattr(src, "annotations"):
+      segment_decisions = self.sample_from_prior(encodings, batch_size, src)
+    elif lmbd == 0 or self.is_segmentation_warmup():
+      segment_decisions = self.sample_from_poisson(encodings, batch_size)
     else:
-      if src is not None and hasattr(src, "annotations"):
-        segment_decisions = self.sample_from_prior(encodings, batch_size, src)
-      elif lmbd == 0:
-        segment_decisions = self.sample_from_poisson(encodings, batch_size)
-      else:
-        segment_decisions = self.sample_from_softmax(encodings)
+      segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
 
     return segment_decisions, segment_logsoftmaxes
 
@@ -221,8 +215,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def get_final_states(self):
     return self._final_encoder_state
 
-  # TODO: handle as global event?
-  def new_epoch(self):
+  @handle_xnmt_event
+  def on_new_epoch(self):
     self.lmbd.grow_param(self.warmup_counter)
     self.warmup_counter += 1
     lmbd = self.lmbd.get_value(self.warmup_counter)
