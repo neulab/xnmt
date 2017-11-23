@@ -33,6 +33,7 @@ def main(overwrite_args=None):
   argparser.add_argument("--dynet-gpu-ids", type=int)
   argparser.add_argument("--dynet-gpus", type=int)
   argparser.add_argument("--dynet-weight-decay", type=float)
+  argparser.add_argument("--dynet-profiling", type=int)
   argparser.add_argument("--generate-doc", action='store_true', help="Do not run, output documentation instead")
   argparser.add_argument("experiments_file")
   argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
@@ -86,6 +87,7 @@ def main(overwrite_args=None):
     print("> Initializing TrainingRegimen")
     train_args = exp_tasks["train"]
     train_args.model_file = exp_args["model_file"] # TODO: can we use param sharing for this?
+    train_args.dynet_profiling = args.dynet_profiling
     model_context = ModelContext()
     model_context.dynet_param_collection = PersistentParamCollection(exp_args["model_file"], 1)
     if hasattr(train_args, "glob"):

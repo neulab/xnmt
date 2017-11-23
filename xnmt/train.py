@@ -48,7 +48,7 @@ class TrainingRegimen(Serializable):
                pretrained_model_file="", src_format="text",
                trainer=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
-               reload_command=None):
+               reload_command=None, dynet_profiling=0):
     """
     :param corpus_parser:
     :param model_file:
@@ -122,7 +122,9 @@ class TrainingRegimen(Serializable):
     if args["trainer"] is None:
       self.trainer = xnmt.optimizer.SimpleSGDTrainer(self.model_context, 0.1)
     else:
-      self.trainer = args["trainer"] 
+      self.trainer = args["trainer"]
+       
+    self.dynet_profiling = dynet_profiling
 
   def dependent_init_params(self, initialized_subcomponents):
     return [DependentInitParam(param_descr="model.src_embedder.vocab_size", value_fct=lambda: initialized_subcomponents["corpus_parser"].src_reader.vocab_size()),
@@ -231,6 +233,10 @@ class TrainingRegimen(Serializable):
       # Log the loss sum
       loss_value = loss_builder.compute()
       self.logger.update_epoch_loss(src, trg, loss_builder)
+      
+      if self.dynet_profiling > 0:
+        dy.print_text_graphviz()
+        
       if update_weights:
         loss_value.backward()
         self.trainer.update()
