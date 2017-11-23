@@ -37,7 +37,7 @@ retrieval:
       database: !StandardRetrievalDatabase
         reader: !PlainTextReader {}
         database_file: examples/data/traindevtest.en
-  decode:
+  decode: !XnmtDecoder
     src_file: examples/data/test.ja
     candidate_id_file: examples/data/test.allids
   evaluate:

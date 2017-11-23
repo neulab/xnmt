@@ -93,9 +93,10 @@ def main(overwrite_args=None):
         setattr(model_context, k, train_args.glob[k])
     train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
     
-    decode_args = exp_tasks.get("decode", {})
-    decode_args["trg_file"] = exp_args["hyp_file"]
-    decode_args["model_file"] = None  # The model is passed to the decoder directly
+    xnmt_decoder = exp_tasks.get("decode", {})
+    xnmt_decoder.trg_file = exp_args["hyp_file"] # TODO: can we use param sharing for this?
+    xnmt_decoder.model_file = None  # The model is passed to the decoder directly
+    xnmt_decoder = YamlSerializer().initialize_if_needed(UninitializedYamlObject(xnmt_decoder), model_context)
 
     evaluate_args = exp_tasks.get("evaluate", {})
     evaluate_args["hyp_file"] = exp_args["hyp_file"]
@@ -110,7 +111,7 @@ def main(overwrite_args=None):
 
     print("> Training")
     training_regimen = train_args
-    training_regimen.decode_args = copy.copy(decode_args)
+    training_regimen.xnmt_decoder = copy.copy(xnmt_decoder)
     training_regimen.evaluate_args = copy.copy(evaluate_args)
 
     eval_scores = "Not evaluated"
@@ -123,8 +124,7 @@ def main(overwrite_args=None):
     if evaluators:
       print("> Evaluating test set")
       output.indent += 2
-      xnmt.xnmt_decode.xnmt_decode(model_elements=(
-        training_regimen.corpus_parser, training_regimen.model), **decode_args)
+      xnmt_decoder(model_elements=(training_regimen.corpus_parser, training_regimen.model))
       eval_scores = []
       for evaluator in evaluators:
         evaluate_args["evaluator"] = evaluator

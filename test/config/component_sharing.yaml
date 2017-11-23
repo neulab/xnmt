@@ -48,7 +48,7 @@ exp1.pretrain: &exp1
       decoder: !MlpSoftmaxDecoder
         layers: 1
         bridge: !CopyBridge {}
-  decode:
+  decode: !XnmtDecoder
     src_file: *dev_src
   evaluate:
     ref_file: *dev_trg
