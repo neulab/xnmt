@@ -37,7 +37,7 @@ exp1-pretrain-model: &exp1
         mlp_hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
-  decode:
+  decode: !XnmtDecoder
     src_file: examples/data/head.ja
   evaluate:
     ref_file: examples/data/head.en

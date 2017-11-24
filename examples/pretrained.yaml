@@ -39,7 +39,7 @@ standard-dropout0.1:
         layers: 1
         mlp_hidden_dim: 512
         bridge: !CopyBridge {}
-  decode:
+  decode: !XnmtDecoder
     src_file: examples/data/test.ja
   evaluate:
     ref_file: examples/data/test.en

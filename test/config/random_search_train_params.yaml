@@ -34,7 +34,7 @@ defaults: &defaults
       decoder: !MlpSoftmaxDecoder
         layers: *rnd_num_layers
         bridge: !CopyBridge {}
-  decode:
+  decode: !XnmtDecoder
     src_file: examples/data/head.ja
   evaluate:
     ref_file: examples/data/head.en
