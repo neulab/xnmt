@@ -312,6 +312,7 @@ class TransformerEncoder(SeqTransducer, Serializable):
         self.dropout = dropout
 
     def __call__(self, e, xx_mask):
+        e = dy.dropout(e, self.dropout)
         for name, layer in self.layer_names:
             layer.set_dropout(self.dropout)
             e = layer(e, xx_mask)
@@ -346,6 +347,7 @@ class TransformerDecoder(Serializable):
         self.dropout = dropout
 
     def __call__(self, e, source, xy_mask, yy_mask):
+        e = dy.dropout(e, self.dropout) # Word Embedding Dropout
         for name, layer in self.layer_names:
             layer.set_dropout(self.dropout)
             e = layer(e, source, xy_mask, yy_mask)

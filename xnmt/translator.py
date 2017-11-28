@@ -72,7 +72,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
-    self.dropout = 0.2 # TODO: Fix this
 
   def shared_params(self):
     return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
@@ -198,6 +197,25 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 class TransformerTranslator(DefaultTranslator):
   yaml_tag = u'!TransformerTranslator'
 
+  def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder, input_dim=512):
+    '''Constructor.
+
+    :param src_embedder: A word embedder for the input language
+    :param encoder: An encoder to generate encoded inputs
+    :param attender: An attention module
+    :param trg_embedder: A word embedder for the output language
+    :param decoder: A decoder
+    '''
+    register_handler(self)
+    self.src_embedder = src_embedder
+    self.encoder = encoder
+    self.attender = attender
+    self.trg_embedder = trg_embedder
+    self.decoder = decoder
+    self.input_dim = input_dim
+    self.scale_emb = self.input_dim ** 0.5
+    self.initialize_position_encoding(500, input_dim)  # TODO: parametrize this
+
   def initialize_generator(self, **kwargs):
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
@@ -237,6 +255,23 @@ class TransformerTranslator(DefaultTranslator):
     embeddings = dy.cmult(embeddings, temp_mask)
     return embeddings
 
+  def initialize_position_encoding(self, length, n_units):
+    # Implementation in the Google tensor2tensor repo
+    channels = n_units
+    position = np.arange(length, dtype='f')
+    num_timescales = channels // 2
+    log_timescale_increment = (np.log(10000. / 1.) / (float(num_timescales) - 1))
+    inv_timescales = 1. * np.exp(np.arange(num_timescales).astype('f') * -log_timescale_increment)
+    scaled_time = np.expand_dims(position, 1) * np.expand_dims(inv_timescales, 0)
+    signal = np.concatenate([np.sin(scaled_time), np.cos(scaled_time)], axis=1)
+    signal = np.reshape(signal, [1, length, channels])
+    self.position_encoding_block = np.transpose(signal, (0, 2, 1))
+
+  def make_input_embedding(self, emb_block, length):
+    emb_block = emb_block * self.scale_emb
+    emb_block += dy.inputTensor(self.position_encoding_block[0, :, :length])
+    return emb_block
+
   def calc_loss(self, src, trg, get_prediction=False):
     # self.start_sent(src)
     src_embeddings = self.src_embedder.embed_sent(src)
@@ -256,6 +291,7 @@ class TransformerTranslator(DefaultTranslator):
     else:
       src_embeddings = self.mask_embeddings(src_embeddings, src.mask.np_arr)
       src_mask = src.mask.np_arr
+    src_embeddings = self.make_input_embedding(src_embeddings, src_len)
 
     (embed_dim, trg_len), batch_size = dec_input_embeddings.dim()
     if isinstance(trg.mask, type(None)):
@@ -263,6 +299,7 @@ class TransformerTranslator(DefaultTranslator):
     else:
       dec_input_embeddings = self.mask_embeddings(dec_input_embeddings, trg.mask.np_arr)
       trg_mask = trg.mask.np_arr
+    dec_input_embeddings = self.make_input_embedding(dec_input_embeddings, trg_len)
 
     xx_mask = self.make_attention_mask(src_mask, src_mask)
     xy_mask = self.make_attention_mask(trg_mask, src_mask)
@@ -306,7 +343,7 @@ class TransformerTranslator(DefaultTranslator):
     score = 0.
     #  # self.start_sent()
 
-    for i in range(100):
+    for i in range(50): # TODO: Parametrize this
       log_prob_tail = self.calc_loss(src, trg, get_prediction=True)
       ys = np.argmax(log_prob_tail.npvalue(), axis=0).astype('i')
       if ys == Vocab.ES:
