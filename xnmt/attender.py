@@ -47,7 +47,6 @@ class MlpAttender(Attender, Serializable):
     I = self.curr_sent.as_tensor()
     W = dy.parameter(self.pW)
     b = dy.parameter(self.pb)
-
     self.WI = dy.affine_transform([b, W, I])
     wi_dim = self.WI.dim()
     # TODO(philip30): dynet affine transform bug, should be fixed upstream

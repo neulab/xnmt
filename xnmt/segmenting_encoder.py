@@ -204,6 +204,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if self.use_baseline:
           self.bs = list(six.moves.map(lambda x: self.baseline(dy.nobackprop(x)), encodings))
     else:
+      # Rewrite segmentation
+      self.set_report_resource("segmentation", self.segment_decisions)
       self.set_report_input(segment_decisions)
     self._final_encoder_state = [FinalTransducerState(encodings[-1])]
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
@@ -254,7 +256,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       ret.add_loss("Reinforce", -dy.esum(reinforce_loss) * lmbd)
     # Total Loss
     return ret
-
   @handle_xnmt_event
   def on_html_report(self, context):
     segment_decision = self.get_report_input()[0]
@@ -277,9 +278,13 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     src_words = self.get_report_resource("src_words")
     segmented = self.apply_segmentation(src_words, segment_decision)
     segmented = [x for x, delete in segmented]
-    if len(segmented) > 0:
-      with io.open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
+
+    with io.open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
+      if len(segmented) > 0:
         print(" ".join(segmented), file=segmentation_file)
+
+      for softmax in self.segment_logsoftmaxes:
+        print(dy.exp(softmax).npvalue(), file=segmentation_file)
 
   def apply_segmentation(self, words, segmentation):
     assert(len(words) == len(segmentation))

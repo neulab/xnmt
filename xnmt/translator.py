@@ -2,6 +2,7 @@ from __future__ import division, generators
 
 import six
 import plot
+import io
 import dynet as dy
 import numpy as np
 
@@ -150,9 +151,24 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       # In case of reporting
       if self.report_path is not None:
         src_words = [self.reporting_src_vocab[w] for w in sents]
-        trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
+        trg_words = [self.trg_vocab[w] for w in output_actions]
+        # Attentions
         attentions = self.attender.attention_vecs
-        self.set_report_input(idx, src_words, trg_words, attentions)
+        if type(attentions) == dy.Expression:
+          attentions = attentions.npvalue()
+        elif type(attentions) == list:
+          attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
+        elif type(attentions) != np.ndarray:
+          raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
+        # Segmentation
+        segment = self.get_report_resource("segmentation")
+        if segment is not None:
+          segment = list(six.moves.map(lambda x: int(x[0]), segment))
+          src_inp = [x[0] for x in self.encoder.apply_segmentation(src_words, segment)]
+        else:
+          src_inp = src_words
+        # Other Resources
+        self.set_report_input(idx, src_inp, trg_words, attentions)
         self.set_report_resource("src_words", src_words)
         self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
         self.generate_report(self.report_type)
@@ -160,6 +176,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       outputs.append(TextOutput(actions=output_actions,
                                 vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
                                 score=score))
+    self.outputs = outputs
     return outputs
 
   def global_fertility(self, a):
@@ -203,16 +220,30 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       att_text.text = "Attention:"
       etree.SubElement(attention, 'br')
       attention_file = u"{}.attention.png".format(path_to_report)
-
-      if type(att) == dy.Expression:
-        attentions = att.npvalue()
-      elif type(att) == list:
-        attentions = np.concatenate([x.npvalue() for x in att], axis=1)
-      elif type(att) != np.ndarray:
-        raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
-      plot.plot_attention(src, trg, attentions, file_name = attention_file)
+      plot.plot_attention(src, trg, att, file_name = attention_file)
 
     # return the parent context to be used as child context
     return html
 
+  @handle_xnmt_event
+  def on_file_report(self):
+    idx, src, trg, attn = self.get_report_input()
+    # determine col length
+    col_length = []
+    col_length.append(max(len(x) for x in src))
+    for word in trg:
+      col_length.append(max(len(word), 6))
+    with io.open(self.get_report_path() + ".att", encoding='utf-8', mode='w') as attn_file:
+      # TODO(philip30): Sometimes translator produce attn shape of 1xtrg not srcxtrg.
+      # This behaviour is produced by the attender.
+      if len(trg) != 1 and attn.shape[0] != 1:
+        for i in range(len(src)+1):
+          if i == 0:
+            words = [""] + trg
+          else:
+            words = [src[i-1]] + ["%.4f" % (f) for f in attn[i-1]]
+          str_format = ""
+          for length in col_length:
+            str_format += "{:%ds}" % (length+2)
+          print(str_format.format(*words), file=attn_file)
 

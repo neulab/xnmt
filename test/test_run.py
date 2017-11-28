@@ -58,9 +58,10 @@ class TestRunningConfig(unittest.TestCase):
   def test_component_sharing(self):
     run.main(["test/config/component_sharing.yaml"])
 
-  def tearDown(self):
-    if os.path.isdir("test/tmp"):
-      shutil.rmtree("test/tmp")
+# Sometimes we want to inspect the output of the test
+#  def tearDown(self):
+#    if os.path.isdir("test/tmp"):
+#      shutil.rmtree("test/tmp")
 
 if __name__ == "__main__":
   unittest.main()
