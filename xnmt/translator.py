@@ -270,14 +270,16 @@ class TransformerTranslator(DefaultTranslator):
     z_blocks = self.encoder(src_embeddings, xx_mask)
     h_block = self.decoder(dec_input_embeddings, z_blocks, xy_mask, yy_mask)
 
-    ref_list = xnmt.batcher.mark_as_batch(list(itertools.chain.from_iterable(map(lambda x: x.words, trg))))
+    # ref_list = xnmt.batcher.mark_as_batch(list(itertools.chain.from_iterable(map(lambda x: x.words, trg))))
+    ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
+    concat_t_block = (1 - trg.mask.np_arr.astype('int').ravel()).reshape(-1) * np.array(ref_list)
 
-    loss = self.decoder.output_and_loss(h_block, ref_list)
+    loss = self.decoder.output_and_loss(h_block, concat_t_block)
 
     # Masking for loss
-    if trg.mask is not None:
-      mask_loss = dy.inputTensor((1 - trg.mask.np_arr.ravel()).reshape(1, -1), batched=True)
-      loss = dy.cmult(loss, mask_loss)
+    # if trg.mask is not None:
+    #   mask_loss = dy.inputTensor((1 - trg.mask.np_arr.ravel()).reshape(1, -1), batched=True)
+    #   loss = dy.cmult(loss, mask_loss)
 
     return loss
 

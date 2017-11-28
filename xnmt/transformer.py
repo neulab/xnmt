@@ -353,25 +353,23 @@ class TransformerDecoder(Serializable):
             e = layer(e, source, xy_mask, yy_mask)
         return e
 
-    def output_and_loss(self, h_block, t_block):
+    def output_and_loss(self, h_block, concat_t_block):
         (units, length), batch = h_block.dim()
 
         # Output (all together at once for efficiency)
         concat_logit_block = self.output_affine(h_block, reconstruct_shape=False)
 
-        # (_,), rebatch = concat_logit_block.dim()
-        # concat_t_block = t_block.reshape((rebatch))
-        # ignore_mask = (concat_t_block >= 0)
+        (_,), rebatch = concat_logit_block.dim()
+        # ignore_mask = concat_t_block > 0
         # n_token = ignore_mask.sum()
         # normalizer = n_token  # n_token or batch or 1
-        #
-        # bool_array = concat_t_block != -1
-        # indexes = np.argwhere(bool_array).ravel()
-        # concat_logit_block = dy.pick_batch_elems(concat_logit_block, indexes)
-        # concat_t_block = concat_t_block[bool_array]
 
-        # loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
-        loss = dy.pickneglogsoftmax_batch(concat_logit_block, t_block)
+        bool_array = concat_t_block != 0
+        indexes = np.argwhere(bool_array).ravel()
+        concat_logit_block = dy.pick_batch_elems(concat_logit_block, indexes)
+        concat_t_block = concat_t_block[bool_array]
 
+        loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
+        # loss = dy.pickneglogsoftmax_batch(concat_logit_block, t_block)
         return loss
 
