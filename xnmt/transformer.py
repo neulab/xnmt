@@ -362,3 +362,14 @@ class TransformerDecoder(Serializable):
         loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
         return loss
 
+
+    def output(self, h_block):
+        concat_logit_block = self.output_affine(h_block, reconstruct_shape=False, timedistributed=True)
+
+        # Tying target word embedding and classifier layer
+        # concat_logit_block = dy.affine_transform([dy.zeros(self.n_target_vocab),
+        #                                           dy.transpose(dy.parameter(self.embed_y)),
+        #                                           h_block])
+        return concat_logit_block
+
+

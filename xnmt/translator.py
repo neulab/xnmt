@@ -17,6 +17,7 @@ from xnmt.serializer import Serializable, DependentInitParam
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.output import TextOutput
 from xnmt.reports import Reportable
+from xnmt.input import SimpleSentenceInput
 import xnmt.serializer
 from xnmt.batcher import mark_as_batch, is_batched
 
@@ -236,7 +237,7 @@ class TransformerTranslator(DefaultTranslator):
     embeddings = dy.cmult(embeddings, temp_mask)
     return embeddings
 
-  def calc_loss(self, src, trg):
+  def calc_loss(self, src, trg, get_prediction=False):
     # self.start_sent(src)
     src_embeddings = self.src_embedder.embed_sent(src)
     src_embeddings = src_embeddings.as_tensor()
@@ -273,15 +274,22 @@ class TransformerTranslator(DefaultTranslator):
 
     # ref_list = xnmt.batcher.mark_as_batch(list(itertools.chain.from_iterable(map(lambda x: x.words, trg))))
     ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
-    concat_t_block = (1 - trg.mask.np_arr.astype('int').ravel()).reshape(-1) * np.array(ref_list)
+    concat_t_block = (1 - trg_mask.astype('int').ravel()).reshape(-1) * np.array(ref_list)
 
-    loss = self.decoder.output_and_loss(h_block, concat_t_block)
+    if get_prediction:
+      y_len = h_block.dim()[0][1]
+      last_col = dy.pick(h_block, dim=1, index=y_len - 1)
+      logits = self.decoder.output(last_col)
+      return logits
+    else:
+      loss = self.decoder.output_and_loss(h_block, concat_t_block)
+      return loss
 
     # Masking for loss
     # if trg.mask is not None:
     #   mask_loss = dy.inputTensor((1 - trg.mask.np_arr.ravel()).reshape(1, -1), batched=True)
     #   loss = dy.cmult(loss, mask_loss)
-    return loss
+    #    return loss
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
@@ -290,89 +298,38 @@ class TransformerTranslator(DefaultTranslator):
       assert src_mask is not None
     outputs = []
 
-    trg = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
+    trg = SimpleSentenceInput([Vocab.SS])
+    if not xnmt.batcher.is_batched(trg):
+      trg = xnmt.batcher.mark_as_batch([trg])
 
-    #for sents in src:
+    output_actions = []
+    score = 0.
     #  # self.start_sent()
-    loss = self.calc_loss(src, trg)
 
+    for i in range(100):
+      log_prob_tail = self.calc_loss(src, trg, get_prediction=True)
+      ys = np.argmax(log_prob_tail.npvalue(), axis=0).astype('i')
+      if ys == Vocab.ES:
+        break
+      output_actions.append(ys)
+      trg = SimpleSentenceInput(trg.words + [ys])
+      if not xnmt.batcher.is_batched(trg):
+        trg = xnmt.batcher.mark_as_batch([trg])
 
+      # In case of reporting
+      sents = src[0]
+    if self.report_path is not None:
+      src_words = [self.reporting_src_vocab[w] for w in sents]
+      trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
+      attentions = self.attender.attention_vecs
+      self.set_report_input(idx, src_words, trg_words, attentions)
+      self.set_report_resource("src_words", src_words)
+      self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
+      self.generate_report(self.report_type)
 
-
-
-
-
-
-
-      # src_embeddings = self.src_embedder.embed_sent(src)
-      # src_embeddings = src_embeddings.as_tensor()
-      # (embed_dim, src_len), batch_size = src_embeddings.dim()
-      #
-      # if isinstance(src.mask, type(None)):
-      #   src_mask = np.zeros((batch_size, src_len), dtype=np.int)
-      # else:
-      #   src_embeddings = self.mask_embeddings(src_embeddings, src.mask.np_arr)
-      #   src_mask = src.mask.np_arr
-      #
-      # xx_mask = self.make_attention_mask(src_mask, src_mask)
-      # z_blocks = self.encoder(src_embeddings, xx_mask)
-      #
-      # ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
-      # ss_embeddings = self.trg_embedder.embed(ss)
-      # # dec_input_embeddings = dec_input_embeddings.as_tensor()
-      # dec_input_embeddings = ss_embeddings
-      # xy_mask = self.make_attention_mask(trg_mask, src_mask)
-      # yy_mask = self.make_attention_mask(trg_mask, trg_mask)
-      # yy_mask *= self.make_history_mask(trg_mask)
-      #
-      # # batch, x_length = x_block.shape
-      # # y_block = self.xp.full((batch, 1), 2, dtype=x_block.dtype)  # bos
-      # # eos_flags = np.zeros((batch,), dtype=x_block.dtype)
-      #
-      # result = []
-      # for i in range(max_length):
-      #   h_block = self.decoder(dec_input_embeddings, z_blocks, xy_mask, yy_mask)
-      #
-      #
-      #
-      #   log_prob_tail = self(x_block, y_block, y_block, get_prediction=True)
-      #   ys = np.argmax(log_prob_tail.npvalue(), axis=0).astype('i')
-      #   result.append(ys)
-      #   y_block = F.concat([y_block, ys[:, None]], axis=1).data
-      #   eos_flags += (ys == 0)
-      #   if np.all(eos_flags):
-      #     break
-      #
-      # result = np.stack(result).T
-      # # Remove EOS taggs
-      # outs = []
-      # for y in result:
-      #   inds = np.argwhere(y == 0)
-      #   if len(inds) > 0:
-      #     y = y[:inds[0, 0]]
-      #   if len(y) == 0:
-      #     y = np.array([1], 'i')
-      #   outs.append(y)
-      # return outs
-
-
-
-      # output_actions, score = self.search_strategy.generate_output(self.decoder, encodings, self.trg_embedder,
-      #                                                              src_length=len(sents), forced_trg_ids=forced_trg_ids)
-
-
-    #   # In case of reporting
-    #   if self.report_path is not None:
-    #     src_words = [self.reporting_src_vocab[w] for w in sents]
-    #     trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
-    #     attentions = self.attender.attention_vecs
-    #     self.set_report_input(idx, src_words, trg_words, attentions)
-    #     self.set_report_resource("src_words", src_words)
-    #     self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
-    #     self.generate_report(self.report_type)
-    #   # Append output to the outputs
-    #   if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
-    #     outputs.append(TextOutput(output_actions, self.trg_vocab))
-    #   else:
-    #     outputs.append((output_actions, score))
-    # return outputs
+    # Append output to the outputs
+    if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
+      outputs.append(TextOutput(output_actions, self.trg_vocab))
+    else:
+      outputs.append((output_actions, score))
+    return outputs
