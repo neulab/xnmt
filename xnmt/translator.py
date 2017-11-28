@@ -218,6 +218,13 @@ class TransformerTranslator(DefaultTranslator):
     # (batch, source_length, target_length)
     return mask
 
+  def make_history_mask(self, block):
+    batch, length = block.shape
+    arange = np.arange(length)
+    history_mask = (arange[None,] <= arange[:, None])[None,]
+    history_mask = np.broadcast_to(history_mask, (batch, length, length))
+    return history_mask
+
   def mask_embeddings(self, embeddings, mask):
     """
     We convert the embeddings of masked input sequence to zero vector
@@ -231,9 +238,8 @@ class TransformerTranslator(DefaultTranslator):
   def calc_loss(self, src, trg):
     self.start_sent(src)
     src_embeddings = self.src_embedder.embed_sent(src)
-    trg_embeddings = self.trg_embedder.embed_sent(trg)
-
     src_embeddings = src_embeddings.as_tensor()
+    trg_embeddings = self.trg_embedder.embed_sent(trg)
 
     # Appending the embedding of START_TOKEN at time step 1 and removing the last time step embedding
     # Calculating the embedding of the START TOKEN
@@ -243,31 +249,34 @@ class TransformerTranslator(DefaultTranslator):
     dec_input_embeddings = dec_input_embeddings.as_tensor()
 
     (embed_dim, src_len), batch_size = src_embeddings.dim()
-
-
-    if not isinstance(src.mask, type(None)):
-      temp_mask = np.repeat(1. - src.mask.np_arr[:, None, :], embed_dim, axis=1)
-      temp_mask = dy.inputTensor(np.moveaxis(temp_mask, [1, 0, 2], [0, 2, 1]), batched=True)
-      src_embeddings = dy.cmult(src_embeddings, temp_mask)
+    if isinstance(src.mask, type(None)):
+      src_mask = np.zeros((batch_size, src_len), dtype=np.int)
     else:
-      src.mask = np.zeros((batch_size, src_len), dtype=np.int)
-    xx_mask = self.make_attention_mask(src.mask, src.mask)
+      src_embeddings = self.mask_embeddings(src_embeddings, src.mask.np_arr)
+      src_mask = src.mask.np_arr
 
-    if not isinstance(trg.mask, type(None)):
-      temp_mask = np.repeat(1. - trg.mask.np_arr[:, None, :], embed_dim, axis=1)
-      temp_mask = dy.inputTensor(np.moveaxis(temp_mask, [1, 0, 2], [0, 2, 1]), batched=True)
-      dec_input_embeddings = dy.cmult(dec_input_embeddings, temp_mask)
+    (embed_dim, trg_len), batch_size = dec_input_embeddings.dim()
+    if isinstance(trg.mask, type(None)):
+      trg_mask = np.zeros((batch_size, trg_len), dtype=np.int)
+    else:
+      dec_input_embeddings = self.mask_embeddings(dec_input_embeddings, trg.mask.np_arr)
+      trg_mask = trg.mask.np_arr
 
-    encodings = self.encoder(src_embeddings, xx_mask)
+    xx_mask = self.make_attention_mask(src_mask, src_mask)
+    xy_mask = self.make_attention_mask(trg_mask, src_mask)
+    yy_mask = self.make_attention_mask(trg_mask, trg_mask)
+    yy_mask *= self.make_history_mask(trg_mask)
+
+    z_blocks = self.encoder(src_embeddings, xx_mask)
+    h_block = self.decoder(dec_input_embeddings, z_blocks, xy_mask, yy_mask)
 
     ref_list = xnmt.batcher.mark_as_batch(list(itertools.chain.from_iterable(map(lambda x: x.words, trg))))
 
-    self.decoder.initialize(src.mask, trg.mask)
-    loss = self.decoder.calc_loss((encodings, dec_input_embeddings), ref_list)
+    loss = self.decoder.output_and_loss(h_block, ref_list)
 
     # Masking for loss
     if trg.mask is not None:
-      mask_loss = dy.inputTensor((1 - trg.mask.ravel()).reshape(1, -1), batched=True)
+      mask_loss = dy.inputTensor((1 - trg.mask.np_arr.ravel()).reshape(1, -1), batched=True)
       loss = dy.cmult(loss, mask_loss)
 
     return loss

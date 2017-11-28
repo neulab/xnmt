@@ -133,7 +133,7 @@ def split_batch(X, h):
     return output
 
 
-class MultiHeadAttention():
+class MultiHeadAttention(object):
     """ Multi Head Attention Layer for Sentence Blocks
 
     For batch computation efficiency, dot product to calculate query-key
@@ -202,7 +202,7 @@ class MultiHeadAttention():
             batch_A = dy.softmax(batch_A)
         else:
             # batch_A = dy.transpose(dy.softmax(dy.transpose(batch_A)))
-            batch_A = dy.softmax(batch_A, d=1)
+            batch_A = dy.softmax(batch_A, d=1) # TODO: Works in new version of Dynet
 
         # TODO: Check whether this is correct after masking
         batch_A = dy.cmult(batch_A, mask)
@@ -288,7 +288,7 @@ class DecoderLayer():
 class TransformerEncoder(SeqTransducer, Serializable):
     yaml_tag = u'!TransformerEncoder'
 
-    def __init__(self, yaml_context, layers=1, input_dim=512, h=8, dropout=0.2, **kwargs):
+    def __init__(self, yaml_context, layers=1, input_dim=512, h=1, dropout=0.2, **kwargs):
         # register_handler(self)
         dy_model = yaml_context.dynet_param_collection.param_col
         input_dim = input_dim or yaml_context.default_layer_dim
@@ -322,7 +322,7 @@ class TransformerEncoder(SeqTransducer, Serializable):
 class TransformerDecoder(Serializable):
     yaml_tag = u'!TransformerDecoder'
 
-    def __init__(self, yaml_context, vocab_size, layers=1, input_dim=512, h=8, label_smoothing=0.1, dropout=0.2, **kwargs):
+    def __init__(self, yaml_context, vocab_size, layers=1, input_dim=512, h=1, label_smoothing=0.0, dropout=0.2, **kwargs):
         # register_handler(self)
         dy_model = yaml_context.dynet_param_collection.param_col
         input_dim = input_dim or yaml_context.default_layer_dim
@@ -332,6 +332,7 @@ class TransformerDecoder(Serializable):
             layer = DecoderLayer(dy_model, input_dim, h)
             self.layer_names.append((name, layer))
 
+        self.output_affine = Linear(dy_model, input_dim, vocab_size)
         self.dropout = dropout or yaml_context.dropout
         self.set_dropout(0.0)  # TODO: Need immediate fix
 
@@ -351,3 +352,26 @@ class TransformerDecoder(Serializable):
             layer.set_dropout(self.dropout)
             e = layer(e, source, xy_mask, yy_mask)
         return e
+
+    def output_and_loss(self, h_block, t_block):
+        (units, length), batch = h_block.dim()
+
+        # Output (all together at once for efficiency)
+        concat_logit_block = self.output_affine(h_block, reconstruct_shape=False)
+
+        # (_,), rebatch = concat_logit_block.dim()
+        # concat_t_block = t_block.reshape((rebatch))
+        # ignore_mask = (concat_t_block >= 0)
+        # n_token = ignore_mask.sum()
+        # normalizer = n_token  # n_token or batch or 1
+        #
+        # bool_array = concat_t_block != -1
+        # indexes = np.argwhere(bool_array).ravel()
+        # concat_logit_block = dy.pick_batch_elems(concat_logit_block, indexes)
+        # concat_t_block = concat_t_block[bool_array]
+
+        # loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
+        loss = dy.pickneglogsoftmax_batch(concat_logit_block, t_block)
+
+        return loss
+

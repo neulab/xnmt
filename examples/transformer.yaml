@@ -34,7 +34,7 @@ standard:
       trg_embedder: !SimpleWordEmbedder {}
       decoder: !TransformerDecoder
         layers: 1
-        label_smoothing: 0.1
+        label_smoothing: 0.0
   decode:
     beam: 1
     #len_norm_type: !PolynomialNormalization
