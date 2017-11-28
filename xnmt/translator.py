@@ -310,14 +310,15 @@ class TransformerTranslator(DefaultTranslator):
       log_prob_tail = self.calc_loss(src, trg, get_prediction=True)
       ys = np.argmax(log_prob_tail.npvalue(), axis=0).astype('i')
       if ys == Vocab.ES:
+        output_actions.append(ys)
         break
       output_actions.append(ys)
       trg = SimpleSentenceInput(trg.words + [ys])
       if not xnmt.batcher.is_batched(trg):
         trg = xnmt.batcher.mark_as_batch([trg])
 
-      # In case of reporting
-      sents = src[0]
+    # In case of reporting
+    sents = src[0]
     if self.report_path is not None:
       src_words = [self.reporting_src_vocab[w] for w in sents]
       trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
@@ -332,4 +333,5 @@ class TransformerTranslator(DefaultTranslator):
       outputs.append(TextOutput(output_actions, self.trg_vocab))
     else:
       outputs.append((output_actions, score))
+
     return outputs
