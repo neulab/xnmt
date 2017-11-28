@@ -3,7 +3,7 @@ from __future__ import division, generators
 import numpy as np
 import dynet as dy
 from xnmt.serializer import Serializable
-from xnmt.transducer import SeqTransducer, FinalTransducerState
+from xnmt.transducer import SeqTransducer
 from xnmt.events import register_handler, handle_xnmt_event
 
 MIN_VALUE = -10000
@@ -79,35 +79,6 @@ class LayerNorm(object):
         # return ReverseTimeDistributed()(output, seq_len, batch_size)
 
         return input_expr
-
-
-def sentence_block_embed(embed, x):
-    """ Change implicitly embed_id function's target to ndim=2
-
-    Apply embed_id for array of ndim 2,
-    shape (batchsize, sentence_length),
-    instead for array of ndim 1.
-
-    """
-
-    batch, length = x.shape
-    # units, _ = embed.shape()
-    _, units = embed.shape()  # According to updated Dynet
-
-    # y = np.copy(x)
-    # y[x < 0] = 0
-
-    # Z = dy.zeros(units)
-    e = dy.concatenate_cols([dy.zeros(units) if id_ == -1 else embed[id_] for id_ in x.reshape((batch * length,))])
-    assert (e.dim() == ((units, batch * length), 1))
-
-    # e = dy.lookup_batch(embed, y.reshape((batch * length,)))
-    # assert (e.dim() == ((units,), batch * length))
-
-    e = dy.reshape(e, (units, length), batch_size=batch)
-
-    assert (e.dim() == ((units, length), batch))
-    return e
 
 
 def split_rows(X, h):
@@ -288,7 +259,7 @@ class DecoderLayer():
 class TransformerEncoder(SeqTransducer, Serializable):
     yaml_tag = u'!TransformerEncoder'
 
-    def __init__(self, yaml_context, layers=1, input_dim=512, h=1, dropout=0.2, **kwargs):
+    def __init__(self, yaml_context, layers=1, input_dim=512, h=1, dropout=0.0, **kwargs):
         register_handler(self)
         dy_model = yaml_context.dynet_param_collection.param_col
         input_dim = input_dim or yaml_context.default_layer_dim
@@ -322,7 +293,7 @@ class TransformerEncoder(SeqTransducer, Serializable):
 class TransformerDecoder(Serializable):
     yaml_tag = u'!TransformerDecoder'
 
-    def __init__(self, yaml_context, vocab_size, layers=1, input_dim=512, h=1, label_smoothing=0.0, dropout=0.2, **kwargs):
+    def __init__(self, yaml_context, vocab_size, layers=1, input_dim=512, h=1, label_smoothing=0.0, dropout=0.0, **kwargs):
         register_handler(self)
         dy_model = yaml_context.dynet_param_collection.param_col
         input_dim = input_dim or yaml_context.default_layer_dim

@@ -16,7 +16,7 @@ standard:
     restart_trainer: True
     trainer: !AIAYNAdamTrainer
       alpha: 1.0
-    lr_decay: 0.5
+    lr_decay: 1.0
     dev_metrics: bleu
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}
