@@ -4,10 +4,12 @@ import six
 import plot
 import dynet as dy
 import numpy as np
+import itertools
 
 import xnmt.length_normalization
 import xnmt.batcher
 
+from xnmt.expression_sequence import ExpressionSequence
 from xnmt.vocab import Vocab
 from xnmt.events import register_xnmt_event_assign, register_handler
 from xnmt.generator import GeneratorModel
@@ -191,3 +193,113 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     return html
 
 
+class TransformerTranslator(DefaultTranslator):
+  yaml_tag = u'!TransformerTranslator'
+
+  def initialize_generator(self, **kwargs):
+    if kwargs.get("len_norm_type", None) is None:
+      len_norm = xnmt.length_normalization.NoNormalization()
+    else:
+      len_norm = xnmt.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
+    search_args = {}
+    if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
+    if kwargs.get("beam", None) is None:
+      self.search_strategy = GreedySearch(**search_args)
+    else:
+      search_args["beam_size"] = kwargs.get("beam", 1)
+      search_args["len_norm"] = len_norm
+      # self.search_strategy = TransformerBeamSearch(**search_args)
+    self.report_path = kwargs.get("report_path", None)
+    self.report_type = kwargs.get("report_type", None)
+
+  def make_attention_mask(self, source_block, target_block):
+    mask = (target_block[:, None, :] <= 0) * \
+           (source_block[:, :, None] <= 0)
+    # (batch, source_length, target_length)
+    return mask
+
+  def mask_embeddings(self, embeddings, mask):
+    """
+    We convert the embeddings of masked input sequence to zero vector
+    """
+    (embed_dim, _), _ = embeddings.dim()
+    temp_mask = np.repeat(1. - mask[:, None, :], embed_dim, axis=1)
+    temp_mask = dy.inputTensor(np.moveaxis(temp_mask, [1, 0, 2], [0, 2, 1]), batched=True)
+    embeddings = dy.cmult(embeddings, temp_mask)
+    return embeddings
+
+  def calc_loss(self, src, trg):
+    self.start_sent(src)
+    src_embeddings = self.src_embedder.embed_sent(src)
+    trg_embeddings = self.trg_embedder.embed_sent(trg)
+
+    src_embeddings = src_embeddings.as_tensor()
+
+    # Appending the embedding of START_TOKEN at time step 1 and removing the last time step embedding
+    # Calculating the embedding of the START TOKEN
+    ss = mark_as_batch([Vocab.SS] * len(trg)) if is_batched(trg) else Vocab.SS
+    ss_embeddings = self.trg_embedder.embed(ss)
+    dec_input_embeddings = ExpressionSequence([ss_embeddings] + trg_embeddings.expr_list[:-1])
+    dec_input_embeddings = dec_input_embeddings.as_tensor()
+
+    (embed_dim, src_len), batch_size = src_embeddings.dim()
+
+
+    if not isinstance(src.mask, type(None)):
+      temp_mask = np.repeat(1. - src.mask.np_arr[:, None, :], embed_dim, axis=1)
+      temp_mask = dy.inputTensor(np.moveaxis(temp_mask, [1, 0, 2], [0, 2, 1]), batched=True)
+      src_embeddings = dy.cmult(src_embeddings, temp_mask)
+    else:
+      src.mask = np.zeros((batch_size, src_len), dtype=np.int)
+    xx_mask = self.make_attention_mask(src.mask, src.mask)
+
+    if not isinstance(trg.mask, type(None)):
+      temp_mask = np.repeat(1. - trg.mask.np_arr[:, None, :], embed_dim, axis=1)
+      temp_mask = dy.inputTensor(np.moveaxis(temp_mask, [1, 0, 2], [0, 2, 1]), batched=True)
+      dec_input_embeddings = dy.cmult(dec_input_embeddings, temp_mask)
+
+    encodings = self.encoder(src_embeddings, xx_mask)
+
+    ref_list = xnmt.batcher.mark_as_batch(list(itertools.chain.from_iterable(map(lambda x: x.words, trg))))
+
+    self.decoder.initialize(src.mask, trg.mask)
+    loss = self.decoder.calc_loss((encodings, dec_input_embeddings), ref_list)
+
+    # Masking for loss
+    if trg.mask is not None:
+      mask_loss = dy.inputTensor((1 - trg.mask.ravel()).reshape(1, -1), batched=True)
+      loss = dy.cmult(loss, mask_loss)
+
+    return loss
+
+  def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
+    if not xnmt.batcher.is_batched(src):
+      src = xnmt.batcher.mark_as_batch([src])
+    else:
+      assert src_mask is not None
+    outputs = []
+    for sents in src:
+      self.start_sent()
+
+      src_embeddings = self.src_embedder.embed_sent(src, mask=src_mask)
+      encodings = self.encoder.transduce(src_embeddings)
+
+      self.decoder.initialize(src_mask, None)
+      output_actions, score = self.search_strategy.generate_output(self.decoder, encodings, self.trg_embedder,
+                                                                   src_length=len(sents), forced_trg_ids=forced_trg_ids)
+
+      # In case of reporting
+      if self.report_path is not None:
+        src_words = [self.reporting_src_vocab[w] for w in sents]
+        trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
+        attentions = self.attender.attention_vecs
+        self.set_report_input(idx, src_words, trg_words, attentions)
+        self.set_report_resource("src_words", src_words)
+        self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
+        self.generate_report(self.report_type)
+      # Append output to the outputs
+      if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
+        outputs.append(TextOutput(output_actions, self.trg_vocab))
+      else:
+        outputs.append((output_actions, score))
+    return outputs

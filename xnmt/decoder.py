@@ -211,3 +211,62 @@ class LinearBridge(Bridge, Serializable):
       raise RuntimeError("LinearBridge requires enc_dim == %s, but got %s" % (self.enc_dim, enc_final_states[0].main_expr().dim()[0][0]))
     decoder_init = [self.projector(enc_state.main_expr()) for enc_state in enc_final_states[-self.dec_layers:]]
     return decoder_init + [dy.tanh(dec) for dec in decoder_init]
+
+
+# class TransformerDecoder(Decoder, Serializable):
+#   # yaml_tag = u'!TransformerDecoder'
+#
+#   def __init__(self, context, vocab_size, layers=1, input_dim=None, lstm_dim=None,
+#                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
+#                rnn_spec=None, residual_to_output=None, input_feeding=False,
+#                bridge=None, label_smoothing=0.1):
+#     param_col = context.dynet_param_collection.param_col
+#     # Define dim
+#     lstm_dim = lstm_dim or context.default_layer_dim
+#     mlp_hidden_dim = mlp_hidden_dim or context.default_layer_dim
+#     trg_embed_dim = trg_embed_dim or context.default_layer_dim
+#     input_dim = input_dim or context.default_layer_dim
+#
+#     # Input feeding
+#     self.input_feeding = input_feeding
+#     self.dim = lstm_dim
+#     # Bridge
+#     self.layers = layers
+#     self.bridge = bridge or NoBridge(context, self.layers, self.dim)
+#
+#     # Transformer Decoder
+#     self.builder = xnmt.transformer.TransformerDecoderLayer(trg_embed_dim, self.dim, param_col)
+#
+#     # Vocab projector
+#     self.vocab_projector = Linear(input_dim=lstm_dim,
+#                                   output_dim=vocab_size,
+#                                   model=param_col)
+#     # Dropout
+#     self.dropout = dropout or context.dropout
+#     # Mutable state
+#     self.state = None
+#
+#   def shared_params(self):
+#     return [{"layers", "bridge.dec_layers"}, {"lstm_dim", "bridge.dec_dim"}]
+#
+#   def initialize(self, src_mask, trg_mask):
+#     self.src_mask = src_mask
+#     self.trg_mask = trg_mask
+#
+#   def get_scores(self, encodings, dec_input_embeddings):
+#     _, self.state = self.builder.transduce(encodings, dec_input_embeddings, self.src_mask, self.trg_mask)
+#     return self.vocab_projector(self.state)
+#
+#   def calc_loss(self, context, ref_action):
+#     encodings, dec_input_embeddings = context
+#     scores = self.get_scores(encodings, dec_input_embeddings)
+#     # single mode
+#     if not xnmt.batcher.is_batched(ref_action):
+#       return dy.pickneglogsoftmax(scores, ref_action)
+#     # minibatch mode
+#     else:
+#       return dy.pickneglogsoftmax_batch(scores, ref_action)
+#
+#   # # @recursive
+#   # # def set_train(self, val):
+#   #   self.builder.set_dropout(self.dropout if val else 0.0)

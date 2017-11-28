@@ -1,0 +1,44 @@
+standard:
+  experiment:
+    model_file: examples/output/<EXP>.mod
+    hyp_file: examples/output/<EXP>.hyp
+    out_file: examples/output/<EXP>.out
+    err_file: examples/output/<EXP>.err
+    cfg_file: examples/output/<EXP>.yaml
+    run_for_epochs: 20
+    eval_metrics: bleu
+  train: !TrainingRegimen
+    batcher: !WordSrcBatcher
+      avg_batch_size: 100
+    glob:
+      dropout: 0.2
+      default_layer_dim: 512
+    restart_trainer: True
+    trainer: !AdamTrainer
+      alpha: 0.0002
+    lr_decay: 0.5
+    dev_metrics: bleu
+    corpus_parser: !BilingualCorpusParser
+      src_reader: !PlainTextReader {}
+      trg_reader: !PlainTextReader {}
+      training_corpus: !BilingualTrainingCorpus
+        train_src: examples/data/train.ja
+        train_trg: examples/data/train.en
+        dev_src: examples/data/dev.ja
+        dev_trg: examples/data/dev.en
+    model: !TransformerTranslator
+      src_embedder: !SimpleWordEmbedder {}
+      encoder: !TransformerEncoder
+        layers: 1
+      attender: !MlpAttender {}
+      trg_embedder: !SimpleWordEmbedder {}
+      decoder: !TransformerDecoder
+        layers: 1
+        label_smoothing: 0.1
+  decode:
+    beam: 1
+    #len_norm_type: !PolynomialNormalization
+    #  apply_during_search: true
+    src_file: examples/data/test.ja
+  evaluate:
+    ref_file: examples/data/test.en

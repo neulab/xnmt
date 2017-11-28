@@ -15,6 +15,7 @@ import xnmt.batcher
 from xnmt.embedder import *
 from xnmt.attender import *
 from xnmt.input import *
+from xnmt.transformer import TransformerEncoder, TransformerDecoder
 import xnmt.lstm
 import xnmt.pyramidal
 import xnmt.conv
