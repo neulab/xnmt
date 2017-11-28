@@ -318,15 +318,16 @@ class TransformerTranslator(DefaultTranslator):
       last_col = dy.pick(h_block, dim=1, index=y_len - 1)
       logits = self.decoder.output(last_col)
       return logits
-    else:
-      loss = self.decoder.output_and_loss(h_block, concat_t_block)
-      return loss
+
+    # loss = self.decoder.output_and_loss(h_block, concat_t_block)
+    loss = self.decoder.output_and_loss(h_block, ref_list)
+    #return loss
 
     # Masking for loss
-    # if trg.mask is not None:
-    #   mask_loss = dy.inputTensor((1 - trg.mask.np_arr.ravel()).reshape(1, -1), batched=True)
-    #   loss = dy.cmult(loss, mask_loss)
-    #    return loss
+    if trg.mask is not None:
+      mask_loss = dy.inputTensor((1 - trg.mask.np_arr.ravel()).reshape(1, -1), batched=True)
+      loss = dy.cmult(loss, mask_loss)
+    return loss
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):

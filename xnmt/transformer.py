@@ -327,10 +327,13 @@ class TransformerDecoder(Serializable):
     def output_and_loss(self, h_block, concat_t_block):
         # Output (all together at once for efficiency)
         concat_logit_block = self.output_affine(h_block, reconstruct_shape=False)
-        bool_array = concat_t_block != 0
-        indexes = np.argwhere(bool_array).ravel()
-        concat_logit_block = dy.pick_batch_elems(concat_logit_block, indexes)
-        concat_t_block = concat_t_block[bool_array]
+
+        # bool_array = concat_t_block != 0
+        # indexes = np.argwhere(bool_array).ravel()
+        # concat_logit_block = dy.pick_batch_elems(concat_logit_block, indexes)
+        # concat_t_block = concat_t_block[bool_array]
+        #
+        # loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
 
         loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
         return loss
