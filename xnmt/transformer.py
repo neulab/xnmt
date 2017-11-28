@@ -289,7 +289,7 @@ class TransformerEncoder(SeqTransducer, Serializable):
     yaml_tag = u'!TransformerEncoder'
 
     def __init__(self, yaml_context, layers=1, input_dim=512, h=1, dropout=0.2, **kwargs):
-        # register_handler(self)
+        register_handler(self)
         dy_model = yaml_context.dynet_param_collection.param_col
         input_dim = input_dim or yaml_context.default_layer_dim
         self.layer_names = []
@@ -299,7 +299,6 @@ class TransformerEncoder(SeqTransducer, Serializable):
             self.layer_names.append((name, layer))
 
         self.dropout = dropout or yaml_context.dropout
-        self.set_dropout(0.0)  # TODO: Need immediate fix
 
     # @handle_xnmt_event
     # def on_start_sent(self, dropout):
@@ -323,7 +322,7 @@ class TransformerDecoder(Serializable):
     yaml_tag = u'!TransformerDecoder'
 
     def __init__(self, yaml_context, vocab_size, layers=1, input_dim=512, h=1, label_smoothing=0.0, dropout=0.2, **kwargs):
-        # register_handler(self)
+        register_handler(self)
         dy_model = yaml_context.dynet_param_collection.param_col
         input_dim = input_dim or yaml_context.default_layer_dim
         self.layer_names = []
@@ -334,7 +333,6 @@ class TransformerDecoder(Serializable):
 
         self.output_affine = Linear(dy_model, input_dim, vocab_size)
         self.dropout = dropout or yaml_context.dropout
-        self.set_dropout(0.0)  # TODO: Need immediate fix
 
     # @handle_xnmt_event
     # def on_start_sent(self, dropout):
@@ -354,22 +352,13 @@ class TransformerDecoder(Serializable):
         return e
 
     def output_and_loss(self, h_block, concat_t_block):
-        (units, length), batch = h_block.dim()
-
         # Output (all together at once for efficiency)
         concat_logit_block = self.output_affine(h_block, reconstruct_shape=False)
-
-        (_,), rebatch = concat_logit_block.dim()
-        # ignore_mask = concat_t_block > 0
-        # n_token = ignore_mask.sum()
-        # normalizer = n_token  # n_token or batch or 1
-
         bool_array = concat_t_block != 0
         indexes = np.argwhere(bool_array).ravel()
         concat_logit_block = dy.pick_batch_elems(concat_logit_block, indexes)
         concat_t_block = concat_t_block[bool_array]
 
         loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
-        # loss = dy.pickneglogsoftmax_batch(concat_logit_block, t_block)
         return loss
 

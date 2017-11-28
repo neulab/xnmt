@@ -71,6 +71,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
+    self.dropout = 0.2 # TODO: Fix this
 
   def shared_params(self):
     return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
@@ -236,7 +237,7 @@ class TransformerTranslator(DefaultTranslator):
     return embeddings
 
   def calc_loss(self, src, trg):
-    self.start_sent(src)
+    # self.start_sent(src)
     src_embeddings = self.src_embedder.embed_sent(src)
     src_embeddings = src_embeddings.as_tensor()
     trg_embeddings = self.trg_embedder.embed_sent(trg)
@@ -267,7 +268,10 @@ class TransformerTranslator(DefaultTranslator):
     yy_mask = self.make_attention_mask(trg_mask, trg_mask)
     yy_mask *= self.make_history_mask(trg_mask)
 
+    # self.encoder.set_dropout(self.dropout)
     z_blocks = self.encoder(src_embeddings, xx_mask)
+
+    # self.decoder.set_dropout(self.dropout)
     h_block = self.decoder(dec_input_embeddings, z_blocks, xy_mask, yy_mask)
 
     # ref_list = xnmt.batcher.mark_as_batch(list(itertools.chain.from_iterable(map(lambda x: x.words, trg))))
@@ -280,10 +284,9 @@ class TransformerTranslator(DefaultTranslator):
     # if trg.mask is not None:
     #   mask_loss = dy.inputTensor((1 - trg.mask.np_arr.ravel()).reshape(1, -1), batched=True)
     #   loss = dy.cmult(loss, mask_loss)
-
     return loss
 
-  def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
+  def generate(self, src, idx, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
     else:
