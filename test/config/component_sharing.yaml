@@ -31,23 +31,24 @@ exp1.pretrain: &exp1
         dev_src: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and decode.src_file
         dev_trg: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
     model: !DefaultTranslator
-      # config-sharing between src_embedder and trg_embedder (both are configured in the same way, but do not share
-      # DyNet parameters)
-      src_embedder: !SimpleWordEmbedder &emb_conf1
+      src_embedder: !SimpleWordEmbedder
         emb_dim: 32
       encoder: !ModularSeqTransducer
         modules:
-        # reference-sharing between first and second encoder layer. This means, for purposes of illustration, 
-        # both layers share DyNet parameters!
+        # config-sharing between first and second layer (both are configured in the same way, but do not share
+        # DyNet parameters)
         - !BiLSTMSeqTransducer &lstm_enc1
-          _xnmt_id: lstm_enc1 # this id must be unique and is recommended but not required to match the YAML anchor
           layers: 1
         - *lstm_enc1
       attender: !MlpAttender {}
-      trg_embedder: *emb_conf1
+      # reference-sharing between softmax projection and target embedder. This means both layers share DyNet parameters!
+      trg_embedder: !DenseWordEmbedder &trg_emb
+        _xnmt_id: trg_emb # this id must be unique and is recommended but not required to match the YAML anchor
+        emb_dim: 32
       decoder: !MlpSoftmaxDecoder
         layers: 1
         bridge: !CopyBridge {}
+        vocab_projector: *trg_emb
   decode: !XnmtDecoder
     src_file: *dev_src
   evaluate:
