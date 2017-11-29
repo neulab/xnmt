@@ -6,7 +6,7 @@ import xnmt.embedder
 from xnmt.serializer import Serializable
 from xnmt.events import register_handler, handle_xnmt_event, register_xnmt_event
 from xnmt.reports import Reportable
-
+from xnmt.vocab import Vocab
 
 class SegmentTransducer(Serializable, Reportable):
   yaml_tag = u"!SegmentTransducer"
@@ -24,8 +24,8 @@ class SegmentTransducer(Serializable, Reportable):
   def next_item(self):
     pass
 
-  def transduce(self, inputs):
-    return self.transformer.transform(self.encoder(inputs))
+  def transduce(self, inputs, word=None):
+    return self.transformer.transform(self.encoder(inputs), word)
 
   def disc_ll(self):
     ''' Discrete Log Likelihood '''
@@ -37,17 +37,27 @@ class SegmentTransducer(Serializable, Reportable):
     return log_ll
 
 class SegmentTransformer(Serializable):
-  def transform(self, encodings):
+  def transform(self, encodings, word=None):
     raise RuntimeError("Should call subclass of SegmentTransformer instead")
 
 class TailSegmentTransformer(SegmentTransformer):
   yaml_tag = u"!TailSegmentTransformer"
-  def transform(self, encodings):
+  def transform(self, encodings, word=None):
     return encodings[-1]
+
+class TailWordSegmentTransformer(SegmentTransformer):
+  yaml_tag = u"!TailWordSegmentTransformer"
+
+  def __init__(self, yaml_context, vocab_size=1e6, embed_size=256):
+    self.vocab = Vocab()
+    self.lookup = yaml_context.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, embed_size))
+
+  def transform(self, encodings, word=None):
+    return encodings[-1] + self.lookup[self.vocab.convert(tuple(word))]
 
 class AverageSegmentTransformer(SegmentTransformer):
   yaml_tag = u"!AverageSegmentTransformer"
-  def transform(self, encodings):
+  def transform(self, encodings, word=None):
     return dy.average(encodings.as_list())
 
 # TODO(philip30): Complete this class!
@@ -59,7 +69,7 @@ class DownsamplingSegmentTransformer(SegmentTransformer):
     self.sample_size = sample_size
     # TODO(philip30): Add the dynet parameters here!
 
-  def transduce(self, inputs):
+  def transduce(self, inputs, word=None):
     # TODO(philip30): Complete me
     pass
 
@@ -89,7 +99,7 @@ class CategorySegmentTransformer(SegmentTransformer):
   def next_item(self):
     self.counter = (self.counter + 1) % self.batch_size
 
-  def transform(self, encodings):
+  def transform(self, encodings, word=None):
     encoding = encodings[-1]
     category_logsoftmax = dy.log_softmax(self.category_output(encoding))
     if self.train:
@@ -109,6 +119,4 @@ class CategorySegmentTransformer(SegmentTransformer):
       del self.ll_buffer
       del self.batch_size
       del self.counter
-
-
 

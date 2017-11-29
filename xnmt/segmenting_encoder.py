@@ -18,6 +18,7 @@ from xnmt.reports import Reportable
 from xnmt.serializer import Serializable
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import LossBuilder
+from xnmt.segment_transducer import TailWordSegmentTransformer
 
 class SegmentingAction(Enum):
   """
@@ -175,8 +176,12 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         # Append the encoding for this item to the buffer
         buffers[i].append(encoding_i)
         if decision == SegmentingAction.SEGMENT.value:
+          words = None
+          if type(self.segment_transducer.transformer) == TailWordSegmentTransformer:
+            words = self._src[i].words[last_segment[i]+1:j+1]
+
           expr_seq = expression_sequence.ExpressionSequence(expr_list=buffers[i])
-          transduce_output = self.segment_transducer.transduce(expr_seq)
+          transduce_output = self.segment_transducer.transduce(expr_seq, words)
           outputs[i].append(transduce_output)
           buffers[i] = []
           # Calculate length prior
