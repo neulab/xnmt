@@ -44,7 +44,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   def __init__(self, yaml_context, vocab_size, layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
-               bridge=None, label_smoothing=0.0):
+               bridge=None, label_smoothing=0.0, vocab_projector=None):
     register_handler(self)
     param_col = yaml_context.dynet_param_collection.param_col
     # Define dim
@@ -75,9 +75,9 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + lstm_dim,
                                            output_dim = mlp_hidden_dim,
                                            model = param_col)
-    self.vocab_projector = xnmt.linear.Linear(input_dim = mlp_hidden_dim,
-                                         output_dim = vocab_size,
-                                         model = param_col)
+    self.vocab_projector = vocab_projector or xnmt.linear.Linear(input_dim = mlp_hidden_dim,
+                                                                 output_dim = vocab_size,
+                                                                 model = param_col)
     # Dropout
     self.dropout = dropout or yaml_context.dropout
 
