@@ -222,7 +222,9 @@ class TransformerTranslator(DefaultTranslator):
     else:
       len_norm = xnmt.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
     search_args = {}
-    if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
+    if kwargs.get("max_len", None) is not None:
+      search_args["max_len"] = kwargs["max_len"]
+      self.max_len = kwargs.get("max_len", 50)
     if kwargs.get("beam", None) is None:
       self.search_strategy = GreedySearch(**search_args)
     else:
@@ -309,21 +311,18 @@ class TransformerTranslator(DefaultTranslator):
     z_blocks = self.encoder(src_embeddings, xx_mask)
     h_block = self.decoder(dec_input_embeddings, z_blocks, xy_mask, yy_mask)
 
-    # ref_list = xnmt.batcher.mark_as_batch(list(itertools.chain.from_iterable(map(lambda x: x.words, trg))))
-    ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
-    concat_t_block = (1 - trg_mask.astype('int').ravel()).reshape(-1) * np.array(ref_list)
-
     if get_prediction:
       y_len = h_block.dim()[0][1]
       last_col = dy.pick(h_block, dim=1, index=y_len - 1)
       logits = self.decoder.output(last_col)
       return logits
 
-    # loss = self.decoder.output_and_loss(h_block, concat_t_block)
+    ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
     loss = self.decoder.output_and_loss(h_block, ref_list)
-    #return loss
 
-    # Masking for loss
+    # concat_t_block = (1 - trg_mask.astype('int').ravel()).reshape(-1) * np.array(ref_list)
+    # loss = self.decoder.output_and_loss(h_block, concat_t_block)
+
     if trg.mask is not None:
       mask_loss = dy.inputTensor((1 - trg.mask.np_arr.ravel()).reshape(1, -1), batched=True)
       loss = dy.cmult(loss, mask_loss)
@@ -336,7 +335,6 @@ class TransformerTranslator(DefaultTranslator):
       assert src_mask is not None
     outputs = []
 
-    # trg = SimpleSentenceInput([Vocab.SS])
     trg = SimpleSentenceInput([0])
 
     if not xnmt.batcher.is_batched(trg):
@@ -344,16 +342,16 @@ class TransformerTranslator(DefaultTranslator):
 
     output_actions = []
     score = 0.
-    #  # self.start_sent()
+    # self.start_sent()
 
-    for i in range(50): # TODO: Parametrize this
+    for i in range(self.max_len):
+      dy.renew_cg()
       log_prob_tail = self.calc_loss(src, trg, get_prediction=True)
       ys = np.argmax(log_prob_tail.npvalue(), axis=0).astype('i')
       if ys == Vocab.ES:
         output_actions.append(ys)
         break
       output_actions.append(ys)
-      # trg = SimpleSentenceInput(trg[0].words[:-1] + [ys, 0])
       trg = SimpleSentenceInput(output_actions + [0])
       if not xnmt.batcher.is_batched(trg):
         trg = xnmt.batcher.mark_as_batch([trg])
@@ -362,7 +360,6 @@ class TransformerTranslator(DefaultTranslator):
     sents = src[0]
     if self.report_path is not None:
       src_words = [self.reporting_src_vocab[w] for w in sents]
-      # trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
       trg_words = [self.trg_vocab[w] for w in output_actions]
       attentions = self.attender.attention_vecs
       self.set_report_input(idx, src_words, trg_words, attentions)
