@@ -228,22 +228,18 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   @handle_xnmt_event
   def on_file_report(self):
     idx, src, trg, attn = self.get_report_input()
-    # determine col length
     col_length = []
     col_length.append(max(len(x) for x in src))
     for word in trg:
       col_length.append(max(len(word), 6))
     with io.open(self.get_report_path() + ".att", encoding='utf-8', mode='w') as attn_file:
-      # TODO(philip30): Sometimes translator produce attn shape of 1xtrg not srcxtrg.
-      # This behaviour is produced by the attender.
-      if len(trg) != 1 and attn.shape[0] != 1:
-        for i in range(len(src)+1):
-          if i == 0:
-            words = [""] + trg
-          else:
-            words = [src[i-1]] + ["%.4f" % (f) for f in attn[i-1]]
-          str_format = ""
-          for length in col_length:
-            str_format += "{:%ds}" % (length+2)
-          print(str_format.format(*words), file=attn_file)
+      for i in range(len(src)+1):
+        if i == 0:
+          words = [""] + trg
+        else:
+          words = [src[i-1]] + ["%.4f" % (f) for f in attn[i-1]]
+        str_format = ""
+        for length in col_length:
+          str_format += "{:%ds}" % (length+2)
+        print(str_format.format(*words), file=attn_file)
 
