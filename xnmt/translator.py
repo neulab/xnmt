@@ -336,7 +336,9 @@ class TransformerTranslator(DefaultTranslator):
       assert src_mask is not None
     outputs = []
 
-    trg = SimpleSentenceInput([Vocab.SS])
+    # trg = SimpleSentenceInput([Vocab.SS])
+    trg = SimpleSentenceInput([-1])
+
     if not xnmt.batcher.is_batched(trg):
       trg = xnmt.batcher.mark_as_batch([trg])
 
@@ -351,7 +353,7 @@ class TransformerTranslator(DefaultTranslator):
         output_actions.append(ys)
         break
       output_actions.append(ys)
-      trg = SimpleSentenceInput(trg[0].words[1:] + [ys, Vocab.ES])
+      trg = SimpleSentenceInput(trg[0].words[:-1] + [ys, -1])
       if not xnmt.batcher.is_batched(trg):
         trg = xnmt.batcher.mark_as_batch([trg])
 
@@ -359,7 +361,8 @@ class TransformerTranslator(DefaultTranslator):
     sents = src[0]
     if self.report_path is not None:
       src_words = [self.reporting_src_vocab[w] for w in sents]
-      trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
+      # trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
+      trg_words = [self.trg_vocab[w] for w in output_actions]
       attentions = self.attender.attention_vecs
       self.set_report_input(idx, src_words, trg_words, attentions)
       self.set_report_resource("src_words", src_words)

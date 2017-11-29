@@ -87,8 +87,6 @@ def split_rows(X, h):
     steps = n_rows // h
     output = []
     for i in range(0, n_rows, steps):
-        # indexes = l[i:i + steps]
-        # output.append(dy.select_rows(X, indexes))
         output.append(dy.pickrange(X, i, i + steps))
     return output
 
@@ -196,7 +194,7 @@ class FeedForwardLayer():
         n_inner_units = n_units * 4
         self.W_1 = Linear(dy_model, n_units, n_inner_units)
         self.W_2 = Linear(dy_model, n_inner_units, n_units)
-        self.act = dy.rectify  # TODO: experiment with Leaky Relu here
+        self.act = dy.rectify
 
     def __call__(self, e):
         e = self.W_1(e, reconstruct_shape=False, timedistributed=True)
