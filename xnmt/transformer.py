@@ -257,7 +257,7 @@ class DecoderLayer():
 class TransformerEncoder(SeqTransducer, Serializable):
     yaml_tag = u'!TransformerEncoder'
 
-    def __init__(self, yaml_context, layers=1, input_dim=512, h=1, dropout=0.0, **kwargs):
+    def __init__(self, yaml_context, layers=1, input_dim=512, h=1, dropout=0.2, **kwargs):
         register_handler(self)
         dy_model = yaml_context.dynet_param_collection.param_col
         input_dim = input_dim or yaml_context.default_layer_dim
@@ -291,7 +291,7 @@ class TransformerEncoder(SeqTransducer, Serializable):
 class TransformerDecoder(Serializable):
     yaml_tag = u'!TransformerDecoder'
 
-    def __init__(self, yaml_context, vocab_size, layers=1, input_dim=512, h=1, label_smoothing=0.0, dropout=0.0, **kwargs):
+    def __init__(self, yaml_context, vocab_size, layers=1, input_dim=512, h=1, label_smoothing=0.0, dropout=0.2, **kwargs):
         register_handler(self)
         dy_model = yaml_context.dynet_param_collection.param_col
         input_dim = input_dim or yaml_context.default_layer_dim
