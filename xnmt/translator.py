@@ -353,7 +353,8 @@ class TransformerTranslator(DefaultTranslator):
         output_actions.append(ys)
         break
       output_actions.append(ys)
-      trg = SimpleSentenceInput(trg[0].words[:-1] + [ys, 0])
+      # trg = SimpleSentenceInput(trg[0].words[:-1] + [ys, 0])
+      trg = SimpleSentenceInput(output_actions + [0])
       if not xnmt.batcher.is_batched(trg):
         trg = xnmt.batcher.mark_as_batch([trg])
 
