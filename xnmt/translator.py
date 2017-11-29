@@ -289,7 +289,7 @@ class TransformerTranslator(DefaultTranslator):
     if isinstance(src.mask, type(None)):
       src_mask = np.zeros((batch_size, src_len), dtype=np.int)
     else:
-      src_embeddings = self.mask_embeddings(src_embeddings, src.mask.np_arr)
+      # src_embeddings = self.mask_embeddings(src_embeddings, src.mask.np_arr)
       src_mask = src.mask.np_arr
     src_embeddings = self.make_input_embedding(src_embeddings, src_len)
 
@@ -297,7 +297,7 @@ class TransformerTranslator(DefaultTranslator):
     if isinstance(trg.mask, type(None)):
       trg_mask = np.zeros((batch_size, trg_len), dtype=np.int)
     else:
-      dec_input_embeddings = self.mask_embeddings(dec_input_embeddings, trg.mask.np_arr)
+      # dec_input_embeddings = self.mask_embeddings(dec_input_embeddings, trg.mask.np_arr)
       trg_mask = trg.mask.np_arr
     dec_input_embeddings = self.make_input_embedding(dec_input_embeddings, trg_len)
 
@@ -351,7 +351,7 @@ class TransformerTranslator(DefaultTranslator):
         output_actions.append(ys)
         break
       output_actions.append(ys)
-      trg = SimpleSentenceInput(trg[0].words + [ys])
+      trg = SimpleSentenceInput(trg[0].words[1:] + [ys, Vocab.ES])
       if not xnmt.batcher.is_batched(trg):
         trg = xnmt.batcher.mark_as_batch([trg])
 

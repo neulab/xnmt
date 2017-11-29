@@ -41,7 +41,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   yaml_tag = u'!SimpleWordEmbedder'
 
-  def __init__(self, yaml_context, vocab_size, emb_dim = None, weight_noise = None, word_dropout = 0.0, fix_norm = None):
+  def __init__(self, yaml_context, vocab_size, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm=None):
     """
     :param vocab_size:
     :param emb_dim:
