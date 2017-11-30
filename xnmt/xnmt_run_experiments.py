@@ -121,7 +121,7 @@ def main(overwrite_args=None):
 
     if not exp_args["eval_only"]:
       print('reverting learned weights to best checkpoint..')
-      training_regimen.model_context.dynet_param_collection.revert_to_best_model()
+      training_regimen.yaml_context.dynet_param_collection.revert_to_best_model()
     if evaluators:
       print("> Evaluating test set")
       output.indent += 2

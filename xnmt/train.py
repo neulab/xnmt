@@ -43,7 +43,7 @@ This will be the main class to perform training.
 
 class TrainingRegimen(Serializable):
   yaml_tag = u'!TrainingRegimen'
-  def __init__(self, corpus_parser, model_file, model, yaml_context=None, glob={},
+  def __init__(self, yaml_context, corpus_parser, model_file, model, glob={},
                dev_every=0, batcher=None, training_strategy=None, save_num_checkpoints=1,
                pretrained_model_file="", src_format="text",
                trainer=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
@@ -71,8 +71,6 @@ class TrainingRegimen(Serializable):
                            --epoch EPOCH_NUM will be appended to the command.
                            To just reload the data after each epoch set the command to 'true'.
     """
-    dy.renew_cg()
-
     # TODO: don't need to keep a dedicated args object any longer
     args = dict(dev_every=dev_every, batcher=batcher, 
                corpus_parser=corpus_parser, training_strategy=training_strategy, model_file=model_file, save_num_checkpoints=save_num_checkpoints,
@@ -81,48 +79,37 @@ class TrainingRegimen(Serializable):
                dev_metrics=dev_metrics, schedule_metric=schedule_metric, restart_trainer=restart_trainer,reload_command=reload_command,
                dropout=glob.get("dropout", 0.0), weight_noise=glob.get("weight_noise", 0.0), model=model)
     self.args = args
-    if yaml_context:
-      self.model_context = yaml_context
-    else:
-      self.model_context = ModelContext()
-      self.model_context.dynet_param_collection = PersistentParamCollection(self.args["model_file"], self.args["save_num_checkpoints"])
 
+    assert yaml_context is not None
+    self.yaml_context = yaml_context
 
-    if args["lr_decay"] > 1.0 or args["lr_decay"] <= 0.0:
+    if lr_decay > 1.0 or lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
     self.num_times_lr_decayed = 0
     self.early_stopping_reached = False
     self.cur_attempt = 0
 
-    self.evaluators = [s.lower() for s in self.args["dev_metrics"].split(",") if s.strip()!=""]
-    if self.args["schedule_metric"].lower() not in self.evaluators:
-              self.evaluators.append(self.args["schedule_metric"].lower())
+    self.evaluators = [s.lower() for s in dev_metrics.split(",") if s.strip()!=""]
+    if schedule_metric.lower() not in self.evaluators:
+              self.evaluators.append(schedule_metric.lower())
     if "loss" not in self.evaluators: self.evaluators.append("loss")
 
-    if args["reload_command"] is not None:
+    if reload_command is not None:
         self._augmentation_handle = None
         self._augment_data_initial()
 
-    # Initialize the serializer
-    self.model_serializer = YamlSerializer()
 
     self.create_corpus_and_model()
 
     self.model.initialize_training_strategy(self.training_strategy)
 
-    if self.args["batcher"] is None:
-      self.batcher = SrcBatcher(32)
-    else:
-      self.batcher = self.args["batcher"]
-    if args["src_format"] == "contvec":
+    self.batcher = batcher or SrcBatcher(32)
+    if src_format == "contvec":
       self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
     self.pack_batches()
-    self.logger = BatchLossTracker(args["dev_every"], self.total_train_sent)
+    self.logger = BatchLossTracker(dev_every, self.total_train_sent)
 
-    if args["trainer"] is None:
-      self.trainer = xnmt.optimizer.SimpleSGDTrainer(self.model_context, 0.1)
-    else:
-      self.trainer = args["trainer"]
+    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(self.yaml_context, 0.1)
        
     self.dynet_profiling = dynet_profiling
 
@@ -144,9 +131,9 @@ class TrainingRegimen(Serializable):
     if not hasattr(self.corpus_parser.training_corpus, "train_src_data"): # TODO: not so pretty, needs refactoring
       self.corpus_parser._read_training_corpus(self.corpus_parser.training_corpus)
     self.total_train_sent = len(self.corpus_parser.training_corpus.train_src_data)
-    self.model_context.default_layer_dim = self.args["default_layer_dim"]
-    self.model_context.dropout = self.args["dropout"]
-    self.model_context.weight_noise = self.args["weight_noise"]
+    self.yaml_context.default_layer_dim = self.args["default_layer_dim"]
+    self.yaml_context.dropout = self.args["dropout"]
+    self.yaml_context.weight_noise = self.args["weight_noise"]
     if not self.args["model"]:
       raise RuntimeError("No model specified!")
     self.model = self.args["model"]
@@ -155,7 +142,7 @@ class TrainingRegimen(Serializable):
     else:
       self.training_strategy = TrainingStrategy(TrainingMLELoss())
     if self.args.get("pretrained_model_file", None):
-      self.model_context.dynet_param_collection.load_from_data_file(self.args["pretrained_model_file"] + '.data')
+      self.yaml_context.dynet_param_collection.load_from_data_file(self.args["pretrained_model_file"] + '.data')
     
   def _augment_data_initial(self):
     augment_command = self.args["reload_command"]
@@ -189,7 +176,7 @@ class TrainingRegimen(Serializable):
   @register_xnmt_event
   def new_epoch(self):
     pass
-
+  
   def run_epochs(self, num_epochs=None):
     epoch_i = 0
     while True:
@@ -299,9 +286,9 @@ class TrainingRegimen(Serializable):
     # Write out the model if it's the best one
     if self.logger.report_dev_and_check_model(self.args["model_file"]):
       if self.args["model_file"] is not None:
-        self.model_serializer.save_to_file(self.args["model_file"],
+        YamlSerializer().save_to_file(self.args["model_file"],
                                            self,
-                                           self.model_context.dynet_param_collection)
+                                           self.yaml_context.dynet_param_collection)
       self.cur_attempt = 0
     else:
       # otherwise: learning rate decay / early stopping
@@ -317,7 +304,7 @@ class TrainingRegimen(Serializable):
           if self.args["restart_trainer"]:
             print('  restarting trainer and reverting learned weights to best checkpoint..')
             self.trainer.restart()
-            self.model_context.dynet_param_collection.revert_to_best_model()
+            self.yaml_context.dynet_param_collection.revert_to_best_model()
 
     self.model.set_train(True)
     return
