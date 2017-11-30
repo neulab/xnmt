@@ -50,6 +50,7 @@ class TrainingRegimen(Serializable):
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
                reload_command=None):
     """
+    :param external_eval_script:
     :param corpus_parser:
     :param model_file:
     :param model:
