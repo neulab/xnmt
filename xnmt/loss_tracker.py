@@ -1,10 +1,10 @@
 from __future__ import division, generators
 
-import sys
-import math
 import time
+
 import xnmt.loss
 from xnmt.vocab import Vocab
+from xnmt.events import register_handler, handle_xnmt_event
 
 class LossTracker(object):
   """
@@ -16,6 +16,8 @@ class LossTracker(object):
   REPORT_TEMPLATE_DEV_AUX   = '  Epoch %.4f dev [auxiliary] %s'
 
   def __init__(self, eval_every, total_train_sent):
+    register_handler(self)
+    
     self.eval_train_every = 1000
     self.eval_dev_every = eval_every
     self.total_train_sent = total_train_sent
@@ -38,7 +40,8 @@ class LossTracker(object):
     self.last_report_train_time = self.start_time
     self.dev_start_time = self.start_time
 
-  def new_epoch(self):
+  @handle_xnmt_event
+  def on_new_epoch(self):
     """
     Clear epoch-wise counters for starting a new training epoch.
     """

@@ -36,7 +36,7 @@ import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
 from xnmt.evaluator import LossScore
 import xnmt.optimizer
-
+from xnmt.events import register_xnmt_event
 '''
 This will be the main class to perform training.
 '''
@@ -186,6 +186,10 @@ class TrainingRegimen(Serializable):
     else:
       print('new data set is not ready yet, using data from last epoch.')
 
+  @register_xnmt_event
+  def new_epoch(self):
+    pass
+
   def run_epochs(self, num_epochs=None):
     epoch_i = 0
     while True:
@@ -199,7 +203,7 @@ class TrainingRegimen(Serializable):
     :param update_weights: Whether to perform backward pass & update weights (useful for debugging)
     """
 
-    self.logger.new_epoch()
+    self.new_epoch()
 
     if self.args["reload_command"] is not None:
       self._augment_data_next_epoch()
@@ -245,8 +249,6 @@ class TrainingRegimen(Serializable):
       self.logger.report_train_process()
       if self.logger.should_report_dev():
         self.dev_evaluation()
-
-      self.model.new_epoch()
 
   def dev_evaluation(self, out_ext=".dev_hyp", ref_ext=".dev_ref", encoding='utf-8'):
     self.model.set_train(False)
