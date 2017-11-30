@@ -68,3 +68,19 @@ class AIAYNAdamTrainer(XnmtOptimizer, Serializable):
     decay = (self.dim ** (-0.5)) * np.min([self.steps ** (-0.5), self.steps * (self.warmup_steps ** (-1.5))])
     self.optimizer.learning_rate = 1 * decay
     self.optimizer.update()
+
+  def update_epoch(self, r=1.0):
+      return
+
+  def status(self):
+      return self.optimizer.status()
+
+  def set_clip_threshold(self, thr):
+      return
+
+  def get_clip_threshold(self):
+      return
+
+  def restart(self):
+      return
+

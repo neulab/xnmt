@@ -112,7 +112,8 @@ class InOrderBatcher(Batcher, Serializable):
     order = list(range(len(src)))
     return self.pack_by_order(src, trg, order)
 
-class ShuffleBatcher(Batcher):
+class ShuffleBatcher(Batcher, Serializable):
+  yaml_tag = u"!ShuffleBatcher"
   """
   A class to create batches through randomly shuffling without sorting.
   """
