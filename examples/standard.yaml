@@ -13,7 +13,7 @@ standard:
       avg_batch_size: 10
     glob:
       dropout: 0.1
-      default_layer_dim: 512
+      default_layer_dim: 64
     restart_trainer: True
     trainer: !AdamTrainer
       alpha: 0.0002
@@ -35,7 +35,7 @@ standard:
       trg_embedder: !SimpleWordEmbedder {}
       decoder: !MlpSoftmaxDecoder
         layers: 1
-        mlp_hidden_dim: 512
+        mlp_hidden_dim: 64
         bridge: !CopyBridge {}
         label_smoothing: 0.1
   decode: !XnmtDecoder
