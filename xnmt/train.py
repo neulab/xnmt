@@ -43,17 +43,17 @@ This will be the main class to perform training.
 
 class TrainingRegimen(Serializable):
   yaml_tag = u'!TrainingRegimen'
-  def __init__(self, corpus_parser, model_file, model, yaml_context=None, glob={},
+  def __init__(self, corpus_parser, model_file, model, external_eval_script=None, yaml_context=None, glob={},
                dev_every=0, batcher=None, training_strategy=None, save_num_checkpoints=1,
                pretrained_model_file="", src_format="text",
                trainer=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
                reload_command=None):
     """
-    :param external_eval_script:
     :param corpus_parser:
     :param model_file:
     :param model:
+    :param external_eval_script:
     :param yaml_context: (TODO: remove default value)
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
     :param batcher: Type of batcher. Defaults to SrcBatcher of batch size 32.
