@@ -71,34 +71,38 @@ class TrainingRegimen(Serializable):
                            --epoch EPOCH_NUM will be appended to the command.
                            To just reload the data after each epoch set the command to 'true'.
     """
-    # TODO: don't need to keep a dedicated args object any longer
-    args = dict(dev_every=dev_every, batcher=batcher, 
-               corpus_parser=corpus_parser, training_strategy=training_strategy, model_file=model_file, save_num_checkpoints=save_num_checkpoints,
-               pretrained_model_file=pretrained_model_file, src_format=src_format, default_layer_dim=glob.get("default_layer_dim", 512),
-               trainer=trainer, lr_decay=lr_decay, lr_decay_times=lr_decay_times, attempts_before_lr_decay=attempts_before_lr_decay,
-               dev_metrics=dev_metrics, schedule_metric=schedule_metric, restart_trainer=restart_trainer,reload_command=reload_command,
-               dropout=glob.get("dropout", 0.0), weight_noise=glob.get("weight_noise", 0.0), model=model)
-    self.args = args
-
     assert yaml_context is not None
     self.yaml_context = yaml_context
+    self.model_file = model_file
 
     if lr_decay > 1.0 or lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
     self.num_times_lr_decayed = 0
     self.early_stopping_reached = False
     self.cur_attempt = 0
+    self.lr_decay = lr_decay
+    self.attempts_before_lr_decay = attempts_before_lr_decay
+    self.lr_decay_times = lr_decay_times
+    self.restart_trainer = restart_trainer
 
     self.evaluators = [s.lower() for s in dev_metrics.split(",") if s.strip()!=""]
     if schedule_metric.lower() not in self.evaluators:
               self.evaluators.append(schedule_metric.lower())
     if "loss" not in self.evaluators: self.evaluators.append("loss")
 
+    self.reload_command = reload_command
     if reload_command is not None:
         self._augmentation_handle = None
         self._augment_data_initial()
 
-
+    self.corpus_parser = corpus_parser
+    
+    if not model:
+      raise RuntimeError("No model specified!")
+    self.model = model
+    
+    self.training_strategy = training_strategy or TrainingStrategy(TrainingMLELoss())
+    self.pretrained_model_file = pretrained_model_file
     self.create_corpus_and_model()
 
     self.model.initialize_training_strategy(self.training_strategy)
@@ -111,6 +115,7 @@ class TrainingRegimen(Serializable):
 
     self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(self.yaml_context, 0.1)
        
+    self.schedule_metric = schedule_metric.lower()
     self.dynet_profiling = dynet_profiling
 
   def dependent_init_params(self, initialized_subcomponents):
@@ -127,25 +132,14 @@ class TrainingRegimen(Serializable):
       self.batcher.pack(self.corpus_parser.training_corpus.dev_src_data, self.corpus_parser.training_corpus.dev_trg_data)
 
   def create_corpus_and_model(self):
-    self.corpus_parser = self.args["corpus_parser"]
     if not hasattr(self.corpus_parser.training_corpus, "train_src_data"): # TODO: not so pretty, needs refactoring
       self.corpus_parser._read_training_corpus(self.corpus_parser.training_corpus)
     self.total_train_sent = len(self.corpus_parser.training_corpus.train_src_data)
-    self.yaml_context.default_layer_dim = self.args["default_layer_dim"]
-    self.yaml_context.dropout = self.args["dropout"]
-    self.yaml_context.weight_noise = self.args["weight_noise"]
-    if not self.args["model"]:
-      raise RuntimeError("No model specified!")
-    self.model = self.args["model"]
-    if self.args["training_strategy"]:
-      self.training_strategy = self.args["training_strategy"]
-    else:
-      self.training_strategy = TrainingStrategy(TrainingMLELoss())
-    if self.args.get("pretrained_model_file", None):
-      self.yaml_context.dynet_param_collection.load_from_data_file(self.args["pretrained_model_file"] + '.data')
+    if self.pretrained_model_file:
+      self.yaml_context.dynet_param_collection.load_from_data_file(self.pretrained_model_file + '.data')
     
   def _augment_data_initial(self):
-    augment_command = self.args["reload_command"]
+    augment_command = self.reload_command
     print('initial augmentation')
     if self._augmentation_handle is None:
       # first run
@@ -153,7 +147,7 @@ class TrainingRegimen(Serializable):
       self._augmentation_handle.wait()
 
   def _augment_data_next_epoch(self):
-    augment_command = self.args["reload_command"]
+    augment_command = self.reload_command
     if self._augmentation_handle is None:
       # first run
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.logger.epoch_num, shell=True)
@@ -192,7 +186,7 @@ class TrainingRegimen(Serializable):
 
     self.new_epoch()
 
-    if self.args["reload_command"] is not None:
+    if self.reload_command is not None:
       self._augment_data_next_epoch()
 
     self.model.set_train(update_weights)
@@ -241,15 +235,14 @@ class TrainingRegimen(Serializable):
     self.model.set_train(False)
     self.logger.new_dev()
     trg_words_cnt, loss_score = self.compute_dev_loss()
-    schedule_metric = self.args["schedule_metric"].lower()
 
     eval_scores = {"loss" : loss_score}
     if len(list(filter(lambda e: e!="loss", self.evaluators))) > 0:
       self.decode_args["src_file"] = self.corpus_parser.training_corpus.dev_src
       self.decode_args["candidate_id_file"] = self.corpus_parser.training_corpus.dev_id_file
-      if self.args["model_file"]:
-        out_file = self.args["model_file"] + out_ext
-        out_file_ref = self.args["model_file"] + ref_ext
+      if self.model_file:
+        out_file = self.model_file + out_ext
+        out_file_ref = self.model_file + ref_ext
         self.decode_args["trg_file"] = out_file
       # Decoding + post_processing
       xnmt.xnmt_decode.xnmt_decode(model_elements=(self.corpus_parser, self.model), **self.decode_args)
@@ -263,7 +256,7 @@ class TrainingRegimen(Serializable):
         for line in processed:
           fout.write(line)
       # Evaluation
-      if self.args["model_file"]:
+      if self.model_file:
         self.evaluate_args["hyp_file"] = out_file
         self.evaluate_args["ref_file"] = out_file_ref
       for evaluator in self.evaluators:
@@ -272,36 +265,36 @@ class TrainingRegimen(Serializable):
         eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(**self.evaluate_args)
         eval_scores[evaluator] = eval_score
     # Logging
-    if schedule_metric == "loss":
+    if self.schedule_metric == "loss":
       self.logger.set_dev_score(trg_words_cnt, loss_score)
     else:
-      self.logger.set_dev_score(trg_words_cnt, eval_scores[schedule_metric])
+      self.logger.set_dev_score(trg_words_cnt, eval_scores[self.schedule_metric])
 
     print("> Checkpoint")
     # print previously computed metrics
     for metric in self.evaluators:
-      if metric != schedule_metric:
+      if metric != self.schedule_metric:
         self.logger.report_auxiliary_score(eval_scores[metric])
     
     # Write out the model if it's the best one
-    if self.logger.report_dev_and_check_model(self.args["model_file"]):
-      if self.args["model_file"] is not None:
-        YamlSerializer().save_to_file(self.args["model_file"],
+    if self.logger.report_dev_and_check_model(self.model_file):
+      if self.model_file is not None:
+        YamlSerializer().save_to_file(self.model_file,
                                            self,
                                            self.yaml_context.dynet_param_collection)
       self.cur_attempt = 0
     else:
       # otherwise: learning rate decay / early stopping
       self.cur_attempt += 1
-      if self.args["lr_decay"] < 1.0 and self.cur_attempt >= self.args["attempts_before_lr_decay"]:
+      if self.lr_decay < 1.0 and self.cur_attempt >= self.attempts_before_lr_decay:
         self.num_times_lr_decayed += 1
-        if self.num_times_lr_decayed > self.args["lr_decay_times"]:
+        if self.num_times_lr_decayed > self.lr_decay_times:
           print('  Early stopping')
           self.early_stopping_reached = True
         else:
-          self.trainer.learning_rate *= self.args["lr_decay"]
+          self.trainer.learning_rate *= self.lr_decay
           print('  new learning rate: %s' % self.trainer.learning_rate)
-          if self.args["restart_trainer"]:
+          if self.restart_trainer:
             print('  restarting trainer and reverting learned weights to best checkpoint..')
             self.trainer.restart()
             self.yaml_context.dynet_param_collection.revert_to_best_model()
