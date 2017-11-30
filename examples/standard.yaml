@@ -1,5 +1,6 @@
 standard:
   experiment:
+    external_eval_script: examples/eval.sh
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
