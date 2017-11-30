@@ -44,16 +44,16 @@ class SimpleSentenceInput(Input):
   def __str__(self):
     return " ".join(six.moves.map(str, self.words))
 
-class SentenceInput(SimpleSentenceInput):
+class AnnotatedSentenceInput(SimpleSentenceInput):
   def __init__(self, words):
-    super(SentenceInput, self).__init__(words)
+    super(AnnotatedSentenceInput, self).__init__(words)
     self.annotation = {}
 
   def annotate(self, key, value):
     self.annotation[key] = value
 
   def get_padded_sent(self, token, pad_len):
-    sent = super(SentenceInput, self).get_padded_sent(token, pad_len)
+    sent = super(AnnotatedSentenceInput, self).get_padded_sent(token, pad_len)
     sent.annotation = self.annotation
     return sent
 
@@ -162,7 +162,7 @@ class SegmentationTextReader(PlainTextReader):
       self.vocab = Vocab()
     def convert(line, segmentation):
       line = line.strip().split()
-      ret = SentenceInput(list(six.moves.map(self.vocab.convert, line)) + [self.vocab.convert(Vocab.ES_STR)])
+      ret = AnnotatedSentenceInput(list(six.moves.map(self.vocab.convert, line)) + [self.vocab.convert(Vocab.ES_STR)])
       ret.annotate("segment", list(six.moves.map(int, segmentation.strip().split())))
       return ret
 

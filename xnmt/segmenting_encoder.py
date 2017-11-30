@@ -136,7 +136,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
     if self.learn_segmentation and not self.train:
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
-    elif src is not None and hasattr(src, "annotations"):
+    elif src is not None and len(src) != 0 and hasattr(src[0], "annotation"):
       segment_decisions = self.sample_from_prior(encodings, batch_size, src)
     elif lmbd == 0 or self.is_segmentation_warmup():
       segment_decisions = self.sample_from_poisson(encodings, batch_size)
