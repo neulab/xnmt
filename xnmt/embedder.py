@@ -9,6 +9,8 @@ from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.serializer import Serializable
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 
+linear_init = lambda x: dy.UniformInitializer(np.sqrt(3./x))
+
 class Embedder(object):
   """
   An embedder takes in word IDs and outputs continuous vectors.
@@ -55,7 +57,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.weight_noise = weight_noise or yaml_context.weight_noise
     self.word_dropout = word_dropout
     self.fix_norm = fix_norm
-    self.embeddings = yaml_context.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim))
+    self.embeddings = yaml_context.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim), init=linear_init(self.vocab_size))
     self.word_id_mask = None
     self.train = False
 

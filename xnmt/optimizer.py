@@ -79,7 +79,7 @@ class AIAYNAdamTrainer(XnmtOptimizer, Serializable):
       return
 
   def get_clip_threshold(self):
-      return
+      return self.optimizer.get_clip_threshold()
 
   def restart(self):
       return
