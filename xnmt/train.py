@@ -77,13 +77,15 @@ class TrainingRegimen(Serializable):
 
     if lr_decay > 1.0 or lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
-    self.num_times_lr_decayed = 0
-    self.early_stopping_reached = False
-    self.cur_attempt = 0
     self.lr_decay = lr_decay
     self.attempts_before_lr_decay = attempts_before_lr_decay
     self.lr_decay_times = lr_decay_times
     self.restart_trainer = restart_trainer
+    
+    # training state
+    self.early_stopping_reached = False
+    self.num_times_lr_decayed = 0
+    self.cur_attempt = 0
 
     self.evaluators = [s.lower() for s in dev_metrics.split(",") if s.strip()!=""]
     if schedule_metric.lower() not in self.evaluators:
@@ -95,18 +97,12 @@ class TrainingRegimen(Serializable):
         self._augmentation_handle = None
         self._augment_data_initial()
 
-    self.corpus_parser = corpus_parser
-    
-    if not model:
-      raise RuntimeError("No model specified!")
     self.model = model
-    
+    self.corpus_parser = corpus_parser
     self.training_strategy = training_strategy or TrainingStrategy(TrainingMLELoss())
     self.pretrained_model_file = pretrained_model_file
     if self.pretrained_model_file:
       self.yaml_context.dynet_param_collection.load_from_data_file(self.pretrained_model_file + '.data')
-
-    self.model.initialize_training_strategy(self.training_strategy)
 
     self.batcher = batcher or SrcBatcher(32)
     if src_format == "contvec":
@@ -193,7 +189,7 @@ class TrainingRegimen(Serializable):
       # Loss calculation
       dy.renew_cg()
       loss_builder = LossBuilder()
-      standard_loss = self.model.calc_loss(src, trg)
+      standard_loss = self.model.calc_loss(src, trg, self.training_strategy)
 
       if standard_loss.__class__ == LossBuilder:
         loss = None
@@ -301,7 +297,7 @@ class TrainingRegimen(Serializable):
     trg_words_cnt = 0
     for src, trg in zip(self.dev_src, self.dev_trg):
       dy.renew_cg()
-      standard_loss = self.model.calc_loss(src, trg)
+      standard_loss = self.model.calc_loss(src, trg, self.training_strategy)
       loss_builder.add_loss("loss", standard_loss)
       trg_words_cnt += self.logger.count_trg_words(trg)
       loss_builder.compute()

@@ -32,7 +32,6 @@ class TestForcedDecodingOutputs(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
-    self.model.initialize_training_strategy(TrainingStrategy())
     self.model.set_train(False)
     self.model.initialize_generator(beam=1)
 
@@ -67,7 +66,6 @@ class TestForcedDecodingLoss(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )
-    self.model.initialize_training_strategy(TrainingStrategy())
     self.model.set_train(False)
     self.model.initialize_generator(beam=1)
 
@@ -82,7 +80,8 @@ class TestForcedDecodingLoss(unittest.TestCase):
   def test_single(self):
     dy.renew_cg()
     train_loss = self.model.calc_loss(src=self.training_corpus.train_src_data[0],
-                                      trg=self.training_corpus.train_trg_data[0]).value()
+                                      trg=self.training_corpus.train_trg_data[0],
+                                      loss_calculator=TrainingStrategy()).value()
     dy.renew_cg()
     self.model.initialize_generator(beam=1)
     outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0,
@@ -102,7 +101,6 @@ class TestFreeDecodingLoss(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )
-    self.model.initialize_training_strategy(TrainingStrategy())
     self.model.set_train(False)
     self.model.initialize_generator(beam=1)
 
@@ -121,7 +119,8 @@ class TestFreeDecodingLoss(unittest.TestCase):
                                          forced_trg_ids=self.training_corpus.train_trg_data[0])
     dy.renew_cg()
     train_loss = self.model.calc_loss(src=self.training_corpus.train_src_data[0],
-                                      trg=outputs[0].actions).value()
+                                      trg=outputs[0].actions,
+                                      loss_calculator=TrainingStrategy()).value()
 
     self.assertAlmostEqual(-outputs[0].score, train_loss, places=5)
 
@@ -140,7 +139,6 @@ class TestGreedyVsBeam(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )
-    self.model.initialize_training_strategy(TrainingStrategy())
     self.model.set_train(False)
 
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",

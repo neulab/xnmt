@@ -38,7 +38,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     Tests whether single loss equals batch loss.
     Truncating src / trg sents to same length so no masking is necessary
     """
-    batch_size = 5
+    batch_size = batch_size
     src_sents = self.training_corpus.train_src_data[:batch_size]
     src_min = min([len(x) for x in src_sents])
     src_sents_trunc = [s[:src_min] for s in src_sents]
@@ -52,13 +52,15 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     for sent_id in range(batch_size):
       dy.renew_cg()
       train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
-                                        trg=trg_sents_trunc[sent_id]).value()
+                                   trg=trg_sents_trunc[sent_id],
+                                   loss_calculator=TrainingStrategy()).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
-                                        trg=mark_as_batch(trg_sents_trunc)).value()
+                                   trg=mark_as_batch(trg_sents_trunc),
+                                   loss_calculator=TrainingStrategy()).value()
     self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)
 
   def test_loss_model1(self):
@@ -69,7 +71,6 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
-    model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
@@ -81,7 +82,6 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
-    model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
@@ -93,7 +93,6 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )
-    model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
@@ -105,7 +104,6 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
-    model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
@@ -145,13 +143,15 @@ class TestBatchTraining(unittest.TestCase):
     for sent_id in range(batch_size):
       dy.renew_cg()
       train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
-                                   trg=trg_sents[sent_id]).value()
+                                   trg=trg_sents[sent_id],
+                                   loss_calculator=TrainingStrategy()).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
-                                   trg=mark_as_batch(trg_sents_padded, trg_masks)).value()
+                                   trg=mark_as_batch(trg_sents_padded, trg_masks),
+                                   loss_calculator=TrainingStrategy()).value()
     self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)
 
   def test_loss_model1(self):
@@ -162,7 +162,6 @@ class TestBatchTraining(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
-    model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
@@ -174,7 +173,6 @@ class TestBatchTraining(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
-    model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
@@ -186,7 +184,6 @@ class TestBatchTraining(unittest.TestCase):
               trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
             )
-    model.initialize_training_strategy(TrainingStrategy())
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
