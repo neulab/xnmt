@@ -1,3 +1,4 @@
+# encoding: utf-8
 from __future__ import division, generators
 
 import numpy as np
@@ -103,7 +104,7 @@ class MultiHeadAttention(object):
   For batch computation efficiency, dot product to calculate query-key
   scores is performed all heads together.
   """
-  def __init__(self, dy_model, n_units, h=8, self_attention=True):
+  def __init__(self, dy_model, n_units, h=1, self_attention=True):
     self.W_Q = Linear_nobias(dy_model, n_units, n_units)
     self.W_K = Linear_nobias(dy_model, n_units, n_units)
     self.W_V = Linear_nobias(dy_model, n_units, n_units)
@@ -236,7 +237,7 @@ class DecoderLayer(object):
 class TransformerEncoder(Serializable):
   yaml_tag = u'!TransformerEncoder'
 
-  def __init__(self, yaml_context, layers=1, input_dim=512, h=1, dropout=0.2, **kwargs):
+  def __init__(self, yaml_context, layers=1, input_dim=512, h=1, dropout=0.0, **kwargs):
     register_handler(self)
     dy_model = yaml_context.dynet_param_collection.param_col
     input_dim = input_dim or yaml_context.default_layer_dim
@@ -260,7 +261,7 @@ class TransformerEncoder(Serializable):
     self.dropout = dropout
 
   def __call__(self, e, xx_mask):
-    e = dy.dropout(e, self.dropout)
+    e = dy.dropout(e, self.dropout) # Word Embedding Dropout
     for name, layer in self.layer_names:
       layer.set_dropout(self.dropout)
       e = layer(e, xx_mask)
@@ -270,7 +271,7 @@ class TransformerEncoder(Serializable):
 class TransformerDecoder(Serializable):
   yaml_tag = u'!TransformerDecoder'
 
-  def __init__(self, yaml_context, vocab_size, layers=1, input_dim=512, h=1, label_smoothing=0.0, dropout=0.2, **kwargs):
+  def __init__(self, yaml_context, vocab_size, layers=1, input_dim=512, h=1, label_smoothing=0.0, dropout=0.0, **kwargs):
     register_handler(self)
     dy_model = yaml_context.dynet_param_collection.param_col
     input_dim = input_dim or yaml_context.default_layer_dim
@@ -305,13 +306,14 @@ class TransformerDecoder(Serializable):
     # Output (all together at once for efficiency)
     concat_logit_block = self.output_affine(h_block, reconstruct_shape=False)
 
-    # bool_array = concat_t_block != 0
-    # indexes = np.argwhere(bool_array).ravel()
-    # concat_logit_block = dy.pick_batch_elems(concat_logit_block, indexes)
-    # concat_t_block = concat_t_block[bool_array]
-    # loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
-
+    bool_array = concat_t_block != 0
+    indexes = np.argwhere(bool_array).ravel()
+    concat_logit_block = dy.pick_batch_elems(concat_logit_block, indexes)
+    concat_t_block = concat_t_block[bool_array]
     loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
+    loss = dy.mean_batches(loss)
+
+    # loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
     return loss
 
   def output(self, h_block):

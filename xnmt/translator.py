@@ -194,7 +194,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     return html
 
 
-class TransformerTranslator(DefaultTranslator):
+class TransformerTranslator(Translator, Serializable, Reportable):
   yaml_tag = u'!TransformerTranslator'
 
   def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder, input_dim=512):
@@ -234,9 +234,17 @@ class TransformerTranslator(DefaultTranslator):
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)
 
+  def initialize_training_strategy(self, training_strategy):
+    self.loss_calculator = training_strategy
+
+  def set_reporting_src_vocab(self, src_vocab):
+    """
+    Sets source vocab for reporting purposes.
+    """
+    self.reporting_src_vocab = src_vocab
+
   def make_attention_mask(self, source_block, target_block):
-    mask = (target_block[:, None, :] <= 0) * \
-           (source_block[:, :, None] <= 0)
+    mask = (target_block[:, None, :] <= 0) * (source_block[:, :, None] <= 0)
     # (batch, source_length, target_length)
     return mask
 
@@ -292,7 +300,7 @@ class TransformerTranslator(DefaultTranslator):
       src_mask = np.zeros((batch_size, src_len), dtype=np.int)
     else:
       # src_embeddings = self.mask_embeddings(src_embeddings, src.mask.np_arr)
-      src_mask = src.mask.np_arr
+      src_mask = src.mask.np_arr.astype(np.int)
     src_embeddings = self.make_input_embedding(src_embeddings, src_len)
 
     (embed_dim, trg_len), batch_size = dec_input_embeddings.dim()
@@ -300,7 +308,7 @@ class TransformerTranslator(DefaultTranslator):
       trg_mask = np.zeros((batch_size, trg_len), dtype=np.int)
     else:
       # dec_input_embeddings = self.mask_embeddings(dec_input_embeddings, trg.mask.np_arr)
-      trg_mask = trg.mask.np_arr
+      trg_mask = trg.mask.np_arr.astype(np.int)
     dec_input_embeddings = self.make_input_embedding(dec_input_embeddings, trg_len)
 
     xx_mask = self.make_attention_mask(src_mask, src_mask)
@@ -318,14 +326,14 @@ class TransformerTranslator(DefaultTranslator):
       return logits
 
     ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
-    loss = self.decoder.output_and_loss(h_block, ref_list)
+    # loss = self.decoder.output_and_loss(h_block, ref_list)
 
-    # concat_t_block = (1 - trg_mask.astype('int').ravel()).reshape(-1) * np.array(ref_list)
-    # loss = self.decoder.output_and_loss(h_block, concat_t_block)
+    concat_t_block = (1 - trg_mask.astype('int').ravel()).reshape(-1) * np.array(ref_list)
+    loss = self.decoder.output_and_loss(h_block, concat_t_block)
 
-    if trg.mask is not None:
-      mask_loss = dy.inputTensor((1 - trg.mask.np_arr.ravel()).reshape(1, -1), batched=True)
-      loss = dy.cmult(loss, mask_loss)
+    # if trg.mask is not None:
+    #   mask_loss = dy.inputTensor((1 - trg.mask.np_arr.ravel()).reshape(1, -1), batched=True)
+    #   loss = dy.cmult(loss, mask_loss)
     return loss
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
