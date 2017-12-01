@@ -157,10 +157,10 @@ class TrainingRegimen(Serializable):
   def new_epoch(self, training_regimen, num_sents):
     pass
 
-  ##### NEW MULTITASK CODE ######
-  
   def should_stop_training(self):
-    return self.early_stopping_reached or self.training_state.epoch_num > self.run_for_epochs
+    return self.early_stopping_reached \
+      or self.training_state.epoch_num > self.run_for_epochs \
+      or (self.training_state.epoch_num == self.run_for_epochs and self.training_state.steps_into_epoch >= self.cur_num_minibatches()-1)
   
   def cur_num_minibatches(self):
     return len(self.train_src)
@@ -171,7 +171,7 @@ class TrainingRegimen(Serializable):
   def advance_epoch(self):
     if self.reload_command is not None:
       self._augment_data_next_epoch()
-    self.training_state.epoch_seed = random.randint(0,2147483647)
+    self.training_state.epoch_seed = random.randint(1,2147483647)
     random.seed(self.training_state.epoch_seed)
     np.random.seed(self.training_state.epoch_seed)
     self.pack_batches()
@@ -188,6 +188,7 @@ class TrainingRegimen(Serializable):
         src = self.train_src[batch_num]
         trg = self.train_trg[batch_num]
         yield src, trg
+        self.training_state.steps_into_epoch += 1
   
   def training_step(self, src, trg):
     loss_builder = LossBuilder()
@@ -221,7 +222,6 @@ class TrainingRegimen(Serializable):
   def run_training(self, update_weights=True):
     self.model.set_train(update_weights)
     for src,trg in self.next_minibatch():
-      if self.should_stop_training(): break
       dy.renew_cg()
       loss = self.training_step(src, trg)
       if update_weights: self.update_weights(loss)
@@ -229,79 +229,13 @@ class TrainingRegimen(Serializable):
         if update_weights: self.model.set_train(False)
         self.checkpoint()
         if update_weights: self.model.set_train(True)
+      if self.should_stop_training(): break
     
-
-  ################################
-
-  
-  def run_epochs(self):
-    self.run_training()
-    
-#     epoch_i = 0
-#     while True:
-#       self.one_epoch()
-#       epoch_i += 1
-#       if self.early_stopping_reached or (self.run_for_epochs is not None and epoch_i >= self.run_for_epochs):
-#         break
-
-  def one_epoch(self, update_weights=True):
-    """
-    :param update_weights: Whether to perform backward pass & update weights (useful for debugging)
-    """
-
-    if self.reload_command is not None:
-      self._augment_data_next_epoch()
-    self.new_epoch(training_regimen=self, 
-                   num_sents=self.cur_num_sentences())
-
-    order = list(range(0, self.cur_num_minibatches()))
-    np.random.shuffle(order)
-    self.model.set_train(update_weights)
-    for batch_num in order:
-      src = self.train_src[batch_num]
-      trg = self.train_trg[batch_num]
-
-      # Loss calculation
-      dy.renew_cg()
-      loss_builder = LossBuilder()
-      standard_loss = self.model.calc_loss(src, trg, self.training_strategy)
-
-      if standard_loss.__class__ == LossBuilder:
-        loss = None
-        for loss_name, loss_expr in standard_loss.loss_nodes:
-          loss_builder.add_loss(loss_name, loss_expr)
-          loss = loss_expr if not loss else loss + loss_expr
-        standard_loss = loss
-
-      else:
-        loss_builder.add_loss("loss", standard_loss)
-
-      additional_loss = self.model.calc_additional_loss(dy.nobackprop(-standard_loss))
-      if additional_loss != None:
-        loss_builder.add_loss("additional_loss", additional_loss)
-
-      # Log the loss sum
-      loss_value = loss_builder.compute()
-      self.logger.update_epoch_loss(src, trg, loss_builder)
-      
-      if self.dynet_profiling > 0:
-        dy.print_text_graphviz()
-        
-      if update_weights:
-        loss_value.backward()
-        self.trainer.update()
-
-      # Devel reporting
-      self.logger.report_train_process()
-      if self.logger.should_report_dev():
-        self.dev_evaluation()
 
   def checkpoint_needed(self):
     return self.logger.should_report_dev()
-  def checkpoint(self):
-    self.dev_evaluation()
 
-  def dev_evaluation(self, out_ext=".dev_hyp", ref_ext=".dev_ref", encoding='utf-8'):
+  def checkpoint(self, out_ext=".dev_hyp", ref_ext=".dev_ref", encoding='utf-8'):
     self.model.set_train(False)
     self.logger.new_dev()
     trg_words_cnt, loss_score = self.compute_dev_loss() # forced decoding loss
@@ -389,4 +323,4 @@ class TrainingState(object):
     self.cur_attempt = 0
     self.epoch_num = 0
     self.steps_into_epoch = 0
-    self.epoch_seed = random.randint(0,2147483647) # used to pack and shuffle minibatches; storing helps resuming crashed trainings
+    self.epoch_seed = random.randint(1,2147483647) # used to pack and shuffle minibatches; storing helps resuming crashed trainings

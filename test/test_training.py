@@ -214,9 +214,10 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['model_file'] = None
     train_args['trainer'] = None
     train_args['batcher'] = SrcBatcher(batch_size=5, break_ties_randomly=False)
+    train_args['run_for_epochs'] = 1
     training_regimen = xnmt.train.TrainingRegimen(yaml_context=self.model_context, **train_args)
     training_regimen.model_context = self.model_context
-    training_regimen.one_epoch(update_weights=False)
+    training_regimen.run_training(update_weights=False)
     self.assertAlmostEqual(training_regimen.logger.epoch_loss.loss_values['loss'] / training_regimen.logger.epoch_words,
                            training_regimen.logger.dev_score.loss)
 
@@ -245,12 +246,13 @@ class TestOverfitting(unittest.TestCase):
                                             decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
                                             )
     train_args['model_file'] = None
+    train_args['run_for_epochs'] = 1
     train_args['trainer'] = AdamTrainer(self.model_context, alpha=0.1)
     train_args['batcher'] = SrcBatcher(batch_size=10, break_ties_randomly=False)
     training_regimen = xnmt.train.TrainingRegimen(yaml_context=self.model_context, **train_args)
     training_regimen.model_context = self.model_context
     for _ in range(50):
-      training_regimen.one_epoch(update_weights=True)
+      training_regimen.run_training(update_weights=True)
     self.assertAlmostEqual(0.0,
                            training_regimen.logger.epoch_loss.loss_values['loss'] / training_regimen.logger.epoch_words,
                            places=2)
