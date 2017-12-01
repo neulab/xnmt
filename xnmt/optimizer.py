@@ -1,5 +1,5 @@
 import dynet as dy
-from serializer import Serializable
+from xnmt.serializer import Serializable
 
 """
 The purpose of this module is mostly to expose the DyNet trainers to YAML serialization,
