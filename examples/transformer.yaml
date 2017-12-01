@@ -5,11 +5,13 @@ standard:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     cfg_file: examples/output/<EXP>.yaml
-    run_for_epochs: 20
+    run_for_epochs: 30
     eval_metrics: bleu
   train: !TrainingRegimen
-    batcher: !WordSrcBatcher
-      avg_batch_size: 100
+    batcher: !SentShuffleBatcher
+      batch_size: 100
+    lr_decay_times: 0
+    attempts_before_lr_decay: 30
     glob:
       dropout: 0.2
       default_layer_dim: 512
