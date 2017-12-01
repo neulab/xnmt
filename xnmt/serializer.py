@@ -72,15 +72,9 @@ class YamlSerializer(object):
   def initialize_object(self, deserialized_yaml_wrapper, yaml_context={}):
     """
     Initializes a hierarchy of deserialized YAML objects.
-<<<<<<< HEAD
     
     :param deserialized_yaml_wrapper: deserialized YAML data inside a UninitializedYamlObject wrapper (classes are resolved and class members set, but __init__() has not been called at this point)
     :param yaml_context: this is passed to __init__ of every created object that expects a argument named yaml_context 
-=======
-
-    :param deserialized_yaml: deserialized YAML object (classes are resolved and class members set, but __init__() has not been called at this point)
-    :param yaml_context: this is passed to __init__ of every created object that expects a argument named yaml_context
->>>>>>> master
     :returns: the appropriate object, with properly shared parameters and __init__() having been invoked
     """
     if YamlSerializer.is_initialized(deserialized_yaml_wrapper):
@@ -153,6 +147,11 @@ class YamlSerializer(object):
     for _, val in inspect.getmembers(obj):
       if isinstance(val, Serializable):
         self.share_init_params_top_down(val)
+      elif isinstance(val, list):
+        for sub_val in val:
+          if isinstance(sub_val, Serializable):
+            self.share_init_params_top_down(sub_val)
+          
 
   def get_val_to_share_or_none(self, obj, shared_params):
     val = None
