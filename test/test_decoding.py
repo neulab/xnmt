@@ -8,7 +8,7 @@ from xnmt.embedder import SimpleWordEmbedder
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.attender import MlpAttender
 from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
-from xnmt.training_corpus import BilingualTrainingCorpus
+from xnmt.corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.loss_calculator import LossCalculator

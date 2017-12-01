@@ -25,7 +25,7 @@ from xnmt.specialized_encoders import *
 from xnmt.decoder import *
 from xnmt.translator import *
 from xnmt.retriever import *
-from xnmt.training_corpus import *
+from xnmt.corpus import *
 from xnmt.loss_tracker import *
 from xnmt.segmenting_encoder import *
 from xnmt.loss import LossBuilder
