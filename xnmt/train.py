@@ -45,8 +45,8 @@ class TrainingRegimen(Serializable):
   yaml_tag = u'!TrainingRegimen'
   def __init__(self, yaml_context, corpus_parser, model_file, model, glob={},
                dev_every=0, batcher=None, training_strategy=None, save_num_checkpoints=1,
-               pretrained_model_file="", src_format="text",
-               trainer=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
+               pretrained_model_file="", src_format="text", trainer=None, 
+               run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
                reload_command=None, dynet_profiling=0):
     """
@@ -81,6 +81,7 @@ class TrainingRegimen(Serializable):
     self.attempts_before_lr_decay = attempts_before_lr_decay
     self.lr_decay_times = lr_decay_times
     self.restart_trainer = restart_trainer
+    self.run_for_epochs = run_for_epochs
     
     # training state
     self.early_stopping_reached = False
@@ -161,12 +162,12 @@ class TrainingRegimen(Serializable):
   def new_epoch(self):
     pass
   
-  def run_epochs(self, num_epochs=None):
+  def run_epochs(self):
     epoch_i = 0
     while True:
       self.one_epoch()
       epoch_i += 1
-      if self.early_stopping_reached or (num_epochs is not None and epoch_i >= num_epochs):
+      if self.early_stopping_reached or (self.run_for_epochs is not None and epoch_i >= self.run_for_epochs):
         break
 
   def one_epoch(self, update_weights=True):
@@ -224,7 +225,7 @@ class TrainingRegimen(Serializable):
   def dev_evaluation(self, out_ext=".dev_hyp", ref_ext=".dev_ref", encoding='utf-8'):
     self.model.set_train(False)
     self.logger.new_dev()
-    trg_words_cnt, loss_score = self.compute_dev_loss()
+    trg_words_cnt, loss_score = self.compute_dev_loss() # forced decoding loss
 
     eval_scores = {"loss" : loss_score}
     if len(list(filter(lambda e: e!="loss", self.evaluators))) > 0:

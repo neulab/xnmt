@@ -117,7 +117,7 @@ def main(overwrite_args=None):
 
     eval_scores = "Not evaluated"
     if not exp_args["eval_only"]:
-      training_regimen.run_epochs(exp_args["run_for_epochs"])
+      training_regimen.run_epochs()
 
     if not exp_args["eval_only"]:
       print('reverting learned weights to best checkpoint..')
