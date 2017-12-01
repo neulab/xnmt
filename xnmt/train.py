@@ -81,10 +81,9 @@ class TrainingRegimen(Serializable):
     self.restart_trainer = restart_trainer
     self.run_for_epochs = run_for_epochs
     
-    # training state
     self.early_stopping_reached = False
-    self.num_times_lr_decayed = 0
-    self.cur_attempt = 0
+    # training state
+    self.training_state = TrainingState()
 
     self.evaluators = [s.lower() for s in dev_metrics.split(",") if s.strip()!=""]
     if schedule_metric.lower() not in self.evaluators:
@@ -107,7 +106,7 @@ class TrainingRegimen(Serializable):
     if src_format == "contvec":
       self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
     self.pack_batches()
-    self.logger = BatchLossTracker(dev_every, len(self.corpus_parser.get_training_corpus().train_src_data))
+    self.logger = BatchLossTracker(self, dev_every)
 
     self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(self.yaml_context, 0.1)
        
@@ -139,26 +138,26 @@ class TrainingRegimen(Serializable):
     augment_command = self.reload_command
     if self._augmentation_handle is None:
       # first run
-      self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.logger.epoch_num, shell=True)
+      self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.training_state.epoch_num, shell=True)
       self._augmentation_handle.wait()
    
     self._augmentation_handle.poll()
     retcode = self._augmentation_handle.returncode
     if retcode is not None:
-      if self.logger.epoch_num > 0:
+      if self.training_state.epoch_num > 0:
         print('using reloaded data')
       # reload the data   
       self.corpus_parser._read_training_corpus(self.corpus_parser.training_corpus) # TODO: fix
       self.pack_batches()
-      self.logger.total_train_sent = len(self.corpus_parser.training_corpus.train_src_data)
       # restart data generation
-      self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.logger.epoch_num, shell=True)
+      self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.training_state.epoch_num, shell=True)
     else:
       print('new data set is not ready yet, using data from last epoch.')
 
   @register_xnmt_event
-  def new_epoch(self):
-    pass
+  def new_epoch(self, training_regimen, num_steps):
+    self.training_state.epoch_num += 1
+    self.training_state.steps_into_epoch = 0
   
   def run_epochs(self):
     epoch_i = 0
@@ -173,10 +172,10 @@ class TrainingRegimen(Serializable):
     :param update_weights: Whether to perform backward pass & update weights (useful for debugging)
     """
 
-    self.new_epoch()
-
     if self.reload_command is not None:
       self._augment_data_next_epoch()
+    self.new_epoch(training_regimen=self, 
+                   num_steps=len(self.corpus_parser.training_corpus.train_src_data))
 
     self.model.set_train(update_weights)
     order = list(range(0, len(self.train_src)))
@@ -301,3 +300,10 @@ class TrainingRegimen(Serializable):
       trg_words_cnt += self.logger.count_trg_words(trg)
       loss_builder.compute()
     return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
+
+class TrainingState(object):
+  def __init__(self):
+    self.num_times_lr_decayed = 0
+    self.cur_attempt = 0
+    self.epoch_num = 0
+    self.steps_into_epoch = 0

@@ -15,12 +15,12 @@ class LossTracker(object):
   REPORT_TEMPLATE_DEV       = '  Epoch %.4f dev %s (words=%d, words/sec=%.2f, time=%s)'
   REPORT_TEMPLATE_DEV_AUX   = '  Epoch %.4f dev [auxiliary] %s'
 
-  def __init__(self, eval_every, total_train_sent):
+  def __init__(self, training_regimen, eval_every):
     register_handler(self)
     
+    self.training_regimen = training_regimen
     self.eval_train_every = 1000
     self.eval_dev_every = eval_every
-    self.total_train_sent = total_train_sent
 
     self.epoch_num = 0
 
@@ -41,18 +41,20 @@ class LossTracker(object):
     self.dev_start_time = self.start_time
 
   @handle_xnmt_event
-  def on_new_epoch(self):
+  def on_new_epoch(self, training_regimen, num_steps):
     """
     Clear epoch-wise counters for starting a new training epoch.
     """
-    self.epoch_loss = xnmt.loss.LossBuilder()
-    self.epoch_words = 0
-    self.epoch_num += 1
-    self.sent_num = 0
-    self.sent_num_not_report_train = 0
-    self.sent_num_not_report_dev = 0
-    self.last_report_words = 0
-    self.last_report_train_time = time.time()
+    if training_regimen is self.training_regimen:
+      self.total_train_sent = num_steps
+      self.epoch_loss = xnmt.loss.LossBuilder()
+      self.epoch_words = 0
+      self.epoch_num += 1
+      self.sent_num = 0
+      self.sent_num_not_report_train = 0
+      self.sent_num_not_report_dev = 0
+      self.last_report_words = 0
+      self.last_report_train_time = time.time()
 
   def update_epoch_loss(self, src, trg, loss):
     """

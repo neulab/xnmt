@@ -131,7 +131,7 @@ class GeneratorModel(object):
     pass
 
   @register_xnmt_event
-  def new_epoch(self):
+  def new_epoch(self, training_regimen, num_steps):
     pass
 
   @register_xnmt_event
