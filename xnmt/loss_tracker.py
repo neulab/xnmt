@@ -41,12 +41,12 @@ class LossTracker(object):
     self.dev_start_time = self.start_time
 
   @handle_xnmt_event
-  def on_new_epoch(self, training_regimen, num_steps):
+  def on_new_epoch(self, training_regimen, num_sents):
     """
     Clear epoch-wise counters for starting a new training epoch.
     """
     if training_regimen is self.training_regimen:
-      self.total_train_sent = num_steps
+      self.total_train_sent = num_sents
       self.epoch_loss = xnmt.loss.LossBuilder()
       self.epoch_words = 0
       self.epoch_num += 1

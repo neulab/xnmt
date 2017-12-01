@@ -148,24 +148,101 @@ class TrainingRegimen(Serializable):
         print('using reloaded data')
       # reload the data   
       self.corpus_parser._read_training_corpus(self.corpus_parser.training_corpus) # TODO: fix
-      self.pack_batches()
       # restart data generation
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.training_state.epoch_num, shell=True)
     else:
       print('new data set is not ready yet, using data from last epoch.')
 
   @register_xnmt_event
-  def new_epoch(self, training_regimen, num_steps):
+  def new_epoch(self, training_regimen, num_sents):
+    pass
+
+  ##### NEW MULTITASK CODE ######
+  
+  def should_stop_training(self):
+    return self.early_stopping_reached or self.training_state.epoch_num > self.run_for_epochs
+  
+  def cur_num_minibatches(self):
+    return len(self.train_src)
+  
+  def cur_num_sentences(self):
+    return len(self.corpus_parser.training_corpus.train_src_data)
+  
+  def advance_epoch(self):
+    if self.reload_command is not None:
+      self._augment_data_next_epoch()
+    self.training_state.epoch_seed = random.randint(0,2147483647)
+    random.seed(self.training_state.epoch_seed)
+    np.random.seed(self.training_state.epoch_seed)
+    self.pack_batches()
     self.training_state.epoch_num += 1
     self.training_state.steps_into_epoch = 0
+    self.minibatch_order = list(range(0, self.cur_num_minibatches()))
+    np.random.shuffle(self.minibatch_order)
+    self.new_epoch(training_regimen=self, num_sents=self.cur_num_sentences())
+  
+  def next_minibatch(self):
+    while True:
+      self.advance_epoch()
+      for batch_num in self.minibatch_order:
+        src = self.train_src[batch_num]
+        trg = self.train_trg[batch_num]
+        yield src, trg
+  
+  def training_step(self, src, trg):
+    loss_builder = LossBuilder()
+    standard_loss = self.model.calc_loss(src, trg, self.training_strategy)
+    if standard_loss.__class__ == LossBuilder:
+      loss = None
+      for loss_name, loss_expr in standard_loss.loss_nodes:
+        loss_builder.add_loss(loss_name, loss_expr)
+        loss = loss_expr if not loss else loss + loss_expr
+      standard_loss = loss
+
+    else:
+      loss_builder.add_loss("loss", standard_loss)
+
+    additional_loss = self.model.calc_additional_loss(dy.nobackprop(-standard_loss))
+    if additional_loss != None:
+      loss_builder.add_loss("additional_loss", additional_loss)
+
+    loss_value = loss_builder.compute()
+    self.logger.update_epoch_loss(src, trg, loss_builder)
+    self.logger.report_train_process()
+
+    return loss_value
+    
+  def update_weights(self, loss):
+    if self.dynet_profiling > 0:
+      dy.print_text_graphviz()
+    loss.backward()
+    self.trainer.update()
+    
+  def run_training(self, update_weights=True):
+    self.model.set_train(update_weights)
+    for src,trg in self.next_minibatch():
+      if self.should_stop_training(): break
+      dy.renew_cg()
+      loss = self.training_step(src, trg)
+      if update_weights: self.update_weights(loss)
+      if self.checkpoint_needed():
+        if update_weights: self.model.set_train(False)
+        self.checkpoint()
+        if update_weights: self.model.set_train(True)
+    
+
+  ################################
+
   
   def run_epochs(self):
-    epoch_i = 0
-    while True:
-      self.one_epoch()
-      epoch_i += 1
-      if self.early_stopping_reached or (self.run_for_epochs is not None and epoch_i >= self.run_for_epochs):
-        break
+    self.run_training()
+    
+#     epoch_i = 0
+#     while True:
+#       self.one_epoch()
+#       epoch_i += 1
+#       if self.early_stopping_reached or (self.run_for_epochs is not None and epoch_i >= self.run_for_epochs):
+#         break
 
   def one_epoch(self, update_weights=True):
     """
@@ -175,11 +252,11 @@ class TrainingRegimen(Serializable):
     if self.reload_command is not None:
       self._augment_data_next_epoch()
     self.new_epoch(training_regimen=self, 
-                   num_steps=len(self.corpus_parser.training_corpus.train_src_data))
+                   num_sents=self.cur_num_sentences())
 
-    self.model.set_train(update_weights)
-    order = list(range(0, len(self.train_src)))
+    order = list(range(0, self.cur_num_minibatches()))
     np.random.shuffle(order)
+    self.model.set_train(update_weights)
     for batch_num in order:
       src = self.train_src[batch_num]
       trg = self.train_trg[batch_num]
@@ -218,6 +295,11 @@ class TrainingRegimen(Serializable):
       self.logger.report_train_process()
       if self.logger.should_report_dev():
         self.dev_evaluation()
+
+  def checkpoint_needed(self):
+    return self.logger.should_report_dev()
+  def checkpoint(self):
+    self.dev_evaluation()
 
   def dev_evaluation(self, out_ext=".dev_hyp", ref_ext=".dev_ref", encoding='utf-8'):
     self.model.set_train(False)
@@ -270,13 +352,13 @@ class TrainingRegimen(Serializable):
         YamlSerializer().save_to_file(self.model_file,
                                            self,
                                            self.yaml_context.dynet_param_collection)
-      self.cur_attempt = 0
+      self.training_state.cur_attempt = 0
     else:
       # otherwise: learning rate decay / early stopping
-      self.cur_attempt += 1
-      if self.lr_decay < 1.0 and self.cur_attempt >= self.attempts_before_lr_decay:
-        self.num_times_lr_decayed += 1
-        if self.num_times_lr_decayed > self.lr_decay_times:
+      self.training_state.cur_attempt += 1
+      if self.lr_decay < 1.0 and self.training_state.cur_attempt >= self.attempts_before_lr_decay:
+        self.training_state.num_times_lr_decayed += 1
+        if self.training_state.num_times_lr_decayed > self.lr_decay_times:
           print('  Early stopping')
           self.early_stopping_reached = True
         else:
@@ -307,3 +389,4 @@ class TrainingState(object):
     self.cur_attempt = 0
     self.epoch_num = 0
     self.steps_into_epoch = 0
+    self.epoch_seed = random.randint(0,2147483647) # used to pack and shuffle minibatches; storing helps resuming crashed trainings

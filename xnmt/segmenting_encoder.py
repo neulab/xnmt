@@ -205,7 +205,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     return self._final_encoder_state
 
   @handle_xnmt_event
-  def on_new_epoch(self, training_regimen, num_steps):
+  def on_new_epoch(self, training_regimen, num_sents):
     self.lmbd.grow_param(self.warmup_counter)
     self.warmup_counter += 1
     lmbd = self.lmbd.get_value(self.warmup_counter)

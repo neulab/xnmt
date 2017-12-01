@@ -17,6 +17,10 @@ class GeneratorModel(object):
     pass
 
   @register_xnmt_event
+  def new_epoch(self, training_regimen, num_sents):
+    pass
+
+  @register_xnmt_event
   def set_train(self, val):
     pass
 
