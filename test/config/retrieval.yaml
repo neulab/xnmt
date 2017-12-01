@@ -35,7 +35,7 @@ retriever:
       database: !StandardRetrievalDatabase
         reader: !PlainTextReader {}
         database_file: examples/data/debug.en
-  decode:
+  decode: !XnmtDecoder
     src_file: examples/data/debug.ja
   evaluate:
     ref_file: examples/data/debug.smallids

@@ -45,7 +45,7 @@ reinforce:
         layers: 1
         mlp_hidden_dim: 32
         bridge: !NoBridge {}
-  decode:
+  decode: !XnmtDecoder
     src_file: examples/data/head.ja
   evaluate:
     ref_file: examples/data/head.en

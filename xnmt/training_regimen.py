@@ -236,15 +236,20 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
 
     eval_scores = {"loss" : loss_score}
     if len(list(filter(lambda e: e!="loss", self.evaluators))) > 0:
-      self.decode_args["src_file"] = self.corpus_parser.training_corpus.dev_src
-      self.decode_args["candidate_id_file"] = self.corpus_parser.training_corpus.dev_id_file
+#       self.decode_args["src_file"] = self.corpus_parser.training_corpus.dev_src
+#       self.decode_args["candidate_id_file"] = self.corpus_parser.training_corpus.dev_id_file
+      trg_file = None
       if self.model_file:
         out_file = self.model_file + out_ext
         out_file_ref = self.model_file + ref_ext
-        self.decode_args["trg_file"] = out_file
+        trg_file = out_file
       # Decoding + post_processing
-      xnmt.xnmt_decode.xnmt_decode(model_elements=(self.corpus_parser, self.model), **self.decode_args)
-      output_processor = xnmt.xnmt_decode.output_processor_for_spec(self.decode_args.get("post_process", "none")) # TODO: hack, refactor
+#       xnmt.xnmt_decode.xnmt_decode(model_elements=(self.corpus_parser, self.model), **self.xnmt_decoder)
+      self.xnmt_decoder(src_file = self.corpus_parser.training_corpus.dev_src,
+                                   trg_file = trg_file,
+                                   candidate_id_file = self.corpus_parser.training_corpus.dev_id_file,
+                                   model_elements=(self.corpus_parser, self.model))
+      output_processor = self.xnmt_decoder.get_output_processor() # TODO: hack, refactor
       # Copy Trg to Ref
       processed = []
       with io.open(self.corpus_parser.training_corpus.dev_trg, encoding=encoding) as fin:

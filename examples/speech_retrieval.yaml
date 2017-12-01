@@ -43,7 +43,7 @@ standard-dropout0.1:
       database: !StandardRetrievalDatabase
         reader: !ContVecReader {}
         database_file: examples/data/vgg20.npz
-  decode:
+  decode: !XnmtDecoder
     src_file: examples/data/mfcc_tx20.npz
   evaluate:
     ref_file: examples/data/flickr_tx20.ids

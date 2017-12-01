@@ -112,7 +112,7 @@ standard-preproc:
         layers: 1
         mlp_hidden_dim: 512
         bridge: !NoBridge {}
-  decode:
+  decode: !XnmtDecoder
     src_file: examples/output/test.norm.ja
   evaluate:
     ref_file: examples/output/test.norm.en

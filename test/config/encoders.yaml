@@ -23,7 +23,7 @@ defaults: &defaults
           train_trg: examples/data/head.en
           dev_src: examples/data/head.ja
           dev_trg: examples/data/head.en
-  decode:
+  decode: !XnmtDecoder
     src_file: examples/data/head.ja
   evaluate:
     ref_file: examples/data/head.en

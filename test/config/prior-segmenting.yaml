@@ -58,7 +58,7 @@ prior-segmenting:
         layers: 1
         mlp_hidden_dim: 16
         bridge: !CopyBridge {}
-  decode:
+  decode: !XnmtDecoder
     src_file: 
       - examples/data/head-char.ja
       - examples/data/head-seg.ja
