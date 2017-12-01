@@ -53,7 +53,7 @@ class TrainingRegimen(Serializable):
     :param corpus_parser:
     :param model_file:
     :param model:
-    :param yaml_context: (TODO: remove default value)
+    :param yaml_context:
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
     :param batcher: Type of batcher. Defaults to SrcBatcher of batch size 32.
     :param training_strategy:
@@ -103,7 +103,8 @@ class TrainingRegimen(Serializable):
     
     self.training_strategy = training_strategy or TrainingStrategy(TrainingMLELoss())
     self.pretrained_model_file = pretrained_model_file
-    self.create_corpus_and_model()
+    if self.pretrained_model_file:
+      self.yaml_context.dynet_param_collection.load_from_data_file(self.pretrained_model_file + '.data')
 
     self.model.initialize_training_strategy(self.training_strategy)
 
@@ -111,7 +112,7 @@ class TrainingRegimen(Serializable):
     if src_format == "contvec":
       self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
     self.pack_batches()
-    self.logger = BatchLossTracker(dev_every, self.total_train_sent)
+    self.logger = BatchLossTracker(dev_every, len(self.corpus_parser.get_training_corpus().train_src_data))
 
     self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(self.yaml_context, 0.1)
        
@@ -127,17 +128,10 @@ class TrainingRegimen(Serializable):
 
   def pack_batches(self):
     self.train_src, self.train_trg = \
-      self.batcher.pack(self.corpus_parser.training_corpus.train_src_data, self.corpus_parser.training_corpus.train_trg_data)
+      self.batcher.pack(self.corpus_parser.get_training_corpus().train_src_data, self.corpus_parser.get_training_corpus().train_trg_data)
     self.dev_src, self.dev_trg = \
-      self.batcher.pack(self.corpus_parser.training_corpus.dev_src_data, self.corpus_parser.training_corpus.dev_trg_data)
+      self.batcher.pack(self.corpus_parser.get_training_corpus().dev_src_data, self.corpus_parser.get_training_corpus().dev_trg_data)
 
-  def create_corpus_and_model(self):
-    if not hasattr(self.corpus_parser.training_corpus, "train_src_data"): # TODO: not so pretty, needs refactoring
-      self.corpus_parser._read_training_corpus(self.corpus_parser.training_corpus)
-    self.total_train_sent = len(self.corpus_parser.training_corpus.train_src_data)
-    if self.pretrained_model_file:
-      self.yaml_context.dynet_param_collection.load_from_data_file(self.pretrained_model_file + '.data')
-    
   def _augment_data_initial(self):
     augment_command = self.reload_command
     print('initial augmentation')
