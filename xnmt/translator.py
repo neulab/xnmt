@@ -299,7 +299,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     if isinstance(src.mask, type(None)):
       src_mask = np.zeros((batch_size, src_len), dtype=np.int)
     else:
-      # src_embeddings = self.mask_embeddings(src_embeddings, src.mask.np_arr)
+      src_embeddings = self.mask_embeddings(src_embeddings, src.mask.np_arr)
       src_mask = src.mask.np_arr.astype(np.int)
     src_embeddings = self.make_input_embedding(src_embeddings, src_len)
 
@@ -307,7 +307,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     if isinstance(trg.mask, type(None)):
       trg_mask = np.zeros((batch_size, trg_len), dtype=np.int)
     else:
-      # dec_input_embeddings = self.mask_embeddings(dec_input_embeddings, trg.mask.np_arr)
+      dec_input_embeddings = self.mask_embeddings(dec_input_embeddings, trg.mask.np_arr)
       trg_mask = trg.mask.np_arr.astype(np.int)
     dec_input_embeddings = self.make_input_embedding(dec_input_embeddings, trg_len)
 
