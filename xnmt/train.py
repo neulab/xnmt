@@ -29,7 +29,6 @@ from xnmt.training_corpus import *
 from xnmt.loss_tracker import *
 from xnmt.segmenting_encoder import *
 from xnmt.loss import LossBuilder
-from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.training_strategy import TrainingStrategy, TrainingMLELoss
 from xnmt.serializer import YamlSerializer, Serializable
 import xnmt.xnmt_decode
@@ -44,7 +43,7 @@ This will be the main class to perform training.
 class TrainingRegimen(Serializable):
   yaml_tag = u'!TrainingRegimen'
   def __init__(self, yaml_context, corpus_parser, model_file, model, glob={},
-               dev_every=0, batcher=None, training_strategy=None, save_num_checkpoints=1,
+               dev_every=0, batcher=None, training_strategy=None, 
                pretrained_model_file="", src_format="text", trainer=None, 
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
@@ -57,7 +56,6 @@ class TrainingRegimen(Serializable):
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
     :param batcher: Type of batcher. Defaults to SrcBatcher of batch size 32.
     :param training_strategy:
-    :param save_num_checkpoints (int): Save recent n best checkpoints
     :param pretrained_model_file: Path of pre-trained model file
     :param src_format: Format of input data: text/contvec
     :param trainer: Trainer object, default is SGD with learning rate 0.1

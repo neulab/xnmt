@@ -9,6 +9,7 @@ speech-2layers:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     eval_metrics: cer,wer
+    save_num_checkpoints: 2
   train: !TrainingRegimen
     run_for_epochs: 20
     src_format: contvec

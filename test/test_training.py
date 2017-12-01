@@ -213,7 +213,6 @@ class TestTrainDevLoss(unittest.TestCase):
                                             )
     train_args['model_file'] = None
     train_args['trainer'] = None
-    train_args['save_num_checkpoints'] = 0
     train_args['batcher'] = SrcBatcher(batch_size=5, break_ties_randomly=False)
     training_regimen = xnmt.train.TrainingRegimen(yaml_context=self.model_context, **train_args)
     training_regimen.model_context = self.model_context
@@ -246,7 +245,6 @@ class TestOverfitting(unittest.TestCase):
                                             decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
                                             )
     train_args['model_file'] = None
-    train_args['save_num_checkpoints'] = 0
     train_args['trainer'] = AdamTrainer(self.model_context, alpha=0.1)
     train_args['batcher'] = SrcBatcher(batch_size=10, break_ties_randomly=False)
     training_regimen = xnmt.train.TrainingRegimen(yaml_context=self.model_context, **train_args)

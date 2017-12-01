@@ -76,6 +76,7 @@ def main(overwrite_args=None):
     if not "cfg_file" in exp_args: exp_args["cfg_file"] = None
     if not "eval_only" in exp_args: exp_args["eval_only"] = False
     if not "eval_metrics" in exp_args: exp_args["eval_metrics"] = "bleu"
+    if not "save_num_checkpoints" in exp_args: exp_args["save_num_checkpoints"] = 1
     if "cfg_file" in exp_args and exp_args["cfg_file"] != None:
       shutil.copyfile(args.experiments_file, exp_args["cfg_file"])
 
@@ -89,7 +90,7 @@ def main(overwrite_args=None):
     train_args.model_file = exp_args["model_file"] # TODO: can we use param sharing for this?
     train_args.dynet_profiling = args.dynet_profiling
     model_context = ModelContext()
-    model_context.dynet_param_collection = PersistentParamCollection(exp_args["model_file"], 1)
+    model_context.dynet_param_collection = PersistentParamCollection(exp_args["model_file"], exp_args["save_num_checkpoints"])
     if hasattr(train_args, "glob"):
       for k in train_args.glob:
         setattr(model_context, k, train_args.glob[k])
