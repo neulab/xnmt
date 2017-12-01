@@ -21,6 +21,7 @@ import xnmt.conv
 import xnmt.ff
 import xnmt.segment_transducer
 import xnmt.residual
+import xnmt.training_task
 from xnmt.specialized_encoders import *
 from xnmt.decoder import *
 from xnmt.translator import *
@@ -40,7 +41,7 @@ from xnmt.events import register_xnmt_event
 This will be the main class to perform training.
 '''
 
-class TrainingRegimen(Serializable):
+class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task.TrainingTask, Serializable):
   yaml_tag = u'!TrainingRegimen'
   def __init__(self, yaml_context, corpus_parser, model_file, model, glob={},
                dev_every=0, batcher=None, loss_calculator=None, 
@@ -213,24 +214,17 @@ class TrainingRegimen(Serializable):
 
     return loss_value
     
-  def update_weights(self, loss):
-    if self.dynet_profiling > 0:
-      dy.print_text_graphviz()
-    loss.backward()
-    self.trainer.update()
-    
   def run_training(self, update_weights=True):
     self.model.set_train(update_weights)
     for src,trg in self.next_minibatch():
       dy.renew_cg()
       loss = self.training_step(src, trg)
-      if update_weights: self.update_weights(loss)
+      if update_weights: self.update_weights(loss, self.trainer, self.dynet_profiling)
       if self.checkpoint_needed():
         if update_weights: self.model.set_train(False)
         self.checkpoint()
         if update_weights: self.model.set_train(True)
       if self.should_stop_training(): break
-    
 
   def checkpoint_needed(self):
     return self.logger.should_report_dev()

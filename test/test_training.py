@@ -12,7 +12,7 @@ from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
 from xnmt.corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
 from xnmt.batcher import mark_as_batch, Mask, SrcBatcher
-import xnmt.train
+import xnmt.training_regimen
 from xnmt.vocab import Vocab
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.loss_calculator import LossCalculator
@@ -215,7 +215,7 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['trainer'] = None
     train_args['batcher'] = SrcBatcher(batch_size=5, break_ties_randomly=False)
     train_args['run_for_epochs'] = 1
-    training_regimen = xnmt.train.TrainingRegimen(yaml_context=self.model_context, **train_args)
+    training_regimen = xnmt.training_regimen.TrainingRegimen(yaml_context=self.model_context, **train_args)
     training_regimen.model_context = self.model_context
     training_regimen.run_training(update_weights=False)
     self.assertAlmostEqual(training_regimen.logger.epoch_loss.loss_values['loss'] / training_regimen.logger.epoch_words,
@@ -249,7 +249,7 @@ class TestOverfitting(unittest.TestCase):
     train_args['run_for_epochs'] = 1
     train_args['trainer'] = AdamTrainer(self.model_context, alpha=0.1)
     train_args['batcher'] = SrcBatcher(batch_size=10, break_ties_randomly=False)
-    training_regimen = xnmt.train.TrainingRegimen(yaml_context=self.model_context, **train_args)
+    training_regimen = xnmt.training_regimen.TrainingRegimen(yaml_context=self.model_context, **train_args)
     training_regimen.model_context = self.model_context
     for _ in range(50):
       training_regimen.run_training(update_weights=True)
