@@ -25,8 +25,8 @@ reinforce:
         train_trg: examples/data/head.en
         dev_src: examples/data/head.ja
         dev_trg: examples/data/head.en
-    training_strategy: !DefaultTrainingStrategy
-      loss_calculator: !TrainingReinforceLoss
+    loss_calculator: !LossCalculator
+      loss_calculator: !ReinforceLoss
         use_baseline: True
         decoder_hidden_dim: 32
     model: !DefaultTranslator

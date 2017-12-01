@@ -11,8 +11,8 @@ from xnmt.retriever import *
 from xnmt.translator import *
 from xnmt.search_strategy import *
 from xnmt.options import OptionParser, Option
-from xnmt import training_strategy
-from xnmt.training_strategy import TrainingStrategy
+from xnmt import loss_calculator
+from xnmt.loss_calculator import LossCalculator
 
 '''
 This will be the main class to perform decoding.
@@ -22,7 +22,7 @@ NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
 
 def xnmt_decode(src_file, trg_file, model_elements=None, model_file=None, ref_file=None, max_src_len=None,
                 input_format="text", post_process="none", candidate_id_file=None, report_path=None, report_type="html",
-                beam=1, max_len=100, len_norm_type=None, mode="onebest", training_strategy=TrainingStrategy()):
+                beam=1, max_len=100, len_norm_type=None, mode="onebest", loss_calculator=LossCalculator()):
   """
   :param src_file: path of input src file to be translated
   :param trg_file: path of file where trg translatons will be written
@@ -96,7 +96,7 @@ def xnmt_decode(src_file, trg_file, model_elements=None, model_file=None, ref_fi
     ref_scores = []
     for src, ref in zip(batched_src, batched_ref):
       dy.renew_cg()
-      loss_expr = generator.calc_loss(src, ref, training_strategy)
+      loss_expr = generator.calc_loss(src, ref, loss_calculator)
       ref_scores.extend(loss_expr.value())
     ref_scores = [-x for x in ref_scores]
 

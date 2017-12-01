@@ -29,7 +29,7 @@ from xnmt.training_corpus import *
 from xnmt.loss_tracker import *
 from xnmt.segmenting_encoder import *
 from xnmt.loss import LossBuilder
-from xnmt.training_strategy import TrainingStrategy, TrainingMLELoss
+from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.serializer import YamlSerializer, Serializable
 import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
@@ -43,7 +43,7 @@ This will be the main class to perform training.
 class TrainingRegimen(Serializable):
   yaml_tag = u'!TrainingRegimen'
   def __init__(self, yaml_context, corpus_parser, model_file, model, glob={},
-               dev_every=0, batcher=None, training_strategy=None, 
+               dev_every=0, batcher=None, loss_calculator=None, 
                pretrained_model_file="", src_format="text", trainer=None, 
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
@@ -55,7 +55,7 @@ class TrainingRegimen(Serializable):
     :param yaml_context:
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
     :param batcher: Type of batcher. Defaults to SrcBatcher of batch size 32.
-    :param training_strategy:
+    :param loss_calculator:
     :param pretrained_model_file: Path of pre-trained model file
     :param src_format: Format of input data: text/contvec
     :param trainer: Trainer object, default is SGD with learning rate 0.1
@@ -97,7 +97,7 @@ class TrainingRegimen(Serializable):
 
     self.model = model
     self.corpus_parser = corpus_parser
-    self.training_strategy = training_strategy or TrainingStrategy(TrainingMLELoss())
+    self.loss_calculator = loss_calculator or LossCalculator(MLELoss())
     self.pretrained_model_file = pretrained_model_file
     if self.pretrained_model_file:
       self.yaml_context.dynet_param_collection.load_from_data_file(self.pretrained_model_file + '.data')
@@ -192,7 +192,7 @@ class TrainingRegimen(Serializable):
   
   def training_step(self, src, trg):
     loss_builder = LossBuilder()
-    standard_loss = self.model.calc_loss(src, trg, self.training_strategy)
+    standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
     if standard_loss.__class__ == LossBuilder:
       loss = None
       for loss_name, loss_expr in standard_loss.loss_nodes:
@@ -311,7 +311,7 @@ class TrainingRegimen(Serializable):
     trg_words_cnt = 0
     for src, trg in zip(self.dev_src, self.dev_trg):
       dy.renew_cg()
-      standard_loss = self.model.calc_loss(src, trg, self.training_strategy)
+      standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
       loss_builder.add_loss("loss", standard_loss)
       trg_words_cnt += self.logger.count_trg_words(trg)
       loss_builder.compute()

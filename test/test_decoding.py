@@ -11,7 +11,7 @@ from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
 from xnmt.training_corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
 from xnmt.model_context import ModelContext, PersistentParamCollection
-from xnmt.training_strategy import TrainingStrategy
+from xnmt.loss_calculator import LossCalculator
 import xnmt.events
 
 class TestForcedDecodingOutputs(unittest.TestCase):
@@ -81,7 +81,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
     dy.renew_cg()
     train_loss = self.model.calc_loss(src=self.training_corpus.train_src_data[0],
                                       trg=self.training_corpus.train_trg_data[0],
-                                      loss_calculator=TrainingStrategy()).value()
+                                      loss_calculator=LossCalculator()).value()
     dy.renew_cg()
     self.model.initialize_generator()
     outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0,
@@ -123,7 +123,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
     dy.renew_cg()
     train_loss = self.model.calc_loss(src=self.training_corpus.train_src_data[0],
                                       trg=outputs[0].actions,
-                                      loss_calculator=TrainingStrategy()).value()
+                                      loss_calculator=LossCalculator()).value()
 
     self.assertAlmostEqual(-output_score, train_loss, places=5)
 

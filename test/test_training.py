@@ -15,7 +15,7 @@ from xnmt.batcher import mark_as_batch, Mask, SrcBatcher
 import xnmt.train
 from xnmt.vocab import Vocab
 from xnmt.model_context import ModelContext, PersistentParamCollection
-from xnmt.training_strategy import TrainingStrategy
+from xnmt.loss_calculator import LossCalculator
 import xnmt.events
 from xnmt.optimizer import AdamTrainer
 
@@ -53,14 +53,14 @@ class TestTruncatedBatchTraining(unittest.TestCase):
       dy.renew_cg()
       train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
                                    trg=trg_sents_trunc[sent_id],
-                                   loss_calculator=TrainingStrategy()).value()
+                                   loss_calculator=LossCalculator()).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
                                    trg=mark_as_batch(trg_sents_trunc),
-                                   loss_calculator=TrainingStrategy()).value()
+                                   loss_calculator=LossCalculator()).value()
     self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)
 
   def test_loss_model1(self):
@@ -144,14 +144,14 @@ class TestBatchTraining(unittest.TestCase):
       dy.renew_cg()
       train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
                                    trg=trg_sents[sent_id],
-                                   loss_calculator=TrainingStrategy()).value()
+                                   loss_calculator=LossCalculator()).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
                                    trg=mark_as_batch(trg_sents_padded, trg_masks),
-                                   loss_calculator=TrainingStrategy()).value()
+                                   loss_calculator=LossCalculator()).value()
     self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)
 
   def test_loss_model1(self):
@@ -204,7 +204,7 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['corpus_parser'] = BilingualCorpusParser(training_corpus = training_corpus,
                                                         src_reader = PlainTextReader(),
                                                         trg_reader = PlainTextReader())
-    train_args['training_strategy'] = TrainingStrategy()
+    train_args['loss_calculator'] = LossCalculator()
     train_args['model'] = DefaultTranslator(src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
                                             encoder=BiLSTMSeqTransducer(self.model_context),
                                             attender=MlpAttender(self.model_context),
@@ -238,7 +238,7 @@ class TestOverfitting(unittest.TestCase):
     train_args['corpus_parser'] = BilingualCorpusParser(training_corpus = training_corpus,
                                                         src_reader = PlainTextReader(),
                                                         trg_reader = PlainTextReader())
-    train_args['training_strategy'] = TrainingStrategy()
+    train_args['loss_calculator'] = LossCalculator()
     train_args['model'] = DefaultTranslator(src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
                                             encoder=BiLSTMSeqTransducer(self.model_context),
                                             attender=MlpAttender(self.model_context),
