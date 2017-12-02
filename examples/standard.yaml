@@ -1,6 +1,5 @@
 standard:
   experiment:
-    external_eval_script: examples/eval.sh
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
@@ -13,7 +12,7 @@ standard:
       avg_batch_size: 10
     glob:
       dropout: 0.1
-      default_layer_dim: 64
+      default_layer_dim: 512
     restart_trainer: True
     trainer: !AdamTrainer
       alpha: 0.0002
@@ -35,7 +34,7 @@ standard:
       trg_embedder: !SimpleWordEmbedder {}
       decoder: !MlpSoftmaxDecoder
         layers: 1
-        mlp_hidden_dim: 64
+        mlp_hidden_dim: 512
         bridge: !CopyBridge {}
         label_smoothing: 0.1
   decode: !XnmtDecoder
