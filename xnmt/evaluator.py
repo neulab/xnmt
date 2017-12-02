@@ -377,7 +377,7 @@ class ExternalEvaluator(object):
     Calculate the quality of output according to an external script.
     :param ref: list of list of reference words
     :param hyp: list of list of decoded words
-    :return: external eval script
+    :return: external eval script score
     """
     proc = subprocess.Popen([self.path], stdout=subprocess.PIPE, shell=True)
     (out, err) = proc.communicate()
