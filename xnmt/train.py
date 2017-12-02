@@ -233,7 +233,8 @@ class TrainingRegimen(Serializable):
       loss_value = loss_builder.compute()
       self.logger.update_epoch_loss(src, trg, loss_builder)
       if update_weights:
-        loss_value.backward()
+        # loss_value.backward()
+        dy.mean_batches(standard_loss).backward()
         self.trainer.update()
 
       # Devel reporting
