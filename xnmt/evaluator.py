@@ -103,7 +103,7 @@ class ExternalScore(EvalScore):
   def metric_name(self): return "External"
   def higher_is_better(self): return self.higher_is_better
   def score_str(self):
-    return "{:.3f}".format(self.value())
+    return "{:.3f}".format(self.value)
 
 class Evaluator(object):
   """
