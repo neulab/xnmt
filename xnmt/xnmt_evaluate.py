@@ -55,6 +55,14 @@ def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu"):
     hyp_postprocess = lambda x: ast.literal_eval(x)
     ref_postprocess = lambda x: int(x)
     evaluator = MeanAvgPrecisionEvaluator(nbest=int(nbest))
+  elif eval_type == 'external':
+    path = eval_param.get("path", None)
+    higher_better = eval_param.get("higher_better", True)
+    if path == None:
+      print 'no path for external evaluation script'
+      return None
+    evaluator = ExternalEvaluator(path=path, higher_better=higher_better)
+
   else:
     raise RuntimeError("Unknown evaluation metric {}".format(eval_type))
 

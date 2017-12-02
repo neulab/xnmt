@@ -6,7 +6,7 @@ import sys
 import six
 from six.moves import range
 from subprocess import Popen
-import subprocess
+
 import dynet as dy
 
 # all Serializable objects must be imported here, otherwise we get in trouble with the
@@ -43,7 +43,7 @@ This will be the main class to perform training.
 
 class TrainingRegimen(Serializable):
   yaml_tag = u'!TrainingRegimen'
-  def __init__(self, corpus_parser, model_file, model, external_eval_script=None, yaml_context=None, glob={},
+  def __init__(self, corpus_parser, model_file, model, yaml_context=None, glob={},
                dev_every=0, batcher=None, training_strategy=None, save_num_checkpoints=1,
                pretrained_model_file="", src_format="text",
                trainer=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
@@ -53,7 +53,6 @@ class TrainingRegimen(Serializable):
     :param corpus_parser:
     :param model_file:
     :param model:
-    :param external_eval_script:
     :param yaml_context: (TODO: remove default value)
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
     :param batcher: Type of batcher. Defaults to SrcBatcher of batch size 32.
@@ -75,7 +74,7 @@ class TrainingRegimen(Serializable):
     dy.renew_cg()
 
     # TODO: don't need to keep a dedicated args object any longer
-    args = dict(dev_every=dev_every, batcher=batcher, external_eval_script=external_eval_script,
+    args = dict(dev_every=dev_every, batcher=batcher,
                corpus_parser=corpus_parser, training_strategy=training_strategy, model_file=model_file, save_num_checkpoints=save_num_checkpoints,
                pretrained_model_file=pretrained_model_file, src_format=src_format, default_layer_dim=glob.get("default_layer_dim", 512),
                trainer=trainer, lr_decay=lr_decay, lr_decay_times=lr_decay_times, attempts_before_lr_decay=attempts_before_lr_decay,
@@ -96,10 +95,6 @@ class TrainingRegimen(Serializable):
     self.cur_attempt = 0
 
     self.evaluators = [s.lower() for s in self.args["dev_metrics"].split(",") if s.strip()!=""]
-    if self.args["external_eval_script"]:
-        print('external eval script in: {}'.format(self.args["external_eval_script"]))
-        self.evaluators.append("external")
-
     if self.args["schedule_metric"].lower() not in self.evaluators:
               self.evaluators.append(self.args["schedule_metric"].lower())
     if "loss" not in self.evaluators: self.evaluators.append("loss")
@@ -281,17 +276,8 @@ class TrainingRegimen(Serializable):
       if self.args["model_file"]:
         self.evaluate_args["hyp_file"] = out_file
         self.evaluate_args["ref_file"] = out_file_ref
-
-      if self.args["external_eval_script"]:
-        proc = Popen([self.args["external_eval_script"]], stdout=subprocess.PIPE, shell=True)
-        (out, err) = proc.communicate()
-        print("external eval script dev score: {}".format(out))
-        external_score = float(out)
-        eval_scores['external'] = external_score
-
       for evaluator in self.evaluators:
         if evaluator=="loss": continue
-        if evaluator == "external": continue
         self.evaluate_args["evaluator"] = evaluator
         eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(**self.evaluate_args)
         eval_scores[evaluator] = eval_score
