@@ -112,7 +112,7 @@ class Evaluator(object):
 
   def evaluate(self, ref, hyp):
     """
-  Calculate the quality of output given references.
+  Calculate the quality of output given a references.
   :param ref: list of reference sents ( a sent is a list of tokens )
   :param hyp: list of hypothesis sents ( a sent is a list of tokens )
   :return:
@@ -374,7 +374,7 @@ class ExternalEvaluator(object):
 
   def evaluate(self, ref, hyp):
     """
-    Calculate the quality of output given a references.
+    Calculate the quality of output according to an external script.
     :param ref: list of list of reference words
     :param hyp: list of list of decoded words
     :return: external eval script
