@@ -282,34 +282,41 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     emb_block += dy.inputTensor(self.position_encoding_block[0, :, :length])
     return emb_block
 
+  def sentence_block_embed(self, embed, x, mask):
+    batch, length = x.shape
+    x_mask = mask.reshape((batch * length,))
+    _, units = embed.shape()  # According to updated Dynet
+    e = dy.concatenate_cols([dy.zeros(units) if x_mask[j] == 1 else embed[id_] for j, id_ in enumerate(x.reshape((batch * length,)))])
+    assert (e.dim() == ((units, batch * length), 1))
+    e = dy.reshape(e, (units, length), batch_size=batch)
+    assert (e.dim() == ((units, length), batch))
+    return e
+
   def calc_loss(self, src, trg, get_prediction=False):
     # self.start_sent(src)
-    src_embeddings = self.src_embedder.embed_sent(src)
-    src_embeddings = src_embeddings.as_tensor()
-    trg_embeddings = self.trg_embedder.embed_sent(trg)
 
-    # Appending the embedding of START_TOKEN at time step 1 and removing the last time step embedding
-    # Calculating the embedding of the START TOKEN
-    ss = mark_as_batch([Vocab.SS] * len(trg)) if is_batched(trg) else Vocab.SS
-    ss_embeddings = self.trg_embedder.embed(ss)
-    dec_input_embeddings = ExpressionSequence([ss_embeddings] + trg_embeddings.expr_list[:-1])
-    dec_input_embeddings = dec_input_embeddings.as_tensor()
+    src_words = np.array(list(map(lambda x: [Vocab.SS] + x.words, src)))
+    batch_size, src_len = src_words.shape
 
-    (embed_dim, src_len), batch_size = src_embeddings.dim()
     if isinstance(src.mask, type(None)):
       src_mask = np.zeros((batch_size, src_len), dtype=np.int)
     else:
-      src_embeddings = self.mask_embeddings(src_embeddings, src.mask.np_arr)
-      src_mask = src.mask.np_arr.astype(np.int)
+      src_mask = np.concatenate([np.zeros((batch_size, 1), dtype=np.int), src.mask.np_arr.astype(np.int)], axis=1)
+
+    src_embeddings = self.sentence_block_embed(self.src_embedder.embeddings, src_words, src_mask)
     src_embeddings = self.make_input_embedding(src_embeddings, src_len)
 
-    (embed_dim, trg_len), batch_size = dec_input_embeddings.dim()
+
+    trg_words = np.array(list(map(lambda x: [Vocab.SS] + x.words[:-1], trg)))
+    batch_size, trg_len = trg_words.shape
+
     if isinstance(trg.mask, type(None)):
       trg_mask = np.zeros((batch_size, trg_len), dtype=np.int)
     else:
-      dec_input_embeddings = self.mask_embeddings(dec_input_embeddings, trg.mask.np_arr)
       trg_mask = trg.mask.np_arr.astype(np.int)
-    dec_input_embeddings = self.make_input_embedding(dec_input_embeddings, trg_len)
+
+    trg_embeddings = self.sentence_block_embed(self.trg_embedder.embeddings, trg_words, trg_mask)
+    trg_embeddings = self.make_input_embedding(trg_embeddings, trg_len)
 
     xx_mask = self.make_attention_mask(src_mask, src_mask)
     xy_mask = self.make_attention_mask(trg_mask, src_mask)
@@ -317,7 +324,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     yy_mask *= self.make_history_mask(trg_mask)
 
     z_blocks = self.encoder(src_embeddings, xx_mask)
-    h_block = self.decoder(dec_input_embeddings, z_blocks, xy_mask, yy_mask)
+    h_block = self.decoder(trg_embeddings, z_blocks, xy_mask, yy_mask)
 
     if get_prediction:
       y_len = h_block.dim()[0][1]
