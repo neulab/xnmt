@@ -291,6 +291,7 @@ class TrainingRegimen(Serializable):
 
       for evaluator in self.evaluators:
         if evaluator=="loss": continue
+        if evaluator == "external": continue
         self.evaluate_args["evaluator"] = evaluator
         eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(**self.evaluate_args)
         eval_scores[evaluator] = eval_score
