@@ -112,7 +112,7 @@ class Evaluator(object):
 
   def evaluate(self, ref, hyp):
     """
-  Calculate the quality of output given a references.
+  Calculate the quality of output given references.
   :param ref: list of reference sents ( a sent is a list of tokens )
   :param hyp: list of hypothesis sents ( a sent is a list of tokens )
   :return:
@@ -361,7 +361,8 @@ class CEREvaluator(object):
 
 class ExternalEvaluator(object):
   """
-  A class to evaluate the quality of output in according to an external evaluation script
+  A class to evaluate the quality of the output according to an external evaluation script.
+  The external script should only print a number representing the calculated score.
   """
 
   def __init__(self, path=None, higher_better=True):
@@ -380,7 +381,7 @@ class ExternalEvaluator(object):
     """
     proc = subprocess.Popen([self.path], stdout=subprocess.PIPE, shell=True)
     (out, err) = proc.communicate()
-    print("external eval script dev score: {}".format(out))
+    print("external eval script score: {}".format(out))
     external_score = float(out)
     return ExternalScore(external_score, self.higher_better)
 
