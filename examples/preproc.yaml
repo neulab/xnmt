@@ -113,6 +113,7 @@ standard-preproc:
         mlp_hidden_dim: 512
         bridge: !NoBridge {}
   decode: !XnmtDecoder
+    post_process: join-char
     src_file: examples/output/test.norm.ja
   evaluate:
     ref_file: examples/output/test.norm.en
