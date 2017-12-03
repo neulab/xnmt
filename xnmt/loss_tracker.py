@@ -11,7 +11,7 @@ class LossTracker(object):
   A template class to track training process and generate report.
   """
 
-  REPORT_TEMPLATE           = 'Epoch %.4f: {}_loss/word=%.6f (words=%d, words/sec=%.2f, time=%s)'
+  REPORT_TEMPLATE           = 'Epoch %.4f: {}_loss/word=%.6f (words=%d, words/sec=%.2f, time=%s)\tlearning_rate: {}'
   REPORT_TEMPLATE_DEV       = '  Epoch %.4f dev %s (words=%d, words/sec=%.2f, time=%s)'
   REPORT_TEMPLATE_DEV_AUX   = '  Epoch %.4f dev [auxiliary] %s'
 
@@ -66,7 +66,7 @@ class LossTracker(object):
     return "{}-{}".format(int(seconds) // 86400,
                           time.strftime("%H:%M:%S", time.gmtime(seconds)))
 
-  def report_train_process(self):
+  def report_train_process(self, learning_rate):
     """
     Print training report if eval_train_every sents have been evaluated.
     :return: True if the training process is reported
@@ -78,7 +78,7 @@ class LossTracker(object):
       self.sent_num_not_report_train = self.sent_num_not_report_train % self.eval_train_every
       self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
       this_report_time = time.time()
-      print(LossTracker.REPORT_TEMPLATE.format('train') % (
+      print(LossTracker.REPORT_TEMPLATE.format('train', learning_rate) % (
         self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
         self.epoch_words,
         (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),

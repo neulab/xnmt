@@ -249,10 +249,6 @@ class TransformerEncoder(Serializable):
 
     self.dropout = dropout or yaml_context.dropout
 
-  # @handle_xnmt_event
-  # def on_start_sent(self, dropout):
-  #     self.set_dropout(dropout)
-
   @handle_xnmt_event
   def on_set_train(self, val):
     self.set_dropout(self.dropout if val else 0.0)
@@ -283,10 +279,6 @@ class TransformerDecoder(Serializable):
 
     self.output_affine = Linear(dy_model, input_dim, vocab_size)
     self.dropout = dropout or yaml_context.dropout
-
-  # @handle_xnmt_event
-  # def on_start_sent(self, dropout):
-  #     self.set_dropout(dropout)
 
   @handle_xnmt_event
   def on_set_train(self, val):

@@ -287,14 +287,10 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     x_mask = mask.reshape((batch * length,))
     _, units = embed.shape()  # According to updated Dynet
     e = dy.concatenate_cols([dy.zeros(units) if x_mask[j] == 1 else embed[id_] for j, id_ in enumerate(x.reshape((batch * length,)))])
-    assert (e.dim() == ((units, batch * length), 1))
     e = dy.reshape(e, (units, length), batch_size=batch)
-    assert (e.dim() == ((units, length), batch))
     return e
 
   def calc_loss(self, src, trg, get_prediction=False):
-    # self.start_sent(src)
-
     src_words = np.array(list(map(lambda x: [Vocab.SS] + x.words, src)))
     batch_size, src_len = src_words.shape
 
@@ -302,10 +298,8 @@ class TransformerTranslator(Translator, Serializable, Reportable):
       src_mask = np.zeros((batch_size, src_len), dtype=np.int)
     else:
       src_mask = np.concatenate([np.zeros((batch_size, 1), dtype=np.int), src.mask.np_arr.astype(np.int)], axis=1)
-
     src_embeddings = self.sentence_block_embed(self.src_embedder.embeddings, src_words, src_mask)
     src_embeddings = self.make_input_embedding(src_embeddings, src_len)
-
 
     trg_words = np.array(list(map(lambda x: [Vocab.SS] + x.words[:-1], trg)))
     batch_size, trg_len = trg_words.shape
@@ -335,7 +329,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
     # loss = self.decoder.output_and_loss(h_block, ref_list)
 
-    concat_t_block = (1 - trg_mask.astype('int').ravel()).reshape(-1) * np.array(ref_list)
+    concat_t_block = (1 - trg_mask.ravel()).reshape(-1) * np.array(ref_list)
     loss = self.decoder.output_and_loss(h_block, concat_t_block)
 
     # if trg.mask is not None:
