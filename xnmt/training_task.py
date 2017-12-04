@@ -50,7 +50,7 @@ class TrainingTask(object):
     :param trainer: DyNet trainer / xnmt.optimizer object
     :param dynet_profiling: if > 0, print the computation graph 
     """
-    if dynet_profiling > 0:
+    if dynet_profiling and dynet_profiling > 0:
       dy.print_text_graphviz()
     loss.backward()
     trainer.update()
