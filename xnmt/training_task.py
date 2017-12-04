@@ -1,5 +1,6 @@
 from __future__ import division, generators
 
+from collections import OrderedDict
 import dynet as dy
 from xnmt.serializer import Serializable
 
@@ -62,8 +63,7 @@ class TrainingTask(object):
     raise NotImplementedError()
 
 class BaseMultiTrainingTask(BaseTrainingRegimen, TrainingTask):
-  def __init__(self, model_file, tasks, stopping_criterion="all", dynet_profiling=0):
-    self.model_file = model_file
+  def __init__(self, tasks, stopping_criterion="all", dynet_profiling=0):
     self.dynet_profiling = dynet_profiling
     self.stopping_criterion = stopping_criterion
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
@@ -88,23 +88,25 @@ class JointMultiTrainingTask(BaseMultiTrainingTask, Serializable):
   are thus performed jointly for each task. The relative weight between
   tasks can be configured by setting each tasks batch size accordingly.
   """
-  def __init__(self, model_file, tasks, stopping_criterion="all", dynet_profiling=0):
+  def __init__(self, yaml_context, tasks, stopping_criterion="all", dynet_profiling=0):
     """
-    :param model_file:
     :param tasks: list of TrainingTask instances
     :param stopping_criterion: stop when "all" tasks signal stopping or when "any" task signals stopping
     :param dynet_profiling: if > 0, print computation graph
     """
-    super(self, JointMultiTrainingTask).__init__(model_file=model_file,
-                                                 tasks=tasks, 
+    super(JointMultiTrainingTask, self).__init__(tasks=tasks, 
                                                  stopping_criterion=stopping_criterion,
                                                  dynet_profiling=dynet_profiling)
+    self.yaml_context = yaml_context
   def run_training(self, update_weights=True):
+    task_generators = OrderedDict()
+    for task in self.tasks:
+      task_generators[task] = task.next_minibatch()
     self.trigger_train_event(update_weights)
     while True:
       task_losses = []
-      for task in self.tasks:
-        src, trg = next(task.next_minibatch()) #TODO: used properly??
+      for task, task_gen in task_generators.items():
+        src, trg = next(task_gen)
         task_losses.append(task.training_step(src, trg))
       if update_weights:
         self.update_weights(sum(task_losses), self.tasks[0].trainer, self.dynet_profiling)
@@ -118,5 +120,12 @@ class JointMultiTrainingTask(BaseMultiTrainingTask, Serializable):
         if all([task.should_stop_training() for task in self.tasks]): break
       elif self.stopping_criterion=="any":
         if any([task.should_stop_training() for task in self.tasks]): break
+  @property
+  def corpus_parser(self):
+    return self.tasks[0].corpus_parser
+  @property
+  def model(self):
+    return self.tasks[0].model
+  
 
 # TODO: implement SerialMultiTrainingTask

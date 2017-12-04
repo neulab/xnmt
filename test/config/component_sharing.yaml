@@ -13,7 +13,7 @@
 #                   has already been initialized, we re-use that initialized component instead of creating a new one.
 
 exp1.pretrain: &exp1
-  experiment:
+  experiment: &exp1_exp
     model_file: examples/output/<EXP>.mod
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
@@ -56,6 +56,8 @@ exp1.pretrain: &exp1
 
 exp2.load:
   << : *exp1
+  experiment:
+    << : *exp1_exp
+    model_file: examples/output/<EXP>.mod
   train: !TrainingRegimen
     pretrained_model_file: examples/output/exp1.pretrain.mod
-    model_file: examples/output/<EXP>.mod

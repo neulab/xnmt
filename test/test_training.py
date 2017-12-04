@@ -14,7 +14,7 @@ from xnmt.input import BilingualCorpusParser, PlainTextReader
 from xnmt.batcher import mark_as_batch, Mask, SrcBatcher
 import xnmt.training_regimen
 from xnmt.vocab import Vocab
-from xnmt.model_context import ModelContext, PersistentParamCollection
+from xnmt.model_context import ModelContext, NonPersistentParamCollection
 from xnmt.loss_calculator import LossCalculator
 import xnmt.events
 from xnmt.optimizer import AdamTrainer
@@ -24,7 +24,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
   def setUp(self):
     xnmt.events.clear()
     self.model_context = ModelContext()
-    self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
+    self.model_context.dynet_param_collection = NonPersistentParamCollection()
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
                                               train_trg = "examples/data/head.en",
                                               dev_src = "examples/data/head.ja",
@@ -112,7 +112,7 @@ class TestBatchTraining(unittest.TestCase):
   def setUp(self):
     xnmt.events.clear()
     self.model_context = ModelContext()
-    self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
+    self.model_context.dynet_param_collection = NonPersistentParamCollection()
     self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
                                               train_trg = "examples/data/head.en",
                                               dev_src = "examples/data/head.ja",
@@ -195,7 +195,7 @@ class TestTrainDevLoss(unittest.TestCase):
 
   def test_train_dev_loss_equal(self):
     self.model_context = ModelContext()
-    self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
+    self.model_context.dynet_param_collection = NonPersistentParamCollection()
     train_args = {}
     training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
                                                             train_trg = "examples/data/head.en",
@@ -211,7 +211,6 @@ class TestTrainDevLoss(unittest.TestCase):
                                             trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
                                             decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
                                             )
-    train_args['model_file'] = None
     train_args['trainer'] = None
     train_args['batcher'] = SrcBatcher(batch_size=5, break_ties_randomly=False)
     train_args['run_for_epochs'] = 1
@@ -228,7 +227,7 @@ class TestOverfitting(unittest.TestCase):
 
   def test_overfitting(self):
     self.model_context = ModelContext()
-    self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
+    self.model_context.dynet_param_collection = NonPersistentParamCollection()
     self.model_context.default_layer_dim = 16
     train_args = {}
     training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
@@ -245,7 +244,6 @@ class TestOverfitting(unittest.TestCase):
                                             trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
                                             decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
                                             )
-    train_args['model_file'] = None
     train_args['run_for_epochs'] = 1
     train_args['trainer'] = AdamTrainer(self.model_context, alpha=0.1)
     train_args['batcher'] = SrcBatcher(batch_size=10, break_ties_randomly=False)

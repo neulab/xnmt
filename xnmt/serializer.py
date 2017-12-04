@@ -2,7 +2,6 @@ import yaml
 import inspect
 import datetime
 import os
-import sys
 import six
 import copy
 
@@ -41,7 +40,7 @@ class Serializable(yaml.YAMLObject):
     This can be overwritten to share parameters that require dependent components already having been initialized.
     The order of initialization is determined by the order in which components are listed in __init__(),
               and then going bottom-up.
-    NOTE: currently only supported for top of component hierarchy, and not across lists of subcomponents
+    NOTE: currently not working across lists of subcomponents, and possibly also not for some other special cases
     
     :param initialized_subcomponents: dict
     :returns: list of DependentInitParam instances
@@ -206,7 +205,8 @@ class YamlSerializer(object):
           for item in val:
             if isinstance(item, Serializable):
               item._initialized_subcomponents = {}
-              new_init_params.append(self.init_components_bottom_up(item, [], yaml_context))
+              sub_dependent_init_params = item.dependent_init_params(item._initialized_subcomponents)
+              new_init_params.append(self.init_components_bottom_up(item, sub_dependent_init_params, yaml_context))
             else:
               new_init_params.append(item)
           init_params[init_arg] = new_init_params
@@ -257,6 +257,8 @@ class YamlSerializer(object):
 
   @staticmethod
   def init_representer(dumper, obj):
+    if not hasattr(obj, "serialize_params"):
+      raise RuntimeError("Serializing object {} that does not possess serialize_params, probably because it was created programmatically, is not possible.".format((obj,)))
     if type(obj.serialize_params)==list:
       serialize_params = {param:getattr(obj, param) for param in obj.serialize_params}
     else:
@@ -271,7 +273,7 @@ class YamlSerializer(object):
 
   def save_to_file(self, fname, mod, persistent_param_collection):
     dirname = os.path.dirname(fname)
-    if not os.path.exists(dirname):
+    if dirname and not os.path.exists(dirname):
       os.makedirs(dirname)
     with open(fname, 'w') as f:
       f.write(self.dump(mod))

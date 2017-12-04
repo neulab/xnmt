@@ -43,7 +43,7 @@ This will be the main class to perform training.
 
 class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task.TrainingTask, Serializable):
   yaml_tag = u'!TrainingRegimen'
-  def __init__(self, yaml_context, corpus_parser, model_file, model, glob={},
+  def __init__(self, yaml_context, corpus_parser, model, glob={},
                dev_every=0, batcher=None, loss_calculator=None, 
                pretrained_model_file="", src_format="text", trainer=None, 
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
@@ -51,7 +51,6 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
                reload_command=None, dynet_profiling=0):
     """
     :param corpus_parser:
-    :param model_file:
     :param model:
     :param yaml_context:
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
@@ -72,7 +71,7 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
     """
     assert yaml_context is not None
     self.yaml_context = yaml_context
-    self.model_file = model_file
+    self.model_file = self.yaml_context.dynet_param_collection.model_file
 
     if lr_decay > 1.0 or lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
