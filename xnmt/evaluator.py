@@ -3,6 +3,7 @@ import numpy as np
 import math
 import six
 import functools
+import subprocess
 from collections import defaultdict, Counter, deque
 
 from xnmt.vocab import Vocab
@@ -104,6 +105,16 @@ class RecallScore(WERScore):
 
   def metric_name(self):
     return "Recall" + str(self.nbest)
+
+class ExternalScore(EvalScore):
+  def __init__(self, value, higher_is_better=True):
+    self.value = value
+    self.higher_is_better = higher_is_better
+  def value(self): return self.value
+  def metric_name(self): return "External"
+  def higher_is_better(self): return self.higher_is_better
+  def score_str(self):
+    return "{:.3f}".format(self.value)
 
 class Evaluator(object):
   """
@@ -416,6 +427,31 @@ class CEREvaluator(object):
     hyp_char = [list("".join(hyp_sent)) for hyp_sent in hyp]
     wer_obj = self.wer_evaluator.evaluate(ref_char, hyp_char)
     return CERScore(wer_obj.value(), wer_obj.hyp_len, wer_obj.ref_len)
+
+class ExternalEvaluator(object):
+  """
+  A class to evaluate the quality of the output according to an external evaluation script.
+  The external script should only print a number representing the calculated score.
+  """
+
+  def __init__(self, path=None, higher_better=True):
+    self.path = path
+    self.higher_better = higher_better
+
+  def metric_name(self):
+    return "External eval script"
+
+  def evaluate(self, ref, hyp):
+    """
+    Calculate the quality of output according to an external script.
+    :param ref: list of list of reference words
+    :param hyp: list of list of decoded words
+    :return: external eval script score
+    """
+    proc = subprocess.Popen([self.path], stdout=subprocess.PIPE, shell=True)
+    (out, err) = proc.communicate()
+    external_score = float(out)
+    return ExternalScore(external_score, self.higher_better)
 
 if __name__ == "__main__":
   # Example 1
