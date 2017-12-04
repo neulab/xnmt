@@ -197,7 +197,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 class TransformerTranslator(Translator, Serializable, Reportable):
   yaml_tag = u'!TransformerTranslator'
 
-  def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder, input_dim=512):
+  def __init__(self, src_embedder, encoder, trg_embedder, decoder, input_dim=512):
     '''Constructor.
 
     :param src_embedder: A word embedder for the input language
@@ -209,7 +209,6 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     register_handler(self)
     self.src_embedder = src_embedder
     self.encoder = encoder
-    self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
     self.input_dim = input_dim
@@ -298,6 +297,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
       src_mask = np.zeros((batch_size, src_len), dtype=np.int)
     else:
       src_mask = np.concatenate([np.zeros((batch_size, 1), dtype=np.int), src.mask.np_arr.astype(np.int)], axis=1)
+
     src_embeddings = self.sentence_block_embed(self.src_embedder.embeddings, src_words, src_mask)
     src_embeddings = self.make_input_embedding(src_embeddings, src_len)
 

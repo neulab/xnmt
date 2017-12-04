@@ -42,6 +42,7 @@ class LossTracker(object):
     """
     Clear epoch-wise counters for starting a new training epoch.
     """
+    self.steps = 0
     self.epoch_loss = xnmt.loss.LossBuilder()
     self.epoch_words = 0
     self.epoch_num += 1
@@ -55,6 +56,7 @@ class LossTracker(object):
     """
     Update epoch-wise counters for each iteration.
     """
+    self.steps += 1
     batch_sent_num = self.count_sent_num(src)
     self.sent_num += batch_sent_num
     self.sent_num_not_report_train += batch_sent_num
@@ -79,7 +81,8 @@ class LossTracker(object):
       self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
       this_report_time = time.time()
       print(LossTracker.REPORT_TEMPLATE.format('train', learning_rate) % (
-        self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
+        # self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
+        self.fractional_epoch, self.epoch_loss.sum() / self.steps,
         self.epoch_words,
         (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
         self.format_time(time.time() - self.start_time)))

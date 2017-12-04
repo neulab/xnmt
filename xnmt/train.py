@@ -234,7 +234,6 @@ class TrainingRegimen(Serializable):
       self.logger.update_epoch_loss(src, trg, loss_builder)
       if update_weights:
         loss_value.backward()
-        # dy.mean_batches(standard_loss).backward()
         self.trainer.update()
 
       # Devel reporting
@@ -319,10 +318,13 @@ class TrainingRegimen(Serializable):
   def compute_dev_loss(self):
     loss_builder = LossBuilder()
     trg_words_cnt = 0
+    steps = 0
     for src, trg in zip(self.dev_src, self.dev_trg):
       dy.renew_cg()
+      steps += 1
       standard_loss = self.model.calc_loss(src, trg)
       loss_builder.add_loss("loss", standard_loss)
       trg_words_cnt += self.logger.count_trg_words(trg)
       loss_builder.compute()
-    return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
+    # return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
+    return trg_words_cnt, LossScore(loss_builder.sum() / steps)
