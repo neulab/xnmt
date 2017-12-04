@@ -8,8 +8,8 @@ standard:
     run_for_epochs: 30
     eval_metrics: bleu
   train: !TrainingRegimen
-    batcher: !WordSrcBatcher
-      avg_batch_size: 100
+    batcher: !SentShuffleBatcher
+      batch_size: 100
     glob:
       dropout: 0.2
       default_layer_dim: 512
@@ -31,7 +31,7 @@ standard:
       src_embedder: !SimpleWordEmbedder {}
       encoder: !TransformerEncoder
         layers: 1
-      trg_embedder: !SimpleWordEmbedder {}
+      trg_embedder: !DenseWordEmbedder {}
       decoder: !TransformerDecoder
         layers: 1
         label_smoothing: 0.0

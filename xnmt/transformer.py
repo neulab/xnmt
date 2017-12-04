@@ -157,10 +157,12 @@ class MultiHeadAttention(object):
     batch_A = dy.cmult(batch_A, mask)
     assert (batch_A.dim() == ((n_querys, n_keys), batch * h))
 
-    # TODO: Check if attention dropout needs to be applied here
+    # Attention dropout
+    batch_A = dy.dropout(batch_A, self.dropout)
+
     batch_C = dy.transpose(batch_A * dy.transpose(batch_V))
 
-    # batch_C = batch_V * dy.transpose(batch_A)  # TODO: Check the correctness of this step
+    # batch_C = batch_V * dy.transpose(batch_A)
     assert (batch_C.dim() == ((n_units // h, n_querys), batch * h))
 
     C = dy.concatenate(split_batch(batch_C, h), d=0)
@@ -277,7 +279,8 @@ class TransformerDecoder(Serializable):
       layer = DecoderLayer(dy_model, input_dim, h)
       self.layer_names.append((name, layer))
 
-    self.output_affine = Linear(dy_model, input_dim, vocab_size)
+    self.n_target_vocab = vocab_size
+    # self.output_affine = Linear(dy_model, input_dim, vocab_size)
     self.dropout_val = dropout or yaml_context.dropout
 
   @handle_xnmt_event
@@ -294,9 +297,11 @@ class TransformerDecoder(Serializable):
       e = layer(e, source, xy_mask, yy_mask)
     return e
 
-  def output_and_loss(self, h_block, concat_t_block):
+  def output_and_loss(self, h_block, concat_t_block, shared_embedder):
     # Output (all together at once for efficiency)
-    concat_logit_block = self.output_affine(h_block, reconstruct_shape=False)
+    concat_logit_block = dy.affine_transform([dy.zeros(self.n_target_vocab),
+                                              dy.parameter(shared_embedder),
+                                              TimeDistributed()(h_block)])
 
     bool_array = concat_t_block != 0
     indexes = np.argwhere(bool_array).ravel()
@@ -308,8 +313,11 @@ class TransformerDecoder(Serializable):
     # loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
     return loss
 
-  def output(self, h_block):
-    concat_logit_block = self.output_affine(h_block, reconstruct_shape=False, timedistributed=True)
+  def output(self, h_block, shared_embedder):
+    # concat_logit_block = self.output_affine(h_block, reconstruct_shape=False, timedistributed=True)
+    concat_logit_block = dy.affine_transform([dy.zeros(self.n_target_vocab),
+                                              dy.parameter(shared_embedder),
+                                              h_block])
     return concat_logit_block
 
 
