@@ -63,7 +63,7 @@ def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu"):
     path = eval_param.get("path", None)
     higher_better = eval_param.get("higher_better", True)
     if path == None:
-      print ("> no path given for external evaluation script.")
+      print ("no path given for external evaluation script.")
       return None
     evaluator = ExternalEvaluator(path=path, higher_better=higher_better)
 
