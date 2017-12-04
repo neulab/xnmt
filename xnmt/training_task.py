@@ -1,6 +1,7 @@
 from __future__ import division, generators
 
 from collections import OrderedDict
+import numpy as np
 import dynet as dy
 from xnmt.serializer import Serializable
 
@@ -128,4 +129,50 @@ class JointMultiTrainingTask(BaseMultiTrainingTask, Serializable):
     return self.tasks[0].model
   
 
-# TODO: implement SerialMultiTrainingTask
+class SerialMultiTrainingTask(BaseMultiTrainingTask, Serializable):
+  yaml_tag = u"!SerialMultiTrainingTask"
+  """
+  Multi-task training where training steps are performed one after another.
+  This may save memory because models are only loaded individually.
+  The relative weight between tasks are explicitly specified explicitly, and for
+  each step one task is drawn at random accordingly. 
+  """
+  def __init__(self, yaml_context, tasks, task_weights=None, stopping_criterion="all", dynet_profiling=0):
+    """
+    :param tasks: list of TrainingTask instances
+    :param stopping_criterion: stop when "all" tasks signal stopping or when "any" task signals stopping
+    :param dynet_profiling: if > 0, print computation graph
+    """
+    super(SerialMultiTrainingTask, self).__init__(tasks=tasks, 
+                                                 stopping_criterion=stopping_criterion,
+                                                 dynet_profiling=dynet_profiling)
+    self.task_weights = task_weights or [1./len(tasks)] * len(tasks) 
+    self.yaml_context = yaml_context
+  def run_training(self, update_weights=True):
+    task_generators = OrderedDict()
+    for task in self.tasks:
+      task_generators[task] = task.next_minibatch()
+    self.trigger_train_event(update_weights)
+    while True:
+      cur_task = np.random.choice(self.tasks, p=self.task_weights)
+      task_gen = task_generators[cur_task]
+      src, trg = next(task_gen)
+      task_loss = cur_task.training_step(src, trg)
+      if update_weights:
+        self.update_weights(task_loss, self.tasks[0].trainer, self.dynet_profiling)
+      if update_weights: self.tasks[0].model.set_train(False)
+      if cur_task.checkpoint_needed():
+        self.trigger_train_event(False)
+        cur_task.checkpoint()
+      self.trigger_train_event(update_weights)
+      if self.stopping_criterion=="all":
+        if all([task.should_stop_training() for task in self.tasks]): break
+      elif self.stopping_criterion=="any":
+        if any([task.should_stop_training() for task in self.tasks]): break
+  @property
+  def corpus_parser(self):
+    return self.tasks[0].corpus_parser
+  @property
+  def model(self):
+    return self.tasks[0].model
+  
