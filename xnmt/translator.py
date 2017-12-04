@@ -351,7 +351,6 @@ class TransformerTranslator(Translator, Serializable, Reportable):
 
     output_actions = []
     score = 0.
-    # self.start_sent()
 
     for i in range(self.max_len):
       dy.renew_cg()
@@ -370,8 +369,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     if self.report_path is not None:
       src_words = [self.reporting_src_vocab[w] for w in sents]
       trg_words = [self.trg_vocab[w] for w in output_actions]
-      attentions = self.attender.attention_vecs
-      self.set_report_input(idx, src_words, trg_words, attentions)
+      self.set_report_input(idx, src_words, trg_words)
       self.set_report_resource("src_words", src_words)
       self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
       self.generate_report(self.report_type)

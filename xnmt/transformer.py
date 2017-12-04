@@ -247,11 +247,11 @@ class TransformerEncoder(Serializable):
       layer = EncoderLayer(dy_model, input_dim, h)
       self.layer_names.append((name, layer))
 
-    self.dropout = dropout or yaml_context.dropout
+    self.dropout_val = dropout or yaml_context.dropout
 
   @handle_xnmt_event
   def on_set_train(self, val):
-    self.set_dropout(self.dropout if val else 0.0)
+    self.set_dropout(self.dropout_val if val else 0.0)
 
   def set_dropout(self, dropout):
     self.dropout = dropout
@@ -278,11 +278,11 @@ class TransformerDecoder(Serializable):
       self.layer_names.append((name, layer))
 
     self.output_affine = Linear(dy_model, input_dim, vocab_size)
-    self.dropout = dropout or yaml_context.dropout
+    self.dropout_val = dropout or yaml_context.dropout
 
   @handle_xnmt_event
   def on_set_train(self, val):
-    self.set_dropout(self.dropout if val else 0.0)
+    self.set_dropout(self.dropout_val if val else 0.0)
 
   def set_dropout(self, dropout):
     self.dropout = dropout
