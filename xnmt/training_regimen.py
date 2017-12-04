@@ -48,7 +48,7 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
                pretrained_model_file="", src_format="text", trainer=None, 
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
-               reload_command=None, dynet_profiling=0):
+               reload_command=None, dynet_profiling=0, name=None):
     """
     :param corpus_parser:
     :param model:
@@ -68,6 +68,7 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
     :param reload_command: Command to change the input data after each epoch.
                            --epoch EPOCH_NUM will be appended to the command.
                            To just reload the data after each epoch set the command to 'true'.
+    :param name: will be prepended to log outputs if given
     """
     assert yaml_context is not None
     self.yaml_context = yaml_context
@@ -106,7 +107,7 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
     if src_format == "contvec":
       self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
     self.pack_batches()
-    self.logger = BatchLossTracker(self, dev_every)
+    self.logger = BatchLossTracker(self, dev_every, name)
 
     self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(self.yaml_context, 0.1)
        
