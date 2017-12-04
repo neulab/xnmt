@@ -3,7 +3,7 @@ import sys
 import io
 import ast
 
-from xnmt.evaluator import BLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator
+from xnmt.evaluator import BLEUEvaluator, GLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator
 from xnmt.options import OptionParser
 from xnmt.xnmt_decode import NO_DECODING_ATTEMPTED
 
@@ -41,6 +41,10 @@ def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu"):
   if eval_type == "bleu":
     ngram = int(eval_param.get("ngram", 4))
     evaluator = BLEUEvaluator(ngram=int(ngram))
+  elif eval_type == "gleu":
+    min_len = int(eval_param.get("min", 1))
+    max_len = int(eval_param.get("max", 4))
+    evaluator = GLEUEvaluator(min_length=min_len, max_length=max_len)
   elif eval_type == "wer":
     evaluator = WEREvaluator()
   elif eval_type == "cer":
