@@ -8,8 +8,8 @@ standard:
     run_for_epochs: 30
     eval_metrics: bleu
   train: !TrainingRegimen
-    batcher: !SentShuffleBatcher
-      batch_size: 100
+    batcher: !WordSrcBatcher
+      avg_batch_size: 120
     glob:
       dropout: 0.2
       default_layer_dim: 512
