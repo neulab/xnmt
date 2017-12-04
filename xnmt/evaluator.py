@@ -60,6 +60,17 @@ class BLEUScore(EvalScore):
                                                                             self.hyp_len,
                                                                             self.ref_len)
 
+class GLEUScore(EvalScore):
+  def __init__(self, gleu, hyp_len, ref_len):
+    self.gleu = gleu
+    self.hyp_len = hyp_len
+    self.ref_len = ref_len
+  def value(self): return self.gleu
+  def metric_name(self): return "GLEU"
+  def higher_is_better(self): return True
+  def score_str(self):
+    return "{:.6f}".format(self.value())
+
 class WERScore(EvalScore):
   def __init__(self, wer, hyp_len, ref_len):
     self.wer = wer
@@ -273,6 +284,64 @@ class BLEUEvaluator(Evaluator):
 
     return clipped_ngram_count, candidate_ngram_count
 
+class GLEUEvaluator(Evaluator):
+  # Class for computing GLEU Scores
+  def __init__(self, min_length=1, max_length=4):
+    self.min = min_length
+    self.max = max_length
+
+  def extract_all_ngrams(self, tokens):
+    """
+    Extracts ngram counts from the input string
+    :param tokens: tokens of string for which the ngram is to be computed
+    :return: a Counter object containing ngram counts for self.min <= n <= self.max
+    """
+    num_words = len(tokens)
+    ngram_count = Counter()
+    for i, first_token in enumerate(tokens[0: num_words]):
+      for n in range(self.min, self.max + 1):
+        outer_range = i + n
+        if outer_range <= num_words:
+          ngram_tuple = tuple(tokens[i: outer_range])
+          ngram_count[ngram_tuple] += 1
+    return ngram_count
+
+  def evaluate(self, ref, hyp):
+    """
+    :rtype: object
+    :param ref: list of reference sents ( a sent is a list of tokens )
+    :param hyp: list of hypothesis sents ( a sent is a list of tokens )
+    :return: Formatted string having GLEU Score
+    """
+    assert (len(ref) == len(hyp)), \
+      "Length of Reference Corpus and Candidate Corpus should be same"
+    corpus_n_match = 0
+    corpus_total = 0
+
+    total_ref_len, total_hyp_len = 0, 0
+    for ref_sent, hyp_sent in zip(ref, hyp):
+      total_hyp_len += len(ref_sent)
+      total_ref_len += len(hyp_sent)
+
+      hyp_ngrams = self.extract_all_ngrams(hyp_sent)
+      tot_ngrams_hyp = sum(hyp_ngrams.values())
+      ref_ngrams = self.extract_all_ngrams(ref_sent)
+      tot_ngrams_ref = sum(ref_ngrams.values())
+
+      overlap_ngrams = ref_ngrams & hyp_ngrams
+      n_match = sum(overlap_ngrams.values())
+      n_total = max(tot_ngrams_hyp, tot_ngrams_ref)
+
+      corpus_n_match += n_match
+      corpus_total += n_total
+
+    if corpus_total == 0:
+      gleu_score = 0.0
+    else:
+      gleu_score = corpus_n_match / corpus_total
+    return GLEUScore(gleu_score, total_ref_len, total_hyp_len)
+
+
 class WEREvaluator(Evaluator):
   """
   A class to evaluate the quality of output in terms of word error rate.
@@ -377,11 +446,18 @@ class ExternalEvaluator(object):
     Calculate the quality of output according to an external script.
     :param ref: list of list of reference words
     :param hyp: list of list of decoded words
+<<<<<<< HEAD
     :return: external eval script
     """
     proc = subprocess.Popen([self.path], stdout=subprocess.PIPE, shell=True)
     (out, err) = proc.communicate()
     print("external eval script score: {}".format(out))
+=======
+    :return: external eval script score
+    """
+    proc = subprocess.Popen([self.path], stdout=subprocess.PIPE, shell=True)
+    (out, err) = proc.communicate()
+>>>>>>> 4a937f0027a47b2d151f9ce8f15e14bb7e03d642
     external_score = float(out)
     return ExternalScore(external_score, self.higher_better)
 
