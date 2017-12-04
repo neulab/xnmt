@@ -23,10 +23,10 @@ standard:
       src_reader: !PlainTextReader {}
       trg_reader: !PlainTextReader {}
       training_corpus: !BilingualTrainingCorpus
-        train_src: examples/data/head.ja
-        train_trg: examples/data/head.en
-        dev_src: examples/data/head.ja
-        dev_trg: examples/data/head.en
+        train_src: examples/data/train-big.ja
+        train_trg: examples/data/train-big.en
+        dev_src: examples/data/dev.ja
+        dev_trg: examples/data/dev.en
     model: !TransformerTranslator
       src_embedder: !SimpleWordEmbedder {}
       encoder: !TransformerEncoder
