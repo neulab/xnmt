@@ -285,7 +285,8 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     batch, length = x.shape
     x_mask = mask.reshape((batch * length,))
     _, units = embed.shape()  # According to updated Dynet
-    e = dy.concatenate_cols([dy.zeros(units) if x_mask[j] == 1 else embed[id_] for j, id_ in enumerate(x.reshape((batch * length,)))])
+    # e = dy.concatenate_cols([dy.zeros(units) if x_mask[j] == 1 else embed[id_] for j, id_ in enumerate(x.reshape((batch * length,)))])
+    e = dy.lookup_batch(embed, x.reshape((batch * length,)))
     e = dy.reshape(e, (units, length), batch_size=batch)
     return e
 
