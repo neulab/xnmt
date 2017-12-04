@@ -450,7 +450,6 @@ class ExternalEvaluator(object):
     """
     proc = subprocess.Popen([self.path], stdout=subprocess.PIPE, shell=True)
     (out, err) = proc.communicate()
-    print("external eval script score: {}".format(out))
     external_score = float(out)
     return ExternalScore(external_score, self.higher_better)
 
