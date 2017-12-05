@@ -60,3 +60,15 @@ class JoinedBPETextOutputProcessor(PlainTextOutputProcessor):
 
   def words_to_string(self, word_list):
     return u" ".join(word_list).replace(self.merge_indicator_with_space, u"")
+
+class JoinedPieceTextOutputProcessor(PlainTextOutputProcessor):
+  '''
+  Assumes a sentence-piece vocabulary and joins them to form words;
+  space_token could be the starting character of a piece
+  per default, the u'\u2581' indicates spaces
+  '''
+  def __init__(self, space_token=u"\u2581"):
+    self.space_token = space_token
+
+  def words_to_string(self, word_list):
+    return u"".join(word_list).replace(self.space_token, u" ").strip()
