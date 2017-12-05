@@ -14,8 +14,8 @@ speech-multi:
       name: first_task
       run_for_epochs: 2
       src_format: contvec
-      trainer: !AdamTrainer &task1_trainer
-        _xnmt_id: task1_trainer
+      trainer: !AdamTrainer &task1_trainer 
+        _xnmt_id: task1_trainer # Reference-sharing (both tasks' trainer must point to the same object)
       batcher: !SrcBatcher
         batch_size: 2
       glob:
@@ -53,7 +53,7 @@ speech-multi:
       name: second_task
       run_for_epochs: 5
       src_format: contvec
-      trainer: *task1_trainer
+      trainer: *task1_trainer # point to task 1 trainer
       batcher: !SrcBatcher
         batch_size: 3
       glob:

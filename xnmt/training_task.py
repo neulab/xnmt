@@ -20,7 +20,9 @@ class BaseTrainingRegimen(object):
 
 class TrainingTask(object):
   """
-  Base class for a training task.
+  Base class for a training task. Training tasks can perform training steps
+  and keep track of the training state, but may not implement the actual training
+  loop.
   """
   def __init__(self, model):
     self.model = model
@@ -64,7 +66,16 @@ class TrainingTask(object):
     raise NotImplementedError()
 
 class BaseMultiTrainingTask(BaseTrainingRegimen, TrainingTask):
+  """
+  Base class for multi-task training classes.
+  Mainly initializes tasks, performs sanity-checks, and manages set_train events.
+  """
   def __init__(self, tasks, stopping_criterion="all", dynet_profiling=0):
+    """
+    :param tasks: list of TrainingTask instances. The first item takes on the role of the main task.
+    :param stopping_criterion: stop when "all" tasks signal stopping or when "any" task signals stopping
+    :param dynet_profiling: if > 0, print computation graph
+    """
     self.dynet_profiling = dynet_profiling
     self.stopping_criterion = stopping_criterion
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
@@ -74,6 +85,11 @@ class BaseMultiTrainingTask(BaseTrainingRegimen, TrainingTask):
         raise ValueError("Tasks must reference-share Trainer objects!")
     self.train = None
   def trigger_train_event(self, value):
+    """
+    Trigger set_train event, but only if that would lead to a change of the value
+    of set_train.
+    :param value: True or False
+    """
     if self.train is None:
       self.train = value
       self.tasks[0].model.set_train(value)
@@ -90,11 +106,6 @@ class JointMultiTrainingTask(BaseMultiTrainingTask, Serializable):
   tasks can be configured by setting each tasks batch size accordingly.
   """
   def __init__(self, yaml_context, tasks, stopping_criterion="all", dynet_profiling=0):
-    """
-    :param tasks: list of TrainingTask instances
-    :param stopping_criterion: stop when "all" tasks signal stopping or when "any" task signals stopping
-    :param dynet_profiling: if > 0, print computation graph
-    """
     super(JointMultiTrainingTask, self).__init__(tasks=tasks, 
                                                  stopping_criterion=stopping_criterion,
                                                  dynet_profiling=dynet_profiling)
@@ -123,9 +134,15 @@ class JointMultiTrainingTask(BaseMultiTrainingTask, Serializable):
         if any([task.should_stop_training() for task in self.tasks]): break
   @property
   def corpus_parser(self):
+    """
+    Allow access to corpus_parser of main task
+    """
     return self.tasks[0].corpus_parser
   @property
   def model(self):
+    """
+    Allow access to model of main task
+    """
     return self.tasks[0].model
   
 
@@ -133,16 +150,13 @@ class SerialMultiTrainingTask(BaseMultiTrainingTask, Serializable):
   yaml_tag = u"!SerialMultiTrainingTask"
   """
   Multi-task training where training steps are performed one after another.
-  This may save memory because models are only loaded individually.
   The relative weight between tasks are explicitly specified explicitly, and for
   each step one task is drawn at random accordingly. 
+  Compared to JointMultiTrainingTask, this class may save memory because models
+  are only loaded individually. It also supports disabling training for some
+  tasks by setting the task weight to 0.
   """
   def __init__(self, yaml_context, tasks, task_weights=None, stopping_criterion="all", dynet_profiling=0):
-    """
-    :param tasks: list of TrainingTask instances
-    :param stopping_criterion: stop when "all" tasks signal stopping or when "any" task signals stopping
-    :param dynet_profiling: if > 0, print computation graph
-    """
     super(SerialMultiTrainingTask, self).__init__(tasks=tasks, 
                                                  stopping_criterion=stopping_criterion,
                                                  dynet_profiling=dynet_profiling)
@@ -171,8 +185,14 @@ class SerialMultiTrainingTask(BaseMultiTrainingTask, Serializable):
         if any([task.should_stop_training() for task in self.tasks]): break
   @property
   def corpus_parser(self):
+    """
+    Allow access to corpus_parser of main task
+    """
     return self.tasks[0].corpus_parser
   @property
   def model(self):
+    """
+    Allow access to model of main task
+    """
     return self.tasks[0].model
   
