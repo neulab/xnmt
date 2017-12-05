@@ -31,7 +31,7 @@ standard:
       src_embedder: !SimpleWordEmbedder {}
       encoder: !TransformerEncoder
         layers: 1
-      trg_embedder: !DenseWordEmbedder {}
+      trg_embedder: !SimpleWordEmbedder {}
       decoder: !TransformerDecoder
         layers: 1
         label_smoothing: 0.0

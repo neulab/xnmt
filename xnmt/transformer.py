@@ -68,14 +68,14 @@ class LayerNorm(object):
     self.p_b = dy_model.add_parameters(dim=d_hid)
 
   def __call__(self, input_expr):
-    # g = dy.parameter(self.p_g)
-    # b = dy.parameter(self.p_b)
-    #
-    # (_, seq_len), batch_size = input_expr.dim()
-    # input = TimeDistributed()(input_expr)
-    # output = dy.layer_norm(input, g, b)
-    # return ReverseTimeDistributed()(output, seq_len, batch_size)
-    return input_expr
+    g = dy.parameter(self.p_g)
+    b = dy.parameter(self.p_b)
+
+    (_, seq_len), batch_size = input_expr.dim()
+    input = TimeDistributed()(input_expr)
+    output = dy.layer_norm(input, g, b)
+    return ReverseTimeDistributed()(output, seq_len, batch_size)
+    # return input_expr
 
 
 def split_rows(X, h):
@@ -157,9 +157,7 @@ class MultiHeadAttention(object):
     batch_A = dy.cmult(batch_A, mask)
     assert (batch_A.dim() == ((n_querys, n_keys), batch * h))
 
-    # Attention dropout
-    batch_A = dy.dropout(batch_A, self.dropout)
-
+    batch_A = dy.dropout(batch_A, self.dropout)  # Attention dropout
     batch_C = dy.transpose(batch_A * dy.transpose(batch_V))
 
     # batch_C = batch_V * dy.transpose(batch_A)
@@ -280,7 +278,7 @@ class TransformerDecoder(Serializable):
       self.layer_names.append((name, layer))
 
     self.n_target_vocab = vocab_size
-    # self.output_affine = Linear(dy_model, input_dim, vocab_size)
+    self.output_affine = Linear(dy_model, input_dim, vocab_size)
     self.dropout_val = dropout or yaml_context.dropout
 
   @handle_xnmt_event
@@ -297,11 +295,12 @@ class TransformerDecoder(Serializable):
       e = layer(e, source, xy_mask, yy_mask)
     return e
 
-  def output_and_loss(self, h_block, concat_t_block, shared_embedder):
+  def output_and_loss(self, h_block, concat_t_block, shared_embedder=None):
     # Output (all together at once for efficiency)
-    concat_logit_block = dy.affine_transform([dy.zeros(self.n_target_vocab),
-                                              dy.parameter(shared_embedder),
-                                              TimeDistributed()(h_block)])
+    # concat_logit_block = dy.affine_transform([dy.zeros(self.n_target_vocab),
+    #                                           dy.parameter(shared_embedder),
+    #                                           TimeDistributed()(h_block)])
+    concat_logit_block = self.output_affine(h_block, reconstruct_shape=False)
 
     bool_array = concat_t_block != 0
     indexes = np.argwhere(bool_array).ravel()
@@ -313,11 +312,12 @@ class TransformerDecoder(Serializable):
     # loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
     return loss
 
-  def output(self, h_block, shared_embedder):
-    # concat_logit_block = self.output_affine(h_block, reconstruct_shape=False, timedistributed=True)
-    concat_logit_block = dy.affine_transform([dy.zeros(self.n_target_vocab),
-                                              dy.parameter(shared_embedder),
-                                              h_block])
+  def output(self, h_block, shared_embedder=None):
+    concat_logit_block = self.output_affine(h_block, reconstruct_shape=False, timedistributed=True)
+    # concat_logit_block = dy.affine_transform([dy.zeros(self.n_target_vocab),
+    #                                           dy.parameter(shared_embedder),
+    #                                           h_block])
+
     return concat_logit_block
 
 
