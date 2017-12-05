@@ -3,7 +3,7 @@ from __future__ import division, generators
 from collections import OrderedDict
 import numpy as np
 import dynet as dy
-from xnmt.serializer import Serializable
+from xnmt.serializer import Serializable, YamlSerializer
 
 
 class BaseTrainingRegimen(object):
@@ -62,7 +62,17 @@ class TrainingTask(object):
   def checkpoint_needed(self):
     raise NotImplementedError()
 
-  def checkpoint(self, out_ext=".dev_hyp", ref_ext=".dev_ref", encoding='utf-8'):
+  def checkpoint(self, control_learning_schedule=False, out_ext=".dev_hyp", ref_ext=".dev_ref", 
+                 encoding='utf-8'):
+    """
+    Performs a dev checkpoint
+    :param control_learning_schedule: If False, only evaluate dev data.
+                                      If True, also perform model saving, LR decay etc. if needed.
+    :param out_ext:
+    :param ref_ext:
+    :param encoding:
+    :returns: True if the model needs saving, False otherwise
+    """
     raise NotImplementedError()
 
 class BaseMultiTrainingTask(BaseTrainingRegimen, TrainingTask):
@@ -70,22 +80,23 @@ class BaseMultiTrainingTask(BaseTrainingRegimen, TrainingTask):
   Base class for multi-task training classes.
   Mainly initializes tasks, performs sanity-checks, and manages set_train events.
   """
-  def __init__(self, tasks, stopping_criterion=0, dynet_profiling=0):
+  def __init__(self, yaml_context, tasks, dynet_profiling=0):
     """
-    :param tasks: list of TrainingTask instances. The first item takes on the role of the main task.
-    :param stopping_criterion: "all": stop when all tasks signal stopping
-                               "any" stop when "any" task signals stopping
-                               integer n: stop when the n-th task signals stopping 
+    :param tasks: list of TrainingTask instances.
+                  The first item takes on the role of the main task, meaning it
+                  will control early stopping, learning rate schedule, and
+                  model checkpoints.
     :param dynet_profiling: if > 0, print computation graph
     """
     self.dynet_profiling = dynet_profiling
-    self.stopping_criterion = stopping_criterion
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
     for task in tasks[1:]:
       if not task.trainer is tasks[0].trainer:
         raise ValueError("Tasks must reference-share Trainer objects!")
     self.train = None
+    self.yaml_serializer = YamlSerializer()
+    self.model_file = yaml_context.dynet_param_collection.model_file
   def trigger_train_event(self, value):
     """
     Trigger set_train event, but only if that would lead to a change of the value
@@ -99,7 +110,27 @@ class BaseMultiTrainingTask(BaseTrainingRegimen, TrainingTask):
       if value!=self.train:
         self.train = value
         self.tasks[0].model.set_train(value)
-        
+  @property
+  def corpus_parser(self):
+    """
+    Allow access to corpus_parser of main task
+    """
+    return self.tasks[0].corpus_parser
+  @property
+  def model(self):
+    """
+    Allow access to model of main task
+    """
+    return self.tasks[0].model
+  @property
+  def xnmt_decoder(self):
+    return self._xnmt_decoder
+  @xnmt_decoder.setter
+  def xnmt_decoder(self, value):
+    self._xnmt_decoder = value
+    for task in self.tasks:
+      task.xnmt_decoder = value
+
 class JointMultiTrainingTask(BaseMultiTrainingTask, Serializable):
   yaml_tag = u"!JointMultiTrainingTask"
   """
@@ -107,9 +138,9 @@ class JointMultiTrainingTask(BaseMultiTrainingTask, Serializable):
   are thus performed jointly for each task. The relative weight between
   tasks can be configured by setting each tasks batch size accordingly.
   """
-  def __init__(self, yaml_context, tasks, stopping_criterion="all", dynet_profiling=0):
-    super(JointMultiTrainingTask, self).__init__(tasks=tasks, 
-                                                 stopping_criterion=stopping_criterion,
+  def __init__(self, yaml_context, tasks, dynet_profiling=0):
+    super(JointMultiTrainingTask, self).__init__(yaml_context,
+                                                 tasks=tasks, 
                                                  dynet_profiling=dynet_profiling)
     self.yaml_context = yaml_context
   def run_training(self, update_weights=True):
@@ -125,29 +156,15 @@ class JointMultiTrainingTask(BaseMultiTrainingTask, Serializable):
       if update_weights:
         self.update_weights(sum(task_losses), self.tasks[0].trainer, self.dynet_profiling)
       if update_weights: self.tasks[0].model.set_train(False)
-      for task in self.tasks:
+      for task_i, task in enumerate(self.tasks):
         if task.checkpoint_needed():
           self.trigger_train_event(False)
-          task.checkpoint()
+          should_save = task.checkpoint(control_learning_schedule = (task_i==0) )
+          if should_save:
+            self.yaml_serializer.save_to_file(self.model_file, self,
+                                          self.yaml_context.dynet_param_collection)
       self.trigger_train_event(update_weights)
-      if self.stopping_criterion=="all":
-        if all([task.should_stop_training() for task in self.tasks]): break
-      elif self.stopping_criterion=="any":
-        if any([task.should_stop_training() for task in self.tasks]): break
-      else:
-        if self.tasks[self.stopping_criterion].should_stop_training(): break
-  @property
-  def corpus_parser(self):
-    """
-    Allow access to corpus_parser of main task
-    """
-    return self.tasks[0].corpus_parser
-  @property
-  def model(self):
-    """
-    Allow access to model of main task
-    """
-    return self.tasks[0].model
+      if self.tasks[0].should_stop_training(): break
   
 
 class SerialMultiTrainingTask(BaseMultiTrainingTask, Serializable):
@@ -160,10 +177,10 @@ class SerialMultiTrainingTask(BaseMultiTrainingTask, Serializable):
   are only loaded individually. It also supports disabling training for some
   tasks by setting the task weight to 0.
   """
-  def __init__(self, yaml_context, tasks, task_weights=None, stopping_criterion="all", dynet_profiling=0):
-    super(SerialMultiTrainingTask, self).__init__(tasks=tasks, 
-                                                 stopping_criterion=stopping_criterion,
-                                                 dynet_profiling=dynet_profiling)
+  def __init__(self, yaml_context, tasks, task_weights=None, dynet_profiling=0):
+    super(SerialMultiTrainingTask, self).__init__(yaml_context,
+                                                  tasks=tasks, 
+                                                  dynet_profiling=dynet_profiling)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks) 
     self.yaml_context = yaml_context
   def run_training(self, update_weights=True):
@@ -172,7 +189,8 @@ class SerialMultiTrainingTask(BaseMultiTrainingTask, Serializable):
       task_generators[task] = task.next_minibatch()
     self.trigger_train_event(update_weights)
     while True:
-      cur_task = np.random.choice(self.tasks, p=self.task_weights)
+      cur_task_i = np.random.choice(range(len(self.tasks)), p=self.task_weights)
+      cur_task = self.tasks[cur_task_i]
       task_gen = task_generators[cur_task]
       src, trg = next(task_gen)
       task_loss = cur_task.training_step(src, trg)
@@ -181,24 +199,9 @@ class SerialMultiTrainingTask(BaseMultiTrainingTask, Serializable):
       if update_weights: self.tasks[0].model.set_train(False)
       if cur_task.checkpoint_needed():
         self.trigger_train_event(False)
-        cur_task.checkpoint()
+        should_save = cur_task.checkpoint(control_learning_schedule = (cur_task_i==0))
+        if should_save:
+          self.yaml_serializer.save_to_file(self.model_file, self,
+                                            self.yaml_context.dynet_param_collection)
       self.trigger_train_event(update_weights)
-      if self.stopping_criterion=="all":
-        if all([task.should_stop_training() for task in self.tasks]): break
-      elif self.stopping_criterion=="any":
-        if any([task.should_stop_training() for task in self.tasks]): break
-      else:
-        if self.tasks[self.stopping_criterion].should_stop_training(): break
-  @property
-  def corpus_parser(self):
-    """
-    Allow access to corpus_parser of main task
-    """
-    return self.tasks[0].corpus_parser
-  @property
-  def model(self):
-    """
-    Allow access to model of main task
-    """
-    return self.tasks[0].model
-  
+      if self.tasks[0].should_stop_training(): break

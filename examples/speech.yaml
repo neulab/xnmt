@@ -14,6 +14,7 @@ speech-2layers:
     run_for_epochs: 20
     src_format: contvec
     trainer: !AdamTrainer {}
+    dev_metrics: wer
     glob:
       default_layer_dim: 32
       dropout: 0.4

@@ -73,6 +73,7 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
     assert yaml_context is not None
     self.yaml_context = yaml_context
     self.model_file = self.yaml_context.dynet_param_collection.model_file
+    self.yaml_serializer = YamlSerializer()
 
     if lr_decay > 1.0 or lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
@@ -261,18 +262,27 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
       if update_weights: self.update_weights(loss, self.trainer, self.dynet_profiling)
       if self.checkpoint_needed():
         if update_weights: self.model.set_train(False)
-        self.checkpoint()
+        should_save = self.checkpoint()
+        if should_save:
+          self.yaml_serializer.save_to_file(self.model_file, self,
+                                        self.yaml_context.dynet_param_collection)
         if update_weights: self.model.set_train(True)
       if self.should_stop_training(): break
 
   def checkpoint_needed(self):
     return self.logger.should_report_dev()
 
-  def checkpoint(self, out_ext=".dev_hyp", ref_ext=".dev_ref", encoding='utf-8'):
+  def checkpoint(self, control_learning_schedule=True, out_ext=".dev_hyp", ref_ext=".dev_ref", encoding='utf-8'):
     """
-    Dev checkpoint: evaluate dev data, possibly store model and perform learning rate decay etc.
+    Performs a dev checkpoint
+    :param control_learning_schedule: If False, only evaluate dev data.
+                                      If True, also perform model saving, LR decay etc. if needed.
+    :param out_ext:
+    :param ref_ext:
+    :param encoding:
+    :returns: True if the model needs saving, False otherwise
     """
-    self.model.set_train(False)
+    ret = False
     self.logger.new_dev()
     trg_words_cnt, loss_score = self.compute_dev_loss() # forced decoding loss
 
@@ -321,31 +331,32 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
       if metric != self.schedule_metric:
         self.logger.report_auxiliary_score(eval_scores[metric])
     
-    # Write out the model if it's the best one
-    if self.logger.report_dev_and_check_model(self.model_file):
-      if self.model_file is not None:
-        YamlSerializer().save_to_file(self.model_file,
-                                           self,
-                                           self.yaml_context.dynet_param_collection)
-      self.training_state.cur_attempt = 0
-    else:
-      # otherwise: learning rate decay / early stopping
-      self.training_state.cur_attempt += 1
-      if self.lr_decay < 1.0 and self.training_state.cur_attempt >= self.attempts_before_lr_decay:
-        self.training_state.num_times_lr_decayed += 1
-        if self.training_state.num_times_lr_decayed > self.lr_decay_times:
-          print('  Early stopping')
-          self.early_stopping_reached = True
-        else:
-          self.trainer.learning_rate *= self.lr_decay
-          print('  new learning rate: %s' % self.trainer.learning_rate)
-          if self.restart_trainer:
-            print('  restarting trainer and reverting learned weights to best checkpoint..')
-            self.trainer.restart()
-            self.yaml_context.dynet_param_collection.revert_to_best_model()
+    if control_learning_schedule:
+      # Write out the model if it's the best one
+      if self.logger.report_dev_and_check_model(self.model_file):
+        if self.model_file is not None:
+          ret = True
+#           YamlSerializer().save_to_file(self.model_file,
+#                                              self,
+#                                              self.yaml_context.dynet_param_collection)
+        self.training_state.cur_attempt = 0
+      else:
+        # otherwise: learning rate decay / early stopping
+        self.training_state.cur_attempt += 1
+        if self.lr_decay < 1.0 and self.training_state.cur_attempt >= self.attempts_before_lr_decay:
+          self.training_state.num_times_lr_decayed += 1
+          if self.training_state.num_times_lr_decayed > self.lr_decay_times:
+            print('  Early stopping')
+            self.early_stopping_reached = True
+          else:
+            self.trainer.learning_rate *= self.lr_decay
+            print('  new learning rate: %s' % self.trainer.learning_rate)
+            if self.restart_trainer:
+              print('  restarting trainer and reverting learned weights to best checkpoint..')
+              self.trainer.restart()
+              self.yaml_context.dynet_param_collection.revert_to_best_model()
 
-    self.model.set_train(True)
-    return
+    return ret
 
   def compute_dev_loss(self):
     loss_builder = LossBuilder()
