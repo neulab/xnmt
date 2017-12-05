@@ -68,14 +68,14 @@ class LayerNorm(object):
     self.p_b = dy_model.add_parameters(dim=d_hid)
 
   def __call__(self, input_expr):
-    g = dy.parameter(self.p_g)
-    b = dy.parameter(self.p_b)
-
-    (_, seq_len), batch_size = input_expr.dim()
-    input = TimeDistributed()(input_expr)
-    output = dy.layer_norm(input, g, b)
-    return ReverseTimeDistributed()(output, seq_len, batch_size)
-    # return input_expr
+    # g = dy.parameter(self.p_g)
+    # b = dy.parameter(self.p_b)
+    #
+    # (_, seq_len), batch_size = input_expr.dim()
+    # input = TimeDistributed()(input_expr)
+    # output = dy.layer_norm(input, g, b)
+    # return ReverseTimeDistributed()(output, seq_len, batch_size)
+    return input_expr
 
 
 def split_rows(X, h):
@@ -157,7 +157,7 @@ class MultiHeadAttention(object):
     batch_A = dy.cmult(batch_A, mask)
     assert (batch_A.dim() == ((n_querys, n_keys), batch * h))
 
-    batch_A = dy.dropout(batch_A, self.dropout)  # Attention dropout
+    # batch_A = dy.dropout(batch_A, self.dropout)  # Attention dropout
     batch_C = dy.transpose(batch_A * dy.transpose(batch_V))
 
     # batch_C = batch_V * dy.transpose(batch_A)
@@ -307,7 +307,7 @@ class TransformerDecoder(Serializable):
     concat_logit_block = dy.pick_batch_elems(concat_logit_block, indexes)
     concat_t_block = concat_t_block[bool_array]
     loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
-    loss = dy.mean_batches(loss)
+    # loss = dy.mean_batches(loss)
 
     # loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
     return loss

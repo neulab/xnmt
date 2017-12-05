@@ -326,5 +326,5 @@ class TrainingRegimen(Serializable):
       loss_builder.add_loss("loss", standard_loss)
       trg_words_cnt += self.logger.count_trg_words(trg)
       loss_builder.compute()
-    # return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
-    return trg_words_cnt, LossScore(loss_builder.sum() / steps)
+    return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
+    #return trg_words_cnt, LossScore(loss_builder.sum() / steps)
