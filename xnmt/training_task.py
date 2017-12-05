@@ -70,10 +70,12 @@ class BaseMultiTrainingTask(BaseTrainingRegimen, TrainingTask):
   Base class for multi-task training classes.
   Mainly initializes tasks, performs sanity-checks, and manages set_train events.
   """
-  def __init__(self, tasks, stopping_criterion="all", dynet_profiling=0):
+  def __init__(self, tasks, stopping_criterion=0, dynet_profiling=0):
     """
     :param tasks: list of TrainingTask instances. The first item takes on the role of the main task.
-    :param stopping_criterion: stop when "all" tasks signal stopping or when "any" task signals stopping
+    :param stopping_criterion: "all": stop when all tasks signal stopping
+                               "any" stop when "any" task signals stopping
+                               integer n: stop when the n-th task signals stopping 
     :param dynet_profiling: if > 0, print computation graph
     """
     self.dynet_profiling = dynet_profiling
@@ -132,6 +134,8 @@ class JointMultiTrainingTask(BaseMultiTrainingTask, Serializable):
         if all([task.should_stop_training() for task in self.tasks]): break
       elif self.stopping_criterion=="any":
         if any([task.should_stop_training() for task in self.tasks]): break
+      else:
+        if self.tasks[self.stopping_criterion].should_stop_training(): break
   @property
   def corpus_parser(self):
     """
@@ -183,6 +187,8 @@ class SerialMultiTrainingTask(BaseMultiTrainingTask, Serializable):
         if all([task.should_stop_training() for task in self.tasks]): break
       elif self.stopping_criterion=="any":
         if any([task.should_stop_training() for task in self.tasks]): break
+      else:
+        if self.tasks[self.stopping_criterion].should_stop_training(): break
   @property
   def corpus_parser(self):
     """
