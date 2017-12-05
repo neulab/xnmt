@@ -42,10 +42,9 @@ class PlainTextOutputProcessor(OutputProcessor):
 class JoinedCharTextOutputProcessor(PlainTextOutputProcessor):
   '''
   Assumes a single-character vocabulary and joins them to form words;
-  per default, unicode underscores '▁' (used by sentencepiece) are treated
-  as word separating tokens
+  per default, double underscores '__' are converted to spaces
   '''
-  def __init__(self, space_token=u"▁"):
+  def __init__(self, space_token=u"__"):
     self.space_token = space_token
 
   def words_to_string(self, word_list):
