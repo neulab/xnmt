@@ -285,8 +285,8 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     batch, length = x.shape
     x_mask = mask.reshape((batch * length,))
     _, units = embed.shape()
-    e = dy.concatenate_cols([dy.zeros(units) if x_mask[j] == 1 else embed[id_] for j, id_ in enumerate(x.reshape((batch * length,)))])
-    # e = dy.lookup_batch(embed, x.reshape((batch * length,)))
+    # e = dy.concatenate_cols([dy.zeros(units) if x_mask[j] == 1 else embed[id_] for j, id_ in enumerate(x.reshape((batch * length,)))])
+    e = dy.lookup_batch(embed, x.reshape((batch * length,)))
     e = dy.reshape(e, (units, length), batch_size=batch)
     return e
 
@@ -333,20 +333,18 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     if get_prediction:
       y_len = h_block.dim()[0][1]
       last_col = dy.pick(h_block, dim=1, index=y_len - 1)
-      # logits = self.decoder.output(last_col, self.trg_embedder.embeddings)
       logits = self.decoder.output(last_col)
       return logits
 
     ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
-    # loss = self.decoder.output_and_loss(h_block, ref_list)
+    loss = self.decoder.output_and_loss(h_block, ref_list)
 
-    concat_t_block = (1 - trg_mask.ravel()).reshape(-1) * np.array(ref_list)
-    # loss = self.decoder.output_and_loss(h_block, concat_t_block, self.trg_embedder.embeddings)
-    loss = self.decoder.output_and_loss(h_block, concat_t_block)
+    # concat_t_block = (1 - trg_mask.ravel()).reshape(-1) * np.array(ref_list)
+    # loss = self.decoder.output_and_loss(h_block, concat_t_block)
 
-    # if trg.mask is not None:
-    #   mask_loss = dy.inputTensor((1 - trg.mask.np_arr.ravel()).reshape(1, -1), batched=True)
-    #   loss = dy.cmult(loss, mask_loss)
+    if trg.mask is not None:
+      mask_loss = dy.inputTensor((1 - trg.mask.np_arr.ravel()).reshape(1, -1), batched=True)
+      loss = dy.cmult(loss, mask_loss)
     return loss
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
