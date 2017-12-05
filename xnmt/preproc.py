@@ -157,9 +157,8 @@ class ExternalTokenizer(StreamTokenizer):
   def _tokenize(self, string):
     encode_proc = subprocess.Popen(self.tokenizer_command, stdin=subprocess.PIPE
         , stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # TODO: Necessary for Python 2 but breaks Python 3
-    # if isinstance(string, unicode):
-    string = string.encode('utf-8')
+    if sys.version_info[0] >= 3 or isinstance(string, unicode):
+      string = string.encode('utf-8')
     stdout, stderr = encode_proc.communicate(string)
     if stderr:
       sys.stderr.write(stderr + '\n')
