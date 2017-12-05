@@ -74,7 +74,7 @@ class TrainingRegimen(Serializable):
     dy.renew_cg()
 
     # TODO: don't need to keep a dedicated args object any longer
-    args = dict(dev_every=dev_every, batcher=batcher, 
+    args = dict(dev_every=dev_every, batcher=batcher,
                corpus_parser=corpus_parser, training_strategy=training_strategy, model_file=model_file, save_num_checkpoints=save_num_checkpoints,
                pretrained_model_file=pretrained_model_file, src_format=src_format, default_layer_dim=glob.get("default_layer_dim", 512),
                trainer=trainer, lr_decay=lr_decay, lr_decay_times=lr_decay_times, attempts_before_lr_decay=attempts_before_lr_decay,

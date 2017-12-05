@@ -3,7 +3,7 @@ import sys
 import io
 import ast
 
-from xnmt.evaluator import BLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator
+from xnmt.evaluator import BLEUEvaluator, GLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator, ExternalEvaluator
 from xnmt.options import OptionParser
 from xnmt.xnmt_decode import NO_DECODING_ATTEMPTED
 
@@ -41,6 +41,10 @@ def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu"):
   if eval_type == "bleu":
     ngram = int(eval_param.get("ngram", 4))
     evaluator = BLEUEvaluator(ngram=int(ngram))
+  elif eval_type == "gleu":
+    min_len = int(eval_param.get("min", 1))
+    max_len = int(eval_param.get("max", 4))
+    evaluator = GLEUEvaluator(min_length=min_len, max_length=max_len)
   elif eval_type == "wer":
     evaluator = WEREvaluator()
   elif eval_type == "cer":
@@ -55,6 +59,14 @@ def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu"):
     hyp_postprocess = lambda x: ast.literal_eval(x)
     ref_postprocess = lambda x: int(x)
     evaluator = MeanAvgPrecisionEvaluator(nbest=int(nbest))
+  elif eval_type == 'external':
+    path = eval_param.get("path", None)
+    higher_better = eval_param.get("higher_better", True)
+    if path == None:
+      print ("no path given for external evaluation script.")
+      return None
+    evaluator = ExternalEvaluator(path=path, higher_better=higher_better)
+
   else:
     raise RuntimeError("Unknown evaluation metric {}".format(eval_type))
 
