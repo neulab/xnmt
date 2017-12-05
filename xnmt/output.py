@@ -63,11 +63,12 @@ class JoinedBPETextOutputProcessor(PlainTextOutputProcessor):
 
 class JoinedPieceTextOutputProcessor(PlainTextOutputProcessor):
   '''
-  Assumes a bpe-based vocabulary and outputs the merged words;
-  per default, the '@' postfix indicates subwords that should be merged
+  Assumes a sentence-piece vocabulary and joins them to form words;
+  space_token could be the starting character of a piece
+  per default, the u'\u2581' indicates spaces
   '''
-  def __init__(self, merge_indicator=u"\u2581"):
-    self.merge_indicator = merge_indicator
+  def __init__(self, space_token=u"\u2581"):
+    self.space_token = space_token
 
   def words_to_string(self, word_list):
-    return u"".join(word_list).replace(self.merge_indicator, u" ").strip()
+    return u"".join(word_list).replace(self.space_token, u" ").strip()
