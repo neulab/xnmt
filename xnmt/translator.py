@@ -337,14 +337,14 @@ class TransformerTranslator(Translator, Serializable, Reportable):
       return logits
 
     ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
-    loss = self.decoder.output_and_loss(h_block, ref_list)
+    # loss = self.decoder.output_and_loss(h_block, ref_list)
 
-    # concat_t_block = (1 - trg_mask.ravel()).reshape(-1) * np.array(ref_list)
-    # loss = self.decoder.output_and_loss(h_block, concat_t_block)
+    concat_t_block = (1 - trg_mask.ravel()).reshape(-1) * np.array(ref_list)
+    loss = self.decoder.output_and_loss(h_block, concat_t_block)
 
-    if trg.mask is not None:
-      mask_loss = dy.inputTensor((1 - trg.mask.np_arr.ravel()).reshape(1, -1), batched=True)
-      loss = dy.cmult(loss, mask_loss)
+    # if trg.mask is not None:
+    #   mask_loss = dy.inputTensor((1 - trg.mask.np_arr.ravel()).reshape(1, -1), batched=True)
+    #   loss = dy.cmult(loss, mask_loss)
     return loss
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
