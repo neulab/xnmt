@@ -32,7 +32,7 @@ from xnmt.segmenting_encoder import *
 from xnmt.loss import LossBuilder
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.serializer import YamlSerializer, Serializable
-import xnmt.xnmt_decode
+from xnmt.xnmt_decode import XnmtDecoder
 import xnmt.xnmt_evaluate
 from xnmt.evaluator import LossScore
 import xnmt.optimizer
@@ -48,7 +48,8 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
                pretrained_model_file="", src_format="text", trainer=None, 
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
-               reload_command=None, dynet_profiling=0, name=None):
+               reload_command=None, dynet_profiling=0, name=None,
+               xnmt_decoder=None):
     """
     :param yaml_context:
     :param corpus_parser: an input.InputReader object
@@ -69,6 +70,7 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
                            --epoch EPOCH_NUM will be appended to the command.
                            To just reload the data after each epoch set the command to 'true'.
     :param name: will be prepended to log outputs if given
+    :param xnmt_decoder: used for inference during dev checkpoints if dev_metrics are specified
     """
     assert yaml_context is not None
     self.yaml_context = yaml_context
@@ -91,6 +93,8 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
     if schedule_metric.lower() not in self.evaluators:
               self.evaluators.append(schedule_metric.lower())
     if "loss" not in self.evaluators: self.evaluators.append("loss")
+    if dev_metrics:
+      self.xnmt_decoder = xnmt_decoder or XnmtDecoder()
 
     self.reload_command = reload_command
     if reload_command is not None:
@@ -325,20 +329,17 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
     else:
       self.logger.set_dev_score(trg_words_cnt, eval_scores[self.schedule_metric])
 
-    print("> Checkpoint")
     # print previously computed metrics
     for metric in self.evaluators:
       if metric != self.schedule_metric:
         self.logger.report_auxiliary_score(eval_scores[metric])
     
     if control_learning_schedule:
+      print("> Checkpoint")
       # Write out the model if it's the best one
       if self.logger.report_dev_and_check_model(self.model_file):
         if self.model_file is not None:
           ret = True
-#           YamlSerializer().save_to_file(self.model_file,
-#                                              self,
-#                                              self.yaml_context.dynet_param_collection)
         self.training_state.cur_attempt = 0
       else:
         # otherwise: learning rate decay / early stopping

@@ -122,14 +122,14 @@ class BaseMultiTrainingTask(BaseTrainingRegimen, TrainingTask):
     Allow access to model of main task
     """
     return self.tasks[0].model
-  @property
-  def xnmt_decoder(self):
-    return self._xnmt_decoder
-  @xnmt_decoder.setter
-  def xnmt_decoder(self, value):
-    self._xnmt_decoder = value
-    for task in self.tasks:
-      task.xnmt_decoder = value
+#   @property
+#   def xnmt_decoder(self):
+#     return self._xnmt_decoder
+#   @xnmt_decoder.setter
+#   def xnmt_decoder(self, value):
+#     self._xnmt_decoder = value
+#     for task in self.tasks:
+#       task.xnmt_decoder = value
 
 class JointMultiTrainingTask(BaseMultiTrainingTask, Serializable):
   yaml_tag = u"!JointMultiTrainingTask"
