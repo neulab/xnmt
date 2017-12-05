@@ -115,7 +115,7 @@ def main(overwrite_args=None):
     print("> Training")
     training_regimen = train_args
 #     training_regimen.xnmt_decoder = copy.copy(xnmt_decoder)
-    training_regimen.evaluate_args = copy.copy(evaluate_args)
+#     training_regimen.evaluate_args = copy.copy(evaluate_args)
 
     eval_scores = "Not evaluated"
     if not exp_args["eval_only"]:

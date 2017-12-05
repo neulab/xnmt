@@ -315,13 +315,14 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
         for line in processed:
           fout.write(line)
       # Evaluation
+      evaluate_args = {}
       if self.model_file:
-        self.evaluate_args["hyp_file"] = out_file
-        self.evaluate_args["ref_file"] = out_file_ref
+        evaluate_args["hyp_file"] = out_file
+        evaluate_args["ref_file"] = out_file_ref
       for evaluator in self.evaluators:
         if evaluator=="loss": continue
-        self.evaluate_args["evaluator"] = evaluator
-        eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(**self.evaluate_args)
+        evaluate_args["evaluator"] = evaluator
+        eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(**evaluate_args)
         eval_scores[evaluator] = eval_score
     # Logging
     if self.schedule_metric == "loss":
