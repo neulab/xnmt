@@ -30,7 +30,7 @@ class SimpleInference(Serializable):
     :param ref_file: path of file with reference translations, e.g. for forced decoding
     :param max_src_len (int): Remove sentences from data to decode that are longer than this on the source side
     :param input_format: format of input data: text/contvec
-    :param post_process: post-processing of translation outputs: none/join-char/join-bpe
+    :param post_process: post-processing of translation outputs: none/join-char/join-bpe/join-piece
     :param report_path: a path to which decoding reports will be written
     :param report_type: report to generate file/html. Can be multiple, separate with comma.
     :param beam (int):
@@ -128,5 +128,7 @@ class SimpleInference(Serializable):
       return JoinedCharTextOutputProcessor()
     elif spec == "join-bpe":
       return JoinedBPETextOutputProcessor()
+    elif spec == "join-piece":
+      return JoinedPieceTextOutputProcessor()
     else:
       raise RuntimeError("Unknown postprocessing argument {}".format(spec))
