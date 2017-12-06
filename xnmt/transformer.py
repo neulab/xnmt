@@ -307,8 +307,6 @@ class TransformerDecoder(Serializable):
     concat_logit_block = dy.pick_batch_elems(concat_logit_block, indexes)
     concat_t_block = concat_t_block[bool_array]
     loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
-
-    # loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
     return loss
 
   def output(self, h_block, shared_embedder=None):
