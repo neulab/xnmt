@@ -18,8 +18,8 @@ This will be the main class to perform decoding.
 
 NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
 
-class XnmtDecoder(Serializable):
-  yaml_tag = u'!XnmtDecoder'
+class SimpleInference(Serializable):
+  yaml_tag = u'!SimpleInference'
   def __init__(self, model_file=None, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
                   input_format="text", post_process="none", report_path=None, report_type="html",
                   beam=1, max_len=100, len_norm_type=None, mode="onebest"):

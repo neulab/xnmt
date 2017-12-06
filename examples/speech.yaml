@@ -10,7 +10,7 @@ speech-2layers:
     err_file: examples/output/<EXP>.err
     eval_metrics: cer,wer
     save_num_checkpoints: 2
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
     run_for_epochs: 20
     src_format: contvec
     trainer: !AdamTrainer {}
@@ -45,7 +45,7 @@ speech-2layers:
         layers: 1
         mlp_hidden_dim: 64
         bridge: !CopyBridge {}
-  decode: !XnmtDecoder
+  decode: !SimpleInference
     src_file: examples/data/synth.contvec.npz
   evaluate:
     ref_file: examples/data/synth.char

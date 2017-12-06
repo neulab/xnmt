@@ -7,7 +7,7 @@ defaults: &defaults
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     eval_metrics: bleu,wer
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
     run_for_epochs: 1
     glob:
       default_layer_dim: 64
@@ -35,7 +35,7 @@ defaults: &defaults
         layers: 1
         mlp_hidden_dim: 64
         bridge: !CopyBridge {}
-  decode: !XnmtDecoder
+  decode: !SimpleInference
     beam: !RandomParam
       values: [1,2,3,4,5]
     src_file: examples/data/head.ja

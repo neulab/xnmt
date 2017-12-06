@@ -83,7 +83,7 @@ standard-preproc:
         spec:
         - type: freq
           min_freq: 2
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
     run_for_epochs: 20
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader
@@ -112,7 +112,7 @@ standard-preproc:
         layers: 1
         mlp_hidden_dim: 512
         bridge: !NoBridge {}
-  decode: !XnmtDecoder
+  decode: !SimpleInference
     src_file: examples/output/test.norm.ja
   evaluate:
     ref_file: examples/output/test.norm.en

@@ -7,7 +7,7 @@ from xnmt.serializer import Serializable, YamlSerializer
 from xnmt.optimizer import LazySGDTrainer
 
 
-class BaseTrainingRegimen(object):
+class TrainingRegimen(object):
   """
   A training regimen is a class that implements a training loop.
   """
@@ -76,7 +76,7 @@ class TrainingTask(object):
     """
     raise NotImplementedError()
 
-class BaseMultiTrainingTask(BaseTrainingRegimen, TrainingTask):
+class MultiTaskTrainingRegimen(TrainingRegimen, TrainingTask):
   """
   Base class for multi-task training classes.
   Mainly initializes tasks, performs sanity-checks, and manages set_train events.
@@ -125,15 +125,15 @@ class BaseMultiTrainingTask(BaseTrainingRegimen, TrainingTask):
     """
     return self.tasks[0].model
 
-class JointMultiTrainingTask(BaseMultiTrainingTask, Serializable):
-  yaml_tag = u"!JointMultiTrainingTask"
+class JointMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
+  yaml_tag = u"!JointMultiTaskTrainingRegimen"
   """
   Multi-task training where gradients are accumulated and weight updates
   are thus performed jointly for each task. The relative weight between
   tasks can be configured by setting each tasks batch size accordingly.
   """
   def __init__(self, yaml_context, tasks, dynet_profiling=0):
-    super(JointMultiTrainingTask, self).__init__(yaml_context,
+    super(JointMultiTaskTrainingRegimen, self).__init__(yaml_context,
                                                  tasks=tasks, 
                                                  dynet_profiling=dynet_profiling)
     self.yaml_context = yaml_context
@@ -161,18 +161,18 @@ class JointMultiTrainingTask(BaseMultiTrainingTask, Serializable):
       if self.tasks[0].should_stop_training(): break
   
 
-class SerialMultiTrainingTask(BaseMultiTrainingTask, Serializable):
-  yaml_tag = u"!SerialMultiTrainingTask"
+class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
+  yaml_tag = u"!SerialMultiTaskTrainingRegimen"
   """
   Multi-task training where training steps are performed one after another.
   The relative weight between tasks are explicitly specified explicitly, and for
   each step one task is drawn at random accordingly. 
-  Compared to JointMultiTrainingTask, this class may save memory because models
+  Compared to JointMultiTaskTrainingRegimen, this class may save memory because models
   are only loaded individually. It also supports disabling training for some
   tasks by setting the task weight to 0.
   """
   def __init__(self, yaml_context, tasks, task_weights=None, dynet_profiling=0):
-    super(SerialMultiTrainingTask, self).__init__(yaml_context,
+    super(SerialMultiTaskTrainingRegimen, self).__init__(yaml_context,
                                                   tasks=tasks, 
                                                   dynet_profiling=dynet_profiling)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks) 

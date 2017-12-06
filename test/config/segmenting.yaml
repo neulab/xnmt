@@ -5,7 +5,7 @@ debug-segmenting:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     eval_metrics: bleu
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
     run_for_epochs: 2
     glob:
       default_layer_dim: 16
@@ -54,7 +54,7 @@ debug-segmenting:
         layers: 1
         mlp_hidden_dim: 16
         bridge: !CopyBridge {}
-  decode: !XnmtDecoder
+  decode: !SimpleInference
     src_file: examples/data/test-char-head5.ja
     report_path: examples/output/<EXP>.report
     report_type: html, file

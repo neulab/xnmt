@@ -5,7 +5,7 @@ debug:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     eval_metrics: bleu
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
     run_for_epochs: 1
     trainer: !AdamTrainer
       alpha: 0.01
@@ -39,7 +39,7 @@ debug:
         layers: 1
         mlp_hidden_dim: 256
         bridge: !NoBridge {}
-  decode: !XnmtDecoder
+  decode: !SimpleInference
     src_file: examples/data/head.ja
     report_path: examples/output/<EXP>.report
     report_type: html, file

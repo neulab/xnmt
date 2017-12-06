@@ -6,7 +6,7 @@ standard:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     eval_metrics: bleu,wer
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
     run_for_epochs: 2
     dev_metrics: bleu
     glob:
@@ -33,7 +33,7 @@ standard:
       decoder: !MlpSoftmaxDecoder
         layers: 1
         bridge: !CopyBridge {}
-  decode: !XnmtDecoder
+  decode: !SimpleInference
     len_norm_type: !PolynomialNormalization
       apply_during_search: true
       m: 1

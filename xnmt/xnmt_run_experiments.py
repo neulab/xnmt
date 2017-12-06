@@ -92,9 +92,9 @@ def main(overwrite_args=None):
         setattr(model_context, k, train_args.glob[k])
     train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
     
-    xnmt_decoder = exp_tasks.get("decode", {})
-    xnmt_decoder.trg_file = hyp_file
-    xnmt_decoder = YamlSerializer().initialize_if_needed(UninitializedYamlObject(xnmt_decoder), model_context)
+    inference = exp_tasks.get("decode", {})
+    inference.trg_file = hyp_file
+    inference = YamlSerializer().initialize_if_needed(UninitializedYamlObject(inference), model_context)
 
     evaluate_args = exp_tasks.get("evaluate", {})
     evaluate_args["hyp_file"] = hyp_file
@@ -120,7 +120,7 @@ def main(overwrite_args=None):
     if evaluators:
       print("> Evaluating test set")
       output.indent += 2
-      xnmt_decoder(training_regimen.corpus_parser, training_regimen.model)
+      inference(training_regimen.corpus_parser, training_regimen.model)
       eval_scores = []
       for evaluator in evaluators:
         evaluate_args["evaluator"] = evaluator

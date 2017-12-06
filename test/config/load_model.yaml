@@ -5,7 +5,7 @@ exp1-pretrain-model: &exp1
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     eval_metrics: bleu
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
     run_for_epochs: 2
     glob:
       default_layer_dim: 64
@@ -37,7 +37,7 @@ exp1-pretrain-model: &exp1
         mlp_hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
-  decode: !XnmtDecoder
+  decode: !SimpleInference
     src_file: examples/data/head.ja
   evaluate:
     ref_file: examples/data/head.en
@@ -45,7 +45,7 @@ exp1-pretrain-model: &exp1
 
 exp2-finetune-model:
   << : *exp1
-  train: !TrainingRegimen # load the pretrained model, but overwrite the corpus parser to finetune on different data (here: finetune on small sentences only)
+  train: !SimpleTrainingRegimen # load the pretrained model, but overwrite the corpus parser to finetune on different data (here: finetune on small sentences only)
     pretrained_model_file: examples/output/exp1-pretrain-model.mod
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader {}

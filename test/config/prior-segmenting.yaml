@@ -5,7 +5,7 @@ prior-segmenting:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     eval_metrics: bleu
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
     run_for_epochs: 2
     glob:
       default_layer_dim: 16
@@ -58,7 +58,7 @@ prior-segmenting:
         layers: 1
         mlp_hidden_dim: 16
         bridge: !CopyBridge {}
-  decode: !XnmtDecoder
+  decode: !SimpleInference
     src_file: 
       - examples/data/head-char.ja
       - examples/data/head-seg.ja

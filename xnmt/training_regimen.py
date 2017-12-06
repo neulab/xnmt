@@ -32,7 +32,7 @@ from xnmt.segmenting_encoder import *
 from xnmt.loss import LossBuilder
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.serializer import YamlSerializer, Serializable
-from xnmt.xnmt_decode import XnmtDecoder
+from xnmt.inference import SimpleInference
 import xnmt.xnmt_evaluate
 from xnmt.evaluator import LossScore
 import xnmt.optimizer
@@ -41,15 +41,15 @@ from xnmt.events import register_xnmt_event
 This will be the main class to perform training.
 '''
 
-class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task.TrainingTask, Serializable):
-  yaml_tag = u'!TrainingRegimen'
+class SimpleTrainingRegimen(xnmt.training_task.TrainingRegimen, xnmt.training_task.TrainingTask, Serializable):
+  yaml_tag = u'!SimpleTrainingRegimen'
   def __init__(self, yaml_context, corpus_parser, model, glob={},
                dev_every=0, batcher=None, loss_calculator=None, 
                pretrained_model_file="", src_format="text", trainer=None, 
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
                reload_command=None, dynet_profiling=0, name=None,
-               xnmt_decoder=None):
+               inference=None):
     """
     :param yaml_context:
     :param corpus_parser: an input.InputReader object
@@ -70,7 +70,7 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
                            --epoch EPOCH_NUM will be appended to the command.
                            To just reload the data after each epoch set the command to 'true'.
     :param name: will be prepended to log outputs if given
-    :param xnmt_decoder: used for inference during dev checkpoints if dev_metrics are specified
+    :param inference: used for inference during dev checkpoints if dev_metrics are specified
     """
     assert yaml_context is not None
     self.yaml_context = yaml_context
@@ -94,7 +94,7 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
               self.evaluators.append(schedule_metric.lower())
     if "loss" not in self.evaluators: self.evaluators.append("loss")
     if dev_metrics:
-      self.xnmt_decoder = xnmt_decoder or XnmtDecoder()
+      self.inference = inference or SimpleInference()
 
     self.reload_command = reload_command
     if reload_command is not None:
@@ -257,7 +257,7 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
     
   def run_training(self, update_weights=True):
     """
-    Main training loop (overwrites BaseTrainingRegimen.run_training())
+    Main training loop (overwrites TrainingRegimen.run_training())
     """
     self.model.set_train(update_weights)
     for src,trg in self.next_minibatch():
@@ -301,11 +301,11 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
         evaluate_args["hyp_file"] = out_file
         evaluate_args["ref_file"] = out_file_ref
       # Decoding + post_processing
-      self.xnmt_decoder(corpus_parser = self.corpus_parser, generator = self.model,
+      self.inference(corpus_parser = self.corpus_parser, generator = self.model,
                         src_file = self.corpus_parser.training_corpus.dev_src,
                         trg_file = trg_file,
                         candidate_id_file = self.corpus_parser.training_corpus.dev_id_file)
-      output_processor = self.xnmt_decoder.get_output_processor() # TODO: hack, refactor
+      output_processor = self.inference.get_output_processor() # TODO: hack, refactor
       # Copy Trg to Ref
       processed = []
       with io.open(self.corpus_parser.training_corpus.dev_trg, encoding=encoding) as fin:

@@ -5,7 +5,7 @@ defaults: &defaults
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     eval_metrics: bleu,wer
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
     run_for_epochs: 2
     dev_metrics: bleu
     glob:
@@ -32,7 +32,7 @@ defaults: &defaults
       decoder: !MlpSoftmaxDecoder
         layers: 1
         bridge: !CopyBridge {}
-  decode: !XnmtDecoder
+  decode: !SimpleInference
     kwargs: &defaults_decode
       src_file: examples/data/head.ja
   evaluate:
@@ -43,7 +43,7 @@ standard:
 
 forced:
   << : *defaults
-  decode: !XnmtDecoder
+  decode: !SimpleInference
     kwargs:
       << : *defaults_decode
       mode: forced
@@ -51,7 +51,7 @@ forced:
 
 forceddebug:
   << : *defaults
-  decode: !XnmtDecoder
+  decode: !SimpleInference
     kwargs:
       << : *defaults_decode
       mode: forceddebug

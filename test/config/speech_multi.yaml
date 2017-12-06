@@ -8,9 +8,9 @@ speech-multi:
     err_file: examples/output/<EXP>.err
     eval_metrics: cer,wer
     save_num_checkpoints: 2
-  train: !JointMultiTrainingTask
+  train: !JointMultiTaskTrainingRegimen
     tasks:
-    - !TrainingRegimen
+    - !SimpleTrainingRegimen
       name: first_task
       run_for_epochs: 2
       src_format: contvec
@@ -49,7 +49,7 @@ speech-multi:
           layers: 1
           mlp_hidden_dim: 64
           bridge: !CopyBridge {}
-    - !TrainingRegimen
+    - !SimpleTrainingRegimen
       name: second_task
       run_for_epochs: 5
       src_format: contvec
@@ -82,7 +82,7 @@ speech-multi:
           layers: 1
           mlp_hidden_dim: 64
           bridge: !CopyBridge {}            
-  decode: !XnmtDecoder
+  decode: !SimpleInference
     src_file: examples/data/synth.contvec.npz
   evaluate:
     ref_file: examples/data/synth.char

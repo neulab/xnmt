@@ -5,7 +5,7 @@ standard-dropout0.1:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     eval_metrics: bleu
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
     run_for_epochs: 20
     glob:
       default_layer_dim: 512
@@ -39,7 +39,7 @@ standard-dropout0.1:
         layers: 1
         mlp_hidden_dim: 512
         bridge: !CopyBridge {}
-  decode: !XnmtDecoder
+  decode: !SimpleInference
     src_file: examples/data/test.ja
   evaluate:
     ref_file: examples/data/test.en
