@@ -4,6 +4,7 @@ from collections import OrderedDict
 import numpy as np
 import dynet as dy
 from xnmt.serializer import Serializable, YamlSerializer
+from xnmt.optimizer import LazySGDTrainer
 
 
 class BaseTrainingRegimen(object):
@@ -92,8 +93,9 @@ class BaseMultiTrainingTask(BaseTrainingRegimen, TrainingTask):
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
     for task in tasks[1:]:
-      if not task.trainer is tasks[0].trainer:
-        raise ValueError("Tasks must reference-share Trainer objects!")
+      if not (isinstance(task.trainer, LazySGDTrainer) and task.trainer._optimizer is None):
+        if not task.trainer is tasks[0].trainer:
+          raise ValueError("Can instantiate only one trainer: Tasks must reference-share Trainer objects, or not specify a trainer at all!")
     self.train = None
     self.yaml_serializer = YamlSerializer()
     self.model_file = yaml_context.dynet_param_collection.model_file
@@ -122,14 +124,6 @@ class BaseMultiTrainingTask(BaseTrainingRegimen, TrainingTask):
     Allow access to model of main task
     """
     return self.tasks[0].model
-#   @property
-#   def xnmt_decoder(self):
-#     return self._xnmt_decoder
-#   @xnmt_decoder.setter
-#   def xnmt_decoder(self, value):
-#     self._xnmt_decoder = value
-#     for task in self.tasks:
-#       task.xnmt_decoder = value
 
 class JointMultiTrainingTask(BaseMultiTrainingTask, Serializable):
   yaml_tag = u"!JointMultiTrainingTask"

@@ -48,3 +48,16 @@ class AdamTrainer(XnmtOptimizer, Serializable):
   def __init__(self, yaml_context, alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
     self.optimizer = dy.AdamTrainer(yaml_context.dynet_param_collection.param_col, 
                                     alpha, beta_1, beta_2, eps)
+
+class LazySGDTrainer(XnmtOptimizer, Serializable):
+  yaml_tag = u'!SimpleSGDTrainer'
+  def __init__(self, yaml_context, e0 = 0.1):
+    self._e0 = e0
+    self._optimizer = None
+    self._yaml_context = yaml_context
+  @property
+  def optimizer(self):
+    if self._optimizer is None:
+      self._optimizer = dy.SimpleSGDTrainer(self._yaml_context.dynet_param_collection.param_col, 
+                                           self._e0)
+    return self._optimizer
