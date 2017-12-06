@@ -292,19 +292,19 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
 
     eval_scores = {"loss" : loss_score}
     if len(list(filter(lambda e: e!="loss", self.evaluators))) > 0:
-#       self.decode_args["src_file"] = self.corpus_parser.training_corpus.dev_src
-#       self.decode_args["candidate_id_file"] = self.corpus_parser.training_corpus.dev_id_file
       trg_file = None
       if self.model_file:
+        evaluate_args = {}
         out_file = self.model_file + out_ext
         out_file_ref = self.model_file + ref_ext
         trg_file = out_file
+        evaluate_args["hyp_file"] = out_file
+        evaluate_args["ref_file"] = out_file_ref
       # Decoding + post_processing
-#       xnmt.xnmt_decode.xnmt_decode(model_elements=(self.corpus_parser, self.model), **self.xnmt_decoder)
-      self.xnmt_decoder(src_file = self.corpus_parser.training_corpus.dev_src,
-                                   trg_file = trg_file,
-                                   candidate_id_file = self.corpus_parser.training_corpus.dev_id_file,
-                                   model_elements=(self.corpus_parser, self.model))
+      self.xnmt_decoder(corpus_parser = self.corpus_parser, generator = self.model,
+                        src_file = self.corpus_parser.training_corpus.dev_src,
+                        trg_file = trg_file,
+                        candidate_id_file = self.corpus_parser.training_corpus.dev_id_file)
       output_processor = self.xnmt_decoder.get_output_processor() # TODO: hack, refactor
       # Copy Trg to Ref
       processed = []
@@ -315,10 +315,6 @@ class TrainingRegimen(xnmt.training_task.BaseTrainingRegimen, xnmt.training_task
         for line in processed:
           fout.write(line)
       # Evaluation
-      evaluate_args = {}
-      if self.model_file:
-        evaluate_args["hyp_file"] = out_file
-        evaluate_args["ref_file"] = out_file_ref
       for evaluator in self.evaluators:
         if evaluator=="loss": continue
         evaluate_args["evaluator"] = evaluator
