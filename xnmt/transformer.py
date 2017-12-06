@@ -3,11 +3,11 @@ from __future__ import division, generators
 
 import numpy as np
 import dynet as dy
+from xnmt.initializer import LeCunUniform as linear_init
 from xnmt.serializer import Serializable
 from xnmt.events import register_handler, handle_xnmt_event
 
 MIN_VALUE = -10000
-linear_init = lambda x: dy.UniformInitializer(np.sqrt(3./x))
 
 
 class TimeDistributed(object):
@@ -104,7 +104,7 @@ class MultiHeadAttention(object):
   For batch computation efficiency, dot product to calculate query-key
   scores is performed all heads together.
   """
-  def __init__(self, dy_model, n_units, h=1, self_attention=True):
+  def __init__(self, dy_model, n_units, h=1, self_attention=True, attn_dropout=False):
     self.W_Q = Linear_nobias(dy_model, n_units, n_units)
     self.W_K = Linear_nobias(dy_model, n_units, n_units)
     self.W_V = Linear_nobias(dy_model, n_units, n_units)
@@ -112,6 +112,7 @@ class MultiHeadAttention(object):
     self.h = h
     self.scale_score = 1. / (n_units // h) ** 0.5
     self.is_self_attention = self_attention
+    self.attn_dropout = attn_dropout
 
   def set_dropout(self, dropout):
     self.dropout = dropout
@@ -153,14 +154,13 @@ class MultiHeadAttention(object):
     else:
         batch_A = dy.softmax(batch_A, d=1)
 
-    # TODO: Check whether this is correct after masking
     batch_A = dy.cmult(batch_A, mask)
     assert (batch_A.dim() == ((n_querys, n_keys), batch * h))
 
-    # TODO: Check if attention dropout needs to be applied here
-    batch_C = dy.transpose(batch_A * dy.transpose(batch_V))
+    if self.attn_dropout:
+      batch_A = dy.dropout(batch_A, self.dropout)
 
-    # batch_C = batch_V * dy.transpose(batch_A)  # TODO: Check the correctness of this step
+    batch_C = dy.transpose(batch_A * dy.transpose(batch_V))
     assert (batch_C.dim() == ((n_units // h, n_querys), batch * h))
 
     C = dy.concatenate(split_batch(batch_C, h), d=0)
@@ -183,9 +183,9 @@ class FeedForwardLayer(object):
     return e
 
 
-class EncoderLayer():
-  def __init__(self, dy_model, n_units, h=1):
-    self.self_attention = MultiHeadAttention(dy_model, n_units, h)
+class EncoderLayer(object):
+  def __init__(self, dy_model, n_units, h=1, attn_dropout=False):
+    self.self_attention = MultiHeadAttention(dy_model, n_units, h, attn_dropout=attn_dropout)
     self.feed_forward = FeedForwardLayer(dy_model, n_units)
     self.ln_1 = LayerNorm(dy_model, n_units)
     self.ln_2 = LayerNorm(dy_model, n_units)
@@ -206,9 +206,12 @@ class EncoderLayer():
 
 
 class DecoderLayer(object):
-  def __init__(self, dy_model, n_units, h=1):
-    self.self_attention = MultiHeadAttention(dy_model, n_units, h)
-    self.source_attention = MultiHeadAttention(dy_model, n_units, h, self_attention=False)
+  def __init__(self, dy_model, n_units, h=1, attn_dropout=False):
+    self.self_attention = MultiHeadAttention(dy_model, n_units, h,
+                                             attn_dropout=attn_dropout)
+    self.source_attention = MultiHeadAttention(dy_model, n_units, h,
+                                               self_attention=False,
+                                               attn_dropout=attn_dropout)
     self.feed_forward = FeedForwardLayer(dy_model, n_units)
     self.ln_1 = LayerNorm(dy_model, n_units)
     self.ln_2 = LayerNorm(dy_model, n_units)
@@ -237,14 +240,15 @@ class DecoderLayer(object):
 class TransformerEncoder(Serializable):
   yaml_tag = u'!TransformerEncoder'
 
-  def __init__(self, yaml_context, layers=1, input_dim=512, h=1, dropout=0.0, **kwargs):
+  def __init__(self, yaml_context, layers=1, input_dim=512, h=1,
+               dropout=0.0, attn_dropout=False, **kwargs):
     register_handler(self)
     dy_model = yaml_context.dynet_param_collection.param_col
     input_dim = input_dim or yaml_context.default_layer_dim
     self.layer_names = []
     for i in range(1, layers + 1):
       name = 'l{}'.format(i)
-      layer = EncoderLayer(dy_model, input_dim, h)
+      layer = EncoderLayer(dy_model, input_dim, h, attn_dropout)
       self.layer_names.append((name, layer))
 
     self.dropout_val = dropout or yaml_context.dropout
@@ -267,14 +271,15 @@ class TransformerEncoder(Serializable):
 class TransformerDecoder(Serializable):
   yaml_tag = u'!TransformerDecoder'
 
-  def __init__(self, yaml_context, vocab_size, layers=1, input_dim=512, h=1, label_smoothing=0.0, dropout=0.0, **kwargs):
+  def __init__(self, yaml_context, vocab_size, layers=1, input_dim=512, h=1,
+               label_smoothing=0.0, dropout=0.0, attn_dropout=False, **kwargs):
     register_handler(self)
     dy_model = yaml_context.dynet_param_collection.param_col
     input_dim = input_dim or yaml_context.default_layer_dim
     self.layer_names = []
     for i in range(1, layers + 1):
       name = 'l{}'.format(i)
-      layer = DecoderLayer(dy_model, input_dim, h)
+      layer = DecoderLayer(dy_model, input_dim, h, attn_dropout)
       self.layer_names.append((name, layer))
 
     self.output_affine = Linear(dy_model, input_dim, vocab_size)
@@ -295,17 +300,12 @@ class TransformerDecoder(Serializable):
     return e
 
   def output_and_loss(self, h_block, concat_t_block):
-    # Output (all together at once for efficiency)
     concat_logit_block = self.output_affine(h_block, reconstruct_shape=False)
-
     bool_array = concat_t_block != 0
     indexes = np.argwhere(bool_array).ravel()
     concat_logit_block = dy.pick_batch_elems(concat_logit_block, indexes)
     concat_t_block = concat_t_block[bool_array]
     loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
-    loss = dy.mean_batches(loss)
-
-    # loss = dy.pickneglogsoftmax_batch(concat_logit_block, concat_t_block)
     return loss
 
   def output(self, h_block):
