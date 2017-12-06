@@ -92,7 +92,7 @@ def main(overwrite_args=None):
         setattr(model_context, k, train_args.glob[k])
     train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
     
-    inference = exp_tasks.get("decode", {})
+    inference = exp_tasks.get("inference", {})
     inference.trg_file = hyp_file
     inference = YamlSerializer().initialize_if_needed(UninitializedYamlObject(inference), model_context)
 

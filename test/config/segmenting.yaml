@@ -54,7 +54,7 @@ debug-segmenting:
         layers: 1
         mlp_hidden_dim: 16
         bridge: !CopyBridge {}
-  decode: !SimpleInference
+  inference: !SimpleInference
     src_file: examples/data/test-char-head5.ja
     report_path: examples/output/<EXP>.report
     report_type: html, file

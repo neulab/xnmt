@@ -28,7 +28,7 @@ exp1.pretrain: &exp1
       training_corpus: !BilingualTrainingCorpus
         train_src: examples/data/head.ja
         train_trg: examples/data/head.en
-        dev_src: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and decode.src_file
+        dev_src: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
         dev_trg: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
     model: !DefaultTranslator
       src_embedder: !SimpleWordEmbedder
@@ -49,7 +49,7 @@ exp1.pretrain: &exp1
         layers: 1
         bridge: !CopyBridge {}
         vocab_projector: *trg_emb
-  decode: !SimpleInference
+  inference: !SimpleInference
     src_file: *dev_src
   evaluate:
     ref_file: *dev_trg

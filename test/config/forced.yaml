@@ -32,7 +32,7 @@ defaults: &defaults
       decoder: !MlpSoftmaxDecoder
         layers: 1
         bridge: !CopyBridge {}
-  decode: !SimpleInference
+  inference: !SimpleInference
     kwargs: &defaults_decode
       src_file: examples/data/head.ja
   evaluate:
@@ -43,7 +43,7 @@ standard:
 
 forced:
   << : *defaults
-  decode: !SimpleInference
+  inference: !SimpleInference
     kwargs:
       << : *defaults_decode
       mode: forced
@@ -51,7 +51,7 @@ forced:
 
 forceddebug:
   << : *defaults
-  decode: !SimpleInference
+  inference: !SimpleInference
     kwargs:
       << : *defaults_decode
       mode: forceddebug

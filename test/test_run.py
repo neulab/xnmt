@@ -59,7 +59,7 @@ class TestRunningConfig(unittest.TestCase):
     run.main(["test/config/component_sharing.yaml"])
 
   def test_multitask(self):
-    run.main(["test/config/speech_multi.yaml"])
+    run.main(["test/config/multi_task.yaml"])
 
   def tearDown(self):
     if os.path.isdir("test/tmp"):

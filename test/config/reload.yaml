@@ -43,7 +43,7 @@ reload:
         layers: 1
         mlp_hidden_dim: 64
         bridge: !CopyBridge {}
-  decode: !SimpleInference
+  inference: !SimpleInference
     src_file: test/tmp/reload/synth.contvec.npz
   evaluate:
     ref_file: test/tmp/reload/synth.char

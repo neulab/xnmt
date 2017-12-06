@@ -41,7 +41,7 @@ modular:
         layers: 1
         mlp_hidden_dim: 64
         bridge: !NoBridge {}
-  decode:
+  inference:
     src_file: examples/data/head.ja
   evaluate:
     ref_file: examples/data/head.en

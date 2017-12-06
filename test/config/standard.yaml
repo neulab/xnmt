@@ -33,7 +33,7 @@ standard:
       decoder: !MlpSoftmaxDecoder
         layers: 1
         bridge: !CopyBridge {}
-  decode: !SimpleInference
+  inference: !SimpleInference
     len_norm_type: !PolynomialNormalization
       apply_during_search: true
       m: 1

@@ -35,7 +35,7 @@ defaults: &defaults
         layers: 1
         mlp_hidden_dim: 64
         bridge: !CopyBridge {}
-  decode: !SimpleInference
+  inference: !SimpleInference
     beam: !RandomParam
       values: [1,2,3,4,5]
     src_file: examples/data/head.ja
