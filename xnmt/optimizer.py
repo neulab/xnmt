@@ -50,7 +50,10 @@ class AdamTrainer(XnmtOptimizer, Serializable):
                                     alpha, beta_1, beta_2, eps)
 
 class LazySGDTrainer(XnmtOptimizer, Serializable):
-  yaml_tag = u'!SimpleSGDTrainer'
+  """
+  This is the default trainer. It creates a DyNet trainer in a lazy fashion so that
+  in a multi-task case, we don't create trainers for every task.
+  """
   def __init__(self, yaml_context, e0 = 0.1):
     self._e0 = e0
     self._optimizer = None
