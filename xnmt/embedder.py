@@ -27,13 +27,25 @@ class Embedder(object):
     raise NotImplementedError('embed must be implemented in Embedder subclasses')
 
   def embed_sent(self, sent):
-    """Embed a full sentence worth of words.
+    """Embed a full sentence worth of words. By default, just do a for loop.
 
     :param sent: This will generally be a list of word IDs, but could also be a list of strings or some other format.
       It could also be batched, in which case it will be a (possibly masked) Batch object
     :returns: An ExpressionSequence representing vectors of each word in the input.
     """
-    raise NotImplementedError('embed_sent must be implemented in Embedder subclasses')
+    # single mode
+    if not xnmt.batcher.is_batched(sent):
+      embeddings = [self.embed(word) for word in sent]
+    # minibatch mode
+    else:
+      embeddings = []
+      seq_len = len(sent[0])
+      for single_sent in sent: assert len(single_sent)==seq_len
+      for word_i in range(seq_len):
+        batch = xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])
+        embeddings.append(self.embed(batch))
+
+    return ExpressionSequence(expr_list=embeddings, mask=sent.mask if xnmt.batcher.is_batched(sent) else None)
 
 class DenseWordEmbedder(Embedder, Linear, Serializable):
   """
@@ -91,8 +103,6 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
     if self.train and self.weight_noise > 0.0:
       ret = dy.noise(ret, self.weight_noise)
     return ret
-  def embed_sent(self, sent):
-    raise NotImplementedError()
   
   def __call__(self, input_expr):
     W1 = dy.parameter(self.embeddings)
@@ -160,21 +170,6 @@ class SimpleWordEmbedder(Embedder, Serializable):
     if self.train and self.weight_noise > 0.0:
       ret = dy.noise(ret, self.weight_noise)
     return ret
-
-  def embed_sent(self, sent):
-    # single mode
-    if not xnmt.batcher.is_batched(sent):
-      embeddings = [self.embed(word) for word in sent]
-    # minibatch mode
-    else:
-      embeddings = []
-      seq_len = len(sent[0])
-      for single_sent in sent: assert len(single_sent)==seq_len
-      for word_i in range(seq_len):
-        batch = xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])
-        embeddings.append(self.embed(batch))
-
-    return ExpressionSequence(expr_list=embeddings, mask=sent.mask if xnmt.batcher.is_batched(sent) else None)
 
 class NoopEmbedder(Embedder, Serializable):
   """
