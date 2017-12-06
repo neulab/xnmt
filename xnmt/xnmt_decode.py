@@ -35,6 +35,7 @@ options = [
   Option("max_len", int, default_value=100),
   Option("len_norm_type", str, required=False),
   Option("mode", str, default_value="onebest", help_str="type of decoding to perform. onebest: generate one best. forced: perform forced decoding. forceddebug: perform forced decoding, calculate training loss, and make suer the scores are identical for debugging purposes."),
+  Option("print_fertility", int, default_value=1)
 ]
 
 NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
