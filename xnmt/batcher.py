@@ -77,8 +77,9 @@ class Batcher(object):
   def add_single_batch(self, src_curr, trg_curr, src_ret, trg_ret):
     src_id, src_mask = pad(src_curr, pad_token=self.src_pad_token, pad_to_multiple=self.pad_to_multiple)
     src_ret.append(Batch(src_id, src_mask))
-    trg_id, trg_mask = pad(trg_curr, pad_token=self.trg_pad_token, pad_to_multiple=self.pad_to_multiple)
-    trg_ret.append(Batch(trg_id, trg_mask))
+    if trg_ret is not None:
+      trg_id, trg_mask = pad(trg_curr, pad_token=self.trg_pad_token, pad_to_multiple=self.pad_to_multiple)
+      trg_ret.append(Batch(trg_id, trg_mask))
 
   def pack_by_order(self, src, trg, order):
     src_ret, src_curr = [], []

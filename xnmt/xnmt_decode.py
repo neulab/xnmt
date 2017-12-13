@@ -76,7 +76,7 @@ class XnmtDecoder(Serializable):
   #                                  serialize_container.decoder)
   #
     else:
-      corpus_parser, generator = model_elements
+      corpus_parser, generator, batcher = model_elements
     
     args = dict(model_file=self.model_file, src_file=src_file or self.src_file, trg_file=trg_file or self.trg_file, ref_file=self.ref_file, max_src_len=self.max_src_len,
                   input_format=self.input_format, post_process=self.post_process, candidate_id_file=candidate_id_file, report_path=self.report_path, report_type=self.report_type,
@@ -112,8 +112,8 @@ class XnmtDecoder(Serializable):
     # If we're debugging, calculate the loss for each target sentence
     ref_scores = None
     if args["mode"] == 'forceddebug':
-      batcher = xnmt.batcher.InOrderBatcher(32) # Arbitrary
-      batched_src, batched_ref = batcher.pack(src_corpus, ref_corpus)
+      some_batcher = xnmt.batcher.InOrderBatcher(32) # Arbitrary
+      batched_src, batched_ref = some_batcher.pack(src_corpus, ref_corpus)
       ref_scores = []
       for src, ref in zip(batched_src, batched_ref):
         dy.renew_cg()
@@ -123,7 +123,10 @@ class XnmtDecoder(Serializable):
   
     # Perform generation of output
     with io.open(args["trg_file"], 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
+      src_ret=[]
       for i, src in enumerate(src_corpus):
+        batcher.add_single_batch(src_curr=[src], trg_curr=None, src_ret=src_ret, trg_ret=None)
+        src = src_ret.pop()[0]
         # Do the decoding
         if args["max_src_len"] is not None and len(src) > args["max_src_len"]:
           output_txt = NO_DECODING_ATTEMPTED

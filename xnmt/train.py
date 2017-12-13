@@ -262,7 +262,7 @@ class TrainingRegimen(Serializable):
       self.xnmt_decoder(src_file = self.corpus_parser.training_corpus.dev_src,
                                    trg_file = trg_file,
                                    candidate_id_file = self.corpus_parser.training_corpus.dev_id_file,
-                                   model_elements=(self.corpus_parser, self.model))
+                                   model_elements=(self.corpus_parser, self.model, self.batcher))
       output_processor = self.xnmt_decoder.get_output_processor() # TODO: hack, refactor
       # Copy Trg to Ref
       processed = []
