@@ -25,25 +25,16 @@ class SegmentTransducer(Serializable, Reportable):
     pass
 
   def transduce(self, inputs, word=None):
-    return self.transformer.transform(self.encoder(inputs), word)
-
-  def disc_ll(self):
-    ''' Discrete Log Likelihood '''
-    log_ll = dy.scalarInput(0.0)
-    if hasattr(self.encoder, "disc_ll"):
-      log_ll += self.encoder.disc_ll()
-    if hasattr(self.transformer, "disc_ll"):
-      log_ll += self.transformer.disc_ll()
-    return log_ll
+    return self.transformer.transform(self.encoder, self.encoder(inputs), word)
 
 class SegmentTransformer(Serializable):
-  def transform(self, encodings, word=None):
+  def transform(self, encoder, encodings, word=None):
     raise RuntimeError("Should call subclass of SegmentTransformer instead")
 
 class TailSegmentTransformer(SegmentTransformer):
   yaml_tag = u"!TailSegmentTransformer"
-  def transform(self, encodings, word=None):
-    return encodings[-1]
+  def transform(self, encoder, encodings, word=None):
+    return encoder.get_final_states()[0]._main_expr
 
 class TailWordSegmentTransformer(SegmentTransformer):
   yaml_tag = u"!TailWordSegmentTransformer"
@@ -52,12 +43,12 @@ class TailWordSegmentTransformer(SegmentTransformer):
     self.vocab = Vocab()
     self.lookup = yaml_context.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, embed_size))
 
-  def transform(self, encodings, word=None):
-    return encodings[-1] + self.lookup[self.vocab.convert(tuple(word))]
+  def transform(self, encoder, encodings, word=None):
+    return encoder.get_final_states()[0]._main_expr + self.lookup[self.vocab.convert(tuple(word))]
 
 class AverageSegmentTransformer(SegmentTransformer):
   yaml_tag = u"!AverageSegmentTransformer"
-  def transform(self, encodings, word=None):
+  def transform(self, encoder, encodings, word=None):
     return dy.average(encodings.as_list())
 
 # TODO(philip30): Complete this class!
@@ -69,7 +60,7 @@ class DownsamplingSegmentTransformer(SegmentTransformer):
     self.sample_size = sample_size
     # TODO(philip30): Add the dynet parameters here!
 
-  def transduce(self, inputs, word=None):
+  def transduce(self, encoder, inputs, word=None):
     # TODO(philip30): Complete me
     pass
 
@@ -99,8 +90,8 @@ class CategorySegmentTransformer(SegmentTransformer):
   def next_item(self):
     self.counter = (self.counter + 1) % self.batch_size
 
-  def transform(self, encodings, word=None):
-    encoding = encodings[-1]
+  def transform(self, encoder, encodings, word=None):
+    encoding = encoder.get_final_states()[0]._main_expr
     category_logsoftmax = dy.log_softmax(self.category_output(encoding))
     if self.train:
       category = category_logsoftmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
@@ -110,13 +101,4 @@ class CategorySegmentTransformer(SegmentTransformer):
     self.ll_buffer[self.counter] += dy.pick(category_logsoftmax, category)
 
     return self.category_embedder.embed(category)
-
-  def disc_ll(self):
-    try:
-      return dy.concatenate_to_batch(self.ll_buffer)
-    finally:
-      # Make sure that the state is not used again after the log likelihood is requested
-      del self.ll_buffer
-      del self.batch_size
-      del self.counter
 
