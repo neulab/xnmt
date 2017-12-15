@@ -102,6 +102,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       self.search_strategy = BeamSearch(**search_args)
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)
+    self.print_fertility = kwargs.get("print_fertility", 0) == 1
 
   def initialize_training_strategy(self, training_strategy):
     self.loss_calculator = training_strategy
