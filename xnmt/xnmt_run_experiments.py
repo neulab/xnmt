@@ -66,14 +66,16 @@ def main(overwrite_args=None):
     print("=> Running {}".format(experiment_name))
     
     exp_args = exp_tasks.get("experiment", {})
-    model_file = exp_args.get("model_file", "<EXP>.mod")
-    hyp_file = exp_args.get("hyp_file", "<EXP>.hyp")
-    out_file = exp_args.get("out_file", "<EXP>.out")
-    err_file = exp_args.get("model_file", "<EXP>.err")
-    eval_only = exp_args.get("eval_only", False)
-    eval_metrics = exp_args.get("eval_metrics", "bleu")
-    save_num_checkpoints = exp_args.get("save_num_checkpoints", 1)
-    cfg_file = exp_args.get("cfg_file", None)
+    model_file = exp_args.pop("model_file", "<EXP>.mod")
+    hyp_file = exp_args.pop("hyp_file", "<EXP>.hyp")
+    out_file = exp_args.pop("out_file", "<EXP>.out")
+    err_file = exp_args.pop("err_file", "<EXP>.err")
+    eval_only = exp_args.pop("eval_only", False)
+    eval_metrics = exp_args.pop("eval_metrics", "bleu")
+    save_num_checkpoints = exp_args.pop("save_num_checkpoints", 1)
+    cfg_file = exp_args.pop("cfg_file", None)
+    if len(exp_args)>0:
+      raise ValueError("unsupported experiment arguments: {}".format(str(exp_args)))
     if cfg_file:
       shutil.copyfile(args.experiments_file, cfg_file)
 
