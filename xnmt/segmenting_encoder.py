@@ -59,7 +59,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None, learn_segmentation=True,
                reinforcement_param=None, length_prior=3.5, learn_delete=False,
-               length_prior_alpha=1.0, use_baseline=True, segmentation_warmup_counter=None):
+               length_prior_alpha=1.0, use_baseline=True, segmentation_warmup_counter=None, epsilon_greedy_param=None):
     register_handler(self)
     model = yaml_context.dynet_param_collection.param_col
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
@@ -84,6 +84,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.length_prior_alpha = length_prior_alpha
     self.lmbd = reinforcement_param
     self.P0 = model.add_parameters(self.segment_transducer.encoder.hidden_dim)
+    self.eps = epsilon_greedy_param
 
     # States of the object
     self.train = False
@@ -133,12 +134,15 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   def sample_segmentation(self, encodings, batch_size, src=None):
     lmbd = self.lmbd.get_value(self.warmup_counter)
+    eps = self.eps.get_value(self.warmup_counter) if self.eps is not None else None
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
     if self.learn_segmentation and not self.train:
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
     elif src is not None and len(src) != 0 and hasattr(src[0], "annotation"):
       segment_decisions = self.sample_from_prior(encodings, batch_size, src)
     elif lmbd == 0 or self.is_segmentation_warmup():
+      segment_decisions = self.sample_from_poisson(encodings, batch_size)
+    elif eps is not None and numpy.random.random() > eps:
       segment_decisions = self.sample_from_poisson(encodings, batch_size)
     else:
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
@@ -212,7 +216,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       # Rewrite segmentation
       self.set_report_resource("segmentation", self.segment_decisions)
       self.set_report_input(segment_decisions)
-    self._final_encoder_state = [FinalTransducerState(encodings[-1])]
+
+    self._final_encoder_state = [FinalTransducerState(outputs)]
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return expression_sequence.ExpressionSequence(expr_tensor=outputs)
 
@@ -226,10 +231,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   @handle_xnmt_event
   def on_new_epoch(self):
     self.lmbd.grow_param(self.warmup_counter)
+    if self.eps is not None:
+      self.eps.grow_param(self.warmup_counter)
     self.warmup_counter += 1
     lmbd = self.lmbd.get_value(self.warmup_counter)
     if lmbd > 0.0:
       print("Now Lambda:", lmbd)
+    if self.eps is not None:
+      print("Now epsilon greedy:", self.eps.get_value(self.warmup_counter))
 
   @handle_xnmt_event
   def on_calc_additional_loss(self, reward):
