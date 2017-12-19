@@ -61,12 +61,12 @@ class Batcher(object):
   """
 
   def __init__(self, batch_size, granularity='sent', src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               pad_to_multiple=1):
+               pad_src_to_multiple=1):
     self.batch_size = batch_size
     self.src_pad_token = src_pad_token
     self.trg_pad_token = trg_pad_token
     self.granularity = granularity
-    self.pad_to_multiple = pad_to_multiple
+    self.pad_src_to_multiple = pad_src_to_multiple
 
   def is_random(self):
     """
@@ -75,10 +75,10 @@ class Batcher(object):
     return False
 
   def add_single_batch(self, src_curr, trg_curr, src_ret, trg_ret):
-    src_id, src_mask = pad(src_curr, pad_token=self.src_pad_token, pad_to_multiple=self.pad_to_multiple)
+    src_id, src_mask = pad(src_curr, pad_token=self.src_pad_token, pad_src_to_multiple=self.pad_src_to_multiple)
     src_ret.append(Batch(src_id, src_mask))
     if trg_ret is not None:
-      trg_id, trg_mask = pad(trg_curr, pad_token=self.trg_pad_token, pad_to_multiple=self.pad_to_multiple)
+      trg_id, trg_mask = pad(trg_curr, pad_token=self.trg_pad_token, pad_src_to_multiple=self.pad_src_to_multiple)
       trg_ret.append(Batch(trg_id, trg_mask))
 
   def pack_by_order(self, src, trg, order):
@@ -136,10 +136,10 @@ class SortBatcher(Batcher):
 
   def __init__(self, batch_size, granularity='sent', src_pad_token=Vocab.ES,
                trg_pad_token=Vocab.ES, sort_key=lambda x: len(x[0]),
-               break_ties_randomly=True, pad_to_multiple=1):
+               break_ties_randomly=True, pad_src_to_multiple=1):
     super(SortBatcher, self).__init__(batch_size, granularity=granularity,
                                       src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
-                                      pad_to_multiple=pad_to_multiple)
+                                      pad_src_to_multiple=pad_src_to_multiple)
     self.sort_key = sort_key
     self.break_ties_randomly = break_ties_randomly
 
@@ -164,10 +164,10 @@ def mark_as_batch(data, mask=None):
 def is_batched(data):
   return type(data) == Batch
 
-def pad(batch, pad_token=Vocab.ES, pad_to_multiple=1):
+def pad(batch, pad_token=Vocab.ES, pad_src_to_multiple=1):
   max_len = max(len_or_zero(item) for item in batch)
-  if max_len % pad_to_multiple != 0:
-    max_len += pad_to_multiple - (max_len % pad_to_multiple)
+  if max_len % pad_src_to_multiple != 0:
+    max_len += pad_src_to_multiple - (max_len % pad_src_to_multiple)
   min_len = min(len_or_zero(item) for item in batch)
   if min_len == max_len:
     return batch, None
@@ -184,56 +184,56 @@ def len_or_zero(val):
 class SrcBatcher(SortBatcher, Serializable):
   yaml_tag = u"!SrcBatcher"
   def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, 
-               break_ties_randomly=True, pad_to_multiple=1):
+               break_ties_randomly=True, pad_src_to_multiple=1):
     super(SrcBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[0]), granularity='sent',
                                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                                      break_ties_randomly=break_ties_randomly,
-                                     pad_to_multiple=pad_to_multiple)
+                                     pad_src_to_multiple=pad_src_to_multiple)
 
 class TrgBatcher(SortBatcher, Serializable):
   yaml_tag = u"!TrgBatcher"
   def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, 
-               break_ties_randomly=True, pad_to_multiple=1):
+               break_ties_randomly=True, pad_src_to_multiple=1):
     super(TrgBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[1]), granularity='sent',
                                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                                      break_ties_randomly=break_ties_randomly,
-                                     pad_to_multiple=pad_to_multiple)
+                                     pad_src_to_multiple=pad_src_to_multiple)
 
 class SrcTrgBatcher(SortBatcher, Serializable):
   yaml_tag = u"!SrcTrgBatcher"
   def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               break_ties_randomly=True, pad_to_multiple=1):
+               break_ties_randomly=True, pad_src_to_multiple=1):
     super(SrcTrgBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[0])+1.0e-6*len(x[1]),
                                         granularity='sent',
                                         src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                                         break_ties_randomly=break_ties_randomly,
-                                        pad_to_multiple=pad_to_multiple)
+                                        pad_src_to_multiple=pad_src_to_multiple)
 
 class TrgSrcBatcher(SortBatcher, Serializable):
   yaml_tag = u"!TrgSrcBatcher"
   def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, 
-               break_ties_randomly=True, pad_to_multiple=1):
+               break_ties_randomly=True, pad_src_to_multiple=1):
     super(TrgSrcBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]),
                                         granularity='sent',
                                         src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                                         break_ties_randomly=break_ties_randomly,
-                                        pad_to_multiple=pad_to_multiple)
+                                        pad_src_to_multiple=pad_src_to_multiple)
 
 class SentShuffleBatcher(ShuffleBatcher, Serializable):
   yaml_tag = u"!SentShuffleBatcher"
 
   def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               pad_to_multiple=1):
+               pad_src_to_multiple=1):
     super(SentShuffleBatcher, self).__init__(batch_size, granularity='sent', src_pad_token=src_pad_token,
-                                             trg_pad_token=trg_pad_token, pad_to_multiple=pad_to_multiple)
+                                             trg_pad_token=trg_pad_token, pad_src_to_multiple=pad_src_to_multiple)
 
 class WordShuffleBatcher(ShuffleBatcher, Serializable):
   yaml_tag = u"!WordShuffleBatcher"
 
   def __init__(self, words_per_batch, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               pad_to_multiple=1):
+               pad_src_to_multiple=1):
     super(WordShuffleBatcher, self).__init__(words_per_batch, granularity='word', src_pad_token=src_pad_token,
-                                             trg_pad_token=trg_pad_token, pad_to_multiple=pad_to_multiple)
+                                             trg_pad_token=trg_pad_token, pad_src_to_multiple=pad_src_to_multiple)
 
 class WordSortBatcher(SortBatcher, Serializable):
   """
@@ -241,7 +241,7 @@ class WordSortBatcher(SortBatcher, Serializable):
   """
   def __init__(self, words_per_batch, avg_batch_size, sort_key,
                src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True,
-               pad_to_multiple=1):
+               pad_src_to_multiple=1):
     # Sanity checks
     if words_per_batch and avg_batch_size:
       raise ValueError("words_per_batch and avg_batch_size are mutually exclusive.")
@@ -251,7 +251,7 @@ class WordSortBatcher(SortBatcher, Serializable):
     super(WordSortBatcher, self).__init__(words_per_batch, sort_key=sort_key, granularity='word',
                                           src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                                           break_ties_randomly=break_ties_randomly,
-                                          pad_to_multiple=pad_to_multiple)
+                                          pad_src_to_multiple=pad_src_to_multiple)
     self.avg_batch_size = avg_batch_size
 
 class WordSrcBatcher(WordSortBatcher, Serializable):
@@ -259,11 +259,11 @@ class WordSrcBatcher(WordSortBatcher, Serializable):
 
   def __init__(self, words_per_batch=None, avg_batch_size=None,
                src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True,
-               pad_to_multiple=1):
+               pad_src_to_multiple=1):
     super(WordSrcBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[0]),
                                          src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                                          break_ties_randomly=break_ties_randomly,
-                                         pad_to_multiple=pad_to_multiple)
+                                         pad_src_to_multiple=pad_src_to_multiple)
 
   def pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
@@ -275,11 +275,11 @@ class WordTrgBatcher(WordSortBatcher, Serializable):
 
   def __init__(self, words_per_batch=None, avg_batch_size=None,
                src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True,
-               pad_to_multiple=1):
+               pad_src_to_multiple=1):
     super(WordTrgBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[1]),
                                          src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                                          break_ties_randomly=break_ties_randomly,
-                                         pad_to_multiple=pad_to_multiple)
+                                         pad_src_to_multiple=pad_src_to_multiple)
 
   def pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
@@ -291,11 +291,11 @@ class WordSrcTrgBatcher(WordSortBatcher, Serializable):
 
   def __init__(self, words_per_batch=None, avg_batch_size=None,
                src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True,
-               pad_to_multiple=1):
+               pad_src_to_multiple=1):
     super(WordSrcTrgBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[0])+1.0e-6*len(x[1]),
                                             src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                                             break_ties_randomly=break_ties_randomly,
-                                            pad_to_multiple=pad_to_multiple)
+                                            pad_src_to_multiple=pad_src_to_multiple)
 
   def pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
@@ -307,11 +307,11 @@ class WordTrgSrcBatcher(WordSortBatcher, Serializable):
 
   def __init__(self, words_per_batch=None, avg_batch_size=None,
                src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True,
-               pad_to_multiple=1):
+               pad_src_to_multiple=1):
     return super(WordTrgSrcBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]),
                                             src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                                             break_ties_randomly=break_ties_randomly,
-                                            pad_to_multiple=pad_to_multiple)
+                                            pad_src_to_multiple=pad_src_to_multiple)
 
   def pack_by_order(self, src, trg, order):
     if self.avg_batch_size:

@@ -13,7 +13,7 @@ speech-2layers:
   train: !TrainingRegimen
     src_format: contvec
     batcher: !SrcBatcher
-      pad_to_multiple: 4
+      pad_src_to_multiple: 4
       batch_size: 3
     trainer: !AdamTrainer {}
     corpus_parser: !BilingualCorpusParser

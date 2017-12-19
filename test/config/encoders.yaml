@@ -81,7 +81,7 @@ exp3-pyramidal-encoder:
       << : *defaults_train
       batcher: !SrcBatcher
         batch_size: 5
-        pad_to_multiple: 4
+        pad_src_to_multiple: 4
       model: !DefaultTranslator
         src_embedder: !SimpleWordEmbedder
           emb_dim: 64
@@ -109,7 +109,7 @@ exp4-modular-encoder:
       << : *defaults_train
       batcher: !SrcBatcher
         batch_size: 5
-        pad_to_multiple: 2
+        pad_src_to_multiple: 2
       model: !DefaultTranslator
         src_embedder: !SimpleWordEmbedder
           emb_dim: 64
