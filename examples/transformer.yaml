@@ -14,7 +14,7 @@ standard:
       dropout: 0.2
       default_layer_dim: 512
     restart_trainer: False
-    trainer: !AIAYNAdamTrainer
+    trainer: !TransformerAdamTrainer
       alpha: 1.0
       warmup_steps: 4000
     lr_decay: 1.0

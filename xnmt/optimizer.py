@@ -51,8 +51,12 @@ class AdamTrainer(XnmtOptimizer, Serializable):
                                     alpha, beta_1, beta_2, eps)
 
 
-class AIAYNAdamTrainer(XnmtOptimizer, Serializable):
-  yaml_tag = u'!AIAYNAdamTrainer'
+class TransformerAdamTrainer(XnmtOptimizer, Serializable):
+  """
+  Proposed in the paper "Attention is all you need" (https://papers.nips.cc/paper/7181-attention-is-all-you-need.pdf) [Page 7, Eq. 3]
+  In this the learning rate of Adam Optimizer is increased for the first warmup steps followed by a gradual decay
+  """
+  yaml_tag = u'!TransformerAdamTrainer'
   def __init__(self, yaml_context, alpha=1.0, dim=512, warmup_steps=4000, beta_1=0.9, beta_2=0.98, eps=1e-9):
     self.optimizer = dy.AdamTrainer(yaml_context.dynet_param_collection.param_col,
                                     alpha=alpha,

@@ -88,7 +88,7 @@ class LossTracker(object):
 
       if len(self.epoch_loss) > 1:
         for loss_name, loss_values in self.epoch_loss:
-          print("- %s %5.6f" % (loss_name, loss_values))
+          print("- %s %5.6f" % (loss_name, loss_values / self.epoch_words))
 
       self.last_report_words = self.epoch_words
       self.last_report_train_time = this_report_time

@@ -3,7 +3,7 @@ from __future__ import division, generators
 
 import numpy as np
 import dynet as dy
-from xnmt.initializer import LeCunUniform as linear_init
+from xnmt.linear import LinearNoBias, Linear
 from xnmt.serializer import Serializable
 from xnmt.events import register_handler, handle_xnmt_event
 
@@ -24,38 +24,31 @@ class ReverseTimeDistributed(object):
     return dy.reshape(input, (model_dim, seq_len), batch_size=batch_size)
 
 
-class Linear(object):
+class LinearSent(object):
   def __init__(self, dy_model, input_dim, output_dim):
-    self.W1 = dy_model.add_parameters((output_dim, input_dim), init=linear_init(input_dim))
-    self.b1 = dy_model.add_parameters(output_dim, init=linear_init(output_dim))
+    self.L = Linear(input_dim, output_dim, dy_model)
 
   def __call__(self, input_expr, reconstruct_shape=True, timedistributed=False):
-    W1 = dy.parameter(self.W1)
-    b1 = dy.parameter(self.b1)
-
     if not timedistributed:
         input = TimeDistributed()(input_expr)
     else:
         input = input_expr
-    output = dy.affine_transform([b1, W1, input])
 
+    output = self.L(input)
     if not reconstruct_shape:
         return output
     (_, seq_len), batch_size = input_expr.dim()
     return ReverseTimeDistributed()(output, seq_len, batch_size)
 
 
-class Linear_nobias(object):
+class LinearNoBiasSent(object):
   def __init__(self, dy_model, input_dim, output_dim):
-    self.W1 = dy_model.add_parameters((output_dim, input_dim), init=linear_init(input_dim))
+    self.L = LinearNoBias(input_dim, output_dim, dy_model)
     self.output_dim = output_dim
 
   def __call__(self, input_expr):
-    W1 = dy.parameter(self.W1)
-    b1 = dy.zeros(self.output_dim)
     (_, seq_len), batch_size = input_expr.dim()
-
-    output = dy.affine_transform([b1, W1, input_expr])
+    output = self.L(input_expr)
 
     if seq_len == 1: # This is helpful when sequence length is 1, especially during decoding
         output = ReverseTimeDistributed()(output, seq_len, batch_size)
@@ -68,24 +61,13 @@ class LayerNorm(object):
     self.p_b = dy_model.add_parameters(dim=d_hid)
 
   def __call__(self, input_expr):
-    # g = dy.parameter(self.p_g)
-    # b = dy.parameter(self.p_b)
-    #
-    # (_, seq_len), batch_size = input_expr.dim()
-    # input = TimeDistributed()(input_expr)
-    # output = dy.layer_norm(input, g, b)
-    # return ReverseTimeDistributed()(output, seq_len, batch_size)
-    return input_expr
+    g = dy.parameter(self.p_g)
+    b = dy.parameter(self.p_b)
 
-
-def split_rows(X, h):
-  (n_rows, _), batch = X.dim()
-  l = range(n_rows)
-  steps = n_rows // h
-  output = []
-  for i in range(0, n_rows, steps):
-    output.append(dy.pickrange(X, i, i + steps))
-  return output
+    (_, seq_len), batch_size = input_expr.dim()
+    input = TimeDistributed()(input_expr)
+    output = dy.layer_norm(input, g, b)
+    return ReverseTimeDistributed()(output, seq_len, batch_size)
 
 
 def split_batch(X, h):
@@ -104,22 +86,30 @@ class MultiHeadAttention(object):
   For batch computation efficiency, dot product to calculate query-key
   scores is performed all heads together.
   """
-  def __init__(self, dy_model, n_units, h=1, self_attention=True, attn_dropout=False):
-    self.W_Q = Linear_nobias(dy_model, n_units, n_units)
-    self.W_K = Linear_nobias(dy_model, n_units, n_units)
-    self.W_V = Linear_nobias(dy_model, n_units, n_units)
-    self.finishing_linear_layer = Linear_nobias(dy_model, n_units, n_units)
+  def __init__(self, dy_model, n_units, h=1, attn_dropout=False):
+    self.W_Q = LinearNoBiasSent(dy_model, n_units, n_units)
+    self.W_K = LinearNoBiasSent(dy_model, n_units, n_units)
+    self.W_V = LinearNoBiasSent(dy_model, n_units, n_units)
+    self.finishing_linear_layer = LinearNoBiasSent(dy_model, n_units, n_units)
     self.h = h
-    self.scale_score = 1. / (n_units // h) ** 0.5
-    self.is_self_attention = self_attention
+    self.scale_score = 1. / (n_units / h) ** 0.5
     self.attn_dropout = attn_dropout
+
+  def split_rows(self, X, h):
+    (n_rows, _), batch = X.dim()
+    l = range(n_rows)
+    steps = n_rows // h
+    output = []
+    for i in range(0, n_rows, steps):
+      output.append(dy.pickrange(X, i, i + steps))
+    return output
 
   def set_dropout(self, dropout):
     self.dropout = dropout
 
   def __call__(self, x, z=None, mask=None):
     h = self.h
-    if self.is_self_attention:
+    if z == None:
       Q = self.W_Q(x)
       K = self.W_K(x)
       V = self.W_V(x)
@@ -135,9 +125,9 @@ class MultiHeadAttention(object):
     # Perform Multi-head Attention using pseudo batching
     # all together at once for efficiency
 
-    batch_Q = dy.concatenate_to_batch(split_rows(Q, h))
-    batch_K = dy.concatenate_to_batch(split_rows(K, h))
-    batch_V = dy.concatenate_to_batch(split_rows(V, h))
+    batch_Q = dy.concatenate_to_batch(self.split_rows(Q, h))
+    batch_K = dy.concatenate_to_batch(self.split_rows(K, h))
+    batch_V = dy.concatenate_to_batch(self.split_rows(V, h))
 
     assert(batch_Q.dim() == (n_units // h, n_querys), batch * h)
     assert(batch_K.dim() == (n_units // h, n_keys), batch * h)
@@ -172,8 +162,8 @@ class MultiHeadAttention(object):
 class FeedForwardLayer(object):
   def __init__(self, dy_model, n_units):
     n_inner_units = n_units * 4
-    self.W_1 = Linear(dy_model, n_units, n_inner_units)
-    self.W_2 = Linear(dy_model, n_inner_units, n_units)
+    self.W_1 = LinearSent(dy_model, n_units, n_inner_units)
+    self.W_2 = LinearSent(dy_model, n_inner_units, n_units)
     self.act = dy.rectify
 
   def __call__(self, e):
@@ -193,15 +183,17 @@ class EncoderLayer(object):
   def set_dropout(self, dropout):
     self.dropout = dropout
 
-  def __call__(self, e, xx_mask):
+  def __call__(self, e, xx_mask, layer_norm=False):
     self.self_attention.set_dropout(self.dropout)
-    sub = self.self_attention(e, e, xx_mask)
+    sub = self.self_attention(e, mask=xx_mask)
     e = e + dy.dropout(sub, self.dropout)
-    e = self.ln_1(e)
+    if layer_norm:
+      e = self.ln_1(e)
 
     sub = self.feed_forward(e)
     e = e + dy.dropout(sub, self.dropout)
-    e = self.ln_2(e)
+    if layer_norm:
+      e = self.ln_2(e)
     return e
 
 
@@ -210,7 +202,6 @@ class DecoderLayer(object):
     self.self_attention = MultiHeadAttention(dy_model, n_units, h,
                                              attn_dropout=attn_dropout)
     self.source_attention = MultiHeadAttention(dy_model, n_units, h,
-                                               self_attention=False,
                                                attn_dropout=attn_dropout)
     self.feed_forward = FeedForwardLayer(dy_model, n_units)
     self.ln_1 = LayerNorm(dy_model, n_units)
@@ -220,20 +211,23 @@ class DecoderLayer(object):
   def set_dropout(self, dropout):
     self.dropout = dropout
 
-  def __call__(self, e, s, xy_mask, yy_mask):
+  def __call__(self, e, s, xy_mask, yy_mask, layer_norm=False):
     self.self_attention.set_dropout(self.dropout)
-    sub = self.self_attention(e, e, yy_mask)
+    sub = self.self_attention(e, mask=yy_mask)
     e = e + dy.dropout(sub, self.dropout)
-    e = self.ln_1(e)
+    if layer_norm:
+      e = self.ln_1(e)
 
     self.source_attention.set_dropout(self.dropout)
-    sub = self.source_attention(e, s, xy_mask)
+    sub = self.source_attention(e, s, mask=xy_mask)
     e = e + dy.dropout(sub, self.dropout)
-    e = self.ln_2(e)
+    if layer_norm:
+      e = self.ln_2(e)
 
     sub = self.feed_forward(e)
     e = e + dy.dropout(sub, self.dropout)
-    e = self.ln_3(e)
+    if layer_norm:
+      e = self.ln_3(e)
     return e
 
 
@@ -282,7 +276,7 @@ class TransformerDecoder(Serializable):
       layer = DecoderLayer(dy_model, input_dim, h, attn_dropout)
       self.layer_names.append((name, layer))
 
-    self.output_affine = Linear(dy_model, input_dim, vocab_size)
+    self.output_affine = LinearSent(dy_model, input_dim, vocab_size)
     self.dropout_val = dropout or yaml_context.dropout
 
   @handle_xnmt_event
