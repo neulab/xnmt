@@ -42,7 +42,7 @@ multi_task_exp:
     - !SimpleTrainingRegimen
       name: second_task
       dev_metrics: gleu
-      trainer: ~ # only main task should specify a trainer
+      trainer: !DummyTrainer {} # auxiliary tasks must use the DummyTrainer
       batcher: !SrcBatcher
         batch_size: 3
       corpus_parser: !BilingualCorpusParser

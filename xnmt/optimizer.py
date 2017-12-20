@@ -7,6 +7,10 @@ but may also be extended to customize optimizers / training schedules
 """
 
 class XnmtOptimizer(object):
+  num_instances = 0
+  def __init__(self):
+    XnmtOptimizer.num_instances += 1
+    if XnmtOptimizer.num_instances > 1: raise RuntimeError("Attempting to instantiate more than one optimizer. This should be avoided by using a DummyTrainer for auxiliary tasks.")
   def update(self): return self.optimizer.update()
   def update_epoch(self, r = 1.0): return self.optimizer.update_epoch(r)
   def status(self): return self.optimizer.status()
@@ -23,44 +27,41 @@ class XnmtOptimizer(object):
 class SimpleSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!SimpleSGDTrainer'
   def __init__(self, yaml_context, e0 = 0.1):
+    super(SimpleSGDTrainer, self).__init__()
     self.optimizer = dy.SimpleSGDTrainer(yaml_context.dynet_param_collection.param_col, 
                                          e0)
 class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!MomentumSGDTrainer'
   def __init__(self, yaml_context, e0 = 0.01, mom = 0.9):
+    super(MomentumSGDTrainer, self).__init__()
     self.optimizer = dy.MomentumSGDTrainer(yaml_context.dynet_param_collection.param_col, 
                                            e0, mom)
 
 class AdagradTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!AdagradTrainer'
   def __init__(self, yaml_context, e0 = 0.1, eps = 1e-20):
+    super(AdagradTrainer, self).__init__()
     self.optimizer = dy.AdagradTrainer(yaml_context.dynet_param_collection.param_col, 
                                        e0, eps=eps)
 
 class AdadeltaTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!AdadeltaTrainer'
   def __init__(self, yaml_context, eps = 1e-6, rho = 0.95):
+    super(AdadeltaTrainer, self).__init__()
     self.optimizer = dy.AdadeltaTrainer(yaml_context.dynet_param_collection.param_col, 
                                         eps, rho)
 
 class AdamTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!AdamTrainer'
   def __init__(self, yaml_context, alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
+    super(AdamTrainer, self).__init__()
     self.optimizer = dy.AdamTrainer(yaml_context.dynet_param_collection.param_col, 
                                     alpha, beta_1, beta_2, eps)
 
-class LazySGDTrainer(XnmtOptimizer, Serializable):
+class DummyTrainer(Serializable):
+  yaml_tag = u'!DummyTrainer'
   """
-  This is the default trainer. It creates a DyNet trainer in a lazy fashion so that
-  in a multi-task case, we don't create trainers for every task.
+  This is a dummy trainer that can be used by auxiliary tasks that don't need
+  their own trainer.
   """
-  def __init__(self, yaml_context, e0 = 0.1):
-    self._e0 = e0
-    self._optimizer = None
-    self._yaml_context = yaml_context
-  @property
-  def optimizer(self):
-    if self._optimizer is None:
-      self._optimizer = dy.SimpleSGDTrainer(self._yaml_context.dynet_param_collection.param_col, 
-                                           self._e0)
-    return self._optimizer
+  pass

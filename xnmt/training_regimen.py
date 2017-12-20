@@ -114,8 +114,8 @@ class SimpleTrainingRegimen(xnmt.training_task.TrainingRegimen, xnmt.training_ta
     self.pack_batches()
     self.logger = BatchLossTracker(self, dev_every, name)
 
-    self.trainer = trainer or xnmt.optimizer.LazySGDTrainer(self.yaml_context, 0.1) # lazy: don't instantiate trainer unless needed
-       
+    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(self.yaml_context, 0.1)
+    
     self.schedule_metric = schedule_metric.lower()
     self.dynet_profiling = dynet_profiling
 
