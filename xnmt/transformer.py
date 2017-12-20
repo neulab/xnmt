@@ -175,54 +175,56 @@ class FeedForwardLayerSent(object):
 
 
 class EncoderLayer(object):
-  def __init__(self, dy_model, n_units, h=1, attn_dropout=False):
+  def __init__(self, dy_model, n_units, h=1, attn_dropout=False, layer_norm=False):
     self.self_attention = MultiHeadAttention(dy_model, n_units, h, attn_dropout=attn_dropout)
     self.feed_forward = FeedForwardLayerSent(dy_model, n_units)
-    self.ln_1 = LayerNorm(dy_model, n_units)
-    self.ln_2 = LayerNorm(dy_model, n_units)
+    self.layer_norm = layer_norm
+    if self.layer_norm:
+      self.ln_1 = LayerNorm(dy_model, n_units)
+      self.ln_2 = LayerNorm(dy_model, n_units)
 
   def set_dropout(self, dropout):
     self.dropout = dropout
 
-  def __call__(self, e, xx_mask, layer_norm=False):
+  def __call__(self, e, xx_mask):
     self.self_attention.set_dropout(self.dropout)
     sub = self.self_attention(e, mask=xx_mask)
     if self.dropout != 0.0:
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
-    if layer_norm:
+    if self.layer_norm:
       e = self.ln_1(e)
 
     sub = self.feed_forward(e)
     if self.dropout != 0.0:
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
-    if layer_norm:
+    if self.layer_norm:
       e = self.ln_2(e)
     return e
 
 
 class DecoderLayer(object):
-  def __init__(self, dy_model, n_units, h=1, attn_dropout=False):
-    self.self_attention = MultiHeadAttention(dy_model, n_units, h,
-                                             attn_dropout=attn_dropout)
-    self.source_attention = MultiHeadAttention(dy_model, n_units, h,
-                                               attn_dropout=attn_dropout)
+  def __init__(self, dy_model, n_units, h=1, attn_dropout=False, layer_norm=False):
+    self.self_attention = MultiHeadAttention(dy_model, n_units, h, attn_dropout=attn_dropout)
+    self.source_attention = MultiHeadAttention(dy_model, n_units, h, attn_dropout=attn_dropout)
     self.feed_forward = FeedForwardLayerSent(dy_model, n_units)
-    self.ln_1 = LayerNorm(dy_model, n_units)
-    self.ln_2 = LayerNorm(dy_model, n_units)
-    self.ln_3 = LayerNorm(dy_model, n_units)
+    self.layer_norm = layer_norm
+    if self.layer_norm:
+      self.ln_1 = LayerNorm(dy_model, n_units)
+      self.ln_2 = LayerNorm(dy_model, n_units)
+      self.ln_3 = LayerNorm(dy_model, n_units)
 
   def set_dropout(self, dropout):
     self.dropout = dropout
 
-  def __call__(self, e, s, xy_mask, yy_mask, layer_norm=False):
+  def __call__(self, e, s, xy_mask, yy_mask):
     self.self_attention.set_dropout(self.dropout)
     sub = self.self_attention(e, mask=yy_mask)
     if self.dropout != 0.0:
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
-    if layer_norm:
+    if self.layer_norm:
       e = self.ln_1(e)
 
     self.source_attention.set_dropout(self.dropout)
@@ -230,14 +232,14 @@ class DecoderLayer(object):
     if self.dropout != 0.0:
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
-    if layer_norm:
+    if self.layer_norm:
       e = self.ln_2(e)
 
     sub = self.feed_forward(e)
     if self.dropout != 0.0:
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
-    if layer_norm:
+    if self.layer_norm:
       e = self.ln_3(e)
     return e
 
@@ -246,14 +248,14 @@ class TransformerEncoder(Serializable):
   yaml_tag = u'!TransformerEncoder'
 
   def __init__(self, yaml_context, layers=1, input_dim=512, h=1,
-               dropout=0.0, attn_dropout=False, **kwargs):
+               dropout=0.0, attn_dropout=False, layer_norm=False, **kwargs):
     register_handler(self)
     dy_model = yaml_context.dynet_param_collection.param_col
     input_dim = input_dim or yaml_context.default_layer_dim
     self.layer_names = []
     for i in range(1, layers + 1):
       name = 'l{}'.format(i)
-      layer = EncoderLayer(dy_model, input_dim, h, attn_dropout)
+      layer = EncoderLayer(dy_model, input_dim, h, attn_dropout, layer_norm)
       self.layer_names.append((name, layer))
 
     self.dropout_val = dropout or yaml_context.dropout
@@ -279,14 +281,14 @@ class TransformerDecoder(Serializable):
   yaml_tag = u'!TransformerDecoder'
 
   def __init__(self, yaml_context, vocab_size, layers=1, input_dim=512, h=1,
-               label_smoothing=0.0, dropout=0.0, attn_dropout=False, **kwargs):
+               label_smoothing=0.0, dropout=0.0, attn_dropout=False, layer_norm=False, **kwargs):
     register_handler(self)
     dy_model = yaml_context.dynet_param_collection.param_col
     input_dim = input_dim or yaml_context.default_layer_dim
     self.layer_names = []
     for i in range(1, layers + 1):
       name = 'l{}'.format(i)
-      layer = DecoderLayer(dy_model, input_dim, h, attn_dropout)
+      layer = DecoderLayer(dy_model, input_dim, h, attn_dropout, layer_norm)
       self.layer_names.append((name, layer))
 
     self.output_affine = LinearSent(dy_model, input_dim, vocab_size)
