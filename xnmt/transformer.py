@@ -93,7 +93,7 @@ class MultiHeadAttention(object):
       output.append(dy.pickrange(X, i, i + steps))
     return output
 
-  def split_batch(X, h):
+  def split_batch(self, X, h):
     (n_rows, _), batch = X.dim()
     l = range(batch)
     steps = batch // h
