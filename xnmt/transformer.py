@@ -135,11 +135,9 @@ class MultiHeadAttention(object):
 
     mask = np.concatenate([mask] * h, axis=0)
     mask = np.moveaxis(mask, [1, 0, 2], [0, 2, 1])
-    mul_mask = dy.inputTensor(mask, batched=True)
-    add_mask = dy.inputTensor((1 - mask) * MIN_VALUE, batched=True)
+    mask = dy.inputTensor(mask, batched=True)
     batch_A = (dy.transpose(batch_Q) * batch_K) * self.scale_score
-    # batch_A = dy.cmult(batch_A, mask) + (1 - mask)*MIN_VALUE
-    batch_A = batch_A + add_mask
+    batch_A = dy.cmult(batch_A, mask) + (1 - mask)*MIN_VALUE
 
     sent_len = batch_A.dim()[0][0]
     if sent_len == 1:
@@ -147,7 +145,7 @@ class MultiHeadAttention(object):
     else:
         batch_A = dy.softmax(batch_A, d=1)
 
-    batch_A = dy.cmult(batch_A, mul_mask)
+    batch_A = dy.cmult(batch_A, mask)
     assert (batch_A.dim() == ((n_querys, n_keys), batch * h))
 
     if self.attn_dropout:
