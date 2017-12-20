@@ -70,17 +70,6 @@ class LayerNorm(object):
     return ReverseTimeDistributed()(output, seq_len, batch_size)
 
 
-def split_batch(X, h):
-  (n_rows, _), batch = X.dim()
-  l = range(batch)
-  steps = batch // h
-  output = []
-  for i in range(0, batch, steps):
-    indexes = l[i:i + steps]
-    output.append(dy.pick_batch_elems(X, indexes))
-  return output
-
-
 class MultiHeadAttention(object):
   """ Multi Head Attention Layer for Sentence Blocks
   For batch computation efficiency, dot product to calculate query-key
@@ -102,6 +91,16 @@ class MultiHeadAttention(object):
     output = []
     for i in range(0, n_rows, steps):
       output.append(dy.pickrange(X, i, i + steps))
+    return output
+
+  def split_batch(X, h):
+    (n_rows, _), batch = X.dim()
+    l = range(batch)
+    steps = batch // h
+    output = []
+    for i in range(0, batch, steps):
+      indexes = l[i:i + steps]
+      output.append(dy.pick_batch_elems(X, indexes))
     return output
 
   def set_dropout(self, dropout):
@@ -155,13 +154,13 @@ class MultiHeadAttention(object):
     batch_C = dy.transpose(batch_A * dy.transpose(batch_V))
     assert (batch_C.dim() == ((n_units // h, n_querys), batch * h))
 
-    C = dy.concatenate(split_batch(batch_C, h), d=0)
+    C = dy.concatenate(self.split_batch(batch_C, h), d=0)
     assert (C.dim() == ((n_units, n_querys), batch))
     C = self.finishing_linear_layer(C)
     return C
 
 
-class FeedForwardLayer(object):
+class FeedForwardLayerSent(object):
   def __init__(self, dy_model, n_units):
     n_inner_units = n_units * 4
     self.W_1 = LinearSent(dy_model, n_units, n_inner_units)
@@ -178,7 +177,7 @@ class FeedForwardLayer(object):
 class EncoderLayer(object):
   def __init__(self, dy_model, n_units, h=1, attn_dropout=False):
     self.self_attention = MultiHeadAttention(dy_model, n_units, h, attn_dropout=attn_dropout)
-    self.feed_forward = FeedForwardLayer(dy_model, n_units)
+    self.feed_forward = FeedForwardLayerSent(dy_model, n_units)
     self.ln_1 = LayerNorm(dy_model, n_units)
     self.ln_2 = LayerNorm(dy_model, n_units)
 
@@ -209,7 +208,7 @@ class DecoderLayer(object):
                                              attn_dropout=attn_dropout)
     self.source_attention = MultiHeadAttention(dy_model, n_units, h,
                                                attn_dropout=attn_dropout)
-    self.feed_forward = FeedForwardLayer(dy_model, n_units)
+    self.feed_forward = FeedForwardLayerSent(dy_model, n_units)
     self.ln_1 = LayerNorm(dy_model, n_units)
     self.ln_2 = LayerNorm(dy_model, n_units)
     self.ln_3 = LayerNorm(dy_model, n_units)
