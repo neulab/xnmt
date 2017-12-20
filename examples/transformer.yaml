@@ -29,11 +29,11 @@ standard:
         dev_trg: examples/data/dev.en
     model: !TransformerTranslator
       src_embedder: !SimpleWordEmbedder {}
-        init: 'LeCunUniform'
+        init: LeCunUniform
       encoder: !TransformerEncoder
         layers: 1
       trg_embedder: !SimpleWordEmbedder {}
-        init: 'LeCunUniform'
+        init: LeCunUniform
       decoder: !TransformerDecoder
         layers: 1
         label_smoothing: 0.0
