@@ -148,7 +148,8 @@ class MultiHeadAttention(object):
     assert (batch_A.dim() == ((n_querys, n_keys), batch * h))
 
     if self.attn_dropout:
-      batch_A = dy.dropout(batch_A, self.dropout)
+      if self.dropout != 0.0:
+        batch_A = dy.dropout(batch_A, self.dropout)
 
     batch_C = dy.transpose(batch_A * dy.transpose(batch_V))
     assert (batch_C.dim() == ((n_units // h, n_querys), batch * h))
@@ -186,12 +187,16 @@ class EncoderLayer(object):
   def __call__(self, e, xx_mask, layer_norm=False):
     self.self_attention.set_dropout(self.dropout)
     sub = self.self_attention(e, mask=xx_mask)
-    e = e + dy.dropout(sub, self.dropout)
+    if self.dropout != 0.0:
+      sub = dy.dropout(sub, self.dropout)
+    e = e + sub
     if layer_norm:
       e = self.ln_1(e)
 
     sub = self.feed_forward(e)
-    e = e + dy.dropout(sub, self.dropout)
+    if self.dropout != 0.0:
+      sub = dy.dropout(sub, self.dropout)
+    e = e + sub
     if layer_norm:
       e = self.ln_2(e)
     return e
@@ -214,18 +219,24 @@ class DecoderLayer(object):
   def __call__(self, e, s, xy_mask, yy_mask, layer_norm=False):
     self.self_attention.set_dropout(self.dropout)
     sub = self.self_attention(e, mask=yy_mask)
-    e = e + dy.dropout(sub, self.dropout)
+    if self.dropout != 0.0:
+      sub = dy.dropout(sub, self.dropout)
+    e = e + sub
     if layer_norm:
       e = self.ln_1(e)
 
     self.source_attention.set_dropout(self.dropout)
     sub = self.source_attention(e, s, mask=xy_mask)
-    e = e + dy.dropout(sub, self.dropout)
+    if self.dropout != 0.0:
+      sub = dy.dropout(sub, self.dropout)
+    e = e + sub
     if layer_norm:
       e = self.ln_2(e)
 
     sub = self.feed_forward(e)
-    e = e + dy.dropout(sub, self.dropout)
+    if self.dropout != 0.0:
+      sub = dy.dropout(sub, self.dropout)
+    e = e + sub
     if layer_norm:
       e = self.ln_3(e)
     return e
@@ -255,7 +266,9 @@ class TransformerEncoder(Serializable):
     self.dropout = dropout
 
   def __call__(self, e, xx_mask):
-    e = dy.dropout(e, self.dropout) # Word Embedding Dropout
+    if self.dropout != 0.0:
+      e = dy.dropout(e, self.dropout)  # Word Embedding Dropout
+
     for name, layer in self.layer_names:
       layer.set_dropout(self.dropout)
       e = layer(e, xx_mask)
@@ -287,7 +300,8 @@ class TransformerDecoder(Serializable):
     self.dropout = dropout
 
   def __call__(self, e, source, xy_mask, yy_mask):
-    e = dy.dropout(e, self.dropout)  # Word Embedding Dropout
+    if self.dropout != 0.0:
+      e = dy.dropout(e, self.dropout)  # Word Embedding Dropout
     for name, layer in self.layer_names:
       layer.set_dropout(self.dropout)
       e = layer(e, source, xy_mask, yy_mask)
