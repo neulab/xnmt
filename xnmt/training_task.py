@@ -4,8 +4,7 @@ from collections import OrderedDict
 import numpy as np
 import dynet as dy
 from xnmt.serializer import Serializable, YamlSerializer
-from xnmt.optimizer import DummyTrainer
-
+from xnmt.optimizer import SimpleSGDTrainer
 
 class TrainingRegimen(object):
   """
@@ -81,21 +80,22 @@ class MultiTaskTrainingRegimen(TrainingRegimen, TrainingTask):
   Base class for multi-task training classes.
   Mainly initializes tasks, performs sanity-checks, and manages set_train events.
   """
-  def __init__(self, yaml_context, tasks, dynet_profiling=0):
+  def __init__(self, yaml_context, tasks, trainer=None, dynet_profiling=0):
     """
     :param tasks: list of TrainingTask instances.
                   The first item takes on the role of the main task, meaning it
                   will control early stopping, learning rate schedule, and
                   model checkpoints.
+    :param trainer: Trainer object, default is SGD with learning rate 0.1
     :param dynet_profiling: if > 0, print computation graph
     """
     self.dynet_profiling = dynet_profiling
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
+    self.trainer = trainer or SimpleSGDTrainer(self.yaml_context, 0.1)
     for task in tasks[1:]:
-      if not isinstance(task.trainer, DummyTrainer):
-        if not task.trainer is tasks[0].trainer:
-          raise ValueError("Can instantiate only one trainer: Auxiliary tasks must use DummyTrainer or reference-share the Trainer object!")
+      if hasattr(task, "trainer") and task.trainer is not None:
+        raise ValueError("Can instantiate only one trainer object. Possibly, multiple training regimens were created when training tasks should have been used.")
     self.train = None
     self.yaml_serializer = YamlSerializer()
     self.model_file = yaml_context.dynet_param_collection.model_file
@@ -132,9 +132,9 @@ class JointMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   are thus performed jointly for each task. The relative weight between
   tasks can be configured by setting each tasks batch size accordingly.
   """
-  def __init__(self, yaml_context, tasks, dynet_profiling=0):
+  def __init__(self, yaml_context, tasks, trainer=None, dynet_profiling=0):
     super(JointMultiTaskTrainingRegimen, self).__init__(yaml_context,
-                                                 tasks=tasks, 
+                                                 tasks=tasks, trainer=trainer,
                                                  dynet_profiling=dynet_profiling)
     self.yaml_context = yaml_context
   def run_training(self, update_weights=True):
@@ -148,7 +148,7 @@ class JointMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
         src, trg = next(task_gen)
         task_losses.append(task.training_step(src, trg))
       if update_weights:
-        self.update_weights(sum(task_losses), self.tasks[0].trainer, self.dynet_profiling)
+        self.update_weights(sum(task_losses), self.trainer, self.dynet_profiling)
       if update_weights: self.tasks[0].model.set_train(False)
       for task_i, task in enumerate(self.tasks):
         if task.checkpoint_needed():
@@ -171,9 +171,9 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   are only loaded individually. It also supports disabling training for some
   tasks by setting the task weight to 0.
   """
-  def __init__(self, yaml_context, tasks, task_weights=None, dynet_profiling=0):
+  def __init__(self, yaml_context, tasks, task_weights=None, trainer=None, dynet_profiling=0):
     super(SerialMultiTaskTrainingRegimen, self).__init__(yaml_context,
-                                                  tasks=tasks, 
+                                                  tasks=tasks, trainer=trainer,
                                                   dynet_profiling=dynet_profiling)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks) 
     self.yaml_context = yaml_context
@@ -189,7 +189,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
       src, trg = next(task_gen)
       task_loss = cur_task.training_step(src, trg)
       if update_weights:
-        self.update_weights(task_loss, self.tasks[0].trainer, self.dynet_profiling)
+        self.update_weights(task_loss, self.trainer, self.dynet_profiling)
       if update_weights: self.tasks[0].model.set_train(False)
       if cur_task.checkpoint_needed():
         self.trigger_train_event(False)

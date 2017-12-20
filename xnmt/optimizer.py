@@ -48,11 +48,3 @@ class AdamTrainer(XnmtOptimizer, Serializable):
   def __init__(self, yaml_context, alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
     self.optimizer = dy.AdamTrainer(yaml_context.dynet_param_collection.param_col, 
                                     alpha, beta_1, beta_2, eps)
-
-class DummyTrainer(Serializable):
-  yaml_tag = u'!DummyTrainer'
-  """
-  This is a dummy trainer that can be used by auxiliary tasks that don't need
-  their own trainer.
-  """
-  pass

@@ -41,15 +41,14 @@ from xnmt.events import register_xnmt_event
 This will be the main class to perform training.
 '''
 
-class SimpleTrainingRegimen(xnmt.training_task.TrainingRegimen, xnmt.training_task.TrainingTask, Serializable):
-  yaml_tag = u'!SimpleTrainingRegimen'
+class SimpleTrainingTask(xnmt.training_task.TrainingTask, Serializable):
+  yaml_tag = u'!SimpleTrainingTask'
   def __init__(self, yaml_context, corpus_parser, model, glob={},
                dev_every=0, batcher=None, loss_calculator=None, 
                pretrained_model_file="", src_format="text", trainer=None, 
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
-               reload_command=None, dynet_profiling=0, name=None,
-               inference=None):
+               reload_command=None, name=None, inference=None):
     """
     :param yaml_context:
     :param corpus_parser: an input.InputReader object
@@ -59,7 +58,6 @@ class SimpleTrainingRegimen(xnmt.training_task.TrainingRegimen, xnmt.training_ta
     :param loss_calculator:
     :param pretrained_model_file: Path of pre-trained model file
     :param src_format: Format of input data: text/contvec
-    :param trainer: Trainer object, default is SGD with learning rate 0.1
     :param lr_decay (float):
     :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
     :param attempts_before_lr_decay (int): apply LR decay after dev scores haven't improved over this many checkpoints
@@ -114,10 +112,7 @@ class SimpleTrainingRegimen(xnmt.training_task.TrainingRegimen, xnmt.training_ta
     self.pack_batches()
     self.logger = BatchLossTracker(self, dev_every, name)
 
-    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(self.yaml_context, 0.1)
-    
     self.schedule_metric = schedule_metric.lower()
-    self.dynet_profiling = dynet_profiling
 
   def dependent_init_params(self, initialized_subcomponents):
     """
@@ -255,24 +250,6 @@ class SimpleTrainingRegimen(xnmt.training_task.TrainingRegimen, xnmt.training_ta
 
     return loss_value
     
-  def run_training(self, update_weights=True):
-    """
-    Main training loop (overwrites TrainingRegimen.run_training())
-    """
-    self.model.set_train(update_weights)
-    for src,trg in self.next_minibatch():
-      dy.renew_cg()
-      loss = self.training_step(src, trg)
-      if update_weights: self.update_weights(loss, self.trainer, self.dynet_profiling)
-      if self.checkpoint_needed():
-        if update_weights: self.model.set_train(False)
-        should_save = self.checkpoint()
-        if should_save:
-          self.yaml_serializer.save_to_file(self.model_file, self,
-                                        self.yaml_context.dynet_param_collection)
-        if update_weights: self.model.set_train(True)
-      if self.should_stop_training(): break
-
   def checkpoint_needed(self):
     return self.logger.should_report_dev()
 
@@ -366,6 +343,78 @@ class SimpleTrainingRegimen(xnmt.training_task.TrainingRegimen, xnmt.training_ta
       trg_words_cnt += self.logger.count_trg_words(trg)
       loss_builder.compute()
     return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
+
+class SimpleTrainingRegimen(SimpleTrainingTask, xnmt.training_task.TrainingRegimen, Serializable):
+  yaml_tag = u'!SimpleTrainingRegimen'
+  def __init__(self, yaml_context, corpus_parser, model, glob={},
+               dev_every=0, batcher=None, loss_calculator=None, 
+               pretrained_model_file="", src_format="text", trainer=None, 
+               run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
+               dev_metrics="", schedule_metric="loss", restart_trainer=False,
+               reload_command=None, dynet_profiling=0, name=None,
+               inference=None):
+    """
+    :param yaml_context:
+    :param corpus_parser: an input.InputReader object
+    :param model: a generator.GeneratorModel object
+    :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
+    :param batcher: Type of batcher. Defaults to SrcBatcher of batch size 32.
+    :param loss_calculator:
+    :param pretrained_model_file: Path of pre-trained model file
+    :param src_format: Format of input data: text/contvec
+    :param trainer: Trainer object, default is SGD with learning rate 0.1
+    :param lr_decay (float):
+    :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
+    :param attempts_before_lr_decay (int): apply LR decay after dev scores haven't improved over this many checkpoints
+    :param dev_metrics: Comma-separated list of evaluation metrics (bleu/wer/cer)
+    :param schedule_metric: determine learning schedule based on this dev_metric (loss/bleu/wer/cer)
+    :param restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
+    :param reload_command: Command to change the input data after each epoch.
+                           --epoch EPOCH_NUM will be appended to the command.
+                           To just reload the data after each epoch set the command to 'true'.
+    :param dynet_profiling:
+    :param name: will be prepended to log outputs if given
+    :param inference: used for inference during dev checkpoints if dev_metrics are specified
+    """
+    super(SimpleTrainingRegimen, self).__init__(yaml_context=yaml_context,
+                                                corpus_parser=corpus_parser,
+                                                model=model,
+                                                glob=glob,
+                                                dev_every=dev_every,
+                                                batcher=batcher,
+                                                loss_calculator=loss_calculator, 
+                                                pretrained_model_file=pretrained_model_file,
+                                                src_format=src_format,
+                                                run_for_epochs=run_for_epochs,
+                                                lr_decay=lr_decay,
+                                                lr_decay_times=lr_decay_times,
+                                                attempts_before_lr_decay=attempts_before_lr_decay,
+                                                dev_metrics=dev_metrics,
+                                                schedule_metric=schedule_metric,
+                                                restart_trainer=restart_trainer,
+                                                reload_command=reload_command,
+                                                name=name,
+                                                inference=inference)
+    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(self.yaml_context, 0.1)
+    self.dynet_profiling = dynet_profiling
+
+  def run_training(self, update_weights=True):
+    """
+    Main training loop (overwrites TrainingRegimen.run_training())
+    """
+    self.model.set_train(update_weights)
+    for src,trg in self.next_minibatch():
+      dy.renew_cg()
+      loss = self.training_step(src, trg)
+      if update_weights: self.update_weights(loss, self.trainer, self.dynet_profiling)
+      if self.checkpoint_needed():
+        if update_weights: self.model.set_train(False)
+        should_save = self.checkpoint()
+        if should_save:
+          self.yaml_serializer.save_to_file(self.model_file, self,
+                                        self.yaml_context.dynet_param_collection)
+        if update_weights: self.model.set_train(True)
+      if self.should_stop_training(): break
 
 class TrainingState(object):
   """
