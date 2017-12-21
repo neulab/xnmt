@@ -33,15 +33,19 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                                src_reader = PlainTextReader(),
                                                trg_reader = PlainTextReader())
 
-  def assert_single_loss_equals_batch_loss(self, model, batch_size=5):
+  def assert_single_loss_equals_batch_loss(self, model, pad_src_to_multiple=1):
     """
     Tests whether single loss equals batch loss.
     Truncating src / trg sents to same length so no masking is necessary
     """
+    batch_size=5
     src_sents = self.training_corpus.train_src_data[:batch_size]
     src_min = min([len(x) for x in src_sents])
     src_sents_trunc = [s[:src_min] for s in src_sents]
-    for single_sent in src_sents_trunc: single_sent[src_min-1] = Vocab.ES
+    for single_sent in src_sents_trunc:
+      single_sent[src_min-1] = Vocab.ES
+      while len(single_sent)%pad_src_to_multiple != 0:
+        single_sent.append(Vocab.ES)
     trg_sents = self.training_corpus.train_trg_data[:batch_size]
     trg_min = min([len(x) for x in trg_sents])
     trg_sents_trunc = [s[:trg_min] for s in trg_sents]
@@ -82,7 +86,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
     model.set_train(False)
-    self.assert_single_loss_equals_batch_loss(model)
+    self.assert_single_loss_equals_batch_loss(model, pad_src_to_multiple=4)
 
   def test_loss_model3(self):
     model = DefaultTranslator(
@@ -120,7 +124,7 @@ class TestBatchTraining(unittest.TestCase):
                                                src_reader = PlainTextReader(),
                                                trg_reader = PlainTextReader())
 
-  def assert_single_loss_equals_batch_loss(self, model, batch_size=5):
+  def assert_single_loss_equals_batch_loss(self, model, pad_src_to_multiple=1):
     """
     Tests whether single loss equals batch loss.
     Here we don't truncate the target side and use masking.
@@ -129,7 +133,10 @@ class TestBatchTraining(unittest.TestCase):
     src_sents = self.training_corpus.train_src_data[:batch_size]
     src_min = min([len(x) for x in src_sents])
     src_sents_trunc = [s[:src_min] for s in src_sents]
-    for single_sent in src_sents_trunc: single_sent[src_min-1] = Vocab.ES
+    for single_sent in src_sents_trunc:
+      single_sent[src_min-1] = Vocab.ES
+      while len(single_sent)%pad_src_to_multiple != 0:
+        single_sent.append(Vocab.ES)
     trg_sents = self.training_corpus.train_trg_data[:batch_size]
     trg_max = max([len(x) for x in trg_sents])
     trg_masks = Mask(np.zeros([batch_size, trg_max]))
@@ -173,7 +180,7 @@ class TestBatchTraining(unittest.TestCase):
               decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
             )
     model.set_train(False)
-    self.assert_single_loss_equals_batch_loss(model)
+    self.assert_single_loss_equals_batch_loss(model, pad_src_to_multiple=4)
 
   def test_loss_model3(self):
     model = DefaultTranslator(

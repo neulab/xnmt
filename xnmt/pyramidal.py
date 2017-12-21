@@ -78,18 +78,11 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
     """
 
     es_list = [es]
-    zero_pad = None
-    batch_size = es_list[0][0].dim()[1]
 
     for layer_i, (fb, bb) in enumerate(self.builder_layers):
       reduce_factor = self._reduce_factor_for_layer(layer_i)
-      while self.downsampling_method=="concat" and len(es_list[0]) % reduce_factor != 0:
-        for es_i in range(len(es_list)):
-          expr_list = es_list[es_i].as_list()
-          if zero_pad is None or zero_pad.dim()[0][0] != expr_list[0].dim()[0][0]:
-            zero_pad = dy.zeros(dim=expr_list[0].dim()[0][0], batch_size=batch_size)
-          expr_list.append(zero_pad)
-          es_list[es_i] = ExpressionSequence(expr_list = expr_list)
+      if self.downsampling_method=="concat" and len(es_list[0]) % reduce_factor != 0:
+        raise ValueError("For 'concat' subsampling, sequence lengths must be multiples of the total reduce factor. Configure batcher accordingly.")
       fs = fb(es_list)
       bs = bb([ReversedExpressionSequence(es_item) for es_item in es_list])
       if layer_i < len(self.builder_layers) - 1:

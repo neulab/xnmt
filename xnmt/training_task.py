@@ -313,9 +313,10 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         evaluate_args["ref_file"] = out_file_ref
       # Decoding + post_processing
       self.inference(corpus_parser = self.corpus_parser, generator = self.model,
-                        src_file = self.corpus_parser.training_corpus.dev_src,
-                        trg_file = trg_file,
-                        candidate_id_file = self.corpus_parser.training_corpus.dev_id_file)
+                     batcher = self.batcher,
+                     src_file = self.corpus_parser.training_corpus.dev_src,
+                     trg_file = trg_file,
+                     candidate_id_file = self.corpus_parser.training_corpus.dev_id_file)
       output_processor = self.inference.get_output_processor() # TODO: hack, refactor
       # Copy Trg to Ref
       processed = []

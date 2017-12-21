@@ -13,6 +13,9 @@ speech-2layers:
   train: !SimpleTrainingRegimen
     run_for_epochs: 20
     src_format: contvec
+    batcher: !SrcBatcher
+      pad_src_to_multiple: 4
+      batch_size: 3
     trainer: !AdamTrainer {}
     dev_metrics: cer,wer
     glob:
@@ -31,8 +34,9 @@ speech-2layers:
       src_embedder: !NoopEmbedder
         emb_dim: 240
       encoder: !PyramidalLSTMSeqTransducer
-        layers: 1
-        downsampling_method: skip
+        layers: 3
+        downsampling_method: concat
+        reduce_factor: 2
         input_dim: 240
         hidden_dim: 64
       attender: !MlpAttender
