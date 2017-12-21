@@ -72,3 +72,7 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
     decay = (self.dim ** (-0.5)) * np.min([self.steps ** (-0.5), self.steps * (self.warmup_steps ** (-1.5))])
     self.optimizer.learning_rate = 1. * decay
     self.optimizer.update()
+
+    if self.steps % 200 == 0:
+      print('> Optimizer Logging')
+      print('  Steps=%d, learning_rate=%.2e' % (self.steps, self.optimizer.learning_rate))

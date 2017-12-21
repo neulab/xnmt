@@ -72,8 +72,6 @@ class LayerNorm(object):
 
 class MultiHeadAttention(object):
   """ Multi Head Attention Layer for Sentence Blocks
-  For batch computation efficiency, dot product to calculate query-key
-  scores is performed all heads together.
   """
   def __init__(self, dy_model, n_units, h=1, attn_dropout=False):
     self.W_Q = LinearNoBiasSent(dy_model, n_units, n_units)
@@ -119,10 +117,6 @@ class MultiHeadAttention(object):
 
     (n_units, n_querys), batch = Q.dim()
     (_, n_keys), _ = K.dim()
-
-    # Calculate Attention Scores with Mask for Zero-padded Areas
-    # Perform Multi-head Attention using pseudo batching
-    # all together at once for efficiency
 
     batch_Q = dy.concatenate_to_batch(self.split_rows(Q, h))
     batch_K = dy.concatenate_to_batch(self.split_rows(K, h))

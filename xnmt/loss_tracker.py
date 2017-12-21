@@ -12,7 +12,6 @@ class LossTracker(object):
   """
 
   REPORT_TEMPLATE           = 'Epoch %.4f: {}_loss/word=%.6f (words=%d, words/sec=%.2f, time=%s)'
-  REPORT_TEMPLATE_OPTIMIZER = 'Epoch %.4f: {}_loss/word=%.6f (words=%d, words/sec=%.2f, time=%s, learning_rate=%.2e)'
   REPORT_TEMPLATE_DEV       = '  Epoch %.4f dev %s (words=%d, words/sec=%.2f, time=%s)'
   REPORT_TEMPLATE_DEV_AUX   = '  Epoch %.4f dev [auxiliary] %s'
 
@@ -38,13 +37,11 @@ class LossTracker(object):
     self.start_time = time.time()
     self.last_report_train_time = self.start_time
     self.dev_start_time = self.start_time
-    self.optimizer_lr = None
 
   def new_epoch(self):
     """
     Clear epoch-wise counters for starting a new training epoch.
     """
-    self.steps = 0
     self.epoch_loss = xnmt.loss.LossBuilder()
     self.epoch_words = 0
     self.epoch_num += 1
@@ -58,16 +55,12 @@ class LossTracker(object):
     """
     Update epoch-wise counters for each iteration.
     """
-    self.steps += 1
     batch_sent_num = self.count_sent_num(src)
     self.sent_num += batch_sent_num
     self.sent_num_not_report_train += batch_sent_num
     self.sent_num_not_report_dev += batch_sent_num
     self.epoch_words += self.count_trg_words(trg)
     self.epoch_loss += loss
-
-  def report_optimizer(self, lr):
-    self.optimizer_lr = lr
 
   def format_time(self, seconds):
     return "{}-{}".format(int(seconds) // 86400,
@@ -86,19 +79,11 @@ class LossTracker(object):
       self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
       this_report_time = time.time()
 
-      if self.optimizer_lr is not None:
-        print(LossTracker.REPORT_TEMPLATE_OPTIMIZER.format('train') % (
-          self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
-          self.epoch_words,
-          (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
-          self.format_time(time.time() - self.start_time),
-          self.optimizer_lr))
-      else:
-        print(LossTracker.REPORT_TEMPLATE.format('train') % (
-          self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
-          self.epoch_words,
-          (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
-          self.format_time(time.time() - self.start_time)))
+      print(LossTracker.REPORT_TEMPLATE.format('train') % (
+        self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
+        self.epoch_words,
+        (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
+        self.format_time(time.time() - self.start_time)))
 
       if len(self.epoch_loss) > 1:
         for loss_name, loss_values in self.epoch_loss:
