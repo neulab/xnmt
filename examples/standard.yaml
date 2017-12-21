@@ -37,7 +37,7 @@ standard:
         mlp_hidden_dim: 512
         bridge: !CopyBridge {}
         label_smoothing: 0.1
-  decode:
+  decode: !XnmtDecoder
     beam: 5
     len_norm_type: !PolynomialNormalization
       apply_during_search: true

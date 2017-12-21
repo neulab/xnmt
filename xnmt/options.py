@@ -108,6 +108,7 @@ class OptionParser(object):
   def instantiate_random_search(self, exp_values, initialized_random_params={}):
     param_report = {}
     if isinstance(exp_values, dict): kvs = exp_values.items()
+    elif isinstance(exp_values, list): kvs = enumerate(exp_values)
     elif isinstance(exp_values, Serializable):
       init_args, _, _, _ = inspect.getargspec(exp_values.__init__)
       kvs = [(key, getattr(exp_values, key)) for key in init_args if hasattr(exp_values, key)]
@@ -125,7 +126,7 @@ class OptionParser(object):
         else:
           setattr(exp_values, k, v)
         param_report[k] = v
-      elif isinstance(v, dict) or isinstance(v, Serializable):
+      elif isinstance(v, dict) or isinstance(v, list) or isinstance(v, Serializable):
         sub_report = self.instantiate_random_search(v, initialized_random_params)
         if sub_report:
           param_report[k] = sub_report

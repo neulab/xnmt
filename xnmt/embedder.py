@@ -9,6 +9,7 @@ from xnmt.initializer import LeCunUniform as linear_init
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.serializer import Serializable
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
+from xnmt.linear import Linear
 
 
 class Embedder(object):
@@ -28,14 +29,89 @@ class Embedder(object):
     raise NotImplementedError('embed must be implemented in Embedder subclasses')
 
   def embed_sent(self, sent):
-    """Embed a full sentence worth of words.
+    """Embed a full sentence worth of words. By default, just do a for loop.
 
     :param sent: This will generally be a list of word IDs, but could also be a list of strings or some other format.
       It could also be batched, in which case it will be a (possibly masked) Batch object
     :returns: An ExpressionSequence representing vectors of each word in the input.
     """
-    raise NotImplementedError('embed_sent must be implemented in Embedder subclasses')
+    # single mode
+    if not xnmt.batcher.is_batched(sent):
+      embeddings = [self.embed(word) for word in sent]
+    # minibatch mode
+    else:
+      embeddings = []
+      seq_len = len(sent[0])
+      for single_sent in sent: assert len(single_sent)==seq_len
+      for word_i in range(seq_len):
+        batch = xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])
+        embeddings.append(self.embed(batch))
 
+    return ExpressionSequence(expr_list=embeddings, mask=sent.mask if xnmt.batcher.is_batched(sent) else None)
+
+class DenseWordEmbedder(Embedder, Linear, Serializable):
+  """
+  Word embeddings via full matrix
+  """
+  yaml_tag = u"!DenseWordEmbedder"
+  def __init__(self, yaml_context, vocab_size, emb_dim = None, weight_noise = None, word_dropout = 0.0, fix_norm = None):
+    """
+    :param yaml_context:
+    :param vocab_size:
+    :param emb_dim:
+    """
+    register_handler(self)
+    self.vocab_size = vocab_size
+    self.fix_norm = fix_norm
+    self.weight_noise = weight_noise or yaml_context.weight_noise
+    self.word_dropout = word_dropout
+    self.emb_dim = emb_dim or yaml_context.default_layer_dim
+    self.embeddings = yaml_context.dynet_param_collection.param_col.add_parameters((self.vocab_size, self.emb_dim))
+    self.bias = yaml_context.dynet_param_collection.param_col.add_parameters((self.vocab_size))
+
+  @handle_xnmt_event
+  def on_start_sent(self, src):
+    self.word_id_mask = None
+
+  @handle_xnmt_event
+  def on_set_train(self, val):
+    self.train = val
+  
+  def embed(self, x):
+    if self.word_dropout > 0.0 and self.word_id_mask is None:
+      batch_size = len(x) if xnmt.batcher.is_batched(x) else 1
+      self.word_id_mask = [set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False)) for _ in range(batch_size)]
+    emb_e = dy.parameter(self.embeddings)
+    # single mode
+    if not xnmt.batcher.is_batched(x):
+      if self.train and self.word_id_mask and x in self.word_id_mask[0]:
+        ret = dy.zeros((self.emb_dim,))
+      else:
+        ret = dy.pick(emb_e, index=x)
+        if self.fix_norm != None:
+          ret = dy.cdiv(ret, dy.l2_norm(ret))
+          if self.fix_norm != 1:
+            ret *= self.fix_norm
+    # minibatch mode
+    else:
+      ret = dy.concatenate_to_batch([dy.pick(emb_e, index=xi) for xi in x])
+      if self.fix_norm != None:
+        ret = dy.cdiv(ret, dy.l2_norm(ret))
+        if self.fix_norm != 1:
+          ret *= self.fix_norm
+      if self.train and self.word_id_mask and any(x[i] in self.word_id_mask[i] for i in range(len(x))):
+        dropout_mask = dy.inputTensor(np.transpose([[0.0]*self.emb_dim if x[i] in self.word_id_mask[i] else [1.0]*self.emb_dim for i in range(len(x))]), batched=True)
+        ret = dy.cmult(ret, dropout_mask)
+    if self.train and self.weight_noise > 0.0:
+      ret = dy.noise(ret, self.weight_noise)
+    return ret
+  
+  def __call__(self, input_expr):
+    W1 = dy.parameter(self.embeddings)
+    b1 = dy.parameter(self.bias)
+    return dy.affine_transform([b1, W1, input_expr])
+    
+    
 class SimpleWordEmbedder(Embedder, Serializable):
   """
   Simple word embeddings via lookup.
@@ -99,21 +175,6 @@ class SimpleWordEmbedder(Embedder, Serializable):
     if self.train and self.weight_noise > 0.0:
       ret = dy.noise(ret, self.weight_noise)
     return ret
-
-  def embed_sent(self, sent):
-    # single mode
-    if not xnmt.batcher.is_batched(sent):
-      embeddings = [self.embed(word) for word in sent]
-    # minibatch mode
-    else:
-      embeddings = []
-      seq_len = len(sent[0])
-      for single_sent in sent: assert len(single_sent)==seq_len
-      for word_i in range(seq_len):
-        batch = xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])
-        embeddings.append(self.embed(batch))
-
-    return ExpressionSequence(expr_list=embeddings, mask=sent.mask if xnmt.batcher.is_batched(sent) else None)
 
 class NoopEmbedder(Embedder, Serializable):
   """

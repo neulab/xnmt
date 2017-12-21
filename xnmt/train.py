@@ -75,7 +75,7 @@ class TrainingRegimen(Serializable):
     dy.renew_cg()
 
     # TODO: don't need to keep a dedicated args object any longer
-    args = dict(dev_every=dev_every, batcher=batcher, 
+    args = dict(dev_every=dev_every, batcher=batcher,
                corpus_parser=corpus_parser, training_strategy=training_strategy, model_file=model_file, save_num_checkpoints=save_num_checkpoints,
                pretrained_model_file=pretrained_model_file, src_format=src_format, default_layer_dim=glob.get("default_layer_dim", 512),
                trainer=trainer, lr_decay=lr_decay, lr_decay_times=lr_decay_times, attempts_before_lr_decay=attempts_before_lr_decay,
@@ -251,15 +251,20 @@ class TrainingRegimen(Serializable):
 
     eval_scores = {"loss" : loss_score}
     if len(list(filter(lambda e: e!="loss", self.evaluators))) > 0:
-      self.decode_args["src_file"] = self.corpus_parser.training_corpus.dev_src
-      self.decode_args["candidate_id_file"] = self.corpus_parser.training_corpus.dev_id_file
+#       self.xnmt_decoder["src_file"] = self.corpus_parser.training_corpus.dev_src
+#       self.xnmt_decoder["candidate_id_file"] = self.corpus_parser.training_corpus.dev_id_file
+      trg_file = None
       if self.args["model_file"]:
         out_file = self.args["model_file"] + out_ext
         out_file_ref = self.args["model_file"] + ref_ext
-        self.decode_args["trg_file"] = out_file
+        trg_file = out_file
       # Decoding + post_processing
-      xnmt.xnmt_decode.xnmt_decode(model_elements=(self.corpus_parser, self.model), **self.decode_args)
-      output_processor = xnmt.xnmt_decode.output_processor_for_spec(self.decode_args.get("post_process", "none")) # TODO: hack, refactor
+#       xnmt.xnmt_decode.xnmt_decode(model_elements=(self.corpus_parser, self.model), **self.xnmt_decoder)
+      self.xnmt_decoder(src_file = self.corpus_parser.training_corpus.dev_src,
+                                   trg_file = trg_file,
+                                   candidate_id_file = self.corpus_parser.training_corpus.dev_id_file,
+                                   model_elements=(self.corpus_parser, self.model))
+      output_processor = self.xnmt_decoder.get_output_processor() # TODO: hack, refactor
       # Copy Trg to Ref
       processed = []
       with io.open(self.corpus_parser.training_corpus.dev_trg, encoding=encoding) as fin:
