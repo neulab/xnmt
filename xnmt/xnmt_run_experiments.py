@@ -8,15 +8,13 @@ and <experimentname>.err.log, and reporting on final perplexity metrics.
 
 import argparse
 import sys
-import os
 import six
 import random
 import shutil
 import numpy as np
-import copy
 
 # XNMT imports
-import xnmt.xnmt_preproc, xnmt.xnmt_decode, xnmt.xnmt_evaluate, xnmt.train
+import xnmt.xnmt_preproc, xnmt.xnmt_evaluate, xnmt.training_regimen, xnmt.training_task
 from xnmt.options import OptionParser
 from xnmt.tee import Tee
 from xnmt.serializer import YamlSerializer, UninitializedYamlObject
@@ -33,6 +31,7 @@ def main(overwrite_args=None):
   argparser.add_argument("--dynet-gpu-ids", type=int)
   argparser.add_argument("--dynet-gpus", type=int)
   argparser.add_argument("--dynet-weight-decay", type=float)
+  argparser.add_argument("--dynet-profiling", type=int)
   argparser.add_argument("--generate-doc", action='store_true', help="Do not run, output documentation instead")
   argparser.add_argument("experiments_file")
   argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
@@ -67,16 +66,18 @@ def main(overwrite_args=None):
     print("=> Running {}".format(experiment_name))
     
     exp_args = exp_tasks.get("experiment", {})
-    # TODO: refactor
-    if not "model_file" in exp_args: exp_args["model_file"] = "<EXP>.mod"
-    if not "hyp_file" in exp_args: exp_args["hyp_file"] = "<EXP>.hyp"
-    if not "out_file" in exp_args: exp_args["out_file"] = "<EXP>.out"
-    if not "err_file" in exp_args: exp_args["model_file"] = "<EXP>.err"
-    if not "cfg_file" in exp_args: exp_args["cfg_file"] = None
-    if not "eval_only" in exp_args: exp_args["eval_only"] = False
-    if not "eval_metrics" in exp_args: exp_args["eval_metrics"] = "bleu"
-    if "cfg_file" in exp_args and exp_args["cfg_file"] != None:
-      shutil.copyfile(args.experiments_file, exp_args["cfg_file"])
+    model_file = exp_args.pop("model_file", "<EXP>.mod")
+    hyp_file = exp_args.pop("hyp_file", "<EXP>.hyp")
+    out_file = exp_args.pop("out_file", "<EXP>.out")
+    err_file = exp_args.pop("err_file", "<EXP>.err")
+    eval_only = exp_args.pop("eval_only", False)
+    eval_metrics = exp_args.pop("eval_metrics", "bleu")
+    save_num_checkpoints = exp_args.pop("save_num_checkpoints", 1)
+    cfg_file = exp_args.pop("cfg_file", None)
+    if len(exp_args)>0:
+      raise ValueError("unsupported experiment arguments: {}".format(str(exp_args)))
+    if cfg_file:
+      shutil.copyfile(args.experiments_file, cfg_file)
 
     preproc_args = exp_tasks.get("preproc", {})
     # Do preprocessing
@@ -85,25 +86,24 @@ def main(overwrite_args=None):
 
     print("> Initializing TrainingRegimen")
     train_args = exp_tasks["train"]
-    train_args.model_file = exp_args["model_file"] # TODO: can we use param sharing for this?
+    train_args.dynet_profiling = args.dynet_profiling
     model_context = ModelContext()
-    model_context.dynet_param_collection = PersistentParamCollection(exp_args["model_file"], 1)
+    model_context.dynet_param_collection = PersistentParamCollection(model_file, save_num_checkpoints)
     if hasattr(train_args, "glob"):
       for k in train_args.glob:
         setattr(model_context, k, train_args.glob[k])
     train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
     
-    xnmt_decoder = exp_tasks.get("decode", {})
-    xnmt_decoder.trg_file = exp_args["hyp_file"] # TODO: can we use param sharing for this?
-    xnmt_decoder.model_file = None  # The model is passed to the decoder directly
-    xnmt_decoder = YamlSerializer().initialize_if_needed(UninitializedYamlObject(xnmt_decoder), model_context)
+    inference = exp_tasks.get("inference", {})
+    inference.trg_file = hyp_file
+    inference = YamlSerializer().initialize_if_needed(UninitializedYamlObject(inference), model_context)
 
     evaluate_args = exp_tasks.get("evaluate", {})
-    evaluate_args["hyp_file"] = exp_args["hyp_file"]
-    evaluators = map(lambda s: s.lower(), exp_args["eval_metrics"].split(","))
+    evaluate_args["hyp_file"] = hyp_file
+    evaluators = map(lambda s: s.lower(), eval_metrics.split(","))
 
-    output = Tee(exp_args["out_file"], 3)
-    err_output = Tee(exp_args["err_file"], 3, error=True)
+    output = Tee(out_file, 3)
+    err_output = Tee(err_file, 3, error=True)
 
     # Do training
     if "random_search_report" in exp_tasks:
@@ -111,20 +111,18 @@ def main(overwrite_args=None):
 
     print("> Training")
     training_regimen = train_args
-    training_regimen.xnmt_decoder = copy.copy(xnmt_decoder)
-    training_regimen.evaluate_args = copy.copy(evaluate_args)
 
     eval_scores = "Not evaluated"
-    if not exp_args["eval_only"]:
-      training_regimen.run_epochs(exp_args["run_for_epochs"])
+    if not eval_only:
+      training_regimen.run_training()
 
-    if not exp_args["eval_only"]:
+    if not eval_only:
       print('reverting learned weights to best checkpoint..')
-      training_regimen.model_context.dynet_param_collection.revert_to_best_model()
+      training_regimen.yaml_context.dynet_param_collection.revert_to_best_model()
     if evaluators:
       print("> Evaluating test set")
       output.indent += 2
-      xnmt_decoder(model_elements=(training_regimen.corpus_parser, training_regimen.model, training_regimen.batcher))
+      inference(training_regimen.corpus_parser, training_regimen.model, training_regimen.batcher)
       eval_scores = []
       for evaluator in evaluators:
         evaluate_args["evaluator"] = evaluator

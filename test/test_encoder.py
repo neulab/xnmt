@@ -9,7 +9,7 @@ from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.residual import ResidualLSTMSeqTransducer
 from xnmt.attender import MlpAttender
 from xnmt.decoder import MlpSoftmaxDecoder
-from xnmt.training_corpus import BilingualTrainingCorpus
+from xnmt.corpus import BilingualTrainingCorpus
 from xnmt.input import BilingualCorpusParser, PlainTextReader
 from xnmt.model_context import ModelContext, PersistentParamCollection
 import xnmt.events

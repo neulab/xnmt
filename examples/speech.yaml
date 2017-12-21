@@ -8,14 +8,19 @@ speech-2layers:
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
-    run_for_epochs: 20
     eval_metrics: cer,wer
-  train: !TrainingRegimen
+    save_num_checkpoints: 2
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 20
     src_format: contvec
     batcher: !SrcBatcher
       pad_src_to_multiple: 4
       batch_size: 3
     trainer: !AdamTrainer {}
+    dev_metrics: cer,wer
+    glob:
+      default_layer_dim: 32
+      dropout: 0.4
     corpus_parser: !BilingualCorpusParser
       src_reader: !ContVecReader
         transpose: True
@@ -44,7 +49,10 @@ speech-2layers:
         layers: 1
         mlp_hidden_dim: 64
         bridge: !CopyBridge {}
-  decode: !XnmtDecoder
+    inference: !SimpleInference
+      post_process: join-char
+  inference: !SimpleInference
     src_file: examples/data/synth.contvec.npz
+    post_process: join-char
   evaluate:
-    ref_file: examples/data/synth.char
+    ref_file: examples/data/synth.words
