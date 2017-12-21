@@ -7,7 +7,7 @@ multi_task_exp:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     eval_metrics: bleu,wer
-  train: !JointMultiTaskTrainingRegimen
+  train: !SameBatchMultiTaskTrainingRegimen
     trainer: !AdamTrainer {}
     tasks:
     - !SimpleTrainingTask # first task is the main task: it will control early stopping, learning rate schedule, model checkpoints, ..

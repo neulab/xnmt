@@ -44,20 +44,6 @@ class TrainingTask(object):
     """
     raise NotImplementedError("")
 
-  def update_weights(self, loss, trainer, dynet_profiling):
-    """
-    Standardized way to perform backward pass and parameter updates.
-    Can be sidestepped e.g. for custom multitask training logic.
-    
-    :param loss: Result of self.training_step(...)
-    :param trainer: DyNet trainer / xnmt.optimizer object
-    :param dynet_profiling: if > 0, print the computation graph 
-    """
-    if dynet_profiling and dynet_profiling > 0:
-      dy.print_text_graphviz()
-    loss.backward()
-    trainer.update()
-  
   def checkpoint_needed(self):
     raise NotImplementedError()
 
