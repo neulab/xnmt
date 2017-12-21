@@ -81,6 +81,7 @@ standard-preproc:
           min_freq: 2
   train: !SimpleTrainingRegimen
     run_for_epochs: 20
+    dev_metrics: bleu
     corpus_parser: !BilingualCorpusParser
       src_reader: !PlainTextReader
         vocab: !Vocab
@@ -89,8 +90,8 @@ standard-preproc:
         vocab: !Vocab
           vocab_file: examples/preproc/train.vocab.en
       training_corpus: !BilingualTrainingCorpus
-        train_src: examples/preproc/train.norm.ja
-        train_trg: examples/preproc/train.norm.en
+        train_src: examples/preproc/dev.norm.ja
+        train_trg: examples/preproc/dev.norm.en
         dev_src: examples/preproc/dev.norm.ja
         dev_trg: examples/preproc/dev.norm.en
     model: !DefaultTranslator

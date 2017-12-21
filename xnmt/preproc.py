@@ -202,7 +202,7 @@ class SentencepieceTokenizer(ExternalTokenizer):
   yaml_tag = u'!SentencepieceTokenizer'
   tokenize_by_file = 1
 
-  def __init__(self, path, train_files, vocab_size, overwrite=True, model_prefix='sentpiece'
+  def __init__(self, path, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
       , output_format='piece', model_type='bpe', input_sentence_size=10000000
       , encode_extra_options=None, decode_extra_options=None):
     """
@@ -221,18 +221,17 @@ class SentencepieceTokenizer(ExternalTokenizer):
     self.encode_extra_options = ['--extra_options='+encode_extra_options] if encode_extra_options else []
     self.decode_extra_options = ['--extra_options='+decode_extra_options] if decode_extra_options else []
 
-    if (not overwrite and
-        os.path.exists(self.model_prefix + '.model') and
-        os.path.exists(self.model_prefix + '.vocab')):
-      return
-    sentpiece_train_exec_loc = os.path.join(path, 'spm_train')
-    sentpiece_train_command = [sentpiece_train_exec_loc
-        , '--input=' + ','.join(train_files)
-        , '--model_prefix=' + str(model_prefix)
-        , '--vocab_size=' + str(vocab_size)
-        , '--model_type=' + str(model_type)
-        ]
-    subprocess.call(sentpiece_train_command)
+    if ((not os.path.exists(self.model_prefix + '.model')) or
+        (not os.path.exists(self.model_prefix + '.vocab')) or
+        overwrite):
+      sentpiece_train_exec_loc = os.path.join(path, 'spm_train')
+      sentpiece_train_command = [sentpiece_train_exec_loc
+          , '--input=' + ','.join(train_files)
+          , '--model_prefix=' + str(model_prefix)
+          , '--vocab_size=' + str(vocab_size)
+          , '--model_type=' + str(model_type)
+          ]
+      subprocess.call(sentpiece_train_command)
 
     sentpiece_encode_exec_loc = os.path.join(self.sentpiece_path, 'spm_encode')
     sentpiece_encode_command = [sentpiece_encode_exec_loc
