@@ -79,7 +79,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
   yaml_tag = u'!SimpleTrainingTask'
   def __init__(self, yaml_context, corpus_parser, model, glob={},
                dev_every=0, batcher=None, loss_calculator=None, 
-               pretrained_model_file="", src_format="text", trainer=None, 
+               pretrained_model_file="", src_format="text",  
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
                reload_command=None, name=None, inference=None):
