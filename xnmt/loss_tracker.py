@@ -12,7 +12,7 @@ class LossTracker(object):
   """
 
   REPORT_TEMPLATE           = 'Epoch %.4f: {}_loss/word=%.6f (words=%d, words/sec=%.2f, time=%s)'
-  REPORT_TEMPLATE_OPTIMIZER = 'Epoch %.4f: {}_loss/word=%.6f (words=%d, words/sec=%.2f, time=%s, learning_rate=%1.6f)'
+  REPORT_TEMPLATE_OPTIMIZER = 'Epoch %.4f: {}_loss/word=%.6f (words=%d, words/sec=%.2f, time=%s, learning_rate=%:.2e)'
   REPORT_TEMPLATE_DEV       = '  Epoch %.4f dev %s (words=%d, words/sec=%.2f, time=%s)'
   REPORT_TEMPLATE_DEV_AUX   = '  Epoch %.4f dev [auxiliary] %s'
 
@@ -91,7 +91,8 @@ class LossTracker(object):
           self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
           self.epoch_words,
           (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
-          self.format_time(time.time() - self.start_time), self.optimizer_lr))
+          self.format_time(time.time() - self.start_time),
+          self.optimizer_lr))
       else:
         print(LossTracker.REPORT_TEMPLATE.format('train') % (
           self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
