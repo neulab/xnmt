@@ -3,7 +3,7 @@ from __future__ import division, generators
 
 import numpy as np
 import dynet as dy
-from xnmt.linear import LinearNoBias, Linear
+from xnmt.linear import Linear
 from xnmt.serializer import Serializable
 from xnmt.events import register_handler, handle_xnmt_event
 
@@ -26,7 +26,7 @@ class ReverseTimeDistributed(object):
 
 class LinearSent(object):
   def __init__(self, dy_model, input_dim, output_dim):
-    self.L = Linear(input_dim, output_dim, dy_model)
+    self.L = Linear(input_dim, output_dim, dy_model, init='LeCunUniform')
 
   def __call__(self, input_expr, reconstruct_shape=True, timedistributed=False):
     if not timedistributed:
@@ -43,7 +43,7 @@ class LinearSent(object):
 
 class LinearNoBiasSent(object):
   def __init__(self, dy_model, input_dim, output_dim):
-    self.L = LinearNoBias(input_dim, output_dim, dy_model)
+    self.L = Linear(input_dim, output_dim, dy_model, bias=False, init='LeCunUniform')
     self.output_dim = output_dim
 
   def __call__(self, input_expr):
