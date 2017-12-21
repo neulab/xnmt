@@ -40,6 +40,6 @@ standard:
         label_smoothing: 0.0
   decode: !XnmtDecoder
     beam: 1
-    src_file: examples/data/test.ja
+    src_file: examples/data/head.ja
   evaluate:
-    ref_file: examples/data/test.en
+    ref_file: examples/data/head.en
