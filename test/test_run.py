@@ -58,6 +58,9 @@ class TestRunningConfig(unittest.TestCase):
   def test_component_sharing(self):
     run.main(["test/config/component_sharing.yaml"])
 
+  def test_transformer_run(self):
+    run.main([["test/config/transformer.yaml"]])
+
   def tearDown(self):
     if os.path.isdir("test/tmp"):
       shutil.rmtree("test/tmp")
