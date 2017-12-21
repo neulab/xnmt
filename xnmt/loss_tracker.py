@@ -91,11 +91,12 @@ class LossTracker(object):
       self.sent_num_not_report_train = self.sent_num_not_report_train % self.eval_train_every
       self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
       this_report_time = time.time()
-      self.print_log(LossTracker.REPORT_TEMPLATE.format('train') % (
-                 self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
-                 self.epoch_words,
-                 (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
-                 self.format_time(time.time() - self.start_time)))
+
+      print(LossTracker.REPORT_TEMPLATE.format('train') % (
+        self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
+        self.epoch_words,
+        (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
+        self.format_time(time.time() - self.start_time)))
 
       if len(self.epoch_loss) > 1:
         for loss_name, loss_values in self.epoch_loss:

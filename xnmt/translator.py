@@ -4,10 +4,12 @@ import six
 import plot
 import dynet as dy
 import numpy as np
+import itertools
 
 import xnmt.length_normalization
 import xnmt.batcher
 
+from xnmt.expression_sequence import ExpressionSequence
 from xnmt.vocab import Vocab
 from xnmt.events import register_xnmt_event_assign, register_handler
 from xnmt.generator import GeneratorModel
@@ -15,6 +17,7 @@ from xnmt.serializer import Serializable
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.output import TextOutput
 from xnmt.reports import Reportable
+from xnmt.input import SimpleSentenceInput
 import xnmt.serializer
 from xnmt.batcher import mark_as_batch, is_batched
 
@@ -188,3 +191,187 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     return html
 
 
+class TransformerTranslator(Translator, Serializable, Reportable):
+  yaml_tag = u'!TransformerTranslator'
+
+  def __init__(self, src_embedder, encoder, trg_embedder, decoder, input_dim=512):
+    '''Constructor.
+
+    :param src_embedder: A word embedder for the input language
+    :param encoder: An encoder to generate encoded inputs
+    :param attender: An attention module
+    :param trg_embedder: A word embedder for the output language
+    :param decoder: A decoder
+    '''
+    register_handler(self)
+    self.src_embedder = src_embedder
+    self.encoder = encoder
+    self.trg_embedder = trg_embedder
+    self.decoder = decoder
+    self.input_dim = input_dim
+    self.scale_emb = self.input_dim ** 0.5
+    self.max_input_len = 500
+    self.initialize_position_encoding(self.max_input_len, input_dim)  # TODO: parametrize this
+
+  def initialize_generator(self, **kwargs):
+    if kwargs.get("len_norm_type", None) is None:
+      len_norm = xnmt.length_normalization.NoNormalization()
+    else:
+      len_norm = xnmt.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
+    search_args = {}
+    if kwargs.get("max_len", None) is not None:
+      search_args["max_len"] = kwargs["max_len"]
+      self.max_len = kwargs.get("max_len", 50)
+    if kwargs.get("beam", None) is None:
+      self.search_strategy = GreedySearch(**search_args)
+    else:
+      search_args["beam_size"] = kwargs.get("beam", 1)
+      search_args["len_norm"] = len_norm
+      # self.search_strategy = TransformerBeamSearch(**search_args)
+    self.report_path = kwargs.get("report_path", None)
+    self.report_type = kwargs.get("report_type", None)
+
+  def initialize_training_strategy(self, training_strategy):
+    self.loss_calculator = training_strategy
+
+  def set_reporting_src_vocab(self, src_vocab):
+    """
+    Sets source vocab for reporting purposes.
+    """
+    self.reporting_src_vocab = src_vocab
+
+  def make_attention_mask(self, source_block, target_block):
+    mask = (target_block[:, None, :] <= 0) * (source_block[:, :, None] <= 0)
+    # (batch, source_length, target_length)
+    return mask
+
+  def make_history_mask(self, block):
+    batch, length = block.shape
+    arange = np.arange(length)
+    history_mask = (arange[None,] <= arange[:, None])[None,]
+    history_mask = np.broadcast_to(history_mask, (batch, length, length))
+    return history_mask
+
+  def mask_embeddings(self, embeddings, mask):
+    """
+    We convert the embeddings of masked input sequence to zero vector
+    """
+    (embed_dim, _), _ = embeddings.dim()
+    temp_mask = np.repeat(1. - mask[:, None, :], embed_dim, axis=1)
+    temp_mask = dy.inputTensor(np.moveaxis(temp_mask, [1, 0, 2], [0, 2, 1]), batched=True)
+    embeddings = dy.cmult(embeddings, temp_mask)
+    return embeddings
+
+  def initialize_position_encoding(self, length, n_units):
+    # Implementation in the Google tensor2tensor repo
+    channels = n_units
+    position = np.arange(length, dtype='f')
+    num_timescales = channels // 2
+    log_timescale_increment = (np.log(10000. / 1.) / (float(num_timescales) - 1))
+    inv_timescales = 1. * np.exp(np.arange(num_timescales).astype('f') * -log_timescale_increment)
+    scaled_time = np.expand_dims(position, 1) * np.expand_dims(inv_timescales, 0)
+    signal = np.concatenate([np.sin(scaled_time), np.cos(scaled_time)], axis=1)
+    signal = np.reshape(signal, [1, length, channels])
+    self.position_encoding_block = np.transpose(signal, (0, 2, 1))
+
+  def make_input_embedding(self, emb_block, length):
+    if length > self.max_input_len:
+      self.initialize_position_encoding(2 * length, self.input_dim)
+    emb_block = emb_block * self.scale_emb
+    emb_block += dy.inputTensor(self.position_encoding_block[0, :, :length])
+    return emb_block
+
+  def sentence_block_embed(self, embed, x, mask):
+    batch, length = x.shape
+    x_mask = mask.reshape((batch * length,))
+    _, units = embed.shape()  # According to updated Dynet
+    e = dy.concatenate_cols([dy.zeros(units) if x_mask[j] == 1 else embed[id_] for j, id_ in enumerate(x.reshape((batch * length,)))])
+    e = dy.reshape(e, (units, length), batch_size=batch)
+    return e
+
+  def calc_loss(self, src, trg, get_prediction=False):
+    src_words = np.array(list(map(lambda x: [Vocab.SS] + x.words, src)))
+    batch_size, src_len = src_words.shape
+
+    if isinstance(src.mask, type(None)):
+      src_mask = np.zeros((batch_size, src_len), dtype=np.int)
+    else:
+      src_mask = np.concatenate([np.zeros((batch_size, 1), dtype=np.int), src.mask.np_arr.astype(np.int)], axis=1)
+
+    src_embeddings = self.sentence_block_embed(self.src_embedder.embeddings, src_words, src_mask)
+    src_embeddings = self.make_input_embedding(src_embeddings, src_len)
+
+    trg_words = np.array(list(map(lambda x: [Vocab.SS] + x.words[:-1], trg)))
+    batch_size, trg_len = trg_words.shape
+
+    if isinstance(trg.mask, type(None)):
+      trg_mask = np.zeros((batch_size, trg_len), dtype=np.int)
+    else:
+      trg_mask = trg.mask.np_arr.astype(np.int)
+
+    trg_embeddings = self.sentence_block_embed(self.trg_embedder.embeddings, trg_words, trg_mask)
+    trg_embeddings = self.make_input_embedding(trg_embeddings, trg_len)
+
+    xx_mask = self.make_attention_mask(src_mask, src_mask)
+    xy_mask = self.make_attention_mask(trg_mask, src_mask)
+    yy_mask = self.make_attention_mask(trg_mask, trg_mask)
+    yy_mask *= self.make_history_mask(trg_mask)
+
+    z_blocks = self.encoder(src_embeddings, xx_mask)
+    h_block = self.decoder(trg_embeddings, z_blocks, xy_mask, yy_mask)
+
+    if get_prediction:
+      y_len = h_block.dim()[0][1]
+      last_col = dy.pick(h_block, dim=1, index=y_len - 1)
+      logits = self.decoder.output(last_col)
+      return logits
+
+    ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
+    concat_t_block = (1 - trg_mask.ravel()).reshape(-1) * np.array(ref_list)
+    loss = self.decoder.output_and_loss(h_block, concat_t_block)
+    return loss
+
+  def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
+    if not xnmt.batcher.is_batched(src):
+      src = xnmt.batcher.mark_as_batch([src])
+    else:
+      assert src_mask is not None
+    outputs = []
+
+    trg = SimpleSentenceInput([0])
+
+    if not xnmt.batcher.is_batched(trg):
+      trg = xnmt.batcher.mark_as_batch([trg])
+
+    output_actions = []
+    score = 0.
+
+    for i in range(self.max_len):
+      dy.renew_cg()
+      log_prob_tail = self.calc_loss(src, trg, get_prediction=True)
+      ys = np.argmax(log_prob_tail.npvalue(), axis=0).astype('i')
+      if ys == Vocab.ES:
+        output_actions.append(ys)
+        break
+      output_actions.append(ys)
+      trg = SimpleSentenceInput(output_actions + [0])
+      if not xnmt.batcher.is_batched(trg):
+        trg = xnmt.batcher.mark_as_batch([trg])
+
+    # In case of reporting
+    sents = src[0]
+    if self.report_path is not None:
+      src_words = [self.reporting_src_vocab[w] for w in sents]
+      trg_words = [self.trg_vocab[w] for w in output_actions]
+      self.set_report_input(idx, src_words, trg_words)
+      self.set_report_resource("src_words", src_words)
+      self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
+      self.generate_report(self.report_type)
+
+    # Append output to the outputs
+    if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
+      outputs.append(TextOutput(output_actions, self.trg_vocab))
+    else:
+      outputs.append((output_actions, score))
+
+    return outputs

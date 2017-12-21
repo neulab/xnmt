@@ -1,3 +1,4 @@
+import numpy as np
 import dynet as dy
 from xnmt.serializer import Serializable
 
@@ -48,3 +49,30 @@ class AdamTrainer(XnmtOptimizer, Serializable):
   def __init__(self, yaml_context, alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
     self.optimizer = dy.AdamTrainer(yaml_context.dynet_param_collection.param_col, 
                                     alpha, beta_1, beta_2, eps)
+
+
+class TransformerAdamTrainer(XnmtOptimizer, Serializable):
+  """
+  Proposed in the paper "Attention is all you need" (https://papers.nips.cc/paper/7181-attention-is-all-you-need.pdf) [Page 7, Eq. 3]
+  In this the learning rate of Adam Optimizer is increased for the first warmup steps followed by a gradual decay
+  """
+  yaml_tag = u'!TransformerAdamTrainer'
+  def __init__(self, yaml_context, alpha=1.0, dim=512, warmup_steps=4000, beta_1=0.9, beta_2=0.98, eps=1e-9):
+    self.optimizer = dy.AdamTrainer(yaml_context.dynet_param_collection.param_col,
+                                    alpha=alpha,
+                                    beta_1=beta_1,
+                                    beta_2=beta_2,
+                                    eps=eps)
+    self.dim = dim
+    self.warmup_steps = warmup_steps
+    self.steps = 0
+
+  def update(self):
+    self.steps += 1
+    decay = (self.dim ** (-0.5)) * np.min([self.steps ** (-0.5), self.steps * (self.warmup_steps ** (-1.5))])
+    self.optimizer.learning_rate = 1. * decay
+    self.optimizer.update()
+
+    if self.steps % 200 == 0:
+      print('> Optimizer Logging')
+      print('  Steps=%d, learning_rate=%.2e' % (self.steps, self.optimizer.learning_rate))

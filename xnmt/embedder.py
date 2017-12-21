@@ -5,10 +5,12 @@ import dynet as dy
 import xnmt.batcher
 import six
 import io
+from xnmt.initializer import LeCunUniform as linear_init
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.serializer import Serializable
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 from xnmt.linear import Linear
+
 
 class Embedder(object):
   """
@@ -117,7 +119,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   yaml_tag = u'!SimpleWordEmbedder'
 
-  def __init__(self, yaml_context, vocab_size, emb_dim = None, weight_noise = None, word_dropout = 0.0, fix_norm = None):
+  def __init__(self, yaml_context, vocab_size, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm=None, init=None):
     """
     :param vocab_size:
     :param emb_dim:
@@ -131,7 +133,10 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.weight_noise = weight_noise or yaml_context.weight_noise
     self.word_dropout = word_dropout
     self.fix_norm = fix_norm
-    self.embeddings = yaml_context.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim))
+    if init == 'LeCunUniform':
+      init = linear_init(self.vocab_size)
+    self.embeddings = yaml_context.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim),
+                                                                                          init=init)
     self.word_id_mask = None
     self.train = False
 
