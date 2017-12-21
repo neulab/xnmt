@@ -2,7 +2,6 @@ import yaml
 import inspect
 import datetime
 import os
-import sys
 import six
 import copy
 
@@ -41,7 +40,7 @@ class Serializable(yaml.YAMLObject):
     This can be overwritten to share parameters that require dependent components already having been initialized.
     The order of initialization is determined by the order in which components are listed in __init__(),
               and then going bottom-up.
-    NOTE: currently only supported for top of component hierarchy, and not across lists of subcomponents
+    NOTE: currently not working across lists of subcomponents, and possibly also not for some other special cases
     
     :param initialized_subcomponents: dict
     :returns: list of DependentInitParam instances
@@ -72,15 +71,9 @@ class YamlSerializer(object):
   def initialize_object(self, deserialized_yaml_wrapper, yaml_context={}):
     """
     Initializes a hierarchy of deserialized YAML objects.
-<<<<<<< HEAD
     
     :param deserialized_yaml_wrapper: deserialized YAML data inside a UninitializedYamlObject wrapper (classes are resolved and class members set, but __init__() has not been called at this point)
     :param yaml_context: this is passed to __init__ of every created object that expects a argument named yaml_context 
-=======
-
-    :param deserialized_yaml: deserialized YAML object (classes are resolved and class members set, but __init__() has not been called at this point)
-    :param yaml_context: this is passed to __init__ of every created object that expects a argument named yaml_context
->>>>>>> master
     :returns: the appropriate object, with properly shared parameters and __init__() having been invoked
     """
     if YamlSerializer.is_initialized(deserialized_yaml_wrapper):
@@ -153,6 +146,11 @@ class YamlSerializer(object):
     for _, val in inspect.getmembers(obj):
       if isinstance(val, Serializable):
         self.share_init_params_top_down(val)
+      elif isinstance(val, list):
+        for sub_val in val:
+          if isinstance(sub_val, Serializable):
+            self.share_init_params_top_down(sub_val)
+          
 
   def get_val_to_share_or_none(self, obj, shared_params):
     val = None
@@ -207,7 +205,8 @@ class YamlSerializer(object):
           for item in val:
             if isinstance(item, Serializable):
               item._initialized_subcomponents = {}
-              new_init_params.append(self.init_components_bottom_up(item, [], yaml_context))
+              sub_dependent_init_params = item.dependent_init_params(item._initialized_subcomponents)
+              new_init_params.append(self.init_components_bottom_up(item, sub_dependent_init_params, yaml_context))
             else:
               new_init_params.append(item)
           init_params[init_arg] = new_init_params
@@ -258,6 +257,8 @@ class YamlSerializer(object):
 
   @staticmethod
   def init_representer(dumper, obj):
+    if not hasattr(obj, "serialize_params"):
+      raise RuntimeError("Serializing object {} that does not possess serialize_params, probably because it was created programmatically, is not possible.".format((obj,)))
     if type(obj.serialize_params)==list:
       serialize_params = {param:getattr(obj, param) for param in obj.serialize_params}
     else:
@@ -272,7 +273,7 @@ class YamlSerializer(object):
 
   def save_to_file(self, fname, mod, persistent_param_collection):
     dirname = os.path.dirname(fname)
-    if not os.path.exists(dirname):
+    if dirname and not os.path.exists(dirname):
       os.makedirs(dirname)
     with open(fname, 'w') as f:
       f.write(self.dump(mod))

@@ -9,6 +9,7 @@ class ModelContext(Serializable):
     self.weight_noise = 0.0
     self.default_layer_dim = 512
     self.dynet_param_collection = None
+    self.model_file = None
     self.serialize_params = ["dropout", "weight_noise", "default_layer_dim"]
   def update(self, other):
     for param in self.serialize_params:
@@ -40,5 +41,20 @@ class PersistentParamCollection(object):
     for i in range(len(self.data_files)-1)[::-1]:
       if os.path.exists(self.data_files[i]):
         os.rename(self.data_files[i], self.data_files[i+1])
+  def load_from_data_file(self, datafile):
+    self.param_col.populate(datafile)
+
+class NonPersistentParamCollection(object):
+  def __init__(self):
+    self.param_col = dy.Model()
+    self.model_file = None
+  def revert_to_best_model(self):
+    print("WARNING: reverting a non-persistent param collection has no effect")
+  def save(self, fname=None):
+    print("WARNING: saving a non-persistent param collection has no effect")
+  def remove_existing_history(self):
+    print("WARNING: editing history of a non-persistent param collection has no effect")
+  def shift_safed_checkpoints(self):
+    print("WARNING: editing history of a non-persistent param collection has no effect")
   def load_from_data_file(self, datafile):
     self.param_col.populate(datafile)

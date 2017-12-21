@@ -290,22 +290,29 @@ class BilingualCorpusParser(CorpusParser, Serializable):
     self.sample_train_sents = sample_train_sents
     self.train_src_len, self.train_trg_len = None, None
     self.dev_src_len, self.dev_trg_len = None, None
+    self.data_was_read = False
     if max_num_train_sents is not None and sample_train_sents is not None: raise RuntimeError("max_num_train_sents and sample_train_sents are mutually exclusive!")
     if not lazy_read:
       self._read_training_corpus(self.training_corpus)
 
+  def get_training_corpus(self):
+    """
+    Training corpus should not be accessed directly, but via this method, to support lazy corpus reading
+    """
+    if not self.data_was_read:
+      self._read_training_corpus(self.training_corpus)
+    return self.training_corpus
+  
   def _read_training_corpus(self, training_corpus):
     training_corpus.train_src_data = []
     training_corpus.train_trg_data = []
+    self.train_src_len = self.src_reader.count_sents(training_corpus.train_src)
+    self.train_trg_len = self.trg_reader.count_sents(training_corpus.train_trg)
     if self.sample_train_sents:
-      self.train_src_len = self.src_reader.count_sents(training_corpus.train_src)
-      self.train_trg_len = self.trg_reader.count_sents(training_corpus.train_trg)
       if self.train_src_len != self.train_trg_len: raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (self.train_src_len, self.train_trg_len))
       self.sample_train_sents = int(self.sample_train_sents)
       filter_ids = np.random.choice(self.train_src_len, self.sample_train_sents, replace=False)
     elif self.max_num_train_sents:
-      self.train_src_len = self.src_reader.count_sents(training_corpus.train_src)
-      self.train_trg_len = self.trg_reader.count_sents(training_corpus.train_trg)
       if self.train_src_len != self.train_trg_len: raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (self.train_src_len, self.train_trg_len))
       filter_ids = list(range(min(self.max_num_train_sents, self.train_trg_len)))
     else:
@@ -344,6 +351,8 @@ class BilingualCorpusParser(CorpusParser, Serializable):
       if src_len_ok and trg_len_ok:
         training_corpus.dev_src_data.append(src_sent)
         training_corpus.dev_trg_data.append(trg_sent)
+        
+    self.data_was_read = True
 
 ###### Obsolete Functions
 

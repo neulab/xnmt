@@ -4,9 +4,9 @@ retrieval:
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
-    run_for_epochs: 20
     eval_metrics: recall|nbest=1,recall|nbest=5
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 20
     trainer: !AdamTrainer
       alpha: 0.001
     glob:
@@ -37,7 +37,7 @@ retrieval:
       database: !StandardRetrievalDatabase
         reader: !PlainTextReader {}
         database_file: examples/data/traindevtest.en
-  decode: !XnmtDecoder
+  inference: !SimpleInference
     src_file: examples/data/test.ja
     candidate_id_file: examples/data/test.allids
   evaluate:

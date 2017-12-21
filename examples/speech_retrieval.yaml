@@ -4,9 +4,9 @@ standard-dropout0.1:
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
-    run_for_epochs: 2
     eval_metrics: recall|nbest=1,recall|nbest=5
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 2
     trainer: !AdamTrainer
       alpha: 0.01 
     glob:
@@ -43,7 +43,7 @@ standard-dropout0.1:
       database: !StandardRetrievalDatabase
         reader: !ContVecReader {}
         database_file: examples/data/vgg20.npz
-  decode: !XnmtDecoder
+  inference: !SimpleInference
     src_file: examples/data/mfcc_tx20.npz
   evaluate:
     ref_file: examples/data/flickr_tx20.ids

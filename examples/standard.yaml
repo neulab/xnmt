@@ -5,9 +5,9 @@ standard:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     cfg_file: examples/output/<EXP>.yaml
-    run_for_epochs: 20
     eval_metrics: bleu
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 20
     batcher: !WordSrcBatcher
       avg_batch_size: 10
     glob:
@@ -37,7 +37,7 @@ standard:
         mlp_hidden_dim: 512
         bridge: !CopyBridge {}
         label_smoothing: 0.1
-  decode: !XnmtDecoder
+  inference: !SimpleInference
     beam: 5
     len_norm_type: !PolynomialNormalization
       apply_during_search: true
