@@ -7,7 +7,7 @@ standard:
     cfg_file: examples/output/<EXP>.yaml
     run_for_epochs: 30
     eval_metrics: bleu
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
     batcher: !SentShuffleBatcher
       batch_size: 100
     glob:
