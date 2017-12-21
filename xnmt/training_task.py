@@ -80,7 +80,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
   def __init__(self, yaml_context, corpus_parser, model, glob={},
                dev_every=0, batcher=None, loss_calculator=None, 
                pretrained_model_file="", src_format="text",  
-               run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
+               run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
                reload_command=None, name=None, inference=None):
     """
@@ -94,7 +94,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     :param src_format: Format of input data: text/contvec
     :param lr_decay (float):
     :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
-    :param attempts_before_lr_decay (int): apply LR decay after dev scores haven't improved over this many checkpoints
+    :param patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
     :param dev_metrics: Comma-separated list of evaluation metrics (bleu/wer/cer)
     :param schedule_metric: determine learning schedule based on this dev_metric (loss/bleu/wer/cer)
     :param restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
@@ -112,7 +112,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     if lr_decay > 1.0 or lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
     self.lr_decay = lr_decay
-    self.attempts_before_lr_decay = attempts_before_lr_decay
+    self.patience = patience
     self.lr_decay_times = lr_decay_times
     self.restart_trainer = restart_trainer
     self.run_for_epochs = run_for_epochs
@@ -353,7 +353,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       else:
         # otherwise: learning rate decay / early stopping
         self.training_state.cur_attempt += 1
-        if self.lr_decay < 1.0 and self.training_state.cur_attempt >= self.attempts_before_lr_decay:
+        if self.lr_decay < 1.0 and self.training_state.cur_attempt >= self.patience:
           self.training_state.num_times_lr_decayed += 1
           if self.training_state.num_times_lr_decayed > self.lr_decay_times:
             print('  Early stopping')
