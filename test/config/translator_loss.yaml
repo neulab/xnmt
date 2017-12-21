@@ -4,9 +4,9 @@ reinforce:
     hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
-    run_for_epochs: 1
     eval_metrics: bleu
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 1
     trainer: !AdamTrainer
       alpha: 0.01
     glob:
@@ -25,8 +25,8 @@ reinforce:
         train_trg: examples/data/head.en
         dev_src: examples/data/head.ja
         dev_trg: examples/data/head.en
-    training_strategy: !DefaultTrainingStrategy
-      loss_calculator: !TrainingReinforceLoss
+    loss_calculator: !LossCalculator
+      loss_calculator: !ReinforceLoss
         use_baseline: True
         decoder_hidden_dim: 32
     model: !DefaultTranslator
@@ -45,7 +45,7 @@ reinforce:
         layers: 1
         mlp_hidden_dim: 32
         bridge: !NoBridge {}
-  decode: !XnmtDecoder
+  inference: !SimpleInference
     src_file: examples/data/head.ja
   evaluate:
     ref_file: examples/data/head.en

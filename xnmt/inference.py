@@ -6,11 +6,10 @@ import sys
 import dynet as dy
 
 from xnmt.output import *
-from xnmt.serializer import *
 from xnmt.retriever import *
 from xnmt.translator import *
 from xnmt.search_strategy import *
-from xnmt.options import OptionParser, Option
+from xnmt.loss_calculator import LossCalculator
 from xnmt.serializer import Serializable
 
 '''
@@ -19,8 +18,8 @@ This will be the main class to perform decoding.
 
 NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
 
-class XnmtDecoder(Serializable):
-  yaml_tag = u'!XnmtDecoder'
+class SimpleInference(Serializable):
+  yaml_tag = u'!SimpleInference'
   def __init__(self, model_file=None, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
                   input_format="text", post_process="none", report_path=None, report_type="html",
                   beam=1, max_len=100, len_norm_type=None, mode="onebest"):
@@ -54,30 +53,13 @@ class XnmtDecoder(Serializable):
     self.mode = mode
     
 
-  def __call__(self, src_file=None, trg_file=None, candidate_id_file=None, model_elements=None):
+  def __call__(self, corpus_parser, generator, src_file=None, trg_file=None, candidate_id_file=None):
     """
     :param src_file: path of input src file to be translated
     :param trg_file: path of file where trg translatons will be written
     :param candidate_id_file: if we are doing something like retrieval where we select from fixed candidates, sometimes we want to limit our candidates to a certain subset of the full set. this setting allows us to do this.
     :param model_elements: If None, the model will be loaded from model_file. If set, should equal (corpus_parser, generator).
     """
-    if model_elements is None:
-      raise RuntimeError("xnmt_decode with model_element=None needs to be updated to run with the new YamlSerializer")
-  #    TODO: These lines need to be updated / removed!
-  #    model = dy.Model()
-  #    model_serializer = JSONSerializer()
-  #    serialize_container = model_serializer.load_from_file(args.model_file, model)
-  #
-  #    src_vocab = Vocab(serialize_container.src_vocab)
-  #    trg_vocab = Vocab(serialize_container.trg_vocab)
-  #
-  #    generator = DefaultTranslator(serialize_container.src_embedder, serialize_container.encoder,
-  #                                  serialize_container.attender, serialize_container.trg_embedder,
-  #                                  serialize_container.decoder)
-  #
-    else:
-      corpus_parser, generator = model_elements
-    
     args = dict(model_file=self.model_file, src_file=src_file or self.src_file, trg_file=trg_file or self.trg_file, ref_file=self.ref_file, max_src_len=self.max_src_len,
                   input_format=self.input_format, post_process=self.post_process, candidate_id_file=candidate_id_file, report_path=self.report_path, report_type=self.report_type,
                   beam=self.beam, max_len=self.max_len, len_norm_type=self.len_norm_type, mode=self.mode)
@@ -117,7 +99,7 @@ class XnmtDecoder(Serializable):
       ref_scores = []
       for src, ref in zip(batched_src, batched_ref):
         dy.renew_cg()
-        loss_expr = generator.calc_loss(src, ref)
+        loss_expr = generator.calc_loss(src, ref, loss_calculator=LossCalculator())
         ref_scores.extend(loss_expr.value())
       ref_scores = [-x for x in ref_scores]
   
@@ -150,12 +132,3 @@ class XnmtDecoder(Serializable):
       return JoinedPieceTextOutputProcessor()
     else:
       raise RuntimeError("Unknown postprocessing argument {}".format(spec))
-  
-if __name__ == "__main__":
-  raise NotImplementedError()
-#   # Parse arguments
-#   parser = OptionParser()
-#   args = parser.args_from_command_line("decode", sys.argv[1:])
-#   # Load model
-#   xnmt_decode(args)
-
