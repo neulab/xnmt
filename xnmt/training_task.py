@@ -79,8 +79,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
   yaml_tag = u'!SimpleTrainingTask'
   def __init__(self, yaml_context, corpus_parser, model, glob={},
                dev_every=0, batcher=None, loss_calculator=None, 
-               pretrained_model_file="", src_format="text",  
-               run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
+               pretrained_model_file="", src_format="text", run_for_epochs=None,
+               lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
                reload_command=None, name=None, inference=None):
     """
@@ -95,6 +95,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     :param lr_decay (float):
     :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
     :param patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
+    :param initial_patience (int): if given, allows adjusting patience for the first LR decay
     :param dev_metrics: Comma-separated list of evaluation metrics (bleu/wer/cer)
     :param schedule_metric: determine learning schedule based on this dev_metric (loss/bleu/wer/cer)
     :param restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
@@ -113,6 +114,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
     self.lr_decay = lr_decay
     self.patience = patience
+    self.initial_patience = initial_patience
     self.lr_decay_times = lr_decay_times
     self.restart_trainer = restart_trainer
     self.run_for_epochs = run_for_epochs
@@ -353,18 +355,24 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       else:
         # otherwise: learning rate decay / early stopping
         self.training_state.cur_attempt += 1
-        if self.lr_decay < 1.0 and self.training_state.cur_attempt >= self.patience:
-          self.training_state.num_times_lr_decayed += 1
-          if self.training_state.num_times_lr_decayed > self.lr_decay_times:
-            print('  Early stopping')
-            self.early_stopping_reached = True
-          else:
-            self.trainer.learning_rate *= self.lr_decay
-            print('  new learning rate: %s' % self.trainer.learning_rate)
-            if self.restart_trainer:
-              print('  restarting trainer and reverting learned weights to best checkpoint..')
-              self.trainer.restart()
-              self.yaml_context.dynet_param_collection.revert_to_best_model()
+        if self.lr_decay < 1.0:
+          should_decay = False
+          if (self.initial_patience is None or self.training_state.num_times_lr_decayed>0) and self.training_state.cur_attempt >= self.patience:
+            should_decay = True
+          if self.initial_patience is not None and self.training_state.num_times_lr_decayed==0 and self.training_state.cur_attempt >= self.initial_patience:
+            should_decay = True
+          if should_decay:
+            self.training_state.num_times_lr_decayed += 1
+            if self.training_state.num_times_lr_decayed > self.lr_decay_times:
+              print('  Early stopping')
+              self.early_stopping_reached = True
+            else:
+              self.trainer.learning_rate *= self.lr_decay
+              print('  new learning rate: %s' % self.trainer.learning_rate)
+              if self.restart_trainer:
+                print('  restarting trainer and reverting learned weights to best checkpoint..')
+                self.trainer.restart()
+                self.yaml_context.dynet_param_collection.revert_to_best_model()
 
     return ret
 
