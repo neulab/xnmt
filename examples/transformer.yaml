@@ -8,6 +8,7 @@ standard:
     run_for_epochs: 30
     eval_metrics: bleu
   train: !TrainingRegimen
+    log_optimizer: True
     batcher: !SentShuffleBatcher
       batch_size: 100
     glob:

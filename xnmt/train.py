@@ -49,7 +49,7 @@ class TrainingRegimen(Serializable):
                pretrained_model_file="", src_format="text",
                trainer=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
                dev_metrics="", schedule_metric="loss", restart_trainer=False,
-               reload_command=None):
+               reload_command=None, log_optimizer=False):
     """
     :param corpus_parser:
     :param model_file:
@@ -80,7 +80,7 @@ class TrainingRegimen(Serializable):
                pretrained_model_file=pretrained_model_file, src_format=src_format, default_layer_dim=glob.get("default_layer_dim", 512),
                trainer=trainer, lr_decay=lr_decay, lr_decay_times=lr_decay_times, attempts_before_lr_decay=attempts_before_lr_decay,
                dev_metrics=dev_metrics, schedule_metric=schedule_metric, restart_trainer=restart_trainer,reload_command=reload_command,
-               dropout=glob.get("dropout", 0.0), weight_noise=glob.get("weight_noise", 0.0), model=model)
+               dropout=glob.get("dropout", 0.0), weight_noise=glob.get("weight_noise", 0.0), model=model, log_optimizer=log_optimizer)
     self.args = args
     if yaml_context:
       self.model_context = yaml_context
@@ -236,8 +236,11 @@ class TrainingRegimen(Serializable):
         loss_value.backward()
         self.trainer.update()
 
+      if self.args.log_optimizer:
+        self.logger.report_optimizer(self.trainer.optimizer.learning_rate)
+
       # Devel reporting
-      self.logger.report_train_process(self.trainer.optimizer.learning_rate)
+      self.logger.report_train_process()
       if self.logger.should_report_dev():
         self.dev_evaluation()
 
