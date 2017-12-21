@@ -236,7 +236,7 @@ class TrainingRegimen(Serializable):
         loss_value.backward()
         self.trainer.update()
 
-      if self.args.log_optimizer:
+      if self.args["log_optimizer"]:
         self.logger.report_optimizer(self.trainer.optimizer.learning_rate)
 
       # Devel reporting
