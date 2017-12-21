@@ -38,7 +38,8 @@ standard:
       decoder: !TransformerDecoder
         layers: 1
         label_smoothing: 0.0
-  decode: !XnmtDecoder
+  # decode: !XnmtDecoder
+  inference: !SimpleInference
     beam: 1
     src_file: examples/data/test.ja
   evaluate:
