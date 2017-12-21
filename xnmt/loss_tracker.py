@@ -12,7 +12,7 @@ class LossTracker(object):
   """
 
   REPORT_TEMPLATE           = 'Epoch %.4f: {}_loss/word=%.6f (words=%d, words/sec=%.2f, time=%s)'
-  REPORT_TEMPLATE_OPTIMIZER = 'Epoch %.4f: {}_loss/word=%.6f (words=%d, words/sec=%.2f, time=%s, learning_rate=%:.2e)'
+  REPORT_TEMPLATE_OPTIMIZER = 'Epoch %.4f: {}_loss/word=%.6f (words=%d, words/sec=%.2f, time=%s, learning_rate=%.2e)'
   REPORT_TEMPLATE_DEV       = '  Epoch %.4f dev %s (words=%d, words/sec=%.2f, time=%s)'
   REPORT_TEMPLATE_DEV_AUX   = '  Epoch %.4f dev [auxiliary] %s'
 
