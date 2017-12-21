@@ -1,0 +1,74 @@
+# Simple example for multi-task training. Here, we have 2 identical tasks with
+# some shared parameters.
+multi_task_exp:
+  experiment:
+    model_file: examples/output/<EXP>.mod
+    hyp_file: examples/output/<EXP>.hyp
+    out_file: examples/output/<EXP>.out
+    err_file: examples/output/<EXP>.err
+    eval_metrics: bleu,wer
+  train: !SameBatchMultiTaskTrainingRegimen
+    trainer: !AdamTrainer {}
+    tasks:
+    - !SimpleTrainingTask # first task is the main task: it will control early stopping, learning rate schedule, model checkpoints, ..
+      name: first_task
+      run_for_epochs: 6
+      dev_metrics: bleu # tasks can specify different dev_metrics
+      batcher: !SrcBatcher
+        batch_size: 6 # batch size is twice as big as for task 2, which will give task 1 more impact during training
+      corpus_parser: !BilingualCorpusParser
+        src_reader: !PlainTextReader {}
+        trg_reader: !PlainTextReader {}
+        training_corpus: !BilingualTrainingCorpus # both tasks use the same corpus in this example, but it could be completely different corpora.
+          train_src: examples/data/head.ja
+          train_trg: examples/data/head.en
+          dev_src: examples/data/head.ja
+          dev_trg: examples/data/head.en
+      model: !DefaultTranslator
+        src_embedder: !SimpleWordEmbedder
+          emb_dim: 64
+        encoder: !BiLSTMSeqTransducer &task1_encoder # the encoder shares parameters between tasks
+          _xnmt_id: task1_encoder
+          layers: 1
+        attender: !MlpAttender
+          state_dim: 64
+          hidden_dim: 64
+          input_dim: 64
+        trg_embedder: !SimpleWordEmbedder
+          emb_dim: 64
+        decoder: !MlpSoftmaxDecoder
+          layers: 1
+          bridge: !CopyBridge {}
+    - !SimpleTrainingTask
+      name: second_task
+      dev_metrics: gleu
+      batcher: !SrcBatcher
+        batch_size: 3
+      corpus_parser: !BilingualCorpusParser
+        src_reader: !PlainTextReader {}
+        trg_reader: !PlainTextReader {}
+        training_corpus: !BilingualTrainingCorpus
+          train_src: examples/data/head.ja
+          train_trg: examples/data/head.en
+          dev_src: examples/data/head.ja
+          dev_trg: examples/data/head.en
+      model: !DefaultTranslator
+        src_embedder: !SimpleWordEmbedder
+          emb_dim: 64
+        encoder: *task1_encoder
+        attender: !MlpAttender
+          state_dim: 64
+          hidden_dim: 64
+          input_dim: 64
+        trg_embedder: !SimpleWordEmbedder
+          emb_dim: 64
+        decoder: !MlpSoftmaxDecoder
+          layers: 1
+          bridge: !CopyBridge {}
+  inference: !SimpleInference
+    len_norm_type: !PolynomialNormalization
+      apply_during_search: true
+      m: 1
+    src_file: examples/data/head.ja
+  evaluate:
+    ref_file: examples/data/head.en

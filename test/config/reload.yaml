@@ -4,9 +4,9 @@ reload:
     hyp_file: test/tmp/output/<EXP>.hyp
     out_file: test/tmp/output/<EXP>.out
     err_file: test/tmp/output/<EXP>.err
-    run_for_epochs: 10
     eval_metrics: cer,wer
-  train: !TrainingRegimen
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 10
     reload_command: >-
       python script/code/reload_example.py
       --initial-dir examples/data/
@@ -43,7 +43,7 @@ reload:
         layers: 1
         mlp_hidden_dim: 64
         bridge: !CopyBridge {}
-  decode: !XnmtDecoder
+  inference: !SimpleInference
     src_file: test/tmp/reload/synth.contvec.npz
   evaluate:
     ref_file: test/tmp/reload/synth.char
