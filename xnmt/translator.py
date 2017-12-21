@@ -213,7 +213,8 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     self.decoder = decoder
     self.input_dim = input_dim
     self.scale_emb = self.input_dim ** 0.5
-    self.initialize_position_encoding(500, input_dim)  # TODO: parametrize this
+    self.max_input_len = 500
+    self.initialize_position_encoding(self.max_input_len, input_dim)  # TODO: parametrize this
 
   def initialize_generator(self, **kwargs):
     if kwargs.get("len_norm_type", None) is None:
@@ -277,6 +278,8 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     self.position_encoding_block = np.transpose(signal, (0, 2, 1))
 
   def make_input_embedding(self, emb_block, length):
+    if length > self.max_input_len:
+      self.initialize_position_encoding(2 * length, self.input_dim)
     emb_block = emb_block * self.scale_emb
     emb_block += dy.inputTensor(self.position_encoding_block[0, :, :length])
     return emb_block
