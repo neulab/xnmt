@@ -53,10 +53,10 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
   def __init__(self, yaml_context, corpus_parser, model, glob={},
                dev_every=0, batcher=None, loss_calculator=None, 
                pretrained_model_file="", src_format="text", trainer=None, 
-               run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, attempts_before_lr_decay=1,
-               dev_metrics="", schedule_metric="loss", restart_trainer=False,
-               reload_command=None, dynet_profiling=0, name=None,
-               inference=None):
+               run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
+               initial_patience=None, dev_metrics="", schedule_metric="loss",
+               restart_trainer=False, reload_command=None, dynet_profiling=0,
+               name=None, inference=None):
     """
     :param yaml_context:
     :param corpus_parser: an input.InputReader object
@@ -69,7 +69,8 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     :param trainer: Trainer object, default is SGD with learning rate 0.1
     :param lr_decay (float):
     :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
-    :param attempts_before_lr_decay (int): apply LR decay after dev scores haven't improved over this many checkpoints
+    :param patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
+    :param initial_patience (int): if given, allows adjusting patience for the first LR decay
     :param dev_metrics: Comma-separated list of evaluation metrics (bleu/wer/cer)
     :param schedule_metric: determine learning schedule based on this dev_metric (loss/bleu/wer/cer)
     :param restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
@@ -92,7 +93,8 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                                                 run_for_epochs=run_for_epochs,
                                                 lr_decay=lr_decay,
                                                 lr_decay_times=lr_decay_times,
-                                                attempts_before_lr_decay=attempts_before_lr_decay,
+                                                patience=patience,
+                                                initial_patience=initial_patience,
                                                 dev_metrics=dev_metrics,
                                                 schedule_metric=schedule_metric,
                                                 restart_trainer=restart_trainer,

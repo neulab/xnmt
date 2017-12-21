@@ -3,7 +3,7 @@ import sys
 import io
 import ast
 
-from xnmt.evaluator import BLEUEvaluator, GLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator, ExternalEvaluator
+from xnmt.evaluator import BLEUEvaluator, GLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator, ExternalEvaluator, MeanAvgPrecisionEvaluator
 from xnmt.options import OptionParser
 from xnmt.inference import NO_DECODING_ATTEMPTED
 
