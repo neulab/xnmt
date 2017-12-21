@@ -5,9 +5,9 @@ standard:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     cfg_file: examples/output/<EXP>.yaml
-    run_for_epochs: 30
     eval_metrics: bleu
   train: !SimpleTrainingRegimen
+    run_for_epochs: 30
     batcher: !SentShuffleBatcher
       batch_size: 100
     glob:
