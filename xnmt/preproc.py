@@ -157,13 +157,16 @@ class ExternalTokenizer(StreamTokenizer):
   def _tokenize(self, string):
     encode_proc = subprocess.Popen(self.tokenizer_command, stdin=subprocess.PIPE
         , stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if sys.version_info[0] >= 3 or isinstance(string, unicode):
+    if ((sys.version_info[0] >= 3 and isinstance(string, str))
+            or (sys.version_info[0] < 3 and isinstance(string, unicode))):
       string = string.encode('utf-8')
     stdout, stderr = encode_proc.communicate(string)
     if stderr:
-      if sys.version_info[0] >= 3 or isinstance(string, unicode):
+      if (sys.version_info[0] >= 3 and isinstance(stderr, bytes)):
+        stderr = stderr.decode('utf-8')
+      if (sys.version_info[0] < 3 and isinstance(stderr , unicode)):
         stderr = stderr.encode('utf-8')
-        sys.stderr.write(stderr + '\n')
+      sys.stderr.write(stderr + '\n')
     return stdout
 
   def detokenize(self, sent):
@@ -190,6 +193,10 @@ class ExternalTokenizer(StreamTokenizer):
     decode_proc = subprocess.Popen(self.detokenize_command, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     (stdout, stderr) = decode_proc.communicate(string)
     if stderr:
+      if (sys.version_info[0] >= 3 and isinstance(stderr, bytes)):
+        stderr = stderr.decode('utf-8')
+      if (sys.version_info[0] < 3 and isinstance(stderr , unicode)):
+        stderr = stderr.encode('utf-8')
       sys.stderr.write(stderr + '\n')
     return stdout
 
@@ -220,6 +227,13 @@ class SentencepieceTokenizer(ExternalTokenizer):
     self.input_format = output_format
     self.encode_extra_options = ['--extra_options='+encode_extra_options] if encode_extra_options else []
     self.decode_extra_options = ['--extra_options='+decode_extra_options] if decode_extra_options else []
+
+    if not os.path.exists(os.path.dirname(model_prefix)):
+      try:
+        os.makedirs(os.path.dirname(model_prefix))
+      except OSError as exc:
+        if exc.errno != errno.EEXist:
+          raise
 
     if ((not os.path.exists(self.model_prefix + '.model')) or
         (not os.path.exists(self.model_prefix + '.vocab')) or
