@@ -9,6 +9,14 @@ from xnmt.serializer import YamlSerializer, UninitializedYamlObject
 
 ##### Main function
 
+def make_parent_dir(filename):
+  if not os.path.exists(os.path.dirname(filename)):
+    try:
+      os.makedirs(os.path.dirname(filename))
+    except OSError as exc: # Guard against race condition
+      if exc.errno != errno.EEXIST:
+        raise
+
 def xnmt_preproc(preproc_specs=None, overwrite=False):
   """Preprocess and filter the input files, and create the vocabulary
   :param preproc_specs (list): A specification for a preprocessing step, including in_files (the input files), out_files (the output files), type (normalize/filter/vocab), and spec for that particular preprocessing type
@@ -40,6 +48,7 @@ def xnmt_preproc(preproc_specs=None, overwrite=False):
             for my_opts in arg["specs"]}
       for file_num, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
         if args["overwrite"] or not os.path.isfile(out_file):
+          make_parent_dir(out_file)
           my_tokenizers = tokenizers.get(file_num, tokenizers["all"])
           with io.open(out_file, "w", encoding='utf-8') as out_stream, \
                io.open(in_file, "r", encoding='utf-8') as in_stream:
@@ -52,6 +61,7 @@ def xnmt_preproc(preproc_specs=None, overwrite=False):
       normalizers = {my_opts["filenum"]: Normalizer.from_spec(my_opts["spec"]) for my_opts in arg["specs"]}
       for i, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
         if args["overwrite"] or not os.path.isfile(out_file):
+          make_parent_dir(out_file)
           my_normalizers = normalizers.get(i, normalizers["all"])
           with io.open(out_file, "w", encoding='utf-8') as out_stream, \
                io.open(in_file, "r", encoding='utf-8') as in_stream:
@@ -87,6 +97,7 @@ def xnmt_preproc(preproc_specs=None, overwrite=False):
       filters = {my_opts["filenum"]: VocabFilterer.from_spec(my_opts["spec"]) for my_opts in arg["specs"]}
       for i, (in_file, out_file) in enumerate(zip(arg["in_files"], arg["out_files"])):
         if args["overwrite"] or not os.path.isfile(out_file):
+          make_parent_dir(out_file)
           with io.open(out_file, "w", encoding='utf-8') as out_stream, \
                io.open(in_file, "r", encoding='utf-8') as in_stream:
             vocab = {}

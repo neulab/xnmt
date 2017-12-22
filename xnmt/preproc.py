@@ -157,10 +157,15 @@ class ExternalTokenizer(StreamTokenizer):
   def _tokenize(self, string):
     encode_proc = subprocess.Popen(self.tokenizer_command, stdin=subprocess.PIPE
         , stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if isinstance(string, unicode):
+    if ((sys.version_info[0] >= 3 and isinstance(string, str))
+            or (sys.version_info[0] < 3 and isinstance(string, unicode))):
       string = string.encode('utf-8')
     stdout, stderr = encode_proc.communicate(string)
     if stderr:
+      if (sys.version_info[0] >= 3 and isinstance(stderr, bytes)):
+        stderr = stderr.decode('utf-8')
+      if (sys.version_info[0] < 3 and isinstance(stderr , unicode)):
+        stderr = stderr.encode('utf-8')
       sys.stderr.write(stderr + '\n')
     return stdout
 
@@ -188,6 +193,10 @@ class ExternalTokenizer(StreamTokenizer):
     decode_proc = subprocess.Popen(self.detokenize_command, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     (stdout, stderr) = decode_proc.communicate(string)
     if stderr:
+      if (sys.version_info[0] >= 3 and isinstance(stderr, bytes)):
+        stderr = stderr.decode('utf-8')
+      if (sys.version_info[0] < 3 and isinstance(stderr , unicode)):
+        stderr = stderr.encode('utf-8')
       sys.stderr.write(stderr + '\n')
     return stdout
 
@@ -200,7 +209,7 @@ class SentencepieceTokenizer(ExternalTokenizer):
   yaml_tag = u'!SentencepieceTokenizer'
   tokenize_by_file = 1
 
-  def __init__(self, path, train_files, vocab_size, overwrite=True, model_name='sentpiece'
+  def __init__(self, path, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
       , output_format='piece', model_type='bpe', input_sentence_size=10000000
       , encode_extra_options=None, decode_extra_options=None):
     """
@@ -213,34 +222,41 @@ class SentencepieceTokenizer(ExternalTokenizer):
 
     """
     self.sentpiece_path = path
-    self.model_path = model_name + '.model'
+    self.model_prefix = model_prefix
     self.output_format = output_format
     self.input_format = output_format
     self.encode_extra_options = ['--extra_options='+encode_extra_options] if encode_extra_options else []
     self.decode_extra_options = ['--extra_options='+decode_extra_options] if decode_extra_options else []
 
-    if (not overwrite and os.path.exists(self.model_path)
-        and os.path.exists(model_name + '.vocab')):
-      return
-    sentpiece_train_exec_loc = os.path.join(path, 'spm_train')
-    sentpiece_train_command = [sentpiece_train_exec_loc
-        , '--input=' + ','.join(train_files)
-        , '--model_prefix=' + str(model_name)
-        , '--vocab_size=' + str(vocab_size)
-        , '--model_type=' + str(model_type)
-        ]
-    subprocess.call(sentpiece_train_command)
+    if not os.path.exists(os.path.dirname(model_prefix)):
+      try:
+        os.makedirs(os.path.dirname(model_prefix))
+      except OSError as exc:
+        if exc.errno != errno.EEXIST:
+          raise
+
+    if ((not os.path.exists(self.model_prefix + '.model')) or
+        (not os.path.exists(self.model_prefix + '.vocab')) or
+        overwrite):
+      sentpiece_train_exec_loc = os.path.join(path, 'spm_train')
+      sentpiece_train_command = [sentpiece_train_exec_loc
+          , '--input=' + ','.join(train_files)
+          , '--model_prefix=' + str(model_prefix)
+          , '--vocab_size=' + str(vocab_size)
+          , '--model_type=' + str(model_type)
+          ]
+      subprocess.call(sentpiece_train_command)
 
     sentpiece_encode_exec_loc = os.path.join(self.sentpiece_path, 'spm_encode')
     sentpiece_encode_command = [sentpiece_encode_exec_loc
-        , '--model=' + self.model_path
+        , '--model=' + self.model_prefix + '.model'
         , '--output_format=' + self.output_format
         ] + self.encode_extra_options
     self.tokenizer_command = sentpiece_encode_command
 
     sentpiece_decode_exec_loc = os.path.join(self.sentpiece_path, 'spm_decode')
     sentpiece_decode_command = [sentpiece_decode_exec_loc
-        , '--model=' + self.model_path
+        , '--model=' + self.model_prefix + '.model'
         , '--input_format=' + self.input_format
         ] + self.decode_extra_options
     self.detokenizer_command = sentpiece_decode_command

@@ -42,7 +42,7 @@ class PlainTextOutputProcessor(OutputProcessor):
 class JoinedCharTextOutputProcessor(PlainTextOutputProcessor):
   '''
   Assumes a single-character vocabulary and joins them to form words;
-  per default, double underscores '__' are converted to spaces
+  per default, double underscores '__' are treated as word separating tokens
   '''
   def __init__(self, space_token=u"__"):
     self.space_token = space_token
