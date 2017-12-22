@@ -331,7 +331,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       if metric != self.schedule_metric:
         self.logger.report_auxiliary_score(eval_scores[metric])
     
-    if control_learning_schedule:
+    if control_learning_schedule: # TODO: should probably pull this out somehow
       print("> Checkpoint")
       # Write out the model if it's the best one
       if self.logger.report_dev_and_check_model(self.model_file):

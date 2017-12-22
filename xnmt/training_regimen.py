@@ -158,6 +158,7 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     self.yaml_serializer = YamlSerializer()
     self.model_file = yaml_context.dynet_param_collection.model_file
     self.main_task = 0
+    for task in tasks: task.trainer = trainer
   def trigger_train_event(self, value):
     """
     Trigger set_train event, but only if that would lead to a change of the value
@@ -208,6 +209,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
       task_generators[task] = task.next_minibatch()
     self.trigger_train_event(update_weights)
     while True:
+      dy.renew_cg()
       task_losses = []
       for task, task_gen in task_generators.items():
         src, trg = next(task_gen)
@@ -248,6 +250,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
       task_generators[task] = task.next_minibatch()
     self.trigger_train_event(update_weights)
     while True:
+      dy.renew_cg()
       cur_task_i = np.random.choice(range(len(self.tasks)), p=self.task_weights)
       cur_task = self.tasks[cur_task_i]
       task_gen = task_generators[cur_task]
@@ -273,7 +276,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   Useful to realize a pretraining-finetuning strategy.
   """
 
-  yaml_tag = u"!SerialTrainingRegimen"
+  yaml_tag = u"!SerialMultiTaskTrainingRegimen"
   
   def __init__(self, yaml_context, tasks, trainer=None, dynet_profiling=0):
     """
@@ -293,6 +296,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
       task_gen = cur_task.next_minibatch()
       self.trigger_train_event(update_weights)
       while True:
+        dy.renew_cg()
         src, trg = next(task_gen)
         task_loss = cur_task.training_step(src, trg)
         if update_weights:
