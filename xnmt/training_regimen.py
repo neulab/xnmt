@@ -157,6 +157,7 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     self.yaml_serializer = YamlSerializer()
     self.model_file = yaml_context.dynet_param_collection.model_file
     self.main_task = 0
+    for task in tasks: task.trainer = trainer
   def trigger_train_event(self, value):
     """
     Trigger set_train event, but only if that would lead to a change of the value
