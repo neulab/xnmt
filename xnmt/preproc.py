@@ -232,7 +232,7 @@ class SentencepieceTokenizer(ExternalTokenizer):
       try:
         os.makedirs(os.path.dirname(model_prefix))
       except OSError as exc:
-        if exc.errno != errno.EEXist:
+        if exc.errno != errno.EEXIST:
           raise
 
     if ((not os.path.exists(self.model_prefix + '.model')) or
