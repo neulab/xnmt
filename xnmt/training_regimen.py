@@ -23,6 +23,7 @@ import xnmt.segment_transducer
 import xnmt.residual
 import xnmt.training_task
 from xnmt.specialized_encoders import *
+from xnmt.transformer import TransformerEncoder, TransformerDecoder
 from xnmt.decoder import *
 from xnmt.translator import *
 from xnmt.retriever import *
