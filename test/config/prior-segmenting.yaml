@@ -58,7 +58,7 @@ defaults:
       decoder: !MlpSoftmaxDecoder
         layers: 1
         mlp_hidden_dim: 16
-        bridge: !CopyBridge {}
+        bridge: !NoBridge {}
   decode:
     src_file: 
       - examples/data/head-char.ja
