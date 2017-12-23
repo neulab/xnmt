@@ -8,8 +8,8 @@ standard:
     eval_metrics: bleu
   train: !SimpleTrainingRegimen
     run_for_epochs: 20
-    batcher: !WordSrcBatcher
-      avg_batch_size: 10
+    batcher: !SrcBatcher
+      batch_size: 32
     glob:
       dropout: 0.1
       default_layer_dim: 512
