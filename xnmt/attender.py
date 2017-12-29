@@ -104,3 +104,37 @@ class DotAttender(Attender, Serializable):
     attention = self.calc_attention(state)
     I = self.curr_sent.as_tensor()
     return I * attention
+
+class BilinearAttender(Attender, Serializable):
+  '''
+  Implements a bilinear attention, equivalent to the 'general' linear
+  attention of https://arxiv.org/abs/1508.04025
+  '''
+
+  yaml_tag = u'!BilinearAttender'
+
+  def __init__(self, yaml_context, input_dim=None, state_dim=None):
+    input_dim = input_dim or yaml_context.default_layer_dim
+    state_dim = state_dim or yaml_context.default_layer_dim
+    self.input_dim = input_dim
+    self.state_dim = state_dim
+    param_collection = yaml_context.dynet_param_collection.param_col
+    self.pWa = param_collection.add_parameters((input_dim, state_dim))
+    self.curr_sent = None
+
+  def init_sent(self, sent):
+    self.curr_sent = sent
+    self.attention_vecs = []
+    self.I = self.curr_sent.as_tensor()
+
+  def calc_attention(self, state):
+    Wa = dy.parameter(self.pWa)
+    scores = (dy.transpose(state) * Wa) * self.I
+    normalized = dy.softmax(scores)
+    self.attention_vecs.append(normalized)
+    return dy.transpose(normalized)
+
+  def calc_context(self, state):
+    attention = self.calc_attention(state)
+    return self.I * attention
+
