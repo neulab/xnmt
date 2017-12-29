@@ -105,12 +105,12 @@ class DotAttender(Attender, Serializable):
     I = self.curr_sent.as_tensor()
     return I * attention
 
-class GeneralLinearAttender(Attender, Serializable):
+class BilinearAttender(Attender, Serializable):
   '''
   Implements the general linear attention of https://arxiv.org/abs/1508.04025
   '''
 
-  yaml_tag = u'!GeneralLinearAttender'
+  yaml_tag = u'!BilinearAttender'
 
   def __init__(self, yaml_context, input_dim=None, state_dim=None):
     input_dim = input_dim or yaml_context.default_layer_dim
