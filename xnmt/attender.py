@@ -107,7 +107,8 @@ class DotAttender(Attender, Serializable):
 
 class BilinearAttender(Attender, Serializable):
   '''
-  Implements the general linear attention of https://arxiv.org/abs/1508.04025
+  Implements a bilinear attention, equivalent to the 'general' linear
+  attention of https://arxiv.org/abs/1508.04025
   '''
 
   yaml_tag = u'!BilinearAttender'
