@@ -314,7 +314,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     # TODO: This is passing "1" for the number of words, as this is not implemented yet
     self.logger.set_dev_score(1, dev_scores[0])
     for dev_score in dev_scores[1:]:
-      self.logger.report_auxiliary_score(eval_scores)
+      self.logger.report_auxiliary_score(dev_score)
     
     # Control the learning schedule
     if control_learning_schedule:

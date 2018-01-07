@@ -93,7 +93,7 @@ def main(overwrite_args=None):
       for k in train_args.glob:
         setattr(model_context, k, train_args.glob[k])
     train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
-    
+
     evaluate_args = exp_tasks.get("evaluate", {})
 
     output = Tee(out_file, 3)
@@ -109,20 +109,19 @@ def main(overwrite_args=None):
     eval_scores = "Not evaluated"
     if not eval_only:
       training_regimen.run_training()
-
-    if not eval_only:
       print('reverting learned weights to best checkpoint..')
       training_regimen.yaml_context.dynet_param_collection.revert_to_best_model()
-    if evaluators:
-      print("> Evaluating test set")
+
+    if evaluate_args:
+      print("> Performing final evaluation")
       output.indent += 2
-      inference(training_regimen.corpus_parser, training_regimen.model, training_regimen.batcher)
       eval_scores = []
-      for evaluator in evaluators:
-        evaluate_args["evaluator"] = evaluator
-        eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(**evaluate_args)
-        print(eval_score)
-        eval_scores.append(eval_score)
+      for evaluator in evaluate_args:
+        eval_score = evaluator.eval()
+        if type(eval_score) == list:
+          eval_scores.extend(eval_score)
+        else:
+          eval_scores.append(eval_score)
       output.indent -= 2
 
     results.append((experiment_name, eval_scores))
