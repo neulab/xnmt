@@ -9,13 +9,13 @@ from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
 from xnmt.attender import MlpAttender, DotAttender
 from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
-from xnmt.corpus import BilingualTrainingCorpus
-from xnmt.input import BilingualCorpusParser, PlainTextReader
+from xnmt.input import PlainTextReader
 from xnmt.batcher import mark_as_batch, Mask, SrcBatcher
 import xnmt.training_regimen
 from xnmt.vocab import Vocab
 from xnmt.model_context import ModelContext, NonPersistentParamCollection
 from xnmt.loss_calculator import LossCalculator
+from xnmt.eval_task import LossEvalTask
 import xnmt.events
 from xnmt.optimizer import AdamTrainer
 
@@ -25,13 +25,11 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     xnmt.events.clear()
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = NonPersistentParamCollection()
-    self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
-                                              train_trg = "examples/data/head.en",
-                                              dev_src = "examples/data/head.ja",
-                                              dev_trg = "examples/data/head.en")
-    self.corpus_parser = BilingualCorpusParser(training_corpus = self.training_corpus,
-                                               src_reader = PlainTextReader(),
-                                               trg_reader = PlainTextReader())
+
+    self.src_reader = PlainTextReader()
+    self.trg_reader = PlainTextReader()
+    self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
+    self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
 
   def assert_single_loss_equals_batch_loss(self, model, pad_src_to_multiple=1):
     """
@@ -39,14 +37,14 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     Truncating src / trg sents to same length so no masking is necessary
     """
     batch_size=5
-    src_sents = self.training_corpus.train_src_data[:batch_size]
+    src_sents = self.src_data[:batch_size]
     src_min = min([len(x) for x in src_sents])
     src_sents_trunc = [s[:src_min] for s in src_sents]
     for single_sent in src_sents_trunc:
       single_sent[src_min-1] = Vocab.ES
       while len(single_sent)%pad_src_to_multiple != 0:
         single_sent.append(Vocab.ES)
-    trg_sents = self.training_corpus.train_trg_data[:batch_size]
+    trg_sents = self.trg_data[:batch_size]
     trg_min = min([len(x) for x in trg_sents])
     trg_sents_trunc = [s[:trg_min] for s in trg_sents]
     for single_sent in trg_sents_trunc: single_sent[trg_min-1] = Vocab.ES
@@ -68,6 +66,8 @@ class TestTruncatedBatchTraining(unittest.TestCase):
 
   def test_loss_model1(self):
     model = DefaultTranslator(
+              src_reader=self.src_reader,
+              trg_reader=self.trg_reader,
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.model_context),
               attender=MlpAttender(self.model_context),
@@ -79,6 +79,8 @@ class TestTruncatedBatchTraining(unittest.TestCase):
 
   def test_loss_model2(self):
     model = DefaultTranslator(
+              src_reader=self.src_reader,
+              trg_reader=self.trg_reader,
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=PyramidalLSTMSeqTransducer(self.model_context, layers=3),
               attender=MlpAttender(self.model_context),
@@ -90,6 +92,8 @@ class TestTruncatedBatchTraining(unittest.TestCase):
 
   def test_loss_model3(self):
     model = DefaultTranslator(
+              src_reader=self.src_reader,
+              trg_reader=self.trg_reader,
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.model_context, layers=3),
               attender=MlpAttender(self.model_context),
@@ -101,6 +105,8 @@ class TestTruncatedBatchTraining(unittest.TestCase):
 
   def test_loss_model4(self):
     model = DefaultTranslator(
+              src_reader=self.src_reader,
+              trg_reader=self.trg_reader,
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.model_context),
               attender=DotAttender(self.model_context),
@@ -116,13 +122,11 @@ class TestBatchTraining(unittest.TestCase):
     xnmt.events.clear()
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = NonPersistentParamCollection()
-    self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
-                                              train_trg = "examples/data/head.en",
-                                              dev_src = "examples/data/head.ja",
-                                              dev_trg = "examples/data/head.en")
-    self.corpus_parser = BilingualCorpusParser(training_corpus = self.training_corpus,
-                                               src_reader = PlainTextReader(),
-                                               trg_reader = PlainTextReader())
+
+    self.src_reader = PlainTextReader()
+    self.trg_reader = PlainTextReader()
+    self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
+    self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
 
   def assert_single_loss_equals_batch_loss(self, model, pad_src_to_multiple=1):
     """
@@ -130,14 +134,14 @@ class TestBatchTraining(unittest.TestCase):
     Here we don't truncate the target side and use masking.
     """
     batch_size = 5
-    src_sents = self.training_corpus.train_src_data[:batch_size]
+    src_sents = self.src_data[:batch_size]
     src_min = min([len(x) for x in src_sents])
     src_sents_trunc = [s[:src_min] for s in src_sents]
     for single_sent in src_sents_trunc:
       single_sent[src_min-1] = Vocab.ES
       while len(single_sent)%pad_src_to_multiple != 0:
         single_sent.append(Vocab.ES)
-    trg_sents = self.training_corpus.train_trg_data[:batch_size]
+    trg_sents = self.trg_data[:batch_size]
     trg_max = max([len(x) for x in trg_sents])
     trg_masks = Mask(np.zeros([batch_size, trg_max]))
     for i in range(batch_size):
@@ -162,6 +166,8 @@ class TestBatchTraining(unittest.TestCase):
 
   def test_loss_model1(self):
     model = DefaultTranslator(
+              src_reader=self.src_reader,
+              trg_reader=self.trg_reader,
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.model_context),
               attender=MlpAttender(self.model_context),
@@ -173,6 +179,8 @@ class TestBatchTraining(unittest.TestCase):
 
   def test_loss_model2(self):
     model = DefaultTranslator(
+              src_reader=self.src_reader,
+              trg_reader=self.trg_reader,
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=PyramidalLSTMSeqTransducer(self.model_context, layers=3),
               attender=MlpAttender(self.model_context),
@@ -184,6 +192,8 @@ class TestBatchTraining(unittest.TestCase):
 
   def test_loss_model3(self):
     model = DefaultTranslator(
+              src_reader=self.src_reader,
+              trg_reader=self.trg_reader,
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.model_context, layers=3),
               attender=MlpAttender(self.model_context),
@@ -203,20 +213,20 @@ class TestTrainDevLoss(unittest.TestCase):
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = NonPersistentParamCollection()
     train_args = {}
-    training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
-                                                            train_trg = "examples/data/head.en",
-                                                            dev_src = "examples/data/head.ja",
-                                                            dev_trg = "examples/data/head.en")
-    train_args['corpus_parser'] = BilingualCorpusParser(training_corpus = training_corpus,
-                                                        src_reader = PlainTextReader(),
-                                                        trg_reader = PlainTextReader())
+    train_args['src_file'] = "examples/data/head.ja"
+    train_args['trg_file'] = "examples/data/head.en"
     train_args['loss_calculator'] = LossCalculator()
-    train_args['model'] = DefaultTranslator(src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
+    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(),
+                                            trg_reader=PlainTextReader(),
+                                            src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
                                             encoder=BiLSTMSeqTransducer(self.model_context),
                                             attender=MlpAttender(self.model_context),
                                             trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
                                             decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
                                             )
+    train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
+                                            src_file="examples/data/head.ja",
+                                            ref_file="examples/data/head.en")]
     train_args['trainer'] = None
     train_args['batcher'] = SrcBatcher(batch_size=5, break_ties_randomly=False)
     train_args['run_for_epochs'] = 1
@@ -236,20 +246,20 @@ class TestOverfitting(unittest.TestCase):
     self.model_context.dynet_param_collection = NonPersistentParamCollection()
     self.model_context.default_layer_dim = 16
     train_args = {}
-    training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
-                                                            train_trg = "examples/data/head.en",
-                                                            dev_src = "examples/data/head.ja",
-                                                            dev_trg = "examples/data/head.en")
-    train_args['corpus_parser'] = BilingualCorpusParser(training_corpus = training_corpus,
-                                                        src_reader = PlainTextReader(),
-                                                        trg_reader = PlainTextReader())
+    train_args['src_file'] = "examples/data/head.ja"
+    train_args['trg_file'] = "examples/data/head.en"
     train_args['loss_calculator'] = LossCalculator()
-    train_args['model'] = DefaultTranslator(src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
+    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(),
+                                            trg_reader=PlainTextReader(),
+                                            src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
                                             encoder=BiLSTMSeqTransducer(self.model_context),
                                             attender=MlpAttender(self.model_context),
                                             trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
                                             decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
                                             )
+    train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
+                                            src_file="examples/data/head.ja",
+                                            ref_file="examples/data/head.en")]
     train_args['run_for_epochs'] = 1
     train_args['trainer'] = AdamTrainer(self.model_context, alpha=0.1)
     train_args['batcher'] = SrcBatcher(batch_size=10, break_ties_randomly=False)

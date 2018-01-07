@@ -27,7 +27,6 @@ from xnmt.transformer import TransformerEncoder, TransformerDecoder
 from xnmt.decoder import *
 from xnmt.translator import *
 from xnmt.retriever import *
-from xnmt.corpus import *
 from xnmt.segmenting_encoder import *
 from xnmt.optimizer import SimpleSGDTrainer
 from xnmt.serializer import YamlSerializer, Serializable

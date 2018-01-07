@@ -9,8 +9,7 @@ from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.residual import ResidualLSTMSeqTransducer
 from xnmt.attender import MlpAttender
 from xnmt.decoder import MlpSoftmaxDecoder
-from xnmt.corpus import BilingualTrainingCorpus
-from xnmt.input import BilingualCorpusParser, PlainTextReader
+from xnmt.input import PlainTextReader
 from xnmt.model_context import ModelContext, PersistentParamCollection
 import xnmt.events
 
@@ -20,13 +19,11 @@ class TestEncoder(unittest.TestCase):
     xnmt.events.clear()
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
-    self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
-                                                   train_trg = "examples/data/head.en",
-                                                   dev_src = "examples/data/head.ja",
-                                                   dev_trg = "examples/data/head.en")
-    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
-                                               trg_reader = PlainTextReader(),
-                                               training_corpus = self.training_corpus)
+
+    self.src_reader = PlainTextReader()
+    self.trg_reader = PlainTextReader()
+    self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
+    self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
 
   @xnmt.events.register_xnmt_event
   def set_train(self, val):
@@ -38,7 +35,7 @@ class TestEncoder(unittest.TestCase):
   def assert_in_out_len_equal(self, model):
     dy.renew_cg()
     self.set_train(True)
-    src = self.training_corpus.train_src_data[0]
+    src = self.src_data[0]
     self.start_sent(src)
     embeddings = model.src_embedder.embed_sent(src)
     encodings = model.encoder(embeddings)
@@ -46,6 +43,8 @@ class TestEncoder(unittest.TestCase):
 
   def test_bi_lstm_encoder_len(self):
     model = DefaultTranslator(
+              src_reader=self.src_reader,
+              trg_reader=self.trg_reader,
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.model_context, layers=3),
               attender=MlpAttender(self.model_context),
@@ -56,6 +55,8 @@ class TestEncoder(unittest.TestCase):
 
   def test_uni_lstm_encoder_len(self):
     model = DefaultTranslator(
+              src_reader=self.src_reader,
+              trg_reader=self.trg_reader,
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=UniLSTMSeqTransducer(self.model_context),
               attender=MlpAttender(self.model_context),
@@ -66,6 +67,8 @@ class TestEncoder(unittest.TestCase):
 
   def test_res_lstm_encoder_len(self):
     model = DefaultTranslator(
+              src_reader=self.src_reader,
+              trg_reader=self.trg_reader,
               src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
               encoder=ResidualLSTMSeqTransducer(self.model_context, layers=3),
               attender=MlpAttender(self.model_context),
