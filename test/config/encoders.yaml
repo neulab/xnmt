@@ -1,138 +1,137 @@
+# TODO: This is broken because of the necessity to refer to main_model before it is defined
+
 defaults: &defaults
-  experiment:
+  global:
     model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
-    eval_metrics: bleu
-  train: !SimpleTrainingRegimen
-    kwargs: &defaults_train
-      run_for_epochs: 2
-      glob:
-        default_layer_dim: 64
-        dropout: 0.5
-        weight_noise: 0.1
-      dev_metrics: bleu
-      corpus_parser: !BilingualCorpusParser
-        src_reader: !PlainTextReader {}
-        trg_reader: !PlainTextReader {}
-        max_src_len: 15
-        max_trg_len: 15
-        training_corpus: !BilingualTrainingCorpus
-          train_src: examples/data/head.ja
-          train_trg: examples/data/head.en
-          dev_src: examples/data/head.ja
-          dev_trg: examples/data/head.en
-  inference: !SimpleInference
+    default_layer_dim: 64
+    dropout: 0.5
+    weight_noise: 0.1
+  train: !SimpleTrainingRegimen &defaults_train
+    model: *main_model # TODO: remove this line
+    run_for_epochs: 2
     src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        model: *main_model # TODO: remove this line
+        src_file: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
+        ref_file: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
   evaluate:
-    ref_file: examples/data/head.en
+    - !AccuracyEvalTask
+      model: *main_model # TODO: remove this line
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/<EXP>.test_hyp
+
 
 exp1-lstm-encoder:
   << : *defaults
-  train: !SimpleTrainingRegimen
-    kwargs:
-      << : *defaults_train
-      model: !DefaultTranslator
-        src_embedder: !SimpleWordEmbedder
-          emb_dim: 64
-          word_dropout: 0.3
-        encoder: !BiLSTMSeqTransducer
-          layers: 2
-          input_dim: 64
-        attender: !MlpAttender
-          state_dim: 64
-          hidden_dim: 64
-          input_dim: 64
-        trg_embedder: !SimpleWordEmbedder
-          emb_dim: 64
-          word_dropout: 0.3
-        decoder: !MlpSoftmaxDecoder
-          layers: 1
-          mlp_hidden_dim: 64
-          input_feeding: True
-          bridge: !CopyBridge {}
-exp2-residual-encoder:
-  << : *defaults
-  train: !SimpleTrainingRegimen
-    kwargs:
-      << : *defaults_train
-      model: !DefaultTranslator
-        src_embedder: !SimpleWordEmbedder
-          emb_dim: 64
-        encoder: !ResidualLSTMSeqTransducer
-          layers: 2
-          input_dim: 64
-        attender: !MlpAttender
-          state_dim: 64
-          hidden_dim: 64
-          input_dim: 64
-        trg_embedder: !SimpleWordEmbedder
-          emb_dim: 64
-        decoder: !MlpSoftmaxDecoder
-          layers: 2
-          mlp_hidden_dim: 64
-          input_feeding: True
-          bridge: !CopyBridge {}
-exp3-pyramidal-encoder:
-  << : *defaults
-  train: !SimpleTrainingRegimen
-    kwargs:
-      << : *defaults_train
-      batcher: !SrcBatcher
-        batch_size: 5
-        pad_src_to_multiple: 4
-      model: !DefaultTranslator
-        src_embedder: !SimpleWordEmbedder
-          emb_dim: 64
-        encoder: !PyramidalLSTMSeqTransducer
-          layers: 3
-          input_dim: 64
-          hidden_dim: 64
-        attender: !MlpAttender
-          state_dim: 64
-          hidden_dim: 64
-          input_dim: 64
-        trg_embedder: !SimpleWordEmbedder
-          emb_dim: 64
-        decoder: !MlpSoftmaxDecoder
-          layers: 2
-          mlp_hidden_dim: 64
-          input_feeding: True
-          bridge: !CopyBridge {}
-
-
-exp4-modular-encoder:
-  << : *defaults
-  train: !SimpleTrainingRegimen
-    kwargs:
-      << : *defaults_train
-      batcher: !SrcBatcher
-        batch_size: 5
-        pad_src_to_multiple: 2
-      model: !DefaultTranslator
-        src_embedder: !SimpleWordEmbedder
-          emb_dim: 64
-        encoder: !ModularSeqTransducer
-          modules:
-          - !BiLSTMSeqTransducer
-            input_dim: 64
-            hidden_dim: 64
-            layers: 1
-            dropout: 0.1
-          - !PyramidalLSTMSeqTransducer
-            input_dim: 64
-            hidden_dim: 64
-            layers: 2
-        attender: !MlpAttender
-          state_dim: 64
-          hidden_dim: 64
-          input_dim: 64
-        trg_embedder: !SimpleWordEmbedder
-          emb_dim: 64
-        decoder: !MlpSoftmaxDecoder
-          layers: 3
-          mlp_hidden_dim: 64
-          input_feeding: True
-          bridge: !CopyBridge {}
+  model: !DefaultTranslator
+    _xnmt_id: main_model
+    src_reader: !PlainTextReader {}
+    trg_reader: !PlainTextReader {}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+      word_dropout: 0.3
+    encoder: !BiLSTMSeqTransducer
+      layers: 2
+      input_dim: 64
+    attender: !MlpAttender
+      state_dim: 64
+      hidden_dim: 64
+      input_dim: 64
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+      word_dropout: 0.3
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 64
+      input_feeding: True
+      bridge: !CopyBridge {}
+# exp2-residual-encoder:
+#   << : *defaults
+#   train: !SimpleTrainingRegimen
+#     kwargs:
+#       << : *defaults_train
+#       model: !DefaultTranslator
+#         src_embedder: !SimpleWordEmbedder
+#           emb_dim: 64
+#         encoder: !ResidualLSTMSeqTransducer
+#           layers: 2
+#           input_dim: 64
+#         attender: !MlpAttender
+#           state_dim: 64
+#           hidden_dim: 64
+#           input_dim: 64
+#         trg_embedder: !SimpleWordEmbedder
+#           emb_dim: 64
+#         decoder: !MlpSoftmaxDecoder
+#           layers: 2
+#           mlp_hidden_dim: 64
+#           input_feeding: True
+#           bridge: !CopyBridge {}
+# exp3-pyramidal-encoder:
+#   << : *defaults
+#   train: !SimpleTrainingRegimen
+#     kwargs:
+#       << : *defaults_train
+#       batcher: !SrcBatcher
+#         batch_size: 5
+#         pad_src_to_multiple: 4
+#       model: !DefaultTranslator
+#         src_embedder: !SimpleWordEmbedder
+#           emb_dim: 64
+#         encoder: !PyramidalLSTMSeqTransducer
+#           layers: 3
+#           input_dim: 64
+#           hidden_dim: 64
+#         attender: !MlpAttender
+#           state_dim: 64
+#           hidden_dim: 64
+#           input_dim: 64
+#         trg_embedder: !SimpleWordEmbedder
+#           emb_dim: 64
+#         decoder: !MlpSoftmaxDecoder
+#           layers: 2
+#           mlp_hidden_dim: 64
+#           input_feeding: True
+#           bridge: !CopyBridge {}
+# 
+# 
+# exp4-modular-encoder:
+#   << : *defaults
+#   train: !SimpleTrainingRegimen
+#     kwargs:
+#       << : *defaults_train
+#       batcher: !SrcBatcher
+#         batch_size: 5
+#         pad_src_to_multiple: 2
+#       model: !DefaultTranslator
+#         src_embedder: !SimpleWordEmbedder
+#           emb_dim: 64
+#         encoder: !ModularSeqTransducer
+#           modules:
+#           - !BiLSTMSeqTransducer
+#             input_dim: 64
+#             hidden_dim: 64
+#             layers: 1
+#             dropout: 0.1
+#           - !PyramidalLSTMSeqTransducer
+#             input_dim: 64
+#             hidden_dim: 64
+#             layers: 2
+#         attender: !MlpAttender
+#           state_dim: 64
+#           hidden_dim: 64
+#           input_dim: 64
+#         trg_embedder: !SimpleWordEmbedder
+#           emb_dim: 64
+#         decoder: !MlpSoftmaxDecoder
+#           layers: 3
+#           mlp_hidden_dim: 64
+#           input_feeding: True
+#           bridge: !CopyBridge {}
 

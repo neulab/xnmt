@@ -13,51 +13,60 @@
 #                   has already been initialized, we re-use that initialized component instead of creating a new one.
 
 exp1.pretrain: &exp1
-  experiment: &exp1_exp
+  global: &exp1_exp
     model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
-  train: !SimpleTrainingRegimen
-    run_for_epochs: 2
-    glob:
-      default_layer_dim: 32
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
-      trg_reader: !PlainTextReader {}
-      training_corpus: !BilingualTrainingCorpus
-        train_src: examples/data/head.ja
-        train_trg: examples/data/head.en
-        dev_src: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
-        dev_trg: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
-    model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 32
-      encoder: !ModularSeqTransducer
-        modules:
-        # config-sharing between first and second layer (both are configured in the same way, but do not share
-        # DyNet parameters)
-        - !BiLSTMSeqTransducer &lstm_enc1
-          layers: 1
-        - *lstm_enc1
-      attender: !MlpAttender {}
-      # reference-sharing between softmax projection and target embedder. This means both layers share DyNet parameters!
-      trg_embedder: !DenseWordEmbedder &trg_emb
-        _xnmt_id: trg_emb # this id must be unique and is recommended but not required to match the YAML anchor
-        emb_dim: 32
-      decoder: !MlpSoftmaxDecoder
+    default_layer_dim: 32
+  model: !DefaultTranslator &main_model
+    _xnmt_id: main_model
+    src_reader: !PlainTextReader {}
+    trg_reader: !PlainTextReader {}
+    src_embedder: !SimpleWordEmbedder
+      vocab_size: 500 # TODO: remove this line
+      emb_dim: 32
+    encoder: !ModularSeqTransducer
+      modules:
+      # config-sharing between first and second layer (both are configured in the same way, but do not share
+      # DyNet parameters)
+      - !BiLSTMSeqTransducer &lstm_enc1
         layers: 1
-        bridge: !CopyBridge {}
-        vocab_projector: *trg_emb
-  inference: !SimpleInference
-    src_file: *dev_src
+      - *lstm_enc1
+    attender: !MlpAttender {}
+    # reference-sharing between softmax projection and target embedder. This means both layers share DyNet parameters!
+    trg_embedder: !DenseWordEmbedder &trg_emb
+      _xnmt_id: trg_emb # this id must be unique and is recommended but not required to match the YAML anchor
+      vocab_size: 500 # TODO: remove this line
+      emb_dim: 32
+    decoder: !MlpSoftmaxDecoder
+      vocab_size: 500 # TODO: remove this line
+      layers: 1
+      bridge: !CopyBridge {}
+      vocab_projector: *trg_emb
+    inference: !SimpleInference {}
+  train: !SimpleTrainingRegimen &exp1_train
+    model: *main_model # TODO: remove this line
+    run_for_epochs: 2
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        model: *main_model # TODO: remove this line
+        src_file: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
+        ref_file: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
   evaluate:
-    ref_file: *dev_trg
+    - !AccuracyEvalTask
+      model: *main_model # TODO: remove this line
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/<EXP>.test_hyp
 
 exp2.load:
   << : *exp1
-  experiment:
+  global:
     << : *exp1_exp
     model_file: examples/output/<EXP>.mod
   train: !SimpleTrainingRegimen
+    << : *exp1_train
     pretrained_model_file: examples/output/exp1.pretrain.mod
