@@ -80,6 +80,9 @@ class YamlSerializer(object):
       raise AssertionError()
     deserialized_yaml = deserialized_yaml_wrapper.data
     deserialized_yaml = copy.deepcopy(deserialized_yaml)   # make a copy to avoid side effects
+
+    print("**** deserialized yaml: {}".format(deserialized_yaml))
+
     self.set_serialize_params_recursive(deserialized_yaml) # sets each component's serialize_params to represent attributes specified in YAML file
     self.share_init_params_top_down(deserialized_yaml)     # invoke shared_params mechanism, set each component's init_params accordingly
     # finally, initialize each component via __init__(**init_params)

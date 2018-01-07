@@ -61,62 +61,62 @@ def main(overwrite_args=None):
       raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
 
   for experiment_name in experiment_names:
-    exp_tasks = config_parser.parse_experiment(args.experiments_file, experiment_name)
+    exp_args = config_parser.parse_experiment(args.experiments_file, experiment_name)
 
     print("=> Running {}".format(experiment_name))
-    
-    exp_args = exp_tasks.get("experiment", {})
-    model_file = exp_args.pop("model_file", "<EXP>.mod")
-    hyp_file = exp_args.pop("hyp_file", "<EXP>.hyp")
-    out_file = exp_args.pop("out_file", "<EXP>.out")
-    err_file = exp_args.pop("err_file", "<EXP>.err")
-    eval_only = exp_args.pop("eval_only", False)
-    eval_metrics = exp_args.pop("eval_metrics", "bleu")
-    save_num_checkpoints = exp_args.pop("save_num_checkpoints", 1)
-    cfg_file = exp_args.pop("cfg_file", None)
-    if len(exp_args)>0:
-      raise ValueError("unsupported experiment arguments: {}".format(str(exp_args)))
-    if cfg_file:
-      shutil.copyfile(args.experiments_file, cfg_file)
 
-    preproc_args = exp_tasks.get("preproc", {})
-    # Do preprocessing
-    print("> Preprocessing")
-    xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
+    yaml = YamlSerializer()
 
-    print("> Initializing TrainingRegimen")
-    train_args = exp_tasks["train"]
-    train_args.dynet_profiling = args.dynet_profiling
-    model_context = ModelContext()
-    model_context.dynet_param_collection = PersistentParamCollection(model_file, save_num_checkpoints)
-    if hasattr(train_args, "glob"):
-      for k in train_args.glob:
-        setattr(model_context, k, train_args.glob[k])
-    train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
-
-    evaluate_args = exp_tasks.get("evaluate", {})
+    glob_args = exp_args.get("global", {})
+    out_file = glob_args.pop("out_file", "<EXP>.out")
+    err_file = glob_args.pop("err_file", "<EXP>.err")
 
     output = Tee(out_file, 3)
     err_output = Tee(err_file, 3, error=True)
 
+    model_file = glob_args.pop("model_file", "<EXP>.mod")
+    cfg_file = glob_args.pop("cfg_file", None)
+    save_num_checkpoints = glob_args.pop("save_num_checkpoints", 1)
+    eval_only = glob_args.pop("eval_only", False)
+    if cfg_file:
+      shutil.copyfile(args.experiments_file, cfg_file)
+    
+    model_context = ModelContext()
+    model_context.dynet_param_collection = PersistentParamCollection(model_file, save_num_checkpoints)
+    for k, v in glob_args.items():
+      setattr(model_context, k, v)
+
+    print("> Preprocessing")
+    preproc_args = exp_args.get("preproc", {})
+    xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
+
+    print("> Initializing Model")
+    model_args = exp_args["model"]
+    model_args = yaml.initialize_if_needed(UninitializedYamlObject(model_args), model_context)
+
+    print("> Initializing TrainingRegimen")
+    train_args = exp_args["train"]
+    train_args.dynet_profiling = args.dynet_profiling
+    train_args = yaml.initialize_if_needed(UninitializedYamlObject(train_args), model_context)
+
     # Do training
-    if "random_search_report" in exp_tasks:
-      print("> instantiated random parameter search: %s" % exp_tasks["random_search_report"])
+    if "random_search_report" in exp_args:
+      print("> instantiated random parameter search: %s" % exp_args["random_search_report"])
 
     print("> Training")
-    training_regimen = train_args
-
     eval_scores = "Not evaluated"
     if not eval_only:
-      training_regimen.run_training()
+      train_args.run_training()
       print('reverting learned weights to best checkpoint..')
-      training_regimen.yaml_context.dynet_param_collection.revert_to_best_model()
+      train_args.yaml_context.dynet_param_collection.revert_to_best_model()
 
+    evaluate_args = exp_args["evaluate"]
     if evaluate_args:
       print("> Performing final evaluation")
       output.indent += 2
       eval_scores = []
       for evaluator in evaluate_args:
+        evaluator = yaml.initialize_if_needed(UninitializedYamlObject(evaluator), model_context)
         eval_score = evaluator.eval()
         if type(eval_score) == list:
           eval_scores.extend(eval_score)
