@@ -14,7 +14,7 @@ import shutil
 import numpy as np
 
 # XNMT imports
-import xnmt.xnmt_preproc, xnmt.xnmt_evaluate, xnmt.training_regimen, xnmt.training_task
+import xnmt.xnmt_preproc, xnmt.xnmt_evaluate, xnmt.training_regimen, xnmt.training_task, xnmt.eval_task
 from xnmt.options import OptionParser
 from xnmt.tee import Tee
 from xnmt.serializer import YamlSerializer, UninitializedYamlObject
@@ -94,13 +94,7 @@ def main(overwrite_args=None):
         setattr(model_context, k, train_args.glob[k])
     train_args = YamlSerializer().initialize_if_needed(UninitializedYamlObject(train_args), model_context)
     
-    inference = exp_tasks.get("inference", {})
-    inference.trg_file = hyp_file
-    inference = YamlSerializer().initialize_if_needed(UninitializedYamlObject(inference), model_context)
-
     evaluate_args = exp_tasks.get("evaluate", {})
-    evaluate_args["hyp_file"] = hyp_file
-    evaluators = map(lambda s: s.lower(), eval_metrics.split(","))
 
     output = Tee(out_file, 3)
     err_output = Tee(err_file, 3, error=True)

@@ -9,6 +9,8 @@ standard:
     glob:
       dropout: 0.1
       default_layer_dim: 512
+    src_reader: !PlainTextReader {}
+    trg_reader: !PlainTextReader {}
     src_embedder: !SimpleWordEmbedder {}
     encoder: !BiLSTMSeqTransducer
       layers: 1
@@ -23,8 +25,6 @@ standard:
       beam: 5
       len_norm_type: !PolynomialNormalization
         apply_during_search: true
-    src_reader: !PlainTextReader {}
-    trg_reader: !PlainTextReader {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 20
     batcher: !SrcBatcher
@@ -33,7 +33,6 @@ standard:
     trainer: !AdamTrainer
       alpha: 0.0002
     lr_decay: 0.5
-    dev_metrics: bleu
     src_file: examples/data/train.ja
     trg_file: examples/data/train.en
     dev_tasks:

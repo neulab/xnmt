@@ -3,6 +3,7 @@ from __future__ import division, generators
 from subprocess import Popen
 import random
 import io
+import six
 
 import numpy as np
 import dynet as dy
@@ -63,16 +64,19 @@ class TrainingTask(object):
 
 class SimpleTrainingTask(TrainingTask, Serializable):
   yaml_tag = u'!SimpleTrainingTask'
-  def __init__(self, yaml_context, corpus_parser, model, glob={},
+  def __init__(self, yaml_context, model, glob={},
+               src_file=None, trg_file=None,
                dev_every=0, batcher=None, loss_calculator=None, 
                pretrained_model_file="", src_format="text", run_for_epochs=None,
                lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None,
-               dev_metrics="", schedule_metric="loss", restart_trainer=False,
+               dev_tasks=None, restart_trainer=False,
                reload_command=None, name=None, inference=None):
     """
     :param yaml_context:
-    :param corpus_parser: an input.InputReader object
     :param model: a generator.GeneratorModel object
+    :param glob: global settings
+    :param src_file: The file for the source data.
+    :param trg_file: The file for the target data.
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
     :param batcher: Type of batcher. Defaults to SrcBatcher of batch size 32.
     :param loss_calculator:
@@ -82,8 +86,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
     :param patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
     :param initial_patience (int): if given, allows adjusting patience for the first LR decay
-    :param dev_metrics: Comma-separated list of evaluation metrics (bleu/wer/cer)
-    :param schedule_metric: determine learning schedule based on this dev_metric (loss/bleu/wer/cer)
+    :param dev_tasks: A list of tasks to run on the development set
     :param restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
     :param reload_command: Command to change the input data after each epoch.
                            --epoch EPOCH_NUM will be appended to the command.
@@ -95,6 +98,9 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.yaml_context = yaml_context
     self.model_file = self.yaml_context.dynet_param_collection.model_file
     self.yaml_serializer = YamlSerializer()
+    self.src_file = src_file
+    self.trg_file = trg_file
+    self.dev_tasks = dev_tasks
 
     if lr_decay > 1.0 or lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
@@ -109,51 +115,62 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     # training state
     self.training_state = TrainingState()
 
-    self.evaluators = [s.lower() for s in dev_metrics.split(",") if s.strip()!=""]
-    if schedule_metric.lower() not in self.evaluators:
-              self.evaluators.append(schedule_metric.lower())
-    if "loss" not in self.evaluators: self.evaluators.append("loss")
-    if dev_metrics:
-      self.inference = inference or SimpleInference()
-
     self.reload_command = reload_command
     if reload_command is not None:
         self._augmentation_handle = None
         self._augment_data_initial()
 
     self.model = model
-    self.corpus_parser = corpus_parser
     self.loss_calculator = loss_calculator or LossCalculator(MLELoss())
     self.pretrained_model_file = pretrained_model_file
     if self.pretrained_model_file:
       self.yaml_context.dynet_param_collection.load_from_data_file(self.pretrained_model_file + '.data')
 
+    # TODO: self.sample_train_sents and self.max_num_train_sents should be initialized properly
+    self.sample_train_sents = False
+    self.max_num_train_sents = None
+    # TODO: I'm not sure whether these should be kept around or removed
+    self.max_src_len = None
+    self.max_trg_len = None
+
     self.batcher = batcher or SrcBatcher(32)
     if src_format == "contvec":
       self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
-    self.pack_batches()
+    self.read_training_corpus()
     self.logger = BatchLossTracker(self, dev_every, name)
+  
+  def read_training_corpus(self):
+    self.src_data = []
+    self.trg_data = []
+    src_len = self.model.src_reader.count_sents(self.src_file)
+    trg_len = self.model.trg_reader.count_sents(self.trg_file)
+    if self.sample_train_sents:
+      if src_len != trg_len: raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (src_len, trg_len))
+      self.sample_train_sents = int(self.sample_train_sents)
+      filter_ids = np.random.choice(src_len, self.sample_train_sents, replace=False)
+    elif self.max_num_train_sents:
+      if src_len != trg_len: raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (src_len, trg_len))
+      filter_ids = list(range(min(self.max_num_train_sents, trg_len)))
+    else:
+      filter_ids = None
+    src_train_iterator = self.model.src_reader.read_sents(self.src_file, filter_ids)
+    trg_train_iterator = self.model.trg_reader.read_sents(self.trg_file, filter_ids)
+    for src_sent, trg_sent in six.moves.zip_longest(src_train_iterator, trg_train_iterator):
+      if src_sent is None or trg_sent is None:
+        raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (src_len or self.src_reader.count_sents(self.src_file), trg_len or self.trg_reader.count_sents(self.trg_file)))
+      src_len_ok = self.max_src_len is None or len(src_sent) <= self.max_src_len
+      trg_len_ok = self.max_trg_len is None or len(trg_sent) <= self.max_trg_len
+      if src_len_ok and trg_len_ok:
+        self.src_data.append(src_sent)
+        self.trg_data.append(trg_sent)
 
-    self.schedule_metric = schedule_metric.lower()
+    # TODO: Should we actually be doing this here?
+    self.model.src_reader.freeze()
+    self.model.trg_reader.freeze()
 
-  def dependent_init_params(self, initialized_subcomponents):
-    """
-    Overwrite Serializable.dependent_init_params() to realize sharing of vocab size between embedders and corpus parsers
-    """
-    return [DependentInitParam(param_descr="model.src_embedder.vocab_size", value_fct=lambda: initialized_subcomponents["corpus_parser"].src_reader.vocab_size()),
-            DependentInitParam(param_descr="model.decoder.vocab_size", value_fct=lambda: initialized_subcomponents["corpus_parser"].trg_reader.vocab_size()),
-            DependentInitParam(param_descr="model.trg_embedder.vocab_size", value_fct=lambda: initialized_subcomponents["corpus_parser"].trg_reader.vocab_size()),
-            DependentInitParam(param_descr="model.src_embedder.vocab", value_fct=lambda: initialized_subcomponents["corpus_parser"].src_reader.vocab),
-            DependentInitParam(param_descr="model.trg_embedder.vocab", value_fct=lambda: initialized_subcomponents["corpus_parser"].trg_reader.vocab)]
-
-  def pack_batches(self):
-    """
-    Packs src/trg examples into batches, possibly randomized. No shuffling performed here.
-    """
-    self.train_src, self.train_trg = \
-      self.batcher.pack(self.corpus_parser.get_training_corpus().train_src_data, self.corpus_parser.get_training_corpus().train_trg_data)
-    self.dev_src, self.dev_trg = \
-      self.batcher.pack(self.corpus_parser.get_training_corpus().dev_src_data, self.corpus_parser.get_training_corpus().dev_trg_data)
+    # Pack batches
+    self.src_batches, self.trg_batches = \
+      self.batcher.pack(self.src_data, self.trg_data)
 
   def _augment_data_initial(self):
     """
@@ -209,13 +226,13 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     Current number of minibatches (may change between epochs, e.g. for randomizing batchers or if reload_command is given)
     """
-    return len(self.train_src)
+    return len(self.src_batches)
   
   def cur_num_sentences(self):
     """
     Current number of parallel sentences (may change between epochs, e.g. if reload_command is given)
     """
-    return len(self.corpus_parser.training_corpus.train_src_data)
+    return len(self.src_data)
   
   def advance_epoch(self):
     """
@@ -226,7 +243,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.training_state.epoch_seed = random.randint(1,2147483647)
     random.seed(self.training_state.epoch_seed)
     np.random.seed(self.training_state.epoch_seed)
-    self.pack_batches()
+    self.src_batches, self.trg_batches = \
+      self.batcher.pack(self.src_data, self.trg_data)
     self.training_state.epoch_num += 1
     self.training_state.steps_into_epoch = 0
     self.minibatch_order = list(range(0, self.cur_num_minibatches()))
@@ -241,8 +259,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     while True:
       self.advance_epoch()
       for batch_num in self.minibatch_order:
-        src = self.train_src[batch_num]
-        trg = self.train_trg[batch_num]
+        src = self.src_batches[batch_num]
+        trg = self.trg_batches[batch_num]
         yield src, trg
         self.training_state.steps_into_epoch += 1
   
@@ -275,63 +293,31 @@ class SimpleTrainingTask(TrainingTask, Serializable):
   def checkpoint_needed(self):
     return self.logger.should_report_dev()
 
-  def checkpoint(self, control_learning_schedule=True, out_ext=".dev_hyp", ref_ext=".dev_ref", encoding='utf-8'):
+  def checkpoint(self, control_learning_schedule=True):
     """
     Performs a dev checkpoint
     :param control_learning_schedule: If False, only evaluate dev data.
                                       If True, also perform model saving, LR decay etc. if needed.
-    :param out_ext:
-    :param ref_ext:
-    :param encoding:
     :returns: True if the model needs saving, False otherwise
     """
     ret = False
     self.logger.new_dev()
-    trg_words_cnt, loss_score = self.compute_dev_loss() # forced decoding loss
 
-    eval_scores = {"loss" : loss_score}
-    if len(list(filter(lambda e: e!="loss", self.evaluators))) > 0:
-      trg_file = None
-      if self.model_file:
-        evaluate_args = {}
-        out_file = self.model_file + out_ext
-        out_file_ref = self.model_file + ref_ext
-        trg_file = out_file
-        evaluate_args["hyp_file"] = out_file
-        evaluate_args["ref_file"] = out_file_ref
-      # Decoding + post_processing
-      self.inference(corpus_parser = self.corpus_parser, generator = self.model,
-                     batcher = self.batcher,
-                     src_file = self.corpus_parser.training_corpus.dev_src,
-                     trg_file = trg_file,
-                     candidate_id_file = self.corpus_parser.training_corpus.dev_id_file)
-      output_processor = self.inference.get_output_processor() # TODO: hack, refactor
-      # Copy Trg to Ref
-      processed = []
-      with io.open(self.corpus_parser.training_corpus.dev_trg, encoding=encoding) as fin:
-        for line in fin:
-          processed.append(output_processor.words_to_string(line.strip().split()) + u"\n")
-      with io.open(out_file_ref, 'wt', encoding=encoding) as fout:
-        for line in processed:
-          fout.write(line)
-      # Evaluation
-      for evaluator in self.evaluators:
-        if evaluator=="loss": continue
-        evaluate_args["evaluator"] = evaluator
-        eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(**evaluate_args)
-        eval_scores[evaluator] = eval_score
-    # Logging
-    if self.schedule_metric == "loss":
-      self.logger.set_dev_score(trg_words_cnt, loss_score)
-    else:
-      self.logger.set_dev_score(trg_words_cnt, eval_scores[self.schedule_metric])
-
-    # print previously computed metrics
-    for metric in self.evaluators:
-      if metric != self.schedule_metric:
-        self.logger.report_auxiliary_score(eval_scores[metric])
+    # Perform evaluation
+    dev_scores = []
+    for dev_task in self.dev_tasks:
+      dev_score = dev_task.eval()
+      if type(dev_score) == list:
+        dev_scores.extend(dev_score)
+      else:
+        dev_scores.append(dev_score)
+    # TODO: This is passing "1" for the number of words, as this is not implemented yet
+    self.logger.set_dev_score(1, dev_scores[0])
+    for dev_score in dev_scores[1:]:
+      self.logger.report_auxiliary_score(eval_scores)
     
-    if control_learning_schedule: # TODO: should probably pull this out somehow
+    # Control the learning schedule
+    if control_learning_schedule:
       print("> Checkpoint")
       # Write out the model if it's the best one
       if self.logger.report_dev_and_check_model(self.model_file):
@@ -361,18 +347,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                 self.yaml_context.dynet_param_collection.revert_to_best_model()
 
     return ret
-
-  def compute_dev_loss(self):
-    loss_builder = LossBuilder()
-    trg_words_cnt = 0
-    for src, trg in zip(self.dev_src, self.dev_trg):
-      dy.renew_cg()
-      standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-      loss_builder.add_loss("loss", standard_loss)
-      trg_words_cnt += self.logger.count_trg_words(trg)
-      loss_builder.compute()
-    return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
-
 
 class TrainingState(object):
   """

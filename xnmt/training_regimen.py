@@ -61,20 +61,23 @@ class TrainingRegimen(object):
 
 class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
   yaml_tag = u'!SimpleTrainingRegimen'
-  def __init__(self, yaml_context, corpus_parser, model, glob={},
+  def __init__(self, yaml_context, model, glob={},
+               src_file=None, trg_file=None,
                dev_every=0, batcher=None, loss_calculator=None, 
                pretrained_model_file="", src_format="text", trainer=None, 
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
-               initial_patience=None, dev_metrics="", schedule_metric="loss",
+               initial_patience=None, dev_tasks=None,
                restart_trainer=False, reload_command=None, dynet_profiling=0,
-               name=None, inference=None):
+               name=None):
     """
     :param yaml_context:
-    :param corpus_parser: an input.InputReader object
     :param model: a generator.GeneratorModel object
+    :param glob: Global parameters.
+    :param src_file: the source training file
+    :param trg_file: the target training file
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
     :param batcher: Type of batcher. Defaults to SrcBatcher of batch size 32.
-    :param loss_calculator:
+    :param loss_calculator: The method for calculating the loss.
     :param pretrained_model_file: Path of pre-trained model file
     :param src_format: Format of input data: text/contvec
     :param trainer: Trainer object, default is SGD with learning rate 0.1
@@ -82,20 +85,19 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
     :param patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
     :param initial_patience (int): if given, allows adjusting patience for the first LR decay
-    :param dev_metrics: Comma-separated list of evaluation metrics (bleu/wer/cer)
-    :param schedule_metric: determine learning schedule based on this dev_metric (loss/bleu/wer/cer)
+    :param dev_tasks: A list of tasks to use during the development stage.
     :param restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
     :param reload_command: Command to change the input data after each epoch.
                            --epoch EPOCH_NUM will be appended to the command.
                            To just reload the data after each epoch set the command to 'true'.
     :param dynet_profiling:
     :param name: will be prepended to log outputs if given
-    :param inference: used for inference during dev checkpoints if dev_metrics are specified
     """
     super(SimpleTrainingRegimen, self).__init__(yaml_context=yaml_context,
-                                                corpus_parser=corpus_parser,
                                                 model=model,
                                                 glob=glob,
+                                                src_file=src_file,
+                                                trg_file=trg_file,
                                                 dev_every=dev_every,
                                                 batcher=batcher,
                                                 loss_calculator=loss_calculator, 
@@ -106,12 +108,10 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                                                 lr_decay_times=lr_decay_times,
                                                 patience=patience,
                                                 initial_patience=initial_patience,
-                                                dev_metrics=dev_metrics,
-                                                schedule_metric=schedule_metric,
+                                                dev_tasks=dev_tasks,
                                                 restart_trainer=restart_trainer,
                                                 reload_command=reload_command,
-                                                name=name,
-                                                inference=inference)
+                                                name=name)
     self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(self.yaml_context, 0.1)
     self.dynet_profiling = dynet_profiling
 
@@ -172,12 +172,6 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
       if value!=self.train:
         self.train = value
         self.tasks[0].model.set_train(value)
-  @property
-  def corpus_parser(self):
-    """
-    Allow access to corpus_parser of main task
-    """
-    return self.tasks[self.main_task].corpus_parser
   @property
   def model(self):
     """

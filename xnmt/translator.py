@@ -12,7 +12,7 @@ import xnmt.batcher
 from xnmt.vocab import Vocab
 from xnmt.events import register_xnmt_event_assign, register_handler
 from xnmt.generator import GeneratorModel
-from xnmt.serializer import Serializable
+from xnmt.serializer import Serializable, YamlSerializer, DependentInitParam
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.output import TextOutput
 from xnmt.reports import Reportable
@@ -56,27 +56,45 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
   yaml_tag = u'!DefaultTranslator'
 
-  def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder):
+  def __init__(self, src_reader, trg_reader, src_embedder, encoder, attender, trg_embedder, decoder, inference=None, glob={}):
     '''Constructor.
 
+    :param src_reader: A reader for the source side.
     :param src_embedder: A word embedder for the input language
     :param encoder: An encoder to generate encoded inputs
     :param attender: An attention module
+    :param trg_reader: A reader for the target side.
     :param trg_embedder: A word embedder for the output language
     :param decoder: A decoder
+    :param inference: The default inference strategy used for this model
+    :param glob: Global parameters that are used for various things.
     '''
     register_handler(self)
+    self.src_reader = src_reader
+    self.trg_reader = trg_reader
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
+    self.inference = inference
+    self.glob = glob
 
   def shared_params(self):
     return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
             set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]),
             set(["attender.state_dim", "decoder.lstm_dim"]),
             set(["trg_embedder.emb_dim", "decoder.trg_embed_dim"])]
+
+  def dependent_init_params(self, initialized_subcomponents):
+    """
+    Overwrite Serializable.dependent_init_params() to realize sharing of vocab size between embedders and corpus parsers
+    """
+    return [DependentInitParam(param_descr="src_embedder.vocab_size", value_fct=lambda: initialized_subcomponents["src_reader"].vocab_size()),
+            DependentInitParam(param_descr="decoder.vocab_size", value_fct=lambda: initialized_subcomponents["trg_reader"].vocab_size()),
+            DependentInitParam(param_descr="trg_embedder.vocab_size", value_fct=lambda: initialized_subcomponents["trg_reader"].vocab_size()),
+            DependentInitParam(param_descr="src_embedder.vocab", value_fct=lambda: initialized_subcomponents["src_reader"].vocab),
+            DependentInitParam(param_descr="trg_embedder.vocab", value_fct=lambda: initialized_subcomponents["trg_reader"].vocab)]
 
   def initialize_generator(self, **kwargs):
     if kwargs.get("len_norm_type", None) is None:
