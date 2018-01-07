@@ -80,9 +80,6 @@ class YamlSerializer(object):
       raise AssertionError()
     deserialized_yaml = deserialized_yaml_wrapper.data
     deserialized_yaml = copy.deepcopy(deserialized_yaml)   # make a copy to avoid side effects
-
-    print("**** deserialized yaml: {}".format(deserialized_yaml))
-
     self.set_serialize_params_recursive(deserialized_yaml) # sets each component's serialize_params to represent attributes specified in YAML file
     self.share_init_params_top_down(deserialized_yaml)     # invoke shared_params mechanism, set each component's init_params accordingly
     # finally, initialize each component via __init__(**init_params)
@@ -186,6 +183,14 @@ class YamlSerializer(object):
     return param_obj, param_name
 
   def init_components_bottom_up(self, obj, dependent_init_params, yaml_context):
+
+    # Reuse component if it's already initialized
+    xnmt_id = getattr(obj, "_xnmt_id", None)
+    if xnmt_id and xnmt_id in self.initialized_shared_components:
+      initialized_obj = self.initialized_shared_components[xnmt_id]
+      print("reusing %s(xnmt_id==%s)" % (obj.__class__.__name__, xnmt_id))
+      return initialized_obj
+
     init_params = obj.init_params
     serialize_params = obj.serialize_params
     init_args = self.get_init_args(obj)
@@ -219,11 +224,11 @@ class YamlSerializer(object):
           init_params[p.param_name()] = p.value_fct()
     if "yaml_context" in init_args: init_params["yaml_context"] = yaml_context # pass yaml_context to constructor if it expects a "yaml_context" argument
 
-    initialized_obj = self.reuse_or_init_component(obj, init_params, init_args, serialize_params)
+    initialized_obj = self.init_component(obj, init_params, init_args, serialize_params)
 
     return initialized_obj
 
-  def reuse_or_init_component(self, obj, init_params, init_args, serialize_params):
+  def init_component(self, obj, init_params, init_args, serialize_params):
     """
     :param obj: uninitialized object
     :param init_params: named parameters that should be passed to the object's __init__()
@@ -235,14 +240,10 @@ class YamlSerializer(object):
     """
     try:
       xnmt_id = getattr(obj, "_xnmt_id", None)
-      if xnmt_id and xnmt_id in self.initialized_shared_components:
-        initialized_obj = self.initialized_shared_components[xnmt_id]
-        print("reusing %s(%s)" % (obj.__class__.__name__, init_params))
-      else:
-        initialized_obj = obj.__class__(**init_params)
-        if xnmt_id:
-          self.initialized_shared_components[xnmt_id] = initialized_obj
-        print("initialized %s(%s)" % (obj.__class__.__name__, init_params))
+      initialized_obj = obj.__class__(**init_params)
+      if xnmt_id:
+        self.initialized_shared_components[xnmt_id] = initialized_obj
+      print("initialized %s(%s)" % (obj.__class__.__name__, init_params))
     except TypeError as e:
       raise ComponentInitError("%s could not be initialized using params %s, expecting params %s. "
                                "Error message: %s" % (type(obj), init_params, init_args, str(e)))
