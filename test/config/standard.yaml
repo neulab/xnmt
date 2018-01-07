@@ -40,12 +40,6 @@ standard:
         model: *main_model # TODO: remove this line
         src_file: examples/data/head.ja
         ref_file: examples/data/head.en
-      - !AccuracyEvalTask
-        model: *main_model # TODO: remove this line
-        eval_metrics: bleu,wer
-        src_file: examples/data/head.ja
-        ref_file: examples/data/head.en
-        hyp_file: examples/output/<EXP>.dev_hyp
   evaluate:
     - !AccuracyEvalTask
       model: *main_model # TODO: remove this line
