@@ -306,6 +306,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     # Perform evaluation
     if self.dev_tasks:
       dev_scores = []
+      print("********* DEV TASKS: {}".format(self.dev_tasks))
       for dev_task in self.dev_tasks:
         dev_score = dev_task.eval()
         if type(dev_score) == list:

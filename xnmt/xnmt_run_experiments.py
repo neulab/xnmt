@@ -90,9 +90,10 @@ def main(overwrite_args=None):
     preproc_args = exp_args.get("preproc", {})
     xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
 
-    print("> Initializing Model")
-    model_args = exp_args["model"]
-    model_args = yaml.initialize_if_needed(UninitializedYamlObject(model_args), model_context)
+    if "model" in exp_args:
+      print("> Initializing Model")
+      model_args = exp_args["model"]
+      model_args = yaml.initialize_if_needed(UninitializedYamlObject(model_args), model_context)
 
     print("> Initializing TrainingRegimen")
     train_args = exp_args["train"]
