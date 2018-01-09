@@ -8,7 +8,10 @@ exp1-pretrain-model: &exp1
     weight_noise: 0.1
   model: !DefaultTranslator &main_model
     _xnmt_id: main_model
+    src_reader: !PlainTextReader {}
+    trg_reader: !PlainTextReader {}
     src_embedder: !SimpleWordEmbedder
+      vocab_size: 100 # TODO: remove this line
       emb_dim: 64
     encoder: !BiLSTMSeqTransducer
       layers: 2
@@ -18,17 +21,21 @@ exp1-pretrain-model: &exp1
       hidden_dim: 64
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
+      vocab_size: 100 # TODO: remove this line
       emb_dim: 64
     decoder: !MlpSoftmaxDecoder
+      vocab_size: 100 # TODO: remove this line
       layers: 1
       mlp_hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
+    inference: !SimpleInference {} # TODO: remove this line
   train: !SimpleTrainingRegimen
+    model: *main_model # TODO: remove this line
     run_for_epochs: 2
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en
-    dev_task:
+    dev_tasks:
     - !AccuracyEvalTask
       model: *main_model # TODO: remove this line
       eval_metrics: bleu
@@ -47,14 +54,17 @@ exp1-pretrain-model: &exp1
 exp2-finetune-model:
   << : *exp1
   train: !SimpleTrainingRegimen # load the pretrained model, but overwrite the optimizer to fine-tune with a different learning rate
+    model: *main_model # TODO: remove this line
+    run_for_epochs: 2
+    trainer: !AdamTrainer
+      alpha: 0.0002
     pretrained_model_file: examples/output/exp1-pretrain-model.mod
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
-      trg_reader: !PlainTextReader {}
-      max_src_len: 15
-      max_trg_len: 15
-      training_corpus: !BilingualTrainingCorpus
-        train_src: examples/data/head.ja
-        train_trg: examples/data/head.en
-        dev_src: examples/data/head.ja
-        dev_trg: examples/data/head.en
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+    - !AccuracyEvalTask
+      model: *main_model # TODO: remove this line
+      eval_metrics: bleu
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/<EXP>.dev_hyp
