@@ -1,47 +1,52 @@
 debug:
-  experiment:
+  global:
     model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
-    eval_metrics: bleu
+    default_layer_dim: 256 
+    dropout: 0.0
+  model: !DefaultTranslator &main_model
+    _xnmt_id: main_model
+    src_reader: !PlainTextReader {}
+    trg_reader: !PlainTextReader {}
+    src_embedder: !SimpleWordEmbedder
+      vocab_size: 100 # TODO: remove this line
+      emb_dim: 256
+    encoder: !BiLSTMSeqTransducer
+      layers: 1
+      input_dim: 256
+    attender: !MlpAttender
+      state_dim: 256
+      hidden_dim: 256
+      input_dim: 256
+    trg_embedder: !SimpleWordEmbedder
+      vocab_size: 100 # TODO: remove this line
+      emb_dim: 256
+    decoder: !MlpSoftmaxDecoder
+      vocab_size: 100 # TODO: remove this line
+      layers: 1
+      mlp_hidden_dim: 256
+      bridge: !NoBridge {}
+    inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
+    model: *main_model # TODO: remove this line
     run_for_epochs: 1
     trainer: !AdamTrainer
       alpha: 0.01
-    glob:
-      default_layer_dim: 256 
-      dropout: 0.0
-    dev_metrics: bleu
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
-      trg_reader: !PlainTextReader {}
-      max_src_len: 15
-      max_trg_len: 15
-      training_corpus: !BilingualTrainingCorpus
-        train_src: examples/data/head.ja
-        train_trg: examples/data/head.en
-        dev_src: examples/data/head.ja
-        dev_trg: examples/data/head.en
-    model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 256
-      encoder: !BiLSTMSeqTransducer
-        layers: 1
-        input_dim: 256
-      attender: !MlpAttender
-        state_dim: 256
-        hidden_dim: 256
-        input_dim: 256
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 256
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 256
-        bridge: !NoBridge {}
-  inference: !SimpleInference
     src_file: examples/data/head.ja
-    report_path: examples/output/<EXP>.report
-    report_type: html, file
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        model: *main_model # TODO: remove this line
+        src_file: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
+        ref_file: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
   evaluate:
-    ref_file: examples/data/head.en
+    - !AccuracyEvalTask
+      model: *main_model # TODO: remove this line
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/<EXP>.test_hyp
+      inference: !SimpleInference
+        report_path: examples/output/<EXP>.report
+        report_type: html, file

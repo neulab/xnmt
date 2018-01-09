@@ -50,7 +50,6 @@ exp1-pretrain-model: &exp1
       ref_file: examples/data/head.en
       hyp_file: examples/output/<EXP>.test_hyp
 
-# TODO: This is broken
 exp2-finetune-model:
   << : *exp1
   train: !SimpleTrainingRegimen # load the pretrained model, but overwrite the optimizer to fine-tune with a different learning rate
