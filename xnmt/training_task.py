@@ -304,7 +304,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.logger.new_dev()
 
     # Perform evaluation
-    if self.dev_tasks:
+    if self.dev_tasks and len(self.dev_tasks) > 0:
       dev_scores = []
       print("********* DEV TASKS: {}".format(self.dev_tasks))
       for dev_task in self.dev_tasks:
