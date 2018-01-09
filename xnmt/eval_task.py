@@ -51,13 +51,12 @@ class AccuracyEvalTask(Serializable):
   def __init__(self, model, src_file, ref_file, hyp_file,
                eval_metrics="bleu", inference=None, candidate_id_file=None):
     self.model = model
-    self.eval_metrics = map(lambda s: s.lower(), eval_metrics.split(","))
+    self.eval_metrics = [s.lower() for s in eval_metrics.split(",")]
     self.src_file = src_file
     self.ref_file = ref_file
     self.hyp_file = hyp_file
     self.candidate_id_file = candidate_id_file
     self.inference = inference or self.model.inference
-    print("****** MODEL {}, INFERENCE {}".format(self.model, self.inference))
     self.src_data = None
     self.ref_data = None
    
