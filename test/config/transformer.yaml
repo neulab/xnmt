@@ -29,17 +29,17 @@ standard:
     run_for_epochs: 2
     restart_trainer: False
     lr_decay: 1.0
-    src_file: examples/data/head-char.ja
+    src_file: examples/data/head.ja
     trg_file: examples/data/head.en
     dev_tasks:
       - !LossEvalTask
         model: *main_model # TODO: remove this line
-        src_file: examples/data/dev-char-head5.ja
-        ref_file: examples/data/dev-head5.en
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
   evaluate:
     - !AccuracyEvalTask
       model: *main_model # TODO: remove this line
       eval_metrics: bleu,wer
-      src_file: examples/data/test-char-head5.ja
-      ref_file: examples/data/test-head5.en
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
       hyp_file: examples/output/<EXP>.test_hyp

@@ -38,9 +38,6 @@ class TestRunningConfig(unittest.TestCase):
   def test_forced(self):
     run.main(["test/config/forced.yaml"])
 
-  def test_translator_report(self):
-    run.main(["test/config/translator_report.yaml"])
-
   def test_encoders(self):
     run.main(["test/config/encoders.yaml"])
 
