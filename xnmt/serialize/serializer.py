@@ -1,14 +1,16 @@
+import os
 import copy
 from functools import lru_cache
+
+import yaml
 
 import xnmt.serialize.tree_tools as tree_tools
 from xnmt.serialize.serializable import Serializable, UninitializedYamlObject
 
 class YamlSerializer(object):
   
-  def print_hierarchy(self, root):
-    for path, node in tree_tools.traverse_tree(root, tree_tools.TraversalOrder.ROOT_LAST):
-      print(path, node)
+  def __init__(self):
+    self.representers_added = False
 
   def initialize_if_needed(self, obj, yaml_context={}):
     if self.is_initialized(obj): return obj
@@ -63,7 +65,7 @@ class YamlSerializer(object):
         init_args_defaults = tree_tools.get_init_args_defaults(node)
         for expected_arg in init_args_defaults:
           if not expected_arg in [name for (name,_) in tree_tools.name_children(node)]:
-            arg_default = init_args_defaults[expected_arg]
+            arg_default = init_args_defaults[expected_arg].default
             if isinstance(arg_default, Ref):
               setattr(node, expected_arg, arg_default)
 
@@ -115,13 +117,47 @@ class YamlSerializer(object):
     serialize_params = obj.serialize_params
     try:
       initialized_obj = obj.__class__(**init_params)
-      print(f"initialized {obj.__class__.__name__}({init_params})")
+      print(f"initialized {path}: {obj.__class__.__name__}({init_params})")
     except TypeError as e:
       raise ComponentInitError(f"{type(obj)} could not be initialized using params {init_params}, expecting params {init_args.keys()}. "
                                f"Error message: {e}")
     if not hasattr(initialized_obj, "serialize_params"):
       initialized_obj.serialize_params = serialize_params
     return initialized_obj
+
+  @staticmethod
+  def init_representer(dumper, obj):
+    if not hasattr(obj, "serialize_params"):
+      raise RuntimeError(f"Serializing object {obj} that does not possess serialize_params, probably because it was created programmatically, is not possible.")
+    if type(obj.serialize_params)==list:
+      serialize_params = {param:getattr(obj, param) for param in obj.serialize_params}
+    else:
+      serialize_params = obj.serialize_params
+    return dumper.represent_mapping('!' + obj.__class__.__name__, serialize_params)
+
+  def dump(self, ser_obj):
+    if not self.representers_added:
+      for SerializableChild in Serializable.__subclasses__():
+        yaml.add_representer(SerializableChild, self.init_representer)
+      self.representers_added = True
+    return yaml.dump(ser_obj)
+
+  def save_to_file(self, fname, mod, persistent_param_collection):
+    dirname = os.path.dirname(fname)
+    if dirname and not os.path.exists(dirname):
+      os.makedirs(dirname)
+    with open(fname, 'w') as f:
+      f.write(self.dump(mod))
+    persistent_param_collection.save(fname + '.data')
+
+  def load_from_file(self, fname, param):
+    with open(fname, 'r') as f:
+      dict_spec = yaml.load(f)
+      corpus_parser = UninitializedYamlObject(dict_spec.corpus_parser)
+      model = UninitializedYamlObject(dict_spec.model)
+      model_context = UninitializedYamlObject(dict_spec)
+    return corpus_parser, model, model_context
+
 
 class Ref(Serializable):
   yaml_tag = "!Ref"

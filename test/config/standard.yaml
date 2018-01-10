@@ -5,7 +5,7 @@ standard:
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     default_layer_dim: 32
-  model: !DefaultTranslator &main_model
+  model: !DefaultTranslator
     _xnmt_id: main_model
     src_reader: !PlainTextReader {}
     trg_reader: !PlainTextReader {}
@@ -24,6 +24,7 @@ standard:
     decoder: !MlpSoftmaxDecoder
       vocab_size: 500 # TODO: remove this line
       layers: 1
+      lstm_dim: 64
       bridge: !CopyBridge {}
     inference: !SimpleInference
       len_norm_type: !PolynomialNormalization
@@ -31,17 +32,21 @@ standard:
         m: 1
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
-    model: *main_model # TODO: remove this line
+    # this is achieved automatically now because of SimpleTrainingRegimen's according default parameter:
+#    model: !Ref
+#      name: main_model
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en
     dev_tasks:
       - !LossEvalTask
-        model: *main_model # TODO: remove this line
+        model: !Ref
+          name: main_model
         src_file: examples/data/head.ja
         ref_file: examples/data/head.en
   evaluate:
     - !AccuracyEvalTask
-      model: *main_model # TODO: remove this line
+      model: !Ref
+        name: main_model
       eval_metrics: bleu,wer
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en

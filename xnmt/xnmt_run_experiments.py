@@ -63,7 +63,7 @@ def main(overwrite_args=None):
 
     yaml = YamlSerializer()
 
-    glob_args = uninitialized_exp_args.data.get("experiment", {})
+    glob_args = uninitialized_exp_args.data.get("global", {})
     out_file = glob_args.pop("out_file", "<EXP>.out")
     err_file = glob_args.pop("err_file", "<EXP>.err")
 

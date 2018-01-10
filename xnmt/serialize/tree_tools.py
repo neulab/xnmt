@@ -33,12 +33,9 @@ class Path(object):
 
 
 def get_init_args_defaults(obj):
-    signature = inspect.signature(obj.__init__)
-    return {
-        k: v.default
-        for k, v in signature.parameters.items()
-    }
+    return inspect.signature(obj.__init__).parameters
 
+reserved_arg_names = ["_xnmt_id", "yaml_context", "serialize_params", "init_params", "kwargs", "self"]
 
 @singledispatch
 def name_children(node, include_reserved=False):
@@ -48,23 +45,29 @@ def name_children_serializable(node, include_reserved=False):
   """
   Returns the specified arguments in the order they appear in the corresponding __init__() 
   """
+  check_serializable_args_valid(node)
+  init_args = list(get_init_args_defaults(node).keys())
+  if include_reserved: init_args += [n for n in reserved_arg_names if not n in init_args]
+  items = {key:val for (key,val) in inspect.getmembers(node)}
+  ret = []
+  for name in init_args:
+    if name in items:
+      val = items[name]
+      ret.append((name, val))
+  return ret
+def check_serializable_args_valid(node, include_reserved=False):
   base_arg_names = map(lambda x: x[0], inspect.getmembers(yaml.YAMLObject))
   class_param_names = [x[0] for x in inspect.getmembers(node.__class__)]
   init_args = get_init_args_defaults(node)
   items = {key:val for (key,val) in inspect.getmembers(node)}
-  ret = []
   for name in items:
     if name in base_arg_names or name in class_param_names: continue
     if include_reserved:
       if name.startswith("_") and name!="_xnmt_id": continue
     else:
       if name.startswith("_") or name in ["yaml_context", "serialize_params", "init_params", "kwargs"]: continue
-    if name in init_args or name=="_xnmt_id":
-      val = items[name]
-      ret.append((name, val))
-    elif name!="_xnmt_id":
-      raise ValueError(f"'{name}' is not a valid init parameter of {node}. Valid are {init_args}")
-  return ret
+    if name not in init_args and name!="_xnmt_id":
+      raise ValueError(f"'{name}' is not a valid init parameter of {node}. Valid are {init_args.keys()}")
 @name_children.register(dict)
 def name_children_dict(node, include_reserved=False):
   """
