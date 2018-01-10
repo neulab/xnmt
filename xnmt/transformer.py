@@ -4,7 +4,7 @@ from __future__ import division, generators
 import numpy as np
 import dynet as dy
 from xnmt.linear import Linear
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 from xnmt.events import register_handler, handle_xnmt_event
 
 MIN_VALUE = -10000

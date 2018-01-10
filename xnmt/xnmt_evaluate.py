@@ -4,7 +4,7 @@ import io
 import ast
 
 from xnmt.evaluator import BLEUEvaluator, GLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator, ExternalEvaluator, MeanAvgPrecisionEvaluator
-from xnmt.options import OptionParser
+from xnmt.serialize.options import OptionParser
 from xnmt.inference import NO_DECODING_ATTEMPTED, SimpleInference
 
 def read_data(loc_, post_process=None):

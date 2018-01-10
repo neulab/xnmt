@@ -15,7 +15,7 @@ import xnmt.expression_sequence as expression_sequence
 
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.reports import Reportable
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import LossBuilder
 

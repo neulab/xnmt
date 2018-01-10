@@ -1,6 +1,6 @@
 import dynet as dy
 import os
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 
 class ModelContext(Serializable):
   yaml_tag = u'!ModelContext'

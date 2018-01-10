@@ -29,7 +29,8 @@ from xnmt.translator import *
 from xnmt.retriever import *
 from xnmt.segmenting_encoder import *
 from xnmt.optimizer import SimpleSGDTrainer
-from xnmt.serializer import YamlSerializer, Serializable
+from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializer import YamlSerializer, Ref
 from xnmt.inference import SimpleInference
 import xnmt.optimizer
 from xnmt.training_task import SimpleTrainingTask
@@ -60,7 +61,7 @@ class TrainingRegimen(object):
 
 class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
   yaml_tag = u'!SimpleTrainingRegimen'
-  def __init__(self, yaml_context, model, glob={},
+  def __init__(self, yaml_context, model=Ref(path=Path("model")), glob={},
                src_file=None, trg_file=None,
                dev_every=0, batcher=None, loss_calculator=None, 
                pretrained_model_file="", src_format="text", trainer=None, 

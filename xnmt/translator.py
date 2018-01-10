@@ -12,12 +12,13 @@ import xnmt.batcher
 from xnmt.vocab import Vocab
 from xnmt.events import register_xnmt_event_assign, register_handler
 from xnmt.generator import GeneratorModel
-from xnmt.serializer import Serializable, YamlSerializer, DependentInitParam
+from xnmt.serialize.serializable import Serializable
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.output import TextOutput
 from xnmt.reports import Reportable
 from xnmt.input import SimpleSentenceInput
-import xnmt.serializer
+import xnmt.serialize.serializer
+from xnmt.serialize.tree_tools import Path
 from xnmt.batcher import mark_as_batch, is_batched
 
 # Reporting purposes
@@ -81,26 +82,16 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.glob = glob
 
   def shared_params(self):
-    return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
-            set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]),
-            set(["attender.state_dim", "decoder.lstm_dim"]),
-            set(["trg_embedder.emb_dim", "decoder.trg_embed_dim"])]
-
-  def dependent_init_params(self, initialized_subcomponents):
-    """
-    Overwrite Serializable.dependent_init_params() to realize sharing of vocab size between embedders and corpus parsers
-    """
-    return [DependentInitParam(param_descr="src_embedder.vocab_size", value_fct=lambda: initialized_subcomponents["src_reader"].vocab_size()),
-            DependentInitParam(param_descr="decoder.vocab_size", value_fct=lambda: initialized_subcomponents["trg_reader"].vocab_size()),
-            DependentInitParam(param_descr="trg_embedder.vocab_size", value_fct=lambda: initialized_subcomponents["trg_reader"].vocab_size()),
-            DependentInitParam(param_descr="src_embedder.vocab", value_fct=lambda: initialized_subcomponents["src_reader"].vocab),
-            DependentInitParam(param_descr="trg_embedder.vocab", value_fct=lambda: initialized_subcomponents["trg_reader"].vocab)]
+    return [set([Path("src_embedder","emb_dim"), Path("encoder","input_dim")]),
+            set([Path("encoder","hidden_dim"), Path("attender","input_dim"), Path("decoder","input_dim")]),
+            set([Path("attender","state_dim"), Path("decoder","lstm_dim")]),
+            set([Path("trg_embedder","emb_dim"), Path("decoder","trg_embed_dim")])]
 
   def initialize_generator(self, **kwargs):
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
     else:
-      len_norm = xnmt.serializer.YamlSerializer().initialize_if_needed(kwargs["len_norm_type"])
+      len_norm = xnmt.serialize.serializer.YamlSerializer().initialize_if_needed(kwargs["len_norm_type"])
     search_args = {}
     if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
     if kwargs.get("beam", None) is None:
@@ -233,7 +224,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
     else:
-      len_norm = xnmt.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
+      len_norm = xnmt.serialize.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
     search_args = {}
     if kwargs.get("max_len", None) is not None:
       search_args["max_len"] = kwargs["max_len"]

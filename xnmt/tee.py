@@ -11,7 +11,7 @@ class Tee(object):
 
   def __init__(self, name, indent=0, error=False):
     dirname = os.path.dirname(name)
-    if not os.path.exists(dirname):
+    if dirname and not os.path.exists(dirname):
       os.makedirs(dirname)
     self.file = io.open(name, 'wt', encoding='utf-8')
     self.stdstream = sys.stderr if error else sys.stdout

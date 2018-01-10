@@ -1,7 +1,6 @@
 import math
 import dynet as dy
-from xnmt.batcher import *
-from xnmt.serializer import *
+from xnmt.serialize.serializable import Serializable
 
 class Attender(object):
   '''

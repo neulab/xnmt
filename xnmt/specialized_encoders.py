@@ -3,7 +3,7 @@ from __future__ import division, print_function
 import dynet as dy
 
 from xnmt.expression_sequence import ExpressionSequence
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 from xnmt.transducer import Transducer, SeqTransducer
 
 # This is a file for specialized encoders that implement a particular model

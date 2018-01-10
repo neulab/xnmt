@@ -8,17 +8,18 @@ and <experimentname>.err.log, and reporting on final perplexity metrics.
 
 import argparse
 import sys
-import six
 import random
 import shutil
+
 import numpy as np
 
 # XNMT imports
 import xnmt.xnmt_preproc, xnmt.xnmt_evaluate, xnmt.training_regimen, xnmt.training_task, xnmt.eval_task
-from xnmt.options import OptionParser
+from xnmt.serialize.options import OptionParser
 from xnmt.tee import Tee
-from xnmt.serializer import YamlSerializer, UninitializedYamlObject
+from xnmt.serialize.serializer import YamlSerializer
 from xnmt.model_context import ModelContext, PersistentParamCollection
+
 
 def main(overwrite_args=None):
   argparser = argparse.ArgumentParser()
@@ -32,17 +33,12 @@ def main(overwrite_args=None):
   argparser.add_argument("--dynet-gpus", type=int)
   argparser.add_argument("--dynet-weight-decay", type=float)
   argparser.add_argument("--dynet-profiling", type=int)
-  argparser.add_argument("--generate-doc", action='store_true', help="Do not run, output documentation instead")
   argparser.add_argument("experiments_file")
   argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
   argparser.set_defaults(generate_doc=False)
   args = argparser.parse_args(overwrite_args)
 
   config_parser = OptionParser()
-
-  if args.generate_doc:
-    print(config_parser.generate_options_table())
-    exit(0)
 
   if args.dynet_seed:
     random.seed(args.dynet_seed)
@@ -61,13 +57,13 @@ def main(overwrite_args=None):
       raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
 
   for experiment_name in experiment_names:
-    exp_args = config_parser.parse_experiment(args.experiments_file, experiment_name)
+    uninitialized_exp_args = config_parser.parse_experiment(args.experiments_file, experiment_name)
 
     print("=> Running {}".format(experiment_name))
 
     yaml = YamlSerializer()
 
-    glob_args = exp_args.get("global", {})
+    glob_args = uninitialized_exp_args.data.get("experiment", {})
     out_file = glob_args.pop("out_file", "<EXP>.out")
     err_file = glob_args.pop("err_file", "<EXP>.err")
 
@@ -86,19 +82,11 @@ def main(overwrite_args=None):
     for k, v in glob_args.items():
       setattr(model_context, k, v)
 
+    uninitialized_exp_args.data["train"].dynet_profiling = args.dynet_profiling
+    exp_args = yaml.initialize_if_needed(uninitialized_exp_args, model_context)
     print("> Preprocessing")
     preproc_args = exp_args.get("preproc", {})
     xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
-
-    if "model" in exp_args:
-      print("> Initializing Model")
-      model_args = exp_args["model"]
-      model_args = yaml.initialize_if_needed(UninitializedYamlObject(model_args), model_context)
-
-    print("> Initializing TrainingRegimen")
-    train_args = exp_args["train"]
-    train_args.dynet_profiling = args.dynet_profiling
-    train_args = yaml.initialize_if_needed(UninitializedYamlObject(train_args), model_context)
 
     # Do training
     if "random_search_report" in exp_args:
@@ -107,9 +95,9 @@ def main(overwrite_args=None):
     print("> Training")
     eval_scores = "Not evaluated"
     if not eval_only:
-      train_args.run_training()
+      exp_args["train"].run_training()
       print('reverting learned weights to best checkpoint..')
-      train_args.yaml_context.dynet_param_collection.revert_to_best_model()
+      exp_args["train"].yaml_context.dynet_param_collection.revert_to_best_model()
 
     evaluate_args = exp_args["evaluate"]
     if evaluate_args:
@@ -117,7 +105,6 @@ def main(overwrite_args=None):
       output.indent += 2
       eval_scores = []
       for evaluator in evaluate_args:
-        evaluator = yaml.initialize_if_needed(UninitializedYamlObject(evaluator), model_context)
         eval_score = evaluator.eval()
         if type(eval_score) == list:
           eval_scores.extend(eval_score)

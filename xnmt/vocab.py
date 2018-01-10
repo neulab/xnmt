@@ -1,5 +1,5 @@
 import io
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 
 class Vocab(Serializable):
   '''

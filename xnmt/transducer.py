@@ -2,7 +2,8 @@ from __future__ import division, generators
 
 import dynet as dy
 
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.tree_tools import Path
 
 class Transducer(object):
   """
@@ -88,7 +89,7 @@ class ModularSeqTransducer(SeqTransducer, Serializable):
     self.modules = modules
 
   def shared_params(self):
-    return [set(["input_dim", "modules.0.input_dim"])]
+    return [set([Path("input_dim"), Path("modules",0,"input_dim")])]
 
   def __call__(self, es):
     for module in self.modules:

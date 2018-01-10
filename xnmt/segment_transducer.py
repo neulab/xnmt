@@ -3,7 +3,7 @@ import dynet as dy
 import xnmt.linear
 import xnmt.embedder
 
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 from xnmt.events import register_handler, handle_xnmt_event, register_xnmt_event
 from xnmt.reports import Reportable
 

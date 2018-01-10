@@ -1,10 +1,8 @@
-import argparse
 import io
 import sys
 import os.path
 import subprocess
-import yaml
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 
 ##### Preprocessors
 

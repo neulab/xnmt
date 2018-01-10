@@ -5,7 +5,7 @@ import dynet as dy
 import numpy as np
 
 from xnmt.loss import LossBuilder
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializer import Serializable
 from xnmt.vocab import Vocab
 
 import xnmt.evaluator

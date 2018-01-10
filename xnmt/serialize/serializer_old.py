@@ -308,9 +308,6 @@ class UninitializedYamlObject(object):
       raise AssertionError
     self.data = data
 
-class ComponentInitError(Exception):
-  pass
-
 class DependentInitParam(Serializable):
   def __init__(self, param_descr, value_fct):
     self.param_descr = param_descr

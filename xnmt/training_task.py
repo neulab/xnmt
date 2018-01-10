@@ -8,7 +8,8 @@ import six
 import numpy as np
 import dynet as dy
 
-from xnmt.serializer import Serializable, YamlSerializer, DependentInitParam
+from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializer import YamlSerializer
 from xnmt.loss import LossBuilder
 from xnmt.inference import SimpleInference
 from xnmt.events import register_xnmt_event

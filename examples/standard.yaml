@@ -6,18 +6,22 @@ standard:
     err_file: examples/output/<EXP>.err
     cfg_file: examples/output/<EXP>.yaml
   model: !DefaultTranslator
+    _xnmt_id: main_model
     glob:
       dropout: 0.1
       default_layer_dim: 512
     src_reader: !PlainTextReader {}
     trg_reader: !PlainTextReader {}
-    src_embedder: !SimpleWordEmbedder {}
+    src_embedder: !SimpleWordEmbedder
+      vocab_size: 10000
     encoder: !BiLSTMSeqTransducer
       layers: 1
     attender: !MlpAttender {}
-    trg_embedder: !SimpleWordEmbedder {}
+    trg_embedder: !SimpleWordEmbedder
+      vocab_size: 10000
     decoder: !MlpSoftmaxDecoder
       layers: 1
+      vocab_size: 10000
       mlp_hidden_dim: 512
       bridge: !CopyBridge {}
       label_smoothing: 0.1
@@ -26,6 +30,9 @@ standard:
       len_norm_type: !PolynomialNormalization
         apply_during_search: true
   train: !SimpleTrainingRegimen
+    # this is achieved automatically now because of SimpleTrainingRegimen's according default parameter:
+#    model: !Ref
+#      name: main_model
     run_for_epochs: 20
     batcher: !SrcBatcher
       batch_size: 32
@@ -35,16 +42,3 @@ standard:
     lr_decay: 0.5
     src_file: examples/data/train.ja
     trg_file: examples/data/train.en
-    dev_tasks:
-      - !AccuracyEvalTask
-        eval_metrics: bleu wer
-        src_file: examples/data/dev.ja
-        trg_file: examples/data/dev.en
-      - !LossEvalTask
-        src_file: examples/data/dev.ja
-        trg_file: examples/data/dev.en
-  evaluate:
-    - !AccuracyEvalTask
-      eval_metrics: bleu wer
-      src_file: examples/data/test.ja
-      trg_file: examples/data/test.en

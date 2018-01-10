@@ -2,7 +2,7 @@ from __future__ import division, generators
 
 import dynet as dy
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 

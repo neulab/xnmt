@@ -4,7 +4,7 @@ import io
 import six
 import ast
 from collections import defaultdict
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 from xnmt.vocab import *
 ###### Classes representing single inputs
 

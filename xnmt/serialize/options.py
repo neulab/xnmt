@@ -1,13 +1,13 @@
 """
 Stores options and default values
 """
-import yaml
-import argparse
-from collections import OrderedDict
-import copy
 import random
 import inspect
-from xnmt.serializer import Serializable, YamlSerializer
+
+import yaml
+
+from xnmt.serialize.serializable import Serializable, UninitializedYamlObject
+import xnmt.serialize.tree_tools as tree_tools
 
 class Option(object):
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
@@ -33,8 +33,7 @@ class RandomParam(yaml.YAMLObject):
   def __init__(self, values):
     self.values = values
   def __repr__(self):
-    return "%s(values=%r)" % (
-            self.__class__.__name__, self.values)
+    return f"{self.__class__.__name__}(values={self.values})"
   def draw_value(self):
     if not hasattr(self, 'drawn_value'):
       self.drawn_value = random.choice(self.values)
@@ -50,7 +49,7 @@ class OptionParser(object):
       with open(filename) as stream:
         experiments = yaml.load(stream)
     except IOError as e:
-      raise RuntimeError("Could not read configuration file {}: {}".format(filename, e))
+      raise RuntimeError(f"Could not read configuration file {filename}: {e}")
 
     if "defaults" in experiments: del experiments["defaults"]
     return sorted(experiments.keys())
@@ -63,19 +62,24 @@ class OptionParser(object):
       with open(filename) as stream:
         config = yaml.load(stream)
     except IOError as e:
-      raise RuntimeError("Could not read configuration file {}: {}".format(filename, e))
+      raise RuntimeError(f"Could not read configuration file {filename}: {e}")
 
     experiment = config[exp_name]    
-    YamlSerializer.apply_to_serializable_recursive(experiment, self.resolve_kwargs)
-    
-    YamlSerializer.apply_to_serializable_recursive(experiment, self.resolve_saved_model_file)
+
+    for _, node in tree_tools.traverse_tree(experiment):
+      if isinstance(node, Serializable):
+        self.resolve_kwargs(node)
+
+    for _, node in tree_tools.traverse_tree(experiment):
+      if isinstance(node, Serializable):
+        self.resolve_saved_model_file(node)
     
     random_search_report = self.instantiate_random_search(experiment)
     if random_search_report:
       experiment['random_search_report'] = random_search_report
     self.replace_placeholder(experiment, exp_name)
 
-    return experiment
+    return UninitializedYamlObject(experiment)
 
   def resolve_saved_model_file(self, obj):
     """
@@ -105,6 +109,7 @@ class OptionParser(object):
         setattr(obj, k, v)
       delattr(obj, "kwargs")
 
+  # TODO: should be simplified using tree_tools
   def instantiate_random_search(self, exp_values, initialized_random_params={}):
     param_report = {}
     if isinstance(exp_values, dict): kvs = exp_values.items()
@@ -132,6 +137,7 @@ class OptionParser(object):
           param_report[k] = sub_report
     return param_report
 
+  # TODO: should be simplified using tree_tools
   def replace_placeholder(self, exp_values, value, placeholder="<EXP>"):
     if isinstance(exp_values, dict): kvs = exp_values.items()
     elif isinstance(exp_values, Serializable):
@@ -146,45 +152,3 @@ class OptionParser(object):
             setattr(exp_values, k, v.replace(placeholder, value))
       elif isinstance(v, dict) or isinstance(v, Serializable):
         self.replace_placeholder(v, value, placeholder)
-
-
-  def args_from_command_line(self, task, argv):
-    raise NotImplementedError("")
-  # old code:
-#    parser = argparse.ArgumentParser()
-#    for option in self.tasks[task].values():
-#      if option.required and not option.force_flag:
-#        parser.add_argument(option.name, type=option.type, help=option.help)
-#      else:
-#        parser.add_argument("--" + option.name, default=option.default_value, required=option.required,
-#                            type=option.type, help=option.help)
-#
-#    return parser.parse_args(argv)
-
-  def generate_options_table(self):
-    """
-    Generates markdown documentation for the options
-    """
-    lines = []
-    for task, task_options in self.tasks.items():
-      lines.append("## {}".format(task))
-      lines.append("")
-      lines.append("| Name | Description | Type | Default value |")
-      lines.append("|------|-------------|------|---------------|")
-      for option in task_options.values():
-        if option.required:
-          template = "| **{}** | {} | {} | {} |"
-        else:
-          template = "| {} | {} | {} | {} |"
-        lines.append(template.format(option.name, option.help if option.help else "", option.type.__name__,
-                                     option.default_value if option.default_value is not None else ""))
-      lines.append("")
-
-    return "\n".join(lines)
-
-
-# Predefined options for dynet
-general_options = [
-  Option("dynet_mem", int, required=False),
-  Option("dynet_seed", int, required=False),
-]

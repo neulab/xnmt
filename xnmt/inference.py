@@ -10,7 +10,7 @@ from xnmt.retriever import *
 from xnmt.translator import *
 from xnmt.search_strategy import *
 from xnmt.loss_calculator import LossCalculator
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 
 '''
 This will be the main class to perform decoding.

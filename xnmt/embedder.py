@@ -7,7 +7,7 @@ import six
 import io
 from xnmt.initializer import LeCunUniform as linear_init
 from xnmt.events import register_handler, handle_xnmt_event
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 from xnmt.linear import Linear
 

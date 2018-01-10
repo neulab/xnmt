@@ -1,6 +1,6 @@
 import dynet as dy
 
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializer import Serializable
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
 import xnmt.xnmt_evaluate

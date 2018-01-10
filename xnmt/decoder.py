@@ -1,8 +1,9 @@
 import dynet as dy
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 import xnmt.batcher
 from xnmt.events import register_handler, handle_xnmt_event
 import xnmt.linear
+from xnmt.serialize.tree_tools import Path
 
 class Decoder(object):
   '''
@@ -82,8 +83,8 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     self.dropout = dropout or yaml_context.dropout
 
   def shared_params(self):
-    return [set(["layers", "bridge.dec_layers"]),
-            set(["lstm_dim", "bridge.dec_dim"])]
+    return [set([Path("layers"), Path("bridge","dec_layers")]),
+            set([Path("lstm_dim"), Path("bridge","dec_dim")])]
 
   def initial_state(self, enc_final_states, ss_expr):
     """Get the initial state of the decoder given the encoder final states.

@@ -3,7 +3,7 @@ from __future__ import division, generators
 import numpy as np
 from scipy.stats import norm
 
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 
 class LengthNormalization(object):
   '''
