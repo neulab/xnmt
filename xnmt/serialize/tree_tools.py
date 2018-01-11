@@ -31,30 +31,11 @@ class Path(object):
   def __eq__(self, other):
     return str(self).__eq__(str(other))
 
+reserved_arg_names = ["_xnmt_id", "yaml_context", "serialize_params", "init_params", "kwargs", "self"]
 
 def get_init_args_defaults(obj):
     return inspect.signature(obj.__init__).parameters
 
-reserved_arg_names = ["_xnmt_id", "yaml_context", "serialize_params", "init_params", "kwargs", "self"]
-
-@singledispatch
-def name_children(node, include_reserved=False):
-  return []
-@name_children.register(Serializable)
-def name_children_serializable(node, include_reserved=False):
-  """
-  Returns the specified arguments in the order they appear in the corresponding __init__() 
-  """
-  check_serializable_args_valid(node)
-  init_args = list(get_init_args_defaults(node).keys())
-  if include_reserved: init_args += [n for n in reserved_arg_names if not n in init_args]
-  items = {key:val for (key,val) in inspect.getmembers(node)}
-  ret = []
-  for name in init_args:
-    if name in items:
-      val = items[name]
-      ret.append((name, val))
-  return ret
 def check_serializable_args_valid(node, include_reserved=False):
   base_arg_names = map(lambda x: x[0], inspect.getmembers(yaml.YAMLObject))
   class_param_names = [x[0] for x in inspect.getmembers(node.__class__)]
@@ -68,6 +49,24 @@ def check_serializable_args_valid(node, include_reserved=False):
       if name.startswith("_") or name in ["yaml_context", "serialize_params", "init_params", "kwargs"]: continue
     if name not in init_args and name!="_xnmt_id":
       raise ValueError(f"'{name}' is not a valid init parameter of {node}. Valid are {init_args.keys()}")
+
+@singledispatch
+def name_children(node, include_reserved=False):
+  return []
+@name_children.register(Serializable)
+def name_children_serializable(node, include_reserved=False):
+  """
+  Returns the specified arguments in the order they appear in the corresponding __init__() 
+  """
+  init_args = list(get_init_args_defaults(node).keys())
+  if include_reserved: init_args += [n for n in reserved_arg_names if not n in init_args]
+  items = {key:val for (key,val) in inspect.getmembers(node)}
+  ret = []
+  for name in init_args:
+    if name in items:
+      val = items[name]
+      ret.append((name, val))
+  return ret
 @name_children.register(dict)
 def name_children_dict(node, include_reserved=False):
   """
