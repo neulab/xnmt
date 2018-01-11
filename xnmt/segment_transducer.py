@@ -46,6 +46,11 @@ class TailWordSegmentTransformer(SegmentTransformer):
   def transform(self, encoder, encodings, word=None):
     return encoder.get_final_states()[0]._main_expr + self.lookup[self.vocab.convert(tuple(word))]
 
+class WordOnlySegmentTransformer(TailWordSegmentTransformer):
+  yaml_tag = u"!WordOnlySegmentTransformer"
+  def transform(self, encoder, encodings, word=None):
+    return self.lookup[self.vocab.convert(tuple(word))]
+
 class AverageSegmentTransformer(SegmentTransformer):
   yaml_tag = u"!AverageSegmentTransformer"
   def transform(self, encoder, encodings, word=None):

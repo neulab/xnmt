@@ -25,6 +25,7 @@ defaults:
       src_embedder: !SimpleWordEmbedder
         emb_dim: 16
       encoder: !SegmentingSeqTransducer
+        debug: True
         embed_encoder: !LSTMSeqTransducer
           input_dim: 16
           hidden_dim: 16
@@ -37,6 +38,11 @@ defaults:
             bidirectional: True
             layers: 1
           transformer: !TailSegmentTransformer {}
+        segment_encoder: !LSTMSeqTransducer
+          input_dim: 16
+          hidden_dim: 16
+          layers: 1
+          bidirectional: True
         learn_segmentation: True
         learn_delete: False
         reinforcement_param: !ScalarParam

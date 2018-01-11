@@ -57,20 +57,25 @@ class ScalarParam(Serializable):
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = u'!SegmentingSeqTransducer'
 
-  def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None, learn_segmentation=True,
-               reinforcement_param=None, length_prior=3.5, learn_delete=False,
+  def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None, segment_encoder=None,
+               learn_segmentation=True, reinforcement_param=None, length_prior=3.5, learn_delete=False,
                length_prior_alpha=1.0, use_baseline=True, segmentation_warmup_counter=None,
-               epsilon_greedy_param=None):
+               epsilon_greedy_param=None, debug=False):
     '''
     reinforcement_param: the value of lambda in: \lambda * reinforce_loss
     epsilon_greedy_param: param for structural dropout. 30% means 70% sample from poisson and 30% from softmax
     '''
     register_handler(self)
+    assert embed_encoder is not None
+    assert segment_transducer is not None
+    assert segment_encoder is not None
     model = yaml_context.dynet_param_collection.param_col
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
     # The Segment transducer predict a category based on the collected vector
     self.segment_transducer = segment_transducer
+    # The segment Encoder will encode the whole segment
+    self.segment_encoder = segment_encoder
     # The Segment Encoder decides whether to segment or not
     self.segment_transform = linear.Linear(input_dim  = embed_encoder.hidden_dim,
                                            output_dim = 3 if learn_delete else 2,
@@ -90,6 +95,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.lmbd = reinforcement_param
     self.eps = epsilon_greedy_param
     self.encoder_hidden_dim = segment_transducer.encoder.hidden_dim
+    self.debug = debug
 
     # States of the object
     self.train = False
@@ -102,6 +108,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   # Sample from prior segmentation
   def sample_from_prior(self, encodings, batch_size, src):
+    self.print_debug("sample_from_prior")
     segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
     for i, sent in enumerate(src):
       if "segment" not in sent.annotation:
@@ -111,7 +118,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   # Sample from poisson prior
   def sample_from_poisson(self, encodings, batch_size):
-    randoms = numpy.random.poisson(lam=self.length_prior, size=batch_size * len(encodings))
+    self.print_debug("samplef_from_poisson")
+    randoms = numpy.random.poisson(lam=self.length_prior, size=batch_size*len(encodings))
     segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
     idx = 0
     # Filling up the segmentation matrix based on the poisson distribution
@@ -119,7 +127,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       current = randoms[idx]
       while current < len(decision):
         decision[current] = 1
-        idx = (idx + 1) % len(randoms)
+        idx += 1
         current += randoms[idx]
       decision[-1] = 1
     return numpy.split(segment_decisions, len(encodings), 1)
@@ -128,11 +136,13 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def sample_from_softmax(self, encodings, batch_size, segment_logsoftmaxes):
     # Sample from the softmax
     if self.train:
+      self.print_debug("sample_from_softmax")
       segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
                            for log_softmax in segment_logsoftmaxes]
       if batch_size == 1:
         segment_decisions = [numpy.array([x]) for x in segment_decisions]
     else:
+      self.print_debug("argmax(softmax)")
       segment_decisions = [log_softmax.tensor_value().argmax().as_numpy().transpose()
                            for log_softmax in segment_logsoftmaxes]
     return segment_decisions
@@ -145,15 +155,19 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     lmbd = self.lmbd.get_value(self.warmup_counter)
     eps = self.eps.get_value(self.warmup_counter) if self.eps is not None else None
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
-    if self.learn_segmentation and not self.train: # During testing always sample from softmax
+    # Flags
+    is_presegment_provided = src is not None and len(src) != 0 and hasattr(src[0], "annotation")
+    is_warmup = lmbd == 0 or self.is_segmentation_warmup()
+    is_epsgreedy_triggered = eps is not None and numpy.random.random() > eps
+    # Sample based on the criterion
+    if self.learn_segmentation and not is_warmup and not self.train:
+      # During testing always sample from softmax if it is not warmup
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
-    elif src is not None and len(src) != 0 and hasattr(src[0], "annotation"): # Prior Segmentation
+    elif is_presegment_provided:
       segment_decisions = self.sample_from_prior(encodings, batch_size, src)
-    elif lmbd == 0 or self.is_segmentation_warmup(): # Warming up
+    elif is_warmup or is_epsgreedy_triggered:
       segment_decisions = self.sample_from_poisson(encodings, batch_size)
-    elif eps is not None and numpy.random.random() > eps: # Epsilon Greedy (structural dropout?)
-      segment_decisions = self.sample_from_poisson(encodings, batch_size)
-    else: # Softmax
+    else:
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
 
     return segment_decisions, segment_logsoftmaxes
@@ -176,7 +190,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     length_prior = [[] for _ in range(batch_size)]
     self.segment_transducer.set_input_size(batch_size, len(encodings))
     # Loop through all the frames (word / item) in input.
-    for j, (encoding, segment_decision) in enumerate(zip(encodings, segment_decisions)):
+    for j, (embed, segment_decision) in enumerate(zip(embed_sent, segment_decisions)):
       # For each decision in the batch
       for i, decision in enumerate(segment_decision):
         # If segment for this particular input
@@ -184,9 +198,9 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if decision == SegmentingAction.DELETE.value:
           continue
         # Get the particular encoding for that batch item
-        encoding_i = dy.pick_batch_elem(encoding, i)
+        embed_i = dy.pick_batch_elem(embed, i)
         # Append the encoding for this item to the buffer
-        buffers[i].append(encoding_i)
+        buffers[i].append(embed_i)
         if decision == SegmentingAction.SEGMENT.value:
           # Special case for TailWordSegmentTransformer only
           words = None
@@ -203,7 +217,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         # Notify the segment transducer to process the next decision
         self.segment_transducer.next_item()
     # Calculate the actual length prior length
-    length_prior = [numpy.sum(len_prior) / len(len_prior) for len_prior in length_prior]
+    length_prior = [numpy.sum(len_prior) for len_prior in length_prior]
     # Padding
     max_col = max(len(xs) for xs in outputs)
     P0 = dy.vecInput(self.encoder_hidden_dim)
@@ -220,22 +234,21 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       if self.learn_segmentation:
         self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
         if self.use_baseline:
-          self.bs = list(six.moves.map(lambda x: self.baseline(dy.nobackprop(x)), encodings))
+          self.bs = [self.baseline(dy.nobackprop(enc)) for enc in encodings]
     else:
       # Rewrite segmentation
       self.set_report_resource("segmentation", self.segment_decisions)
       self.set_report_input(segment_decisions)
 
-    self._final_encoder_state = [FinalTransducerState(outputs)]
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
-    return expression_sequence.ExpressionSequence(expr_tensor=outputs)
+    return self.segment_encoder(expression_sequence.ExpressionSequence(expr_tensor=outputs))
 
   @handle_xnmt_event
   def on_set_train(self, train):
     self.train = train
 
   def get_final_states(self):
-    return self._final_encoder_state
+    return self.segment_encoder.get_final_states()
 
   @handle_xnmt_event
   def on_new_epoch(self):
@@ -328,4 +341,18 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         temp = ""
     if temp: segmented.append((temp, False))
     return segmented
+
+  #### DEBUG
+  def print_debug(self, *args, **kwargs):
+    if self.debug:
+      print(*args, **kwargs)
+
+  def print_debug_once(self, *args, **kwargs):
+    if not hasattr(self, "_debug_lock"):
+      self._debug_lock = True
+      self.print_debug(*args, **kwargs)
+
+  def print_debug_unlock(self):
+    if hasattr(self, "_debug_lock"):
+      delattr(self, "_debug_lock")
 
