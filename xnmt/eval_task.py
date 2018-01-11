@@ -3,8 +3,7 @@ import dynet as dy
 from xnmt.serialize.serializer import Serializable
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
-from xnmt.serialize.serializer import Ref
-from xnmt.serialize.tree_tools import Path
+from xnmt.serialize.tree_tools import Path, Ref
 import xnmt.xnmt_evaluate
 
 class EvalTask:

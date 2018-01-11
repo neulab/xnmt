@@ -25,11 +25,34 @@ class Path(object):
   def __getitem__(self, key):
     return self.l[key]
   def parent(self):
-    return Path(*self.l[:-1])
+    if len(self.l) == 0: return None
+    else: return Path(*self.l[:-1])
   def __hash__(self):
     return hash(str(self))
   def __eq__(self, other):
     return str(self).__eq__(str(other))
+  def ancestors(self):
+    a = self
+    ret = set()
+    while a is not None:
+      ret.add(a)
+      a = a.parent()
+    return ret
+
+class Ref(Serializable):
+  yaml_tag = "!Ref"
+  def __init__(self, name=None, path=None):
+    self.name = name
+    self.path = path
+  def resolve_path(self, named_paths):
+    if getattr(self, "path", None):
+      if isinstance(self.path, str):
+        # need to do this here, because the initializer is never called when
+        # Ref objects are specified in the YAML file
+        self.path = Path.from_str(self.path)
+      return self.path
+    else: return named_paths[self.name]
+
 
 reserved_arg_names = ["_xnmt_id", "yaml_context", "serialize_params", "init_params", "kwargs", "self"]
 
@@ -125,3 +148,16 @@ def traverse_tree(node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=
     yield from traverse_tree(child, traversal_order, path_to_node.add(child_name))
   if include_root and traversal_order==TraversalOrder.ROOT_LAST:
     yield path_to_node, node
+  
+def traverse_tree_descending_references(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), named_paths={}):
+  if traversal_order==TraversalOrder.ROOT_FIRST:
+    yield path_to_node, cur_node
+  if isinstance(cur_node, Ref):
+    resolved_path = cur_node.resolve_path(named_paths)
+    yield from traverse_tree_descending_references(root, get_descendant(root, resolved_path), traversal_order, resolved_path, named_paths)
+  else:
+    for child_name, child in name_children(cur_node):
+      yield from traverse_tree_descending_references(root, child, traversal_order, path_to_node.add(child_name), named_paths)
+  if traversal_order==TraversalOrder.ROOT_LAST:
+    yield path_to_node, cur_node
+

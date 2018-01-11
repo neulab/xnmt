@@ -6,6 +6,7 @@ import yaml
 
 import xnmt.serialize.tree_tools as tree_tools
 from xnmt.serialize.serializable import Serializable, UninitializedYamlObject
+from xnmt.serialize.tree_tools import get_init_args_defaults, get_descendant
 
 class YamlSerializer(object):
   
@@ -73,7 +74,7 @@ class YamlSerializer(object):
         for expected_arg in init_args_defaults:
           if not expected_arg in [name for (name,_) in tree_tools.name_children(node)]:
             arg_default = init_args_defaults[expected_arg].default
-            if isinstance(arg_default, Ref):
+            if isinstance(arg_default, tree_tools.Ref):
               setattr(node, expected_arg, arg_default)
 
   def share_init_params_top_down(self, obj):
@@ -94,12 +95,16 @@ class YamlSerializer(object):
             print(f"WARNING: inconsistent shared params at {path} for {shared_param_set}: {shared_val_choices}; Ignoring these shared parameters.")
           elif len(shared_val_choices)==1:
             for shared_param_path in shared_param_set:
-              tree_tools.set_descendant(node, shared_param_path, list(shared_val_choices)[0])
+              if shared_param_path[-1] in get_init_args_defaults(get_descendant(node, shared_param_path.parent())):
+                tree_tools.set_descendant(node, shared_param_path, list(shared_val_choices)[0])
   
   def init_components_bottom_up(self, obj):
-    for path, node in tree_tools.traverse_tree(obj, tree_tools.TraversalOrder.ROOT_LAST):
+    initialized_paths = set()
+    for path, node in tree_tools.traverse_tree_descending_references(obj, obj, tree_tools.TraversalOrder.ROOT_LAST, named_paths=self.named_paths):
       if isinstance(node, Serializable):
-        if isinstance(node, Ref):
+        if path.ancestors() & initialized_paths:
+          continue
+        elif isinstance(node, tree_tools.Ref):
           resolved_path = node.resolve_path(self.named_paths)
           hits_before = self.init_component.cache_info().hits
           tree_tools.set_descendant(obj, path, self.init_component(resolved_path))
@@ -107,6 +112,7 @@ class YamlSerializer(object):
             print(f"reusing previously initialized object at {path}")
         else:
           tree_tools.set_descendant(obj, path, self.init_component(path))
+        initialized_paths.add(path)
     return obj
 
   @lru_cache(maxsize=None)
@@ -118,7 +124,10 @@ class YamlSerializer(object):
                                   simply return that object, otherwise create it)
     """
     obj = tree_tools.get_descendant(self.deserialized_yaml, path)
-    init_params = obj.init_params
+    try:
+      init_params = obj.init_params
+    except:
+      print("break")
     init_args = tree_tools.get_init_args_defaults(obj)
     if "yaml_context" in init_args: obj.init_params["yaml_context"] = self.yaml_context
     serialize_params = obj.serialize_params
@@ -165,20 +174,6 @@ class YamlSerializer(object):
       model_context = UninitializedYamlObject(dict_spec)
     return corpus_parser, model, model_context
 
-
-class Ref(Serializable):
-  yaml_tag = "!Ref"
-  def __init__(self, name=None, path=None):
-    self.name = name
-    self.path = path
-  def resolve_path(self, named_paths):
-    if getattr(self, "path", None):
-      if isinstance(self.path, str):
-        # need to do this here, because the initializer is never called when
-        # Ref objects are specified in the YAML file
-        self.path = tree_tools.Path.from_str(self.path)
-      return self.path
-    else: return named_paths[self.name]
 
 class ComponentInitError(Exception):
   pass

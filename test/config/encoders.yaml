@@ -31,6 +31,7 @@ exp1-lstm-encoder:
     src_embedder: !SimpleWordEmbedder
       emb_dim: 64
       word_dropout: 0.3
+      vocab_size: 10000
     encoder: !BiLSTMSeqTransducer
       layers: 2
       input_dim: 64
@@ -41,11 +42,13 @@ exp1-lstm-encoder:
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
       word_dropout: 0.3
+      vocab_size: 10000
     decoder: !MlpSoftmaxDecoder
       layers: 1
       mlp_hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
+      vocab_size: 10000
 # exp2-residual-encoder:
 #   << : *defaults
 #   train: !SimpleTrainingRegimen

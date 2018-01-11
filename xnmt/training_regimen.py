@@ -30,7 +30,8 @@ from xnmt.retriever import *
 from xnmt.segmenting_encoder import *
 from xnmt.optimizer import SimpleSGDTrainer
 from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.serializer import YamlSerializer, Ref
+from xnmt.serialize.serializer import YamlSerializer
+from xnmt.serialize.tree_tools import Ref
 from xnmt.inference import SimpleInference
 import xnmt.optimizer
 from xnmt.training_task import SimpleTrainingTask
