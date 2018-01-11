@@ -6,8 +6,7 @@ exp1-pretrain-model: &exp1
     default_layer_dim: 64
     dropout: 0.5
     weight_noise: 0.1
-  model: !DefaultTranslator &main_model
-    _xnmt_id: main_model
+  model: !DefaultTranslator
     src_reader: !PlainTextReader {}
     trg_reader: !PlainTextReader {}
     src_embedder: !SimpleWordEmbedder
@@ -31,20 +30,17 @@ exp1-pretrain-model: &exp1
       bridge: !CopyBridge {}
     inference: !SimpleInference {} # TODO: remove this line
   train: !SimpleTrainingRegimen
-    model: *main_model # TODO: remove this line
     run_for_epochs: 2
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en
     dev_tasks:
     - !AccuracyEvalTask
-      model: *main_model # TODO: remove this line
       eval_metrics: bleu
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
       hyp_file: examples/output/<EXP>.dev_hyp
   evaluate:
     - !AccuracyEvalTask &acc_task
-      model: *main_model # TODO: remove this line
       eval_metrics: bleu
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
@@ -53,7 +49,6 @@ exp1-pretrain-model: &exp1
 exp2-finetune-model:
   << : *exp1
   train: !SimpleTrainingRegimen # load the pretrained model, but overwrite the optimizer to fine-tune with a different learning rate
-    model: *main_model # TODO: remove this line
     run_for_epochs: 2
     trainer: !AdamTrainer
       alpha: 0.0002
@@ -62,7 +57,6 @@ exp2-finetune-model:
     trg_file: examples/data/head.en
     dev_tasks:
     - !AccuracyEvalTask
-      model: *main_model # TODO: remove this line
       eval_metrics: bleu
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en

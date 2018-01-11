@@ -5,6 +5,7 @@ multi_task_exp:
     model_file: examples/output/<EXP>.mod
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
+    default_layer_dim: 64
   train: !SameBatchMultiTaskTrainingRegimen
     trainer: !AdamTrainer {}
     tasks:
@@ -35,6 +36,7 @@ multi_task_exp:
         decoder: !MlpSoftmaxDecoder
           vocab_size: 500 # TODO: remove this line
           layers: 1
+          lstm_dim: 64
           bridge: !CopyBridge {}
         inference: !SimpleInference {}
       dev_tasks:

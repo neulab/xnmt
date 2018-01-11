@@ -18,8 +18,7 @@ exp1.pretrain: &exp1
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     default_layer_dim: 32
-  model: !DefaultTranslator &main_model
-    _xnmt_id: main_model
+  model: !DefaultTranslator
     src_reader: !PlainTextReader {}
     trg_reader: !PlainTextReader {}
     src_embedder: !SimpleWordEmbedder
@@ -45,18 +44,15 @@ exp1.pretrain: &exp1
       vocab_projector: *trg_emb
     inference: !SimpleInference {}
   train: !SimpleTrainingRegimen &exp1_train
-    model: *main_model # TODO: remove this line
     run_for_epochs: 2
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en
     dev_tasks:
       - !LossEvalTask
-        model: *main_model # TODO: remove this line
         src_file: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
         ref_file: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
   evaluate:
     - !AccuracyEvalTask
-      model: *main_model # TODO: remove this line
       eval_metrics: bleu,wer
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
