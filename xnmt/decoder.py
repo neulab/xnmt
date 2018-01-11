@@ -83,8 +83,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     self.dropout = dropout or yaml_context.dropout
 
   def shared_params(self):
-    return [set([Path("layers"), Path("bridge","dec_layers")]),
-            set([Path("lstm_dim"), Path("bridge","dec_dim")])]
+    return [set([Path("layers"), Path("bridge","dec_layers")])]
 
   def initial_state(self, enc_final_states, ss_expr):
     """Get the initial state of the decoder given the encoder final states.

@@ -78,6 +78,8 @@ class YamlSerializer(object):
               setattr(node, expected_arg, arg_default)
 
   def share_init_params_top_down(self, obj):
+    # TODO: this currently fails in some cases where several shared_param_set's specify the same parameters
+    # (as was previously the case with the translator's (attender.state_dim, decoder.lstm_dim) and the decoder's (lstm_dim, bridge.dec_dim) )
     for path, node in tree_tools.traverse_tree(obj):
       if isinstance(node, Serializable):
         for shared_param_set in node.shared_params():
