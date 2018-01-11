@@ -36,6 +36,7 @@ class YamlSerializer(object):
     if self.is_initialized(deserialized_yaml_wrapper):
       raise AssertionError()
     self.deserialized_yaml = copy.deepcopy(deserialized_yaml_wrapper.data)   # make a copy to avoid side effects
+    self.check_args(self.deserialized_yaml)
     self.named_paths = self.get_named_paths(self.deserialized_yaml)
     self.set_serialize_params(self.deserialized_yaml) # sets each component's serialize_params to represent attributes specified in YAML file
     self.resolve_ref_default_args(self.deserialized_yaml)
@@ -43,11 +44,17 @@ class YamlSerializer(object):
 #     # finally, initialize each component via __init__(**init_params)
     return self.init_components_bottom_up(self.deserialized_yaml)
   
+  def check_args(self, root):
+    for _, node in tree_tools.traverse_tree(root):
+      tree_tools.check_serializable_args_valid(node)
+  
   def get_named_paths(self, root):
     d = {}
     for path, node in tree_tools.traverse_tree(root):
       if "_xnmt_id" in [name for (name,_) in tree_tools.name_children(node, include_reserved=True)]:
         xnmt_id = tree_tools.get_child(node, "_xnmt_id")
+        if xnmt_id in d:
+          raise ValueError(f"_xnmt_id {xnmt_id} was specified multiple times!")
         d[xnmt_id] = path
     return d
     
@@ -165,7 +172,12 @@ class Ref(Serializable):
     self.name = name
     self.path = path
   def resolve_path(self, named_paths):
-    if getattr(self, "path", None): return self.path
+    if getattr(self, "path", None):
+      if isinstance(self.path, str):
+        # need to do this here, because the initializer is never called when
+        # Ref objects are specified in the YAML file
+        self.path = tree_tools.Path.from_str(self.path)
+      return self.path
     else: return named_paths[self.name]
 
 class ComponentInitError(Exception):
