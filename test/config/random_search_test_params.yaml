@@ -6,8 +6,7 @@ defaults: &defaults
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
     default_layer_dim: 64
-  model: !DefaultTranslator &main_model
-    _xnmt_id: main_model
+  model: !DefaultTranslator
     src_reader: !PlainTextReader {}
     trg_reader: !PlainTextReader {}
     src_embedder: !SimpleWordEmbedder
@@ -36,18 +35,15 @@ defaults: &defaults
         m: !RandomParam
           values: [0.2,0.5,0.7,1.0,1.3]
   train: !SimpleTrainingRegimen
-    model: *main_model # TODO: remove this line
     run_for_epochs: 1
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en
     dev_tasks:
       - !LossEvalTask
-        model: *main_model # TODO: remove this line
         src_file: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
         ref_file: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
   evaluate:
     - !AccuracyEvalTask
-      model: *main_model # TODO: remove this line
       eval_metrics: bleu,wer
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en

@@ -41,7 +41,7 @@ multi_task_exp:
         inference: !SimpleInference {}
       dev_tasks:
         - !AccuracyEvalTask
-          model: *first_task_model # TODO: remove this line
+          model: !Ref { name: first_task_model }
           src_file: &first_task_dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
           ref_file: &first_task_dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
           hyp_file: examples/output/<EXP>.first_dev_hyp
@@ -59,7 +59,7 @@ multi_task_exp:
         src_embedder: !SimpleWordEmbedder
           vocab_size: 500 # TODO: remove this line
           emb_dim: 64
-        encoder: *first_task_encoder
+        encoder: !Ref { name: first_task_encoder }
         attender: !MlpAttender
           state_dim: 64
           hidden_dim: 64
@@ -74,14 +74,14 @@ multi_task_exp:
         inference: !SimpleInference {}
       dev_tasks:
         - !AccuracyEvalTask
-          model: *second_task_model # TODO: remove this line
+          model: !Ref { name: second_task_model }
           src_file: examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
           ref_file: examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
           hyp_file: examples/output/<EXP>.second_dev_hyp
           eval_metrics: gleu # tasks can specify different dev_metrics
   evaluate:
     - !AccuracyEvalTask &acc_task
-      model: *first_task_model # TODO: remove this line
+      model: !Ref { name: first_task_model }
       eval_metrics: bleu,wer
       inference: !SimpleInference {}
       src_file: *first_task_dev_src

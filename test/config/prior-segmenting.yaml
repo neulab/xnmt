@@ -5,8 +5,7 @@ prior-segmenting:
     err_file: examples/output/<EXP>.err
     default_layer_dim: 16
     dropout: 0.5
-  model: !DefaultTranslator &main_model
-    _xnmt_id: main_model
+  model: !DefaultTranslator
     src_reader: !SegmentationTextReader {}
     trg_reader: !PlainTextReader {}
     src_embedder: !SimpleWordEmbedder
@@ -46,7 +45,6 @@ prior-segmenting:
       bridge: !CopyBridge {}
     inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
-    model: *main_model # TODO: remove this line
     run_for_epochs: 2
     src_file:
       - examples/data/head-char.ja
@@ -54,7 +52,6 @@ prior-segmenting:
     trg_file: examples/data/head.en
     dev_tasks:
     - !AccuracyEvalTask
-      model: *main_model # TODO: remove this line
       eval_metrics: bleu
       src_file:
         - examples/data/head-char.ja
@@ -63,7 +60,6 @@ prior-segmenting:
       hyp_file: examples/output/<EXP>.dev_hyp
   evaluate:
   - !AccuracyEvalTask
-    model: *main_model # TODO: remove this line
     eval_metrics: bleu
     src_file:
       - examples/data/head-char.ja

@@ -1,4 +1,3 @@
-# TODO: This is broken because of the necessity to refer to main_model before it is defined
 
 defaults: &defaults
   global:
