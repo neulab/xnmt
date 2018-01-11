@@ -3,6 +3,8 @@ import dynet as dy
 from xnmt.serialize.serializer import Serializable
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
+from xnmt.serialize.serializer import Ref
+from xnmt.serialize.tree_tools import Path
 import xnmt.xnmt_evaluate
 
 class EvalTask:
@@ -19,7 +21,7 @@ class LossEvalTask(Serializable):
 
   yaml_tag = u'!LossEvalTask'
   
-  def __init__(self, model, src_file, ref_file, loss_calculator=None):
+  def __init__(self, src_file, ref_file, model=Ref(path=Path("model")), loss_calculator=None):
     self.model = model
     self.loss_calculator = loss_calculator or LossCalculator(MLELoss())    
     self.src_file = src_file
@@ -48,7 +50,7 @@ class AccuracyEvalTask(Serializable):
 
   yaml_tag = u'!AccuracyEvalTask'
 
-  def __init__(self, model, src_file, ref_file, hyp_file,
+  def __init__(self, src_file, ref_file, hyp_file, model=Ref(path=Path("model")),
                eval_metrics="bleu", inference=None, candidate_id_file=None):
     self.model = model
     self.eval_metrics = [s.lower() for s in eval_metrics.split(",")]

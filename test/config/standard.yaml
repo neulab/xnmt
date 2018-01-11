@@ -6,7 +6,6 @@ standard:
     err_file: examples/output/<EXP>.err
     default_layer_dim: 32
   model: !DefaultTranslator
-    _xnmt_id: main_model
     src_reader: !PlainTextReader {}
     trg_reader: !PlainTextReader {}
     src_embedder: !SimpleWordEmbedder
@@ -32,21 +31,14 @@ standard:
         m: 1
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
-    # this is achieved automatically now because of SimpleTrainingRegimen's according default parameter:
-#    model: !Ref
-#      name: main_model
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en
     dev_tasks:
       - !LossEvalTask
-        model: !Ref
-          name: main_model
         src_file: examples/data/head.ja
         ref_file: examples/data/head.en
   evaluate:
     - !AccuracyEvalTask
-      model: !Ref
-        name: main_model
       eval_metrics: bleu,wer
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
