@@ -4,6 +4,7 @@ import xnmt.batcher
 from xnmt.events import register_handler, handle_xnmt_event
 import xnmt.linear
 from xnmt.serialize.tree_tools import Path
+import xnmt.residual
 
 class Decoder(object):
   '''
@@ -25,7 +26,7 @@ class RnnDecoder(Decoder):
     if decoder_type == "lstm":
       return dy.CompactVanillaLSTMBuilder(num_layers, input_dim, hidden_dim, model)
     elif decoder_type == "residuallstm":
-      return residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim,
+      return xnmt.residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim,
                                          model, residual_to_output)
     else:
       raise RuntimeError("Unknown decoder type {}".format(spec))
@@ -82,18 +83,17 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     # Dropout
     self.dropout = dropout or yaml_context.dropout
     
-    if vocab:
-      self.set_vocab(vocab)
+    self.vocab = vocab
 
   def shared_params(self):
     return [set([Path("layers"), Path("bridge","dec_layers")])]
   
   def set_vocab(self, vocab):
-    if not hasattr(self, "vocab_projector"):
-      self.vocab_projector = self.vocab_projector or xnmt.linear.Linear(input_dim = self.mlp_hidden_dim,
-                                                                       output_dim = len(vocab),
-                                                                      model = self.param_col)
-      self.serialize_params["vocab"] = vocab
+    self.vocab = self.vocab or vocab
+    self.vocab_projector = self.vocab_projector or xnmt.linear.Linear(input_dim = self.mlp_hidden_dim,
+                                                                     output_dim = len(vocab),
+                                                                    model = self.param_col)
+    self.serialize_params["vocab"] = vocab
     
 
   def initial_state(self, enc_final_states, ss_expr):

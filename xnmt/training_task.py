@@ -37,7 +37,6 @@ class TrainingTask(object):
     """
     Used to fix the vocabs and propagate them as needed.
     """
-  
   def should_stop_training(self):
     """
     :returns: True iff training is finished, i.e. training_step(...) should not be called again
@@ -131,8 +130,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.model = model
     self.loss_calculator = loss_calculator or LossCalculator(MLELoss())
     self.pretrained_model_file = pretrained_model_file
-    if self.pretrained_model_file:
-      self.yaml_context.dynet_param_collection.load_from_data_file(self.pretrained_model_file + '.data')
 
     # TODO: self.sample_train_sents and self.max_num_train_sents should be initialized properly
     self.sample_train_sents = False
@@ -160,7 +157,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.model.set_vocabs(src_vocab = getattr(self.model.src_reader, "vocab", None),
                           trg_vocab = getattr(self.model.trg_reader, "vocab", None))
     
-  
   def _augment_data_initial(self):
     """
     Called before loading corpus for the first time, if reload_command is given

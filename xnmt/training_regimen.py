@@ -13,6 +13,12 @@ class TrainingRegimen(object):
   """
   A training regimen is a class that implements a training loop.
   """
+  def load_weights(self):
+    """
+    Load pretrained DyNet parameters.
+    """
+    if self.pretrained_model_file:
+      self.yaml_context.dynet_param_collection.load_from_data_file(self.pretrained_model_file + '.data')
   def run_training(self, update_weights=True):
     """
     Runs training steps in a loop until stopping criterion is reached.
@@ -95,6 +101,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     """
     self.load_data()
     self.fix_vocabs()
+    self.load_weights()
     self.model.set_train(update_weights)
     for src,trg in self.next_minibatch():
       dy.renew_cg()
@@ -180,6 +187,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     self.yaml_context = yaml_context
   def run_training(self, update_weights=True):
     self.init_data_vocabs()
+    self.load_weights()
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -221,6 +229,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     self.yaml_context = yaml_context
   def run_training(self, update_weights=True):
     self.init_data_vocabs()
+    self.load_weights()
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -265,6 +274,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     self.yaml_context = yaml_context
   def run_training(self, update_weights=True):
     self.init_data_vocabs()
+    self.load_weights()
     for cur_task_id in range(len(self.tasks)):
       self.main_task = cur_task_id
       self.train = None

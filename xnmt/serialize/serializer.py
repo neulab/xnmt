@@ -100,30 +100,26 @@ class YamlSerializer(object):
               if shared_param_path[-1] in get_init_args_defaults(get_descendant(node, shared_param_path.parent())):
                 tree_tools.set_descendant(node, shared_param_path, list(shared_val_choices)[0])
   
-  def init_components_bottom_up(self, obj):
-    initialized_paths = set()
-    for path, node in tree_tools.traverse_tree_descending_references(obj, obj, tree_tools.TraversalOrder.ROOT_LAST, named_paths=self.named_paths):
+  def init_components_bottom_up(self, root):
+    for path, node in tree_tools.traverse_tree_deep_once(root, root, tree_tools.TraversalOrder.ROOT_LAST, named_paths=self.named_paths):
       if isinstance(node, Serializable):
-        if path.ancestors() & initialized_paths:
-          continue # components can be visited multiple times because we are descending into references; in this case, skip it, it's already initialized
-        elif isinstance(node, tree_tools.Ref):
+        if isinstance(node, tree_tools.Ref):
           resolved_path = node.resolve_path(self.named_paths)
           hits_before = self.init_component.cache_info().hits
-          tree_tools.set_descendant(obj, path, self.init_component(resolved_path))
+          initialized_component = self.init_component(resolved_path)
+          tree_tools.set_descendant(root, path, initialized_component)
           if self.init_component.cache_info().hits > hits_before:
             print(f"reusing previously initialized object at {path}")
+          tree_tools.set_descendant(root, path.parent().add("serialize_params").add(path[-1]), initialized_component)
         else:
-          tree_tools.set_descendant(obj, path, self.init_component(path))
-        initialized_paths.add(path)
-    return obj
+          tree_tools.set_descendant(root, path, self.init_component(path))
+    return root
 
   @lru_cache(maxsize=None)
   def init_component(self, path):
     """
-    :param obj: uninitialized object
-    :returns: initialized object (if obj has _xnmt_id and another object with the same
-                                  _xnmt_id has been initialized previously, we will
-                                  simply return that object, otherwise create it)
+    :param path: path to uninitialized object
+    :returns: initialized object; this method is cached, so multiple requests for the same path will return the exact same object
     """
     obj = tree_tools.get_descendant(self.deserialized_yaml, path)
     try:

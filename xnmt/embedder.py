@@ -71,14 +71,13 @@ class DenseWordEmbedder(VocabEmbedder, Linear, Serializable):
     self.word_dropout = word_dropout
     self.emb_dim = emb_dim or yaml_context.default_layer_dim
     self.dynet_param_collection = yaml_context.dynet_param_collection
-    if vocab:
-      self.set_vocab(vocab)
+    self.vocab = vocab
   
   def set_vocab(self, vocab):
-    if not hasattr(self, "embeddings"):
-      self.embeddings = self.dynet_param_collection.param_col.add_parameters((len(vocab), self.emb_dim))
-      self.bias = self.dynet_param_collection.param_col.add_parameters((len(vocab)))
-      self.serialize_params["vocab"] = vocab
+    self.vocab = self.vocab or vocab
+    self.embeddings = self.dynet_param_collection.param_col.add_parameters((len(vocab), self.emb_dim))
+    self.bias = self.dynet_param_collection.param_col.add_parameters((len(vocab)))
+    self.serialize_params["vocab"] = vocab
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -146,17 +145,15 @@ class SimpleWordEmbedder(VocabEmbedder, Serializable):
     self.train = False
     self.init = init
     self.dynet_param_collection = yaml_context.dynet_param_collection
-    if vocab:
-      self.set_vocab(vocab)
+    self.vocab = vocab
   
   def set_vocab(self, vocab):
-    if not hasattr(self, "vocab"):
-      self.vocab = vocab
-      if self.init == 'LeCunUniform':
-        self.init = linear_init(len(self.vocab))
-      self.embeddings = self.dynet_param_collection.param_col.add_lookup_parameters((len(self.vocab), self.emb_dim),
-                                                                                    init=self.init)
-      self.serialize_params["vocab"] = vocab
+    self.vocab = self.vocab or vocab
+    if self.init == 'LeCunUniform':
+      self.init = linear_init(len(self.vocab))
+    self.embeddings = self.dynet_param_collection.param_col.add_lookup_parameters((len(self.vocab), self.emb_dim),
+                                                                                  init=self.init)
+    self.serialize_params["vocab"] = vocab
 
   @handle_xnmt_event
   def on_set_train(self, val):
@@ -293,15 +290,14 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     self.fix_norm = fix_norm
     self.pretrained_filename = filename
     self.dynet_param_collection = yaml_context.dynet_param_collection
-    if vocab:
-      self.set_vocab(vocab)
+    self.vocab = vocab
     
   def set_vocab(self, vocab):
-    if not hasattr(self, "embeddings"):
-      with io.open(self.pretrained_filename, encoding='utf-8') as embeddings_file:
-        total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
-      self.embeddings = self.dynet_param_collection.param_col.lookup_parameters_from_numpy(initial_embeddings)
-      self.serialize_params["vocab"] = vocab
-  
-      print(f"{in_vocab} vocabulary matches out of {total_embs} total embeddings; "
-            f"{missing} vocabulary words without a pretrained embedding out of {len(vocab)}")
+    self.vocab = self.vocab or vocab
+    with io.open(self.pretrained_filename, encoding='utf-8') as embeddings_file:
+      total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
+    self.embeddings = self.dynet_param_collection.param_col.lookup_parameters_from_numpy(initial_embeddings)
+    self.serialize_params["vocab"] = vocab
+
+    print(f"{in_vocab} vocabulary matches out of {total_embs} total embeddings; "
+          f"{missing} vocabulary words without a pretrained embedding out of {len(vocab)}")
