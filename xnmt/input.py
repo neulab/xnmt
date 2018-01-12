@@ -6,6 +6,7 @@ import ast
 from collections import defaultdict
 from xnmt.serialize.serializable import Serializable
 from xnmt.vocab import *
+
 ###### Classes representing single inputs
 
 class Input(object):
@@ -252,3 +253,40 @@ class IDReader(BaseTextReader, Serializable):
   def read_sents(self, filename, filter_ids=None):
     return map(lambda l: int(l.strip()), self.iterate_filtered(filename, filter_ids))
 
+###### A utility function to read a parallel corpus
+def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
+                         batcher=None, sample_sents=None, max_num_sents=None, max_src_len=None, max_trg_len=None):
+  '''
+  A utility function to read a parallel corpus.
+
+  :returns: A tuple of (src_data, trg_data, src_batches, trg_batches) where *_batches = *_data if batcher=None
+  '''
+  src_data = []
+  trg_data = []
+  if sample_sents:
+    src_len = src_reader.count_sents(self.src_file)
+    trg_len = trg_reader.count_sents(self.trg_file)
+    if src_len != trg_len: raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (src_len, trg_len))
+    filter_ids = np.random.choice(src_len, sample_sents, replace=False)
+  else:
+    filter_ids = None
+  src_train_iterator = src_reader.read_sents(src_file, filter_ids)
+  trg_train_iterator = trg_reader.read_sents(trg_file, filter_ids)
+  for src_sent, trg_sent in six.moves.zip_longest(src_train_iterator, trg_train_iterator):
+    if src_sent is None or trg_sent is None:
+      raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (src_len or src_reader.count_sents(src_file), trg_len or trg_reader.count_sents(trg_file)))
+    if max_num_sents and max_num_sents >= len(src_data):
+      break
+    src_len_ok = max_src_len is None or len(src_sent) <= max_src_len
+    trg_len_ok = max_trg_len is None or len(trg_sent) <= max_trg_len
+    if src_len_ok and trg_len_ok:
+      src_data.append(src_sent)
+      trg_data.append(trg_sent)
+
+  # Pack batches
+  if batcher != None:
+    src_batches, trg_batches = batcher.pack(src_data, trg_data)
+  else:
+    src_batches, trg_batches = src_data, trg_data
+
+  return src_data, trg_data, src_batches, trg_batches

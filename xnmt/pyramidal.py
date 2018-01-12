@@ -82,7 +82,7 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
     for layer_i, (fb, bb) in enumerate(self.builder_layers):
       reduce_factor = self._reduce_factor_for_layer(layer_i)
       if self.downsampling_method=="concat" and len(es_list[0]) % reduce_factor != 0:
-        raise ValueError("For 'concat' subsampling, sequence lengths must be multiples of the total reduce factor. Configure batcher accordingly.")
+        raise ValueError("For 'concat' subsampling, sequence lengths must be multiples of the total reduce factor, but got sequence length={} for reduce_factor={}. Set Batcher's pad_src_to_multiple argument accordingly.".format(len(es_list[0]), reduce_factor))
       fs = fb(es_list)
       bs = bb([ReversedExpressionSequence(es_item) for es_item in es_list])
       if layer_i < len(self.builder_layers) - 1:

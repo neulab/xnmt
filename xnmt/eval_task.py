@@ -20,27 +20,24 @@ class LossEvalTask(Serializable):
 
   yaml_tag = u'!LossEvalTask'
   
-  def __init__(self, src_file, ref_file, model=Ref(path=Path("model")), loss_calculator=None):
+  # # TODO: Would like to do the following, but it's throwing errors
+  # def __init__(self, src_file, ref_file, model=Ref(path=Path("model")),
+  #              batcher=Ref(path=Path("train", "batcher")), loss_calculator=None):
+  def __init__(self, src_file, ref_file, model=Ref(path=Path("model")),
+               batcher=None, loss_calculator=None):
     self.model = model
-    self.loss_calculator = loss_calculator or LossCalculator(MLELoss())    
-    self.src_file = src_file
-    self.ref_file = ref_file
-    self.src_data = None
-    self.ref_data = None
+    self.loss_calculator = loss_calculator or LossCalculator(MLELoss())
+    self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
+      xnmt.input.read_parallel_corpus(model.src_reader, model.trg_reader,
+                                      src_file, ref_file, batcher=batcher)
     
   def eval(self):
-    if self.src_data == None:
-      self.src_data = list(self.model.src_reader.read_sents(self.src_file))
-    if self.ref_data == None:
-      self.ref_data = list(self.model.trg_reader.read_sents(self.ref_file))
     loss_val = 0
-    ref_words_cnt = 0
-    for src, trg in zip(self.src_data, self.ref_data):
+    ref_words_cnt = 0 
+    for src, trg in zip(self.src_batches, self.ref_batches):
       dy.renew_cg()
-      standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
+      standard_loss = dy.sum_batches(self.model.calc_loss(src, trg, self.loss_calculator))
       ref_words_cnt += self.model.trg_reader.count_words(trg)
-      if standard_loss.dim()[1] > 1:
-        standard_loss = dy.sum_batches(standard_loss)
       loss_val += standard_loss.value()
     return LossScore(loss_val / ref_words_cnt), ref_words_cnt
 

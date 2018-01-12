@@ -117,9 +117,8 @@ class ReinforceLoss(Serializable):
       for i, (score, _) in enumerate(zip(self.bs, logsofts)):
         logsofts[i] = dy.cmult(logsofts[i], score - self.true_score)
       loss.add_loss("Reinforce", dy.sum_elems(dy.esum(logsofts)))
-
     else:
-        loss.add_loss("Reinforce", dy.sum_elems(dy.cmult(-self.true_score, dy.esum(logsofts))))
+      loss.add_loss("Reinforce", dy.sum_elems(dy.cmult(-self.true_score, dy.esum(logsofts))))
 
     if self.use_baseline:
       baseline_loss = []

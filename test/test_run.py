@@ -10,7 +10,7 @@ class TestRunningConfig(unittest.TestCase):
   def setUp(self):
     xnmt.events.clear()
 
-  def test_standard_run(self):
+  def test_standard(self):
     run.main(["test/config/standard.yaml"])
 
   def test_transformer(self):

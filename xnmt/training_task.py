@@ -137,41 +137,13 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.batcher = batcher or SrcBatcher(32)
     if src_format == "contvec":
       self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
-    self.read_training_corpus()
+    self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
+        xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
+                                        self.src_file, self.trg_file,
+                                        batcher=self.batcher, sample_sents=self.sample_train_sents,
+                                        max_num_sents=self.max_num_train_sents,
+                                        max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
     self.logger = BatchLossTracker(self, dev_every, name)
-  
-  def read_training_corpus(self):
-    self.src_data = []
-    self.trg_data = []
-    src_len = self.model.src_reader.count_sents(self.src_file)
-    trg_len = self.model.trg_reader.count_sents(self.trg_file)
-    if self.sample_train_sents:
-      if src_len != trg_len: raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (src_len, trg_len))
-      self.sample_train_sents = int(self.sample_train_sents)
-      filter_ids = np.random.choice(src_len, self.sample_train_sents, replace=False)
-    elif self.max_num_train_sents:
-      if src_len != trg_len: raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (src_len, trg_len))
-      filter_ids = list(range(min(self.max_num_train_sents, trg_len)))
-    else:
-      filter_ids = None
-    src_train_iterator = self.model.src_reader.read_sents(self.src_file, filter_ids)
-    trg_train_iterator = self.model.trg_reader.read_sents(self.trg_file, filter_ids)
-    for src_sent, trg_sent in six.moves.zip_longest(src_train_iterator, trg_train_iterator):
-      if src_sent is None or trg_sent is None:
-        raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (src_len or self.src_reader.count_sents(self.src_file), trg_len or self.trg_reader.count_sents(self.trg_file)))
-      src_len_ok = self.max_src_len is None or len(src_sent) <= self.max_src_len
-      trg_len_ok = self.max_trg_len is None or len(trg_sent) <= self.max_trg_len
-      if src_len_ok and trg_len_ok:
-        self.src_data.append(src_sent)
-        self.trg_data.append(trg_sent)
-
-    # TODO: Should we actually be doing this here?
-    self.model.src_reader.freeze()
-    self.model.trg_reader.freeze()
-
-    # Pack batches
-    self.src_batches, self.trg_batches = \
-      self.batcher.pack(self.src_data, self.trg_data)
 
   def _augment_data_initial(self):
     """
@@ -200,7 +172,12 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       if self.training_state.epoch_num > 0:
         print('using reloaded data')
       # reload the data   
-      self.read_training_corpus() # TODO: fix
+      self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
+          xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
+                                          self.src_file, self.trg_file,
+                                          batcher=self.batcher, sample_sents=self.sample_train_sents,
+                                          max_num_sents=self.max_num_train_sents,
+                                          max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
       # restart data generation
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.training_state.epoch_num, shell=True)
     else:
