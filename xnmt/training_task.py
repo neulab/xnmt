@@ -308,13 +308,13 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     if self.dev_tasks and len(self.dev_tasks) > 0:
       dev_scores = []
       for dev_task in self.dev_tasks:
-        dev_score = dev_task.eval()
+        dev_score, dev_word_cnt = dev_task.eval()
         if type(dev_score) == list:
           dev_scores.extend(dev_score)
         else:
           dev_scores.append(dev_score)
       # TODO: This is passing "1" for the number of words, as this is not implemented yet
-      self.logger.set_dev_score(1, dev_scores[0])
+      self.logger.set_dev_score(dev_word_cnt, dev_scores[0])
       for dev_score in dev_scores[1:]:
         self.logger.report_auxiliary_score(dev_score)
     

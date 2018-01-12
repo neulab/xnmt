@@ -40,7 +40,7 @@ class LossEvalTask(Serializable):
       standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
       ref_words_cnt += self.model.trg_reader.count_words(trg)
       loss_val += standard_loss.value()
-    return LossScore(loss_val / ref_words_cnt)
+    return LossScore(loss_val / ref_words_cnt), ref_words_cnt
 
 class AccuracyEvalTask(Serializable):
   '''
@@ -58,21 +58,26 @@ class AccuracyEvalTask(Serializable):
     self.hyp_file = hyp_file
     self.candidate_id_file = candidate_id_file
     self.inference = inference or self.model.inference
-    self.src_data = None
-    self.ref_data = None
    
   def eval(self):
     self.inference(generator = self.model,
                    src_file = self.src_file,
                    trg_file = self.hyp_file,
                    candidate_id_file = self.candidate_id_file)
-    # TODO: This is probably not ideal. Is there a cleaner way?
+    # TODO: This is not ideal because it requires reading the data
+    #       several times. Is there a better way?
     evaluate_args = {}
     evaluate_args["hyp_file"] = self.hyp_file
     evaluate_args["ref_file"] = self.ref_file
+    # Evaluate
     eval_scores = []
     for eval_metric in self.eval_metrics:
       evaluate_args["evaluator"] = eval_metric
       eval_scores.append(xnmt.xnmt_evaluate.xnmt_evaluate(**evaluate_args))
-    return eval_scores
+    # Calculate the reference file size
+    ref_words_cnt = 0
+    for ref_sent in self.model.trg_reader.read_sents(self.ref_file):
+      ref_words_cnt += self.model.trg_reader.count_words(ref_sent)
+      ref_words_cnt += 0
+    return eval_scores, ref_words_cnt
 

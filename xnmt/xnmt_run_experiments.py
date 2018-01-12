@@ -105,7 +105,7 @@ def main(overwrite_args=None):
       output.indent += 2
       eval_scores = []
       for evaluator in evaluate_args:
-        eval_score = evaluator.eval()
+        eval_score, eval_words = evaluator.eval()
         if type(eval_score) == list:
           eval_scores.extend(eval_score)
         else:
