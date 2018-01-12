@@ -140,6 +140,7 @@ class OptionParser(object):
   # TODO: should be simplified using tree_tools
   def replace_placeholder(self, exp_values, value, placeholder="<EXP>"):
     if isinstance(exp_values, dict): kvs = exp_values.items()
+    elif isinstance(exp_values, list): kvs = enumerate(exp_values)
     elif isinstance(exp_values, Serializable):
       init_args, _, _, _ = inspect.getargspec(exp_values.__init__)
       kvs = [(key, getattr(exp_values, key)) for key in init_args if hasattr(exp_values, key)]
@@ -150,5 +151,5 @@ class OptionParser(object):
             exp_values[k] = v.replace(placeholder, value)
           else:
             setattr(exp_values, k, v.replace(placeholder, value))
-      elif isinstance(v, dict) or isinstance(v, Serializable):
+      elif isinstance(v, dict) or isinstance(v, list) or isinstance(v, Serializable):
         self.replace_placeholder(v, value, placeholder)

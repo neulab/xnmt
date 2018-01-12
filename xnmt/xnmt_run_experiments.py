@@ -2,8 +2,7 @@
 
 """
 Reads experiments descriptions in the passed configuration file
-and runs them sequentially, logging outputs to files called <experimentname>.log
-and <experimentname>.err.log, and reporting on final perplexity metrics.
+and runs them sequentially, logging outputs
 """
 
 import argparse
@@ -87,11 +86,12 @@ def main(overwrite_args=None):
     # Here we do preprocessing before initializing the model, as the files created
     # by preprocessing may be used in constructors
     # TODO: This is a bit dangerous, as it doesn't allow ref sharing between them
-    print("> Preprocessing")
-    preproc_args = uninitialized_exp_args.data.get("preproc", {})
-    del uninitialized_exp_args.data["preproc"]
-    yaml.initialize_if_needed(preproc_args, model_context)
-    xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
+    if "preproc" in uninitialized_exp_args.data:
+      print("> Preprocessing")
+      preproc_args = uninitialized_exp_args.data.get("preproc", {})
+      del uninitialized_exp_args.data["preproc"]
+      yaml.initialize_if_needed(preproc_args, model_context)
+      xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
 
     # Create the model    
     exp_args = yaml.initialize_if_needed(uninitialized_exp_args, model_context)
