@@ -105,7 +105,7 @@ class YamlSerializer(object):
     for path, node in tree_tools.traverse_tree_descending_references(obj, obj, tree_tools.TraversalOrder.ROOT_LAST, named_paths=self.named_paths):
       if isinstance(node, Serializable):
         if path.ancestors() & initialized_paths:
-          continue
+          continue # components can be visited multiple times because we are descending into references; in this case, skip it, it's already initialized
         elif isinstance(node, tree_tools.Ref):
           resolved_path = node.resolve_path(self.named_paths)
           hits_before = self.init_component.cache_info().hits
