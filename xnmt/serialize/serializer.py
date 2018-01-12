@@ -122,10 +122,7 @@ class YamlSerializer(object):
     :returns: initialized object; this method is cached, so multiple requests for the same path will return the exact same object
     """
     obj = tree_tools.get_descendant(self.deserialized_yaml, path)
-    try:
-      init_params = obj.init_params
-    except:
-      print("break")
+    init_params = obj.init_params
     init_args = tree_tools.get_init_args_defaults(obj)
     if "yaml_context" in init_args: obj.init_params["yaml_context"] = self.yaml_context
     serialize_params = obj.serialize_params

@@ -74,7 +74,7 @@ class DenseWordEmbedder(VocabEmbedder, Linear, Serializable):
     self.vocab = vocab
   
   def set_vocab(self, vocab):
-    self.vocab = self.vocab or vocab
+    self.vocab = vocab = self.vocab or vocab
     self.embeddings = self.dynet_param_collection.param_col.add_parameters((len(vocab), self.emb_dim))
     self.bias = self.dynet_param_collection.param_col.add_parameters((len(vocab)))
     self.serialize_params["vocab"] = vocab
@@ -148,7 +148,7 @@ class SimpleWordEmbedder(VocabEmbedder, Serializable):
     self.vocab = vocab
   
   def set_vocab(self, vocab):
-    self.vocab = self.vocab or vocab
+    self.vocab = vocab = self.vocab or vocab
     if self.init == 'LeCunUniform':
       self.init = linear_init(len(self.vocab))
     self.embeddings = self.dynet_param_collection.param_col.add_lookup_parameters((len(self.vocab), self.emb_dim),
@@ -293,7 +293,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     self.vocab = vocab
     
   def set_vocab(self, vocab):
-    self.vocab = self.vocab or vocab
+    self.vocab = vocab = self.vocab or vocab
     with io.open(self.pretrained_filename, encoding='utf-8') as embeddings_file:
       total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
     self.embeddings = self.dynet_param_collection.param_col.lookup_parameters_from_numpy(initial_embeddings)

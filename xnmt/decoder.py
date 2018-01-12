@@ -89,7 +89,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     return [set([Path("layers"), Path("bridge","dec_layers")])]
   
   def set_vocab(self, vocab):
-    self.vocab = self.vocab or vocab
+    self.vocab = vocab = self.vocab or vocab
     self.vocab_projector = self.vocab_projector or xnmt.linear.Linear(input_dim = self.mlp_hidden_dim,
                                                                      output_dim = len(vocab),
                                                                     model = self.param_col)
