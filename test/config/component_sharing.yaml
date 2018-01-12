@@ -19,7 +19,6 @@ exp1.pretrain: &exp1
     src_reader: !PlainTextReader {}
     trg_reader: !PlainTextReader {}
     src_embedder: !SimpleWordEmbedder
-      vocab_size: 500 # TODO: remove this line
       emb_dim: 32
     encoder: !BiLSTMSeqTransducer
       layers: 1
@@ -27,10 +26,8 @@ exp1.pretrain: &exp1
     # reference-sharing between softmax projection and target embedder. This means both layers share DyNet parameters!
     trg_embedder: !DenseWordEmbedder
       _xnmt_id: trg_emb # this id must be unique and is needed to create a reference-by-name below.
-      vocab_size: 500 # TODO: remove this line
       emb_dim: 32
     decoder: !MlpSoftmaxDecoder
-      vocab_size: 500 # TODO: remove this line
       layers: 1
       bridge: !CopyBridge {}
       vocab_projector: !Ref { name: trg_emb }

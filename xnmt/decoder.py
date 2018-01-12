@@ -4,6 +4,7 @@ import xnmt.batcher
 from xnmt.events import register_handler, handle_xnmt_event
 import xnmt.linear
 from xnmt.serialize.tree_tools import Path
+import xnmt.residual
 
 class Decoder(object):
   '''
@@ -25,7 +26,7 @@ class RnnDecoder(Decoder):
     if decoder_type == "lstm":
       return dy.CompactVanillaLSTMBuilder(num_layers, input_dim, hidden_dim, model)
     elif decoder_type == "residuallstm":
-      return residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim,
+      return xnmt.residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim,
                                          model, residual_to_output)
     else:
       raise RuntimeError("Unknown decoder type {}".format(spec))
@@ -42,15 +43,16 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
 
   yaml_tag = u'!MlpSoftmaxDecoder'
 
-  def __init__(self, yaml_context, vocab_size, layers=1, input_dim=None, lstm_dim=None,
+  def __init__(self, yaml_context, layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
-               bridge=None, label_smoothing=0.0, vocab_projector=None):
+               bridge=None, label_smoothing=0.0, vocab_projector=None,
+               vocab=None):
     register_handler(self)
-    param_col = yaml_context.dynet_param_collection.param_col
+    self.param_col = yaml_context.dynet_param_collection.param_col
     # Define dim
     lstm_dim       = lstm_dim or yaml_context.default_layer_dim
-    mlp_hidden_dim = mlp_hidden_dim or yaml_context.default_layer_dim
+    self.mlp_hidden_dim = mlp_hidden_dim = mlp_hidden_dim or yaml_context.default_layer_dim
     trg_embed_dim  = trg_embed_dim or yaml_context.default_layer_dim
     input_dim      = input_dim or yaml_context.default_layer_dim
     self.input_dim = input_dim
@@ -70,20 +72,29 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                                               num_layers = layers,
                                               input_dim  = lstm_input,
                                               hidden_dim = lstm_dim,
-                                              model = param_col,
+                                              model = self.param_col,
                                               residual_to_output = residual_to_output)
     # MLP
     self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + lstm_dim,
                                            output_dim = mlp_hidden_dim,
-                                           model = param_col)
-    self.vocab_projector = vocab_projector or xnmt.linear.Linear(input_dim = mlp_hidden_dim,
-                                                                 output_dim = vocab_size,
-                                                                 model = param_col)
+                                           model = self.param_col)
+    self.vocab_projector = vocab_projector
+    
     # Dropout
     self.dropout = dropout or yaml_context.dropout
+    
+    self.vocab = vocab
 
   def shared_params(self):
     return [set([Path("layers"), Path("bridge","dec_layers")])]
+  
+  def set_vocab(self, vocab):
+    self.vocab = vocab = self.vocab or vocab
+    self.vocab_projector = self.vocab_projector or xnmt.linear.Linear(input_dim = self.mlp_hidden_dim,
+                                                                     output_dim = len(vocab),
+                                                                    model = self.param_col)
+    self.serialize_params["vocab"] = vocab
+    
 
   def initial_state(self, enc_final_states, ss_expr):
     """Get the initial state of the decoder given the encoder final states.

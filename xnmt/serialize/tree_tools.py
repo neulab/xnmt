@@ -142,6 +142,9 @@ class TraversalOrder(IntEnum):
   ROOT_LAST = auto()
   
 def traverse_tree(node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), include_root=True):
+  """
+  For each node in the tree, yield a (path, node) tuple
+  """
   if include_root and traversal_order==TraversalOrder.ROOT_FIRST:
     yield path_to_node, node
   for child_name, child in name_children(node):
@@ -149,15 +152,27 @@ def traverse_tree(node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=
   if include_root and traversal_order==TraversalOrder.ROOT_LAST:
     yield path_to_node, node
   
-def traverse_tree_descending_references(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), named_paths={}):
+def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), named_paths={}):
+  """
+  Traverse the tree and descend into references. The returned path is that of the resolved reference. 
+  """
   if traversal_order==TraversalOrder.ROOT_FIRST:
     yield path_to_node, cur_node
   if isinstance(cur_node, Ref):
     resolved_path = cur_node.resolve_path(named_paths)
-    yield from traverse_tree_descending_references(root, get_descendant(root, resolved_path), traversal_order, resolved_path, named_paths)
+    yield from traverse_tree_deep(root, get_descendant(root, resolved_path), traversal_order, resolved_path, named_paths)
   else:
     for child_name, child in name_children(cur_node):
-      yield from traverse_tree_descending_references(root, child, traversal_order, path_to_node.add(child_name), named_paths)
+      yield from traverse_tree_deep(root, child, traversal_order, path_to_node.add(child_name), named_paths)
   if traversal_order==TraversalOrder.ROOT_LAST:
     yield path_to_node, cur_node
 
+def traverse_tree_deep_once(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), named_paths={}):
+  """
+  Calls traverse_tree_deep, but skips over nodes that have been visited before (can happen because we're descending into references).
+  """
+  yielded_paths = set()
+  for path, node in traverse_tree_deep(root, cur_node, traversal_order, path_to_node, named_paths):
+    if not (path.ancestors() & yielded_paths):
+      yielded_paths.add(path)
+      yield (path, node)

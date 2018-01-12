@@ -27,7 +27,16 @@ class TrainingTask(object):
   """
   def __init__(self, model):
     self.model = model
-  
+    
+  def load_data(self):
+    """
+    Used to load data.
+    """
+    raise NotImplementedError("")
+  def fix_vocabs(self):
+    """
+    Used to fix the vocabs and propagate them as needed.
+    """
   def should_stop_training(self):
     """
     :returns: True iff training is finished, i.e. training_step(...) should not be called again
@@ -64,7 +73,7 @@ class TrainingTask(object):
 
 
 class SimpleTrainingTask(TrainingTask, Serializable):
-  yaml_tag = u'!SimpleTrainingTask'
+  yaml_tag = '!SimpleTrainingTask'
   def __init__(self, yaml_context, model, glob={},
                src_file=None, trg_file=None,
                dev_every=0, batcher=None, loss_calculator=None, 
@@ -117,15 +126,10 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.training_state = TrainingState()
 
     self.reload_command = reload_command
-    if reload_command is not None:
-        self._augmentation_handle = None
-        self._augment_data_initial()
 
     self.model = model
     self.loss_calculator = loss_calculator or LossCalculator(MLELoss())
     self.pretrained_model_file = pretrained_model_file
-    if self.pretrained_model_file:
-      self.yaml_context.dynet_param_collection.load_from_data_file(self.pretrained_model_file + '.data')
 
     # TODO: self.sample_train_sents and self.max_num_train_sents should be initialized properly
     self.sample_train_sents = False
@@ -137,14 +141,22 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.batcher = batcher or SrcBatcher(32)
     if src_format == "contvec":
       self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
+    self.logger = BatchLossTracker(self, dev_every, name)
+  
+  def load_data(self):
+    if self.reload_command is not None:
+        self._augmentation_handle = None
+        self._augment_data_initial()
     self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
         xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                         self.src_file, self.trg_file,
                                         batcher=self.batcher, sample_sents=self.sample_train_sents,
                                         max_num_sents=self.max_num_train_sents,
                                         max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
-    self.logger = BatchLossTracker(self, dev_every, name)
-
+  def fix_vocabs(self):
+    self.model.set_vocabs(src_vocab = getattr(self.model.src_reader, "vocab", None),
+                          trg_vocab = getattr(self.model.trg_reader, "vocab", None))
+    
   def _augment_data_initial(self):
     """
     Called before loading corpus for the first time, if reload_command is given

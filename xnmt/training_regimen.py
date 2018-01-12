@@ -1,38 +1,11 @@
-# coding: utf-8
-from __future__ import division, print_function
-
-import argparse
-import sys
-import six
-from six.moves import range
 from collections import OrderedDict
 
+import numpy as np
 import dynet as dy
 
-# all Serializable objects must be imported here, otherwise we get in trouble with the
-# YAML parser
-import xnmt.batcher
-from xnmt.embedder import *
-from xnmt.attender import *
-from xnmt.input import *
-import xnmt.lstm
-import xnmt.pyramidal
-import xnmt.conv
-import xnmt.ff
-import xnmt.segment_transducer
-import xnmt.residual
-import xnmt.training_task
-from xnmt.specialized_encoders import *
-from xnmt.transformer import TransformerEncoder, TransformerDecoder
-from xnmt.decoder import *
-from xnmt.translator import *
-from xnmt.retriever import *
-from xnmt.segmenting_encoder import *
-from xnmt.optimizer import SimpleSGDTrainer
 from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.serializer import YamlSerializer
-from xnmt.serialize.tree_tools import Ref
-from xnmt.inference import SimpleInference
+from xnmt.serialize.tree_tools import Ref, Path
 import xnmt.optimizer
 from xnmt.training_task import SimpleTrainingTask
 
@@ -40,6 +13,12 @@ class TrainingRegimen(object):
   """
   A training regimen is a class that implements a training loop.
   """
+  def load_weights(self):
+    """
+    Load pretrained DyNet parameters.
+    """
+    if self.pretrained_model_file:
+      self.yaml_context.dynet_param_collection.load_from_data_file(self.pretrained_model_file + '.data')
   def run_training(self, update_weights=True):
     """
     Runs training steps in a loop until stopping criterion is reached.
@@ -61,7 +40,7 @@ class TrainingRegimen(object):
     trainer.update()
 
 class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
-  yaml_tag = u'!SimpleTrainingRegimen'
+  yaml_tag = '!SimpleTrainingRegimen'
   def __init__(self, yaml_context, model=Ref(path=Path("model")), glob={},
                src_file=None, trg_file=None,
                dev_every=0, batcher=None, loss_calculator=None, 
@@ -94,25 +73,25 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     :param dynet_profiling:
     :param name: will be prepended to log outputs if given
     """
-    super(SimpleTrainingRegimen, self).__init__(yaml_context=yaml_context,
-                                                model=model,
-                                                glob=glob,
-                                                src_file=src_file,
-                                                trg_file=trg_file,
-                                                dev_every=dev_every,
-                                                batcher=batcher,
-                                                loss_calculator=loss_calculator, 
-                                                pretrained_model_file=pretrained_model_file,
-                                                src_format=src_format,
-                                                run_for_epochs=run_for_epochs,
-                                                lr_decay=lr_decay,
-                                                lr_decay_times=lr_decay_times,
-                                                patience=patience,
-                                                initial_patience=initial_patience,
-                                                dev_tasks=dev_tasks,
-                                                restart_trainer=restart_trainer,
-                                                reload_command=reload_command,
-                                                name=name)
+    super().__init__(yaml_context=yaml_context,
+                     model=model,
+                     glob=glob,
+                     src_file=src_file,
+                     trg_file=trg_file,
+                     dev_every=dev_every,
+                     batcher=batcher,
+                     loss_calculator=loss_calculator, 
+                     pretrained_model_file=pretrained_model_file,
+                     src_format=src_format,
+                     run_for_epochs=run_for_epochs,
+                     lr_decay=lr_decay,
+                     lr_decay_times=lr_decay_times,
+                     patience=patience,
+                     initial_patience=initial_patience,
+                     dev_tasks=dev_tasks,
+                     restart_trainer=restart_trainer,
+                     reload_command=reload_command,
+                     name=name)
     self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(self.yaml_context, 0.1)
     self.dynet_profiling = dynet_profiling
 
@@ -120,6 +99,9 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     """
     Main training loop (overwrites TrainingRegimen.run_training())
     """
+    self.load_data()
+    self.fix_vocabs()
+    self.load_weights()
     self.model.set_train(update_weights)
     for src,trg in self.next_minibatch():
       dy.renew_cg()
@@ -151,7 +133,7 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     self.dynet_profiling = dynet_profiling
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
-    self.trainer = trainer or SimpleSGDTrainer(self.yaml_context, 0.1)
+    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(self.yaml_context, 0.1)
     for task in tasks[1:]:
       if hasattr(task, "trainer") and task.trainer is not None:
         raise ValueError("Can instantiate only one trainer object. Possibly, multiple training regimens were created when training tasks should have been used.")
@@ -160,6 +142,12 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     self.model_file = yaml_context.dynet_param_collection.model_file
     self.main_task = 0
     for task in tasks: task.trainer = trainer
+  def init_data_vocabs(self):
+    for task in self.tasks:
+      task.load_data()
+    for task in self.tasks:
+      task.fix_vocabs()
+    
   def trigger_train_event(self, value):
     """
     Trigger set_train event, but only if that would lead to a change of the value
@@ -187,18 +175,19 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     return self.tasks[self.main_task].batcher
 
 class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
-  yaml_tag = u"!SameBatchMultiTaskTrainingRegimen"
+  yaml_tag = "!SameBatchMultiTaskTrainingRegimen"
   """
   Multi-task training where gradients are accumulated and weight updates
   are thus performed jointly for each task. The relative weight between
   tasks can be configured by setting each tasks batch size accordingly.
   """
   def __init__(self, yaml_context, tasks, trainer=None, dynet_profiling=0):
-    super(SameBatchMultiTaskTrainingRegimen, self).__init__(yaml_context,
-                                                 tasks=tasks, trainer=trainer,
-                                                 dynet_profiling=dynet_profiling)
+    super().__init__(yaml_context, tasks=tasks, trainer=trainer,
+                     dynet_profiling=dynet_profiling)
     self.yaml_context = yaml_context
   def run_training(self, update_weights=True):
+    self.init_data_vocabs()
+    self.load_weights()
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -224,7 +213,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   
 
 class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
-  yaml_tag = u"!AlternatingBatchMultiTaskTrainingRegimen"
+  yaml_tag = "!AlternatingBatchMultiTaskTrainingRegimen"
   """
   Multi-task training where training steps are performed one after another.
   The relative weight between tasks are explicitly specified explicitly, and for
@@ -234,12 +223,13 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
   tasks by setting the task weight to 0.
   """
   def __init__(self, yaml_context, tasks, task_weights=None, trainer=None, dynet_profiling=0):
-    super(AlternatingBatchMultiTaskTrainingRegimen, self).__init__(yaml_context,
-                                                  tasks=tasks, trainer=trainer,
-                                                  dynet_profiling=dynet_profiling)
+    super().__init__(yaml_context, tasks=tasks, trainer=trainer,
+                     dynet_profiling=dynet_profiling)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks) 
     self.yaml_context = yaml_context
   def run_training(self, update_weights=True):
+    self.init_data_vocabs()
+    self.load_weights()
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -271,7 +261,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   Useful to realize a pretraining-finetuning strategy.
   """
 
-  yaml_tag = u"!SerialMultiTaskTrainingRegimen"
+  yaml_tag = "!SerialMultiTaskTrainingRegimen"
   
   def __init__(self, yaml_context, tasks, trainer=None, dynet_profiling=0):
     """
@@ -279,11 +269,12 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     :param trainer: Trainer object, default is SGD with learning rate 0.1
     :param dynet_profiling: if > 0, print computation graph
     """
-    super(SerialMultiTaskTrainingRegimen, self).__init__(yaml_context,
-                                                  tasks=tasks, trainer=trainer,
-                                                  dynet_profiling=dynet_profiling)
+    super().__init__(yaml_context, tasks=tasks, trainer=trainer,
+                     dynet_profiling=dynet_profiling)
     self.yaml_context = yaml_context
   def run_training(self, update_weights=True):
+    self.init_data_vocabs()
+    self.load_weights()
     for cur_task_id in range(len(self.tasks)):
       self.main_task = cur_task_id
       self.train = None

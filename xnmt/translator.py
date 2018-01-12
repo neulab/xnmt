@@ -8,8 +8,8 @@ import itertools
 
 import xnmt.length_normalization
 import xnmt.batcher
-
 from xnmt.vocab import Vocab
+from xnmt.embedder import VocabEmbedder
 from xnmt.events import register_xnmt_event_assign, register_handler
 from xnmt.generator import GeneratorModel
 from xnmt.serialize.serializable import Serializable
@@ -86,6 +86,13 @@ class DefaultTranslator(Translator, Serializable, Reportable):
             set([Path("encoder","hidden_dim"), Path("attender","input_dim"), Path("decoder","input_dim")]),
             set([Path("attender","state_dim"), Path("decoder","lstm_dim"), Path("decoder", "bridge","dec_dim")]),
             set([Path("trg_embedder","emb_dim"), Path("decoder","trg_embed_dim")])]
+
+  def set_vocabs(self, src_vocab = None, trg_vocab = None):
+    if src_vocab and isinstance(self.src_embedder, VocabEmbedder):
+      self.src_embedder.set_vocab(src_vocab)
+    if trg_vocab and isinstance(self.trg_embedder, VocabEmbedder):
+      self.trg_embedder.set_vocab(trg_vocab)
+      self.decoder.set_vocab(trg_vocab)
 
   def initialize_generator(self, **kwargs):
     if kwargs.get("len_norm_type", None) is None:

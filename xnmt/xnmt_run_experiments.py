@@ -43,6 +43,7 @@ def main(overwrite_args=None):
     random.seed(args.dynet_seed)
     np.random.seed(args.dynet_seed)
 
+  import xnmt.serialize.imports
   config_experiment_names = config_parser.experiment_names_from_file(args.experiments_file)
 
   results = []
