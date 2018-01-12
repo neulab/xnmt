@@ -33,7 +33,7 @@ class TestRunningConfig(unittest.TestCase):
     run.main(["test/config/segmenting.yaml"])
 
   def test_prior_segmenting(self):
-    run.main(["test/config/prior-segmenting.yaml"])
+    run.main(["test/config/prior_segmenting.yaml"])
 
   def test_forced(self):
     run.main(["test/config/forced.yaml"])
@@ -47,7 +47,7 @@ class TestRunningConfig(unittest.TestCase):
   def test_reload(self):
     run.main(["test/config/reload.yaml"])
 
-  def test_reload_exc(self):
+  def test_reload_exception(self):
     with self.assertRaises(ValueError) as context:
       run.main(["test/config/reload_exception.yaml"])
     self.assertEqual(str(context.exception), 'VanillaLSTMGates: x_t has inconsistent dimension')

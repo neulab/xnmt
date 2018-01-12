@@ -25,6 +25,7 @@ standard:
       label_smoothing: 0.0
       vocab_size: 100 # TODO: remove this line
     input_dim: 64
+    inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     restart_trainer: False

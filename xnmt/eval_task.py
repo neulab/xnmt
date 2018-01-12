@@ -39,6 +39,8 @@ class LossEvalTask(Serializable):
       dy.renew_cg()
       standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
       ref_words_cnt += self.model.trg_reader.count_words(trg)
+      if standard_loss.dim()[1] > 1:
+        standard_loss = dy.sum_batches(standard_loss)
       loss_val += standard_loss.value()
     return LossScore(loss_val / ref_words_cnt), ref_words_cnt
 

@@ -202,7 +202,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 class TransformerTranslator(Translator, Serializable, Reportable):
   yaml_tag = u'!TransformerTranslator'
 
-  def __init__(self, src_embedder, encoder, trg_embedder, decoder, input_dim=512):
+  def __init__(self, src_reader, src_embedder, encoder, trg_reader, trg_embedder, decoder, inference=None, input_dim=512):
     '''Constructor.
     :param src_embedder: A word embedder for the input language
     :param encoder: An encoder to generate encoded inputs
@@ -211,11 +211,14 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     :param decoder: A decoder
     '''
     register_handler(self)
+    self.src_reader = src_reader
     self.src_embedder = src_embedder
     self.encoder = encoder
+    self.trg_reader = trg_reader
     self.trg_embedder = trg_embedder
     self.decoder = decoder
     self.input_dim = input_dim
+    self.inference = inference
     self.scale_emb = self.input_dim ** 0.5
     self.max_input_len = 500
     self.initialize_position_encoding(self.max_input_len, input_dim)  # TODO: parametrize this
@@ -298,7 +301,11 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     return e
 
   def calc_loss(self, src, trg, loss_cal=None, infer_prediction=False):
-    src_words = np.array(list(map(lambda x: [Vocab.SS] + x.words, src)))
+    if not xnmt.batcher.is_batched(src):
+      src = xnmt.batcher.mark_as_batch([src])
+    if not xnmt.batcher.is_batched(trg):
+      trg = xnmt.batcher.mark_as_batch([trg])
+    src_words = np.array([[Vocab.SS] + x.words for x in src])
     batch_size, src_len = src_words.shape
 
     if isinstance(src.mask, type(None)):

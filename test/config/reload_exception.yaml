@@ -38,7 +38,7 @@ reload:
       --initial-dir examples/data/
       --tmp-basedir test/tmp/reload-tmp
       --target-dir test/tmp/reload
-      --break_features
+      --break-features
     dev_tasks:
       - !LossEvalTask
         src_file: test/tmp/reload/synth.contvec.npz
