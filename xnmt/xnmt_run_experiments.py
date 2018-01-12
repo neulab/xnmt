@@ -83,10 +83,18 @@ def main(overwrite_args=None):
       setattr(model_context, k, v)
 
     uninitialized_exp_args.data["train"].dynet_profiling = args.dynet_profiling
-    exp_args = yaml.initialize_if_needed(uninitialized_exp_args, model_context)
+
+    # Here we do preprocessing before initializing the model, as the files created
+    # by preprocessing may be used in constructors
+    # TODO: This is a bit dangerous, as it doesn't allow ref sharing between them
     print("> Preprocessing")
-    preproc_args = exp_args.get("preproc", {})
+    preproc_args = uninitialized_exp_args.data.get("preproc", {})
+    del uninitialized_exp_args.data["preproc"]
+    yaml.initialize_if_needed(preproc_args, model_context)
     xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
+
+    # Create the model    
+    exp_args = yaml.initialize_if_needed(uninitialized_exp_args, model_context)
 
     # Do training
     if "random_search_report" in exp_args:

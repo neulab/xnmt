@@ -270,6 +270,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
     filter_ids = np.random.choice(src_len, sample_sents, replace=False)
   else:
     filter_ids = None
+    src_len, trg_len = 0, 0
   src_train_iterator = src_reader.read_sents(src_file, filter_ids)
   trg_train_iterator = trg_reader.read_sents(trg_file, filter_ids)
   for src_sent, trg_sent in six.moves.zip_longest(src_train_iterator, trg_train_iterator):

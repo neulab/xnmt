@@ -52,4 +52,5 @@ class UninitializedYamlObject(object):
     if isinstance(data, UninitializedYamlObject):
       raise AssertionError
     self.data = data
-
+  def get(self, key, default):
+    return self.data.get(key, default)

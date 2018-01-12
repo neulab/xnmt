@@ -52,9 +52,10 @@ def xnmt_preproc(preproc_specs=None, overwrite=False):
           my_tokenizers = tokenizers.get(file_num, tokenizers["all"])
           with io.open(out_file, "w", encoding='utf-8') as out_stream, \
                io.open(in_file, "r", encoding='utf-8') as in_stream:
-            for tokenizer in filter(lambda x: x.tokenize_by_file, my_tokenizers):
+            for tokenizer in my_tokenizers:
               in_stream = tokenizer.tokenize_stream(in_stream)
-            out_stream.write(in_stream.read())
+            for line in in_stream:
+              out_stream.write("{}\n".format(line))
 
     # Perform normalization
     elif arg["type"] == 'normalize':
