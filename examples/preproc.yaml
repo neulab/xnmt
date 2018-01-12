@@ -1,11 +1,8 @@
-# TODO: This config file is in the old format. We need to make it match debug.yaml
 standard-preproc:
-  experiment:
+  global:
     model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
-    eval_metrics: bleu,wer
   preproc:
     overwrite: False
     preproc_specs:
@@ -45,12 +42,16 @@ standard-preproc:
       - examples/preproc/dev.tok.en
       - examples/preproc/test.tok.ja
       - examples/preproc/test.tok.en
+      - examples/data/dev.en
+      - examples/data/test.en
       out_files:
-      - examples/preproc/train.norm.ja
-      - examples/preproc/train.norm.en
-      - examples/preproc/dev.norm.ja
+      - examples/preproc/train.tok.norm.ja
+      - examples/preproc/train.tok.norm.en
+      - examples/preproc/dev.tok.norm.ja
+      - examples/preproc/dev.tok.norm.en
+      - examples/preproc/test.tok.norm.ja
+      - examples/preproc/test.tok.norm.en
       - examples/preproc/dev.norm.en
-      - examples/preproc/test.norm.ja
       - examples/preproc/test.norm.en
       specs:
       - filenum: all
@@ -58,19 +59,19 @@ standard-preproc:
         - type: lower
     - type: filter
       in_files:
-      - examples/preproc/train.norm.ja
-      - examples/preproc/train.norm.en
+      - examples/preproc/train.tok.norm.ja
+      - examples/preproc/train.tok.norm.en
       out_files:
-      - examples/preproc/train.filter.ja
-      - examples/preproc/train.filter.en
+      - examples/preproc/train.tok.norm.filter.ja
+      - examples/preproc/train.tok.norm.filter.en
       specs:
       - type: length
         min: 1
         max: 60
     - type: vocab
       in_files:
-      - examples/preproc/train.norm.ja
-      - examples/preproc/train.norm.en
+      - examples/preproc/train.tok.norm.ja
+      - examples/preproc/train.tok.norm.en
       out_files:
       - examples/preproc/train.vocab.ja
       - examples/preproc/train.vocab.en
@@ -79,38 +80,48 @@ standard-preproc:
         spec:
         - type: freq
           min_freq: 2
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab
+        vocab_file: examples/preproc/train.vocab.ja
+    trg_reader: !PlainTextReader
+      vocab: !Vocab
+        vocab_file: examples/preproc/train.vocab.en
+    src_embedder: !SimpleWordEmbedder
+      vocab_size: 8000 # TODO: Remove this line
+      emb_dim: 512
+    encoder: !BiLSTMSeqTransducer
+      layers: 1
+    attender: !MlpAttender
+      hidden_dim: 512
+      state_dim: 512
+      input_dim: 512
+    trg_embedder: !SimpleWordEmbedder
+      vocab_size: 8000 # TODO: Remove this line
+      emb_dim: 512
+    decoder: !MlpSoftmaxDecoder
+      vocab_size: 8000 # TODO: Remove this line
+      layers: 1
+      mlp_hidden_dim: 512
+      bridge: !NoBridge {}
+    inference: !SimpleInference
+      post_process: join-piece
   train: !SimpleTrainingRegimen
     run_for_epochs: 20
-    dev_metrics: bleu
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader
-        vocab: !Vocab
-          vocab_file: examples/preproc/train.vocab.ja
-      trg_reader: !PlainTextReader
-        vocab: !Vocab
-          vocab_file: examples/preproc/train.vocab.en
-      training_corpus: !BilingualTrainingCorpus
-        train_src: examples/preproc/dev.norm.ja
-        train_trg: examples/preproc/dev.norm.en
-        dev_src: examples/preproc/dev.norm.ja
-        dev_trg: examples/preproc/dev.norm.en
-    model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 512
-      encoder: !BiLSTMSeqTransducer
-        layers: 1
-      attender: !MlpAttender
-        hidden_dim: 512
-        state_dim: 512
-        input_dim: 512
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 512
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 512
-        bridge: !NoBridge {}
-  inference: !SimpleInference
-    post_process: join-piece
-    src_file: examples/preproc/test.norm.ja
+    src_file: examples/preproc/dev.tok.norm.ja
+    trg_file: examples/preproc/dev.tok.norm.en
+    dev_tasks:
+      - !AccuracyEvalTask
+        eval_metrics: bleu
+        src_file: examples/preproc/dev.tok.norm.ja
+        ref_file: examples/preproc/dev.norm.en
+        hyp_file: examples/output/<EXP>.dev_hyp
+      - !LossEvalTask
+        src_file: examples/preproc/dev.tok.norm.ja
+        ref_file: examples/preproc/dev.tok.norm.en
   evaluate:
+  - !AccuracyEvalTask
+    eval_metrics: bleu
+    src_file: examples/preproc/test.tok.norm.ja
     ref_file: examples/preproc/test.norm.en
+    hyp_file: examples/output/<EXP>.test_hyp
