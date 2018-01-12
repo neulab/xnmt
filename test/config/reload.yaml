@@ -1,52 +1,50 @@
-# TODO: This is probably broken and needs to be fixed
-
 reload:
-  experiment:
+  global:
     model_file: test/tmp/output/<EXP>.mod
-    hyp_file: test/tmp/output/<EXP>.hyp
     out_file: test/tmp/output/<EXP>.out
     err_file: test/tmp/output/<EXP>.err
-    eval_metrics: cer,wer
+  model: !DefaultTranslator
+    src_reader: !ContVecReader
+      transpose: True
+    trg_reader: !PlainTextReader
+      vocab: !Vocab
+        vocab_file: examples/data/head.en.vocab
+    src_embedder: !NoopEmbedder
+      emb_dim: 240
+    encoder: !PyramidalLSTMSeqTransducer
+      layers: 1
+      downsampling_method: skip
+      input_dim: 240
+      hidden_dim: 64
+    attender: !MlpAttender
+      state_dim: 64
+      hidden_dim: 64
+      input_dim: 64
+    trg_embedder: !SimpleWordEmbedder
+      vocab_size: 100
+      emb_dim: 64
+    decoder: !MlpSoftmaxDecoder
+      vocab_size: 100
+      layers: 1
+      mlp_hidden_dim: 64
+      bridge: !CopyBridge {}
+    inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
-    run_for_epochs: 10
+    run_for_epochs: 3
+    src_file: test/tmp/reload/synth.contvec.npz
+    trg_file: test/tmp/reload/synth.char
     reload_command: >-
       python script/code/reload_example.py
       --initial-dir examples/data/
       --tmp-basedir test/tmp/reload-tmp
       --target-dir test/tmp/reload
-    src_format: contvec
-    corpus_parser: !BilingualCorpusParser
-      lazy_read: True
-      src_reader: !ContVecReader
-        transpose: True
-      trg_reader: !PlainTextReader
-        vocab: !Vocab
-          vocab_file: examples/data/head.en.vocab
-      training_corpus: !BilingualTrainingCorpus
-        train_src: test/tmp/reload/synth.contvec.npz
-        train_trg: test/tmp/reload/synth.char
-        dev_src: test/tmp/reload/synth.contvec.npz
-        dev_trg: test/tmp/reload/synth.char
-    model: !DefaultTranslator
-      src_embedder: !NoopEmbedder
-        emb_dim: 240
-      encoder: !PyramidalLSTMSeqTransducer
-        layers: 1
-        downsampling_method: skip
-        input_dim: 240
-        hidden_dim: 64
-      attender: !MlpAttender
-        state_dim: 64
-        hidden_dim: 64
-        input_dim: 64
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 64
-        bridge: !CopyBridge {}
-  inference: !SimpleInference
-    src_file: test/tmp/reload/synth.contvec.npz
+    dev_tasks:
+      - !LossEvalTask
+        src_file: test/tmp/reload/synth.contvec.npz
+        ref_file: test/tmp/reload/synth.char
   evaluate:
-    ref_file: test/tmp/reload/synth.char
-
+    - !AccuracyEvalTask
+      eval_metrics: cer,wer
+      src_file: test/tmp/reload/synth.contvec.npz
+      ref_file: test/tmp/reload/synth.char
+      hyp_file: examples/output/<EXP>.test_hyp

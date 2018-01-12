@@ -200,7 +200,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       if self.training_state.epoch_num > 0:
         print('using reloaded data')
       # reload the data   
-      self.corpus_parser._read_training_corpus(self.corpus_parser.training_corpus) # TODO: fix
+      self.read_training_corpus() # TODO: fix
       # restart data generation
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.training_state.epoch_num, shell=True)
     else:
