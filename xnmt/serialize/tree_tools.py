@@ -41,9 +41,10 @@ class Path(object):
 
 class Ref(Serializable):
   yaml_tag = "!Ref"
-  def __init__(self, name=None, path=None):
+  def __init__(self, name=None, path=None, required=True):
     self.name = name
     self.path = path
+    self.required = required
   def resolve_path(self, named_paths):
     if getattr(self, "path", None):
       if isinstance(self.path, str):
@@ -51,7 +52,10 @@ class Ref(Serializable):
         # Ref objects are specified in the YAML file
         self.path = Path.from_str(self.path)
       return self.path
-    else: return named_paths[self.name]
+    elif self.name in named_paths:
+      return named_paths[self.name]
+    else:
+      raise ValueError("Could not resolve path of reference {}".format(self.name))
 
 
 reserved_arg_names = ["_xnmt_id", "yaml_context", "serialize_params", "init_params", "kwargs", "self"]
@@ -160,7 +164,11 @@ def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST
     yield path_to_node, cur_node
   if isinstance(cur_node, Ref):
     resolved_path = cur_node.resolve_path(named_paths)
-    yield from traverse_tree_deep(root, get_descendant(root, resolved_path), traversal_order, resolved_path, named_paths)
+    try:
+      yield from traverse_tree_deep(root, get_descendant(root, resolved_path), traversal_order, resolved_path, named_paths)
+    except:
+      if cur_node.required:
+        raise ValueError("Was not able to find required reference {} at {}".format(resolved_path, path_to_node))
   else:
     for child_name, child in name_children(cur_node):
       yield from traverse_tree_deep(root, child, traversal_order, path_to_node.add(child_name), named_paths)

@@ -92,7 +92,9 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
   Word embeddings via full matrix
   """
   yaml_tag = "!DenseWordEmbedder"
-  def __init__(self, yaml_context, emb_dim = None, weight_noise = None, word_dropout = 0.0, fix_norm = None, vocab_size = None, vocab = None, yaml_path = None, src_reader = Ref(path=Path("model","src_reader")), trg_reader = Ref(path=Path("model","trg_reader"))):
+  def __init__(self, yaml_context, emb_dim = None, weight_noise = None, word_dropout = 0.0,
+               fix_norm = None, vocab_size = None, vocab = None, yaml_path = None, 
+               src_reader = Ref(path=Path("model","src_reader"), required=False), trg_reader = Ref(path=Path("model","trg_reader"), required=False)):
     """
     :param yaml_context:
     :param emb_dim:
@@ -157,7 +159,9 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   yaml_tag = '!SimpleWordEmbedder'
 
-  def __init__(self, yaml_context, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm=None, init=None, vocab_size = None, vocab = None, yaml_path = None, src_reader = Ref(path=Path("model","src_reader")), trg_reader = Ref(path=Path("model","trg_reader"))):
+  def __init__(self, yaml_context, emb_dim=None, weight_noise=None, word_dropout=0.0,
+               fix_norm=None, init=None, vocab_size = None, vocab = None, yaml_path = None,
+               src_reader = Ref(path=Path("model","src_reader"), required=False), trg_reader = Ref(path=Path("model","trg_reader"), required=False)):
     """
     :param emb_dim:
     :param weight_noise: apply Gaussian noise with given standard deviation to embeddings

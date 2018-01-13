@@ -19,11 +19,12 @@ multi_task_exp:
       model: !DefaultTranslator &first_task_model
         _xnmt_id: first_task_model
         src_reader: !PlainTextReader
-          vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+          vocab: !Vocab &src_vocab {vocab_file: examples/data/head.ja.vocab}
         trg_reader: !PlainTextReader
-          vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+          vocab: !Vocab &trg_vocab {vocab_file: examples/data/head.en.vocab}
         src_embedder: !SimpleWordEmbedder
           emb_dim: 64
+          vocab: !Ref {name: src_vocab}
         encoder: !BiLSTMSeqTransducer &first_task_encoder # the encoder shares parameters between tasks
           _xnmt_id: first_task_encoder
           layers: 1
@@ -33,10 +34,12 @@ multi_task_exp:
           input_dim: 64
         trg_embedder: !SimpleWordEmbedder
           emb_dim: 64
+          vocab: !Ref {name: trg_vocab}
         decoder: !MlpSoftmaxDecoder
           layers: 1
           lstm_dim: 64
           bridge: !CopyBridge {}
+          vocab: !Ref {name: trg_vocab}
         inference: !SimpleInference {}
       dev_tasks:
         - !AccuracyEvalTask
@@ -54,11 +57,12 @@ multi_task_exp:
       model: !DefaultTranslator &second_task_model
         _xnmt_id: second_task_model
         src_reader: !PlainTextReader
-          vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+          vocab: !Ref {name: src_vocab}
         trg_reader: !PlainTextReader
-          vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+          vocab: !Ref {name: trg_vocab}
         src_embedder: !SimpleWordEmbedder
           emb_dim: 64
+          vocab: !Ref {name: src_vocab}
         encoder: !Ref { name: first_task_encoder }
         attender: !MlpAttender
           state_dim: 64
@@ -66,9 +70,11 @@ multi_task_exp:
           input_dim: 64
         trg_embedder: !SimpleWordEmbedder
           emb_dim: 64
+          vocab: !Ref {name: trg_vocab}
         decoder: !MlpSoftmaxDecoder
           layers: 1
           bridge: !CopyBridge {}
+          vocab: !Ref {name: trg_vocab}
         inference: !SimpleInference {}
       dev_tasks:
         - !AccuracyEvalTask

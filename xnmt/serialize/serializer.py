@@ -104,9 +104,12 @@ class YamlSerializer(object):
     for path, node in tree_tools.traverse_tree_deep_once(root, root, tree_tools.TraversalOrder.ROOT_LAST, named_paths=self.named_paths):
       if isinstance(node, Serializable):
         if isinstance(node, tree_tools.Ref):
-          resolved_path = node.resolve_path(self.named_paths)
-          hits_before = self.init_component.cache_info().hits
-          initialized_component = self.init_component(resolved_path)
+          try:
+            resolved_path = node.resolve_path(self.named_paths)
+            hits_before = self.init_component.cache_info().hits
+            initialized_component = self.init_component(resolved_path)
+          except:
+            initialized_component = None
           tree_tools.set_descendant(root, path, initialized_component)
           if self.init_component.cache_info().hits > hits_before:
             print(f"reusing previously initialized object at {path}")
