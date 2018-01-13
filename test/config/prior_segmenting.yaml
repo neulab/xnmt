@@ -6,8 +6,10 @@ prior-segmenting:
     default_layer_dim: 16
     dropout: 0.5
   model: !DefaultTranslator
-    src_reader: !SegmentationTextReader {}
-    trg_reader: !PlainTextReader {}
+    src_reader: !SegmentationTextReader
+      vocab: !Vocab {vocab_file: examples/data/head-char.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 16
     encoder: !SegmentingSeqTransducer

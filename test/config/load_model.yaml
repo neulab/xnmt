@@ -7,8 +7,10 @@ exp1-pretrain-model: &exp1
     dropout: 0.5
     weight_noise: 0.1
   model: !DefaultTranslator
-    src_reader: !PlainTextReader {}
-    trg_reader: !PlainTextReader {}
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 64
     encoder: !BiLSTMSeqTransducer

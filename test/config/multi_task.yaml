@@ -18,8 +18,10 @@ multi_task_exp:
       trg_file: examples/data/head.en
       model: !DefaultTranslator &first_task_model
         _xnmt_id: first_task_model
-        src_reader: !PlainTextReader {}
-        trg_reader: !PlainTextReader {}
+        src_reader: !PlainTextReader
+          vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+        trg_reader: !PlainTextReader
+          vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
         src_embedder: !SimpleWordEmbedder
           emb_dim: 64
         encoder: !BiLSTMSeqTransducer &first_task_encoder # the encoder shares parameters between tasks
@@ -51,8 +53,10 @@ multi_task_exp:
       trg_file: examples/data/head.en
       model: !DefaultTranslator &second_task_model
         _xnmt_id: second_task_model
-        src_reader: !PlainTextReader {}
-        trg_reader: !PlainTextReader {}
+        src_reader: !PlainTextReader
+          vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+        trg_reader: !PlainTextReader
+          vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
         src_embedder: !SimpleWordEmbedder
           emb_dim: 64
         encoder: !Ref { name: first_task_encoder }

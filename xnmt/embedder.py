@@ -154,10 +154,10 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.word_id_mask = None
     self.train = False
     self.dynet_param_collection = yaml_context.dynet_param_collection
-    vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader) 
+    self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader) 
     if init == 'LeCunUniform':
       init = linear_init(vocab_size)
-    self.embeddings = self.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, self.emb_dim),
+    self.embeddings = self.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim),
                                                                                   init=init)
 
   @handle_xnmt_event
@@ -167,7 +167,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
   def embed(self, x):
     if self.word_dropout > 0.0 and self.word_id_mask is None:
       batch_size = len(x) if xnmt.batcher.is_batched(x) else 1
-      self.word_id_mask = [set(np.random.choice(len(self.vocab), int(len(self.vocab) * self.word_dropout), replace=False)) for _ in range(batch_size)]
+      self.word_id_mask = [set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False)) for _ in range(batch_size)]
     # single mode
     if not xnmt.batcher.is_batched(x):
       if self.train and self.word_id_mask and x in self.word_id_mask[0]:
