@@ -49,6 +49,24 @@ class Embedder(object):
 
     return ExpressionSequence(expr_list=embeddings, mask=sent.mask if xnmt.batcher.is_batched(sent) else None)
 
+  def choose_vocab(self, vocab, yaml_path, src_reader, trg_reader):
+    """Choose the vocab for the embedder basd on the passed arguments
+
+    This is done in order of priority of vocab, model+yaml_path
+    """
+    if vocab != None:
+      return len(vocab)
+    elif "src_embedder" in yaml_path:
+      if src_reader == None or src_reader.vocab == None:
+        raise ValueError("Could not determine src_embedder's vocabulary. Please set its vocab member explicitly, or specify the vocabulary of src_reader ahead of time.")
+      return len(src_reader.vocab)
+    elif "trg_embedder" in yaml_path:
+      if trg_reader == None or trg_reader.vocab == None:
+        raise ValueError("Could not determine trg_embedder's vocabulary. Please set its vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
+      return len(trg_reader.vocab)
+    else:
+      raise ValueError("Attempted to determine vocab size of {} (path: {}), but path was not src_embedder or trg_embedder, so it could not determine what part of the model to use. Please set vocab_size or vocab explicitly.".format(self.__class__, yaml_path))
+
   def choose_vocab_size(self, vocab_size, vocab, yaml_path, src_reader, trg_reader):
     """Choose the vocab size for the embedder basd on the passed arguments
 
@@ -240,6 +258,30 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
 
   yaml_tag = '!PretrainedSimpleWordEmbedder'
 
+  def __init__(self, yaml_context, filename, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm = None, vocab = None, yaml_path = None, src_reader = Ref(path=Path("model","src_reader")), trg_reader = Ref(path=Path("model","trg_reader"))):
+    """
+    :param filename: Filename for the pretrained embeddings
+    :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
+    :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
+    :param vocab: a `Vocab` object containing the vocabulary for the experiment
+    """
+    self.emb_dim = emb_dim or yaml_context.default_layer_dim
+    self.weight_noise = weight_noise or yaml_context.weight_noise
+    self.word_dropout = word_dropout
+    self.word_id_mask = None
+    self.train = False
+    self.fix_norm = fix_norm
+    self.pretrained_filename = filename
+    self.dynet_param_collection = yaml_context.dynet_param_collection
+    self.vocab = self.choose_vocab(vocab, yaml_path, src_reader, trg_reader)
+    self.vocab_size = len(vocab)
+    with io.open(self.pretrained_filename, encoding='utf-8') as embeddings_file:
+      total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
+    self.embeddings = self.dynet_param_collection.param_col.lookup_parameters_from_numpy(initial_embeddings)
+
+    print(f"{in_vocab} vocabulary matches out of {total_embs} total embeddings; "
+          f"{missing} vocabulary words without a pretrained embedding out of {self.vocab_size}")
+
   def _read_fasttext_embeddings(self, vocab, embeddings_file_handle):
     """
     Reads FastText embeddings from a file. Also prints stats about the loaded embeddings for sanity checking.
@@ -279,31 +321,3 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
         embeddings[i] = np.random.uniform(-bound, bound, self.emb_dim)
 
     return total_embs, in_vocab, missing, embeddings
-
-  def __init__(self, yaml_context, filename, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm = None, vocab_size = None, vocab = None, yaml_path = None, src_reader = Ref(path=Path("model","src_reader")), trg_reader = Ref(path=Path("model","trg_reader"))):
-    """
-    :param filename: Filename for the pretrained embeddings
-    :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
-    :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
-    :param vocab: a `Vocab` object containing the vocabulary for the experiment
-    """
-    self.emb_dim = emb_dim or yaml_context.default_layer_dim
-    self.weight_noise = weight_noise or yaml_context.weight_noise
-    self.word_dropout = word_dropout
-    self.word_id_mask = None
-    self.train = False
-    self.fix_norm = fix_norm
-    self.pretrained_filename = filename
-    self.dynet_param_collection = yaml_context.dynet_param_collection
-    self.vocab = vocab
-    raise NotImplementedError("PretrainedSimpleWordEmbedder needs to be updated to suppor the new interface")
-    
-  def set_vocab(self, vocab):
-    self.vocab = vocab = self.vocab or vocab
-    with io.open(self.pretrained_filename, encoding='utf-8') as embeddings_file:
-      total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
-    self.embeddings = self.dynet_param_collection.param_col.lookup_parameters_from_numpy(initial_embeddings)
-    self.serialize_params["vocab"] = vocab
-
-    print(f"{in_vocab} vocabulary matches out of {total_embs} total embeddings; "
-          f"{missing} vocabulary words without a pretrained embedding out of {self.vocab_size}")

@@ -234,7 +234,7 @@ class TestTrainDevLoss(unittest.TestCase):
     training_regimen.model_context = self.model_context
     training_regimen.run_training(update_weights=False)
     self.assertAlmostEqual(training_regimen.logger.epoch_loss.loss_values['loss'] / training_regimen.logger.epoch_words,
-                           training_regimen.logger.dev_score.loss)
+                           training_regimen.logger.dev_score.loss, places=5)
 
 class TestOverfitting(unittest.TestCase):
 
