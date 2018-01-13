@@ -21,10 +21,8 @@ reload:
       hidden_dim: 64
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
-      vocab_size: 100
       emb_dim: 64
     decoder: !MlpSoftmaxDecoder
-      vocab_size: 100
       layers: 1
       mlp_hidden_dim: 64
       bridge: !CopyBridge {}

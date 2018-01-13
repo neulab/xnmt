@@ -9,7 +9,6 @@ debug:
     src_reader: !PlainTextReader {}
     trg_reader: !PlainTextReader {}
     src_embedder: !SimpleWordEmbedder
-      vocab_size: 100 # TODO: remove this line
       emb_dim: 256
     encoder: !BiLSTMSeqTransducer
       layers: 1
@@ -19,10 +18,8 @@ debug:
       hidden_dim: 256
       input_dim: 256
     trg_embedder: !SimpleWordEmbedder
-      vocab_size: 100 # TODO: remove this line
       emb_dim: 256
     decoder: !MlpSoftmaxDecoder
-      vocab_size: 100 # TODO: remove this line
       layers: 1
       mlp_hidden_dim: 256
       bridge: !NoBridge {}

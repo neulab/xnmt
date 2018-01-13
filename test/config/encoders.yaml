@@ -31,7 +31,6 @@ exp1-lstm-encoder:
     src_embedder: !SimpleWordEmbedder
       emb_dim: 64
       word_dropout: 0.3
-      vocab_size: 100 # TODO: Remove this line
     encoder: !BiLSTMSeqTransducer
       layers: 2
       input_dim: 64
@@ -42,13 +41,11 @@ exp1-lstm-encoder:
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
       word_dropout: 0.3
-      vocab_size: 100 # TODO: Remove this line
     decoder: !MlpSoftmaxDecoder
       layers: 1
       mlp_hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-      vocab_size: 100 # TODO: Remove this line
     inference: !SimpleInference {}
 exp2-residual-encoder:
   << : *defaults
@@ -57,7 +54,6 @@ exp2-residual-encoder:
     trg_reader: !PlainTextReader {}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 64
-      vocab_size: 100 # TODO: Remove this line
     encoder: !ResidualLSTMSeqTransducer
       layers: 2
       input_dim: 64
@@ -67,13 +63,11 @@ exp2-residual-encoder:
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-      vocab_size: 100 # TODO: Remove this line
     decoder: !MlpSoftmaxDecoder
       layers: 2
       mlp_hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-      vocab_size: 100 # TODO: Remove this line
     inference: !SimpleInference {}
 exp3-pyramidal-encoder:
   << : *defaults
@@ -94,7 +88,6 @@ exp3-pyramidal-encoder:
     trg_reader: !PlainTextReader {}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 64
-      vocab_size: 100 # TODO: Remove this line
     encoder: !PyramidalLSTMSeqTransducer
       layers: 3
       input_dim: 64
@@ -105,13 +98,11 @@ exp3-pyramidal-encoder:
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-      vocab_size: 100 # TODO: Remove this line
     decoder: !MlpSoftmaxDecoder
       layers: 2
       mlp_hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-      vocab_size: 100 # TODO: Remove this line
     inference: !SimpleInference {}
 exp4-modular-encoder:
   << : *defaults
@@ -132,7 +123,6 @@ exp4-modular-encoder:
     trg_reader: !PlainTextReader {}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 64
-      vocab_size: 100 # TODO: Remove this line
     encoder: !ModularSeqTransducer
       modules:
       - !BiLSTMSeqTransducer
@@ -150,12 +140,10 @@ exp4-modular-encoder:
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-      vocab_size: 100 # TODO: Remove this line
     decoder: !MlpSoftmaxDecoder
       layers: 3
       mlp_hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-      vocab_size: 100 # TODO: Remove this line
     inference: !SimpleInference {}
 

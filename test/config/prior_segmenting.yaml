@@ -9,7 +9,6 @@ prior-segmenting:
     src_reader: !SegmentationTextReader {}
     trg_reader: !PlainTextReader {}
     src_embedder: !SimpleWordEmbedder
-      vocab_size: 100 # TODO: Remove this line
       emb_dim: 16
     encoder: !SegmentingSeqTransducer
       embed_encoder: !BiLSTMSeqTransducer
@@ -36,10 +35,8 @@ prior-segmenting:
       hidden_dim: 16
       input_dim: 16
     trg_embedder: !SimpleWordEmbedder
-      vocab_size: 100 # TODO: Remove this line
       emb_dim: 16
     decoder: !MlpSoftmaxDecoder
-      vocab_size: 100 # TODO: Remove this line
       layers: 1
       mlp_hidden_dim: 16
       bridge: !CopyBridge {}

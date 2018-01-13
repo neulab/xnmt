@@ -61,7 +61,6 @@ standard-preproc:
       vocab: !Vocab
         vocab_file: examples/output/head.vocab.en
     src_embedder: !SimpleWordEmbedder
-      vocab_size: 32 # TODO: Remove this line
       emb_dim: 256
     encoder: !BiLSTMSeqTransducer
       layers: 1
@@ -70,10 +69,8 @@ standard-preproc:
       state_dim: 256
       input_dim: 256
     trg_embedder: !SimpleWordEmbedder
-      vocab_size: 30 # TODO: Remove this line
       emb_dim: 256
     decoder: !MlpSoftmaxDecoder
-      vocab_size: 30 # TODO: Remove this line
       layers: 1
       mlp_hidden_dim: 256
       bridge: !NoBridge {}

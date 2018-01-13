@@ -10,7 +10,6 @@ exp1-pretrain-model: &exp1
     src_reader: !PlainTextReader {}
     trg_reader: !PlainTextReader {}
     src_embedder: !SimpleWordEmbedder
-      vocab_size: 100 # TODO: remove this line
       emb_dim: 64
     encoder: !BiLSTMSeqTransducer
       layers: 2
@@ -20,10 +19,8 @@ exp1-pretrain-model: &exp1
       hidden_dim: 64
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
-      vocab_size: 100 # TODO: remove this line
       emb_dim: 64
     decoder: !MlpSoftmaxDecoder
-      vocab_size: 100 # TODO: remove this line
       layers: 1
       mlp_hidden_dim: 64
       input_feeding: True

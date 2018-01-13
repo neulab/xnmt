@@ -11,19 +11,16 @@ standard:
     src_embedder: !SimpleWordEmbedder
       emb_dim: 64
       init: LeCunUniform
-      vocab_size: 100 # TODO: remove this line
     encoder: !TransformerEncoder
       layers: 1
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
       init: LeCunUniform
-      vocab_size: 100 # TODO: remove this line
     decoder: !TransformerDecoder
       layers: 1
       input_dim: 64
       label_smoothing: 0.0
-      vocab_size: 100 # TODO: remove this line
     input_dim: 64
     inference: !SimpleInference {}
   train: !SimpleTrainingRegimen

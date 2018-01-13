@@ -25,11 +25,9 @@ retriever:
         dev_trg: examples/data/debug.smallids
     model: !DotProductRetriever
       src_embedder: !SimpleWordEmbedder
-        vocab_size: 20 # TODO: set this automatically
         emb_dim: 16
       src_encoder: !BiLSTMSeqTransducer {}
       trg_embedder: !SimpleWordEmbedder
-        vocab_size: 20 # TODO: set this automatically
         emb_dim: 16
       trg_encoder: !BiLSTMSeqTransducer {}
       database: !StandardRetrievalDatabase
