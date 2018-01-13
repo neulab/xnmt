@@ -100,7 +100,6 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     Main training loop (overwrites TrainingRegimen.run_training())
     """
     self.load_data()
-    self.fix_vocabs()
     self.load_weights()
     self.model.set_train(update_weights)
     for src,trg in self.next_minibatch():

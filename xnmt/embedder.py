@@ -8,6 +8,7 @@ import io
 from xnmt.initializer import LeCunUniform as linear_init
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 from xnmt.linear import Linear
 
@@ -48,19 +49,32 @@ class Embedder(object):
 
     return ExpressionSequence(expr_list=embeddings, mask=sent.mask if xnmt.batcher.is_batched(sent) else None)
 
-class VocabEmbedder(Embedder):
-  """
-  An embedder that depends on a vocab.
-  """
-  def set_vocab(self, vocab):
-    raise NotImplementedError('set_vocab must be implemented in VocabEmbedder subclasses')
-  
-class DenseWordEmbedder(VocabEmbedder, Linear, Serializable):
+  def choose_vocab_size(self, vocab_size, vocab, yaml_path, src_reader, trg_reader):
+    """Choose the vocab size for the embedder basd on the passed arguments
+
+    This is done in order of priority of vocab_size, vocab, model+yaml_path
+    """
+    if vocab_size != None:
+      return vocab_size
+    elif vocab != None:
+      return len(vocab)
+    elif "src_embedder" in yaml_path:
+      if src_reader == None or src_reader.vocab == None:
+        raise ValueError("Could not determine src_embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of src_reader ahead of time.")
+      return len(src_reader.vocab)
+    elif "trg_embedder" in yaml_path:
+      if trg_reader == None or trg_reader.vocab == None:
+        raise ValueError("Could not determine trg_embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
+      return len(trg_reader.vocab)
+    else:
+      raise ValueError("Attempted to determine vocab size of {} (path: {}), but path was not src_embedder or trg_embedder, so it could not determine what part of the model to use. Please set vocab_size or vocab explicitly.".format(self.__class__, yaml_path))
+ 
+class DenseWordEmbedder(Embedder, Linear, Serializable):
   """
   Word embeddings via full matrix
   """
   yaml_tag = "!DenseWordEmbedder"
-  def __init__(self, yaml_context, emb_dim = None, weight_noise = None, word_dropout = 0.0, fix_norm = None, vocab = None):
+  def __init__(self, yaml_context, emb_dim = None, weight_noise = None, word_dropout = 0.0, fix_norm = None, vocab_size = None, vocab = None, yaml_path = None, src_reader = Ref(path=Path("model","src_reader")), trg_reader = Ref(path=Path("model","trg_reader"))):
     """
     :param yaml_context:
     :param emb_dim:
@@ -71,13 +85,9 @@ class DenseWordEmbedder(VocabEmbedder, Linear, Serializable):
     self.word_dropout = word_dropout
     self.emb_dim = emb_dim or yaml_context.default_layer_dim
     self.dynet_param_collection = yaml_context.dynet_param_collection
-    self.vocab = vocab
-  
-  def set_vocab(self, vocab):
-    self.vocab = vocab = self.vocab or vocab
-    self.embeddings = self.dynet_param_collection.param_col.add_parameters((len(vocab), self.emb_dim))
-    self.bias = self.dynet_param_collection.param_col.add_parameters((len(vocab)))
-    self.serialize_params["vocab"] = vocab
+    self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
+    self.embeddings = self.dynet_param_collection.param_col.add_parameters((vocab_size, self.emb_dim))
+    self.bias = self.dynet_param_collection.param_col.add_parameters((self.vocab_size))
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -122,14 +132,14 @@ class DenseWordEmbedder(VocabEmbedder, Linear, Serializable):
     return dy.affine_transform([b1, W1, input_expr])
     
     
-class SimpleWordEmbedder(VocabEmbedder, Serializable):
+class SimpleWordEmbedder(Embedder, Serializable):
   """
   Simple word embeddings via lookup.
   """
 
   yaml_tag = '!SimpleWordEmbedder'
 
-  def __init__(self, yaml_context, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm=None, init=None, vocab=None):
+  def __init__(self, yaml_context, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm=None, init=None, vocab_size = None, vocab = None, yaml_path = None, src_reader = Ref(path=Path("model","src_reader")), trg_reader = Ref(path=Path("model","trg_reader"))):
     """
     :param emb_dim:
     :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
@@ -143,17 +153,12 @@ class SimpleWordEmbedder(VocabEmbedder, Serializable):
     self.fix_norm = fix_norm
     self.word_id_mask = None
     self.train = False
-    self.init = init
     self.dynet_param_collection = yaml_context.dynet_param_collection
-    self.vocab = vocab
-  
-  def set_vocab(self, vocab):
-    self.vocab = vocab = self.vocab or vocab
-    if self.init == 'LeCunUniform':
-      self.init = linear_init(len(self.vocab))
-    self.embeddings = self.dynet_param_collection.param_col.add_lookup_parameters((len(self.vocab), self.emb_dim),
-                                                                                  init=self.init)
-    self.serialize_params["vocab"] = vocab
+    vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader) 
+    if init == 'LeCunUniform':
+      init = linear_init(vocab_size)
+    self.embeddings = self.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, self.emb_dim),
+                                                                                  init=init)
 
   @handle_xnmt_event
   def on_set_train(self, val):
@@ -250,14 +255,14 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
       raise Exception(f"An embedding size of {self.emb_dim} was specified, but the pretrained embeddings have size {dimension}")
 
     # Poor man's Glorot initializer for missing embeddings
-    bound = np.sqrt(6/(len(vocab) + self.emb_dim))
+    bound = np.sqrt(6/(self.vocab_size + self.emb_dim))
 
     total_embs = 0
     in_vocab = 0
     missing = 0
 
-    embeddings = np.empty((len(vocab), self.emb_dim), dtype='float')
-    found = np.zeros(len(vocab), dtype='bool_')
+    embeddings = np.empty((self.vocab_size, self.emb_dim), dtype='float')
+    found = np.zeros(self.vocab_size, dtype='bool_')
 
     for line in embeddings_file_handle:
       total_embs += 1
@@ -268,14 +273,14 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
         embeddings[index] = np.fromstring(vals, sep=" ")
         found[index] = True
 
-    for i in range(len(vocab)):
+    for i in range(self.vocab_size):
       if not found[i]:
         missing += 1
         embeddings[i] = np.random.uniform(-bound, bound, self.emb_dim)
 
     return total_embs, in_vocab, missing, embeddings
 
-  def __init__(self, yaml_context, filename, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm = None, vocab=None):
+  def __init__(self, yaml_context, filename, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm = None, vocab_size = None, vocab = None, yaml_path = None, src_reader = Ref(path=Path("model","src_reader")), trg_reader = Ref(path=Path("model","trg_reader"))):
     """
     :param filename: Filename for the pretrained embeddings
     :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
@@ -291,6 +296,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     self.pretrained_filename = filename
     self.dynet_param_collection = yaml_context.dynet_param_collection
     self.vocab = vocab
+    raise NotImplementedError("PretrainedSimpleWordEmbedder needs to be updated to suppor the new interface")
     
   def set_vocab(self, vocab):
     self.vocab = vocab = self.vocab or vocab
@@ -300,4 +306,4 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     self.serialize_params["vocab"] = vocab
 
     print(f"{in_vocab} vocabulary matches out of {total_embs} total embeddings; "
-          f"{missing} vocabulary words without a pretrained embedding out of {len(vocab)}")
+          f"{missing} vocabulary words without a pretrained embedding out of {self.vocab_size}")

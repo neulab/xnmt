@@ -125,6 +125,7 @@ class YamlSerializer(object):
     init_params = obj.init_params
     init_args = tree_tools.get_init_args_defaults(obj)
     if "yaml_context" in init_args: obj.init_params["yaml_context"] = self.yaml_context
+    if "yaml_path" in init_args: obj.init_params["yaml_path"] = path
     serialize_params = obj.serialize_params
     try:
       initialized_obj = obj.__class__(**init_params)

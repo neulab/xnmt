@@ -27,6 +27,7 @@ class Vocab(Serializable):
     if (i2w is not None):
       self.i2w = i2w
       self.w2i = {word: word_id for (word_id, word) in enumerate(self.i2w)}
+      self.frozen = True
     else :
       self.w2i = {}
       self.i2w = []
@@ -35,7 +36,7 @@ class Vocab(Serializable):
       self.w2i[self.ES_STR] = self.ES
       self.i2w.append(self.SS_STR)
       self.i2w.append(self.ES_STR)
-    self.frozen = False
+      self.frozen = False
     self.serialize_params = {"i2w" : self.i2w}
 
   @staticmethod

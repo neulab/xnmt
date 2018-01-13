@@ -153,9 +153,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                                         batcher=self.batcher, sample_sents=self.sample_train_sents,
                                         max_num_sents=self.max_num_train_sents,
                                         max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
-  def fix_vocabs(self):
-    self.model.set_vocabs(src_vocab = getattr(self.model.src_reader, "vocab", None),
-                          trg_vocab = getattr(self.model.trg_reader, "vocab", None))
     
   def _augment_data_initial(self):
     """

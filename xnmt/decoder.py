@@ -1,5 +1,6 @@
 import dynet as dy
 from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.tree_tools import Ref, Path
 import xnmt.batcher
 from xnmt.events import register_handler, handle_xnmt_event
 import xnmt.linear
@@ -47,7 +48,8 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
                bridge=None, label_smoothing=0.0, vocab_projector=None,
-               vocab=None):
+               vocab_size = None, vocab = None,
+               trg_reader = Ref(path=Path("model","trg_reader"))):
     register_handler(self)
     self.param_col = yaml_context.dynet_param_collection.param_col
     # Define dim
@@ -78,24 +80,31 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + lstm_dim,
                                            output_dim = mlp_hidden_dim,
                                            model = self.param_col)
-    self.vocab_projector = vocab_projector
+    self.vocab_size = self.choose_vocab_size(vocab_size, vocab, trg_reader)
+    self.vocab_projector = vocab_projector or xnmt.linear.Linear(input_dim = self.mlp_hidden_dim,
+                                                                output_dim = self.vocab_size,
+                                                                model = self.param_col)
     
     # Dropout
     self.dropout = dropout or yaml_context.dropout
-    
-    self.vocab = vocab
+
+  def choose_vocab_size(self, vocab_size, vocab, trg_reader):
+    """Choose the vocab size for the embedder basd on the passed arguments
+
+    This is done in order of priority of vocab_size, vocab, model+yaml_path
+    """
+    if vocab_size != None:
+      return vocab_size
+    elif vocab != None:
+      return len(vocab)
+    elif trg_reader == None or trg_reader.vocab == None:
+      raise ValueError("Could not determine trg_embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
+    else:
+      return len(trg_reader.vocab) 
 
   def shared_params(self):
     return [set([Path("layers"), Path("bridge","dec_layers")])]
   
-  def set_vocab(self, vocab):
-    self.vocab = vocab = self.vocab or vocab
-    self.vocab_projector = self.vocab_projector or xnmt.linear.Linear(input_dim = self.mlp_hidden_dim,
-                                                                     output_dim = len(vocab),
-                                                                    model = self.param_col)
-    self.serialize_params["vocab"] = vocab
-    
-
   def initial_state(self, enc_final_states, ss_expr):
     """Get the initial state of the decoder given the encoder final states.
 
