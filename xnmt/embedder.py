@@ -178,7 +178,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.dynet_param_collection = yaml_context.dynet_param_collection
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader) 
     if init == 'LeCunUniform':
-      init = linear_init(vocab_size)
+      init = linear_init(self.vocab_size)
     self.embeddings = self.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim),
                                                                                   init=init)
 
