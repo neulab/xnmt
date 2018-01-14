@@ -51,6 +51,8 @@ defaults:
           warmup: 1
           min_value: 0.0
           max_value: 1.0
+        label_smoothing: !SegmentationLabelSmoothing
+          strength: 0.1
         length_prior: 3.5
       attender: !MlpAttender
         state_dim: 16

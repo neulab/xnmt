@@ -56,13 +56,32 @@ class ScalarParam(Serializable):
   def __repr__(self):
     return str(self.value)
 
+class SegmentationLabelSmoothing(Serializable):
+  ''' https://arxiv.org/pdf/1701.06548.pdf
+      strength: the beta value
+  '''
+  yaml_tag = u"!SegmentationLabelSmoothing"
+
+  def __init__(self, strength=1.0):
+    self.strength = strength
+
+    if strength < 0:
+      raise RuntimeError("Strength of label smoothing parameter should be >= 0")
+
+  def __call__(self, logsoftmax):
+    strength = self.strength
+    if strength == 0:
+      return logsoftmax
+    neg_entropy = dy.cmult(dy.exp(logsoftmax), logsoftmax)
+    return logsoftmax + (strength * neg_entropy)
+
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = u'!SegmentingSeqTransducer'
 
   def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None, segment_encoder=None,
                learn_segmentation=True, reinforcement_param=None, length_prior=3.5, learn_delete=False,
                length_prior_alpha=1.0, use_baseline=True, segmentation_warmup_counter=None,
-               epsilon_greedy_param=None, debug=False, z_normalization=True):
+               epsilon_greedy_param=None, debug=False, z_normalization=True, label_smoothing=None):
     '''
     reinforcement_param: the value of lambda in: \lambda * reinforce_loss
     epsilon_greedy_param: param for structural dropout. 30% means 70% sample from poisson and 30% from softmax
@@ -99,6 +118,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.encoder_hidden_dim = segment_transducer.encoder.hidden_dim
     self.debug = debug
     self.z_normalization = z_normalization
+    self.label_smoothing = label_smoothing
 
     # States of the object
     self.train = False
@@ -175,11 +195,17 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
     return segment_decisions, segment_logsoftmaxes
 
+  def label_smooth_segmentation(self, logsoftmax):
+    if self.label_smoothing is not None:
+      logsoftmax = [self.label_smoothing(x) for x in logsoftmax]
+    return logsoftmax
+
   def __call__(self, embed_sent):
     batch_size = embed_sent[0].dim()[1]
     # Softmax + segment decision
     encodings = self.embed_encoder(embed_sent)
     segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size, self._src)
+    segment_logsoftmaxes = self.label_smooth_segmentation(segment_logsoftmaxes)
     # Some checks
     assert len(encodings) == len(segment_decisions), \
            "Encoding={}, segment={}".format(len(encodings), len(segment_decisions))
