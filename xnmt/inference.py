@@ -22,7 +22,7 @@ class SimpleInference(Serializable):
   yaml_tag = u'!SimpleInference'
   def __init__(self, model_file=None, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
                   input_format="text", post_process="none", report_path=None, report_type="html",
-                  beam=1, max_len=100, len_norm_type=None, mode="onebest"):
+                  beam=1, max_len=100, len_norm_type=None, mode="onebest", batcher=None):
     """
     :param model_file: pretrained (saved) model path (required onless model_elements is given)
     :param src_file: path of input src file to be translated
@@ -51,6 +51,7 @@ class SimpleInference(Serializable):
     self.max_len = max_len
     self.len_norm_type = len_norm_type
     self.mode = mode
+    self.batcher = batcher
     
 
   def __call__(self, generator, src_file=None, trg_file=None, candidate_id_file=None):
@@ -107,9 +108,11 @@ class SimpleInference(Serializable):
     with io.open(args["trg_file"], 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
       src_ret=[]
       for i, src in enumerate(src_corpus):
-        # TODO: is this necessary?
-        # batcher.add_single_batch(src_curr=[src], trg_curr=None, src_ret=src_ret, trg_ret=None)
-        # src = src_ret.pop()[0]
+        # This is necessary when the batcher dos some sort of pre-processing, e.g.
+        # when the batcher pads to a particular number of dimensions
+        if self.batcher:
+          self.batcher.add_single_batch(src_curr=[src], trg_curr=None, src_ret=src_ret, trg_ret=None)
+          src = src_ret.pop()[0]
 
         # Do the decoding
         if args["max_src_len"] is not None and len(src) > args["max_src_len"]:

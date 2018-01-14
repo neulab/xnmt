@@ -77,14 +77,13 @@ exp3-pyramidal-encoder:
   << : *defaults
   train: !SimpleTrainingRegimen
     << : *defaults_train
-    batcher: !SrcBatcher
+    batcher: !SrcBatcher &batcher3
+      _xnmt_id: batcher3
       batch_size: 5
       pad_src_to_multiple: 4
     dev_tasks: # TODO: Remove this segment by allowing batchers to default to train.batcher
       - !LossEvalTask
-        batcher: !SrcBatcher
-          batch_size: 5
-          pad_src_to_multiple: 4
+        batcher: !Ref {name: batcher3}
         src_file: examples/data/head.ja
         ref_file: examples/data/head.en
   model: !DefaultTranslator
@@ -109,19 +108,19 @@ exp3-pyramidal-encoder:
       mlp_hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !SimpleInference
+      batcher: !Ref {name: batcher3}
 exp4-modular-encoder:
   << : *defaults
   train: !SimpleTrainingRegimen
     << : *defaults_train
-    batcher: !SrcBatcher
+    batcher: !SrcBatcher &batcher4
+      _xnmt_id: batcher4
       batch_size: 5
       pad_src_to_multiple: 4
     dev_tasks: # TODO: Remove this segment by allowing batchers to default to train.batcher
       - !LossEvalTask
-        batcher: !SrcBatcher
-          batch_size: 5
-          pad_src_to_multiple: 4
+        batcher: !Ref {name: batcher4}
         src_file: examples/data/head.ja
         ref_file: examples/data/head.en
   model: !DefaultTranslator
@@ -153,5 +152,6 @@ exp4-modular-encoder:
       mlp_hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !SimpleInference
+      batcher: !Ref {name: batcher4}
 
