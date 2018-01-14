@@ -27,11 +27,16 @@ class LossEvalTask(Serializable):
                batcher=None, loss_calculator=None):
     self.model = model
     self.loss_calculator = loss_calculator or LossCalculator(MLELoss())
-    self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
-      xnmt.input.read_parallel_corpus(model.src_reader, model.trg_reader,
-                                      src_file, ref_file, batcher=batcher)
-    
+    self.src_file = src_file
+    self.ref_file = ref_file
+    self.batcher = batcher
+    self.src_data = None
+
   def eval(self):
+    if self.src_data == None:
+      self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
+        xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
+                                        self.src_file, self.ref_file, batcher=self.batcher)
     loss_val = 0
     ref_words_cnt = 0 
     for src, trg in zip(self.src_batches, self.ref_batches):
