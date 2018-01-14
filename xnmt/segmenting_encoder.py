@@ -18,7 +18,9 @@ from xnmt.reports import Reportable
 from xnmt.serializer import Serializable
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import LossBuilder
-from xnmt.segment_transducer import TailWordSegmentTransformer
+from xnmt.segment_transducer import TailWordSegmentTransformer, WordOnlySegmentTransformer
+
+EPS = 1e-10
 
 class SegmentingAction(Enum):
   """
@@ -60,7 +62,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None, segment_encoder=None,
                learn_segmentation=True, reinforcement_param=None, length_prior=3.5, learn_delete=False,
                length_prior_alpha=1.0, use_baseline=True, segmentation_warmup_counter=None,
-               epsilon_greedy_param=None, debug=False):
+               epsilon_greedy_param=None, debug=False, z_normalization=True):
     '''
     reinforcement_param: the value of lambda in: \lambda * reinforce_loss
     epsilon_greedy_param: param for structural dropout. 30% means 70% sample from poisson and 30% from softmax
@@ -96,6 +98,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.eps = epsilon_greedy_param
     self.encoder_hidden_dim = segment_transducer.encoder.hidden_dim
     self.debug = debug
+    self.z_normalization = z_normalization
 
     # States of the object
     self.train = False
@@ -204,7 +207,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if decision == SegmentingAction.SEGMENT.value:
           # Special case for TailWordSegmentTransformer only
           words = None
-          if type(self.segment_transducer.transformer) == TailWordSegmentTransformer:
+          if type(self.segment_transducer.transformer) == TailWordSegmentTransformer or\
+             type(self.segment_transducer.transformer) == WordOnlySegmentTransformer:
             words = self._src[i].words[last_segment[i]+1:j+1]
           # Reducing the [expression] -> expression
           expr_seq = expression_sequence.ExpressionSequence(expr_list=buffers[i])
@@ -212,7 +216,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           outputs[i].append(transduce_output)
           buffers[i] = []
           # Calculate length prior
-          length_prior[i].append(numpy.log(poisson.pmf(j-last_segment[i], self.length_prior) + 1e-10))
+          length_prior[i].append(numpy.log(poisson.pmf(j-last_segment[i], self.length_prior) + EPS))
           last_segment[i] = j
         # Notify the segment transducer to process the next decision
         self.segment_transducer.next_item()
@@ -270,7 +274,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     if self.length_prior_alpha > 0:
       reward += self.segment_length_prior * self.length_prior_alpha
     # reward z-score normalization
-    reward = dy.cdiv(reward-dy.mean_batches(reward), dy.std_batches(reward) + 1e-10)
+    if self.z_normalization:
+      reward = dy.cdiv(reward-dy.mean_batches(reward) + EPS, dy.std_batches(reward) + EPS)
     # Baseline Loss
     if self.use_baseline:
       baseline_loss = []
@@ -288,7 +293,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           r_i = reward - self.bs[i]
         else:
           r_i = reward
-        reinforce_loss.append(dy.logistic(r_i) * ll)
+        if self.z_normalization:
+          r_i = dy.logistic(r_i)
+        else:
+          r_i = dy.exp(r_i)
+        reinforce_loss.append(r_i * ll)
       ret.add_loss("Reinforce", -dy.esum(reinforce_loss) * lmbd)
     # Total Loss
     return ret
