@@ -19,9 +19,13 @@ multi_task_exp:
       model: !DefaultTranslator &first_task_model
         _xnmt_id: first_task_model
         src_reader: !PlainTextReader
-          vocab: !Vocab &src_vocab {vocab_file: examples/data/head.ja.vocab}
+          vocab: !Vocab &src_vocab
+            _xnmt_id: src_vocab
+            vocab_file: examples/data/head.ja.vocab
         trg_reader: !PlainTextReader
-          vocab: !Vocab &trg_vocab {vocab_file: examples/data/head.en.vocab}
+          vocab: !Vocab &trg_vocab
+            _xnmt_id: trg_vocab
+            vocab_file: examples/data/head.en.vocab
         src_embedder: !SimpleWordEmbedder
           emb_dim: 64
           vocab: !Ref {name: src_vocab}

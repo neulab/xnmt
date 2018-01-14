@@ -44,7 +44,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
   def __init__(self, yaml_context, model=Ref(path=Path("model")), glob={},
                src_file=None, trg_file=None,
                dev_every=0, batcher=None, loss_calculator=None, 
-               pretrained_model_file="", src_format="text", trainer=None, 
+               pretrained_model_file=None, src_format="text", trainer=None, 
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
                initial_patience=None, dev_tasks=None,
                restart_trainer=False, reload_command=None, dynet_profiling=0,
@@ -120,7 +120,8 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
   Base class for multi-task training classes.
   Mainly initializes tasks, performs sanity-checks, and manages set_train events.
   """
-  def __init__(self, yaml_context, tasks, trainer=None, dynet_profiling=0):
+  def __init__(self, yaml_context, tasks, 
+               pretrained_model_file=None, trainer=None, dynet_profiling=0):
     """
     :param tasks: list of TrainingTask instances.
                   The first item takes on the role of the main task, meaning it
@@ -133,6 +134,7 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
     self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(self.yaml_context, 0.1)
+    self.pretrained_model_file = pretrained_model_file
     for task in tasks[1:]:
       if hasattr(task, "trainer") and task.trainer is not None:
         raise ValueError("Can instantiate only one trainer object. Possibly, multiple training regimens were created when training tasks should have been used.")
@@ -180,8 +182,9 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   are thus performed jointly for each task. The relative weight between
   tasks can be configured by setting each tasks batch size accordingly.
   """
-  def __init__(self, yaml_context, tasks, trainer=None, dynet_profiling=0):
+  def __init__(self, yaml_context, tasks, trainer=None, pretrained_model_file=None, dynet_profiling=0):
     super().__init__(yaml_context, tasks=tasks, trainer=trainer,
+                     pretrained_model_file=pretrained_model_file,
                      dynet_profiling=dynet_profiling)
     self.yaml_context = yaml_context
   def run_training(self, update_weights=True):

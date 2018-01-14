@@ -49,7 +49,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
                bridge=None, label_smoothing=0.0, vocab_projector=None,
                vocab_size = None, vocab = None,
-               trg_reader = Ref(path=Path("model","trg_reader"))):
+               trg_reader = Ref(path=Path("model","trg_reader"), required=False)):
     register_handler(self)
     self.param_col = yaml_context.dynet_param_collection.param_col
     # Define dim
