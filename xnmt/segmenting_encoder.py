@@ -78,7 +78,7 @@ class SegmentationLabelSmoothing(Serializable):
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = u'!SegmentingSeqTransducer'
 
-  def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None, segment_encoder=None,
+  def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None,
                learn_segmentation=True, reinforcement_param=None, length_prior=3.5, learn_delete=False,
                length_prior_alpha=1.0, use_baseline=True, segmentation_warmup_counter=None,
                epsilon_greedy_param=None, debug=False, z_normalization=True, label_smoothing=None):
@@ -89,14 +89,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     register_handler(self)
     assert embed_encoder is not None
     assert segment_transducer is not None
-    assert segment_encoder is not None
     model = yaml_context.dynet_param_collection.param_col
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
     # The Segment transducer predict a category based on the collected vector
     self.segment_transducer = segment_transducer
-    # The segment Encoder will encode the whole segment
-    self.segment_encoder = segment_encoder
     # The Segment Encoder decides whether to segment or not
     self.segment_transform = linear.Linear(input_dim  = embed_encoder.hidden_dim,
                                            output_dim = 3 if learn_delete else 2,
@@ -219,7 +216,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     length_prior = [[] for _ in range(batch_size)]
     self.segment_transducer.set_input_size(batch_size, len(encodings))
     # Loop through all the frames (word / item) in input.
-    for j, (embed, segment_decision) in enumerate(zip(embed_sent, segment_decisions)):
+    for j, (encode, segment_decision) in enumerate(zip(encodings, segment_decisions)):
       # For each decision in the batch
       for i, decision in enumerate(segment_decision):
         # If segment for this particular input
@@ -227,9 +224,9 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if decision == SegmentingAction.DELETE.value:
           continue
         # Get the particular encoding for that batch item
-        embed_i = dy.pick_batch_elem(embed, i)
+        encode_i = dy.pick_batch_elem(encode, i)
         # Append the encoding for this item to the buffer
-        buffers[i].append(embed_i)
+        buffers[i].append(encode_i)
         if decision == SegmentingAction.SEGMENT.value:
           # Special case for TailWordSegmentTransformer only
           words = None
@@ -271,14 +268,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       self.set_report_input(segment_decisions)
 
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
-    return self.segment_encoder(expression_sequence.ExpressionSequence(expr_tensor=outputs))
+    return expression_sequence.ExpressionSequence(expr_tensor=outputs)
 
   @handle_xnmt_event
   def on_set_train(self, train):
     self.train = train
 
   def get_final_states(self):
-    return self.segment_encoder.get_final_states()
+    return self.embed_encoder.get_final_states()
 
   @handle_xnmt_event
   def on_new_epoch(self):

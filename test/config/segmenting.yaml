@@ -38,11 +38,6 @@ defaults:
             bidirectional: True
             layers: 1
           transformer: !TailSegmentTransformer {}
-        segment_encoder: !LSTMSeqTransducer
-          input_dim: 16
-          hidden_dim: 16
-          layers: 1
-          bidirectional: True
         learn_segmentation: True
         learn_delete: False
         reinforcement_param: !ScalarParam
@@ -63,7 +58,7 @@ defaults:
       decoder: !MlpSoftmaxDecoder
         layers: 1
         mlp_hidden_dim: 16
-        bridge: !NoBridge {}
+        bridge: !CopyBridge {}
   decode:
     src_file: examples/data/test-char-head5.ja
     report_path: examples/output/<EXP>.report

@@ -41,11 +41,6 @@ defaults:
             bidirectional: True
             layers: 1
           transformer: !TailSegmentTransformer {}
-        segment_encoder: !LSTMSeqTransducer
-          input_dim: 16
-          hidden_dim: 16
-          layers: 1
-          bidirectional: True
         learn_segmentation: True
         segmentation_warmup_counter: 1
         learn_delete: False
