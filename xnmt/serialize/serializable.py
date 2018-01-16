@@ -28,6 +28,12 @@ class Serializable(yaml.YAMLObject):
               (the '.0' syntax is available to access elements in a list of subcomponents)
     """
     return []
+  
+  def overwrite_serialize_param(self, key, val):
+    if not hasattr(self, "serialize_params"):
+      self.serialize_params = {}
+    self.serialize_params[key] = val
+    
 
 class UninitializedYamlObject(object):
   """
