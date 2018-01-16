@@ -26,6 +26,7 @@ defaults:
         emb_dim: 16
       encoder: !SegmentingSeqTransducer
         debug: True
+        normalize_loss: True
         embed_encoder: !LSTMSeqTransducer
           input_dim: 16
           hidden_dim: 16

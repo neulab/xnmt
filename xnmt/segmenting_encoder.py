@@ -75,6 +75,7 @@ class SegmentationLabelSmoothing(Serializable):
     neg_entropy = []
     for logsoftmax in logsoftmaxes:
       neg_entropy.append(dy.cmult(dy.exp(logsoftmax), logsoftmax))
+
     return strength * dy.sum_elems(dy.esum(neg_entropy))
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
@@ -83,7 +84,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None,
                learn_segmentation=True, reinforcement_param=None, length_prior=3.5, learn_delete=False,
                length_prior_alpha=1.0, use_baseline=True, segmentation_warmup_counter=None,
-               epsilon_greedy_param=None, debug=False, z_normalization=True, label_smoothing=None):
+               epsilon_greedy_param=None, debug=False, z_normalization=True, label_smoothing=None,
+               normalize_loss=False):
     '''
     reinforcement_param: the value of lambda in: \lambda * reinforce_loss
     epsilon_greedy_param: param for structural dropout. 30% means 70% sample from poisson and 30% from softmax
@@ -118,6 +120,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.debug = debug
     self.z_normalization = z_normalization
     self.label_smoothing = label_smoothing
+    self.normalize_loss = normalize_loss
 
     # States of the object
     self.train = False
@@ -240,7 +243,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         # Notify the segment transducer to process the next decision
         self.segment_transducer.next_item()
     # Calculate the actual length prior length
-    length_prior = [numpy.sum(len_prior) for len_prior in length_prior]
+    length_prior = [numpy.sum(len_prior) / (len(len_prior) if self.normalize_loss else 1)
+                    for len_prior in length_prior]
     # Padding
     max_col = max(len(xs) for xs in outputs)
     P0 = dy.vecInput(self.encoder_hidden_dim)
@@ -300,6 +304,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       baseline_loss = []
       for i, baseline in enumerate(self.bs):
         baseline_loss.append(dy.squared_distance(reward, baseline))
+      if self.normalize_loss:
+        baseline_loss = [bl / len(baseline_loss) for bl in baseline_loss]
       ret.add_loss("Baseline", dy.esum(baseline_loss))
     # Reinforce Loss
     lmbd = self.lmbd.get_value(self.warmup_counter)
@@ -317,9 +323,15 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         else:
           r_i = dy.exp(r_i)
         reinforce_loss.append(r_i * ll)
-      ret.add_loss("Reinforce", -dy.esum(reinforce_loss) * lmbd)
+      loss = -dy.esum(reinforce_loss) * lmbd
+      if self.normalize_loss:
+        loss /= len(self.segment_decisions)
+      ret.add_loss("Reinforce", loss)
     if self.label_smoothing:
-      ret.add_loss("Label smoothing", self.label_smoothing(self.segment_logsoftmaxes))
+      ls_loss = self.label_smoothing(self.segment_logsoftmaxes)
+      if self.normalize_loss:
+        ls_loss /= len(self.segment_logsoftmaxes)
+      ret.add_loss("Label smoothing", ls_loss)
     # Total Loss
     return ret
 
