@@ -278,7 +278,7 @@ class TransformerDecoder(Serializable):
   def __init__(self, yaml_context, layers=1, input_dim=512, h=1,
                label_smoothing=0.0, dropout=0.0, attn_dropout=False, layer_norm=False,
                vocab_size = None, vocab = None,
-               trg_reader = Ref(path=Path("model","trg_reader"))):
+               trg_reader = Ref(path=Path("model.trg_reader"))):
     register_handler(self)
     dy_model = yaml_context.dynet_param_collection.param_col
     input_dim = input_dim or yaml_context.default_layer_dim

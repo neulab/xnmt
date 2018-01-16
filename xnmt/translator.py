@@ -81,10 +81,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.glob = glob
 
   def shared_params(self):
-    return [set([Path("src_embedder","emb_dim"), Path("encoder","input_dim")]),
-            set([Path("encoder","hidden_dim"), Path("attender","input_dim"), Path("decoder","input_dim")]),
-            set([Path("attender","state_dim"), Path("decoder","lstm_dim"), Path("decoder", "bridge","dec_dim")]),
-            set([Path("trg_embedder","emb_dim"), Path("decoder","trg_embed_dim")])]
+    return [set([Path(".src_embedder.emb_dim"), Path(".encoder.input_dim")]),
+            set([Path(".encoder.hidden_dim"), Path(".attender.input_dim"), Path(".decoder.input_dim")]),
+            set([Path(".attender.state_dim"), Path(".decoder.lstm_dim")]),
+            set([Path(".trg_embedder.emb_dim"), Path(".decoder.trg_embed_dim")])]
 
   def initialize_generator(self, **kwargs):
     if kwargs.get("len_norm_type", None) is None:

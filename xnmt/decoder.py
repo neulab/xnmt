@@ -49,7 +49,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
                bridge=None, label_smoothing=0.0, vocab_projector=None,
                vocab_size = None, vocab = None,
-               trg_reader = Ref(path=Path("model","trg_reader"), required=False)):
+               trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
     register_handler(self)
     self.param_col = yaml_context.dynet_param_collection.param_col
     # Define dim
@@ -103,7 +103,8 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
       return len(trg_reader.vocab) 
 
   def shared_params(self):
-    return [set([Path("layers"), Path("bridge","dec_layers")])]
+    return [set([Path(".layers"), Path(".bridge.dec_layers")]),
+            set([Path(".lstm_dim"), Path(".bridge.dec_dim")])]
   
   def initial_state(self, enc_final_states, ss_expr):
     """Get the initial state of the decoder given the encoder final states.

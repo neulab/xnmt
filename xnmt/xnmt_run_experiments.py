@@ -77,10 +77,8 @@ def main(overwrite_args=None):
     if cfg_file:
       shutil.copyfile(args.experiments_file, cfg_file)
     
-    model_context = ModelContext()
+    model_context = ModelContext(**glob_args)
     model_context.dynet_param_collection = PersistentParamCollection(model_file, save_num_checkpoints)
-    for k, v in glob_args.items():
-      setattr(model_context, k, v)
 
     uninitialized_exp_args.data["train"].dynet_profiling = args.dynet_profiling
 

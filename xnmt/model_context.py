@@ -4,16 +4,16 @@ from xnmt.serialize.serializable import Serializable
 
 class ModelContext(Serializable):
   yaml_tag = u'!ModelContext'
-  def __init__(self):
-    self.dropout = 0.0
-    self.weight_noise = 0.0
-    self.default_layer_dim = 512
+  def __init__(self, dropout = 0.0, weight_noise = 0.0, default_layer_dim = 512, **kwargs):
+    self.dropout = dropout
+    self.weight_noise = weight_noise
+    self.default_layer_dim = default_layer_dim
+    for k,v in kwargs.items():
+      setattr(self, k, v)
     self.dynet_param_collection = None
     self.model_file = None
-    self.serialize_params = ["dropout", "weight_noise", "default_layer_dim"]
-  def update(self, other):
-    for param in self.serialize_params:
-      setattr(self, param, getattr(other, param))
+    self.serialize_params = {"dropout":dropout, "weight_noise":weight_noise,
+                             "default_layer_dim": default_layer_dim, **kwargs}
 
 class PersistentParamCollection(object):
   def __init__(self, model_file, save_num_checkpoints=1):
