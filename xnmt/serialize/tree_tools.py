@@ -13,13 +13,14 @@ class Path(object):
       raise ValueError(f"'{path_str}' is not a valid path string")
     self.path_str = path_str
   def append(self, link):
-    if not link or "." in link: raise ValueError(f"'{link}' is not a valid link")
+    if not link or "." in link:
+      raise ValueError(f"'{link}' is not a valid link")
     if self.path_str=="" or self.is_relative_path(): return Path(f"{self.path_str}{link}")
     else: return Path(f"{self.path_str}.{link}")
   def __str__(self):
     return self.path_str
   def __repr__(self):
-    return f"Path({self.path_str})"
+    return self.path_str
   def is_relative_path(self):
     return self.path_str.startswith(".")
   def get_absolute(self, rel_to):

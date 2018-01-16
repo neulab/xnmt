@@ -8,6 +8,7 @@ import yaml
 
 from xnmt.serialize.serializable import Serializable, UninitializedYamlObject
 import xnmt.serialize.tree_tools as tree_tools
+from xnmt.serialize.tree_tools import set_descendant
 
 class Option(object):
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
@@ -109,47 +110,21 @@ class OptionParser(object):
         setattr(obj, k, v)
       delattr(obj, "kwargs")
 
-  # TODO: should be simplified using tree_tools
-  def instantiate_random_search(self, exp_values, initialized_random_params={}):
+  def instantiate_random_search(self, exp_values):
     param_report = {}
-    if isinstance(exp_values, dict): kvs = exp_values.items()
-    elif isinstance(exp_values, list): kvs = enumerate(exp_values)
-    elif isinstance(exp_values, Serializable):
-      init_args, _, _, _ = inspect.getargspec(exp_values.__init__)
-      kvs = [(key, getattr(exp_values, key)) for key in init_args if hasattr(exp_values, key)]
-    else:
-      raise RuntimeError("unexpected type %s" % (type(exp_values)))
-    for k, v in kvs:
+    initialized_random_params={}
+    for path, v in tree_tools.traverse_tree(exp_values):
       if isinstance(v, RandomParam):
         if hasattr(v, "_xnmt_id") and v._xnmt_id in initialized_random_params:
           v = initialized_random_params[v._xnmt_id]
         v = v.draw_value()
         if hasattr(v, "_xnmt_id"):
           initialized_random_params[v._xnmt_id] = v
-        if isinstance(exp_values, dict):
-          exp_values[k] = v
-        else:
-          setattr(exp_values, k, v)
-        param_report[k] = v
-      elif isinstance(v, dict) or isinstance(v, list) or isinstance(v, Serializable):
-        sub_report = self.instantiate_random_search(v, initialized_random_params)
-        if sub_report:
-          param_report[k] = sub_report
+        set_descendant(exp_values, path, v)
+        param_report[path] = v
     return param_report
 
-  # TODO: should be simplified using tree_tools
   def replace_placeholder(self, exp_values, value, placeholder="<EXP>"):
-    if isinstance(exp_values, dict): kvs = exp_values.items()
-    elif isinstance(exp_values, list): kvs = enumerate(exp_values)
-    elif isinstance(exp_values, Serializable):
-      init_args, _, _, _ = inspect.getargspec(exp_values.__init__)
-      kvs = [(key, getattr(exp_values, key)) for key in init_args if hasattr(exp_values, key)]
-    for k, v in kvs:
-      if isinstance(v, str):
-        if placeholder in v:
-          if isinstance(exp_values, dict):
-            exp_values[k] = v.replace(placeholder, value)
-          else:
-            setattr(exp_values, k, v.replace(placeholder, value))
-      elif isinstance(v, dict) or isinstance(v, list) or isinstance(v, Serializable):
-        self.replace_placeholder(v, value, placeholder)
+    for path, node in tree_tools.traverse_tree(exp_values):
+      if isinstance(node, str) and "<EXP>" in node:
+        tree_tools.set_descendant(exp_values, path, node.replace(placeholder, value))
