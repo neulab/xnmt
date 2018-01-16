@@ -68,12 +68,14 @@ class SegmentationLabelSmoothing(Serializable):
     if strength < 0:
       raise RuntimeError("Strength of label smoothing parameter should be >= 0")
 
-  def __call__(self, logsoftmax):
+  def __call__(self, logsoftmaxes):
     strength = self.strength
     if strength == 0:
-      return logsoftmax
-    neg_entropy = dy.cmult(dy.exp(logsoftmax), logsoftmax)
-    return logsoftmax + (strength * neg_entropy)
+      return 0
+    neg_entropy = []
+    for logsoftmax in logsoftmaxes:
+      neg_entropy.append(dy.cmult(dy.exp(logsoftmax), logsoftmax))
+    return strength * dy.sum_elems(dy.esum(neg_entropy))
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = u'!SegmentingSeqTransducer'
@@ -195,17 +197,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
     return segment_decisions, segment_logsoftmaxes
 
-  def label_smooth_segmentation(self, logsoftmax):
-    if self.label_smoothing is not None:
-      logsoftmax = [self.label_smoothing(x) for x in logsoftmax]
-    return logsoftmax
-
   def __call__(self, embed_sent):
     batch_size = embed_sent[0].dim()[1]
     # Softmax + segment decision
     encodings = self.embed_encoder(embed_sent)
     segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size, self._src)
-    segment_logsoftmaxes = self.label_smooth_segmentation(segment_logsoftmaxes)
     # Some checks
     assert len(encodings) == len(segment_decisions), \
            "Encoding={}, segment={}".format(len(encodings), len(segment_decisions))
@@ -325,6 +321,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           r_i = dy.exp(r_i)
         reinforce_loss.append(r_i * ll)
       ret.add_loss("Reinforce", -dy.esum(reinforce_loss) * lmbd)
+    if self.label_smoothing:
+      ret.add_loss("Label smoothing", self.label_smoothing(self.segment_logsoftmaxes))
     # Total Loss
     return ret
 

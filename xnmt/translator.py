@@ -238,7 +238,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         if i == 0:
           words = [""] + trg
         else:
-          words = [src[i-1]] + ["%.4f" % (f) for f in attn[i-1]]
+          words = ["%.4f" % (f) for f in attn[i-1]] + [src[i-1]]
         str_format = ""
         for length in col_length:
           str_format += "{:%ds}" % (length+2)
