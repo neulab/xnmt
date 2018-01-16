@@ -122,7 +122,6 @@ class YamlSerializer(object):
           initialized_component = self.init_component(path)
           tree_tools.set_descendant(root, path, initialized_component)
         tree_tools.set_descendant(root, path, initialized_component)
-        initialized_component._xnmt_paths.append(path)
     return root
 
   @lru_cache(maxsize=None)
@@ -145,7 +144,6 @@ class YamlSerializer(object):
                                f"Error message: {e}")
     serialize_params.update(getattr(initialized_obj,"serialize_params",{}))
     initialized_obj.serialize_params = serialize_params
-    initialized_obj._xnmt_paths = []
     return initialized_obj
 
   @staticmethod
