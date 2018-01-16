@@ -11,10 +11,7 @@ class Serializable(yaml.YAMLObject):
     # should never be changed manually
 
     # attributes that are in the YAML file (see Serializable.overwrite_serialize_param() for customizing this)
-    self.serialize_params = None
-
-    # params passed to __init__, i.e. serialize_params plus shared parameters
-    self.init_params = None
+    self.serialize_params = {}
 
   def shared_params(self):
     """
@@ -31,18 +28,6 @@ class Serializable(yaml.YAMLObject):
               (the '.0' syntax is available to access elements in a list of subcomponents)
     """
     return []
-  def overwrite_serialize_param(self, key, val):
-    """
-    Overwrites serialize params to something other than specified in the YAML file.
-    This is helpful to fix certain model properties (e.g. a vocab) rather than creating it anew
-    when serializing and deserializing the component.
-
-    :param key: name of parameter (string)
-    :param val: value of parameter (Serializable)
-    """
-    if not hasattr(self, "serialize_params") or self.serialize_params is None:
-      self.serialize_params = {}
-    self.serialize_params[key] = val
 
 class UninitializedYamlObject(object):
   """

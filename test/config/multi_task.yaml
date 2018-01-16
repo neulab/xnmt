@@ -16,20 +16,20 @@ multi_task_exp:
         batch_size: 6 # batch size is twice as big as for task 2, which will give task 1 more impact during training
       src_file: examples/data/head.ja
       trg_file: examples/data/head.en
-      model: !DefaultTranslator &first_task_model
+      model: !DefaultTranslator
         _xnmt_id: first_task_model
         src_reader: !PlainTextReader
-          vocab: !Vocab &src_vocab
+          vocab: !Vocab
             _xnmt_id: src_vocab
             vocab_file: examples/data/head.ja.vocab
         trg_reader: !PlainTextReader
-          vocab: !Vocab &trg_vocab
+          vocab: !Vocab
             _xnmt_id: trg_vocab
             vocab_file: examples/data/head.en.vocab
         src_embedder: !SimpleWordEmbedder
           emb_dim: 64
           vocab: !Ref {name: src_vocab}
-        encoder: !BiLSTMSeqTransducer &first_task_encoder # the encoder shares parameters between tasks
+        encoder: !BiLSTMSeqTransducer # the encoder shares parameters between tasks
           _xnmt_id: first_task_encoder
           layers: 1
         attender: !MlpAttender
@@ -58,7 +58,7 @@ multi_task_exp:
         batch_size: 3
       src_file: examples/data/head.ja
       trg_file: examples/data/head.en
-      model: !DefaultTranslator &second_task_model
+      model: !DefaultTranslator
         _xnmt_id: second_task_model
         src_reader: !PlainTextReader
           vocab: !Ref {name: src_vocab}
@@ -88,7 +88,7 @@ multi_task_exp:
           hyp_file: examples/output/<EXP>.second_dev_hyp
           eval_metrics: gleu # tasks can specify different dev_metrics
   evaluate:
-    - !AccuracyEvalTask &acc_task
+    - !AccuracyEvalTask
       model: !Ref { name: first_task_model }
       eval_metrics: bleu,wer
       inference: !SimpleInference {}
