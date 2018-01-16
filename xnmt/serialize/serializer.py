@@ -68,7 +68,7 @@ class YamlSerializer(object):
       if isinstance(node, Serializable):
         init_args_defaults = tree_tools.get_init_args_defaults(node)
         for expected_arg in init_args_defaults:
-          if not expected_arg in tree_tools.name_children(node, include_reserved=False):
+          if not expected_arg in [x[0] for x in tree_tools.name_children(node, include_reserved=False)]:
             arg_default = init_args_defaults[expected_arg].default
             if isinstance(arg_default, tree_tools.Ref):
               setattr(node, expected_arg, arg_default)
