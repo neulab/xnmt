@@ -1,8 +1,8 @@
 standard-preproc:
   global:
-    model_file: examples/output/<EXP>.mod
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
   preproc:
     overwrite: False
     preproc_specs:
@@ -115,7 +115,7 @@ standard-preproc:
         eval_metrics: bleu
         src_file: examples/preproc/dev.tok.norm.ja
         ref_file: examples/preproc/dev.norm.en
-        hyp_file: examples/output/<EXP>.dev_hyp
+        hyp_file: examples/output/{EXP}.dev_hyp
       - !LossEvalTask
         src_file: examples/preproc/dev.tok.norm.ja
         ref_file: examples/preproc/dev.tok.norm.en
@@ -124,4 +124,4 @@ standard-preproc:
     eval_metrics: bleu
     src_file: examples/preproc/test.tok.norm.ja
     ref_file: examples/preproc/test.norm.en
-    hyp_file: examples/output/<EXP>.test_hyp
+    hyp_file: examples/output/{EXP}.test_hyp

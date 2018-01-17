@@ -1,9 +1,9 @@
 debug:
   experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
+    model_file: examples/output/{EXP}.mod
+    hyp_file: examples/output/{EXP}.hyp
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
     eval_metrics: bleu
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
@@ -41,7 +41,7 @@ debug:
         bridge: !NoBridge {}
   inference: !SimpleInference
     src_file: examples/data/head.ja
-    report_path: examples/output/<EXP>.report
+    report_path: examples/output/{EXP}.report
     report_type: html, file
   evaluate:
     ref_file: examples/data/head.en

@@ -1,8 +1,8 @@
 prior-segmenting:
   global:
-    model_file: examples/output/<EXP>.mod
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
     default_layer_dim: 16
     dropout: 0.5
   model: !DefaultTranslator
@@ -56,7 +56,7 @@ prior-segmenting:
         - examples/data/head-char.ja
         - examples/data/head-seg.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/<EXP>.dev_hyp
+      hyp_file: examples/output/{EXP}.dev_hyp
   evaluate:
   - !AccuracyEvalTask
     eval_metrics: bleu
@@ -64,4 +64,4 @@ prior-segmenting:
       - examples/data/head-char.ja
       - examples/data/head-seg.ja
     ref_file: examples/data/head.en
-    hyp_file: examples/output/<EXP>.test_hyp
+    hyp_file: examples/output/{EXP}.test_hyp

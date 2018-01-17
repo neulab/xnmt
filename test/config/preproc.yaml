@@ -1,8 +1,8 @@
 standard-preproc:
   global:
-    model_file: examples/output/<EXP>.mod
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
   preproc:
     overwrite: True
     preproc_specs:
@@ -89,4 +89,4 @@ standard-preproc:
     eval_metrics: bleu
     src_file: examples/output/head.tok.norm.ja
     ref_file: examples/output/head.norm.en
-    hyp_file: examples/output/<EXP>.test_hyp
+    hyp_file: examples/output/{EXP}.test_hyp

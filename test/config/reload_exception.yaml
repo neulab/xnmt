@@ -1,8 +1,8 @@
 reload:
   global:
-    model_file: test/tmp/output/<EXP>.mod
-    out_file: test/tmp/output/<EXP>.out
-    err_file: test/tmp/output/<EXP>.err
+    model_file: test/tmp/output/{EXP}.mod
+    out_file: test/tmp/output/{EXP}.out
+    err_file: test/tmp/output/{EXP}.err
   model: !DefaultTranslator
     src_reader: !ContVecReader
       transpose: True
@@ -46,4 +46,4 @@ reload:
       eval_metrics: cer,wer
       src_file: test/tmp/reload/synth.contvec.npz
       ref_file: test/tmp/reload/synth.char
-      hyp_file: examples/output/<EXP>.test_hyp
+      hyp_file: examples/output/{EXP}.test_hyp

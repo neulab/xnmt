@@ -4,10 +4,10 @@
 # Output units should be characters according to the paper.
 speech-2layers:
   experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
+    model_file: examples/output/{EXP}.mod
+    hyp_file: examples/output/{EXP}.hyp
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
     eval_metrics: cer,wer
     save_num_checkpoints: 2
   train: !SimpleTrainingRegimen

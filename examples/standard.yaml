@@ -1,9 +1,9 @@
 standard:
   experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
+    model_file: examples/output/{EXP}.mod
+    hyp_file: examples/output/{EXP}.hyp
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
   model: !DefaultTranslator
     _xnmt_id: main_model
     glob:

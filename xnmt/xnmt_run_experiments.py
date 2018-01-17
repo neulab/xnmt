@@ -63,15 +63,15 @@ def main(overwrite_args=None):
     yaml_serializer = YamlSerializer()
 
     glob_args = uninitialized_exp_args.data.get("global", {})
-    out_file = glob_args.pop("out_file", f"{experiment_name}.out")
-    err_file = glob_args.pop("err_file", f"{experiment_name}.err")
+    out_file = glob_args.get("out_file", f"{experiment_name}.out")
+    err_file = glob_args.get("err_file", f"{experiment_name}.err")
 
     output = Tee(out_file, 3)
     err_output = Tee(err_file, 3, error=True)
 
-    model_file = glob_args.pop("model_file", f"{experiment_name}.mod")
-    save_num_checkpoints = glob_args.pop("save_num_checkpoints", 1)
-    eval_only = glob_args.pop("eval_only", False)
+    model_file = glob_args.get("model_file", f"{experiment_name}.mod")
+    save_num_checkpoints = glob_args.get("save_num_checkpoints", 1)
+    eval_only = glob_args.get("eval_only", False)
     
     model_context = ModelContext(**glob_args)
     model_context.dynet_param_collection = PersistentParamCollection(model_file, save_num_checkpoints)

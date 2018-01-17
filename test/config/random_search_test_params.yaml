@@ -2,9 +2,9 @@
 defaults: &defaults
   global:
     eval_only: true
-    model_file: examples/output/<EXP>.mod
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
     default_layer_dim: 64
   model: !DefaultTranslator
     src_reader: !PlainTextReader
@@ -46,7 +46,7 @@ defaults: &defaults
       eval_metrics: bleu,wer
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/<EXP>.test_hyp
+      hyp_file: examples/output/{EXP}.test_hyp
 
 # Here we instantiate 3 experiments, for each the random params are drawn independently
 exp1:

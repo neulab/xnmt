@@ -1,8 +1,8 @@
 debug:
   global:
-    model_file: examples/output/<EXP>.mod
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
     default_layer_dim: 256 
     dropout: 0.0
   model: !DefaultTranslator
@@ -41,7 +41,7 @@ debug:
       eval_metrics: bleu,wer
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/<EXP>.test_hyp
+      hyp_file: examples/output/{EXP}.test_hyp
       inference: !SimpleInference
-        report_path: examples/output/<EXP>.report
+        report_path: examples/output/{EXP}.report
         report_type: html, file

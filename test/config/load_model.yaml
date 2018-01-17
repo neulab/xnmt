@@ -1,8 +1,10 @@
 exp1-pretrain-model: 
   global:
-    model_file: examples/output/<EXP>.mod
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
+    # The model file contain the whole contents of this experiment in YAML
+    # format. Note that {EXP} expressions are left intact.
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
     default_layer_dim: 64
     dropout: 0.5
     weight_noise: 0.1
@@ -37,21 +39,24 @@ exp1-pretrain-model:
       eval_metrics: bleu
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/<EXP>.dev_hyp
+      hyp_file: examples/output/{EXP}.dev_hyp
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/<EXP>.test_hyp
+      hyp_file: examples/output/{EXP}.test_hyp
 
 exp2-finetune-model:
+  # This will load the contents of the above experiments that were saved to the
+  # YAML file specified after load:
+  # This will carry out the exact same thing, except that {EXP} is resolved to
+  # a different value (making sure we don't overwrite the previous model),
+  # and except for the things explicitly overwritten in the overwrite: section.
   load: examples/output/exp1-pretrain-model.mod
-  overwrite: # list of [path, value] pairs; the first three should usually be overwritten:
-  - [global.model_file, examples/output/<EXP>.mod]
-  - [global.out_file, examples/output/<EXP>.out]
-  - [global.err_file, examples/output/<EXP>.err]
+  overwrite: # list of [path, value] pairs. Value can be scalar or an arbitrary object
   - - train.trainer
     - !AdamTrainer
         alpha: 0.0002
+  - [global.dropout, 0.5]
       

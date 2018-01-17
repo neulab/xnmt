@@ -142,11 +142,7 @@ class YamlSerializer(object):
     except TypeError as e:
       raise ComponentInitError(f"{type(obj)} could not be initialized using params {init_params}, expecting params {init_args.keys()}. "
                                f"Error message: {e}")
-    try:
-      serialize_params.update(getattr(initialized_obj,"serialize_params",{}))
-    except TypeError:
-      obj.__class__(**init_params)
-      print("break")
+    serialize_params.update(getattr(initialized_obj,"serialize_params",{}))
     initialized_obj.serialize_params = serialize_params
     return initialized_obj
 

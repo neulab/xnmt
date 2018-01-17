@@ -28,6 +28,20 @@ class Option(object):
     self.force_flag = force_flag
     self.help = help_str
 
+class FormatString(str, yaml.YAMLObject):
+  """
+  Used to handle the {EXP} string formatting syntax.
+  When passed around it will appear like the properly resolved string,
+  but writing it back to YAML will use original version containing {EXP}
+  """
+  def __new__(cls, value, *args, **kwargs):
+    return super().__new__(cls, value)
+  def __init__(self, value, serialize_as):
+    self.serialize_as = serialize_as
+def init_fs_representer(dumper, obj):
+    return dumper.represent_data(obj.serialize_as)
+yaml.add_representer(FormatString, init_fs_representer)
+
 class RandomParam(yaml.YAMLObject):
   yaml_tag = u'!RandomParam'
   def __init__(self, values):
@@ -75,14 +89,14 @@ class OptionParser(object):
     random_search_report = self.instantiate_random_search(experiment)
     if random_search_report:
       experiment['random_search_report'] = random_search_report
-    self.replace_placeholder(experiment, exp_name)
+    self.format_strings(experiment, {"EXP":exp_name })
 
     return UninitializedYamlObject(experiment)
 
   def load_referenced_model(self, experiment):
     if "load" in experiment or "overwrite" in experiment:
-      if set(["load","overwrite"]) != experiment.keys():
-        raise ValueError(f"When loading a model from an external YAML file, only 'load' and 'overwrite' are permitted and required as keys at the top level of the experiment. Found: {experiment.keys()}")
+      if experiment.keys() not in [set(["load"]), set(["load","overwrite"])]:
+        raise ValueError(f"When loading a model from an external YAML file, only 'load' and 'overwrite' are permitted ('load' is required) as keys at the top level of the experiment. Found: {experiment.keys()}")
       try:
         with open(experiment["load"]) as stream:
           saved_obj = yaml.load(stream)
@@ -92,7 +106,7 @@ class OptionParser(object):
         if not saved_key in experiment:
           experiment[saved_key] = saved_val
 
-      for d in experiment["overwrite"]:
+      for d in experiment.get("overwrite", []):
         path = tree_tools.Path(d[0])
         tree_tools.set_descendant(experiment, path, d[1])
       
@@ -122,7 +136,11 @@ class OptionParser(object):
         param_report[path] = v
     return param_report
 
-  def replace_placeholder(self, exp_values, value, placeholder="<EXP>"):
+  def format_strings(self, exp_values, format_dict):
     for path, node in tree_tools.traverse_tree(exp_values):
-      if isinstance(node, str) and "<EXP>" in node:
-        tree_tools.set_descendant(exp_values, path, node.replace(placeholder, value))
+      if isinstance(node, str):
+        formatted = node.format(**format_dict)
+        if node != formatted:
+          tree_tools.set_descendant(exp_values,
+                                    path,
+                                    FormatString(formatted, node))

@@ -11,9 +11,9 @@
 
 exp1.pretrain:
   global:
-    model_file: examples/output/<EXP>.mod
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
     default_layer_dim: 32
   model: !DefaultTranslator
     src_reader: !PlainTextReader
@@ -50,11 +50,7 @@ exp1.pretrain:
       eval_metrics: bleu,wer
       src_file: *dev_src # Copy over the file path from the dev tasks using YAML anchors.
       ref_file: *dev_trg # The same could also be done for more complex objects.
-      hyp_file: examples/output/<EXP>.test_hyp
+      hyp_file: examples/output/{EXP}.test_hyp
 
 exp2.load:
   load: examples/output/exp1.pretrain.mod
-  overwrite: # list of [path, value] pairs; the first three should usually be overwritten:
-  - [global.model_file, examples/output/<EXP>.mod]
-  - [global.out_file, examples/output/<EXP>.out]
-  - [global.err_file, examples/output/<EXP>.err]
