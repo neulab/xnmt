@@ -8,7 +8,6 @@ and runs them sequentially, logging outputs
 import argparse
 import sys
 import random
-import shutil
 
 import numpy as np
 

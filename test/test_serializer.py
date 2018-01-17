@@ -1,24 +1,6 @@
 import unittest
 
 from xnmt.serialize.tree_tools import Path
-import yaml
-
-class FormatString(str, yaml.YAMLObject):
-  def __new__(cls, value, *args, **kwargs):
-    return super().__new__(cls, value)
-  def __init__(self, value, serialize_as):
-    self.serialize_as = serialize_as
-    self.value = value
-
-
-class TestFormatString(unittest.TestCase):
-  def init_representer(self, dumper, obj):
-    return dumper.represent_data(obj.serialize_as)
-  def test_1(self):
-    yaml.add_representer(FormatString, self.init_representer)
-    fs = FormatString("pretrain.mod", "{EXP}.mod")
-    print(fs)
-    print(yaml.dump(fs))
 
 class TestPath(unittest.TestCase):
 
