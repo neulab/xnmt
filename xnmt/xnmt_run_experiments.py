@@ -12,8 +12,7 @@ import shutil
 
 import numpy as np
 
-# XNMT imports
-import xnmt.xnmt_preproc, xnmt.xnmt_evaluate, xnmt.training_regimen, xnmt.training_task, xnmt.eval_task
+import xnmt.xnmt_preproc
 from xnmt.serialize.options import OptionParser
 from xnmt.tee import Tee
 from xnmt.serialize.serializer import YamlSerializer
@@ -61,21 +60,18 @@ def main(overwrite_args=None):
 
     print("=> Running {}".format(experiment_name))
 
-    yaml = YamlSerializer()
+    yaml_serializer = YamlSerializer()
 
     glob_args = uninitialized_exp_args.data.get("global", {})
-    out_file = glob_args.pop("out_file", "<EXP>.out")
-    err_file = glob_args.pop("err_file", "<EXP>.err")
+    out_file = glob_args.pop("out_file", f"{experiment_name}.out")
+    err_file = glob_args.pop("err_file", f"{experiment_name}.err")
 
     output = Tee(out_file, 3)
     err_output = Tee(err_file, 3, error=True)
 
-    model_file = glob_args.pop("model_file", "<EXP>.mod")
-    cfg_file = glob_args.pop("cfg_file", None)
+    model_file = glob_args.pop("model_file", f"{experiment_name}.mod")
     save_num_checkpoints = glob_args.pop("save_num_checkpoints", 1)
     eval_only = glob_args.pop("eval_only", False)
-    if cfg_file:
-      shutil.copyfile(args.experiments_file, cfg_file)
     
     model_context = ModelContext(**glob_args)
     model_context.dynet_param_collection = PersistentParamCollection(model_file, save_num_checkpoints)
@@ -89,20 +85,25 @@ def main(overwrite_args=None):
       print("> Preprocessing")
       preproc_args = uninitialized_exp_args.data.get("preproc", {})
       del uninitialized_exp_args.data["preproc"]
-      yaml.initialize_if_needed(preproc_args, model_context)
+      yaml_serializer.initialize_if_needed(preproc_args, model_context)
       xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
 
     # Create the model    
-    exp_args = yaml.initialize_if_needed(uninitialized_exp_args, model_context)
+    exp_args = yaml_serializer.initialize_if_needed(uninitialized_exp_args, model_context)
+    if "load" in exp_args:
+      model_context.dynet_param_collection.load_from_data_file(f"{exp_args['load']}.data")
+      print(f"> populated DyNet weights from {exp_args['load']}.data")
 
     # Do training
     if "random_search_report" in exp_args:
-      print("> instantiated random parameter search: %s" % exp_args["random_search_report"])
+      print(f"> instantiated random parameter search: {exp_args['random_search_report']}")
 
     print("> Training")
     eval_scores = "Not evaluated"
     if not eval_only:
-      exp_args["train"].run_training()
+      exp_args["train"].run_training(save_fct = lambda: yaml_serializer.save_to_file(model_file, 
+                                                                                     exp_args,
+                                                                                     model_context.dynet_param_collection))
       print('reverting learned weights to best checkpoint..')
       exp_args["train"].yaml_context.dynet_param_collection.revert_to_best_model()
 

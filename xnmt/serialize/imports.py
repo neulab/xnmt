@@ -21,4 +21,6 @@ import xnmt.optimizer
 import xnmt.inference
 import xnmt.optimizer
 import xnmt.training_task
+import xnmt.training_regimen
 import xnmt.serialize.tree_tools
+import xnmt.eval_task

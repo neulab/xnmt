@@ -1,4 +1,4 @@
-exp1-pretrain-model: &exp1
+exp1-pretrain-model: 
   global:
     model_file: examples/output/<EXP>.mod
     out_file: examples/output/<EXP>.out
@@ -39,24 +39,19 @@ exp1-pretrain-model: &exp1
       ref_file: examples/data/head.en
       hyp_file: examples/output/<EXP>.dev_hyp
   evaluate:
-    - !AccuracyEvalTask &acc_task
+    - !AccuracyEvalTask
       eval_metrics: bleu
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
       hyp_file: examples/output/<EXP>.test_hyp
 
 exp2-finetune-model:
-  << : *exp1
-  train: !SimpleTrainingRegimen # load the pretrained model, but overwrite the optimizer to fine-tune with a different learning rate
-    run_for_epochs: 2
-    trainer: !AdamTrainer
-      alpha: 0.0002
-    pretrained_model_file: examples/output/exp1-pretrain-model.mod
-    src_file: examples/data/head.ja
-    trg_file: examples/data/head.en
-    dev_tasks:
-    - !AccuracyEvalTask
-      eval_metrics: bleu
-      src_file: examples/data/head.ja
-      ref_file: examples/data/head.en
-      hyp_file: examples/output/<EXP>.dev_hyp
+  load: examples/output/exp1-pretrain-model.mod
+  overwrite: # list of [path, value] pairs; the first three should usually be overwritten:
+  - [global.model_file, examples/output/<EXP>.mod]
+  - [global.out_file, examples/output/<EXP>.out]
+  - [global.err_file, examples/output/<EXP>.err]
+  - - train.trainer
+    - !AdamTrainer
+        alpha: 0.0002
+      

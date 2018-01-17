@@ -15,8 +15,14 @@ class Path(object):
   def append(self, link):
     if not link or "." in link:
       raise ValueError(f"'{link}' is not a valid link")
-    if self.path_str=="" or self.is_relative_path(): return Path(f"{self.path_str}{link}")
+    if len(self.path_str.strip("."))==0: return Path(f"{self.path_str}{link}")
     else: return Path(f"{self.path_str}.{link}")
+  def add_path(self, path_to_add):
+    if path_to_add.is_relative_path(): raise NotImplementedError("add_path() is not implemented for relative paths.")
+    if len(self.path_str.strip("."))==0 or len(path_to_add.path_str)==0:
+      return Path(f"{self.path_str}{path_to_add.path_str}")
+    else:
+      return Path(f"{self.path_str}.{path_to_add.path_str}")
   def __str__(self):
     return self.path_str
   def __repr__(self):

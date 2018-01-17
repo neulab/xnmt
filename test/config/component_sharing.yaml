@@ -9,8 +9,8 @@
 #   be set in any component and must be unique.
 #   Note that references do not work across experiments (e.g. we cannot refer to exp2.load from within exp1.pretrain)
 
-exp1.pretrain: &exp1
-  global: &exp1_exp
+exp1.pretrain:
+  global:
     model_file: examples/output/<EXP>.mod
     out_file: examples/output/<EXP>.out
     err_file: examples/output/<EXP>.err
@@ -37,7 +37,7 @@ exp1.pretrain: &exp1
       #                in which case model.trg_embedder._xnmt_id is not required:
       #                !Ref { path: model.trg_embedder }
     inference: !SimpleInference {}
-  train: !SimpleTrainingRegimen &exp1_train
+  train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en
@@ -53,10 +53,8 @@ exp1.pretrain: &exp1
       hyp_file: examples/output/<EXP>.test_hyp
 
 exp2.load:
-  << : *exp1 # use YAML's << operator to copy over exp1, but overwrite the 'global' and 'train' parts
-  global:
-    << : *exp1_exp # copy over exp1.global, but overwrite the model_file entry
-    model_file: examples/output/<EXP>.mod
-  train: !SimpleTrainingRegimen
-    << : *exp1_train # copy over exp1.train, but overwrite the pretrained_model_file entry
-    pretrained_model_file: examples/output/exp1.pretrain.mod
+  load: examples/output/exp1.pretrain.mod
+  overwrite: # list of [path, value] pairs; the first three should usually be overwritten:
+  - [global.model_file, examples/output/<EXP>.mod]
+  - [global.out_file, examples/output/<EXP>.out]
+  - [global.err_file, examples/output/<EXP>.err]

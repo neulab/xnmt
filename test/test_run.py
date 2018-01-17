@@ -24,11 +24,11 @@ class TestRunningConfig(unittest.TestCase):
 
   def test_report(self):
     run.main(["test/config/report.yaml"])
+    
+  @unittest.expectedFailure # TODO: these tests need to be fixed
+  def test_retrieval(self):
+    run.main(["test/config/retrieval.yaml"])
 
-# TODO: these tests need to be fixed
-#  def test_retrieval(self):
-#    run.main(["test/config/retrieval.yaml"])
-#
   def test_segmenting(self):
     run.main(["test/config/segmenting.yaml"])
 

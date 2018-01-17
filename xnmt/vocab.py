@@ -21,6 +21,8 @@ class Vocab(Serializable):
     :param vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
     i2w and vocab_file are mutually exclusive
     """
+    if not (i2w is None or vocab_file is None):
+      print("break")
     assert i2w is None or vocab_file is None
     if vocab_file:
       i2w = Vocab.i2w_from_vocab_file(vocab_file)
@@ -37,7 +39,8 @@ class Vocab(Serializable):
       self.i2w.append(self.SS_STR)
       self.i2w.append(self.ES_STR)
       self.frozen = False
-    self.serialize_params = {"i2w" : self.i2w}
+    self.overwrite_serialize_param("i2w", self.i2w)
+    self.overwrite_serialize_param("vocab_file", None)
 
   @staticmethod
   def i2w_from_vocab_file(vocab_file):

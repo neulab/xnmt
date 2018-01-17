@@ -2,7 +2,6 @@
 Stores options and default values
 """
 import random
-import inspect
 
 import yaml
 
@@ -71,9 +70,7 @@ class OptionParser(object):
       if isinstance(node, Serializable):
         self.resolve_kwargs(node)
 
-    for _, node in tree_tools.traverse_tree(experiment):
-      if isinstance(node, Serializable):
-        self.resolve_saved_model_file(node)
+    self.load_referenced_model(experiment)
     
     random_search_report = self.instantiate_random_search(experiment)
     if random_search_report:
@@ -82,22 +79,23 @@ class OptionParser(object):
 
     return UninitializedYamlObject(experiment)
 
-  def resolve_saved_model_file(self, obj):
-    """
-    Load the saved object and copy over attributes, unless they are overwritten in obj
-    """
-    if hasattr(obj, "pretrained_model_file"):
+  def load_referenced_model(self, experiment):
+    if "load" in experiment or "overwrite" in experiment:
+      if set(["load","overwrite"]) != experiment.keys():
+        raise ValueError(f"When loading a model from an external YAML file, only 'load' and 'overwrite' are permitted and required as keys at the top level of the experiment. Found: {experiment.keys()}")
       try:
-        with open(obj.pretrained_model_file) as stream:
+        with open(experiment["load"]) as stream:
           saved_obj = yaml.load(stream)
       except IOError as e:
-        raise RuntimeError("Could not read configuration file {}: {}".format(obj.pretrained_model_file, e))
-      saved_obj_items = inspect.getmembers(saved_obj)
-      for name, _ in saved_obj_items:
-        if not hasattr(obj, name):
-          if name!="model_file":
-            setattr(obj, name, getattr(saved_obj, name))
-  
+        raise RuntimeError(f"Could not read configuration file {experiment['load']}: {e}")
+      for saved_key, saved_val in saved_obj.items():
+        if not saved_key in experiment:
+          experiment[saved_key] = saved_val
+
+      for d in experiment["overwrite"]:
+        path = tree_tools.Path(d[0])
+        tree_tools.set_descendant(experiment, path, d[1])
+      
   def resolve_kwargs(self, obj):
     """
     If obj has a kwargs attribute (dictionary), set the dictionary items as attributes

@@ -26,12 +26,24 @@ class TestPath(unittest.TestCase):
     self.assertEqual(str(Path("one").append("2")), "one.2")
     self.assertEqual(str(Path("").append("2")), "2")
     self.assertEqual(str(Path(".").append("2")), ".2")
+    self.assertEqual(str(Path(".1.2").append("2")), ".1.2.2")
     with self.assertRaises(ValueError):
       Path("one").append("")
     with self.assertRaises(ValueError):
       Path("one").append(".")
     with self.assertRaises(ValueError):
       Path("one").append("two.3")
+  def test_add_path(self):
+    self.assertEqual(str(Path("one").add_path(Path("2"))), "one.2")
+    self.assertEqual(str(Path("one").add_path(Path("2.3"))), "one.2.3")
+    self.assertEqual(str(Path("").add_path(Path("2.3"))), "2.3")
+    self.assertEqual(str(Path("one.2").add_path(Path(""))), "one.2")
+    self.assertEqual(str(Path("").add_path(Path(""))), "")
+    self.assertEqual(str(Path(".").add_path(Path(""))), ".")
+    self.assertEqual(str(Path(".").add_path(Path("one.two"))), ".one.two")
+    self.assertEqual(str(Path(".xy").add_path(Path("one.two"))), ".xy.one.two")
+    with self.assertRaises(NotImplementedError):
+      Path("one").add_path(Path(".2.3"))
   def test_get_absolute(self):
     self.assertEqual(Path(".").get_absolute(Path("1.2")), Path("1.2"))
     self.assertEqual(Path(".x.y").get_absolute(Path("1.2")), Path("1.2.x.y"))

@@ -2,22 +2,16 @@ from __future__ import division, generators
 
 from subprocess import Popen
 import random
-import io
-import six
-
 import numpy as np
 import dynet as dy
 
 from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.serializer import YamlSerializer
 from xnmt.loss import LossBuilder
-from xnmt.inference import SimpleInference
 from xnmt.events import register_xnmt_event
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.batcher import SrcBatcher
 from xnmt.loss_tracker import BatchLossTracker
-import xnmt.xnmt_evaluate
-from xnmt.evaluator import LossScore
+import xnmt.input
 
 class TrainingTask(object):
   """
@@ -77,7 +71,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
   def __init__(self, yaml_context, model, glob={},
                src_file=None, trg_file=None,
                dev_every=0, batcher=None, loss_calculator=None, 
-               pretrained_model_file="", src_format="text", run_for_epochs=None,
+               src_format="text", run_for_epochs=None,
                lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None,
                dev_tasks=None, restart_trainer=False,
                reload_command=None, name=None, inference=None):
@@ -90,7 +84,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
     :param batcher: Type of batcher. Defaults to SrcBatcher of batch size 32.
     :param loss_calculator:
-    :param pretrained_model_file: Path of pre-trained model file
     :param src_format: Format of input data: text/contvec
     :param lr_decay (float):
     :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
@@ -107,7 +100,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     assert yaml_context is not None
     self.yaml_context = yaml_context
     self.model_file = self.yaml_context.dynet_param_collection.model_file
-    self.yaml_serializer = YamlSerializer()
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks
@@ -129,7 +121,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
     self.model = model
     self.loss_calculator = loss_calculator or LossCalculator(MLELoss())
-    self.pretrained_model_file = pretrained_model_file
 
     # TODO: self.sample_train_sents and self.max_num_train_sents should be initialized properly
     self.sample_train_sents = False

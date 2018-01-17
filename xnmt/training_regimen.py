@@ -4,7 +4,6 @@ import numpy as np
 import dynet as dy
 
 from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.serializer import YamlSerializer
 from xnmt.serialize.tree_tools import Ref, Path
 import xnmt.optimizer
 from xnmt.training_task import SimpleTrainingTask
@@ -13,16 +12,11 @@ class TrainingRegimen(object):
   """
   A training regimen is a class that implements a training loop.
   """
-  def load_weights(self):
-    """
-    Load pretrained DyNet parameters.
-    """
-    if self.pretrained_model_file:
-      self.yaml_context.dynet_param_collection.load_from_data_file(self.pretrained_model_file + '.data')
-  def run_training(self, update_weights=True):
+  def run_training(self, save_fct, update_weights=True):
     """
     Runs training steps in a loop until stopping criterion is reached.
     
+    :param save_fct: function to be invoked to save a model at dev checkpoints
     :param update_weights: Whether parameters should be updated
     """
     raise NotImplementedError("")
@@ -44,7 +38,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
   def __init__(self, yaml_context, model=Ref(path=Path("model")), glob={},
                src_file=None, trg_file=None,
                dev_every=0, batcher=None, loss_calculator=None, 
-               pretrained_model_file=None, src_format="text", trainer=None, 
+               src_format="text", trainer=None, 
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
                initial_patience=None, dev_tasks=None,
                restart_trainer=False, reload_command=None, dynet_profiling=0,
@@ -58,7 +52,6 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
     :param batcher: Type of batcher. Defaults to SrcBatcher of batch size 32.
     :param loss_calculator: The method for calculating the loss.
-    :param pretrained_model_file: Path of pre-trained model file
     :param src_format: Format of input data: text/contvec
     :param trainer: Trainer object, default is SGD with learning rate 0.1
     :param lr_decay (float):
@@ -81,7 +74,6 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                      dev_every=dev_every,
                      batcher=batcher,
                      loss_calculator=loss_calculator, 
-                     pretrained_model_file=pretrained_model_file,
                      src_format=src_format,
                      run_for_epochs=run_for_epochs,
                      lr_decay=lr_decay,
@@ -95,12 +87,11 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(self.yaml_context, 0.1)
     self.dynet_profiling = dynet_profiling
 
-  def run_training(self, update_weights=True):
+  def run_training(self, save_fct, update_weights=True):
     """
     Main training loop (overwrites TrainingRegimen.run_training())
     """
     self.load_data()
-    self.load_weights()
     self.model.set_train(update_weights)
     for src,trg in self.next_minibatch():
       dy.renew_cg()
@@ -110,8 +101,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
         if update_weights: self.model.set_train(False)
         should_save = self.checkpoint()
         if should_save:
-          self.yaml_serializer.save_to_file(self.model_file, self,
-                                        self.yaml_context.dynet_param_collection)
+          save_fct()
         if update_weights: self.model.set_train(True)
       if self.should_stop_training(): break
 
@@ -120,8 +110,7 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
   Base class for multi-task training classes.
   Mainly initializes tasks, performs sanity-checks, and manages set_train events.
   """
-  def __init__(self, yaml_context, tasks, 
-               pretrained_model_file=None, trainer=None, dynet_profiling=0):
+  def __init__(self, yaml_context, tasks, trainer=None, dynet_profiling=0):
     """
     :param tasks: list of TrainingTask instances.
                   The first item takes on the role of the main task, meaning it
@@ -134,12 +123,10 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
     self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(self.yaml_context, 0.1)
-    self.pretrained_model_file = pretrained_model_file
     for task in tasks[1:]:
       if hasattr(task, "trainer") and task.trainer is not None:
         raise ValueError("Can instantiate only one trainer object. Possibly, multiple training regimens were created when training tasks should have been used.")
     self.train = None
-    self.yaml_serializer = YamlSerializer()
     self.model_file = yaml_context.dynet_param_collection.model_file
     self.main_task = 0
     for task in tasks: task.trainer = trainer
@@ -182,14 +169,12 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   are thus performed jointly for each task. The relative weight between
   tasks can be configured by setting each tasks batch size accordingly.
   """
-  def __init__(self, yaml_context, tasks, trainer=None, pretrained_model_file=None, dynet_profiling=0):
+  def __init__(self, yaml_context, tasks, trainer=None, dynet_profiling=0):
     super().__init__(yaml_context, tasks=tasks, trainer=trainer,
-                     pretrained_model_file=pretrained_model_file,
                      dynet_profiling=dynet_profiling)
     self.yaml_context = yaml_context
-  def run_training(self, update_weights=True):
+  def run_training(self, save_fct, update_weights=True):
     self.init_data_vocabs()
-    self.load_weights()
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -208,8 +193,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
           self.trigger_train_event(False)
           should_save = task.checkpoint(control_learning_schedule = (task_i==0) )
           if should_save:
-            self.yaml_serializer.save_to_file(self.model_file, self,
-                                          self.yaml_context.dynet_param_collection)
+            save_fct()
       self.trigger_train_event(update_weights)
       if self.tasks[0].should_stop_training(): break
   
@@ -229,9 +213,8 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
                      dynet_profiling=dynet_profiling)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks) 
     self.yaml_context = yaml_context
-  def run_training(self, update_weights=True):
+  def run_training(self, save_fct, update_weights=True):
     self.init_data_vocabs()
-    self.load_weights()
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -250,8 +233,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
         self.trigger_train_event(False)
         should_save = cur_task.checkpoint(control_learning_schedule = (cur_task_i==0))
         if should_save:
-          self.yaml_serializer.save_to_file(self.model_file, self,
-                                            self.yaml_context.dynet_param_collection)
+          save_fct()
       self.trigger_train_event(update_weights)
       if self.tasks[0].should_stop_training(): break
 
@@ -274,9 +256,8 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     super().__init__(yaml_context, tasks=tasks, trainer=trainer,
                      dynet_profiling=dynet_profiling)
     self.yaml_context = yaml_context
-  def run_training(self, update_weights=True):
+  def run_training(self, save_fct, update_weights=True):
     self.init_data_vocabs()
-    self.load_weights()
     for cur_task_id in range(len(self.tasks)):
       self.main_task = cur_task_id
       self.train = None
@@ -293,7 +274,6 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
           self.trigger_train_event(False)
           should_save = cur_task.checkpoint(control_learning_schedule = True)
           if should_save:
-            self.yaml_serializer.save_to_file(self.model_file, self,
-                                              self.yaml_context.dynet_param_collection)
+            save_fct()
         self.trigger_train_event(update_weights)
         if cur_task.should_stop_training(): break
