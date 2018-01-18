@@ -239,7 +239,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     name = ["Epsilon Greedy Prob", "Reinforce Loss Weight", "Confidence Penalty Weight", "Length Prior Weight"]
     param = [self.eps, self.lmbd, self.confidence_penalty, self.length_prior_alpha]
     for n, p in zip(name, param):
-      if param is not None:
+      if p is not None:
         print(n + ":", p.value())
 
   @handle_xnmt_event
