@@ -17,6 +17,15 @@ class ScalingParam(Serializable):
       value *= self.scaler.value()
     return value
 
+class Scalar(Serializable):
+  yaml_tag = u"!Scalar"
+
+  def __init__(self, value=0.0):
+    self.__value = value
+
+  def value(self):
+    return self.__value
+
 class GeometricSequence(Serializable):
   ''' initial^(epoch) '''
   yaml_tag = u'!GeometricSequence'
