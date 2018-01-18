@@ -9,6 +9,10 @@ class Reportable(object):
   def html_report(self, context=None):
     raise NotImplementedError()
 
+  @register_xnmt_event_assign
+  def txt_report(self, context=None):
+    raise NotImplementedError()
+
   ### Getter + Setter for particular report py
   def set_report_input(self, *inputs):
     self.__report_input = inputs
@@ -59,6 +63,9 @@ class Reportable(object):
   def generate_file_report(self):
     self.file_report()
 
+  def generate_txt_report(self):
+    self.txt_report(context=None)
+
   @register_xnmt_event
   def file_report(self):
     pass
@@ -72,6 +79,8 @@ class Reportable(object):
         self.generate_html_report()
       elif typ == "file":
         self.generate_file_report()
+      elif typ == "txt":
+        self.generate_txt_report()
       else:
         raise ValueError("Unknown report type:", typ)
 

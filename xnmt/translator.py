@@ -1,7 +1,7 @@
 from __future__ import division, generators
 
 import six
-import plot
+import io
 import dynet as dy
 import numpy as np
 import itertools
@@ -127,7 +127,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       # In case of reporting
       if self.report_path is not None:
         src_words = [self.reporting_src_vocab[w] for w in sents]
-        trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
+        # next line seemed to truncate first trg elt in the seq (in forced decoding mode at least)
+        # `output_actions[1:]` replaced by `output_actions[0:]`
+        trg_words = [self.trg_vocab[w] for w in output_actions[0:]]
         attentions = self.attender.attention_vecs
         self.set_report_input(idx, src_words, trg_words, attentions)
         self.set_report_resource("src_words", src_words)
@@ -186,8 +188,42 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
       plot.plot_attention(src, trg, attentions, file_name = attention_file)
 
+      attention_txt_file = u"{}.attention.txt".format(path_to_report)
+      np.savetxt(attention_txt_file, attentions, delimiter=' ', newline='\n\n ')
+
+
     # return the parent context to be used as child context
     return html
+
+  @register_xnmt_event_assign
+  def txt_report(self, context=None):
+    assert(context is None)
+    idx, src, trg, att = self.get_report_input()
+    path_to_report = self.get_report_path()
+
+    # Writing attention matrix to text file
+    if not any([src is None, trg is None, att is None]):
+      attention_file = u"{}.attention.txt".format(path_to_report)
+
+      if type(att) == dy.Expression:
+        attentions = att.npvalue()
+      elif type(att) == list:
+        attentions = np.concatenate([x.npvalue() for x in att], axis=1)
+      elif type(att) != np.ndarray:
+        raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
+
+      # Not sure why elsewhere in the code the attention matrix is line-indexed by src
+      # and column-indexed by trg (the convention seems to be the other way around,
+      # eg. in [Bahdanau, 2014] https://arxiv.org/pdf/1409.0473.pdf)
+      # I expect attention matrices to sum to 1.0 line-wise.
+      att_transpose = np.transpose(attentions)
+      with io.open(attention_file, 'w', encoding='utf-8') as f:
+        f.write('\t' + '\t'.join(src) + '\n')
+        for i in range(len(trg)):
+          coeffs = '\t'.join(map(str, list(att_transpose[i])))
+          f.write('{}\t{}\n'.format(trg[i], coeffs))
+
+      # np.savetxt(attention_file+'.np', attentions, delimiter=' ', newline='\n\n')
 
 
 class TransformerTranslator(Translator, Serializable, Reportable):

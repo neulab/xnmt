@@ -21,7 +21,7 @@ NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
 class SimpleInference(Serializable):
   yaml_tag = u'!SimpleInference'
   def __init__(self, model_file=None, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
-                  input_format="text", post_process="none", report_path=None, report_type="html",
+                  input_format="text", post_process="none", report_path=None, report_type=None,
                   beam=1, max_len=100, len_norm_type=None, mode="onebest"):
     """
     :param model_file: pretrained (saved) model path (required onless model_elements is given)
