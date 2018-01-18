@@ -8,8 +8,8 @@ from xnmt.events import register_handler, handle_xnmt_event, register_xnmt_event
 from xnmt.reports import Reportable
 from xnmt.vocab import Vocab
 
-class SegmentTransducer(Serializable, Reportable):
-  yaml_tag = u"!SegmentTransducer"
+class SegmentComposer(Serializable, Reportable):
+  yaml_tag = u"!SegmentComposer"
 
   def __init__(self, encoder, transformer):
     register_handler(self)

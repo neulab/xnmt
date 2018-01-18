@@ -4,22 +4,13 @@ from __future__ import division, print_function
 import argparse
 import sys
 import six
-from subprocess import Popen
-
 import dynet as dy
 
-# all Serializable objects must be imported here, otherwise we get in trouble with the
-# YAML parser
-import xnmt.batcher
+from subprocess import Popen
+
 from xnmt.embedder import *
 from xnmt.attender import *
 from xnmt.input import *
-import xnmt.lstm
-import xnmt.pyramidal
-import xnmt.conv
-import xnmt.ff
-import xnmt.segment_transducer
-import xnmt.residual
 from xnmt.specialized_encoders import *
 from xnmt.decoder import *
 from xnmt.translator import *
@@ -32,9 +23,6 @@ from xnmt.options import Option, OptionParser, general_options
 from xnmt.loss import LossBuilder
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.training_strategy import TrainingStrategy, TrainingMLELoss
-import xnmt.serializer
-import xnmt.xnmt_decode
-import xnmt.xnmt_evaluate
 from xnmt.evaluator import LossScore
 '''
 This will be the main class to perform training.
@@ -253,6 +241,8 @@ class XnmtTrainer(object):
       self.logger.report_train_process()
       if self.logger.should_report_dev():
         self.dev_evaluation()
+
+    self.model.next_epoch()
 
   def dev_evaluation(self, out_ext=".dev_hyp", ref_ext=".dev_ref", encoding='utf-8'):
     self.model.set_train(False)
