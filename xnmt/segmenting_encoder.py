@@ -73,7 +73,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.debug = debug
     self.compose_char = compose_char
     # Fixed Parameters
-    self.encoder_hidden_dim = segment_composer.encoder.hidden_dim
     self.length_prior = length_prior
     self.segmentation_warmup = segmentation_warmup
     # Variable Parameters
@@ -136,7 +135,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     length_prior = [sum(len_prior) / len(len_prior) for len_prior in length_prior]
     # Padding
     max_col = max(len(xs) for xs in outputs)
-    P0 = dy.vecInput(self.encoder_hidden_dim)
+    P0 = dy.vecInput(outputs[0][0].dim()[0][0])
     def pad(xs):
       deficit = max_col - len(xs)
       if deficit > 0:
@@ -164,7 +163,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.src_sent = src
 
   def sample_segmentation(self, encodings, batch_size):
-    lmbd = self.lmbd.value()
+    lmbd = self.lmbd.value() if self.lmbd is not None else 0
     eps = self.eps.value() if self.eps is not None else None
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
     # Flags
@@ -189,7 +188,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.print_debug("sample_from_prior")
     segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
     for segment_decision, sent in zip(segment_decisions, self.src_sent):
-      segment_decisions[sent.annotation["segment"]] = 1
+      segment_decision[sent.annotation["segment"]] = 1
     return numpy.split(segment_decisions, len(encodings), 1)
 
   # Sample from poisson prior
