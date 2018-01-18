@@ -212,6 +212,7 @@ class TestTrainDevLoss(unittest.TestCase):
   def test_train_dev_loss_equal(self):
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = NonPersistentParamCollection()
+    batcher = SrcBatcher(batch_size=5, break_ties_randomly=False)
     train_args = {}
     train_args['src_file'] = "examples/data/head.ja"
     train_args['trg_file'] = "examples/data/head.en"
@@ -226,9 +227,10 @@ class TestTrainDevLoss(unittest.TestCase):
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
                                             src_file="examples/data/head.ja",
-                                            ref_file="examples/data/head.en")]
+                                            ref_file="examples/data/head.en",
+                                            batcher=batcher)]
     train_args['trainer'] = None
-    train_args['batcher'] = SrcBatcher(batch_size=5, break_ties_randomly=False)
+    train_args['batcher'] = batcher
     train_args['run_for_epochs'] = 1
     training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(yaml_context=self.model_context, **train_args)
     training_regimen.model_context = self.model_context
@@ -245,6 +247,7 @@ class TestOverfitting(unittest.TestCase):
     self.model_context = ModelContext()
     self.model_context.dynet_param_collection = NonPersistentParamCollection()
     self.model_context.default_layer_dim = 16
+    batcher = SrcBatcher(batch_size=10, break_ties_randomly=False)
     train_args = {}
     train_args['src_file'] = "examples/data/head.ja"
     train_args['trg_file'] = "examples/data/head.en"
@@ -259,10 +262,11 @@ class TestOverfitting(unittest.TestCase):
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
                                             src_file="examples/data/head.ja",
-                                            ref_file="examples/data/head.en")]
+                                            ref_file="examples/data/head.en",
+                                            batcher=batcher)]
     train_args['run_for_epochs'] = 1
     train_args['trainer'] = AdamTrainer(self.model_context, alpha=0.1)
-    train_args['batcher'] = SrcBatcher(batch_size=10, break_ties_randomly=False)
+    train_args['batcher'] = batcher
     training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(yaml_context=self.model_context, **train_args)
     training_regimen.model_context = self.model_context
     for _ in range(50):

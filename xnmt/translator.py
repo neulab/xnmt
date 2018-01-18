@@ -5,6 +5,8 @@ import plot
 import dynet as dy
 import numpy as np
 import itertools
+# Reporting purposes
+from lxml import etree
 
 import xnmt.length_normalization
 import xnmt.batcher
@@ -19,9 +21,6 @@ from xnmt.input import SimpleSentenceInput
 import xnmt.serialize.serializer
 from xnmt.serialize.tree_tools import Path
 from xnmt.batcher import mark_as_batch, is_batched
-
-# Reporting purposes
-from lxml import etree
 
 class Translator(GeneratorModel):
   '''

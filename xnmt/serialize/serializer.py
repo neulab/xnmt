@@ -2,6 +2,7 @@ import os
 import copy
 from functools import lru_cache
 from collections import OrderedDict
+import inspect
 
 import yaml
 
@@ -44,6 +45,8 @@ class YamlSerializer(object):
     self.named_paths = self.get_named_paths(self.deserialized_yaml)
     # if arguments were not given in the YAML file and are set to a Ref by default, copy this Ref into the object structure so that it can be properly resolved in a subsequent step
     self.resolve_ref_default_args(self.deserialized_yaml)
+    # if references point to places that are not specified explicitly in the YAML file, but have given default arguments, substitute those default arguments
+    self.create_referenced_default_args(self.deserialized_yaml)
     # apply sharing as requested by Serializable.shared_params()
     self.share_init_params_top_down(self.deserialized_yaml)     
     # finally, initialize each component via __init__(**init_params), while properly resolving references
@@ -73,6 +76,32 @@ class YamlSerializer(object):
             if isinstance(arg_default, tree_tools.Ref):
               setattr(node, expected_arg, arg_default)
 
+  def create_referenced_default_args(self, root):
+    for _, node in tree_tools.traverse_tree(root):
+      if isinstance(node, tree_tools.Ref):
+        referenced_path = node.get_path()
+        if not referenced_path:
+          continue # skip named paths
+        if isinstance(referenced_path, str): referenced_path = tree_tools.Path(referenced_path)
+        give_up = False
+        for ancestor in sorted(referenced_path.ancestors(), key = lambda x: len(x)):
+          try:
+            tree_tools.get_descendant(root, ancestor)
+          except:
+            ancestor_parent = tree_tools.get_descendant(root, ancestor.parent())
+            if isinstance(ancestor_parent, Serializable):
+              init_args_defaults = tree_tools.get_init_args_defaults(ancestor_parent)
+              referenced_arg_default = init_args_defaults[ancestor[-1]].default
+              if referenced_arg_default == inspect.Parameter.empty and node.is_required():
+                raise ValueError(f"Reference '{node}' is required but does not exist and has no default arguments")
+              else:
+                tree_tools.set_descendant(root, ancestor, referenced_arg_default)
+            else:
+              if node.is_required():
+                raise ValueError(f"Reference '{node}' is required but does not exist")
+              give_up = True
+          if give_up: break
+  
   def share_init_params_top_down(self, root):
     abs_shared_param_sets = []
     for path, node in tree_tools.traverse_tree(root):

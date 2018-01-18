@@ -70,7 +70,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
   yaml_tag = '!SimpleTrainingTask'
   def __init__(self, yaml_context, model, glob={},
                src_file=None, trg_file=None,
-               dev_every=0, batcher=None, loss_calculator=None, 
+               dev_every=0, batcher=SrcBatcher(32), loss_calculator=None, 
                src_format="text", run_for_epochs=None,
                lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None,
                dev_tasks=None, restart_trainer=False,
@@ -82,7 +82,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     :param src_file: The file for the source data.
     :param trg_file: The file for the target data.
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
-    :param batcher: Type of batcher. Defaults to SrcBatcher of batch size 32.
+    :param batcher: Type of batcher
     :param loss_calculator:
     :param src_format: Format of input data: text/contvec
     :param lr_decay (float):
@@ -129,7 +129,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.max_src_len = None
     self.max_trg_len = None
 
-    self.batcher = batcher or SrcBatcher(32)
+    self.batcher = batcher
     if src_format == "contvec":
       self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
     self.logger = BatchLossTracker(self, dev_every, name)

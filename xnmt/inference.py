@@ -11,6 +11,7 @@ from xnmt.translator import *
 from xnmt.search_strategy import *
 from xnmt.loss_calculator import LossCalculator
 from xnmt.serialize.serializable import Serializable
+import xnmt.translator
 
 '''
 This will be the main class to perform decoding.
@@ -83,7 +84,7 @@ class SimpleInference(Serializable):
     generator.initialize_generator(**args)
   
     # TODO: Structure it better. not only Translator can have post processes
-    if issubclass(generator.__class__, Translator):
+    if issubclass(generator.__class__, xnmt.translator.Translator):
       generator.set_post_processor(self.get_output_processor())
       generator.set_trg_vocab(trg_vocab)
       generator.set_reporting_src_vocab(src_vocab)
