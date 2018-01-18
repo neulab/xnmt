@@ -236,7 +236,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     with io.open(self.get_report_path() + ".att", encoding='utf-8', mode='w') as attn_file:
       for i in range(len(src)+1):
         if i == 0:
-          words = [""] + trg
+          words = trg + [""]
         else:
           words = ["%.4f" % (f) for f in attn[i-1]] + [src[i-1]]
         str_format = ""
