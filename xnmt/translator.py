@@ -188,10 +188,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
       plot.plot_attention(src, trg, attentions, file_name = attention_file)
 
-      attention_txt_file = u"{}.attention.txt".format(path_to_report)
-      np.savetxt(attention_txt_file, attentions, delimiter=' ', newline='\n\n ')
-
-
     # return the parent context to be used as child context
     return html
 
