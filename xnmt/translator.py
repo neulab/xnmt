@@ -2,6 +2,7 @@ from __future__ import division, generators
 
 import six
 import io
+import xnmt.plot
 import dynet as dy
 import numpy as np
 import itertools
@@ -186,7 +187,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         attentions = np.concatenate([x.npvalue() for x in att], axis=1)
       elif type(att) != np.ndarray:
         raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
-      plot.plot_attention(src, trg, attentions, file_name = attention_file)
+      xnmt.plot.plot_attention(src, trg, attentions, file_name = attention_file)
 
     # return the parent context to be used as child context
     return html
