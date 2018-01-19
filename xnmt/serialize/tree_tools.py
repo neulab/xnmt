@@ -229,7 +229,7 @@ def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST
     resolved_path = cur_node.resolve_path(named_paths)
     try:
       yield from traverse_tree_deep(root, get_descendant(root, resolved_path), traversal_order, resolved_path, named_paths)
-    except KeyError:
+    except (KeyError, AttributeError):
       if cur_node.is_required():
         raise ValueError(f"Was not able to find required reference '{resolved_path}' at '{path_to_node}'")
   else:

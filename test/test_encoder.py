@@ -17,8 +17,7 @@ class TestEncoder(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
-    self.model_context = ModelContext()
-    self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
+    self.model_context = ModelContext(dynet_param_collection=PersistentParamCollection("some_file", 1))
 
     self.src_reader = PlainTextReader()
     self.trg_reader = PlainTextReader()

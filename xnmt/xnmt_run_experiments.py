@@ -77,12 +77,11 @@ def main(overwrite_args=None):
 #       yaml_serializer.initialize_if_needed(preproc_args, model_context)
 #       xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
 
-    # Create the model    
+    # Create the model
     experiment = yaml_serializer.initialize_if_needed(uninitialized_exp_args)
 
-
-    eval_scores = experiment(save_fct = lambda: yaml_serializer.save_to_file(model_file, 
-                                                                             experiment,
+    # Run the experiment
+    eval_scores = experiment(save_fct = lambda: yaml_serializer.save_to_file(model_file, experiment,
                                                                              experiment.model_context.dynet_param_collection))
     results.append((experiment_name, eval_scores))
 
