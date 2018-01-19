@@ -39,7 +39,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                segmentation_warmup=0,
                segmentation_warmup_counter=0,
                ## FLAGS
-               compose_char       = False, # Use char embedding instead context for composing
                learn_delete       = False,
                use_baseline       = True,
                z_normalization    = True,
@@ -71,7 +70,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.learn_delete = learn_delete
     self.z_normalization = z_normalization
     self.debug = debug
-    self.compose_char = compose_char
     # Fixed Parameters
     self.length_prior = length_prior
     self.segmentation_warmup = segmentation_warmup
@@ -95,8 +93,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # The last segment decision should be equal to 1
     if len(segment_decisions) > 0:
       segment_decisions[-1] = numpy.ones(segment_decisions[-1].shape, dtype=int)
-    # Determine the input to the composition function
-    compose_inp = encodings if not self.compose_char else embed_sent
     # Buffer for output
     buffers = [[] for _ in range(batch_size)]
     outputs = [[] for _ in range(batch_size)]
@@ -104,7 +100,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     length_prior = [[] for _ in range(batch_size)]
     self.segment_composer.set_input_size(batch_size, len(encodings))
     # Loop through all the frames (word / item) in input.
-    for j, (inp, segment_decision) in enumerate(zip(compose_inp, segment_decisions)):
+    for j, (encoding, segment_decision) in enumerate(zip(encodings, segment_decisions)):
       # For each decision in the batch
       for i, decision in enumerate(segment_decision):
         # If segment for this particular input
@@ -112,9 +108,9 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if decision == SegmentingAction.DELETE.value:
           continue
         # Get the particular encoding for that batch item
-        inp_i = dy.pick_batch_elem(inp, i)
+        enc_i = dy.pick_batch_elem(encoding, i)
         # Append the encoding for this item to the buffer
-        buffers[i].append(inp_i)
+        buffers[i].append(enc_i)
         if decision == SegmentingAction.SEGMENT.value:
           # Special case for TailWordSegmentTransformer only
           words = None
