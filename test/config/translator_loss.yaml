@@ -1,5 +1,5 @@
-reinforce:
-  global:
+reinforce: !Experiment
+  model_context: !ModelContext
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err

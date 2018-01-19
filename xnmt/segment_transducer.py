@@ -4,6 +4,7 @@ import xnmt.linear
 import xnmt.embedder
 
 from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.events import register_handler, handle_xnmt_event, register_xnmt_event
 from xnmt.reports import Reportable
 
@@ -66,7 +67,7 @@ class DownsamplingSegmentTransformer(SegmentTransformer):
 class CategorySegmentTransformer(SegmentTransformer):
   yaml_tag = u"!CategorySegmentTransformer"
 
-  def __init__(self, yaml_context, input_dim=None, category_dim=None, embed_dim=None):
+  def __init__(self, yaml_context=Ref(Path("model_context")), input_dim=None, category_dim=None, embed_dim=None):
     register_handler(self)
     model = yaml_context.dynet_param_collection.param_col
     self.category_output = xnmt.linear.Linear(input_dim, category_dim, model)

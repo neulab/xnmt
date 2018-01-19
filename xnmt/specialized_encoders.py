@@ -4,6 +4,7 @@ import dynet as dy
 
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.transducer import Transducer, SeqTransducer
 
 # This is a file for specialized encoders that implement a particular model
@@ -31,7 +32,7 @@ def padding(src, min_size):
 
 class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = u'!TilburgSpeechSeqTransducer'
-  def __init__(self, yaml_context, filter_height, filter_width, channels, num_filters, stride, rhn_num_hidden_layers, rhn_dim, rhn_microsteps, attention_dim, residual= False):
+  def __init__(self, filter_height, filter_width, channels, num_filters, stride, rhn_num_hidden_layers, rhn_dim, rhn_microsteps, attention_dim, residual= False, yaml_context=Ref(Path("model_context"))):
     """
     :param etc.
     """
@@ -113,7 +114,7 @@ class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
 #  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
 class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = u'!HarwathSpeechSeqTransducer'
-  def __init__(self, yaml_context, filter_height, filter_width, channels, num_filters, stride):
+  def __init__(self, filter_height, filter_width, channels, num_filters, stride, yaml_context=Ref(Path("model_context"))):
     """
     :param num_layers: depth of the RNN
     :param input_dim: size of the inputs
@@ -176,7 +177,7 @@ class HarwathImageTransducer(Transducer, Serializable):
     Then, we add a configurable number of bidirectional RNN layers on top.
     """
 
-  def __init__(self, yaml_context, in_height, out_height):
+  def __init__(self, in_height, out_height, yaml_context=Ref(Path("model_context"))):
     """
       :param num_layers: depth of the RNN
       :param input_dim: size of the inputs

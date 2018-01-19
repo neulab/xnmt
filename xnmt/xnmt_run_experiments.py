@@ -11,12 +11,9 @@ import random
 
 import numpy as np
 
-import xnmt.xnmt_preproc
 from xnmt.serialize.options import OptionParser
 from xnmt.tee import Tee
 from xnmt.serialize.serializer import YamlSerializer
-from xnmt.model_context import ModelContext, PersistentParamCollection
-
 
 def main(overwrite_args=None):
   argparser = argparse.ArgumentParser()
@@ -61,64 +58,32 @@ def main(overwrite_args=None):
 
     yaml_serializer = YamlSerializer()
 
-    glob_args = uninitialized_exp_args.data.get("global", {})
-    out_file = glob_args.get("out_file", f"{experiment_name}.out")
-    err_file = glob_args.get("err_file", f"{experiment_name}.err")
+    glob_args = uninitialized_exp_args.data.model_context
+    out_file = glob_args.get_out_file(experiment_name)
+    err_file = glob_args.get_err_file(experiment_name)
 
     output = Tee(out_file, 3)
     err_output = Tee(err_file, 3, error=True)
 
-    model_file = glob_args.get("model_file", f"{experiment_name}.mod")
-    save_num_checkpoints = glob_args.get("save_num_checkpoints", 1)
-    eval_only = glob_args.get("eval_only", False)
-    
-    model_context = ModelContext(**glob_args)
-    model_context.dynet_param_collection = PersistentParamCollection(model_file, save_num_checkpoints)
+    model_file = glob_args.get_model_file(experiment_name)
 
-    uninitialized_exp_args.data["train"].dynet_profiling = args.dynet_profiling
+    uninitialized_exp_args.data.model_context.commandline_args = args
 
-    # Here we do preprocessing before initializing the model, as the files created
-    # by preprocessing may be used in constructors
-    # TODO: This is a bit dangerous, as it doesn't allow ref sharing between them
-    if "preproc" in uninitialized_exp_args.data:
-      print("> Preprocessing")
-      preproc_args = uninitialized_exp_args.data.get("preproc", {})
-      del uninitialized_exp_args.data["preproc"]
-      yaml_serializer.initialize_if_needed(preproc_args, model_context)
-      xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
+    # TODO: Delete or move inside PreprocRunner.__init__()
+#     if "preproc" in uninitialized_exp_args.data:
+#       print("> Preprocessing")
+#       preproc_args = uninitialized_exp_args.data.get("preproc", {})
+#       del uninitialized_exp_args.data["preproc"]
+#       yaml_serializer.initialize_if_needed(preproc_args, model_context)
+#       xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
 
     # Create the model    
-    exp_args = yaml_serializer.initialize_if_needed(uninitialized_exp_args, model_context)
-    if "load" in exp_args:
-      model_context.dynet_param_collection.load_from_data_file(f"{exp_args['load']}.data")
-      print(f"> populated DyNet weights from {exp_args['load']}.data")
+    experiment = yaml_serializer.initialize_if_needed(uninitialized_exp_args)
 
-    # Do training
-    if "random_search_report" in exp_args:
-      print(f"> instantiated random parameter search: {exp_args['random_search_report']}")
 
-    print("> Training")
-    eval_scores = "Not evaluated"
-    if not eval_only:
-      exp_args["train"].run_training(save_fct = lambda: yaml_serializer.save_to_file(model_file, 
-                                                                                     exp_args,
-                                                                                     model_context.dynet_param_collection))
-      print('reverting learned weights to best checkpoint..')
-      exp_args["train"].yaml_context.dynet_param_collection.revert_to_best_model()
-
-    evaluate_args = exp_args["evaluate"]
-    if evaluate_args:
-      print("> Performing final evaluation")
-      output.indent += 2
-      eval_scores = []
-      for evaluator in evaluate_args:
-        eval_score, eval_words = evaluator.eval()
-        if type(eval_score) == list:
-          eval_scores.extend(eval_score)
-        else:
-          eval_scores.append(eval_score)
-      output.indent -= 2
-
+    eval_scores = experiment(save_fct = lambda: yaml_serializer.save_to_file(model_file, 
+                                                                             experiment,
+                                                                             experiment.model_context.dynet_param_collection))
     results.append((experiment_name, eval_scores))
 
     output.close()

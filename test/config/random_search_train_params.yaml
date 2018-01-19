@@ -1,6 +1,6 @@
 # Demonstrates random search over model parameters
-defaults: &defaults
-  global:
+defaults: &defaults  !Experiment
+  model_context: !ModelContext
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err
@@ -44,9 +44,6 @@ defaults: &defaults
       hyp_file: examples/output/{EXP}.test_hyp
 
 # Here we instantiate 3 experiments, for each the random params are drawn independently
-exp1:
-  << : *defaults
-exp2:
-  << : *defaults
-exp3:
-  << : *defaults
+exp1: *defaults
+exp2: *defaults
+exp3: *defaults

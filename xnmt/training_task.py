@@ -6,6 +6,7 @@ import numpy as np
 import dynet as dy
 
 from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.loss import LossBuilder
 from xnmt.events import register_xnmt_event
 from xnmt.loss_calculator import LossCalculator, MLELoss
@@ -68,13 +69,13 @@ class TrainingTask(object):
 
 class SimpleTrainingTask(TrainingTask, Serializable):
   yaml_tag = '!SimpleTrainingTask'
-  def __init__(self, yaml_context, model, glob={},
+  def __init__(self, model, glob={},
                src_file=None, trg_file=None,
                dev_every=0, batcher=SrcBatcher(32), loss_calculator=None, 
                src_format="text", run_for_epochs=None,
                lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None,
                dev_tasks=None, restart_trainer=False,
-               reload_command=None, name=None, inference=None):
+               reload_command=None, name=None, inference=None, yaml_context=Ref(Path("model_context"))):
     """
     :param yaml_context:
     :param model: a generator.GeneratorModel object
@@ -97,7 +98,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     :param name: will be prepended to log outputs if given
     :param inference: used for inference during dev checkpoints if dev_metrics are specified
     """
-    assert yaml_context is not None
     self.yaml_context = yaml_context
     self.model_file = self.yaml_context.dynet_param_collection.model_file
     self.src_file = src_file

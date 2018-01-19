@@ -44,7 +44,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
 
   yaml_tag = u'!MlpSoftmaxDecoder'
 
-  def __init__(self, yaml_context, layers=1, input_dim=None, lstm_dim=None,
+  def __init__(self, yaml_context=Ref(Path("model_context")), layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
                bridge=None, label_smoothing=0.0, vocab_projector=None,
@@ -67,7 +67,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
       lstm_input += input_dim
     # Bridge
     self.lstm_layers = layers
-    self.bridge = bridge or NoBridge(yaml_context, self.lstm_layers, self.lstm_dim)
+    self.bridge = bridge or NoBridge(self.lstm_layers, self.lstm_dim, yaml_context=yaml_context)
 
     # LSTM
     self.fwd_lstm  = RnnDecoder.rnn_from_spec(spec       = rnn_spec,
@@ -183,7 +183,7 @@ class NoBridge(Bridge, Serializable):
   This bridge initializes the decoder with zero vectors, disregarding the encoder final states.
   """
   yaml_tag = u'!NoBridge'
-  def __init__(self, yaml_context, dec_layers, dec_dim = None):
+  def __init__(self, dec_layers, dec_dim = None, yaml_context=Ref(Path("model_context"))):
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim or yaml_context.default_layer_dim
   def decoder_init(self, enc_final_states):
@@ -199,7 +199,7 @@ class CopyBridge(Bridge, Serializable):
   - num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
   """
   yaml_tag = u'!CopyBridge'
-  def __init__(self, yaml_context, dec_layers, dec_dim = None):
+  def __init__(self, dec_layers, dec_dim = None, yaml_context=Ref(Path("model_context"))):
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim or yaml_context.default_layer_dim
   def decoder_init(self, enc_final_states):
@@ -217,7 +217,7 @@ class LinearBridge(Bridge, Serializable):
   - num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
   """
   yaml_tag = u'!LinearBridge'
-  def __init__(self, yaml_context, dec_layers, enc_dim = None, dec_dim = None):
+  def __init__(self, dec_layers, enc_dim = None, dec_dim = None, yaml_context=Ref(Path("model_context"))):
     param_col = yaml_context.dynet_param_collection.param_col
     self.dec_layers = dec_layers
     self.enc_dim = enc_dim or yaml_context.default_layer_dim

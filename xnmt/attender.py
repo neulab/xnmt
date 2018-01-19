@@ -1,6 +1,7 @@
 import math
 import dynet as dy
 from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.tree_tools import Ref, Path
 
 class Attender(object):
   '''
@@ -26,7 +27,7 @@ class MlpAttender(Attender, Serializable):
 
   yaml_tag = u'!MlpAttender'
 
-  def __init__(self, yaml_context, input_dim=None, state_dim=None, hidden_dim=None):
+  def __init__(self, yaml_context=Ref(Path("model_context")), input_dim=None, state_dim=None, hidden_dim=None):
     input_dim = input_dim or yaml_context.default_layer_dim
     state_dim = state_dim or yaml_context.default_layer_dim
     hidden_dim = hidden_dim or yaml_context.default_layer_dim
@@ -79,7 +80,7 @@ class DotAttender(Attender, Serializable):
 
   yaml_tag = u'!DotAttender'
 
-  def __init__(self, yaml_context, scale=True):
+  def __init__(self, scale=True):
     self.curr_sent = None
     self.attention_vecs = None
     self.scale = scale
@@ -112,7 +113,7 @@ class BilinearAttender(Attender, Serializable):
 
   yaml_tag = u'!BilinearAttender'
 
-  def __init__(self, yaml_context, input_dim=None, state_dim=None):
+  def __init__(self, yaml_context=Ref(Path("model_context")), input_dim=None, state_dim=None):
     input_dim = input_dim or yaml_context.default_layer_dim
     state_dim = state_dim or yaml_context.default_layer_dim
     self.input_dim = input_dim

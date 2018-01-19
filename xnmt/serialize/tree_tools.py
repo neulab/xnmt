@@ -77,7 +77,7 @@ class Path(object):
 
 class Ref(Serializable):
   yaml_tag = "!Ref"
-  def __init__(self, name=None, path=None, required=True):
+  def __init__(self, path=None, name=None, required=True):
     if name is not None and path is not None:
       raise ValueError(f"Ref cannot be initialized with both a name and a path ({name} / {path})")
     self.name = name
@@ -186,13 +186,13 @@ def get_descendant(node, path):
     return node
   else:
     return get_descendant(get_child(node, path[0]), path.descend_one())
-def set_descendant(node, path, val):
+def set_descendant(root, path, val):
   if len(path)==0:
-    raise ValueError("set_descendant() path was empty")
+    raise ValueError("path was empty")
   elif len(path)==1:
-    set_child(node, path[0], val)
+    set_child(root, path[0], val)
   else:
-    return set_descendant(get_child(node, path[0]), path.descend_one(), val)
+    set_descendant(get_child(root, path[0]), path.descend_one(), val)
 
 class TraversalOrder(IntEnum):
   ROOT_FIRST = auto()

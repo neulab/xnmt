@@ -1,4 +1,3 @@
-import argparse
 import sys
 import os.path
 import io
@@ -6,7 +5,7 @@ import io
 from xnmt.serialize.options import OptionParser
 from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer
 from xnmt.serialize.serializer import YamlSerializer
-
+from xnmt.serialize.serializable import Serializable
 ##### Main function
 
 def make_parent_dir(filename):
@@ -14,8 +13,13 @@ def make_parent_dir(filename):
     try:
       os.makedirs(os.path.dirname(filename))
     except OSError as exc: # Guard against race condition
-      if exc.errno != errno.EEXIST:
+      if exc.errno != os.errno.EEXIST:
         raise
+
+class PreprocRunner(Serializable):
+  yaml_tag = "!PreprocRunner"
+  def __init__(self, preproc_specs, overwrite=False):
+    raise NotImplementedError()
 
 def xnmt_preproc(preproc_specs=None, overwrite=False):
   """Preprocess and filter the input files, and create the vocabulary

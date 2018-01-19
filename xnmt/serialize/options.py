@@ -2,6 +2,7 @@
 Stores options and default values
 """
 import random
+import inspect
 
 import yaml
 
@@ -88,27 +89,33 @@ class OptionParser(object):
     
     random_search_report = self.instantiate_random_search(experiment)
     if random_search_report:
-      experiment['random_search_report'] = random_search_report
+      setattr(experiment, 'random_search_report', random_search_report)
     self.format_strings(experiment, {"EXP":exp_name })
 
     return UninitializedYamlObject(experiment)
 
   def load_referenced_model(self, experiment):
-    if "load" in experiment or "overwrite" in experiment:
-      if experiment.keys() not in [set(["load"]), set(["load","overwrite"])]:
-        raise ValueError(f"When loading a model from an external YAML file, only 'load' and 'overwrite' are permitted ('load' is required) as keys at the top level of the experiment. Found: {experiment.keys()}")
+    if hasattr(experiment, "load") or hasattr(experiment, "overwrite"):
+      exp_args = set([x[0] for x in tree_tools.name_children(experiment, include_reserved=False)])
+      if exp_args not in [set(["load"]), set(["load","overwrite"])]:
+        raise ValueError(f"When loading a model from an external YAML file, only 'load' and 'overwrite' are permitted ('load' is required) as arguments to the experiment. Found: {exp_args}")
       try:
-        with open(experiment["load"]) as stream:
+        with open(experiment.load) as stream:
           saved_obj = yaml.load(stream)
       except IOError as e:
-        raise RuntimeError(f"Could not read configuration file {experiment['load']}: {e}")
-      for saved_key, saved_val in saved_obj.items():
-        if not saved_key in experiment:
-          experiment[saved_key] = saved_val
+        raise RuntimeError(f"Could not read configuration file {experiment.load}: {e}")
+      for saved_key, saved_val in tree_tools.name_children(saved_obj, include_reserved=True):
+        if not hasattr(experiment, saved_key):
+          setattr(experiment, saved_key, saved_val)
 
-      for d in experiment.get("overwrite", []):
-        path = tree_tools.Path(d[0])
-        tree_tools.set_descendant(experiment, path, d[1])
+      if hasattr(experiment, "overwrite"):
+        for d in experiment.overwrite:
+          path = tree_tools.Path(d[0])
+          try:
+            tree_tools.set_descendant(experiment, path, d[1])
+          except:
+            tree_tools.set_descendant(experiment, path, d[1])
+        delattr(experiment, "overwrite")
       
   def resolve_kwargs(self, obj):
     """

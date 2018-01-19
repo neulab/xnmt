@@ -1,5 +1,5 @@
-retriever:
-  experiment:
+retriever: !Experiment
+  model_context: !ModelContext
     model_file: examples/output/{EXP}.mod
     hyp_file: examples/output/{EXP}.hyp
     out_file: examples/output/{EXP}.out

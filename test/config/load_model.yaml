@@ -1,7 +1,7 @@
-exp1-pretrain-model: 
-  global:
+exp1-pretrain-model: !Experiment
+  model_context: !ModelContext
     # The model file contain the whole contents of this experiment in YAML
-    # format. Note that {EXP} expressions are left intact.
+    # format. Note that {EXP} expressions are left intact when saving.
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err
@@ -47,7 +47,7 @@ exp1-pretrain-model:
       ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.test_hyp
 
-exp2-finetune-model:
+exp2-finetune-model: !Experiment
   # This will load the contents of the above experiments that were saved to the
   # YAML file specified after load:
   # This will carry out the exact same thing, except that {EXP} is resolved to
@@ -58,5 +58,6 @@ exp2-finetune-model:
   - - train.trainer
     - !AdamTrainer
         alpha: 0.0002
-  - [global.dropout, 0.5]
+          
+  - [model_context.dropout, 0.5]
       

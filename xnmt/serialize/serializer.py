@@ -15,9 +15,9 @@ class YamlSerializer(object):
   def __init__(self):
     self.representers_added = False
 
-  def initialize_if_needed(self, obj, yaml_context={}):
+  def initialize_if_needed(self, obj):
     if self.is_initialized(obj): return obj
-    else: return self.initialize_object(deserialized_yaml_wrapper=obj, yaml_context=yaml_context)
+    else: return self.initialize_object(deserialized_yaml_wrapper=obj)
 
   @staticmethod
   def is_initialized(obj):
@@ -27,15 +27,13 @@ class YamlSerializer(object):
     """
     return type(obj) != UninitializedYamlObject
 
-  def initialize_object(self, deserialized_yaml_wrapper, yaml_context={}):
+  def initialize_object(self, deserialized_yaml_wrapper):
     """
     Initializes a hierarchy of deserialized YAML objects.
     
     :param deserialized_yaml_wrapper: deserialized YAML data inside a UninitializedYamlObject wrapper (classes are resolved and class members set, but __init__() has not been called at this point)
-    :param yaml_context: this is passed to __init__ of every created object that expects a argument named yaml_context 
     :returns: the appropriate object, with properly shared parameters and __init__() having been invoked
     """
-    self.yaml_context = yaml_context
     if self.is_initialized(deserialized_yaml_wrapper):
       raise AssertionError()
     # make a copy to avoid side effects
@@ -54,7 +52,8 @@ class YamlSerializer(object):
   
   def check_args(self, root):
     for _, node in tree_tools.traverse_tree(root):
-      tree_tools.check_serializable_args_valid(node)
+      if isinstance(node, Serializable):
+        tree_tools.check_serializable_args_valid(node)
   
   def get_named_paths(self, root):
     d = {}
@@ -144,13 +143,14 @@ class YamlSerializer(object):
             initialized_component = self.init_component(resolved_path)
           except:
             initialized_component = None
-          tree_tools.set_descendant(root, path, initialized_component)
           if self.init_component.cache_info().hits > hits_before:
             print(f"reusing previously initialized object at {path}")
         else:
           initialized_component = self.init_component(path)
+        if len(path)==0:
+          root = initialized_component
+        else:
           tree_tools.set_descendant(root, path, initialized_component)
-        tree_tools.set_descendant(root, path, initialized_component)
     return root
 
   @lru_cache(maxsize=None)
@@ -163,7 +163,6 @@ class YamlSerializer(object):
     init_params = OrderedDict(tree_tools.name_children(obj, include_reserved=False))
     serialize_params = OrderedDict(init_params)
     init_args = tree_tools.get_init_args_defaults(obj)
-    if "yaml_context" in init_args: init_params["yaml_context"] = self.yaml_context
     if "yaml_path" in init_args: init_params["yaml_path"] = path
     try:
       initialized_obj = obj.__class__(**init_params)

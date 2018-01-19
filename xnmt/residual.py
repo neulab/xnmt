@@ -5,6 +5,7 @@ import dynet as dy
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
 from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 
@@ -34,14 +35,14 @@ class PseudoState(object):
 class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = u'!ResidualLSTMSeqTransducer'
 
-  def __init__(self, yaml_context, input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
+  def __init__(self, yaml_context=Ref(Path("model_context")), input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
     register_handler(self)
     self._final_states = None
     hidden_dim = hidden_dim or yaml_context.default_layer_dim
     if bidirectional:
-      self.builder = ResidualBiRNNBuilder(yaml_context, layers, input_dim, hidden_dim, residual_to_output, dropout=dropout)
+      self.builder = ResidualBiRNNBuilder(num_layers=layers, input_dim=input_dim, hidden_dim=hidden_dim, add_to_output=residual_to_output, yaml_context=yaml_context, dropout=dropout)
     else:
-      self.builder = ResidualRNNBuilder(yaml_context, layers, input_dim, hidden_dim, residual_to_output, dropout=dropout)
+      self.builder = ResidualRNNBuilder(yaml_context=yaml_context, num_layers=layers, input_dim=input_dim, hidden_dim=hidden_dim, add_to_output=residual_to_output, dropout=dropout)
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -68,7 +69,7 @@ class ResidualRNNBuilder(object):
                               \_________________/  \_ ... _/ \_(if add_to_output)_/
   """
 
-  def __init__(self, yaml_context, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None):
+  def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None, yaml_context=Ref(Path("model_context"))):
     """
     :param num_layers: depth of the RNN (> 0)
     :param input_dim: size of the inputs
@@ -78,9 +79,9 @@ class ResidualRNNBuilder(object):
     """
     assert num_layers > 0
     self.builder_layers = []
-    self.builder_layers.append(UniLSTMSeqTransducer(yaml_context, input_dim, hidden_dim, dropout=dropout))
+    self.builder_layers.append(UniLSTMSeqTransducer(yaml_context=yaml_context, input_dim=input_dim, hidden_dim=hidden_dim, dropout=dropout))
     for _ in range(num_layers - 1):
-      self.builder_layers.append(UniLSTMSeqTransducer(yaml_context, hidden_dim, hidden_dim, dropout=dropout))
+      self.builder_layers.append(UniLSTMSeqTransducer(yaml_context=yaml_context, input_dim=hidden_dim, hidden_dim=hidden_dim, dropout=dropout))
 
     self.add_to_output = add_to_output
 
@@ -156,13 +157,13 @@ class ResidualBiRNNBuilder:
   """
   A residual network with bidirectional first layer
   """
-  def __init__(self, yaml_context, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None):
+  def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None, yaml_context=Ref(Path("model_context"))):
     assert num_layers > 1
     assert hidden_dim % 2 == 0
-    self.forward_layer = UniLSTMSeqTransducer(yaml_context, input_dim, hidden_dim/2, dropout=dropout)
-    self.backward_layer = UniLSTMSeqTransducer(yaml_context, input_dim, hidden_dim/2, dropout=dropout)
-    self.residual_network = ResidualRNNBuilder(yaml_context, num_layers - 1, hidden_dim, hidden_dim, 
-                                               add_to_output, dropout=dropout)
+    self.forward_layer = UniLSTMSeqTransducer(yaml_context=yaml_context, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout)
+    self.backward_layer = UniLSTMSeqTransducer(yaml_context=yaml_context, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout)
+    self.residual_network = ResidualRNNBuilder(yaml_context=yaml_context, num_layers=num_layers - 1, input_dim=hidden_dim, hidden_dim=hidden_dim, 
+                                               add_to_output=add_to_output, dropout=dropout)
 
   def get_final_states(self):
     return self._final_states

@@ -2,11 +2,12 @@ import dynet as dy
 
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.expression_sequence import ExpressionSequence
 
 class FullyConnectedSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = u'!FullyConnectedSeqTransducer'
-  def __init__(self, yaml_context, in_height, out_height, nonlinearity='linear'):
+  def __init__(self, in_height, out_height, nonlinearity='linear', yaml_context=Ref(Path("model_context"))):
     """
       :param in_height, out_height: input and output dimension of the affine transform
       :param nonlinearity: nonlinear activation function

@@ -7,7 +7,7 @@ import numpy as np
 from xnmt.loss import LossBuilder
 from xnmt.serialize.serializer import Serializable
 from xnmt.vocab import Vocab
-
+from xnmt.serialize.tree_tools import Ref, Path
 import xnmt.evaluator
 import xnmt.linear as linear
 
@@ -56,7 +56,7 @@ class MLELoss(Serializable):
 class ReinforceLoss(Serializable):
   yaml_tag = '!ReinforceLoss'
 
-  def __init__(self, yaml_context, evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):
+  def __init__(self, yaml_context=Ref(Path("model_context")), evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):
     self.sample_length = sample_length
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)

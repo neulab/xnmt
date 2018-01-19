@@ -12,7 +12,7 @@ from scipy.stats import poisson
 
 import xnmt.linear as linear
 import xnmt.expression_sequence as expression_sequence
-
+from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.reports import Reportable
 from xnmt.serialize.serializable import Serializable
@@ -56,7 +56,7 @@ class ScalarParam(Serializable):
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = u'!SegmentingSeqTransducer'
 
-  def __init__(self, yaml_context, embed_encoder=None, segment_transducer=None, learn_segmentation=True,
+  def __init__(self, yaml_context=Ref(Path("model_context")), embed_encoder=None, segment_transducer=None, learn_segmentation=True,
                reinforcement_param=None, length_prior=3.5, learn_delete=False,
                length_prior_alpha=1.0, use_baseline=True, segmentation_warmup_counter=None):
     register_handler(self)

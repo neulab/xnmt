@@ -5,6 +5,7 @@ import dynet as dy
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
 from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 
@@ -21,7 +22,7 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   yaml_tag = u'!PyramidalLSTMSeqTransducer'
   
-  def __init__(self, yaml_context, layers=1, input_dim=None, hidden_dim=None,
+  def __init__(self, yaml_context=Ref(Path("model_context")), layers=1, input_dim=None, hidden_dim=None,
                downsampling_method="concat", reduce_factor=2, dropout=None):
     """
     :param layers: depth of the PyramidalRNN
@@ -44,13 +45,13 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
     self.downsampling_method = downsampling_method
     self.reduce_factor = reduce_factor
     self.input_dim = input_dim
-    f = UniLSTMSeqTransducer(yaml_context, input_dim, hidden_dim / 2, dropout=dropout)
-    b = UniLSTMSeqTransducer(yaml_context, input_dim, hidden_dim / 2, dropout=dropout)
+    f = UniLSTMSeqTransducer(yaml_context=yaml_context, input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
+    b = UniLSTMSeqTransducer(yaml_context=yaml_context, input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
     self.builder_layers.append((f, b))
     for _ in range(layers - 1):
       layer_input_dim = hidden_dim if downsampling_method=="skip" else hidden_dim*reduce_factor
-      f = UniLSTMSeqTransducer(yaml_context, layer_input_dim, hidden_dim / 2, dropout=dropout)
-      b = UniLSTMSeqTransducer(yaml_context, layer_input_dim, hidden_dim / 2, dropout=dropout)
+      f = UniLSTMSeqTransducer(yaml_context=yaml_context, input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
+      b = UniLSTMSeqTransducer(yaml_context=yaml_context, input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
       self.builder_layers.append((f, b))
 
   @handle_xnmt_event

@@ -92,13 +92,9 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
   Word embeddings via full matrix
   """
   yaml_tag = "!DenseWordEmbedder"
-  def __init__(self, yaml_context, emb_dim = None, weight_noise = None, word_dropout = 0.0,
+  def __init__(self, yaml_context=Ref(Path("model_context")), emb_dim = None, weight_noise = None, word_dropout = 0.0,
                fix_norm = None, vocab_size = None, vocab = None, yaml_path = None, 
                src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
-    """
-    :param yaml_context:
-    :param emb_dim:
-    """
     register_handler(self)
     self.fix_norm = fix_norm
     self.weight_noise = weight_noise or yaml_context.weight_noise
@@ -159,7 +155,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   yaml_tag = '!SimpleWordEmbedder'
 
-  def __init__(self, yaml_context, emb_dim=None, weight_noise=None, word_dropout=0.0,
+  def __init__(self, yaml_context=Ref(Path("model_context")), emb_dim=None, weight_noise=None, word_dropout=0.0,
                fix_norm=None, init=None, vocab_size = None, vocab = None, yaml_path = None,
                src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
     """
@@ -262,8 +258,8 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
 
   yaml_tag = '!PretrainedSimpleWordEmbedder'
 
-  def __init__(self, yaml_context, filename, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm = None, vocab = None, yaml_path = None, 
-               src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
+  def __init__(self, filename, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm = None, vocab = None, yaml_path = None, 
+               src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False), yaml_context=Ref(Path("model_context"))):
     """
     :param filename: Filename for the pretrained embeddings
     :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
