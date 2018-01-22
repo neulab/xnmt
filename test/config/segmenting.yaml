@@ -9,6 +9,8 @@ defaults:
   train:
     default_layer_dim: 16
     dropout: 0.5
+    batcher: !WordTrgSrcBatcher
+      words_per_batch: 512
     dev_metrics: bleu
     training_corpus: !BilingualTrainingCorpus
       train_src: examples/data/train-char.ja
@@ -66,7 +68,6 @@ defaults:
         # Flags
         debug: True
         z_normalization: True
-        compose_char: True
         learn_segmentation: True
         learn_delete: False
       attender: !MlpAttender

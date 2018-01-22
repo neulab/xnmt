@@ -13,6 +13,7 @@ from scipy.stats import poisson
 import xnmt.linear as linear
 import xnmt.expression_sequence as expression_sequence
 
+from xnmt.batcher import Mask
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.reports import Reportable
 from xnmt.serializer import Serializable
@@ -86,13 +87,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     batch_size = embed_sent[0].dim()[1]
     # Softmax + segment decision
     encodings = self.embed_encoder(embed_sent)
+    mask = encodings.mask
     segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size)
     # Some checks
     assert len(encodings) == len(segment_decisions), \
            "Encoding={}, segment={}".format(len(encodings), len(segment_decisions))
-    # The last segment decision should be equal to 1
-    if len(segment_decisions) > 0:
-      segment_decisions[-1] = numpy.ones(segment_decisions[-1].shape, dtype=int)
     # Buffer for output
     buffers = [[] for _ in range(batch_size)]
     outputs = [[] for _ in range(batch_size)]
@@ -105,7 +104,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       for i, decision in enumerate(segment_decision):
         # If segment for this particular input
         decision = int(decision)
-        if decision == SegmentingAction.DELETE.value:
+        if decision == SegmentingAction.DELETE.value or \
+           (mask is not None and mask.np_arr[i][j] == 1):
           continue
         # Get the particular encoding for that batch item
         enc_i = dy.pick_batch_elem(encoding, i)
@@ -130,33 +130,42 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # Calculate the actual length prior length
     length_prior = [sum(len_prior) / len(len_prior) for len_prior in length_prior]
     # Padding
-    max_col = max(len(xs) for xs in outputs)
-    P0 = dy.vecInput(outputs[0][0].dim()[0][0])
-    def pad(xs):
-      deficit = max_col - len(xs)
-      if deficit > 0:
-        xs.extend([P0 for _ in range(deficit)])
-      return xs
-    outputs = dy.concatenate_to_batch([dy.concatenate_cols(pad(xs)) for xs in outputs])
+    outputs, masks = self.pad(outputs)
     self.segment_decisions = segment_decisions
     self.segment_logsoftmaxes = segment_logsoftmaxes
     # Packing output together
-    if self.train:
-      if self.learn_segmentation:
-        self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
-        if self.use_baseline:
-          self.bs = [self.baseline(dy.nobackprop(enc)) for enc in encodings]
-    else:
+    if self.learn_segmentation:
+      self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
+      if self.use_baseline:
+        self.bs = [self.baseline(dy.nobackprop(enc)) for enc in encodings]
+    if not self.train:
       # Rewrite segmentation
       self.set_report_resource("segmentation", self.segment_decisions)
       self.set_report_input(segment_decisions)
 
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
-    return self.final_transducer(expression_sequence.ExpressionSequence(expr_tensor=outputs))
+    return self.final_transducer(expression_sequence.ExpressionSequence(expr_tensor=outputs, mask=masks))
 
   @handle_xnmt_event
   def on_start_sent(self, src=None):
     self.src_sent = src
+
+  def pad(self, outputs):
+    # Padding
+    max_col = max(len(xs) for xs in outputs)
+    P0 = dy.vecInput(outputs[0][0].dim()[0][0])
+    masks = numpy.zeros((len(outputs), max_col), dtype=int)
+    ret = []
+    modified = False
+    for xs, mask in zip(outputs, masks):
+      deficit = max_col - len(xs)
+      if deficit > 0:
+        xs.extend([P0 for _ in range(deficit)])
+        mask[-deficit:] = 1
+        modified = True
+      ret.append(dy.concatenate_cols(xs))
+    mask = Mask(masks) if modified else None
+    return dy.concatenate_to_batch(ret), mask
 
   def sample_segmentation(self, encodings, batch_size):
     lmbd = self.lmbd.value() if self.lmbd is not None else 0
@@ -176,6 +185,17 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       segment_decisions = self.sample_from_poisson(encodings, batch_size)
     else:
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
+    segment_decisions = segment_decisions.transpose()
+
+    # The last segment decision of an active components should be equal to 1
+    if encodings.mask is not None:
+      src = self.src_sent
+      mask = [numpy.nonzero(m)[0] for m in encodings.mask.np_arr.transpose()]
+      assert len(segment_decisions) == len(mask)
+      for i in range(len(segment_decisions)):
+        if len(mask[i]) != 0:
+          segment_decisions[i-1][mask[i]] = 1
+    segment_decisions[-1] = numpy.ones(segment_decisions[-1].shape, dtype=int)
 
     return segment_decisions, segment_logsoftmaxes
 
@@ -185,7 +205,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
     for segment_decision, sent in zip(segment_decisions, self.src_sent):
       segment_decision[sent.annotation["segment"]] = 1
-    return numpy.split(segment_decisions, len(encodings), 1)
+    return segment_decisions
 
   # Sample from poisson prior
   def sample_from_poisson(self, encodings, batch_size):
@@ -201,7 +221,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         idx += 1
         current += randoms[idx]
       decision[-1] = 1
-    return numpy.split(segment_decisions, len(encodings), 1)
+    return segment_decisions
 
   # Sample from the softmax
   def sample_from_softmax(self, encodings, batch_size, segment_logsoftmaxes):
@@ -216,7 +236,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       self.print_debug("argmax(softmax)")
       segment_decisions = [log_softmax.tensor_value().argmax().as_numpy().transpose()
                            for log_softmax in segment_logsoftmaxes]
-    return segment_decisions
+    return numpy.stack(segment_decisions, 1)
 
   # Indicates warmup time. So we shouldn't sample from softmax
   def is_segmentation_warmup(self):
