@@ -199,7 +199,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       for i in range(len(segment_decisions)):
         if len(mask[i]) != 0:
           segment_decisions[i-1][mask[i]] = 1
-    segment_decisions[-1] = numpy.ones(segment_decisions[-1].shape, dtype=int)
+    segment_decisions[-1][:] = 1
 
     return segment_decisions, segment_logsoftmaxes
 
