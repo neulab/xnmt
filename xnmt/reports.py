@@ -5,9 +5,6 @@ from lxml import etree
 from xnmt.events import register_xnmt_event, register_xnmt_event_assign, handle_xnmt_event
 
 class Reportable(object):
-  @register_xnmt_event_assign
-  def html_report(self, context=None):
-    raise NotImplementedError()
 
   ### Getter + Setter for particular report py
   def set_report_input(self, *inputs):
@@ -49,6 +46,14 @@ class Reportable(object):
   def get_report_resource(self, key):
     return self.__reportable_resources.get(key, None)
 
+  @register_xnmt_event_assign
+  def html_report(self, context=None):
+    pass
+
+  @register_xnmt_event
+  def file_report(self):
+    pass
+
   # Methods to generate report
   def generate_html_report(self):
     html_report = self.html_report(context=None)
@@ -58,10 +63,6 @@ class Reportable(object):
 
   def generate_file_report(self):
     self.file_report()
-
-  @register_xnmt_event
-  def file_report(self):
-    pass
 
   ### Public acessible Methods
   def generate_report(self, report_type):

@@ -148,8 +148,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     """
     self.reporting_src_vocab = src_vocab
 
-  @register_xnmt_event_assign
-  def html_report(self, context=None):
+  @handle_xnmt_event
+  def on_html_report(self, context=None):
     assert(context is None)
     idx, src, trg, att = self.get_report_input()
     path_to_report = self.get_report_path()
