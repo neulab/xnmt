@@ -1,16 +1,14 @@
 # coding: utf-8
 
 import io
-import sys
 
 import dynet as dy
 
-from xnmt.output import *
-from xnmt.retriever import *
-from xnmt.translator import *
-from xnmt.search_strategy import *
 from xnmt.loss_calculator import LossCalculator
-from xnmt.serializer import Serializable
+import xnmt.output
+from xnmt.reports import Reportable
+from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.tree_tools import Ref, Path
 
 '''
 This will be the main class to perform decoding.
@@ -21,8 +19,8 @@ NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
 class SimpleInference(Serializable):
   yaml_tag = u'!SimpleInference'
   def __init__(self, model_file=None, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
-                  input_format="text", post_process="none", report_path=None, report_type=None,
-                  beam=1, max_len=100, len_norm_type=None, mode="onebest"):
+                  input_format="text", post_process="none", report_path=None, report_type="html",
+                  beam=1, max_len=100, len_norm_type=None, mode="onebest", batcher=Ref(Path("train.batcher"), required=False)):
     """
     :param model_file: pretrained (saved) model path (required onless model_elements is given)
     :param src_file: path of input src file to be translated
@@ -51,13 +49,13 @@ class SimpleInference(Serializable):
     self.max_len = max_len
     self.len_norm_type = len_norm_type
     self.mode = mode
+    self.batcher = batcher
     
 
-  def __call__(self, corpus_parser, generator, batcher, src_file=None, trg_file=None, candidate_id_file=None):
+  def __call__(self, generator, src_file=None, trg_file=None, candidate_id_file=None):
     """
     :param src_file: path of input src file to be translated
     :param trg_file: path of file where trg translatons will be written
-    :param batcher:
     :param candidate_id_file: if we are doing something like retrieval where we select from fixed candidates, sometimes we want to limit our candidates to a certain subset of the full set. this setting allows us to do this.
     :param model_elements: If None, the model will be loaded from model_file. If set, should equal (corpus_parser, generator).
     """
@@ -67,27 +65,28 @@ class SimpleInference(Serializable):
   
     is_reporting = issubclass(generator.__class__, Reportable) and args["report_path"] is not None
     # Corpus
-    src_corpus = list(corpus_parser.src_reader.read_sents(args["src_file"]))
+    src_corpus = list(generator.src_reader.read_sents(args["src_file"]))
     # Get reference if it exists and is necessary
     if args["mode"] == "forced" or args["mode"] == "forceddebug":
       if args["ref_file"] == None:
         raise RuntimeError("When performing {} decoding, must specify reference file".format(args["mode"]))
-      ref_corpus = list(corpus_parser.trg_reader.read_sents(args["ref_file"]))
+      ref_corpus = list(generator.trg_reader.read_sents(args["ref_file"]))
     else:
       ref_corpus = None
     # Vocab
-    src_vocab = corpus_parser.src_reader.vocab if hasattr(corpus_parser.src_reader, "vocab") else None
-    trg_vocab = corpus_parser.trg_reader.vocab if hasattr(corpus_parser.trg_reader, "vocab") else None
+    src_vocab = generator.src_reader.vocab if hasattr(generator.src_reader, "vocab") else None
+    trg_vocab = generator.trg_reader.vocab if hasattr(generator.trg_reader, "vocab") else None
     # Perform initialization
     generator.set_train(False)
     generator.initialize_generator(**args)
   
-    # TODO: Structure it better. not only Translator can have post processes
-    if issubclass(generator.__class__, Translator):
+    if hasattr(generator, "set_post_processor"):
       generator.set_post_processor(self.get_output_processor())
+    if hasattr(generator, "set_trg_vocab"):
       generator.set_trg_vocab(trg_vocab)
+    if hasattr(generator, "set_reporting_src_vocab"):
       generator.set_reporting_src_vocab(src_vocab)
-  
+      
     if is_reporting:
       generator.set_report_resource("src_vocab", src_vocab)
       generator.set_report_resource("trg_vocab", trg_vocab)
@@ -108,8 +107,12 @@ class SimpleInference(Serializable):
     with io.open(args["trg_file"], 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
       src_ret=[]
       for i, src in enumerate(src_corpus):
-        batcher.add_single_batch(src_curr=[src], trg_curr=None, src_ret=src_ret, trg_ret=None)
-        src = src_ret.pop()[0]
+        # This is necessary when the batcher does some sort of pre-processing, e.g.
+        # when the batcher pads to a particular number of dimensions
+        if self.batcher:
+          self.batcher.add_single_batch(src_curr=[src], trg_curr=None, src_ret=src_ret, trg_ret=None)
+          src = src_ret.pop()[0]
+
         # Do the decoding
         if args["max_src_len"] is not None and len(src) > args["max_src_len"]:
           output_txt = NO_DECODING_ATTEMPTED
@@ -127,12 +130,12 @@ class SimpleInference(Serializable):
   def get_output_processor(self):
     spec = self.post_process
     if spec == "none":
-      return PlainTextOutputProcessor()
+      return xnmt.output.PlainTextOutputProcessor()
     elif spec == "join-char":
-      return JoinedCharTextOutputProcessor()
+      return xnmt.output.JoinedCharTextOutputProcessor()
     elif spec == "join-bpe":
-      return JoinedBPETextOutputProcessor()
+      return xnmt.output.JoinedBPETextOutputProcessor()
     elif spec == "join-piece":
-      return JoinedPieceTextOutputProcessor()
+      return xnmt.output.JoinedPieceTextOutputProcessor()
     else:
       raise RuntimeError("Unknown postprocessing argument {}".format(spec))

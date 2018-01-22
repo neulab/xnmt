@@ -1,19 +1,29 @@
 import dynet as dy
 import os
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 
-class ModelContext(Serializable):
-  yaml_tag = u'!ModelContext'
-  def __init__(self):
-    self.dropout = 0.0
-    self.weight_noise = 0.0
-    self.default_layer_dim = 512
-    self.dynet_param_collection = None
+class XnmtGlobal(Serializable):
+  yaml_tag = u'!XnmtGlobal'
+  def __init__(self, model_file=None, out_file=None, err_file=None, dropout = 0.0,
+               weight_noise = 0.0, default_layer_dim = 512, save_num_checkpoints=1,
+               eval_only=False, commandline_args=None,
+               dynet_param_collection = None):
+    self.model_file = model_file
+    self.out_file = out_file
+    self.err_file = err_file
+    self.dropout = dropout
+    self.weight_noise = weight_noise
+    self.default_layer_dim = default_layer_dim
     self.model_file = None
-    self.serialize_params = ["dropout", "weight_noise", "default_layer_dim"]
-  def update(self, other):
-    for param in self.serialize_params:
-      setattr(self, param, getattr(other, param))
+    self.eval_only = eval_only
+    self.dynet_param_collection = dynet_param_collection or PersistentParamCollection(model_file, save_num_checkpoints)
+    self.commandline_args = commandline_args
+  def get_model_file(self, exp_name):
+    return getattr(self, "model_file", f"{exp_name}.mod")
+  def get_out_file(self, exp_name):
+    return getattr(self, "out_file", f"{exp_name}.out")
+  def get_err_file(self, exp_name):
+    return getattr(self, "err_file", f"{exp_name}.err")
 
 class PersistentParamCollection(object):
   def __init__(self, model_file, save_num_checkpoints=1):

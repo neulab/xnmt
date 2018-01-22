@@ -46,7 +46,7 @@ def clear():
   global handler_instances, handler_method_names, event_names
   handler_instances = []
   handler_method_names = set()
-  event_names = set()
+  #event_names = set()
 
 handler_instances = []
 handler_method_names = set()

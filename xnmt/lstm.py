@@ -2,10 +2,10 @@ from __future__ import division, generators
 
 import dynet as dy
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.transducer import SeqTransducer, FinalTransducerState
-
+from xnmt.serialize.tree_tools import Ref, Path
 
 class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   """
@@ -15,14 +15,14 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   yaml_tag = u'!UniLSTMSeqTransducer'
   
-  def __init__(self, yaml_context, input_dim=None, hidden_dim=None, dropout = None, weightnoise_std=None):
+  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), input_dim=None, hidden_dim=None, dropout = None, weightnoise_std=None):
     register_handler(self)
-    model = yaml_context.dynet_param_collection.param_col
-    input_dim = input_dim or yaml_context.default_layer_dim
-    hidden_dim = hidden_dim or yaml_context.default_layer_dim
+    model = xnmt_global.dynet_param_collection.param_col
+    input_dim = input_dim or xnmt_global.default_layer_dim
+    hidden_dim = hidden_dim or xnmt_global.default_layer_dim
     self.hidden_dim = hidden_dim
-    self.dropout_rate = dropout or yaml_context.dropout
-    self.weightnoise_std = weightnoise_std or yaml_context.weight_noise
+    self.dropout_rate = dropout or xnmt_global.dropout
+    self.weightnoise_std = weightnoise_std or xnmt_global.weight_noise
     self.input_dim = input_dim
 
     # [i; f; o; g]
@@ -102,19 +102,19 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   yaml_tag = u'!BiLSTMSeqTransducer'
   
-  def __init__(self, yaml_context, layers=1, input_dim=None, hidden_dim=None, dropout=None, weightnoise_std=None):
+  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), layers=1, input_dim=None, hidden_dim=None, dropout=None, weightnoise_std=None):
     register_handler(self)
     self.num_layers = layers
-    input_dim = input_dim or yaml_context.default_layer_dim
-    hidden_dim = hidden_dim or yaml_context.default_layer_dim
+    input_dim = input_dim or xnmt_global.default_layer_dim
+    hidden_dim = hidden_dim or xnmt_global.default_layer_dim
     self.hidden_dim = hidden_dim
-    self.dropout_rate = dropout or yaml_context.dropout
-    self.weightnoise_std = weightnoise_std or yaml_context.weight_noise
+    self.dropout_rate = dropout or xnmt_global.dropout
+    self.weightnoise_std = weightnoise_std or xnmt_global.weight_noise
     assert hidden_dim % 2 == 0
-    self.forward_layers = [UniLSTMSeqTransducer(yaml_context, input_dim, hidden_dim/2, dropout, weightnoise_std)]
-    self.backward_layers = [UniLSTMSeqTransducer(yaml_context, input_dim, hidden_dim/2, dropout, weightnoise_std)]
-    self.forward_layers += [UniLSTMSeqTransducer(yaml_context, hidden_dim, hidden_dim/2, dropout, weightnoise_std) for _ in range(layers-1)]
-    self.backward_layers += [UniLSTMSeqTransducer(yaml_context, hidden_dim, hidden_dim/2, dropout, weightnoise_std) for _ in range(layers-1)]
+    self.forward_layers = [UniLSTMSeqTransducer(xnmt_global=xnmt_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std)]
+    self.backward_layers = [UniLSTMSeqTransducer(xnmt_global=xnmt_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std)]
+    self.forward_layers += [UniLSTMSeqTransducer(xnmt_global=xnmt_global, input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std) for _ in range(layers-1)]
+    self.backward_layers += [UniLSTMSeqTransducer(xnmt_global=xnmt_global, input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std) for _ in range(layers-1)]
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -149,11 +149,11 @@ class CustomLSTMSeqTransducer(SeqTransducer):
   It currently does not support dropout or multiple layers and is mostly meant as a
   starting point for LSTM extensions.
   """
-  def __init__(self, yaml_context, layers, input_dim, hidden_dim):
+  def __init__(self, layers, input_dim, hidden_dim, xnmt_global=Ref(Path("xnmt_global"))):
     if layers!=1: raise RuntimeError("CustomLSTMSeqTransducer supports only exactly one layer")
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
-    model = yaml_context.dynet_param_collection.param_col
+    model = xnmt_global.dynet_param_collection.param_col
 
     # [i; f; o; g]
     self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim))

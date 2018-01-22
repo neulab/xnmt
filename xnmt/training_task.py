@@ -2,20 +2,17 @@ from __future__ import division, generators
 
 from subprocess import Popen
 import random
-import io
-
 import numpy as np
 import dynet as dy
 
-from xnmt.serializer import Serializable, YamlSerializer, DependentInitParam
+from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.loss import LossBuilder
-from xnmt.inference import SimpleInference
 from xnmt.events import register_xnmt_event
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.batcher import SrcBatcher
 from xnmt.loss_tracker import BatchLossTracker
-import xnmt.xnmt_evaluate
-from xnmt.evaluator import LossScore
+import xnmt.input
 
 class TrainingTask(object):
   """
@@ -25,7 +22,16 @@ class TrainingTask(object):
   """
   def __init__(self, model):
     self.model = model
-  
+    
+  def load_data(self):
+    """
+    Used to load data.
+    """
+    raise NotImplementedError("")
+  def fix_vocabs(self):
+    """
+    Used to fix the vocabs and propagate them as needed.
+    """
   def should_stop_training(self):
     """
     :returns: True iff training is finished, i.e. training_step(...) should not be called again
@@ -62,39 +68,43 @@ class TrainingTask(object):
 
 
 class SimpleTrainingTask(TrainingTask, Serializable):
-  yaml_tag = u'!SimpleTrainingTask'
-  def __init__(self, yaml_context, corpus_parser, model, glob={},
-               dev_every=0, batcher=None, loss_calculator=None, 
-               pretrained_model_file="", src_format="text", run_for_epochs=None,
-               lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None,
-               dev_metrics="", schedule_metric="loss", restart_trainer=False,
-               reload_command=None, name=None, inference=None):
+  yaml_tag = '!SimpleTrainingTask'
+  def __init__(self, model, src_file=None, trg_file=None, dev_every=0,
+               batcher=SrcBatcher(32), loss_calculator=None, src_format="text",
+               run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
+               initial_patience=None, dev_tasks=None, restart_trainer=False,
+               reload_command=None, name=None, sample_train_sents=None,
+               max_num_train_sents=None, max_src_len=None, max_trg_len=None,
+               xnmt_global=Ref(Path("xnmt_global"))):
     """
-    :param yaml_context:
-    :param corpus_parser: an input.InputReader object
+    :param xnmt_global:
     :param model: a generator.GeneratorModel object
+    :param src_file: The file for the source data.
+    :param trg_file: The file for the target data.
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
-    :param batcher: Type of batcher. Defaults to SrcBatcher of batch size 32.
+    :param batcher: Type of batcher
     :param loss_calculator:
-    :param pretrained_model_file: Path of pre-trained model file
     :param src_format: Format of input data: text/contvec
     :param lr_decay (float):
     :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
     :param patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
     :param initial_patience (int): if given, allows adjusting patience for the first LR decay
-    :param dev_metrics: Comma-separated list of evaluation metrics (bleu/wer/cer)
-    :param schedule_metric: determine learning schedule based on this dev_metric (loss/bleu/wer/cer)
+    :param dev_tasks: A list of tasks to run on the development set
     :param restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
     :param reload_command: Command to change the input data after each epoch.
                            --epoch EPOCH_NUM will be appended to the command.
                            To just reload the data after each epoch set the command to 'true'.
+    :param sample_train_sents:
+    :param max_num_train_sents:
+    :param max_src_len:
+    :param max_trg_len:
     :param name: will be prepended to log outputs if given
-    :param inference: used for inference during dev checkpoints if dev_metrics are specified
     """
-    assert yaml_context is not None
-    self.yaml_context = yaml_context
-    self.model_file = self.yaml_context.dynet_param_collection.model_file
-    self.yaml_serializer = YamlSerializer()
+    self.xnmt_global = xnmt_global
+    self.model_file = self.xnmt_global.dynet_param_collection.model_file
+    self.src_file = src_file
+    self.trg_file = trg_file
+    self.dev_tasks = dev_tasks
 
     if lr_decay > 1.0 or lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
@@ -109,52 +119,32 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     # training state
     self.training_state = TrainingState()
 
-    self.evaluators = [s.lower() for s in dev_metrics.split(",") if s.strip()!=""]
-    if schedule_metric.lower() not in self.evaluators:
-              self.evaluators.append(schedule_metric.lower())
-    if "loss" not in self.evaluators: self.evaluators.append("loss")
-    if dev_metrics:
-      self.inference = inference or SimpleInference()
-
     self.reload_command = reload_command
-    if reload_command is not None:
-        self._augmentation_handle = None
-        self._augment_data_initial()
 
     self.model = model
-    self.corpus_parser = corpus_parser
     self.loss_calculator = loss_calculator or LossCalculator(MLELoss())
-    self.pretrained_model_file = pretrained_model_file
-    if self.pretrained_model_file:
-      self.yaml_context.dynet_param_collection.load_from_data_file(self.pretrained_model_file + '.data')
 
-    self.batcher = batcher or SrcBatcher(32)
+    self.sample_train_sents = sample_train_sents
+    self.max_num_train_sents = max_num_train_sents
+    self.max_src_len = max_src_len
+    self.max_trg_len = max_trg_len
+
+    self.batcher = batcher
     if src_format == "contvec":
       self.batcher.pad_token = np.zeros(self.model.src_embedder.emb_dim)
-    self.pack_batches()
     self.logger = BatchLossTracker(self, dev_every, name)
-
-    self.schedule_metric = schedule_metric.lower()
-
-  def dependent_init_params(self, initialized_subcomponents):
-    """
-    Overwrite Serializable.dependent_init_params() to realize sharing of vocab size between embedders and corpus parsers
-    """
-    return [DependentInitParam(param_descr="model.src_embedder.vocab_size", value_fct=lambda: initialized_subcomponents["corpus_parser"].src_reader.vocab_size()),
-            DependentInitParam(param_descr="model.decoder.vocab_size", value_fct=lambda: initialized_subcomponents["corpus_parser"].trg_reader.vocab_size()),
-            DependentInitParam(param_descr="model.trg_embedder.vocab_size", value_fct=lambda: initialized_subcomponents["corpus_parser"].trg_reader.vocab_size()),
-            DependentInitParam(param_descr="model.src_embedder.vocab", value_fct=lambda: initialized_subcomponents["corpus_parser"].src_reader.vocab),
-            DependentInitParam(param_descr="model.trg_embedder.vocab", value_fct=lambda: initialized_subcomponents["corpus_parser"].trg_reader.vocab)]
-
-  def pack_batches(self):
-    """
-    Packs src/trg examples into batches, possibly randomized. No shuffling performed here.
-    """
-    self.train_src, self.train_trg = \
-      self.batcher.pack(self.corpus_parser.get_training_corpus().train_src_data, self.corpus_parser.get_training_corpus().train_trg_data)
-    self.dev_src, self.dev_trg = \
-      self.batcher.pack(self.corpus_parser.get_training_corpus().dev_src_data, self.corpus_parser.get_training_corpus().dev_trg_data)
-
+  
+  def load_data(self):
+    if self.reload_command is not None:
+      self._augmentation_handle = None
+      self._augment_data_initial()
+    self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
+        xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
+                                        self.src_file, self.trg_file,
+                                        batcher=self.batcher, sample_sents=self.sample_train_sents,
+                                        max_num_sents=self.max_num_train_sents,
+                                        max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
+    
   def _augment_data_initial(self):
     """
     Called before loading corpus for the first time, if reload_command is given
@@ -182,7 +172,12 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       if self.training_state.epoch_num > 0:
         print('using reloaded data')
       # reload the data   
-      self.corpus_parser._read_training_corpus(self.corpus_parser.training_corpus) # TODO: fix
+      self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
+          xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
+                                          self.src_file, self.trg_file,
+                                          batcher=self.batcher, sample_sents=self.sample_train_sents,
+                                          max_num_sents=self.max_num_train_sents,
+                                          max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
       # restart data generation
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.training_state.epoch_num, shell=True)
     else:
@@ -209,13 +204,13 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     Current number of minibatches (may change between epochs, e.g. for randomizing batchers or if reload_command is given)
     """
-    return len(self.train_src)
+    return len(self.src_batches)
   
   def cur_num_sentences(self):
     """
     Current number of parallel sentences (may change between epochs, e.g. if reload_command is given)
     """
-    return len(self.corpus_parser.training_corpus.train_src_data)
+    return len(self.src_data)
   
   def advance_epoch(self):
     """
@@ -226,7 +221,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.training_state.epoch_seed = random.randint(1,2147483647)
     random.seed(self.training_state.epoch_seed)
     np.random.seed(self.training_state.epoch_seed)
-    self.pack_batches()
+    self.src_batches, self.trg_batches = \
+      self.batcher.pack(self.src_data, self.trg_data)
     self.training_state.epoch_num += 1
     self.training_state.steps_into_epoch = 0
     self.minibatch_order = list(range(0, self.cur_num_minibatches()))
@@ -241,8 +237,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     while True:
       self.advance_epoch()
       for batch_num in self.minibatch_order:
-        src = self.train_src[batch_num]
-        trg = self.train_trg[batch_num]
+        src = self.src_batches[batch_num]
+        trg = self.trg_batches[batch_num]
         yield src, trg
         self.training_state.steps_into_epoch += 1
   
@@ -275,63 +271,32 @@ class SimpleTrainingTask(TrainingTask, Serializable):
   def checkpoint_needed(self):
     return self.logger.should_report_dev()
 
-  def checkpoint(self, control_learning_schedule=True, out_ext=".dev_hyp", ref_ext=".dev_ref", encoding='utf-8'):
+  def checkpoint(self, control_learning_schedule=True):
     """
     Performs a dev checkpoint
     :param control_learning_schedule: If False, only evaluate dev data.
                                       If True, also perform model saving, LR decay etc. if needed.
-    :param out_ext:
-    :param ref_ext:
-    :param encoding:
     :returns: True if the model needs saving, False otherwise
     """
     ret = False
     self.logger.new_dev()
-    trg_words_cnt, loss_score = self.compute_dev_loss() # forced decoding loss
 
-    eval_scores = {"loss" : loss_score}
-    if len(list(filter(lambda e: e!="loss", self.evaluators))) > 0:
-      trg_file = None
-      if self.model_file:
-        evaluate_args = {}
-        out_file = self.model_file + out_ext
-        out_file_ref = self.model_file + ref_ext
-        trg_file = out_file
-        evaluate_args["hyp_file"] = out_file
-        evaluate_args["ref_file"] = out_file_ref
-      # Decoding + post_processing
-      self.inference(corpus_parser = self.corpus_parser, generator = self.model,
-                     batcher = self.batcher,
-                     src_file = self.corpus_parser.training_corpus.dev_src,
-                     trg_file = trg_file,
-                     candidate_id_file = self.corpus_parser.training_corpus.dev_id_file)
-      output_processor = self.inference.get_output_processor() # TODO: hack, refactor
-      # Copy Trg to Ref
-      processed = []
-      with io.open(self.corpus_parser.training_corpus.dev_trg, encoding=encoding) as fin:
-        for line in fin:
-          processed.append(output_processor.words_to_string(line.strip().split()) + u"\n")
-      with io.open(out_file_ref, 'wt', encoding=encoding) as fout:
-        for line in processed:
-          fout.write(line)
-      # Evaluation
-      for evaluator in self.evaluators:
-        if evaluator=="loss": continue
-        evaluate_args["evaluator"] = evaluator
-        eval_score = xnmt.xnmt_evaluate.xnmt_evaluate(**evaluate_args)
-        eval_scores[evaluator] = eval_score
-    # Logging
-    if self.schedule_metric == "loss":
-      self.logger.set_dev_score(trg_words_cnt, loss_score)
-    else:
-      self.logger.set_dev_score(trg_words_cnt, eval_scores[self.schedule_metric])
-
-    # print previously computed metrics
-    for metric in self.evaluators:
-      if metric != self.schedule_metric:
-        self.logger.report_auxiliary_score(eval_scores[metric])
+    # Perform evaluation
+    if self.dev_tasks and len(self.dev_tasks) > 0:
+      dev_scores = []
+      for dev_task in self.dev_tasks:
+        dev_score, dev_word_cnt = dev_task.eval()
+        if type(dev_score) == list:
+          dev_scores.extend(dev_score)
+        else:
+          dev_scores.append(dev_score)
+      # TODO: This is passing "1" for the number of words, as this is not implemented yet
+      self.logger.set_dev_score(dev_word_cnt, dev_scores[0])
+      for dev_score in dev_scores[1:]:
+        self.logger.report_auxiliary_score(dev_score)
     
-    if control_learning_schedule: # TODO: should probably pull this out somehow
+    # Control the learning schedule
+    if control_learning_schedule:
       print("> Checkpoint")
       # Write out the model if it's the best one
       if self.logger.report_dev_and_check_model(self.model_file):
@@ -358,21 +323,9 @@ class SimpleTrainingTask(TrainingTask, Serializable):
               if self.restart_trainer:
                 print('  restarting trainer and reverting learned weights to best checkpoint..')
                 self.trainer.restart()
-                self.yaml_context.dynet_param_collection.revert_to_best_model()
+                self.xnmt_global.dynet_param_collection.revert_to_best_model()
 
     return ret
-
-  def compute_dev_loss(self):
-    loss_builder = LossBuilder()
-    trg_words_cnt = 0
-    for src, trg in zip(self.dev_src, self.dev_trg):
-      dy.renew_cg()
-      standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-      loss_builder.add_loss("loss", standard_loss)
-      trg_words_cnt += self.logger.count_trg_words(trg)
-      loss_builder.compute()
-    return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
-
 
 class TrainingState(object):
   """

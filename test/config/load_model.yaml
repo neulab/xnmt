@@ -1,59 +1,63 @@
-exp1-pretrain-model: &exp1
-  experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
-    eval_metrics: bleu
+exp1-pretrain-model: !Experiment
+  xnmt_global: !XnmtGlobal
+    # The model file contain the whole contents of this experiment in YAML
+    # format. Note that {EXP} expressions are left intact when saving.
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
+    default_layer_dim: 64
+    dropout: 0.5
+    weight_noise: 0.1
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    encoder: !BiLSTMSeqTransducer
+      layers: 2
+      input_dim: 64
+    attender: !MlpAttender
+      state_dim: 64
+      hidden_dim: 64
+      input_dim: 64
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 64
+      input_feeding: True
+      bridge: !CopyBridge {}
+    inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
-    glob:
-      default_layer_dim: 64
-      dropout: 0.5
-      weight_noise: 0.1
-    dev_metrics: bleu
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
-      trg_reader: !PlainTextReader {}
-      training_corpus: !BilingualTrainingCorpus
-        train_src: examples/data/head.ja
-        train_trg: examples/data/head.en
-        dev_src: examples/data/head.ja
-        dev_trg: examples/data/head.en
-    model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      encoder: !BiLSTMSeqTransducer
-        layers: 2
-        input_dim: 64
-      attender: !MlpAttender
-        state_dim: 64
-        hidden_dim: 64
-        input_dim: 64
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 64
-        input_feeding: True
-        bridge: !CopyBridge {}
-  inference: !SimpleInference
     src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.dev_hyp
   evaluate:
-    ref_file: examples/data/head.en
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp
 
-
-exp2-finetune-model:
-  << : *exp1
-  train: !SimpleTrainingRegimen # load the pretrained model, but overwrite the corpus parser to finetune on different data (here: finetune on small sentences only)
-    pretrained_model_file: examples/output/exp1-pretrain-model.mod
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
-      trg_reader: !PlainTextReader {}
-      max_src_len: 15
-      max_trg_len: 15
-      training_corpus: !BilingualTrainingCorpus
-        train_src: examples/data/head.ja
-        train_trg: examples/data/head.en
-        dev_src: examples/data/head.ja
-        dev_trg: examples/data/head.en
+exp2-finetune-model: !Experiment
+  # This will load the contents of the above experiments that were saved to the
+  # YAML file specified after load:
+  # This will carry out the exact same thing, except that {EXP} is resolved to
+  # a different value (making sure we don't overwrite the previous model),
+  # and except for the things explicitly overwritten in the overwrite: section.
+  load: examples/output/exp1-pretrain-model.mod
+  overwrite: # list of [path, value] pairs. Value can be scalar or an arbitrary object
+  - - train.trainer
+    - !AdamTrainer
+        alpha: 0.0002
+          
+  - [xnmt_global.dropout, 0.5]
+      

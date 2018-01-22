@@ -6,23 +6,21 @@ import xnmt.plot
 import dynet as dy
 import numpy as np
 import itertools
-
-import xnmt.length_normalization
-import xnmt.batcher
-
-from xnmt.vocab import Vocab
-from xnmt.events import register_xnmt_event_assign, handle_xnmt_event ,register_handler
-from xnmt.generator import GeneratorModel
-from xnmt.serializer import Serializable
-from xnmt.search_strategy import BeamSearch, GreedySearch
-from xnmt.output import TextOutput
-from xnmt.reports import Reportable
-from xnmt.input import SimpleSentenceInput
-import xnmt.serializer
-from xnmt.batcher import mark_as_batch, is_batched
-
 # Reporting purposes
 from lxml import etree
+
+from xnmt.batcher import mark_as_batch, is_batched
+from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_handler
+from xnmt.generator import GeneratorModel
+from xnmt.input import SimpleSentenceInput
+import xnmt.length_normalization
+from xnmt.output import TextOutput
+from xnmt.reports import Reportable
+from xnmt.serialize.serializable import Serializable
+from xnmt.search_strategy import BeamSearch, GreedySearch
+import xnmt.serialize.serializer
+from xnmt.serialize.tree_tools import Path
+from xnmt.vocab import Vocab
 
 class Translator(GeneratorModel):
   '''
@@ -57,33 +55,39 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
   yaml_tag = u'!DefaultTranslator'
 
-  def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder):
+  def __init__(self, src_reader, trg_reader, src_embedder, encoder, attender, trg_embedder, decoder, inference=None):
     '''Constructor.
 
+    :param src_reader: A reader for the source side.
     :param src_embedder: A word embedder for the input language
     :param encoder: An encoder to generate encoded inputs
     :param attender: An attention module
+    :param trg_reader: A reader for the target side.
     :param trg_embedder: A word embedder for the output language
     :param decoder: A decoder
+    :param inference: The default inference strategy used for this model
     '''
     register_handler(self)
+    self.src_reader = src_reader
+    self.trg_reader = trg_reader
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
+    self.inference = inference
 
   def shared_params(self):
-    return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
-            set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]),
-            set(["attender.state_dim", "decoder.lstm_dim"]),
-            set(["trg_embedder.emb_dim", "decoder.trg_embed_dim"])]
+    return [set([Path(".src_embedder.emb_dim"), Path(".encoder.input_dim")]),
+            set([Path(".encoder.hidden_dim"), Path(".attender.input_dim"), Path(".decoder.input_dim")]),
+            set([Path(".attender.state_dim"), Path(".decoder.lstm_dim")]),
+            set([Path(".trg_embedder.emb_dim"), Path(".decoder.trg_embed_dim")])]
 
   def initialize_generator(self, **kwargs):
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
     else:
-      len_norm = xnmt.serializer.YamlSerializer().initialize_if_needed(kwargs["len_norm_type"])
+      len_norm = xnmt.serialize.serializer.YamlSerializer().initialize_if_needed(kwargs["len_norm_type"])
     search_args = {}
     if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
     if kwargs.get("beam", None) is None:
@@ -225,7 +229,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 class TransformerTranslator(Translator, Serializable, Reportable):
   yaml_tag = u'!TransformerTranslator'
 
-  def __init__(self, src_embedder, encoder, trg_embedder, decoder, input_dim=512):
+  def __init__(self, src_reader, src_embedder, encoder, trg_reader, trg_embedder, decoder, inference=None, input_dim=512):
     '''Constructor.
     :param src_embedder: A word embedder for the input language
     :param encoder: An encoder to generate encoded inputs
@@ -234,11 +238,14 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     :param decoder: A decoder
     '''
     register_handler(self)
+    self.src_reader = src_reader
     self.src_embedder = src_embedder
     self.encoder = encoder
+    self.trg_reader = trg_reader
     self.trg_embedder = trg_embedder
     self.decoder = decoder
     self.input_dim = input_dim
+    self.inference = inference
     self.scale_emb = self.input_dim ** 0.5
     self.max_input_len = 500
     self.initialize_position_encoding(self.max_input_len, input_dim)  # TODO: parametrize this
@@ -247,7 +254,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
     else:
-      len_norm = xnmt.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
+      len_norm = xnmt.serialize.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
     search_args = {}
     if kwargs.get("max_len", None) is not None:
       search_args["max_len"] = kwargs["max_len"]
@@ -321,7 +328,11 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     return e
 
   def calc_loss(self, src, trg, loss_cal=None, infer_prediction=False):
-    src_words = np.array(list(map(lambda x: [Vocab.SS] + x.words, src)))
+    if not xnmt.batcher.is_batched(src):
+      src = xnmt.batcher.mark_as_batch([src])
+    if not xnmt.batcher.is_batched(trg):
+      trg = xnmt.batcher.mark_as_batch([trg])
+    src_words = np.array([[Vocab.SS] + x.words for x in src])
     batch_size, src_len = src_words.shape
 
     if isinstance(src.mask, type(None)):
@@ -377,7 +388,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     output_actions = []
     score = 0.
 
-    for i in range(self.max_len):
+    for _ in range(self.max_len):
       dy.renew_cg()
       log_prob_tail = self.calc_loss(src, trg, loss_cal=None, infer_prediction=True)
       ys = np.argmax(log_prob_tail.npvalue(), axis=0).astype('i')

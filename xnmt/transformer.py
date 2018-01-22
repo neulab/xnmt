@@ -4,7 +4,8 @@ from __future__ import division, generators
 import numpy as np
 import dynet as dy
 from xnmt.linear import Linear
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.events import register_handler, handle_xnmt_event
 
 MIN_VALUE = -10000
@@ -241,18 +242,18 @@ class DecoderLayer(object):
 class TransformerEncoder(Serializable):
   yaml_tag = u'!TransformerEncoder'
 
-  def __init__(self, yaml_context, layers=1, input_dim=512, h=1,
+  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), layers=1, input_dim=512, h=1,
                dropout=0.0, attn_dropout=False, layer_norm=False, **kwargs):
     register_handler(self)
-    dy_model = yaml_context.dynet_param_collection.param_col
-    input_dim = input_dim or yaml_context.default_layer_dim
+    dy_model = xnmt_global.dynet_param_collection.param_col
+    input_dim = input_dim or xnmt_global.default_layer_dim
     self.layer_names = []
     for i in range(1, layers + 1):
       name = 'l{}'.format(i)
       layer = EncoderLayer(dy_model, input_dim, h, attn_dropout, layer_norm)
       self.layer_names.append((name, layer))
 
-    self.dropout_val = dropout or yaml_context.dropout
+    self.dropout_val = dropout or xnmt_global.dropout
 
   @handle_xnmt_event
   def on_set_train(self, val):
@@ -274,19 +275,36 @@ class TransformerEncoder(Serializable):
 class TransformerDecoder(Serializable):
   yaml_tag = u'!TransformerDecoder'
 
-  def __init__(self, yaml_context, vocab_size, layers=1, input_dim=512, h=1,
-               label_smoothing=0.0, dropout=0.0, attn_dropout=False, layer_norm=False, **kwargs):
+  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), layers=1, input_dim=512, h=1,
+               dropout=0.0, attn_dropout=False, layer_norm=False,
+               vocab_size = None, vocab = None,
+               trg_reader = Ref(path=Path("model.trg_reader"))):
     register_handler(self)
-    dy_model = yaml_context.dynet_param_collection.param_col
-    input_dim = input_dim or yaml_context.default_layer_dim
+    dy_model = xnmt_global.dynet_param_collection.param_col
+    input_dim = input_dim or xnmt_global.default_layer_dim
     self.layer_names = []
     for i in range(1, layers + 1):
       name = 'l{}'.format(i)
       layer = DecoderLayer(dy_model, input_dim, h, attn_dropout, layer_norm)
       self.layer_names.append((name, layer))
 
-    self.output_affine = LinearSent(dy_model, input_dim, vocab_size)
-    self.dropout_val = dropout or yaml_context.dropout
+    self.vocab_size = self.choose_vocab_size(vocab_size, vocab, trg_reader)
+    self.output_affine = LinearSent(dy_model, input_dim, self.vocab_size)
+    self.dropout_val = dropout or xnmt_global.dropout
+
+  def choose_vocab_size(self, vocab_size, vocab, trg_reader):
+    """Choose the vocab size for the embedder basd on the passed arguments
+
+    This is done in order of priority of vocab_size, vocab, model+yaml_path
+    """
+    if vocab_size != None:
+      return vocab_size
+    elif vocab != None:
+      return len(vocab)
+    elif trg_reader == None or trg_reader.vocab == None:
+      raise ValueError("Could not determine trg_embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
+    else:
+      return len(trg_reader.vocab) 
 
   @handle_xnmt_event
   def on_set_train(self, val):
