@@ -52,16 +52,20 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     assert final_transducer is not None
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
+    if not hasattr(embed_encoder, "hidden_dim"):
+      embed_encoder_dim = yaml_context.default_layer_dim
+    else:
+      embed_encoder_dim = embed_encoder.hidden_dim
     # The Segment transducer produced word embeddings based on sequence of character embeddings
     self.segment_composer = segment_composer
     # The final transducer
     self.final_transducer = final_transducer
     # Decision layer of segmentation
-    self.segment_transform = linear.Linear(input_dim  = embed_encoder.hidden_dim,
+    self.segment_transform = linear.Linear(input_dim  = embed_encoder_dim,
                                            output_dim = 3 if learn_delete else 2,
                                            model=model)
     # The baseline linear regression model
-    self.baseline = linear.Linear(input_dim = embed_encoder.hidden_dim,
+    self.baseline = linear.Linear(input_dim = embed_encoder_dim,
                                   output_dim = 1,
                                   model = model)
     # Flags
@@ -227,7 +231,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.train = train
 
   def get_final_states(self):
-    return self.final_transducer.get_final_states()
+    if hasattr(self.final_transducer, "get_final_states"):
+      return self.final_transducer.get_final_states()
+    else:
+      return self.embed_encoder.get_final_states()
 
   @handle_xnmt_event
   def on_new_epoch(self):

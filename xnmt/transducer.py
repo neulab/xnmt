@@ -3,6 +3,7 @@ from __future__ import division, generators
 import dynet as dy
 
 from xnmt.serializer import Serializable
+from xnmt.expression_sequence import ExpressionSequence
 
 class Transducer(object):
   """

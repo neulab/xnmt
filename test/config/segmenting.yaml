@@ -57,16 +57,14 @@ defaults:
               initial: 1
               ratio: 0.5
         length_prior: 3.3
-        length_prior_alpha: !GeometricSequence
-          initial: 1
-          ratio: 0.5
+        length_prior_alpha: !Scalar
+          initial: 0.1
         epsilon_greedy: !GeometricSequence
           initial: 0.3
           ratio: 0.5
         # Flags
         debug: True
         z_normalization: True
-        compose_char: True
         learn_segmentation: True
         learn_delete: False
       attender: !MlpAttender

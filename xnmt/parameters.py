@@ -20,8 +20,8 @@ class ScalingParam(Serializable):
 class Scalar(Serializable):
   yaml_tag = u"!Scalar"
 
-  def __init__(self, value=0.0):
-    self.__value = value
+  def __init__(self, initial=0.0):
+    self.__value = initial
 
   def value(self):
     return self.__value
