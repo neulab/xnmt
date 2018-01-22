@@ -9,8 +9,8 @@
 #   be set in any component and must be unique.
 #   Note that references do not work across experiments (e.g. we cannot refer to exp2.load from within exp1.pretrain)
 
-exp1.pretrain:
-  global:
+exp1.pretrain: !Experiment
+  xnmt_global: !XnmtGlobal
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err
@@ -52,5 +52,5 @@ exp1.pretrain:
       ref_file: *dev_trg # The same could also be done for more complex objects.
       hyp_file: examples/output/{EXP}.test_hyp
 
-exp2.load:
+exp2.load: !Experiment
   load: examples/output/exp1.pretrain.mod

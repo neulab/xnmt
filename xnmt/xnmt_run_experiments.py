@@ -58,7 +58,7 @@ def main(overwrite_args=None):
 
     yaml_serializer = YamlSerializer()
 
-    glob_args = uninitialized_exp_args.data.model_context
+    glob_args = uninitialized_exp_args.data.xnmt_global
     out_file = glob_args.get_out_file(experiment_name)
     err_file = glob_args.get_err_file(experiment_name)
 
@@ -67,14 +67,14 @@ def main(overwrite_args=None):
 
     model_file = glob_args.get_model_file(experiment_name)
 
-    uninitialized_exp_args.data.model_context.commandline_args = args
+    uninitialized_exp_args.data.xnmt_global.commandline_args = args
 
     # Create the model
     experiment = yaml_serializer.initialize_if_needed(uninitialized_exp_args)
 
     # Run the experiment
     eval_scores = experiment(save_fct = lambda: yaml_serializer.save_to_file(model_file, experiment,
-                                                                             experiment.model_context.dynet_param_collection))
+                                                                             experiment.xnmt_global.dynet_param_collection))
     results.append((experiment_name, eval_scores))
 
     output.close()

@@ -1,5 +1,5 @@
 reload: !Experiment
-  model_context: !ModelContext
+  xnmt_global: !XnmtGlobal
     model_file: test/tmp/output/{EXP}.mod
     out_file: test/tmp/output/{EXP}.out
     err_file: test/tmp/output/{EXP}.err

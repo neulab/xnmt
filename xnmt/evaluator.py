@@ -1,12 +1,9 @@
-from __future__ import division, generators
-import numpy as np
+from collections import defaultdict, Counter
 import math
 import six
-import functools
 import subprocess
-from collections import defaultdict, Counter, deque
 
-from xnmt.vocab import Vocab
+import numpy as np
 
 class EvalScore(object):
   def higher_is_better(self):

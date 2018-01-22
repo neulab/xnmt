@@ -1,44 +1,47 @@
-standard:
-  experiment:
+standard: !Experiment
+  xnmt_global: !XnmtGlobal
     model_file: examples/output/{EXP}.mod
-    hyp_file: examples/output/{EXP}.hyp
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err
-    eval_metrics: bleu
+    dropout: 0.2
+    default_layer_dim: 512
+  model: !TransformerTranslator
+    src_embedder: !SimpleWordEmbedder
+      init: LeCunUniform
+    encoder: !TransformerEncoder
+      layers: 1
+    trg_embedder: !SimpleWordEmbedder
+      init: LeCunUniform
+    decoder: !TransformerDecoder
+      layers: 1
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
   train: !SimpleTrainingRegimen
     run_for_epochs: 30
     batcher: !SentShuffleBatcher
       batch_size: 100
-    glob:
-      dropout: 0.2
-      default_layer_dim: 512
     restart_trainer: False
     trainer: !TransformerAdamTrainer
       alpha: 1.0
       warmup_steps: 4000
     lr_decay: 1.0
-    dev_metrics: bleu
-    schedule_metric: bleu
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
-      trg_reader: !PlainTextReader {}
-      training_corpus: !BilingualTrainingCorpus
-        train_src: examples/data/train-big.ja
-        train_trg: examples/data/train-big.en
-        dev_src: examples/data/dev.ja
-        dev_trg: examples/data/dev.en
-    model: !TransformerTranslator
-      src_embedder: !SimpleWordEmbedder
-        init: LeCunUniform
-      encoder: !TransformerEncoder
-        layers: 1
-      trg_embedder: !SimpleWordEmbedder
-        init: LeCunUniform
-      decoder: !TransformerDecoder
-        layers: 1
-        label_smoothing: 0.0
-  inference: !SimpleInference
-    beam: 1
-    src_file: examples/data/test.ja
+    src_file: examples/data/train-big.ja
+    trg_file: examples/data/train-big.en
+    dev_tasks:
+      - !AccuracyEvalTask
+        eval_metrics: bleu
+        src_file: examples/data/dev.ja
+        ref_file: examples/data/test.en
+        hyp_file: examples/output/{EXP}.test_hyp
+      - !LossEvalTask
+        src_file: examples/data/dev.ja
+        ref_file: examples/data/dev.en
   evaluate:
-    ref_file: examples/data/test.en
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/data/dev.ja
+      ref_file: examples/data/test.en
+      hyp_file: examples/output/{EXP}.test_hyp
+    

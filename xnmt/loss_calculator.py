@@ -56,7 +56,7 @@ class MLELoss(Serializable):
 class ReinforceLoss(Serializable):
   yaml_tag = '!ReinforceLoss'
 
-  def __init__(self, yaml_context=Ref(Path("model_context")), evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):
+  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):
     self.sample_length = sample_length
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
@@ -64,8 +64,8 @@ class ReinforceLoss(Serializable):
       self.evaluation_metric = evaluation_metric
     self.use_baseline = use_baseline
     if self.use_baseline:
-      model = yaml_context.dynet_param_collection.param_col
-      decoder_hidden_dim = decoder_hidden_dim or yaml_context.default_layer_dim
+      model = xnmt_global.dynet_param_collection.param_col
+      decoder_hidden_dim = decoder_hidden_dim or xnmt_global.default_layer_dim
       self.baseline = linear.Linear(input_dim=decoder_hidden_dim, output_dim=1, model=model)
 
   def __call__(self, translator, dec_state, src, trg):

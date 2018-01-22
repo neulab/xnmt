@@ -1,5 +1,5 @@
 debug-segmenting: !Experiment
-  model_context: !ModelContext
+  xnmt_global: !XnmtGlobal
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err
@@ -42,7 +42,7 @@ debug-segmenting: !Experiment
       layers: 1
       mlp_hidden_dim: 16
       bridge: !CopyBridge {}
-    inference: !SimpleInference {} # TODO: remove this line
+    inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head-char.ja

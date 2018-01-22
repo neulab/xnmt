@@ -1,6 +1,6 @@
 # Demonstrates random search over model parameters
 defaults: &defaults  !Experiment
-  model_context: !ModelContext
+  xnmt_global: !XnmtGlobal
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err
@@ -27,7 +27,7 @@ defaults: &defaults  !Experiment
       layers: *rnd_num_layers
       lstm_dim: 64
       bridge: !CopyBridge {}
-    inference: !SimpleInference {} # TODO: remove this line
+    inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.ja

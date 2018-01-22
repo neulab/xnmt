@@ -8,19 +8,18 @@ import itertools
 # Reporting purposes
 from lxml import etree
 
-import xnmt.length_normalization
-import xnmt.batcher
-from xnmt.vocab import Vocab
+from xnmt.batcher import mark_as_batch, is_batched
 from xnmt.events import register_xnmt_event_assign, register_handler
 from xnmt.generator import GeneratorModel
-from xnmt.serialize.serializable import Serializable
-from xnmt.search_strategy import BeamSearch, GreedySearch
+from xnmt.input import SimpleSentenceInput
+import xnmt.length_normalization
 from xnmt.output import TextOutput
 from xnmt.reports import Reportable
-from xnmt.input import SimpleSentenceInput
+from xnmt.serialize.serializable import Serializable
+from xnmt.search_strategy import BeamSearch, GreedySearch
 import xnmt.serialize.serializer
 from xnmt.serialize.tree_tools import Path
-from xnmt.batcher import mark_as_batch, is_batched
+from xnmt.vocab import Vocab
 
 class Translator(GeneratorModel):
   '''
@@ -55,7 +54,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
   yaml_tag = u'!DefaultTranslator'
 
-  def __init__(self, src_reader, trg_reader, src_embedder, encoder, attender, trg_embedder, decoder, inference=None, glob={}):
+  def __init__(self, src_reader, trg_reader, src_embedder, encoder, attender, trg_embedder, decoder, inference=None):
     '''Constructor.
 
     :param src_reader: A reader for the source side.
@@ -66,7 +65,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     :param trg_embedder: A word embedder for the output language
     :param decoder: A decoder
     :param inference: The default inference strategy used for this model
-    :param glob: Global parameters that are used for various things.
     '''
     register_handler(self)
     self.src_reader = src_reader
@@ -77,7 +75,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.trg_embedder = trg_embedder
     self.decoder = decoder
     self.inference = inference
-    self.glob = glob
 
   def shared_params(self):
     return [set([Path(".src_embedder.emb_dim"), Path(".encoder.input_dim")]),
@@ -359,7 +356,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     output_actions = []
     score = 0.
 
-    for i in range(self.max_len):
+    for _ in range(self.max_len):
       dy.renew_cg()
       log_prob_tail = self.calc_loss(src, trg, loss_cal=None, infer_prediction=True)
       ys = np.argmax(log_prob_tail.npvalue(), axis=0).astype('i')

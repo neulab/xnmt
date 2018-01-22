@@ -1,11 +1,11 @@
-import numpy as np
-import os
+import ast
 import io
 import six
-import ast
-from collections import defaultdict
+
+import numpy as np
+
 from xnmt.serialize.serializable import Serializable
-from xnmt.vocab import *
+from xnmt.vocab import Vocab
 
 ###### Classes representing single inputs
 
@@ -264,9 +264,9 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
   src_data = []
   trg_data = []
   if sample_sents:
-    src_len = src_reader.count_sents(self.src_file)
-    trg_len = trg_reader.count_sents(self.trg_file)
-    if src_len != trg_len: raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (src_len, trg_len))
+    src_len = src_reader.count_sents(src_file)
+    trg_len = trg_reader.count_sents(trg_file)
+    if src_len != trg_len: raise RuntimeError(f"training src sentences don't match trg sentences: {src_len} != {trg_len}!")
     filter_ids = np.random.choice(src_len, sample_sents, replace=False)
   else:
     filter_ids = None
@@ -275,7 +275,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
   trg_train_iterator = trg_reader.read_sents(trg_file, filter_ids)
   for src_sent, trg_sent in six.moves.zip_longest(src_train_iterator, trg_train_iterator):
     if src_sent is None or trg_sent is None:
-      raise RuntimeError("training src sentences don't match trg sentences: %s != %s!" % (src_len or src_reader.count_sents(src_file), trg_len or trg_reader.count_sents(trg_file)))
+      raise RuntimeError(f"training src sentences don't match trg sentences: {src_len or src_reader.count_sents(src_file)} != {trg_len or trg_reader.count_sents(trg_file)}!")
     if max_num_sents and max_num_sents >= len(src_data):
       break
     src_len_ok = max_src_len is None or len(src_sent) <= max_src_len

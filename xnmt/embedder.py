@@ -92,15 +92,15 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
   Word embeddings via full matrix
   """
   yaml_tag = "!DenseWordEmbedder"
-  def __init__(self, yaml_context=Ref(Path("model_context")), emb_dim = None, weight_noise = None, word_dropout = 0.0,
+  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), emb_dim = None, weight_noise = None, word_dropout = 0.0,
                fix_norm = None, vocab_size = None, vocab = None, yaml_path = None, 
                src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
     register_handler(self)
     self.fix_norm = fix_norm
-    self.weight_noise = weight_noise or yaml_context.weight_noise
+    self.weight_noise = weight_noise or xnmt_global.weight_noise
     self.word_dropout = word_dropout
-    self.emb_dim = emb_dim or yaml_context.default_layer_dim
-    self.dynet_param_collection = yaml_context.dynet_param_collection
+    self.emb_dim = emb_dim or xnmt_global.default_layer_dim
+    self.dynet_param_collection = xnmt_global.dynet_param_collection
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
     self.embeddings = self.dynet_param_collection.param_col.add_parameters((self.vocab_size, self.emb_dim))
     self.bias = self.dynet_param_collection.param_col.add_parameters((self.vocab_size))
@@ -155,7 +155,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   yaml_tag = '!SimpleWordEmbedder'
 
-  def __init__(self, yaml_context=Ref(Path("model_context")), emb_dim=None, weight_noise=None, word_dropout=0.0,
+  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
                fix_norm=None, init=None, vocab_size = None, vocab = None, yaml_path = None,
                src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
     """
@@ -165,13 +165,13 @@ class SimpleWordEmbedder(Embedder, Serializable):
     :param fix_norm: fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
     """
     register_handler(self)
-    self.emb_dim = emb_dim or yaml_context.default_layer_dim
-    self.weight_noise = weight_noise or yaml_context.weight_noise
+    self.emb_dim = emb_dim or xnmt_global.default_layer_dim
+    self.weight_noise = weight_noise or xnmt_global.weight_noise
     self.word_dropout = word_dropout
     self.fix_norm = fix_norm
     self.word_id_mask = None
     self.train = False
-    self.dynet_param_collection = yaml_context.dynet_param_collection
+    self.dynet_param_collection = xnmt_global.dynet_param_collection
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader) 
     if init == 'LeCunUniform':
       init = linear_init(self.vocab_size)
@@ -259,21 +259,21 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
   yaml_tag = '!PretrainedSimpleWordEmbedder'
 
   def __init__(self, filename, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm = None, vocab = None, yaml_path = None, 
-               src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False), yaml_context=Ref(Path("model_context"))):
+               src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False), xnmt_global=Ref(Path("xnmt_global"))):
     """
     :param filename: Filename for the pretrained embeddings
     :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
     :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
     :param vocab: a `Vocab` object containing the vocabulary for the experiment
     """
-    self.emb_dim = emb_dim or yaml_context.default_layer_dim
-    self.weight_noise = weight_noise or yaml_context.weight_noise
+    self.emb_dim = emb_dim or xnmt_global.default_layer_dim
+    self.weight_noise = weight_noise or xnmt_global.weight_noise
     self.word_dropout = word_dropout
     self.word_id_mask = None
     self.train = False
     self.fix_norm = fix_norm
     self.pretrained_filename = filename
-    self.dynet_param_collection = yaml_context.dynet_param_collection
+    self.dynet_param_collection = xnmt_global.dynet_param_collection
     self.vocab = self.choose_vocab(vocab, yaml_path, src_reader, trg_reader)
     self.vocab_size = len(vocab)
     with io.open(self.pretrained_filename, encoding='utf-8') as embeddings_file:

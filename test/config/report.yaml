@@ -1,5 +1,5 @@
 report: !Experiment
-  model_context: !ModelContext
+  xnmt_global: !XnmtGlobal
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err
@@ -34,8 +34,8 @@ report: !Experiment
     trg_file: examples/data/head.en
     dev_tasks:
       - !LossEvalTask
-        src_file: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
-        ref_file: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu,wer

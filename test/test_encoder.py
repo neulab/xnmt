@@ -10,14 +10,14 @@ from xnmt.residual import ResidualLSTMSeqTransducer
 from xnmt.attender import MlpAttender
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.input import PlainTextReader
-from xnmt.model_context import ModelContext, PersistentParamCollection
+from xnmt.xnmt_global import XnmtGlobal, PersistentParamCollection
 import xnmt.events
 
 class TestEncoder(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
-    self.model_context = ModelContext(dynet_param_collection=PersistentParamCollection("some_file", 1))
+    self.xnmt_global = XnmtGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
 
     self.src_reader = PlainTextReader()
     self.trg_reader = PlainTextReader()
@@ -44,11 +44,11 @@ class TestEncoder(unittest.TestCase):
     model = DefaultTranslator(
               src_reader=self.src_reader,
               trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              encoder=BiLSTMSeqTransducer(self.model_context, layers=3),
-              attender=MlpAttender(self.model_context),
-              trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
+              src_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
+              encoder=BiLSTMSeqTransducer(self.xnmt_global, layers=3),
+              attender=MlpAttender(self.xnmt_global),
+              trg_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.xnmt_global, vocab_size=100),
             )
     self.assert_in_out_len_equal(model)
 
@@ -56,11 +56,11 @@ class TestEncoder(unittest.TestCase):
     model = DefaultTranslator(
               src_reader=self.src_reader,
               trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              encoder=UniLSTMSeqTransducer(self.model_context),
-              attender=MlpAttender(self.model_context),
-              trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
+              src_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
+              encoder=UniLSTMSeqTransducer(self.xnmt_global),
+              attender=MlpAttender(self.xnmt_global),
+              trg_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.xnmt_global, vocab_size=100),
             )
     self.assert_in_out_len_equal(model)
 
@@ -68,11 +68,11 @@ class TestEncoder(unittest.TestCase):
     model = DefaultTranslator(
               src_reader=self.src_reader,
               trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              encoder=ResidualLSTMSeqTransducer(self.model_context, layers=3),
-              attender=MlpAttender(self.model_context),
-              trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
+              src_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
+              encoder=ResidualLSTMSeqTransducer(self.xnmt_global, layers=3),
+              attender=MlpAttender(self.xnmt_global),
+              trg_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.xnmt_global, vocab_size=100),
             )
     self.assert_in_out_len_equal(model)
 

@@ -1,43 +1,41 @@
-standard:
-  experiment:
+# A standard training run, should almost never break
+standard: !Experiment
+  xnmt_global: !XnmtGlobal
     model_file: examples/output/{EXP}.mod
-    hyp_file: examples/output/{EXP}.hyp
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err
+    default_layer_dim: 512
+    dropout: 0.3
   model: !DefaultTranslator
-    _xnmt_id: main_model
-    glob:
-      dropout: 0.1
-      default_layer_dim: 512
-    src_reader: !PlainTextReader {}
-    trg_reader: !PlainTextReader {}
-    src_embedder: !SimpleWordEmbedder
-      vocab_size: 10000
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder {}
     encoder: !BiLSTMSeqTransducer
       layers: 1
     attender: !MlpAttender {}
-    trg_embedder: !SimpleWordEmbedder
-      vocab_size: 10000
+    trg_embedder: !SimpleWordEmbedder {}
     decoder: !MlpSoftmaxDecoder
       layers: 1
-      vocab_size: 10000
-      mlp_hidden_dim: 512
       bridge: !CopyBridge {}
-      label_smoothing: 0.1
     inference: !SimpleInference
-      beam: 5
       len_norm_type: !PolynomialNormalization
         apply_during_search: true
+        m: 5
   train: !SimpleTrainingRegimen
-    # this is achieved automatically now because of SimpleTrainingRegimen's according default parameter:
-#    model: !Ref
-#      name: main_model
-    run_for_epochs: 20
-    batcher: !SrcBatcher
-      batch_size: 32
-    restart_trainer: True
     trainer: !AdamTrainer
-      alpha: 0.0002
-    lr_decay: 0.5
-    src_file: examples/data/train.ja
-    trg_file: examples/data/train.en
+      alpha: 0.001
+    run_for_epochs: 20
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp

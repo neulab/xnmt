@@ -35,14 +35,14 @@ class PseudoState(object):
 class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = u'!ResidualLSTMSeqTransducer'
 
-  def __init__(self, yaml_context=Ref(Path("model_context")), input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
+  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
     register_handler(self)
     self._final_states = None
-    hidden_dim = hidden_dim or yaml_context.default_layer_dim
+    hidden_dim = hidden_dim or xnmt_global.default_layer_dim
     if bidirectional:
-      self.builder = ResidualBiRNNBuilder(num_layers=layers, input_dim=input_dim, hidden_dim=hidden_dim, add_to_output=residual_to_output, yaml_context=yaml_context, dropout=dropout)
+      self.builder = ResidualBiRNNBuilder(num_layers=layers, input_dim=input_dim, hidden_dim=hidden_dim, add_to_output=residual_to_output, xnmt_global=xnmt_global, dropout=dropout)
     else:
-      self.builder = ResidualRNNBuilder(yaml_context=yaml_context, num_layers=layers, input_dim=input_dim, hidden_dim=hidden_dim, add_to_output=residual_to_output, dropout=dropout)
+      self.builder = ResidualRNNBuilder(xnmt_global=xnmt_global, num_layers=layers, input_dim=input_dim, hidden_dim=hidden_dim, add_to_output=residual_to_output, dropout=dropout)
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -69,7 +69,7 @@ class ResidualRNNBuilder(object):
                               \_________________/  \_ ... _/ \_(if add_to_output)_/
   """
 
-  def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None, yaml_context=Ref(Path("model_context"))):
+  def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None, xnmt_global=Ref(Path("xnmt_global"))):
     """
     :param num_layers: depth of the RNN (> 0)
     :param input_dim: size of the inputs
@@ -79,9 +79,9 @@ class ResidualRNNBuilder(object):
     """
     assert num_layers > 0
     self.builder_layers = []
-    self.builder_layers.append(UniLSTMSeqTransducer(yaml_context=yaml_context, input_dim=input_dim, hidden_dim=hidden_dim, dropout=dropout))
+    self.builder_layers.append(UniLSTMSeqTransducer(xnmt_global=xnmt_global, input_dim=input_dim, hidden_dim=hidden_dim, dropout=dropout))
     for _ in range(num_layers - 1):
-      self.builder_layers.append(UniLSTMSeqTransducer(yaml_context=yaml_context, input_dim=hidden_dim, hidden_dim=hidden_dim, dropout=dropout))
+      self.builder_layers.append(UniLSTMSeqTransducer(xnmt_global=xnmt_global, input_dim=hidden_dim, hidden_dim=hidden_dim, dropout=dropout))
 
     self.add_to_output = add_to_output
 
@@ -157,12 +157,12 @@ class ResidualBiRNNBuilder:
   """
   A residual network with bidirectional first layer
   """
-  def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None, yaml_context=Ref(Path("model_context"))):
+  def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None, xnmt_global=Ref(Path("xnmt_global"))):
     assert num_layers > 1
     assert hidden_dim % 2 == 0
-    self.forward_layer = UniLSTMSeqTransducer(yaml_context=yaml_context, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout)
-    self.backward_layer = UniLSTMSeqTransducer(yaml_context=yaml_context, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout)
-    self.residual_network = ResidualRNNBuilder(yaml_context=yaml_context, num_layers=num_layers - 1, input_dim=hidden_dim, hidden_dim=hidden_dim, 
+    self.forward_layer = UniLSTMSeqTransducer(xnmt_global=xnmt_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout)
+    self.backward_layer = UniLSTMSeqTransducer(xnmt_global=xnmt_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout)
+    self.residual_network = ResidualRNNBuilder(xnmt_global=xnmt_global, num_layers=num_layers - 1, input_dim=hidden_dim, hidden_dim=hidden_dim, 
                                                add_to_output=add_to_output, dropout=dropout)
 
   def get_final_states(self):

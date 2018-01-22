@@ -69,17 +69,16 @@ class TrainingTask(object):
 
 class SimpleTrainingTask(TrainingTask, Serializable):
   yaml_tag = '!SimpleTrainingTask'
-  def __init__(self, model, glob={},
-               src_file=None, trg_file=None,
-               dev_every=0, batcher=SrcBatcher(32), loss_calculator=None, 
-               src_format="text", run_for_epochs=None,
-               lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None,
-               dev_tasks=None, restart_trainer=False,
-               reload_command=None, name=None, inference=None, yaml_context=Ref(Path("model_context"))):
+  def __init__(self, model, src_file=None, trg_file=None, dev_every=0,
+               batcher=SrcBatcher(32), loss_calculator=None, src_format="text",
+               run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
+               initial_patience=None, dev_tasks=None, restart_trainer=False,
+               reload_command=None, name=None, sample_train_sents=None,
+               max_num_train_sents=None, max_src_len=None, max_trg_len=None,
+               xnmt_global=Ref(Path("xnmt_global"))):
     """
-    :param yaml_context:
+    :param xnmt_global:
     :param model: a generator.GeneratorModel object
-    :param glob: global settings
     :param src_file: The file for the source data.
     :param trg_file: The file for the target data.
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
@@ -95,11 +94,14 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     :param reload_command: Command to change the input data after each epoch.
                            --epoch EPOCH_NUM will be appended to the command.
                            To just reload the data after each epoch set the command to 'true'.
+    :param sample_train_sents:
+    :param max_num_train_sents:
+    :param max_src_len:
+    :param max_trg_len:
     :param name: will be prepended to log outputs if given
-    :param inference: used for inference during dev checkpoints if dev_metrics are specified
     """
-    self.yaml_context = yaml_context
-    self.model_file = self.yaml_context.dynet_param_collection.model_file
+    self.xnmt_global = xnmt_global
+    self.model_file = self.xnmt_global.dynet_param_collection.model_file
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks
@@ -122,12 +124,10 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.model = model
     self.loss_calculator = loss_calculator or LossCalculator(MLELoss())
 
-    # TODO: self.sample_train_sents and self.max_num_train_sents should be initialized properly
-    self.sample_train_sents = False
-    self.max_num_train_sents = None
-    # TODO: I'm not sure whether these should be kept around or removed
-    self.max_src_len = None
-    self.max_trg_len = None
+    self.sample_train_sents = sample_train_sents
+    self.max_num_train_sents = max_num_train_sents
+    self.max_src_len = max_src_len
+    self.max_trg_len = max_trg_len
 
     self.batcher = batcher
     if src_format == "contvec":
@@ -323,7 +323,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
               if self.restart_trainer:
                 print('  restarting trainer and reverting learned weights to best checkpoint..')
                 self.trainer.restart()
-                self.yaml_context.dynet_param_collection.revert_to_best_model()
+                self.xnmt_global.dynet_param_collection.revert_to_best_model()
 
     return ret
 

@@ -1,5 +1,5 @@
-standard-preproc:
-  global:
+standard-preproc: !Experiment
+  xnmt_global: !XnmtGlobal
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err
@@ -88,7 +88,6 @@ standard-preproc:
       vocab: !Vocab
         vocab_file: examples/preproc/train.vocab.en
     src_embedder: !SimpleWordEmbedder
-      vocab_size: 8000 # TODO: Remove this line
       emb_dim: 512
     encoder: !BiLSTMSeqTransducer
       layers: 1
@@ -97,10 +96,8 @@ standard-preproc:
       state_dim: 512
       input_dim: 512
     trg_embedder: !SimpleWordEmbedder
-      vocab_size: 8000 # TODO: Remove this line
       emb_dim: 512
     decoder: !MlpSoftmaxDecoder
-      vocab_size: 8000 # TODO: Remove this line
       layers: 1
       mlp_hidden_dim: 512
       bridge: !NoBridge {}

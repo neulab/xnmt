@@ -86,11 +86,14 @@ class YamlSerializer(object):
         for ancestor in sorted(referenced_path.ancestors(), key = lambda x: len(x)):
           try:
             tree_tools.get_descendant(root, ancestor)
-          except:
+          except (KeyError, AttributeError):
             ancestor_parent = tree_tools.get_descendant(root, ancestor.parent())
             if isinstance(ancestor_parent, Serializable):
               init_args_defaults = tree_tools.get_init_args_defaults(ancestor_parent)
-              referenced_arg_default = init_args_defaults[ancestor[-1]].default
+              if ancestor[-1] in init_args_defaults:
+                referenced_arg_default = init_args_defaults[ancestor[-1]].default
+              else:                
+                referenced_arg_default = inspect.Parameter.empty
               if referenced_arg_default == inspect.Parameter.empty and node.is_required():
                 raise ValueError(f"Reference '{node}' is required but does not exist and has no default arguments")
               else:
@@ -220,8 +223,8 @@ class YamlSerializer(object):
       dict_spec = yaml.load(f)
       corpus_parser = UninitializedYamlObject(dict_spec.corpus_parser)
       model = UninitializedYamlObject(dict_spec.model)
-      model_context = UninitializedYamlObject(dict_spec)
-    return corpus_parser, model, model_context
+      xnmt_global = UninitializedYamlObject(dict_spec)
+    return corpus_parser, model, xnmt_global
 
 
 class ComponentInitError(Exception):

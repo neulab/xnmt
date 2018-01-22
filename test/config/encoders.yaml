@@ -1,6 +1,6 @@
 defaults: !Experiment
   kwargs: &defaults
-    model_context: !ModelContext
+    xnmt_global: !XnmtGlobal
       model_file: examples/output/{EXP}.mod
       out_file: examples/output/{EXP}.out
       err_file: examples/output/{EXP}.err

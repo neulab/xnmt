@@ -1,5 +1,5 @@
 exp1-pretrain-model: !Experiment
-  model_context: !ModelContext
+  xnmt_global: !XnmtGlobal
     # The model file contain the whole contents of this experiment in YAML
     # format. Note that {EXP} expressions are left intact when saving.
     model_file: examples/output/{EXP}.mod
@@ -29,7 +29,7 @@ exp1-pretrain-model: !Experiment
       mlp_hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {} # TODO: remove this line
+    inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
@@ -59,5 +59,5 @@ exp2-finetune-model: !Experiment
     - !AdamTrainer
         alpha: 0.0002
           
-  - [model_context.dropout, 0.5]
+  - [xnmt_global.dropout, 0.5]
       

@@ -1,7 +1,3 @@
-# This config file replicates the Listen-Attend-Spell architecture: https://arxiv.org/pdf/1508.01211.pdf
-# Compared to the conventional attentional model, we remove input embeddings, instead directly read in a feature vector
-# the pyramidal LSTM reduces length of the input sequence by a factor of 2 per layer (except for the first layer).
-# Output units should be characters according to the paper.
 speech-2layers: !Experiment
   xnmt_global: !XnmtGlobal
     model_file: examples/output/{EXP}.mod
@@ -33,8 +29,9 @@ speech-2layers: !Experiment
       transpose: True
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
-    run_for_epochs: 20
+    run_for_epochs: 1
     src_format: contvec
     batcher: !SrcBatcher
       pad_src_to_multiple: 4

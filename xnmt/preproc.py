@@ -133,8 +133,8 @@ class SentencepieceTokenizer(ExternalTokenizer):
   yaml_tag = u'!SentencepieceTokenizer'
 
   def __init__(self, path, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
-      , output_format='piece', model_type='bpe', input_sentence_size=10000000
-      , encode_extra_options=None):
+      , output_format='piece', model_type='bpe'
+      , encode_extra_options=None, decode_extra_options=None):
     """
     Initialize the wrapper around sentencepiece and train the tokenizer.
 

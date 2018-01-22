@@ -107,7 +107,7 @@ class Ref(Serializable):
     else:
       raise ValueError(f"Could not resolve path of reference {self}")
 
-reserved_arg_names = ["_xnmt_id", "yaml_context", "serialize_params", "init_params", "kwargs", "self"]
+reserved_arg_names = ["_xnmt_id", "yaml_path", "serialize_params", "init_params", "kwargs", "self"]
 
 def get_init_args_defaults(obj):
     return inspect.signature(obj.__init__).parameters

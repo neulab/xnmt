@@ -1,7 +1,7 @@
 # Simple example for multi-task training. Here, we have 2 identical tasks with
 # some shared parameters.
 exp1-multi_task_exp: !Experiment
-  model_context: !ModelContext
+  xnmt_global: !XnmtGlobal
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err
@@ -44,7 +44,8 @@ exp1-multi_task_exp: !Experiment
           lstm_dim: 64
           bridge: !CopyBridge {}
           vocab: !Ref {name: trg_vocab}
-        inference: !SimpleInference {}
+        inference: !SimpleInference
+          batcher: !Ref { path: train.tasks.0.batcher }
       dev_tasks:
         - !AccuracyEvalTask
           model: !Ref { name: first_task_model }
@@ -79,7 +80,8 @@ exp1-multi_task_exp: !Experiment
           layers: 1
           bridge: !CopyBridge {}
           vocab: !Ref {name: trg_vocab}
-        inference: !SimpleInference {}
+        inference: !SimpleInference
+          batcher: !Ref { path: train.tasks.1.batcher }
       dev_tasks:
         - !AccuracyEvalTask
           model: !Ref { name: second_task_model }
@@ -91,7 +93,8 @@ exp1-multi_task_exp: !Experiment
     - !AccuracyEvalTask
       model: !Ref { name: first_task_model }
       eval_metrics: bleu,wer
-      inference: !SimpleInference {}
+      inference: !SimpleInference
+        batcher: !Ref { path: train.tasks.0.batcher }
       src_file: *first_task_dev_src
       ref_file: *first_task_dev_trg
       hyp_file: examples/output/{EXP}.test_hyp

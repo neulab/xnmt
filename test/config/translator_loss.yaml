@@ -1,5 +1,5 @@
 reinforce: !Experiment
-  model_context: !ModelContext
+  xnmt_global: !XnmtGlobal
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err
@@ -25,7 +25,7 @@ reinforce: !Experiment
       layers: 1
       mlp_hidden_dim: 32
       bridge: !NoBridge {}
-    inference: !SimpleInference {} # TODO: remove this line
+    inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     trainer: !AdamTrainer

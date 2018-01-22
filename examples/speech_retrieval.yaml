@@ -1,49 +1,52 @@
-standard-dropout0.1:
-  experiment:
+# TODO: broken, needs to be fixed
+speech-retrieval: !Experiment
+  xnmt_global: !XnmtGlobal
     model_file: examples/output/{EXP}.mod
-    hyp_file: examples/output/{EXP}.hyp
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err
-    eval_metrics: recall|nbest=1,recall|nbest=5
+    default_layer_dim: 512
+    dropout: 0.1
+  model: !DotProductRetriever
+    src_embedder: !NoopEmbedder
+      emb_dim: 40
+    src_encoder: !TilburgSpeechSeqTransducer
+      filter_height: 40
+      filter_width: 6
+      channels: 1
+      num_filters: 64
+      stride: 2
+      rhn_num_hidden_layers: 2
+      rhn_dim: 1024
+      rhn_microsteps: 2
+      attention_dim: 128
+      residual: True
+    trg_embedder: !NoopEmbedder
+      emb_dim: 40
+    trg_encoder: !HarwathImageTransducer
+      in_height: 4096
+      out_height: 1024 
+    database: !StandardRetrievalDatabase
+      reader: !ContVecReader {}
+      database_file: examples/data/vgg20.npz
+    src_reader: !ContVecReader {}
+    trg_reader: !IDReader {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     trainer: !AdamTrainer
       alpha: 0.01 
-    glob:
-      default_layer_dim: 512
-      dropout: 0.1
-    dev_metrics: recall|nbest=1,recall|nbest=5
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !ContVecReader {}
-      trg_reader: !IDReader {}
-      training_corpus: !BilingualTrainingCorpus
-        train_src: examples/data/mfcc_tr20.npz
-        train_trg: examples/data/flickr_tr20.ids
-        dev_src: examples/data/mfcc_tx20.npz
-        dev_trg: examples/data/flickr_tx20.ids
-    model: !DotProductRetriever
-      src_embedder: !NoopEmbedder
-        emb_dim: 40
-      src_encoder: !TilburgSpeechSeqTransducer
-        filter_height: 40
-        filter_width: 6
-        channels: 1
-        num_filters: 64
-        stride: 2
-        rhn_num_hidden_layers: 2
-        rhn_dim: 1024
-        rhn_microsteps: 2
-        attention_dim: 128
-        residual: True
-      trg_embedder: !NoopEmbedder
-        emb_dim: 40
-      trg_encoder: !HarwathImageTransducer
-        in_height: 4096
-        out_height: 1024 
-      database: !StandardRetrievalDatabase
-        reader: !ContVecReader {}
-        database_file: examples/data/vgg20.npz
-  inference: !SimpleInference
-    src_file: examples/data/mfcc_tx20.npz
+    src_file: examples/data/mfcc_tr20.npz
+    trg_file: examples/data/flickr_tr20.ids
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/mfcc_tx20.npz
+        ref_file: examples/data/flickr_tx20.ids
+      - !AccuracyEvalTask
+        eval_metrics: recall|nbest=1,recall|nbest=5
+        src_file: examples/data/mfcc_tx20.npz
+        ref_file: examples/data/flickr_tx20.ids
   evaluate:
-    ref_file: examples/data/flickr_tx20.ids
+    - !AccuracyEvalTask
+      eval_metrics: recall|nbest=1,recall|nbest=5
+      src_file: examples/data/mfcc_tx20.npz
+      ref_file: examples/data/flickr_tx20.ids
+    

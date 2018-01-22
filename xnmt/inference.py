@@ -1,17 +1,14 @@
 # coding: utf-8
 
 import io
-import sys
 
 import dynet as dy
 
-from xnmt.output import *
-from xnmt.retriever import *
-from xnmt.translator import *
-from xnmt.search_strategy import *
 from xnmt.loss_calculator import LossCalculator
+import xnmt.output
+from xnmt.reports import Reportable
 from xnmt.serialize.serializable import Serializable
-import xnmt.translator
+from xnmt.serialize.tree_tools import Ref, Path
 
 '''
 This will be the main class to perform decoding.
@@ -23,7 +20,7 @@ class SimpleInference(Serializable):
   yaml_tag = u'!SimpleInference'
   def __init__(self, model_file=None, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
                   input_format="text", post_process="none", report_path=None, report_type="html",
-                  beam=1, max_len=100, len_norm_type=None, mode="onebest", batcher=None):
+                  beam=1, max_len=100, len_norm_type=None, mode="onebest", batcher=Ref(Path("train.batcher"), required=False)):
     """
     :param model_file: pretrained (saved) model path (required onless model_elements is given)
     :param src_file: path of input src file to be translated
@@ -83,12 +80,13 @@ class SimpleInference(Serializable):
     generator.set_train(False)
     generator.initialize_generator(**args)
   
-    # TODO: Structure it better. not only Translator can have post processes
-    if issubclass(generator.__class__, xnmt.translator.Translator):
+    if hasattr(generator, "set_post_processor"):
       generator.set_post_processor(self.get_output_processor())
+    if hasattr(generator, "set_trg_vocab"):
       generator.set_trg_vocab(trg_vocab)
+    if hasattr(generator, "set_reporting_src_vocab"):
       generator.set_reporting_src_vocab(src_vocab)
-  
+      
     if is_reporting:
       generator.set_report_resource("src_vocab", src_vocab)
       generator.set_report_resource("trg_vocab", trg_vocab)
@@ -109,7 +107,7 @@ class SimpleInference(Serializable):
     with io.open(args["trg_file"], 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
       src_ret=[]
       for i, src in enumerate(src_corpus):
-        # This is necessary when the batcher dos some sort of pre-processing, e.g.
+        # This is necessary when the batcher does some sort of pre-processing, e.g.
         # when the batcher pads to a particular number of dimensions
         if self.batcher:
           self.batcher.add_single_batch(src_curr=[src], trg_curr=None, src_ret=src_ret, trg_ret=None)
@@ -132,12 +130,12 @@ class SimpleInference(Serializable):
   def get_output_processor(self):
     spec = self.post_process
     if spec == "none":
-      return PlainTextOutputProcessor()
+      return xnmt.output.PlainTextOutputProcessor()
     elif spec == "join-char":
-      return JoinedCharTextOutputProcessor()
+      return xnmt.output.JoinedCharTextOutputProcessor()
     elif spec == "join-bpe":
-      return JoinedBPETextOutputProcessor()
+      return xnmt.output.JoinedBPETextOutputProcessor()
     elif spec == "join-piece":
-      return JoinedPieceTextOutputProcessor()
+      return xnmt.output.JoinedPieceTextOutputProcessor()
     else:
       raise RuntimeError("Unknown postprocessing argument {}".format(spec))

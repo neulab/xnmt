@@ -2,8 +2,8 @@ import dynet as dy
 import os
 from xnmt.serialize.serializable import Serializable
 
-class ModelContext(Serializable):
-  yaml_tag = u'!ModelContext'
+class XnmtGlobal(Serializable):
+  yaml_tag = u'!XnmtGlobal'
   def __init__(self, model_file=None, out_file=None, err_file=None, dropout = 0.0,
                weight_noise = 0.0, default_layer_dim = 512, save_num_checkpoints=1,
                eval_only=False, commandline_args=None,

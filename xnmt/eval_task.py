@@ -21,7 +21,8 @@ class LossEvalTask(Serializable):
   yaml_tag = u'!LossEvalTask'
   
   def __init__(self, src_file, ref_file, model=Ref(path=Path("model")),
-                batcher=Ref(path=Path("train.batcher"), required=False), loss_calculator=None):
+                batcher=Ref(path=Path("train.batcher"), required=False),
+                loss_calculator=None):
     self.model = model
     self.loss_calculator = loss_calculator or LossCalculator(MLELoss())
     self.src_file = src_file

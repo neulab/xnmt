@@ -35,7 +35,7 @@ class TrainingRegimen(object):
 
 class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
   yaml_tag = '!SimpleTrainingRegimen'
-  def __init__(self, yaml_context=Ref(Path("model_context")), model=Ref(path=Path("model")), glob={},
+  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), model=Ref(path=Path("model")),
                src_file=None, trg_file=None,
                dev_every=0, batcher=xnmt.batcher.SrcBatcher(32), loss_calculator=None, 
                src_format="text", trainer=None, 
@@ -43,9 +43,8 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                initial_patience=None, dev_tasks=None,
                restart_trainer=False, reload_command=None, name=None):
     """
-    :param yaml_context:
+    :param xnmt_global:
     :param model: a generator.GeneratorModel object
-    :param glob: Global parameters.
     :param src_file: the source training file
     :param trg_file: the target training file
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
@@ -64,9 +63,8 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                            To just reload the data after each epoch set the command to 'true'.
     :param name: will be prepended to log outputs if given
     """
-    super().__init__(yaml_context=yaml_context,
+    super().__init__(xnmt_global=xnmt_global,
                      model=model,
-                     glob=glob,
                      src_file=src_file,
                      trg_file=trg_file,
                      dev_every=dev_every,
@@ -82,8 +80,8 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                      restart_trainer=restart_trainer,
                      reload_command=reload_command,
                      name=name)
-    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(yaml_context=self.yaml_context, e0=0.1)
-    self.dynet_profiling = getattr(yaml_context.commandline_args, "dynet_profiling", 0)
+    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(xnmt_global=self.xnmt_global, e0=0.1)
+    self.dynet_profiling = getattr(xnmt_global.commandline_args, "dynet_profiling", 0)
 
   def run_training(self, save_fct, update_weights=True):
     """
@@ -108,7 +106,7 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
   Base class for multi-task training classes.
   Mainly initializes tasks, performs sanity-checks, and manages set_train events.
   """
-  def __init__(self, tasks, trainer=None, yaml_context=Ref(Path("model_context"))):
+  def __init__(self, tasks, trainer=None, xnmt_global=Ref(Path("xnmt_global"))):
     """
     :param tasks: list of TrainingTask instances.
                   The first item takes on the role of the main task, meaning it
@@ -116,15 +114,15 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
                   model checkpoints.
     :param trainer: Trainer object, default is SGD with learning rate 0.1
     """
-    self.dynet_profiling = yaml_context.commandline_args.dynet_profiling
+    self.dynet_profiling = xnmt_global.commandline_args.dynet_profiling
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
-    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(yaml_context=self.yaml_context, e0=0.1)
+    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(xnmt_global=self.xnmt_global, e0=0.1)
     for task in tasks[1:]:
       if hasattr(task, "trainer") and task.trainer is not None:
         raise ValueError("Can instantiate only one trainer object. Possibly, multiple training regimens were created when training tasks should have been used.")
     self.train = None
-    self.model_file = yaml_context.dynet_param_collection.model_file
+    self.model_file = xnmt_global.dynet_param_collection.model_file
     self.main_task = 0
     for task in tasks: task.trainer = trainer
   def init_data_vocabs(self):
@@ -166,9 +164,9 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   are thus performed jointly for each task. The relative weight between
   tasks can be configured by setting each tasks batch size accordingly.
   """
-  def __init__(self, tasks, trainer=None, yaml_context=Ref(Path("model_context"))):
-    super().__init__(yaml_context=yaml_context, tasks=tasks, trainer=trainer)
-    self.yaml_context = yaml_context
+  def __init__(self, tasks, trainer=None, xnmt_global=Ref(Path("xnmt_global"))):
+    super().__init__(xnmt_global=xnmt_global, tasks=tasks, trainer=trainer)
+    self.xnmt_global = xnmt_global
   def run_training(self, save_fct, update_weights=True):
     self.init_data_vocabs()
     task_generators = OrderedDict()
@@ -204,10 +202,10 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
   are only loaded individually. It also supports disabling training for some
   tasks by setting the task weight to 0.
   """
-  def __init__(self, tasks, task_weights=None, trainer=None, yaml_context=Ref(Path("model_context"))):
-    super().__init__(yaml_context=yaml_context, tasks=tasks, trainer=trainer)
+  def __init__(self, tasks, task_weights=None, trainer=None, xnmt_global=Ref(Path("xnmt_global"))):
+    super().__init__(xnmt_global=xnmt_global, tasks=tasks, trainer=trainer)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks) 
-    self.yaml_context = yaml_context
+    self.xnmt_global = xnmt_global
   def run_training(self, save_fct, update_weights=True):
     self.init_data_vocabs()
     task_generators = OrderedDict()
@@ -242,13 +240,13 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
 
   yaml_tag = "!SerialMultiTaskTrainingRegimen"
   
-  def __init__(self, yaml_context, tasks, trainer=None):
+  def __init__(self, xnmt_global, tasks, trainer=None):
     """
     :param tasks: list of TrainingTask instances. The currently active task is treated as main task.
     :param trainer: Trainer object, default is SGD with learning rate 0.1
     """
-    super().__init__(yaml_context=yaml_context, tasks=tasks, trainer=trainer)
-    self.yaml_context = yaml_context
+    super().__init__(xnmt_global=xnmt_global, tasks=tasks, trainer=trainer)
+    self.xnmt_global = xnmt_global
   def run_training(self, save_fct, update_weights=True):
     self.init_data_vocabs()
     for cur_task_id in range(len(self.tasks)):
