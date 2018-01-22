@@ -8,7 +8,7 @@ from lxml import etree
 import xnmt.batcher
 from xnmt.events import handle_xnmt_event
 from xnmt.generator import GeneratorModel
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 from xnmt.reports import Reportable
 from xnmt.expression_sequence import ExpressionSequence
 

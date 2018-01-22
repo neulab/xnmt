@@ -5,7 +5,7 @@ import random
 import numpy as np
 import dynet as dy
 from xnmt.vocab import Vocab
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 
 class Batch(list):
   """

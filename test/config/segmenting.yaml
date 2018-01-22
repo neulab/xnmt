@@ -1,62 +1,59 @@
-debug-segmenting:
-  experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
-    eval_metrics: bleu
-  train: !SimpleTrainingRegimen
-    run_for_epochs: 2
-    glob:
-      default_layer_dim: 16
-      dropout: 0.5
-    dev_metrics: bleu
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
-      trg_reader: !PlainTextReader {}
-      max_src_len: 15
-      max_trg_len: 15
-      training_corpus: !BilingualTrainingCorpus
-        train_src: examples/data/train-char.ja
-        train_trg: examples/data/train.en
-        dev_src: examples/data/dev-char-head5.ja
-        dev_trg: examples/data/dev-head5.en
-    model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 16
-      encoder: !SegmentingSeqTransducer
-        embed_encoder: !BiLSTMSeqTransducer
+debug-segmenting: !Experiment
+  xnmt_global: !XnmtGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
+    default_layer_dim: 16
+    dropout: 0.5
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head-char.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 16
+    encoder: !SegmentingSeqTransducer
+      embed_encoder: !BiLSTMSeqTransducer
+        input_dim: 16
+        hidden_dim: 16
+        layers: 1
+      segment_transducer: !SegmentTransducer
+        encoder: !BiLSTMSeqTransducer
           input_dim: 16
           hidden_dim: 16
           layers: 1
-        segment_transducer: !SegmentTransducer
-          encoder: !BiLSTMSeqTransducer
-            input_dim: 16
-            hidden_dim: 16
-            layers: 1
-          transformer: !TailSegmentTransformer {}
-        learn_segmentation: True
-        learn_delete: False
-        reinforcement_param: !ScalarParam
-          initial: 0.1
-          grow: 2
-          warmup: 1
-          min_value: 0.0
-          max_value: 1.0
-        length_prior: 3.5
-      attender: !MlpAttender
-        state_dim: 16
-        hidden_dim: 16
-        input_dim: 16
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 16
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 16
-        bridge: !CopyBridge {}
-  inference: !SimpleInference
-    src_file: examples/data/test-char-head5.ja
-    report_path: examples/output/<EXP>.report
-    report_type: html, file
+        transformer: !TailSegmentTransformer {}
+      learn_segmentation: True
+      learn_delete: False
+      reinforcement_param: !ScalarParam
+        initial: 0.1
+        grow: 2
+        warmup: 1
+        min_value: 0.0
+        max_value: 1.0
+      length_prior: 3.5
+    attender: !MlpAttender
+      state_dim: 16
+      hidden_dim: 16
+      input_dim: 16
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 16
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 16
+      bridge: !CopyBridge {}
+    inference: !SimpleInference {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 2
+    src_file: examples/data/head-char.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/dev-char-head5.ja
+        ref_file: examples/data/dev-head5.en
   evaluate:
-    ref_file: examples/data/test-head5.en
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/test-char-head5.ja
+      ref_file: examples/data/test-head5.en
+      hyp_file: examples/output/{EXP}.test_hyp

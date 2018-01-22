@@ -5,9 +5,9 @@ import dynet as dy
 import numpy as np
 
 from xnmt.loss import LossBuilder
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializer import Serializable
 from xnmt.vocab import Vocab
-
+from xnmt.serialize.tree_tools import Ref, Path
 import xnmt.evaluator
 import xnmt.linear as linear
 
@@ -56,7 +56,7 @@ class MLELoss(Serializable):
 class ReinforceLoss(Serializable):
   yaml_tag = '!ReinforceLoss'
 
-  def __init__(self, yaml_context, evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):
+  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):
     self.sample_length = sample_length
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
@@ -64,8 +64,8 @@ class ReinforceLoss(Serializable):
       self.evaluation_metric = evaluation_metric
     self.use_baseline = use_baseline
     if self.use_baseline:
-      model = yaml_context.dynet_param_collection.param_col
-      decoder_hidden_dim = decoder_hidden_dim or yaml_context.default_layer_dim
+      model = xnmt_global.dynet_param_collection.param_col
+      decoder_hidden_dim = decoder_hidden_dim or xnmt_global.default_layer_dim
       self.baseline = linear.Linear(input_dim=decoder_hidden_dim, output_dim=1, model=model)
 
   def __call__(self, translator, dec_state, src, trg):
@@ -117,9 +117,8 @@ class ReinforceLoss(Serializable):
       for i, (score, _) in enumerate(zip(self.bs, logsofts)):
         logsofts[i] = dy.cmult(logsofts[i], score - self.true_score)
       loss.add_loss("Reinforce", dy.sum_elems(dy.esum(logsofts)))
-
     else:
-        loss.add_loss("Reinforce", dy.sum_elems(dy.cmult(-self.true_score, dy.esum(logsofts))))
+      loss.add_loss("Reinforce", dy.sum_elems(dy.cmult(-self.true_score, dy.esum(logsofts))))
 
     if self.use_baseline:
       baseline_loss = []

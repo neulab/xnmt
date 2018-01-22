@@ -1,47 +1,47 @@
-debug:
-  experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
-    eval_metrics: bleu
+report: !Experiment
+  xnmt_global: !XnmtGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
+    default_layer_dim: 256 
+    dropout: 0.0
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 256
+    encoder: !BiLSTMSeqTransducer
+      layers: 1
+      input_dim: 256
+    attender: !MlpAttender
+      state_dim: 256
+      hidden_dim: 256
+      input_dim: 256
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 256
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 256
+      bridge: !NoBridge {}
+    inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     trainer: !AdamTrainer
       alpha: 0.01
-    glob:
-      default_layer_dim: 256 
-      dropout: 0.0
-    dev_metrics: bleu
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
-      trg_reader: !PlainTextReader {}
-      max_src_len: 15
-      max_trg_len: 15
-      training_corpus: !BilingualTrainingCorpus
-        train_src: examples/data/head.ja
-        train_trg: examples/data/head.en
-        dev_src: examples/data/head.ja
-        dev_trg: examples/data/head.en
-    model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 256
-      encoder: !BiLSTMSeqTransducer
-        layers: 1
-        input_dim: 256
-      attender: !MlpAttender
-        state_dim: 256
-        hidden_dim: 256
-        input_dim: 256
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 256
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 256
-        bridge: !NoBridge {}
-  inference: !SimpleInference
     src_file: examples/data/head.ja
-    report_path: examples/output/<EXP>.report
-    report_type: html, file
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
   evaluate:
-    ref_file: examples/data/head.en
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp
+      inference: !SimpleInference
+        report_path: examples/output/{EXP}.report
+        report_type: html, file

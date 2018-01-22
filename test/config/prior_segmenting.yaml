@@ -1,0 +1,67 @@
+prior-segmenting: !Experiment
+  xnmt_global: !XnmtGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
+    default_layer_dim: 16
+    dropout: 0.5
+  model: !DefaultTranslator
+    src_reader: !SegmentationTextReader
+      vocab: !Vocab {vocab_file: examples/data/head-char.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 16
+    encoder: !SegmentingSeqTransducer
+      embed_encoder: !BiLSTMSeqTransducer
+        input_dim: 16
+        hidden_dim: 16
+        layers: 1
+      segment_transducer: !SegmentTransducer
+        encoder: !BiLSTMSeqTransducer
+          input_dim: 16
+          hidden_dim: 16
+          layers: 1
+        transformer: !TailSegmentTransformer {}
+      learn_segmentation: False
+      learn_delete: False
+      reinforcement_param: !ScalarParam
+        initial: 0.1
+        grow: 2
+        warmup: 1
+        min_value: 0.0
+        max_value: 1.0
+      length_prior: 3.5
+    attender: !MlpAttender
+      state_dim: 16
+      hidden_dim: 16
+      input_dim: 16
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 16
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 16
+      bridge: !CopyBridge {}
+    inference: !SimpleInference {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 2
+    src_file:
+      - examples/data/head-char.ja
+      - examples/data/head-seg.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file:
+        - examples/data/head-char.ja
+        - examples/data/head-seg.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.dev_hyp
+  evaluate:
+  - !AccuracyEvalTask
+    eval_metrics: bleu
+    src_file:
+      - examples/data/head-char.ja
+      - examples/data/head-seg.ja
+    ref_file: examples/data/head.en
+    hyp_file: examples/output/{EXP}.test_hyp

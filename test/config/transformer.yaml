@@ -1,48 +1,42 @@
-standard:
-  experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
-    cfg_file: examples/output/<EXP>.yaml
-    eval_metrics: bleu
+standard: !Experiment
+  xnmt_global: !XnmtGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
+    dropout: 0.2
+    default_layer_dim: 64
+  model: !TransformerTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+      init: LeCunUniform
+    encoder: !TransformerEncoder
+      layers: 1
+      input_dim: 64
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+      init: LeCunUniform
+    decoder: !TransformerDecoder
+      layers: 1
+      input_dim: 64
+    input_dim: 64
+    inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
-    glob:
-      dropout: 0.2
-      default_layer_dim: 64
     restart_trainer: False
-    trainer: !TransformerAdamTrainer
-      alpha: 1.0
-      warmup_steps: 20
     lr_decay: 1.0
-    dev_metrics: bleu
-    schedule_metric: bleu
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
-      trg_reader: !PlainTextReader {}
-      training_corpus: !BilingualTrainingCorpus
-        train_src: examples/data/head.ja
-        train_trg: examples/data/head.en
-        dev_src: examples/data/head.ja
-        dev_trg: examples/data/head.en
-    model: !TransformerTranslator
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-        init: LeCunUniform
-      encoder: !TransformerEncoder
-        layers: 1
-        input_dim: 64
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-        init: LeCunUniform
-      decoder: !TransformerDecoder
-        layers: 1
-        input_dim: 64
-        label_smoothing: 0.0
-      input_dim: 64
-  inference: !SimpleInference
-    beam: 1
     src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
   evaluate:
-    ref_file: examples/data/head.en
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp
