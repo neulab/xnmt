@@ -11,7 +11,7 @@ import xnmt.length_normalization
 import xnmt.batcher
 
 from xnmt.vocab import Vocab
-from xnmt.events import register_xnmt_event_assign, register_handler
+from xnmt.events import register_xnmt_event_assign, handle_xnmt_event ,register_handler
 from xnmt.generator import GeneratorModel
 from xnmt.serializer import Serializable
 from xnmt.search_strategy import BeamSearch, GreedySearch
@@ -192,9 +192,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     # return the parent context to be used as child context
     return html
 
-  @register_xnmt_event_assign
-  def txt_report(self, context=None):
-    assert(context is None)
+  @handle_xnmt_event
+  def on_file_report(self):
     idx, src, trg, att = self.get_report_input()
     path_to_report = self.get_report_path()
 
