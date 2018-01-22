@@ -1,4 +1,3 @@
-import io
 import sys
 import os.path
 import subprocess
@@ -9,7 +8,7 @@ from xnmt.serialize.serializable import Serializable
 class Normalizer(object):
   """A type of normalization to perform to a file. It is initialized first, then expanded."""
 
-  def __init__(self, spec):
+  def __init__(self, spec=None):
     """Initialize the normalizer from a specification."""
     pass
 
@@ -41,7 +40,7 @@ class Tokenizer(Normalizer, Serializable):
   """
   Pass the text through an internal or external tokenizer.
 
-  TODO: only StreamTokenizers are supported by xnmt_preproc.py right now.
+  TODO: only StreamTokenizers are supported by the preproc runner right now.
   """
   def tokenize(self, sent):
     raise RuntimeError("Subclasses of Tokenizer must implement tokenize() or tokenize_stream()")
@@ -117,15 +116,12 @@ class ExternalTokenizer(Tokenizer):
     """
     encode_proc = subprocess.Popen(self.tokenizer_command, stdin=subprocess.PIPE
         , stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if ((sys.version_info[0] >= 3 and isinstance(string, str))
-            or (sys.version_info[0] < 3 and isinstance(string, unicode))):
-      string = string.encode('utf-8')
+    if isinstance(sent, str):
+      string = sent.encode('utf-8')
     stdout, stderr = encode_proc.communicate(string)
     if stderr:
-      if (sys.version_info[0] >= 3 and isinstance(stderr, bytes)):
+      if isinstance(stderr, bytes):
         stderr = stderr.decode('utf-8')
-      if (sys.version_info[0] < 3 and isinstance(stderr , unicode)):
-        stderr = stderr.encode('utf-8')
       sys.stderr.write(stderr + '\n')
     return stdout
 
@@ -159,7 +155,7 @@ class SentencepieceTokenizer(ExternalTokenizer):
       try:
         os.makedirs(os.path.dirname(model_prefix))
       except OSError as exc:
-        if exc.errno != errno.EEXIST:
+        if exc.errno != os.errno.EEXIST:
           raise
 
     if ((not os.path.exists(self.model_prefix + '.model')) or

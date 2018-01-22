@@ -13,6 +13,7 @@ import xnmt.input
 import xnmt.lstm
 import xnmt.model_context
 import xnmt.optimizer
+import xnmt.preproc_runner
 import xnmt.pyramidal
 import xnmt.residual
 import xnmt.retriever
@@ -24,4 +25,3 @@ import xnmt.training_regimen
 import xnmt.training_task
 import xnmt.transformer
 import xnmt.translator
-import xnmt.xnmt_preproc

@@ -69,14 +69,6 @@ def main(overwrite_args=None):
 
     uninitialized_exp_args.data.model_context.commandline_args = args
 
-    # TODO: Delete or move inside PreprocRunner.__init__()
-#     if "preproc" in uninitialized_exp_args.data:
-#       print("> Preprocessing")
-#       preproc_args = uninitialized_exp_args.data.get("preproc", {})
-#       del uninitialized_exp_args.data["preproc"]
-#       yaml_serializer.initialize_if_needed(preproc_args, model_context)
-#       xnmt.xnmt_preproc.xnmt_preproc(**preproc_args)
-
     # Create the model
     experiment = yaml_serializer.initialize_if_needed(uninitialized_exp_args)
 
