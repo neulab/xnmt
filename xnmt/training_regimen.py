@@ -39,9 +39,8 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
   def __init__(self, xnmt_global=Ref(Path("xnmt_global")), model=Ref(path=Path("model")),
                src_file=None, trg_file=None,
                dev_every=0, batcher=xnmt.batcher.SrcBatcher(32), loss_calculator=None, 
-               src_format="text", trainer=None, 
-               run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
-               initial_patience=None, dev_tasks=None,
+               trainer=None, run_for_epochs=None, lr_decay=1.0, lr_decay_times=3,
+               patience=1, initial_patience=None, dev_tasks=None,
                restart_trainer=False, reload_command=None, name=None):
     """
     :param xnmt_global:
@@ -51,7 +50,6 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
     :param batcher: Type of batcher
     :param loss_calculator: The method for calculating the loss.
-    :param src_format: Format of input data: text/contvec
     :param trainer: Trainer object, default is SGD with learning rate 0.1
     :param lr_decay (float):
     :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
@@ -71,7 +69,6 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                      dev_every=dev_every,
                      batcher=batcher,
                      loss_calculator=loss_calculator, 
-                     src_format=src_format,
                      run_for_epochs=run_for_epochs,
                      lr_decay=lr_decay,
                      lr_decay_times=lr_decay_times,

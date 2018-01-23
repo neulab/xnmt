@@ -72,9 +72,18 @@ class ArrayInput(Input):
     return self.nparr.__getitem__(key)
 
   def get_padded_sent(self, token, pad_len):
+    """
+    :param token: None (replicate last frame) or 0 (pad zeros)
+    :param pad_len:
+    """
     if pad_len == 0:
       return self
-    new_nparr = np.append(self.nparr, np.zeros((self.nparr.shape[0], pad_len)), axis=1)
+    if token is None:
+      new_nparr = np.append(self.nparr, np.broadcast_to(np.reshape(self.nparr[:,-1], (self.nparr.shape[0], 1)), (self.nparr.shape[0], pad_len)), axis=1)
+    elif token == 0:
+      new_nparr = np.append(self.nparr, np.zeros((self.nparr.shape[0], pad_len)), axis=1)
+    else:
+      raise NotImplementedError(f"currently only support 'None' or '0' as, but got '{token}'")
     return ArrayInput(new_nparr)
 
   def get_array(self):

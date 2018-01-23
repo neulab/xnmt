@@ -32,10 +32,10 @@ speech-2layers: !Experiment
     inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
-    src_format: contvec
     batcher: !SrcBatcher
       pad_src_to_multiple: 4
       batch_size: 3
+      src_pad_token: ~
     trainer: !AdamTrainer {}
     src_file: examples/data/synth.contvec.npz
     trg_file: examples/data/synth.char
