@@ -1,5 +1,6 @@
 from collections import OrderedDict
 
+from simple_settings import settings
 import numpy as np
 import dynet as dy
 
@@ -90,7 +91,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     self.load_data()
     self.model.set_train(update_weights)
     for src,trg in self.next_minibatch():
-      dy.renew_cg()
+      dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       loss = self.training_step(src, trg)
       if update_weights: self.update_weights(loss, self.trainer, self.dynet_profiling)
       if self.checkpoint_needed():
@@ -174,7 +175,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
       task_generators[task] = task.next_minibatch()
     self.trigger_train_event(update_weights)
     while True:
-      dy.renew_cg()
+      dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       task_losses = []
       for task, task_gen in task_generators.items():
         src, trg = next(task_gen)
@@ -213,7 +214,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
       task_generators[task] = task.next_minibatch()
     self.trigger_train_event(update_weights)
     while True:
-      dy.renew_cg()
+      dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       cur_task_i = np.random.choice(range(len(self.tasks)), p=self.task_weights)
       cur_task = self.tasks[cur_task_i]
       task_gen = task_generators[cur_task]
@@ -256,7 +257,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
       task_gen = cur_task.next_minibatch()
       self.trigger_train_event(update_weights)
       while True:
-        dy.renew_cg()
+        dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
         src, trg = next(task_gen)
         task_loss = cur_task.training_step(src, trg)
         if update_weights:

@@ -7,7 +7,7 @@ import numpy as np
 import itertools
 # Reporting purposes
 from lxml import etree
-
+from simple_settings import settings
 from xnmt.batcher import mark_as_batch, is_batched
 from xnmt.events import register_xnmt_event_assign, register_handler
 from xnmt.generator import GeneratorModel
@@ -357,7 +357,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     score = 0.
 
     for _ in range(self.max_len):
-      dy.renew_cg()
+      dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       log_prob_tail = self.calc_loss(src, trg, loss_cal=None, infer_prediction=True)
       ys = np.argmax(log_prob_tail.npvalue(), axis=0).astype('i')
       if ys == Vocab.ES:
