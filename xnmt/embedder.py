@@ -114,7 +114,7 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
     self.train = val
   
   def embed(self, x):
-    if self.word_dropout > 0.0 and self.word_id_mask is None:
+    if self.train and self.word_dropout > 0.0 and self.word_id_mask is None:
       batch_size = len(x) if xnmt.batcher.is_batched(x) else 1
       self.word_id_mask = [set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False)) for _ in range(batch_size)]
     emb_e = dy.parameter(self.embeddings)
@@ -183,7 +183,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.train = val
 
   def embed(self, x):
-    if self.word_dropout > 0.0 and self.word_id_mask is None:
+    if self.train and self.word_dropout > 0.0 and self.word_id_mask is None:
       batch_size = len(x) if xnmt.batcher.is_batched(x) else 1
       self.word_id_mask = [set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False)) for _ in range(batch_size)]
     # single mode
