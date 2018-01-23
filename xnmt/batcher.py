@@ -1,6 +1,7 @@
 from __future__ import division, generators
 
 import six
+import math
 import random
 import numpy as np
 import dynet as dy
@@ -24,6 +25,12 @@ class Mask(object):
   def __init__(self, np_arr):
     self.np_arr = np_arr
 
+  def __len__(self):
+    return self.np_arr.shape[1]
+ 
+  def batch_size(self):
+    return self.np_arr.shape[0]
+
   def reversed(self):
     return Mask(self.np_arr[:,::-1])
 
@@ -37,6 +44,12 @@ class Mask(object):
       else:
         mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1), batched=True)
       return tensor_expr + mask_expr
+  
+  def lin_subsampled(self, reduce_factor=None, trg_len=None):
+    if reduce_factor:
+      return Mask(np.array([[self.np_arr[b,int(i*reduce_factor)] for i in range(int(math.ceil(len(self)/float(reduce_factor))))] for b in range(self.batch_size())]))
+    else:
+      return Mask(np.array([[self.np_arr[b,int(i*len(self)/float(trg_len))] for i in range(trg_len)] for b in range(self.batch_size())]))
 
   def cmult_by_timestep_expr(self, expr, timestep, inverse=False):
     # TODO: might cache these expressions to save memory
