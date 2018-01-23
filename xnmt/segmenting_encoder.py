@@ -91,7 +91,9 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     batch_size = embed_sent[0].dim()[1]
     # Softmax + segment decision
     encodings = self.embed_encoder(embed_sent)
-    enc_mask = encodings.mask
+    if self.train and encodings.mask is not None:
+      print(">> Warning MASK is not none in non train!")
+    enc_mask = encodings.mask if self.train else None
     segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size)
     # Some checks
     assert len(encodings) == len(segment_decisions), \
@@ -189,12 +191,12 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     else:
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
     segment_decisions = segment_decisions.transpose()
-
     # The last segment decision of an active components should be equal to 1
-    if encodings.mask is not None:
+    if encodings.mask is not None and self.train:
       src = self.src_sent
       mask = [numpy.nonzero(m)[0] for m in encodings.mask.np_arr.transpose()]
-      assert len(segment_decisions) == len(mask)
+      assert len(segment_decisions) == len(mask), \
+             "Len(seg)={}, Len(mask)={}".format(len(segment_decisions), len(mask))
       for i in range(len(segment_decisions)):
         if len(mask[i]) != 0:
           segment_decisions[i-1][mask[i]] = 1
@@ -287,7 +289,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       baseline_loss = []
       for i, baseline in enumerate(self.bs):
         loss = dy.squared_distance(reward, baseline)
-        if self.enc_mask is not None:
+        if enc_mask is not None:
           loss = dy.cmult(dy.inputTensor(enc_mask[i], batched=True), loss)
         baseline_loss.append(loss)
 
