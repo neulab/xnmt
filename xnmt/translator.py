@@ -230,9 +230,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def on_file_report(self):
     idx, src, trg, attn = self.get_report_input()
     col_length = []
-    col_length.append(max(len(x) for x in src))
     for word in trg:
       col_length.append(max(len(word), 6))
+    col_length.append(max(len(x) for x in src))
     with io.open(self.get_report_path() + ".att", encoding='utf-8', mode='w') as attn_file:
       for i in range(len(src)+1):
         if i == 0:
