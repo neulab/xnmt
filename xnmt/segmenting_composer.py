@@ -39,17 +39,26 @@ class TailSegmentTransformer(SegmentTransformer):
 class TailWordSegmentTransformer(SegmentTransformer):
   yaml_tag = u"!TailWordSegmentTransformer"
 
-  def __init__(self, yaml_context, vocab_size=1e6, embed_size=256):
+  def __init__(self, yaml_context, vocab_size=1e6, embed_dim=None, min_word_size=1):
     self.vocab = Vocab()
-    self.lookup = yaml_context.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, embed_size))
+    self.min_word_size = min_word_size
+    embed_dim = embed_dim or yaml_context.default_layer_dim
+    self.lookup = yaml_context.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, embed_dim))
 
-  def transform(self, encoder, encodings, word=None):
-    return encoder.get_final_states()[0]._main_expr + self.lookup[self.vocab.convert(tuple(word))]
+  def transform(self, encoder, encodings, word):
+    return encoder.get_final_states()[0]._main_expr + self.lookup[self.get_word(word)]
+
+  def get_word(self, word):
+    if len(word) < self.min_word_size:
+      word = self.vocab.convert(self.vocab.UNK_STR)
+    else:
+      word = self.vocab.convert(tuple(word))
+    return word
 
 class WordOnlySegmentTransformer(TailWordSegmentTransformer):
   yaml_tag = u"!WordOnlySegmentTransformer"
-  def transform(self, encoder, encodings, word=None):
-    return self.lookup[self.vocab.convert(tuple(word))]
+  def transform(self, encoder, encodings, word):
+    return self.lookup[self.get_word(word)]
 
 class AverageSegmentTransformer(SegmentTransformer):
   yaml_tag = u"!AverageSegmentTransformer"

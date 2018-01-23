@@ -39,7 +39,9 @@ defaults:
             hidden_dim: 16
             bidirectional: True
             layers: 1
-          transformer: !TailSegmentTransformer {}
+          transformer: !WordOnlySegmentTransformer
+            vocab_size: 100000
+            min_word_size: 2
         final_transducer: !LSTMSeqTransducer
           input_dim: 16
           hidden_dim: 16
