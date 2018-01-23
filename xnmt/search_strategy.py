@@ -8,7 +8,7 @@ class SearchStrategy(object):
   A template class to generate translation from the output probability model.
   '''
   def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
-    raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')
+    raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')  
 
 class GreedySearch(SearchStrategy):
   '''
@@ -19,6 +19,7 @@ class GreedySearch(SearchStrategy):
   def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
     score = 0.0
     word_ids = []
+    attentions = []
 
     while (word_ids==[] or word_ids[-1]!=Vocab.ES) and len(word_ids) < self.max_len:
       if len(word_ids) > 0: # don't feed in the initial start-of-sentence token
@@ -32,8 +33,9 @@ class GreedySearch(SearchStrategy):
 
       score += logsoftmax[cur_id]
       word_ids.append(cur_id)
+      attentions.append(attender.attention_vec)
 
-    return word_ids, score
+    return {"word_ids": word_ids, "attentions": attentions}, score
 
 class BeamSearch(SearchStrategy):
 
@@ -47,14 +49,14 @@ class BeamSearch(SearchStrategy):
     self.entrs = []
 
   class Hypothesis:
-    def __init__(self, score, id_list, state):
+    def __init__(self, score, output, state):
       self.score = score
       self.state = state
-      self.id_list = id_list
+      self.output = output
     def __str__(self):
-      return "hypo S=%s ids=%s" % (self.score, self.id_list)
+      return "hypo S=%s ids=%s" % (self.score, self.output["word_ids"])
     def __repr__(self):
-      return "hypo S=%s |ids|=%s" % (self.score, len(self.id_list))
+      return "hypo S=%s |ids|=%s" % (self.score, len(self.output["word_ids"]))
 
   def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
     """
@@ -69,7 +71,7 @@ class BeamSearch(SearchStrategy):
 
     if forced_trg_ids is not None: assert self.beam_size == 1
 
-    active_hyp = [self.Hypothesis(0, [], dec_state)]
+    active_hyp = [self.Hypothesis(0, {"word_ids": [], "attentions": []}, dec_state)]
 
     completed_hyp = []
     length = 0
@@ -77,13 +79,13 @@ class BeamSearch(SearchStrategy):
     while len(completed_hyp) < self.beam_size and length < self.max_len:
       new_set = []
       for hyp in active_hyp:
-
         dec_state = hyp.state
         if length > 0: # don't feed in the initial start-of-sentence token
-          if hyp.id_list[-1] == Vocab.ES:
+          last_generated = hyp.output["word_ids"][-1]
+          if last_generated == Vocab.ES:
             completed_hyp.append(hyp)
             continue
-          dec_state = decoder.add_input(dec_state, output_embedder.embed(hyp.id_list[-1] if forced_trg_ids is None else forced_trg_ids[length-1]))
+          dec_state = decoder.add_input(dec_state, output_embedder.embed(last_generated if forced_trg_ids is None else forced_trg_ids[length-1]))
         dec_state.context = attender.calc_context(dec_state.rnn_state.output())
         score = dy.log_softmax(decoder.get_scores(dec_state)).npvalue()
         if forced_trg_ids is None:
@@ -92,10 +94,12 @@ class BeamSearch(SearchStrategy):
           top_ids = [forced_trg_ids[length]]
 
         for cur_id in top_ids:
-          new_list = list(hyp.id_list)
+          new_list = list(hyp.output["word_ids"])
           new_list.append(cur_id)
+          new_attn = list(hyp.output["attentions"])
+          new_attn.append(attender.attention_vec)
           new_set.append(self.Hypothesis(self.len_norm.normalize_partial(hyp.score, score[cur_id], len(new_list)),
-                                         new_list,
+                                         {"word_ids": new_list, "attentions": new_attn},
                                          dec_state))
       length += 1
 
@@ -107,4 +111,4 @@ class BeamSearch(SearchStrategy):
     self.len_norm.normalize_completed(completed_hyp, src_length)
 
     result = sorted(completed_hyp, key=lambda x: x.score, reverse=True)[0]
-    return result.id_list, result.score
+    return result.output, result.score

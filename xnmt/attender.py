@@ -42,7 +42,7 @@ class MlpAttender(Attender, Serializable):
     self.curr_sent = None
 
   def init_sent(self, sent):
-    self.attention_vecs = []
+    self.attention_vec = None
     self.curr_sent = sent
     I = self.curr_sent.as_tensor()
     W = dy.parameter(self.pW)
@@ -63,7 +63,7 @@ class MlpAttender(Attender, Serializable):
     if self.curr_sent.mask is not None:
       scores = self.curr_sent.mask.add_to_tensor_expr(scores, multiplicator = -100.0)
     normalized = dy.softmax(scores)
-    self.attention_vecs.append(normalized)
+    self.attention_vec = normalized
     return normalized
 
   def calc_context(self, state):
@@ -86,7 +86,7 @@ class DotAttender(Attender, Serializable):
 
   def init_sent(self, sent):
     self.curr_sent = sent
-    self.attention_vecs = []
+    self.attention_vec = None
     self.I = dy.transpose(self.curr_sent.as_tensor())
 
   def calc_attention(self, state):
@@ -96,7 +96,7 @@ class DotAttender(Attender, Serializable):
     if self.curr_sent.mask is not None:
       scores = self.curr_sent.mask.add_to_tensor_expr(scores, multiplicator = -100.0)
     normalized = dy.softmax(scores)
-    self.attention_vecs.append(normalized)
+    self.attention_vec = normalized
     return normalized
 
   def calc_context(self, state):
