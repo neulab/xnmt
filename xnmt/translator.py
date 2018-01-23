@@ -130,7 +130,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     if self.is_train and self.calc_global_fertility:
       loss = LossBuilder()
       loss.add_loss("mle", model_loss)
-      loss.add_loss("fertility", self.global_fertility(self.attender.attention_vecs))
+      loss.add_loss("fertility", self.global_fertility(self.attender.attention_vecs, encodings.mask))
       model_loss = loss
 
     return model_loss
@@ -180,8 +180,11 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.outputs = outputs
     return outputs
 
-  def global_fertility(self, a):
-    return dy.sum_elems(dy.square(1 - dy.esum(a)))
+  def global_fertility(self, a, mask=None):
+    loss = dy.square(1 - dy.esum(a))
+    if mask is not None:
+      loss = dy.cmult(dy.inputTensor(mask.np_arr.transpose(), batched=True), loss)
+    return dy.sum_elems(loss)
 
   def set_reporting_src_vocab(self, src_vocab):
     """
