@@ -183,7 +183,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def global_fertility(self, a, mask=None):
     loss = dy.square(1 - dy.esum(a))
     if mask is not None:
-      loss = dy.cmult(dy.inputTensor(mask.np_arr.transpose(), batched=True), loss)
+      loss = dy.cmult(dy.inputTensor((1-mask.np_arr.transpose()), batched=True), loss)
     return dy.sum_elems(loss)
 
   def set_reporting_src_vocab(self, src_vocab):
