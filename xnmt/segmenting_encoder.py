@@ -91,7 +91,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     batch_size = embed_sent[0].dim()[1]
     # Softmax + segment decision
     encodings = self.embed_encoder(embed_sent)
-    mask = encodings.mask
+    enc_mask = encodings.mask
     segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size)
     # Some checks
     assert len(encodings) == len(segment_decisions), \
@@ -100,7 +100,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     buffers = [[] for _ in range(batch_size)]
     outputs = [[] for _ in range(batch_size)]
     last_segment = [-1 for _ in range(batch_size)]
-    length_prior = [[] for _ in range(batch_size)]
+    length_prior = [0 for _ in range(batch_size)]
     self.segment_composer.set_input_size(batch_size, len(encodings))
     # Loop through all the frames (word / item) in input.
     for j, (encoding, segment_decision) in enumerate(zip(encodings, segment_decisions)):
@@ -109,7 +109,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         # If segment for this particular input
         decision = int(decision)
         if decision == SegmentingAction.DELETE.value or \
-           (mask is not None and mask.np_arr[i][j] == 1):
+           (enc_mask is not None and enc_mask.np_arr[i][j] == 1):
           continue
         # Get the particular encoding for that batch item
         enc_i = dy.pick_batch_elem(encoding, i)
@@ -127,16 +127,15 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           outputs[i].append(transduce_output)
           buffers[i] = []
           # Calculate length prior
-          length_prior[i].append(numpy.log(poisson.pmf(j-last_segment[i], self.length_prior) + EPS))
+          length_prior[i] += numpy.log(poisson.pmf(j-last_segment[i], self.length_prior))
           last_segment[i] = j
         # Notify the segment transducer to process the next decision
         self.segment_composer.next_item()
-    # Calculate the actual length prior length
-    length_prior = [sum(len_prior) / len(len_prior) for len_prior in length_prior]
     # Padding
     outputs, masks = self.pad(outputs)
     self.segment_decisions = segment_decisions
     self.segment_logsoftmaxes = segment_logsoftmaxes
+    self.enc_mask = enc_mask
     # Packing output together
     if self.learn_segmentation:
       self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
@@ -272,20 +271,28 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def on_calc_additional_loss(self, reward):
     if not self.learn_segmentation:
       return None
+    # Mask
+    enc_mask = 1-self.enc_mask.np_arr.transpose() if self.enc_mask is not None else None
+    # Compose the lose
     ret = LossBuilder()
+    ## Length prior
     alpha = self.length_prior_alpha.value()
     if alpha > 0:
       reward += self.segment_length_prior * alpha
     # reward z-score normalization
     if self.z_normalization:
       reward = dy.cdiv(reward-dy.mean_batches(reward) + EPS, dy.std_batches(reward) + EPS)
-    # Baseline Loss
+    ## Baseline Loss
     if self.use_baseline:
       baseline_loss = []
       for i, baseline in enumerate(self.bs):
-        baseline_loss.append(dy.squared_distance(reward, baseline))
+        loss = dy.squared_distance(reward, baseline)
+        if self.enc_mask is not None:
+          loss = dy.cmult(dy.inputTensor(enc_mask[i], batched=True), loss)
+        baseline_loss.append(loss)
+
       ret.add_loss("Baseline", dy.esum(baseline_loss))
-    # Reinforce Loss
+    ## Reinforce Loss
     lmbd = self.lmbd.value()
     if lmbd > 0.0:
       reinforce_loss = []
@@ -300,11 +307,13 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           r_i = dy.logistic(r_i)
         else:
           r_i = dy.exp(r_i)
+        if enc_mask is not None:
+          ll = dy.cmult(dy.inputTensor(enc_mask[i], batched=True), ll)
         reinforce_loss.append(r_i * ll)
       loss = -dy.esum(reinforce_loss) * lmbd
       ret.add_loss("Reinforce", loss)
     if self.confidence_penalty:
-      ls_loss = self.confidence_penalty(self.segment_logsoftmaxes)
+      ls_loss = self.confidence_penalty(self.segment_logsoftmaxes, enc_mask)
       ret.add_loss("Confidence Penalty", ls_loss)
     # Total Loss
     return ret
@@ -391,13 +400,16 @@ class SegmentationConfidencePenalty(Serializable):
     if strength.value() < 0:
       raise RuntimeError("Strength of label smoothing parameter should be >= 0")
 
-  def __call__(self, logsoftmaxes):
+  def __call__(self, logsoftmaxes, mask):
     strength = self.strength.value()
     if strength == 0:
       return 0
     neg_entropy = []
-    for logsoftmax in logsoftmaxes:
-      neg_entropy.append(dy.cmult(dy.exp(logsoftmax), logsoftmax))
+    for i, logsoftmax in enumerate(logsoftmaxes):
+      loss = dy.cmult(dy.exp(logsoftmax), logsoftmax)
+      if mask is not None:
+        loss = dy.cmult(dy.inputTensor(mask[i], batched=True), loss)
+      neg_entropy.append(loss)
 
     return strength * dy.sum_elems(dy.esum(neg_entropy))
 
