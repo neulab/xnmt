@@ -68,6 +68,7 @@ defaults:
           ratio: 0.5
         # Flags
         debug: True
+        compose_char: True
         z_normalization: True
         learn_segmentation: True
         learn_delete: False

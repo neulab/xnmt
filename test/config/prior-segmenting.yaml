@@ -34,19 +34,25 @@ defaults:
           hidden_dim: 16
           layers: 1
           bidirectional: True
-        segment_transducer: !SegmentTransducer
+        segment_composer: !SegmentComposer
           encoder: !LSTMSeqTransducer
             input_dim: 16
             hidden_dim: 16
             bidirectional: True
             layers: 1
           transformer: !TailSegmentTransformer {}
+        final_transducer: !LSTMSeqTransducer
+          input_dim: 16
+          hidden_dim: 16
+          layers: 1
+          bidirectional: True
+
         learn_segmentation: True
         segmentation_warmup_counter: 1
         learn_delete: False
-        reinforcement_param: !ScalarParam
+        reinforce_scale: !GeometricSequence
           initial: 0.1
-          grow: 2
+          ratio: 2
           warmup: 1
           min_value: 0.0
           max_value: 1.0

@@ -44,6 +44,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                use_baseline       = True,
                z_normalization    = True,
                learn_segmentation = True,
+               compose_char       = False,
                debug=False):
     register_handler(self)
     model = yaml_context.dynet_param_collection.param_col
@@ -75,6 +76,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.learn_delete = learn_delete
     self.z_normalization = z_normalization
     self.debug = debug
+    self.compose_char = compose_char
     # Fixed Parameters
     self.length_prior = length_prior
     self.segmentation_warmup = segmentation_warmup
@@ -91,9 +93,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     batch_size = embed_sent[0].dim()[1]
     # Softmax + segment decision
     encodings = self.embed_encoder(embed_sent)
-    if self.train and encodings.mask is not None:
-      print(">> Warning MASK is not none in non train!")
-    enc_mask = encodings.mask if self.train else None
+    enc_mask = encodings.mask
     segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size)
     # Some checks
     assert len(encodings) == len(segment_decisions), \
@@ -104,6 +104,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     last_segment = [-1 for _ in range(batch_size)]
     length_prior = [0 for _ in range(batch_size)]
     self.segment_composer.set_input_size(batch_size, len(encodings))
+    # input
+    enc_inp = encodings if not self.compose_char else embed_sent
     # Loop through all the frames (word / item) in input.
     for j, (encoding, segment_decision) in enumerate(zip(encodings, segment_decisions)):
       # For each decision in the batch
@@ -192,7 +194,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
     segment_decisions = segment_decisions.transpose()
     # The last segment decision of an active components should be equal to 1
-    if encodings.mask is not None and self.train:
+    if encodings.mask is not None:
       src = self.src_sent
       mask = [numpy.nonzero(m)[0] for m in encodings.mask.np_arr.transpose()]
       assert len(segment_decisions) == len(mask), \
@@ -241,7 +243,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       self.print_debug("argmax(softmax)")
       segment_decisions = [log_softmax.tensor_value().argmax().as_numpy().transpose()
                            for log_softmax in segment_logsoftmaxes]
-    return numpy.stack(segment_decisions, 1)
+    ret = numpy.stack(segment_decisions, 1)
+    # Handling dynet argmax() inconsistency (it returns a lesser dimension for output of size 1)
+    if len(ret.shape) == 3:
+      ret = numpy.squeeze(ret, axis=2)
+    return ret
 
   # Indicates warmup time. So we shouldn't sample from softmax
   def is_segmentation_warmup(self):
@@ -278,7 +284,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # Compose the lose
     ret = LossBuilder()
     ## Length prior
-    alpha = self.length_prior_alpha.value()
+    alpha = self.length_prior_alpha.value() if self.length_prior_alpha is not None else 0
     if alpha > 0:
       reward += self.segment_length_prior * alpha
     # reward z-score normalization
