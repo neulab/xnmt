@@ -18,7 +18,8 @@ defaults:
       dev_src: examples/data/dev-char-head5.ja
       dev_trg: examples/data/dev-head5.en
     corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
+      src_reader: !PlainTextReader
+        include_vocab_reference: True
       trg_reader: !PlainTextReader {}
       max_src_len: 15
       max_trg_len: 15
@@ -41,7 +42,9 @@ defaults:
             layers: 1
           transformer: !WordOnlySegmentTransformer
             vocab_size: 100000
-            min_word_size: 2
+            vocab: !Vocab {}
+            count_file: examples/data/train.substr.ja
+            min_count: 2
         final_transducer: !LSTMSeqTransducer
           input_dim: 16
           hidden_dim: 16

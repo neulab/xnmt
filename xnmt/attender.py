@@ -20,6 +20,9 @@ class Attender(object):
   def calc_attention(self, state):
     raise NotImplementedError('calc_attention must be implemented for Attender subclasses')
 
+  def get_last_attention(self):
+    return self.attention_vecs[-1]
+
 class MlpAttender(Attender, Serializable):
   '''
   Implements the attention model of Bahdanau et. al (2014)
@@ -42,7 +45,7 @@ class MlpAttender(Attender, Serializable):
     self.curr_sent = None
 
   def init_sent(self, sent):
-    self.attention_vec = None
+    self.attention_vecs = []
     self.curr_sent = sent
     I = self.curr_sent.as_tensor()
     W = dy.parameter(self.pW)
@@ -63,7 +66,7 @@ class MlpAttender(Attender, Serializable):
     if self.curr_sent.mask is not None:
       scores = self.curr_sent.mask.add_to_tensor_expr(scores, multiplicator = -100.0)
     normalized = dy.softmax(scores)
-    self.attention_vec = normalized
+    self.attention_vecs.append(normalized)
     return normalized
 
   def calc_context(self, state):
@@ -81,12 +84,12 @@ class DotAttender(Attender, Serializable):
 
   def __init__(self, yaml_context, scale=True):
     self.curr_sent = None
-    self.attention_vecs = None
     self.scale = scale
+    self.attention_vecs = []
 
   def init_sent(self, sent):
     self.curr_sent = sent
-    self.attention_vec = None
+    self.attention_vecs = []
     self.I = dy.transpose(self.curr_sent.as_tensor())
 
   def calc_attention(self, state):
@@ -96,10 +99,11 @@ class DotAttender(Attender, Serializable):
     if self.curr_sent.mask is not None:
       scores = self.curr_sent.mask.add_to_tensor_expr(scores, multiplicator = -100.0)
     normalized = dy.softmax(scores)
-    self.attention_vec = normalized
+    self.attention_vecs.append(normalized)
     return normalized
 
   def calc_context(self, state):
     attention = self.calc_attention(state)
     I = self.curr_sent.as_tensor()
     return I * attention
+

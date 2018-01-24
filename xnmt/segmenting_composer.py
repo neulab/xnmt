@@ -41,21 +41,21 @@ class TailWordSegmentTransformer(SegmentTransformer):
   yaml_tag = u"!TailWordSegmentTransformer"
 
   def __init__(self, yaml_context, vocab=None, vocab_size=1e6,
-               count_reference=None, count_min=1, embed_dim=None):
+               count_file=None, min_count=1, embed_dim=None):
     assert vocab is not None
     self.vocab = vocab
     embed_dim = embed_dim or yaml_context.default_layer_dim
     self.lookup = yaml_context.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, embed_dim))
 
-    if self.count_reference is not None:
+    if count_file is not None:
       print("Reading count reference...")
       frequent_words = set()
-      with io.open(count_reference, "r") as fp:
+      with io.open(count_file, "r") as fp:
         for line in fp:
           line = line.strip().split("\t")
           cnt = int(line[-1])
           substr = "".join(line[0:-1])
-          if cnt >= count_min:
+          if cnt >= min_count:
             frequent_words.add(substr)
       self.frequent_words = frequent_words
 
@@ -64,10 +64,10 @@ class TailWordSegmentTransformer(SegmentTransformer):
 
   def get_word(self, word):
     if word not in self.frequent_words:
-      word = self.vocab.convert(self.vocab.UNK_STR)
+      ret = self.vocab.convert(self.vocab.UNK_STR)
     else:
-      word = self.vocab.convert(word)
-    return word
+      ret = self.vocab.convert(word)
+    return ret
 
 class WordOnlySegmentTransformer(TailWordSegmentTransformer):
   yaml_tag = u"!WordOnlySegmentTransformer"

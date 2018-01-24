@@ -33,7 +33,7 @@ class GreedySearch(SearchStrategy):
 
       score += logsoftmax[cur_id]
       word_ids.append(cur_id)
-      attentions.append(attender.attention_vec)
+      attentions.append(attender.get_last_attention())
 
     return {"word_ids": word_ids, "attentions": attentions}, score
 
@@ -97,7 +97,7 @@ class BeamSearch(SearchStrategy):
           new_list = list(hyp.output["word_ids"])
           new_list.append(cur_id)
           new_attn = list(hyp.output["attentions"])
-          new_attn.append(attender.attention_vec)
+          new_attn.append(attender.get_last_attention())
           new_set.append(self.Hypothesis(self.len_norm.normalize_partial(hyp.score, score[cur_id], len(new_list)),
                                          {"word_ids": new_list, "attentions": new_attn},
                                          dec_state))

@@ -124,7 +124,12 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           words = None
           if type(self.segment_composer.transformer) == TailWordSegmentTransformer or\
              type(self.segment_composer.transformer) == WordOnlySegmentTransformer:
+            vocab = self.src_sent[i].vocab
             words = self.src_sent[i].words[last_segment[i]+1:j+1]
+            if vocab is not None:
+              words = "".join(w for w in [vocab[c] for c in words if c != vocab.unk_token])
+            else:
+              words = tuple(words)
           # Reducing the [expression] -> expression
           expr_seq = expression_sequence.ExpressionSequence(expr_list=buffers[i])
           transduce_output = self.segment_composer.transduce(expr_seq, words)

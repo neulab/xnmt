@@ -40,7 +40,7 @@ class SimpleSentenceInput(Input):
       return self
     new_words = list(self.words)
     new_words.extend([token] * pad_len)
-    return self.__class__(new_words)
+    return self.__class__(new_words, self.vocab)
 
   def __str__(self):
     return " ".join(six.moves.map(str, self.words))
