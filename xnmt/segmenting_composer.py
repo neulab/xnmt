@@ -40,6 +40,7 @@ class TailWordSegmentTransformer(SegmentTransformer):
   yaml_tag = u"!TailWordSegmentTransformer"
 
   def __init__(self, yaml_context, vocab=None, vocab_size=1e6, embed_dim=None, min_word_size=1):
+    assert vocab is not None
     self.vocab = vocab
     self.min_word_size = min_word_size
     embed_dim = embed_dim or yaml_context.default_layer_dim
