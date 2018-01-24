@@ -358,9 +358,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       if len(segmented) > 0:
         print(" ".join(segmented), file=segmentation_file)
 
-    with io.open(self.get_report_path() + ".segdecision", encoding='utf-8', mode='w') as segmentation_file:
-      for softmax in self.segment_logsoftmaxes:
-        print(" ".join(["%.5f" % f for f in dy.exp(softmax).npvalue()]), file=segmentation_file)
+    if self.learn_segmentation:
+      with io.open(self.get_report_path() + ".segdecision", encoding='utf-8', mode='w') as segmentation_file:
+        for softmax in self.segment_logsoftmaxes:
+          print(" ".join(["%.5f" % f for f in dy.exp(softmax).npvalue()]), file=segmentation_file)
 
   def apply_segmentation(self, words, segmentation):
     assert(len(words) == len(segmentation))
