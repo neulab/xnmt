@@ -211,6 +211,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         attentions = np.concatenate([x.npvalue() for x in att], axis=1)
       elif type(att) != np.ndarray:
         raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
+      assert attentions.shape == (len(src), len(trg))
 
       # Not sure why elsewhere in the code the attention matrix is line-indexed by src
       # and column-indexed by trg (the convention seems to be the other way around,
