@@ -6,10 +6,15 @@ and runs them sequentially, logging outputs
 """
 
 import argparse
-import sys
+import os
 import random
+import sys
+import faulthandler
+faulthandler.enable()
 
 import numpy as np
+if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.standard")
+from simple_settings import settings
 
 from xnmt.serialize.options import OptionParser
 from xnmt.tee import Tee
@@ -27,6 +32,7 @@ def main(overwrite_args=None):
   argparser.add_argument("--dynet-gpus", type=int)
   argparser.add_argument("--dynet-weight-decay", type=float)
   argparser.add_argument("--dynet-profiling", type=int)
+  argparser.add_argument("--settings", type=str, default="standard")
   argparser.add_argument("experiments_file")
   argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
   argparser.set_defaults(generate_doc=False)
@@ -61,6 +67,10 @@ def main(overwrite_args=None):
     glob_args = uninitialized_exp_args.data.xnmt_global
     out_file = glob_args.get_out_file(experiment_name)
     err_file = glob_args.get_err_file(experiment_name)
+    
+    if os.path.isfile(out_file) and not settings.OVERWRITE_LOG:
+      print(f"ERROR: log file {out_file} already exists; please delete by hand if you want to overwrite it (or set OVERWRITE_LOG=True); skipping experiment..")
+      continue
 
     output = Tee(out_file, 3)
     err_output = Tee(err_file, 3, error=True)

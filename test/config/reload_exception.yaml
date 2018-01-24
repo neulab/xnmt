@@ -28,6 +28,9 @@ reload: !Experiment
       bridge: !CopyBridge {}
     inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
+    batcher: !SrcBatcher
+      batch_size: 32
+      src_pad_token: ~
     run_for_epochs: 3
     src_file: test/tmp/reload/synth.contvec.npz
     trg_file: test/tmp/reload/synth.char

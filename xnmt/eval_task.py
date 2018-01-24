@@ -1,3 +1,5 @@
+from simple_settings import settings
+
 import dynet as dy
 
 from xnmt.serialize.serializer import Serializable
@@ -38,7 +40,7 @@ class LossEvalTask(Serializable):
     loss_val = 0
     ref_words_cnt = 0 
     for src, trg in zip(self.src_batches, self.ref_batches):
-      dy.renew_cg()
+      dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       standard_loss = dy.sum_batches(self.model.calc_loss(src, trg, self.loss_calculator))
       ref_words_cnt += self.model.trg_reader.count_words(trg)
       loss_val += standard_loss.value()

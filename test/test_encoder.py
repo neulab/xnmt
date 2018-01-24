@@ -1,8 +1,11 @@
 import unittest
+import math
 
+import numpy as np
 import dynet_config
 import dynet as dy
 
+from xnmt.pyramidal import PyramidalLSTMSeqTransducer
 from xnmt.translator import DefaultTranslator
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
@@ -12,6 +15,7 @@ from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.input import PlainTextReader
 from xnmt.xnmt_global import XnmtGlobal, PersistentParamCollection
 import xnmt.events
+from xnmt.vocab import Vocab
 
 class TestEncoder(unittest.TestCase):
 
@@ -75,6 +79,52 @@ class TestEncoder(unittest.TestCase):
               decoder=MlpSoftmaxDecoder(self.xnmt_global, vocab_size=100),
             )
     self.assert_in_out_len_equal(model)
+    
+  def test_py_lstm_encoder_len(self):
+    model = DefaultTranslator(
+              src_reader=self.src_reader,
+              trg_reader=self.trg_reader,
+              src_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
+              encoder=PyramidalLSTMSeqTransducer(self.xnmt_global, layers=3),
+              attender=MlpAttender(self.xnmt_global),
+              trg_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.xnmt_global, vocab_size=100),
+            )
+    self.set_train(True)
+    for sent_i in range(10):
+      dy.renew_cg()
+      src = self.src_data[sent_i].get_padded_sent(Vocab.ES, 4 - (len(self.src_data[sent_i]) % 4))
+      self.start_sent(src)
+      embeddings = model.src_embedder.embed_sent(src)
+      encodings = model.encoder(embeddings)
+      self.assertEqual(int(math.ceil(len(embeddings) / float(4))), len(encodings))
+    
+  def test_py_lstm_mask(self):
+    model = DefaultTranslator(
+              src_reader=self.src_reader,
+              trg_reader=self.trg_reader,
+              src_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
+              encoder=PyramidalLSTMSeqTransducer(self.xnmt_global, layers=1),
+              attender=MlpAttender(self.xnmt_global),
+              trg_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.xnmt_global, vocab_size=100),
+            )
+
+    batcher = xnmt.batcher.TrgBatcher(batch_size=3)
+    train_src, _ = \
+      batcher.pack(self.src_data, self.trg_data)
+
+    self.set_train(True)
+    for sent_i in range(3):
+      dy.renew_cg()
+      src = train_src[sent_i]
+      self.start_sent(src)
+      embeddings = model.src_embedder.embed_sent(src)
+      encodings = model.encoder(embeddings)
+      if train_src[sent_i].mask is None:
+        assert encodings.mask is None
+      else:
+        np.testing.assert_array_almost_equal(train_src[sent_i].mask.np_arr, encodings.mask.np_arr)
 
 if __name__ == '__main__':
   unittest.main()

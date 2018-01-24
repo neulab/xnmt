@@ -1,5 +1,6 @@
 from collections import OrderedDict
 
+from simple_settings import settings
 import numpy as np
 import dynet as dy
 
@@ -38,9 +39,8 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
   def __init__(self, xnmt_global=Ref(Path("xnmt_global")), model=Ref(path=Path("model")),
                src_file=None, trg_file=None,
                dev_every=0, batcher=xnmt.batcher.SrcBatcher(32), loss_calculator=None, 
-               src_format="text", trainer=None, 
-               run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
-               initial_patience=None, dev_tasks=None,
+               trainer=None, run_for_epochs=None, lr_decay=1.0, lr_decay_times=3,
+               patience=1, initial_patience=None, dev_tasks=None,
                restart_trainer=False, reload_command=None, name=None):
     """
     :param xnmt_global:
@@ -50,7 +50,6 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
     :param batcher: Type of batcher
     :param loss_calculator: The method for calculating the loss.
-    :param src_format: Format of input data: text/contvec
     :param trainer: Trainer object, default is SGD with learning rate 0.1
     :param lr_decay (float):
     :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
@@ -70,7 +69,6 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                      dev_every=dev_every,
                      batcher=batcher,
                      loss_calculator=loss_calculator, 
-                     src_format=src_format,
                      run_for_epochs=run_for_epochs,
                      lr_decay=lr_decay,
                      lr_decay_times=lr_decay_times,
@@ -90,7 +88,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     self.load_data()
     self.model.set_train(update_weights)
     for src,trg in self.next_minibatch():
-      dy.renew_cg()
+      dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       loss = self.training_step(src, trg)
       if update_weights: self.update_weights(loss, self.trainer, self.dynet_profiling)
       if self.checkpoint_needed():
@@ -174,7 +172,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
       task_generators[task] = task.next_minibatch()
     self.trigger_train_event(update_weights)
     while True:
-      dy.renew_cg()
+      dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       task_losses = []
       for task, task_gen in task_generators.items():
         src, trg = next(task_gen)
@@ -213,7 +211,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
       task_generators[task] = task.next_minibatch()
     self.trigger_train_event(update_weights)
     while True:
-      dy.renew_cg()
+      dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       cur_task_i = np.random.choice(range(len(self.tasks)), p=self.task_weights)
       cur_task = self.tasks[cur_task_i]
       task_gen = task_generators[cur_task]
@@ -256,7 +254,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
       task_gen = cur_task.next_minibatch()
       self.trigger_train_event(update_weights)
       while True:
-        dy.renew_cg()
+        dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
         src, trg = next(task_gen)
         task_loss = cur_task.training_step(src, trg)
         if update_weights:

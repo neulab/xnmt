@@ -1,6 +1,8 @@
 from __future__ import division, generators
 
+import numpy as np
 import dynet as dy
+
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
 from xnmt.serialize.serializable import Serializable
 from xnmt.events import register_handler, handle_xnmt_event
@@ -86,7 +88,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
         gates_t = dy.vanilla_lstm_gates_concat(x_t, h[-1], self.Wx, self.Wh, self.b, self.weightnoise_std if self.train else 0.0)
       c_t = dy.vanilla_lstm_c(c[-1], gates_t)
       h_t = dy.vanilla_lstm_h(c_t, gates_t)
-      if expr_seq[0].mask is None:
+      if expr_seq[0].mask is None or np.isclose(np.sum(expr_seq[0].mask.np_arr[:,pos_i:pos_i+1]), 0.0):
         c.append(c_t)
         h.append(h_t)
       else:

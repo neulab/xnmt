@@ -2,6 +2,8 @@
 
 import io
 
+from simple_settings import settings
+
 import dynet as dy
 
 from xnmt.loss_calculator import LossCalculator
@@ -98,7 +100,7 @@ class SimpleInference(Serializable):
       batched_src, batched_ref = some_batcher.pack(src_corpus, ref_corpus)
       ref_scores = []
       for src, ref in zip(batched_src, batched_ref):
-        dy.renew_cg()
+        dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
         loss_expr = generator.calc_loss(src, ref, loss_calculator=LossCalculator())
         ref_scores.extend(loss_expr.value())
       ref_scores = [-x for x in ref_scores]
@@ -117,7 +119,7 @@ class SimpleInference(Serializable):
         if args["max_src_len"] is not None and len(src) > args["max_src_len"]:
           output_txt = NO_DECODING_ATTEMPTED
         else:
-          dy.renew_cg()
+          dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
           ref_ids = ref_corpus[i] if ref_corpus != None else None
           output = generator.generate_output(src, i, forced_trg_ids=ref_ids)
           # If debugging forced decoding, make sure it matches

@@ -1,6 +1,8 @@
 import unittest
 
-import os, shutil
+import os, shutil, sys
+
+if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.unittest")
 
 import xnmt.xnmt_run_experiments as run
 import xnmt.events

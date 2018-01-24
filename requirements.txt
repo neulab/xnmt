@@ -5,4 +5,4 @@ lxml
 dynet    
 matplotlib    
 cython   
-enum34
+simple-settings==0.12.1
