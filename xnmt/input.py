@@ -25,8 +25,9 @@ class SimpleSentenceInput(Input):
   """
   A simple sent, represented as a list of tokens
   """
-  def __init__(self, words):
+  def __init__(self, words, vocab=None):
     self.words = words
+    self.vocab = vocab
 
   def __len__(self):
     return len(self.words)
@@ -45,8 +46,8 @@ class SimpleSentenceInput(Input):
     return " ".join(six.moves.map(str, self.words))
 
 class AnnotatedSentenceInput(SimpleSentenceInput):
-  def __init__(self, words):
-    super(AnnotatedSentenceInput, self).__init__(words)
+  def __init__(self, words, vocab=None):
+    super(AnnotatedSentenceInput, self).__init__(words, vocab)
     self.annotation = {}
 
   def annotate(self, key, value):
@@ -133,8 +134,9 @@ class PlainTextReader(BaseTextReader, Serializable):
   with one sent per line.
   """
   yaml_tag = u'!PlainTextReader'
-  def __init__(self, vocab=None):
+  def __init__(self, vocab=None, include_vocab_reference=False):
     self.vocab = vocab
+    self.include_vocab_reference = include_vocab_reference
     if vocab is not None:
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
@@ -142,9 +144,10 @@ class PlainTextReader(BaseTextReader, Serializable):
   def read_sents(self, filename, filter_ids=None):
     if self.vocab is None:
       self.vocab = Vocab()
+    vocab_reference = self.vocab if self.include_vocab_reference else None
     return six.moves.map(lambda l: SimpleSentenceInput([self.vocab.convert(word) for word in l.strip().split()] + \
-                                                      [self.vocab.convert(Vocab.ES_STR)]),
-               self.iterate_filtered(filename, filter_ids))
+                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference),
+                         self.iterate_filtered(filename, filter_ids))
 
   def freeze(self):
     self.vocab.freeze()
