@@ -53,7 +53,7 @@ class Vocab(Serializable):
       for line in f:
         word = line.strip()
         if word in reserved:
-          raise RuntimeError("Vocab file {} contains a reserved word: {}" % (vocab_file, word))
+          raise RuntimeError(f"Vocab file {vocab_file} contains a reserved word: {word}")
         vocab.append(word)
     return vocab
 
