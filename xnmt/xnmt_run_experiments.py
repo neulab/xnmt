@@ -9,6 +9,8 @@ import argparse
 import os
 import random
 import sys
+import faulthandler
+faulthandler.enable()
 
 import numpy as np
 if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.standard")
