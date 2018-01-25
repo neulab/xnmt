@@ -1,7 +1,8 @@
 from __future__ import division, generators
 
 import six
-import plot
+import io
+import xnmt.plot
 import dynet as dy
 import numpy as np
 import itertools
@@ -9,7 +10,7 @@ import itertools
 from lxml import etree
 from simple_settings import settings
 from xnmt.batcher import mark_as_batch, is_batched
-from xnmt.events import register_xnmt_event_assign, register_handler
+from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_handler
 from xnmt.generator import GeneratorModel
 from xnmt.input import SimpleSentenceInput
 import xnmt.length_normalization
@@ -131,7 +132,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       # In case of reporting
       if self.report_path is not None:
         src_words = [self.reporting_src_vocab[w] for w in sents]
-        trg_words = [self.trg_vocab[w] for w in output_actions[1:]]
+        trg_words = [self.trg_vocab[w] for w in output_actions]
         attentions = self.attender.attention_vecs
         self.set_report_input(idx, src_words, trg_words, attentions)
         self.set_report_resource("src_words", src_words)
@@ -188,10 +189,38 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         attentions = np.concatenate([x.npvalue() for x in att], axis=1)
       elif type(att) != np.ndarray:
         raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
-      plot.plot_attention(src, trg, attentions, file_name = attention_file)
+      xnmt.plot.plot_attention(src, trg, attentions, file_name = attention_file)
 
     # return the parent context to be used as child context
     return html
+
+  @handle_xnmt_event
+  def on_file_report(self):
+    idx, src, trg, att = self.get_report_input()
+    path_to_report = self.get_report_path()
+
+    # Writing attention matrix to text file
+    if not any([src is None, trg is None, att is None]):
+      attention_file = u"{}.attention.txt".format(path_to_report)
+
+      if type(att) == dy.Expression:
+        attentions = att.npvalue()
+      elif type(att) == list:
+        attentions = np.concatenate([x.npvalue() for x in att], axis=1)
+      elif type(att) != np.ndarray:
+        raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
+      assert attentions.shape == (len(src), len(trg))
+
+      # Not sure why elsewhere in the code the attention matrix is line-indexed by src
+      # and column-indexed by trg (the convention seems to be the other way around,
+      # eg. in [Bahdanau, 2014] https://arxiv.org/pdf/1409.0473.pdf)
+      # I expect attention matrices to sum to 1.0 line-wise.
+      att_transpose = np.transpose(attentions)
+      with io.open(attention_file, 'w', encoding='utf-8') as f:
+        f.write('\t' + '\t'.join(src) + '\n')
+        for i in range(len(trg)):
+          coeffs = '\t'.join(map(str, list(att_transpose[i])))
+          f.write('{}\t{}\n'.format(trg[i], coeffs))
 
 
 class TransformerTranslator(Translator, Serializable, Reportable):
