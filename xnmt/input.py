@@ -285,7 +285,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
   for src_sent, trg_sent in six.moves.zip_longest(src_train_iterator, trg_train_iterator):
     if src_sent is None or trg_sent is None:
       raise RuntimeError(f"training src sentences don't match trg sentences: {src_len or src_reader.count_sents(src_file)} != {trg_len or trg_reader.count_sents(trg_file)}!")
-    if max_num_sents and max_num_sents >= len(src_data):
+    if max_num_sents and (max_num_sents <= len(src_data)):
       break
     src_len_ok = max_src_len is None or len(src_sent) <= max_src_len
     trg_len_ok = max_trg_len is None or len(trg_sent) <= max_trg_len
