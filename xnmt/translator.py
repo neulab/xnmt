@@ -132,9 +132,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       # In case of reporting
       if self.report_path is not None:
         src_words = [self.reporting_src_vocab[w] for w in sents]
-        # next line seemed to truncate first trg elt in the seq (in forced decoding mode at least)
-        # `output_actions[1:]` replaced by `output_actions[0:]`
-        trg_words = [self.trg_vocab[w] for w in output_actions[0:]]
+        trg_words = [self.trg_vocab[w] for w in output_actions]
         attentions = self.attender.attention_vecs
         self.set_report_input(idx, src_words, trg_words, attentions)
         self.set_report_resource("src_words", src_words)
@@ -223,8 +221,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         for i in range(len(trg)):
           coeffs = '\t'.join(map(str, list(att_transpose[i])))
           f.write('{}\t{}\n'.format(trg[i], coeffs))
-
-      # np.savetxt(attention_file+'.np', attentions, delimiter=' ', newline='\n\n')
 
 
 class TransformerTranslator(Translator, Serializable, Reportable):
