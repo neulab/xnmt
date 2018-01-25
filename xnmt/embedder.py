@@ -182,6 +182,10 @@ class SimpleWordEmbedder(Embedder, Serializable):
   def on_set_train(self, val):
     self.train = val
 
+  @handle_xnmt_event
+  def on_start_sent(self, src):
+    self.word_id_mask = None
+
   def embed(self, x):
     if self.train and self.word_dropout > 0.0 and self.word_id_mask is None:
       batch_size = len(x) if xnmt.batcher.is_batched(x) else 1
