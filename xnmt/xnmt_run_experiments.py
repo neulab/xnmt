@@ -22,7 +22,7 @@ from xnmt.serialize.serializer import YamlSerializer
 
 def main(overwrite_args=None):
   argparser = argparse.ArgumentParser()
-  argparser.add_argument("--dynet-mem", type=int)
+  argparser.add_argument("--dynet-mem", type=str)
   argparser.add_argument("--dynet-seed", type=int)
   argparser.add_argument("--dynet-autobatch", type=int)
   argparser.add_argument("--dynet-devices", type=str)
