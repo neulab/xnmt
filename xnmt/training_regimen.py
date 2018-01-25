@@ -36,14 +36,15 @@ class TrainingRegimen(object):
 
 class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
   yaml_tag = '!SimpleTrainingRegimen'
-  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), model=Ref(path=Path("model")),
-               src_file=None, trg_file=None,
-               dev_every=0, batcher=xnmt.batcher.SrcBatcher(32), loss_calculator=None, 
-               trainer=None, run_for_epochs=None, lr_decay=1.0, lr_decay_times=3,
-               patience=1, initial_patience=None, dev_tasks=None,
-               restart_trainer=False, reload_command=None, name=None):
+  def __init__(self, model=Ref(path=Path("model")), src_file=None, trg_file=None,
+               dev_every=0, batcher=xnmt.batcher.SrcBatcher(32),
+               loss_calculator=None, trainer=None, run_for_epochs=None,
+               lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None,
+               dev_tasks=None, restart_trainer=False, reload_command=None,
+               name=None, sample_train_sents=None, max_num_train_sents=None,
+               max_src_len=None, max_trg_len=None,
+               xnmt_global=Ref(Path("xnmt_global"))):
     """
-    :param xnmt_global:
     :param model: a generator.GeneratorModel object
     :param src_file: the source training file
     :param trg_file: the target training file
@@ -51,6 +52,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     :param batcher: Type of batcher
     :param loss_calculator: The method for calculating the loss.
     :param trainer: Trainer object, default is SGD with learning rate 0.1
+    :param run_for_epochs:
     :param lr_decay (float):
     :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
     :param patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
@@ -61,9 +63,13 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                            --epoch EPOCH_NUM will be appended to the command.
                            To just reload the data after each epoch set the command to 'true'.
     :param name: will be prepended to log outputs if given
+    :param sample_train_sents:
+    :param max_num_train_sents:
+    :param max_src_len:
+    :param max_trg_len:
+    :param xnmt_global:
     """
-    super().__init__(xnmt_global=xnmt_global,
-                     model=model,
+    super().__init__(model=model,
                      src_file=src_file,
                      trg_file=trg_file,
                      dev_every=dev_every,
@@ -77,7 +83,12 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                      dev_tasks=dev_tasks,
                      restart_trainer=restart_trainer,
                      reload_command=reload_command,
-                     name=name)
+                     name=name,
+                     sample_train_sents=sample_train_sents,
+                     max_num_train_sents=max_num_train_sents,
+                     max_src_len=max_src_len,
+                     max_trg_len=max_trg_len,
+                     xnmt_global=xnmt_global)
     self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(xnmt_global=self.xnmt_global, e0=0.1)
     self.dynet_profiling = getattr(xnmt_global.commandline_args, "dynet_profiling", 0)
 
