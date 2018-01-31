@@ -46,6 +46,7 @@ class TailWordSegmentTransformer(SegmentTransformer):
     self.vocab = vocab
     embed_dim = embed_dim or yaml_context.default_layer_dim
     self.lookup = yaml_context.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, embed_dim))
+    self.frequent_words = None
 
     if count_file is not None:
       print("Reading count reference...")
@@ -63,7 +64,7 @@ class TailWordSegmentTransformer(SegmentTransformer):
     return encoder.get_final_states()[0]._main_expr + self.lookup[self.get_word(word)]
 
   def get_word(self, word):
-    if word not in self.frequent_words:
+    if self.frequent_words is not None and word not in self.frequent_words:
       ret = self.vocab.convert(self.vocab.UNK_STR)
     else:
       ret = self.vocab.convert(word)

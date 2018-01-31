@@ -102,7 +102,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     buffers = [[] for _ in range(batch_size)]
     outputs = [[] for _ in range(batch_size)]
     last_segment = [-1 for _ in range(batch_size)]
-    length_prior = [0 for _ in range(batch_size)]
+    length_prior = [[] for _ in range(batch_size)]
+    length_prior_enabled = self.length_prior_alpha is not None and self.length_prior_alpha.value() > 0
     self.segment_composer.set_input_size(batch_size, len(encodings))
     # input
     enc_inp = encodings if not self.compose_char else embed_sent
@@ -136,10 +137,15 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           outputs[i].append(transduce_output)
           buffers[i] = []
           # Calculate length prior
-          length_prior[i] += numpy.log(poisson.pmf(j-last_segment[i], self.length_prior))
-          last_segment[i] = j
+          if length_prior_enabled:
+            length_prior[i].append(numpy.log(poisson.pmf(j-last_segment[i], self.length_prior)))
+            last_segment[i] = j
         # Notify the segment transducer to process the next decision
         self.segment_composer.next_item()
+    if length_prior_enabled:
+      length_prior = [sum(len_prior) / len(len_prior) for len_prior in length_prior]
+    else:
+      length_prior = [0 for _ in range(len(length_prior))]
     # Padding
     outputs, masks = self.pad(outputs)
     self.segment_decisions = segment_decisions
