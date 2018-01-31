@@ -215,7 +215,6 @@ class XnmtTrainer(object):
       dy.renew_cg()
       loss_builder = LossBuilder()
       standard_loss = self.model.calc_loss(src, trg)
-
       if standard_loss.__class__ == LossBuilder:
         loss = None
         for loss_name, loss_expr in standard_loss.loss_nodes:
@@ -232,7 +231,8 @@ class XnmtTrainer(object):
 
       # Log the loss sum
       loss_value = loss_builder.compute()
-      self.logger.update_epoch_loss(src, trg, loss_builder)
+      self.logger.update_epoch_loss(src, trg, loss_builder.get_loss_stats())
+
       if update_weights:
         loss_value.backward()
         self.trainer.update()
@@ -316,15 +316,16 @@ class XnmtTrainer(object):
     return
 
   def compute_dev_loss(self):
-    loss_builder = LossBuilder()
     trg_words_cnt = 0
+    loss = 0
     for src, trg in zip(self.dev_src, self.dev_trg):
       dy.renew_cg()
       standard_loss = self.model.calc_loss(src, trg)
+      loss_builder = LossBuilder()
       loss_builder.add_loss("loss", standard_loss)
       trg_words_cnt += self.logger.count_trg_words(trg)
-      loss_builder.compute()
-    return trg_words_cnt, LossScore(loss_builder.sum() / trg_words_cnt)
+      loss += loss_builder.compute().value()
+    return trg_words_cnt, LossScore(loss / trg_words_cnt)
 
 if __name__ == "__main__":
   parser = OptionParser()

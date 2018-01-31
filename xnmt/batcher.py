@@ -55,6 +55,9 @@ class Mask(object):
       mask_exp = dy.inputTensor(self.np_arr[:,timestep:timestep+1].transpose(), batched=True)
     return dy.cmult(expr, mask_exp)
 
+  def get_active_one_mask(self):
+    return 1 - self.np_arr
+
 class Batcher(object):
   """
   A template class to convert a list of sents to several batches of sents.

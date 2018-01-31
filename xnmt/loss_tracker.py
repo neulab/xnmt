@@ -22,7 +22,7 @@ class LossTracker(object):
 
     self.epoch_num = 0
 
-    self.epoch_loss = xnmt.loss.LossBuilder()
+    self.epoch_loss = xnmt.loss.LossScalarBuilder()
     self.epoch_words = 0
     self.sent_num = 0
     self.sent_num_not_report_train = 0
@@ -42,7 +42,7 @@ class LossTracker(object):
     """
     Clear epoch-wise counters for starting a new training epoch.
     """
-    self.epoch_loss = xnmt.loss.LossBuilder()
+    self.epoch_loss.zero()
     self.epoch_words = 0
     self.epoch_num += 1
     self.sent_num = 0
@@ -84,7 +84,7 @@ class LossTracker(object):
         self.format_time(time.time() - self.start_time)))
 
       if len(self.epoch_loss) > 1:
-        for loss_name, loss_values in self.epoch_loss:
+        for loss_name, loss_values in self.epoch_loss.items():
           print("- %s %5.6f" % (loss_name, loss_values / self.epoch_words))
 
       self.last_report_words = self.epoch_words

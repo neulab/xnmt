@@ -13,36 +13,49 @@ class LossBuilder(object):
     if type(loss_expr) == LossBuilder:
       self.loss_nodes.extend(loss_expr.loss_nodes)
     else:
-      if loss_expr.dim()[1] > 1:
-        loss_expr = dy.sum_batches(loss_expr)
       self.loss_nodes.append((loss_name, loss_expr))
 
   def compute(self):
-    ''' Compute all the losses and delete the computational graph reference.
-    '''
-    total_loss = dy.esum([x[1] for x in self.loss_nodes])
+    self.loss_values.clear()
     for loss_name, loss_expr in self.loss_nodes:
-      self.loss_values[loss_name] += loss_expr.value()
-    self.loss_nodes = []
-    return total_loss
+      self.loss_values[loss_name] += loss_expr
+    for loss_name, loss_expr in self.loss_values.items():
+      self.loss_values[loss_name] = dy.sum_batches(loss_expr)
 
-  def __getitem__(self, index):
-    return self.loss_nodes[index][1]
+    return dy.esum(list(self.loss_values.values()))
 
-  def __iter__(self):
-    return iter(self.loss_values.items())
-
-  def sum(self):
-    return sum(loss for loss in self.loss_values.values())
-
-  def __iadd__(self, other):
-    for name, value in other.loss_values.items():
-      self.loss_values[name] += value
-    return self
+  def get_loss_stats(self):
+    return LossScalarBuilder({k: v.value() for k, v in self.loss_values.items()})
 
   def __len__(self):
     return len(self.loss_values)
 
   def __repr__(self):
-    loss_str = ", ".join(["%s %f" % (loss_name, loss_value) for loss_name, loss_value in self.loss_values.items()])
+    self.compute()
+    loss_str = ", ".join(["%s %f" % (loss_name, loss_value.value()) for loss_name, loss_value in self.loss_values.items()])
     return "{Loss Builder: %s}" % (loss_str)
+
+class LossScalarBuilder(object):
+  def __init__(self, loss_stats={}):
+    self.__loss_stats = loss_stats
+
+  def __iadd__(self, other):
+    for name, value in other.__loss_stats.items():
+      if name in self.__loss_stats:
+        self.__loss_stats[name] += value
+      else:
+        self.__loss_stats[name] = value
+    return self
+
+  def sum(self):
+    return sum([x for x in self.__loss_stats.values()])
+
+  def items(self):
+    return self.__loss_stats.items()
+
+  def __len__(self):
+    return len(self.__loss_stats)
+
+  def zero(self):
+    self.__loss_stats.clear()
+

@@ -290,8 +290,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def on_calc_additional_loss(self, reward):
     if not self.learn_segmentation:
       return None
+    # Make sure that reward is not scalar, but rather based on the each batch item
+    assert reward.dim()[1] == len(self.src_sent)
     # Mask
-    enc_mask = 1-self.enc_mask.np_arr.transpose() if self.enc_mask is not None else None
+    enc_mask = self.enc_mask.get_active_one_mask().transpose() if self.enc_mask is not None else None
     # Compose the lose
     ret = LossBuilder()
     ## Length prior
