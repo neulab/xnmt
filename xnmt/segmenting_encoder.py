@@ -160,13 +160,16 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       # Rewrite segmentation
       self.set_report_resource("segmentation", self.segment_decisions)
       self.set_report_input(segment_decisions)
-
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return self.final_transducer(expression_sequence.ExpressionSequence(expr_tensor=outputs, mask=masks))
 
   @handle_xnmt_event
   def on_start_sent(self, src=None):
     self.src_sent = src
+    self.segment_length_prior = None
+    self.segment_decisions = None
+    self.segment_logsoftmaxes = None
+    self.bs = None
 
   def pad(self, outputs):
     # Padding
@@ -288,7 +291,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   @handle_xnmt_event
   def on_calc_additional_loss(self, reward):
-    if not self.learn_segmentation:
+    if not self.learn_segmentation or self.segment_decisions is None:
       return None
     # Make sure that reward is not scalar, but rather based on the each batch item
     assert reward.dim()[1] == len(self.src_sent)
