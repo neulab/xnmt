@@ -296,13 +296,13 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     enc_mask = self.enc_mask.get_active_one_mask().transpose() if self.enc_mask is not None else None
     # Compose the lose
     ret = LossBuilder()
-    # reward z-score normalization
-    if self.z_normalization:
-      reward = dy.cdiv(reward-dy.mean_batches(reward) + EPS, dy.std_batches(reward) + EPS)
     ## Length prior
     alpha = self.length_prior_alpha.value() if self.length_prior_alpha is not None else 0
     if alpha > 0:
       reward += self.segment_length_prior * alpha
+    # reward z-score normalization
+    if self.z_normalization:
+      reward = dy.cdiv(reward-dy.mean_batches(reward) + EPS, dy.std_batches(reward) + EPS)
     ## Baseline Loss
     if self.use_baseline:
       baseline_loss = []
