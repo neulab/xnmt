@@ -132,7 +132,6 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
         raise ValueError("Can instantiate only one trainer object. Possibly, multiple training regimens were created when training tasks should have been used.")
     self.train = None
     self.model_file = exp_global.dynet_param_collection.model_file
-    self.main_task = 0
     for task in tasks: task.trainer = trainer
   def init_data_vocabs(self):
     for task in self.tasks:
@@ -153,18 +152,6 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
       if value!=self.train:
         self.train = value
         self.tasks[0].model.set_train(value)
-  @property
-  def model(self):
-    """
-    Allow access to model of main task
-    """
-    return self.tasks[self.main_task].model
-  @property
-  def batcher(self):
-    """
-    Allow access to batcher of main task
-    """
-    return self.tasks[self.main_task].batcher
 
 class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   yaml_tag = "!SameBatchMultiTaskTrainingRegimen"
@@ -172,6 +159,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   Multi-task training where gradients are accumulated and weight updates
   are thus performed jointly for each task. The relative weight between
   tasks can be configured by setting each tasks batch size accordingly.
+  The stopping criterion of the first task is used (other tasks' stopping criteria are ignored).
   """
   def __init__(self, tasks, trainer=None, exp_global=Ref(Path("exp_global"))):
     super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
@@ -210,6 +198,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
   Compared to JointMultiTaskTrainingRegimen, this class may save memory because models
   are only loaded individually. It also supports disabling training for some
   tasks by setting the task weight to 0.
+  The stopping criterion of the first task is used (other tasks' stopping criteria are ignored).
   """
   def __init__(self, tasks, task_weights=None, trainer=None, exp_global=Ref(Path("exp_global"))):
     super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
@@ -259,7 +248,6 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   def run_training(self, save_fct, update_weights=True):
     self.init_data_vocabs()
     for cur_task_id in range(len(self.tasks)):
-      self.main_task = cur_task_id
       self.train = None
       cur_task = self.tasks[cur_task_id]
       task_gen = cur_task.next_minibatch()

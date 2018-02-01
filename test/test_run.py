@@ -27,6 +27,9 @@ class TestRunningConfig(unittest.TestCase):
   def test_multi_task(self):
     run.main(["test/config/multi_task.yaml"])
 
+  def test_multi_task_speech(self):
+    run.main(["test/config/multi_task_speech.yaml"])
+
   def test_preproc(self):
     run.main(["test/config/preproc.yaml"])
 

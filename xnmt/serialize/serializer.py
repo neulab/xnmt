@@ -101,16 +101,17 @@ class YamlSerializer(object):
         for ancestor in sorted(referenced_path.ancestors(), key = lambda x: len(x)):
           try:
             tree_tools.get_descendant(root, ancestor)
-          except (KeyError, AttributeError):
+          except tree_tools.PathError:
             ancestor_parent = tree_tools.get_descendant(root, ancestor.parent())
             if isinstance(ancestor_parent, Serializable):
               init_args_defaults = tree_tools.get_init_args_defaults(ancestor_parent)
               if ancestor[-1] in init_args_defaults:
                 referenced_arg_default = init_args_defaults[ancestor[-1]].default
-              else:                
+              else:
                 referenced_arg_default = inspect.Parameter.empty
-              if referenced_arg_default == inspect.Parameter.empty and node.is_required():
-                raise ValueError(f"Reference '{node}' is required but does not exist and has no default arguments")
+              if referenced_arg_default == inspect.Parameter.empty:
+                if node.is_required():
+                  raise ValueError(f"Reference '{node}' is required but does not exist and has no default arguments")
               else:
                 tree_tools.set_descendant(root, ancestor, referenced_arg_default)
             else:
@@ -138,7 +139,7 @@ class YamlSerializer(object):
       for shared_param_path in shared_param_set:
         try:
           new_shared_val = tree_tools.get_descendant(root, shared_param_path)
-        except AttributeError:
+        except tree_tools.PathError:
           continue
         for _, child_of_shared_param in tree_tools.traverse_tree(new_shared_val, include_root=False):
           if isinstance(child_of_shared_param, Serializable): 
@@ -159,7 +160,7 @@ class YamlSerializer(object):
             resolved_path = node.resolve_path(self.named_paths)
             hits_before = self.init_component.cache_info().hits
             initialized_component = self.init_component(resolved_path)
-          except (AttributeError, KeyError):
+          except tree_tools.PathError:
             initialized_component = None
           if self.init_component.cache_info().hits > hits_before:
             print(f"reusing previously initialized object at {path}")
