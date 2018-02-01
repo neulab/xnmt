@@ -20,7 +20,7 @@ from xnmt.training_corpus import *
 from xnmt.loss_tracker import *
 from xnmt.segmenting_encoder import *
 from xnmt.options import Option, OptionParser, general_options
-from xnmt.loss import LossBuilder
+from xnmt.loss import LossScalarBuilder
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.training_strategy import TrainingStrategy, TrainingMLELoss
 
@@ -307,12 +307,10 @@ class XnmtTrainer(object):
 
   def compute_dev_loss(self):
     trg_words_cnt = 0
-    loss = LossBuilder()
+    loss = LossScalarBuilder()
     for src, trg in zip(self.dev_src, self.dev_trg):
       dy.renew_cg()
-      standard_loss = self.model.calc_loss(src, trg)
       # Loss calculation
-      dy.renew_cg()
       loss_builder = LossBuilder()
       standard_loss = self.model.calc_loss(src, trg)
       additional_loss = self.model.calc_additional_loss(standard_loss)
@@ -320,9 +318,9 @@ class XnmtTrainer(object):
       loss_builder.add_loss("additional_loss", additional_loss)
 
       trg_words_cnt += self.logger.count_trg_words(trg)
-      loss.add_loss("total_loss", loss_builder)
+      loss += loss_builder.get_loss_stats()
 
-    loss_composition = {k: v/trg_words_cnt for k, v in loss.get_loss_stats().items()}
+    loss_composition = {k: v/trg_words_cnt for k, v in loss.items()}
     return trg_words_cnt, loss_composition
 
 if __name__ == "__main__":
