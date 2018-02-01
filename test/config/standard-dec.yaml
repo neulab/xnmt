@@ -1,9 +1,0 @@
-standard_dec: !Experiment
-  load: examples/output/standard.mod
-  overwrite:
-  - [exp_global.eval_only, True]
-  - - evaluate
-    - - !AccuracyEvalTask
-        src_file: examples/data/head.ja
-        ref_file: examples/data/head.en
-        hyp_file: examples/output/{EXP}.test_hyp2
