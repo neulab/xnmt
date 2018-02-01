@@ -28,7 +28,7 @@ def eval_or_empty_list(x):
   except:
     return []
 
-def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu"):
+def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu", desc=None):
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
   :param ref_file: path of the reference file
   :param hyp_file: path of the hypothesis trg file
@@ -43,32 +43,32 @@ def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu"):
   ref_postprocess = lambda line: line.split()
   if eval_type == "bleu":
     ngram = int(eval_param.get("ngram", 4))
-    evaluator = BLEUEvaluator(ngram=int(ngram))
+    evaluator = BLEUEvaluator(ngram=int(ngram), desc=desc)
   elif eval_type == "gleu":
     min_len = int(eval_param.get("min", 1))
     max_len = int(eval_param.get("max", 4))
-    evaluator = GLEUEvaluator(min_length=min_len, max_length=max_len)
+    evaluator = GLEUEvaluator(min_length=min_len, max_length=max_len, desc=desc)
   elif eval_type == "wer":
-    evaluator = WEREvaluator()
+    evaluator = WEREvaluator(desc=desc)
   elif eval_type == "cer":
-    evaluator = CEREvaluator()
+    evaluator = CEREvaluator(desc=desc)
   elif eval_type == "recall":
     nbest = int(eval_param.get("nbest", 5))
     hyp_postprocess = lambda x: eval_or_empty_list(x)
     ref_postprocess = lambda x: int(x)
-    evaluator = RecallEvaluator(nbest=int(nbest))
+    evaluator = RecallEvaluator(nbest=int(nbest), desc=desc)
   elif eval_type == "mean_avg_precision":
     nbest = int(eval_param.get("nbest", 5))
     hyp_postprocess = lambda x: ast.literal_eval(x)
     ref_postprocess = lambda x: int(x)
-    evaluator = MeanAvgPrecisionEvaluator(nbest=int(nbest))
+    evaluator = MeanAvgPrecisionEvaluator(nbest=int(nbest), desc=desc)
   elif eval_type == 'external':
     path = eval_param.get("path", None)
     higher_better = eval_param.get("higher_better", True)
     if path == None:
       print ("no path given for external evaluation script.")
       return None
-    evaluator = ExternalEvaluator(path=path, higher_better=higher_better)
+    evaluator = ExternalEvaluator(path=path, higher_better=higher_better, desc=desc)
 
   else:
     raise RuntimeError("Unknown evaluation metric {}".format(eval_type))
