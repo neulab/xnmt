@@ -28,10 +28,6 @@ class TrainingTask(object):
     Used to load data.
     """
     raise NotImplementedError("")
-  def fix_vocabs(self):
-    """
-    Used to fix the vocabs and propagate them as needed.
-    """
   def should_stop_training(self):
     """
     :returns: True iff training is finished, i.e. training_step(...) should not be called again

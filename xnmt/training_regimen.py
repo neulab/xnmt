@@ -133,11 +133,9 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     self.train = None
     self.model_file = exp_global.dynet_param_collection.model_file
     for task in tasks: task.trainer = trainer
-  def init_data_vocabs(self):
+  def load_data(self):
     for task in self.tasks:
       task.load_data()
-    for task in self.tasks:
-      task.fix_vocabs()
     
   def trigger_train_event(self, value):
     """
@@ -165,7 +163,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
     self.exp_global = exp_global
   def run_training(self, save_fct, update_weights=True):
-    self.init_data_vocabs()
+    self.load_data()
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -205,7 +203,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks) 
     self.exp_global = exp_global
   def run_training(self, save_fct, update_weights=True):
-    self.init_data_vocabs()
+    self.load_data()
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -246,7 +244,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
     self.exp_global = exp_global
   def run_training(self, save_fct, update_weights=True):
-    self.init_data_vocabs()
+    self.load_data()
     for cur_task_id in range(len(self.tasks)):
       self.train = None
       cur_task = self.tasks[cur_task_id]
