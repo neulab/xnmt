@@ -103,7 +103,7 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
     self.dynet_param_collection = xnmt_global.dynet_param_collection
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
     self.embeddings = self.dynet_param_collection.param_col.add_parameters((self.vocab_size, self.emb_dim))
-    self.bias = self.dynet_param_collection.param_col.add_parameters((self.vocab_size))
+    self.bias = self.dynet_param_collection.param_col.add_parameters((self.vocab_size), init=dy.ConstInitializer(0.0))
 
   @handle_xnmt_event
   def on_start_sent(self, src):

@@ -11,6 +11,8 @@ class Linear(object):
     if init == 'LeCunUniform':
       init_w = LeCunUniform(input_dim)
       init_b = LeCunUniform(output_dim)
+    else:
+      init_b = dy.ConstInitializer(0.0)
 
     self.W1 = model.add_parameters((output_dim, input_dim), init=init_w)
     if self.bias:

@@ -37,7 +37,7 @@ class MlpAttender(Attender, Serializable):
     param_collection = xnmt_global.dynet_param_collection.param_col
     self.pW = param_collection.add_parameters((hidden_dim, input_dim))
     self.pV = param_collection.add_parameters((hidden_dim, state_dim))
-    self.pb = param_collection.add_parameters(hidden_dim)
+    self.pb = param_collection.add_parameters(hidden_dim, init=dy.ConstInitializer(0.0))
     self.pU = param_collection.add_parameters((1, hidden_dim))
     self.curr_sent = None
 
