@@ -365,6 +365,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     src_words = self.get_report_resource("src_words")
     segmented = self.apply_segmentation(src_words, segment_decision)
     segmented = [x for x, delete in segmented]
+    logsoftmaxes = [x.npvalue() for x in self.segment_logsoftmaxes]
 
     with io.open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
       if len(segmented) > 0:
@@ -372,8 +373,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
     if self.learn_segmentation:
       with io.open(self.get_report_path() + ".segdecision", encoding='utf-8', mode='w') as segmentation_file:
-        for softmax in self.segment_logsoftmaxes:
-          print(" ".join(["%.5f" % f for f in dy.exp(softmax).npvalue()]), file=segmentation_file)
+        for softmax in logsoftmaxes:
+          print(" ".join(["%.5f" % f for f in numpy.exp(softmax)]), file=segmentation_file)
+
+      with io.open(self.get_report_path() + ".segprob", encoding='utf-8', mode='w') as segmentation_file:
+        logprob = 0
+        for logsoftmax, decision in zip(logsoftmaxes, segment_decision):
+          logprob += logsoftmax[decision]
+        print(logprob, file=segmentation_file)
 
   def apply_segmentation(self, words, segmentation):
     assert(len(words) == len(segmentation))
