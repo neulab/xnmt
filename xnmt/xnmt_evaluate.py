@@ -3,8 +3,12 @@ import io
 import ast
 
 from xnmt.evaluator import BLEUEvaluator, GLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator, ExternalEvaluator, MeanAvgPrecisionEvaluator
-from xnmt.serialize.options import OptionParser
 from xnmt.inference import NO_DECODING_ATTEMPTED
+
+"""
+Command line usage:
+  python xnmt_evaluate.py <ref> <hyp> <metric>
+"""
 
 def read_data(loc_, post_process=None):
   """Reads the lines in the file specified in loc_ and return the list after inserting the tokens
@@ -81,9 +85,7 @@ def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu"):
 
 if __name__ == "__main__":
 
-  parser = OptionParser()
-  args = parser.args_from_command_line("evaluate", sys.argv[1:])
-
-  score = xnmt_evaluate(args)
-  print("{} Score = {}".format(args["evaluator"], score))
+  args = sys.argv[1:]
+  score = xnmt_evaluate(*args)
+  print("{} Score = {}".format(args[2], score))
 
