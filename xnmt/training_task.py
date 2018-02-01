@@ -5,7 +5,7 @@ import random
 import numpy as np
 import dynet as dy
 
-from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializable import Serializable, bare
 from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.loss import LossBuilder
 from xnmt.events import register_xnmt_event
@@ -70,7 +70,7 @@ class TrainingTask(object):
 class SimpleTrainingTask(TrainingTask, Serializable):
   yaml_tag = '!SimpleTrainingTask'
   def __init__(self, model, src_file=None, trg_file=None, dev_every=0,
-               batcher=SrcBatcher(32), loss_calculator=None, 
+               batcher=bare(SrcBatcher, batch_size=32), loss_calculator=None, 
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
                initial_patience=None, dev_tasks=None, restart_trainer=False,
                reload_command=None, name=None, sample_train_sents=None,

@@ -3,15 +3,16 @@ import unittest
 import dynet_config
 import dynet as dy
 
-from xnmt.translator import DefaultTranslator
-from xnmt.embedder import SimpleWordEmbedder
-from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.attender import MlpAttender
-from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
-from xnmt.input import PlainTextReader
-from xnmt.xnmt_global import XnmtGlobal, PersistentParamCollection
-from xnmt.loss_calculator import LossCalculator
+from xnmt.bridge import CopyBridge
+from xnmt.decoder import MlpSoftmaxDecoder
+from xnmt.embedder import SimpleWordEmbedder
 import xnmt.events
+from xnmt.input import PlainTextReader
+from xnmt.loss_calculator import LossCalculator
+from xnmt.lstm import BiLSTMSeqTransducer
+from xnmt.translator import DefaultTranslator
+from xnmt.xnmt_global import XnmtGlobal, PersistentParamCollection
 
 class TestForcedDecodingOutputs(unittest.TestCase):
 
@@ -30,7 +31,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
               encoder=BiLSTMSeqTransducer(xnmt_global=self.xnmt_global),
               attender=MlpAttender(xnmt_global=self.xnmt_global),
               trg_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(xnmt_global=self.xnmt_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(xnmt_global=self.xnmt_global, vocab_size=100, bridge=CopyBridge(xnmt_global=self.xnmt_global, dec_layers=1)),
             )
     self.model.set_train(False)
     self.model.initialize_generator()

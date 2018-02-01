@@ -4,7 +4,7 @@ from simple_settings import settings
 import numpy as np
 import dynet as dy
 
-from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializable import Serializable, bare
 from xnmt.serialize.tree_tools import Ref, Path
 import xnmt.optimizer
 from xnmt.training_task import SimpleTrainingTask
@@ -37,7 +37,7 @@ class TrainingRegimen(object):
 class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
   yaml_tag = '!SimpleTrainingRegimen'
   def __init__(self, model=Ref(path=Path("model")), src_file=None, trg_file=None,
-               dev_every=0, batcher=xnmt.batcher.SrcBatcher(32),
+               dev_every=0, batcher=bare(xnmt.batcher.SrcBatcher, batch_size=32),
                loss_calculator=None, trainer=None, run_for_epochs=None,
                lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None,
                dev_tasks=None, restart_trainer=False, reload_command=None,
