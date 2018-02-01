@@ -16,7 +16,7 @@ class NoBridge(Bridge, Serializable):
   This bridge initializes the decoder with zero vectors, disregarding the encoder final states.
   """
   yaml_tag = u'!NoBridge'
-  def __init__(self, dec_layers, dec_dim = None, exp_global=Ref(Path("exp_global"))):
+  def __init__(self, dec_layers = 1, dec_dim = None, exp_global=Ref(Path("exp_global"))):
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim or exp_global.default_layer_dim
   def decoder_init(self, enc_final_states):
@@ -32,7 +32,7 @@ class CopyBridge(Bridge, Serializable):
   - num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
   """
   yaml_tag = u'!CopyBridge'
-  def __init__(self, dec_layers, dec_dim = None, exp_global=Ref(Path("exp_global"))):
+  def __init__(self, dec_layers = 1, dec_dim = None, exp_global=Ref(Path("exp_global"))):
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim or exp_global.default_layer_dim
   def decoder_init(self, enc_final_states):
@@ -50,7 +50,7 @@ class LinearBridge(Bridge, Serializable):
   - num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
   """
   yaml_tag = u'!LinearBridge'
-  def __init__(self, dec_layers, enc_dim = None, dec_dim = None, exp_global=Ref(Path("exp_global"))):
+  def __init__(self, dec_layers = 1, enc_dim = None, dec_dim = None, exp_global=Ref(Path("exp_global"))):
     param_col = exp_global.dynet_param_collection.param_col
     self.dec_layers = dec_layers
     self.enc_dim = enc_dim or exp_global.default_layer_dim

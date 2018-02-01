@@ -11,8 +11,6 @@ standard: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-    decoder: !MlpSoftmaxDecoder
-      layers: 1
   train: !SimpleTrainingRegimen
     trainer: !AdamTrainer
       alpha: 0.001
