@@ -33,6 +33,9 @@ class Serializable(yaml.YAMLObject):
     if not hasattr(self, "serialize_params"):
       self.serialize_params = {}
     self.serialize_params[key] = val
+  
+  def __repr__(self):
+    return f"{self.__class__.__name__}@{id(self)}"
     
 
 class UninitializedYamlObject(object):
