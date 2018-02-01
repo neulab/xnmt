@@ -102,7 +102,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     buffers = [[] for _ in range(batch_size)]
     outputs = [[] for _ in range(batch_size)]
     last_segment = [-1 for _ in range(batch_size)]
-    length_prior = [[] for _ in range(batch_size)]
+    length_prior = [0 for _ in range(batch_size)]
     length_prior_enabled = self.length_prior_alpha is not None and self.length_prior_alpha.value() > 0
     self.segment_composer.set_input_size(batch_size, len(encodings))
     # input
@@ -138,14 +138,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           buffers[i] = []
           # Calculate length prior
           if length_prior_enabled:
-            length_prior[i].append(numpy.log(poisson.pmf(j-last_segment[i], self.length_prior)))
+            length_prior[i] += numpy.log(poisson.pmf(j-last_segment[i], self.length_prior))
             last_segment[i] = j
         # Notify the segment transducer to process the next decision
         self.segment_composer.next_item()
-    if length_prior_enabled:
-      length_prior = [sum(len_prior) / len(len_prior) for len_prior in length_prior]
-    else:
-      length_prior = [0 for _ in range(len(length_prior))]
     # Padding
     outputs, masks = self.pad(outputs)
     self.segment_decisions = segment_decisions
@@ -300,13 +296,13 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     enc_mask = self.enc_mask.get_active_one_mask().transpose() if self.enc_mask is not None else None
     # Compose the lose
     ret = LossBuilder()
+    # reward z-score normalization
+    if self.z_normalization:
+      reward = dy.cdiv(reward-dy.mean_batches(reward) + EPS, dy.std_batches(reward) + EPS)
     ## Length prior
     alpha = self.length_prior_alpha.value() if self.length_prior_alpha is not None else 0
     if alpha > 0:
       reward += self.segment_length_prior * alpha
-    # reward z-score normalization
-    if self.z_normalization:
-      reward = dy.cdiv(reward-dy.mean_batches(reward) + EPS, dy.std_batches(reward) + EPS)
     ## Baseline Loss
     if self.use_baseline:
       baseline_loss = []
