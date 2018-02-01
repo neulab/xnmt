@@ -86,18 +86,20 @@ def main(overwrite_args=None):
     eval_scores = experiment(save_fct = lambda: yaml_serializer.save_to_file(model_file, experiment,
                                                                              experiment.xnmt_global.dynet_param_collection))
     results.append((experiment_name, eval_scores))
+    print_results(results)
 
     output.close()
     err_output.close()
 
+def print_results(results):
   print("")
   print("{:<30}|{:<40}".format("Experiment", " Final Scores"))
   print("-" * (70 + 1))
 
-  for line in results:
-    experiment_name, eval_scores = line
+  for experiment_name, eval_scores in results:
     for i in range(len(eval_scores)):
       print("{:<30}| {:<40}".format((experiment_name if i==0 else ""), str(eval_scores[i])))
+  
 
 if __name__ == '__main__':
   import _dynet
