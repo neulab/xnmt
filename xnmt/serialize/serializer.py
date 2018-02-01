@@ -159,7 +159,7 @@ class YamlSerializer(object):
             resolved_path = node.resolve_path(self.named_paths)
             hits_before = self.init_component.cache_info().hits
             initialized_component = self.init_component(resolved_path)
-          except:
+          except (AttributeError, KeyError):
             initialized_component = None
           if self.init_component.cache_info().hits > hits_before:
             print(f"reusing previously initialized object at {path}")
@@ -178,6 +178,8 @@ class YamlSerializer(object):
     :returns: initialized object; this method is cached, so multiple requests for the same path will return the exact same object
     """
     obj = tree_tools.get_descendant(self.deserialized_yaml, path)
+    if not isinstance(obj, Serializable):
+      return obj
     init_params = OrderedDict(tree_tools.name_children(obj, include_reserved=False))
     serialize_params = OrderedDict(init_params)
     init_args = tree_tools.get_init_args_defaults(obj)

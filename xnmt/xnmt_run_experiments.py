@@ -69,7 +69,7 @@ def main(overwrite_args=None):
     err_file = glob_args.get_err_file(experiment_name)
     
     if os.path.isfile(out_file) and not settings.OVERWRITE_LOG:
-      print(f"ERROR: log file {out_file} already exists; please delete by hand if you want to overwrite it (or set OVERWRITE_LOG=True); skipping experiment..")
+      print(f"ERROR: log file {out_file} already exists; please delete by hand if you want to overwrite it (or use --settings=settings.debug or otherwise set OVERWRITE_LOG=True); skipping experiment..")
       continue
 
     output = Tee(out_file, 3)
