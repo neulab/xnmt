@@ -13,3 +13,4 @@ xnmt/cython/*.c
 xnmt/cython/*.so
 test/tmp
 /*.yaml
+examples/preproc/

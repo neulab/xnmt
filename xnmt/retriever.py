@@ -4,11 +4,12 @@ import six
 import dynet as dy
 import numpy as np
 from lxml import etree
+from simple_settings import settings
 
 import xnmt.batcher
 from xnmt.events import handle_xnmt_event
 from xnmt.generator import GeneratorModel
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 from xnmt.reports import Reportable
 from xnmt.expression_sequence import ExpressionSequence
 
@@ -154,7 +155,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
     self.database.indexed = []
     for index in indices:
       item = self.database.data[int(index)]
-      dy.renew_cg()
+      dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       self.database.indexed.append(self.encode_trg_example(item).npvalue())
     # ### DEBUG
     # for i, x in enumerate(self.database.indexed):

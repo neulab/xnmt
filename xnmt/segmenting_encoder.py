@@ -14,9 +14,10 @@ import xnmt.linear as linear
 import xnmt.expression_sequence as expression_sequence
 
 from xnmt.batcher import Mask
+from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.reports import Reportable
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import LossBuilder
 from xnmt.segmenting_composer import TailWordSegmentTransformer, WordOnlySegmentTransformer
@@ -27,7 +28,8 @@ EPS = 1e-10
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = u'!SegmentingSeqTransducer'
 
-  def __init__(self, yaml_context,
+<<<<<<< HEAD
+  def __init__(self, xnmt_global=Ref(Path("xnmt_global")),
                ## COMPONENTS
                embed_encoder=None, segment_composer=None, final_transducer=None,
                ## OPTIONS
@@ -47,7 +49,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                compose_char       = False,
                debug=False):
     register_handler(self)
-    model = yaml_context.dynet_param_collection.param_col
+    model = xnmt_global.dynet_param_collection.param_col
     # Sanity check
     assert embed_encoder is not None
     assert segment_composer is not None
@@ -123,8 +125,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if decision == SegmentingAction.SEGMENT.value:
           # Special case for TailWordSegmentTransformer only
           words = None
-          if type(self.segment_composer.transformer) == TailWordSegmentTransformer or\
-             type(self.segment_composer.transformer) == WordOnlySegmentTransformer:
             vocab = self.src_sent[i].vocab
             words = self.src_sent[i].words[last_segment[i]+1:j+1]
             if vocab is not None:

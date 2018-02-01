@@ -21,8 +21,8 @@ Coding Conventions
 
 There are also a minimal of coding style conventions:
 
-- Follow Python conventions, and be Python2/3 compatible.
-- Functions should be snake case.
+- Follow Python 3 conventions, Python 2 is no longer supported.
+- Functions should be snake_case, classes should be UpperCamelCase.
 - Indentation should be two whitespace characters.
 - Docstrings should be made in reST format (e.g. ``:param param_name:``, ``:returns:`` etc.)
 
@@ -34,6 +34,7 @@ In variable names, common words should be abbreviated as:
 - target -> trg
 - sentence -> sent
 - hypothesis -> hyp
+- reference -> ref
 
 Contributing
 ------------

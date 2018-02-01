@@ -1,46 +1,41 @@
-defaults:
-  experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
-    cfg_file: examples/output/<EXP>.yaml
-    run_for_epochs: 20
-    eval_metrics: bleu
-  train:
-    batcher: !WordSrcBatcher
-      avg_batch_size: 10
-    dropout: 0.1
+# A standard training run, should almost never break
+standard: !Experiment
+  xnmt_global: !XnmtGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
     default_layer_dim: 512
-    restart_trainer: True
-    trainer: Adam
-    learning_rate: 0.0002
-    lr_decay: 0.5
-    dev_metrics: bleu
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/train.ja
-      train_trg: examples/data/train.en
-      dev_src: examples/data/dev.ja
-      dev_trg: examples/data/dev.en
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
-      trg_reader: !PlainTextReader {}
-    model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder {}
-      encoder: !LSTMSeqTransducer
-        layers: 1
-      attender: !MlpAttender {}
-      trg_embedder: !SimpleWordEmbedder {}
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 512
-        bridge: !CopyBridge {}
-  decode:
-    beam: 5
-    len_norm_type: !PolynomialNormalization
-      apply_during_search: true
-    src_file: examples/data/test.ja
+    dropout: 0.3
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder {}
+    encoder: !BiLSTMSeqTransducer
+      layers: 1
+    attender: !MlpAttender {}
+    trg_embedder: !SimpleWordEmbedder {}
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      bridge: !CopyBridge {}
+    inference: !SimpleInference
+      len_norm_type: !PolynomialNormalization
+        apply_during_search: true
+        m: 5
+  train: !SimpleTrainingRegimen
+    trainer: !AdamTrainer
+      alpha: 0.001
+    run_for_epochs: 20
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
   evaluate:
-    ref_file: examples/data/test.en
-
-standard:
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp

@@ -1,31 +1,18 @@
-defaults:
-  experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
-    run_for_epochs: 2
-    eval_metrics: bleu
-  train:
+prior-segmenting: !Experiment
+  xnmt_global: !XnmtGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
     default_layer_dim: 16
     dropout: 0.5
-    dev_metrics: bleu
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !SegmentationTextReader {}
-      trg_reader: !PlainTextReader {}
-      max_src_len: 15
-      max_trg_len: 15
-    training_corpus: !BilingualTrainingCorpus
-      train_src:
-        - examples/data/head-char.ja
-        - examples/data/head-seg.ja
-      train_trg: examples/data/head.en
-      dev_src:
-        - examples/data/head-char.ja
-        - examples/data/head-seg.ja
-      dev_trg: examples/data/head.en
-    model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder
+  model: !DefaultTranslator
+    src_reader: !SegmentationTextReader
+      vocab: !Vocab {vocab_file: examples/data/head-char.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 16
+        src_embedder: !SimpleWordEmbedder
         emb_dim: 16
       encoder: !SegmentingSeqTransducer
         debug: True
@@ -46,7 +33,6 @@ defaults:
           hidden_dim: 16
           layers: 1
           bidirectional: True
-
         learn_segmentation: True
         segmentation_warmup_counter: 1
         learn_delete: False
@@ -63,18 +49,30 @@ defaults:
         input_dim: 16
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 16
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 16
-        bridge: !NoBridge {}
-  decode:
-    src_file: 
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 16
+      bridge: !CopyBridge {}
+    inference: !SimpleInference {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 2
+    src_file:
       - examples/data/head-char.ja
       - examples/data/head-seg.ja
-    report_path: examples/output/<EXP>.report
-    report_type: html, file
+    trg_file: examples/data/head.en
+    dev_tasks:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file:
+        - examples/data/head-char.ja
+        - examples/data/head-seg.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.dev_hyp
   evaluate:
+  - !AccuracyEvalTask
+    eval_metrics: bleu
+    src_file:
+      - examples/data/head-char.ja
+      - examples/data/head-seg.ja
     ref_file: examples/data/head.en
-
-prior-segmenting:
-
+    hyp_file: examples/output/{EXP}.test_hyp

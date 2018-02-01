@@ -1,60 +1,56 @@
 # This illustrates component and parameter sharing.
-# Here, 3 different ways of sharing are distinguished, with increasing complexity.
-# This follows YAML syntax: '&' denotes a named anchor, '*' denotes a reference to an anchor.
-#
-# - value-sharing: sharing a simple parameter value (e.g. a string or a scalar)
-# - config-sharing: sharing the configuration of a complex component.
-#                   this means we copy a component: the component is created twice with identical configuration.
-# - reference-sharing: sharing reference to a complex object.
-#                   this means the component is only created once, which also leads to DyNet parameters being shared.
-#                   Since YAML doesn't distinguish between a copy and a reference, we implement reference-sharing
-#                   by adding a unique __xnmt_id field to the component that is to be shared. During deserialization,
-#                   whenever a component's __xnmt_id is equal to the corresponding field of a component that has
-#                   has already been initialized, we re-use that initialized component instead of creating a new one.
+# There are 2 ways to achieve this:
+# - YAML's anchor system where '&' denotes a named anchor, '*' denotes a reference to an anchor.
+#   This essentially copies values or subcomponents from one place to another.
+#   It can be combined with the << operator that allows copying parts of a dictionary, but overwriting other parts.
+# - XNMT's !Ref object creates a reference, meaning both places will point to the exact same Python object,
+#   and that DyNet parameters will be shared.
+#   References can be made by path or by name, as illustrated below. The name refers to a _xnmt_id that can
+#   be set in any component and must be unique.
+#   Note that references do not work across experiments (e.g. we cannot refer to exp2.load from within exp1.pretrain)
 
-defaults:
-  experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
-    run_for_epochs: 2
-  train:
+exp1.pretrain: !Experiment
+  xnmt_global: !XnmtGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
     default_layer_dim: 32
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/head.ja
-      train_trg: examples/data/head.en
-      dev_src: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and decode.src_file
-      dev_trg: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
-      trg_reader: !PlainTextReader {}
-    model: !DefaultTranslator
-      # config-sharing between src_embedder and trg_embedder (both are configured in the same way, but do not share
-      # DyNet parameters)
-      src_embedder: !SimpleWordEmbedder &emb_conf1
-        emb_dim: 32
-      encoder: !ModularSeqTransducer
-        modules:
-        # reference-sharing between first and second encoder layer. This means, for purposes of illustration, 
-        # both layers share DyNet parameters!
-        - !LSTMSeqTransducer &lstm_enc1
-            __xnmt_id: lstm_enc1 # this id must be unique and is recommended but not required to match the YAML anchor
-            layers: 1
-        - *lstm_enc1
-      attender: !MlpAttender {}
-      trg_embedder: *emb_conf1
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        bridge: !CopyBridge {}
-  decode:
-    src_file: *dev_src
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 32
+    encoder: !BiLSTMSeqTransducer
+      layers: 1
+    attender: !MlpAttender {}
+    # reference-sharing between softmax projection and target embedder. This means both layers share DyNet parameters!
+    trg_embedder: !DenseWordEmbedder
+      _xnmt_id: trg_emb # this id must be unique and is needed to create a reference-by-name below.
+      emb_dim: 32
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      bridge: !CopyBridge {}
+      vocab_projector: !Ref { name: trg_emb }
+      #                alternatively, the same could be achieved like this,
+      #                in which case model.trg_embedder._xnmt_id is not required:
+      #                !Ref { path: model.trg_embedder }
+    inference: !SimpleInference {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 2
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
+        ref_file: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
   evaluate:
-    ref_file: *dev_trg
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: *dev_src # Copy over the file path from the dev tasks using YAML anchors.
+      ref_file: *dev_trg # The same could also be done for more complex objects.
+      hyp_file: examples/output/{EXP}.test_hyp
 
-# let's test that both deserialization and serialization works:
-a.pretrain:
-
-b.load:
-  train:
-    pretrained_model_file: examples/output/a.pretrain.mod
+exp2.load: !Experiment
+  load: examples/output/exp1.pretrain.mod

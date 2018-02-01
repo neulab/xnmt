@@ -1,11 +1,11 @@
 from __future__ import division, generators
 
-import sys
-import math
 import time
+
 import xnmt.loss
 from xnmt.vocab import Vocab
 from xnmt.evaluator import LossScore
+from xnmt.events import register_handler, handle_xnmt_event
 
 class LossTracker(object):
   """
@@ -16,10 +16,12 @@ class LossTracker(object):
   REPORT_TEMPLATE_DEV       = '  Epoch %.4f dev Loss %s=%.6f (words=%d, words/sec=%.2f, time=%s)'
   REPORT_TEMPLATE_DEV_AUX   = '  Epoch %.4f dev [auxiliary] %s'
 
-  def __init__(self, eval_every, total_train_sent):
+  def __init__(self, training_regimen, eval_every, name=None):
+    register_handler(self)
+    
+    self.training_regimen = training_regimen
     self.eval_train_every = 1000
     self.eval_dev_every = eval_every
-    self.total_train_sent = total_train_sent
 
     self.epoch_num = 0
 
@@ -38,18 +40,24 @@ class LossTracker(object):
     self.start_time = time.time()
     self.last_report_train_time = self.start_time
     self.dev_start_time = self.start_time
+    
+    self.name = name
 
-  def new_epoch(self):
+  @handle_xnmt_event
+  def on_new_epoch(self, training_regimen, num_sents):
     """
     Clear epoch-wise counters for starting a new training epoch.
     """
-    self.epoch_loss.zero()
-    self.epoch_words = 0
-    self.epoch_num += 1
-    self.sent_num = 0
-    self.sent_num_not_report_train = 0
-    self.sent_num_not_report_dev = 0
-    self.last_report_words = 0
+    if training_regimen is self.training_regimen:
+      self.total_train_sent = num_sents
+      self.epoch_loss.zero()
+      self.epoch_words = 0
+      self.epoch_num += 1
+      self.sent_num = 0
+      self.sent_num_not_report_train = 0
+      self.sent_num_not_report_dev = 0
+      self.last_report_words = 0
+      self.last_report_train_time = time.time()
 
   def update_epoch_loss(self, src, trg, loss):
     """
@@ -66,6 +74,12 @@ class LossTracker(object):
     return "{}-{}".format(int(seconds) // 86400,
                           time.strftime("%H:%M:%S", time.gmtime(seconds)))
 
+  def print_log(self, print_str):
+    if self.name:
+      print("[{}] {}".format(self.name, print_str))
+    else:
+      print(print_str)
+
   def report_train_process(self):
     """
     Print training report if eval_train_every sents have been evaluated.
@@ -78,15 +92,15 @@ class LossTracker(object):
       self.sent_num_not_report_train = self.sent_num_not_report_train % self.eval_train_every
       self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
       this_report_time = time.time()
-      print(LossTracker.REPORT_TEMPLATE.format('train') % (
-        self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
-        self.epoch_words,
-        (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
-        self.format_time(time.time() - self.start_time)))
+      self.print_log(LossTracker.REPORT_TEMPLATE.format('train') % (
+                 self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
+                 self.epoch_words,
+                 (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
+                 self.format_time(time.time() - self.start_time)))
 
       if len(self.epoch_loss) > 1:
         for loss_name, loss_values in self.epoch_loss.items():
-          print("- %s %5.6f" % (loss_name, loss_values / self.epoch_words))
+          self.print_log("- %s %5.6f" % (loss_name, loss_values / self.epoch_words))
 
       self.last_report_words = self.epoch_words
       self.last_report_train_time = this_report_time
@@ -121,7 +135,7 @@ class LossTracker(object):
     sent_num = self.eval_dev_every if self.eval_dev_every != 0 else self.total_train_sent
     self.sent_num_not_report_dev = self.sent_num_not_report_dev % sent_num
     self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
-    print(LossTracker.REPORT_TEMPLATE_DEV % (
+    self.print_log(LossTracker.REPORT_TEMPLATE_DEV % (
         self.fractional_epoch,
         self.dev_score,
         sum(self.dev_score.values()),
@@ -134,13 +148,12 @@ class LossTracker(object):
       save_model = LossScore(self.dev_score[primary_loss_name]).better_than(LossScore(self.best_dev_score[primary_loss_name]))
     if save_model:
       self.best_dev_score = self.dev_score
-      print('  Epoch %.4f: best dev score, writing model to %s' % (self.fractional_epoch, model_file))
+      self.print_log('  Epoch %.4f: best dev score, writing model to %s' % (self.fractional_epoch, model_file))
 
-    self.last_report_train_time = time.time()
     return save_model
 
   def report_auxiliary_score(self, score):
-    print(LossTracker.REPORT_TEMPLATE_DEV_AUX % (self.fractional_epoch, score))
+    self.print_log(LossTracker.REPORT_TEMPLATE_DEV_AUX % (self.fractional_epoch, score))
 
   def count_trg_words(self, trg_words):
     """

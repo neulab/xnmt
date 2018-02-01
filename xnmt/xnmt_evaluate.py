@@ -1,17 +1,10 @@
-import argparse
 import sys
 import io
 import ast
 
-from xnmt.evaluator import BLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator
-from xnmt.options import Option, OptionParser
-from xnmt.xnmt_decode import NO_DECODING_ATTEMPTED
-
-options = [
-  Option("ref_file", help_str="path of the reference file"),
-  Option("hyp_file", help_str="path of the hypothesis trg file"),
-  Option("evaluator", default_value="bleu", help_str="Evaluation metrics (bleu/wer/cer)")
-]
+from xnmt.evaluator import BLEUEvaluator, GLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator, ExternalEvaluator, MeanAvgPrecisionEvaluator
+from xnmt.serialize.options import OptionParser
+from xnmt.inference import NO_DECODING_ATTEMPTED
 
 def read_data(loc_, post_process=None):
   """Reads the lines in the file specified in loc_ and return the list after inserting the tokens
@@ -31,10 +24,14 @@ def eval_or_empty_list(x):
   except:
     return []
 
-def xnmt_evaluate(args):
+def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu"):
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
+  :param ref_file: path of the reference file
+  :param hyp_file: path of the hypothesis trg file
+  :param evaluator: Evaluation metrics (bleu/wer/cer)
   """
-  cols = args.evaluator.split("|")
+  args = dict(ref_file=ref_file, hyp_file=hyp_file, evaluator=evaluator)
+  cols = args["evaluator"].split("|")
   eval_type  = cols[0]
   eval_param = {} if len(cols) == 1 else {key: value for key, value in [param.split("=") for param in cols[1].split()]}
 
@@ -43,6 +40,10 @@ def xnmt_evaluate(args):
   if eval_type == "bleu":
     ngram = int(eval_param.get("ngram", 4))
     evaluator = BLEUEvaluator(ngram=int(ngram))
+  elif eval_type == "gleu":
+    min_len = int(eval_param.get("min", 1))
+    max_len = int(eval_param.get("max", 4))
+    evaluator = GLEUEvaluator(min_length=min_len, max_length=max_len)
   elif eval_type == "wer":
     evaluator = WEREvaluator()
   elif eval_type == "cer":
@@ -57,11 +58,19 @@ def xnmt_evaluate(args):
     hyp_postprocess = lambda x: ast.literal_eval(x)
     ref_postprocess = lambda x: int(x)
     evaluator = MeanAvgPrecisionEvaluator(nbest=int(nbest))
+  elif eval_type == 'external':
+    path = eval_param.get("path", None)
+    higher_better = eval_param.get("higher_better", True)
+    if path == None:
+      print ("no path given for external evaluation script.")
+      return None
+    evaluator = ExternalEvaluator(path=path, higher_better=higher_better)
+
   else:
     raise RuntimeError("Unknown evaluation metric {}".format(eval_type))
 
-  ref_corpus = read_data(args.ref_file, post_process=ref_postprocess)
-  hyp_corpus = read_data(args.hyp_file, post_process=hyp_postprocess)
+  ref_corpus = read_data(args["ref_file"], post_process=ref_postprocess)
+  hyp_corpus = read_data(args["hyp_file"], post_process=hyp_postprocess)
   len_before = len(hyp_corpus)
   ref_corpus, hyp_corpus = zip(*filter(lambda x: NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
   if len(ref_corpus) < len_before:
@@ -73,9 +82,8 @@ def xnmt_evaluate(args):
 if __name__ == "__main__":
 
   parser = OptionParser()
-  parser.add_task("evaluate", options)
   args = parser.args_from_command_line("evaluate", sys.argv[1:])
 
   score = xnmt_evaluate(args)
-  print("{} Score = {}".format(args.evaluator, score))
+  print("{} Score = {}".format(args["evaluator"], score))
 

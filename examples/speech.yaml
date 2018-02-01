@@ -2,47 +2,63 @@
 # Compared to the conventional attentional model, we remove input embeddings, instead directly read in a feature vector
 # the pyramidal LSTM reduces length of the input sequence by a factor of 2 per layer (except for the first layer).
 # Output units should be characters according to the paper.
-defaults:
-  experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
+speech-2layers: !Experiment
+  xnmt_global: !XnmtGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
+    save_num_checkpoints: 2
+    default_layer_dim: 32
+    dropout: 0.4
+  model: !DefaultTranslator
+    src_embedder: !NoopEmbedder
+      emb_dim: 240
+    encoder: !PyramidalLSTMSeqTransducer
+      layers: 3
+      downsampling_method: concat
+      reduce_factor: 2
+      input_dim: 240
+      hidden_dim: 64
+    attender: !MlpAttender
+      state_dim: 64
+      hidden_dim: 64
+      input_dim: 64
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 64
+      bridge: !CopyBridge {}
+    src_reader: !ContVecReader
+      transpose: True
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+  train: !SimpleTrainingRegimen
     run_for_epochs: 20
-    eval_metrics: cer,wer
-  train:
-    src_format: contvec
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/synth.contvec.npz
-      train_trg: examples/data/synth.char
-      dev_src: examples/data/synth.contvec.npz
-      dev_trg: examples/data/synth.char
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !ContVecReader
-        transpose: True
-      trg_reader: !PlainTextReader {}
-    model: !DefaultTranslator
-      src_embedder: !NoopEmbedder
-        emb_dim: 240
-      encoder: !PyramidalLSTMSeqTransducer
-        layers: 1
-        downsampling_method: skip
-        input_dim: 240
-        hidden_dim: 64
-      attender: !MlpAttender
-        state_dim: 64
-        hidden_dim: 64
-        input_dim: 64
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 64
-        bridge: !CopyBridge {}
-  decode:
+    batcher: !SrcBatcher
+      pad_src_to_multiple: 4
+      batch_size: 3
+      src_pad_token: ~
+    trainer: !AdamTrainer {}
     src_file: examples/data/synth.contvec.npz
+    trg_file: examples/data/synth.char
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/synth.contvec.npz
+        ref_file: examples/data/synth.char
+      - !AccuracyEvalTask
+        eval_metrics: cer,wer
+        src_file: examples/data/synth.contvec.npz
+        ref_file: examples/data/synth.char
+        hyp_file: examples/output/{EXP}.dev_hyp
+        inference: !SimpleInference
+          post_process: join-char
   evaluate:
-    ref_file: examples/data/synth.char
-
-speech-2layers:
-
+    - !AccuracyEvalTask
+      eval_metrics: cer,wer
+      src_file: examples/data/synth.contvec.npz
+      ref_file: examples/data/synth.words
+      hyp_file: examples/output/{EXP}.test_hyp
+      inference: !SimpleInference
+        post_process: join-char
+    

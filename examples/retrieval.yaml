@@ -1,48 +1,39 @@
-# Small config to help refactoring to make the model completely YAML based
-defaults:
-  experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
-    run_for_epochs: 20
-    eval_metrics: recall|nbest=1,recall|nbest=5
-  train:
-    trainer: adam
-    learning_rate: 0.001
+# TODO: broken, needs to be fixed
+retriever: !Experiment
+  xnmt_global: !XnmtGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
     default_layer_dim: 512
     dropout: 0.0
-    dev_metrics: recall|nbest=1,recall|nbest=5
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/train.ja
-      train_trg: examples/data/train.allids
-      train_id_file: examples/data/train.allids
-      dev_src: examples/data/dev.ja
-      dev_trg: examples/data/dev.allids
-      dev_id_file: examples/data/dev.allids
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
-      trg_reader: !IDReader {}
-    model: !DotProductRetriever
-      src_embedder: !SimpleWordEmbedder
-        vocab_size: 20000 # TODO: set this automatically
-        emb_dim: 512
-      src_encoder: !LSTMSeqTransducer
-        layers: 1
-      trg_embedder: !SimpleWordEmbedder
-        vocab_size: 20000 # TODO: set this automatically
-        emb_dim: 512
-      trg_encoder: !LSTMSeqTransducer
-        layers: 1
-      database: !StandardRetrievalDatabase
-        reader: !PlainTextReader {}
-        database_file: examples/data/traindevtest.en
-  decode:
-    src_file: examples/data/test.ja
-    candidate_id_file: examples/data/test.allids
+  model: !DotProductRetriever
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 512
+    src_encoder: !BiLSTMSeqTransducer {}
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 512
+    trg_encoder: !BiLSTMSeqTransducer {}
+    database: !StandardRetrievalDatabase
+      reader: !PlainTextReader {}
+      database_file: examples/data/debug.en
+    src_reader: !PlainTextReader {}
+    trg_reader: !IDReader {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 20
+    trainer: !AdamTrainer
+      alpha: 0.001
+    src_file: examples/data/debug.ja
+    trg_file: examples/data/debug.smallids
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/debug.ja
+        ref_file: examples/data/debug.smallids
+      - !AccuracyEvalTask
+        eval_metrics: recall|nbest=1,recall|nbest=3,recall|nbest=5
+        src_file: examples/data/debug.ja
+        ref_file: examples/data/debug.smallids
   evaluate:
-    ref_file: examples/data/test.allids
-
-retrieval:
-  train:
-     dropout: 0.0
+    - !AccuracyEvalTask
+      eval_metrics: recall|nbest=1,recall|nbest=3,recall|nbest=5
+      src_file: examples/data/debug.ja
+      ref_file: examples/data/debug.smallids

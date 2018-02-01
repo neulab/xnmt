@@ -17,4 +17,4 @@ import xnmt.serializer
 import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
 import xnmt.parameters
-
+import xnmt.plot

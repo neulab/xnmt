@@ -3,8 +3,9 @@ from __future__ import division, generators
 import dynet as dy
 
 from xnmt.transducer import SeqTransducer, FinalTransducerState
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 from xnmt.expression_sequence import ExpressionSequence
+from xnmt.serialize.tree_tools import Ref, Path
 
 class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = u'!ConvConnectedSeqTransducer'
@@ -14,7 +15,7 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
     Embedding sequence has same length as Input sequence
     """
 
-  def __init__(self, yaml_context, input_dim, window_receptor,output_dim,num_layers,internal_dim,non_linearity='linear'):
+  def __init__(self, input_dim, window_receptor,output_dim,num_layers,internal_dim,non_linearity='linear', xnmt_global=Ref(Path("xnmt_global"))):
     """
       :param num_layers: num layers after first receptor conv
       :param input_dim: size of the inputs
@@ -24,7 +25,7 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
       :param non_linearity: Non linearity to apply between layers
       """
 
-    model = yaml_context.dynet_param_collection.param_col
+    model = xnmt_global.dynet_param_collection.param_col
     self.input_dim = input_dim
     self.window_receptor = window_receptor
     self.internal_dim = internal_dim
