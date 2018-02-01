@@ -1,5 +1,5 @@
 exp1-pretrain-model: !Experiment
-  xnmt_global: !XnmtGlobal
+  exp_global: !ExpGlobal
     # The model file contain the whole contents of this experiment in YAML
     # format. Note that {EXP} expressions are left intact when saving.
     model_file: examples/output/{EXP}.mod
@@ -59,5 +59,5 @@ exp2-finetune-model: !Experiment
     - !AdamTrainer
         alpha: 0.0002
           
-  - [xnmt_global.dropout, 0.5]
+  - [exp_global.dropout, 0.5]
       

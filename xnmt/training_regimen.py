@@ -43,7 +43,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                dev_tasks=None, restart_trainer=False, reload_command=None,
                name=None, sample_train_sents=None, max_num_train_sents=None,
                max_src_len=None, max_trg_len=None,
-               xnmt_global=Ref(Path("xnmt_global"))):
+               exp_global=Ref(Path("exp_global"))):
     """
     :param model: a generator.GeneratorModel object
     :param src_file: the source training file
@@ -67,7 +67,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     :param max_num_train_sents:
     :param max_src_len:
     :param max_trg_len:
-    :param xnmt_global:
+    :param exp_global:
     """
     super().__init__(model=model,
                      src_file=src_file,
@@ -88,9 +88,9 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                      max_num_train_sents=max_num_train_sents,
                      max_src_len=max_src_len,
                      max_trg_len=max_trg_len,
-                     xnmt_global=xnmt_global)
-    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(xnmt_global=self.xnmt_global, e0=0.1)
-    self.dynet_profiling = getattr(xnmt_global.commandline_args, "dynet_profiling", 0)
+                     exp_global=exp_global)
+    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(exp_global=self.exp_global, e0=0.1)
+    self.dynet_profiling = getattr(exp_global.commandline_args, "dynet_profiling", 0)
 
   def run_training(self, save_fct, update_weights=True):
     """
@@ -115,7 +115,7 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
   Base class for multi-task training classes.
   Mainly initializes tasks, performs sanity-checks, and manages set_train events.
   """
-  def __init__(self, tasks, trainer=None, xnmt_global=Ref(Path("xnmt_global"))):
+  def __init__(self, tasks, trainer=None, exp_global=Ref(Path("exp_global"))):
     """
     :param tasks: list of TrainingTask instances.
                   The first item takes on the role of the main task, meaning it
@@ -123,15 +123,15 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
                   model checkpoints.
     :param trainer: Trainer object, default is SGD with learning rate 0.1
     """
-    self.dynet_profiling = xnmt_global.commandline_args.dynet_profiling
+    self.dynet_profiling = exp_global.commandline_args.dynet_profiling
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
-    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(xnmt_global=self.xnmt_global, e0=0.1)
+    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(exp_global=self.exp_global, e0=0.1)
     for task in tasks[1:]:
       if hasattr(task, "trainer") and task.trainer is not None:
         raise ValueError("Can instantiate only one trainer object. Possibly, multiple training regimens were created when training tasks should have been used.")
     self.train = None
-    self.model_file = xnmt_global.dynet_param_collection.model_file
+    self.model_file = exp_global.dynet_param_collection.model_file
     self.main_task = 0
     for task in tasks: task.trainer = trainer
   def init_data_vocabs(self):
@@ -173,9 +173,9 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   are thus performed jointly for each task. The relative weight between
   tasks can be configured by setting each tasks batch size accordingly.
   """
-  def __init__(self, tasks, trainer=None, xnmt_global=Ref(Path("xnmt_global"))):
-    super().__init__(xnmt_global=xnmt_global, tasks=tasks, trainer=trainer)
-    self.xnmt_global = xnmt_global
+  def __init__(self, tasks, trainer=None, exp_global=Ref(Path("exp_global"))):
+    super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
+    self.exp_global = exp_global
   def run_training(self, save_fct, update_weights=True):
     self.init_data_vocabs()
     task_generators = OrderedDict()
@@ -211,10 +211,10 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
   are only loaded individually. It also supports disabling training for some
   tasks by setting the task weight to 0.
   """
-  def __init__(self, tasks, task_weights=None, trainer=None, xnmt_global=Ref(Path("xnmt_global"))):
-    super().__init__(xnmt_global=xnmt_global, tasks=tasks, trainer=trainer)
+  def __init__(self, tasks, task_weights=None, trainer=None, exp_global=Ref(Path("exp_global"))):
+    super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks) 
-    self.xnmt_global = xnmt_global
+    self.exp_global = exp_global
   def run_training(self, save_fct, update_weights=True):
     self.init_data_vocabs()
     task_generators = OrderedDict()
@@ -249,13 +249,13 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
 
   yaml_tag = "!SerialMultiTaskTrainingRegimen"
   
-  def __init__(self, xnmt_global, tasks, trainer=None):
+  def __init__(self, exp_global, tasks, trainer=None):
     """
     :param tasks: list of TrainingTask instances. The currently active task is treated as main task.
     :param trainer: Trainer object, default is SGD with learning rate 0.1
     """
-    super().__init__(xnmt_global=xnmt_global, tasks=tasks, trainer=trainer)
-    self.xnmt_global = xnmt_global
+    super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
+    self.exp_global = exp_global
   def run_training(self, save_fct, update_weights=True):
     self.init_data_vocabs()
     for cur_task_id in range(len(self.tasks)):

@@ -75,9 +75,9 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                initial_patience=None, dev_tasks=None, restart_trainer=False,
                reload_command=None, name=None, sample_train_sents=None,
                max_num_train_sents=None, max_src_len=None, max_trg_len=None,
-               xnmt_global=Ref(Path("xnmt_global"))):
+               exp_global=Ref(Path("exp_global"))):
     """
-    :param xnmt_global:
+    :param exp_global:
     :param model: a generator.GeneratorModel object
     :param src_file: The file for the source data.
     :param trg_file: The file for the target data.
@@ -99,8 +99,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     :param max_trg_len:
     :param name: will be prepended to log outputs if given
     """
-    self.xnmt_global = xnmt_global
-    self.model_file = self.xnmt_global.dynet_param_collection.model_file
+    self.exp_global = exp_global
+    self.model_file = self.exp_global.dynet_param_collection.model_file
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks
@@ -320,7 +320,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
               if self.restart_trainer:
                 print('  restarting trainer and reverting learned weights to best checkpoint..')
                 self.trainer.restart()
-                self.xnmt_global.dynet_param_collection.revert_to_best_model()
+                self.exp_global.dynet_param_collection.revert_to_best_model()
 
     return ret
 

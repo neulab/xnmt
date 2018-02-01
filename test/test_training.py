@@ -18,13 +18,13 @@ from xnmt.pyramidal import PyramidalLSTMSeqTransducer
 import xnmt.training_regimen
 from xnmt.translator import DefaultTranslator
 from xnmt.vocab import Vocab
-from xnmt.xnmt_global import XnmtGlobal, NonPersistentParamCollection
+from xnmt.exp_global import ExpGlobal, NonPersistentParamCollection
 
 class TestTruncatedBatchTraining(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
-    self.xnmt_global = XnmtGlobal(dynet_param_collection = NonPersistentParamCollection())
+    self.exp_global = ExpGlobal(dynet_param_collection = NonPersistentParamCollection())
 
     self.src_reader = PlainTextReader()
     self.trg_reader = PlainTextReader()
@@ -68,11 +68,11 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     model = DefaultTranslator(
               src_reader=self.src_reader,
               trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
-              encoder=BiLSTMSeqTransducer(self.xnmt_global),
-              attender=MlpAttender(self.xnmt_global),
-              trg_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.xnmt_global, vocab_size=100, bridge=CopyBridge(xnmt_global=self.xnmt_global, dec_layers=1)),
+              src_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
+              encoder=BiLSTMSeqTransducer(self.exp_global),
+              attender=MlpAttender(self.exp_global),
+              trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -81,11 +81,11 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     model = DefaultTranslator(
               src_reader=self.src_reader,
               trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
-              encoder=PyramidalLSTMSeqTransducer(self.xnmt_global, layers=3),
-              attender=MlpAttender(self.xnmt_global),
-              trg_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.xnmt_global, vocab_size=100, bridge=CopyBridge(xnmt_global=self.xnmt_global, dec_layers=1)),
+              src_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
+              encoder=PyramidalLSTMSeqTransducer(self.exp_global, layers=3),
+              attender=MlpAttender(self.exp_global),
+              trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model, pad_src_to_multiple=4)
@@ -94,11 +94,11 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     model = DefaultTranslator(
               src_reader=self.src_reader,
               trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
-              encoder=BiLSTMSeqTransducer(self.xnmt_global, layers=3),
-              attender=MlpAttender(self.xnmt_global),
-              trg_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(xnmt_global=self.xnmt_global, vocab_size=100, bridge=CopyBridge(xnmt_global=self.xnmt_global, dec_layers=1)),
+              src_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
+              encoder=BiLSTMSeqTransducer(self.exp_global, layers=3),
+              attender=MlpAttender(self.exp_global),
+              trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -107,11 +107,11 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     model = DefaultTranslator(
               src_reader=self.src_reader,
               trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
-              encoder=BiLSTMSeqTransducer(self.xnmt_global),
-              attender=DotAttender(self.xnmt_global),
-              trg_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.xnmt_global, vocab_size=100, bridge=CopyBridge(xnmt_global=self.xnmt_global, dec_layers=1)),
+              src_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
+              encoder=BiLSTMSeqTransducer(self.exp_global),
+              attender=DotAttender(self.exp_global),
+              trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -120,7 +120,7 @@ class TestBatchTraining(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
-    self.xnmt_global = XnmtGlobal(dynet_param_collection = NonPersistentParamCollection())
+    self.exp_global = ExpGlobal(dynet_param_collection = NonPersistentParamCollection())
 
     self.src_reader = PlainTextReader()
     self.trg_reader = PlainTextReader()
@@ -167,11 +167,11 @@ class TestBatchTraining(unittest.TestCase):
     model = DefaultTranslator(
               src_reader=self.src_reader,
               trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-              encoder=BiLSTMSeqTransducer(xnmt_global=self.xnmt_global),
-              attender=MlpAttender(xnmt_global=self.xnmt_global),
-              trg_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(xnmt_global=self.xnmt_global, vocab_size=100, bridge=CopyBridge(xnmt_global=self.xnmt_global, dec_layers=1)),
+              src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
+              attender=MlpAttender(exp_global=self.exp_global),
+              trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -180,11 +180,11 @@ class TestBatchTraining(unittest.TestCase):
     model = DefaultTranslator(
               src_reader=self.src_reader,
               trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-              encoder=PyramidalLSTMSeqTransducer(xnmt_global=self.xnmt_global, layers=3),
-              attender=MlpAttender(xnmt_global=self.xnmt_global),
-              trg_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(xnmt_global=self.xnmt_global, vocab_size=100, bridge=CopyBridge(xnmt_global=self.xnmt_global, dec_layers=1)),
+              src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              encoder=PyramidalLSTMSeqTransducer(exp_global=self.exp_global, layers=3),
+              attender=MlpAttender(exp_global=self.exp_global),
+              trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model, pad_src_to_multiple=4)
@@ -193,11 +193,11 @@ class TestBatchTraining(unittest.TestCase):
     model = DefaultTranslator(
               src_reader=self.src_reader,
               trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-              encoder=BiLSTMSeqTransducer(xnmt_global=self.xnmt_global, layers=3),
-              attender=MlpAttender(xnmt_global=self.xnmt_global),
-              trg_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(xnmt_global=self.xnmt_global, vocab_size=100, bridge=CopyBridge(xnmt_global=self.xnmt_global, dec_layers=1)),
+              src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              encoder=BiLSTMSeqTransducer(exp_global=self.exp_global, layers=3),
+              attender=MlpAttender(exp_global=self.exp_global),
+              trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -209,7 +209,7 @@ class TestTrainDevLoss(unittest.TestCase):
     xnmt.events.clear()
 
   def test_train_dev_loss_equal(self):
-    self.xnmt_global = XnmtGlobal(dynet_param_collection=NonPersistentParamCollection())
+    self.exp_global = ExpGlobal(dynet_param_collection=NonPersistentParamCollection())
     batcher = SrcBatcher(batch_size=5, break_ties_randomly=False)
     train_args = {}
     train_args['src_file'] = "examples/data/head.ja"
@@ -217,11 +217,11 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['loss_calculator'] = LossCalculator()
     train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(),
                                             trg_reader=PlainTextReader(),
-                                            src_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-                                            encoder=BiLSTMSeqTransducer(xnmt_global=self.xnmt_global),
-                                            attender=MlpAttender(xnmt_global=self.xnmt_global),
-                                            trg_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-                                            decoder=MlpSoftmaxDecoder(xnmt_global=self.xnmt_global, vocab_size=100, bridge=CopyBridge(xnmt_global=self.xnmt_global, dec_layers=1)),
+                                            src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+                                            encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
+                                            attender=MlpAttender(exp_global=self.exp_global),
+                                            trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+                                            decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
                                             src_file="examples/data/head.ja",
@@ -230,8 +230,8 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['trainer'] = None
     train_args['batcher'] = batcher
     train_args['run_for_epochs'] = 1
-    training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(xnmt_global=self.xnmt_global, **train_args)
-    training_regimen.xnmt_global = self.xnmt_global
+    training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(exp_global=self.exp_global, **train_args)
+    training_regimen.exp_global = self.exp_global
     training_regimen.run_training(save_fct = lambda: None, update_weights=False)
     self.assertAlmostEqual(training_regimen.logger.epoch_loss.loss_values['loss'] / training_regimen.logger.epoch_words,
                            training_regimen.logger.dev_score.loss, places=5)
@@ -242,8 +242,8 @@ class TestOverfitting(unittest.TestCase):
     xnmt.events.clear()
 
   def test_overfitting(self):
-    self.xnmt_global = XnmtGlobal(dynet_param_collection = NonPersistentParamCollection())
-    self.xnmt_global.default_layer_dim = 16
+    self.exp_global = ExpGlobal(dynet_param_collection = NonPersistentParamCollection())
+    self.exp_global.default_layer_dim = 16
     batcher = SrcBatcher(batch_size=10, break_ties_randomly=False)
     train_args = {}
     train_args['src_file'] = "examples/data/head.ja"
@@ -251,21 +251,21 @@ class TestOverfitting(unittest.TestCase):
     train_args['loss_calculator'] = LossCalculator()
     train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(),
                                             trg_reader=PlainTextReader(),
-                                            src_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
-                                            encoder=BiLSTMSeqTransducer(self.xnmt_global),
-                                            attender=MlpAttender(self.xnmt_global),
-                                            trg_embedder=SimpleWordEmbedder(self.xnmt_global, vocab_size=100),
-                                            decoder=MlpSoftmaxDecoder(self.xnmt_global, vocab_size=100, bridge=CopyBridge(xnmt_global=self.xnmt_global, dec_layers=1)),
+                                            src_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
+                                            encoder=BiLSTMSeqTransducer(self.exp_global),
+                                            attender=MlpAttender(self.exp_global),
+                                            trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
+                                            decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
                                             src_file="examples/data/head.ja",
                                             ref_file="examples/data/head.en",
                                             batcher=batcher)]
     train_args['run_for_epochs'] = 1
-    train_args['trainer'] = AdamTrainer(self.xnmt_global, alpha=0.1)
+    train_args['trainer'] = AdamTrainer(self.exp_global, alpha=0.1)
     train_args['batcher'] = batcher
-    training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(xnmt_global=self.xnmt_global, **train_args)
-    training_regimen.xnmt_global = self.xnmt_global
+    training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(exp_global=self.exp_global, **train_args)
+    training_regimen.exp_global = self.exp_global
     for _ in range(50):
       training_regimen.run_training(save_fct=lambda:None, update_weights=True)
     self.assertAlmostEqual(0.0,

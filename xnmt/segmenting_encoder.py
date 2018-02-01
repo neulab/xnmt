@@ -56,11 +56,11 @@ class ScalarParam(Serializable):
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = u'!SegmentingSeqTransducer'
 
-  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), embed_encoder=None, segment_transducer=None, learn_segmentation=True,
+  def __init__(self, exp_global=Ref(Path("exp_global")), embed_encoder=None, segment_transducer=None, learn_segmentation=True,
                reinforcement_param=None, length_prior=3.5, learn_delete=False,
                length_prior_alpha=1.0, use_baseline=True, segmentation_warmup_counter=None):
     register_handler(self)
-    model = xnmt_global.dynet_param_collection.param_col
+    model = exp_global.dynet_param_collection.param_col
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
     # The Segment transducer predict a category based on the collected vector

@@ -67,9 +67,9 @@ class DownsamplingSegmentTransformer(SegmentTransformer):
 class CategorySegmentTransformer(SegmentTransformer):
   yaml_tag = u"!CategorySegmentTransformer"
 
-  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), input_dim=None, category_dim=None, embed_dim=None):
+  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, category_dim=None, embed_dim=None):
     register_handler(self)
-    model = xnmt_global.dynet_param_collection.param_col
+    model = exp_global.dynet_param_collection.param_col
     self.category_output = xnmt.linear.Linear(input_dim, category_dim, model)
     self.category_embedder = xnmt.embedder.SimpleWordEmbedder(category_dim, embed_dim)
     self.train = True

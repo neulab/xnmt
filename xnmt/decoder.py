@@ -44,19 +44,19 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
 
   yaml_tag = u'!MlpSoftmaxDecoder'
 
-  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), layers=1, input_dim=None, lstm_dim=None,
+  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
                bridge=bare(CopyBridge), label_smoothing=0.0, vocab_projector=None,
                vocab_size = None, vocab = None,
                trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
     register_handler(self)
-    self.param_col = xnmt_global.dynet_param_collection.param_col
+    self.param_col = exp_global.dynet_param_collection.param_col
     # Define dim
-    lstm_dim       = lstm_dim or xnmt_global.default_layer_dim
-    self.mlp_hidden_dim = mlp_hidden_dim = mlp_hidden_dim or xnmt_global.default_layer_dim
-    trg_embed_dim  = trg_embed_dim or xnmt_global.default_layer_dim
-    input_dim      = input_dim or xnmt_global.default_layer_dim
+    lstm_dim       = lstm_dim or exp_global.default_layer_dim
+    self.mlp_hidden_dim = mlp_hidden_dim = mlp_hidden_dim or exp_global.default_layer_dim
+    trg_embed_dim  = trg_embed_dim or exp_global.default_layer_dim
+    input_dim      = input_dim or exp_global.default_layer_dim
     self.input_dim = input_dim
     self.label_smoothing = label_smoothing
     # Input feeding
@@ -86,7 +86,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                                                                 model = self.param_col)
     
     # Dropout
-    self.dropout = dropout or xnmt_global.dropout
+    self.dropout = dropout or exp_global.dropout
 
   def choose_vocab_size(self, vocab_size, vocab, trg_reader):
     """Choose the vocab size for the embedder basd on the passed arguments

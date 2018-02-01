@@ -240,8 +240,8 @@ class YamlSerializer(object):
       dict_spec = yaml.load(f)
       corpus_parser = UninitializedYamlObject(dict_spec.corpus_parser)
       model = UninitializedYamlObject(dict_spec.model)
-      xnmt_global = UninitializedYamlObject(dict_spec)
-    return corpus_parser, model, xnmt_global
+      exp_global = UninitializedYamlObject(dict_spec)
+    return corpus_parser, model, exp_global
 
 
 class ComponentInitError(Exception):

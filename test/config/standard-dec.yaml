@@ -1,7 +1,7 @@
 standard_dec: !Experiment
   load: examples/output/standard.mod
   overwrite:
-  - [xnmt_global.eval_only, True]
+  - [exp_global.eval_only, True]
   - - evaluate
     - - !AccuracyEvalTask
         src_file: examples/data/head.ja

@@ -12,7 +12,7 @@ from xnmt.input import PlainTextReader
 from xnmt.loss_calculator import LossCalculator
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.translator import DefaultTranslator
-from xnmt.xnmt_global import XnmtGlobal, PersistentParamCollection
+from xnmt.exp_global import ExpGlobal, PersistentParamCollection
 
 class TestForcedDecodingOutputs(unittest.TestCase):
 
@@ -23,15 +23,15 @@ class TestForcedDecodingOutputs(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
-    self.xnmt_global = XnmtGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
+    self.exp_global = ExpGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
     self.model = DefaultTranslator(
               src_reader=PlainTextReader(),
               trg_reader=PlainTextReader(),
-              src_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-              encoder=BiLSTMSeqTransducer(xnmt_global=self.xnmt_global),
-              attender=MlpAttender(xnmt_global=self.xnmt_global),
-              trg_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(xnmt_global=self.xnmt_global, vocab_size=100, bridge=CopyBridge(xnmt_global=self.xnmt_global, dec_layers=1)),
+              src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
+              attender=MlpAttender(exp_global=self.exp_global),
+              trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     self.model.set_train(False)
     self.model.initialize_generator()
@@ -53,15 +53,15 @@ class TestForcedDecodingLoss(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
-    self.xnmt_global = XnmtGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
+    self.exp_global = ExpGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
     self.model = DefaultTranslator(
               src_reader=PlainTextReader(),
               trg_reader=PlainTextReader(),
-              src_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-              encoder=BiLSTMSeqTransducer(xnmt_global=self.xnmt_global),
-              attender=MlpAttender(xnmt_global=self.xnmt_global),
-              trg_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(xnmt_global=self.xnmt_global, vocab_size=100, bridge=CopyBridge(xnmt_global=self.xnmt_global, dec_layers=1)),
+              src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
+              attender=MlpAttender(exp_global=self.exp_global),
+              trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     self.model.set_train(False)
     self.model.initialize_generator()
@@ -85,15 +85,15 @@ class TestFreeDecodingLoss(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
-    self.xnmt_global = XnmtGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
+    self.exp_global = ExpGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
     self.model = DefaultTranslator(
               src_reader=PlainTextReader(),
               trg_reader=PlainTextReader(),
-              src_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-              encoder=BiLSTMSeqTransducer(xnmt_global=self.xnmt_global),
-              attender=MlpAttender(xnmt_global=self.xnmt_global),
-              trg_embedder=SimpleWordEmbedder(xnmt_global=self.xnmt_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(xnmt_global=self.xnmt_global, vocab_size=100, bridge=CopyBridge(xnmt_global=self.xnmt_global, dec_layers=1)),
+              src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
+              attender=MlpAttender(exp_global=self.exp_global),
+              trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     self.model.set_train(False)
     self.model.initialize_generator()
