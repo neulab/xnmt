@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 import dynet as dy
 from xnmt.serialize.serializable import Serializable, bare
 from xnmt.serialize.tree_tools import Ref, Path
@@ -47,7 +49,8 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
-               glorot_gain=None, bridge=bare(CopyBridge), label_smoothing=0.0,
+               glorot_gain_lstm=None, glorot_gain_context=None, glorot_gain_output=None, 
+               bridge=bare(CopyBridge), label_smoothing=0.0,
                vocab_projector=None, vocab_size = None, vocab = None,
                trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
     register_handler(self)
@@ -76,16 +79,22 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                                               hidden_dim = lstm_dim,
                                               model = self.param_col,
                                               residual_to_output = residual_to_output)
+    glorot_gain_lstm = glorot_gain_lstm or exp_global.glorot_gain
+    if glorot_gain_lstm != 1.0:
+      for l in range(layers):
+        for i in [0,1]:
+          self.fwd_lstm.param_collection().parameters_list()[3*l+i].scale(glorot_gain_lstm[l] if isinstance(glorot_gain_lstm, Sequence) else glorot_gain_lstm)
+      
     # MLP
     self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + lstm_dim,
                                                 output_dim = mlp_hidden_dim,
                                                 model = self.param_col,
-                                                glorot_gain=glorot_gain or exp_global.glorot_gain)
+                                                glorot_gain=glorot_gain_context or exp_global.glorot_gain)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, trg_reader)
     self.vocab_projector = vocab_projector or xnmt.linear.Linear(input_dim = self.mlp_hidden_dim,
                                                                  output_dim = self.vocab_size,
                                                                  model = self.param_col,
-                                                                 glorot_gain=glorot_gain or exp_global.glorot_gain)
+                                                                 glorot_gain=glorot_gain_output or exp_global.glorot_gain)
     
     # Dropout
     self.dropout = dropout or exp_global.dropout
