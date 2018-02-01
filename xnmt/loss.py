@@ -18,23 +18,19 @@ class LossBuilder(object):
       self.loss_values[loss_name] += loss_expr
 
   def compute(self):
-    try:
-      return dy.sum_batches(dy.esum(list(self.loss_values.values())))
-    finally:
-      self.loss_values.clear()
+    return dy.sum_batches(dy.esum(list(self.loss_values.values())))
 
   def __getitem__(self, index):
     return self.loss_values[index]
 
   def get_loss_stats(self):
-    return LossScalarBuilder({k: v.value() for k, v in self.loss_values.items()})
+    return LossScalarBuilder({k: dy.sum_batches(v).value() for k, v in self.loss_values.items()})
 
   def __len__(self):
     return len(self.loss_values)
 
   def __repr__(self):
-    self.compute()
-    loss_str = ", ".join(["%s %f" % (loss_name, loss_value.value()) for loss_name, loss_value in self.loss_values.items()])
+    loss_str = ", ".join(["%s %f" % (loss_name, dy.sum_batches(loss_value).value()) for loss_name, loss_value in self.loss_values.items()])
     return "{Loss Builder: %s}" % (loss_str)
 
 class LossScalarBuilder(object):
