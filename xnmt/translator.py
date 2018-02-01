@@ -57,7 +57,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   yaml_tag = u'!DefaultTranslator'
 
   def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder,
-               calc_global_fertility=False):
+               calc_global_fertility=False, calc_attention_entropy=False):
     '''Constructor.
 
     :param src_embedder: A word embedder for the input language
@@ -73,6 +73,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.trg_embedder = trg_embedder
     self.decoder = decoder
     self.calc_global_fertility = calc_global_fertility
+    self.calc_attention_entropy = calc_attention_entropy
 
   def shared_params(self):
     return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
@@ -102,7 +103,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       self.search_strategy = BeamSearch(**search_args)
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)
-    self.print_fertility = kwargs.get("print_fertility", 0) == 1
 
   def initialize_training_strategy(self, training_strategy):
     self.loss_calculator = training_strategy
@@ -126,12 +126,22 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
     dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
     model_loss = self.loss_calculator(self, dec_state, src, trg)
+    # Adding additional losses
+    model_loss = LossBuilder()
+    model_loss.add_loss("mle", model_loss)
 
-    if self.is_train and self.calc_global_fertility:
-      loss = LossBuilder()
-      loss.add_loss("mle", model_loss)
-      loss.add_loss("fertility", self.global_fertility(self.attender.attention_vecs, encodings.mask))
-      model_loss = loss
+    if self.calc_global_fertility or self.calc_attention_entropy:
+      # philip30: I assume that attention_vecs is already masked src wisely.
+      # Now applying the mask to the target
+      masked_attn = self.attender.attention_vecs
+      if trg.mask is not None:
+        trg_mask = trg.mask.get_active_one_mask().transpose()
+        masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
+
+    if self.calc_global_fertility:
+      model_loss.add_loss("fertility", self.global_fertility(masked_attn))
+    if self.calc_attention_entropy:
+      model_loss.add_loss("H(attn):", self.attention_entropy(masked_attn))
 
     return model_loss
 
@@ -180,11 +190,17 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.outputs = outputs
     return outputs
 
-  def global_fertility(self, a, mask=None):
-    loss = dy.square(1 - dy.esum(a))
-    if mask is not None:
-      loss = dy.cmult(dy.inputTensor((1-mask.np_arr.transpose()), batched=True), loss)
-    return dy.sum_elems(loss)
+  def global_fertility(self, a):
+    return dy.sum_elems(dy.square(1 - dy.esum(a)))
+
+  def attention_entropy(self, a):
+    EPS = 1e-10
+    entropy = []
+    for a_i in a:
+      a_i += EPS
+      entropy.append(dy.cmult(a_i, dy.log(a_i)))
+
+    return -dy.sum_elems(dy.esum(entropy))
 
   def set_reporting_src_vocab(self, src_vocab):
     """
