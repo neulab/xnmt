@@ -1,4 +1,4 @@
-from __future__ import division, generators
+from collections.abc import Sequence
 
 import numpy as np
 import dynet as dy
@@ -17,7 +17,8 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   yaml_tag = u'!UniLSTMSeqTransducer'
   
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, hidden_dim=None, dropout = None, weightnoise_std=None):
+  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, hidden_dim=None,
+               dropout = None, weightnoise_std=None, glorot_gain=None):
     register_handler(self)
     model = exp_global.dynet_param_collection.param_col
     input_dim = input_dim or exp_global.default_layer_dim
@@ -26,10 +27,12 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     self.dropout_rate = dropout or exp_global.dropout
     self.weightnoise_std = weightnoise_std or exp_global.weight_noise
     self.input_dim = input_dim
+    
+    glorot_gain = glorot_gain or exp_global.glorot_gain
 
     # [i; f; o; g]
-    self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim))
-    self.p_Wh = model.add_parameters(dim=(hidden_dim*4, hidden_dim))
+    self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim), init=dy.GlorotInitializer(gain=glorot_gain))
+    self.p_Wh = model.add_parameters(dim=(hidden_dim*4, hidden_dim), init=dy.GlorotInitializer(gain=glorot_gain))
     self.p_b  = model.add_parameters(dim=(hidden_dim*4,), init=dy.ConstInitializer(0.0))
 
     self.dropout_mask_x = None
@@ -104,7 +107,17 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   yaml_tag = u'!BiLSTMSeqTransducer'
   
-  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None, dropout=None, weightnoise_std=None):
+  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None, 
+               dropout=None, weightnoise_std=None, glorot_gain=None):
+    """
+    :param exp_global:
+    :param layers (int):
+    :param input_dim (int):
+    :param hidden_dim (int):
+    :param dropout (float):
+    :param weightnoise_std (float):
+    :param glorot_gain (int or sequence of ints):
+    """
     register_handler(self)
     self.num_layers = layers
     input_dim = input_dim or exp_global.default_layer_dim
@@ -113,10 +126,15 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
     self.dropout_rate = dropout or exp_global.dropout
     self.weightnoise_std = weightnoise_std or exp_global.weight_noise
     assert hidden_dim % 2 == 0
-    self.forward_layers = [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std)]
-    self.backward_layers = [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std)]
-    self.forward_layers += [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std) for _ in range(layers-1)]
-    self.backward_layers += [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std) for _ in range(layers-1)]
+    glorot_gain = glorot_gain or exp_global.glorot_gain
+    self.forward_layers = [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std, 
+                                                glorot_gain=glorot_gain[0] if isinstance(glorot_gain, Sequence) else glorot_gain)]
+    self.backward_layers = [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std, 
+                                                 glorot_gain=glorot_gain[0] if isinstance(glorot_gain, Sequence) else glorot_gain)]
+    self.forward_layers += [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std, 
+                                                 glorot_gain=glorot_gain[i] if isinstance(glorot_gain, Sequence) else glorot_gain) for i in range(1, layers)]
+    self.backward_layers += [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std, 
+                                                  glorot_gain=glorot_gain[i] if isinstance(glorot_gain, Sequence) else glorot_gain) for i in range(1, layers)]
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -151,15 +169,16 @@ class CustomLSTMSeqTransducer(SeqTransducer):
   It currently does not support dropout or multiple layers and is mostly meant as a
   starting point for LSTM extensions.
   """
-  def __init__(self, layers, input_dim, hidden_dim, exp_global=Ref(Path("exp_global"))):
+  def __init__(self, layers, input_dim, hidden_dim, exp_global=Ref(Path("exp_global")), glorot_gain=None):
     if layers!=1: raise RuntimeError("CustomLSTMSeqTransducer supports only exactly one layer")
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
     model = exp_global.dynet_param_collection.param_col
+    glorot_gain = glorot_gain or exp_global.glorot_gain
 
     # [i; f; o; g]
-    self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim))
-    self.p_Wh = model.add_parameters(dim=(hidden_dim*4, hidden_dim))
+    self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim), init=dy.GlorotInitializer(gain=glorot_gain))
+    self.p_Wh = model.add_parameters(dim=(hidden_dim*4, hidden_dim), init=dy.GlorotInitializer(gain=glorot_gain))
     self.p_b  = model.add_parameters(dim=(hidden_dim*4,), init=dy.ConstInitializer(0.0))
 
   def __call__(self, xs):

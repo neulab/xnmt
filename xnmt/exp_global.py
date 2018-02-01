@@ -5,8 +5,8 @@ from xnmt.serialize.serializable import Serializable
 class ExpGlobal(Serializable):
   yaml_tag = u'!ExpGlobal'
   def __init__(self, model_file=None, out_file=None, err_file=None, dropout = 0.0,
-               weight_noise = 0.0, default_layer_dim = 512, save_num_checkpoints=1,
-               eval_only=False, commandline_args=None,
+               weight_noise = 0.0, default_layer_dim = 512, glorot_gain=1.0,
+               save_num_checkpoints=1, eval_only=False, commandline_args=None,
                dynet_param_collection = None):
     self.model_file = model_file
     self.out_file = out_file
@@ -14,6 +14,7 @@ class ExpGlobal(Serializable):
     self.dropout = dropout
     self.weight_noise = weight_noise
     self.default_layer_dim = default_layer_dim
+    self.glorot_gain = glorot_gain
     self.model_file = None
     self.eval_only = eval_only
     self.dynet_param_collection = dynet_param_collection or PersistentParamCollection(model_file, save_num_checkpoints)

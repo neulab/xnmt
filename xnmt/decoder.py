@@ -47,8 +47,8 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
-               bridge=bare(CopyBridge), label_smoothing=0.0, vocab_projector=None,
-               vocab_size = None, vocab = None,
+               glorot_gain=None, bridge=bare(CopyBridge), label_smoothing=0.0,
+               vocab_projector=None, vocab_size = None, vocab = None,
                trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
     register_handler(self)
     self.param_col = exp_global.dynet_param_collection.param_col
@@ -78,12 +78,14 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                                               residual_to_output = residual_to_output)
     # MLP
     self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + lstm_dim,
-                                           output_dim = mlp_hidden_dim,
-                                           model = self.param_col)
+                                                output_dim = mlp_hidden_dim,
+                                                model = self.param_col,
+                                                glorot_gain=glorot_gain or exp_global.glorot_gain)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, trg_reader)
     self.vocab_projector = vocab_projector or xnmt.linear.Linear(input_dim = self.mlp_hidden_dim,
-                                                                output_dim = self.vocab_size,
-                                                                model = self.param_col)
+                                                                 output_dim = self.vocab_size,
+                                                                 model = self.param_col,
+                                                                 glorot_gain=glorot_gain or exp_global.glorot_gain)
     
     # Dropout
     self.dropout = dropout or exp_global.dropout

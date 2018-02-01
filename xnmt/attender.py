@@ -27,18 +27,20 @@ class MlpAttender(Attender, Serializable):
 
   yaml_tag = u'!MlpAttender'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, hidden_dim=None):
+  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, 
+               hidden_dim=None, glorot_gain=None):
     input_dim = input_dim or exp_global.default_layer_dim
     state_dim = state_dim or exp_global.default_layer_dim
     hidden_dim = hidden_dim or exp_global.default_layer_dim
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
+    glorot_gain = glorot_gain or exp_global.glorot_gain
     param_collection = exp_global.dynet_param_collection.param_col
-    self.pW = param_collection.add_parameters((hidden_dim, input_dim))
-    self.pV = param_collection.add_parameters((hidden_dim, state_dim))
+    self.pW = param_collection.add_parameters((hidden_dim, input_dim), init=dy.GlorotInitializer(gain=glorot_gain))
+    self.pV = param_collection.add_parameters((hidden_dim, state_dim), init=dy.GlorotInitializer(gain=glorot_gain))
     self.pb = param_collection.add_parameters(hidden_dim, init=dy.ConstInitializer(0.0))
-    self.pU = param_collection.add_parameters((1, hidden_dim))
+    self.pU = param_collection.add_parameters((1, hidden_dim), init=dy.GlorotInitializer(gain=glorot_gain))
     self.curr_sent = None
 
   def init_sent(self, sent):
@@ -113,13 +115,14 @@ class BilinearAttender(Attender, Serializable):
 
   yaml_tag = u'!BilinearAttender'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None):
+  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, glorot_gain=None):
     input_dim = input_dim or exp_global.default_layer_dim
     state_dim = state_dim or exp_global.default_layer_dim
     self.input_dim = input_dim
     self.state_dim = state_dim
+    glorot_gain = glorot_gain or exp_global.glorot_gain
     param_collection = exp_global.dynet_param_collection.param_col
-    self.pWa = param_collection.add_parameters((input_dim, state_dim))
+    self.pWa = param_collection.add_parameters((input_dim, state_dim), init=dy.GlorotInitializer(gain=glorot_gain))
     self.curr_sent = None
 
   def init_sent(self, sent):

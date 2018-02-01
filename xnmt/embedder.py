@@ -93,16 +93,17 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
   """
   yaml_tag = "!DenseWordEmbedder"
   def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim = None, weight_noise = None, word_dropout = 0.0,
-               fix_norm = None, vocab_size = None, vocab = None, yaml_path = None, 
+               fix_norm = None, glorot_gain=None, vocab_size = None, vocab = None, yaml_path = None, 
                src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
     register_handler(self)
     self.fix_norm = fix_norm
     self.weight_noise = weight_noise or exp_global.weight_noise
     self.word_dropout = word_dropout
     self.emb_dim = emb_dim or exp_global.default_layer_dim
+    glorot_gain = glorot_gain or exp_global.glorot_gain
     self.dynet_param_collection = exp_global.dynet_param_collection
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
-    self.embeddings = self.dynet_param_collection.param_col.add_parameters((self.vocab_size, self.emb_dim))
+    self.embeddings = self.dynet_param_collection.param_col.add_parameters((self.vocab_size, self.emb_dim), init=dy.GlorotInitializer(gain=glorot_gain))
     self.bias = self.dynet_param_collection.param_col.add_parameters((self.vocab_size), init=dy.ConstInitializer(0.0))
 
   @handle_xnmt_event
