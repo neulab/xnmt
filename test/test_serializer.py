@@ -21,7 +21,7 @@ class TestPath(unittest.TestCase):
   def test_set(self):
     s = set([Path("one.2"), Path("one.1.3"), Path("one.1.3")])
     self.assertIn(Path("one.2"), s)
-    self.assertEquals(len(s), 2)
+    self.assertEqual(len(s), 2)
   def test_append(self):
     self.assertEqual(str(Path("one").append("2")), "one.2")
     self.assertEqual(str(Path("").append("2")), "2")

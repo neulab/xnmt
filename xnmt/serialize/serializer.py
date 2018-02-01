@@ -41,6 +41,8 @@ class YamlSerializer(object):
     # make sure only arguments accepted by the Serializable derivatives' __init__() methods were passed   
     self.check_args(self.deserialized_yaml)
     self.named_paths = self.get_named_paths(self.deserialized_yaml)
+    # if arguments were not given in the YAML file and are set to a Serializable-Stub by default, copy the bare object into the object hierarchy so it can used w/ param sharing etc.
+    self.resolve_bare_default_args(self.deserialized_yaml)
     # if arguments were not given in the YAML file and are set to a Ref by default, copy this Ref into the object structure so that it can be properly resolved in a subsequent step
     self.resolve_ref_default_args(self.deserialized_yaml)
     # if references point to places that are not specified explicitly in the YAML file, but have given default arguments, substitute those default arguments
@@ -65,6 +67,19 @@ class YamlSerializer(object):
         d[xnmt_id] = path
     return d
     
+  def resolve_bare_default_args(self, root):
+    for path, node in tree_tools.traverse_tree(root):
+      if isinstance(node, Serializable):
+        init_args_defaults = tree_tools.get_init_args_defaults(node)
+        for expected_arg in init_args_defaults:
+          if not expected_arg in [x[0] for x in tree_tools.name_children(node, include_reserved=False)]:
+            arg_default = init_args_defaults[expected_arg].default
+            if isinstance(arg_default, Serializable) and not isinstance(arg_default, tree_tools.Ref):
+              if not getattr(arg_default, "_is_bare", False):
+                raise ValueError(f"only Serializables created via bare(SerializableSubtype) are permitted as default arguments; found a fully initialized Serializable: {arg_default} at {path}")
+              self.resolve_bare_default_args(arg_default) # apply recursively
+              setattr(node, expected_arg, arg_default)
+
   def resolve_ref_default_args(self, root):
     for _, node in tree_tools.traverse_tree(root):
       if isinstance(node, Serializable):
@@ -86,16 +101,17 @@ class YamlSerializer(object):
         for ancestor in sorted(referenced_path.ancestors(), key = lambda x: len(x)):
           try:
             tree_tools.get_descendant(root, ancestor)
-          except (KeyError, AttributeError):
+          except tree_tools.PathError:
             ancestor_parent = tree_tools.get_descendant(root, ancestor.parent())
             if isinstance(ancestor_parent, Serializable):
               init_args_defaults = tree_tools.get_init_args_defaults(ancestor_parent)
               if ancestor[-1] in init_args_defaults:
                 referenced_arg_default = init_args_defaults[ancestor[-1]].default
-              else:                
+              else:
                 referenced_arg_default = inspect.Parameter.empty
-              if referenced_arg_default == inspect.Parameter.empty and node.is_required():
-                raise ValueError(f"Reference '{node}' is required but does not exist and has no default arguments")
+              if referenced_arg_default == inspect.Parameter.empty:
+                if node.is_required():
+                  raise ValueError(f"Reference '{node}' is required but does not exist and has no default arguments")
               else:
                 tree_tools.set_descendant(root, ancestor, referenced_arg_default)
             else:
@@ -123,7 +139,7 @@ class YamlSerializer(object):
       for shared_param_path in shared_param_set:
         try:
           new_shared_val = tree_tools.get_descendant(root, shared_param_path)
-        except AttributeError:
+        except tree_tools.PathError:
           continue
         for _, child_of_shared_param in tree_tools.traverse_tree(new_shared_val, include_root=False):
           if isinstance(child_of_shared_param, Serializable): 
@@ -144,10 +160,10 @@ class YamlSerializer(object):
             resolved_path = node.resolve_path(self.named_paths)
             hits_before = self.init_component.cache_info().hits
             initialized_component = self.init_component(resolved_path)
-          except:
+          except tree_tools.PathError:
             initialized_component = None
           if self.init_component.cache_info().hits > hits_before:
-            print(f"reusing previously initialized object at {path}")
+            print(f"for {path}: reusing previously initialized {initialized_component}")
         else:
           initialized_component = self.init_component(path)
         if len(path)==0:
@@ -163,13 +179,15 @@ class YamlSerializer(object):
     :returns: initialized object; this method is cached, so multiple requests for the same path will return the exact same object
     """
     obj = tree_tools.get_descendant(self.deserialized_yaml, path)
+    if not isinstance(obj, Serializable):
+      return obj
     init_params = OrderedDict(tree_tools.name_children(obj, include_reserved=False))
     serialize_params = OrderedDict(init_params)
     init_args = tree_tools.get_init_args_defaults(obj)
     if "yaml_path" in init_args: init_params["yaml_path"] = path
     try:
       initialized_obj = obj.__class__(**init_params)
-      print(f"initialized {path}: {obj.__class__.__name__}({init_params})")
+      print(f"initialized {path}: {obj.__class__.__name__}({dict(init_params)})"[:1000])
     except TypeError as e:
       raise ComponentInitError(f"{type(obj)} could not be initialized using params {init_params}, expecting params {init_args.keys()}. "
                                f"Error message: {e}")
@@ -223,8 +241,8 @@ class YamlSerializer(object):
       dict_spec = yaml.load(f)
       corpus_parser = UninitializedYamlObject(dict_spec.corpus_parser)
       model = UninitializedYamlObject(dict_spec.model)
-      xnmt_global = UninitializedYamlObject(dict_spec)
-    return corpus_parser, model, xnmt_global
+      exp_global = UninitializedYamlObject(dict_spec)
+    return corpus_parser, model, exp_global
 
 
 class ComponentInitError(Exception):

@@ -9,14 +9,20 @@ import itertools
 # Reporting purposes
 from lxml import etree
 from simple_settings import settings
+
+from xnmt.attender import MlpAttender
 from xnmt.batcher import mark_as_batch, is_batched
+from xnmt.decoder import MlpSoftmaxDecoder
+from xnmt.embedder import SimpleWordEmbedder
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_handler
 from xnmt.generator import GeneratorModel
+from xnmt.inference import SimpleInference
 from xnmt.input import SimpleSentenceInput
 import xnmt.length_normalization
+from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializable import Serializable, bare
 from xnmt.search_strategy import BeamSearch, GreedySearch
 import xnmt.serialize.serializer
 from xnmt.serialize.tree_tools import Path
@@ -55,7 +61,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
   yaml_tag = u'!DefaultTranslator'
 
-  def __init__(self, src_reader, trg_reader, src_embedder, encoder, attender, trg_embedder, decoder, inference=None):
+  def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder), 
+               encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender), 
+               trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder), 
+               inference=bare(SimpleInference)):
     '''Constructor.
 
     :param src_reader: A reader for the source side.

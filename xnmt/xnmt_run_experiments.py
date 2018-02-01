@@ -64,12 +64,12 @@ def main(overwrite_args=None):
 
     yaml_serializer = YamlSerializer()
 
-    glob_args = uninitialized_exp_args.data.xnmt_global
+    glob_args = uninitialized_exp_args.data.exp_global
     out_file = glob_args.get_out_file(experiment_name)
     err_file = glob_args.get_err_file(experiment_name)
     
     if os.path.isfile(out_file) and not settings.OVERWRITE_LOG:
-      print(f"ERROR: log file {out_file} already exists; please delete by hand if you want to overwrite it (or set OVERWRITE_LOG=True); skipping experiment..")
+      print(f"ERROR: log file {out_file} already exists; please delete by hand if you want to overwrite it (or use --settings=settings.debug or otherwise set OVERWRITE_LOG=True); skipping experiment..")
       continue
 
     output = Tee(out_file, 3)
@@ -77,27 +77,29 @@ def main(overwrite_args=None):
 
     model_file = glob_args.get_model_file(experiment_name)
 
-    uninitialized_exp_args.data.xnmt_global.commandline_args = args
+    uninitialized_exp_args.data.exp_global.commandline_args = args
 
     # Create the model
     experiment = yaml_serializer.initialize_if_needed(uninitialized_exp_args)
 
     # Run the experiment
     eval_scores = experiment(save_fct = lambda: yaml_serializer.save_to_file(model_file, experiment,
-                                                                             experiment.xnmt_global.dynet_param_collection))
+                                                                             experiment.exp_global.dynet_param_collection))
     results.append((experiment_name, eval_scores))
+    print_results(results)
 
     output.close()
     err_output.close()
 
+def print_results(results):
   print("")
   print("{:<30}|{:<40}".format("Experiment", " Final Scores"))
   print("-" * (70 + 1))
 
-  for line in results:
-    experiment_name, eval_scores = line
+  for experiment_name, eval_scores in results:
     for i in range(len(eval_scores)):
       print("{:<30}| {:<40}".format((experiment_name if i==0 else ""), str(eval_scores[i])))
+  
 
 if __name__ == '__main__':
   import _dynet

@@ -33,6 +33,9 @@ class Serializable(yaml.YAMLObject):
     if not hasattr(self, "serialize_params"):
       self.serialize_params = {}
     self.serialize_params[key] = val
+  
+  def __repr__(self):
+    return f"{self.__class__.__name__}@{id(self)}"
     
 
 class UninitializedYamlObject(object):
@@ -45,3 +48,16 @@ class UninitializedYamlObject(object):
     self.data = data
   def get(self, key, default):
     return self.data.get(key, default)
+
+def bare(class_type, **kwargs):
+  """
+  Returns object of the given class type that looks almost exactly like objects
+  created by the YAML parser: object attributes are set, but __init__ has never
+  been called.
+  """
+  obj = class_type.__new__(class_type)
+  assert isinstance(obj, Serializable)
+  for key, val in kwargs.items():
+    setattr(obj, key, val)
+  setattr(obj, "_is_bare", True)
+  return obj

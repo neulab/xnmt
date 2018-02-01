@@ -110,11 +110,11 @@ class OptionParser(object):
 
       if hasattr(experiment, "overwrite"):
         for d in experiment.overwrite:
-          path = tree_tools.Path(d[0])
+          path = tree_tools.Path(d["path"])
           try:
-            tree_tools.set_descendant(experiment, path, d[1])
+            tree_tools.set_descendant(experiment, path, d["val"])
           except:
-            tree_tools.set_descendant(experiment, path, d[1])
+            tree_tools.set_descendant(experiment, path, d["val"])
         delattr(experiment, "overwrite")
       
   def resolve_kwargs(self, obj):

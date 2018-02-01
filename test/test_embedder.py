@@ -8,7 +8,7 @@ from itertools import islice
 
 from xnmt.input import PlainTextReader
 from xnmt.embedder import PretrainedSimpleWordEmbedder
-from xnmt.xnmt_global import XnmtGlobal, PersistentParamCollection
+from xnmt.exp_global import ExpGlobal, PersistentParamCollection
 import xnmt.events
 
 
@@ -18,13 +18,13 @@ class PretrainedSimpleWordEmbedderSanityTest(unittest.TestCase):
     self.input_reader = PlainTextReader()
     list(self.input_reader.read_sents('examples/data/head.ja'))
     self.input_reader.freeze()
-    self.context = XnmtGlobal(dynet_param_collection=PersistentParamCollection(None, 0))
+    self.context = ExpGlobal(dynet_param_collection=PersistentParamCollection(None, 0))
 
   def test_load(self):
     """
     Checks that the embeddings can be loaded, have the right dimension, and that one line matches.
     """
-    embedder = PretrainedSimpleWordEmbedder(xnmt_global=self.context, filename='examples/data/wiki.ja.vec.small', emb_dim=300, vocab=self.input_reader.vocab)
+    embedder = PretrainedSimpleWordEmbedder(exp_global=self.context, filename='examples/data/wiki.ja.vec.small', emb_dim=300, vocab=self.input_reader.vocab)
     # self.assertEqual(embedder.embeddings.shape()[::-1], (self.input_reader.vocab_size(), 300))
 
     with io.open('examples/data/wiki.ja.vec.small', encoding='utf-8') as vecfile:
