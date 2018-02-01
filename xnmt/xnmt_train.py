@@ -23,7 +23,7 @@ from xnmt.options import Option, OptionParser, general_options
 from xnmt.loss import LossBuilder
 from xnmt.model_context import ModelContext, PersistentParamCollection
 from xnmt.training_strategy import TrainingStrategy, TrainingMLELoss
-from xnmt.evaluator import LossScore
+
 '''
 This will be the main class to perform training.
 '''
@@ -215,19 +215,9 @@ class XnmtTrainer(object):
       dy.renew_cg()
       loss_builder = LossBuilder()
       standard_loss = self.model.calc_loss(src, trg)
-      if standard_loss.__class__ == LossBuilder:
-        loss = None
-        for loss_name, loss_expr in standard_loss.loss_nodes:
-          loss_builder.add_loss(loss_name, loss_expr)
-          loss = loss_expr if not loss else loss + loss_expr
-        standard_loss = loss
-
-      else:
-        loss_builder.add_loss("loss", standard_loss)
-
-      additional_loss = self.model.calc_additional_loss(dy.nobackprop(-standard_loss))
-      if additional_loss != None:
-        loss_builder.add_loss("additional_loss", additional_loss)
+      additional_loss = self.model.calc_additional_loss(standard_loss)
+      loss_builder.add_loss("standard_loss", standard_loss)
+      loss_builder.add_loss("additional_loss", additional_loss)
 
       # Log the loss sum
       loss_value = loss_builder.compute()
@@ -290,7 +280,7 @@ class XnmtTrainer(object):
       if metric != schedule_metric:
         self.logger.report_auxiliary_score(eval_scores[metric])
     # Write out the model if it's the best one
-    if self.logger.report_dev_and_check_model(self.args.model_file):
+    if self.logger.report_dev_and_check_model(self.args.model_file, self.model.get_primary_loss()):
       if self.args.model_file is not None:
         self.model_serializer.save_to_file(self.args.model_file,
                                            SerializeContainer(self.corpus_parser, self.model, self.model_context),
@@ -317,15 +307,23 @@ class XnmtTrainer(object):
 
   def compute_dev_loss(self):
     trg_words_cnt = 0
-    loss = 0
+    loss = LossBuilder()
     for src, trg in zip(self.dev_src, self.dev_trg):
       dy.renew_cg()
       standard_loss = self.model.calc_loss(src, trg)
+      # Loss calculation
+      dy.renew_cg()
       loss_builder = LossBuilder()
-      loss_builder.add_loss("loss", standard_loss)
+      standard_loss = self.model.calc_loss(src, trg)
+      additional_loss = self.model.calc_additional_loss(standard_loss)
+      loss_builder.add_loss("standard_loss", standard_loss)
+      loss_builder.add_loss("additional_loss", additional_loss)
+
       trg_words_cnt += self.logger.count_trg_words(trg)
-      loss += loss_builder.compute().value()
-    return trg_words_cnt, LossScore(loss / trg_words_cnt)
+      loss.add_loss("total_loss", loss_builder)
+
+    loss_composition = {k: v/trg_words_cnt for k, v in loss.get_loss_stats().items()}
+    return trg_words_cnt, loss_composition
 
 if __name__ == "__main__":
   parser = OptionParser()

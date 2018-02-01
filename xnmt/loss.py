@@ -6,23 +6,25 @@ import collections
 
 class LossBuilder(object):
   def __init__(self):
-    self.loss_nodes  = []
-    self.loss_values = collections.defaultdict(float)
+    self.loss_values = collections.defaultdict(lambda: dy.scalarInput(0))
 
   def add_loss(self, loss_name, loss_expr):
+    if loss_expr is None:
+      return
     if type(loss_expr) == LossBuilder:
-      self.loss_nodes.extend(loss_expr.loss_nodes)
+      for loss_name, loss in loss_expr.loss_values.items():
+        self.loss_values[loss_name] += loss
     else:
-      self.loss_nodes.append((loss_name, loss_expr))
+      self.loss_values[loss_name] += loss_expr
 
   def compute(self):
-    self.loss_values.clear()
-    for loss_name, loss_expr in self.loss_nodes:
-      self.loss_values[loss_name] += loss_expr
-    for loss_name, loss_expr in self.loss_values.items():
-      self.loss_values[loss_name] = dy.sum_batches(loss_expr)
+    try:
+      return dy.sum_batches(dy.esum(list(self.loss_values.values())))
+    finally:
+      self.loss_values.clear()
 
-    return dy.esum(list(self.loss_values.values()))
+  def __getitem__(self, index):
+    return self.loss_values[index]
 
   def get_loss_stats(self):
     return LossScalarBuilder({k: v.value() for k, v in self.loss_values.items()})

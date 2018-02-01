@@ -290,9 +290,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.segmentation_warmup_counter += 1
 
   @handle_xnmt_event
-  def on_calc_additional_loss(self, reward):
+  def on_calc_additional_loss(self, translator_loss):
     if not self.learn_segmentation or self.segment_decisions is None:
       return None
+    reward = -dy.nobackprop(translator_loss["mle"])
     # Make sure that reward is not scalar, but rather based on the each batch item
     assert reward.dim()[1] == len(self.src_sent)
     # Mask

@@ -111,6 +111,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def on_set_train(self, val):
     self.is_train = val
 
+  def get_primary_loss(self):
+    return "mle"
+
+
   def calc_loss(self, src, trg):
     """
     :param src: source sequence (unbatched, or batched + padded)
@@ -125,10 +129,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     # Initialize the hidden state from the encoder
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
     dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
-    model_loss = self.loss_calculator(self, dec_state, src, trg)
-    # Adding additional losses
+    # Compose losses
     model_loss = LossBuilder()
-    model_loss.add_loss("mle", model_loss)
+    model_loss.add_loss("mle", self.loss_calculator(self, dec_state, src, trg))
 
     if self.calc_global_fertility or self.calc_attention_entropy:
       # philip30: I assume that attention_vecs is already masked src wisely.
