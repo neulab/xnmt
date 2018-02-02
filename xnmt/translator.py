@@ -52,6 +52,9 @@ class Translator(GeneratorModel):
   def set_post_processor(self, post_processor):
     self.post_processor = post_processor
 
+  def get_primary_loss(self):
+    return "mle"
+
 class DefaultTranslator(Translator, Serializable, Reportable):
   '''
   A default translator based on attentional sequence-to-sequence models.
@@ -106,9 +109,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       self.search_strategy = BeamSearch(**search_args)
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)
-
-  def get_primary_loss(self):
-    return "mle"
 
   def calc_loss(self, src, trg, loss_calculator):
     """
@@ -407,7 +407,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
     concat_t_block = (1 - trg_mask.ravel()).reshape(-1) * np.array(ref_list)
     loss = self.decoder.output_and_loss(h_block, concat_t_block)
-    return loss
+    return LossBuilder({"mle": loss})
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):

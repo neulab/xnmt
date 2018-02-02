@@ -5,8 +5,11 @@ import dynet as dy
 import collections
 
 class LossBuilder(object):
-  def __init__(self):
+  def __init__(self, init_loss=None):
     self.loss_values = collections.defaultdict(lambda: dy.scalarInput(0))
+    if init_loss != None:
+      for key, val in init_loss.items():
+        self.loss_values[key] = val
 
   def add_loss(self, loss_name, loss_expr):
     if loss_expr is None:
