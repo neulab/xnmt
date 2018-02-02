@@ -158,7 +158,8 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
                fix_norm=None, init=None, vocab_size = None, vocab = None, yaml_path = None,
-               src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
+               src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False),
+               glorot_gain=None):
     """
     :param emb_dim:
     :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
@@ -173,9 +174,12 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.word_id_mask = None
     self.train = False
     self.dynet_param_collection = exp_global.dynet_param_collection
-    self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader) 
+    self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
+    glorot_gain = glorot_gain or exp_global.glorot_gain 
     if init == 'LeCunUniform':
       init = linear_init(self.vocab_size)
+    else:
+      init = dy.GlorotInitializer(is_lookup=True, gain=glorot_gain)
     self.embeddings = self.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim),
                                                                                   init=init)
 
