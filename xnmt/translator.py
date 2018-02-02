@@ -334,6 +334,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     return e
 
   def calc_loss(self, src, trg, loss_cal=None, infer_prediction=False):
+    self.start_sent(src)
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
     if not xnmt.batcher.is_batched(trg):
@@ -380,6 +381,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     return loss
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
+    self.start_sent(src)
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
     else:
