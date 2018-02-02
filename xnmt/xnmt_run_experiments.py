@@ -15,6 +15,9 @@ faulthandler.enable()
 import numpy as np
 if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.standard")
 from simple_settings import settings
+if settings.RESOURCE_WARNINGS:
+  import warnings
+  warnings.simplefilter('always', ResourceWarning)
 
 from xnmt.serialize.options import OptionParser
 from xnmt.tee import Tee
