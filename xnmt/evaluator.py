@@ -28,15 +28,15 @@ class EvalScore(object):
 class LossScore(EvalScore):
   def __init__(self, loss, loss_stats=None):
     self.loss = loss
-    self.loss_stats = None
+    self.loss_stats = loss_stats
   def value(self): return self.loss
   def metric_name(self): return "Loss"
   def higher_is_better(self): return False
   def score_str(self):
-    if self.loss_stats is None:
-      return "{:.3f}".format(self.value())
+    if self.loss_stats is not None and len(self.loss_stats) > 1:
+      return "{" + ", ".join("%s: %.5f" % (k, v) for k, v in self.loss_stats.items()) + "}"
     else:
-      return "{" + ",".join("%s: %.5f" % (k, v) for k, v in self.loss_stats.items()) + "}"
+      return "{:.3f}".format(self.value())
 
 class BLEUScore(EvalScore):
   def __init__(self, bleu, frac_score_list=None, brevity_penalty_score=None, hyp_len=None, ref_len=None, ngram=4):

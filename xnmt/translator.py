@@ -139,7 +139,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     if self.calc_global_fertility:
       model_loss.add_loss("fertility", self.global_fertility(masked_attn))
     if self.calc_attention_entropy:
-      model_loss.add_loss("H(attn):", self.attention_entropy(masked_attn))
+      model_loss.add_loss("H(attn)", self.attention_entropy(masked_attn))
 
     return model_loss
 
