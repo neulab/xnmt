@@ -23,7 +23,7 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
       [o1,o2,o3] = builder.transduce([i1,i2,i3])
   """
   yaml_tag = u'!PyramidalLSTMSeqTransducer'
-  
+
   def __init__(self, xnmt_global=Ref(Path("xnmt_global")), layers=1, input_dim=None, hidden_dim=None,
                downsampling_method="concat", reduce_factor=2, dropout=None):
     """
@@ -84,10 +84,10 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
 
     for layer_i, (fb, bb) in enumerate(self.builder_layers):
       reduce_factor = self._reduce_factor_for_layer(layer_i)
-      
+
       if es_list[0].mask is None: mask_out = None
       else: mask_out = es_list[0].mask.lin_subsampled(reduce_factor)
-      
+
       if self.downsampling_method=="concat" and len(es_list[0]) % reduce_factor != 0:
         raise ValueError("For 'concat' subsampling, sequence lengths must be multiples of the total reduce factor, but got sequence length={} for reduce_factor={}. Set Batcher's pad_src_to_multiple argument accordingly.".format(len(es_list[0]), reduce_factor))
       fs = fb(es_list)

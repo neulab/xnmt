@@ -16,7 +16,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   taking multiple inputs that are concatenated on-the-fly.
   """
   yaml_tag = u'!UniLSTMSeqTransducer'
-  
+
   def __init__(self, xnmt_global=Ref(Path("xnmt_global")), input_dim=None, hidden_dim=None, dropout = None, weightnoise_std=None):
     register_handler(self)
     model = xnmt_global.dynet_param_collection.param_col
@@ -46,7 +46,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     self.Wh = dy.parameter(self.p_Wh)
     self.b = dy.parameter(self.p_b)
     self.dropout_mask_x = None
-    self.dropout_mask_h = None    
+    self.dropout_mask_h = None
 
   def get_final_states(self):
     return self._final_states
@@ -69,7 +69,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
       expr_seq = [expr_seq]
     batch_size = expr_seq[0][0].dim()[1]
     seq_len = len(expr_seq[0])
-    
+
     if self.dropout_rate > 0.0 and self.train:
       self.set_dropout_masks(batch_size=batch_size)
 
@@ -103,7 +103,7 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
   than the native CompactVanillaLSTMBuilder due to avoiding concat operations.
   """
   yaml_tag = u'!BiLSTMSeqTransducer'
-  
+
   def __init__(self, xnmt_global=Ref(Path("xnmt_global")), layers=1, input_dim=None, hidden_dim=None, dropout=None, weightnoise_std=None):
     register_handler(self)
     self.num_layers = layers

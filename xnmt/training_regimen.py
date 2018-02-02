@@ -16,7 +16,7 @@ class TrainingRegimen(object):
   def run_training(self, save_fct, update_weights=True):
     """
     Runs training steps in a loop until stopping criterion is reached.
-    
+
     :param save_fct: function to be invoked to save a model at dev checkpoints
     :param update_weights: Whether parameters should be updated
     """
@@ -24,10 +24,10 @@ class TrainingRegimen(object):
   def update_weights(self, loss, trainer, dynet_profiling):
     """
     Standardized way to perform backward pass and parameter updates.
-    
+
     :param loss: Result of self.training_step(...)
     :param trainer: DyNet trainer / xnmt.optimizer object
-    :param dynet_profiling: if > 0, print the computation graph 
+    :param dynet_profiling: if > 0, print the computation graph
     """
     if dynet_profiling and dynet_profiling > 0:
       dy.print_text_graphviz()
@@ -74,7 +74,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                      trg_file=trg_file,
                      dev_every=dev_every,
                      batcher=batcher,
-                     loss_calculator=loss_calculator, 
+                     loss_calculator=loss_calculator,
                      run_for_epochs=run_for_epochs,
                      lr_decay=lr_decay,
                      lr_decay_times=lr_decay_times,
@@ -139,7 +139,7 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
       task.load_data()
     for task in self.tasks:
       task.fix_vocabs()
-    
+
   def trigger_train_event(self, value):
     """
     Trigger set_train event, but only if that would lead to a change of the value
@@ -199,21 +199,21 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
             save_fct()
       self.trigger_train_event(update_weights)
       if self.tasks[0].should_stop_training(): break
-  
+
 
 class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   yaml_tag = "!AlternatingBatchMultiTaskTrainingRegimen"
   """
   Multi-task training where training steps are performed one after another.
   The relative weight between tasks are explicitly specified explicitly, and for
-  each step one task is drawn at random accordingly. 
+  each step one task is drawn at random accordingly.
   Compared to JointMultiTaskTrainingRegimen, this class may save memory because models
   are only loaded individually. It also supports disabling training for some
   tasks by setting the task weight to 0.
   """
   def __init__(self, tasks, task_weights=None, trainer=None, xnmt_global=Ref(Path("xnmt_global"))):
     super().__init__(xnmt_global=xnmt_global, tasks=tasks, trainer=trainer)
-    self.task_weights = task_weights or [1./len(tasks)] * len(tasks) 
+    self.task_weights = task_weights or [1./len(tasks)] * len(tasks)
     self.xnmt_global = xnmt_global
   def run_training(self, save_fct, update_weights=True):
     self.init_data_vocabs()
@@ -243,12 +243,12 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   """
   Trains only first task until stopping criterion met, then the same for the
   second task, etc.
-  
+
   Useful to realize a pretraining-finetuning strategy.
   """
 
   yaml_tag = "!SerialMultiTaskTrainingRegimen"
-  
+
   def __init__(self, xnmt_global, tasks, trainer=None):
     """
     :param tasks: list of TrainingTask instances. The currently active task is treated as main task.

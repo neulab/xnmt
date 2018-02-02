@@ -53,7 +53,7 @@ class TrainingTask(object):
   def checkpoint_needed(self):
     raise NotImplementedError()
 
-  def checkpoint(self, control_learning_schedule=False, out_ext=".dev_hyp", ref_ext=".dev_ref", 
+  def checkpoint(self, control_learning_schedule=False, out_ext=".dev_hyp", ref_ext=".dev_ref",
                  encoding='utf-8'):
     """
     Performs a dev checkpoint
@@ -168,7 +168,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     if retcode is not None:
       if self.training_state.epoch_num > 0:
         print('using reloaded data')
-      # reload the data   
+      # reload the data
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
           xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                           self.src_file, self.trg_file,
@@ -230,7 +230,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
   def next_minibatch(self):
     """
     Infinitely loops over training minibatches and calls advance_epoch() after every complete sweep over the corpus.
-    :returns: Generator yielding (src_batch,trg_batch) tuples 
+    :returns: Generator yielding (src_batch,trg_batch) tuples
     """
     while True:
       self.advance_epoch()

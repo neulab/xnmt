@@ -304,7 +304,7 @@ class TransformerDecoder(Serializable):
     elif trg_reader == None or trg_reader.vocab == None:
       raise ValueError("Could not determine trg_embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
     else:
-      return len(trg_reader.vocab) 
+      return len(trg_reader.vocab)
 
   @handle_xnmt_event
   def on_set_train(self, val):

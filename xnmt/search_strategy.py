@@ -8,7 +8,7 @@ class SearchStrategy(object):
   A template class to generate translation from the output probability model.
   '''
   def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
-    raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')  
+    raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')
 
 class GreedySearch(SearchStrategy):
   '''

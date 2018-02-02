@@ -75,7 +75,7 @@ class AccuracyEvalTask(Serializable):
     self.hyp_file = hyp_file
     self.candidate_id_file = candidate_id_file
     self.inference = inference or self.model.inference
-   
+
   def eval(self):
     self.inference(generator = self.model,
                    src_file = self.src_file,

@@ -52,7 +52,7 @@ class SimpleInference(Serializable):
     self.len_norm_type = len_norm_type
     self.mode = mode
     self.batcher = batcher
-    
+
 
   def __call__(self, generator, src_file=None, trg_file=None, candidate_id_file=None):
     """
@@ -64,7 +64,7 @@ class SimpleInference(Serializable):
     args = dict(model_file=self.model_file, src_file=src_file or self.src_file, trg_file=trg_file or self.trg_file, ref_file=self.ref_file, max_src_len=self.max_src_len,
                   input_format=self.input_format, post_process=self.post_process, candidate_id_file=candidate_id_file, report_path=self.report_path, report_type=self.report_type,
                   beam=self.beam, max_len=self.max_len, len_norm_type=self.len_norm_type, mode=self.mode)
-  
+
     is_reporting = issubclass(generator.__class__, Reportable) and args["report_path"] is not None
     # Corpus
     src_corpus = list(generator.src_reader.read_sents(args["src_file"]))
@@ -81,18 +81,18 @@ class SimpleInference(Serializable):
     # Perform initialization
     generator.set_train(False)
     generator.initialize_generator(**args)
-  
+
     if hasattr(generator, "set_post_processor"):
       generator.set_post_processor(self.get_output_processor())
     if hasattr(generator, "set_trg_vocab"):
       generator.set_trg_vocab(trg_vocab)
     if hasattr(generator, "set_reporting_src_vocab"):
       generator.set_reporting_src_vocab(src_vocab)
-      
+
     if is_reporting:
       generator.set_report_resource("src_vocab", src_vocab)
       generator.set_report_resource("trg_vocab", trg_vocab)
-  
+
     # If we're debugging, calculate the loss for each target sentence
     ref_scores = None
     if args["mode"] == 'forceddebug':
@@ -104,7 +104,7 @@ class SimpleInference(Serializable):
         loss_expr = generator.calc_loss(src, ref, loss_calculator=LossCalculator())
         ref_scores.extend(loss_expr.value())
       ref_scores = [-x for x in ref_scores]
-  
+
     # Perform generation of output
     with io.open(args["trg_file"], 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
       src_ret=[]
@@ -128,7 +128,7 @@ class SimpleInference(Serializable):
           output_txt = output[0].plaintext
         # Printing to trg file
         fp.write(u"{}\n".format(output_txt))
-  
+
   def get_output_processor(self):
     spec = self.post_process
     if spec == "none":

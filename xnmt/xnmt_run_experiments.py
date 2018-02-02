@@ -67,7 +67,7 @@ def main(overwrite_args=None):
     glob_args = uninitialized_exp_args.data.xnmt_global
     out_file = glob_args.get_out_file(experiment_name)
     err_file = glob_args.get_err_file(experiment_name)
-    
+
     if os.path.isfile(out_file) and not settings.OVERWRITE_LOG:
       print(f"ERROR: log file {out_file} already exists; please delete by hand if you want to overwrite it (or set OVERWRITE_LOG=True); skipping experiment..")
       continue

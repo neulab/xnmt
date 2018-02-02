@@ -17,7 +17,7 @@ class LossTracker(object):
 
   def __init__(self, training_regimen, eval_every, name=None):
     register_handler(self)
-    
+
     self.training_regimen = training_regimen
     self.eval_train_every = 1000
     self.eval_dev_every = eval_every
@@ -39,7 +39,7 @@ class LossTracker(object):
     self.start_time = time.time()
     self.last_report_train_time = self.start_time
     self.dev_start_time = self.start_time
-    
+
     self.name = name
 
   @handle_xnmt_event
