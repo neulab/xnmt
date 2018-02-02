@@ -146,7 +146,10 @@ class OptionParser(object):
   def format_strings(self, exp_values, format_dict):
     for path, node in tree_tools.traverse_tree(exp_values):
       if isinstance(node, str):
-        formatted = node.format(**format_dict)
+        try:
+          formatted = node.format(**format_dict)
+        except (ValueError, KeyError): # will occur e.g. if a vocab entry contains a curly bracket
+          formatted = node
         if node != formatted:
           tree_tools.set_descendant(exp_values,
                                     path,
