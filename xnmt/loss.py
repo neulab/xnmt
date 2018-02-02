@@ -23,6 +23,9 @@ class LossBuilder(object):
   def compute(self):
     return dy.sum_batches(dy.esum(list(self.loss_values.values())))
 
+  def value(self):
+    return dy.esum(list(self.loss_values.values())).value()
+
   def __getitem__(self, index):
     return self.loss_values[index]
 

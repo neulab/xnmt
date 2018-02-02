@@ -54,7 +54,10 @@ class LossEvalTask(Serializable):
 
     loss_val = {k: v/ref_words_cnt for k, v in loss_val.items()}
 
-    return LossScore(loss_val[self.model.get_primary_loss()], loss_val), ref_words_cnt
+    try:
+      return LossScore(loss_val[self.model.get_primary_loss()], loss_val), ref_words_cnt
+    except KeyError:
+      raise RuntimeError("Did you wrap your loss calculation with LossBuilder({'primary_loss': loss_value}) ?")
 
 class AccuracyEvalTask(Serializable):
   '''
