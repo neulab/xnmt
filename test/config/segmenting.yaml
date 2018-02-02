@@ -5,8 +5,6 @@ debug-segmenting: !Experiment
     err_file: examples/output/{EXP}.err
     default_layer_dim: 16
     dropout: 0.5
-    batcher: !WordTrgSrcBatcher
-    words_per_batch: 512
   model: !DefaultTranslator
     src_reader: !SegmentationTextReader
       vocab: !Vocab {vocab_file: examples/data/head-char.ja.vocab}
@@ -18,26 +16,19 @@ debug-segmenting: !Experiment
       emb_dim: 16
     encoder: !SegmentingSeqTransducer
       # Components
-      embed_encoder: !LSTMSeqTransducer
+      embed_encoder: !BiLSTMSeqTransducer
         input_dim: 16
         hidden_dim: 16
         layers: 1
-        bidirectional: True
       segment_composer: !SegmentComposer
-        encoder: !LSTMSeqTransducer
+        encoder: !BiLSTMSeqTransducer
           input_dim: 16
           hidden_dim: 16
-          bidirectional: True
           layers: 1
-        transformer: !WordOnlySegmentTransformer
-          vocab_size: 100000
-          vocab: !Vocab {}
-          count_file: examples/data/train.substr.ja
-          min_count: 2
-      final_transducer: !LSTMSeqTransducer
+        transformer: !TailSegmentTransformer {}
+      final_transducer: !BiLSTMSeqTransducer
         input_dim: 16
         hidden_dim: 16
-        bidirectional: True
         layers: 1
       # Options
       reinforce_scale: !GeometricSequence

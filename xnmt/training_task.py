@@ -245,13 +245,13 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     Performs forward pass, backward pass, parameter update for the given minibatch
     """
     loss_builder = LossBuilder()
-    standard_loss = self.model.calc_loss(src, trg)
+    standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
     additional_loss = self.model.calc_additional_loss(standard_loss)
     loss_builder.add_loss("standard_loss", standard_loss)
     loss_builder.add_loss("additional_loss", additional_loss)
 
     loss_value = loss_builder.compute()
-    self.logger.update_epoch_loss(src, trg, loss_builder().get_loss_stats())
+    self.logger.update_epoch_loss(src, trg, loss_builder.get_loss_stats())
     self.logger.report_train_process()
 
     return loss_value
@@ -287,7 +287,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     if control_learning_schedule:
       print("> Checkpoint")
       # Write out the model if it's the best one
-      if self.logger.report_dev_and_check_model(self.model_file, self.model.get_primary_loss()):
+      if self.logger.report_dev_and_check_model(self.model_file):
         if self.model_file is not None:
           ret = True
         self.training_state.cur_attempt = 0

@@ -4,7 +4,8 @@ import io
 import xnmt.linear
 import xnmt.embedder
 
-from xnmt.serializer import Serializable
+from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable
 from xnmt.events import register_handler, handle_xnmt_event, register_xnmt_event
 from xnmt.reports import Reportable
 from xnmt.vocab import Vocab
@@ -40,12 +41,12 @@ class TailSegmentTransformer(SegmentTransformer):
 class TailWordSegmentTransformer(SegmentTransformer):
   yaml_tag = u"!TailWordSegmentTransformer"
 
-  def __init__(self, yaml_context, vocab=None, vocab_size=1e6,
+  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), vocab=None, vocab_size=1e6,
                count_file=None, min_count=1, embed_dim=None):
     assert vocab is not None
     self.vocab = vocab
-    embed_dim = embed_dim or yaml_context.default_layer_dim
-    self.lookup = yaml_context.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, embed_dim))
+    embed_dim = embed_dim or xnmt_global.default_layer_dim
+    self.lookup = xnmt_global.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, embed_dim))
     self.frequent_words = None
 
     if count_file is not None:

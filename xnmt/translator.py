@@ -24,6 +24,7 @@ from xnmt.serialize.serializable import Serializable
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.serialize.tree_tools import Path
 from xnmt.vocab import Vocab
+from xnmt.loss import LossBuilder
 
 class Translator(GeneratorModel):
   '''
@@ -59,6 +60,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   yaml_tag = u'!DefaultTranslator'
 
   def __init__(self, src_embedder, encoder, attender, trg_embedder, decoder,
+               src_reader=None, trg_reader=None,
                calc_global_fertility=False, calc_attention_entropy=False, inference=None):
     '''Constructor.
 
@@ -108,7 +110,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def get_primary_loss(self):
     return "mle"
 
-def calc_loss(self, src, trg, loss_calculator):
+  def calc_loss(self, src, trg, loss_calculator):
     """
     :param src: source sequence (unbatched, or batched + padded)
     :param trg: target sequence (unbatched, or batched + padded); losses will be accumulated only if trg_mask[batch,pos]==0, or no mask is set
@@ -236,7 +238,7 @@ def calc_loss(self, src, trg, loss_calculator):
       att_text.text = "Attention:"
       etree.SubElement(attention, 'br')
       attention_file = u"{}.attention.png".format(path_to_report)
-      plot.plot_attention(src, trg, att, file_name = attention_file)
+      xnmt.plot.plot_attention(src, trg, att, file_name = attention_file)
 
     # return the parent context to be used as child context
     return html

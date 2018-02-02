@@ -28,7 +28,6 @@ EPS = 1e-10
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = u'!SegmentingSeqTransducer'
 
-<<<<<<< HEAD
   def __init__(self, xnmt_global=Ref(Path("xnmt_global")),
                ## COMPONENTS
                embed_encoder=None, segment_composer=None, final_transducer=None,
@@ -125,12 +124,12 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if decision == SegmentingAction.SEGMENT.value:
           # Special case for TailWordSegmentTransformer only
           words = None
-            vocab = self.src_sent[i].vocab
-            words = self.src_sent[i].words[last_segment[i]+1:j+1]
-            if vocab is not None:
-              words = "".join(w for w in [vocab[c] for c in words if c != vocab.unk_token])
-            else:
-              words = tuple(words)
+          vocab = self.src_sent[i].vocab
+          words = self.src_sent[i].words[last_segment[i]+1:j+1]
+          if vocab is not None:
+            words = "".join(w for w in [vocab[c] for c in words if c != vocab.unk_token])
+          else:
+            words = tuple(words)
           # Reducing the [expression] -> expression
           expr_seq = expression_sequence.ExpressionSequence(expr_list=buffers[i])
           transduce_output = self.segment_composer.transduce(expr_seq, words)
@@ -274,7 +273,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       return self.embed_encoder.get_final_states()
 
   @handle_xnmt_event
-  def on_new_epoch(self):
+  def on_new_epoch(self, *args, **kwargs):
     name = ["Epsilon Greedy Prob", "Reinforce Loss Weight", "Confidence Penalty Weight", "Length Prior Weight"]
     param = [self.eps, self.lmbd, self.confidence_penalty, self.length_prior_alpha]
     for n, p in zip(name, param):

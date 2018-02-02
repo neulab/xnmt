@@ -4,7 +4,6 @@ import time
 
 import xnmt.loss
 from xnmt.vocab import Vocab
-from xnmt.evaluator import LossScore
 from xnmt.events import register_handler, handle_xnmt_event
 
 class LossTracker(object):
@@ -13,7 +12,7 @@ class LossTracker(object):
   """
 
   REPORT_TEMPLATE           = 'Epoch %.4f: {}_loss/word=%.6f (words=%d, words/sec=%.2f, time=%s)'
-  REPORT_TEMPLATE_DEV       = '  Epoch %.4f dev Loss %s=%.6f (words=%d, words/sec=%.2f, time=%s)'
+  REPORT_TEMPLATE_DEV       = '  Epoch %.4f dev %s (words=%d, words/sec=%.2f, time=%s)'
   REPORT_TEMPLATE_DEV_AUX   = '  Epoch %.4f dev [auxiliary] %s'
 
   def __init__(self, training_regimen, eval_every, name=None):
@@ -126,7 +125,7 @@ class LossTracker(object):
     else:
       return self.sent_num_not_report_dev >= self.total_train_sent
 
-  def report_dev_and_check_model(self, model_file, primary_loss_name):
+  def report_dev_and_check_model(self, model_file):
     """
     Print dev testing report and check whether the dev loss is the best seen so far.
     :return: True if the dev loss is the best and required save operations
@@ -138,14 +137,13 @@ class LossTracker(object):
     self.print_log(LossTracker.REPORT_TEMPLATE_DEV % (
         self.fractional_epoch,
         self.dev_score,
-        sum(self.dev_score.values()),
         self.dev_words,
         self.dev_words / (this_report_time - self.dev_start_time),
         self.format_time(this_report_time - self.start_time)))
 
     save_model = True
     if self.best_dev_score is not None:
-      save_model = LossScore(self.dev_score[primary_loss_name]).better_than(LossScore(self.best_dev_score[primary_loss_name]))
+      save_model = self.dev_score.better_than(self.best_dev_score)
     if save_model:
       self.best_dev_score = self.dev_score
       self.print_log('  Epoch %.4f: best dev score, writing model to %s' % (self.fractional_epoch, model_file))

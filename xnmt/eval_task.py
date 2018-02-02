@@ -6,6 +6,7 @@ from xnmt.serialize.serializer import Serializable
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
 from xnmt.serialize.tree_tools import Path, Ref
+from xnmt.loss import LossBuilder, LossScalarBuilder
 import xnmt.xnmt_evaluate
 
 class EvalTask:
@@ -37,13 +38,13 @@ class LossEvalTask(Serializable):
       self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
         xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                         self.src_file, self.ref_file, batcher=self.batcher)
-    loss_val = 0
+    loss_val = LossScalarBuilder()
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
 
       loss_builder = LossBuilder()
-      standard_loss = self.model.calc_loss(src, trg)
+      standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
       additional_loss = self.model.calc_additional_loss(standard_loss)
       loss_builder.add_loss("standard_loss", standard_loss)
       loss_builder.add_loss("additional_loss", additional_loss)
@@ -51,9 +52,9 @@ class LossEvalTask(Serializable):
       ref_words_cnt += self.model.trg_reader.count_words(trg)
       loss_val += loss_builder.get_loss_stats()
 
-    loss_val = {k: v/ref_words_cnt for k, v in loss.items()}
+    loss_val = {k: v/ref_words_cnt for k, v in loss_val.items()}
 
-    return loss_val, ref_words_cnt
+    return LossScore(loss_val[self.model.get_primary_loss()], loss_val), ref_words_cnt
 
 class AccuracyEvalTask(Serializable):
   '''

@@ -13,8 +13,6 @@ import xnmt.conv
 import xnmt.ff
 import xnmt.segmenting_composer
 import xnmt.residual
-import xnmt.serializer
-import xnmt.xnmt_decode
 import xnmt.xnmt_evaluate
 import xnmt.parameters
 import xnmt.plot
