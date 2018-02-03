@@ -1,5 +1,5 @@
-from __future__ import division, generators
-
+import logging
+logger = logging.getLogger('xnmt')
 import time
 
 import xnmt.loss
@@ -75,9 +75,9 @@ class LossTracker(object):
 
   def print_log(self, print_str):
     if self.name:
-      print("[{}] {}".format(self.name, print_str))
+      logger.info(f"[{self.name}] {print_str}")
     else:
-      print(print_str)
+      logger.info(print_str)
 
   def report_train_process(self):
     """

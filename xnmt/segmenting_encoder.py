@@ -1,5 +1,5 @@
-from __future__ import print_function
-
+import logging
+logger = logging.getLogger('xnmt')
 import io
 import six
 import numpy
@@ -210,7 +210,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.warmup_counter += 1
     lmbd = self.lmbd.get_value(self.warmup_counter)
     if lmbd > 0.0:
-      print("Now Lambda:", lmbd)
+      logger.info(f"Now Lambda: {lmbd}")
 
   @handle_xnmt_event
   def on_calc_additional_loss(self, reward):

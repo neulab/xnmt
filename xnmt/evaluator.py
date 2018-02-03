@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger('xnmt')
 from collections import defaultdict, Counter
 import math
 import six
@@ -168,8 +170,8 @@ class BLEUEvaluator(Evaluator):
     try:
       from xnmt.cython import xnmt_cython
     except:
-      print("BLEU evaluate fast requires xnmt cython installation step.",
-            "please check the documentation.")
+      logger.error("BLEU evaluate fast requires xnmt cython installation step."
+                   "please check the documentation.")
       raise
     return xnmt_cython.bleu_sentence(self.ngram, self.smooth, ref, hyp)
 
@@ -462,38 +464,9 @@ class ExternalEvaluator(object):
     :return: external eval script score
     """
     proc = subprocess.Popen([self.path], stdout=subprocess.PIPE, shell=True)
-    (out, err) = proc.communicate()
+    (out, _) = proc.communicate()
     external_score = float(out)
     return ExternalScore(external_score, self.higher_better, desc=self.desc)
-
-if __name__ == "__main__":
-  # Example 1
-  reference1 = "It is a guide to action that ensures that the military will forever heed Party commands".split()
-  candidate1 = "It is a guide to action which ensures that the military always obeys the commands of the party".split()
-
-  obj = BLEUEvaluator(ngram=4)
-  print("xnmt bleu score :")
-  print(obj.evaluate([reference1], [candidate1]))
-  # print("nltk BLEU scores"), print(corpus_bleu([[reference1]], [candidate1]))
-
-  # Example 2
-  reference2 = "the cat is on the mat".split()
-  candidate2 = "the the the the the the the".split()
-
-  # Generates a warning because of no 2-grams and beyond
-  obj = BLEUEvaluator(ngram=4)
-  print("xnmt bleu score :")
-  print(obj.evaluate([reference2], [candidate2]))
-  # print("nltk BLEU scores"), print(corpus_bleu([[reference2]], [candidate2]))
-
-  # Example 3 (candidate1 + candidate3)
-  reference3 = "he was interested in world history because he read the book".split()
-  candidate3 = "he read the book because he was interested in world history".split()
-  obj = BLEUEvaluator(ngram=4)
-  print("xnmt bleu score :")
-  print(obj.evaluate([reference1, reference3], [candidate1, candidate3]))
-  # print("nltk BLEU scores"), print(corpus_bleu([[reference1], [reference3]],
-  #                        [candidate1, candidate3]))
 
 class RecallEvaluator(object):
   def __init__(self, nbest=5, desc=None):

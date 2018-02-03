@@ -1,8 +1,9 @@
 """
 Stores options and default values
 """
+import logging
+logger = logging.getLogger('xnmt')
 import random
-import inspect
 
 import yaml
 
@@ -66,7 +67,7 @@ class OptionParser(object):
     except IOError as e:
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
     except yaml.constructor.ConstructorError:
-      print("for proper deserialization of a class object, make sure the class is a subclass of xnmt.serialize.serializable.Serializable, specifies a proper yaml_tag with leading '!', and it's module is imported under xnmt/serialize/imports.py")
+      logger.error("for proper deserialization of a class object, make sure the class is a subclass of xnmt.serialize.serializable.Serializable, specifies a proper yaml_tag with leading '!', and it's module is imported under xnmt/serialize/imports.py")
       raise
 
     if "defaults" in experiments: del experiments["defaults"]

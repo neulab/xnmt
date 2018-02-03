@@ -1,5 +1,9 @@
-import dynet as dy
+import logging
+logger = logging.getLogger('xnmt')
 import os
+
+import dynet as dy
+
 from xnmt.serialize.serializable import Serializable
 
 class ExpGlobal(Serializable):
@@ -59,12 +63,12 @@ class NonPersistentParamCollection(object):
     self.param_col = dy.Model()
     self.model_file = None
   def revert_to_best_model(self):
-    print("WARNING: reverting a non-persistent param collection has no effect")
+    logger.warning("reverting a non-persistent param collection has no effect")
   def save(self, fname=None):
-    print("WARNING: saving a non-persistent param collection has no effect")
+    logger.warning("saving a non-persistent param collection has no effect")
   def remove_existing_history(self):
-    print("WARNING: editing history of a non-persistent param collection has no effect")
+    logger.warning("editing history of a non-persistent param collection has no effect")
   def shift_safed_checkpoints(self):
-    print("WARNING: editing history of a non-persistent param collection has no effect")
+    logger.warning("editing history of a non-persistent param collection has no effect")
   def load_from_data_file(self, datafile):
     self.param_col.populate(datafile)

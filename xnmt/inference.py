@@ -1,5 +1,7 @@
 # coding: utf-8
 
+import logging
+logger = logging.getLogger('xnmt')
 import io
 
 from simple_settings import settings
@@ -124,7 +126,7 @@ class SimpleInference(Serializable):
           output = generator.generate_output(src, i, forced_trg_ids=ref_ids)
           # If debugging forced decoding, make sure it matches
           if ref_scores != None and (abs(output[0].score-ref_scores[i]) / abs(ref_scores[i])) > 1e-5:
-            print('Forced decoding score {} and loss {} do not match at sentence {}'.format(output[0].score, ref_scores[i], i))
+            logger.error('Forced decoding score {} and loss {} do not match at sentence {}'.format(output[0].score, ref_scores[i], i))
           output_txt = output[0].plaintext
         # Printing to trg file
         fp.write(u"{}\n".format(output_txt))

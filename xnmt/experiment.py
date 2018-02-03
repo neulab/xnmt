@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger('xnmt')
+
 from xnmt.serialize.serializable import Serializable
 
 class Experiment(Serializable):
@@ -18,23 +21,23 @@ class Experiment(Serializable):
     self.evaluate = evaluate
     if load:
       exp_global.dynet_param_collection.load_from_data_file(f"{load}.data")
-      print(f"> populated DyNet weights from {load}.data")
+      logger.info(f"> populated DyNet weights from {load}.data")
 
     if random_search_report:
-      print(f"> instantiated random parameter search: {random_search_report}")
+      logger.info(f"> instantiated random parameter search: {random_search_report}")
 
   def __call__(self, save_fct):
     eval_scores = "Not evaluated"
     eval_only = self.exp_global.eval_only
     if not eval_only:
-      print("> Training")
+      logger.info("> Training")
       self.train.run_training(save_fct = save_fct)
-      print('reverting learned weights to best checkpoint..')
+      logger.info('reverting learned weights to best checkpoint..')
       self.exp_global.dynet_param_collection.revert_to_best_model()
 
     evaluate_args = self.evaluate
     if evaluate_args:
-      print("> Performing final evaluation")
+      logger.info("> Performing final evaluation")
       eval_scores = []
       for evaluator in evaluate_args:
         eval_score, _ = evaluator.eval()

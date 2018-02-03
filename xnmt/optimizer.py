@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger('xnmt')
+
 import dynet as dy
 import numpy as np
 from xnmt.serialize.serializable import Serializable
@@ -73,5 +76,5 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
     self.optimizer.update()
 
     if self.steps % 200 == 0:
-      print('> Optimizer Logging')
-      print('  Steps=%d, learning_rate=%.2e' % (self.steps, self.optimizer.learning_rate))
+      logger.info('> Optimizer Logging')
+      logger.info('  Steps=%d, learning_rate=%.2e' % (self.steps, self.optimizer.learning_rate))

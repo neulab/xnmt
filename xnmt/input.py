@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger('xnmt')
+
 import ast
 import io
 import six
@@ -189,7 +192,7 @@ class SegmentationTextReader(PlainTextReader):
       try:
         filename = ast.literal_eval(filename)
       except:
-        print("Reading %s with a PlainTextReader instead..." % filename)
+        logger.debug("Reading %s with a PlainTextReader instead..." % filename)
         return super(SegmentationTextReader, self).read_sents(filename)
 
     max_id = None
@@ -243,7 +246,7 @@ class ContVecReader(InputReader, Serializable):
       if self.transpose:
         inp = inp.transpose()
       if idx % 1000 == 999:
-        print("Read {} lines ({:.2f}%) of {} at {}".format(idx+1, float(idx+1)/len(npzKeys)*100, filename, key))
+        logger.info("Read {} lines ({:.2f}%) of {} at {}".format(idx+1, float(idx+1)/len(npzKeys)*100, filename, key))
       yield ArrayInput(inp)
     npzFile.close()
 
