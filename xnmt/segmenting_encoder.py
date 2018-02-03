@@ -21,7 +21,7 @@ from xnmt.serialize.serializable import Serializable
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import LossBuilder
 from xnmt.segmenting_composer import TailWordSegmentTransformer, WordOnlySegmentTransformer
-from xnmt.parameters import GeometricSequence
+from xnmt.hyper_parameters import GeometricSequence
 
 EPS = 1e-10
 
@@ -39,7 +39,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                confidence_penalty=None, # SegmentationConfidencePenalty
                # For segmentation warmup (Always use the poisson prior)
                segmentation_warmup=0,
-               segmentation_warmup_counter=0,
                ## FLAGS
                learn_delete       = False,
                use_baseline       = True,
@@ -88,7 +87,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.confidence_penalty = confidence_penalty
     # States of the object
     self.train = False
-    self.segmentation_warmup_counter = segmentation_warmup_counter
 
   def __call__(self, embed_sent):
     batch_size = embed_sent[0].dim()[1]
@@ -260,7 +258,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   # Indicates warmup time. So we shouldn't sample from softmax
   def is_segmentation_warmup(self):
-    return self.segmentation_warmup_counter < self.segmentation_warmup
+    return self.segmentation_warmup_counter <= self.segmentation_warmup
 
   @handle_xnmt_event
   def on_set_train(self, train):
@@ -273,16 +271,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       return self.embed_encoder.get_final_states()
 
   @handle_xnmt_event
-  def on_new_epoch(self, *args, **kwargs):
-    name = ["Epsilon Greedy Prob", "Reinforce Loss Weight", "Confidence Penalty Weight", "Length Prior Weight"]
-    param = [self.eps, self.lmbd, self.confidence_penalty, self.length_prior_alpha]
+  def on_new_epoch(self, training_task, *args, **kwargs):
+    self.segmentation_warmup_counter = training_task.training_state.epoch_num
+    name = ["Epsilon Greedy Prob", "Reinforce Loss Weight", "Confidence Penalty Weight", "Length Prior Weight",
+            "Epoch Counter"]
+    param = [self.eps, self.lmbd, self.confidence_penalty, self.length_prior_alpha, self.segmentation_warmup_counter]
     for n, p in zip(name, param):
       if p is not None:
-        print(n + ":", p.value())
-
-  @handle_xnmt_event
-  def on_next_epoch(self):
-    self.segmentation_warmup_counter += 1
+        print(n + ":", str(p))
 
   @handle_xnmt_event
   def on_calc_additional_loss(self, translator_loss):

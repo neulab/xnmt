@@ -160,9 +160,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       # In case of reporting
       if self.report_path is not None:
         src_words = [self.reporting_src_vocab[w] for w in sents]
-        trg_words = [self.trg_vocab[w] for w in output_actions["word_ids"]]
+        trg_words = [self.trg_vocab[w] for w in output_actions.word_ids]
         # Attentions
-        attentions = output_actions["attentions"]
+        attentions = output_actions.attentions
         if type(attentions) == dy.Expression:
           attentions = attentions.npvalue()
         elif type(attentions) == list:
@@ -182,7 +182,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
         self.generate_report(self.report_type)
       # Append output to the outputs
-      outputs.append(TextOutput(actions=output_actions["word_ids"],
+      outputs.append(TextOutput(actions=output_actions.word_ids,
                                 vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
                                 score=score))
     self.outputs = outputs

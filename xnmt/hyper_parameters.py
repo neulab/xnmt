@@ -17,6 +17,9 @@ class ScalingParam(Serializable):
       value *= self.scaler.value()
     return value
 
+  def __repr__(self):
+    return str(self.value())
+
 class Scalar(Serializable):
   yaml_tag = u"!Scalar"
 
@@ -26,35 +29,37 @@ class Scalar(Serializable):
   def value(self):
     return self.__value
 
+  def __repr__(self):
+    return str(self.value())
+
 class GeometricSequence(Serializable):
   ''' initial^(epoch) '''
   yaml_tag = u'!GeometricSequence'
 
   # Do not set warmup_counter manually.
-  def __init__(self, initial=0.1, warmup=0, ratio=1, min_value=0.0, max_value=1.0, warmup_counter=0):
+  def __init__(self, initial=0.1, warmup=0, ratio=1, min_value=0.0, max_value=1.0):
     register_handler(self)
     self.__value = initial
     self.warmup = warmup
-    self.warmup_counter = warmup_counter
     self.ratio = ratio
     self.min_value = min_value
     self.max_value = max_value
 
   def value(self):
-    if self.warmup_counter >= self.warmup:
+    if not hasattr(self, "epoch_num") or self.epoch_num >= self.warmup:
       return self.__value
     else:
       return 0.0
 
   @handle_xnmt_event
-  def on_next_epoch(self):
-    self.warmup_counter += 1
-    if self.warmup_counter >= self.warmup:
+  def on_new_epoch(self, training_task, *args, **kwargs):
+    self.epoch_num = training_task.training_state.epoch_num
+    if self.epoch_num > self.warmup:
       value = self.__value * self.ratio
       value = max(self.min_value, value)
       value = min(self.max_value, value)
       self.__value = value
 
   def __repr__(self):
-    return str(self.__value)
+    return str(self.value())
 

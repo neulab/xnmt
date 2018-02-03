@@ -181,7 +181,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       print('new data set is not ready yet, using data from last epoch.')
 
   @register_xnmt_event
-  def new_epoch(self, training_regimen, num_sents):
+  def new_epoch(self, training_task, num_sents):
     """
     New epoch event.
     :param training_regimen: Indicates which training regimen is advancing to the next epoch.
@@ -225,7 +225,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.training_state.steps_into_epoch = 0
     self.minibatch_order = list(range(0, self.cur_num_minibatches()))
     np.random.shuffle(self.minibatch_order)
-    self.new_epoch(training_regimen=self, num_sents=self.cur_num_sentences())
+    self.new_epoch(training_task=self, num_sents=self.cur_num_sentences())
 
   def next_minibatch(self):
     """

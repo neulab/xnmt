@@ -66,7 +66,7 @@ debug-segmenting: !Experiment
       mlp_hidden_dim: 16
       bridge: !CopyBridge {}  
     inference: !SimpleInference
-      report_path: examples/output/<EXP>.report
+      report_path: examples/output/{EXP}.report
       report_type: html, file
   train: !SimpleTrainingRegimen
     run_for_epochs: 2

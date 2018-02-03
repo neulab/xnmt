@@ -25,3 +25,4 @@ import xnmt.training_regimen
 import xnmt.training_task
 import xnmt.transformer
 import xnmt.translator
+import xnmt.hyper_parameters
