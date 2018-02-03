@@ -29,7 +29,7 @@ prior-segmenting: !Experiment
         hidden_dim: 16
         layers: 1
       learn_segmentation: True
-      segmentation_warmup_counter: 1
+      segmentation_warmup: 1
       learn_delete: False
       reinforce_scale: !GeometricSequence
         initial: 0.1
