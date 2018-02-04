@@ -277,7 +277,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.segmentation_warmup_counter = training_task.training_state.epoch_num
     name = ["Epsilon Greedy Prob", "Reinforce Loss Weight", "Confidence Penalty Weight", "Length Prior Weight",
             "Epoch Counter"]
-    param = [self.eps, self.lmbd, self.confidence_penalty, self.length_prior_alpha, self.segmentation_warmup_counter]
+    param = [self.eps, self.lmbd, self.confidence_penalty.value(), self.length_prior_alpha, self.segmentation_warmup_counter]
     for n, p in zip(name, param):
       if p is not None:
         print(n + ":", str(p))
