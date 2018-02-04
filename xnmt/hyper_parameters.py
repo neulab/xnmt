@@ -44,9 +44,10 @@ class GeometricSequence(Serializable):
     self.ratio = ratio
     self.min_value = min_value
     self.max_value = max_value
+    self.epoch_num = 0
 
   def value(self):
-    if not hasattr(self, "epoch_num") or self.epoch_num >= self.warmup:
+    if self.epoch_num >= self.warmup:
       return self.__value
     else:
       return 0.0
@@ -70,6 +71,7 @@ class DefinedSequence(Serializable):
     assert type(sequence) == list, "DefinedSequence need to have a list type"
     assert len(sequence) > 0, "Please input non empty list for FixedSequence"
     self.sequence = sequence
+    self.epoch_num = 0
 
   @handle_xnmt_event
   def on_new_epoch(self, training_task, *args, **kwargs):
@@ -79,8 +81,8 @@ class DefinedSequence(Serializable):
     return repr(self.value())
 
   def value(self):
-    if self.epoch_num > len(self.sequence):
+    if self.epoch_num >= len(self.sequence):
       return self.sequence[-1]
     else:
-      return self.sequence[self.epoch_num-1]
+      return self.sequence[self.epoch_num]
 
