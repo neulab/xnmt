@@ -34,7 +34,9 @@ class LossBuilder(object):
     return "{Loss Builder: %s}" % (loss_str)
 
 class LossScalarBuilder(object):
-  def __init__(self, loss_stats={}):
+  def __init__(self, loss_stats=None):
+    if loss_stats == None:
+      loss_stats = {}
     self.__loss_stats = loss_stats
 
   def __iadd__(self, other):

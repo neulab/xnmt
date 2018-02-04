@@ -45,7 +45,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                z_normalization    = True,
                learn_segmentation = True,
                compose_char       = False,
-               debug=False):
+               debug=False,
+               print_sample=False):
     register_handler(self)
     model = yaml_context.dynet_param_collection.param_col
     # Sanity check
@@ -77,6 +78,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.z_normalization = z_normalization
     self.debug = debug
     self.compose_char = compose_char
+    self.print_sample = print_sample
     # Fixed Parameters
     self.length_prior = length_prior
     self.segmentation_warmup = segmentation_warmup
@@ -266,7 +268,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   @handle_xnmt_event
   def on_set_train(self, train):
     self.train = train
-
+#
   def get_final_states(self):
     if hasattr(self.final_transducer, "get_final_states"):
       return self.final_transducer.get_final_states()
@@ -290,6 +292,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     if not self.learn_segmentation or self.segment_decisions is None:
       return None
     reward = -dy.nobackprop(translator_loss["mle"])
+
     # Make sure that reward is not scalar, but rather based on the each batch item
     assert reward.dim()[1] == len(self.src_sent)
     # Mask
@@ -302,7 +305,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       reward += self.segment_length_prior * alpha
     # reward z-score normalization
     if self.z_normalization:
-      reward = dy.cdiv(reward-dy.mean_batches(reward) + EPS, dy.std_batches(reward) + EPS)
+      reward = dy.cdiv(reward-dy.mean_batches(reward), dy.std_batches(reward) + EPS)
     ## Baseline Loss
     if self.use_baseline:
       baseline_loss = []
@@ -313,6 +316,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         baseline_loss.append(loss)
 
       ret.add_loss("Baseline", dy.esum(baseline_loss))
+
+    print(dy.exp(self.segment_logsoftmaxes[i]).npvalue().transpose()[0])
     ## Reinforce Loss
     lmbd = self.lmbd.value()
     if lmbd > 0.0:
@@ -321,17 +326,13 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       for i in range(len(self.segment_decisions)):
         ll = dy.pick_batch(self.segment_logsoftmaxes[i], self.segment_decisions[i])
         if self.use_baseline:
-          r_i = reward - self.bs[i]
+          r_i = reward - dy.nobackprop(self.bs[i])
         else:
           r_i = reward
-        if self.z_normalization:
-          r_i = dy.logistic(r_i)
-        else:
-          r_i = dy.exp(r_i)
         if enc_mask is not None:
           ll = dy.cmult(dy.inputTensor(enc_mask[i], batched=True), ll)
-        reinforce_loss.append(r_i * ll)
-      loss = -dy.esum(reinforce_loss) * lmbd
+        reinforce_loss.append(r_i * -ll)
+      loss = dy.esum(reinforce_loss) * lmbd
       ret.add_loss("Reinforce", loss)
     if self.confidence_penalty:
       ls_loss = self.confidence_penalty(self.segment_logsoftmaxes, enc_mask)
