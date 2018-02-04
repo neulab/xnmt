@@ -1,9 +1,9 @@
 import unittest
-
 import os, shutil, sys
 
 if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.unittest")
 
+from test.utils import has_cython
 import xnmt.xnmt_run_experiments as run
 import xnmt.events
 
@@ -26,6 +26,9 @@ class TestRunningConfig(unittest.TestCase):
 
   def test_multi_task(self):
     run.main(["test/config/multi_task.yaml"])
+
+  def test_multi_task_speech(self):
+    run.main(["test/config/multi_task_speech.yaml"])
 
   def test_preproc(self):
     run.main(["test/config/preproc.yaml"])
@@ -66,6 +69,7 @@ class TestRunningConfig(unittest.TestCase):
   def test_transformer(self):
     run.main(["test/config/transformer.yaml"])
     
+  @unittest.skipUnless(has_cython(), "requires cython to run")
   def test_translator_loss(self):
     run.main(["test/config/translator_loss.yaml"])
 

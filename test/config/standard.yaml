@@ -1,32 +1,15 @@
 # A standard training run, should almost never break
 standard: !Experiment
-  xnmt_global: !XnmtGlobal
+  exp_global: !ExpGlobal
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err
-    default_layer_dim: 32
+    default_layer_dim: 64
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-    src_embedder: !SimpleWordEmbedder
-      emb_dim: 64
-    encoder: !BiLSTMSeqTransducer
-      layers: 1
-    attender: !MlpAttender
-      state_dim: 64
-      hidden_dim: 64
-      input_dim: 64
-    trg_embedder: !SimpleWordEmbedder
-      emb_dim: 64
-    decoder: !MlpSoftmaxDecoder
-      layers: 1
-      bridge: !CopyBridge {}
-    inference: !SimpleInference
-      len_norm_type: !PolynomialNormalization
-        apply_during_search: true
-        m: 1
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
@@ -46,3 +29,5 @@ standard: !Experiment
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.test_hyp
+
+      

@@ -1,5 +1,5 @@
 exp1-pretrain-model: !Experiment
-  xnmt_global: !XnmtGlobal
+  exp_global: !ExpGlobal
     # The model file contain the whole contents of this experiment in YAML
     # format. Note that {EXP} expressions are left intact when saving.
     model_file: examples/output/{EXP}.mod
@@ -55,9 +55,9 @@ exp2-finetune-model: !Experiment
   # and except for the things explicitly overwritten in the overwrite: section.
   load: examples/output/exp1-pretrain-model.mod
   overwrite: # list of [path, value] pairs. Value can be scalar or an arbitrary object
-  - - train.trainer
-    - !AdamTrainer
+  - path: train.trainer
+    val: !AdamTrainer
         alpha: 0.0002
-          
-  - [xnmt_global.dropout, 0.5]
+  - path: exp_global.dropout
+    val: 0.5
       
