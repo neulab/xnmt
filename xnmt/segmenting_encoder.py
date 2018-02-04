@@ -277,7 +277,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.segmentation_warmup_counter = training_task.training_state.epoch_num
     name = ["Epsilon Greedy Prob", "Reinforce Loss Weight", "Confidence Penalty Weight", "Length Prior Weight",
             "Epoch Counter"]
-    param = [self.eps, self.lmbd, self.confidence_penalty.value(), self.length_prior_alpha, self.segmentation_warmup_counter]
+    param = [self.eps, self.lmbd, self.confidence_penalty, self.length_prior_alpha, self.segmentation_warmup_counter]
     for n, p in zip(name, param):
       if p is not None:
         print(n + ":", str(p))
@@ -312,7 +312,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
       ret.add_loss("Baseline", dy.esum(baseline_loss))
 
-    print(dy.exp(self.segment_logsoftmaxes[i]).npvalue().transpose()[0])
+    if self.print_sample:
+      print(dy.exp(self.segment_logsoftmaxes[i]).npvalue().transpose()[0])
     ## Reinforce Loss
     lmbd = self.lmbd.value()
     if lmbd > 0.0:
@@ -440,4 +441,10 @@ class SegmentationConfidencePenalty(Serializable):
 
   def value(self):
     return self.strength.value()
+
+  def __str__(self):
+    return str(self.strength.value())
+
+  def __repr__(self):
+    return repr(self.strength.value())
 
