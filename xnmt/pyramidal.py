@@ -24,7 +24,7 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   yaml_tag = u'!PyramidalLSTMSeqTransducer'
 
-  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), layers=1, input_dim=None, hidden_dim=None,
+  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None,
                downsampling_method="concat", reduce_factor=2, dropout=None):
     """
     :param layers: depth of the PyramidalRNN
@@ -36,9 +36,9 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
     :param reduce_factor: integer, or list of ints (different skip for each layer)
     """
     register_handler(self)
-    hidden_dim = hidden_dim or xnmt_global.default_layer_dim
-    input_dim = input_dim or xnmt_global.default_layer_dim
-    self.dropout = dropout or xnmt_global.dropout
+    hidden_dim = hidden_dim or exp_global.default_layer_dim
+    input_dim = input_dim or exp_global.default_layer_dim
+    self.dropout = dropout or exp_global.dropout
     assert layers > 0
     assert hidden_dim % 2 == 0
     assert type(reduce_factor)==int or (type(reduce_factor)==list and len(reduce_factor)==layers-1)
@@ -47,13 +47,13 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
     self.downsampling_method = downsampling_method
     self.reduce_factor = reduce_factor
     self.input_dim = input_dim
-    f = UniLSTMSeqTransducer(xnmt_global=xnmt_global, input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
-    b = UniLSTMSeqTransducer(xnmt_global=xnmt_global, input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
+    f = UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
+    b = UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
     self.builder_layers.append((f, b))
     for _ in range(layers - 1):
       layer_input_dim = hidden_dim if downsampling_method=="skip" else hidden_dim*reduce_factor
-      f = UniLSTMSeqTransducer(xnmt_global=xnmt_global, input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
-      b = UniLSTMSeqTransducer(xnmt_global=xnmt_global, input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
+      f = UniLSTMSeqTransducer(exp_global=exp_global, input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
+      b = UniLSTMSeqTransducer(exp_global=exp_global, input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
       self.builder_layers.append((f, b))
 
   @handle_xnmt_event

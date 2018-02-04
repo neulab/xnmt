@@ -1,5 +1,5 @@
 reload: !Experiment
-  xnmt_global: !XnmtGlobal
+  exp_global: !ExpGlobal
     model_file: test/tmp/output/{EXP}.mod
     out_file: test/tmp/output/{EXP}.out
     err_file: test/tmp/output/{EXP}.err

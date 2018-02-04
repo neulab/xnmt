@@ -1,6 +1,6 @@
 # A standard training run, should almost never break
 standard: !Experiment
-  xnmt_global: !XnmtGlobal
+  exp_global: !ExpGlobal
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
     err_file: examples/output/{EXP}.err
@@ -11,18 +11,6 @@ standard: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-    src_embedder: !SimpleWordEmbedder {}
-    encoder: !BiLSTMSeqTransducer
-      layers: 1
-    attender: !MlpAttender {}
-    trg_embedder: !SimpleWordEmbedder {}
-    decoder: !MlpSoftmaxDecoder
-      layers: 1
-      bridge: !CopyBridge {}
-    inference: !SimpleInference
-      len_norm_type: !PolynomialNormalization
-        apply_during_search: true
-        m: 5
   train: !SimpleTrainingRegimen
     trainer: !AdamTrainer
       alpha: 0.001

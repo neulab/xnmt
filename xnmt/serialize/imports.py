@@ -11,7 +11,7 @@ import xnmt.ff
 import xnmt.inference
 import xnmt.input
 import xnmt.lstm
-import xnmt.xnmt_global
+import xnmt.exp_global
 import xnmt.optimizer
 import xnmt.preproc_runner
 import xnmt.pyramidal

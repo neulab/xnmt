@@ -137,7 +137,7 @@ def name_children(node, include_reserved):
 @name_children.register(Serializable)
 def name_children_serializable(node, include_reserved):
   """
-  Returns the specified arguments in the order they appear in the corresponding __init__() 
+  Returns the specified arguments in the order they appear in the corresponding __init__()
   """
   init_args = list(get_init_args_defaults(node).keys())
   if include_reserved: init_args += [n for n in reserved_arg_names if not n in init_args]
@@ -157,17 +157,27 @@ def name_children_list(node, include_reserved):
 
 @singledispatch
 def get_child(node, name):
+  if not hasattr(node, name): raise PathError(f"{node} has not child named {name}")
   return getattr(node,name)
 @get_child.register(list)
 def get_child_list(node, name):
+  try:
+    name = int(name)
+  except:
+    raise PathError(f"{node} has not child named {name} (integer expected)")
+  if not 0 <= name < len(node):
+    raise PathError(f"{node} has not child named {name} (index error)")
   return node[int(name)]
 @get_child.register(dict)
 def get_child_dict(node, name):
+  if not name in node.keys():
+    raise PathError(f"{node} has not child named {name} (key error)")
   return node[name]
 @get_child.register(Serializable)
 def get_child_serializable(node, name):
+  if not hasattr(node, name): raise PathError(f"{node} has not child named {name}")
   return getattr(node,name)
-  
+
 @singledispatch
 def set_child(node, name, val):
   pass
@@ -176,6 +186,12 @@ def set_child_serializable(node, name, val):
   setattr(node,name,val)
 @set_child.register(list)
 def set_child_list(node, name, val):
+  try:
+    name = int(name)
+  except:
+    raise PathError(f"{node} has not child named {name} (integer expected)")
+  if not 0 <= name < len(node):
+    raise PathError(f"{node} has not child named {name} (index error)")
   node[int(name)] = val
 @set_child.register(dict)
 def set_child_dict(node, name, val):
@@ -197,7 +213,7 @@ def set_descendant(root, path, val):
 class TraversalOrder(IntEnum):
   ROOT_FIRST = auto()
   ROOT_LAST = auto()
-  
+
 def traverse_tree(node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), include_root=True):
   """
   For each node in the tree, yield a (path, node) tuple
@@ -213,15 +229,15 @@ def traverse_serializable(root, path_to_node=Path()):
   yield path_to_node, root
   for child_name, child in name_serializable_children(root):
     yield from traverse_serializable(child, path_to_node.append(child_name))
-    
+
 def traverse_serializable_breadth_first(root):
   all_nodes = [(path,node) for (path,node) in traverse_serializable(root)]
   all_nodes.sort(key=lambda x: len(x[0]))
   return iter(all_nodes)
-  
+
 def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), named_paths={}):
   """
-  Traverse the tree and descend into references. The returned path is that of the resolved reference. 
+  Traverse the tree and descend into references. The returned path is that of the resolved reference.
   """
   if traversal_order==TraversalOrder.ROOT_FIRST:
     yield path_to_node, cur_node
@@ -229,7 +245,7 @@ def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST
     resolved_path = cur_node.resolve_path(named_paths)
     try:
       yield from traverse_tree_deep(root, get_descendant(root, resolved_path), traversal_order, resolved_path, named_paths)
-    except (KeyError, AttributeError):
+    except PathError:
       if cur_node.is_required():
         raise ValueError(f"Was not able to find required reference '{resolved_path}' at '{path_to_node}'")
   else:
@@ -247,3 +263,7 @@ def traverse_tree_deep_once(root, cur_node, traversal_order=TraversalOrder.ROOT_
     if not (path.ancestors() & yielded_paths):
       yielded_paths.add(path)
       yield (path, node)
+
+class PathError(Exception):
+  def __init__(self, message):
+    super().__init__(message)

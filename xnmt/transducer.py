@@ -21,7 +21,7 @@ class Transducer(object):
   - __init__(...), should be used to configure the transducer. If possible, configuration
     should be transparent to a user and not require understanding of implementation
     details. If the transducer uses DyNet parameters, these must be initialized here.
-    If appropriate, xnmt_global argument should be used to access global configuration
+    If appropriate, exp_global argument should be used to access global configuration
     and DyNet parameters
   - __call__(...), will perform the actual transduction and return the result
   """

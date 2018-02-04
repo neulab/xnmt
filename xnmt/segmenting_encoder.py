@@ -28,7 +28,7 @@ EPS = 1e-10
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = u'!SegmentingSeqTransducer'
 
-  def __init__(self, xnmt_global=Ref(Path("xnmt_global")),
+  def __init__(self, exp_global=Ref(Path("exp_global")),
                ## COMPONENTS
                embed_encoder=None, segment_composer=None, final_transducer=None,
                ## OPTIONS
@@ -47,7 +47,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                compose_char       = False,
                debug=False):
     register_handler(self)
-    model = xnmt_global.dynet_param_collection.param_col
+    model = exp_global.dynet_param_collection.param_col
     # Sanity check
     assert embed_encoder is not None
     assert segment_composer is not None

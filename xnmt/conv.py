@@ -15,7 +15,7 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
     Embedding sequence has same length as Input sequence
     """
 
-  def __init__(self, input_dim, window_receptor,output_dim,num_layers,internal_dim,non_linearity='linear', xnmt_global=Ref(Path("xnmt_global"))):
+  def __init__(self, input_dim, window_receptor,output_dim,num_layers,internal_dim,non_linearity='linear', exp_global=Ref(Path("exp_global"))):
     """
       :param num_layers: num layers after first receptor conv
       :param input_dim: size of the inputs
@@ -25,7 +25,7 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
       :param non_linearity: Non linearity to apply between layers
       """
 
-    model = xnmt_global.dynet_param_collection.param_col
+    model = exp_global.dynet_param_collection.param_col
     self.input_dim = input_dim
     self.window_receptor = window_receptor
     self.internal_dim = internal_dim

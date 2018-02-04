@@ -65,10 +65,13 @@ class OptionParser(object):
         experiments = yaml.load(stream)
     except IOError as e:
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
+    except yaml.constructor.ConstructorError:
+      print("for proper deserialization of a class object, make sure the class is a subclass of xnmt.serialize.serializable.Serializable, specifies a proper yaml_tag with leading '!', and it's module is imported under xnmt/serialize/imports.py")
+      raise
 
     if "defaults" in experiments: del experiments["defaults"]
     return sorted(experiments.keys())
-    
+
   def parse_experiment(self, filename, exp_name):
     """
     Returns a dictionary of experiments => {task => {arguments object}}
@@ -79,14 +82,14 @@ class OptionParser(object):
     except IOError as e:
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
 
-    experiment = config[exp_name]    
+    experiment = config[exp_name]
 
     for _, node in tree_tools.traverse_tree(experiment):
       if isinstance(node, Serializable):
         self.resolve_kwargs(node)
 
     self.load_referenced_model(experiment)
-    
+
     random_search_report = self.instantiate_random_search(experiment)
     if random_search_report:
       setattr(experiment, 'random_search_report', random_search_report)
@@ -110,13 +113,13 @@ class OptionParser(object):
 
       if hasattr(experiment, "overwrite"):
         for d in experiment.overwrite:
-          path = tree_tools.Path(d[0])
+          path = tree_tools.Path(d["path"])
           try:
-            tree_tools.set_descendant(experiment, path, d[1])
+            tree_tools.set_descendant(experiment, path, d["val"])
           except:
-            tree_tools.set_descendant(experiment, path, d[1])
+            tree_tools.set_descendant(experiment, path, d["val"])
         delattr(experiment, "overwrite")
-      
+
   def resolve_kwargs(self, obj):
     """
     If obj has a kwargs attribute (dictionary), set the dictionary items as attributes
@@ -146,7 +149,10 @@ class OptionParser(object):
   def format_strings(self, exp_values, format_dict):
     for path, node in tree_tools.traverse_tree(exp_values):
       if isinstance(node, str):
-        formatted = node.format(**format_dict)
+        try:
+          formatted = node.format(**format_dict)
+        except (ValueError, KeyError): # will occur e.g. if a vocab entry contains a curly bracket
+          formatted = node
         if node != formatted:
           tree_tools.set_descendant(exp_values,
                                     path,

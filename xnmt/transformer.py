@@ -242,18 +242,18 @@ class DecoderLayer(object):
 class TransformerEncoder(Serializable):
   yaml_tag = u'!TransformerEncoder'
 
-  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), layers=1, input_dim=512, h=1,
+  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=512, h=1,
                dropout=0.0, attn_dropout=False, layer_norm=False, **kwargs):
     register_handler(self)
-    dy_model = xnmt_global.dynet_param_collection.param_col
-    input_dim = input_dim or xnmt_global.default_layer_dim
+    dy_model = exp_global.dynet_param_collection.param_col
+    input_dim = input_dim or exp_global.default_layer_dim
     self.layer_names = []
     for i in range(1, layers + 1):
       name = 'l{}'.format(i)
       layer = EncoderLayer(dy_model, input_dim, h, attn_dropout, layer_norm)
       self.layer_names.append((name, layer))
 
-    self.dropout_val = dropout or xnmt_global.dropout
+    self.dropout_val = dropout or exp_global.dropout
 
   @handle_xnmt_event
   def on_set_train(self, val):
@@ -275,13 +275,13 @@ class TransformerEncoder(Serializable):
 class TransformerDecoder(Serializable):
   yaml_tag = u'!TransformerDecoder'
 
-  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), layers=1, input_dim=512, h=1,
+  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=512, h=1,
                dropout=0.0, attn_dropout=False, layer_norm=False,
                vocab_size = None, vocab = None,
                trg_reader = Ref(path=Path("model.trg_reader"))):
     register_handler(self)
-    dy_model = xnmt_global.dynet_param_collection.param_col
-    input_dim = input_dim or xnmt_global.default_layer_dim
+    dy_model = exp_global.dynet_param_collection.param_col
+    input_dim = input_dim or exp_global.default_layer_dim
     self.layer_names = []
     for i in range(1, layers + 1):
       name = 'l{}'.format(i)
@@ -290,7 +290,7 @@ class TransformerDecoder(Serializable):
 
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, trg_reader)
     self.output_affine = LinearSent(dy_model, input_dim, self.vocab_size)
-    self.dropout_val = dropout or xnmt_global.dropout
+    self.dropout_val = dropout or exp_global.dropout
 
   def choose_vocab_size(self, vocab_size, vocab, trg_reader):
     """Choose the vocab size for the embedder basd on the passed arguments

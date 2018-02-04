@@ -5,7 +5,7 @@ import random
 import numpy as np
 import dynet as dy
 
-from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializable import Serializable, bare
 from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.loss import LossBuilder
 from xnmt.events import register_xnmt_event
@@ -28,10 +28,6 @@ class TrainingTask(object):
     Used to load data.
     """
     raise NotImplementedError("")
-  def fix_vocabs(self):
-    """
-    Used to fix the vocabs and propagate them as needed.
-    """
   def should_stop_training(self):
     """
     :returns: True iff training is finished, i.e. training_step(...) should not be called again
@@ -70,14 +66,14 @@ class TrainingTask(object):
 class SimpleTrainingTask(TrainingTask, Serializable):
   yaml_tag = '!SimpleTrainingTask'
   def __init__(self, model, src_file=None, trg_file=None, dev_every=0,
-               batcher=SrcBatcher(32), loss_calculator=None,
+               batcher=bare(SrcBatcher, batch_size=32), loss_calculator=None,
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
                initial_patience=None, dev_tasks=None, restart_trainer=False,
                reload_command=None, name=None, sample_train_sents=None,
                max_num_train_sents=None, max_src_len=None, max_trg_len=None,
-               xnmt_global=Ref(Path("xnmt_global"))):
+               exp_global=Ref(Path("exp_global"))):
     """
-    :param xnmt_global:
+    :param exp_global:
     :param model: a generator.GeneratorModel object
     :param src_file: The file for the source data.
     :param trg_file: The file for the target data.
@@ -99,8 +95,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     :param max_trg_len:
     :param name: will be prepended to log outputs if given
     """
-    self.xnmt_global = xnmt_global
-    self.model_file = self.xnmt_global.dynet_param_collection.model_file
+    self.exp_global = exp_global
+    self.model_file = self.exp_global.dynet_param_collection.model_file
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks
@@ -311,7 +307,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
               if self.restart_trainer:
                 print('  restarting trainer and reverting learned weights to best checkpoint..')
                 self.trainer.restart()
-                self.xnmt_global.dynet_param_collection.revert_to_best_model()
+                self.exp_global.dynet_param_collection.revert_to_best_model()
 
     return ret
 

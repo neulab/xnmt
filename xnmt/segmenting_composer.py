@@ -41,12 +41,12 @@ class TailSegmentTransformer(SegmentTransformer):
 class TailWordSegmentTransformer(SegmentTransformer):
   yaml_tag = u"!TailWordSegmentTransformer"
 
-  def __init__(self, xnmt_global=Ref(Path("xnmt_global")), vocab=None, vocab_size=1e6,
+  def __init__(self, exp_global=Ref(Path("exp_global")), vocab=None, vocab_size=1e6,
                count_file=None, min_count=1, embed_dim=None):
     assert vocab is not None
     self.vocab = vocab
     embed_dim = embed_dim or xnmt_global.default_layer_dim
-    self.lookup = xnmt_global.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, embed_dim))
+    self.lookup = exp_global.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, embed_dim))
     self.frequent_words = None
 
     if count_file is not None:
