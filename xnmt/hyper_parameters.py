@@ -61,5 +61,26 @@ class GeometricSequence(Serializable):
       self.__value = value
 
   def __repr__(self):
-    return str(self.value())
+    return repr(self.value())
+
+class DefinedSequence(Serializable):
+  yaml_tag = u'!DefinedSequence'
+  def __init__(self, sequence=None):
+    assert sequence is not None
+    assert type(sequence) == list, "DefinedSequence need to have a list type"
+    assert len(sequence) > 0, "Please input non empty list for FixedSequence"
+    self.sequence = sequence
+
+  @handle_xnmt_event
+  def on_new_epoch(self, training_task, *args, **kwargs):
+    self.epoch_num = training_task.training_state.epoch_num
+
+  def __repr__(self):
+    return repr(self.value())
+
+  def value(self):
+    if self.epoch_num > len(self.sequence):
+      return self.sequence[-1]
+    else:
+      return self.sequence[self.epoch_num-1]
 
