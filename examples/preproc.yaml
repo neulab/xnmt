@@ -1,12 +1,8 @@
-# TODO: This config file is in the old format. We need to make it match debug.yaml
-defaults:
-  experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
-    run_for_epochs: 20
-    eval_metrics: bleu,wer
+standard-preproc: !Experiment
+  exp_global: !ExpGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
   preproc:
     overwrite: False
     preproc_specs:
@@ -19,20 +15,15 @@ defaults:
       - examples/data/test.ja
       - examples/data/test.en
       out_files:
-      - examples/data/train.tok.ja
-      - examples/data/train.tok.en
-      - examples/data/dev.tok.ja
-      - examples/data/dev.tok.en
-      - examples/data/test.tok.ja
-      - examples/data/test.tok.en
+      - examples/preproc/train.tok.ja
+      - examples/preproc/train.tok.en
+      - examples/preproc/dev.tok.ja
+      - examples/preproc/dev.tok.en
+      - examples/preproc/test.tok.ja
+      - examples/preproc/test.tok.en
       specs:
       - filenum: all
         tokenizers:
-        - !ExternalTokenizer
-          # Replace <XNMT_PATH> with root directory of xnmt repository
-          path: <XNMT_PATH>/script/code/toy_word_tokenize.py
-          tokenizer_args: 
-            --character: 0
         - !SentencepieceTokenizer
           # Replace <SENTENCEPIECE_SRC_PATH> with src/ directory of sentencepiece repository
           # The spm_* executables should be located at <SENTENCEPIECE_SRC_PATH>
@@ -40,83 +31,94 @@ defaults:
           train_files:
            - examples/data/train.ja
            - examples/data/train.en
-          vocab_size: 10000
-          model_type: bpe
+          vocab_size: 8000
+          model_type: unigram
+          model_prefix: examples/preproc/sentpiece
     - type: normalize
       in_files:
-      - examples/data/train.tok.ja
-      - examples/data/train.tok.en
-      - examples/data/dev.tok.ja
-      - examples/data/dev.tok.en
-      - examples/data/test.tok.ja
-      - examples/data/test.tok.en
+      - examples/preproc/train.tok.ja
+      - examples/preproc/train.tok.en
+      - examples/preproc/dev.tok.ja
+      - examples/preproc/dev.tok.en
+      - examples/preproc/test.tok.ja
+      - examples/preproc/test.tok.en
+      - examples/data/dev.en
+      - examples/data/test.en
       out_files:
-      - examples/output/train.norm.ja
-      - examples/output/train.norm.en
-      - examples/output/dev.norm.ja
-      - examples/output/dev.norm.en
-      - examples/output/test.norm.ja
-      - examples/output/test.norm.en
+      - examples/preproc/train.tok.norm.ja
+      - examples/preproc/train.tok.norm.en
+      - examples/preproc/dev.tok.norm.ja
+      - examples/preproc/dev.tok.norm.en
+      - examples/preproc/test.tok.norm.ja
+      - examples/preproc/test.tok.norm.en
+      - examples/preproc/dev.norm.en
+      - examples/preproc/test.norm.en
       specs:
       - filenum: all
         spec:
         - type: lower
     - type: filter
       in_files:
-      - examples/output/train.norm.ja
-      - examples/output/train.norm.en
+      - examples/preproc/train.tok.norm.ja
+      - examples/preproc/train.tok.norm.en
       out_files:
-      - examples/output/train.filter.ja
-      - examples/output/train.filter.en
+      - examples/preproc/train.tok.norm.filter.ja
+      - examples/preproc/train.tok.norm.filter.en
       specs:
       - type: length
         min: 1
-        max: 25
+        max: 60
     - type: vocab
       in_files:
-      - examples/output/train.norm.ja
-      - examples/output/train.norm.en
+      - examples/preproc/train.tok.norm.ja
+      - examples/preproc/train.tok.norm.en
       out_files:
-      - examples/output/train.vocab.ja
-      - examples/output/train.vocab.en
+      - examples/preproc/train.vocab.ja
+      - examples/preproc/train.vocab.en
       specs:
       - filenum: all
         spec:
         - type: freq
           min_freq: 2
-  train:
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/output/train.norm.ja
-      train_trg: examples/output/train.norm.en
-      dev_src: examples/output/dev.norm.ja
-      dev_trg: examples/output/dev.norm.en
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader
-        vocab: !Vocab
-          vocab_file: examples/output/train.vocab.ja
-      trg_reader: !PlainTextReader
-        vocab: !Vocab
-          vocab_file: examples/output/train.vocab.en
-    model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 512
-      encoder: !LSTMSeqTransducer
-        layers: 1
-      attender: !MlpAttender
-        hidden_dim: 512
-        state_dim: 512
-        input_dim: 512
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 512
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 512
-        bridge: !NoBridge {}
-  decode:
-    src_file: examples/output/test.norm.ja
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab
+        vocab_file: examples/preproc/train.vocab.ja
+    trg_reader: !PlainTextReader
+      vocab: !Vocab
+        vocab_file: examples/preproc/train.vocab.en
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 512
+    encoder: !BiLSTMSeqTransducer
+      layers: 1
+    attender: !MlpAttender
+      hidden_dim: 512
+      state_dim: 512
+      input_dim: 512
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 512
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 512
+      bridge: !NoBridge {}
+    inference: !SimpleInference
+      post_process: join-piece
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 20
+    src_file: examples/preproc/dev.tok.norm.ja
+    trg_file: examples/preproc/dev.tok.norm.en
+    dev_tasks:
+      - !AccuracyEvalTask
+        eval_metrics: bleu
+        src_file: examples/preproc/dev.tok.norm.ja
+        ref_file: examples/preproc/dev.norm.en
+        hyp_file: examples/output/{EXP}.dev_hyp
+      - !LossEvalTask
+        src_file: examples/preproc/dev.tok.norm.ja
+        ref_file: examples/preproc/dev.tok.norm.en
   evaluate:
-    ref_file: examples/output/test.norm.en
-
-standard-preproc:
-  train:
-    dropout: 0.1
+  - !AccuracyEvalTask
+    eval_metrics: bleu
+    src_file: examples/preproc/test.tok.norm.ja
+    ref_file: examples/preproc/test.norm.en
+    hyp_file: examples/output/{EXP}.test_hyp

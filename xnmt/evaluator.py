@@ -1,11 +1,9 @@
-from __future__ import division, generators
-import numpy as np
+from collections import defaultdict, Counter
 import math
 import six
-import functools
-from collections import defaultdict, Counter, deque
+import subprocess
 
-from xnmt.vocab import Vocab
+import numpy as np
 
 class EvalScore(object):
   def higher_is_better(self):
@@ -25,25 +23,36 @@ class EvalScore(object):
     else:
       return self.value() < another_score.value()
   def __str__(self):
-    return "{}: {}".format(self.metric_name(), self.score_str())
+    desc = getattr(self, "desc", None)
+    if desc:
+      return f"{self.metric_name()} ({desc}): {self.score_str()}"
+    else:
+      return f"{self.metric_name()}: {self.score_str()}"
 
 class LossScore(EvalScore):
-  def __init__(self, loss):
+  def __init__(self, loss, loss_stats=None, desc=None):
     self.loss = loss
+    self.loss_stats = loss_stats
+    self.desc = desc
+
   def value(self): return self.loss
   def metric_name(self): return "Loss"
   def higher_is_better(self): return False
   def score_str(self):
-    return "{:.3f}".format(self.value())
+    if self.loss_stats is not None and len(self.loss_stats) > 1:
+      return "{" + ", ".join("%s: %.5f" % (k, v) for k, v in self.loss_stats.items()) + "}"
+    else:
+      return "{:.3f}".format(self.value())
 
 class BLEUScore(EvalScore):
-  def __init__(self, bleu, frac_score_list=None, brevity_penalty_score=None, hyp_len=None, ref_len=None, ngram=4):
+  def __init__(self, bleu, frac_score_list=None, brevity_penalty_score=None, hyp_len=None, ref_len=None, ngram=4, desc=None):
     self.bleu = bleu
     self.frac_score_list = frac_score_list
     self.brevity_penalty_score = brevity_penalty_score
     self.hyp_len = hyp_len
     self.ref_len = ref_len
     self.ngram   = ngram
+    self.desc = desc
 
   def value(self): return self.bleu
   def metric_name(self): return "BLEU" + str(self.ngram)
@@ -59,11 +68,24 @@ class BLEUScore(EvalScore):
                                                                             self.hyp_len,
                                                                             self.ref_len)
 
+class GLEUScore(EvalScore):
+  def __init__(self, gleu, hyp_len, ref_len, desc=None):
+    self.gleu = gleu
+    self.hyp_len = hyp_len
+    self.ref_len = ref_len
+    self.desc = desc
+  def value(self): return self.gleu
+  def metric_name(self): return "GLEU"
+  def higher_is_better(self): return True
+  def score_str(self):
+    return "{:.6f}".format(self.value())
+
 class WERScore(EvalScore):
-  def __init__(self, wer, hyp_len, ref_len):
+  def __init__(self, wer, hyp_len, ref_len, desc=None):
     self.wer = wer
     self.hyp_len = hyp_len
     self.ref_len = ref_len
+    self.desc = desc
   def value(self): return self.wer
   def metric_name(self): return "WER"
   def higher_is_better(self): return False
@@ -71,19 +93,21 @@ class WERScore(EvalScore):
     return "{:.2f}% ( hyp_len={}, ref_len={} )".format(self.value()*100.0, self.hyp_len, self.ref_len)
 
 class CERScore(WERScore):
-  def __init__(self, cer, hyp_len, ref_len):
+  def __init__(self, cer, hyp_len, ref_len, desc=None):
     self.cer = cer
     self.hyp_len = hyp_len
     self.ref_len = ref_len
+    self.desc = desc
   def metric_name(self): return "CER"
   def value(self): return self.cer
 
 class RecallScore(WERScore):
-  def __init__(self, recall, hyp_len, ref_len, nbest=5):
+  def __init__(self, recall, hyp_len, ref_len, nbest=5, desc=None):
     self.recall  = recall
     self.hyp_len = hyp_len
     self.ref_len = ref_len
     self.nbest   = nbest
+    self.desc = desc
 
   def score_str(self):
     return "{:.2f}%".format(self.value() * 100.0)
@@ -93,6 +117,17 @@ class RecallScore(WERScore):
 
   def metric_name(self):
     return "Recall" + str(self.nbest)
+
+class ExternalScore(EvalScore):
+  def __init__(self, value, higher_is_better=True, desc=None):
+    self.value = value
+    self.higher_is_better = higher_is_better
+    self.desc = desc
+  def value(self): return self.value
+  def metric_name(self): return "External"
+  def higher_is_better(self): return self.higher_is_better
+  def score_str(self):
+    return "{:.3f}".format(self.value)
 
 class Evaluator(object):
   """
@@ -120,7 +155,7 @@ class Evaluator(object):
 class BLEUEvaluator(Evaluator):
   # Class for computing BLEU Scores accroding to
   # K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
-  def __init__(self, ngram=4, smooth=0):
+  def __init__(self, ngram=4, smooth=0, desc=None):
     """
     :param ngram: default value of 4 is generally used
     """
@@ -129,6 +164,7 @@ class BLEUEvaluator(Evaluator):
     self.smooth = smooth
     self.reference_corpus = None
     self.candidate_corpus = None
+    self.desc = desc
 
   def metric_name(self):
     return "BLEU%d score" % (self.ngram)
@@ -183,7 +219,7 @@ class BLEUEvaluator(Evaluator):
     # If there are no unigrams, return BLEU score of 0
     # No need to check for higher order n-grams
     if clipped_ngram_count[1] == 0:
-      return BLEUScore(bleu=None, ngram=self.ngram)
+      return BLEUScore(bleu=None, ngram=self.ngram, desc=self.desc)
 
     frac_score_list = list()
     log_precision_score = 0.
@@ -204,7 +240,7 @@ class BLEUEvaluator(Evaluator):
 
     # BLEU Score
     bleu_score = brevity_penalty_score * precision_score
-    return BLEUScore(bleu_score, frac_score_list, brevity_penalty_score, word_counter['candidate'], word_counter['reference'], ngram=self.ngram)
+    return BLEUScore(bleu_score, frac_score_list, brevity_penalty_score, word_counter['candidate'], word_counter['reference'], ngram=self.ngram, desc=self.desc)
 
   # Doc to be added
   def brevity_penalty(self, r, c):
@@ -262,13 +298,73 @@ class BLEUEvaluator(Evaluator):
 
     return clipped_ngram_count, candidate_ngram_count
 
+class GLEUEvaluator(Evaluator):
+  # Class for computing GLEU Scores
+  def __init__(self, min_length=1, max_length=4, desc=None):
+    self.min = min_length
+    self.max = max_length
+    self.desc = desc
+
+  def extract_all_ngrams(self, tokens):
+    """
+    Extracts ngram counts from the input string
+    :param tokens: tokens of string for which the ngram is to be computed
+    :return: a Counter object containing ngram counts for self.min <= n <= self.max
+    """
+    num_words = len(tokens)
+    ngram_count = Counter()
+    for i, first_token in enumerate(tokens[0: num_words]):
+      for n in range(self.min, self.max + 1):
+        outer_range = i + n
+        if outer_range <= num_words:
+          ngram_tuple = tuple(tokens[i: outer_range])
+          ngram_count[ngram_tuple] += 1
+    return ngram_count
+
+  def evaluate(self, ref, hyp):
+    """
+    :rtype: object
+    :param ref: list of reference sents ( a sent is a list of tokens )
+    :param hyp: list of hypothesis sents ( a sent is a list of tokens )
+    :return: Formatted string having GLEU Score
+    """
+    assert (len(ref) == len(hyp)), \
+      "Length of Reference Corpus and Candidate Corpus should be same"
+    corpus_n_match = 0
+    corpus_total = 0
+
+    total_ref_len, total_hyp_len = 0, 0
+    for ref_sent, hyp_sent in zip(ref, hyp):
+      total_hyp_len += len(ref_sent)
+      total_ref_len += len(hyp_sent)
+
+      hyp_ngrams = self.extract_all_ngrams(hyp_sent)
+      tot_ngrams_hyp = sum(hyp_ngrams.values())
+      ref_ngrams = self.extract_all_ngrams(ref_sent)
+      tot_ngrams_ref = sum(ref_ngrams.values())
+
+      overlap_ngrams = ref_ngrams & hyp_ngrams
+      n_match = sum(overlap_ngrams.values())
+      n_total = max(tot_ngrams_hyp, tot_ngrams_ref)
+
+      corpus_n_match += n_match
+      corpus_total += n_total
+
+    if corpus_total == 0:
+      gleu_score = 0.0
+    else:
+      gleu_score = corpus_n_match / corpus_total
+    return GLEUScore(gleu_score, total_ref_len, total_hyp_len, desc=self.desc)
+
+
 class WEREvaluator(Evaluator):
   """
   A class to evaluate the quality of output in terms of word error rate.
   """
 
-  def __init__(self, case_sensitive=False):
+  def __init__(self, case_sensitive=False, desc=None):
     self.case_sensitive = case_sensitive
+    self.desc = desc
 
   def metric_name(self):
     return "Word error rate"
@@ -287,7 +383,7 @@ class WEREvaluator(Evaluator):
       total_ref_len += len(ref_sent)
       total_hyp_len += len(hyp_sent)
     wer_score = float(total_dist) / total_ref_len
-    return WERScore(wer_score, total_hyp_len, total_ref_len)
+    return WERScore(wer_score, total_hyp_len, total_ref_len, desc=self.desc)
 
   def dist_one_pair(self, ref_sent, hyp_sent):
     """
@@ -330,8 +426,9 @@ class CEREvaluator(object):
   A class to evaluate the quality of output in terms of character error rate.
   """
 
-  def __init__(self, case_sensitive=False):
+  def __init__(self, case_sensitive=False, desc=None):
     self.wer_evaluator = WEREvaluator(case_sensitive=case_sensitive)
+    self.desc = desc
 
   def metric_name(self):
     return "Character error rate"
@@ -346,7 +443,33 @@ class CEREvaluator(object):
     ref_char = [list("".join(ref_sent)) for ref_sent in ref]
     hyp_char = [list("".join(hyp_sent)) for hyp_sent in hyp]
     wer_obj = self.wer_evaluator.evaluate(ref_char, hyp_char)
-    return CERScore(wer_obj.value(), wer_obj.hyp_len, wer_obj.ref_len)
+    return CERScore(wer_obj.value(), wer_obj.hyp_len, wer_obj.ref_len, desc=self.desc)
+
+class ExternalEvaluator(object):
+  """
+  A class to evaluate the quality of the output according to an external evaluation script.
+  The external script should only print a number representing the calculated score.
+  """
+
+  def __init__(self, path=None, higher_better=True, desc=None):
+    self.path = path
+    self.higher_better = higher_better
+    self.desc = desc
+
+  def metric_name(self):
+    return "External eval script"
+
+  def evaluate(self, ref, hyp):
+    """
+    Calculate the quality of output according to an external script.
+    :param ref: list of list of reference words
+    :param hyp: list of list of decoded words
+    :return: external eval script score
+    """
+    proc = subprocess.Popen([self.path], stdout=subprocess.PIPE, shell=True)
+    (out, err) = proc.communicate()
+    external_score = float(out)
+    return ExternalScore(external_score, self.higher_better, desc=self.desc)
 
 if __name__ == "__main__":
   # Example 1
@@ -378,8 +501,9 @@ if __name__ == "__main__":
   #                        [candidate1, candidate3]))
 
 class RecallEvaluator(object):
-  def __init__(self, nbest=5):
+  def __init__(self, nbest=5, desc=None):
     self.nbest = nbest
+    self.desc = desc
 
   def metric_name(self):
     return "Recall{}".format(str(self.nbest))
@@ -387,14 +511,15 @@ class RecallEvaluator(object):
   def evaluate(self, ref, hyp):
     true_positive = 0
     for hyp_i, ref_i in zip(hyp, ref):
-      if any(ref_i == idx for idx, score in hyp_i[:self.nbest]):
+      if any(ref_i == idx for idx, _ in hyp_i[:self.nbest]):
         true_positive += 1
     score = true_positive / float(len(ref))
-    return RecallScore(score, len(hyp), len(ref), nbest=self.nbest)
+    return RecallScore(score, len(hyp), len(ref), nbest=self.nbest, desc=self.desc)
 
 class MeanAvgPrecisionEvaluator(object):
-  def __init__(self, nbest=5):
+  def __init__(self, nbest=5, desc=None):
     self.nbest = nbest
+    self.desc = desc
 
   def metric_name(self):
     return "MeanAvgPrecision{}".format(str(self.nbest))
@@ -409,4 +534,4 @@ class MeanAvgPrecisionEvaluator(object):
                 score = 1/(x+1)
         avg += score
     avg = avg/float(len(ref))
-    return MeanAvgPrecisionScore(avg, len(hyp), len(ref), nbest=self.nbest)
+    return MeanAvgPrecisionScore(avg, len(hyp), len(ref), nbest=self.nbest, desc=self.desc)

@@ -1,5 +1,5 @@
 import io
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 
 class Vocab(Serializable):
   '''
@@ -21,12 +21,15 @@ class Vocab(Serializable):
     :param vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
     i2w and vocab_file are mutually exclusive
     """
+    if not (i2w is None or vocab_file is None):
+      print("break")
     assert i2w is None or vocab_file is None
     if vocab_file:
       i2w = Vocab.i2w_from_vocab_file(vocab_file)
     if (i2w is not None):
       self.i2w = i2w
       self.w2i = {word: word_id for (word_id, word) in enumerate(self.i2w)}
+      self.frozen = True
     else :
       self.w2i = {}
       self.i2w = []
@@ -35,8 +38,9 @@ class Vocab(Serializable):
       self.w2i[self.ES_STR] = self.ES
       self.i2w.append(self.SS_STR)
       self.i2w.append(self.ES_STR)
-    self.frozen = False
-    self.serialize_params = {"i2w" : self.i2w}
+      self.frozen = False
+    self.overwrite_serialize_param("i2w", self.i2w)
+    self.overwrite_serialize_param("vocab_file", None)
 
   @staticmethod
   def i2w_from_vocab_file(vocab_file):
@@ -49,7 +53,7 @@ class Vocab(Serializable):
       for line in f:
         word = line.strip()
         if word in reserved:
-          raise RuntimeError("Vocab file {} contains a reserved word: {}" % (vocab_file, word))
+          raise RuntimeError(f"Vocab file {vocab_file} contains a reserved word: {word}")
         vocab.append(word)
     return vocab
 

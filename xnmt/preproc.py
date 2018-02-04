@@ -1,17 +1,14 @@
-import argparse
-import io
 import sys
 import os.path
 import subprocess
-import yaml
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 
 ##### Preprocessors
 
 class Normalizer(object):
   """A type of normalization to perform to a file. It is initialized first, then expanded."""
 
-  def __init__(self, spec):
+  def __init__(self, spec=None):
     """Initialize the normalizer from a specification."""
     pass
 
@@ -43,23 +40,22 @@ class Tokenizer(Normalizer, Serializable):
   """
   Pass the text through an internal or external tokenizer.
 
-  TODO: only StreamTokenizers are supported by xnmt_preproc.py right now.
+  TODO: only StreamTokenizers are supported by the preproc runner right now.
   """
-  tokenize_by_file = 0
   def tokenize(self, sent):
     raise RuntimeError("Subclasses of Tokenizer must implement tokenize() or tokenize_stream()")
 
   def tokenize_stream(self, stream):
     """
-    Pass a stream to a tokenizer wholesale for efficiency.
+    Tokenize a file-like text stream.
 
-    :return: A readable stream providing the tokenized file.
+    :param stream: A file-like stream of untokenized text
+    :return: A file-like stream of tokenized text
 
     """
-    raise RuntimeError("Subclasses of Tokenizer must implement tokenize() or tokenize_stream()")
-
-  def detokenize(self, sent):
-    raise RuntimeError("Subclasses of Tokenizer must implement detokenize() or detokenize_stream()")
+    print("****** calling tokenize_stream {}".format(self.__class__))
+    for line in stream:
+      yield self.tokenize(line.strip())
 
 class BPETokenizer(Tokenizer):
   """
@@ -71,49 +67,23 @@ class BPETokenizer(Tokenizer):
 
   def __init__(self, vocab_size, train_files):
     """Determine the BPE based on the vocab size and corpora"""
-    pass
+    raise NotImplementedError("BPETokenizer is not implemented")
 
   def tokenize(self, sent):
     """Tokenizes a single sentence according to the determined BPE."""
-    return ' '.join(['blick' for x in sent.split()])
+    raise NotImplementedError("BPETokenizer is not implemented")
 
-
-class StreamTokenizer(Tokenizer):
+class CharacterTokenizer(Tokenizer):
   """
-  Class for tokenizers whose external constraints (e.g. reliance on an external
-  executable) demand that they be executed on an entire file/stream at once.
+  Tokenize into characters, with __ indicating blank spaces
   """
+  yaml_tag = u'!CharacterTokenizer'
 
-  def tokenize_stream(self, stream):
-    """
-    Tokenize a file-like text stream.
+  def tokenize(self, sent):
+    """Tokenizes a single sentence into characters."""
+    return ' '.join([('__' if x == ' ' else x) for x in sent])
 
-    :param stream: A file-like stream of untokenized text
-    :return: A file-like stream of tokenized text
-
-    """
-    tokenized_string = self._tokenize(stream.read())
-    ram_file = io.StringIO()
-    ram_file.write(tokenized_string.decode('utf-8'))
-    ram_file.seek(0)
-    return ram_file
-
-  def detokenize_stream(self, stream):
-    """
-    Detokenize a file-like text stream.
-
-    :param stream: A tokenized file-like stream of text
-    :return: An untokenized file-like stream of text.
-
-    """
-    detokenized_string = self._detokenize(stream.read())
-    ram_file = io.StringIO()
-    ram_file.write(detokenized_string.decode('utf-8'))
-    ram_file.seek(0)
-    return ram_file
-
-
-class ExternalTokenizer(StreamTokenizer):
+class ExternalTokenizer(Tokenizer):
   """
   Class for arbitrary external tokenizer that accepts untokenized text to stdin and
   emits tokenized tezt to stdout, with passable parameters.
@@ -123,26 +93,18 @@ class ExternalTokenizer(StreamTokenizer):
 
   """
   yaml_tag = u'!ExternalTokenizer'
-  tokenize_by_file = 1
 
-  def __init__(self, path, tokenizer_args={}, detokenizer_path=None, detokenizer_args={}, arg_separator=' '):
-    """Initialize the wrapper around the external tokenizer and optional detokenizer. """
+  def __init__(self, path, tokenizer_args={}, arg_separator=' '):
+    """Initialize the wrapper around the external tokenizer. """
     tokenizer_options = []
-    detokenizer_options = []
     if arg_separator != ' ':
       tokenizer_options = [option + arg_separator + str(tokenizer_args[option])
           for option in tokenizer_args]
-      detokenizer_options = [option + arg_separator + str(detokenizer_args[option])
-          for option in detokenizer_args]
     else:
       for option in tokenizer_args:
         tokenizer_options.extend([option, str(tokenizer_args[option])])
-      for option in detokenizer_args:
-        detokenizer_options.extend([option, str(tokenizer_args[option])])
     self.tokenizer_command = [path] + tokenizer_options
-    self.detokenizer_command = [detokenizer_path] + tokenizer_options if detokenizer_path else []
     print(self.tokenizer_command)
-    print(self.detokenizer_command)
 
   def tokenize(self, sent):
     """
@@ -152,45 +114,16 @@ class ExternalTokenizer(StreamTokenizer):
     :return: A tokenized sentence
 
     """
-    return self._tokenize(sent)
-
-  def _tokenize(self, string):
     encode_proc = subprocess.Popen(self.tokenizer_command, stdin=subprocess.PIPE
         , stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if isinstance(string, unicode):
-      string = string.encode('utf-8')
+    if isinstance(sent, str):
+      string = sent.encode('utf-8')
     stdout, stderr = encode_proc.communicate(string)
     if stderr:
+      if isinstance(stderr, bytes):
+        stderr = stderr.decode('utf-8')
       sys.stderr.write(stderr + '\n')
     return stdout
-
-  def detokenize(self, sent):
-    """
-    Detokenize a sentence or raise an error if no detokenizer was registered.
-
-    :param sent: A single line of tokenized text.
-    :return: A single line of detokenized text
-
-    """
-    return self._detokenize(sent)
-
-  def _detokenize(self, string):
-    """
-    Underlying decode call. Raises a RuntimeError
-    if no detokenizer was registered with the tokenizer.
-
-    :param string: An arbitrary tokenized string, potentially with newlines.
-    :return: A detokenized string, with newlines respected.
-
-    """
-    if not self.detokenizer_command:
-      raise RuntimeError("No detokenizer registered for this tokenizer.")
-    decode_proc = subprocess.Popen(self.detokenize_command, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    (stdout, stderr) = decode_proc.communicate(string)
-    if stderr:
-      sys.stderr.write(stderr + '\n')
-    return stdout
-
 
 class SentencepieceTokenizer(ExternalTokenizer):
   """
@@ -198,10 +131,9 @@ class SentencepieceTokenizer(ExternalTokenizer):
   with passable parameters.
   """
   yaml_tag = u'!SentencepieceTokenizer'
-  tokenize_by_file = 1
 
-  def __init__(self, path, train_files, vocab_size, overwrite=True, model_name='sentpiece'
-      , output_format='piece', model_type='bpe', input_sentence_size=10000000
+  def __init__(self, path, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
+      , output_format='piece', model_type='bpe'
       , encode_extra_options=None, decode_extra_options=None):
     """
     Initialize the wrapper around sentencepiece and train the tokenizer.
@@ -213,38 +145,37 @@ class SentencepieceTokenizer(ExternalTokenizer):
 
     """
     self.sentpiece_path = path
-    self.model_path = model_name + '.model'
+    self.model_prefix = model_prefix
     self.output_format = output_format
     self.input_format = output_format
     self.encode_extra_options = ['--extra_options='+encode_extra_options] if encode_extra_options else []
     self.decode_extra_options = ['--extra_options='+decode_extra_options] if decode_extra_options else []
 
-    if (not overwrite and os.path.exists(self.model_path)
-        and os.path.exists(model_name + '.vocab')):
-      return
-    sentpiece_train_exec_loc = os.path.join(path, 'spm_train')
-    sentpiece_train_command = [sentpiece_train_exec_loc
-        , '--input=' + ','.join(train_files)
-        , '--model_prefix=' + str(model_name)
-        , '--vocab_size=' + str(vocab_size)
-        , '--model_type=' + str(model_type)
-        ]
-    subprocess.call(sentpiece_train_command)
+    if not os.path.exists(os.path.dirname(model_prefix)):
+      try:
+        os.makedirs(os.path.dirname(model_prefix))
+      except OSError as exc:
+        if exc.errno != os.errno.EEXIST:
+          raise
+
+    if ((not os.path.exists(self.model_prefix + '.model')) or
+        (not os.path.exists(self.model_prefix + '.vocab')) or
+        overwrite):
+      sentpiece_train_exec_loc = os.path.join(path, 'spm_train')
+      sentpiece_train_command = [sentpiece_train_exec_loc
+          , '--input=' + ','.join(train_files)
+          , '--model_prefix=' + str(model_prefix)
+          , '--vocab_size=' + str(vocab_size)
+          , '--model_type=' + str(model_type)
+          ]
+      subprocess.call(sentpiece_train_command)
 
     sentpiece_encode_exec_loc = os.path.join(self.sentpiece_path, 'spm_encode')
     sentpiece_encode_command = [sentpiece_encode_exec_loc
-        , '--model=' + self.model_path
+        , '--model=' + self.model_prefix + '.model'
         , '--output_format=' + self.output_format
         ] + self.encode_extra_options
     self.tokenizer_command = sentpiece_encode_command
-
-    sentpiece_decode_exec_loc = os.path.join(self.sentpiece_path, 'spm_decode')
-    sentpiece_decode_command = [sentpiece_decode_exec_loc
-        , '--model=' + self.model_path
-        , '--input_format=' + self.input_format
-        ] + self.decode_extra_options
-    self.detokenizer_command = sentpiece_decode_command
-
 
 ##### Sentence filterers
 

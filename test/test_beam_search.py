@@ -3,16 +3,16 @@ import unittest
 import dynet_config
 import dynet as dy
 
-from xnmt.translator import DefaultTranslator
-from xnmt.embedder import SimpleWordEmbedder
-from xnmt.lstm import LSTMSeqTransducer
 from xnmt.attender import MlpAttender
-from xnmt.decoder import MlpSoftmaxDecoder, CopyBridge
-from xnmt.training_corpus import BilingualTrainingCorpus
-from xnmt.input import BilingualCorpusParser, PlainTextReader
-from xnmt.model_context import ModelContext, PersistentParamCollection
-from xnmt.training_strategy import TrainingStrategy
+from xnmt.bridge import CopyBridge
+from xnmt.decoder import MlpSoftmaxDecoder
+from xnmt.embedder import SimpleWordEmbedder
 import xnmt.events
+from xnmt.input import PlainTextReader
+from xnmt.lstm import BiLSTMSeqTransducer
+from xnmt.loss_calculator import LossCalculator
+from xnmt.translator import DefaultTranslator
+from xnmt.exp_global import ExpGlobal, PersistentParamCollection
 
 class TestForcedDecodingOutputs(unittest.TestCase):
 
@@ -23,32 +23,27 @@ class TestForcedDecodingOutputs(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
-    self.model_context = ModelContext()
-    self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
+    self.exp_global = ExpGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
     self.model = DefaultTranslator(
-              src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              encoder=LSTMSeqTransducer(self.model_context),
-              attender=MlpAttender(self.model_context),
-              trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100),
+              src_reader=PlainTextReader(),
+              trg_reader=PlainTextReader(),
+              src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
+              attender=MlpAttender(exp_global=self.exp_global),
+              trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
-    self.model.initialize_training_strategy(TrainingStrategy())
     self.model.set_train(False)
     self.model.initialize_generator(beam=1)
 
-    self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
-                                              train_trg = "examples/data/head.en",
-                                              dev_src = "examples/data/head.ja",
-                                              dev_trg = "examples/data/head.en")
-    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
-                                          trg_reader = PlainTextReader())
-    self.corpus_parser.read_training_corpus(self.training_corpus)
+    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
+    self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
 
   def assert_forced_decoding(self, sent_id):
     dy.renew_cg()
-    outputs = self.model.generate_output(self.training_corpus.train_src_data[sent_id], sent_id,
-                                         forced_trg_ids=self.training_corpus.train_trg_data[sent_id])
-    self.assertItemsEqual(self.training_corpus.train_trg_data[sent_id], outputs[0].actions)
+    outputs = self.model.generate_output(self.src_data[sent_id], sent_id,
+                                         forced_trg_ids=self.trg_data[sent_id])
+    self.assertItemsEqual(self.trg_data[sent_id], outputs[0].actions)
 
   def test_forced_decoding(self):
     for i in range(1):
@@ -58,70 +53,62 @@ class TestForcedDecodingLoss(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
-    self.model_context = ModelContext()
-    self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
+    self.exp_global = ExpGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
     self.model = DefaultTranslator(
-              src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              encoder=LSTMSeqTransducer(self.model_context),
-              attender=MlpAttender(self.model_context),
-              trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
+              src_reader=PlainTextReader(),
+              trg_reader=PlainTextReader(),
+              src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
+              attender=MlpAttender(exp_global=self.exp_global),
+              trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
-    self.model.initialize_training_strategy(TrainingStrategy())
     self.model.set_train(False)
     self.model.initialize_generator(beam=1)
 
-    self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
-                                              train_trg = "examples/data/head.en",
-                                              dev_src = "examples/data/head.ja",
-                                              dev_trg = "examples/data/head.en")
-    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
-                                          trg_reader = PlainTextReader())
-    self.corpus_parser.read_training_corpus(self.training_corpus)
+    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
+    self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
 
   def test_single(self):
     dy.renew_cg()
-    train_loss = self.model.calc_loss(src=self.training_corpus.train_src_data[0],
-                                      trg=self.training_corpus.train_trg_data[0]).value()
+    train_loss = self.model.calc_loss(src=self.src_data[0],
+                                      trg=self.trg_data[0],
+                                      loss_calculator=LossCalculator()).value()
     dy.renew_cg()
     self.model.initialize_generator(beam=1)
-    outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0,
-                                         forced_trg_ids=self.training_corpus.train_trg_data[0])
+    outputs = self.model.generate_output(self.src_data[0], 0,
+                                         forced_trg_ids=self.trg_data[0])
     self.assertAlmostEqual(-outputs[0].score, train_loss, places=5)
 
 class TestFreeDecodingLoss(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
-    self.model_context = ModelContext()
-    self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
+    self.exp_global = ExpGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
     self.model = DefaultTranslator(
-              src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              encoder=LSTMSeqTransducer(self.model_context),
-              attender=MlpAttender(self.model_context),
-              trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
+              src_reader=PlainTextReader(),
+              trg_reader=PlainTextReader(),
+              src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
+              attender=MlpAttender(exp_global=self.exp_global),
+              trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
-    self.model.initialize_training_strategy(TrainingStrategy())
     self.model.set_train(False)
     self.model.initialize_generator(beam=1)
 
-    self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
-                                              train_trg = "examples/data/head.en",
-                                              dev_src = "examples/data/head.ja",
-                                              dev_trg = "examples/data/head.en")
-    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
-                                          trg_reader = PlainTextReader())
-    self.corpus_parser.read_training_corpus(self.training_corpus)
+    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
+    self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
 
   def test_single(self):
     dy.renew_cg()
     self.model.initialize_generator(beam=1)
-    outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0,
-                                         forced_trg_ids=self.training_corpus.train_trg_data[0])
+    outputs = self.model.generate_output(self.src_data[0], 0,
+                                         forced_trg_ids=self.trg_data[0])
     dy.renew_cg()
-    train_loss = self.model.calc_loss(src=self.training_corpus.train_src_data[0],
-                                      trg=outputs[0].actions).value()
+    train_loss = self.model.calc_loss(src=self.src_data[0],
+                                      trg=outputs[0].actions,
+                                      loss_calculator=LossCalculator()).value()
 
     self.assertAlmostEqual(-outputs[0].score, train_loss, places=5)
 
@@ -131,37 +118,32 @@ class TestGreedyVsBeam(unittest.TestCase):
   """
   def setUp(self):
     xnmt.events.clear()
-    self.model_context = ModelContext()
-    self.model_context.dynet_param_collection = PersistentParamCollection("some_file", 1)
+    self.exp_global = ExpGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
     self.model = DefaultTranslator(
-              src_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              encoder=LSTMSeqTransducer(self.model_context),
-              attender=MlpAttender(self.model_context),
-              trg_embedder=SimpleWordEmbedder(self.model_context, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.model_context, vocab_size=100, bridge=CopyBridge(self.model_context, dec_layers=1)),
+              src_reader=PlainTextReader(),
+              trg_reader=PlainTextReader(),
+              src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
+              attender=MlpAttender(exp_global=self.exp_global),
+              trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
-    self.model.initialize_training_strategy(TrainingStrategy())
     self.model.set_train(False)
 
-    self.training_corpus = BilingualTrainingCorpus(train_src = "examples/data/head.ja",
-                                              train_trg = "examples/data/head.en",
-                                              dev_src = "examples/data/head.ja",
-                                              dev_trg = "examples/data/head.en")
-    self.corpus_parser = BilingualCorpusParser(src_reader = PlainTextReader(),
-                                          trg_reader = PlainTextReader())
-    self.corpus_parser.read_training_corpus(self.training_corpus)
+    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
+    self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
 
   def test_greedy_vs_beam(self):
     dy.renew_cg()
     self.model.initialize_generator(beam=1)
-    outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0,
-                                         forced_trg_ids=self.training_corpus.train_trg_data[0])
+    outputs = self.model.generate_output(self.src_data[0], 0,
+                                         forced_trg_ids=self.trg_data[0])
     output_score1 = outputs[0].score
 
     dy.renew_cg()
     self.model.initialize_generator()
-    outputs = self.model.generate_output(self.training_corpus.train_src_data[0], 0,
-                                         forced_trg_ids=self.training_corpus.train_trg_data[0])
+    outputs = self.model.generate_output(self.src_data[0], 0,
+                                         forced_trg_ids=self.trg_data[0])
     output_score2 = outputs[0].score
 
     self.assertAlmostEqual(output_score1, output_score2)

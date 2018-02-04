@@ -1,45 +1,49 @@
 # Demonstrates random search over model parameters
-defaults:
-  experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
-    run_for_epochs: 1
-    eval_metrics: bleu,wer
-  train:
+defaults: &defaults  !Experiment
+  exp_global: !ExpGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
     default_layer_dim: !RandomParam
       values: [32,64]
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/head.ja
-      train_trg: examples/data/head.en
-      dev_src: examples/data/head.ja
-      dev_trg: examples/data/head.en
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
-      trg_reader: !PlainTextReader {}
-    model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      encoder: !LSTMSeqTransducer
-        layers: !RandomParam
-          values: [1,2,3,4,5]
-      attender: !MlpAttender
-        state_dim: 64
-        hidden_dim: 64
-        input_dim: 64
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      decoder: !MlpSoftmaxDecoder
-        layers: !RefParam
-          ref: model.encoder.layers
-        bridge: !CopyBridge {}
-  decode:
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    encoder: !BiLSTMSeqTransducer
+      layers: !RandomParam &rnd_num_layers
+        _xnmt_id: rnd_num_layers
+        values: [1,2,3,4,5]
+    attender: !MlpAttender
+      state_dim: 64
+      hidden_dim: 64
+      input_dim: 64
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    decoder: !MlpSoftmaxDecoder
+      layers: *rnd_num_layers
+      lstm_dim: 64
+      bridge: !CopyBridge {}
+    inference: !SimpleInference {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 1
     src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
+        ref_file: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
   evaluate:
-    ref_file: examples/data/head.en
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp
 
 # Here we instantiate 3 experiments, for each the random params are drawn independently
-exp1:
-exp2:
-exp3:
+exp1: *defaults
+exp2: *defaults
+exp3: *defaults

@@ -1,0 +1,105 @@
+# Simple example for multi-task training. Here, we have 2 identical tasks with
+# some shared parameters.
+exp1-multi_task_exp: !Experiment
+  exp_global: !ExpGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
+    default_layer_dim: 64
+  train: !SameBatchMultiTaskTrainingRegimen
+    trainer: !AdamTrainer {}
+    tasks:
+    - !SimpleTrainingTask # first task is the main task: it will control early stopping, learning rate schedule, model checkpoints, ..
+      name: first_task
+      run_for_epochs: 6
+      batcher: !SrcBatcher
+        src_pad_token: ~
+        pad_src_to_multiple: 4
+        batch_size: 6 # batch size is twice as big as for task 2, which will give task 1 more impact during training
+      src_file: examples/data/synth.contvec.npz
+      trg_file: examples/data/synth.char
+      model: !DefaultTranslator
+        _xnmt_id: first_task_model
+        src_reader: !ContVecReader
+          transpose: True
+        trg_reader: !PlainTextReader
+          vocab: !Vocab
+            _xnmt_id: trg_vocab
+            vocab_file: examples/data/head.en.vocab
+        src_embedder: !NoopEmbedder
+          emb_dim: 240
+        encoder: !PyramidalLSTMSeqTransducer # the encoder shares parameters between tasks
+          _xnmt_id: first_task_encoder
+          layers: 2
+          downsampling_method: concat
+          reduce_factor: 2
+          input_dim: 240
+          hidden_dim: 64
+        attender: !MlpAttender
+          state_dim: 64
+          hidden_dim: 64
+          input_dim: 64
+        trg_embedder: !SimpleWordEmbedder
+          emb_dim: 64
+          vocab: !Ref {name: trg_vocab}
+        decoder: !MlpSoftmaxDecoder
+          layers: 1
+          lstm_dim: 64
+          bridge: !CopyBridge {}
+          vocab: !Ref {name: trg_vocab}
+        inference: !SimpleInference
+          batcher: !Ref { path: train.tasks.0.batcher }
+      dev_tasks:
+        - !AccuracyEvalTask
+          model: !Ref { name: first_task_model }
+          src_file: &first_task_dev_src examples/data/synth.contvec.npz  # value-sharing between train.training_corpus.dev_src and inference.src_file
+          ref_file: &first_task_dev_trg examples/data/synth.char  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
+          hyp_file: examples/output/{EXP}.first_dev_hyp
+          eval_metrics: bleu # tasks can specify different dev_metrics
+    - !SimpleTrainingTask
+      name: second_task
+      batcher: !SrcBatcher
+        src_pad_token: ~
+        batch_size: 3
+        pad_src_to_multiple: 4
+      src_file: examples/data/synth.contvec.npz
+      trg_file: examples/data/synth.char
+      model: !DefaultTranslator
+        _xnmt_id: second_task_model
+        src_reader: !ContVecReader
+          transpose: True
+        trg_reader: !PlainTextReader
+          vocab: !Ref {name: trg_vocab}
+        src_embedder: !NoopEmbedder
+          emb_dim: 240
+        encoder: !Ref { name: first_task_encoder }
+        attender: !MlpAttender
+          state_dim: 64
+          hidden_dim: 64
+          input_dim: 64
+        trg_embedder: !SimpleWordEmbedder
+          emb_dim: 64
+          vocab: !Ref {name: trg_vocab}
+        decoder: !MlpSoftmaxDecoder
+          layers: 1
+          bridge: !CopyBridge {}
+          vocab: !Ref {name: trg_vocab}
+        inference: !SimpleInference
+          batcher: !Ref { path: train.tasks.1.batcher }
+      dev_tasks:
+        - !AccuracyEvalTask
+          model: !Ref { name: second_task_model }
+          src_file: examples/data/synth.contvec.npz
+          ref_file: examples/data/synth.char  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
+          hyp_file: examples/output/{EXP}.second_dev_hyp
+          eval_metrics: gleu # tasks can specify different dev_metrics
+  evaluate:
+    - !AccuracyEvalTask
+      model: !Ref { name: first_task_model }
+      eval_metrics: bleu,wer
+      src_file: *first_task_dev_src
+      ref_file: *first_task_dev_trg
+      hyp_file: examples/output/{EXP}.test_hyp
+
+exp2-finetune-model: !Experiment
+  load: examples/output/exp1-multi_task_exp.mod  

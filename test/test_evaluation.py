@@ -1,9 +1,10 @@
 import math
-import xnmt.evaluator as evaluator
 import unittest
 
-from xnmt.vocab import Vocab
+from xnmt.test.utils import has_cython
+import xnmt.evaluator as evaluator
 import xnmt.events
+from xnmt.vocab import Vocab
 
 class TestBLEU(unittest.TestCase):
   def setUp(self):
@@ -21,6 +22,7 @@ class TestBLEU(unittest.TestCase):
     act_bleu = bleu.evaluate(self.ref, self.hyp).value()
     self.assertEqual(act_bleu, exp_bleu)
 
+  @unittest.skipUnless(has_cython(), "requires cython to run")
   def test_bleu_4gram_fast(self):
     bleu = evaluator.BLEUEvaluator(ngram=4, smooth=1)
     exp_bleu = math.exp(math.log((3.0/5.0) * (2.0/5.0) * (1.0/4.0) * (1.0/3.0))/4.0)

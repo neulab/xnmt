@@ -1,0 +1,92 @@
+standard-preproc: !Experiment
+  exp_global: !ExpGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
+  preproc: !PreprocRunner
+    overwrite: True
+    preproc_specs:
+    - type: tokenize
+      in_files:
+      - examples/data/head.ja
+      - examples/data/head.en
+      out_files:
+      - examples/output/head.tok.ja
+      - examples/output/head.tok.en
+      specs:
+      - filenum: all
+        tokenizers:
+        - !CharacterTokenizer {}
+    - type: normalize
+      in_files:
+      - examples/output/head.tok.ja
+      - examples/output/head.tok.en
+      - examples/data/head.en
+      out_files:
+      - examples/output/head.tok.norm.ja
+      - examples/output/head.tok.norm.en
+      - examples/output/head.norm.en
+      specs:
+      - filenum: all
+        spec:
+        - type: lower
+    - type: filter
+      in_files:
+      - examples/output/head.tok.norm.ja
+      - examples/output/head.tok.norm.en
+      out_files:
+      - examples/output/head.tok.norm.filter.ja
+      - examples/output/head.tok.norm.filter.en
+      specs:
+      - type: length
+        min: 1
+        max: 50
+    - type: vocab
+      in_files:
+      - examples/output/head.tok.norm.ja
+      - examples/output/head.tok.norm.en
+      out_files:
+      - examples/output/head.vocab.ja
+      - examples/output/head.vocab.en
+      specs:
+      - filenum: all
+        spec:
+        - type: freq
+          min_freq: 2
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab
+        vocab_file: examples/output/head.vocab.ja
+    trg_reader: !PlainTextReader
+      vocab: !Vocab
+        vocab_file: examples/output/head.vocab.en
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 256
+    encoder: !BiLSTMSeqTransducer
+      layers: 1
+    attender: !MlpAttender
+      hidden_dim: 256
+      state_dim: 256
+      input_dim: 256
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 256
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 256
+      bridge: !NoBridge {}
+    inference: !SimpleInference
+      post_process: join-char
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 2
+    src_file: examples/output/head.tok.norm.filter.ja
+    trg_file: examples/output/head.tok.norm.filter.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/output/head.tok.norm.ja
+        ref_file: examples/output/head.tok.norm.en
+  evaluate:
+  - !AccuracyEvalTask
+    eval_metrics: bleu
+    src_file: examples/output/head.tok.norm.ja
+    ref_file: examples/output/head.norm.en
+    hyp_file: examples/output/{EXP}.test_hyp

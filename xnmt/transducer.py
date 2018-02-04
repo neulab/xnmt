@@ -2,7 +2,8 @@ from __future__ import division, generators
 
 import dynet as dy
 
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.tree_tools import Path
 from xnmt.expression_sequence import ExpressionSequence
 
 class Transducer(object):
@@ -20,7 +21,7 @@ class Transducer(object):
   - __init__(...), should be used to configure the transducer. If possible, configuration
     should be transparent to a user and not require understanding of implementation
     details. If the transducer uses DyNet parameters, these must be initialized here.
-    If appropriate, yaml_context argument should be used to access global configuration
+    If appropriate, exp_global argument should be used to access global configuration
     and DyNet parameters
   - __call__(...), will perform the actual transduction and return the result
   """
@@ -89,7 +90,7 @@ class ModularSeqTransducer(SeqTransducer, Serializable):
     self.modules = modules
 
   def shared_params(self):
-    return [set(["input_dim", "modules.0.input_dim"])]
+    return [set([Path(".input_dim"), Path(".modules.0.input_dim")])]
 
   def __call__(self, es):
     for module in self.modules:

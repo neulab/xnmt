@@ -1,55 +1,63 @@
-# Small config to help refactoring to make the model completely YAML based
-defaults:
-  experiment:
-    model_file: examples/output/<EXP>.mod
-    hyp_file: examples/output/<EXP>.hyp
-    out_file: examples/output/<EXP>.out
-    err_file: examples/output/<EXP>.err
-    run_for_epochs: 2
-    eval_metrics: bleu
-  train:
+exp1-pretrain-model: !Experiment
+  exp_global: !ExpGlobal
+    # The model file contain the whole contents of this experiment in YAML
+    # format. Note that {EXP} expressions are left intact when saving.
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
     default_layer_dim: 64
     dropout: 0.5
     weight_noise: 0.1
-    dev_metrics: bleu
-    training_corpus: !BilingualTrainingCorpus
-      train_src: examples/data/head.ja
-      train_trg: examples/data/head.en
-      dev_src: examples/data/head.ja
-      dev_trg: examples/data/head.en
-    corpus_parser: !BilingualCorpusParser
-      src_reader: !PlainTextReader {}
-      trg_reader: !PlainTextReader {}
-      max_src_len: 15
-      max_trg_len: 15
-    model: !DefaultTranslator
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      encoder: !LSTMSeqTransducer
-        layers: 2
-        input_dim: 64
-        bidirectional: True
-      attender: !MlpAttender
-        state_dim: 64
-        hidden_dim: 64
-        input_dim: 64
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 64
-        input_feeding: True
-        bridge: !CopyBridge {}
-  decode:
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    encoder: !BiLSTMSeqTransducer
+      layers: 2
+      input_dim: 64
+    attender: !MlpAttender
+      state_dim: 64
+      hidden_dim: 64
+      input_dim: 64
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 64
+      input_feeding: True
+      bridge: !CopyBridge {}
+    inference: !SimpleInference {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 2
     src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.dev_hyp
   evaluate:
-    ref_file: examples/data/head.en
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp
 
-debug-config-2layers:
-  train:
-    dropout: 0.2
-
-debug-config-2layers-finetune:
-  train:
-    dropout: 0.2
-    pretrained_model_file: examples/output/debug-config-2layers.mod
+exp2-finetune-model: !Experiment
+  # This will load the contents of the above experiments that were saved to the
+  # YAML file specified after load:
+  # This will carry out the exact same thing, except that {EXP} is resolved to
+  # a different value (making sure we don't overwrite the previous model),
+  # and except for the things explicitly overwritten in the overwrite: section.
+  load: examples/output/exp1-pretrain-model.mod
+  overwrite: # list of [path, value] pairs. Value can be scalar or an arbitrary object
+  - path: train.trainer
+    val: !AdamTrainer
+        alpha: 0.0002
+  - path: exp_global.dropout
+    val: 0.5
+      

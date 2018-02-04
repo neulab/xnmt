@@ -14,20 +14,21 @@ import xnmt.linear as linear
 import xnmt.expression_sequence as expression_sequence
 
 from xnmt.batcher import Mask
+from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.reports import Reportable
-from xnmt.serializer import Serializable
+from xnmt.serialize.serializable import Serializable
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import LossBuilder
 from xnmt.segmenting_composer import TailWordSegmentTransformer, WordOnlySegmentTransformer
-from xnmt.parameters import GeometricSequence
+from xnmt.hyper_parameters import GeometricSequence
 
 EPS = 1e-10
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = u'!SegmentingSeqTransducer'
 
-  def __init__(self, yaml_context,
+  def __init__(self, exp_global=Ref(Path("exp_global")),
                ## COMPONENTS
                embed_encoder=None, segment_composer=None, final_transducer=None,
                ## OPTIONS
@@ -38,7 +39,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                confidence_penalty=None, # SegmentationConfidencePenalty
                # For segmentation warmup (Always use the poisson prior)
                segmentation_warmup=0,
-               segmentation_warmup_counter=0,
                ## FLAGS
                learn_delete       = False,
                use_baseline       = True,
@@ -48,7 +48,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                debug=False,
                print_sample=False):
     register_handler(self)
-    model = yaml_context.dynet_param_collection.param_col
+    model = exp_global.dynet_param_collection.param_col
     # Sanity check
     assert embed_encoder is not None
     assert segment_composer is not None
@@ -89,7 +89,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.confidence_penalty = confidence_penalty
     # States of the object
     self.train = False
-    self.segmentation_warmup_counter = segmentation_warmup_counter
 
   def __call__(self, embed_sent):
     batch_size = embed_sent[0].dim()[1]
@@ -125,14 +124,12 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if decision == SegmentingAction.SEGMENT.value:
           # Special case for TailWordSegmentTransformer only
           words = None
-          if type(self.segment_composer.transformer) == TailWordSegmentTransformer or\
-             type(self.segment_composer.transformer) == WordOnlySegmentTransformer:
-            vocab = self.src_sent[i].vocab
-            words = self.src_sent[i].words[last_segment[i]+1:j+1]
-            if vocab is not None:
-              words = "".join(w for w in [vocab[c] for c in words if c != vocab.unk_token])
-            else:
-              words = tuple(words)
+          vocab = self.src_sent[i].vocab
+          words = self.src_sent[i].words[last_segment[i]+1:j+1]
+          if vocab is not None:
+            words = "".join(w for w in [vocab[c] for c in words if c != vocab.unk_token])
+          else:
+            words = tuple(words)
           # Reducing the [expression] -> expression
           expr_seq = expression_sequence.ExpressionSequence(expr_list=buffers[i])
           transduce_output = self.segment_composer.transduce(expr_seq, words)
@@ -263,7 +260,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   # Indicates warmup time. So we shouldn't sample from softmax
   def is_segmentation_warmup(self):
-    return self.segmentation_warmup_counter < self.segmentation_warmup
+    return self.segmentation_warmup_counter <= self.segmentation_warmup
 
   @handle_xnmt_event
   def on_set_train(self, train):
@@ -276,16 +273,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       return self.embed_encoder.get_final_states()
 
   @handle_xnmt_event
-  def on_new_epoch(self):
-    name = ["Epsilon Greedy Prob", "Reinforce Loss Weight", "Confidence Penalty Weight", "Length Prior Weight"]
-    param = [self.eps, self.lmbd, self.confidence_penalty, self.length_prior_alpha]
+  def on_new_epoch(self, training_task, *args, **kwargs):
+    self.segmentation_warmup_counter = training_task.training_state.epoch_num
+    name = ["Epsilon Greedy Prob", "Reinforce Loss Weight", "Confidence Penalty Weight", "Length Prior Weight",
+            "Epoch Counter"]
+    param = [self.eps, self.lmbd, self.confidence_penalty, self.length_prior_alpha, self.segmentation_warmup_counter]
     for n, p in zip(name, param):
       if p is not None:
-        print(n + ":", p.value())
-
-  @handle_xnmt_event
-  def on_next_epoch(self):
-    self.segmentation_warmup_counter += 1
+        print(n + ":", str(p))
 
   @handle_xnmt_event
   def on_calc_additional_loss(self, translator_loss):
