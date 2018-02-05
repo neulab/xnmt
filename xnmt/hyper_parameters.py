@@ -70,12 +70,14 @@ class DefinedSequence(Serializable):
     assert sequence is not None
     assert type(sequence) == list, "DefinedSequence need to have a list type"
     assert len(sequence) > 0, "Please input non empty list for FixedSequence"
+    register_handler(self)
     self.sequence = sequence
     self.epoch_num = 0
 
   @handle_xnmt_event
   def on_new_epoch(self, training_task, *args, **kwargs):
     self.epoch_num = training_task.training_state.epoch_num
+    print("!!!!", self.epoch_num)
 
   def __repr__(self):
     return repr(self.value())
