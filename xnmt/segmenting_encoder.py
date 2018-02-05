@@ -45,6 +45,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                z_normalization    = True,
                learn_segmentation = True,
                compose_char       = False,
+               log_reward         = True,
                debug=False,
                print_sample=False):
     register_handler(self)
@@ -79,6 +80,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.debug = debug
     self.compose_char = compose_char
     self.print_sample = print_sample
+    self.log_reward = log_reward
     # Fixed Parameters
     self.length_prior = length_prior
     self.segmentation_warmup = segmentation_warmup
@@ -286,7 +288,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def on_calc_additional_loss(self, translator_loss):
     if not self.learn_segmentation or self.segment_decisions is None:
       return None
-    reward = -dy.nobackprop(translator_loss["mle"])
+    reward = -translator_loss["mle"]
+    if not self.log_reward:
+      reward = dy.exp(reward)
+    reward = dy.nobackprop(reward)
 
     # Make sure that reward is not scalar, but rather based on the each batch item
     assert reward.dim()[1] == len(self.src_sent)
