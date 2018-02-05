@@ -31,12 +31,8 @@ debug-segmenting: !Experiment
         hidden_dim: 16
         layers: 1
       # Options
-      reinforce_scale: !GeometricSequence
-        initial: 0.1
-        ratio: 2
-        warmup: 1
-        min_value: 0.0
-        max_value: 1.0
+      reinforce_scale: !DefinedSequence
+        sequence: [1, 2]
       confidence_penalty: !SegmentationConfidencePenalty
         strength: !ScalingParam
           initial: 0.1
@@ -69,7 +65,7 @@ debug-segmenting: !Experiment
       report_path: examples/output/{EXP}.report
       report_type: html, file
   train: !SimpleTrainingRegimen
-    run_for_epochs: 2
+    run_for_epochs: 3
     src_file: examples/data/head-char.ja
     trg_file: examples/data/head.en
     dev_tasks:
