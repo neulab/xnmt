@@ -4,7 +4,6 @@ defaults: &defaults !Experiment
     eval_only: true
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
-    err_file: examples/output/{EXP}.err
     default_layer_dim: 64
   model: !DefaultTranslator
     src_reader: !PlainTextReader

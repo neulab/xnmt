@@ -4,7 +4,6 @@ exp1-multi_task_exp: !Experiment
   exp_global: !ExpGlobal
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
-    err_file: examples/output/{EXP}.err
     default_layer_dim: 64
   train: !SameBatchMultiTaskTrainingRegimen
     trainer: !AdamTrainer {}

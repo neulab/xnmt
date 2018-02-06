@@ -4,7 +4,6 @@ exp1-pretrain-model: !Experiment
     # format. Note that {EXP} expressions are left intact when saving.
     model_file: examples/output/{EXP}.mod
     out_file: examples/output/{EXP}.out
-    err_file: examples/output/{EXP}.err
     default_layer_dim: 64
     dropout: 0.5
     weight_noise: 0.1

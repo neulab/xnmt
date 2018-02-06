@@ -3,7 +3,6 @@ defaults: !Experiment
     exp_global: !ExpGlobal
       model_file: examples/output/{EXP}.mod
       out_file: examples/output/{EXP}.out
-      err_file: examples/output/{EXP}.err
       default_layer_dim: 64
       dropout: 0.5
       weight_noise: 0.1
