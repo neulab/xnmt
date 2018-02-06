@@ -26,7 +26,7 @@ There are also a minimal of coding style conventions:
 - Indentation should be two whitespace characters.
 - Docstrings should be made in reST format (e.g. ``:param param_name:``, ``:returns:`` etc.)
 
-We will aim to write unit tests to make sure things don't break, but these are not implemented yet.
+A collection of unit tests exists to make sure things don't break.
 
 In variable names, common words should be abbreviated as:
 
@@ -35,6 +35,23 @@ In variable names, common words should be abbreviated as:
 - sentence -> sent
 - hypothesis -> hyp
 - reference -> ref
+
+For printing output in a consistent and controllable way, the following conventions
+should be followed:
+- logger.info() should be used for most outputs. Such outputs are assumed to
+  be usually shown but can be turned off if needed.
+- print() for regular output without which the execution would be incomplete.
+  The main use case is to print final results, etc.
+- logger.debug() for detailed information that isn't needed in normal operation
+- logger.warning(), logger.error() or logger.critical() for problematic situations
+- yaml_logger(dict) for structured logging of information that should be easily
+  automatically parseable and might be too bulky to print to the console.
+These loggers can be requested as follows:
+
+::
+  import logging
+  logger = logging.getLogger('xnmt')
+  yaml_logger = logging.getLogger('yaml')
 
 Contributing
 ------------
