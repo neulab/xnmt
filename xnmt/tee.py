@@ -20,7 +20,7 @@ class MainFormatter(logging.Formatter):
     if task_name:
       record.msg = f"[{record.task_name}] {record.msg}"
     if record.levelno in [logging.WARNING, logging.ERROR, logging.CRITICAL]:
-      record.msg = f"{record.levelname}: {record.msg}"
+      record.msg = "\n".join([f"{record.levelname}: {line}" for line in record.msg.split("\n")])
     return super().format(record)
 
 class YamlFormatter(logging.Formatter):
@@ -55,11 +55,11 @@ def set_out_file(out_file):
   dirname = os.path.dirname(out_file)
   if dirname and not os.path.exists(dirname):
     os.makedirs(dirname)  
-  fh = logging.FileHandler(out_file)
+  fh = logging.FileHandler(out_file, mode='w')
   fh.setLevel(settings.LOG_LEVEL_FILE)
   fh.setFormatter(MainFormatter())
   logger.addHandler(fh)
-  yaml_fh = logging.FileHandler(f"{out_file}.yaml")
+  yaml_fh = logging.FileHandler(f"{out_file}.yaml", mode='w')
   yaml_fh.setLevel(logging.DEBUG)
   yaml_fh.setFormatter(YamlFormatter())
   yaml_fh.setLevel(logging.DEBUG)
@@ -99,7 +99,7 @@ class Tee(object):
     self.close()
 
   def write(self, data):
-    if data!="\n":
+    if data.strip()!="":
       if self.error:
         self.logger.error(data.rstrip())
       else:

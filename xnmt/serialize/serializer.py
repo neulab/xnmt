@@ -182,13 +182,6 @@ class YamlSerializer(object):
     initialized_obj.serialize_params = serialize_params
     return initialized_obj
 
-  @staticmethod
-  def init_representer(dumper, obj):
-    if not hasattr(obj, "resolved_serialize_params"):
-      raise RuntimeError(f"Serializing object {obj} that does not possess serialize_params, probably because it was created programmatically, is not possible.")
-    serialize_params = obj.resolved_serialize_params
-    return dumper.represent_mapping('!' + obj.__class__.__name__, serialize_params)
-
   def resolve_serialize_refs(self, root):
     for _, node in tree_tools.traverse_serializable_breadth_first(root):
       if isinstance(node, Serializable):
@@ -208,10 +201,6 @@ class YamlSerializer(object):
                   refs_inserted_to.add(path_from)
     
   def dump(self, ser_obj):
-    if not self.representers_added:
-      for SerializableChild in Serializable.__subclasses__():
-        yaml.add_representer(SerializableChild, self.init_representer)
-      self.representers_added = True
     self.resolve_serialize_refs(ser_obj)
     return yaml.dump(ser_obj)
 

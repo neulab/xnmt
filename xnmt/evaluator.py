@@ -1,4 +1,5 @@
 import logging
+from Cython.Compiler.TypeSlots import descrdelfunc
 logger = logging.getLogger('xnmt')
 from collections import defaultdict, Counter
 import math
@@ -6,6 +7,8 @@ import six
 import subprocess
 
 import numpy as np
+
+from xnmt.serialize.serializable import Serializable
 
 class EvalScore(object):
   def higher_is_better(self):
@@ -31,17 +34,21 @@ class EvalScore(object):
     else:
       return f"{self.metric_name()}: {self.score_str()}"
 
-class LossScore(EvalScore):
+class LossScore(EvalScore, Serializable):
+  yaml_tag = "!LossScore"
   def __init__(self, loss, desc=None):
     self.loss = loss
     self.desc = desc
+    self.serialize_params = {"loss":loss}
+    if desc is not None: self.serialize_params["desc"] = desc
   def value(self): return self.loss
   def metric_name(self): return "Loss"
   def higher_is_better(self): return False
   def score_str(self):
     return "{:.3f}".format(self.value())
 
-class BLEUScore(EvalScore):
+class BLEUScore(EvalScore, Serializable):
+  yaml_tag = "!BLEUScore"
   def __init__(self, bleu, frac_score_list=None, brevity_penalty_score=None, hyp_len=None, ref_len=None, ngram=4, desc=None):
     self.bleu = bleu
     self.frac_score_list = frac_score_list
@@ -50,6 +57,8 @@ class BLEUScore(EvalScore):
     self.ref_len = ref_len
     self.ngram   = ngram
     self.desc = desc
+    self.serialize_params = {"bleu":bleu, "ngram":ngram}
+    self.serialize_params.update({k:getattr(self,k) for k in ["frac_score_list","brevity_penalty_score","hyp_len","ref_len","desc"] if getattr(self,k) is not None})
 
   def value(self): return self.bleu
   def metric_name(self): return "BLEU" + str(self.ngram)
@@ -65,46 +74,58 @@ class BLEUScore(EvalScore):
                                                                             self.hyp_len,
                                                                             self.ref_len)
 
-class GLEUScore(EvalScore):
+class GLEUScore(EvalScore, Serializable):
   def __init__(self, gleu, hyp_len, ref_len, desc=None):
     self.gleu = gleu
     self.hyp_len = hyp_len
     self.ref_len = ref_len
     self.desc = desc
+    self.serialize_params = {"gleu":gleu, "hyp_len":hyp_len,"ref_len":ref_len}
+    if desc is not None: self.serialize_params["desc"] = desc
+    
   def value(self): return self.gleu
   def metric_name(self): return "GLEU"
   def higher_is_better(self): return True
   def score_str(self):
     return "{:.6f}".format(self.value())
 
-class WERScore(EvalScore):
+class WERScore(EvalScore, Serializable):
+  yaml_tag = "!WERScore"
   def __init__(self, wer, hyp_len, ref_len, desc=None):
     self.wer = wer
     self.hyp_len = hyp_len
     self.ref_len = ref_len
     self.desc = desc
+    self.serialize_params = {"wer":wer, "hyp_len":hyp_len,"ref_len":ref_len}
+    if desc is not None: self.serialize_params["desc"] = desc
   def value(self): return self.wer
   def metric_name(self): return "WER"
   def higher_is_better(self): return False
   def score_str(self):
     return "{:.2f}% ( hyp_len={}, ref_len={} )".format(self.value()*100.0, self.hyp_len, self.ref_len)
 
-class CERScore(WERScore):
+class CERScore(WERScore, Serializable):
+  yaml_tag = "!CERScore"
   def __init__(self, cer, hyp_len, ref_len, desc=None):
     self.cer = cer
     self.hyp_len = hyp_len
     self.ref_len = ref_len
     self.desc = desc
+    self.serialize_params = {"cer":cer, "hyp_len":hyp_len,"ref_len":ref_len}
+    if desc is not None: self.serialize_params["desc"] = desc
   def metric_name(self): return "CER"
   def value(self): return self.cer
 
-class RecallScore(WERScore):
+class RecallScore(WERScore, Serializable):
+  yaml_tag = "!RecallScore"
   def __init__(self, recall, hyp_len, ref_len, nbest=5, desc=None):
     self.recall  = recall
     self.hyp_len = hyp_len
     self.ref_len = ref_len
     self.nbest   = nbest
     self.desc = desc
+    self.serialize_params = {"recall":recall, "hyp_len":hyp_len,"ref_len":ref_len, "nbest":nbest}
+    if desc is not None: self.serialize_params["desc"] = desc
 
   def score_str(self):
     return "{:.2f}%".format(self.value() * 100.0)
@@ -115,11 +136,14 @@ class RecallScore(WERScore):
   def metric_name(self):
     return "Recall" + str(self.nbest)
 
-class ExternalScore(EvalScore):
+class ExternalScore(EvalScore, Serializable):
+  yaml_tag = "!ExternalScore"
   def __init__(self, value, higher_is_better=True, desc=None):
     self.value = value
     self.higher_is_better = higher_is_better
     self.desc = desc
+    self.serialize_params = {"value":value, "higher_is_better":higher_is_better}
+    if desc is not None: self.serialize_params["desc"] = desc
   def value(self): return self.value
   def metric_name(self): return "External"
   def higher_is_better(self): return self.higher_is_better
