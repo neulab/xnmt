@@ -1,7 +1,8 @@
 import logging
 logger = logging.getLogger('xnmt')
 
-from xnmt.serialize.serializable import Serializable
+from xnmt.exp_global import ExpGlobal
+from xnmt.serialize.serializable import Serializable, bare
 
 class Experiment(Serializable):
   '''
@@ -10,7 +11,7 @@ class Experiment(Serializable):
 
   yaml_tag = u'!Experiment'
 
-  def __init__(self, exp_global=None, load=None, overwrite=None, preproc=None,
+  def __init__(self, exp_global=bare(ExpGlobal), load=None, overwrite=None, preproc=None,
                model=None, train=None, evaluate=None, random_search_report=None):
     self.exp_global = exp_global
     self.load = load

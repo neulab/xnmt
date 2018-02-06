@@ -43,8 +43,6 @@ class YamlSerializer(object):
     # make sure only arguments accepted by the Serializable derivatives' __init__() methods were passed   
     self.check_args(self.deserialized_yaml)
     self.named_paths = self.get_named_paths(self.deserialized_yaml)
-    # if arguments were not given in the YAML file and are set to a Serializable-Stub by default, copy the bare object into the object hierarchy so it can used w/ param sharing etc.
-    self.resolve_bare_default_args(self.deserialized_yaml)
     # if arguments were not given in the YAML file and are set to a Ref by default, copy this Ref into the object structure so that it can be properly resolved in a subsequent step
     self.resolve_ref_default_args(self.deserialized_yaml)
     # if references point to places that are not specified explicitly in the YAML file, but have given default arguments, substitute those default arguments
@@ -69,19 +67,6 @@ class YamlSerializer(object):
         d[xnmt_id] = path
     return d
     
-  def resolve_bare_default_args(self, root):
-    for path, node in tree_tools.traverse_tree(root):
-      if isinstance(node, Serializable):
-        init_args_defaults = tree_tools.get_init_args_defaults(node)
-        for expected_arg in init_args_defaults:
-          if not expected_arg in [x[0] for x in tree_tools.name_children(node, include_reserved=False)]:
-            arg_default = init_args_defaults[expected_arg].default
-            if isinstance(arg_default, Serializable) and not isinstance(arg_default, tree_tools.Ref):
-              if not getattr(arg_default, "_is_bare", False):
-                raise ValueError(f"only Serializables created via bare(SerializableSubtype) are permitted as default arguments; found a fully initialized Serializable: {arg_default} at {path}")
-              self.resolve_bare_default_args(arg_default) # apply recursively
-              setattr(node, expected_arg, arg_default)
-
   def resolve_ref_default_args(self, root):
     for _, node in tree_tools.traverse_tree(root):
       if isinstance(node, Serializable):

@@ -4,6 +4,7 @@ Stores options and default values
 import logging
 logger = logging.getLogger('xnmt')
 import random
+import os
 
 import yaml
 
@@ -94,7 +95,12 @@ class OptionParser(object):
     random_search_report = self.instantiate_random_search(experiment)
     if random_search_report:
       setattr(experiment, 'random_search_report', random_search_report)
-    self.format_strings(experiment, {"EXP":exp_name })
+      
+    # if arguments were not given in the YAML file and are set to a Serializable-Stub by default, copy the bare object into the object hierarchy so it can used w/ param sharing etc.
+    self.resolve_bare_default_args(experiment)
+      
+    self.format_strings(experiment, {"EXP":exp_name,"PID":os.getpid(),
+                                     "EXP_DIR":os.path.dirname(filename)})
 
     return UninitializedYamlObject(experiment)
 
@@ -146,8 +152,26 @@ class OptionParser(object):
         set_descendant(exp_values, path, v)
         param_report[path] = v
     return param_report
+  
+  def resolve_bare_default_args(self, root):
+    for path, node in tree_tools.traverse_tree(root):
+      if isinstance(node, Serializable):
+        init_args_defaults = tree_tools.get_init_args_defaults(node)
+        for expected_arg in init_args_defaults:
+          if not expected_arg in [x[0] for x in tree_tools.name_children(node, include_reserved=False)]:
+            arg_default = init_args_defaults[expected_arg].default
+            if isinstance(arg_default, Serializable) and not isinstance(arg_default, tree_tools.Ref):
+              if not getattr(arg_default, "_is_bare", False):
+                raise ValueError(f"only Serializables created via bare(SerializableSubtype) are permitted as default arguments; "
+                                 f"found a fully initialized Serializable: {arg_default} at {path}")
+              self.resolve_bare_default_args(arg_default) # apply recursively
+              setattr(node, expected_arg, arg_default)
 
   def format_strings(self, exp_values, format_dict):
+    """
+    - replaces strings containing {EXP} and other supported args
+    - also checks if there are default arguments for which no arguments are set and instantiates them with replaced {EXP} if applicable
+    """
     for path, node in tree_tools.traverse_tree(exp_values):
       if isinstance(node, str):
         try:
@@ -158,3 +182,16 @@ class OptionParser(object):
           tree_tools.set_descendant(exp_values,
                                     path,
                                     FormatString(formatted, node))
+      elif isinstance(node, Serializable):
+        init_args_defaults = tree_tools.get_init_args_defaults(node)
+        for expected_arg in init_args_defaults:
+          if not expected_arg in [x[0] for x in tree_tools.name_children(node, include_reserved=False)]:
+            arg_default = init_args_defaults[expected_arg].default
+            if isinstance(arg_default, str):
+              try:
+                formatted = arg_default.format(**format_dict)
+              except (ValueError, KeyError): # will occur e.g. if a vocab entry contains a curly bracket
+                formatted = arg_default
+              if arg_default != formatted:
+                setattr(node, expected_arg, FormatString(formatted, arg_default))
+        
