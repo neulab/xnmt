@@ -9,7 +9,7 @@ from xnmt.serialize.serializable import Serializable
 class ExpGlobal(Serializable):
   yaml_tag = u'!ExpGlobal'
   def __init__(self, model_file="{EXP_DIR}/models/{EXP}.mod", 
-               out_file="{EXP_DIR}/models/{EXP}.mod",
+               out_file="{EXP_DIR}/logs/{EXP}.log",
                dropout = 0.0, weight_noise = 0.0, default_layer_dim = 512,
                save_num_checkpoints=1, eval_only=False, commandline_args=None,
                dynet_param_collection = None):
@@ -22,10 +22,6 @@ class ExpGlobal(Serializable):
     self.eval_only = eval_only
     self.dynet_param_collection = dynet_param_collection or PersistentParamCollection(model_file, save_num_checkpoints)
     self.commandline_args = commandline_args
-  def get_model_file(self, exp_name):
-    return getattr(self, "model_file", f"{exp_name}.mod")
-  def get_out_file(self, exp_name):
-    return getattr(self, "out_file", f"{exp_name}.out")
 
 class PersistentParamCollection(object):
   def __init__(self, model_file, save_num_checkpoints=1):

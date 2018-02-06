@@ -70,7 +70,7 @@ def main(overwrite_args=None):
       yaml_serializer = YamlSerializer()
   
       glob_args = uninitialized_exp_args.data.exp_global
-      out_file = glob_args.get_out_file(experiment_name)
+      out_file = glob_args.out_file
       
       if os.path.isfile(out_file) and not settings.OVERWRITE_LOG:
         logger.warning(f"log file {out_file} already exists; please delete by hand if you want to overwrite it (or use --settings=settings.debug or otherwise set OVERWRITE_LOG=True); skipping experiment..")
@@ -78,7 +78,7 @@ def main(overwrite_args=None):
   
       xnmt.tee.set_out_file(out_file)
   
-      model_file = glob_args.get_model_file(experiment_name)
+      model_file = glob_args.model_file
   
       uninitialized_exp_args.data.exp_global.commandline_args = args
   

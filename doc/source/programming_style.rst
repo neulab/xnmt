@@ -36,8 +36,8 @@ In variable names, common words should be abbreviated as:
 - hypothesis -> hyp
 - reference -> ref
 
-For printing output in a consistent and controllable way, the following conventions
-should be followed:
+For printing output in a consistent and controllable way, a few conventions
+should be followed (see _official documentation: https://docs.python.org/3/howto/logging.html#when-to-use-logging for more details):
 - logger.info() should be used for most outputs. Such outputs are assumed to
   be usually shown but can be turned off if needed.
 - print() for regular output without which the execution would be incomplete.

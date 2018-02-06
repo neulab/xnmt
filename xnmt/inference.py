@@ -98,7 +98,7 @@ class SimpleInference(Serializable):
     # If we're debugging, calculate the loss for each target sentence
     ref_scores = None
     if args["mode"] == 'forceddebug':
-      some_batcher = xnmt.batcher.InOrderBatcher(32) # Arbitrary
+      some_batcher = self.batcher or xnmt.batcher.InOrderBatcher(32) # Arbitrary
       batched_src, batched_ref = some_batcher.pack(src_corpus, ref_corpus)
       ref_scores = []
       for src, ref in zip(batched_src, batched_ref):
