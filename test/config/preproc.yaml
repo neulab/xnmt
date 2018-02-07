@@ -1,7 +1,7 @@
 standard-preproc: !Experiment
   exp_global: !ExpGlobal
     model_file: examples/output/{EXP}.mod
-    out_file: examples/output/{EXP}.out
+    out_file: examples/output/{EXP}.log
   preproc: !PreprocRunner
     overwrite: True
     preproc_specs:

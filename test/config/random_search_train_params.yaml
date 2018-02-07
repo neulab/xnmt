@@ -2,7 +2,7 @@
 defaults: &defaults  !Experiment
   exp_global: !ExpGlobal
     model_file: examples/output/{EXP}.mod
-    out_file: examples/output/{EXP}.out
+    out_file: examples/output/{EXP}.log
     default_layer_dim: !RandomParam
       values: [32,64]
   model: !DefaultTranslator
