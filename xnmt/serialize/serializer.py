@@ -174,7 +174,7 @@ class YamlSerializer(object):
     if "yaml_path" in init_args: init_params["yaml_path"] = path
     try:
       initialized_obj = obj.__class__(**init_params)
-      logger.debug(f"initialized {path}: {obj.__class__.__name__}({dict(init_params)})"[:1000])
+      logger.debug(f"initialized {path}: {obj.__class__.__name__}@{id(obj)}({dict(init_params)})"[:1000])
     except TypeError as e:
       raise ComponentInitError(f"{type(obj)} could not be initialized using params {init_params}, expecting params {init_args.keys()}. "
                                f"Error message: {e}")
