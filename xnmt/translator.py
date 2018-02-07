@@ -145,7 +145,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     if self.calc_global_fertility:
       model_loss.add_loss("fertility", self.global_fertility(masked_attn))
     if self.calc_attention_entropy:
-      model_loss.add_loss("H(attn)", self.attention_entropy(masked_attn))
+      model_loss.add_loss("h(attn)", self.attention_entropy(masked_attn))
 
     return model_loss
 
@@ -204,7 +204,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       a_i += EPS
       entropy.append(dy.cmult(a_i, dy.log(a_i)))
 
-    return -dy.sum_elems(dy.esum(entropy))
+    return dy.sum_elems(dy.esum(entropy))
 
   def set_reporting_src_vocab(self, src_vocab):
     """

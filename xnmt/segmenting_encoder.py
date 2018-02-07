@@ -36,6 +36,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                length_prior_alpha=None, # GeometricSequence
                epsilon_greedy=None,     # GeometricSequence
                reinforce_scale=None,    # GeometricSequence
+               fertility_alpha=None,
+               h_attention_alpha=None,
                confidence_penalty=None, # SegmentationConfidencePenalty
                # For segmentation warmup (Always use the poisson prior)
                segmentation_warmup=0,
@@ -86,6 +88,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.segmentation_warmup = segmentation_warmup
     # Variable Parameters
     self.length_prior_alpha = length_prior_alpha
+    self.fertility_alpha = fertility_alpha
+    self.h_attention_alpha = h_attention_alpha
     self.lmbd = reinforce_scale
     self.eps = epsilon_greedy
     self.confidence_penalty = confidence_penalty
@@ -140,9 +144,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           # Calculate length prior
           if length_prior_enabled:
             length_prior[i] += numpy.log(poisson.pmf(j-last_segment[i], self.length_prior))
-            last_segment[i] = j
+          last_segment[i] = j
         # Notify the segment transducer to process the next decision
         self.segment_composer.next_item()
+    if length_prior_enabled:
+      length_prior = [length_prior[i] / len(outputs[i]) for i in range(len(outputs))]
     # Padding
     outputs, masks = self.pad(outputs)
     self.segment_decisions = segment_decisions
@@ -293,6 +299,17 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       reward = dy.exp(reward)
     reward = dy.nobackprop(reward)
 
+    if "fertility" in translator_loss:
+      fertility = translator_loss.delete_loss("fertility")
+      alpha = self.fertility_alpha.value() if self.fertility_alpha is not None else 1.0
+      reward += alpha * -dy.nobackprop(fertility)
+
+    if "h(attn)" in translator_loss:
+      h_attn = translator_loss.delete_loss("h(attn)")
+      alpha = self.h_attention_alpha.value() if self.h_attention_alpha is not None else 1.0
+      reward += alpha * -dy.nobackprop(h_attn)
+
+
     # Make sure that reward is not scalar, but rather based on the each batch item
     assert reward.dim()[1] == len(self.src_sent)
     # Mask
@@ -315,7 +332,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           loss = dy.cmult(dy.inputTensor(enc_mask[i], batched=True), loss)
         baseline_loss.append(loss)
 
-      ret.add_loss("Baseline", dy.esum(baseline_loss))
+      ret.add_loss("baseline", dy.esum(baseline_loss))
 
     if self.print_sample:
       print(dy.exp(self.segment_logsoftmaxes[i]).npvalue().transpose()[0])
@@ -334,10 +351,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           ll = dy.cmult(dy.inputTensor(enc_mask[i], batched=True), ll)
         reinforce_loss.append(r_i * -ll)
       loss = dy.esum(reinforce_loss) * lmbd
-      ret.add_loss("Reinforce", loss)
+      ret.add_loss("reinf", loss)
     if self.confidence_penalty:
       ls_loss = self.confidence_penalty(self.segment_logsoftmaxes, enc_mask)
-      ret.add_loss("Confidence Penalty", ls_loss)
+      ret.add_loss("conf_pen", ls_loss)
     # Total Loss
     return ret
 

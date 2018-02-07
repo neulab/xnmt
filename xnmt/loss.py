@@ -20,6 +20,11 @@ class LossBuilder(object):
     else:
       self.loss_values[loss_name] += loss_expr
 
+  def delete_loss(self, loss_name):
+    loss = self.loss_values[loss_name]
+    del self.loss_values[loss_name]
+    return loss
+
   def compute(self):
     return dy.sum_batches(dy.esum(list(self.loss_values.values())))
 
@@ -34,6 +39,9 @@ class LossBuilder(object):
 
   def __len__(self):
     return len(self.loss_values)
+
+  def __contains__(self, item):
+    return item in self.loss_values
 
   def __repr__(self):
     loss_str = ", ".join(["%s %f" % (loss_name, dy.sum_batches(loss_value).value()) for loss_name, loss_value in self.loss_values.items()])
