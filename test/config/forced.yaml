@@ -43,6 +43,7 @@ forced: !Experiment
       inference: !SimpleInference
         mode: forced
         ref_file: examples/data/head.en
+        batcher: !InOrderBatcher { batch_size: 32 }
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.forced_hyp
@@ -51,6 +52,7 @@ forced: !Experiment
       inference: !SimpleInference
         mode: forceddebug
         ref_file: examples/data/head.en
+        batcher: !InOrderBatcher { batch_size: 32 }
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.forceddebug_hyp

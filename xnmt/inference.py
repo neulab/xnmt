@@ -3,6 +3,7 @@
 import logging
 logger = logging.getLogger('xnmt')
 import io
+from collections.abc import Iterable
 
 from simple_settings import settings
 
@@ -75,6 +76,8 @@ class SimpleInference(Serializable):
       if args["ref_file"] == None:
         raise RuntimeError("When performing {} decoding, must specify reference file".format(args["mode"]))
       ref_corpus = list(generator.trg_reader.read_sents(args["ref_file"]))
+      if self.max_len and any(len(s)>self.max_len for s in ref_corpus):
+        logger.warning("Forced decoding with some targets being longer than max_len. Increase max_len to avoid unexpected behavior.")
     else:
       ref_corpus = None
     # Vocab
@@ -99,12 +102,17 @@ class SimpleInference(Serializable):
     ref_scores = None
     if args["mode"] == 'forceddebug':
       some_batcher = self.batcher or xnmt.batcher.InOrderBatcher(32) # Arbitrary
+      if not isinstance(some_batcher, xnmt.batcher.InOrderBatcher):
+        raise ValueError(f"forceddebug requires InOrderBatcher, got: {some_batcher}")
       batched_src, batched_ref = some_batcher.pack(src_corpus, ref_corpus)
       ref_scores = []
       for src, ref in zip(batched_src, batched_ref):
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
         loss_expr = generator.calc_loss(src, ref, loss_calculator=LossCalculator())
-        ref_scores.extend(loss_expr.value())
+        if isinstance(loss_expr.value(), Iterable):
+          ref_scores.extend(loss_expr.value())
+        else:
+          ref_scores.append(loss_expr.value())
       ref_scores = [-x for x in ref_scores]
   
     # Perform generation of output
@@ -126,10 +134,10 @@ class SimpleInference(Serializable):
           output = generator.generate_output(src, i, forced_trg_ids=ref_ids)
           # If debugging forced decoding, make sure it matches
           if ref_scores != None and (abs(output[0].score-ref_scores[i]) / abs(ref_scores[i])) > 1e-5:
-            logger.error('Forced decoding score {} and loss {} do not match at sentence {}'.format(output[0].score, ref_scores[i], i))
+            logger.error(f'Forced decoding score {output[0].score} and loss {ref_scores[i]} do not match at sentence {i}')
           output_txt = output[0].plaintext
         # Printing to trg file
-        fp.write(u"{}\n".format(output_txt))
+        fp.write(f"{output_txt}\n")
   
   def get_output_processor(self):
     spec = self.post_process

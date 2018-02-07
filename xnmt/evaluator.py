@@ -67,12 +67,7 @@ class BLEUScore(EvalScore, Serializable):
     if self.bleu is None:
       return "0"
     else:
-      return "{}, {} (BP = {:.6f}, ratio={:.2f}, hyp_len={}, ref_len={})".format(self.bleu,
-                                                                            '/'.join(self.frac_score_list),
-                                                                            self.brevity_penalty_score,
-                                                                            self.hyp_len / self.ref_len,
-                                                                            self.hyp_len,
-                                                                            self.ref_len)
+      return f"{self.bleu}, {'/'.join(self.frac_score_list)} (BP = {self.brevity_penalty_score:.6f}, ratio={self.hyp_len / self.ref_len:.2f}, hyp_len={self.hyp_len}, ref_len={self.ref_len})"
 
 class GLEUScore(EvalScore, Serializable):
   def __init__(self, gleu, hyp_len, ref_len, desc=None):
@@ -102,7 +97,7 @@ class WERScore(EvalScore, Serializable):
   def metric_name(self): return "WER"
   def higher_is_better(self): return False
   def score_str(self):
-    return "{:.2f}% ( hyp_len={}, ref_len={} )".format(self.value()*100.0, self.hyp_len, self.ref_len)
+    return f"{self.value()*100.0:.2f}% ( hyp_len={self.hyp_len}, ref_len={self.ref_len} )"
 
 class CERScore(WERScore, Serializable):
   yaml_tag = "!CERScore"

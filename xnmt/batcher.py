@@ -121,8 +121,11 @@ class InOrderBatcher(Batcher, Serializable):
   """
   A class to create batches in order of the original corpus.
   """
-  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES):
-    super(InOrderBatcher, self).__init__(batch_size, src_pad_token=src_pad_token, trg_pad_token=trg_pad_token)
+  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
+               pad_src_to_multiple=1):
+    super(InOrderBatcher, self).__init__(batch_size, src_pad_token=src_pad_token,
+                                         trg_pad_token=trg_pad_token,
+                                         pad_src_to_multiple=pad_src_to_multiple)
 
   def pack(self, src, trg):
     order = list(range(len(src)))
