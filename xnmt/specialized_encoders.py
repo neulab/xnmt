@@ -1,5 +1,3 @@
-from __future__ import division, print_function
-
 import dynet as dy
 
 from xnmt.expression_sequence import ExpressionSequence

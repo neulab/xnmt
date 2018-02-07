@@ -1,10 +1,12 @@
-from __future__ import division, generators
+import logging
+logger = logging.getLogger('xnmt')
+import six
+import io
 
 import numpy as np
 import dynet as dy
+
 import xnmt.batcher
-import six
-import io
 from xnmt.initializer import LeCunUniform as linear_init
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.serialize.serializable import Serializable
@@ -285,8 +287,8 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
       total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
     self.embeddings = self.dynet_param_collection.param_col.lookup_parameters_from_numpy(initial_embeddings)
 
-    print(f"{in_vocab} vocabulary matches out of {total_embs} total embeddings; "
-          f"{missing} vocabulary words without a pretrained embedding out of {self.vocab_size}")
+    logger.info(f"{in_vocab} vocabulary matches out of {total_embs} total embeddings; "
+                f"{missing} vocabulary words without a pretrained embedding out of {self.vocab_size}")
 
   def _read_fasttext_embeddings(self, vocab, embeddings_file_handle):
     """

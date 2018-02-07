@@ -1,4 +1,5 @@
-from __future__ import division, generators
+import logging
+logger = logging.getLogger('xnmt')
 
 import six
 import dynet as dy
@@ -197,7 +198,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
 
   @handle_xnmt_event
   def on_html_report(self, context=None):
-    print("WARNING: Unimplemented html report for retriever!")
+    logger.warning("Unimplemented html report for retriever!")
     idx, src_words, scores, kbest = self.html_input
     html = etree.Element('html')
     # TODO(philip30): Write the logic of retriever html here

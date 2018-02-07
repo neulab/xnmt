@@ -10,10 +10,6 @@ import itertools
 from lxml import etree
 from simple_settings import settings
 
-import xnmt.plot
-import xnmt.length_normalization
-import xnmt.serialize.serializer
-
 from xnmt.attender import MlpAttender
 from xnmt.batcher import mark_as_batch, is_batched
 from xnmt.decoder import MlpSoftmaxDecoder
@@ -22,12 +18,15 @@ from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_
 from xnmt.generator import GeneratorModel
 from xnmt.inference import SimpleInference
 from xnmt.input import SimpleSentenceInput
+import xnmt.length_normalization
 from xnmt.loss import LossBuilder
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
+import xnmt.plot
 from xnmt.reports import Reportable
 from xnmt.serialize.serializable import Serializable, bare
 from xnmt.search_strategy import BeamSearch, GreedySearch
+import xnmt.serialize.serializer
 from xnmt.serialize.tree_tools import Path
 from xnmt.vocab import Vocab
 

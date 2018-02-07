@@ -1,9 +1,9 @@
 import math
 import unittest
 
-from xnmt.test.utils import has_cython
 import xnmt.evaluator as evaluator
 import xnmt.events
+from xnmt.test.utils import has_cython
 from xnmt.vocab import Vocab
 
 class TestBLEU(unittest.TestCase):

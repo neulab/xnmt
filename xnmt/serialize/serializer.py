@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger('xnmt')
 import os
 import copy
 from functools import lru_cache
@@ -146,7 +148,7 @@ class YamlSerializer(object):
             raise ValueError(f"{path} shared params {shared_param_set} contains Serializable sub-object {child_of_shared_param} which is not permitted")
         shared_val_choices.add(new_shared_val)
       if len(shared_val_choices)>1:
-        print(f"WARNING: inconsistent shared params at {path} for {shared_param_set}: {shared_val_choices}; Ignoring these shared parameters.")
+        logger.warning(f"inconsistent shared params at {path} for {shared_param_set}: {shared_val_choices}; Ignoring these shared parameters.")
       elif len(shared_val_choices)==1:
         for shared_param_path in shared_param_set:
           if shared_param_path[-1] in tree_tools.get_init_args_defaults(tree_tools.get_descendant(root, shared_param_path.parent())):
@@ -163,7 +165,7 @@ class YamlSerializer(object):
           except tree_tools.PathError:
             initialized_component = None
           if self.init_component.cache_info().hits > hits_before:
-            print(f"for {path}: reusing previously initialized {initialized_component}")
+            logger.debug(f"for {path}: reusing previously initialized {initialized_component}")
         else:
           initialized_component = self.init_component(path)
         if len(path)==0:
@@ -187,20 +189,13 @@ class YamlSerializer(object):
     if "yaml_path" in init_args: init_params["yaml_path"] = path
     try:
       initialized_obj = obj.__class__(**init_params)
-      print(f"initialized {path}: {obj.__class__.__name__}({dict(init_params)})"[:1000])
+      logger.debug(f"initialized {path}: {obj.__class__.__name__}@{id(obj)}({dict(init_params)})"[:1000])
     except TypeError as e:
       raise ComponentInitError(f"{type(obj)} could not be initialized using params {init_params}, expecting params {init_args.keys()}. "
                                f"Error message: {e}")
     serialize_params.update(getattr(initialized_obj,"serialize_params",{}))
     initialized_obj.serialize_params = serialize_params
     return initialized_obj
-
-  @staticmethod
-  def init_representer(dumper, obj):
-    if not hasattr(obj, "resolved_serialize_params"):
-      raise RuntimeError(f"Serializing object {obj} that does not possess serialize_params, probably because it was created programmatically, is not possible.")
-    serialize_params = obj.resolved_serialize_params
-    return dumper.represent_mapping('!' + obj.__class__.__name__, serialize_params)
 
   def resolve_serialize_refs(self, root):
     for _, node in tree_tools.traverse_serializable_breadth_first(root):
@@ -221,10 +216,6 @@ class YamlSerializer(object):
                   refs_inserted_to.add(path_from)
 
   def dump(self, ser_obj):
-    if not self.representers_added:
-      for SerializableChild in Serializable.__subclasses__():
-        yaml.add_representer(SerializableChild, self.init_representer)
-      self.representers_added = True
     self.resolve_serialize_refs(ser_obj)
     return yaml.dump(ser_obj)
 

@@ -1,8 +1,7 @@
 reload: !Experiment
   exp_global: !ExpGlobal
     model_file: test/tmp/output/{EXP}.mod
-    out_file: test/tmp/output/{EXP}.out
-    err_file: test/tmp/output/{EXP}.err
+    log_file: test/tmp/output/{EXP}.log
   model: !DefaultTranslator
     src_reader: !ContVecReader
       transpose: True

@@ -1,5 +1,5 @@
-from __future__ import print_function
-
+import logging
+logger = logging.getLogger('xnmt')
 import io
 import six
 import numpy
@@ -399,6 +399,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     return segmented
 
   #### DEBUG
+  # TODO: this should use logger.debug() instead of print()
   def print_debug(self, *args, **kwargs):
     if self.debug:
       print(*args, **kwargs)

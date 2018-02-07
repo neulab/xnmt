@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger('xnmt')
 import os.path
 import io
 
@@ -25,8 +27,8 @@ class PreprocRunner(Serializable):
                                        Option("spec", help_str="The specifications describing which type of processing to use. For normalize and vocab, should consist of the 'lang' and 'spec', where 'lang' can either be 'all' to apply the same type of processing to all languages, or a zero-indexed integer indicating which language to process."),
     :param overwrite (bool): Whether to overwrite files if they already exist.
     """
-    print("> Preprocessing")
-
+    logger.info("> Preprocessing")
+    
     args = dict(preproc_specs=preproc_specs, overwrite=overwrite)
 
     if args["preproc_specs"] == None:
