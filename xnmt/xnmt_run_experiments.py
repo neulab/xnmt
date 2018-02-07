@@ -70,13 +70,13 @@ def main(overwrite_args=None):
       yaml_serializer = YamlSerializer()
   
       glob_args = uninitialized_exp_args.data.exp_global
-      out_file = glob_args.out_file
+      log_file = glob_args.log_file
       
-      if os.path.isfile(out_file) and not settings.OVERWRITE_LOG:
-        logger.warning(f"log file {out_file} already exists; please delete by hand if you want to overwrite it (or use --settings=settings.debug or otherwise set OVERWRITE_LOG=True); skipping experiment..")
+      if os.path.isfile(log_file) and not settings.OVERWRITE_LOG:
+        logger.warning(f"log file {log_file} already exists; please delete by hand if you want to overwrite it (or use --settings=settings.debug or otherwise set OVERWRITE_LOG=True); skipping experiment..")
         continue
   
-      xnmt.tee.set_out_file(out_file)
+      xnmt.tee.set_out_file(log_file)
   
       model_file = glob_args.model_file
   

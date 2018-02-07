@@ -1,7 +1,7 @@
 speech-2layers: !Experiment
   exp_global: !ExpGlobal
     model_file: examples/output/{EXP}.mod
-    out_file: examples/output/{EXP}.log
+    log_file: examples/output/{EXP}.log
     save_num_checkpoints: 2
     default_layer_dim: 32
     dropout: 0.4

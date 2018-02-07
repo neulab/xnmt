@@ -1,7 +1,7 @@
 standard: !Experiment
   exp_global: !ExpGlobal
     model_file: examples/output/{EXP}.mod
-    out_file: examples/output/{EXP}.log
+    log_file: examples/output/{EXP}.log
     dropout: 0.2
     default_layer_dim: 512
   model: !TransformerTranslator

@@ -2,7 +2,7 @@ standard-dropout0.1:
   experiment:
     model_file: examples/output/{EXP}.mod
     hyp_file: examples/output/{EXP}.hyp
-    out_file: examples/output/{EXP}.log
+    log_file: examples/output/{EXP}.log
     eval_metrics: bleu
   train: !SimpleTrainingRegimen
     run_for_epochs: 20
