@@ -8,7 +8,7 @@ from xnmt.serialize.serializable import Serializable
 
 class ExpGlobal(Serializable):
   yaml_tag = u'!ExpGlobal'
-  def __init__(self, model_file="{EXP_DIR}/models/{EXP}.mod", 
+  def __init__(self, model_file="{EXP_DIR}/models/{EXP}.mod",
                out_file="{EXP_DIR}/logs/{EXP}.log",
                dropout = 0.0, weight_noise = 0.0, default_layer_dim = 512,
                save_num_checkpoints=1, eval_only=False, commandline_args=None,

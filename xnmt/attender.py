@@ -20,6 +20,9 @@ class Attender(object):
   def calc_attention(self, state):
     raise NotImplementedError('calc_attention must be implemented for Attender subclasses')
 
+  def get_last_attention(self):
+    return self.attention_vecs[-1]
+
 class MlpAttender(Attender, Serializable):
   '''
   Implements the attention model of Bahdanau et. al (2014)
@@ -47,7 +50,6 @@ class MlpAttender(Attender, Serializable):
     I = self.curr_sent.as_tensor()
     W = dy.parameter(self.pW)
     b = dy.parameter(self.pb)
-
     self.WI = dy.affine_transform([b, W, I])
     wi_dim = self.WI.dim()
     # TODO(philip30): dynet affine transform bug, should be fixed upstream
@@ -82,8 +84,8 @@ class DotAttender(Attender, Serializable):
 
   def __init__(self, scale=True):
     self.curr_sent = None
-    self.attention_vecs = None
     self.scale = scale
+    self.attention_vecs = []
 
   def init_sent(self, sent):
     self.curr_sent = sent
@@ -127,6 +129,7 @@ class BilinearAttender(Attender, Serializable):
     self.attention_vecs = []
     self.I = self.curr_sent.as_tensor()
 
+  # TODO(philip30): Please apply masking here
   def calc_attention(self, state):
     Wa = dy.parameter(self.pWa)
     scores = (dy.transpose(state) * Wa) * self.I

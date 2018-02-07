@@ -18,14 +18,14 @@ class LossTracker(object):
 
   def __init__(self, training_regimen, eval_every, name=None):
     register_handler(self)
-    
+
     self.training_regimen = training_regimen
     self.eval_train_every = 1000
     self.eval_dev_every = eval_every
 
     self.epoch_num = 0
 
-    self.epoch_loss = xnmt.loss.LossBuilder()
+    self.epoch_loss = xnmt.loss.LossScalarBuilder()
     self.epoch_words = 0
     self.sent_num = 0
     self.sent_num_not_report_train = 0
@@ -40,17 +40,17 @@ class LossTracker(object):
     self.start_time = time.time()
     self.last_report_train_time = self.start_time
     self.dev_start_time = self.start_time
-    
+
     self.name = name
 
   @handle_xnmt_event
-  def on_new_epoch(self, training_regimen, num_sents):
+  def on_new_epoch(self, training_task, num_sents):
     """
     Clear epoch-wise counters for starting a new training epoch.
     """
-    if training_regimen is self.training_regimen:
+    if training_task is self.training_regimen:
       self.total_train_sent = num_sents
-      self.epoch_loss = xnmt.loss.LossBuilder()
+      self.epoch_loss.zero()
       self.epoch_words = 0
       self.epoch_num += 1
       self.sent_num = 0
@@ -100,7 +100,7 @@ class LossTracker(object):
                                         "time" : self.format_time(time.time() - self.start_time)})
 
       if len(self.epoch_loss) > 1:
-        for loss_name, loss_values in self.epoch_loss:
+        for loss_name, loss_values in self.epoch_loss.items():
           self.log_readable_and_structured("- {loss_name} {loss:5.6f}",
                                            {"key":"additional_train_loss",
                                             "loss_name" : loss_name,
@@ -148,7 +148,9 @@ class LossTracker(object):
                                       "time" : self.format_time(this_report_time - self.start_time)
                                       })
 
-    save_model = self.dev_score.better_than(self.best_dev_score)
+    save_model = True
+    if self.best_dev_score is not None:
+      save_model = self.dev_score.better_than(self.best_dev_score)
     if save_model:
       self.best_dev_score = self.dev_score
       logger.info("Epoch {:.4f}: best dev score, writing model to {}".format(self.fractional_epoch, model_file))

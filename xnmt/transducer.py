@@ -4,6 +4,7 @@ import dynet as dy
 
 from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.tree_tools import Path
+from xnmt.expression_sequence import ExpressionSequence
 
 class Transducer(object):
   """
@@ -103,13 +104,15 @@ class ModularSeqTransducer(SeqTransducer, Serializable):
     return final_states
 
 
-class IdentityTransducer(Transducer, Serializable):
+class IdentitySeqTransducer(Transducer, Serializable):
   """
   A transducer that simply returns the input.
   """
 
-  yaml_tag = u'!IdentityTransducer'
+  yaml_tag = u'!IdentitySeqTransducer'
 
-  def __call__(self, x):
-    return x
+  def __call__(self, output):
+    if not isinstance(output, ExpressionSequence):
+      output = ExpressionSequence(expr_list=output)
+    return output
 

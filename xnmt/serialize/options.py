@@ -73,7 +73,7 @@ class OptionParser(object):
 
     if "defaults" in experiments: del experiments["defaults"]
     return sorted(experiments.keys())
-    
+
   def parse_experiment(self, filename, exp_name):
     """
     Returns a dictionary of experiments => {task => {arguments object}}
@@ -84,14 +84,14 @@ class OptionParser(object):
     except IOError as e:
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
 
-    experiment = config[exp_name]    
+    experiment = config[exp_name]
 
     for _, node in tree_tools.traverse_tree(experiment):
       if isinstance(node, Serializable):
         self.resolve_kwargs(node)
 
     self.load_referenced_model(experiment)
-    
+
     random_search_report = self.instantiate_random_search(experiment)
     if random_search_report:
       setattr(experiment, 'random_search_report', random_search_report)
@@ -126,7 +126,7 @@ class OptionParser(object):
           except:
             tree_tools.set_descendant(experiment, path, d["val"])
         delattr(experiment, "overwrite")
-      
+
   def resolve_kwargs(self, obj):
     """
     If obj has a kwargs attribute (dictionary), set the dictionary items as attributes

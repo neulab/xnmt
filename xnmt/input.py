@@ -29,8 +29,9 @@ class SimpleSentenceInput(Input):
   """
   A simple sent, represented as a list of tokens
   """
-  def __init__(self, words):
+  def __init__(self, words, vocab=None):
     self.words = words
+    self.vocab = vocab
 
   def __len__(self):
     return len(self.words)
@@ -43,21 +44,21 @@ class SimpleSentenceInput(Input):
       return self
     new_words = list(self.words)
     new_words.extend([token] * pad_len)
-    return self.__class__(new_words)
+    return self.__class__(new_words, self.vocab)
 
   def __str__(self):
     return " ".join(six.moves.map(str, self.words))
 
-class SentenceInput(SimpleSentenceInput):
-  def __init__(self, words):
-    super(SentenceInput, self).__init__(words)
+class AnnotatedSentenceInput(SimpleSentenceInput):
+  def __init__(self, words, vocab=None):
+    super(AnnotatedSentenceInput, self).__init__(words, vocab)
     self.annotation = {}
 
   def annotate(self, key, value):
     self.annotation[key] = value
 
   def get_padded_sent(self, token, pad_len):
-    sent = super(SentenceInput, self).get_padded_sent(token, pad_len)
+    sent = super(AnnotatedSentenceInput, self).get_padded_sent(token, pad_len)
     sent.annotation = self.annotation
     return sent
 
@@ -146,8 +147,9 @@ class PlainTextReader(BaseTextReader, Serializable):
   with one sent per line.
   """
   yaml_tag = u'!PlainTextReader'
-  def __init__(self, vocab=None):
+  def __init__(self, vocab=None, include_vocab_reference=False):
     self.vocab = vocab
+    self.include_vocab_reference = include_vocab_reference
     if vocab is not None:
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
@@ -155,9 +157,10 @@ class PlainTextReader(BaseTextReader, Serializable):
   def read_sents(self, filename, filter_ids=None):
     if self.vocab is None:
       self.vocab = Vocab()
+    vocab_reference = self.vocab if self.include_vocab_reference else None
     return six.moves.map(lambda l: SimpleSentenceInput([self.vocab.convert(word) for word in l.strip().split()] + \
-                                                      [self.vocab.convert(Vocab.ES_STR)]),
-               self.iterate_filtered(filename, filter_ids))
+                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference),
+                         self.iterate_filtered(filename, filter_ids))
 
   def freeze(self):
     self.vocab.freeze()
@@ -184,7 +187,7 @@ class SegmentationTextReader(PlainTextReader):
       self.vocab = Vocab()
     def convert(line, segmentation):
       line = line.strip().split()
-      ret = SentenceInput(list(six.moves.map(self.vocab.convert, line)) + [self.vocab.convert(Vocab.ES_STR)])
+      ret = AnnotatedSentenceInput(list(six.moves.map(self.vocab.convert, line)) + [self.vocab.convert(Vocab.ES_STR)])
       ret.annotate("segment", list(six.moves.map(int, segmentation.strip().split())))
       return ret
 

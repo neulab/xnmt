@@ -36,16 +36,21 @@ class EvalScore(object):
 
 class LossScore(EvalScore, Serializable):
   yaml_tag = "!LossScore"
-  def __init__(self, loss, desc=None):
+  def __init__(self, loss, loss_stats=None, desc=None):
     self.loss = loss
+    self.loss_stats = loss_stats
     self.desc = desc
     self.serialize_params = {"loss":loss}
     if desc is not None: self.serialize_params["desc"] = desc
+    if loss_stats is not None: self.serialize_params["loss_stats"] = desc
   def value(self): return self.loss
   def metric_name(self): return "Loss"
   def higher_is_better(self): return False
   def score_str(self):
-    return "{:.3f}".format(self.value())
+    if self.loss_stats is not None and len(self.loss_stats) > 1:
+      return "{" + ", ".join("%s: %.5f" % (k, v) for k, v in self.loss_stats.items()) + "}"
+    else:
+      return "{:.3f}".format(self.value())
 
 class BLEUScore(EvalScore, Serializable):
   yaml_tag = "!BLEUScore"

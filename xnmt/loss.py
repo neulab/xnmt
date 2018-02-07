@@ -2,46 +2,63 @@ import dynet as dy
 import collections
 
 class LossBuilder(object):
-  def __init__(self):
-    self.loss_nodes  = []
-    self.loss_values = collections.defaultdict(float)
+  def __init__(self, init_loss=None):
+    self.loss_values = collections.defaultdict(lambda: dy.scalarInput(0))
+    if init_loss != None:
+      for key, val in init_loss.items():
+        self.loss_values[key] = val
 
   def add_loss(self, loss_name, loss_expr):
+    if loss_expr is None:
+      return
     if type(loss_expr) == LossBuilder:
-      self.loss_nodes.extend(loss_expr.loss_nodes)
+      for loss_name, loss in loss_expr.loss_values.items():
+        self.loss_values[loss_name] += loss
     else:
-      if loss_expr.dim()[1] > 1:
-        loss_expr = dy.sum_batches(loss_expr)
-      self.loss_nodes.append((loss_name, loss_expr))
+      self.loss_values[loss_name] += loss_expr
 
   def compute(self):
-    ''' Compute all the losses and delete the computational graph reference.
-    '''
-    total_loss = dy.esum([x[1] for x in self.loss_nodes])
-    for loss_name, loss_expr in self.loss_nodes:
-      self.loss_values[loss_name] += loss_expr.value()
-    self.loss_nodes = []
-    return total_loss
+    return dy.sum_batches(dy.esum(list(self.loss_values.values())))
+
+  def value(self):
+    return dy.esum(list(self.loss_values.values())).value()
 
   def __getitem__(self, index):
-    return self.loss_nodes[index][1]
+    return self.loss_values[index]
 
-  def __iter__(self):
-    return iter(self.loss_values.items())
-
-  def sum(self):
-    if len(self.loss_nodes) != 0:
-      raise RuntimeError("There are some uncomputed losses. Call compute() firstly.")
-    return sum(loss for loss in self.loss_values.values())
-
-  def __iadd__(self, other):
-    for name, value in other.loss_values.items():
-      self.loss_values[name] += value
-    return self
+  def get_loss_stats(self):
+    return LossScalarBuilder({k: dy.sum_batches(v).value() for k, v in self.loss_values.items()})
 
   def __len__(self):
     return len(self.loss_values)
 
   def __repr__(self):
-    loss_str = ", ".join(["%s %f" % (loss_name, loss_value) for loss_name, loss_value in self.loss_values.items()])
+    loss_str = ", ".join(["%s %f" % (loss_name, dy.sum_batches(loss_value).value()) for loss_name, loss_value in self.loss_values.items()])
     return "{Loss Builder: %s}" % (loss_str)
+
+class LossScalarBuilder(object):
+  def __init__(self, loss_stats=None):
+    if loss_stats == None:
+      loss_stats = {}
+    self.__loss_stats = loss_stats
+
+  def __iadd__(self, other):
+    for name, value in other.__loss_stats.items():
+      if name in self.__loss_stats:
+        self.__loss_stats[name] += value
+      else:
+        self.__loss_stats[name] = value
+    return self
+
+  def sum(self):
+    return sum([x for x in self.__loss_stats.values()])
+
+  def items(self):
+    return self.__loss_stats.items()
+
+  def __len__(self):
+    return len(self.__loss_stats)
+
+  def zero(self):
+    self.__loss_stats.clear()
+

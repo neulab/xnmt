@@ -79,7 +79,7 @@ class TestEncoder(unittest.TestCase):
               decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100),
             )
     self.assert_in_out_len_equal(model)
-    
+
   def test_py_lstm_encoder_len(self):
     model = DefaultTranslator(
               src_reader=self.src_reader,
@@ -98,7 +98,7 @@ class TestEncoder(unittest.TestCase):
       embeddings = model.src_embedder.embed_sent(src)
       encodings = model.encoder(embeddings)
       self.assertEqual(int(math.ceil(len(embeddings) / float(4))), len(encodings))
-    
+
   def test_py_lstm_mask(self):
     model = DefaultTranslator(
               src_reader=self.src_reader,

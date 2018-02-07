@@ -5,32 +5,51 @@ debug-segmenting: !Experiment
     default_layer_dim: 16
     dropout: 0.5
   model: !DefaultTranslator
-    src_reader: !PlainTextReader
+    src_reader: !SegmentationTextReader
       vocab: !Vocab {vocab_file: examples/data/head-char.ja.vocab}
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    calc_global_fertility: True
+    calc_attention_entropy: True
     src_embedder: !SimpleWordEmbedder
       emb_dim: 16
     encoder: !SegmentingSeqTransducer
+      # Components
       embed_encoder: !BiLSTMSeqTransducer
         input_dim: 16
         hidden_dim: 16
         layers: 1
-      segment_transducer: !SegmentTransducer
+      segment_composer: !SegmentComposer
         encoder: !BiLSTMSeqTransducer
           input_dim: 16
           hidden_dim: 16
           layers: 1
         transformer: !TailSegmentTransformer {}
+      final_transducer: !BiLSTMSeqTransducer
+        input_dim: 16
+        hidden_dim: 16
+        layers: 1
+      # Options
+      reinforce_scale: !DefinedSequence
+        sequence: [1, 2]
+      confidence_penalty: !SegmentationConfidencePenalty
+        strength: !ScalingParam
+          initial: 0.1
+          scaler: !GeometricSequence
+            initial: 1
+            ratio: 0.5
+      length_prior: 3.3
+      length_prior_alpha: !Scalar
+        initial: 0.1
+      epsilon_greedy: !GeometricSequence
+        initial: 0.3
+        ratio: 0.5
+      # Flags
+      debug: True
+      compose_char: True
+      z_normalization: True
       learn_segmentation: True
       learn_delete: False
-      reinforcement_param: !ScalarParam
-        initial: 0.1
-        grow: 2
-        warmup: 1
-        min_value: 0.0
-        max_value: 1.0
-      length_prior: 3.5
     attender: !MlpAttender
       state_dim: 16
       hidden_dim: 16
@@ -40,10 +59,12 @@ debug-segmenting: !Experiment
     decoder: !MlpSoftmaxDecoder
       layers: 1
       mlp_hidden_dim: 16
-      bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+      bridge: !CopyBridge {}  
+    inference: !SimpleInference
+      report_path: examples/output/{EXP}.report
+      report_type: html, file
   train: !SimpleTrainingRegimen
-    run_for_epochs: 2
+    run_for_epochs: 3
     src_file: examples/data/head-char.ja
     trg_file: examples/data/head.en
     dev_tasks:

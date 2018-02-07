@@ -84,7 +84,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     self.vocab_projector = vocab_projector or xnmt.linear.Linear(input_dim = self.mlp_hidden_dim,
                                                                 output_dim = self.vocab_size,
                                                                 model = self.param_col)
-    
+
     # Dropout
     self.dropout = dropout or exp_global.dropout
 
@@ -100,12 +100,12 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     elif trg_reader == None or trg_reader.vocab == None:
       raise ValueError("Could not determine trg_embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
     else:
-      return len(trg_reader.vocab) 
+      return len(trg_reader.vocab)
 
   def shared_params(self):
     return [set([Path(".layers"), Path(".bridge.dec_layers")]),
             set([Path(".lstm_dim"), Path(".bridge.dec_dim")])]
-  
+
   def initial_state(self, enc_final_states, ss_expr):
     """Get the initial state of the decoder given the encoder final states.
 
