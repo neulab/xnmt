@@ -73,6 +73,9 @@ class TestRunningConfig(unittest.TestCase):
   def test_translator_loss(self):
     run.main(["test/config/translator_loss.yaml"])
 
+  def test_unk_run(self):
+    run.main(["test/config/unk.yaml"])
+
   def tearDown(self):
     if os.path.isdir("test/tmp"):
       shutil.rmtree("test/tmp")
