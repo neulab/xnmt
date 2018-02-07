@@ -86,15 +86,16 @@ class Embedder(object):
       return len(trg_reader.vocab)
     else:
       raise ValueError("Attempted to determine vocab size of {} (path: {}), but path was not src_embedder, trg_embedder, or vocab_projector, so it could not determine what part of the model to use. Please set vocab_size or vocab explicitly.".format(self.__class__, yaml_path))
- 
+
 class DenseWordEmbedder(Embedder, Linear, Serializable):
   """
   Word embeddings via full matrix
   """
   yaml_tag = "!DenseWordEmbedder"
-  def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim = None, weight_noise = None, word_dropout = 0.0,
-               fix_norm = None, vocab_size = None, vocab = None, yaml_path = None, 
-               src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
+  def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
+               fix_norm=None, vocab_size=None, vocab=None, yaml_path=None,
+               src_reader=Ref(path=Path("model.src_reader"), required=False),
+               trg_reader=Ref(path=Path("model.trg_reader"), required=False)):
     register_handler(self)
     self.fix_norm = fix_norm
     self.weight_noise = weight_noise or exp_global.weight_noise
@@ -112,7 +113,7 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
   @handle_xnmt_event
   def on_set_train(self, val):
     self.train = val
-  
+
   def embed(self, x):
     if self.train and self.word_dropout > 0.0 and self.word_id_mask is None:
       batch_size = len(x) if xnmt.batcher.is_batched(x) else 1
@@ -141,13 +142,13 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
     if self.train and self.weight_noise > 0.0:
       ret = dy.noise(ret, self.weight_noise)
     return ret
-  
+
   def __call__(self, input_expr):
     W1 = dy.parameter(self.embeddings)
     b1 = dy.parameter(self.bias)
     return dy.affine_transform([b1, W1, input_expr])
-    
-    
+
+
 class SimpleWordEmbedder(Embedder, Serializable):
   """
   Simple word embeddings via lookup.
@@ -172,7 +173,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.word_id_mask = None
     self.train = False
     self.dynet_param_collection = exp_global.dynet_param_collection
-    self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader) 
+    self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
     if init == 'LeCunUniform':
       init = linear_init(self.vocab_size)
     self.embeddings = self.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim),
@@ -262,7 +263,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
 
   yaml_tag = '!PretrainedSimpleWordEmbedder'
 
-  def __init__(self, filename, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm = None, vocab = None, yaml_path = None, 
+  def __init__(self, filename, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm = None, vocab = None, yaml_path = None,
                src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False), exp_global=Ref(Path("exp_global"))):
     """
     :param filename: Filename for the pretrained embeddings

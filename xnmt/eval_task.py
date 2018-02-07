@@ -6,6 +6,7 @@ from xnmt.serialize.serializer import Serializable
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
 from xnmt.serialize.tree_tools import Path, Ref
+from xnmt.loss import LossBuilder, LossScalarBuilder
 import xnmt.xnmt_evaluate
 
 class EvalTask:
@@ -21,7 +22,7 @@ class LossEvalTask(Serializable):
   '''
 
   yaml_tag = u'!LossEvalTask'
-  
+
   def __init__(self, src_file, ref_file, model=Ref(path=Path("model")),
                 batcher=Ref(path=Path("train.batcher"), required=False),
                 loss_calculator=None, max_src_len=None, max_trg_len=None,
@@ -42,14 +43,26 @@ class LossEvalTask(Serializable):
         xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                         self.src_file, self.ref_file, batcher=self.batcher,
                                         max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
-    loss_val = 0
-    ref_words_cnt = 0 
+    loss_val = LossScalarBuilder()
+    ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-      standard_loss = dy.sum_batches(self.model.calc_loss(src, trg, self.loss_calculator))
+
+      loss_builder = LossBuilder()
+      standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
+      additional_loss = self.model.calc_additional_loss(standard_loss)
+      loss_builder.add_loss("standard_loss", standard_loss)
+      loss_builder.add_loss("additional_loss", additional_loss)
+
       ref_words_cnt += self.model.trg_reader.count_words(trg)
-      loss_val += standard_loss.value()
-    return LossScore(loss_val / ref_words_cnt, desc=self.desc), ref_words_cnt
+      loss_val += loss_builder.get_loss_stats()
+
+    loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
+
+    try:
+      return LossScore(loss_stats[self.model.get_primary_loss()], loss_stats=loss_stats, desc=self.desc), ref_words_cnt
+    except KeyError:
+      raise RuntimeError("Did you wrap your loss calculation with LossBuilder({'primary_loss': loss_value}) ?")
 
 class AccuracyEvalTask(Serializable):
   '''
@@ -69,7 +82,7 @@ class AccuracyEvalTask(Serializable):
     self.candidate_id_file = candidate_id_file
     self.inference = inference or self.model.inference
     self.desc=desc
-   
+
   def eval(self):
     self.inference(generator = self.model,
                    src_file = self.src_file,

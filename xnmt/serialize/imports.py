@@ -17,7 +17,7 @@ import xnmt.preproc_runner
 import xnmt.pyramidal
 import xnmt.residual
 import xnmt.retriever
-import xnmt.segment_transducer
+import xnmt.segmenting_composer
 import xnmt.segmenting_encoder
 import xnmt.serialize.tree_tools
 import xnmt.specialized_encoders
@@ -25,3 +25,4 @@ import xnmt.training_regimen
 import xnmt.training_task
 import xnmt.transformer
 import xnmt.translator
+import xnmt.hyper_parameters

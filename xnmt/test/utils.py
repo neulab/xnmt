@@ -4,4 +4,3 @@ def has_cython():
     return True
   except:
     return False
-  

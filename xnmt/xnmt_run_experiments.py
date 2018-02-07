@@ -70,7 +70,7 @@ def main(overwrite_args=None):
     glob_args = uninitialized_exp_args.data.exp_global
     out_file = glob_args.get_out_file(experiment_name)
     err_file = glob_args.get_err_file(experiment_name)
-    
+
     if os.path.isfile(out_file) and not settings.OVERWRITE_LOG:
       print(f"ERROR: log file {out_file} already exists; please delete by hand if you want to overwrite it (or use --settings=settings.debug or otherwise set OVERWRITE_LOG=True); skipping experiment..")
       continue
@@ -102,7 +102,7 @@ def print_results(results):
   for experiment_name, eval_scores in results:
     for i in range(len(eval_scores)):
       print("{:<30}| {:<40}".format((experiment_name if i==0 else ""), str(eval_scores[i])))
-  
+
 
 if __name__ == '__main__':
   import _dynet

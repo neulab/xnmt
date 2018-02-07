@@ -11,7 +11,7 @@ from xnmt.serialize.serializable import Serializable, UninitializedYamlObject
 
 
 class YamlSerializer(object):
-  
+
   def __init__(self):
     self.representers_added = False
 
@@ -30,7 +30,7 @@ class YamlSerializer(object):
   def initialize_object(self, deserialized_yaml_wrapper):
     """
     Initializes a hierarchy of deserialized YAML objects.
-    
+
     :param deserialized_yaml_wrapper: deserialized YAML data inside a UninitializedYamlObject wrapper (classes are resolved and class members set, but __init__() has not been called at this point)
     :returns: the appropriate object, with properly shared parameters and __init__() having been invoked
     """
@@ -38,7 +38,7 @@ class YamlSerializer(object):
       raise AssertionError()
     # make a copy to avoid side effects
     self.deserialized_yaml = copy.deepcopy(deserialized_yaml_wrapper.data)
-    # make sure only arguments accepted by the Serializable derivatives' __init__() methods were passed   
+    # make sure only arguments accepted by the Serializable derivatives' __init__() methods were passed
     self.check_args(self.deserialized_yaml)
     self.named_paths = self.get_named_paths(self.deserialized_yaml)
     # if arguments were not given in the YAML file and are set to a Serializable-Stub by default, copy the bare object into the object hierarchy so it can used w/ param sharing etc.
@@ -48,15 +48,15 @@ class YamlSerializer(object):
     # if references point to places that are not specified explicitly in the YAML file, but have given default arguments, substitute those default arguments
     self.create_referenced_default_args(self.deserialized_yaml)
     # apply sharing as requested by Serializable.shared_params()
-    self.share_init_params_top_down(self.deserialized_yaml)     
+    self.share_init_params_top_down(self.deserialized_yaml)
     # finally, initialize each component via __init__(**init_params), while properly resolving references
     return self.init_components_bottom_up(self.deserialized_yaml)
-  
+
   def check_args(self, root):
     for _, node in tree_tools.traverse_tree(root):
       if isinstance(node, Serializable):
         tree_tools.check_serializable_args_valid(node)
-  
+
   def get_named_paths(self, root):
     d = {}
     for path, node in tree_tools.traverse_tree(root):
@@ -66,7 +66,7 @@ class YamlSerializer(object):
           raise ValueError(f"_xnmt_id {xnmt_id} was specified multiple times!")
         d[xnmt_id] = path
     return d
-    
+
   def resolve_bare_default_args(self, root):
     for path, node in tree_tools.traverse_tree(root):
       if isinstance(node, Serializable):
@@ -119,7 +119,7 @@ class YamlSerializer(object):
                 raise ValueError(f"Reference '{node}' is required but does not exist")
               give_up = True
           if give_up: break
-  
+
   def share_init_params_top_down(self, root):
     abs_shared_param_sets = []
     for path, node in tree_tools.traverse_tree(root):
@@ -142,7 +142,7 @@ class YamlSerializer(object):
         except tree_tools.PathError:
           continue
         for _, child_of_shared_param in tree_tools.traverse_tree(new_shared_val, include_root=False):
-          if isinstance(child_of_shared_param, Serializable): 
+          if isinstance(child_of_shared_param, Serializable):
             raise ValueError(f"{path} shared params {shared_param_set} contains Serializable sub-object {child_of_shared_param} which is not permitted")
         shared_val_choices.add(new_shared_val)
       if len(shared_val_choices)>1:
@@ -151,7 +151,7 @@ class YamlSerializer(object):
         for shared_param_path in shared_param_set:
           if shared_param_path[-1] in tree_tools.get_init_args_defaults(tree_tools.get_descendant(root, shared_param_path.parent())):
             tree_tools.set_descendant(root, shared_param_path, list(shared_val_choices)[0])
-  
+
   def init_components_bottom_up(self, root):
     for path, node in tree_tools.traverse_tree_deep_once(root, root, tree_tools.TraversalOrder.ROOT_LAST, named_paths=self.named_paths):
       if isinstance(node, Serializable):
@@ -219,7 +219,7 @@ class YamlSerializer(object):
                   tree_tools.set_descendant(root, path_from.parent().append("resolved_serialize_params").append(path_from[-1]), ref)
                   refs_inserted_at.add(path_from)
                   refs_inserted_to.add(path_from)
-    
+
   def dump(self, ser_obj):
     if not self.representers_added:
       for SerializableChild in Serializable.__subclasses__():

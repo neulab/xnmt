@@ -1,9 +1,9 @@
 import unittest
 import os, shutil, sys
 
-if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.unittest")
+#if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.unittest")
 
-from test.utils import has_cython
+from xnmt.test.utils import has_cython
 import xnmt.xnmt_run_experiments as run
 import xnmt.events
 
@@ -68,7 +68,7 @@ class TestRunningConfig(unittest.TestCase):
 
   def test_transformer(self):
     run.main(["test/config/transformer.yaml"])
-    
+
   @unittest.skipUnless(has_cython(), "requires cython to run")
   def test_translator_loss(self):
     run.main(["test/config/translator_loss.yaml"])

@@ -27,7 +27,7 @@ class Mask(object):
 
   def __len__(self):
     return self.np_arr.shape[1]
- 
+
   def batch_size(self):
     return self.np_arr.shape[0]
 
@@ -44,7 +44,7 @@ class Mask(object):
       else:
         mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1), batched=True)
       return tensor_expr + mask_expr
-  
+
   def lin_subsampled(self, reduce_factor=None, trg_len=None):
     if reduce_factor:
       return Mask(np.array([[self.np_arr[b,int(i*reduce_factor)] for i in range(int(math.ceil(len(self)/float(reduce_factor))))] for b in range(self.batch_size())]))
@@ -67,6 +67,9 @@ class Mask(object):
         return expr
       mask_exp = dy.inputTensor(self.np_arr[:,timestep:timestep+1].transpose(), batched=True)
     return dy.cmult(expr, mask_exp)
+
+  def get_active_one_mask(self):
+    return 1 - self.np_arr
 
 class Batcher(object):
   """
@@ -196,7 +199,7 @@ def len_or_zero(val):
 
 class SrcBatcher(SortBatcher, Serializable):
   yaml_tag = u"!SrcBatcher"
-  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, 
+  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
                break_ties_randomly=True, pad_src_to_multiple=1):
     super(SrcBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[0]), granularity='sent',
                                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
@@ -205,7 +208,7 @@ class SrcBatcher(SortBatcher, Serializable):
 
 class TrgBatcher(SortBatcher, Serializable):
   yaml_tag = u"!TrgBatcher"
-  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, 
+  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
                break_ties_randomly=True, pad_src_to_multiple=1):
     super(TrgBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[1]), granularity='sent',
                                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
@@ -224,7 +227,7 @@ class SrcTrgBatcher(SortBatcher, Serializable):
 
 class TrgSrcBatcher(SortBatcher, Serializable):
   yaml_tag = u"!TrgSrcBatcher"
-  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, 
+  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
                break_ties_randomly=True, pad_src_to_multiple=1):
     super(TrgSrcBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]),
                                         granularity='sent',

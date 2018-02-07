@@ -2,13 +2,17 @@ from __future__ import division, generators
 
 import six
 import io
-import xnmt.plot
 import dynet as dy
 import numpy as np
 import itertools
+
 # Reporting purposes
 from lxml import etree
 from simple_settings import settings
+
+import xnmt.plot
+import xnmt.length_normalization
+import xnmt.serialize.serializer
 
 from xnmt.attender import MlpAttender
 from xnmt.batcher import mark_as_batch, is_batched
@@ -18,13 +22,12 @@ from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_
 from xnmt.generator import GeneratorModel
 from xnmt.inference import SimpleInference
 from xnmt.input import SimpleSentenceInput
-import xnmt.length_normalization
+from xnmt.loss import LossBuilder
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
 from xnmt.reports import Reportable
 from xnmt.serialize.serializable import Serializable, bare
 from xnmt.search_strategy import BeamSearch, GreedySearch
-import xnmt.serialize.serializer
 from xnmt.serialize.tree_tools import Path
 from xnmt.vocab import Vocab
 
@@ -54,6 +57,9 @@ class Translator(GeneratorModel):
   def set_post_processor(self, post_processor):
     self.post_processor = post_processor
 
+  def get_primary_loss(self):
+    return "mle"
+
 class DefaultTranslator(Translator, Serializable, Reportable):
   '''
   A default translator based on attentional sequence-to-sequence models.
@@ -61,10 +67,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
   yaml_tag = u'!DefaultTranslator'
 
-  def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder), 
-               encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender), 
-               trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder), 
-               inference=bare(SimpleInference)):
+  def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
+               encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
+               trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
+               inference=bare(SimpleInference), calc_global_fertility=False, calc_attention_entropy=False):
     '''Constructor.
 
     :param src_reader: A reader for the source side.
@@ -84,6 +90,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
+    self.calc_global_fertility = calc_global_fertility
+    self.calc_attention_entropy = calc_attention_entropy
     self.inference = inference
 
   def shared_params(self):
@@ -122,7 +130,24 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     # Initialize the hidden state from the encoder
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
     dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
-    return loss_calculator(self, dec_state, src, trg)
+    # Compose losses
+    model_loss = LossBuilder()
+    model_loss.add_loss("mle", loss_calculator(self, dec_state, src, trg))
+
+    if self.calc_global_fertility or self.calc_attention_entropy:
+      # philip30: I assume that attention_vecs is already masked src wisely.
+      # Now applying the mask to the target
+      masked_attn = self.attender.attention_vecs
+      if trg.mask is not None:
+        trg_mask = trg.mask.get_active_one_mask().transpose()
+        masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
+
+    if self.calc_global_fertility:
+      model_loss.add_loss("fertility", self.global_fertility(masked_attn))
+    if self.calc_attention_entropy:
+      model_loss.add_loss("H(attn)", self.attention_entropy(masked_attn))
+
+    return model_loss
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
@@ -141,17 +166,45 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       # In case of reporting
       if self.report_path is not None:
         src_words = [self.reporting_src_vocab[w] for w in sents]
-        trg_words = [self.trg_vocab[w] for w in output_actions]
-        attentions = self.attender.attention_vecs
-        self.set_report_input(idx, src_words, trg_words, attentions)
+        trg_words = [self.trg_vocab[w] for w in output_actions.word_ids]
+        # Attentions
+        attentions = output_actions.attentions
+        if type(attentions) == dy.Expression:
+          attentions = attentions.npvalue()
+        elif type(attentions) == list:
+          attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
+        elif type(attentions) != np.ndarray:
+          raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
+        # Segmentation
+        segment = self.get_report_resource("segmentation")
+        if segment is not None:
+          segment = list(six.moves.map(lambda x: int(x[0]), segment))
+          src_inp = [x[0] for x in self.encoder.apply_segmentation(src_words, segment)]
+        else:
+          src_inp = src_words
+        # Other Resources
+        self.set_report_input(idx, src_inp, trg_words, attentions)
         self.set_report_resource("src_words", src_words)
         self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
         self.generate_report(self.report_type)
       # Append output to the outputs
-      outputs.append(TextOutput(actions=output_actions,
+      outputs.append(TextOutput(actions=output_actions.word_ids,
                                 vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
                                 score=score))
+    self.outputs = outputs
     return outputs
+
+  def global_fertility(self, a):
+    return dy.sum_elems(dy.square(1 - dy.esum(a)))
+
+  def attention_entropy(self, a):
+    EPS = 1e-10
+    entropy = []
+    for a_i in a:
+      a_i += EPS
+      entropy.append(dy.cmult(a_i, dy.log(a_i)))
+
+    return -dy.sum_elems(dy.esum(entropy))
 
   def set_reporting_src_vocab(self, src_vocab):
     """
@@ -191,46 +244,29 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       att_text.text = "Attention:"
       etree.SubElement(attention, 'br')
       attention_file = u"{}.attention.png".format(path_to_report)
-
-      if type(att) == dy.Expression:
-        attentions = att.npvalue()
-      elif type(att) == list:
-        attentions = np.concatenate([x.npvalue() for x in att], axis=1)
-      elif type(att) != np.ndarray:
-        raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
-      xnmt.plot.plot_attention(src, trg, attentions, file_name = attention_file)
+      xnmt.plot.plot_attention(src, trg, att, file_name = attention_file)
 
     # return the parent context to be used as child context
     return html
 
   @handle_xnmt_event
   def on_file_report(self):
-    idx, src, trg, att = self.get_report_input()
-    path_to_report = self.get_report_path()
-
-    # Writing attention matrix to text file
-    if not any([src is None, trg is None, att is None]):
-      attention_file = u"{}.attention.txt".format(path_to_report)
-
-      if type(att) == dy.Expression:
-        attentions = att.npvalue()
-      elif type(att) == list:
-        attentions = np.concatenate([x.npvalue() for x in att], axis=1)
-      elif type(att) != np.ndarray:
-        raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
-      assert attentions.shape == (len(src), len(trg))
-
-      # Not sure why elsewhere in the code the attention matrix is line-indexed by src
-      # and column-indexed by trg (the convention seems to be the other way around,
-      # eg. in [Bahdanau, 2014] https://arxiv.org/pdf/1409.0473.pdf)
-      # I expect attention matrices to sum to 1.0 line-wise.
-      att_transpose = np.transpose(attentions)
-      with io.open(attention_file, 'w', encoding='utf-8') as f:
-        f.write('\t' + '\t'.join(src) + '\n')
-        for i in range(len(trg)):
-          coeffs = '\t'.join(map(str, list(att_transpose[i])))
-          f.write('{}\t{}\n'.format(trg[i], coeffs))
-
+    idx, src, trg, attn = self.get_report_input()
+    assert attn.shape == (len(src), len(trg))
+    col_length = []
+    for word in trg:
+      col_length.append(max(len(word), 6))
+    col_length.append(max(len(x) for x in src))
+    with io.open(self.get_report_path() + ".attention.txt", encoding='utf-8', mode='w') as attn_file:
+      for i in range(len(src)+1):
+        if i == 0:
+          words = trg + [""]
+        else:
+          words = ["%.4f" % (f) for f in attn[i-1]] + [src[i-1]]
+        str_format = ""
+        for length in col_length:
+          str_format += "{:%ds}" % (length+2)
+        print(str_format.format(*words), file=attn_file)
 
 class TransformerTranslator(Translator, Serializable, Reportable):
   yaml_tag = u'!TransformerTranslator'
@@ -378,7 +414,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
     concat_t_block = (1 - trg_mask.ravel()).reshape(-1) * np.array(ref_list)
     loss = self.decoder.output_and_loss(h_block, concat_t_block)
-    return loss
+    return LossBuilder({"mle": loss})
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
     self.start_sent(src)
