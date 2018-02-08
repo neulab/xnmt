@@ -42,7 +42,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None,
                dev_tasks=None, restart_trainer=False, reload_command=None,
                name=None, sample_train_sents=None, max_num_train_sents=None,
-               max_src_len=None, max_trg_len=None,
+               max_src_len=None, max_trg_len=None, only_additional_loss=False, start_epoch=None,
                exp_global=Ref(Path("exp_global"))):
     """
     :param model: a generator.GeneratorModel object
@@ -88,6 +88,8 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                      max_num_train_sents=max_num_train_sents,
                      max_src_len=max_src_len,
                      max_trg_len=max_trg_len,
+                     only_additional_loss=only_additional_loss,
+                     start_epoch=start_epoch,
                      exp_global=exp_global)
     self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(exp_global=self.exp_global, e0=0.1)
     self.dynet_profiling = getattr(exp_global.commandline_args, "dynet_profiling", 0)

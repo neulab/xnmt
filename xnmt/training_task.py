@@ -71,6 +71,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                initial_patience=None, dev_tasks=None, restart_trainer=False,
                reload_command=None, name=None, sample_train_sents=None,
                max_num_train_sents=None, max_src_len=None, max_trg_len=None,
+               only_additional_loss=False, start_epoch=None,
                exp_global=Ref(Path("exp_global"))):
     """
     :param exp_global:
@@ -88,7 +89,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     :param restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
     :param reload_command: Command to change the input data after each epoch.
                            --epoch EPOCH_NUM will be appended to the command.
-                           To just reload the data after each epoch set the command to 'true'.
+                           To just reload the data after each epoch set the command to 'true.
     :param sample_train_sents:
     :param max_num_train_sents:
     :param max_src_len:
@@ -114,6 +115,10 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     # training state
     self.training_state = TrainingState()
 
+    if start_epoch is not None:
+      self.training_state.epoch_num = start_epoch
+
+    self.only_additional_loss = only_additional_loss
     self.reload_command = reload_command
 
     self.model = model
@@ -245,6 +250,9 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     additional_loss = self.model.calc_additional_loss(standard_loss)
     loss_builder.add_loss("standard_loss", standard_loss)
     loss_builder.add_loss("additional_loss", additional_loss)
+
+    if self.only_additional_loss:
+      loss_builder.delete_loss(self.model.get_primary_loss())
 
     loss_value = loss_builder.compute()
     self.logger.update_epoch_loss(src, trg, loss_builder.get_loss_stats())

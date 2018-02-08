@@ -36,18 +36,16 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                length_prior_alpha=None, # GeometricSequence
                epsilon_greedy=None,     # GeometricSequence
                reinforce_scale=None,    # GeometricSequence
-               fertility_alpha=None,
-               h_attention_alpha=None,
                confidence_penalty=None, # SegmentationConfidencePenalty
                # For segmentation warmup (Always use the poisson prior)
                segmentation_warmup=0,
                ## FLAGS
                learn_delete       = False,
                use_baseline       = True,
+               learn_baseline     = True,
                z_normalization    = True,
                learn_segmentation = True,
                compose_char       = False,
-               log_reward         = True,
                debug=False,
                print_sample=False):
     register_handler(self)
@@ -82,14 +80,12 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.debug = debug
     self.compose_char = compose_char
     self.print_sample = print_sample
-    self.log_reward = log_reward
+    self.learn_baseline = learn_baseline
     # Fixed Parameters
     self.length_prior = length_prior
     self.segmentation_warmup = segmentation_warmup
     # Variable Parameters
     self.length_prior_alpha = length_prior_alpha
-    self.fertility_alpha = fertility_alpha
-    self.h_attention_alpha = h_attention_alpha
     self.lmbd = reinforce_scale
     self.eps = epsilon_greedy
     self.confidence_penalty = confidence_penalty
@@ -109,7 +105,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     buffers = [[] for _ in range(batch_size)]
     outputs = [[] for _ in range(batch_size)]
     last_segment = [-1 for _ in range(batch_size)]
-    length_prior = [0 for _ in range(batch_size)]
     length_prior_enabled = self.length_prior_alpha is not None and self.length_prior_alpha.value() > 0
     self.segment_composer.set_input_size(batch_size, len(encodings))
     # input
@@ -142,13 +137,13 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           outputs[i].append(transduce_output)
           buffers[i] = []
           # Calculate length prior
-          if length_prior_enabled:
-            length_prior[i] += numpy.log(poisson.pmf(j-last_segment[i], self.length_prior))
+          #if length_prior_enabled:
+          #  length_prior[i] += numpy.log(poisson.pmf(j-last_segment[i], self.length_prior))
           last_segment[i] = j
         # Notify the segment transducer to process the next decision
         self.segment_composer.next_item()
     if length_prior_enabled:
-      length_prior = [length_prior[i] / len(outputs[i]) for i in range(len(outputs))]
+      length_prior = [poisson.pmf(len(outputs[i])-1, len(self.src_sent[i])/self.length_prior) for i in range(len(outputs))]
     # Padding
     outputs, masks = self.pad(outputs)
     self.segment_decisions = segment_decisions
@@ -156,7 +151,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.enc_mask = enc_mask
     # Packing output together
     if self.learn_segmentation:
-      self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
+      if length_prior_enabled:
+        self.segment_length_prior = dy.log(dy.inputTensor(length_prior, batched=True))
       if self.use_baseline:
         self.bs = [self.baseline(dy.nobackprop(enc)) for enc in encodings]
     if not self.train:
@@ -219,7 +215,9 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       for i in range(len(segment_decisions)):
         if len(mask[i]) != 0:
           segment_decisions[i-1][mask[i]] = 1
-    segment_decisions[-1][:] = 1
+    segment_decisions[-1][:] = 1 # </s>
+    if len(segment_decisions) > 1:
+      segment_decisions[-2][:] = 1 # words[-1]
 
     return segment_decisions, segment_logsoftmaxes
 
@@ -294,22 +292,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def on_calc_additional_loss(self, translator_loss):
     if not self.learn_segmentation or self.segment_decisions is None:
       return None
-    reward = -translator_loss["mle"]
-    if not self.log_reward:
-      reward = dy.exp(reward)
+    reward = -(translator_loss.sum())
     reward = dy.nobackprop(reward)
-
-    if "fertility" in translator_loss:
-      fertility = translator_loss.delete_loss("fertility")
-      alpha = self.fertility_alpha.value() if self.fertility_alpha is not None else 1.0
-      reward += alpha * -dy.nobackprop(fertility)
-
-    if "h(attn)" in translator_loss:
-      h_attn = translator_loss.delete_loss("h(attn)")
-      alpha = self.h_attention_alpha.value() if self.h_attention_alpha is not None else 1.0
-      reward += alpha * -dy.nobackprop(h_attn)
-
-
     # Make sure that reward is not scalar, but rather based on the each batch item
     assert reward.dim()[1] == len(self.src_sent)
     # Mask
@@ -324,7 +308,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     if self.z_normalization:
       reward = dy.cdiv(reward-dy.mean_batches(reward), dy.std_batches(reward) + EPS)
     ## Baseline Loss
-    if self.use_baseline:
+    if self.use_baseline and self.learn_baseline:
       baseline_loss = []
       for i, baseline in enumerate(self.bs):
         loss = dy.squared_distance(reward, baseline)
@@ -333,9 +317,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         baseline_loss.append(loss)
 
       ret.add_loss("baseline", dy.esum(baseline_loss))
-
     if self.print_sample:
-      print(dy.exp(self.segment_logsoftmaxes[i]).npvalue().transpose()[0])
+      print(dy.exp(self.segment_logsoftmaxes[0]).npvalue().transpose()[0])
     ## Reinforce Loss
     lmbd = self.lmbd.value()
     if lmbd > 0.0:
@@ -450,8 +433,8 @@ class SegmentationConfidencePenalty(Serializable):
 
   def __call__(self, logsoftmaxes, mask):
     strength = self.strength.value()
-    if strength == 0:
-      return 0
+    if strength < 1e-8:
+      return None
     neg_entropy = []
     for i, logsoftmax in enumerate(logsoftmaxes):
       loss = dy.cmult(dy.exp(logsoftmax), logsoftmax)

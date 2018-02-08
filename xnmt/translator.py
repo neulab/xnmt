@@ -20,6 +20,7 @@ from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_handler
 from xnmt.generator import GeneratorModel
+from xnmt.hyper_parameters import multiply_weight
 from xnmt.inference import SimpleInference
 from xnmt.input import SimpleSentenceInput
 from xnmt.loss import LossBuilder
@@ -70,7 +71,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
-               inference=bare(SimpleInference), calc_global_fertility=False, calc_attention_entropy=False):
+               inference=bare(SimpleInference), calc_global_fertility=False, calc_attention_entropy=False,
+               global_fertility_weight=None, attention_entropy_weight=None):
     '''Constructor.
 
     :param src_reader: A reader for the source side.
@@ -92,6 +94,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.decoder = decoder
     self.calc_global_fertility = calc_global_fertility
     self.calc_attention_entropy = calc_attention_entropy
+    self.attention_entropy_weight = attention_entropy_weight
+    self.global_fertility_weight = global_fertility_weight
     self.inference = inference
 
   def shared_params(self):
@@ -195,16 +199,16 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     return outputs
 
   def global_fertility(self, a):
-    return dy.sum_elems(dy.square(1 - dy.esum(a)))
+    return multiply_weight(dy.sum_elems(dy.square(1 - dy.esum(a))), self.global_fertility_weight)
 
   def attention_entropy(self, a):
     EPS = 1e-10
     entropy = []
     for a_i in a:
-      a_i += EPS
-      entropy.append(dy.cmult(a_i, dy.log(a_i)))
+      val = a_i + EPS
+      entropy.append(-dy.cmult(val, dy.log(val)))
 
-    return dy.sum_elems(dy.esum(entropy))
+    return multiply_weight(dy.sum_elems(dy.esum(entropy)), self.attention_entropy_weight)
 
   def set_reporting_src_vocab(self, src_vocab):
     """

@@ -87,3 +87,11 @@ class DefinedSequence(Serializable):
     else:
       return self.sequence[self.epoch_num]
 
+def multiply_weight(value, weight):
+  weight = weight if weight is not None else 0
+  if weight is not None and hasattr(weight, "value"):
+    weight = weight.value()
+  if weight < 1e-8:
+    return None
+  else:
+    return value * weight

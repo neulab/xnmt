@@ -33,7 +33,7 @@ class SegmentTransformer(Serializable):
   def transform(self, encoder, encodings, word=None):
     raise RuntimeError("Should call subclass of SegmentTransformer instead")
 
-class TailSegmentTransformer(SegmentTransformer):
+class TailSegmentTransformer(SegmentTransformer, Serializable):
   yaml_tag = u"!TailSegmentTransformer"
   def transform(self, encoder, encodings, word=None):
     return encoder.get_final_states()[0]._main_expr

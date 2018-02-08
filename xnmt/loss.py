@@ -7,6 +7,7 @@ import collections
 class LossBuilder(object):
   def __init__(self, init_loss=None):
     self.loss_values = collections.defaultdict(lambda: dy.scalarInput(0))
+    self.modified = True
     if init_loss != None:
       for key, val in init_loss.items():
         self.loss_values[key] = val
@@ -14,6 +15,7 @@ class LossBuilder(object):
   def add_loss(self, loss_name, loss_expr):
     if loss_expr is None:
       return
+    self.modified = True
     if type(loss_expr) == LossBuilder:
       for loss_name, loss in loss_expr.loss_values.items():
         self.loss_values[loss_name] += loss
@@ -21,15 +23,22 @@ class LossBuilder(object):
       self.loss_values[loss_name] += loss_expr
 
   def delete_loss(self, loss_name):
+    self.modified = True
     loss = self.loss_values[loss_name]
     del self.loss_values[loss_name]
     return loss
 
   def compute(self):
-    return dy.sum_batches(dy.esum(list(self.loss_values.values())))
+    return dy.sum_batches(self.sum())
+
+  def sum(self):
+    if self.modified:
+      self.sum_value = dy.esum(list(self.loss_values.values()))
+      self.modified = False
+    return self.sum_value
 
   def value(self):
-    return dy.esum(list(self.loss_values.values())).value()
+    return self.sum().value()
 
   def __getitem__(self, index):
     return self.loss_values[index]

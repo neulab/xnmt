@@ -47,8 +47,8 @@ debug-segmenting: !Experiment
         ratio: 0.5
       # Flags
       debug: True
-      compose_char: True
-      z_normalization: True
+      compose_char: False
+      z_normalization: False
       learn_segmentation: True
       learn_delete: False
     attender: !MlpAttender
