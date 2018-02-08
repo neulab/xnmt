@@ -1,5 +1,6 @@
-from __future__ import division, generators
-
+import logging
+logger = logging.getLogger('xnmt')
+yaml_logger = logging.getLogger('yaml')
 import time
 
 import xnmt.loss
@@ -11,20 +12,20 @@ class LossTracker(object):
   A template class to track training process and generate report.
   """
 
-  REPORT_TEMPLATE           = 'Epoch %.4f: {}_loss/word=%.6f (words=%d, words/sec=%.2f, time=%s)'
-  REPORT_TEMPLATE_DEV       = '  Epoch %.4f dev %s (words=%d, words/sec=%.2f, time=%s)'
-  REPORT_TEMPLATE_DEV_AUX   = '  Epoch %.4f dev [auxiliary] %s'
+  REPORT_TEMPLATE           = 'Epoch {epoch:.4f}: {data}_loss/word={loss:.6f} (words={words}, words/sec={words_per_sec:.2f}, time={time})'
+  REPORT_TEMPLATE_DEV       = 'Epoch {epoch:.4f} dev {score} (words={words}, words/sec={words_per_sec:.2f}, time={time})'
+  REPORT_TEMPLATE_DEV_AUX   = 'Epoch {epoch:.4f} dev auxiliary {score}'
 
   def __init__(self, training_regimen, eval_every, name=None):
     register_handler(self)
-    
+
     self.training_regimen = training_regimen
     self.eval_train_every = 1000
     self.eval_dev_every = eval_every
 
     self.epoch_num = 0
 
-    self.epoch_loss = xnmt.loss.LossBuilder()
+    self.epoch_loss = xnmt.loss.LossScalarBuilder()
     self.epoch_words = 0
     self.sent_num = 0
     self.sent_num_not_report_train = 0
@@ -39,17 +40,17 @@ class LossTracker(object):
     self.start_time = time.time()
     self.last_report_train_time = self.start_time
     self.dev_start_time = self.start_time
-    
+
     self.name = name
 
   @handle_xnmt_event
-  def on_new_epoch(self, training_regimen, num_sents):
+  def on_new_epoch(self, training_task, num_sents):
     """
     Clear epoch-wise counters for starting a new training epoch.
     """
-    if training_regimen is self.training_regimen:
+    if training_task is self.training_regimen:
       self.total_train_sent = num_sents
-      self.epoch_loss = xnmt.loss.LossBuilder()
+      self.epoch_loss.zero()
       self.epoch_words = 0
       self.epoch_num += 1
       self.sent_num = 0
@@ -72,12 +73,11 @@ class LossTracker(object):
   def format_time(self, seconds):
     return "{}-{}".format(int(seconds) // 86400,
                           time.strftime("%H:%M:%S", time.gmtime(seconds)))
-
-  def print_log(self, print_str):
-    if self.name:
-      print("[{}] {}".format(self.name, print_str))
-    else:
-      print(print_str)
+  
+  def log_readable_and_structured(self, template, args):
+    if self.name: args["task_name"] = self.name
+    logger.info(template.format(**args), extra=args)
+    yaml_logger.info(args)
 
   def report_train_process(self):
     """
@@ -91,15 +91,20 @@ class LossTracker(object):
       self.sent_num_not_report_train = self.sent_num_not_report_train % self.eval_train_every
       self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
       this_report_time = time.time()
-      self.print_log(LossTracker.REPORT_TEMPLATE.format('train') % (
-                 self.fractional_epoch, self.epoch_loss.sum() / self.epoch_words,
-                 self.epoch_words,
-                 (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
-                 self.format_time(time.time() - self.start_time)))
+      self.log_readable_and_structured(LossTracker.REPORT_TEMPLATE,
+                                       {"key": "train_loss", "data" : "train",
+                                        "epoch" : self.fractional_epoch,
+                                        "loss" : self.epoch_loss.sum() / self.epoch_words,
+                                        "words" : self.epoch_words,
+                                        "words_per_sec" : (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
+                                        "time" : self.format_time(time.time() - self.start_time)})
 
       if len(self.epoch_loss) > 1:
-        for loss_name, loss_values in self.epoch_loss:
-          self.print_log("- %s %5.6f" % (loss_name, loss_values / self.epoch_words))
+        for loss_name, loss_values in self.epoch_loss.items():
+          self.log_readable_and_structured("- {loss_name} {loss:5.6f}",
+                                           {"key":"additional_train_loss",
+                                            "loss_name" : loss_name,
+                                            "loss" : loss_values / self.epoch_words})
 
       self.last_report_words = self.epoch_words
       self.last_report_train_time = this_report_time
@@ -134,22 +139,28 @@ class LossTracker(object):
     sent_num = self.eval_dev_every if self.eval_dev_every != 0 else self.total_train_sent
     self.sent_num_not_report_dev = self.sent_num_not_report_dev % sent_num
     self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
-    self.print_log(LossTracker.REPORT_TEMPLATE_DEV % (
-               self.fractional_epoch,
-               self.dev_score,
-               self.dev_words,
-               self.dev_words / (this_report_time - self.dev_start_time),
-               self.format_time(this_report_time - self.start_time)))
+    self.log_readable_and_structured(LossTracker.REPORT_TEMPLATE_DEV,
+                                     {"key" : "dev_loss",
+                                      "epoch" : self.fractional_epoch,
+                                      "score" : self.dev_score,
+                                      "words" : self.dev_words,
+                                      "words_per_sec" :  self.dev_words / (this_report_time - self.dev_start_time),
+                                      "time" : self.format_time(this_report_time - self.start_time)
+                                      })
 
-    save_model = self.dev_score.better_than(self.best_dev_score)
+    save_model = True
+    if self.best_dev_score is not None:
+      save_model = self.dev_score.better_than(self.best_dev_score)
     if save_model:
       self.best_dev_score = self.dev_score
-      self.print_log('  Epoch %.4f: best dev score, writing model to %s' % (self.fractional_epoch, model_file))
-
+      logger.info("Epoch {:.4f}: best dev score, writing model to {}".format(self.fractional_epoch, model_file))
     return save_model
 
   def report_auxiliary_score(self, score):
-    self.print_log(LossTracker.REPORT_TEMPLATE_DEV_AUX % (self.fractional_epoch, score))
+    self.log_readable_and_structured(LossTracker.REPORT_TEMPLATE_DEV_AUX,
+                                     {"key": "auxiliary_score",
+                                      "epoch" : self.fractional_epoch,
+                                      "score" : score})
 
   def count_trg_words(self, trg_words):
     """

@@ -4,8 +4,7 @@ modular:
     eval_metrics: bleu,wer
     model_file: examples/output/{EXP}.mod
     hyp_file: examples/output/{EXP}.hyp
-    out_file: examples/output/{EXP}.out
-    err_file: examples/output/{EXP}.err
+    log_file: examples/output/{EXP}.log
   train: &defaults_train
     dropout: 0.5
     default_layer_dim: 64

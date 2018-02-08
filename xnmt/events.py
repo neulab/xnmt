@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger('xnmt')
+
 """
 This implements events in XNMT. Events are handled globally, i.e. caller and handler
 do not need to know about each other, and it is not possible to limit the scope of an
@@ -106,7 +109,7 @@ def handle_xnmt_event(f):
     try:
       return f(obj, *args, **kwargs), f.__name__
     except:
-      print("Error handling xnmt event at object:", obj.__class__.__name__)
+      logger.error("Error handling xnmt event at object:", obj.__class__.__name__)
       raise
   assert f.__name__.startswith("on_"), "xnmt event handlers must be named on_*, found {}".format(f.__name__)
   handler_method_names.add(f.__name__[3:])

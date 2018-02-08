@@ -17,7 +17,7 @@ class GeneratorModel(object):
     pass
 
   @register_xnmt_event
-  def new_epoch(self, training_regimen, num_sents):
+  def new_epoch(self, training_task, num_sents):
     pass
 
   @register_xnmt_event
@@ -30,6 +30,9 @@ class GeneratorModel(object):
 
   def calc_loss(self, src, trg, src_mask=None, trg_mask=None):
     raise NotImplementedError()
+
+  def get_primary_loss(self):
+    raise NotImplementedError("Pick a key for primary loss that is used for dev_loss calculation")
 
   @register_xnmt_event_sum
   def calc_additional_loss(self, reward):

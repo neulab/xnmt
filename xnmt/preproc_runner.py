@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger('xnmt')
 import os.path
 import io
 
@@ -25,19 +27,19 @@ class PreprocRunner(Serializable):
                                        Option("spec", help_str="The specifications describing which type of processing to use. For normalize and vocab, should consist of the 'lang' and 'spec', where 'lang' can either be 'all' to apply the same type of processing to all languages, or a zero-indexed integer indicating which language to process."),
     :param overwrite (bool): Whether to overwrite files if they already exist.
     """
-    print("> Preprocessing")
+    logger.info("> Preprocessing")
     
     args = dict(preproc_specs=preproc_specs, overwrite=overwrite)
-  
+
     if args["preproc_specs"] == None:
       return
-  
+
     for arg in args["preproc_specs"]:
-  
+
       # Sanity check
       if len(arg["in_files"]) != len(arg["out_files"]):
         raise RuntimeError("Length of in_files and out_files in preprocessor must be identical")
-  
+
       # Perform tokenization
       if arg["type"] == 'tokenize':
         tokenizers = {my_opts["filenum"]: [tok
@@ -53,7 +55,7 @@ class PreprocRunner(Serializable):
                 in_stream = tokenizer.tokenize_stream(in_stream)
               for line in in_stream:
                 out_stream.write("{}\n".format(line))
-  
+
       # Perform normalization
       elif arg["type"] == 'normalize':
         normalizers = {my_opts["filenum"]: Normalizer.from_spec(my_opts["spec"]) for my_opts in arg["specs"]}
@@ -68,7 +70,7 @@ class PreprocRunner(Serializable):
                 for normalizer in my_normalizers:
                   line = normalizer.normalize(line)
                 out_stream.write(line + "\n")
-  
+
       # Perform filtering
       # TODO: This will only work with plain-text sentences at the moment. It would be nice if it plays well with the readers
       #       in input.py
@@ -87,7 +89,7 @@ class PreprocRunner(Serializable):
         for x in out_streams:
           if x != None:
             x.close()
-  
+
       # Vocabulary selection
       # TODO: This will only work with plain-text sentences at the moment. It would be nice if it plays well with the readers
       #       in input.py
@@ -106,7 +108,7 @@ class PreprocRunner(Serializable):
                 vocab = my_filter.filter(vocab)
               for word in vocab.keys():
                 out_stream.write((word + u"\n"))
-  
+
       else:
         raise RuntimeError("Unknown preprocessing type {}".format(arg['type']))
 

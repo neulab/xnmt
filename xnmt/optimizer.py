@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger('xnmt')
+
 import dynet as dy
 import numpy as np
 from xnmt.serialize.serializable import Serializable
@@ -23,31 +26,35 @@ class XnmtOptimizer(object):
 
 class SimpleSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!SimpleSGDTrainer'
+
   def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.1):
-    self.optimizer = dy.SimpleSGDTrainer(exp_global.dynet_param_collection.param_col, 
+    self.optimizer = dy.SimpleSGDTrainer(exp_global.dynet_param_collection.param_col,
                                          e0)
 class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!MomentumSGDTrainer'
   def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.01, mom = 0.9):
-    self.optimizer = dy.MomentumSGDTrainer(exp_global.dynet_param_collection.param_col, 
+    self.optimizer = dy.MomentumSGDTrainer(exp_global.dynet_param_collection.param_col,
                                            e0, mom)
 
 class AdagradTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!AdagradTrainer'
+
   def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.1, eps = 1e-20):
-    self.optimizer = dy.AdagradTrainer(exp_global.dynet_param_collection.param_col, 
+    self.optimizer = dy.AdagradTrainer(exp_global.dynet_param_collection.param_col,
                                        e0, eps=eps)
 
 class AdadeltaTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!AdadeltaTrainer'
+
   def __init__(self, exp_global=Ref(Path("exp_global")), eps = 1e-6, rho = 0.95):
-    self.optimizer = dy.AdadeltaTrainer(exp_global.dynet_param_collection.param_col, 
+    self.optimizer = dy.AdadeltaTrainer(exp_global.dynet_param_collection.param_col,
                                         eps, rho)
 
 class AdamTrainer(XnmtOptimizer, Serializable):
   yaml_tag = u'!AdamTrainer'
+
   def __init__(self, exp_global=Ref(Path("exp_global")), alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
-    self.optimizer = dy.AdamTrainer(exp_global.dynet_param_collection.param_col, 
+    self.optimizer = dy.AdamTrainer(exp_global.dynet_param_collection.param_col,
                                     alpha, beta_1, beta_2, eps)
 
 class TransformerAdamTrainer(XnmtOptimizer, Serializable):
@@ -73,5 +80,5 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
     self.optimizer.update()
 
     if self.steps % 200 == 0:
-      print('> Optimizer Logging')
-      print('  Steps=%d, learning_rate=%.2e' % (self.steps, self.optimizer.learning_rate))
+      logger.info('> Optimizer Logging')
+      logger.info('  Steps=%d, learning_rate=%.2e' % (self.steps, self.optimizer.learning_rate))

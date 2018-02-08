@@ -49,7 +49,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     self.Wh = dy.parameter(self.p_Wh)
     self.b = dy.parameter(self.p_b)
     self.dropout_mask_x = None
-    self.dropout_mask_h = None    
+    self.dropout_mask_h = None
 
   def get_final_states(self):
     return self._final_states
@@ -72,7 +72,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
       expr_seq = [expr_seq]
     batch_size = expr_seq[0][0].dim()[1]
     seq_len = len(expr_seq[0])
-    
+
     if self.dropout_rate > 0.0 and self.train:
       self.set_dropout_masks(batch_size=batch_size)
 

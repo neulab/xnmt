@@ -1,8 +1,7 @@
 prior-segmenting: !Experiment
   exp_global: !ExpGlobal
     model_file: examples/output/{EXP}.mod
-    out_file: examples/output/{EXP}.out
-    err_file: examples/output/{EXP}.err
+    log_file: examples/output/{EXP}.log
     default_layer_dim: 16
     dropout: 0.5
   model: !DefaultTranslator
@@ -13,21 +12,27 @@ prior-segmenting: !Experiment
     src_embedder: !SimpleWordEmbedder
       emb_dim: 16
     encoder: !SegmentingSeqTransducer
+      debug: True
       embed_encoder: !BiLSTMSeqTransducer
         input_dim: 16
         hidden_dim: 16
         layers: 1
-      segment_transducer: !SegmentTransducer
+      segment_composer: !SegmentComposer
         encoder: !BiLSTMSeqTransducer
           input_dim: 16
           hidden_dim: 16
           layers: 1
         transformer: !TailSegmentTransformer {}
-      learn_segmentation: False
+      final_transducer: !BiLSTMSeqTransducer
+        input_dim: 16
+        hidden_dim: 16
+        layers: 1
+      learn_segmentation: True
+      segmentation_warmup: 1
       learn_delete: False
-      reinforcement_param: !ScalarParam
+      reinforce_scale: !GeometricSequence
         initial: 0.1
-        grow: 2
+        ratio: 2
         warmup: 1
         min_value: 0.0
         max_value: 1.0
