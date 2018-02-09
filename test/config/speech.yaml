@@ -28,7 +28,8 @@ speech-2layers: !Experiment
       transpose: True
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-    inference: !SimpleInference {}
+    inference: !SimpleInference
+      report_path: examples/output/report/
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     batcher: !SrcBatcher
@@ -49,6 +50,7 @@ speech-2layers: !Experiment
         hyp_file: examples/output/{EXP}.dev_hyp
         inference: !SimpleInference
           post_process: join-char
+          report_path: examples/output/report.{EXP}
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: cer,wer

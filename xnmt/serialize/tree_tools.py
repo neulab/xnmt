@@ -175,7 +175,8 @@ def get_child_dict(node, name):
   return node[name]
 @get_child.register(Serializable)
 def get_child_serializable(node, name):
-  if not hasattr(node, name): raise PathError(f"{node} has not child named {name}")
+  if not hasattr(node, name):
+    raise PathError(f"{node} has not child named {name}")
   return getattr(node,name)
 
 @singledispatch
