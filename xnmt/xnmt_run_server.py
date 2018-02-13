@@ -50,7 +50,7 @@ class evaluate:
   def GET(self):
     i = web.input(_unicode=False, q="no data")
     output = predict(model_list, i)
-    return " ".join(output)
+    return output   
 
   def POST(self):
     return self.GET()
@@ -65,7 +65,7 @@ def predict(exp_list, text):
   src_text = text.q
   result = ""
 
-  with open(TMP_SRC_FILE_PATH, 'wb') as out_file:
+  with open(TMP_SRC_FILE_PATH, 'w', encoding='utf-8') as out_file:
     out_file.write(text.q)
   
   for exp in exp_list:
@@ -75,8 +75,6 @@ def predict(exp_list, text):
       result = "".join(list(map(lambda x: str(x[0]) + ' ||| ' + x[1], enumerate(result))))
     os.remove(TMP_SRC_FILE_PATH)
     os.remove(TMP_TRG_FILE_PATH)
-  
-  print(result)
 
   return result
 
