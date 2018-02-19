@@ -17,9 +17,6 @@ class ScalingParam(Serializable):
       value *= self.scaler.value()
     return value
 
-  def __repr__(self):
-    return str(self.value())
-
 class Scalar(Serializable):
   yaml_tag = u"!Scalar"
 
@@ -29,25 +26,22 @@ class Scalar(Serializable):
   def value(self):
     return self.__value
 
-  def __repr__(self):
-    return str(self.value())
-
 class GeometricSequence(Serializable):
   ''' initial^(epoch) '''
   yaml_tag = u'!GeometricSequence'
 
   # Do not set warmup_counter manually.
-  def __init__(self, initial=0.1, warmup=0, ratio=1, min_value=0.0, max_value=1.0):
+  def __init__(self, initial=0.1, warmup=0, ratio=1, min=0.0, max=1.0):
     register_handler(self)
     self.__value = initial
     self.warmup = warmup
     self.ratio = ratio
-    self.min_value = min_value
-    self.max_value = max_value
+    self.min_value = min
+    self.max_value = max
     self.epoch_num = 0
 
   def value(self):
-    if self.epoch_num >= self.warmup:
+    if hasattr(self, "epoch_num") and self.epoch_num >= self.warmup:
       return self.__value
     else:
       return 0.0
@@ -60,9 +54,6 @@ class GeometricSequence(Serializable):
       value = max(self.min_value, value)
       value = min(self.max_value, value)
       self.__value = value
-
-  def __repr__(self):
-    return repr(self.value())
 
 class DefinedSequence(Serializable):
   yaml_tag = u'!DefinedSequence'
@@ -78,14 +69,11 @@ class DefinedSequence(Serializable):
   def on_new_epoch(self, training_task, *args, **kwargs):
     self.epoch_num = training_task.training_state.epoch_num
 
-  def __repr__(self):
-    return repr(self.value())
-
   def value(self):
     if self.epoch_num >= len(self.sequence):
       return self.sequence[-1]
     else:
-      return self.sequence[self.epoch_num]
+      return self.sequence[self.epoch_num-1]
 
 def multiply_weight(value, weight):
   weight = weight if weight is not None else 0

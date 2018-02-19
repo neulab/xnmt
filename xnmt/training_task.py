@@ -245,9 +245,11 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     Performs forward pass, backward pass, parameter update for the given minibatch
     """
+    trg_word_counts = self.logger.count_trg_words(trg)
+
     loss_builder = LossBuilder()
     standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-    additional_loss = self.model.calc_additional_loss(standard_loss)
+    additional_loss = self.model.calc_additional_loss(standard_loss, trg_word_counts)
     loss_builder.add_loss("standard_loss", standard_loss)
     loss_builder.add_loss("additional_loss", additional_loss)
 

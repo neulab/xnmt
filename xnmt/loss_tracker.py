@@ -66,7 +66,7 @@ class LossTracker(object):
     self.sent_num += batch_sent_num
     self.sent_num_not_report_train += batch_sent_num
     self.sent_num_not_report_dev += batch_sent_num
-    self.epoch_words += self.count_trg_words(trg)
+    self.epoch_words += sum(self.last_trg_words)
     self.epoch_loss += loss
 
   def format_time(self, seconds):
@@ -180,12 +180,14 @@ class BatchLossTracker(LossTracker):
   """
 
   def count_trg_words(self, trg_words):
-    trg_cnt = 0
-    for x in trg_words:
-      if type(x) == int:
-        trg_cnt += 1 if x != Vocab.ES else 0
+    trg_cnt = [0 for _ in range(len(trg_words))]
+    for i in range(len(trg_words)):
+      item = trg_words[i]
+      if type(item) == int:
+        trg_cnt[i] = 1 if item != Vocab.ES else 0
       else:
-        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
+        trg_cnt[i] = sum([1 if y != Vocab.ES else 0 for y in item])
+    self.last_trg_words = trg_cnt
     return trg_cnt
 
   def count_sent_num(self, obj):

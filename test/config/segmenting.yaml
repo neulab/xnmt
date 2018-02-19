@@ -51,6 +51,8 @@ debug-segmenting: !Experiment
       z_normalization: False
       learn_segmentation: True
       learn_delete: False
+      print_sample: True
+      print_sample_prob: 1.0
     attender: !MlpAttender
       state_dim: 16
       hidden_dim: 16

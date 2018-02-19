@@ -47,14 +47,15 @@ class LossEvalTask(Serializable):
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+      trg_word_count = self.model.trg_reader.count_words(trg)
 
       loss_builder = LossBuilder()
       standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-      additional_loss = self.model.calc_additional_loss(standard_loss)
+      additional_loss = self.model.calc_additional_loss(standard_loss, [trg_word_count])
       loss_builder.add_loss("standard_loss", standard_loss)
       loss_builder.add_loss("additional_loss", additional_loss)
 
-      ref_words_cnt += self.model.trg_reader.count_words(trg)
+      ref_words_cnt += trg_word_count
       loss_val += loss_builder.get_loss_stats()
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}

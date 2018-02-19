@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import copy
 import io
 import six
 import numpy
@@ -37,8 +38,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                epsilon_greedy=None,     # GeometricSequence
                reinforce_scale=None,    # GeometricSequence
                confidence_penalty=None, # SegmentationConfidencePenalty
+               print_sample_prob=0.01,
                # For segmentation warmup (Always use the poisson prior)
                segmentation_warmup=0,
+               src_vocab = Ref(Path("model.src_reader.vocab")),
                ## FLAGS
                learn_delete       = False,
                use_baseline       = True,
@@ -56,6 +59,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     assert final_transducer is not None
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
+    self.src_vocab = src_vocab
     if not hasattr(embed_encoder, "hidden_dim"):
       embed_encoder_dim = yaml_context.default_layer_dim
     else:
@@ -80,6 +84,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.debug = debug
     self.compose_char = compose_char
     self.print_sample = print_sample
+    self.print_sample_prob = print_sample_prob
     self.learn_baseline = learn_baseline
     # Fixed Parameters
     self.length_prior = length_prior
@@ -96,7 +101,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     batch_size = embed_sent[0].dim()[1]
     # Softmax + segment decision
     encodings = self.embed_encoder(embed_sent)
-    enc_mask = encodings.mask
+    enc_mask = copy.deepcopy(encodings.mask)
     segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size)
     # Some checks
     assert len(encodings) == len(segment_decisions), \
@@ -143,7 +148,20 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         # Notify the segment transducer to process the next decision
         self.segment_composer.next_item()
     if length_prior_enabled:
-      length_prior = [poisson.pmf(len(outputs[i])-1, len(self.src_sent[i])/self.length_prior) for i in range(len(outputs))]
+      length_prior = [poisson.pmf(len(outputs[i]), len(self.src_sent[i]) / self.length_prior) for i in range(len(outputs))]
+    # Flag out </s>
+    if enc_mask is not None:
+      for i, e_i in enumerate(enc_mask.np_arr):
+        nonzero = numpy.nonzero(e_i)[0]
+        if len(nonzero) != 0:
+          eos_index = nonzero[0]-1
+        else:
+          eos_index = len(e_i)-1
+        enc_mask.np_arr[i][eos_index] = 1
+    else:
+      np_arr = numpy.zeros((len(self.src_sent[0]), batch_size))
+      np_arr[-1][:] = 1
+      enc_mask = Mask(np_arr.transpose())
     # Padding
     outputs, masks = self.pad(outputs)
     self.segment_decisions = segment_decisions
@@ -152,15 +170,22 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # Packing output together
     if self.learn_segmentation:
       if length_prior_enabled:
-        self.segment_length_prior = dy.log(dy.inputTensor(length_prior, batched=True))
+        self.segment_length_prior = dy.log(dy.inputTensor(length_prior, batched=True)+EPS)
       if self.use_baseline:
         self.bs = [self.baseline(dy.nobackprop(enc)) for enc in encodings]
+    # Decide to print or not
+    if self.print_sample:
+      self.print_sample_triggered = (self.print_sample_prob - numpy.random.random()) >= 0
+      if self.print_sample_triggered:
+        self.print_sample_enc(outputs, enc_mask, masks)
     if not self.train:
       # Rewrite segmentation
       self.set_report_resource("segmentation", self.segment_decisions)
       self.set_report_input(segment_decisions)
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
-    return self.final_transducer(expression_sequence.ExpressionSequence(expr_tensor=outputs, mask=masks))
+    return self.final_transducer(expression_sequence.ExpressionSequence(
+                                       expr_tensor=dy.concatenate_to_batch(outputs),
+                                       mask=masks))
 
   @handle_xnmt_event
   def on_start_sent(self, src=None):
@@ -185,7 +210,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         modified = True
       ret.append(dy.concatenate_cols(xs))
     mask = Mask(masks) if modified else None
-    return dy.concatenate_to_batch(ret), mask
+    return ret, mask
 
   def sample_segmentation(self, encodings, batch_size):
     lmbd = self.lmbd.value() if self.lmbd is not None else 0
@@ -193,7 +218,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
     # Flags
     is_presegment_provided = len(self.src_sent) != 0 and hasattr(self.src_sent[0], "annotation")
-    is_warmup = lmbd == 0 or self.is_segmentation_warmup()
+    is_warmup = self.is_segmentation_warmup()
     is_epsgreedy_triggered = eps is not None and numpy.random.random() <= eps
     # Sample based on the criterion
     if self.learn_segmentation and not is_warmup and not self.train:
@@ -216,8 +241,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if len(mask[i]) != 0:
           segment_decisions[i-1][mask[i]] = 1
     segment_decisions[-1][:] = 1 # </s>
-    if len(segment_decisions) > 1:
-      segment_decisions[-2][:] = 1 # words[-1]
 
     return segment_decisions, segment_logsoftmaxes
 
@@ -234,26 +257,29 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.print_debug("sample_from_poisson")
     randoms = numpy.random.poisson(lam=self.length_prior, size=batch_size*len(encodings))
     segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
+    if len(encodings) == 0 or batch_size == 0:
+      return segment_decisions
     idx = 0
     # Filling up the segmentation matrix based on the poisson distribution
-    for decision in segment_decisions:
-      current = randoms[idx]
-      while current < len(decision):
-        decision[current] = 1
-        idx += 1
-        current += randoms[idx]
-      decision[-1] = 1
+    if len(encodings) != 0:
+      for decision in segment_decisions:
+        current = randoms[idx]
+        while current < len(decision):
+          decision[current] = 1
+          idx += 1
+          current += randoms[idx]
+        decision[-1] = 1
     return segment_decisions
 
   # Sample from the softmax
   def sample_from_softmax(self, encodings, batch_size, segment_logsoftmaxes):
     # Sample from the softmax
-    if self.train:
-      self.print_debug("sample_from_softmax")
-      segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
-                           for log_softmax in segment_logsoftmaxes]
-      if batch_size == 1:
-        segment_decisions = [numpy.array([x]) for x in segment_decisions]
+    #if self.train:
+    self.print_debug("sample_from_softmax")
+    segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
+                         for log_softmax in segment_logsoftmaxes]
+    if batch_size == 1:
+      segment_decisions = [numpy.array([x]) for x in segment_decisions]
     else:
       self.print_debug("argmax(softmax)")
       segment_decisions = [log_softmax.tensor_value().argmax().as_numpy().transpose()
@@ -286,14 +312,17 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     param = [self.eps, self.lmbd, self.confidence_penalty, self.length_prior_alpha, self.segmentation_warmup_counter]
     for n, p in zip(name, param):
       if p is not None:
+        if hasattr(p, "value"):
+          p = p.value()
         print(n + ":", str(p))
 
   @handle_xnmt_event
-  def on_calc_additional_loss(self, translator_loss):
+  def on_calc_additional_loss(self, translator_loss, trg_words_counts):
     if not self.learn_segmentation or self.segment_decisions is None:
       return None
     reward = -(translator_loss.sum())
     reward = dy.nobackprop(reward)
+    reward = dy.cdiv(reward, dy.inputTensor(trg_words_counts, batched=True))
     # Make sure that reward is not scalar, but rather based on the each batch item
     assert reward.dim()[1] == len(self.src_sent)
     # Mask
@@ -317,29 +346,80 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         baseline_loss.append(loss)
 
       ret.add_loss("baseline", dy.esum(baseline_loss))
-    if self.print_sample:
-      print(dy.exp(self.segment_logsoftmaxes[0]).npvalue().transpose()[0])
+
     ## Reinforce Loss
     lmbd = self.lmbd.value()
+    rewards = []
+    lls = []
+    reinforce_loss = []
+    baseline = []
     if lmbd > 0.0:
-      reinforce_loss = []
       # Calculating the loss of the baseline and reinforce
       for i in range(len(self.segment_decisions)):
+        # Log likelihood
         ll = dy.pick_batch(self.segment_logsoftmaxes[i], self.segment_decisions[i])
-        if self.use_baseline:
-          r_i = reward - dy.nobackprop(self.bs[i])
-        else:
-          r_i = reward
         if enc_mask is not None:
           ll = dy.cmult(dy.inputTensor(enc_mask[i], batched=True), ll)
-        reinforce_loss.append(r_i * -ll)
+        lls.append(ll)
+        # reward
+        if self.use_baseline:
+          r_i = reward - dy.nobackprop(self.bs[i])
+          baseline.append(self.bs[i])
+        else:
+          r_i = reward
+        rewards.append(r_i)
+        # Loss
+        reinforce_loss.append(-(r_i * ll))
       loss = dy.esum(reinforce_loss) * lmbd
       ret.add_loss("reinf", loss)
     if self.confidence_penalty:
       ls_loss = self.confidence_penalty(self.segment_logsoftmaxes, enc_mask)
       ret.add_loss("conf_pen", ls_loss)
+    if self.print_sample and self.print_sample_triggered:
+      self.print_sample_loss(rewards, reward, lls, reinforce_loss, baseline)
     # Total Loss
     return ret
+
+  def print_sample_enc(self, outputs, enc_mask, out_mask):
+    src = [self.src_vocab[w] for w in self.src_sent[0]]
+    dec = self.segment_decisions.transpose()[0]
+    out = []
+    number_seg = 0
+    if enc_mask is not None:
+      self.last_masked = len(enc_mask.np_arr[0]) - numpy.count_nonzero(enc_mask.np_arr[0])
+      dec = dec[:self.last_masked]
+      src = src[:self.last_masked]
+    else:
+      self.last_masked = None
+    number_seg = numpy.count_nonzero(dec)
+    segmented = self.apply_segmentation(src, dec)
+    segmented = ["SRC: "] + [x for x, delete in segmented]
+    print(" ".join(segmented))
+    if out_mask is not None:
+      # Number of segment == 0 flag
+      assert len(out_mask.np_arr[0]) - numpy.count_nonzero(out_mask.np_arr[0]) == number_seg+1
+
+  # TODO: Fix if the baseline is none
+  def print_sample_loss(self, rewards, trans_reward, ll, loss, baseline):
+    if hasattr(self, "segment_length_prior") and self.segment_length_prior is not None:
+      print("LP:", self.segment_length_prior.npvalue()[0][0])
+    rw_val = trans_reward.npvalue()[0][0]
+    print("RW:", rw_val)
+    enc_mask = self.enc_mask
+    if self.last_masked is not None:
+      rewards = [x.npvalue()[0][0] for x in rewards[:self.last_masked]]
+      ll = [x.npvalue()[0][0] for x in ll[:self.last_masked]]
+      loss = [x.npvalue()[0][0] for x in loss[:self.last_masked]]
+      baseline = [x.npvalue()[0][0] for x in baseline[:self.last_masked]]
+    else:
+      rewards = [x.npvalue()[0][0] for x in rewards]
+      ll = [x.npvalue()[0][0] for x in ll]
+      loss = [x.npvalue()[0][0] for x in loss]
+      baseline = [x.npvalue()[0][0] for x in baseline]
+
+    print("loss = -[ll * (rewards - baseline)]")
+    for l, log, r, b in zip(loss, ll, rewards, baseline):
+      print("%f = -[%f * (%f - %f)]" % (l, log, rw_val, b))
 
   @handle_xnmt_event
   def on_html_report(self, context):
