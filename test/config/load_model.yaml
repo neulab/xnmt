@@ -3,8 +3,7 @@ exp1-pretrain-model: !Experiment
     # The model file contain the whole contents of this experiment in YAML
     # format. Note that {EXP} expressions are left intact when saving.
     model_file: examples/output/{EXP}.mod
-    out_file: examples/output/{EXP}.out
-    err_file: examples/output/{EXP}.err
+    log_file: examples/output/{EXP}.log
     default_layer_dim: 64
     dropout: 0.5
     weight_noise: 0.1

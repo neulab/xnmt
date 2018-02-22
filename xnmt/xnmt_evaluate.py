@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger('xnmt')
 import sys
 import io
 import ast
@@ -66,7 +68,7 @@ def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu", desc=None):
     path = eval_param.get("path", None)
     higher_better = eval_param.get("higher_better", True)
     if path == None:
-      print ("no path given for external evaluation script.")
+      logger.warning("no path given for external evaluation script.")
       return None
     evaluator = ExternalEvaluator(path=path, higher_better=higher_better, desc=desc)
 
@@ -78,7 +80,7 @@ def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu", desc=None):
   len_before = len(hyp_corpus)
   ref_corpus, hyp_corpus = zip(*filter(lambda x: NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
   if len(ref_corpus) < len_before:
-    print("> ignoring %s out of %s test sentences." % (len_before - len(ref_corpus), len_before))
+    logger.info("> ignoring %s out of %s test sentences." % (len_before - len(ref_corpus), len_before))
 
   eval_score = evaluator.evaluate(ref_corpus, hyp_corpus)
   return eval_score
@@ -87,5 +89,5 @@ if __name__ == "__main__":
 
   args = sys.argv[1:]
   score = xnmt_evaluate(*args)
-  print("{} Score = {}".format(args[2], score))
+  print(f"{args[2]} Score = {score}")
 

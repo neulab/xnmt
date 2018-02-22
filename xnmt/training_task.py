@@ -1,5 +1,5 @@
-from __future__ import division, generators
-
+import logging
+logger = logging.getLogger('xnmt')
 from subprocess import Popen
 import random
 import numpy as np
@@ -148,7 +148,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     Called before loading corpus for the first time, if reload_command is given
     """
     augment_command = self.reload_command
-    print('initial augmentation')
+    logger.debug('initial augmentation')
     if self._augmentation_handle is None:
       # first run
       self._augmentation_handle = Popen(augment_command + " --epoch 0", shell=True)
@@ -168,8 +168,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     retcode = self._augmentation_handle.returncode
     if retcode is not None:
       if self.training_state.epoch_num > 0:
-        print('using reloaded data')
-      # reload the data
+        logger.info('using reloaded data')
+      # reload the data   
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
           xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                           self.src_file, self.trg_file,
@@ -179,7 +179,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       # restart data generation
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.training_state.epoch_num, shell=True)
     else:
-      print('new data set is not ready yet, using data from last epoch.')
+      logger.info('new data set is not ready yet, using data from last epoch.')
 
   @register_xnmt_event
   def new_epoch(self, training_task, num_sents):
@@ -291,7 +291,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
     # Control the learning schedule
     if control_learning_schedule:
-      print("> Checkpoint")
+      logger.info("> Checkpoint")
       # Write out the model if it's the best one
       if self.logger.report_dev_and_check_model(self.model_file):
         if self.model_file is not None:
@@ -309,13 +309,13 @@ class SimpleTrainingTask(TrainingTask, Serializable):
           if should_decay:
             self.training_state.num_times_lr_decayed += 1
             if self.training_state.num_times_lr_decayed > self.lr_decay_times:
-              print('  Early stopping')
+              logger.info('  Early stopping')
               self.early_stopping_reached = True
             else:
               self.trainer.learning_rate *= self.lr_decay
-              print('  new learning rate: %s' % self.trainer.learning_rate)
+              logger.info('  new learning rate: %s' % self.trainer.learning_rate)
               if self.restart_trainer:
-                print('  restarting trainer and reverting learned weights to best checkpoint..')
+                logger.info('  restarting trainer and reverting learned weights to best checkpoint..')
                 self.trainer.restart()
                 self.exp_global.dynet_param_collection.revert_to_best_model()
 

@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger('xnmt')
+
 import sys
 import os.path
 import subprocess
@@ -53,7 +56,7 @@ class Tokenizer(Normalizer, Serializable):
     :return: A file-like stream of tokenized text
 
     """
-    print("****** calling tokenize_stream {}".format(self.__class__))
+    logger.debug("****** calling tokenize_stream {}".format(self.__class__))
     for line in stream:
       yield self.tokenize(line.strip())
 

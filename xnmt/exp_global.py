@@ -1,16 +1,20 @@
-import dynet as dy
+import logging
+logger = logging.getLogger('xnmt')
 import os
+
+import dynet as dy
+
 from xnmt.serialize.serializable import Serializable
 
 class ExpGlobal(Serializable):
   yaml_tag = u'!ExpGlobal'
-  def __init__(self, model_file=None, out_file=None, err_file=None, dropout = 0.0,
-               weight_noise = 0.0, default_layer_dim = 512, save_num_checkpoints=1,
-               eval_only=False, commandline_args=None,
+  def __init__(self, model_file="{EXP_DIR}/models/{EXP}.mod",
+               log_file="{EXP_DIR}/logs/{EXP}.log",
+               dropout = 0.0, weight_noise = 0.0, default_layer_dim = 512,
+               save_num_checkpoints=1, eval_only=False, commandline_args=None,
                dynet_param_collection = None):
     self.model_file = model_file
-    self.out_file = out_file
-    self.err_file = err_file
+    self.log_file = log_file
     self.dropout = dropout
     self.weight_noise = weight_noise
     self.default_layer_dim = default_layer_dim
@@ -18,12 +22,6 @@ class ExpGlobal(Serializable):
     self.eval_only = eval_only
     self.dynet_param_collection = dynet_param_collection or PersistentParamCollection(model_file, save_num_checkpoints)
     self.commandline_args = commandline_args
-  def get_model_file(self, exp_name):
-    return getattr(self, "model_file", f"{exp_name}.mod")
-  def get_out_file(self, exp_name):
-    return getattr(self, "out_file", f"{exp_name}.out")
-  def get_err_file(self, exp_name):
-    return getattr(self, "err_file", f"{exp_name}.err")
 
 class PersistentParamCollection(object):
   def __init__(self, model_file, save_num_checkpoints=1):
@@ -59,12 +57,12 @@ class NonPersistentParamCollection(object):
     self.param_col = dy.Model()
     self.model_file = None
   def revert_to_best_model(self):
-    print("WARNING: reverting a non-persistent param collection has no effect")
+    logger.warning("reverting a non-persistent param collection has no effect")
   def save(self, fname=None):
-    print("WARNING: saving a non-persistent param collection has no effect")
+    logger.warning("saving a non-persistent param collection has no effect")
   def remove_existing_history(self):
-    print("WARNING: editing history of a non-persistent param collection has no effect")
+    logger.warning("editing history of a non-persistent param collection has no effect")
   def shift_safed_checkpoints(self):
-    print("WARNING: editing history of a non-persistent param collection has no effect")
+    logger.warning("editing history of a non-persistent param collection has no effect")
   def load_from_data_file(self, datafile):
     self.param_col.populate(datafile)

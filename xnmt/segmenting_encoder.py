@@ -1,6 +1,8 @@
 from __future__ import print_function
 
 import copy
+import logging
+logger = logging.getLogger('xnmt')
 import io
 import six
 import numpy
@@ -246,7 +248,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   # Sample from prior segmentation
   def sample_from_prior(self, encodings, batch_size):
-    self.print_debug("sample_from_prior")
     segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
     for segment_decision, sent in zip(segment_decisions, self.src_sent):
       segment_decision[sent.annotation["segment"]] = 1
@@ -254,7 +255,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   # Sample from poisson prior
   def sample_from_poisson(self, encodings, batch_size):
-    self.print_debug("sample_from_poisson")
     randoms = numpy.random.poisson(lam=self.length_prior, size=batch_size*len(encodings))
     segment_decisions = numpy.zeros((batch_size, len(encodings)), dtype=int)
     if len(encodings) == 0 or batch_size == 0:
@@ -275,13 +275,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def sample_from_softmax(self, encodings, batch_size, segment_logsoftmaxes):
     # Sample from the softmax
     #if self.train:
-    self.print_debug("sample_from_softmax")
     segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
                          for log_softmax in segment_logsoftmaxes]
     if batch_size == 1:
       segment_decisions = [numpy.array([x]) for x in segment_decisions]
     else:
-      self.print_debug("argmax(softmax)")
       segment_decisions = [log_softmax.tensor_value().argmax().as_numpy().transpose()
                            for log_softmax in segment_logsoftmaxes]
     ret = numpy.stack(segment_decisions, 1)
@@ -314,7 +312,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       if p is not None:
         if hasattr(p, "value"):
           p = p.value()
-        print(n + ":", str(p))
+        logger.debug(n + ": " + str(p))
 
   @handle_xnmt_event
   def on_calc_additional_loss(self, translator_loss, trg_words_counts):
@@ -394,7 +392,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     number_seg = numpy.count_nonzero(dec)
     segmented = self.apply_segmentation(src, dec)
     segmented = ["SRC: "] + [x for x, delete in segmented]
-    print(" ".join(segmented))
+    logger.debug(" ".join(segmented))
     if out_mask is not None:
       # Number of segment == 0 flag
       assert len(out_mask.np_arr[0]) - numpy.count_nonzero(out_mask.np_arr[0]) == number_seg+1
@@ -402,9 +400,9 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   # TODO: Fix if the baseline is none
   def print_sample_loss(self, rewards, trans_reward, ll, loss, baseline):
     if hasattr(self, "segment_length_prior") and self.segment_length_prior is not None:
-      print("LP:", self.segment_length_prior.npvalue()[0][0])
+      logger.debug("LP: " + str(self.segment_length_prior.npvalue()[0][0]))
     rw_val = trans_reward.npvalue()[0][0]
-    print("RW:", rw_val)
+    logger.debug("RW: " +  str(rw_val))
     enc_mask = self.enc_mask
     if self.last_masked is not None:
       rewards = [x.npvalue()[0][0] for x in rewards[:self.last_masked]]
@@ -417,9 +415,9 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       loss = [x.npvalue()[0][0] for x in loss]
       baseline = [x.npvalue()[0][0] for x in baseline]
 
-    print("loss = -[ll * (rewards - baseline)]")
+    logger.debug("loss = -[ll * (rewards - baseline)]")
     for l, log, r, b in zip(loss, ll, rewards, baseline):
-      print("%f = -[%f * (%f - %f)]" % (l, log, rw_val, b))
+      logger.debug("%f = -[%f * (%f - %f)]" % (l, log, rw_val, b))
 
   @handle_xnmt_event
   def on_html_report(self, context):
@@ -477,20 +475,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         temp = ""
     if temp: segmented.append((temp, False))
     return segmented
-
-  #### DEBUG
-  def print_debug(self, *args, **kwargs):
-    if self.debug:
-      print(*args, **kwargs)
-
-  def print_debug_once(self, *args, **kwargs):
-    if not hasattr(self, "_debug_lock"):
-      self._debug_lock = True
-      self.print_debug(*args, **kwargs)
-
-  def print_debug_unlock(self):
-    if hasattr(self, "_debug_lock"):
-      delattr(self, "_debug_lock")
 
 class SegmentingAction(Enum):
   """
