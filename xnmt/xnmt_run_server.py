@@ -17,6 +17,9 @@ by line number, with the line number starting from 0 and corresponding to the
 line number of the source text.
 """
 
+import logging
+logger = logging.getLogger('xnmt')
+
 import argparse
 import sys
 import random
@@ -25,7 +28,12 @@ import web #easy_install web.py
 import json
 import os
 import inspect
-from pprint import pprint
+
+if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.standard")
+from simple_settings import settings
+if settings.RESOURCE_WARNINGS:
+  import warnings
+  warnings.simplefilter('always', ResourceWarning)
 
 from xnmt.serialize.options import OptionParser
 from xnmt.tee import Tee
@@ -76,6 +84,8 @@ def predict(exp_list, text):
     os.remove(TMP_SRC_FILE_PATH)
     os.remove(TMP_TRG_FILE_PATH)
 
+  logger.info(f"Translating text of length {len(src_text)}.")
+
   return result
 
 
@@ -105,9 +115,10 @@ def setupServer(args):
 
     uninitialized_exp_args = config_parser.parse_experiment(args.experiments_file, experiment_name)
     yaml_serializer = YamlSerializer()
-    uninitialized_exp_args.data.xnmt_global.commandline_args = args
+    uninitialized_exp_args.data.exp_global.commandline_args = args
     experiment = yaml_serializer.initialize_if_needed(uninitialized_exp_args)
     experiment_list.append(experiment)
+    logger.info(f"Loaded models from experiment {experiment_name}.")
 
   return experiment_list
 
@@ -124,6 +135,7 @@ def parse_arguments(overwrite_args=None):
   argparser.add_argument("--dynet-gpus", type=int)
   argparser.add_argument("--dynet-weight-decay", type=float)
   argparser.add_argument("--dynet-profiling", type=int)
+  argparser.add_argument("--settings", type=str, default="standard")
   argparser.add_argument("experiments_file")
   argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
   argparser.set_defaults(generate_doc=False)
@@ -136,5 +148,6 @@ if __name__ == '__main__':
   dyparams.from_args()
   args = parse_arguments()
   model_list = setupServer(args)
+  logger.info(f"Running dynet server on port {PORT}.")
   app.run(port=PORT)
 
