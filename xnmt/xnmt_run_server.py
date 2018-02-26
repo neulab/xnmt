@@ -44,6 +44,7 @@ web.config.debug = False
 PORT = 9093
 
 model_list = None
+sentpiece_model = None
 urls = ('/evaluate', 'evaluate')
 TMP_SRC_FILE_PATH = 'xnmt_server_current_src.tmp'
 TMP_TRG_FILE_PATH = 'xnmt_server_current_trg.tmp'
@@ -57,7 +58,7 @@ class MyApplication(web.application):
 class evaluate:
   def GET(self):
     i = web.input(_unicode=False, q="no data")
-    output = predict(model_list, i)
+    output = predict(model_list, i, sentpiece_model)
     return output   
 
   def POST(self):
@@ -69,22 +70,29 @@ app = MyApplication(urls, globals())
 '''
 Assume that the entirety of the text is stored under the key 'q'.
 '''
-def predict(exp_list, text):
+def predict(exp_list, text, sp=None):
   src_text = text.q
   result = ""
 
+
+  if sp != None:
+    src_text = '\n'.join(list(map(lambda x: ' '.join(sp.EncodeAsPieces(x)), src_text.split('\n'))))
+
   with open(TMP_SRC_FILE_PATH, 'w', encoding='utf-8') as out_file:
-    out_file.write(text.q)
+    out_file.write(src_text)
   
   for exp in exp_list:
     exp.model.inference(exp.model, src_file=TMP_SRC_FILE_PATH, trg_file=TMP_TRG_FILE_PATH)
     with open(TMP_TRG_FILE_PATH, 'r', encoding='utf8') as in_file:
-      result = in_file.readlines()
-      result = "".join(list(map(lambda x: str(x[0]) + ' ||| ' + x[1], enumerate(result))))
+      result = ' '.join(in_file.readlines())
+      #result = "".join(list(map(lambda x: str(x[0]) + ' ||| ' + x[1], enumerate(result))))
     os.remove(TMP_SRC_FILE_PATH)
     os.remove(TMP_TRG_FILE_PATH)
 
+  logger.debug(f"Input text:\n{src_text}")
+
   logger.info(f"Translating text of length {len(src_text)}.")
+  logger.debug(f"Translated text:\n{result}")
 
   return result
 
@@ -112,7 +120,6 @@ def setupServer(args):
     Loads each experiment into memory, but does not run any of the training
     or evaluation.
     '''
-
     uninitialized_exp_args = config_parser.parse_experiment(args.experiments_file, experiment_name)
     yaml_serializer = YamlSerializer()
     uninitialized_exp_args.data.exp_global.commandline_args = args
@@ -122,6 +129,19 @@ def setupServer(args):
 
   return experiment_list
 
+def setupSP(args):
+  '''
+  Returns loaded sentencepiece model using path specificed by args.sentpiece_model
+  '''
+  if args.sentpiece_model != None:
+    import sentencepiece
+    sp = sentencepiece.SentencePieceProcessor()
+    try:
+      sp.Load(args.sentpiece_model)
+      return sp
+    except IOError:
+      logger.error(f"Sentence piece model at {args.sentpiece_model} does not exist. Continuing without sentencepiece.")
+  return None
 
 def parse_arguments(overwrite_args=None):
   argparser = argparse.ArgumentParser()
@@ -136,6 +156,7 @@ def parse_arguments(overwrite_args=None):
   argparser.add_argument("--dynet-weight-decay", type=float)
   argparser.add_argument("--dynet-profiling", type=int)
   argparser.add_argument("--settings", type=str, default="standard")
+  argparser.add_argument("--sentpiece-model", type=str, default=None)
   argparser.add_argument("experiments_file")
   argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
   argparser.set_defaults(generate_doc=False)
@@ -148,6 +169,7 @@ if __name__ == '__main__':
   dyparams.from_args()
   args = parse_arguments()
   model_list = setupServer(args)
+  sentpiece_model = setupSP(args)
   logger.info(f"Running dynet server on port {PORT}.")
   app.run(port=PORT)
 
