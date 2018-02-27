@@ -33,7 +33,7 @@ def modify_audio(npz_original, npz_new, char_original, char_new, num_epoch, brea
   for i in range(0, new_size):
     feat = feats['arr_%d' % i]
     if break_feats:
-      feat = feat[:,:120]
+      feat = feat[:,:20]
 
     new_feats.append(feat)
 
@@ -81,8 +81,8 @@ def main():
 
   if args.epoch > 0:
     # do augmentation here
-    data_name = 'synth.contvec.npz'
-    txt_name = 'synth.char'
+    data_name = 'LDC94S13A.npz'
+    txt_name = 'LDC94S13A.char'
     npz_initial = os.path.abspath(os.path.join(args.initial_dir, data_name))
     txt_initial = os.path.abspath(os.path.join(args.initial_dir, txt_name))
     npz_new = os.path.abspath(os.path.join(current_version_dir, data_name))

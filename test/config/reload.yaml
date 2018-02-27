@@ -9,11 +9,11 @@ reload: !Experiment
       vocab: !Vocab
         vocab_file: examples/data/head.en.vocab
     src_embedder: !NoopEmbedder
-      emb_dim: 240
+      emb_dim: 40
     encoder: !PyramidalLSTMSeqTransducer
       layers: 1
       downsampling_method: skip
-      input_dim: 240
+      input_dim: 40
       hidden_dim: 64
     attender: !MlpAttender
       state_dim: 64
@@ -31,8 +31,8 @@ reload: !Experiment
       batch_size: 32
       src_pad_token: ~
     run_for_epochs: 3
-    src_file: test/tmp/reload/synth.contvec.npz
-    trg_file: test/tmp/reload/synth.char
+    src_file: test/tmp/reload/LDC94S13A.npz
+    trg_file: test/tmp/reload/LDC94S13A.char
     reload_command: >-
       python script/code/reload_example.py
       --initial-dir examples/data/
@@ -40,11 +40,11 @@ reload: !Experiment
       --target-dir test/tmp/reload
     dev_tasks:
       - !LossEvalTask
-        src_file: test/tmp/reload/synth.contvec.npz
-        ref_file: test/tmp/reload/synth.char
+        src_file: test/tmp/reload/LDC94S13A.npz
+        ref_file: test/tmp/reload/LDC94S13A.char
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: cer,wer
-      src_file: test/tmp/reload/synth.contvec.npz
-      ref_file: test/tmp/reload/synth.char
+      src_file: test/tmp/reload/LDC94S13A.npz
+      ref_file: test/tmp/reload/LDC94S13A.char
       hyp_file: examples/output/{EXP}.test_hyp

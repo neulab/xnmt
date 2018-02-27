@@ -9,14 +9,23 @@ speech-2layers: !Experiment
     save_num_checkpoints: 2
     default_layer_dim: 32
     dropout: 0.4
+  preproc: !PreprocRunner
+    overwrite: True
+    tasks:
+    - !PreprocExtract
+      in_files:
+      - examples/data/LDC94S13A.yaml
+      out_files:
+      - examples/data/LDC94S13A.npz
+      specs: !MelFiltExtractor {}
   model: !DefaultTranslator
     src_embedder: !NoopEmbedder
-      emb_dim: 240
+      emb_dim: 40
     encoder: !PyramidalLSTMSeqTransducer
       layers: 3
       downsampling_method: concat
       reduce_factor: 2
-      input_dim: 240
+      input_dim: 40
       hidden_dim: 64
     attender: !MlpAttender
       state_dim: 64
@@ -39,24 +48,24 @@ speech-2layers: !Experiment
       batch_size: 3
       src_pad_token: ~
     trainer: !AdamTrainer {}
-    src_file: examples/data/synth.contvec.npz
-    trg_file: examples/data/synth.char
+    src_file: examples/data/LDC94S13A.npz
+    trg_file: examples/data/LDC94S13A.char
     dev_tasks:
       - !LossEvalTask
-        src_file: examples/data/synth.contvec.npz
-        ref_file: examples/data/synth.char
+        src_file: examples/data/LDC94S13A.npz
+        ref_file: examples/data/LDC94S13A.char
       - !AccuracyEvalTask
         eval_metrics: cer,wer
-        src_file: examples/data/synth.contvec.npz
-        ref_file: examples/data/synth.char
+        src_file: examples/data/LDC94S13A.npz
+        ref_file: examples/data/LDC94S13A.char
         hyp_file: examples/output/{EXP}.dev_hyp
         inference: !SimpleInference
           post_process: join-char
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: cer,wer
-      src_file: examples/data/synth.contvec.npz
-      ref_file: examples/data/synth.words
+      src_file: examples/data/LDC94S13A.npz
+      ref_file: examples/data/LDC94S13A.words
       hyp_file: examples/output/{EXP}.test_hyp
       inference: !SimpleInference
         post_process: join-char
