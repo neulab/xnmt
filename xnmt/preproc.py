@@ -334,25 +334,26 @@ class MelFiltExtractor(Extractor, Serializable):
     """
     in_file: yaml file that contains a list of dictionaries.
              Each dictionary contains:
-             - wav: path to wav file
-             - from_ms: start time stamp (optional)
-             - to_ms: stop time stamp (optional)
-             - speaker: speaker id for normalization (optional)
+             - wav (str): path to wav file
+             - offset (float): start time stamp (optional)
+             - duration (float): stop time stamp (optional)
+             - speaker: speaker id for normalization (optional; if not given, the filename is used as speaker id)
     out_file: a filename ending in ".npz" (TODO: should support h5py for better speed)
     """
     import librosa
-    # TODO: from_ms and to_ms not supported yet
     with open(in_file) as in_stream:
       db = yaml.load(in_stream)
       db_by_speaker = defaultdict(list)
       for db_index, db_item in enumerate(db):
-        speaker_id = db_item.get("speaker", "wav")
+        speaker_id = db_item.get("speaker", db_item["wav"].split("/")[-1])
         db_item["index"] = db_index
         db_by_speaker[speaker_id].append(db_item)
       for speaker_id in db_by_speaker.keys():
         data = []
         for db_item in db_by_speaker[speaker_id]:
-          y, sr = librosa.load(db_item["wav"], sr=16000)
+          y, sr = librosa.load(db_item["wav"], sr=16000, 
+                               offset=db_item.get("offset", 0.0), 
+                               duration=db_item.get("duration", None))
           logmel = logfbank(y, samplerate=sr, nfilt=self.nfilt)
           if self.delta:
             delta = calculate_delta(logmel)
@@ -360,7 +361,7 @@ class MelFiltExtractor(Extractor, Serializable):
           else:
             features = logmel
           data.append(features)
-        mean, std = get_mean_std(np.asarray(data))
+        mean, std = get_mean_std(np.concatenate(data))
         for features, db_item in zip(data, db_by_speaker[speaker_id]):
           features = normalize(features, mean, std)
           db_item["features"] = features
