@@ -40,6 +40,19 @@ class PreprocTask(object):
   def run_preproc_task(self, overwrite=False):
     ...
 
+class PreprocExtract(PreprocTask, Serializable):
+  yaml_tag = "!PreprocExtract"
+  def __init__(self, in_files, out_files, specs):
+    self.in_files = in_files
+    self.out_files = out_files
+    self.specs = specs
+  def run_preproc_task(self, overwrite=False):
+    extractor = self.specs
+    for in_file, out_file in zip(self.in_files, self.out_files):
+      if overwrite or not os.path.isfile(out_file):
+        make_parent_dir(out_file)
+        extractor.extract_to(in_file, out_file)
+
 class PreprocTokenize(PreprocTask, Serializable):
   yaml_tag = "!PreprocTokenize"
   def __init__(self, in_files, out_files, specs):

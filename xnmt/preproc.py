@@ -4,7 +4,14 @@ logger = logging.getLogger('xnmt')
 import sys
 import os.path
 import subprocess
+from collections import defaultdict
+
+import numpy as np
+
+import yaml
+
 from xnmt.serialize.serializable import Serializable
+from xnmt.speech_features import logfbank, calculate_delta, get_mean_std, normalize
 
 ##### Preprocessors
 
@@ -309,3 +316,55 @@ class VocabFiltererRank(VocabFilterer):
     if len(vocab) <= self.max_rank:
       return vocab
     return {k: v for k, v in sorted(vocab.items(), key=lambda x: -x[1])[:self.max_rank]}
+
+##### Preprocessors
+
+class Extractor(object):
+  """A type of feature extraction to perform."""
+
+  def extract_to(self, in_file, out_file):
+    raise RuntimeError("Subclasses of Extractor must implement the extract_to() function")
+
+class MelFiltExtractor(Extractor, Serializable):
+  yaml_tag = "!MelFiltExtractor"
+  def __init__(self, nfilt=40, delta=False):
+    self.delta = delta
+    self.nfilt = nfilt
+  def extract_to(self, in_file, out_file):
+    """
+    in_file: yaml file that contains a list of dictionaries.
+             Each dictionary contains:
+             - wav: path to wav file
+             - from_ms: start time stamp (optional)
+             - to_ms: stop time stamp (optional)
+             - speaker: speaker id for normalization (optional)
+    out_file: a filename ending in ".npz" (TODO: should support h5py for better speed)
+    """
+    import librosa
+    # TODO: from_ms and to_ms not supported yet
+    with open(in_file) as in_stream:
+      db = yaml.load(in_stream)
+      db_by_speaker = defaultdict(list)
+      for db_index, db_item in enumerate(db):
+        speaker_id = db_item.get("speaker", "wav")
+        db_item["index"] = db_index
+        db_by_speaker[speaker_id].append(db_item)
+      for speaker_id in db_by_speaker.keys():
+        data = []
+        for db_item in db_by_speaker[speaker_id]:
+          y, sr = librosa.load(db_item["wav"], sr=16000)
+          logmel = logfbank(y, samplerate=sr, nfilt=self.nfilt)
+          if self.delta:
+            delta = calculate_delta(logmel)
+            features = np.concatenate([logmel, delta], axis=1)
+          else:
+            features = logmel
+          data.append(features)
+        mean, std = get_mean_std(np.asarray(data))
+        for features, db_item in zip(data, db_by_speaker[speaker_id]):
+          features = normalize(features, mean, std)
+          db_item["features"] = features
+      all_features = [db_item["features"] for db_item in db]
+      np.savez_compressed(out_file, *all_features)
+    
+    

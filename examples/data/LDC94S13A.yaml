@@ -1,0 +1,11 @@
+- wav: examples/data/LDC94S13A.wav
+  speaker_id: s0
+- wav: examples/data/LDC94S13A.wav
+  speaker_id: s0
+- wav: examples/data/LDC94S13A.wav
+  speaker_id: s1
+- wav: examples/data/LDC94S13A.wav
+  speaker_id: s1
+- wav: examples/data/LDC94S13A.wav
+  speaker_id: s1
+ 

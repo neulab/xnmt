@@ -9,7 +9,6 @@ import numpy as np
 
 from xnmt.serialize.serializable import Serializable
 from xnmt.vocab import Vocab
-from xnmt.speech_features import logfbank, calculate_delta, normalize
 
 ###### Classes representing single inputs
 
@@ -260,48 +259,7 @@ class ContVecReader(InputReader, Serializable):
     npzFile.close()
     return l
 
-class MelFiltReader(InputReader, Serializable):
-  """
-  """
-  yaml_tag = u"!MelFiltReader"
-
-  def __init__(self, transpose=False, delta=False):
-    self.transpose = transpose
-    self.delta = delta
-
-  def read_sents(self, filename, filter_ids=None):
-    npzFile = np.load(filename, mmap_mode=None if filter_ids is None else "r")
-    npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[-1]))
-    if filter_ids is not None:
-      npzKeys = [npzKeys[i] for i in filter_ids]
-    for idx, key in enumerate(npzKeys):
-      inp = npzFile[key]
-      if self.transpose:
-        inp = inp.transpose()
-      if idx % 1000 == 999:
-        logger.info("Read {} lines ({:.2f}%) of {} at {}".format(idx+1, float(idx+1)/len(npzKeys)*100, filename, key))
-      yield ArrayInput(inp)
-    npzFile.close()
     
-  def read_one(self, wav_file_name):
-    import librosa
-    y, sr = librosa.load(wav_file_name, sr=16000)
-    logmel = logfbank(y, samplerate=sr)
-    if self.delta:
-      delta = calculate_delta(logmel)
-      features = np.concatenate([logmel, delta], axis=1)
-    else:
-      features = logmel
-    features = normalize(features)
-
-  def count_sents(self, filename):
-    npzFile = np.load(filename, mmap_mode="r") # for counting sentences, only read the index
-    l = len(npzFile.files)
-    npzFile.close()
-    return l
-
-
-
 class IDReader(BaseTextReader, Serializable):
   """
   Handles the case where we need to read in a single ID (like retrieval problems)
