@@ -2,7 +2,7 @@
 # Author: James Lyons 2012
 from __future__ import division
 import numpy
-from python_speech_features import sigproc
+from xnmt.speech_features import sigproc
 from scipy.fftpack import dct
 
 

@@ -2,10 +2,10 @@ standard-preproc: !Experiment
   exp_global: !ExpGlobal
     model_file: examples/output/{EXP}.mod
     log_file: examples/output/{EXP}.log
-  preproc:
+  preproc: !PreprocRunner
     overwrite: False
-    preproc_specs:
-    - type: tokenize
+    tasks:
+    - !PreprocTokenize
       in_files:
       - examples/data/train.ja
       - examples/data/train.en
@@ -33,7 +33,7 @@ standard-preproc: !Experiment
           vocab_size: 8000
           model_type: unigram
           model_prefix: examples/preproc/sentpiece
-    - type: normalize
+    - !PreprocNormalize
       in_files:
       - examples/preproc/train.tok.ja
       - examples/preproc/train.tok.en
@@ -56,7 +56,7 @@ standard-preproc: !Experiment
       - filenum: all
         spec:
         - type: lower
-    - type: filter
+    - !PreprocFilter
       in_files:
       - examples/preproc/train.tok.norm.ja
       - examples/preproc/train.tok.norm.en
