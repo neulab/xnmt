@@ -3,7 +3,7 @@ reload: !Experiment
     model_file: test/tmp/output/{EXP}.mod
     log_file: test/tmp/output/{EXP}.log
   model: !DefaultTranslator
-    src_reader: !ContVecReader
+    src_reader: !NpzReader
       transpose: True
     trg_reader: !PlainTextReader
       vocab: !Vocab

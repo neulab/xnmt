@@ -7,7 +7,7 @@ import subprocess
 from collections import defaultdict
 
 import numpy as np
-
+import h5py
 import yaml
 
 from xnmt.serialize.serializable import Serializable
@@ -338,10 +338,12 @@ class MelFiltExtractor(Extractor, Serializable):
              - offset (float): start time stamp (optional)
              - duration (float): stop time stamp (optional)
              - speaker: speaker id for normalization (optional; if not given, the filename is used as speaker id)
-    out_file: a filename ending in ".npz" (TODO: should support h5py for better speed)
+    out_file: a filename ending in ".h5"
     """
     import librosa
-    with open(in_file) as in_stream:
+    if not out_file.endswith(".h5"): raise ValueError(f"out_file must end in '.h5', was '{out_file}'")
+    with open(in_file) as in_stream, \
+         h5py.File(out_file, "w") as hf:
       db = yaml.load(in_stream)
       db_by_speaker = defaultdict(list)
       for db_index, db_item in enumerate(db):
@@ -364,8 +366,5 @@ class MelFiltExtractor(Extractor, Serializable):
         mean, std = get_mean_std(np.concatenate(data))
         for features, db_item in zip(data, db_by_speaker[speaker_id]):
           features = normalize(features, mean, std)
-          db_item["features"] = features
-      all_features = [db_item["features"] for db_item in db]
-      np.savez_compressed(out_file, *all_features)
-    
+          hf.create_dataset(str(db_item["index"]), data=features)
     
