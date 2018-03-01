@@ -1,6 +1,6 @@
 import logging
 logger = logging.getLogger('xnmt')
-
+import time
 import sys
 import os.path
 import subprocess
@@ -342,6 +342,7 @@ class MelFiltExtractor(Extractor, Serializable):
     """
     import librosa
     if not out_file.endswith(".h5"): raise ValueError(f"out_file must end in '.h5', was '{out_file}'")
+    start_clock = time.clock()
     with open(in_file) as in_stream, \
          h5py.File(out_file, "w") as hf:
       db = yaml.load(in_stream)
@@ -367,4 +368,4 @@ class MelFiltExtractor(Extractor, Serializable):
         for features, db_item in zip(data, db_by_speaker[speaker_id]):
           features = normalize(features, mean, std)
           hf.create_dataset(str(db_item["index"]), data=features)
-    
+    logger.debug(f"feature extraction took {time.clock()-start_clock:.3f} seconds")
