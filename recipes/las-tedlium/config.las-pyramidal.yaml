@@ -9,13 +9,13 @@ las-pyramidal: !Experiment
     tasks:
     - !PreprocExtract
       in_files:
-      - {DATA_DIR}/db/dev.yaml
-      - {DATA_DIR}/db/test.yaml
-      - {DATA_DIR}/db/train.yaml
+      - '{DATA_DIR}/db/dev.yaml'
+      - '{DATA_DIR}/db/test.yaml'
+      - '{DATA_DIR}/db/train.yaml'
       out_files:
-      - {DATA_DIR}/feat/dev.h5
-      - {DATA_DIR}/feat/test.h5
-      - {DATA_DIR}/feat/train.h5
+      - '{DATA_DIR}/feat/dev.h5'
+      - '{DATA_DIR}/feat/test.h5'
+      - '{DATA_DIR}/feat/train.h5'
       specs: !MelFiltExtractor {}
   model: !DefaultTranslator
     src_embedder: !NoopEmbedder
@@ -48,11 +48,11 @@ las-pyramidal: !Experiment
       vocab: !Vocab
         vocab_file: '{EXP_DIR}/vocab.char'
   train: !SimpleTrainingRegimen
-    src_file: {DATA_DIR}/feat/train.h5
-    trg_file: {DATA_DIR}/transcript/train.char
+    src_file: '{DATA_DIR}/feat/train.h5'
+    trg_file: '{DATA_DIR}/transcript/train.char'
     max_src_len: 1500
     max_trg_len: 350
-    #max_num_train_sents: 10
+    max_num_train_sents: 10 # TODO: remove
     run_for_epochs: 500
     batcher: !WordSrcBatcher
       avg_batch_size: 24
@@ -69,9 +69,9 @@ las-pyramidal: !Experiment
     dev_tasks:
       - !AccuracyEvalTask
         eval_metrics: wer,cer
-        src_file: &dev_src {DATA_DIR}/feat/dev.h5
-        ref_file: {DATA_DIR}/transcript/dev.words
-        hyp_file: {EXP_DIR}/logs/{EXP}.dev_hyp
+        src_file: &dev_src '{DATA_DIR}/feat/dev.h5'
+        ref_file: '{DATA_DIR}/transcript/dev.words'
+        hyp_file: '{EXP_DIR}/logs/{EXP}.dev_hyp'
         inference: !SimpleInference
           max_src_len: 1500
           post_process: join-char
@@ -83,13 +83,13 @@ las-pyramidal: !Experiment
       - !LossEvalTask
         max_src_len: 1500
         src_file: *dev_src
-        ref_file: {DATA_DIR}/transcript/dev.char
+        ref_file: '{DATA_DIR}/transcript/dev.char'
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: wer,cer
-      src_file: {DATA_DIR}/feat/test.h5
-      ref_file: {DATA_DIR}/transcript/test.words
-      hyp_file: {EXP_DIR}/logs/{EXP}.test_hyp
+      src_file: '{DATA_DIR}/feat/test.h5'
+      ref_file: '{DATA_DIR}/transcript/test.words'
+      hyp_file: '{EXP_DIR}/logs/{EXP}.test_hyp'
       inference: !SimpleInference
         max_src_len: 1500
         post_process: join-char
