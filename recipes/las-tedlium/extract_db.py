@@ -80,17 +80,17 @@ def main(argv=None):
         extract(mypath=tedlium_path + "/dev/stm/", 
                 out_yaml=data_path + "/db/dev.yaml", 
                 out_text=data_path + "/transcript/dev.char", 
-                wavdir="{WAVDIR}/dev")
+                wavdir=data_path + "/wav/dev")
             
         extract(mypath=tedlium_path + "/test/stm/", 
                 out_yaml=data_path + "/db/test.yaml", 
                 out_text=data_path + "/transcript/test.char", 
-                wavdir="{WAVDIR}/test")
+                wavdir=data_path + "/wav/test")
             
         extract(mypath=tedlium_path + "/train/stm/",
                 out_yaml=data_path + "/db/train.yaml", 
                 out_text=data_path + "/transcript/train.char", 
-                wavdir="{WAVDIR}/train")
+                wavdir=data_path + "/wav/train")
         ###########################
         ###########################
 

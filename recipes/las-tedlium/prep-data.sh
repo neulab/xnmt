@@ -6,15 +6,15 @@ datadir=/project/data-audio/tedlium-multi/tedlium-wav
 
 ##### convert to .wav #######
 
-#for spl in dev test train
-#do
-#  for f in `ls $tedliumdir/$spl/sph/*.sph`
-#  do
-#    mkdir -p $datadir/wav/$spl
-#    filename=$(basename "$f" .sph) 
-#    sox -t sph -b 16 -e signed -r 16000 -c 1 $f $datadir/wav/$spl/$filename.wav
-#  done
-#done
+for spl in dev test train
+do
+  for f in `ls $tedliumdir/$spl/sph/*.sph`
+  do
+    mkdir -p $datadir/wav/$spl
+    filename=$(basename "$f" .sph) 
+    sox -t sph -b 16 -e signed -r 16000 -c 1 $f $datadir/wav/$spl/$filename.wav
+  done
+done
 
 #### prepare database and transcripts #####
 mkdir $datadir/db/
