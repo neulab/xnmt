@@ -51,7 +51,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                z_normalization    = True,
                learn_segmentation = True,
                compose_char       = False,
-               debug=False,
                print_sample=False):
     register_handler(self)
     model = exp_global.dynet_param_collection.param_col
@@ -83,7 +82,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.learn_segmentation = learn_segmentation
     self.learn_delete = learn_delete
     self.z_normalization = z_normalization
-    self.debug = debug
     self.compose_char = compose_char
     self.print_sample = print_sample
     self.print_sample_prob = print_sample_prob
@@ -244,6 +242,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           segment_decisions[i-1][mask[i]] = 1
     segment_decisions[-1][:] = 1 # </s>
 
+    #### DEBUG
+    #print(segment_decisions.transpose()[0])
+    #print(numpy.exp(numpy.array([list(log.npvalue().transpose()[0]) for log in segment_logsoftmaxes])))
+    ####
+
     return segment_decisions, segment_logsoftmaxes
 
   # Sample from prior segmentation
@@ -274,11 +277,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   # Sample from the softmax
   def sample_from_softmax(self, encodings, batch_size, segment_logsoftmaxes):
     # Sample from the softmax
-    #if self.train:
-    segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
-                         for log_softmax in segment_logsoftmaxes]
-    if batch_size == 1:
-      segment_decisions = [numpy.array([x]) for x in segment_decisions]
+    if self.train:
+      segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
+                           for log_softmax in segment_logsoftmaxes]
+      if batch_size == 1:
+        segment_decisions = [numpy.array([x]) for x in segment_decisions]
     else:
       segment_decisions = [log_softmax.tensor_value().argmax().as_numpy().transpose()
                            for log_softmax in segment_logsoftmaxes]
@@ -305,7 +308,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   @handle_xnmt_event
   def on_new_epoch(self, training_task, *args, **kwargs):
     self.segmentation_warmup_counter = training_task.training_state.epoch_num
-    name = ["Epsilon Greedy Prob", "Reinforce Loss Weight", "Confidence Penalty Weight", "Length Prior Weight",
+    name = ["Epsilon Greedy Prob", "Reinforce Weight", "Confidence Penalty Weight", "Length Prior Weight",
             "Epoch Counter"]
     param = [self.eps, self.lmbd, self.confidence_penalty, self.length_prior_alpha, self.segmentation_warmup_counter]
     for n, p in zip(name, param):

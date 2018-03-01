@@ -82,7 +82,7 @@ class GLEUScore(EvalScore, Serializable):
     self.desc = desc
     self.serialize_params = {"gleu":gleu, "hyp_len":hyp_len,"ref_len":ref_len}
     if desc is not None: self.serialize_params["desc"] = desc
-    
+
   def value(self): return self.gleu
   def metric_name(self): return "GLEU"
   def higher_is_better(self): return True

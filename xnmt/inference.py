@@ -138,7 +138,7 @@ class SimpleInference(Serializable):
           output_txt = output[0].plaintext
         # Printing to trg file
         fp.write(f"{output_txt}\n")
-  
+
   def get_output_processor(self):
     spec = self.post_process
     if spec == "none":

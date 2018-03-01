@@ -28,7 +28,7 @@ class PreprocRunner(Serializable):
     :param overwrite (bool): Whether to overwrite files if they already exist.
     """
     logger.info("> Preprocessing")
-    
+
     args = dict(preproc_specs=preproc_specs, overwrite=overwrite)
 
     if args["preproc_specs"] == None:

@@ -73,7 +73,7 @@ class LossTracker(object):
   def format_time(self, seconds):
     return "{}-{}".format(int(seconds) // 86400,
                           time.strftime("%H:%M:%S", time.gmtime(seconds)))
-  
+
   def log_readable_and_structured(self, template, args):
     if self.name: args["task_name"] = self.name
     logger.info(template.format(**args), extra=args)

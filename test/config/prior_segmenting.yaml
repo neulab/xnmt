@@ -12,7 +12,6 @@ prior-segmenting: !Experiment
     src_embedder: !SimpleWordEmbedder
       emb_dim: 16
     encoder: !SegmentingSeqTransducer
-      debug: True
       embed_encoder: !BiLSTMSeqTransducer
         input_dim: 16
         hidden_dim: 16

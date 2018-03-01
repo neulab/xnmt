@@ -54,7 +54,7 @@ def set_out_file(out_file):
   unset_out_file()
   dirname = os.path.dirname(out_file)
   if dirname and not os.path.exists(dirname):
-    os.makedirs(dirname)  
+    os.makedirs(dirname)
   fh = logging.FileHandler(out_file, mode='w')
   fh.setLevel(settings.LOG_LEVEL_FILE)
   fh.setFormatter(MainFormatter())
