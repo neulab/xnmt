@@ -12,7 +12,7 @@ class ExpGlobal(Serializable):
                log_file="{EXP_DIR}/logs/{EXP}.log",
                dropout = 0.0, weight_noise = 0.0, default_layer_dim = 512,
                save_num_checkpoints=1, eval_only=False, commandline_args=None,
-               dynet_param_collection = None):
+               dynet_param_collection = None, placeholders={}):
     self.model_file = model_file
     self.log_file = log_file
     self.dropout = dropout
@@ -22,6 +22,7 @@ class ExpGlobal(Serializable):
     self.eval_only = eval_only
     self.dynet_param_collection = dynet_param_collection or PersistentParamCollection(model_file, save_num_checkpoints)
     self.commandline_args = commandline_args
+    self.placeholders = placeholders
 
 class PersistentParamCollection(object):
   def __init__(self, model_file, save_num_checkpoints=1):
