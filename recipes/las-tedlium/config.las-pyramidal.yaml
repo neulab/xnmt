@@ -42,8 +42,6 @@ las-pyramidal: !Experiment
       label_smoothing: 0.1
     src_reader: !H5Reader
       transpose: true
-      feat_from: 0
-      feat_to: 40
     trg_reader: !PlainTextReader
       vocab: !Vocab
         vocab_file: '{EXP_DIR}/vocab.char'
