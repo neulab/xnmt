@@ -267,6 +267,38 @@ class DefaultTranslator(Translator, Serializable, Reportable):
           str_format += "{:%ds}" % (length+2)
         print(str_format.format(*words), file=attn_file)
 
+  def sample_one(self, dec_state, sample_length, forced_trg=None):
+    # Outputs
+    logsofts = []
+    samples = []
+    hts = []
+    # Sample one sequence
+    done = None
+    for i in range(sample_length):
+      dec_state.context = self.attender.calc_context(dec_state.rnn_state.output())
+      if done is None:
+        done = [False for _ in range(dec_state.context.dim()[1])]
+      h_t = self.decoder.get_ht(dec_state)
+      logsoft = dy.log_softmax(self.decoder.get_scores(dec_state, h_t))
+      if forced_trg is None:
+        sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]
+        # Keep track of previously sampled EOS
+        sample = [sample_i if not done_i else Vocab.ES for sample_i, done_i in zip(sample, done)]
+      else:
+        sample = forced_trg[i]
+      # Appending and feeding in the decoder
+      logsoft = dy.pick_batch(logsoft, sample)
+      logsofts.append(logsoft)
+      samples.append(sample)
+      hts.append(h_t)
+      dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(xnmt.batcher.mark_as_batch(sample)))
+      # Check if we are done.
+      if all([x == Vocab.ES for x in sample]):
+        break
+
+    return logsofts, np.stack(samples, axis=1).tolist(), hts
+
+
 class TransformerTranslator(Translator, Serializable, Reportable):
   yaml_tag = u'!TransformerTranslator'
 
@@ -460,3 +492,4 @@ class TransformerTranslator(Translator, Serializable, Reportable):
       outputs.append((output_actions, score))
 
     return outputs
+ 

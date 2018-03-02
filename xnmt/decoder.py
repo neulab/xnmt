@@ -131,14 +131,19 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     return MlpSoftmaxDecoderState(rnn_state=mlp_dec_state.rnn_state.add_input(inp),
                                   context=mlp_dec_state.context)
 
-  def get_scores(self, mlp_dec_state):
+  def get_scores(self, mlp_dec_state, ht=None):
     """Get scores given a current state.
 
     :param mlp_dec_state: An MlpSoftmaxDecoderState object.
     :returns: Scores over the vocabulary given this state.
     """
-    h_t = dy.tanh(self.context_projector(dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context])))
-    return self.vocab_projector(h_t)
+    if ht is None:
+      return self.vocab_projector(self.get_ht(mlp_dec_state))
+    else:
+      return self.vocab_projector(ht)
+
+  def get_ht(self, mlp_dec_state):
+    return dy.tanh(self.context_projector(dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context])))
 
   def calc_loss(self, mlp_dec_state, ref_action):
     """

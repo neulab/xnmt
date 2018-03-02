@@ -53,80 +53,82 @@ class MLELoss(Serializable):
 
     return dy.esum(losses)
 
+def remove_eos(sequence, eos_sym=Vocab.ES):
+  try:
+    idx = sequence.index(Vocab.ES)
+    sequence = sequence[:idx]
+  except ValueError:
+    # NO EOS
+    pass
+  return sequence
+
 class ReinforceLoss(Serializable):
   yaml_tag = '!ReinforceLoss'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):
     self.sample_length = sample_length
+    self.use_baseline = use_baseline
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
-    self.use_baseline = use_baseline
+
     if self.use_baseline:
       model = exp_global.dynet_param_collection.param_col
       decoder_hidden_dim = decoder_hidden_dim or exp_global.default_layer_dim
       self.baseline = linear.Linear(input_dim=decoder_hidden_dim, output_dim=1, model=model)
 
-  def __call__(self, translator, dec_state, src, trg):
+  def __call__(self, model, dec_state, src, trg):
     # TODO: apply trg.mask ?
-    samples = []
-    logsofts = []
-    self.bs = []
-    done = [False for _ in range(len(trg))]
-    for _ in range(self.sample_length):
-      dec_state.context = translator.attender.calc_context(dec_state.rnn_state.output())
-      if self.use_baseline:
-        h_t = dy.tanh(translator.decoder.context_projector(dy.concatenate([dec_state.rnn_state.output(), dec_state.context])))
-        self.bs.append(self.baseline(dy.nobackprop(h_t)))
-      logsoft = dy.log_softmax(translator.decoder.get_scores(dec_state))
-      sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]
-      # Keep track of previously sampled EOS
-      sample = [sample_i if not done_i else Vocab.ES for sample_i, done_i in zip(sample, done)]
-      # Appending and feeding in the decoder
-      logsoft = dy.pick_batch(logsoft, sample)
-      logsofts.append(logsoft)
-      samples.append(sample)
-      dec_state = translator.decoder.add_input(dec_state, translator.trg_embedder.embed(xnmt.batcher.mark_as_batch(sample)))
-      # Check if we are done.
-      done = list(six.moves.map(lambda x: x == Vocab.ES, sample))
-      if all(done):
-        break
-
-    samples = np.stack(samples, axis=1).tolist()
+    logsofts, samples, hts = model.sample_one(dec_state, self.sample_length)
+    # Calculate evaluation scores
     self.eval_score = []
     for trg_i, sample_i in zip(trg, samples):
       # Removing EOS
-      try:
-        idx = sample_i.index(Vocab.ES)
-        sample_i = sample_i[:idx]
-      except ValueError:
-        pass
-      try:
-        idx = trg_i.words.index(Vocab.ES)
-        trg_i.words = trg_i.words[:idx]
-      except ValueError:
-        pass
-      # Calculate the evaluation score
-      score = 0 if not len(sample_i) else self.evaluation_metric.evaluate_fast(trg_i.words, sample_i)
+      sample_i = remove_eos(sample_i)
+      ref_i = remove_eos(trg_i.words)
+      # Evaluating 
+      if len(sample_i) == 0:
+        score = 0
+      else:
+        score = self.evaluation_metric.evaluate_fast(ref_i, sample_i)
       self.eval_score.append(score)
     self.true_score = dy.inputTensor(self.eval_score, batched=True)
+    # Composing losses
     loss = LossBuilder()
-
-    if self.use_baseline:
-      for i, (score, _) in enumerate(zip(self.bs, logsofts)):
-        logsofts[i] = dy.cmult(logsofts[i], score - self.true_score)
-      loss.add_loss("Reinforce", dy.sum_elems(dy.esum(logsofts)))
-    else:
-      loss.add_loss("Reinforce", dy.sum_elems(dy.cmult(-self.true_score, dy.esum(logsofts))))
-
     if self.use_baseline:
       baseline_loss = []
-      for bs in self.bs:
-        baseline_loss.append(dy.squared_distance(self.true_score, bs))
+      score = []
+      for i, (h_t, logsoft) in enumerate(zip(hts, logsofts)):
+        bs_score = self.baseline(dy.nobackprop(h_t))
+        baseline_loss.append(dy.squared_distance(self.true_score, bs_score))
+        score.append(dy.cmult(logsoft, bs_score - self.true_score))
+      loss.add_loss("Reinforce", dy.sum_elems(dy.esum(score)))
       loss.add_loss("Baseline", dy.sum_elems(dy.esum(baseline_loss)))
+    else:
+      loss.add_loss("Reinforce", dy.sum_elems(dy.cmult(-self.true_score, dy.esum(logsofts))))
     return loss
 
 # To be implemented
 class MinRiskLoss(Serializable):
-  yaml_tag = 'MinRiskLoss'
+  yaml_tag = '!MinRiskLoss'
+
+  def __init__(self, exp_global=Ref(Path("exp_global")),
+                     evaluation_metric=None,
+                     sample_length=50,
+                     sample_num=10,
+                     alpha=5e-3):
+    # Samples
+    self.sample_length = sample_length
+    self.sample_num = sample_num
+    if evaluation_metric is None:
+      self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
+    else:
+      self.evaluation_metric = evaluation_metric
+
+  def __call__(self, translator, dec_state, src, trg):
+    for _ in range(self.sample_num):
+      prob, sample = self.sample_one(translator, dec_state, trg)
+
+  def sample_one(self, translator):
+    pass
