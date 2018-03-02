@@ -1,6 +1,5 @@
 from __future__ import division, generators
 
-import six
 import dynet as dy
 import numpy as np
 
@@ -89,8 +88,7 @@ class ReinforceLoss(Serializable):
       samples.append(sample)
       dec_state = translator.decoder.add_input(dec_state, translator.trg_embedder.embed(xnmt.batcher.mark_as_batch(sample)))
       # Check if we are done.
-      done = list(six.moves.map(lambda x: x == Vocab.ES, sample))
-      if all(done):
+      if all([x == Vocab.ES for x in sample]):
         break
 
     samples = np.stack(samples, axis=1).tolist()

@@ -1,7 +1,6 @@
 import logging
 logger = logging.getLogger('xnmt')
 import io
-import six
 import numpy
 import dynet as dy
 

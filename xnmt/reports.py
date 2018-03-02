@@ -1,5 +1,4 @@
 import io
-import six
 
 from lxml import etree
 from xnmt.events import register_xnmt_event, register_xnmt_event_assign, handle_xnmt_event
@@ -66,7 +65,7 @@ class Reportable(object):
   ### Public acessible Methods
   def generate_report(self, report_type):
     if report_type:
-      report_type = list(six.moves.map(lambda x: x.strip(), report_type.strip().split(",")))
+      report_type = [x.strip() for x in report_type.strip().split(",")]
     for typ in report_type:
       if typ == "html":
         self.generate_html_report()
