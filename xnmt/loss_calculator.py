@@ -121,14 +121,36 @@ class MinRiskLoss(Serializable):
     # Samples
     self.sample_length = sample_length
     self.sample_num = sample_num
+    self.alpha = alpha
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
 
-  def __call__(self, translator, dec_state, src, trg):
-    for _ in range(self.sample_num):
-      prob, sample = self.sample_one(translator, dec_state, trg)
+  # TODO Implement masking here!
+  def __call__(self, model, dec_state, src, trg):
+    batch_size = len(trg)
+    samples = [set() for _ in range(batch_size)]
+    risk = []
+    for i in range(self.sample_num):
+      ref = trg if i == 0 else None
+      logprob, sample, _ = model.sample_one(dec_state, self.sample_length, ref)
+      logprob = dy.esum(logprob)
+      # Calculate hash, and mask the same sample
+      hashed = [hash(tuple(s)) for s in sample]
+      flag = [1 if h not in s else 0 for (h, s) in zip(hashed, samples)]
+      logprob = dy.cmult(dy.inputTensor(flag, batched=True), logprob) * self.alpha
+      list(s.add(h) for s, h in zip(samples, hashed))
+      # Calculate the evaluation score
+      eval_score = [0 for _ in range(batch_size)]
+      for j in range(batch_size):
+        if flag[j] == 0: continue
+        ref = remove_eos(trg[j].words)
+        hyp = remove_eos(sample[j])
+        if len(hyp) == 0:
+          eval_score[j] = 0
+        else:
+          eval_score[j] = self.evaluation_metric.evaluate_fast(ref, hyp)
+      risk.append(dy.cmult(dy.exp(logprob), -dy.inputTensor(eval_score, batched=True)))
+    return LossBuilder({"risk": dy.esum(risk)})
 
-  def sample_one(self, translator):
-    pass

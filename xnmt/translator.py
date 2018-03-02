@@ -285,7 +285,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         # Keep track of previously sampled EOS
         sample = [sample_i if not done_i else Vocab.ES for sample_i, done_i in zip(sample, done)]
       else:
-        sample = forced_trg[i]
+        sample = [forced_trg[j][i] if len(forced_trg[j]) > i else Vocab.ES for j in range(len(forced_trg))]
       # Appending and feeding in the decoder
       logsoft = dy.pick_batch(logsoft, sample)
       logsofts.append(logsoft)
@@ -492,4 +492,4 @@ class TransformerTranslator(Translator, Serializable, Reportable):
       outputs.append((output_actions, score))
 
     return outputs
- 
+
