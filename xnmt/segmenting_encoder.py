@@ -115,7 +115,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # input
     enc_inp = encodings if not self.compose_char else embed_sent
     # Loop through all the frames (word / item) in input.
-    for j, (encoding, segment_decision) in enumerate(zip(encodings, segment_decisions)):
+    for j, (encoding, segment_decision) in enumerate(zip(enc_inp, segment_decisions)):
       # For each decision in the batch
       for i, decision in enumerate(segment_decision):
         # If segment for this particular input
