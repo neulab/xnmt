@@ -103,13 +103,12 @@ class ReinforceLoss(Serializable):
         bs_score = self.baseline(dy.nobackprop(h_t))
         baseline_loss.append(dy.squared_distance(self.true_score, bs_score))
         score.append(dy.cmult(logsoft, bs_score - self.true_score))
-      loss.add_loss("Reinforce", dy.sum_elems(dy.esum(score)))
-      loss.add_loss("Baseline", dy.sum_elems(dy.esum(baseline_loss)))
+      loss.add_loss("reinforce", dy.sum_elems(dy.esum(score)))
+      loss.add_loss("reinf_baseline", dy.sum_elems(dy.esum(baseline_loss)))
     else:
-      loss.add_loss("Reinforce", dy.sum_elems(dy.cmult(-self.true_score, dy.esum(logsofts))))
+      loss.add_loss("reinforce", dy.sum_elems(dy.cmult(-self.true_score, dy.esum(logsofts))))
     return loss
 
-# To be implemented
 class MinRiskLoss(Serializable):
   yaml_tag = '!MinRiskLoss'
 
@@ -131,7 +130,8 @@ class MinRiskLoss(Serializable):
   def __call__(self, model, dec_state, src, trg):
     batch_size = len(trg)
     samples = [set() for _ in range(batch_size)]
-    risk = []
+    deltas = []
+    logprobs = []
     for i in range(self.sample_num):
       ref = trg if i == 0 else None
       logprob, sample, _ = model.sample_one(dec_state, self.sample_length, ref)
@@ -151,6 +151,9 @@ class MinRiskLoss(Serializable):
           eval_score[j] = 0
         else:
           eval_score[j] = self.evaluation_metric.evaluate_fast(ref, hyp)
-      risk.append(dy.cmult(dy.exp(logprob), -dy.inputTensor(eval_score, batched=True)))
-    return LossBuilder({"risk": dy.esum(risk)})
+      deltas.append(-dy.inputTensor(eval_score, batched=True))
+      logprobs.append(logprob)
+    prob = dy.softmax(dy.exp(dy.concatenate(logprobs)))
+    risk = dy.sum_elems(dy.cmult(prob, dy.concatenate(deltas)))
+    return LossBuilder({"risk": risk})
 
