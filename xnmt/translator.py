@@ -163,7 +163,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, dec_state, src_length=len(sents), forced_trg_ids=forced_trg_ids)
       # In case of reporting
       if self.report_path is not None:
-        src_words = [self.reporting_src_vocab[w] for w in sents]
+        if self.reporting_src_vocab:
+          src_words = [self.reporting_src_vocab[w] for w in sents]
+        else:
+          src_words = ['' for w in sents]
         trg_words = [self.trg_vocab[w] for w in output_actions.word_ids]
         # Attentions
         attentions = output_actions.attentions
