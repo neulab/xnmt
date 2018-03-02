@@ -1,6 +1,5 @@
 from __future__ import division, generators
 
-import six
 import dynet as dy
 import numpy as np
 

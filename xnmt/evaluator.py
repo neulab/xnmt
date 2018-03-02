@@ -3,7 +3,6 @@ from Cython.Compiler.TypeSlots import descrdelfunc
 logger = logging.getLogger('xnmt')
 from collections import defaultdict, Counter
 import math
-import six
 import subprocess
 
 import numpy as np
@@ -411,9 +410,9 @@ class WEREvaluator(Evaluator):
     :return: tuple (levenshtein distance, reference length)
     """
     if not self.case_sensitive:
-      hyp_sent = list(six.moves.map(lambda w: w.lower(), hyp_sent))
+      hyp_sent = [w.lower() for w in hyp_sent]
     if not self.case_sensitive:
-      ref_sent = list(six.moves.map(lambda w: w.lower(), ref_sent))
+      ref_sent = [w.lower() for w in ref_sent]
     return -self.seq_sim(ref_sent, hyp_sent)
 
   # gap penalty:
