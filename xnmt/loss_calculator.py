@@ -64,9 +64,15 @@ def remove_eos(sequence, eos_sym=Vocab.ES):
 class ReinforceLoss(Serializable):
   yaml_tag = '!ReinforceLoss'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):
+  def __init__(self, exp_global=Ref(Path("exp_global")),
+                     evaluation_metric=None,
+                     sample_length=50,
+                     inv_eval = True,
+                     use_baseline=False,
+                     decoder_hidden_dim=None):
     self.sample_length = sample_length
     self.use_baseline = use_baseline
+    self.inv_eval = inv_eval
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
     else:
@@ -90,22 +96,23 @@ class ReinforceLoss(Serializable):
       if len(sample_i) == 0:
         score = 0
       else:
-        score = self.evaluation_metric.evaluate_fast(ref_i, sample_i)
+        score = self.evaluation_metric.evaluate_fast(ref_i, sample_i) * \
+                (-1 if self.inv_eval else 1)
       self.eval_score.append(score)
     self.true_score = dy.inputTensor(self.eval_score, batched=True)
     # Composing losses
     loss = LossBuilder()
     if self.use_baseline:
       baseline_loss = []
-      score = []
+      losses = []
       for i, (h_t, logsoft) in enumerate(zip(hts, logsofts)):
         bs_score = self.baseline(dy.nobackprop(h_t))
         baseline_loss.append(dy.squared_distance(self.true_score, bs_score))
-        score.append(dy.cmult(logsoft, bs_score - self.true_score))
-      loss.add_loss("reinforce", dy.sum_elems(dy.esum(score)))
+        losses.append(dy.cmult(logsoft, self.true_score - bs_score))
+      loss.add_loss("reinforce", dy.sum_elems(dy.esum(losses)))
       loss.add_loss("reinf_baseline", dy.sum_elems(dy.esum(baseline_loss)))
     else:
-      loss.add_loss("reinforce", dy.sum_elems(dy.cmult(-self.true_score, dy.esum(logsofts))))
+      loss.add_loss("reinforce", dy.sum_elems(dy.cmult(self.true_score, dy.esum(logsofts))))
     return loss
 
 class MinRiskLoss(Serializable):
@@ -115,7 +122,8 @@ class MinRiskLoss(Serializable):
                      evaluation_metric=None,
                      sample_length=50,
                      sample_num=10,
-                     alpha=5e-3):
+                     alpha=5e-3,
+                     inv_eval=True):
     # Samples
     self.sample_length = sample_length
     self.sample_num = sample_num
@@ -124,35 +132,43 @@ class MinRiskLoss(Serializable):
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
+    self.inv_eval = inv_eval
 
   # TODO Implement masking here!
   def __call__(self, model, dec_state, src, trg):
+    INF = 1e20
     batch_size = len(trg)
-    samples = [set() for _ in range(batch_size)]
+    uniques = [set() for _ in range(batch_size)]
     deltas = []
-    logprobs = []
+    probs = []
     for i in range(self.sample_num):
       ref = trg if i == 0 else None
       logprob, sample, _ = model.sample_one(dec_state, self.sample_length, ref)
-      logprob = dy.esum(logprob)
-      # Calculate hash, and mask the same sample
-      hashed = [hash(tuple(s)) for s in sample]
-      flag = [1 if h not in s else 0 for (h, s) in zip(hashed, samples)]
-      logprob = dy.cmult(dy.inputTensor(flag, batched=True), logprob) * self.alpha
-      list(s.add(h) for s, h in zip(samples, hashed))
+      logprob = dy.esum(logprob) * self.alpha
       # Calculate the evaluation score
       eval_score = [0 for _ in range(batch_size)]
+      mask = []
       for j in range(batch_size):
-        if flag[j] == 0: continue
-        ref = remove_eos(trg[j].words)
-        hyp = remove_eos(sample[j])
-        if len(hyp) == 0:
+        ref_j = remove_eos(trg[j].words)
+        hyp_j = remove_eos(sample[j])
+        hash_val = hash(tuple(hyp_j))
+        if len(hyp_j) == 0 or hash_val in uniques[j]:
+          mask.append(0)
           eval_score[j] = 0
         else:
-          eval_score[j] = self.evaluation_metric.evaluate_fast(ref, hyp)
-      deltas.append(-dy.inputTensor(eval_score, batched=True))
-      logprobs.append(logprob)
-    prob = dy.softmax(dy.exp(dy.concatenate(logprobs)))
-    risk = dy.sum_elems(dy.cmult(prob, dy.concatenate(deltas)))
+          # Count this sample in
+          mask.append(1)
+          uniques[j].add(hash_val)
+          # Calc evaluation score
+          eval_score[j] = self.evaluation_metric.evaluate_fast(ref_j, hyp_j) * \
+                          (-1 if self.inv_eval else 1)
+      # Appending the delta and logprob of this sample
+      neg_inf_mask = dy.inputTensor([-INF if mask[i] == 0 else 0 for i in range(len(mask))], batched=True)
+      prob = dy.cmult(dy.exp(logprob), dy.inputTensor(mask, batched=True)) + neg_inf_mask
+      deltas.append(dy.inputTensor(eval_score, batched=True))
+      probs.append(prob)
+    sample_prob = dy.softmax(dy.concatenate(probs))
+    risk = dy.sum_elems(dy.cmult(sample_prob, dy.concatenate(deltas)))
+
     return LossBuilder({"risk": risk})
 

@@ -267,6 +267,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         print(str_format.format(*words), file=attn_file)
 
   def sample_one(self, dec_state, sample_length, forced_trg=None):
+    EPS = 1e-10
     # Outputs
     logsofts = []
     samples = []
@@ -275,24 +276,27 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     done = None
     for i in range(sample_length):
       dec_state.context = self.attender.calc_context(dec_state.rnn_state.output())
-      if done is None:
-        done = [False for _ in range(dec_state.context.dim()[1])]
       h_t = self.decoder.get_ht(dec_state)
       logsoft = dy.log_softmax(self.decoder.get_scores(dec_state, h_t))
       if forced_trg is None:
         sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]
         # Keep track of previously sampled EOS
-        sample = [sample_i if not done_i else Vocab.ES for sample_i, done_i in zip(sample, done)]
+        if done is not None:
+          sample = [sample_i if not done_i else Vocab.ES for sample_i, done_i in zip(sample, done)]
       else:
         sample = [forced_trg[j][i] if len(forced_trg[j]) > i else Vocab.ES for j in range(len(forced_trg))]
       # Appending and feeding in the decoder
       logsoft = dy.pick_batch(logsoft, sample)
+      if done is not None:
+        mask = [1 if not done_i else 0 for done_i in done]
+        logsoft = dy.cmult(logsoft, dy.inputTensor(mask, batched=True))
       logsofts.append(logsoft)
       samples.append(sample)
       hts.append(h_t)
       dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(xnmt.batcher.mark_as_batch(sample)))
+      done = [x == Vocab.ES for x in sample]
       # Check if we are done.
-      if all([x == Vocab.ES for x in sample]):
+      if all(done):
         break
 
     return logsofts, np.stack(samples, axis=1).tolist(), hts
