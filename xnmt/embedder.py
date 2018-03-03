@@ -215,7 +215,12 @@ class SimpleWordEmbedder(Embedder, Serializable):
     if self.train and self.weight_noise > 0.0:
       ret = dy.noise(ret, self.weight_noise)
     return ret
+  
+  def __call__(self, input_expr):
+    return dy.transpose(dy.parameter(self.embeddings)) * input_expr
 
+
+    
 class NoopEmbedder(Embedder, Serializable):
   """
   This embedder performs no lookups but only passes through the inputs.
