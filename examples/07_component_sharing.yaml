@@ -1,8 +1,13 @@
-# This illustrates component and parameter sharing.
-# There are 2 ways to achieve this:
+# This illustrates component and parameter sharing. This is useful for making
+# config files less verbose, and more importantly makes it possible to realize
+# weight-sharing between components, which will also be demonstrated in the
+# multi-task example later.
+#
+# There are 2 ways to achieve sharing:
 # - YAML's anchor system where '&' denotes a named anchor, '*' denotes a reference to an anchor.
 #   This essentially copies values or subcomponents from one place to another.
 #   It can be combined with the << operator that allows copying parts of a dictionary, but overwriting other parts.
+#   More info is found here: http://yaml.readthedocs.io/en/latest/example.html
 # - XNMT's !Ref object creates a reference, meaning both places will point to the exact same Python object,
 #   and that DyNet parameters will be shared.
 #   References can be made by path or by name, as illustrated below. The name refers to a _xnmt_id that can
@@ -11,8 +16,6 @@
 
 exp1.pretrain: !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 32
   model: !DefaultTranslator
     src_reader: !PlainTextReader
