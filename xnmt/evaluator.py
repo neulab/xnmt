@@ -149,6 +149,20 @@ class ExternalScore(EvalScore, Serializable):
   def score_str(self):
     return "{:.3f}".format(self.value)
 
+class SequenceAccuracyScore(EvalScore, Serializable):
+  yaml_tag = "!SequenceAccuracyScore"
+  def __init__(self, accuracy, desc=None):
+    self.accuracy = accuracy
+    self.desc = desc
+    self.serialize_params = {"accuracy":accuracy}
+    if desc is not None: self.serialize_params["desc"] = desc
+  def higher_is_better(self): return True
+  def value(self): return self.accuracy
+  def metric_name(self): return "SequenceAccuracy"
+  def score_str(self):
+    return f"{self.value()*100.0:.2f}%"
+
+
 class Evaluator(object):
   """
   A class to evaluate the quality of output.
@@ -526,3 +540,33 @@ class MeanAvgPrecisionEvaluator(object):
         avg += score
     avg = avg/float(len(ref))
     return MeanAvgPrecisionScore(avg, len(hyp), len(ref), nbest=self.nbest, desc=self.desc)
+
+class SequenceAccuracyEvaluator(Evaluator):
+  """
+  A class to evaluate the quality of output in terms of sequence accuracy.
+  """
+
+  def __init__(self, case_sensitive=False, desc=None):
+    self.case_sensitive = case_sensitive
+    self.desc = desc
+
+  def metric_name(self):
+    return "Sequence accuracy"
+
+  def compare(self, ref_sent, hyp_sent):
+    if not self.case_sensitive:
+      hyp_sent = [w.lower() for w in hyp_sent]
+    if not self.case_sensitive:
+      ref_sent = [w.lower() for w in ref_sent]
+    return ref_sent == hyp_sent
+
+  def evaluate(self, ref, hyp):
+    """
+    Calculate the accuracy of output given a references.
+    :param ref: list of list of reference words
+    :param hyp: list of list of decoded words
+    :return: formatted string
+    """
+    correct = sum(self.compare(ref_sent, hyp_sent) for ref_sent, hyp_sent in zip(ref, hyp))
+    accuracy = float(correct) / len(ref)
+    return SequenceAccuracyScore(accuracy, desc=self.desc)
