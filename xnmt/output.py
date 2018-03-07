@@ -71,3 +71,41 @@ class JoinedPieceTextOutputProcessor(PlainTextOutputProcessor):
 
   def words_to_string(self, word_list):
     return u"".join(word_list).replace(self.space_token, u" ").strip()
+
+
+class CcgPieceOutputProcessor(OutputProcessor):
+  '''
+  Handles the typical case of writing plain text,
+  with one sent per line.
+  '''
+  def __init__(self, tag_set, merge_indicator=u"\u2581"):
+    self.filtered_tokens = set([Vocab.SS, Vocab.ES])
+    self.tag_set = tag_set
+    self.merge_indicator = merge_indicator
+
+  def to_string(self):
+    words = map(lambda wi: self.vocab[wi], filter(lambda wi: wi not in self.filtered_tokens, self.actions))
+    words = [w for w in words if w not in self.tag_set]
+    return words
+
+  def process_outputs(self, outputs):
+    return [self.words_to_string(output.to_string(self.tag_set)) for output in outputs]
+
+  def words_to_string(self, word_list):
+    return u"".join(word_list).replace(self.merge_indicator, u" ").strip()
+
+class TreeHierOutput(Output):
+  def __init__(self, actions=None, rule_vocab=None, word_vocab=None):
+    self.actions = actions or []
+    self.rule_vocab = rule_vocab
+    self.word_vocab = word_vocab
+    self.filtered_tokens = set([Vocab.SS, Vocab.ES])
+  def to_string(self):
+    ret = []
+    for a in self.actions:
+      #if a[0] in self.filtered_tokens: continue
+      if a[1]: # if is terminal
+        ret.append([self.word_vocab[a[0]], a[2]])
+      else:
+        ret.append([self.rule_vocab[a[0]], a[2]])
+    return ret
