@@ -121,8 +121,8 @@ class MinRiskLoss(Serializable):
   def __init__(self, exp_global=Ref(Path("exp_global")),
                      evaluation_metric=None,
                      sample_length=50,
-                     sample_num=10,
-                     alpha=5e-3,
+                     sample_num=20,
+                     alpha=0.005,
                      inv_eval=True):
     # Samples
     self.sample_length = sample_length
@@ -154,7 +154,6 @@ class MinRiskLoss(Serializable):
         hash_val = hash(tuple(hyp_j))
         if len(hyp_j) == 0 or hash_val in uniques[j]:
           mask.append(0)
-          eval_score[j] = 0
         else:
           # Count this sample in
           mask.append(1)
@@ -164,11 +163,18 @@ class MinRiskLoss(Serializable):
                           (-1 if self.inv_eval else 1)
       # Appending the delta and logprob of this sample
       neg_inf_mask = dy.inputTensor([-INF if mask[i] == 0 else 0 for i in range(len(mask))], batched=True)
-      prob = dy.cmult(dy.exp(logprob), dy.inputTensor(mask, batched=True)) + neg_inf_mask
+      prob = logprob + neg_inf_mask
       deltas.append(dy.inputTensor(eval_score, batched=True))
       probs.append(prob)
     sample_prob = dy.softmax(dy.concatenate(probs))
-    risk = dy.sum_elems(dy.cmult(sample_prob, dy.concatenate(deltas)))
+    deltas = dy.concatenate(deltas)
+    risk = dy.sum_elems(dy.cmult(sample_prob, deltas))
+
+    ### Debug
+    #print(sample_prob.npvalue().transpose()[0])
+    #print(deltas.npvalue().transpose()[0])
+    #print("----------------------")
+    ### End debug
 
     return LossBuilder({"risk": risk})
 
