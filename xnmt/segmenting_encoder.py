@@ -96,6 +96,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.confidence_penalty = confidence_penalty
     # States of the object
     self.train = False
+    self.segmentation_warmup_counter = 1
 
   def __call__(self, embed_sent):
     batch_size = embed_sent[0].dim()[1]
