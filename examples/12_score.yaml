@@ -1,9 +1,12 @@
-# Using a trained model to do reranking score for an nbest list
+# Using a trained model to add hypothesis score for an nbest list
+# First, exp1-model trains a model which is saved at examples/output/exp1-model.mod
+# Then, exp2-score loads the exp1-model, and use it to score an nbest list
+# The nbest list example used here is located at examples/data/head.nbest.en
+# exp2-score outputs a new nbest list with hypothesis score.
+# The output file will be in examples/output/exp2-score.test_hyp
 
 exp1-model: !Experiment
   exp_global: !ExpGlobal
-    # The model file contain the whole contents of this experiment in YAML
-    # format. Note that {EXP} expressions are left intact when saving.
     model_file: examples/output/{EXP}.mod
     log_file: examples/output/{EXP}.log
     default_layer_dim: 64
@@ -48,20 +51,13 @@ exp1-model: !Experiment
       ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.test_hyp
 
-exp2-rerank: !Experiment
-  # This will load the contents of the above experiments that were saved to the
-  # YAML file specified after load:
-  # This will carry out the exact same thing, except that {EXP} is resolved to
-  # a different value (making sure we don't overwrite the previous model),
-  # and except for the things explicitly overwritten in the overwrite: section.
-  # It's possible to change any settings as long as these don't change the number
-  # or nature of DyNet parameters allocated for the component.
+exp2-score: !Experiment
   load: examples/output/exp1-model.mod
-  overwrite: # list of [path, value] pairs. Value can be scalar or an arbitrary object
+  overwrite:
   - path: exp_global.eval_only
     val: True
   - path: model.inference.mode
-    val: rerank
+    val: score
   - path: model.inference.ref_file
     val: examples/data/head.nbest.en
   - path: model.inference.src_file
@@ -71,5 +67,3 @@ exp2-rerank: !Experiment
       src_file: examples/data/head.ja
       ref_file: examples/data/head.nbest.en
       hyp_file: examples/output/{EXP}.test_hyp
-
-      

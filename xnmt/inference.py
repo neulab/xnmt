@@ -72,10 +72,10 @@ class SimpleInference(Serializable):
     # Corpus
     src_corpus = list(generator.src_reader.read_sents(args["src_file"]))
     # Get reference if it exists and is necessary
-    if args["mode"] == "forced" or args["mode"] == "forceddebug" or args["mode"] == "rerank":
+    if args["mode"] == "forced" or args["mode"] == "forceddebug" or args["mode"] == "score":
       if args["ref_file"] == None:
         raise RuntimeError("When performing {} decoding, must specify reference file".format(args["mode"]))
-      if args["mode"] == "rerank":
+      if args["mode"] == "score":
         # ref_file should have nbest format; split to hypothesis only and return a list of source indices
         nbest_lines = io.open(args["ref_file"], "r", encoding="utf-8").readlines()
         nbest_hyp_name = args["ref_file"] + ".hyp"
@@ -84,7 +84,7 @@ class SimpleInference(Serializable):
         for nbest in nbest_lines:
           nbest = nbest.split("|||")
           nbest = [n.strip() for n in nbest]
-          assert len(nbest) > 1, "When performing reranking, ref_file must have nbest format 'index ||| hypthesis'"
+          assert len(nbest) > 1, "When performing scoring, ref_file must have nbest format 'index ||| hypthesis'"
           src_index = int(nbest[0])
           assert src_index < len(src_corpus), "The src_file has only {} instances, nbest file has invalid src_index {}".format(len(src_corpus), src_index)
           nbest_src_corpus.append(src_corpus[src_index])
@@ -118,7 +118,7 @@ class SimpleInference(Serializable):
 
     # If we're debugging, calculate the loss for each target sentence
     ref_scores = None
-    if args["mode"] == 'forceddebug' or args["mode"] == 'rerank':
+    if args["mode"] == 'forceddebug' or args["mode"] == 'score':
       some_batcher = xnmt.batcher.InOrderBatcher(32) # Arbitrary
       if not isinstance(some_batcher, xnmt.batcher.InOrderBatcher):
         raise ValueError(f"forceddebug requires InOrderBatcher, got: {some_batcher}")
@@ -134,7 +134,7 @@ class SimpleInference(Serializable):
       ref_scores = [-x for x in ref_scores]
 
     # Perform generation of output
-    if args["mode"] != 'rerank':
+    if args["mode"] != 'score':
       with io.open(args["trg_file"], 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
         src_ret=[]
         for i, src in enumerate(src_corpus):
