@@ -75,26 +75,24 @@ class SimpleInference(Serializable):
     if args["mode"] == "forced" or args["mode"] == "forceddebug" or args["mode"] == "score":
       if args["ref_file"] == None:
         raise RuntimeError("When performing {} decoding, must specify reference file".format(args["mode"]))
+      score_src_corpus = []
+      ref_corpus = []
+      with io.open(args["ref_file"], "r", encoding="utf-8") as fp:
+        for line in fp:
+          if args["mode"] == "score":
+            nbest = line.split("|||")
+            assert len(nbest) > 1, "When performing scoring, ref_file must have nbest format 'index ||| hypothesis'"
+            src_index = int(nbest[0].strip())
+            assert src_index < len(src_corpus), "The src_file has only {} instances, nbest file has invalid src_index {}".format(len(src_corpus), src_index)
+            score_src_corpus.append(src_corpus[src_index])
+            trg_input = generator.trg_reader.read_sent(nbest[1].strip())
+          else:
+            trg_input = generator.trg_reader.read_sent(line)
+          ref_corpus.append(trg_input)
       if args["mode"] == "score":
-        # ref_file should have nbest format; split to hypothesis only and return a list of source indices
-        nbest_lines = io.open(args["ref_file"], "r", encoding="utf-8").readlines()
-        nbest_hyp_name = args["ref_file"] + ".hyp"
-        nbest_hyp_file = io.open(nbest_hyp_name, "w", encoding="utf-8")
-        nbest_src_corpus = []
-        for nbest in nbest_lines:
-          nbest = nbest.split("|||")
-          nbest = [n.strip() for n in nbest]
-          assert len(nbest) > 1, "When performing scoring, ref_file must have nbest format 'index ||| hypthesis'"
-          src_index = int(nbest[0])
-          assert src_index < len(src_corpus), "The src_file has only {} instances, nbest file has invalid src_index {}".format(len(src_corpus), src_index)
-          nbest_src_corpus.append(src_corpus[src_index])
-          nbest_hyp_file.write("{}\n".format(nbest[1]))
-        nbest_hyp_file.close()
-        src_corpus = nbest_src_corpus
-        ref_corpus = list(generator.trg_reader.read_sents(nbest_hyp_name))
+        src_corpus = score_src_corpus
       else:
-        ref_corpus = list(generator.trg_reader.read_sents(args["ref_file"]))
-        if self.max_len and any(len(s)>self.max_len for s in ref_corpus):
+        if self.max_len and any(len(s) > self.max_len for s in ref_corpus):
           logger.warning("Forced decoding with some targets being longer than max_len. Increase max_len to avoid unexpected behavior.")
     else:
       ref_corpus = None
@@ -159,8 +157,9 @@ class SimpleInference(Serializable):
           fp.write(f"{output_txt}\n")
     else:
       with io.open(args["trg_file"], 'wt', encoding='utf-8') as fp:
-        for nbest, score in zip(nbest_lines, ref_scores):
-          fp.write("{} ||| score={}\n".format(nbest.strip(), score))
+        with io.open(args["ref_file"], "r", encoding="utf-8") as nbest_fp:
+          for nbest, score in zip(nbest_fp, ref_scores):
+            fp.write("{} ||| score={}\n".format(nbest.strip(), score))
   
   def get_output_processor(self):
     spec = self.post_process

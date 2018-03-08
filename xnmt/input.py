@@ -102,7 +102,17 @@ class InputReader(object):
     :param filter_ids: only read sentences with these ids (0-indexed)
     :returns: iterator over sentences from filename
     """
-    raise RuntimeError("Input readers must implement the read_sents function")
+    if self.vocab is None:
+      self.vocab = Vocab()
+    return self.iterate_filtered(filename, filter_ids)
+
+  def read_sent(self, sentence, filter_ids=None):
+    """
+    :param sentence: a single input string
+    :param filter_ids: only read sentences with these ids (0-indexed)
+    :returns: a SentenceInput object for the input sentence
+    """
+    raise RuntimeError("Input readers must implement the read_sent function")
 
   def count_sents(self, filename):
     """
@@ -136,7 +146,7 @@ class BaseTextReader(InputReader):
     with io.open(filename, encoding='utf-8') as f:
       for line in f:
         if filter_ids is None or sent_count in filter_ids:
-          yield line
+          yield self.read_sent(line)
         sent_count += 1
         if max_id is not None and sent_count > max_id:
           break
@@ -154,13 +164,10 @@ class PlainTextReader(BaseTextReader, Serializable):
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
 
-  def read_sents(self, filename, filter_ids=None):
-    if self.vocab is None:
-      self.vocab = Vocab()
+  def read_sent(self, sentence, filter_ids=None):
     vocab_reference = self.vocab if self.include_vocab_reference else None
-    return six.moves.map(lambda l: SimpleSentenceInput([self.vocab.convert(word) for word in l.strip().split()] + \
-                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference),
-                         self.iterate_filtered(filename, filter_ids))
+    return SimpleSentenceInput([self.vocab.convert(word) for word in sentence.strip().split()] + \
+                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
 
   def freeze(self):
     self.vocab.freeze()
