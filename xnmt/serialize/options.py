@@ -56,6 +56,13 @@ class RandomParam(yaml.YAMLObject):
       self.drawn_value = random.choice(self.values)
     return self.drawn_value
 
+class LoadSerialized(Serializable):
+  yaml_tag = "!LoadSerialized"
+  def __init__(self, filename, path="", overwrite=[]):
+    self.filename = filename
+    self.path = path
+    self.overwrite = overwrite
+
 class OptionParser(object):
   def __init__(self):
     self.tasks = {}
@@ -90,7 +97,7 @@ class OptionParser(object):
       if isinstance(node, Serializable):
         self.resolve_kwargs(node)
 
-    self.load_referenced_model(experiment)
+    experiment = self.load_referenced_serialized(experiment)
 
     random_search_report = self.instantiate_random_search(experiment)
     if random_search_report:
@@ -104,28 +111,27 @@ class OptionParser(object):
 
     return UninitializedYamlObject(experiment)
 
-  def load_referenced_model(self, experiment):
-    if hasattr(experiment, "load") or hasattr(experiment, "overwrite"):
-      exp_args = set([x[0] for x in tree_tools.name_children(experiment, include_reserved=False)])
-      if exp_args not in [set(["load"]), set(["load","overwrite"])]:
-        raise ValueError(f"When loading a model from an external YAML file, only 'load' and 'overwrite' are permitted ('load' is required) as arguments to the experiment. Found: {exp_args}")
-      try:
-        with open(experiment.load) as stream:
-          saved_obj = yaml.load(stream)
-      except IOError as e:
-        raise RuntimeError(f"Could not read configuration file {experiment.load}: {e}")
-      for saved_key, saved_val in tree_tools.name_children(saved_obj, include_reserved=True):
-        if not hasattr(experiment, saved_key):
-          setattr(experiment, saved_key, saved_val)
-
-      if hasattr(experiment, "overwrite"):
-        for d in experiment.overwrite:
-          path = tree_tools.Path(d["path"])
-          try:
-            tree_tools.set_descendant(experiment, path, d["val"])
-          except:
-            tree_tools.set_descendant(experiment, path, d["val"])
-        delattr(experiment, "overwrite")
+  def load_referenced_serialized(self, experiment):
+    for path, node in tree_tools.traverse_tree(experiment):
+      if isinstance(node, LoadSerialized):
+        try:
+          with open(node.filename) as stream:
+            loaded_obj = yaml.load(stream)
+        except IOError as e:
+          raise RuntimeError(f"Could not read configuration file {node.filename}: {e}")
+        loaded_obj = tree_tools.get_descendant(loaded_obj, tree_tools.Path(getattr(node, "path", "")))
+        # TODO: in case the components contain references to a component outside
+        # the loaded path, we need to move it over and change other components'
+        # references to the same object accordingly
+        
+        for d in getattr(node, "overwrite", []):
+          overwrite_path = tree_tools.Path(d["path"])
+          tree_tools.set_descendant(loaded_obj, overwrite_path, d["val"])
+        if len(path)==0:
+          experiment = loaded_obj
+        else:
+          set_descendant(experiment, path, loaded_obj)
+    return experiment
 
   def resolve_kwargs(self, obj):
     """
@@ -139,17 +145,17 @@ class OptionParser(object):
         setattr(obj, k, v)
       delattr(obj, "kwargs")
 
-  def instantiate_random_search(self, exp_values):
+  def instantiate_random_search(self, experiment):
     param_report = {}
     initialized_random_params={}
-    for path, v in tree_tools.traverse_tree(exp_values):
+    for path, v in tree_tools.traverse_tree(experiment):
       if isinstance(v, RandomParam):
         if hasattr(v, "_xnmt_id") and v._xnmt_id in initialized_random_params:
           v = initialized_random_params[v._xnmt_id]
         v = v.draw_value()
         if hasattr(v, "_xnmt_id"):
           initialized_random_params[v._xnmt_id] = v
-        set_descendant(exp_values, path, v)
+        set_descendant(experiment, path, v)
         param_report[path] = v
     return param_report
   
@@ -195,3 +201,9 @@ class OptionParser(object):
               if arg_default != formatted:
                 setattr(node, expected_arg, FormatString(formatted, arg_default))
         
+class LoadSerialized(Serializable):
+  yaml_tag = "!LoadSerialized"
+  def __init__(self, filename, path="", overwrite=[]):
+    self.filename = filename
+    self.path = path
+    self.overwrite = overwrite
