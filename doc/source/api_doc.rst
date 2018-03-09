@@ -6,7 +6,6 @@ Translator
 
 .. autoclass:: xnmt.translator.Translator
    :members:
-   :show-inheritance:
 
 .. autoclass:: xnmt.translator.DefaultTranslator
    :members:
@@ -21,7 +20,6 @@ Embedder
 
 .. autoclass:: xnmt.embedder.Embedder
    :members:
-   :show-inheritance:
 
 .. autoclass:: xnmt.embedder.SimpleWordEmbedder
    :members:
@@ -36,13 +34,20 @@ Transducer
 
 .. autoclass:: xnmt.transducer.Transducer
    :members:
-   :show-inheritance:
 
 .. autoclass:: xnmt.transducer.SeqTransducer
    :members:
    :show-inheritance:
 
+.. autoclass:: xnmt.transducer.FinalTransducerState
+   :members:
+   :show-inheritance:
+
 .. autoclass:: xnmt.transducer.ModularSeqTransducer
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.transducer.IdentitySeqTransducer
    :members:
    :show-inheritance:
 
@@ -78,7 +83,6 @@ Attender
 
 .. autoclass:: xnmt.attender.Attender
    :members:
-   :show-inheritance:
 
 .. autoclass:: xnmt.attender.MlpAttender
    :members:
