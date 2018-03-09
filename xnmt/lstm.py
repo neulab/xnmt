@@ -1,5 +1,3 @@
-from __future__ import division, generators
-
 import numpy as np
 import dynet as dy
 
@@ -11,11 +9,20 @@ from xnmt.serialize.tree_tools import Ref, Path
 
 class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   """
-  This implements an LSTM builder based on the memory-friendly dedicated DyNet nodes.
+  This implements a single LSTM layer based on the memory-friendly dedicated DyNet nodes.
   It works similar to DyNet's CompactVanillaLSTMBuilder, but in addition supports
   taking multiple inputs that are concatenated on-the-fly.
+  
+  Currently only supports transducing a complete sequence at once.
+  
+  Args:
+    exp_global: xnmt.exp_global.ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    input_dim (int): input dimension; if None, use exp_global.default_layer_dim
+    hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
+    dropout (float): dropout probability; if None, use exp_global.dropout
+    weightnoise_std (float): weight noise standard deviation; if None, use exp_global.weightnoise_std
   """
-  yaml_tag = u'!UniLSTMSeqTransducer'
+  yaml_tag = '!UniLSTMSeqTransducer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, hidden_dim=None, dropout = None, weightnoise_std=None):
     register_handler(self)
@@ -100,9 +107,18 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
 class BiLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   This implements a bidirectional LSTM and requires about 8.5% less memory per timestep
-  than the native CompactVanillaLSTMBuilder due to avoiding concat operations.
+  than DyNet's CompactVanillaLSTMBuilder due to avoiding concat operations.
+  It uses 2 :class:`xnmt.lstm.UniLSTMSeqTransducer` objects in each layer.
+
+  Args:
+    exp_global: xnmt.exp_global.ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    layers (int): number of layers
+    input_dim (int): input dimension; if None, use exp_global.default_layer_dim
+    hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
+    dropout (float): dropout probability; if None, use exp_global.dropout
+    weightnoise_std (float): weight noise standard deviation; if None, use exp_global.weightnoise_std
   """
-  yaml_tag = u'!BiLSTMSeqTransducer'
+  yaml_tag = '!BiLSTMSeqTransducer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None, dropout=None, weightnoise_std=None):
     register_handler(self)

@@ -95,6 +95,8 @@ class Ref(Serializable):
       return f"Ref(name={self.get_name()})"
     else:
       return f"Ref(path={self.get_path()})"
+  def __repr__(self):
+    return str(self)
   def resolve_path(self, named_paths):
     if self.get_path():
       if isinstance(self.get_path(), str):

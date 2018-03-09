@@ -33,6 +33,21 @@ class PseudoState(object):
 
 
 class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
+  """
+  Residual LSTM sequence transducer. Wrapper class that delegates to
+  :class:`xnmt.residual.ResidualRNNBuilder` or :class:`xnmt.residual.ResidualBiRNNBuilder`,
+  depending on the value of the bidirectional argument. 
+  
+  Args:
+    exp_global: xnmt.exp_global.ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    input_dim (int): size of the inputs
+    layers (int): depth of the RNN (> 0)
+    hidden_dim (int): size of the outputs (and intermediate layer representations)
+    residual_to_output (bool): whether to add a residual connection to the output layer
+    dropout (float): dropout probability; if None, use exp_global.dropout
+    bidirectional (bool): whether the LSTM layers should be bidirectional
+  """
+  
   yaml_tag = u'!ResidualLSTMSeqTransducer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
@@ -67,16 +82,19 @@ class ResidualRNNBuilder(object):
 
   input ---> hidden layer 1 ---> hidden layer 2 -+--> ... -+---> hidden layer n ---+--->
                               \_________________/  \_ ... _/ \_(if add_to_output)_/
+                              
+  Note: This is currently not serializable and therefore can't be directly specified in the config file; use :class:`xnmt.residual.ResidualLSTMSeqTransducer` instead.
+
+  Args:
+    num_layers (int): depth of the RNN (> 0)
+    input_dim (int): size of the inputs
+    hidden_dim (int): size of the outputs (and intermediate layer representations)
+    add_to_output (bool): whether to add a residual connection to the output layer
+    dropout (float): dropout probability; if None, use exp_global.dropout
+    exp_global: xnmt.exp_global.ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
   """
 
   def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None, exp_global=Ref(Path("exp_global"))):
-    """
-    :param num_layers: depth of the RNN (> 0)
-    :param input_dim: size of the inputs
-    :param hidden_dim: size of the outputs (and intermediate layer representations)
-    :param model:
-    :param add_to_output: whether to add a residual connection to the output layer
-    """
     assert num_layers > 0
     self.builder_layers = []
     self.builder_layers.append(UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim, dropout=dropout))
@@ -153,9 +171,19 @@ class ResidualRNNBuilder(object):
     return PseudoState(self)
 
 
-class ResidualBiRNNBuilder:
+class ResidualBiRNNBuilder(object):
   """
-  A residual network with bidirectional first layer
+  A residual network with bidirectional first layer.
+  
+  Note: This is currently not serializable and therefore can't be directly specified in the config file; use :class:`xnmt.residual.ResidualLSTMSeqTransducer` instead.
+
+  Args:
+    num_layers (int): number of layers
+    input_dim (int): input dimension; if None, use exp_global.default_layer_dim
+    hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
+    add_to_output (bool): whether to add a residual connection to the output layer
+    dropout (float): dropout probability; if None, use exp_global.dropout
+    exp_global: xnmt.exp_global.ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
   """
   def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None, exp_global=Ref(Path("exp_global"))):
     assert num_layers > 1
