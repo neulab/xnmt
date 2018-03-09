@@ -1,9 +1,7 @@
 from __future__ import division, generators
 
-import numpy as np
 import dynet as dy
 
-from xnmt.batcher import Mask
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
 from xnmt.serialize.serializable import Serializable

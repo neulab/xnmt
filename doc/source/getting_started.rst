@@ -4,18 +4,18 @@ Getting Started
 Prerequisites
 -------------
 
-``xnmt`` requires Python 3.6.
+*xnmt* requires Python 3.6.
 
-Before running ``xnmt`` you must install the required packages, including Python bindings for
+Before running *xnmt* you must install the required packages, including Python bindings for
 `DyNet <http://github.com/clab/dynet>`_.
 This can be done by running ``pip -r requirements.txt``
 
-Next, install ``xnmt`` by running ``python setup.py install`` for normal usage or ``python setup.py develop`` for development.
+Next, install *xnmt* by running ``python setup.py install`` for normal usage or ``python setup.py develop`` for development.
 
 Running the examples
 --------------------
 
-``xnmt`` includes a series of tutorial-style examples in the examples subfolder.
+*xnmt* includes a series of tutorial-style examples in the examples subfolder.
 These are a good starting point to get familiarized with specifying models and
 experiments. To run the first experiment, use the following::
 

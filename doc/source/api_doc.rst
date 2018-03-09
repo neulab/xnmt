@@ -1,79 +1,112 @@
 API Doc
 =======
 
+Translator
+----------
+
+.. autoclass:: xnmt.translator.Translator
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.translator.DefaultTranslator
+   :members:
+   :show-inheritance:
+
 Embedder
 --------
 
-.. autoclass:: translator.Translator
+.. autoclass:: xnmt.embedder.Embedder
    :members:
    :show-inheritance:
 
-.. autoclass:: translator.DefaultTranslator
+.. autoclass:: xnmt.embedder.SimpleWordEmbedder
    :members:
    :show-inheritance:
 
-Embedder
---------
-
-.. autoclass:: embedder.Embedder
+.. autoclass:: xnmt.embedder.NoopEmbedder
    :members:
    :show-inheritance:
 
-.. autoclass:: embedder.SimpleWordEmbedder
+Transducer
+----------
+
+.. autoclass:: xnmt.transducer.Transducer
    :members:
    :show-inheritance:
 
-.. autoclass:: embedder.NoopEmbedder
+.. autoclass:: xnmt.transducer.SeqTransducer
    :members:
    :show-inheritance:
 
-Encoder
--------
-
-.. autoclass:: encoder.Encoder
+.. autoclass:: xnmt.transducer.ModularSeqTransducer
    :members:
    :show-inheritance:
 
-.. autoclass:: encoder.BuilderEncoder
+RNN
+---
+
+.. autoclass:: xnmt.lstm.UniLSTMSeqTransducer
    :members:
    :show-inheritance:
 
-.. autoclass:: encoder.ModularEncoder
+.. autoclass:: xnmt.lstm.BiLSTMSeqTransducer
    :members:
    :show-inheritance:
 
-TODO: Pending refactoring to reduce the number of classes in Encoder, the doc should also be re-factored.
+.. autoclass:: xnmt.pyramidal.PyramidalLSTMSeqTransducer
+   :members:
+   :show-inheritance:
+   
+.. autoclass:: xnmt.residual.ResidualLSTMSeqTransducer
+   :members:
+   :show-inheritance:
 
+.. autoclass:: xnmt.residual.ResidualRNNBuilder
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.residual.ResidualBiRNNBuilder
+   :members:
+   :show-inheritance:
+   
 Attender
 --------
 
-.. autoclass:: attender.Attender
+.. autoclass:: xnmt.attender.Attender
    :members:
    :show-inheritance:
 
-.. autoclass:: attender.StandardAttender
+.. autoclass:: xnmt.attender.MlpAttender
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.attender.DotAttender
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.attender.BilinearAttender
    :members:
    :show-inheritance:
 
 Decoder
 -------
 
-.. autoclass:: decoder.Decoder
+.. autoclass:: xnmt.decoder.Decoder
    :members:
    :show-inheritance:
 
-.. autoclass:: decoder.MlpSoftmaxDecoder
+.. autoclass:: xnmt.decoder.MlpSoftmaxDecoder
    :members:
    :show-inheritance:
 
 SearchStrategy
 --------------
 
-.. autoclass:: search_strategy.SearchStrategy 
+.. autoclass:: xnmt.search_strategy.SearchStrategy 
    :members:
    :show-inheritance:
 
-.. autoclass:: search_strategy.BeamSearch
+.. autoclass:: xnmt.search_strategy.BeamSearch
    :members:
    :show-inheritance:
 

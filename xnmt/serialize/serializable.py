@@ -35,7 +35,10 @@ class Serializable(yaml.YAMLObject):
     self.serialize_params[key] = val
 
   def __repr__(self):
-    return f"{self.__class__.__name__}@{id(self)}"
+    if getattr(self, "_is_bare", False):
+      return f"bare({self.__class__.__name__}{self._bare_kwargs if self._bare_kwargs else ''})"
+    else:
+      return f"{self.__class__.__name__}@{id(self)}"
 
 
 class UninitializedYamlObject(object):
@@ -60,4 +63,5 @@ def bare(class_type, **kwargs):
   for key, val in kwargs.items():
     setattr(obj, key, val)
   setattr(obj, "_is_bare", True)
+  setattr(obj, "_bare_kwargs", kwargs)
   return obj
