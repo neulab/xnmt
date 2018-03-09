@@ -198,15 +198,18 @@ class YamlSerializer(object):
     return initialized_obj
 
   def resolve_serialize_refs(self, root):
-    for _, node in tree_tools.traverse_serializable_breadth_first(root):
+#     for _, node in tree_tools.traverse_serializable_breadth_first(root):
+    for _, node in tree_tools.traverse_serializable(root):
       if isinstance(node, Serializable):
         node.resolved_serialize_params = node.serialize_params
     refs_inserted_at = set()
     refs_inserted_to = set()
-    for path_to, node in tree_tools.traverse_serializable_breadth_first(root):
+#     for path_to, node in tree_tools.traverse_serializable_breadth_first(root):
+    for path_to, node in tree_tools.traverse_serializable(root):
       if not refs_inserted_at & path_to.ancestors() and not refs_inserted_at & path_to.ancestors():
         if isinstance(node, Serializable):
-          for path_from, matching_node in tree_tools.traverse_serializable_breadth_first(root):
+#           for path_from, matching_node in tree_tools.traverse_serializable_breadth_first(root):
+          for path_from, matching_node in tree_tools.traverse_serializable(root):
             if not path_from in refs_inserted_to:
               if path_from!=path_to and matching_node is node:
                   ref = tree_tools.Ref(path=path_to)

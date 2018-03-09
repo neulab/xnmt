@@ -2,15 +2,16 @@ import logging
 logger = logging.getLogger('xnmt')
 import os
 
+from simple_settings import settings
 import dynet as dy
 
 from xnmt.serialize.serializable import Serializable
 
 class ExpGlobal(Serializable):
   yaml_tag = u'!ExpGlobal'
-  def __init__(self, model_file="{EXP_DIR}/models/{EXP}.mod",
-               log_file="{EXP_DIR}/logs/{EXP}.log",
-               dropout = 0.0, weight_noise = 0.0, default_layer_dim = 512,
+  def __init__(self, model_file=settings.DEFAULT_MOD_PATH,
+               log_file=settings.DEFAULT_LOG_PATH,
+               dropout = 0.3, weight_noise = 0.0, default_layer_dim = 512,
                save_num_checkpoints=1, eval_only=False, commandline_args=None,
                dynet_param_collection = None):
     self.model_file = model_file

@@ -1,4 +1,7 @@
 import unittest
+import sys
+
+if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.unittest")
 
 import dynet as dy
 import numpy as np
@@ -242,7 +245,8 @@ class TestOverfitting(unittest.TestCase):
     xnmt.events.clear()
 
   def test_overfitting(self):
-    self.exp_global = ExpGlobal(dynet_param_collection = NonPersistentParamCollection())
+    self.exp_global = ExpGlobal(dynet_param_collection = NonPersistentParamCollection(),
+                                dropout = 0.0)
     self.exp_global.default_layer_dim = 16
     batcher = SrcBatcher(batch_size=10, break_ties_randomly=False)
     train_args = {}
