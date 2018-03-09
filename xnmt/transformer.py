@@ -7,6 +7,7 @@ from xnmt.linear import Linear
 from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.events import register_handler, handle_xnmt_event
+from xnmt.param_init import LeCunUniformInitializer
 
 MIN_VALUE = -10000
 
@@ -27,7 +28,7 @@ class ReverseTimeDistributed(object):
 
 class LinearSent(object):
   def __init__(self, dy_model, input_dim, output_dim):
-    self.L = Linear(input_dim, output_dim, dy_model, init='LeCunUniform')
+    self.L = Linear(input_dim, output_dim, dy_model, param_init=LeCunUniformInitializer(), bias_init=LeCunUniformInitializer())
 
   def __call__(self, input_expr, reconstruct_shape=True, timedistributed=False):
     if not timedistributed:
@@ -44,7 +45,7 @@ class LinearSent(object):
 
 class LinearNoBiasSent(object):
   def __init__(self, dy_model, input_dim, output_dim):
-    self.L = Linear(input_dim, output_dim, dy_model, bias=False, init='LeCunUniform')
+    self.L = Linear(input_dim, output_dim, dy_model, bias=False, param_init=LeCunUniformInitializer(), bias_init=LeCunUniformInitializer())
     self.output_dim = output_dim
 
   def __call__(self, input_expr):

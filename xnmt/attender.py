@@ -30,18 +30,21 @@ class MlpAttender(Attender, Serializable):
 
   yaml_tag = u'!MlpAttender'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, hidden_dim=None):
+  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, 
+               hidden_dim=None, param_init=None, bias_init=None):
     input_dim = input_dim or exp_global.default_layer_dim
     state_dim = state_dim or exp_global.default_layer_dim
     hidden_dim = hidden_dim or exp_global.default_layer_dim
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
+    param_init = param_init or exp_global.param_init
+    bias_init = bias_init or exp_global.bias_init
     param_collection = exp_global.dynet_param_collection.param_col
-    self.pW = param_collection.add_parameters((hidden_dim, input_dim))
-    self.pV = param_collection.add_parameters((hidden_dim, state_dim))
-    self.pb = param_collection.add_parameters(hidden_dim)
-    self.pU = param_collection.add_parameters((1, hidden_dim))
+    self.pW = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
+    self.pV = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
+    self.pb = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
+    self.pU = param_collection.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
     self.curr_sent = None
 
   def init_sent(self, sent):
@@ -115,13 +118,14 @@ class BilinearAttender(Attender, Serializable):
 
   yaml_tag = u'!BilinearAttender'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None):
+  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, param_init=None):
     input_dim = input_dim or exp_global.default_layer_dim
     state_dim = state_dim or exp_global.default_layer_dim
     self.input_dim = input_dim
     self.state_dim = state_dim
+    param_init = param_init or exp_global.param_init
     param_collection = exp_global.dynet_param_collection.param_col
-    self.pWa = param_collection.add_parameters((input_dim, state_dim))
+    self.pWa = param_collection.add_parameters((input_dim, state_dim), init=param_init.initializer((input_dim, state_dim)))
     self.curr_sent = None
 
   def init_sent(self, sent):
