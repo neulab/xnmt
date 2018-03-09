@@ -2,6 +2,7 @@ import logging
 logger = logging.getLogger('xnmt')
 import os
 
+from simple_settings import settings
 import dynet as dy
 
 from xnmt.serialize.serializable import Serializable, bare
@@ -10,9 +11,9 @@ from xnmt.param_init import ZeroInitializer, GlorotInitializer
 class ExpGlobal(Serializable):
   yaml_tag = u'!ExpGlobal'
   def __init__(self,
-               model_file="{EXP_DIR}/models/{EXP}.mod",
-               log_file="{EXP_DIR}/logs/{EXP}.log",
-               dropout = 0.0,
+               model_file=settings.DEFAULT_MOD_PATH,
+               log_file=settings.DEFAULT_LOG_PATH,
+               dropout = 0.3,
                weight_noise = 0.0,
                default_layer_dim = 512,
                param_init=bare(GlorotInitializer),

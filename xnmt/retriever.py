@@ -1,7 +1,6 @@
 import logging
 logger = logging.getLogger('xnmt')
 
-import six
 import dynet as dy
 import numpy as np
 from lxml import etree
@@ -131,7 +130,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
     # for i in range(dim[1]):
     #   print("--- prod {}: {}".format(i,list(prod_npv[0].transpose()[i])))
     # ### DEBUG
-    id_range = list(six.moves.range(len(db_idx)))
+    id_range = list(range(len(db_idx)))
     # This is ugly:
     if self.loss_direction == "forward":
       prod = dy.transpose(prod)

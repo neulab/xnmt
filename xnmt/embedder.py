@@ -1,6 +1,5 @@
 import logging
 logger = logging.getLogger('xnmt')
-import six
 import io
 
 import numpy as np
@@ -248,7 +247,7 @@ class NoopEmbedder(Embedder, Serializable):
         return LazyNumpyExpressionSequence(lazy_data=sent.get_array())
       else:
         return LazyNumpyExpressionSequence(lazy_data=xnmt.batcher.mark_as_batch(
-                                           six.moves.map(lambda s: s.get_array(), sent)),
+                                           map(lambda s: s.get_array(), sent)),
                                            mask=sent.mask)
     else:
       if not batched:

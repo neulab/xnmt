@@ -175,7 +175,8 @@ def get_child_dict(node, name):
   return node[name]
 @get_child.register(Serializable)
 def get_child_serializable(node, name):
-  if not hasattr(node, name): raise PathError(f"{node} has not child named {name}")
+  if not hasattr(node, name):
+    raise PathError(f"{node} has not child named {name}")
   return getattr(node,name)
 
 @singledispatch
@@ -229,10 +230,10 @@ def traverse_serializable(root, path_to_node=Path()):
   yield path_to_node, root
   for child_name, child in name_serializable_children(root):
     yield from traverse_serializable(child, path_to_node.append(child_name))
-
+ 
 def traverse_serializable_breadth_first(root):
   all_nodes = [(path,node) for (path,node) in traverse_serializable(root)]
-  all_nodes.sort(key=lambda x: len(x[0]))
+  all_nodes = [item[1] for item in sorted(enumerate(all_nodes), key=lambda x: (len(x[1][0]),x[0]))]
   return iter(all_nodes)
 
 def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), named_paths={}):

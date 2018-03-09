@@ -1,6 +1,7 @@
-# -*- coding: utf-8 -*-
-
 import unittest
+import sys
+
+if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.unittest")
 
 import io
 import numpy as np

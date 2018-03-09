@@ -3,7 +3,6 @@ import matplotlib
 matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
-import six
 
 def plot_attention(src_words, trg_words, attention_matrix, file_name=None):
   """This takes in source and target words and an attention matrix (in numpy format)

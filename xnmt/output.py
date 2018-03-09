@@ -1,4 +1,3 @@
-import six
 from xnmt.vocab import Vocab
 
 class Output(object):
@@ -21,7 +20,7 @@ class TextOutput(Output):
 
   def to_string(self):
     map_func = lambda wi: self.vocab[wi] if self.vocab != None else str
-    return six.moves.map(map_func, filter(lambda wi: wi not in self.filtered_tokens, self.actions))
+    return map(map_func, filter(lambda wi: wi not in self.filtered_tokens, self.actions))
 
 class OutputProcessor(object):
   def process_outputs(self, outputs):

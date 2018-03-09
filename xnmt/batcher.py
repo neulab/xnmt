@@ -1,6 +1,5 @@
 from __future__ import division, generators
 
-import six
 import math
 import random
 import numpy as np
@@ -101,7 +100,7 @@ class Batcher(object):
     src_ret, src_curr = [], []
     trg_ret, trg_curr = [], []
     if self.granularity == 'sent':
-      for x in six.moves.range(0, len(order), self.batch_size):
+      for x in range(0, len(order), self.batch_size):
         self.add_single_batch([src[y] for y in order[x:x+self.batch_size]], [trg[y] for y in order[x:x+self.batch_size]], src_ret, trg_ret)
     elif self.granularity == 'word':
       my_size = 0
@@ -164,9 +163,9 @@ class SortBatcher(Batcher):
 
   def pack(self, src, trg):
     if self.break_ties_randomly:
-      order = np.argsort([self.sort_key(x) + random.uniform(-SortBatcher.__tiebreaker_eps, SortBatcher.__tiebreaker_eps) for x in six.moves.zip(src,trg)])
+      order = np.argsort([self.sort_key(x) + random.uniform(-SortBatcher.__tiebreaker_eps, SortBatcher.__tiebreaker_eps) for x in zip(src,trg)])
     else:
-      order = np.argsort([self.sort_key(x) for x in six.moves.zip(src,trg)])
+      order = np.argsort([self.sort_key(x) for x in zip(src,trg)])
     return self.pack_by_order(src, trg, order)
 
   def is_random(self):

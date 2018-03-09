@@ -1,6 +1,5 @@
 from __future__ import division, generators
 
-import six
 import io
 import dynet as dy
 import numpy as np
@@ -164,7 +163,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, dec_state, src_length=len(sents), forced_trg_ids=forced_trg_ids)
       # In case of reporting
       if self.report_path is not None:
-        src_words = [self.reporting_src_vocab[w] for w in sents]
+        if self.reporting_src_vocab:
+          src_words = [self.reporting_src_vocab[w] for w in sents]
+        else:
+          src_words = ['' for w in sents]
         trg_words = [self.trg_vocab[w] for w in output_actions.word_ids]
         # Attentions
         attentions = output_actions.attentions
@@ -177,7 +179,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         # Segmentation
         segment = self.get_report_resource("segmentation")
         if segment is not None:
-          segment = list(six.moves.map(lambda x: int(x[0]), segment))
+          segment = [int(x[0]) for x in segment]
           src_inp = [x[0] for x in self.encoder.apply_segmentation(src_words, segment)]
         else:
           src_inp = src_words
@@ -230,7 +232,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     # Generating main content
     captions = [u"Source Words", u"Target Words"]
     inputs = [src, trg]
-    for caption, inp in six.moves.zip(captions, inputs):
+    for caption, inp in zip(captions, inputs):
       if inp is None: continue
       sent = ' '.join(inp)
       p = etree.SubElement(main_content, 'p')
