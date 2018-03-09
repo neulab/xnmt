@@ -15,6 +15,7 @@ import xnmt.input
 import xnmt.lstm
 import xnmt.exp_global
 import xnmt.optimizer
+import xnmt.param_init
 import xnmt.preproc_runner
 import xnmt.pyramidal
 import xnmt.residual

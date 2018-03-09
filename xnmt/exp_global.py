@@ -4,21 +4,43 @@ import os
 
 import dynet as dy
 
-from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializable import Serializable, bare
+from xnmt.param_init import ZeroInitializer, GlorotInitializer
 
 class ExpGlobal(Serializable):
   yaml_tag = u'!ExpGlobal'
-  def __init__(self, model_file="{EXP_DIR}/models/{EXP}.mod",
-               log_file="{EXP_DIR}/logs/{EXP}.log", dropout = 0.0,
-               weight_noise = 0.0, default_layer_dim = 512, glorot_gain=1.0,
-               save_num_checkpoints=1, eval_only=False, commandline_args=None,
+  def __init__(self,
+               model_file="{EXP_DIR}/models/{EXP}.mod",
+               log_file="{EXP_DIR}/logs/{EXP}.log",
+               dropout = 0.0,
+               weight_noise = 0.0,
+               default_layer_dim = 512,
+               param_init=bare(GlorotInitializer),
+               bias_init=bare(ZeroInitializer),
+               save_num_checkpoints=1,
+               eval_only=False,
+               commandline_args=None,
                dynet_param_collection = None):
+    """
+    :param model_file (string): Location to write model file to
+    :param log_file (string): Location to write log file to
+    :param dropout (float): Default dropout probability that should be used by supporting components but can be overwritten
+    :param weight_noise (float): Default weight noise level that should be used by supporting components but can be overwritten
+    :param default_layer_dim (int): Default layer dimension that should be used by supporting components but can be overwritten
+    :param param_init (xnmt.param_init.ParamInitializer): Default parameter initializer that should be used by supporting components but can be overwritten
+    :param bias_init (xnmt.param_init.ParamInitializer): Default initializer for bias parameters that should be used by supporting components but can be overwritten
+    :param save_num_checkpoints (int): save DyNet parameters for the most recent n checkpoints, useful for model averaging/ensembling
+    :param eval_only (bool): If True, skip the training loop
+    :param commandline_args: Holds commandline arguments with which XNMT was launched
+    :param dynet_param_collection (xnmt.exp_global.PersistentParamCollection): Manages DyNet weights 
+    """
     self.model_file = model_file
     self.log_file = log_file
     self.dropout = dropout
     self.weight_noise = weight_noise
     self.default_layer_dim = default_layer_dim
-    self.glorot_gain = glorot_gain
+    self.param_init = param_init
+    self.bias_init = bias_init
     self.model_file = None
     self.eval_only = eval_only
     self.dynet_param_collection = dynet_param_collection or PersistentParamCollection(model_file, save_num_checkpoints)

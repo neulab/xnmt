@@ -6,11 +6,11 @@ standard: !Experiment
     default_layer_dim: 512
   model: !TransformerTranslator
     src_embedder: !SimpleWordEmbedder
-      init: LeCunUniform
+      param_init: !LeCunUniformInitializer {}
     encoder: !TransformerEncoder
       layers: 1
     trg_embedder: !SimpleWordEmbedder
-      init: LeCunUniform
+      param_init: !LeCunUniformInitializer {}
     decoder: !TransformerDecoder
       layers: 1
     src_reader: !PlainTextReader

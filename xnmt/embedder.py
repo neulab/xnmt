@@ -7,7 +7,6 @@ import numpy as np
 import dynet as dy
 
 import xnmt.batcher
-from xnmt.initializer import LeCunUniform as linear_init
 from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.tree_tools import Ref, Path
@@ -95,7 +94,7 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
   """
   yaml_tag = "!DenseWordEmbedder"
   def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
-               fix_norm=None, glorot_gain=None, vocab_size=None, vocab=None, yaml_path=None, 
+               fix_norm=None, param_init=None, bias_init=None, vocab_size=None, vocab=None, yaml_path=None, 
                src_reader=Ref(path=Path("model.src_reader"), required=False),
                trg_reader=Ref(path=Path("model.trg_reader"), required=False)):
     register_handler(self)
@@ -103,11 +102,12 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
     self.weight_noise = weight_noise or exp_global.weight_noise
     self.word_dropout = word_dropout
     self.emb_dim = emb_dim or exp_global.default_layer_dim
-    glorot_gain = glorot_gain or exp_global.glorot_gain
+    param_init = param_init or exp_global.param_init
+    bias_init = bias_init or exp_global.bias_init
     self.dynet_param_collection = exp_global.dynet_param_collection
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
-    self.embeddings = self.dynet_param_collection.param_col.add_parameters((self.vocab_size, self.emb_dim), init=dy.GlorotInitializer(gain=glorot_gain))
-    self.bias = self.dynet_param_collection.param_col.add_parameters((self.vocab_size), init=dy.ConstInitializer(0.0))
+    self.embeddings = self.dynet_param_collection.param_col.add_parameters((self.vocab_size, self.emb_dim), init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
+    self.bias = self.dynet_param_collection.param_col.add_parameters((self.vocab_size,), init=bias_init.initializer((self.vocab_size,)))
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -162,7 +162,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
   def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
                fix_norm=None, init=None, vocab_size = None, vocab = None, yaml_path = None,
                src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False),
-               glorot_gain=None):
+               param_init=None):
     """
     :param emb_dim:
     :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
@@ -178,13 +178,10 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.train = False
     self.dynet_param_collection = exp_global.dynet_param_collection
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
-    glorot_gain = glorot_gain or exp_global.glorot_gain 
-    if init == 'LeCunUniform':
-      init = linear_init(self.vocab_size)
-    else:
-      init = dy.GlorotInitializer(is_lookup=True, gain=glorot_gain)
-    self.embeddings = self.dynet_param_collection.param_col.add_lookup_parameters((self.vocab_size, self.emb_dim),
-                                                                                  init=init)
+    param_init = param_init or exp_global.param_init
+    self.embeddings = self.dynet_param_collection.param_col\
+                          .add_lookup_parameters((self.vocab_size, self.emb_dim),
+                                                 init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
 
   @handle_xnmt_event
   def on_set_train(self, val):

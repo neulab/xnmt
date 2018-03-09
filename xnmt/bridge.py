@@ -50,7 +50,7 @@ class LinearBridge(Bridge, Serializable):
   - num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
   """
   yaml_tag = u'!LinearBridge'
-  def __init__(self, dec_layers = 1, enc_dim = None, dec_dim = None, exp_global=Ref(Path("exp_global")), glorot_gain=None):
+  def __init__(self, dec_layers = 1, enc_dim = None, dec_dim = None, exp_global=Ref(Path("exp_global")), param_init=None, bias_init=None):
     param_col = exp_global.dynet_param_collection.param_col
     self.dec_layers = dec_layers
     self.enc_dim = enc_dim or exp_global.default_layer_dim
@@ -58,7 +58,8 @@ class LinearBridge(Bridge, Serializable):
     self.projector = xnmt.linear.Linear(input_dim  = enc_dim,
                                            output_dim = dec_dim,
                                            model = param_col,
-                                           glorot_gain = glorot_gain or exp_global.glorot_gain)
+                                           param_init = param_init or exp_global.param_init,
+                                           bias_init = bias_init or exp_global.bias_init)
   def decoder_init(self, enc_final_states):
     if self.dec_layers > len(enc_final_states):
       raise RuntimeError("LinearBridge requires dec_layers <= len(enc_final_states), but got %s and %s" % (self.dec_layers, len(enc_final_states)))
