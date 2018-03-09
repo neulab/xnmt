@@ -101,7 +101,6 @@ Decoder
 
 .. autoclass:: xnmt.decoder.Decoder
    :members:
-   :show-inheritance:
 
 .. autoclass:: xnmt.decoder.MlpSoftmaxDecoder
    :members:
