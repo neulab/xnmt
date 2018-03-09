@@ -113,7 +113,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
                                       trg=outputs[0].actions,
                                       loss_calculator=LossCalculator()).value()
 
-    self.assertAlmostEqual(-outputs[0].score, train_loss, places=5)
+    self.assertAlmostEqual(-outputs[0].score, train_loss, places=4)
 
 class TestGreedyVsBeam(unittest.TestCase):
   """
