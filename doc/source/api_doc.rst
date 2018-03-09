@@ -12,6 +12,10 @@ Translator
    :members:
    :show-inheritance:
 
+.. autoclass:: xnmt.translator.TransformerTranslator
+   :members:
+   :show-inheritance:
+
 Embedder
 --------
 

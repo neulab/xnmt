@@ -23,18 +23,24 @@ class Embedder(object):
   def embed(self, word):
     """Embed a single word.
 
-    :param word: This will generally be an integer word ID, but could also be something like a string. It could
-      also be batched, in which case the input will be a list of integers or other things.
-    :returns: A DyNet Expression corresponding to the embedding of the word(s).
+    Args:
+      word: This will generally be an integer word ID, but could also be something like a string. It could
+            also be batched, in which case the input will be a :class:`xnmt.batcher.Batch` of integers or other things.
+    
+    Returns:
+      A DyNet Expression corresponding to the embedding of the word(s), possibly batched using :class:`xnmt.batcher.Batch`.
     """
     raise NotImplementedError('embed must be implemented in Embedder subclasses')
 
   def embed_sent(self, sent):
     """Embed a full sentence worth of words. By default, just do a for loop.
 
-    :param sent: This will generally be a list of word IDs, but could also be a list of strings or some other format.
-      It could also be batched, in which case it will be a (possibly masked) Batch object
-    :returns: An ExpressionSequence representing vectors of each word in the input.
+    Args:
+      sent: This will generally be a list of word IDs, but could also be a list of strings or some other format.
+            It could also be batched, in which case it will be a (possibly masked) :class:`xnmt.batcher.Batch` object
+    
+    Returns:
+      An :class:`xnmt.expression_sequence.ExpressionSequence` representing vectors of each word in the input.
     """
     # single mode
     if not xnmt.batcher.is_batched(sent):
@@ -54,6 +60,15 @@ class Embedder(object):
     """Choose the vocab for the embedder basd on the passed arguments
 
     This is done in order of priority of vocab, model+yaml_path
+    
+    Args:
+      vocab (:class:`xnmt.vocab.Vocab`): If None, try to obtain from ``src_reader`` or ``trg_reader``, depending on the ``yaml_path``
+      yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
+      src_reader (:class:`xnmt.input.InputReader`): Model's src_reader, if exists and unambiguous.
+      trg_reader (:class:`xnmt.input.InputReader`): Model's trg_reader, if exists and unambiguous.
+    
+    Returns:
+      :class:`xnmt.vocab.Vocab`: chosen vocab
     """
     if vocab != None:
       return len(vocab)
@@ -72,6 +87,16 @@ class Embedder(object):
     """Choose the vocab size for the embedder basd on the passed arguments
 
     This is done in order of priority of vocab_size, vocab, model+yaml_path
+
+    Args:
+      vocab_size (int): vocab size or None
+      vocab (:class:`xnmt.vocab.Vocab`): vocab or None
+      yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
+      src_reader (:class:`xnmt.input.InputReader`): Model's src_reader, if exists and unambiguous.
+      trg_reader (:class:`xnmt.input.InputReader`): Model's trg_reader, if exists and unambiguous.
+    
+    Returns:
+      int: chosen vocab size
     """
     if vocab_size != None:
       return vocab_size
@@ -90,7 +115,19 @@ class Embedder(object):
 
 class DenseWordEmbedder(Embedder, Linear, Serializable):
   """
-  Word embeddings via full matrix
+  Word embeddings via full matrix.
+  
+  Args:
+    exp_global: :class:`xnmt.exp_global.ExpGlobal` object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    emb_dim (int): embedding dimension; if None, use exp_global.default_layer_dim
+    weight_noise (float): apply Gaussian noise with given standard deviation to embeddings; if ``None``, use exp_global.weight_noise
+    word_dropout (float): drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
+    fix_norm (float): fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
+    vocab_size (int): vocab size or None
+    vocab (:class:`xnmt.vocab.Vocab`): vocab or None
+    yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
+    src_reader (:class:`xnmt.input.InputReader`): A reader for the source side. Automatically set by the YAML deserializer.
+    trg_reader (:class:`xnmt.input.InputReader`): A reader for the target side. Automatically set by the YAML deserializer.
   """
   yaml_tag = "!DenseWordEmbedder"
   def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
@@ -153,6 +190,19 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
 class SimpleWordEmbedder(Embedder, Serializable):
   """
   Simple word embeddings via lookup.
+
+  Args:
+    exp_global: :class:`xnmt.exp_global.ExpGlobal` object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    emb_dim (int): embedding dimension; if None, use exp_global.default_layer_dim
+    weight_noise (float): apply Gaussian noise with given standard deviation to embeddings; if ``None``, use exp_global.weight_noise
+    word_dropout (float): drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
+    fix_norm (float): fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
+    init: deprecated
+    vocab_size (int): vocab size or None
+    vocab (:class:`xnmt.vocab.Vocab`): vocab or None
+    yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
+    src_reader (:class:`xnmt.input.InputReader`): A reader for the source side. Automatically set by the YAML deserializer.
+    trg_reader (:class:`xnmt.input.InputReader`): A reader for the target side. Automatically set by the YAML deserializer.
   """
 
   yaml_tag = '!SimpleWordEmbedder'
@@ -160,12 +210,6 @@ class SimpleWordEmbedder(Embedder, Serializable):
   def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
                fix_norm=None, init=None, vocab_size = None, vocab = None, yaml_path = None,
                src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
-    """
-    :param emb_dim:
-    :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
-    :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
-    :param fix_norm: fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
-    """
     register_handler(self)
     self.emb_dim = emb_dim or exp_global.default_layer_dim
     self.weight_noise = weight_noise or exp_global.weight_noise
@@ -221,10 +265,9 @@ class NoopEmbedder(Embedder, Serializable):
   This embedder performs no lookups but only passes through the inputs.
 
   Normally, the input is an Input object, which is converted to an expression.
-
-  We can also input an ExpressionSequence, which is simply returned as-is.
-  This is useful e.g. to stack several encoders, where the second encoder performs no
-  lookups.
+  
+  Args:
+    emb_dim (int): Size of the inputs (not required)
   """
 
   yaml_tag = u'!NoopEmbedder'
@@ -236,8 +279,6 @@ class NoopEmbedder(Embedder, Serializable):
 
   def embed_sent(self, sent):
     # TODO refactor: seems a bit too many special cases that need to be distinguished
-    if isinstance(sent, ExpressionSequence):
-      return sent
     batched = xnmt.batcher.is_batched(sent)
     first_sent = sent[0] if batched else sent
     if hasattr(first_sent, "get_array"):
@@ -260,18 +301,25 @@ class NoopEmbedder(Embedder, Serializable):
 class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
   """
   Simple word embeddings via lookup. Initial pretrained embeddings must be supplied in FastText text format.
-  """
+  
+  Args:
+    filename (string): Filename for the pretrained embeddings
+    emb_dim (int): embedding dimension; if None, use exp_global.default_layer_dim
+    weight_noise (float): apply Gaussian noise with given standard deviation to embeddings; if ``None``, use exp_global.weight_noise
+    word_dropout (float): drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
+    fix_norm (float): fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
+    vocab (:class:`xnmt.vocab.Vocab`): vocab or None
+    yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
+    src_reader (:class:`xnmt.input.InputReader`): A reader for the source side. Automatically set by the YAML deserializer.
+    trg_reader (:class:`xnmt.input.InputReader`): A reader for the target side. Automatically set by the YAML deserializer.
+    exp_global: :class:`xnmt.exp_global.ExpGlobal` object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+"""
 
   yaml_tag = '!PretrainedSimpleWordEmbedder'
 
   def __init__(self, filename, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm = None, vocab = None, yaml_path = None,
-               src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False), exp_global=Ref(Path("exp_global"))):
-    """
-    :param filename: Filename for the pretrained embeddings
-    :param weight_noise: apply Gaussian noise with given standard deviation to embeddings
-    :param word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
-    :param vocab: a `Vocab` object containing the vocabulary for the experiment
-    """
+               src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False), 
+               exp_global=Ref(Path("exp_global"))):
     self.emb_dim = emb_dim or exp_global.default_layer_dim
     self.weight_noise = weight_noise or exp_global.weight_noise
     self.word_dropout = word_dropout
@@ -293,10 +341,12 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     """
     Reads FastText embeddings from a file. Also prints stats about the loaded embeddings for sanity checking.
 
-    :param vocab: a `Vocab` object containing the vocabulary for the experiment
-    :param embeddings_file_handle: A file handle on the embeddings file. The embeddings must be in FastText text
-     format.
-    :return: A tuple of (total number of embeddings read, # embeddings that match vocabulary words, # vocabulary words
+    Args:
+      vocab: a `Vocab` object containing the vocabulary for the experiment
+      embeddings_file_handle: A file handle on the embeddings file. The embeddings must be in FastText text
+                              format.
+    Returns:
+      tuple: A tuple of (total number of embeddings read, # embeddings that match vocabulary words, # vocabulary words
      without a matching embedding, embeddings array).
     """
     _, dimension = next(embeddings_file_handle).split()

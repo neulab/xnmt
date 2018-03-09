@@ -35,20 +35,24 @@ class Translator(GeneratorModel):
   loss and generate translations.
   '''
 
-  def calc_loss(self, src, trg):
+  def calc_loss(self, src, trg, loss_calculator):
     '''Calculate loss based on input-output pairs.
-
-    :param src: The source, a sentence or a batch of sentences.
-    :param trg: The target, a sentence or a batch of sentences.
-    :returns: An expression representing the loss.
+    
+    Args:
+      src: The source, a sentence (:class:`xnmt.input.Input`) or a batch of sentences (:class:`xnmt.batcher.Batch`).
+      trg: The target, a sentence (:class:`xnmt.input.Input`) or a batch of sentences (:class:`xnmt.batcher.Batch`).
+      loss_calculator (:class:`xnmt.loss_calculator.LossCalculator`):
+    
+    Returns:
+      :class:`xnmt.loss.LossBuilder`: A (possibly batched) expression representing the loss. Losses are accumulated only if trg_mask[batch,pos]==0, or no mask is set
     '''
     raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
 
   def set_trg_vocab(self, trg_vocab=None):
     """
-    Set target vocab for generating outputs.
+    Set target vocab for generating outputs. If not specified, word IDs are generated instead.
 
-    :param trg_vocab: target vocab, or None to generate word ids
+    :param trg_vocab (:class:`xnmt.vocab.Vocab`): target vocab, or None to generate word IDs
     """
     self.trg_vocab = trg_vocab
 
@@ -61,6 +65,18 @@ class Translator(GeneratorModel):
 class DefaultTranslator(Translator, Serializable, Reportable):
   '''
   A default translator based on attentional sequence-to-sequence models.
+
+  Args:
+    src_reader (:class:`xnmt.input.InputReader`): A reader for the source side.
+    trg_reader (:class:`xnmt.input.InputReader`): A reader for the target side.
+    src_embedder (:class:`xnmt.embedder.Embedder`): A word embedder for the input language
+    encoder (:class:`xnmt.transducer.Transducer`): An encoder to generate encoded inputs
+    attender (:class:`xnmt.attender.Attender`): An attention module
+    trg_embedder (:class:`xnmt.embedder.Embedder`): A word embedder for the output language
+    decoder (:class:`xnmt.decoder.Decoder`): A decoder
+    inference (:class:`xnmt.inference.SimpleInference`): The default inference strategy used for this model
+    calc_global_fertility (bool):
+    calc_attention_entropy (bool):
   '''
 
   yaml_tag = u'!DefaultTranslator'
@@ -69,17 +85,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
                inference=bare(SimpleInference), calc_global_fertility=False, calc_attention_entropy=False):
-    '''Constructor.
-
-    :param src_reader: A reader for the source side.
-    :param src_embedder: A word embedder for the input language
-    :param encoder: An encoder to generate encoded inputs
-    :param attender: An attention module
-    :param trg_reader: A reader for the target side.
-    :param trg_embedder: A word embedder for the output language
-    :param decoder: A decoder
-    :param inference: The default inference strategy used for this model
-    '''
     register_handler(self)
     self.src_reader = src_reader
     self.trg_reader = trg_reader
@@ -115,12 +120,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.report_type = kwargs.get("report_type", None)
 
   def calc_loss(self, src, trg, loss_calculator):
-    """
-    :param src: source sequence (unbatched, or batched + padded)
-    :param trg: target sequence (unbatched, or batched + padded); losses will be accumulated only if trg_mask[batch,pos]==0, or no mask is set
-    :param loss_calculator:
-    :returns: (possibly batched) loss expression
-    """
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder(embeddings)
@@ -210,6 +209,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def set_reporting_src_vocab(self, src_vocab):
     """
     Sets source vocab for reporting purposes.
+    
+    Args:
+      src_vocab (:class:`xnmt.vocab.Vocab`):
     """
     self.reporting_src_vocab = src_vocab
 
@@ -270,16 +272,23 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         print(str_format.format(*words), file=attn_file)
 
 class TransformerTranslator(Translator, Serializable, Reportable):
+  '''
+  A translator based on the transformer model.
+
+  Args:
+    src_reader (:class:`xnmt.input.InputReader`): A reader for the source side.
+    src_embedder (:class:`xnmt.embedder.Embedder`): A word embedder for the input language
+    encoder (:class:`xnmt.transformer.TransformerEncoder`): An encoder to generate encoded inputs
+    trg_reader (:class:`xnmt.input.InputReader`): A reader for the target side.
+    trg_embedder (:class:`xnmt.embedder.Embedder`): A word embedder for the output language
+    decoder (:class:`xnmt.transformer.TransformerDecoder`): A decoder
+    inference (:class:`xnmt.inference.SimpleInference`): The default inference strategy used for this model
+    input_dim (int):
+  '''
+
   yaml_tag = u'!TransformerTranslator'
 
   def __init__(self, src_reader, src_embedder, encoder, trg_reader, trg_embedder, decoder, inference=None, input_dim=512):
-    '''Constructor.
-    :param src_embedder: A word embedder for the input language
-    :param encoder: An encoder to generate encoded inputs
-    :param attender: An attention module
-    :param trg_embedder: A word embedder for the output language
-    :param decoder: A decoder
-    '''
     register_handler(self)
     self.src_reader = src_reader
     self.src_embedder = src_embedder

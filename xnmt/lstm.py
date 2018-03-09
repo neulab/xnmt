@@ -16,7 +16,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   Currently only supports transducing a complete sequence at once.
   
   Args:
-    exp_global: xnmt.exp_global.ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    exp_global: :class:`xnmt.exp_global.ExpGlobal` object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
     dropout (float): dropout probability; if None, use exp_global.dropout
@@ -111,7 +111,7 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
   It uses 2 :class:`xnmt.lstm.UniLSTMSeqTransducer` objects in each layer.
 
   Args:
-    exp_global: xnmt.exp_global.ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    exp_global: :class:`xnmt.exp_global.ExpGlobal` object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     layers (int): number of layers
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
