@@ -48,6 +48,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   Args:
     exp_global: :class:`xnmt.exp_global.ExpGlobal` object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     layers (int): number of LSTM layers
+    input_dim (int): input dimension; if None, use ``exp_global.default_layer_dim``
     lstm_dim (int): LSTM hidden dimension; if None, use ``exp_global.default_layer_dim``
     mlp_hidden_dim (int): MLP hidden dimension; if None, use ``exp_global.default_layer_dim``
     trg_embed_dim (int): dimension of target embeddings; if None, use ``exp_global.default_layer_dim``
@@ -55,12 +56,16 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     rnn_spec (string): 'lstm' or 'residuallstm'
     residual_to_output (bool): option passed on if rnn_spec == 'residuallstm'
     input_feeding (bool): whether to activate input feeding
+    param_init_lstm (:class:`xnmt.param_init.ParamInitializer`): how to initialize LSTM weight matrices (currently, only :class:`xnmt.param_init.GlorotInitializer` is supported); if None, use ``exp_global.param_init``
+    param_init_context (:class:`xnmt.param_init.ParamInitializer`): how to initialize context weight matrices; if None, use ``exp_global.param_init``
+    bias_init_context (:class:`xnmt.param_init.ParamInitializer`): how to initialize context bias vectors; if None, use ``exp_global.bias_init``
+    param_init_output (:class:`xnmt.param_init.ParamInitializer`): how to initialize output weight matrices; if None, use ``exp_global.param_init``
+    bias_init_output (:class:`xnmt.param_init.ParamInitializer`): how to initialize output bias vectors; if None, use ``exp_global.bias_init``
     bridge (:class:`xnmt.bridge.Bridge`): how to initialize decoder state
     label_smoothing (float): label smoothing value (if used, 0.1 is a reasonable value).
                              Label Smoothing is implemented with reference to Section 7 of the paper
                              "Rethinking the Inception Architecture for Computer Vision"
                              (https://arxiv.org/pdf/1512.00567.pdf)
-    vocab_projector (:class:`xnmt.linear.Linear`):
     vocab_projector (:class:`xnmt.linear.Linear`):
     vocab_size (int): vocab size or None
     vocab (:class:`xnmt.vocab.Vocab`): vocab or None

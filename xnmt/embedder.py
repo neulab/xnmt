@@ -121,6 +121,8 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
     weight_noise (float): apply Gaussian noise with given standard deviation to embeddings; if ``None``, use exp_global.weight_noise
     word_dropout (float): drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
     fix_norm (float): fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
+    param_init (:class:`xnmt.param_init.ParamInitializer`): how to initialize weight matrices; if None, use ``exp_global.param_init``
+    bias_init (:class:`xnmt.param_init.ParamInitializer`): how to initialize bias vectors; if None, use ``exp_global.bias_init``
     vocab_size (int): vocab size or None
     vocab (:class:`xnmt.vocab.Vocab`): vocab or None
     yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.

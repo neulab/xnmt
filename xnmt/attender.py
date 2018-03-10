@@ -48,6 +48,8 @@ class MlpAttender(Attender, Serializable):
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     state_dim (int): dimension of state inputs; if None, use exp_global.default_layer_dim
     hidden_dim (int): hidden MLP dimension; if None, use exp_global.default_layer_dim
+    param_init (:class:`xnmt.param_init.ParamInitializer`): how to initialize weight matrices; if None, use ``exp_global.param_init``
+    bias_init (:class:`xnmt.param_init.ParamInitializer`): how to initialize bias vectors; if None, use ``exp_global.bias_init``
   '''
 
   yaml_tag = '!MlpAttender'
@@ -144,6 +146,7 @@ class BilinearAttender(Attender, Serializable):
     exp_global: :class:`xnmt.exp_global.ExpGlobal` object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     state_dim (int): dimension of state inputs; if None, use exp_global.default_layer_dim
+    param_init (:class:`xnmt.param_init.ParamInitializer`): how to initialize weight matrices; if None, use ``exp_global.param_init``
   '''
 
   yaml_tag = '!BilinearAttender'
