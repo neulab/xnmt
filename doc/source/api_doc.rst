@@ -159,6 +159,12 @@ InputReader
    :members:
    :show-inheritance:
 
+Vocab
+-----
+
+.. autoclass:: xnmt.vocab.Vocab
+   :members:
+   :show-inheritance:
 
 Batcher
 -----------
@@ -216,6 +222,32 @@ Batcher
    :show-inheritance:
 
 .. autoclass:: xnmt.batcher.WordTrgSrcBatcher
+   :members:
+   :show-inheritance:
+
+LossBuilder
+--------------
+
+.. autoclass:: xnmt.loss.LossBuilder
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.loss.LossScalarBuilder
+   :members:
+   :show-inheritance:
+
+LossCalculator
+--------------
+
+.. autoclass:: xnmt.loss_calculator.LossCalculator
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.loss_calculator.MLELoss
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.loss_calculator.ReinforceLoss
    :members:
    :show-inheritance:
 

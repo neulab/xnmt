@@ -29,6 +29,8 @@ class LossCalculator(Serializable):
 
 class MLELoss(Serializable):
   yaml_tag = '!MLELoss'
+  
+  # TODO: document me
 
   def __call__(self, translator, dec_state, src, trg):
     trg_mask = trg.mask if xnmt.batcher.is_batched(trg) else None
@@ -54,6 +56,8 @@ class MLELoss(Serializable):
 
 class ReinforceLoss(Serializable):
   yaml_tag = '!ReinforceLoss'
+
+  # TODO: document me
 
   def __init__(self, exp_global=Ref(Path("exp_global")), evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):
     self.sample_length = sample_length
