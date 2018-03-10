@@ -21,7 +21,7 @@ from xnmt.expression_sequence import ExpressionSequence
 class StandardRetrievalDatabase(Serializable):
   """This is a database to be used for retrieval. Its database member"""
 
-  yaml_tag = u"!StandardRetrievalDatabase"
+  yaml_tag = "!StandardRetrievalDatabase"
 
   def __init__(self, reader, database_file, dev_id_file=None, test_id_file=None):
     self.reader = reader

@@ -18,7 +18,7 @@ from xnmt.serialize.tree_tools import Ref, Path
 This will be the main class to perform decoding.
 '''
 
-NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
+NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 
 class SimpleInference(Serializable):
   yaml_tag = '!SimpleInference'

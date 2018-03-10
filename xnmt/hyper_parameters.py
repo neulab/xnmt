@@ -5,7 +5,7 @@ from xnmt.serialize.serializable import Serializable
 
 class ScalingParam(Serializable):
   ''' initial * scaler(epoch-1) '''
-  yaml_tag = u"!ScalingParam"
+  yaml_tag = "!ScalingParam"
 
   def __init__(self, initial=0.0, scaler=None):
     self.__value = initial
@@ -21,7 +21,7 @@ class ScalingParam(Serializable):
     return str(self.value())
 
 class Scalar(Serializable):
-  yaml_tag = u"!Scalar"
+  yaml_tag = "!Scalar"
 
   def __init__(self, initial=0.0):
     self.__value = initial

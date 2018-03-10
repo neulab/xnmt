@@ -160,6 +160,65 @@ InputReader
    :show-inheritance:
 
 
+Batcher
+-----------
+
+.. autoclass:: xnmt.batcher.Batch
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.batcher.Mask
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.batcher.Batcher
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.batcher.InOrderBatcher
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.batcher.SrcBatcher
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.batcher.TrgBatcher
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.batcher.SrcTrgBatcher
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.batcher.TrgSrcBatcher
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.batcher.SentShuffleBatcher
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.batcher.WordShuffleBatcher
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.batcher.WordSrcBatcher
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.batcher.WordTrgBatcher
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.batcher.WordSrcTrgBatcher
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.batcher.WordTrgSrcBatcher
+   :members:
+   :show-inheritance:
+
 
 Other Classes
 -------------

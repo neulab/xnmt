@@ -229,13 +229,13 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     main_content = etree.SubElement(body, 'div', name='main_content')
 
     # Generating main content
-    captions = [u"Source Words", u"Target Words"]
+    captions = ["Source Words", "Target Words"]
     inputs = [src, trg]
     for caption, inp in zip(captions, inputs):
       if inp is None: continue
       sent = ' '.join(inp)
       p = etree.SubElement(main_content, 'p')
-      p.text = u"{}: {}".format(caption, sent)
+      p.text = f"{caption}: {sent}"
 
     # Generating attention
     if not any([src is None, trg is None, att is None]):
@@ -243,7 +243,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       att_text = etree.SubElement(attention, 'b')
       att_text.text = "Attention:"
       etree.SubElement(attention, 'br')
-      attention_file = u"{}.attention.png".format(path_to_report)
+      attention_file = f"{path_to_report}.attention.png"
       xnmt.plot.plot_attention(src, trg, att, file_name = attention_file)
 
     # return the parent context to be used as child context

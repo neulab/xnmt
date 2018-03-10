@@ -169,7 +169,7 @@ class ContVecReader(InputReader, Serializable):
   Args:
     transpose (bool):
   """
-  yaml_tag = u"!ContVecReader"
+  yaml_tag = "!ContVecReader"
 
   def __init__(self, transpose=False):
     self.transpose = transpose

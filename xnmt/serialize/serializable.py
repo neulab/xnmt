@@ -4,7 +4,7 @@ import yaml
 class Serializable(yaml.YAMLObject):
   """
   All model components that appear in a YAML file must inherit from Serializable.
-  Implementing classes must specify a unique yaml_tag class attribute, e.g. yaml_tag = u"!Serializable"
+  Implementing classes must specify a unique yaml_tag class attribute, e.g. yaml_tag = "!Serializable"
   """
   def __init__(self):
     # below attributes are automatically set when deserializing (i.e., creating actual objects based on a YAML file)

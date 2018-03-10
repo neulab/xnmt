@@ -423,7 +423,7 @@ class SegmentationConfidencePenalty(Serializable):
   ''' https://arxiv.org/pdf/1701.06548.pdf
       strength: the beta value
   '''
-  yaml_tag = u"!SegmentationConfidencePenalty"
+  yaml_tag = "!SegmentationConfidencePenalty"
 
   def __init__(self, strength):
     self.strength = strength

@@ -10,9 +10,9 @@ class Vocab(Serializable):
   SS = 0
   ES = 1
 
-  SS_STR = u"<s>"
-  ES_STR = u"</s>"
-  UNK_STR = u"<unk>"
+  SS_STR = "<s>"
+  ES_STR = "</s>"
+  UNK_STR = "<unk>"
 
   def __init__(self, i2w=None, vocab_file=None):
     """

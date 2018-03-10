@@ -106,7 +106,7 @@ class PreprocRunner(Serializable):
               for my_filter in filters.get(i, filters["all"]):
                 vocab = my_filter.filter(vocab)
               for word in vocab.keys():
-                out_stream.write((word + u"\n"))
+                out_stream.write((word + "\n"))
 
       else:
         raise RuntimeError("Unknown preprocessing type {}".format(arg['type']))
