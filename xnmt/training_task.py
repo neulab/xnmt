@@ -3,7 +3,6 @@ logger = logging.getLogger('xnmt')
 from subprocess import Popen
 import random
 import numpy as np
-import dynet as dy
 
 from xnmt.serialize.serializable import Serializable, bare
 from xnmt.serialize.tree_tools import Ref, Path
@@ -12,7 +11,7 @@ from xnmt.events import register_xnmt_event
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.batcher import SrcBatcher
 from xnmt.loss_tracker import BatchLossTracker
-import xnmt.input
+import xnmt.input_reader
 
 class TrainingTask(object):
   """
@@ -132,7 +131,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       self._augmentation_handle = None
       self._augment_data_initial()
     self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
-        xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
+        xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                         self.src_file, self.trg_file,
                                         batcher=self.batcher, sample_sents=self.sample_train_sents,
                                         max_num_sents=self.max_num_train_sents,
@@ -166,7 +165,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         logger.info('using reloaded data')
       # reload the data   
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
-          xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
+          xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                           self.src_file, self.trg_file,
                                           batcher=self.batcher, sample_sents=self.sample_train_sents,
                                           max_num_sents=self.max_num_train_sents,

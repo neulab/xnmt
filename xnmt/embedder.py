@@ -62,8 +62,8 @@ class Embedder(object):
     Args:
       vocab (:class:`xnmt.vocab.Vocab`): If None, try to obtain from ``src_reader`` or ``trg_reader``, depending on the ``yaml_path``
       yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
-      src_reader (:class:`xnmt.input.InputReader`): Model's src_reader, if exists and unambiguous.
-      trg_reader (:class:`xnmt.input.InputReader`): Model's trg_reader, if exists and unambiguous.
+      src_reader (:class:`xnmt.input_reader.InputReader`): Model's src_reader, if exists and unambiguous.
+      trg_reader (:class:`xnmt.input_reader.InputReader`): Model's trg_reader, if exists and unambiguous.
     
     Returns:
       :class:`xnmt.vocab.Vocab`: chosen vocab
@@ -90,8 +90,8 @@ class Embedder(object):
       vocab_size (int): vocab size or None
       vocab (:class:`xnmt.vocab.Vocab`): vocab or None
       yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
-      src_reader (:class:`xnmt.input.InputReader`): Model's src_reader, if exists and unambiguous.
-      trg_reader (:class:`xnmt.input.InputReader`): Model's trg_reader, if exists and unambiguous.
+      src_reader (:class:`xnmt.input_reader.InputReader`): Model's src_reader, if exists and unambiguous.
+      trg_reader (:class:`xnmt.input_reader.InputReader`): Model's trg_reader, if exists and unambiguous.
     
     Returns:
       int: chosen vocab size
@@ -126,8 +126,8 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
     vocab_size (int): vocab size or None
     vocab (:class:`xnmt.vocab.Vocab`): vocab or None
     yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
-    src_reader (:class:`xnmt.input.InputReader`): A reader for the source side. Automatically set by the YAML deserializer.
-    trg_reader (:class:`xnmt.input.InputReader`): A reader for the target side. Automatically set by the YAML deserializer.
+    src_reader (:class:`xnmt.input_reader.InputReader`): A reader for the source side. Automatically set by the YAML deserializer.
+    trg_reader (:class:`xnmt.input_reader.InputReader`): A reader for the target side. Automatically set by the YAML deserializer.
   """
   yaml_tag = "!DenseWordEmbedder"
   def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
@@ -203,8 +203,8 @@ class SimpleWordEmbedder(Embedder, Serializable):
     vocab_size (int): vocab size or None
     vocab (:class:`xnmt.vocab.Vocab`): vocab or None
     yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
-    src_reader (:class:`xnmt.input.InputReader`): A reader for the source side. Automatically set by the YAML deserializer.
-    trg_reader (:class:`xnmt.input.InputReader`): A reader for the target side. Automatically set by the YAML deserializer.
+    src_reader (:class:`xnmt.input_reader.InputReader`): A reader for the source side. Automatically set by the YAML deserializer.
+    trg_reader (:class:`xnmt.input_reader.InputReader`): A reader for the target side. Automatically set by the YAML deserializer.
     param_init (:class:`xnmt.param_init.ParamInitializer`): how to initialize lookup matrices; if None, use ``exp_global.param_init``
   """
 
@@ -314,8 +314,8 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     fix_norm (float): fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
     vocab (:class:`xnmt.vocab.Vocab`): vocab or None
     yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
-    src_reader (:class:`xnmt.input.InputReader`): A reader for the source side. Automatically set by the YAML deserializer.
-    trg_reader (:class:`xnmt.input.InputReader`): A reader for the target side. Automatically set by the YAML deserializer.
+    src_reader (:class:`xnmt.input_reader.InputReader`): A reader for the source side. Automatically set by the YAML deserializer.
+    trg_reader (:class:`xnmt.input_reader.InputReader`): A reader for the target side. Automatically set by the YAML deserializer.
     exp_global: :class:`xnmt.exp_global.ExpGlobal` object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
 """
 

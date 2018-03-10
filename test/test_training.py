@@ -13,7 +13,7 @@ from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.eval_task import LossEvalTask
 import xnmt.events
-from xnmt.input import PlainTextReader
+from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.loss_calculator import LossCalculator
 from xnmt.optimizer import AdamTrainer

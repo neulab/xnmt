@@ -6,7 +6,7 @@ if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--
 import numpy as np
 from itertools import islice
 
-from xnmt.input import PlainTextReader
+from xnmt.input_reader import PlainTextReader
 from xnmt.embedder import PretrainedSimpleWordEmbedder
 from xnmt.exp_global import ExpGlobal, PersistentParamCollection
 import xnmt.events

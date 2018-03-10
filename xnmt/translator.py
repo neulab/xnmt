@@ -64,8 +64,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   A default translator based on attentional sequence-to-sequence models.
 
   Args:
-    src_reader (:class:`xnmt.input.InputReader`): A reader for the source side.
-    trg_reader (:class:`xnmt.input.InputReader`): A reader for the target side.
+    src_reader (:class:`xnmt.input_reader.InputReader`): A reader for the source side.
+    trg_reader (:class:`xnmt.input_reader.InputReader`): A reader for the target side.
     src_embedder (:class:`xnmt.embedder.Embedder`): A word embedder for the input language
     encoder (:class:`xnmt.transducer.Transducer`): An encoder to generate encoded inputs
     attender (:class:`xnmt.attender.Attender`): An attention module
@@ -273,10 +273,10 @@ class TransformerTranslator(Translator, Serializable, Reportable):
   A translator based on the transformer model.
 
   Args:
-    src_reader (:class:`xnmt.input.InputReader`): A reader for the source side.
+    src_reader (:class:`xnmt.input_reader.InputReader`): A reader for the source side.
     src_embedder (:class:`xnmt.embedder.Embedder`): A word embedder for the input language
     encoder (:class:`xnmt.transformer.TransformerEncoder`): An encoder to generate encoded inputs
-    trg_reader (:class:`xnmt.input.InputReader`): A reader for the target side.
+    trg_reader (:class:`xnmt.input_reader.InputReader`): A reader for the target side.
     trg_embedder (:class:`xnmt.embedder.Embedder`): A word embedder for the output language
     decoder (:class:`xnmt.transformer.TransformerDecoder`): A decoder
     inference (:class:`xnmt.inference.SimpleInference`): The default inference strategy used for this model

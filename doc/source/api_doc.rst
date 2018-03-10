@@ -117,6 +117,50 @@ SearchStrategy
    :members:
    :show-inheritance:
 
+Input
+-----
+
+.. autoclass:: xnmt.input.Input 
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.input.SimpleSentenceInput
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.input.ArrayInput
+   :members:
+   :show-inheritance:
+
+InputReader
+-----------
+
+.. autoclass:: xnmt.input_reader.InputReader
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.input_reader.BaseTextReader
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.input_reader.PlainTextReader
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.input_reader.SegmentationTextReader
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.input_reader.ContVecReader
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.input_reader.IDReader
+   :members:
+   :show-inheritance:
+
+
+
 Other Classes
 -------------
 

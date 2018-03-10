@@ -2,7 +2,8 @@ import dynet as dy
 import numpy as np
 from collections import namedtuple
 
-from xnmt.length_normalization import *
+from xnmt.length_normalization import NoNormalization
+from xnmt.serialize.serializable import bare
 from xnmt.vocab import Vocab
 
 # Output of the search
@@ -13,11 +14,25 @@ class SearchStrategy(object):
   A template class to generate translation from the output probability model.
   '''
   def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
+    """
+    Args:
+      decoder (:class:`xnmt.decoder.Decoder`):
+      attender (:class:`xnmt.attender.Attender`):
+      output_embedder (:class:`xnmt.embedder.Embedder`): target embedder
+      dec_state (:class:`xnmt.decoder.MlpSoftmaxDecoderState`): initial decoder state
+      src_length (int): length of src sequence, required for some types of length normalization
+      forced_trg_ids (list): list of word ids, if given will force to generate this is the target sequence
+    Returns:
+      tuple: (id list, score)
+    """
     raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')
 
 class GreedySearch(SearchStrategy):
   '''
   Performs greedy search (aka beam search with beam size 1)
+  
+  Args:
+    max_len (int): maximum number of tokens to generate.
   '''
   def __init__(self, max_len=100):
     self.max_len = max_len
@@ -43,13 +58,20 @@ class GreedySearch(SearchStrategy):
     return SearchOutput(word_ids, attentions), score
 
 class BeamSearch(SearchStrategy):
+  
+  """
+  Performs beam search.
+  
+  Args:
+    beam_size (int):
+    max_len (int): maximum number of tokens to generate.
+    len_norm (:class:`xnmt.length_normalization.LengthNormalization`): type of length normalization to apply
+  """
 
-  def __init__(self, beam_size, max_len=100, len_norm=None):
+  def __init__(self, beam_size, max_len=100, len_norm=bare(NoNormalization)):
     self.beam_size = beam_size
     self.max_len = max_len
-    # The only reason why we don't set NoNormalization as the default is because it currently
-    # breaks our documentation pipeline
-    self.len_norm = len_norm if len_norm != None else NoNormalization()
+    self.len_norm = len_norm
 
     self.entrs = []
 
@@ -64,15 +86,6 @@ class BeamSearch(SearchStrategy):
       return "hypo S=%s |ids|=%s" % (self.score, len(self.output.word_ids))
 
   def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
-    """
-    :param decoder: decoder.Decoder subclass
-    :param attender: attender.Attender subclass
-    :param output_embedder: embedder.Embedder subclass
-    :param dec_state: The decoder state
-    :param src_length: length of src sequence, required for some types of length normalization
-    :param forced_trg_ids: list of word ids, if given will force to generate this is the target sequence
-    :returns: (id list, score)
-    """
 
     if forced_trg_ids is not None: assert self.beam_size == 1
     active_hyp = [self.Hypothesis(0, SearchOutput([], []), dec_state)]

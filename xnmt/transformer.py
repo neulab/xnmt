@@ -1,6 +1,3 @@
-# encoding: utf-8
-from __future__ import division, generators
-
 import numpy as np
 import dynet as dy
 from xnmt.linear import Linear

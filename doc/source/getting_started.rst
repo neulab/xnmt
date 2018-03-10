@@ -29,12 +29,13 @@ that allow you to specify the various
 Running unit tests
 ------------------
 
-From the main directory, run: ``python -m unittest discover``
+From the main directory, run: ``python -m unittest``
+
 Or, to run a specific test, use e.g. ``python -m unittest test.test_run.TestRunningConfig.test_standard``
 
 Cython modules
 ------------------
 
-If you wish to use all the modules in xnmt that need cython, you need to build the cython extensions by this command::
+If you wish to use all the modules in *xnmt* that need cython, you need to build the cython extensions by this command::
 
   python setup.py build_ext --inplace --use-cython-extensions

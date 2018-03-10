@@ -69,7 +69,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     vocab_projector (:class:`xnmt.linear.Linear`):
     vocab_size (int): vocab size or None
     vocab (:class:`xnmt.vocab.Vocab`): vocab or None
-    trg_reader (:class:`xnmt.input.InputReader`): Model's trg_reader, if exists and unambiguous.
+    trg_reader (:class:`xnmt.input_reader.InputReader`): Model's trg_reader, if exists and unambiguous.
   """
   
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
@@ -142,7 +142,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
       vocab_size (int): vocab size or None
       vocab (:class:`xnmt.vocab.Vocab`): vocab or None
       yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
-      trg_reader (:class:`xnmt.input.InputReader`): Model's trg_reader, if exists and unambiguous.
+      trg_reader (:class:`xnmt.input_reader.InputReader`): Model's trg_reader, if exists and unambiguous.
     
     Returns:
       int: chosen vocab size

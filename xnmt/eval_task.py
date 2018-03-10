@@ -2,6 +2,7 @@ from simple_settings import settings
 
 import dynet as dy
 
+import xnmt.input_reader
 from xnmt.serialize.serializer import Serializable
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
@@ -40,7 +41,7 @@ class LossEvalTask(Serializable):
   def eval(self):
     if self.src_data == None:
       self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
-        xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
+        xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                         self.src_file, self.ref_file, batcher=self.batcher,
                                         max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
     loss_val = LossScalarBuilder()
