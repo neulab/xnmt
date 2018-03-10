@@ -9,7 +9,7 @@ class Experiment(Serializable):
   A default experiment that performs preprocessing, training, and evaluation.
   '''
 
-  yaml_tag = u'!Experiment'
+  yaml_tag = '!Experiment'
 
   def __init__(self, exp_global=bare(ExpGlobal), load=None, overwrite=None, preproc=None,
                model=None, train=None, evaluate=None, random_search_report=None):

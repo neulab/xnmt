@@ -31,7 +31,7 @@ class NoNormalization(LengthNormalization, Serializable):
   '''
   Adding no form of length normalization
   '''
-  yaml_tag = u'!NoNormalization'
+  yaml_tag = '!NoNormalization'
   def normalize_completed(self, completed_hyps, src_length=None):
     pass
 
@@ -40,7 +40,7 @@ class AdditiveNormalization(LengthNormalization, Serializable):
   '''
   Adding a fixed word penalty everytime the word is added.
   '''
-  yaml_tag = u'!AdditiveNormalization'
+  yaml_tag = '!AdditiveNormalization'
 
   def __init__(self, penalty=-0.1, apply_during_search=False):
     self.penalty = penalty
@@ -58,7 +58,7 @@ class PolynomialNormalization(LengthNormalization, Serializable):
   '''
   Dividing by the length (raised to some power (default 1))
   '''
-  yaml_tag = u'!PolynomialNormalization'
+  yaml_tag = '!PolynomialNormalization'
 
   def __init__(self, m=1, apply_during_search=False):
     self.m = m
@@ -81,7 +81,7 @@ class MultinomialNormalization(LengthNormalization, Serializable):
   Tree-to-Sequence Attentional Neural Machine Translation
   https://arxiv.org/pdf/1603.06075.pdf
   '''
-  yaml_tag = u'!MultinomialNormalization'
+  yaml_tag = '!MultinomialNormalization'
 
   def __init__(self, sent_stats):
     self.stats = sent_stats
@@ -109,7 +109,7 @@ class GaussianNormalization(LengthNormalization, Serializable):
    sents in the training set.
    refer: https://arxiv.org/pdf/1509.04942.pdf
   '''
-  yaml_tag = u'!GaussianNormalization'
+  yaml_tag = '!GaussianNormalization'
   def __init__(self, sent_stats):
     self.stats = sent_stats.trg_stat
     self.num_sent = sent_stats.num_pair

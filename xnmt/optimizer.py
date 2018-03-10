@@ -25,33 +25,33 @@ class XnmtOptimizer(object):
       self.optimizer.learning_rate = value
 
 class SimpleSGDTrainer(XnmtOptimizer, Serializable):
-  yaml_tag = u'!SimpleSGDTrainer'
+  yaml_tag = '!SimpleSGDTrainer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.1):
     self.optimizer = dy.SimpleSGDTrainer(exp_global.dynet_param_collection.param_col,
                                          e0)
 class MomentumSGDTrainer(XnmtOptimizer, Serializable):
-  yaml_tag = u'!MomentumSGDTrainer'
+  yaml_tag = '!MomentumSGDTrainer'
   def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.01, mom = 0.9):
     self.optimizer = dy.MomentumSGDTrainer(exp_global.dynet_param_collection.param_col,
                                            e0, mom)
 
 class AdagradTrainer(XnmtOptimizer, Serializable):
-  yaml_tag = u'!AdagradTrainer'
+  yaml_tag = '!AdagradTrainer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.1, eps = 1e-20):
     self.optimizer = dy.AdagradTrainer(exp_global.dynet_param_collection.param_col,
                                        e0, eps=eps)
 
 class AdadeltaTrainer(XnmtOptimizer, Serializable):
-  yaml_tag = u'!AdadeltaTrainer'
+  yaml_tag = '!AdadeltaTrainer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), eps = 1e-6, rho = 0.95):
     self.optimizer = dy.AdadeltaTrainer(exp_global.dynet_param_collection.param_col,
                                         eps, rho)
 
 class AdamTrainer(XnmtOptimizer, Serializable):
-  yaml_tag = u'!AdamTrainer'
+  yaml_tag = '!AdamTrainer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
     self.optimizer = dy.AdamTrainer(exp_global.dynet_param_collection.param_col,
@@ -62,7 +62,7 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
   Proposed in the paper "Attention is all you need" (https://papers.nips.cc/paper/7181-attention-is-all-you-need.pdf) [Page 7, Eq. 3]
   In this the learning rate of Adam Optimizer is increased for the first warmup steps followed by a gradual decay
   """
-  yaml_tag = u'!TransformerAdamTrainer'
+  yaml_tag = '!TransformerAdamTrainer'
   def __init__(self, exp_global=Ref(Path("exp_global")), alpha=1.0, dim=512, warmup_steps=4000, beta_1=0.9, beta_2=0.98, eps=1e-9):
     self.optimizer = dy.AdamTrainer(exp_global.dynet_param_collection.param_col,
                                     alpha=alpha,

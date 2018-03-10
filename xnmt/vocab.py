@@ -1,4 +1,3 @@
-import io
 from xnmt.serialize.serializable import Serializable
 
 class Vocab(Serializable):
@@ -47,7 +46,7 @@ class Vocab(Serializable):
     """
     vocab = [Vocab.SS_STR, Vocab.ES_STR]
     reserved = set([Vocab.SS_STR, Vocab.ES_STR, Vocab.UNK_STR])
-    with io.open(vocab_file, encoding='utf-8') as f:
+    with open(vocab_file, encoding='utf-8') as f:
       for line in f:
         word = line.strip()
         if word in reserved:

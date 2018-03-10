@@ -8,7 +8,7 @@ from xnmt.expression_sequence import ExpressionSequence
 from xnmt.serialize.tree_tools import Ref, Path
 
 class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
-  yaml_tag = u'!ConvConnectedSeqTransducer'
+  yaml_tag = '!ConvConnectedSeqTransducer'
   """
     Input goes through through a first convolution in time and space, no stride,
     dimension is not reduced, then CNN layer for each frame several times

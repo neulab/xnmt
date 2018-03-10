@@ -1,6 +1,5 @@
 import logging
 logger = logging.getLogger('xnmt')
-import io
 
 import numpy as np
 import dynet as dy
@@ -273,7 +272,7 @@ class NoopEmbedder(Embedder, Serializable):
     emb_dim (int): Size of the inputs (not required)
   """
 
-  yaml_tag = u'!NoopEmbedder'
+  yaml_tag = '!NoopEmbedder'
   def __init__(self, emb_dim):
     self.emb_dim = emb_dim
 
@@ -333,7 +332,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     self.dynet_param_collection = exp_global.dynet_param_collection
     self.vocab = self.choose_vocab(vocab, yaml_path, src_reader, trg_reader)
     self.vocab_size = len(vocab)
-    with io.open(self.pretrained_filename, encoding='utf-8') as embeddings_file:
+    with open(self.pretrained_filename, encoding='utf-8') as embeddings_file:
       total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
     self.embeddings = self.dynet_param_collection.param_col.lookup_parameters_from_numpy(initial_embeddings)
 

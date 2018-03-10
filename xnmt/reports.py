@@ -1,5 +1,3 @@
-import io
-
 from lxml import etree
 from xnmt.events import register_xnmt_event, register_xnmt_event_assign, handle_xnmt_event
 
@@ -52,7 +50,7 @@ class Reportable(object):
   def generate_html_report(self):
     html_report = self.html_report(context=None)
     html = etree.tostring(html_report, encoding='unicode', pretty_print=True)
-    with io.open(self.__report_path + '.html', 'w', encoding='utf-8') as f:
+    with open(self.__report_path + '.html', 'w', encoding='utf-8') as f:
       f.write(html)
 
   def generate_file_report(self):

@@ -1,6 +1,3 @@
-from __future__ import division, generators
-
-import io
 import dynet as dy
 import numpy as np
 import itertools
@@ -79,7 +76,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     calc_attention_entropy (bool):
   '''
 
-  yaml_tag = u'!DefaultTranslator'
+  yaml_tag = '!DefaultTranslator'
 
   def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
@@ -260,7 +257,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     for word in trg:
       col_length.append(max(len(word), 6))
     col_length.append(max(len(x) for x in src))
-    with io.open(self.get_report_path() + ".attention.txt", encoding='utf-8', mode='w') as attn_file:
+    with open(self.get_report_path() + ".attention.txt", encoding='utf-8', mode='w') as attn_file:
       for i in range(len(src)+1):
         if i == 0:
           words = trg + [""]
@@ -286,7 +283,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     input_dim (int):
   '''
 
-  yaml_tag = u'!TransformerTranslator'
+  yaml_tag = '!TransformerTranslator'
 
   def __init__(self, src_reader, src_embedder, encoder, trg_reader, trg_embedder, decoder, inference=None, input_dim=512):
     register_handler(self)

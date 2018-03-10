@@ -70,7 +70,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
 
-  yaml_tag = u'!MlpSoftmaxDecoder'
+  yaml_tag = '!MlpSoftmaxDecoder'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,

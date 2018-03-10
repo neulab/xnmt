@@ -89,7 +89,7 @@ class ModularSeqTransducer(SeqTransducer, Serializable):
     modules (list of :class:`xnmt.transducer.SeqTransducer`): list of SeqTransducer modules
   """
 
-  yaml_tag = u'!ModularSeqTransducer'
+  yaml_tag = '!ModularSeqTransducer'
 
   def __init__(self, input_dim, modules):
     self.modules = modules
@@ -114,7 +114,7 @@ class IdentitySeqTransducer(Transducer, Serializable):
   A transducer that simply returns the input.
   """
 
-  yaml_tag = u'!IdentitySeqTransducer'
+  yaml_tag = '!IdentitySeqTransducer'
 
   def __call__(self, output):
     if not isinstance(output, ExpressionSequence):

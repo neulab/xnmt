@@ -80,7 +80,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
   A retriever trains using max-margin methods.
   '''
 
-  yaml_tag = u'!DotProductRetriever'
+  yaml_tag = '!DotProductRetriever'
 
 
   def __init__(self, src_embedder, src_encoder, trg_embedder, trg_encoder, database, loss_direction="forward"):
@@ -187,7 +187,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
       self.set_html_path('{}.{}'.format(self.report_path, str(idx)))
 
     if return_type == "idxscore":
-      return [(i,scores[0,x]) for i, x in six.moves.zip(ids, kbest)]
+      return [(i,scores[0,x]) for i, x in zip(ids, kbest)]
     elif return_type == "idx":
       return list(ids)
     elif return_type == "score":

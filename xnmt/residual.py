@@ -48,7 +48,7 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
     bidirectional (bool): whether the LSTM layers should be bidirectional
   """
   
-  yaml_tag = u'!ResidualLSTMSeqTransducer'
+  yaml_tag = '!ResidualLSTMSeqTransducer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
     register_handler(self)

@@ -1,5 +1,4 @@
 import dynet as dy
-import io
 
 import xnmt.linear
 import xnmt.embedder
@@ -52,7 +51,7 @@ class TailWordSegmentTransformer(SegmentTransformer):
     if count_file is not None:
       print("Reading count reference...")
       frequent_words = set()
-      with io.open(count_file, "r") as fp:
+      with open(count_file, "r") as fp:
         for line in fp:
           line = line.strip().split("\t")
           cnt = int(line[-1])

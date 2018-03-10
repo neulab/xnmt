@@ -2,7 +2,6 @@
 
 import logging
 logger = logging.getLogger('xnmt')
-import io
 from collections.abc import Iterable
 
 from simple_settings import settings
@@ -22,7 +21,7 @@ This will be the main class to perform decoding.
 NO_DECODING_ATTEMPTED = u"@@NO_DECODING_ATTEMPTED@@"
 
 class SimpleInference(Serializable):
-  yaml_tag = u'!SimpleInference'
+  yaml_tag = '!SimpleInference'
   def __init__(self, model_file=None, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
                   input_format="text", post_process="none", report_path=None, report_type="html",
                   beam=1, max_len=100, len_norm_type=None, mode="onebest", batcher=Ref(Path("train.batcher"), required=False)):
@@ -116,7 +115,7 @@ class SimpleInference(Serializable):
       ref_scores = [-x for x in ref_scores]
 
     # Perform generation of output
-    with io.open(args["trg_file"], 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
+    with open(args["trg_file"], 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
       src_ret=[]
       for i, src in enumerate(src_corpus):
         # This is necessary when the batcher does some sort of pre-processing, e.g.

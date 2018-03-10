@@ -9,7 +9,7 @@ from xnmt.serialize.serializable import Serializable, bare
 from xnmt.param_init import ZeroInitializer, GlorotInitializer
 
 class ExpGlobal(Serializable):
-  yaml_tag = u'!ExpGlobal'
+  yaml_tag = '!ExpGlobal'
   def __init__(self,
                model_file=settings.DEFAULT_MOD_PATH,
                log_file=settings.DEFAULT_LOG_PATH,

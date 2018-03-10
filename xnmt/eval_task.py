@@ -21,7 +21,7 @@ class LossEvalTask(Serializable):
   A task that does evaluation of the loss function.
   '''
 
-  yaml_tag = u'!LossEvalTask'
+  yaml_tag = '!LossEvalTask'
 
   def __init__(self, src_file, ref_file, model=Ref(path=Path("model")),
                 batcher=Ref(path=Path("train.batcher"), required=False),
@@ -69,7 +69,7 @@ class AccuracyEvalTask(Serializable):
   A task that does evaluation of some measure of accuracy.
   '''
 
-  yaml_tag = u'!AccuracyEvalTask'
+  yaml_tag = '!AccuracyEvalTask'
 
   def __init__(self, src_file, ref_file, hyp_file, model=Ref(path=Path("model")),
                eval_metrics="bleu", inference=None, candidate_id_file=None,

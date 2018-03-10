@@ -241,7 +241,7 @@ class DecoderLayer(object):
 
 
 class TransformerEncoder(Serializable):
-  yaml_tag = u'!TransformerEncoder'
+  yaml_tag = '!TransformerEncoder'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=512, h=1,
                dropout=0.0, attn_dropout=False, layer_norm=False, **kwargs):
@@ -274,7 +274,7 @@ class TransformerEncoder(Serializable):
 
 
 class TransformerDecoder(Serializable):
-  yaml_tag = u'!TransformerDecoder'
+  yaml_tag = '!TransformerDecoder'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=512, h=1,
                dropout=0.0, attn_dropout=False, layer_norm=False,

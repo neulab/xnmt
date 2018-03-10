@@ -50,7 +50,7 @@ class MlpAttender(Attender, Serializable):
     hidden_dim (int): hidden MLP dimension; if None, use exp_global.default_layer_dim
   '''
 
-  yaml_tag = u'!MlpAttender'
+  yaml_tag = '!MlpAttender'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, 
                hidden_dim=None, param_init=None, bias_init=None):
@@ -108,7 +108,7 @@ class DotAttender(Attender, Serializable):
     scale (bool): whether to perform scaling
   '''
 
-  yaml_tag = u'!DotAttender'
+  yaml_tag = '!DotAttender'
 
   def __init__(self, scale=True):
     self.curr_sent = None
@@ -146,7 +146,7 @@ class BilinearAttender(Attender, Serializable):
     state_dim (int): dimension of state inputs; if None, use exp_global.default_layer_dim
   '''
 
-  yaml_tag = u'!BilinearAttender'
+  yaml_tag = '!BilinearAttender'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, param_init=None):
     input_dim = input_dim or exp_global.default_layer_dim

@@ -46,7 +46,7 @@ def init_fs_representer(dumper, obj):
 yaml.add_representer(FormatString, init_fs_representer)
 
 class RandomParam(yaml.YAMLObject):
-  yaml_tag = u'!RandomParam'
+  yaml_tag = '!RandomParam'
   def __init__(self, values):
     self.values = values
   def __repr__(self):

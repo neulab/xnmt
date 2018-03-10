@@ -26,7 +26,7 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
     reduce_factor: integer, or list of ints (different skip for each layer)
     dropout (float): dropout probability; if None, use exp_global.dropout
   """
-  yaml_tag = u'!PyramidalLSTMSeqTransducer'
+  yaml_tag = '!PyramidalLSTMSeqTransducer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None,
                downsampling_method="concat", reduce_factor=2, dropout=None):

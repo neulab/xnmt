@@ -1,9 +1,8 @@
+from itertools import zip_longest
 import logging
 logger = logging.getLogger('xnmt')
 
 import ast
-import io
-import six
 
 import numpy as np
 
@@ -47,7 +46,7 @@ class SimpleSentenceInput(Input):
     return self.__class__(new_words, self.vocab)
 
   def __str__(self):
-    return " ".join(six.moves.map(str, self.words))
+    return " ".join(map(str, self.words))
 
 class AnnotatedSentenceInput(SimpleSentenceInput):
   def __init__(self, words, vocab=None):
@@ -116,7 +115,7 @@ class InputReader(object):
 
 class BaseTextReader(InputReader):
   def count_sents(self, filename):
-    f = io.open(filename, encoding='utf-8')
+    f = open(filename, encoding='utf-8')
     try:
       return sum(1 for _ in f)
     finally:
@@ -133,7 +132,7 @@ class BaseTextReader(InputReader):
     if filter_ids is not None:
       max_id = max(filter_ids)
       filter_ids = set(filter_ids)
-    with io.open(filename, encoding='utf-8') as f:
+    with open(filename, encoding='utf-8') as f:
       for line in f:
         if filter_ids is None or sent_count in filter_ids:
           yield line
@@ -146,7 +145,7 @@ class PlainTextReader(BaseTextReader, Serializable):
   Handles the typical case of reading plain text files,
   with one sent per line.
   """
-  yaml_tag = u'!PlainTextReader'
+  yaml_tag = '!PlainTextReader'
   def __init__(self, vocab=None, include_vocab_reference=False):
     self.vocab = vocab
     self.include_vocab_reference = include_vocab_reference
@@ -158,9 +157,9 @@ class PlainTextReader(BaseTextReader, Serializable):
     if self.vocab is None:
       self.vocab = Vocab()
     vocab_reference = self.vocab if self.include_vocab_reference else None
-    return six.moves.map(lambda l: SimpleSentenceInput([self.vocab.convert(word) for word in l.strip().split()] + \
-                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference),
-                         self.iterate_filtered(filename, filter_ids))
+    return map(lambda l: SimpleSentenceInput([self.vocab.convert(word) for word in l.strip().split()] + \
+                                             [self.vocab.convert(Vocab.ES_STR)], vocab_reference),
+               self.iterate_filtered(filename, filter_ids))
 
   def freeze(self):
     self.vocab.freeze()
@@ -180,15 +179,15 @@ class PlainTextReader(BaseTextReader, Serializable):
     return len(self.vocab)
 
 class SegmentationTextReader(PlainTextReader):
-  yaml_tag = u'!SegmentationTextReader'
+  yaml_tag = '!SegmentationTextReader'
 
   def read_sents(self, filename, filter_ids=None):
     if self.vocab is None:
       self.vocab = Vocab()
     def convert(line, segmentation):
       line = line.strip().split()
-      ret = AnnotatedSentenceInput(list(six.moves.map(self.vocab.convert, line)) + [self.vocab.convert(Vocab.ES_STR)])
-      ret.annotate("segment", list(six.moves.map(int, segmentation.strip().split())))
+      ret = AnnotatedSentenceInput(list(map(self.vocab.convert, line)) + [self.vocab.convert(Vocab.ES_STR)])
+      ret.annotate("segment", list(map(int, segmentation.strip().split())))
       return ret
 
     if type(filename) != list:
@@ -203,8 +202,8 @@ class SegmentationTextReader(PlainTextReader):
       max_id = max(filter_ids)
       filter_ids = set(filter_ids)
     data = []
-    with io.open(filename[0], encoding='utf-8') as char_inp,\
-         io.open(filename[1], encoding='utf-8') as seg_inp:
+    with open(filename[0], encoding='utf-8') as char_inp,\
+         open(filename[1], encoding='utf-8') as seg_inp:
       for sent_count, (char_line, seg_line) in enumerate(zip(char_inp, seg_inp)):
         if filter_ids is None or sent_count in filter_ids:
           data.append(convert(char_line, seg_line))
@@ -288,7 +287,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
     src_len, trg_len = 0, 0
   src_train_iterator = src_reader.read_sents(src_file, filter_ids)
   trg_train_iterator = trg_reader.read_sents(trg_file, filter_ids)
-  for src_sent, trg_sent in six.moves.zip_longest(src_train_iterator, trg_train_iterator):
+  for src_sent, trg_sent in zip_longest(src_train_iterator, trg_train_iterator):
     if src_sent is None or trg_sent is None:
       raise RuntimeError(f"training src sentences don't match trg sentences: {src_len or src_reader.count_sents(src_file)} != {trg_len or trg_reader.count_sents(trg_file)}!")
     if max_num_sents and (max_num_sents <= len(src_data)):

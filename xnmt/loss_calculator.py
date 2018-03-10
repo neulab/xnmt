@@ -15,7 +15,7 @@ class LossCalculator(Serializable):
   '''
   A template class implementing the training strategy and corresponding loss calculation.
   '''
-  yaml_tag = u'!LossCalculator'
+  yaml_tag = '!LossCalculator'
 
   def __init__(self, loss_calculator = None):
     if loss_calculator is None:

@@ -66,7 +66,7 @@ class BPETokenizer(Tokenizer):
 
   TODO: Unimplemented
   """
-  yaml_tag = u'!BPETokenizer'
+  yaml_tag = '!BPETokenizer'
 
   def __init__(self, vocab_size, train_files):
     """Determine the BPE based on the vocab size and corpora"""
@@ -80,7 +80,7 @@ class CharacterTokenizer(Tokenizer):
   """
   Tokenize into characters, with __ indicating blank spaces
   """
-  yaml_tag = u'!CharacterTokenizer'
+  yaml_tag = '!CharacterTokenizer'
 
   def tokenize(self, sent):
     """Tokenizes a single sentence into characters."""
@@ -95,7 +95,7 @@ class ExternalTokenizer(Tokenizer):
   once per file, so are run as such (instead of one-execution-per-line.)
 
   """
-  yaml_tag = u'!ExternalTokenizer'
+  yaml_tag = '!ExternalTokenizer'
 
   def __init__(self, path, tokenizer_args={}, arg_separator=' '):
     """Initialize the wrapper around the external tokenizer. """
@@ -133,7 +133,7 @@ class SentencepieceTokenizer(ExternalTokenizer):
   A wrapper around an independent installation of the sentencepiece tokenizer
   with passable parameters.
   """
-  yaml_tag = u'!SentencepieceTokenizer'
+  yaml_tag = '!SentencepieceTokenizer'
 
   def __init__(self, path, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
       , output_format='piece', model_type='bpe'
