@@ -17,7 +17,6 @@ class PretrainedSimpleWordEmbedderSanityTest(unittest.TestCase):
     xnmt.events.clear()
     self.input_reader = PlainTextReader()
     list(self.input_reader.read_sents('examples/data/head.ja'))
-    self.input_reader.freeze()
     self.context = ExpGlobal(dynet_param_collection=PersistentParamCollection(None, 0))
 
   def test_load(self):
