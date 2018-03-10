@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 import dynet as dy
 from xnmt.serialize.serializable import Serializable, bare
 from xnmt.serialize.tree_tools import Ref, Path
@@ -6,6 +8,7 @@ from xnmt.events import register_handler, handle_xnmt_event
 import xnmt.linear
 import xnmt.residual
 from xnmt.bridge import CopyBridge
+from xnmt.param_init import GlorotInitializer
 
 class Decoder(object):
   '''
@@ -72,8 +75,10 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
-               bridge=bare(CopyBridge), label_smoothing=0.0, vocab_projector=None,
-               vocab_size = None, vocab = None,
+               param_init_lstm=None, param_init_context=None, bias_init_context=None,
+               param_init_output=None, bias_init_output=None,
+               bridge=bare(CopyBridge), label_smoothing=0.0,
+               vocab_projector=None, vocab_size = None, vocab = None,
                trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
     register_handler(self)
     self.param_col = exp_global.dynet_param_collection.param_col
@@ -101,15 +106,25 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                                               hidden_dim = lstm_dim,
                                               model = self.param_col,
                                               residual_to_output = residual_to_output)
+    param_init_lstm = param_init_lstm or exp_global.param_init
+    if not isinstance(param_init_lstm, GlorotInitializer): raise NotImplementedError("For the decoder LSTM, only Glorot initialization is currently supported")
+    if getattr(param_init_lstm,"gain",1.0) != 1.0:
+      for l in range(layers):
+        for i in [0,1]:
+          self.fwd_lstm.param_collection().parameters_list()[3*l+i].scale(param_init_lstm.gain)
+      
     # MLP
     self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + lstm_dim,
-                                           output_dim = mlp_hidden_dim,
-                                           model = self.param_col)
+                                                output_dim = mlp_hidden_dim,
+                                                model = self.param_col,
+                                                param_init = param_init_context or exp_global.param_init,
+                                                bias_init = bias_init_context or exp_global.bias_init)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, trg_reader)
     self.vocab_projector = vocab_projector or xnmt.linear.Linear(input_dim = self.mlp_hidden_dim,
-                                                                output_dim = self.vocab_size,
-                                                                model = self.param_col)
-
+                                                                 output_dim = self.vocab_size,
+                                                                 model = self.param_col,
+                                                                 param_init = param_init_output or exp_global.param_init,
+                                                                 bias_init = bias_init_output or exp_global.bias_init)
     # Dropout
     self.dropout = dropout or exp_global.dropout
 
