@@ -14,38 +14,37 @@ from xnmt.reports import Reportable
 from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.tree_tools import Ref, Path
 
-'''
-This will be the main class to perform decoding.
-'''
-
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 
 class SimpleInference(Serializable):
+  """
+  Main class to perform decoding.
+  
+  Args:
+    model_file (string): pretrained (saved) model path (required onless model_elements is given)
+    src_file (string): path of input src file to be translated
+    trg_file (string): path of file where trg translatons will be written
+    ref_file (string): path of file with reference translations, e.g. for forced decoding
+    max_src_len (int): Remove sentences from data to decode that are longer than this on the source side
+    post_process (string): post-processing of translation outputs: ``none/join-char/join-bpe/join-piece``
+    report_path (string): a path to which decoding reports will be written
+    report_type (string): report to generate ``file/html``. Can be multiple, separate with comma.
+    beam (int):
+    max_len (int):
+    len_norm_type (:class:`xnmt.length_normalization.LengthNormalization`):
+    mode (string): type of decoding to perform. ``onebest``: generate one best. ``forced``: perform forced decoding. ``forceddebug``: perform forced decoding, calculate training loss, and make suer the scores are identical for debugging purposes.
+    batcher (:class:`xnmt.batcher.Batcher`):
+  """
+  
   yaml_tag = '!SimpleInference'
   def __init__(self, model_file=None, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
-                  input_format="text", post_process="none", report_path=None, report_type="html",
+                  post_process="none", report_path=None, report_type="html",
                   beam=1, max_len=100, len_norm_type=None, mode="onebest", batcher=Ref(Path("train.batcher"), required=False)):
-    """
-    :param model_file: pretrained (saved) model path (required onless model_elements is given)
-    :param src_file: path of input src file to be translated
-    :param trg_file: path of file where trg translatons will be written
-    :param ref_file: path of file with reference translations, e.g. for forced decoding
-    :param max_src_len (int): Remove sentences from data to decode that are longer than this on the source side
-    :param input_format: format of input data: text/contvec
-    :param post_process: post-processing of translation outputs: none/join-char/join-bpe/join-piece
-    :param report_path: a path to which decoding reports will be written
-    :param report_type: report to generate file/html. Can be multiple, separate with comma.
-    :param beam (int):
-    :param max_len (int):
-    :param len_norm_type:
-    :param mode: type of decoding to perform. onebest: generate one best. forced: perform forced decoding. forceddebug: perform forced decoding, calculate training loss, and make suer the scores are identical for debugging purposes.
-    """
     self.model_file = model_file
     self.src_file = src_file
     self.trg_file = trg_file
     self.ref_file = ref_file
     self.max_src_len = max_src_len
-    self.input_format = input_format
     self.post_process = post_process
     self.report_path = report_path
     self.report_type = report_type
@@ -58,13 +57,14 @@ class SimpleInference(Serializable):
 
   def __call__(self, generator, src_file=None, trg_file=None, candidate_id_file=None):
     """
-    :param src_file: path of input src file to be translated
-    :param trg_file: path of file where trg translatons will be written
-    :param candidate_id_file: if we are doing something like retrieval where we select from fixed candidates, sometimes we want to limit our candidates to a certain subset of the full set. this setting allows us to do this.
-    :param model_elements: If None, the model will be loaded from model_file. If set, should equal (corpus_parser, generator).
+    Args:
+      generator (:class:`xnmt.generator.GeneratorModel`): the model to be used
+      src_file (string): path of input src file to be translated
+      trg_file (string): path of file where trg translatons will be written
+      candidate_id_file (string): if we are doing something like retrieval where we select from fixed candidates, sometimes we want to limit our candidates to a certain subset of the full set. this setting allows us to do this.
     """
     args = dict(model_file=self.model_file, src_file=src_file or self.src_file, trg_file=trg_file or self.trg_file, ref_file=self.ref_file, max_src_len=self.max_src_len,
-                  input_format=self.input_format, post_process=self.post_process, candidate_id_file=candidate_id_file, report_path=self.report_path, report_type=self.report_type,
+                  post_process=self.post_process, candidate_id_file=candidate_id_file, report_path=self.report_path, report_type=self.report_type,
                   beam=self.beam, max_len=self.max_len, len_norm_type=self.len_norm_type, mode=self.mode)
 
     is_reporting = issubclass(generator.__class__, Reportable) and args["report_path"] is not None

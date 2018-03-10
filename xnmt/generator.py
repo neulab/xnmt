@@ -1,11 +1,7 @@
 from xnmt.events import register_xnmt_event, register_xnmt_event_sum
 
 class GeneratorModel(object):
-  """
-  A generator model template. Generator models can generate outputs and calculate losses.
-  
-  TODO: needs documentation.
-  """
+  # TODO: document me
   def generate_output(self, *args, **kwargs):
     # Generate the output
     generation_output = self.generate(*args, **kwargs)

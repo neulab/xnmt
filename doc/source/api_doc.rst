@@ -105,6 +105,18 @@ Decoder
 .. autoclass:: xnmt.decoder.MlpSoftmaxDecoder
    :members:
    :show-inheritance:
+   
+.. autoclass:: xnmt.decoder.MlpSoftmaxDecoderState
+   :members:
+   :show-inheritance:
+   
+
+Inference
+--------------
+
+.. autoclass:: xnmt.inference.SimpleInference 
+   :members:
+   :show-inheritance:
 
 SearchStrategy
 --------------
@@ -116,6 +128,34 @@ SearchStrategy
 .. autoclass:: xnmt.search_strategy.BeamSearch
    :members:
    :show-inheritance:
+
+LengthNormalization
+-------------------
+
+.. autoclass:: xnmt.length_normalization.LengthNormalization
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.length_normalization.NoNormalization
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.length_normalization.AdditiveNormalization
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.length_normalization.PolynomialNormalization
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.length_normalization.MultinomialNormalization
+   :members:
+   :show-inheritance:
+
+.. autoclass:: xnmt.length_normalization.GaussianNormalization
+   :members:
+   :show-inheritance:
+
 
 Input
 -----
@@ -250,6 +290,38 @@ LossCalculator
 .. autoclass:: xnmt.loss_calculator.ReinforceLoss
    :members:
    :show-inheritance:
+
+Serialize
+---------
+
+.. autoclass:: xnmt.serialize.serializable.Serializable
+   :show-inheritance:
+   :members:
+
+.. autofunction:: xnmt.serialize.serializable.bare
+
+.. autoclass:: xnmt.serialize.tree_tools.Path
+   :show-inheritance:
+   :members:
+
+.. autoclass:: xnmt.serialize.tree_tools.Ref
+   :show-inheritance:
+   :members:
+
+Reportable
+----------
+
+.. autoclass:: xnmt.reports.Reportable
+   :show-inheritance:
+   :members:
+
+GeneratorModel
+--------------
+
+.. autoclass:: xnmt.generator.GeneratorModel
+   :show-inheritance:
+   :members:
+
 
 
 Other Classes

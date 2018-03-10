@@ -1,5 +1,3 @@
-from collections.abc import Sequence
-
 import dynet as dy
 from xnmt.serialize.serializable import Serializable, bare
 from xnmt.serialize.tree_tools import Ref, Path
@@ -36,7 +34,12 @@ class RnnDecoder(Decoder):
       raise RuntimeError("Unknown decoder type {}".format(spec))
 
 class MlpSoftmaxDecoderState(object):
-  """A state holding all the information needed for MLPSoftmaxDecoder"""
+  """A state holding all the information needed for MLPSoftmaxDecoder
+  
+  Args:
+    rnn_state: a DyNet RNN state
+    context: a DyNet expression
+  """
   def __init__(self, rnn_state=None, context=None):
     self.rnn_state = rnn_state
     self.context = context

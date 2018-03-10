@@ -11,18 +11,21 @@ class LengthNormalization(object):
   '''
   def normalize_completed(self, completed_hyps, src_length=None):
     """
-    normalization step applied to completed hypotheses after search
-    :param completed hyps: list of completed Hypothesis objects, will be normalized in-place
-    :param src_length: length of source sequence (None if not given)
-    :returns: None
+    Normalization step applied to completed hypotheses after search.
+    
+    Args:
+      completed hyps: list of completed Hypothesis objects, will be normalized in-place
+      src_length: length of source sequence (None if not given)
     """
     raise NotImplementedError('normalize_completed must be implemented in LengthNormalization subclasses')
   def normalize_partial(self, score_so_far, score_to_add, new_len):
     """
-    :param score_so_far:
-    :param score_to_add:
-    :param new_len: length of output hyp with current word already appended
-    :returns: new score after applying score_to_add to score_so_far
+    Args:
+      score_so_far:
+      score_to_add:
+      new_len: length of output hyp with current word already appended
+    Returns:
+      new score after applying score_to_add to score_so_far
     normalization step applied during the search
     """
     return score_so_far + score_to_add # default behavior: add up the log probs

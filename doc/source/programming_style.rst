@@ -24,7 +24,7 @@ There are also a minimal of coding style conventions:
 - Follow Python 3 conventions, Python 2 is not supported.
 - Functions should be snake_case, classes should be UpperCamelCase.
 - Indentation should be two whitespace characters.
-- Docstrings should be made in reST format (e.g. ``:param param_name:``, ``:returns:`` etc.)
+- Docstrings should be made according to the Google style guide, see http://sphinxcontrib-napoleon.readthedocs.io/en/latest/
 
 A collection of unit tests exists to make sure things don't break.
 

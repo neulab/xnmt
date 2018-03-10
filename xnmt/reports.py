@@ -2,6 +2,9 @@ from lxml import etree
 from xnmt.events import register_xnmt_event, register_xnmt_event_assign, handle_xnmt_event
 
 class Reportable(object):
+  
+  # TODO: document me
+  
   @register_xnmt_event_assign
   def html_report(self, context=None):
     raise NotImplementedError()
