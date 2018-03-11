@@ -14,8 +14,8 @@ class ExpGlobal(Serializable):
   Also holds the DyNet parameter collection
   
   Args:
-    model_file (string): Location to write model file to
-    log_file (string): Location to write log file to
+    model_file (str): Location to write model file to
+    log_file (str): Location to write log file to
     dropout (float): Default dropout probability that should be used by supporting components but can be overwritten
     weight_noise (float): Default weight noise level that should be used by supporting components but can be overwritten
     default_layer_dim (int): Default layer dimension that should be used by supporting components but can be overwritten

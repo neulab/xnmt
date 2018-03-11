@@ -121,7 +121,7 @@ class FromFileInitializer(ParamInitializer, Serializable):
   Initialize parameter from file.
   
   Args:
-    fname (string): File name
+    fname (str): File name
   """
   yaml_tag = "!FromFileInitializer"
   def __init__(self, fname):

@@ -17,17 +17,19 @@ class TrainingRegimen(object):
     """
     Runs training steps in a loop until stopping criterion is reached.
 
-    :param save_fct: function to be invoked to save a model at dev checkpoints
-    :param update_weights: Whether parameters should be updated
+    Args:
+      save_fct: function to be invoked to save a model at dev checkpoints
+      update_weights: Whether parameters should be updated
     """
     raise NotImplementedError("")
   def update_weights(self, loss, trainer, dynet_profiling):
     """
     Standardized way to perform backward pass and parameter updates.
 
-    :param loss: Result of self.training_step(...)
-    :param trainer: DyNet trainer / xnmt.optimizer object
-    :param dynet_profiling: if > 0, print the computation graph
+    Args:
+      loss: Result of self.training_step(...)
+      trainer: DyNet trainer / xnmt.optimizer object
+      dynet_profiling: if > 0, print the computation graph
     """
     if dynet_profiling and dynet_profiling > 0:
       dy.print_text_graphviz()
@@ -45,29 +47,30 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                max_src_len=None, max_trg_len=None,
                exp_global=Ref(Path("exp_global"))):
     """
-    :param model: a generator.GeneratorModel object
-    :param src_file: the source training file
-    :param trg_file: the target training file
-    :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
-    :param batcher: Type of batcher
-    :param loss_calculator: The method for calculating the loss.
-    :param trainer: Trainer object, default is SGD with learning rate 0.1
-    :param run_for_epochs:
-    :param lr_decay (float):
-    :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
-    :param patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
-    :param initial_patience (int): if given, allows adjusting patience for the first LR decay
-    :param dev_tasks: A list of tasks to use during the development stage.
-    :param restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
-    :param reload_command: Command to change the input data after each epoch.
+    Args:
+      model: a generator.GeneratorModel object
+      src_file: the source training file
+      trg_file: the target training file
+      dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
+      batcher: Type of batcher
+      loss_calculator: The method for calculating the loss.
+      trainer: Trainer object, default is SGD with learning rate 0.1
+      run_for_epochs:
+      lr_decay (float):
+      lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
+      patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
+      initial_patience (int): if given, allows adjusting patience for the first LR decay
+      dev_tasks: A list of tasks to use during the development stage.
+      restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
+      reload_command: Command to change the input data after each epoch.
                            --epoch EPOCH_NUM will be appended to the command.
                            To just reload the data after each epoch set the command to 'true'.
-    :param name: will be prepended to log outputs if given
-    :param sample_train_sents:
-    :param max_num_train_sents:
-    :param max_src_len:
-    :param max_trg_len:
-    :param exp_global:
+      name: will be prepended to log outputs if given
+      sample_train_sents:
+      max_num_train_sents:
+      max_src_len:
+      max_trg_len:
+      exp_global:
     """
     super().__init__(model=model,
                      src_file=src_file,
@@ -117,11 +120,12 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
   """
   def __init__(self, tasks, trainer=None, exp_global=Ref(Path("exp_global"))):
     """
-    :param tasks: list of TrainingTask instances.
+    Args:
+      tasks: list of TrainingTask instances.
                   The first item takes on the role of the main task, meaning it
                   will control early stopping, learning rate schedule, and
                   model checkpoints.
-    :param trainer: Trainer object, default is SGD with learning rate 0.1
+      trainer: Trainer object, default is SGD with learning rate 0.1
     """
     self.dynet_profiling = exp_global.commandline_args.dynet_profiling
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
@@ -143,7 +147,8 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     """
     Trigger set_train event, but only if that would lead to a change of the value
     of set_train.
-    :param value: True or False
+    Args:
+      value: True or False
     """
     if self.train is None:
       self.train = value
@@ -240,8 +245,9 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
 
   def __init__(self, exp_global, tasks, trainer=None):
     """
-    :param tasks: list of TrainingTask instances. The currently active task is treated as main task.
-    :param trainer: Trainer object, default is SGD with learning rate 0.1
+    Args:
+      tasks: list of TrainingTask instances. The currently active task is treated as main task.
+      trainer: Trainer object, default is SGD with learning rate 0.1
     """
     super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
     self.exp_global = exp_global

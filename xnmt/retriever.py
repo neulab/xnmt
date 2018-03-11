@@ -44,9 +44,11 @@ class Retriever(GeneratorModel):
   def calc_loss(self, src, db_idx):
     '''Calculate loss based on a database index.
 
-    :param src: The source input.
-    :param db_idx: The correct index in the database to be retrieved.
-    :returns: An expression representing the loss.
+    Args:
+      src: The source input.
+      db_idx: The correct index in the database to be retrieved.
+    Returns:
+      An expression representing the loss.
     '''
     raise NotImplementedError('calc_loss must be implemented for Retriever subclasses')
 
@@ -61,9 +63,11 @@ class Retriever(GeneratorModel):
   def generate(self, src, i):
     '''Perform retrieval, trying to get the sentence that most closely matches in the database.
 
-    :param src: The source.
-    :param i: Id of the input (for reporting)
-    :returns: The ID of the example that most closely matches in the database.
+    Args:
+      src: The source.
+      i: Id of the input (for reporting)
+    Returns:
+      The ID of the example that most closely matches in the database.
     '''
     raise NotImplementedError('generate must be implemented for Retriever subclasses')
 
@@ -86,11 +90,12 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
   def __init__(self, src_embedder, src_encoder, trg_embedder, trg_encoder, database, loss_direction="forward"):
     '''Constructor.
 
-    :param src_embedder: A word embedder for the source language
-    :param src_encoder: An encoder for the source language
-    :param trg_embedder: A word embedder for the target language
-    :param trg_encoder: An encoder for the target language
-    :param database: A database of things to retrieve
+    Args:
+      src_embedder: A word embedder for the source language
+      src_encoder: An encoder for the source language
+      trg_embedder: A word embedder for the target language
+      trg_encoder: An encoder for the target language
+      database: A database of things to retrieve
     '''
     self.src_embedder = src_embedder
     self.src_encoder = src_encoder

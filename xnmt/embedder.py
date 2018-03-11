@@ -38,7 +38,7 @@ class Embedder(object):
             It could also be batched, in which case it will be a (possibly masked) :class:`xnmt.batcher.Batch` object
     
     Returns:
-      An :class:`xnmt.expression_sequence.ExpressionSequence` representing vectors of each word in the input.
+      xnmt.expression_sequence.ExpressionSequence: An expression sequence representing vectors of each word in the input.
     """
     # single mode
     if not xnmt.batcher.is_batched(sent):
@@ -60,13 +60,13 @@ class Embedder(object):
     This is done in order of priority of vocab, model+yaml_path
     
     Args:
-      vocab (:class:`xnmt.vocab.Vocab`): If None, try to obtain from ``src_reader`` or ``trg_reader``, depending on the ``yaml_path``
-      yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
-      src_reader (:class:`xnmt.input_reader.InputReader`): Model's src_reader, if exists and unambiguous.
-      trg_reader (:class:`xnmt.input_reader.InputReader`): Model's trg_reader, if exists and unambiguous.
+      vocab (xnmt.vocab.Vocab): If None, try to obtain from ``src_reader`` or ``trg_reader``, depending on the ``yaml_path``
+      yaml_path (xnmt.serialize.tree_tools.Path): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
+      src_reader (xnmt.input_reader.InputReader): Model's src_reader, if exists and unambiguous.
+      trg_reader (xnmt.input_reader.InputReader): Model's trg_reader, if exists and unambiguous.
     
     Returns:
-      :class:`xnmt.vocab.Vocab`: chosen vocab
+      xnmt.vocab.Vocab: chosen vocab
     """
     if vocab != None:
       return len(vocab)
@@ -88,10 +88,10 @@ class Embedder(object):
 
     Args:
       vocab_size (int): vocab size or None
-      vocab (:class:`xnmt.vocab.Vocab`): vocab or None
-      yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
-      src_reader (:class:`xnmt.input_reader.InputReader`): Model's src_reader, if exists and unambiguous.
-      trg_reader (:class:`xnmt.input_reader.InputReader`): Model's trg_reader, if exists and unambiguous.
+      vocab (xnmt.vocab.Vocab): vocab or None
+      yaml_path (xnmt.serialize.tree_tools.Path): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
+      src_reader (xnmt.input_reader.InputReader): Model's src_reader, if exists and unambiguous.
+      trg_reader (xnmt.input_reader.InputReader): Model's trg_reader, if exists and unambiguous.
     
     Returns:
       int: chosen vocab size
@@ -116,18 +116,18 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
   Word embeddings via full matrix.
   
   Args:
-    exp_global: :class:`xnmt.exp_global.ExpGlobal` object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    exp_global (xnmt.exp_global.ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     emb_dim (int): embedding dimension; if None, use exp_global.default_layer_dim
     weight_noise (float): apply Gaussian noise with given standard deviation to embeddings; if ``None``, use exp_global.weight_noise
     word_dropout (float): drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
     fix_norm (float): fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
-    param_init (:class:`xnmt.param_init.ParamInitializer`): how to initialize weight matrices; if None, use ``exp_global.param_init``
-    bias_init (:class:`xnmt.param_init.ParamInitializer`): how to initialize bias vectors; if None, use ``exp_global.bias_init``
+    param_init (xnmt.param_init.ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
+    bias_init (xnmt.param_init.ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
     vocab_size (int): vocab size or None
-    vocab (:class:`xnmt.vocab.Vocab`): vocab or None
-    yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
-    src_reader (:class:`xnmt.input_reader.InputReader`): A reader for the source side. Automatically set by the YAML deserializer.
-    trg_reader (:class:`xnmt.input_reader.InputReader`): A reader for the target side. Automatically set by the YAML deserializer.
+    vocab (xnmt.vocab.Vocab): vocab or None
+    yaml_path (xnmt.serialize.tree_tools.Path): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
+    src_reader (xnmt.input_reader.InputReader): A reader for the source side. Automatically set by the YAML deserializer.
+    trg_reader (xnmt.input_reader.InputReader): A reader for the target side. Automatically set by the YAML deserializer.
   """
   yaml_tag = "!DenseWordEmbedder"
   def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
@@ -194,18 +194,18 @@ class SimpleWordEmbedder(Embedder, Serializable):
   Simple word embeddings via lookup.
 
   Args:
-    exp_global: :class:`xnmt.exp_global.ExpGlobal` object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    exp_global (xnmt.exp_global.ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     emb_dim (int): embedding dimension; if None, use exp_global.default_layer_dim
     weight_noise (float): apply Gaussian noise with given standard deviation to embeddings; if ``None``, use exp_global.weight_noise
     word_dropout (float): drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
     fix_norm (float): fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
     init: deprecated
     vocab_size (int): vocab size or None
-    vocab (:class:`xnmt.vocab.Vocab`): vocab or None
-    yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
-    src_reader (:class:`xnmt.input_reader.InputReader`): A reader for the source side. Automatically set by the YAML deserializer.
-    trg_reader (:class:`xnmt.input_reader.InputReader`): A reader for the target side. Automatically set by the YAML deserializer.
-    param_init (:class:`xnmt.param_init.ParamInitializer`): how to initialize lookup matrices; if None, use ``exp_global.param_init``
+    vocab (xnmt.vocab.Vocab): vocab or None
+    yaml_path (xnmt.serialize.tree_tools.Path): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
+    src_reader (xnmt.input_reader.InputReader): A reader for the source side. Automatically set by the YAML deserializer.
+    trg_reader (xnmt.input_reader.InputReader): A reader for the target side. Automatically set by the YAML deserializer.
+    param_init (xnmt.param_init.ParamInitializer): how to initialize lookup matrices; if None, use ``exp_global.param_init``
   """
 
   yaml_tag = '!SimpleWordEmbedder'
@@ -307,16 +307,16 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
   Simple word embeddings via lookup. Initial pretrained embeddings must be supplied in FastText text format.
   
   Args:
-    filename (string): Filename for the pretrained embeddings
+    filename (str): Filename for the pretrained embeddings
     emb_dim (int): embedding dimension; if None, use exp_global.default_layer_dim
     weight_noise (float): apply Gaussian noise with given standard deviation to embeddings; if ``None``, use exp_global.weight_noise
     word_dropout (float): drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
     fix_norm (float): fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
-    vocab (:class:`xnmt.vocab.Vocab`): vocab or None
-    yaml_path (:class:`xnmt.serialize.tree_tools.Path`): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
-    src_reader (:class:`xnmt.input_reader.InputReader`): A reader for the source side. Automatically set by the YAML deserializer.
-    trg_reader (:class:`xnmt.input_reader.InputReader`): A reader for the target side. Automatically set by the YAML deserializer.
-    exp_global: :class:`xnmt.exp_global.ExpGlobal` object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    vocab (xnmt.vocab.Vocab): vocab or None
+    yaml_path (xnmt.serialize.tree_tools.Path): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
+    src_reader (xnmt.input_reader.InputReader): A reader for the source side. Automatically set by the YAML deserializer.
+    trg_reader (xnmt.input_reader.InputReader): A reader for the target side. Automatically set by the YAML deserializer.
+    exp_global (xnmt.exp_global.ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
 """
 
   yaml_tag = '!PretrainedSimpleWordEmbedder'

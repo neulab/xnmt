@@ -9,8 +9,9 @@ from xnmt.evaluator import LossScore
 from xnmt.serialize.tree_tools import Path, Ref
 from xnmt.loss import LossBuilder, LossScalarBuilder
 import xnmt.xnmt_evaluate
+from xnmt.experiment import Experiment
 
-class EvalTask:
+class EvalTask(object):
   '''
   An EvalTask is a task that does evaluation and returns one or more EvalScore objects.
   '''

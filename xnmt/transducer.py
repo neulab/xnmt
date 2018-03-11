@@ -1,5 +1,3 @@
-from __future__ import division, generators
-
 import dynet as dy
 
 from xnmt.serialize.serializable import Serializable
@@ -43,7 +41,9 @@ class SeqTransducer(Transducer):
   def __call__(self, *args, **kwargs):
     """
     Parameters should be :class:`xnmt.expression_sequence.ExpressionSequence` objects wherever appropriate
-    :returns: result of transduction, an :class:`xnmt.expression_sequence.ExpressionSequence` object
+
+    Returns:
+      result of transduction, an :class:`xnmt.expression_sequence.ExpressionSequence` object
     """
     raise NotImplementedError("subclasses must implement __call__()")
 

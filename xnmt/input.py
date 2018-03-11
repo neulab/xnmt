@@ -21,7 +21,7 @@ class Input(object):
       token: padding token
       pad_len (int): number of tokens to append
     Returns:
-      :class:`xnmt.input.Input`: padded sent
+      xnmt.input.Input: padded sent
     """
     raise NotImplementedError("get_padded_sent() must be implemented by Input subclasses")
 
@@ -31,7 +31,7 @@ class SimpleSentenceInput(Input):
   
   Args:
     words: list of integer word ids
-    vocab (:class:`xnmt.vocab.Vocab`):
+    vocab (xnmt.vocab.Vocab):
   """
   def __init__(self, words, vocab=None):
     self.words = words
@@ -51,7 +51,7 @@ class SimpleSentenceInput(Input):
       token (int): padding token
       pad_len (int): number of tokens to append
     Returns:
-      :class:`xnmt.input.SimpleSentenceInput`: padded sent
+      xnmt.input.SimpleSentenceInput: padded sentence
     """
     if pad_len == 0:
       return self
@@ -99,7 +99,7 @@ class ArrayInput(Input):
       token: None (replicate last frame) or 0 (pad zeros)
       pad_len (int): number of tokens to append
     Returns:
-      :class:`xnmt.input.ArrayInput`: padded sent
+      xnmt.input.ArrayInput: padded sentence
     """
     if pad_len == 0:
       return self

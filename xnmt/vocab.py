@@ -8,7 +8,7 @@ class Vocab(Serializable):
   
   Args:
     i2w (list of string): list of words, including <s> and </s>
-    vocab_file (string): file containing one word per line, and not containing <s>, </s>, <unk>
+    vocab_file (str): file containing one word per line, and not containing <s>, </s>, <unk>
   '''
 
   yaml_tag = "!Vocab"
@@ -43,7 +43,8 @@ class Vocab(Serializable):
   @staticmethod
   def i2w_from_vocab_file(vocab_file):
     """
-    :param vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
+    Args:
+      vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
     """
     vocab = [Vocab.SS_STR, Vocab.ES_STR]
     reserved = set([Vocab.SS_STR, Vocab.ES_STR, Vocab.UNK_STR])
@@ -81,7 +82,7 @@ class Vocab(Serializable):
     Sets the unknown word token. Can only be invoked after calling freeze().
     
     Args:
-      w (string): unknown word token
+      w (str): unknown word token
     """
     assert self.frozen, 'Attempt to call set_unk on a non-frozen dict'
     if w not in self.w2i:

@@ -22,7 +22,7 @@ class InputReader(object):
     Reads content.
     
     Args:
-      filename (string): data file
+      filename (str): data file
       filter_ids (list of int): only read sentences with these ids (0-indexed)
     Returns:
       iterator over sentences from filename
@@ -34,7 +34,7 @@ class InputReader(object):
     Counts number of sents. Separate from read_sents() because counting is much faster than reading contents for some file types.
     
     Args:
-      filename (string): data file
+      filename (str): data file
     Returns:
       number of sentences in the data file
     """
@@ -54,7 +54,7 @@ class BaseTextReader(InputReader):
   def iterate_filtered(self, filename, filter_ids=None):
     """
     Args:
-      filename (string): data file (text file)
+      filename (str): data file (text file)
       filter_ids (list of int):
     Returns:
       iterator over lines as strings (useful for subclasses to implement read_sents)
@@ -78,7 +78,7 @@ class PlainTextReader(BaseTextReader, Serializable):
   with one sent per line.
   
   Args:
-    vocab (:class:`xnmt.vocab.Vocab`): turns tokens strings into token IDs
+    vocab (xnmt.vocab.Vocab): turns tokens strings into token IDs
     include_vocab_reference (bool): TODO document me
   """
   yaml_tag = '!PlainTextReader'
@@ -212,11 +212,11 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
   A utility function to read a parallel corpus.
 
   Args:
-    src_reader (:class:`xnmt.input_reader.InputReader`):
-    trg_reader (:class:`xnmt.input_reader.InputReader`):
-    src_file (string):
-    trg_file (string):
-    batcher (:class:`xnmt.batcher.Batcher`):
+    src_reader (xnmt.input_reader.InputReader):
+    trg_reader (xnmt.input_reader.InputReader):
+    src_file (str):
+    trg_file (str):
+    batcher (xnmt.batcher.Batcher):
     sample_sents (int): if not None, denote the number of sents that should be randomly chosen from all available sents.
     max_num_sents (int): if not None, read only the first this many sents
     max_src_len (int): skip pair if src side is too long

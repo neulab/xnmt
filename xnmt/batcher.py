@@ -1,5 +1,3 @@
-from __future__ import division, generators
-
 import math
 import random
 import numpy as np
@@ -14,7 +12,7 @@ class Batch(list):
   
   Args:
     batch_list (list): list of things
-    mask (:class:`xnmt.batcher.Mask`): optional mask when  batch contains items of unequal size
+    mask (xnmt.batcher.Mask): optional mask when  batch contains items of unequal size
   """
   def __init__(self, batch_list, mask=None):
     super(Batch, self).__init__(batch_list)
@@ -93,7 +91,8 @@ class Batcher(object):
 
   def is_random(self):
     """
-    :returns: True if there is some randomness in the batching process, False otherwise. Defaults to false.
+    Returns:
+      True if there is some randomness in the batching process, False otherwise. Defaults to false.
     """
     return False
 

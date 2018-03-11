@@ -23,7 +23,7 @@ class Serializable(yaml.YAMLObject):
     The ordering of shared parameters is irrelevant.
 
     Returns:
-      List of sets of :class:`xnmt.serialize.tree_tools.Path` objects referencing params of this component or a subcompononent
+      List[Set[xnmt.serialize.tree_tools.Path]]: objects referencing params of this component or a subcompononent
       e.g.::
       
         return [set([Path(".input_dim"),
@@ -38,7 +38,7 @@ class Serializable(yaml.YAMLObject):
     This method can be called to serialize something else.
     
     Args:
-      key (string): name of property
+      key (str): name of property
       val (Serializable or basic Python type):
     """
     if not hasattr(self, "serialize_params"):

@@ -1,5 +1,3 @@
-from __future__ import division, generators
-
 import dynet as dy
 
 from xnmt.lstm import UniLSTMSeqTransducer
@@ -18,11 +16,11 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
   Every layer (except the first) reduces sequence length by the specified factor.
 
   Args:
-    exp_global: :class:`xnmt.exp_global.ExpGlobal` object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    exp_global (xnmt.exp_global.ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     layers (int): number of layers
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
-    downsampling_method (string): how to perform downsampling (concat|skip)
+    downsampling_method (str): how to perform downsampling (concat|skip)
     reduce_factor: integer, or list of ints (different skip for each layer)
     dropout (float): dropout probability; if None, use exp_global.dropout
   """
@@ -72,7 +70,8 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
     to the current state, one by one, to both the forward and backward RNNs,
     and concatenating.
 
-    :param es: an ExpressionSequence
+    Args:
+      es: an ExpressionSequence
     """
 
     es_list = [es]

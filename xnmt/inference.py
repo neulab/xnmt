@@ -21,19 +21,19 @@ class SimpleInference(Serializable):
   Main class to perform decoding.
   
   Args:
-    model_file (string): pretrained (saved) model path (required onless model_elements is given)
-    src_file (string): path of input src file to be translated
-    trg_file (string): path of file where trg translatons will be written
-    ref_file (string): path of file with reference translations, e.g. for forced decoding
+    model_file (str): pretrained (saved) model path (required onless model_elements is given)
+    src_file (str): path of input src file to be translated
+    trg_file (str): path of file where trg translatons will be written
+    ref_file (str): path of file with reference translations, e.g. for forced decoding
     max_src_len (int): Remove sentences from data to decode that are longer than this on the source side
-    post_process (string): post-processing of translation outputs: ``none/join-char/join-bpe/join-piece``
-    report_path (string): a path to which decoding reports will be written
-    report_type (string): report to generate ``file/html``. Can be multiple, separate with comma.
+    post_process (str): post-processing of translation outputs: ``none/join-char/join-bpe/join-piece``
+    report_path (str): a path to which decoding reports will be written
+    report_type (str): report to generate ``file/html``. Can be multiple, separate with comma.
     beam (int):
     max_len (int):
-    len_norm_type (:class:`xnmt.length_normalization.LengthNormalization`):
-    mode (string): type of decoding to perform. ``onebest``: generate one best. ``forced``: perform forced decoding. ``forceddebug``: perform forced decoding, calculate training loss, and make suer the scores are identical for debugging purposes.
-    batcher (:class:`xnmt.batcher.Batcher`):
+    len_norm_type (xnmt.length_normalization.LengthNormalization):
+    mode (str): type of decoding to perform. ``onebest``: generate one best. ``forced``: perform forced decoding. ``forceddebug``: perform forced decoding, calculate training loss, and make suer the scores are identical for debugging purposes.
+    batcher (xnmt.batcher.Batcher):
   """
   
   yaml_tag = '!SimpleInference'
@@ -58,10 +58,10 @@ class SimpleInference(Serializable):
   def __call__(self, generator, src_file=None, trg_file=None, candidate_id_file=None):
     """
     Args:
-      generator (:class:`xnmt.generator.GeneratorModel`): the model to be used
-      src_file (string): path of input src file to be translated
-      trg_file (string): path of file where trg translatons will be written
-      candidate_id_file (string): if we are doing something like retrieval where we select from fixed candidates, sometimes we want to limit our candidates to a certain subset of the full set. this setting allows us to do this.
+      generator (xnmt.generator.GeneratorModel): the model to be used
+      src_file (str): path of input src file to be translated
+      trg_file (str): path of file where trg translatons will be written
+      candidate_id_file (str): if we are doing something like retrieval where we select from fixed candidates, sometimes we want to limit our candidates to a certain subset of the full set. this setting allows us to do this.
     """
     args = dict(model_file=self.model_file, src_file=src_file or self.src_file, trg_file=trg_file or self.trg_file, ref_file=self.ref_file, max_src_len=self.max_src_len,
                   post_process=self.post_process, candidate_id_file=candidate_id_file, report_path=self.report_path, report_type=self.report_type,

@@ -16,13 +16,15 @@ class Option(object):
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
     """
     Defines a configuration option
-    :param name: Name of the option
-    :param opt_type: Expected type. Should be a base type.
-    :param default_value: Default option value. If this is set to anything other than none, and the option is not
-    explicitly marked as required, it will be considered optional.
-    :param required: Whether the option is required.
-    :param force_flag: Force making this argument a flag (starting with '--') even though it is required
-    :param help_str: Help string for documentation
+
+    Args:
+      name: Name of the option
+      opt_type: Expected type. Should be a base type.
+      default_value: Default option value. If this is set to anything other than none, and the option is not
+        explicitly marked as required, it will be considered optional.
+      required: Whether the option is required.
+      force_flag: Force making this argument a flag (starting with '--') even though it is required
+      help_str: Help string for documentation
     """
     self.name = name
     self.type = opt_type

@@ -31,9 +31,6 @@ def padding(src, min_size):
 class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!TilburgSpeechSeqTransducer'
   def __init__(self, filter_height, filter_width, channels, num_filters, stride, rhn_num_hidden_layers, rhn_dim, rhn_microsteps, attention_dim, residual= False, exp_global=Ref(Path("exp_global"))):
-    """
-    :param etc.
-    """
     self.filter_height = filter_height
     self.filter_width = filter_width
     self.channels = channels
@@ -114,11 +111,10 @@ class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!HarwathSpeechSeqTransducer'
   def __init__(self, filter_height, filter_width, channels, num_filters, stride, exp_global=Ref(Path("exp_global"))):
     """
-    :param num_layers: depth of the RNN
-    :param input_dim: size of the inputs
-    :param hidden_dim: size of the outputs (and intermediate RNN layer representations)
-    :param model
-    :param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
+    Args:
+      num_layers: depth of the RNN
+      input_dim: size of the inputs
+      hidden_dim: size of the outputs (and intermediate RNN layer representations)
     """
     model = exp_global.dynet_param_collection.param_col
     self.filter_height = filter_height
@@ -177,11 +173,10 @@ class HarwathImageTransducer(Transducer, Serializable):
 
   def __init__(self, in_height, out_height, exp_global=Ref(Path("exp_global"))):
     """
-      :param num_layers: depth of the RNN
-      :param input_dim: size of the inputs
-      :param hidden_dim: size of the outputs (and intermediate RNN layer representations)
-      :param model
-      :param rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
+    Args:
+      num_layers: depth of the RNN
+      input_dim: size of the inputs
+      hidden_dim: size of the outputs (and intermediate RNN layer representations)
       """
 
     model = exp_global.dynet_param_collection.param_col

@@ -52,8 +52,10 @@ class Tokenizer(Normalizer, Serializable):
     """
     Tokenize a file-like text stream.
 
-    :param stream: A file-like stream of untokenized text
-    :return: A file-like stream of tokenized text
+    Args:
+      stream: A file-like stream of untokenized text
+    Returns:
+      A file-like stream of tokenized text
 
     """
     logger.debug("****** calling tokenize_stream {}".format(self.__class__))
@@ -113,8 +115,10 @@ class ExternalTokenizer(Tokenizer):
     """
     Pass the sentence through the external tokenizer.
 
-    :param sent: An untokenized sentence
-    :return: A tokenized sentence
+    Args:
+      sent: An untokenized sentence
+    Return:
+      A tokenized sentence
 
     """
     encode_proc = subprocess.Popen(self.tokenizer_command, stdin=subprocess.PIPE
@@ -195,8 +199,10 @@ class SentenceFilterer():
     In general, these inputs/outpus should already be segmented into words, so len() will return the number of words,
     not the number of characters.
 
-    :param sents: A list of parallel sentences.
-    :returns: True if they should be used or False if they should be filtered.
+    Args:
+      sents: A list of parallel sentences.
+    Returns:
+      True if they should be used or False if they should be filtered.
     """
     raise RuntimeError("Subclasses of SentenceFilterer must implement the keep() function")
 
@@ -269,8 +275,10 @@ class VocabFilterer(object):
   def filter(self, vocab):
     """Filter a vocabulary.
 
-    :param vocab: A dictionary of vocabulary words with their frequecies.
-    :returns: A new dictionary with frequencies containing only the words to leave in the vocabulary.
+    Args:
+      vocab: A dictionary of vocabulary words with their frequecies.
+    Returns:
+      A new dictionary with frequencies containing only the words to leave in the vocabulary.
     """
     raise RuntimeError("Subclasses of VocabFilterer must implement the filter() function")
 

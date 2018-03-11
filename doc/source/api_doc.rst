@@ -1,6 +1,14 @@
 API Doc
 =======
 
+Experiment
+----------
+
+.. autoclass:: xnmt.experiment.Experiment
+   :members:
+   :show-inheritance:
+
+
 Translator
 ----------
 

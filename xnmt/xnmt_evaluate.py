@@ -31,9 +31,11 @@ def eval_or_empty_list(x):
 
 def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu", desc=None):
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
-  :param ref_file: path of the reference file
-  :param hyp_file: path of the hypothesis trg file
-  :param evaluator: Evaluation metrics (bleu/wer/cer)
+
+  Args:
+    ref_file: path of the reference file
+    hyp_file: path of the hypothesis trg file
+    evaluator: Evaluation metrics (bleu/wer/cer)
   """
   args = dict(ref_file=ref_file, hyp_file=hyp_file, evaluator=evaluator)
   cols = args["evaluator"].split("|")

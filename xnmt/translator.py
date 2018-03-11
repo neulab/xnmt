@@ -38,10 +38,10 @@ class Translator(GeneratorModel):
     Args:
       src: The source, a sentence (:class:`xnmt.input.Input`) or a batch of sentences (:class:`xnmt.batcher.Batch`).
       trg: The target, a sentence (:class:`xnmt.input.Input`) or a batch of sentences (:class:`xnmt.batcher.Batch`).
-      loss_calculator (:class:`xnmt.loss_calculator.LossCalculator`):
+      loss_calculator (xnmt.loss_calculator.LossCalculator):
     
     Returns:
-      :class:`xnmt.loss.LossBuilder`: A (possibly batched) expression representing the loss. Losses are accumulated only if trg_mask[batch,pos]==0, or no mask is set
+      xnmt.loss.LossBuilder: A (possibly batched) expression representing the loss. Losses are accumulated only if trg_mask[batch,pos]==0, or no mask is set
     '''
     raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
 
@@ -49,7 +49,8 @@ class Translator(GeneratorModel):
     """
     Set target vocab for generating outputs. If not specified, word IDs are generated instead.
 
-    :param trg_vocab (:class:`xnmt.vocab.Vocab`): target vocab, or None to generate word IDs
+    Args:
+      trg_vocab (xnmt.vocab.Vocab): target vocab, or None to generate word IDs
     """
     self.trg_vocab = trg_vocab
 
@@ -64,14 +65,14 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   A default translator based on attentional sequence-to-sequence models.
 
   Args:
-    src_reader (:class:`xnmt.input_reader.InputReader`): A reader for the source side.
-    trg_reader (:class:`xnmt.input_reader.InputReader`): A reader for the target side.
-    src_embedder (:class:`xnmt.embedder.Embedder`): A word embedder for the input language
-    encoder (:class:`xnmt.transducer.Transducer`): An encoder to generate encoded inputs
-    attender (:class:`xnmt.attender.Attender`): An attention module
-    trg_embedder (:class:`xnmt.embedder.Embedder`): A word embedder for the output language
-    decoder (:class:`xnmt.decoder.Decoder`): A decoder
-    inference (:class:`xnmt.inference.SimpleInference`): The default inference strategy used for this model
+    src_reader (xnmt.input_reader.InputReader): A reader for the source side.
+    trg_reader (xnmt.input_reader.InputReader): A reader for the target side.
+    src_embedder (xnmt.embedder.Embedder): A word embedder for the input language
+    encoder (xnmt.transducer.Transducer): An encoder to generate encoded inputs
+    attender (xnmt.attender.Attender): An attention module
+    trg_embedder (xnmt.embedder.Embedder): A word embedder for the output language
+    decoder (xnmt.decoder.Decoder): A decoder
+    inference (xnmt.inference.SimpleInference): The default inference strategy used for this model
     calc_global_fertility (bool):
     calc_attention_entropy (bool):
   '''
@@ -208,7 +209,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     Sets source vocab for reporting purposes.
     
     Args:
-      src_vocab (:class:`xnmt.vocab.Vocab`):
+      src_vocab (xnmt.vocab.Vocab):
     """
     self.reporting_src_vocab = src_vocab
 
@@ -273,13 +274,13 @@ class TransformerTranslator(Translator, Serializable, Reportable):
   A translator based on the transformer model.
 
   Args:
-    src_reader (:class:`xnmt.input_reader.InputReader`): A reader for the source side.
-    src_embedder (:class:`xnmt.embedder.Embedder`): A word embedder for the input language
-    encoder (:class:`xnmt.transformer.TransformerEncoder`): An encoder to generate encoded inputs
-    trg_reader (:class:`xnmt.input_reader.InputReader`): A reader for the target side.
-    trg_embedder (:class:`xnmt.embedder.Embedder`): A word embedder for the output language
-    decoder (:class:`xnmt.transformer.TransformerDecoder`): A decoder
-    inference (:class:`xnmt.inference.SimpleInference`): The default inference strategy used for this model
+    src_reader (xnmt.input_reader.InputReader): A reader for the source side.
+    src_embedder (xnmt.embedder.Embedder): A word embedder for the input language
+    encoder (xnmt.transformer.TransformerEncoder): An encoder to generate encoded inputs
+    trg_reader (xnmt.input_reader.InputReader): A reader for the target side.
+    trg_embedder (xnmt.embedder.Embedder): A word embedder for the output language
+    decoder (xnmt.transformer.TransformerDecoder): A decoder
+    inference (xnmt.inference.SimpleInference): The default inference strategy used for this model
     input_dim (int):
   '''
 

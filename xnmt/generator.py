@@ -38,7 +38,8 @@ class GeneratorModel(object):
   @register_xnmt_event_sum
   def calc_additional_loss(self, reward):
     ''' Calculate reinforce loss based on the reward
-    :param reward: The default is log likelihood (-1 * calc_loss).
+    Args:
+      reward: The default is log likelihood (-1 * calc_loss).
     '''
     return None
 
