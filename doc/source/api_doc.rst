@@ -155,8 +155,11 @@ Linear
    :members:
    :show-inheritance:
 
+Loss
+----
+
 LossBuilder
---------------
+~~~~~~~~~~~
 
 .. autoclass:: xnmt.loss.LossBuilder
    :members:
@@ -167,7 +170,7 @@ LossBuilder
    :show-inheritance:
 
 LossCalculator
---------------
+~~~~~~~~~~~~~~
 
 .. autoclass:: xnmt.loss_calculator.LossCalculator
    :members:
