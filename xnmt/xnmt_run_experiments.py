@@ -14,7 +14,6 @@ import faulthandler
 faulthandler.enable()
 
 import numpy as np
-if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.standard")
 from simple_settings import settings
 if settings.RESOURCE_WARNINGS:
   import warnings
@@ -48,6 +47,11 @@ def main(overwrite_args=None):
     if args.dynet_seed:
       random.seed(args.dynet_seed)
       np.random.seed(args.dynet_seed)
+
+    if args.dynet_gpu:
+      if settings.CHECK_VALIDITY:
+        settings.CHECK_VALIDITY = False
+        logger.warn("disabling CHECK_VALIDITY because it is not supported on GPU currently")
   
     import xnmt.serialize.imports
     config_experiment_names = config_parser.experiment_names_from_file(args.experiments_file)

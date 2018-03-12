@@ -1,19 +1,19 @@
-# A standard training run, should almost never break
-standard: !Experiment
-  exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
-    default_layer_dim: 512
-    dropout: 0.3
+# Most entries in the config file have default values and don't need to be
+# specified explicitly. This config file produces the same results as
+# 01_standard.yaml.
+# Default parameters are specified and documented directly in the __init__()
+# method of the corresponding classes.
+# For example,xnmt.translator.DefaultTranslator.__init__()
+# specifies MlpAttender as the default attender, which will be used in this
+# examples since nothing is specified.
+minimal: !Experiment
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
   train: !SimpleTrainingRegimen
-    trainer: !AdamTrainer
-      alpha: 0.001
-    run_for_epochs: 20
+    run_for_epochs: 2
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en
     dev_tasks:

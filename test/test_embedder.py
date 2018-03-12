@@ -1,12 +1,9 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 
-import io
 import numpy as np
 from itertools import islice
 
-from xnmt.input import PlainTextReader
+from xnmt.input_reader import PlainTextReader
 from xnmt.embedder import PretrainedSimpleWordEmbedder
 from xnmt.exp_global import ExpGlobal, PersistentParamCollection
 import xnmt.events
@@ -17,7 +14,6 @@ class PretrainedSimpleWordEmbedderSanityTest(unittest.TestCase):
     xnmt.events.clear()
     self.input_reader = PlainTextReader()
     list(self.input_reader.read_sents('examples/data/head.ja'))
-    self.input_reader.freeze()
     self.context = ExpGlobal(dynet_param_collection=PersistentParamCollection(None, 0))
 
   def test_load(self):
@@ -27,7 +23,7 @@ class PretrainedSimpleWordEmbedderSanityTest(unittest.TestCase):
     embedder = PretrainedSimpleWordEmbedder(exp_global=self.context, filename='examples/data/wiki.ja.vec.small', emb_dim=300, vocab=self.input_reader.vocab)
     # self.assertEqual(embedder.embeddings.shape()[::-1], (self.input_reader.vocab_size(), 300))
 
-    with io.open('examples/data/wiki.ja.vec.small', encoding='utf-8') as vecfile:
+    with open('examples/data/wiki.ja.vec.small', encoding='utf-8') as vecfile:
       test_line = next(islice(vecfile, 9, None)).split()  # Select the vector for '日'
     test_word = test_line[0]
     test_id = self.input_reader.vocab.w2i[test_word]

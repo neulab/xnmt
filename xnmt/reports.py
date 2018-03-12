@@ -1,10 +1,10 @@
-import io
-import six
-
 from lxml import etree
 from xnmt.events import register_xnmt_event, register_xnmt_event_assign, handle_xnmt_event
 
 class Reportable(object):
+  
+  # TODO: document me
+  
   @register_xnmt_event_assign
   def html_report(self, context=None):
     raise NotImplementedError()
@@ -53,7 +53,7 @@ class Reportable(object):
   def generate_html_report(self):
     html_report = self.html_report(context=None)
     html = etree.tostring(html_report, encoding='unicode', pretty_print=True)
-    with io.open(self.__report_path + '.html', 'w', encoding='utf-8') as f:
+    with open(self.__report_path + '.html', 'w', encoding='utf-8') as f:
       f.write(html)
 
   def generate_file_report(self):
@@ -66,7 +66,7 @@ class Reportable(object):
   ### Public acessible Methods
   def generate_report(self, report_type):
     if report_type:
-      report_type = list(six.moves.map(lambda x: x.strip(), report_type.strip().split(",")))
+      report_type = [x.strip() for x in report_type.strip().split(",")]
     for typ in report_type:
       if typ == "html":
         self.generate_html_report()

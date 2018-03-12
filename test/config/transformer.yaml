@@ -11,13 +11,13 @@ standard: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 64
-      init: LeCunUniform
+      param_init: !LeCunUniformInitializer {}
     encoder: !TransformerEncoder
       layers: 1
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-      init: LeCunUniform
+      param_init: !LeCunUniformInitializer {}
     decoder: !TransformerDecoder
       layers: 1
       input_dim: 64

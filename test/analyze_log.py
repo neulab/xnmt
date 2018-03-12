@@ -1,5 +1,4 @@
 # coding: utf-8
-from __future__ import generators
 import re
 from collections import defaultdict
 import matplotlib.pyplot as plt

@@ -1,7 +1,6 @@
-standard-preproc: !Experiment
-  exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
+# XNMT supports various ways to preprocess data as demonstrated in this example.
+# Note that some preprocessing functionality relies on third-party tools.
+preproc: !Experiment
   preproc: !PreprocRunner
     overwrite: False
     tasks:

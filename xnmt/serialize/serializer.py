@@ -24,7 +24,7 @@ class YamlSerializer(object):
   @staticmethod
   def is_initialized(obj):
     """
-    :returns: True if a serializable object's __init__ has been invoked (either programmatically or through YAML deserialization)
+    Returns: True if a serializable object's __init__ has been invoked (either programmatically or through YAML deserialization)
               False if __init__ has not been invoked, i.e. the object has been produced by the YAML parser but is not ready to use
     """
     return type(obj) != UninitializedYamlObject
@@ -33,8 +33,10 @@ class YamlSerializer(object):
     """
     Initializes a hierarchy of deserialized YAML objects.
 
-    :param deserialized_yaml_wrapper: deserialized YAML data inside a UninitializedYamlObject wrapper (classes are resolved and class members set, but __init__() has not been called at this point)
-    :returns: the appropriate object, with properly shared parameters and __init__() having been invoked
+    Args:
+      deserialized_yaml_wrapper: deserialized YAML data inside a UninitializedYamlObject wrapper (classes are resolved and class members set, but __init__() has not been called at this point)
+    Returns:
+      the appropriate object, with properly shared parameters and __init__() having been invoked
     """
     if self.is_initialized(deserialized_yaml_wrapper):
       raise AssertionError()
@@ -177,8 +179,10 @@ class YamlSerializer(object):
   @lru_cache(maxsize=None)
   def init_component(self, path):
     """
-    :param path: path to uninitialized object
-    :returns: initialized object; this method is cached, so multiple requests for the same path will return the exact same object
+    Args:
+      path: path to uninitialized object
+    Returns:
+      initialized object; this method is cached, so multiple requests for the same path will return the exact same object
     """
     obj = tree_tools.get_descendant(self.deserialized_yaml, path)
     if not isinstance(obj, Serializable):
@@ -198,15 +202,18 @@ class YamlSerializer(object):
     return initialized_obj
 
   def resolve_serialize_refs(self, root):
-    for _, node in tree_tools.traverse_serializable_breadth_first(root):
+#     for _, node in tree_tools.traverse_serializable_breadth_first(root):
+    for _, node in tree_tools.traverse_serializable(root):
       if isinstance(node, Serializable):
         node.resolved_serialize_params = node.serialize_params
     refs_inserted_at = set()
     refs_inserted_to = set()
-    for path_to, node in tree_tools.traverse_serializable_breadth_first(root):
+#     for path_to, node in tree_tools.traverse_serializable_breadth_first(root):
+    for path_to, node in tree_tools.traverse_serializable(root):
       if not refs_inserted_at & path_to.ancestors() and not refs_inserted_at & path_to.ancestors():
         if isinstance(node, Serializable):
-          for path_from, matching_node in tree_tools.traverse_serializable_breadth_first(root):
+#           for path_from, matching_node in tree_tools.traverse_serializable_breadth_first(root):
+          for path_from, matching_node in tree_tools.traverse_serializable(root):
             if not path_from in refs_inserted_to:
               if path_from!=path_to and matching_node is node:
                   ref = tree_tools.Ref(path=path_to)

@@ -1,4 +1,3 @@
-import six
 from xnmt.vocab import Vocab
 
 class Output(object):
@@ -21,7 +20,7 @@ class TextOutput(Output):
 
   def to_string(self):
     map_func = lambda wi: self.vocab[wi] if self.vocab != None else str
-    return six.moves.map(map_func, filter(lambda wi: wi not in self.filtered_tokens, self.actions))
+    return map(map_func, filter(lambda wi: wi not in self.filtered_tokens, self.actions))
 
 class OutputProcessor(object):
   def process_outputs(self, outputs):
@@ -37,29 +36,29 @@ class PlainTextOutputProcessor(OutputProcessor):
       output.plaintext = self.words_to_string(output.to_string())
 
   def words_to_string(self, word_list):
-    return u" ".join(word_list)
+    return " ".join(word_list)
 
 class JoinedCharTextOutputProcessor(PlainTextOutputProcessor):
   '''
   Assumes a single-character vocabulary and joins them to form words;
   per default, double underscores '__' are treated as word separating tokens
   '''
-  def __init__(self, space_token=u"__"):
+  def __init__(self, space_token="__"):
     self.space_token = space_token
 
   def words_to_string(self, word_list):
-    return u"".join(map(lambda s: u" " if s==self.space_token else s, word_list))
+    return "".join(map(lambda s: " " if s==self.space_token else s, word_list))
 
 class JoinedBPETextOutputProcessor(PlainTextOutputProcessor):
   '''
   Assumes a bpe-based vocabulary and outputs the merged words;
   per default, the '@' postfix indicates subwords that should be merged
   '''
-  def __init__(self, merge_indicator=u"@@"):
-    self.merge_indicator_with_space = merge_indicator + u" "
+  def __init__(self, merge_indicator="@@"):
+    self.merge_indicator_with_space = merge_indicator + " "
 
   def words_to_string(self, word_list):
-    return u" ".join(word_list).replace(self.merge_indicator_with_space, u"")
+    return " ".join(word_list).replace(self.merge_indicator_with_space, "")
 
 class JoinedPieceTextOutputProcessor(PlainTextOutputProcessor):
   '''
@@ -67,8 +66,8 @@ class JoinedPieceTextOutputProcessor(PlainTextOutputProcessor):
   space_token could be the starting character of a piece
   per default, the u'\u2581' indicates spaces
   '''
-  def __init__(self, space_token=u"\u2581"):
+  def __init__(self, space_token="\u2581"):
     self.space_token = space_token
 
   def words_to_string(self, word_list):
-    return u"".join(word_list).replace(self.space_token, u" ").strip()
+    return "".join(word_list).replace(self.space_token, " ").strip()

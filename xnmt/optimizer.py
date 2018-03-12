@@ -11,12 +11,51 @@ but may also be extended to customize optimizers / training schedules
 """
 
 class XnmtOptimizer(object):
-  def update(self): return self.optimizer.update()
-  def update_epoch(self, r = 1.0): return self.optimizer.update_epoch(r)
-  def status(self): return self.optimizer.status()
-  def set_clip_threshold(self, thr): return self.optimizer.set_clip_threshold(thr)
-  def get_clip_threshold(self): return self.optimizer.get_clip_threshold()
-  def restart(self): return self.optimizer.restart()
+  """
+  A base classe for trainers. Trainers are mostly simple wrappers of DyNet trainers but can add extra functionality.
+  """
+  def update(self):
+    """
+    Update the parameters.
+    """
+    return self.optimizer.update()
+
+  def status(self):
+    """
+    Outputs information about the trainer in the stderr.
+
+    (number of updates since last call, number of clipped gradients, learning rate, etc…)
+    """
+    return self.optimizer.status()
+
+  def set_clip_threshold(self, thr):
+    """
+    Set clipping thershold
+
+    To deactivate clipping, set the threshold to be <=0
+
+    Args:
+      thr (number): Clipping threshold
+    """
+    return self.optimizer.set_clip_threshold(thr)
+
+  def get_clip_threshold(self):
+    """
+    Get clipping threshold
+
+    Returns:
+      number: Gradient clipping threshold
+    """
+    return self.optimizer.get_clip_threshold()
+
+  def restart(self):
+    """
+    Restarts the optimizer
+
+    Clears all momentum values and assimilate (if applicable)
+    """
+    return self.optimizer.restart()
+
   @property
   def learning_rate(self):
       return self.optimizer.learning_rate
@@ -25,33 +64,84 @@ class XnmtOptimizer(object):
       self.optimizer.learning_rate = value
 
 class SimpleSGDTrainer(XnmtOptimizer, Serializable):
-  yaml_tag = u'!SimpleSGDTrainer'
+  """
+  Stochastic gradient descent trainer
+
+  This trainer performs stochastic gradient descent, the goto optimization procedure for neural networks.
+
+  Args:
+    exp_global (ExpGlobal): to obtain reference to DyNet parameter collection
+    e0 (number): Initial learning rate
+  """
+  yaml_tag = '!SimpleSGDTrainer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.1):
     self.optimizer = dy.SimpleSGDTrainer(exp_global.dynet_param_collection.param_col,
                                          e0)
 class MomentumSGDTrainer(XnmtOptimizer, Serializable):
-  yaml_tag = u'!MomentumSGDTrainer'
+  """
+  Stochastic gradient descent with momentum
+
+  This is a modified version of the SGD algorithm with momentum to stablize the gradient trajectory.
+
+  Args:
+    exp_global (ExpGlobal): to obtain reference to DyNet parameter collection
+    e0 (number): Initial learning rate
+    mom (number): Momentum
+  """
+  yaml_tag = '!MomentumSGDTrainer'
   def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.01, mom = 0.9):
     self.optimizer = dy.MomentumSGDTrainer(exp_global.dynet_param_collection.param_col,
                                            e0, mom)
 
 class AdagradTrainer(XnmtOptimizer, Serializable):
-  yaml_tag = u'!AdagradTrainer'
+  """
+  Adagrad optimizer
+
+  The adagrad algorithm assigns a different learning rate to each parameter.
+
+  Args:
+    exp_global (ExpGlobal): to obtain reference to DyNet parameter collection
+    e0 (number): Initial learning rate
+    eps (number): Epsilon parameter to prevent numerical instability
+  """
+  yaml_tag = '!AdagradTrainer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.1, eps = 1e-20):
     self.optimizer = dy.AdagradTrainer(exp_global.dynet_param_collection.param_col,
                                        e0, eps=eps)
 
 class AdadeltaTrainer(XnmtOptimizer, Serializable):
-  yaml_tag = u'!AdadeltaTrainer'
+  """
+  AdaDelta optimizer
+
+  The AdaDelta optimizer is a variant of Adagrad aiming to prevent vanishing learning rates.
+
+  Args:
+    exp_global (ExpGlobal): to obtain reference to DyNet parameter collection
+    eps (number): Epsilon parameter to prevent numerical instability
+    rho (number): Update parameter for the moving average of updates in the numerator
+  """
+  yaml_tag = '!AdadeltaTrainer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), eps = 1e-6, rho = 0.95):
     self.optimizer = dy.AdadeltaTrainer(exp_global.dynet_param_collection.param_col,
                                         eps, rho)
 
 class AdamTrainer(XnmtOptimizer, Serializable):
-  yaml_tag = u'!AdamTrainer'
+  """
+  Adam optimizer
+
+  The Adam optimizer is similar to RMSProp but uses unbiased estimates of the first and second moments of the gradient
+
+  Args:
+    exp_global (ExpGlobal): to obtain reference to DyNet parameter collection
+    alpha (number): Initial learning rate
+    beta_1 (number): Moving average parameter for the mean
+    beta_2 (number): Moving average parameter for the variance
+    eps (number): Epsilon parameter to prevent numerical instability
+  """
+  yaml_tag = '!AdamTrainer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
     self.optimizer = dy.AdamTrainer(exp_global.dynet_param_collection.param_col,
@@ -61,8 +151,17 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
   """
   Proposed in the paper "Attention is all you need" (https://papers.nips.cc/paper/7181-attention-is-all-you-need.pdf) [Page 7, Eq. 3]
   In this the learning rate of Adam Optimizer is increased for the first warmup steps followed by a gradual decay
+
+  Args:
+    exp_global (ExpGlobal): to obtain reference to DyNet parameter collection
+    alpha (float):
+    dim (int):
+    warmup_steps (int):
+    beta_1 (float):
+    beta_2 (float):
+    eps (float):
   """
-  yaml_tag = u'!TransformerAdamTrainer'
+  yaml_tag = '!TransformerAdamTrainer'
   def __init__(self, exp_global=Ref(Path("exp_global")), alpha=1.0, dim=512, warmup_steps=4000, beta_1=0.9, beta_2=0.98, eps=1e-9):
     self.optimizer = dy.AdamTrainer(exp_global.dynet_param_collection.param_col,
                                     alpha=alpha,

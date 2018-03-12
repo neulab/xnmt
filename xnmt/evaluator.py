@@ -3,7 +3,6 @@ from Cython.Compiler.TypeSlots import descrdelfunc
 logger = logging.getLogger('xnmt')
 from collections import defaultdict, Counter
 import math
-import six
 import subprocess
 
 import numpy as np
@@ -150,6 +149,20 @@ class ExternalScore(EvalScore, Serializable):
   def score_str(self):
     return "{:.3f}".format(self.value)
 
+class SequenceAccuracyScore(EvalScore, Serializable):
+  yaml_tag = "!SequenceAccuracyScore"
+  def __init__(self, accuracy, desc=None):
+    self.accuracy = accuracy
+    self.desc = desc
+    self.serialize_params = {"accuracy":accuracy}
+    if desc is not None: self.serialize_params["desc"] = desc
+  def higher_is_better(self): return True
+  def value(self): return self.accuracy
+  def metric_name(self): return "SequenceAccuracy"
+  def score_str(self):
+    return f"{self.value()*100.0:.2f}%"
+
+
 class Evaluator(object):
   """
   A class to evaluate the quality of output.
@@ -158,15 +171,17 @@ class Evaluator(object):
   def evaluate(self, ref, hyp):
     """
   Calculate the quality of output given a references.
-  :param ref: list of reference sents ( a sent is a list of tokens )
-  :param hyp: list of hypothesis sents ( a sent is a list of tokens )
-  :return:
+
+  Args:
+    ref: list of reference sents ( a sent is a list of tokens )
+    hyp: list of hypothesis sents ( a sent is a list of tokens )
   """
     raise NotImplementedError('evaluate must be implemented in Evaluator subclasses')
 
   def metric_name(self):
     """
-  :return: a string
+  Return:
+    str:
   """
     raise NotImplementedError('metric_name must be implemented in Evaluator subclasses')
 
@@ -178,7 +193,8 @@ class BLEUEvaluator(Evaluator):
   # K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
   def __init__(self, ngram=4, smooth=0, desc=None):
     """
-    :param ngram: default value of 4 is generally used
+    Args:
+      ngram: default value of 4 is generally used
     """
     self.ngram = ngram
     self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
@@ -202,11 +218,12 @@ class BLEUEvaluator(Evaluator):
   # Doc to be added
   def evaluate(self, ref, hyp):
     """
-    :rtype: object
-    :param ref: list of reference sents ( a sent is a list of tokens )
-    :param hyp: list of hypothesis sents ( a sent is a list of tokens )
-    :return: Formatted string having BLEU Score with different intermediate results such as ngram ratio,
-    sent length, brevity penalty
+    Args:
+      ref: list of reference sents ( a sent is a list of tokens )
+      hyp: list of hypothesis sents ( a sent is a list of tokens )
+    Return:
+      Formatted string having BLEU Score with different intermediate results such as ngram ratio,
+      sent length, brevity penalty
     """
     self.reference_corpus = ref
     self.candidate_corpus = hyp
@@ -266,9 +283,11 @@ class BLEUEvaluator(Evaluator):
   # Doc to be added
   def brevity_penalty(self, r, c):
     """
-    :param r: number of words in reference corpus
-    :param c: number of words in candidate corpus
-    :return: brevity penalty score
+    Args:
+      r: number of words in reference corpus
+      c: number of words in candidate corpus
+    Return:
+      brevity penalty score
     """
 
     penalty = 1.
@@ -284,8 +303,11 @@ class BLEUEvaluator(Evaluator):
   def extract_ngrams(self, tokens):
     """
     Extracts ngram counts from the input string
-    :param tokens: tokens of string for which the ngram is to be computed
-    :return: a Counter object containing ngram counts
+
+    Args:
+      tokens: tokens of string for which the ngram is to be computed
+    Return:
+      a Counter object containing ngram counts
     """
 
     ngram_count = defaultdict(Counter)
@@ -304,9 +326,11 @@ class BLEUEvaluator(Evaluator):
   def modified_precision(self, reference_sent, candidate_sent):
     """
     Computes counts useful in modified precision calculations
-    :param reference_sent: iterable of tokens
-    :param candidate_sent: iterable of tokens
-    :return: tuple of Counter objects
+
+    Args:
+      reference_sent: iterable of tokens
+      candidate_sent: iterable of tokens
+    Return: tuple of Counter objects
     """
 
     clipped_ngram_count = defaultdict(Counter)
@@ -329,8 +353,11 @@ class GLEUEvaluator(Evaluator):
   def extract_all_ngrams(self, tokens):
     """
     Extracts ngram counts from the input string
-    :param tokens: tokens of string for which the ngram is to be computed
-    :return: a Counter object containing ngram counts for self.min <= n <= self.max
+
+    Args:
+      tokens: tokens of string for which the ngram is to be computed
+    Return:
+      a Counter object containing ngram counts for self.min <= n <= self.max
     """
     num_words = len(tokens)
     ngram_count = Counter()
@@ -344,10 +371,11 @@ class GLEUEvaluator(Evaluator):
 
   def evaluate(self, ref, hyp):
     """
-    :rtype: object
-    :param ref: list of reference sents ( a sent is a list of tokens )
-    :param hyp: list of hypothesis sents ( a sent is a list of tokens )
-    :return: Formatted string having GLEU Score
+    Args:
+      ref: list of reference sents ( a sent is a list of tokens )
+      hyp: list of hypothesis sents ( a sent is a list of tokens )
+    Return:
+      Formatted string having GLEU Score
     """
     assert (len(ref) == len(hyp)), \
       "Length of Reference Corpus and Candidate Corpus should be same"
@@ -393,9 +421,12 @@ class WEREvaluator(Evaluator):
   def evaluate(self, ref, hyp):
     """
     Calculate the word error rate of output given a references.
-    :param ref: list of list of reference words
-    :param hyp: list of list of decoded words
-    :return: formatted string (word error rate: (ins+del+sub) / (ref_len), plus more statistics)
+
+    Args:
+      ref: list of list of reference words
+      hyp: list of list of decoded words
+    Return:
+      formatted string (word error rate: (ins+del+sub) / (ref_len), plus more statistics)
     """
     total_dist, total_ref_len, total_hyp_len = 0, 0, 0
     for ref_sent, hyp_sent in zip(ref, hyp):
@@ -408,12 +439,13 @@ class WEREvaluator(Evaluator):
 
   def dist_one_pair(self, ref_sent, hyp_sent):
     """
-    :return: tuple (levenshtein distance, reference length)
+    Return:
+      tuple (levenshtein distance, reference length)
     """
     if not self.case_sensitive:
-      hyp_sent = list(six.moves.map(lambda w: w.lower(), hyp_sent))
+      hyp_sent = [w.lower() for w in hyp_sent]
     if not self.case_sensitive:
-      ref_sent = list(six.moves.map(lambda w: w.lower(), ref_sent))
+      ref_sent = [w.lower() for w in ref_sent]
     return -self.seq_sim(ref_sent, hyp_sent)
 
   # gap penalty:
@@ -457,9 +489,12 @@ class CEREvaluator(object):
   def evaluate(self, ref, hyp):
     """
     Calculate the quality of output given a references.
-    :param ref: list of list of reference words
-    :param hyp: list of list of decoded words
-    :return: character error rate: (ins+del+sub) / (ref_len)
+
+    Args:
+      ref: list of list of reference words
+      hyp: list of list of decoded words
+    Return:
+      character error rate: (ins+del+sub) / (ref_len)
     """
     ref_char = [list("".join(ref_sent)) for ref_sent in ref]
     hyp_char = [list("".join(hyp_sent)) for hyp_sent in hyp]
@@ -483,9 +518,12 @@ class ExternalEvaluator(object):
   def evaluate(self, ref, hyp):
     """
     Calculate the quality of output according to an external script.
-    :param ref: list of list of reference words
-    :param hyp: list of list of decoded words
-    :return: external eval script score
+
+    Args:
+      ref: list of list of reference words
+      hyp: list of list of decoded words
+    Return:
+      external eval script score
     """
     proc = subprocess.Popen([self.path], stdout=subprocess.PIPE, shell=True)
     (out, _) = proc.communicate()
@@ -527,3 +565,35 @@ class MeanAvgPrecisionEvaluator(object):
         avg += score
     avg = avg/float(len(ref))
     return MeanAvgPrecisionScore(avg, len(hyp), len(ref), nbest=self.nbest, desc=self.desc)
+
+class SequenceAccuracyEvaluator(Evaluator):
+  """
+  A class to evaluate the quality of output in terms of sequence accuracy.
+  """
+
+  def __init__(self, case_sensitive=False, desc=None):
+    self.case_sensitive = case_sensitive
+    self.desc = desc
+
+  def metric_name(self):
+    return "Sequence accuracy"
+
+  def compare(self, ref_sent, hyp_sent):
+    if not self.case_sensitive:
+      hyp_sent = [w.lower() for w in hyp_sent]
+    if not self.case_sensitive:
+      ref_sent = [w.lower() for w in ref_sent]
+    return ref_sent == hyp_sent
+
+  def evaluate(self, ref, hyp):
+    """
+    Calculate the accuracy of output given a references.
+
+    Args:
+      ref: list of list of reference words
+      hyp: list of list of decoded words
+    Return: formatted string
+    """
+    correct = sum(self.compare(ref_sent, hyp_sent) for ref_sent, hyp_sent in zip(ref, hyp))
+    accuracy = float(correct) / len(ref)
+    return SequenceAccuracyScore(accuracy, desc=self.desc)

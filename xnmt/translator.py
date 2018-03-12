@@ -1,7 +1,3 @@
-from __future__ import division, generators
-
-import six
-import io
 import dynet as dy
 import numpy as np
 import itertools
@@ -36,20 +32,25 @@ class Translator(GeneratorModel):
   loss and generate translations.
   '''
 
-  def calc_loss(self, src, trg):
+  def calc_loss(self, src, trg, loss_calculator):
     '''Calculate loss based on input-output pairs.
-
-    :param src: The source, a sentence or a batch of sentences.
-    :param trg: The target, a sentence or a batch of sentences.
-    :returns: An expression representing the loss.
+    
+    Args:
+      src: The source, a sentence (:class:`xnmt.input.Input`) or a batch of sentences (:class:`xnmt.batcher.Batch`).
+      trg: The target, a sentence (:class:`xnmt.input.Input`) or a batch of sentences (:class:`xnmt.batcher.Batch`).
+      loss_calculator (LossCalculator):
+    
+    Returns:
+      xnmt.loss.LossBuilder: A (possibly batched) expression representing the loss. Losses are accumulated only if trg_mask[batch,pos]==0, or no mask is set
     '''
     raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
 
   def set_trg_vocab(self, trg_vocab=None):
     """
-    Set target vocab for generating outputs.
+    Set target vocab for generating outputs. If not specified, word IDs are generated instead.
 
-    :param trg_vocab: target vocab, or None to generate word ids
+    Args:
+      trg_vocab (Vocab): target vocab, or None to generate word IDs
     """
     self.trg_vocab = trg_vocab
 
@@ -62,25 +63,26 @@ class Translator(GeneratorModel):
 class DefaultTranslator(Translator, Serializable, Reportable):
   '''
   A default translator based on attentional sequence-to-sequence models.
+
+  Args:
+    src_reader (InputReader): A reader for the source side.
+    trg_reader (InputReader): A reader for the target side.
+    src_embedder (Embedder): A word embedder for the input language
+    encoder (Transducer): An encoder to generate encoded inputs
+    attender (Attender): An attention module
+    trg_embedder (Embedder): A word embedder for the output language
+    decoder (Decoder): A decoder
+    inference (SimpleInference): The default inference strategy used for this model
+    calc_global_fertility (bool):
+    calc_attention_entropy (bool):
   '''
 
-  yaml_tag = u'!DefaultTranslator'
+  yaml_tag = '!DefaultTranslator'
 
   def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
                inference=bare(SimpleInference), calc_global_fertility=False, calc_attention_entropy=False):
-    '''Constructor.
-
-    :param src_reader: A reader for the source side.
-    :param src_embedder: A word embedder for the input language
-    :param encoder: An encoder to generate encoded inputs
-    :param attender: An attention module
-    :param trg_reader: A reader for the target side.
-    :param trg_embedder: A word embedder for the output language
-    :param decoder: A decoder
-    :param inference: The default inference strategy used for this model
-    '''
     register_handler(self)
     self.src_reader = src_reader
     self.trg_reader = trg_reader
@@ -116,12 +118,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.report_type = kwargs.get("report_type", None)
 
   def calc_loss(self, src, trg, loss_calculator):
-    """
-    :param src: source sequence (unbatched, or batched + padded)
-    :param trg: target sequence (unbatched, or batched + padded); losses will be accumulated only if trg_mask[batch,pos]==0, or no mask is set
-    :param loss_calculator:
-    :returns: (possibly batched) loss expression
-    """
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder(embeddings)
@@ -164,7 +160,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, dec_state, src_length=len(sents), forced_trg_ids=forced_trg_ids)
       # In case of reporting
       if self.report_path is not None:
-        src_words = [self.reporting_src_vocab[w] for w in sents]
+        if self.reporting_src_vocab:
+          src_words = [self.reporting_src_vocab[w] for w in sents]
+        else:
+          src_words = ['' for w in sents]
         trg_words = [self.trg_vocab[w] for w in output_actions.word_ids]
         # Attentions
         attentions = output_actions.attentions
@@ -177,7 +176,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         # Segmentation
         segment = self.get_report_resource("segmentation")
         if segment is not None:
-          segment = list(six.moves.map(lambda x: int(x[0]), segment))
+          segment = [int(x[0]) for x in segment]
           src_inp = [x[0] for x in self.encoder.apply_segmentation(src_words, segment)]
         else:
           src_inp = src_words
@@ -208,6 +207,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def set_reporting_src_vocab(self, src_vocab):
     """
     Sets source vocab for reporting purposes.
+    
+    Args:
+      src_vocab (Vocab):
     """
     self.reporting_src_vocab = src_vocab
 
@@ -228,13 +230,13 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     main_content = etree.SubElement(body, 'div', name='main_content')
 
     # Generating main content
-    captions = [u"Source Words", u"Target Words"]
+    captions = ["Source Words", "Target Words"]
     inputs = [src, trg]
-    for caption, inp in six.moves.zip(captions, inputs):
+    for caption, inp in zip(captions, inputs):
       if inp is None: continue
       sent = ' '.join(inp)
       p = etree.SubElement(main_content, 'p')
-      p.text = u"{}: {}".format(caption, sent)
+      p.text = f"{caption}: {sent}"
 
     # Generating attention
     if not any([src is None, trg is None, att is None]):
@@ -242,7 +244,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       att_text = etree.SubElement(attention, 'b')
       att_text.text = "Attention:"
       etree.SubElement(attention, 'br')
-      attention_file = u"{}.attention.png".format(path_to_report)
+      attention_file = f"{path_to_report}.attention.png"
       xnmt.plot.plot_attention(src, trg, att, file_name = attention_file)
 
     # return the parent context to be used as child context
@@ -256,7 +258,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     for word in trg:
       col_length.append(max(len(word), 6))
     col_length.append(max(len(x) for x in src))
-    with io.open(self.get_report_path() + ".attention.txt", encoding='utf-8', mode='w') as attn_file:
+    with open(self.get_report_path() + ".attention.txt", encoding='utf-8', mode='w') as attn_file:
       for i in range(len(src)+1):
         if i == 0:
           words = trg + [""]
@@ -268,16 +270,23 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         print(str_format.format(*words), file=attn_file)
 
 class TransformerTranslator(Translator, Serializable, Reportable):
-  yaml_tag = u'!TransformerTranslator'
+  '''
+  A translator based on the transformer model.
+
+  Args:
+    src_reader (InputReader): A reader for the source side.
+    src_embedder (Embedder): A word embedder for the input language
+    encoder (TransformerEncoder): An encoder to generate encoded inputs
+    trg_reader (InputReader): A reader for the target side.
+    trg_embedder (Embedder): A word embedder for the output language
+    decoder (TransformerDecoder): A decoder
+    inference (SimpleInference): The default inference strategy used for this model
+    input_dim (int):
+  '''
+
+  yaml_tag = '!TransformerTranslator'
 
   def __init__(self, src_reader, src_embedder, encoder, trg_reader, trg_embedder, decoder, inference=None, input_dim=512):
-    '''Constructor.
-    :param src_embedder: A word embedder for the input language
-    :param encoder: An encoder to generate encoded inputs
-    :param attender: An attention module
-    :param trg_embedder: A word embedder for the output language
-    :param decoder: A decoder
-    '''
     register_handler(self)
     self.src_reader = src_reader
     self.src_embedder = src_embedder

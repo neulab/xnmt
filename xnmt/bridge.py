@@ -9,13 +9,26 @@ class Bridge(object):
   Responsible for initializing the decoder LSTM, based on the final encoder state
   """
   def decoder_init(self, dec_layers, dec_dim, enc_final_states):
+    """
+    Args:
+      dec_layers (int): number of decoder layers
+      dec_dim (int): dimension of decoder layers
+      enc_final_states (List[FinalTransducerState]): list of final states for each encoder layer
+    Returns:
+      list of dy.Expression: list of initial hidden and cell expressions for each layer. List indices 0..n-1 hold hidden states, n..2n-1 hold cell states.
+    """
     raise NotImplementedError("decoder_init() must be implemented by Bridge subclasses")
 
 class NoBridge(Bridge, Serializable):
   """
   This bridge initializes the decoder with zero vectors, disregarding the encoder final states.
+
+  Args:
+    dec_layers (int): number of decoder layers to initialize
+    dec_dim (int): hidden dimension of decoder states; if None, use exp_global.default_layer_dim
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
   """
-  yaml_tag = u'!NoBridge'
+  yaml_tag = '!NoBridge'
   def __init__(self, dec_layers = 1, dec_dim = None, exp_global=Ref(Path("exp_global"))):
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim or exp_global.default_layer_dim
@@ -30,8 +43,13 @@ class CopyBridge(Bridge, Serializable):
   Requires that:
   - encoder / decoder dimensions match for every layer
   - num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
+  
+  Args:
+    dec_layers (int): number of decoder layers to initialize
+    dec_dim (int): hidden dimension of decoder states; if None, use exp_global.default_layer_dim
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
   """
-  yaml_tag = u'!CopyBridge'
+  yaml_tag = '!CopyBridge'
   def __init__(self, dec_layers = 1, dec_dim = None, exp_global=Ref(Path("exp_global"))):
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim or exp_global.default_layer_dim
@@ -46,18 +64,27 @@ class CopyBridge(Bridge, Serializable):
 class LinearBridge(Bridge, Serializable):
   """
   This bridge does a linear transform of final states from the encoder to the decoder initial states.
-  Requires that:
-  - num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
+  Requires that  num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
+  
+  Args:
+    dec_layers (int): number of decoder layers to initialize
+    enc_dim (int): hidden dimension of encoder states; if None, use exp_global.default_layer_dim
+    dec_dim (int): hidden dimension of decoder states; if None, use exp_global.default_layer_dim
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
+    bias_init (ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
   """
-  yaml_tag = u'!LinearBridge'
-  def __init__(self, dec_layers = 1, enc_dim = None, dec_dim = None, exp_global=Ref(Path("exp_global"))):
+  yaml_tag = '!LinearBridge'
+  def __init__(self, dec_layers = 1, enc_dim = None, dec_dim = None, exp_global=Ref(Path("exp_global")), param_init=None, bias_init=None):
     param_col = exp_global.dynet_param_collection.param_col
     self.dec_layers = dec_layers
     self.enc_dim = enc_dim or exp_global.default_layer_dim
     self.dec_dim = dec_dim or exp_global.default_layer_dim
     self.projector = xnmt.linear.Linear(input_dim  = enc_dim,
                                            output_dim = dec_dim,
-                                           model = param_col)
+                                           model = param_col,
+                                           param_init = param_init or exp_global.param_init,
+                                           bias_init = bias_init or exp_global.bias_init)
   def decoder_init(self, enc_final_states):
     if self.dec_layers > len(enc_final_states):
       raise RuntimeError("LinearBridge requires dec_layers <= len(enc_final_states), but got %s and %s" % (self.dec_layers, len(enc_final_states)))

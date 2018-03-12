@@ -12,7 +12,7 @@ from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.residual import ResidualLSTMSeqTransducer
 from xnmt.attender import MlpAttender
 from xnmt.decoder import MlpSoftmaxDecoder
-from xnmt.input import PlainTextReader
+from xnmt.input_reader import PlainTextReader
 from xnmt.exp_global import ExpGlobal, PersistentParamCollection
 import xnmt.events
 from xnmt.vocab import Vocab

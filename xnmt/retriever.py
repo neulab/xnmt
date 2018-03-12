@@ -1,7 +1,6 @@
 import logging
 logger = logging.getLogger('xnmt')
 
-import six
 import dynet as dy
 import numpy as np
 from lxml import etree
@@ -22,7 +21,7 @@ from xnmt.expression_sequence import ExpressionSequence
 class StandardRetrievalDatabase(Serializable):
   """This is a database to be used for retrieval. Its database member"""
 
-  yaml_tag = u"!StandardRetrievalDatabase"
+  yaml_tag = "!StandardRetrievalDatabase"
 
   def __init__(self, reader, database_file, dev_id_file=None, test_id_file=None):
     self.reader = reader
@@ -45,9 +44,11 @@ class Retriever(GeneratorModel):
   def calc_loss(self, src, db_idx):
     '''Calculate loss based on a database index.
 
-    :param src: The source input.
-    :param db_idx: The correct index in the database to be retrieved.
-    :returns: An expression representing the loss.
+    Args:
+      src: The source input.
+      db_idx: The correct index in the database to be retrieved.
+    Returns:
+      An expression representing the loss.
     '''
     raise NotImplementedError('calc_loss must be implemented for Retriever subclasses')
 
@@ -62,9 +63,11 @@ class Retriever(GeneratorModel):
   def generate(self, src, i):
     '''Perform retrieval, trying to get the sentence that most closely matches in the database.
 
-    :param src: The source.
-    :param i: Id of the input (for reporting)
-    :returns: The ID of the example that most closely matches in the database.
+    Args:
+      src: The source.
+      i: Id of the input (for reporting)
+    Returns:
+      The ID of the example that most closely matches in the database.
     '''
     raise NotImplementedError('generate must be implemented for Retriever subclasses')
 
@@ -81,17 +84,18 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
   A retriever trains using max-margin methods.
   '''
 
-  yaml_tag = u'!DotProductRetriever'
+  yaml_tag = '!DotProductRetriever'
 
 
   def __init__(self, src_embedder, src_encoder, trg_embedder, trg_encoder, database, loss_direction="forward"):
     '''Constructor.
 
-    :param src_embedder: A word embedder for the source language
-    :param src_encoder: An encoder for the source language
-    :param trg_embedder: A word embedder for the target language
-    :param trg_encoder: An encoder for the target language
-    :param database: A database of things to retrieve
+    Args:
+      src_embedder: A word embedder for the source language
+      src_encoder: An encoder for the source language
+      trg_embedder: A word embedder for the target language
+      trg_encoder: An encoder for the target language
+      database: A database of things to retrieve
     '''
     self.src_embedder = src_embedder
     self.src_encoder = src_encoder
@@ -131,7 +135,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
     # for i in range(dim[1]):
     #   print("--- prod {}: {}".format(i,list(prod_npv[0].transpose()[i])))
     # ### DEBUG
-    id_range = list(six.moves.range(len(db_idx)))
+    id_range = list(range(len(db_idx)))
     # This is ugly:
     if self.loss_direction == "forward":
       prod = dy.transpose(prod)
@@ -188,7 +192,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
       self.set_html_path('{}.{}'.format(self.report_path, str(idx)))
 
     if return_type == "idxscore":
-      return [(i,scores[0,x]) for i, x in six.moves.zip(ids, kbest)]
+      return [(i,scores[0,x]) for i, x in zip(ids, kbest)]
     elif return_type == "idx":
       return list(ids)
     elif return_type == "score":

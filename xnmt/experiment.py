@@ -7,12 +7,25 @@ from xnmt.serialize.serializable import Serializable, bare
 class Experiment(Serializable):
   '''
   A default experiment that performs preprocessing, training, and evaluation.
+  
+  Args:
+    exp_global (ExpGlobal): global experiment settings
+    load (str): path to load a serialized experiment from (if given, only overwrite but no other arguments can be specified)
+    overwrite (list): to be combined with ``load``. list of dictionaries for overwriting individual parts, with dictionaries looking like e.g. ``{"path": exp_global.eval_only, "val": True}``
+    preproc (PreprocRunner): carry out preprocessing if specified
+    model (GeneratorModel): The main model. In the case of multitask training, several models must be specified, in which case the models will live not here but inside the training task objects.
+    train (TrainingRegimen): The training regimen defines the training loop.
+    evaluate (List[EvalTask]): list of tasks to evaluate the model after training finishes.
+    random_search_report (dict): When random search is used, this holds the settings that were randomly drawn for documentary purposes.
   '''
 
-  yaml_tag = u'!Experiment'
+  yaml_tag = '!Experiment'
 
   def __init__(self, exp_global=bare(ExpGlobal), load=None, overwrite=None, preproc=None,
                model=None, train=None, evaluate=None, random_search_report=None):
+    """
+    This is called after all other components have been initialized, so we can safely load DyNet weights here. 
+    """
     self.exp_global = exp_global
     self.load = load
     self.overwrite = overwrite
@@ -28,6 +41,9 @@ class Experiment(Serializable):
       logger.info(f"> instantiated random parameter search: {random_search_report}")
 
   def __call__(self, save_fct):
+    """
+    Launch training loop, followed by final evaluation.
+    """
     eval_scores = "Not evaluated"
     eval_only = self.exp_global.eval_only
     if not eval_only:

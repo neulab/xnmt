@@ -10,7 +10,7 @@ from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.eval_task import LossEvalTask
 import xnmt.events
-from xnmt.input import PlainTextReader
+from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.loss_calculator import LossCalculator
 from xnmt.optimizer import AdamTrainer
@@ -242,7 +242,8 @@ class TestOverfitting(unittest.TestCase):
     xnmt.events.clear()
 
   def test_overfitting(self):
-    self.exp_global = ExpGlobal(dynet_param_collection = NonPersistentParamCollection())
+    self.exp_global = ExpGlobal(dynet_param_collection = NonPersistentParamCollection(),
+                                dropout = 0.0)
     self.exp_global.default_layer_dim = 16
     batcher = SrcBatcher(batch_size=10, break_ties_randomly=False)
     train_args = {}

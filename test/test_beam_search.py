@@ -8,7 +8,7 @@ from xnmt.bridge import CopyBridge
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
 import xnmt.events
-from xnmt.input import PlainTextReader
+from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.loss_calculator import LossCalculator
 from xnmt.translator import DefaultTranslator
@@ -78,7 +78,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
     self.model.initialize_generator(beam=1)
     outputs = self.model.generate_output(self.src_data[0], 0,
                                          forced_trg_ids=self.trg_data[0])
-    self.assertAlmostEqual(-outputs[0].score, train_loss, places=5)
+    self.assertAlmostEqual(-outputs[0].score, train_loss, places=4)
 
 class TestFreeDecodingLoss(unittest.TestCase):
 
@@ -110,7 +110,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
                                       trg=outputs[0].actions,
                                       loss_calculator=LossCalculator()).value()
 
-    self.assertAlmostEqual(-outputs[0].score, train_loss, places=5)
+    self.assertAlmostEqual(-outputs[0].score, train_loss, places=4)
 
 class TestGreedyVsBeam(unittest.TestCase):
   """

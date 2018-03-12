@@ -1,7 +1,5 @@
 import unittest
-import os, shutil, sys
-
-if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.unittest")
+import os, shutil
 
 from xnmt.test.utils import has_cython
 import xnmt.xnmt_run_experiments as run
@@ -33,6 +31,10 @@ class TestRunningConfig(unittest.TestCase):
   def test_preproc(self):
     run.main(["test/config/preproc.yaml"])
 
+  @unittest.expectedFailure # TODO: these tests need to be fixed
+  def test_pretrained_emb(self):
+    run.main(["test/config/pretrained_embeddings.yaml"])
+
   def test_prior_segmenting(self):
     run.main(["test/config/prior_segmenting.yaml"])
 
@@ -62,6 +64,10 @@ class TestRunningConfig(unittest.TestCase):
 
   def test_speech(self):
     run.main(["test/config/speech.yaml"])
+
+  @unittest.expectedFailure # TODO: these tests need to be fixed
+  def test_speech_retrieval(self):
+    run.main(["test/config/speech_retrieval.yaml"])
 
   def test_standard(self):
     run.main(["test/config/standard.yaml"])

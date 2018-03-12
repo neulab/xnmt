@@ -1,11 +1,9 @@
 import logging
 logger = logging.getLogger('xnmt')
 import os.path
-import io
 
 from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer
 from xnmt.serialize.serializable import Serializable
-##### Main function
 
 def make_parent_dir(filename):
   if not os.path.exists(os.path.dirname(filename)):
@@ -16,16 +14,19 @@ def make_parent_dir(filename):
         raise
 
 class PreprocRunner(Serializable):
+  """
+  Preprocess and filter the input files, and create the vocabulary.
+
+  Args:
+    tasks (List[PreprocTask]): A list of preprocessing steps, usually parametrized by in_files (the input files), out_files (the output files), and spec for that particular preprocessing type
+                               The types of arguments that preproc_spec expects:
+                               * Option("in_files", help_str="list of paths to the input files"),
+                               * Option("out_files", help_str="list of paths for the output files"),
+                               * Option("spec", help_str="The specifications describing which type of processing to use. For normalize and vocab, should consist of the 'lang' and 'spec', where 'lang' can either be 'all' to apply the same type of processing to all languages, or a zero-indexed integer indicating which language to process."),
+    overwrite (bool): Whether to overwrite files if they already exist.
+  """
   yaml_tag = "!PreprocRunner"
   def __init__(self, tasks=[], overwrite=False):
-    """Preprocess and filter the input files, and create the vocabulary
-    :param tasks (list): A specification for a preprocessing step, including in_files (the input files), out_files (the output files), type (normalize/filter/vocab), and spec for that particular preprocessing type
-                         Expected is a list of PreprocTask objects (e.g. !PreprocTokenize, !PreprocNormalize, !PreprocFilter, or !PreprocVocab), and for each the following arguments:
-                               Option("in_files", help_str="list of paths to the input files"),
-                               Option("out_files", help_str="list of paths for the output files"),
-                               Option("spec", help_str="The specifications describing which type of processing to use. For normalize and vocab, should consist of the 'lang' and 'spec', where 'lang' can either be 'all' to apply the same type of processing to all languages, or a zero-indexed integer indicating which language to process."),
-    :param overwrite (bool): Whether to overwrite files if they already exist.
-    """
     logger.info("> Preprocessing")
     
     for task in tasks:
@@ -67,8 +68,8 @@ class PreprocTokenize(PreprocTask, Serializable):
       if overwrite or not os.path.isfile(out_file):
         make_parent_dir(out_file)
         my_tokenizers = tokenizers.get(file_num, tokenizers["all"])
-        with io.open(out_file, "w", encoding='utf-8') as out_stream, \
-             io.open(in_file, "r", encoding='utf-8') as in_stream:
+        with open(out_file, "w", encoding='utf-8') as out_stream, \
+             open(in_file, "r", encoding='utf-8') as in_stream:
           for tokenizer in my_tokenizers:
             in_stream = tokenizer.tokenize_stream(in_stream)
           for line in in_stream:
@@ -86,8 +87,8 @@ class PreprocNormalize(PreprocTask, Serializable):
       if overwrite or not os.path.isfile(out_file):
         make_parent_dir(out_file)
         my_normalizers = normalizers.get(i, normalizers["all"])
-        with io.open(out_file, "w", encoding='utf-8') as out_stream, \
-             io.open(in_file, "r", encoding='utf-8') as in_stream:
+        with open(out_file, "w", encoding='utf-8') as out_stream, \
+             open(in_file, "r", encoding='utf-8') as in_stream:
           for line in in_stream:
             line = line.strip()
             for normalizer in my_normalizers:
@@ -104,9 +105,9 @@ class PreprocFilter(PreprocTask, Serializable):
     # TODO: This will only work with plain-text sentences at the moment. It would be nice if it plays well with the readers
     #       in input.py
     filters = SentenceFilterer.from_spec(self.specs)
-    out_streams = [io.open(x, 'w', encoding='utf-8') if overwrite or not os.path.isfile(x) else None for x in self.out_files]
+    out_streams = [open(x, 'w', encoding='utf-8') if overwrite or not os.path.isfile(x) else None for x in self.out_files]
     if any(x is not None for x in out_streams):
-      in_streams = [io.open(x, 'r', encoding='utf-8') for x in self.in_files]
+      in_streams = [open(x, 'r', encoding='utf-8') for x in self.in_files]
       for in_lines in zip(*in_streams):
         in_lists = [line.strip().split() for line in in_lines]
         if all([my_filter.keep(in_lists) for my_filter in filters]):
@@ -129,8 +130,8 @@ class PreprocVocab(PreprocTask, Serializable):
     for i, (in_file, out_file) in enumerate(zip(self.in_files, self.out_files)):
       if overwrite or not os.path.isfile(out_file):
         make_parent_dir(out_file)
-        with io.open(out_file, "w", encoding='utf-8') as out_stream, \
-             io.open(in_file, "r", encoding='utf-8') as in_stream:
+        with open(out_file, "w", encoding='utf-8') as out_stream, \
+             open(in_file, "r", encoding='utf-8') as in_stream:
           vocab = {}
           for line in in_stream:
             for word in line.strip().split():

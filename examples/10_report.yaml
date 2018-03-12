@@ -1,7 +1,6 @@
+# This example demonstrates reporting of attention matrices.
 report: !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 256 
     dropout: 0.0
   model: !DefaultTranslator
