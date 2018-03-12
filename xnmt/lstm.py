@@ -17,9 +17,10 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   yaml_tag = u'!UniLSTMSeqTransducer'
   
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, hidden_dim=None,
+  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None,
                dropout = None, weightnoise_std=None, param_init=None, bias_init=None):
     register_handler(self)
+    self.num_layers = layers
     model = exp_global.dynet_param_collection.param_col
     input_dim = input_dim or exp_global.default_layer_dim
     hidden_dim = hidden_dim or exp_global.default_layer_dim
@@ -30,11 +31,16 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     
     param_init = param_init or exp_global.param_init
     bias_init = bias_init or exp_global.bias_init
+    if not isinstance(param_init, Sequence):
+        param_init = [param_init] * layers
+    if not isinstance(bias_init, Sequence):
+        bias_init = [bias_init] * layers
 
     # [i; f; o; g]
-    self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim), init=param_init.initializer((hidden_dim*4, input_dim), num_shared=4))
-    self.p_Wh = model.add_parameters(dim=(hidden_dim*4, hidden_dim), init=param_init.initializer((hidden_dim*4, hidden_dim), num_shared=4))
-    self.p_b  = model.add_parameters(dim=(hidden_dim*4,), init=bias_init.initializer((hidden_dim*4,), num_shared=4))
+    self.p_Wx = [model.add_parameters(dim=(hidden_dim*4, input_dim), init=param_init[0].initializer((hidden_dim*4, input_dim), num_shared=4))]
+    self.p_Wx += [model.add_parameters(dim=(hidden_dim*4, hidden_dim), init=param_init[i].initializer((hidden_dim*4, hidden_dim), num_shared=4)) for i in range(1, layers)]
+    self.p_Wh = [model.add_parameters(dim=(hidden_dim*4, hidden_dim), init=param_init[i].initializer((hidden_dim*4, hidden_dim), num_shared=4)) for i in range(layers)]
+    self.p_b  = [model.add_parameters(dim=(hidden_dim*4,), init=bias_init[i].initializer((hidden_dim*4,), num_shared=4)) for i in range(layers)]
 
     self.dropout_mask_x = None
     self.dropout_mask_h = None
@@ -46,9 +52,9 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   @handle_xnmt_event
   def on_start_sent(self, src):
     self._final_states = None
-    self.Wx = dy.parameter(self.p_Wx)
-    self.Wh = dy.parameter(self.p_Wh)
-    self.b = dy.parameter(self.p_b)
+    self.Wx = [dy.parameter(Wx) for Wx in self.p_Wx]
+    self.Wh = [dy.parameter(Wh) for Wh in self.p_Wh]
+    self.b = [dy.parameter(b) for b in self.p_b]
     self.dropout_mask_x = None
     self.dropout_mask_h = None
 
@@ -59,8 +65,9 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     if self.dropout_rate > 0.0 and self.train:
       retention_rate = 1.0 - self.dropout_rate
       scale = 1.0 / retention_rate
-      self.dropout_mask_x = dy.random_bernoulli((self.input_dim,), retention_rate, scale, batch_size=batch_size)
-      self.dropout_mask_h = dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size)
+      self.dropout_mask_x = [dy.random_bernoulli((self.input_dim,), retention_rate, scale, batch_size=batch_size)]
+      self.dropout_mask_x += [dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size) for _ in range(1, self.num_layers)]
+      self.dropout_mask_h = [dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size) for _ in range(self.num_layers)]
 
   def __call__(self, expr_seq):
     """
@@ -77,28 +84,33 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     if self.dropout_rate > 0.0 and self.train:
       self.set_dropout_masks(batch_size=batch_size)
 
-    h = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
-    c = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
-    for pos_i in range(seq_len):
-      x_t = [expr_seq[j][pos_i] for j in range(len(expr_seq))]
-      if isinstance(x_t, dy.Expression):
-        x_t = [x_t]
-      elif type(x_t) != list:
-        x_t = list(x_t)
-      if self.dropout_rate > 0.0 and self.train:
-        # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)
-        gates_t = dy.vanilla_lstm_gates_dropout_concat(x_t, h[-1], self.Wx, self.Wh, self.b, self.dropout_mask_x, self.dropout_mask_h, self.weightnoise_std if self.train else 0.0)
-      else:
-        gates_t = dy.vanilla_lstm_gates_concat(x_t, h[-1], self.Wx, self.Wh, self.b, self.weightnoise_std if self.train else 0.0)
-      c_t = dy.vanilla_lstm_c(c[-1], gates_t)
-      h_t = dy.vanilla_lstm_h(c_t, gates_t)
-      if expr_seq[0].mask is None or np.isclose(np.sum(expr_seq[0].mask.np_arr[:,pos_i:pos_i+1]), 0.0):
-        c.append(c_t)
-        h.append(h_t)
-      else:
-        c.append(expr_seq[0].mask.cmult_by_timestep_expr(c_t,pos_i,True) + expr_seq[0].mask.cmult_by_timestep_expr(c[-1],pos_i,False))
-        h.append(expr_seq[0].mask.cmult_by_timestep_expr(h_t,pos_i,True) + expr_seq[0].mask.cmult_by_timestep_expr(h[-1],pos_i,False))
-    self._final_states = [FinalTransducerState(h[-1], c[-1])]
+    cur_input = expr_seq
+    self._final_states = []
+    for layer_i in range(self.num_layers):
+      h = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
+      c = [dy.zeroes(dim=(self.hidden_dim,), batch_size=batch_size)]
+      for pos_i in range(seq_len):
+        x_t = [cur_input[j][pos_i] for j in range(len(cur_input))]
+        if isinstance(x_t, dy.Expression):
+          x_t = [x_t]
+        elif type(x_t) != list:
+          x_t = list(x_t)
+        if self.dropout_rate > 0.0 and self.train:
+          # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)
+          gates_t = dy.vanilla_lstm_gates_dropout_concat(x_t, h[-1], self.Wx[layer_i], self.Wh[layer_i], self.b[layer_i], self.dropout_mask_x[layer_i], self.dropout_mask_h[layer_i], self.weightnoise_std if self.train else 0.0)
+        else:
+          gates_t = dy.vanilla_lstm_gates_concat(x_t, h[-1], self.Wx[layer_i], self.Wh[layer_i], self.b[layer_i], self.weightnoise_std if self.train else 0.0)
+        c_t = dy.vanilla_lstm_c(c[-1], gates_t)
+        h_t = dy.vanilla_lstm_h(c_t, gates_t)
+        if expr_seq[0].mask is None or np.isclose(np.sum(expr_seq[0].mask.np_arr[:,pos_i:pos_i+1]), 0.0):
+          c.append(c_t)
+          h.append(h_t)
+        else:
+          c.append(expr_seq[0].mask.cmult_by_timestep_expr(c_t,pos_i,True) + expr_seq[0].mask.cmult_by_timestep_expr(c[-1],pos_i,False))
+          h.append(expr_seq[0].mask.cmult_by_timestep_expr(h_t,pos_i,True) + expr_seq[0].mask.cmult_by_timestep_expr(h[-1],pos_i,False))
+      self._final_states.append(FinalTransducerState(h[-1], c[-1]))
+      cur_input = [h[1:]]
+
     return ExpressionSequence(expr_list=h[1:], mask=expr_seq[0].mask)
 
 class BiLSTMSeqTransducer(SeqTransducer, Serializable):
