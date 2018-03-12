@@ -16,7 +16,7 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
   Every layer (except the first) reduces sequence length by the specified factor.
 
   Args:
-    exp_global (xnmt.exp_global.ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     layers (int): number of layers
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim

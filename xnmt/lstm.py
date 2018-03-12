@@ -18,13 +18,13 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   Currently only supports transducing a complete sequence at once.
   
   Args:
-    exp_global (xnmt.exp_global.ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
     dropout (float): dropout probability; if None, use exp_global.dropout
     weightnoise_std (float): weight noise standard deviation; if None, use exp_global.weightnoise_std
-    param_init (xnmt.param_init.ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
-    bias_init (xnmt.param_init.ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
+    param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
+    bias_init (ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
   """
   def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, hidden_dim=None,
                dropout = None, weightnoise_std=None, param_init=None, bias_init=None):
@@ -119,7 +119,7 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
   It uses 2 :class:`xnmt.lstm.UniLSTMSeqTransducer` objects in each layer.
 
   Args:
-    exp_global (xnmt.exp_global.ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     layers (int): number of layers
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
@@ -196,7 +196,7 @@ class CustomLSTMSeqTransducer(SeqTransducer):
     layers (int): number of layers
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
-    exp_global (xnmt.exp_global.ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects 
                 specifying how to initialize weight matrices. If a list is given, each entry denotes one layer.
                 If None, use ``exp_global.param_init``

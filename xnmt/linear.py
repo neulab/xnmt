@@ -11,8 +11,8 @@ class Linear(object):
     output_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
     model (dy.ParameterCollection): DyNet parameter collection
     bias (bool): whether to add a bias
-    param_init (xnmt.param_init.ParamInitializer): how to initialize weight matrices
-    bias_init (xnmt.param_init.ParamInitializer): how to initialize bias vectors
+    param_init (ParamInitializer): how to initialize weight matrices
+    bias_init (ParamInitializer): how to initialize bias vectors
   """
   
   def __init__(self, input_dim, output_dim, model, bias=True, param_init=GlorotInitializer(), bias_init=ZeroInitializer()):

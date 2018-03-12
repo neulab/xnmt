@@ -158,7 +158,6 @@ class ZeroInitializer(ParamInitializer, Serializable):
     return dy.ConstInitializer(c=0.0)
 
 class LeCunUniformInitializer(ParamInitializer, Serializable):
-  yaml_tag = "!LeCunUniformInitializer"
   """
   Reference: LeCun 98, Efficient Backprop
   http://yann.lecun.com/exdb/publis/pdf/lecun-98b.pdf
@@ -166,6 +165,7 @@ class LeCunUniformInitializer(ParamInitializer, Serializable):
   Args:
     scale (float): scale
   """
+  yaml_tag = "!LeCunUniformInitializer"
   def __init__(self, scale=1.0):
     self.scale = scale
   def initializer(self, dim, is_lookup=False, num_shared=1):

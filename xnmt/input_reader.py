@@ -78,7 +78,7 @@ class PlainTextReader(BaseTextReader, Serializable):
   with one sent per line.
   
   Args:
-    vocab (xnmt.vocab.Vocab): turns tokens strings into token IDs
+    vocab (Vocab): turns tokens strings into token IDs
     include_vocab_reference (bool): TODO document me
   """
   yaml_tag = '!PlainTextReader'
@@ -212,11 +212,11 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
   A utility function to read a parallel corpus.
 
   Args:
-    src_reader (xnmt.input_reader.InputReader):
-    trg_reader (xnmt.input_reader.InputReader):
+    src_reader (InputReader):
+    trg_reader (InputReader):
     src_file (str):
     trg_file (str):
-    batcher (xnmt.batcher.Batcher):
+    batcher (Batcher):
     sample_sents (int): if not None, denote the number of sents that should be randomly chosen from all available sents.
     max_num_sents (int): if not None, read only the first this many sents
     max_src_len (int): skip pair if src side is too long

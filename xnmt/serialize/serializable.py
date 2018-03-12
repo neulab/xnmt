@@ -23,7 +23,7 @@ class Serializable(yaml.YAMLObject):
     The ordering of shared parameters is irrelevant.
 
     Returns:
-      List[Set[xnmt.serialize.tree_tools.Path]]: objects referencing params of this component or a subcompononent
+      List[Set[Path]]: objects referencing params of this component or a subcompononent
       e.g.::
       
         return [set([Path(".input_dim"),

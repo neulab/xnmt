@@ -86,7 +86,7 @@ class Ref(Serializable):
   A reference to a place in the component hierarchy. Supported a referencing by path or referencing by name.
   
   Args:
-    path (xnmt.serialize.tree_tools.Path): reference-by-path
+    path (Path): reference-by-path
     name (str): reference-by-name. The name refers to a unique ``_xnmt_id`` property that must be set in exactly one component.
   """
   yaml_tag = "!Ref"

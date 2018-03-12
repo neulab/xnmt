@@ -49,7 +49,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   Standard MLP softmax decoder.
 
   Args:
-    exp_global (xnmt.exp_global.ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     layers (int): number of LSTM layers
     input_dim (int): input dimension; if None, use ``exp_global.default_layer_dim``
     lstm_dim (int): LSTM hidden dimension; if None, use ``exp_global.default_layer_dim``
@@ -59,20 +59,20 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     rnn_spec (str): 'lstm' or 'residuallstm'
     residual_to_output (bool): option passed on if rnn_spec == 'residuallstm'
     input_feeding (bool): whether to activate input feeding
-    param_init_lstm (xnmt.param_init.ParamInitializer): how to initialize LSTM weight matrices (currently, only :class:`xnmt.param_init.GlorotInitializer` is supported); if None, use ``exp_global.param_init``
-    param_init_context (xnmt.param_init.ParamInitializer): how to initialize context weight matrices; if None, use ``exp_global.param_init``
-    bias_init_context (xnmt.param_init.ParamInitializer): how to initialize context bias vectors; if None, use ``exp_global.bias_init``
-    param_init_output (xnmt.param_init.ParamInitializer): how to initialize output weight matrices; if None, use ``exp_global.param_init``
-    bias_init_output (xnmt.param_init.ParamInitializer): how to initialize output bias vectors; if None, use ``exp_global.bias_init``
-    bridge (xnmt.bridge.Bridge): how to initialize decoder state
+    param_init_lstm (ParamInitializer): how to initialize LSTM weight matrices (currently, only :class:`xnmt.param_init.GlorotInitializer` is supported); if None, use ``exp_global.param_init``
+    param_init_context (ParamInitializer): how to initialize context weight matrices; if None, use ``exp_global.param_init``
+    bias_init_context (ParamInitializer): how to initialize context bias vectors; if None, use ``exp_global.bias_init``
+    param_init_output (ParamInitializer): how to initialize output weight matrices; if None, use ``exp_global.param_init``
+    bias_init_output (ParamInitializer): how to initialize output bias vectors; if None, use ``exp_global.bias_init``
+    bridge (Bridge): how to initialize decoder state
     label_smoothing (float): label smoothing value (if used, 0.1 is a reasonable value).
                              Label Smoothing is implemented with reference to Section 7 of the paper
                              "Rethinking the Inception Architecture for Computer Vision"
                              (https://arxiv.org/pdf/1512.00567.pdf)
-    vocab_projector (xnmt.linear.Linear):
+    vocab_projector (Linear):
     vocab_size (int): vocab size or None
-    vocab (xnmt.vocab.Vocab): vocab or None
-    trg_reader (xnmt.input_reader.InputReader): Model's trg_reader, if exists and unambiguous.
+    vocab (Vocab): vocab or None
+    trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
   """
   
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
@@ -143,9 +143,9 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
 
     Args:
       vocab_size (int): vocab size or None
-      vocab (xnmt.vocab.Vocab): vocab or None
-      yaml_path (xnmt.serialize.tree_tools.Path): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
-      trg_reader (xnmt.input_reader.InputReader): Model's trg_reader, if exists and unambiguous.
+      vocab (Vocab): vocab or None
+      yaml_path (Path): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
+      trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
     
     Returns:
       int: chosen vocab size
@@ -169,7 +169,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     Args:
       enc_final_states: The encoder final states. Usually but not necessarily an :class:`xnmt.expression_sequence.ExpressionSequence`
     Returns:
-      xnmt.decoder.MlpSoftmaxDecoderState:
+      MlpSoftmaxDecoderState:
     """
     rnn_state = self.fwd_lstm.initial_state()
     rnn_state = rnn_state.set_s(self.bridge.decoder_init(enc_final_states))
@@ -181,7 +181,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     """Add an input and update the state.
     
     Args:
-      mlp_dec_state (xnmt.decoder.MlpSoftmaxDecoderState): An object containing the current state.
+      mlp_dec_state (MlpSoftmaxDecoderState): An object containing the current state.
       trg_embedding: The embedding of the word to input.
     Returns:
       The update MLP decoder state.

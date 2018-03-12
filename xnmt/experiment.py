@@ -9,13 +9,13 @@ class Experiment(Serializable):
   A default experiment that performs preprocessing, training, and evaluation.
   
   Args:
-    exp_global (xnmt.exp_global.ExpGlobal): global experiment settings
+    exp_global (ExpGlobal): global experiment settings
     load (str): path to load a serialized experiment from (if given, only overwrite but no other arguments can be specified)
     overwrite (list): to be combined with ``load``. list of dictionaries for overwriting individual parts, with dictionaries looking like e.g. ``{"path": exp_global.eval_only, "val": True}``
-    preproc (xnmt.preproc_runner.PreprocRunner): carry out preprocessing if specified
-    model (xnmt.generator.GeneratorModel): The main model. In the case of multitask training, several models must be specified, in which case the models will live not here but inside the training task objects.
-    train (xnmt.training_regimen.TrainingRegimen): The training regimen defines the training loop.
-    evaluate (List[xnmt.eval_task.EvalTask]): list of tasks to evaluate the model after training finishes.
+    preproc (PreprocRunner): carry out preprocessing if specified
+    model (GeneratorModel): The main model. In the case of multitask training, several models must be specified, in which case the models will live not here but inside the training task objects.
+    train (TrainingRegimen): The training regimen defines the training loop.
+    evaluate (List[EvalTask]): list of tasks to evaluate the model after training finishes.
     random_search_report (dict): When random search is used, this holds the settings that were randomly drawn for documentary purposes.
   '''
 

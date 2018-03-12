@@ -13,7 +13,7 @@ class Bridge(object):
     Args:
       dec_layers (int): number of decoder layers
       dec_dim (int): dimension of decoder layers
-      enc_final_states (List[xnmt.transducer.FinalTransducerState]): list of final states for each encoder layer
+      enc_final_states (List[FinalTransducerState]): list of final states for each encoder layer
     Returns:
       list of dy.Expression: list of initial hidden and cell expressions for each layer. List indices 0..n-1 hold hidden states, n..2n-1 hold cell states.
     """
@@ -26,7 +26,7 @@ class NoBridge(Bridge, Serializable):
   Args:
     dec_layers (int): number of decoder layers to initialize
     dec_dim (int): hidden dimension of decoder states; if None, use exp_global.default_layer_dim
-    exp_global (xnmt.exp_global.ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
   """
   yaml_tag = '!NoBridge'
   def __init__(self, dec_layers = 1, dec_dim = None, exp_global=Ref(Path("exp_global"))):
@@ -47,7 +47,7 @@ class CopyBridge(Bridge, Serializable):
   Args:
     dec_layers (int): number of decoder layers to initialize
     dec_dim (int): hidden dimension of decoder states; if None, use exp_global.default_layer_dim
-    exp_global (xnmt.exp_global.ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
   """
   yaml_tag = '!CopyBridge'
   def __init__(self, dec_layers = 1, dec_dim = None, exp_global=Ref(Path("exp_global"))):
@@ -70,9 +70,9 @@ class LinearBridge(Bridge, Serializable):
     dec_layers (int): number of decoder layers to initialize
     enc_dim (int): hidden dimension of encoder states; if None, use exp_global.default_layer_dim
     dec_dim (int): hidden dimension of decoder states; if None, use exp_global.default_layer_dim
-    exp_global (xnmt.exp_global.ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
-    param_init (xnmt.param_init.ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
-    bias_init (xnmt.param_init.ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
+    bias_init (ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
   """
   yaml_tag = '!LinearBridge'
   def __init__(self, dec_layers = 1, enc_dim = None, dec_dim = None, exp_global=Ref(Path("exp_global")), param_init=None, bias_init=None):

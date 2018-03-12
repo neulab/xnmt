@@ -31,7 +31,7 @@ class SimpleSentenceInput(Input):
   
   Args:
     words: list of integer word ids
-    vocab (xnmt.vocab.Vocab):
+    vocab (xnmt):
   """
   def __init__(self, words, vocab=None):
     self.words = words

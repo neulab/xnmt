@@ -12,7 +12,7 @@ class Batch(list):
   
   Args:
     batch_list (list): list of things
-    mask (xnmt.batcher.Mask): optional mask when  batch contains items of unequal size
+    mask (Mask): optional mask when  batch contains items of unequal size
   """
   def __init__(self, batch_list, mask=None):
     super(Batch, self).__init__(batch_list)
@@ -126,7 +126,6 @@ class Batcher(object):
     return src_ret, trg_ret
 
 class InOrderBatcher(Batcher, Serializable):
-  yaml_tag = "!InOrderBatcher"
   """
   A class to create batches in order of the original corpus.
   
@@ -136,6 +135,7 @@ class InOrderBatcher(Batcher, Serializable):
     trg_pad_token: padding token on trg side
     pad_src_to_multiple (int): pad the source side so that the batch length is a multiple of the specified integer
   """
+  yaml_tag = "!InOrderBatcher"
   def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
                pad_src_to_multiple=1):
     super(InOrderBatcher, self).__init__(batch_size, src_pad_token=src_pad_token,

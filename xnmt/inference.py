@@ -31,9 +31,9 @@ class SimpleInference(Serializable):
     report_type (str): report to generate ``file/html``. Can be multiple, separate with comma.
     beam (int):
     max_len (int):
-    len_norm_type (xnmt.length_normalization.LengthNormalization):
+    len_norm_type (LengthNormalization):
     mode (str): type of decoding to perform. ``onebest``: generate one best. ``forced``: perform forced decoding. ``forceddebug``: perform forced decoding, calculate training loss, and make suer the scores are identical for debugging purposes.
-    batcher (xnmt.batcher.Batcher):
+    batcher (Batcher):
   """
   
   yaml_tag = '!SimpleInference'
@@ -58,7 +58,7 @@ class SimpleInference(Serializable):
   def __call__(self, generator, src_file=None, trg_file=None, candidate_id_file=None):
     """
     Args:
-      generator (xnmt.generator.GeneratorModel): the model to be used
+      generator (GeneratorModel): the model to be used
       src_file (str): path of input src file to be translated
       trg_file (str): path of file where trg translatons will be written
       candidate_id_file (str): if we are doing something like retrieval where we select from fixed candidates, sometimes we want to limit our candidates to a certain subset of the full set. this setting allows us to do this.

@@ -16,10 +16,10 @@ class SearchStrategy(object):
   def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
     """
     Args:
-      decoder (xnmt.decoder.Decoder):
-      attender (xnmt.attender.Attender):
-      output_embedder (xnmt.embedder.Embedder): target embedder
-      dec_state (xnmt.decoder.MlpSoftmaxDecoderState): initial decoder state
+      decoder (Decoder):
+      attender (Attender):
+      output_embedder (Embedder): target embedder
+      dec_state (MlpSoftmaxDecoderState): initial decoder state
       src_length (int): length of src sequence, required for some types of length normalization
       forced_trg_ids (List[int]): list of word ids, if given will force to generate this is the target sequence
     Returns:
@@ -65,7 +65,7 @@ class BeamSearch(SearchStrategy):
   Args:
     beam_size (int):
     max_len (int): maximum number of tokens to generate.
-    len_norm (xnmt.length_normalization.LengthNormalization): type of length normalization to apply
+    len_norm (LengthNormalization): type of length normalization to apply
   """
 
   def __init__(self, beam_size, max_len=100, len_norm=bare(NoNormalization)):

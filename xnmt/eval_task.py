@@ -21,6 +21,16 @@ class EvalTask(object):
 class LossEvalTask(Serializable):
   '''
   A task that does evaluation of the loss function.
+
+  Args:
+    src_file (str):
+    ref_file (str):
+    model (GeneratorModel):
+    batcher (Batcher):
+    loss_calculator (LossCalculator):
+    max_src_len (int):
+    max_trg_len (int):
+    desc (str):
   '''
 
   yaml_tag = '!LossEvalTask'
@@ -69,6 +79,16 @@ class LossEvalTask(Serializable):
 class AccuracyEvalTask(Serializable):
   '''
   A task that does evaluation of some measure of accuracy.
+
+  Args:
+    src_file (str):
+    ref_file (str):
+    hyp_file (str):
+    model (GeneratorModel):
+    eval_metrics (str): comma-separated list of evaluation metrics
+    inference (SimpleInference):
+    candidate_id_file (str):
+    desc (str):
   '''
 
   yaml_tag = '!AccuracyEvalTask'
