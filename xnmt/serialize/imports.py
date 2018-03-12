@@ -12,6 +12,7 @@ import xnmt.ff
 import xnmt.hyper_parameters
 import xnmt.inference
 import xnmt.input
+import xnmt.input_reader
 import xnmt.lstm
 import xnmt.exp_global
 import xnmt.optimizer

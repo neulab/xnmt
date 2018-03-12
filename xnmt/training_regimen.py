@@ -17,17 +17,19 @@ class TrainingRegimen(object):
     """
     Runs training steps in a loop until stopping criterion is reached.
 
-    :param save_fct: function to be invoked to save a model at dev checkpoints
-    :param update_weights: Whether parameters should be updated
+    Args:
+      save_fct: function to be invoked to save a model at dev checkpoints
+      update_weights (bool): Whether parameters should be updated
     """
     raise NotImplementedError("")
   def update_weights(self, loss, trainer, dynet_profiling):
     """
     Standardized way to perform backward pass and parameter updates.
 
-    :param loss: Result of self.training_step(...)
-    :param trainer: DyNet trainer / xnmt.optimizer object
-    :param dynet_profiling: if > 0, print the computation graph
+    Args:
+      loss: Result of self.training_step(...)
+      trainer (XnmtOptimizer): DyNet trainer
+      dynet_profiling (int): if > 0, print the computation graph
     """
     if dynet_profiling and dynet_profiling > 0:
       dy.print_text_graphviz()
@@ -35,6 +37,32 @@ class TrainingRegimen(object):
     trainer.update()
 
 class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
+  """
+  Args:
+    model (GeneratorModel): the model
+    src_file (str): the source training file
+    trg_file (str): the target training file
+    dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
+    batcher (Batcher): Type of batcher
+    loss_calculator (LossCalculator): The method for calculating the loss.
+    trainer (XnmtOptimizer): Trainer object, default is SGD with learning rate 0.1
+    run_for_epochs (int):
+    lr_decay (float):
+    lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
+    patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
+    initial_patience (int): if given, allows adjusting patience for the first LR decay
+    dev_tasks (List[EvalTask]): A list of tasks to use during the development stage.
+    restart_trainer (bool): Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
+    reload_command (str): Command to change the input data after each epoch.
+                         --epoch EPOCH_NUM will be appended to the command.
+                         To just reload the data after each epoch set the command to 'true'.
+    name (str): will be prepended to log outputs if given
+    sample_train_sents (int):
+    max_num_train_sents (int):
+    max_src_len (int):
+    max_trg_len (int):
+    exp_global (ExpGlobal):
+  """
   yaml_tag = '!SimpleTrainingRegimen'
   def __init__(self, model=Ref(path=Path("model")), src_file=None, trg_file=None,
                dev_every=0, batcher=bare(xnmt.batcher.SrcBatcher, batch_size=32),
@@ -44,31 +72,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                name=None, sample_train_sents=None, max_num_train_sents=None,
                max_src_len=None, max_trg_len=None,
                exp_global=Ref(Path("exp_global"))):
-    """
-    :param model: a generator.GeneratorModel object
-    :param src_file: the source training file
-    :param trg_file: the target training file
-    :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
-    :param batcher: Type of batcher
-    :param loss_calculator: The method for calculating the loss.
-    :param trainer: Trainer object, default is SGD with learning rate 0.1
-    :param run_for_epochs:
-    :param lr_decay (float):
-    :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
-    :param patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
-    :param initial_patience (int): if given, allows adjusting patience for the first LR decay
-    :param dev_tasks: A list of tasks to use during the development stage.
-    :param restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
-    :param reload_command: Command to change the input data after each epoch.
-                           --epoch EPOCH_NUM will be appended to the command.
-                           To just reload the data after each epoch set the command to 'true'.
-    :param name: will be prepended to log outputs if given
-    :param sample_train_sents:
-    :param max_num_train_sents:
-    :param max_src_len:
-    :param max_trg_len:
-    :param exp_global:
-    """
+
     super().__init__(model=model,
                      src_file=src_file,
                      trg_file=trg_file,
@@ -114,15 +118,15 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
   """
   Base class for multi-task training classes.
   Mainly initializes tasks, performs sanity-checks, and manages set_train events.
+
+  Args:
+    tasks (List[TrainingTask]): list of training tasks.
+                The first item takes on the role of the main task, meaning it
+                will control early stopping, learning rate schedule, and
+                model checkpoints.
+    trainer (XnmtOptimizer): Trainer object, default is SGD with learning rate 0.1
   """
   def __init__(self, tasks, trainer=None, exp_global=Ref(Path("exp_global"))):
-    """
-    :param tasks: list of TrainingTask instances.
-                  The first item takes on the role of the main task, meaning it
-                  will control early stopping, learning rate schedule, and
-                  model checkpoints.
-    :param trainer: Trainer object, default is SGD with learning rate 0.1
-    """
     self.dynet_profiling = exp_global.commandline_args.dynet_profiling
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
@@ -143,7 +147,8 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     """
     Trigger set_train event, but only if that would lead to a change of the value
     of set_train.
-    :param value: True or False
+    Args:
+      value: True or False
     """
     if self.train is None:
       self.train = value
@@ -154,13 +159,18 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
         self.tasks[0].model.set_train(value)
 
 class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
-  yaml_tag = "!SameBatchMultiTaskTrainingRegimen"
   """
   Multi-task training where gradients are accumulated and weight updates
   are thus performed jointly for each task. The relative weight between
   tasks can be configured by setting each tasks batch size accordingly.
   The stopping criterion of the first task is used (other tasks' stopping criteria are ignored).
+  
+  Args:
+    tasks (List[TrainingTask]): training tasks
+    trainer (XnmtOptimizer): the trainer is shared across tasks
+    exp_global (ExpGlobal): global experiment settings
   """
+  yaml_tag = "!SameBatchMultiTaskTrainingRegimen"
   def __init__(self, tasks, trainer=None, exp_global=Ref(Path("exp_global"))):
     super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
     self.exp_global = exp_global
@@ -190,7 +200,6 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
 
 
 class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
-  yaml_tag = "!AlternatingBatchMultiTaskTrainingRegimen"
   """
   Multi-task training where training steps are performed one after another.
   The relative weight between tasks are explicitly specified explicitly, and for
@@ -199,7 +208,13 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
   are only loaded individually. It also supports disabling training for some
   tasks by setting the task weight to 0.
   The stopping criterion of the first task is used (other tasks' stopping criteria are ignored).
+
+  Args:
+    tasks (List[TrainingTask]): training tasks
+    trainer (XnmtOptimizer): the trainer is shared across tasks
+    exp_global (ExpGlobal): global experiment settings
   """
+  yaml_tag = "!AlternatingBatchMultiTaskTrainingRegimen"
   def __init__(self, tasks, task_weights=None, trainer=None, exp_global=Ref(Path("exp_global"))):
     super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks)
@@ -234,15 +249,16 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   second task, etc.
 
   Useful to realize a pretraining-finetuning strategy.
+
+  Args:
+    tasks (List[TrainingTask]): training tasks. The currently active task is treated as main task.
+    trainer (XnmtOptimizer): the trainer is shared across tasks
+    exp_global (ExpGlobal): global experiment settings
   """
 
   yaml_tag = "!SerialMultiTaskTrainingRegimen"
 
   def __init__(self, exp_global, tasks, trainer=None):
-    """
-    :param tasks: list of TrainingTask instances. The currently active task is treated as main task.
-    :param trainer: Trainer object, default is SGD with learning rate 0.1
-    """
     super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
     self.exp_global = exp_global
   def run_training(self, save_fct, update_weights=True):

@@ -1,5 +1,3 @@
-from __future__ import division, generators
-
 import numpy as np
 from scipy.stats import norm
 
@@ -11,18 +9,21 @@ class LengthNormalization(object):
   '''
   def normalize_completed(self, completed_hyps, src_length=None):
     """
-    normalization step applied to completed hypotheses after search
-    :param completed hyps: list of completed Hypothesis objects, will be normalized in-place
-    :param src_length: length of source sequence (None if not given)
-    :returns: None
+    Normalization step applied to completed hypotheses after search.
+    
+    Args:
+      completed hyps: list of completed Hypothesis objects, will be normalized in-place
+      src_length: length of source sequence (None if not given)
     """
     raise NotImplementedError('normalize_completed must be implemented in LengthNormalization subclasses')
   def normalize_partial(self, score_so_far, score_to_add, new_len):
     """
-    :param score_so_far:
-    :param score_to_add:
-    :param new_len: length of output hyp with current word already appended
-    :returns: new score after applying score_to_add to score_so_far
+    Args:
+      score_so_far:
+      score_to_add:
+      new_len: length of output hyp with current word already appended
+    Returns:
+      new score after applying score_to_add to score_so_far
     normalization step applied during the search
     """
     return score_so_far + score_to_add # default behavior: add up the log probs
@@ -31,7 +32,7 @@ class NoNormalization(LengthNormalization, Serializable):
   '''
   Adding no form of length normalization
   '''
-  yaml_tag = u'!NoNormalization'
+  yaml_tag = '!NoNormalization'
   def normalize_completed(self, completed_hyps, src_length=None):
     pass
 
@@ -40,7 +41,7 @@ class AdditiveNormalization(LengthNormalization, Serializable):
   '''
   Adding a fixed word penalty everytime the word is added.
   '''
-  yaml_tag = u'!AdditiveNormalization'
+  yaml_tag = '!AdditiveNormalization'
 
   def __init__(self, penalty=-0.1, apply_during_search=False):
     self.penalty = penalty
@@ -58,7 +59,7 @@ class PolynomialNormalization(LengthNormalization, Serializable):
   '''
   Dividing by the length (raised to some power (default 1))
   '''
-  yaml_tag = u'!PolynomialNormalization'
+  yaml_tag = '!PolynomialNormalization'
 
   def __init__(self, m=1, apply_during_search=False):
     self.m = m
@@ -81,7 +82,7 @@ class MultinomialNormalization(LengthNormalization, Serializable):
   Tree-to-Sequence Attentional Neural Machine Translation
   https://arxiv.org/pdf/1603.06075.pdf
   '''
-  yaml_tag = u'!MultinomialNormalization'
+  yaml_tag = '!MultinomialNormalization'
 
   def __init__(self, sent_stats):
     self.stats = sent_stats
@@ -109,7 +110,7 @@ class GaussianNormalization(LengthNormalization, Serializable):
    sents in the training set.
    refer: https://arxiv.org/pdf/1509.04942.pdf
   '''
-  yaml_tag = u'!GaussianNormalization'
+  yaml_tag = '!GaussianNormalization'
   def __init__(self, sent_stats):
     self.stats = sent_stats.trg_stat
     self.num_sent = sent_stats.num_pair
