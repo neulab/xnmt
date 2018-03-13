@@ -2,6 +2,9 @@ import dynet as dy
 import collections
 
 class LossBuilder(object):
+  
+  # TODO: document me
+  
   def __init__(self, init_loss=None):
     self.loss_values = collections.defaultdict(lambda: dy.scalarInput(0))
     if init_loss != None:
@@ -37,6 +40,9 @@ class LossBuilder(object):
     return "{Loss Builder: %s}" % (loss_str)
 
 class LossScalarBuilder(object):
+  
+  # TODO: document me
+
   def __init__(self, loss_stats=None):
     if loss_stats == None:
       loss_stats = {}

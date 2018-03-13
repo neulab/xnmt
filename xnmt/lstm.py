@@ -1,4 +1,4 @@
-from __future__ import division, generators
+from collections.abc import Sequence
 
 import numpy as np
 import dynet as dy
@@ -11,13 +11,23 @@ from xnmt.serialize.tree_tools import Ref, Path
 
 class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   """
-  This implements an LSTM builder based on the memory-friendly dedicated DyNet nodes.
+  This implements a single LSTM layer based on the memory-friendly dedicated DyNet nodes.
   It works similar to DyNet's CompactVanillaLSTMBuilder, but in addition supports
   taking multiple inputs that are concatenated on-the-fly.
+  
+  Currently only supports transducing a complete sequence at once.
+  
+  Args:
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    input_dim (int): input dimension; if None, use exp_global.default_layer_dim
+    hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
+    dropout (float): dropout probability; if None, use exp_global.dropout
+    weightnoise_std (float): weight noise standard deviation; if None, use exp_global.weightnoise_std
+    param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
+    bias_init (ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
   """
-  yaml_tag = u'!UniLSTMSeqTransducer'
-
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, hidden_dim=None, dropout = None, weightnoise_std=None):
+  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, hidden_dim=None,
+               dropout = None, weightnoise_std=None, param_init=None, bias_init=None):
     register_handler(self)
     model = exp_global.dynet_param_collection.param_col
     input_dim = input_dim or exp_global.default_layer_dim
@@ -26,11 +36,14 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     self.dropout_rate = dropout or exp_global.dropout
     self.weightnoise_std = weightnoise_std or exp_global.weight_noise
     self.input_dim = input_dim
+    
+    param_init = param_init or exp_global.param_init
+    bias_init = bias_init or exp_global.bias_init
 
     # [i; f; o; g]
-    self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim))
-    self.p_Wh = model.add_parameters(dim=(hidden_dim*4, hidden_dim))
-    self.p_b  = model.add_parameters(dim=(hidden_dim*4,), init=dy.ConstInitializer(0.0))
+    self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim), init=param_init.initializer((hidden_dim*4, input_dim), num_shared=4))
+    self.p_Wh = model.add_parameters(dim=(hidden_dim*4, hidden_dim), init=param_init.initializer((hidden_dim*4, hidden_dim), num_shared=4))
+    self.p_b  = model.add_parameters(dim=(hidden_dim*4,), init=bias_init.initializer((hidden_dim*4,), num_shared=4))
 
     self.dropout_mask_x = None
     self.dropout_mask_h = None
@@ -62,8 +75,10 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     """
     transduce the sequence, applying masks if given (masked timesteps simply copy previous h / c)
 
-    :param expr_seq: expression sequence or list of expression sequences (where each inner list will be concatenated)
-    :returns: expression sequence
+    Args:
+      expr_seq: expression sequence or list of expression sequences (where each inner list will be concatenated)
+    Returns:
+      expression sequence
     """
     if isinstance(expr_seq, ExpressionSequence):
       expr_seq = [expr_seq]
@@ -100,11 +115,27 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
 class BiLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   This implements a bidirectional LSTM and requires about 8.5% less memory per timestep
-  than the native CompactVanillaLSTMBuilder due to avoiding concat operations.
-  """
-  yaml_tag = u'!BiLSTMSeqTransducer'
+  than DyNet's CompactVanillaLSTMBuilder due to avoiding concat operations.
+  It uses 2 :class:`xnmt.lstm.UniLSTMSeqTransducer` objects in each layer.
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None, dropout=None, weightnoise_std=None):
+  Args:
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    layers (int): number of layers
+    input_dim (int): input dimension; if None, use exp_global.default_layer_dim
+    hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
+    dropout (float): dropout probability; if None, use exp_global.dropout
+    weightnoise_std (float): weight noise standard deviation; if None, use exp_global.weightnoise_std
+    param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects 
+                specifying how to initialize weight matrices. If a list is given, each entry denotes one layer.
+                If None, use ``exp_global.param_init``
+    bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects 
+               specifying how to initialize bias vectors. If a list is given, each entry denotes one layer.
+               If None, use ``exp_global.param_init``
+  """
+  yaml_tag = '!BiLSTMSeqTransducer'
+  
+  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None, 
+               dropout=None, weightnoise_std=None, param_init=None, bias_init=None):
     register_handler(self)
     self.num_layers = layers
     input_dim = input_dim or exp_global.default_layer_dim
@@ -113,10 +144,20 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
     self.dropout_rate = dropout or exp_global.dropout
     self.weightnoise_std = weightnoise_std or exp_global.weight_noise
     assert hidden_dim % 2 == 0
-    self.forward_layers = [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std)]
-    self.backward_layers = [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std)]
-    self.forward_layers += [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std) for _ in range(layers-1)]
-    self.backward_layers += [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std) for _ in range(layers-1)]
+    param_init = param_init or exp_global.param_init
+    bias_init = bias_init or exp_global.bias_init
+    self.forward_layers = [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std, 
+                                                param_init=param_init[0] if isinstance(param_init, Sequence) else param_init,
+                                                bias_init=bias_init[0] if isinstance(bias_init, Sequence) else bias_init)]
+    self.backward_layers = [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std, 
+                                                 param_init=param_init[0] if isinstance(param_init, Sequence) else param_init,
+                                                 bias_init=bias_init[0] if isinstance(bias_init, Sequence) else bias_init)]
+    self.forward_layers += [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std, 
+                                                 param_init=param_init[i] if isinstance(param_init, Sequence) else param_init,
+                                                 bias_init=bias_init[i] if isinstance(bias_init, Sequence) else bias_init) for i in range(1, layers)]
+    self.backward_layers += [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std, 
+                                                  param_init=param_init[i] if isinstance(param_init, Sequence) else param_init,
+                                                  bias_init=bias_init[i] if isinstance(bias_init, Sequence) else bias_init) for i in range(1, layers)]
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -150,17 +191,31 @@ class CustomLSTMSeqTransducer(SeqTransducer):
   It is more memory-hungry than the compact LSTM, but can be extended more easily.
   It currently does not support dropout or multiple layers and is mostly meant as a
   starting point for LSTM extensions.
+  
+  Args:
+    layers (int): number of layers
+    input_dim (int): input dimension; if None, use exp_global.default_layer_dim
+    hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects 
+                specifying how to initialize weight matrices. If a list is given, each entry denotes one layer.
+                If None, use ``exp_global.param_init``
+    bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects 
+               specifying how to initialize bias vectors. If a list is given, each entry denotes one layer.
+               If None, use ``exp_global.param_init``
   """
-  def __init__(self, layers, input_dim, hidden_dim, exp_global=Ref(Path("exp_global"))):
+  def __init__(self, layers, input_dim, hidden_dim, exp_global=Ref(Path("exp_global")), param_init=None, bias_init=None):
     if layers!=1: raise RuntimeError("CustomLSTMSeqTransducer supports only exactly one layer")
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
     model = exp_global.dynet_param_collection.param_col
+    param_init = param_init or exp_global.param_init
+    bias_init = bias_init or exp_global.bias_init
 
     # [i; f; o; g]
-    self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim))
-    self.p_Wh = model.add_parameters(dim=(hidden_dim*4, hidden_dim))
-    self.p_b  = model.add_parameters(dim=(hidden_dim*4,), init=dy.ConstInitializer(0.0))
+    self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim), init=param_init.initializer((hidden_dim*4, input_dim)))
+    self.p_Wh = model.add_parameters(dim=(hidden_dim*4, hidden_dim), init=param_init.initializer((hidden_dim*4, hidden_dim)))
+    self.p_b  = model.add_parameters(dim=(hidden_dim*4,), init=bias_init.initializer((hidden_dim*4,)))
 
   def __call__(self, xs):
     Wx = dy.parameter(self.p_Wx)
