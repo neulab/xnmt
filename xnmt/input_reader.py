@@ -5,6 +5,7 @@ from itertools import zip_longest
 import ast
 
 import numpy as np
+import h5py
 
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
 from xnmt.serialize.serializable import Serializable
@@ -147,7 +148,48 @@ class SegmentationTextReader(PlainTextReader):
   def count_sents(self, filename):
     return super(SegmentationTextReader, self).count_sents(filename[0])
 
-class ContVecReader(InputReader, Serializable):
+
+class H5Reader(InputReader, Serializable):
+  """
+  Handles the case where sents are sequences of continuous-space vectors.
+
+  The input is a ".h5" file, which can be created for example using xnmt.preproc.MelFiltExtractor
+
+  The data items are assumed to be labeled with integers 0, 1, .. (converted to strings).
+
+  Each data item will be a 2D matrix representing a sequence of vectors. They can
+  be in either order, depending on the value of the "transpose" variable:
+  * sents[sent_id][feat_ind,word_ind] if transpose=False
+  * sents[sent_id][word_ind,feat_ind] if transpose=True
+
+  Args:
+    transpose (bool):
+  """
+  yaml_tag = u"!H5Reader"
+
+  def __init__(self, transpose=False):
+    self.transpose = transpose
+
+  def read_sents(self, filename, filter_ids=None):
+    with h5py.File(filename, "r") as hf:
+      h5_keys = sorted(hf.keys(), key=lambda x: int(x))
+      if filter_ids is not None:
+        h5_keys = [h5_keys[i] for i in filter_ids]
+      for idx, key in enumerate(h5_keys):
+        inp = hf[key][:]
+        if self.transpose:
+          inp = inp.transpose()
+        if idx % 1000 == 999:
+          logger.info(f"Read {idx+1} lines ({float(idx+1)/len(h5_keys)*100:.2f}%) of {filename} at {key}")
+        yield ArrayInput(inp)
+
+  def count_sents(self, filename):
+    with h5py.File(filename, "r") as hf:
+      l = len(hf.keys())
+    return l
+
+
+class NpzReader(InputReader, Serializable):
   """
   Handles the case where sents are sequences of continuous-space vectors.
 
@@ -165,11 +207,11 @@ class ContVecReader(InputReader, Serializable):
   be in either order, depending on the value of the "transpose" variable:
   * sents[sent_id][feat_ind,word_ind] if transpose=False
   * sents[sent_id][word_ind,feat_ind] if transpose=True
-  
+
   Args:
     transpose (bool):
   """
-  yaml_tag = "!ContVecReader"
+  yaml_tag = u"!NpzReader"
 
   def __init__(self, transpose=False):
     self.transpose = transpose
@@ -189,10 +231,11 @@ class ContVecReader(InputReader, Serializable):
     npzFile.close()
 
   def count_sents(self, filename):
-    npzFile = np.load(filename, mmap_mode="r") # for counting sentences, only read the index
+    npzFile = np.load(filename, mmap_mode="r")  # for counting sentences, only read the index
     l = len(npzFile.files)
     npzFile.close()
     return l
+
 
 class IDReader(BaseTextReader, Serializable):
   """
