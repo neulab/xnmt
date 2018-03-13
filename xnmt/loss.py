@@ -31,7 +31,7 @@ class LossBuilder(object):
   def compute(self):
     return dy.sum_batches(self.sum())
 
-  def sum(self):
+  def sum(self, batch_sum=True):
     if self.modified:
       self.sum_value = dy.esum(list(self.loss_values.values()))
       self.modified = False

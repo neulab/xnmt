@@ -328,27 +328,26 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       ret.append(dy.inputTensor(trg_i.one_hot_sum))
     return dy.concatenate_to_batch(ret)
 
+  def RMSE(self, squared_distance, N):
+    return dy.sqrt(dy.cdiv(squared_distance, dy.scalarInput(N))+EPS)
+
   @handle_xnmt_event
   def on_calc_additional_loss(self, src, trg, translator_loss, trg_words_counts):
     if not self.learn_segmentation or self.segment_decisions is None:
       return None
-    reward = -(translator_loss.sum())
-    reward = dy.nobackprop(reward)
-    reward = dy.cdiv(reward, dy.inputTensor(trg_words_counts, batched=True))
-    # Make sure that reward is not scalar, but rather based on the each batch item
-    assert reward.dim()[1] == len(self.src_sent)
-    # Mask
+    ### Constructing Rewards
+    # 1. Translator reward
+    trans_reward = -(translator_loss.sum())
+    trans_reward = dy.cdiv(trans_reward, dy.inputTensor(trg_words_counts, batched=True))
+    reward = LossBuilder({"trans_reward": dy.nobackprop(trans_reward)})
+    assert trans_reward.dim()[1] == len(self.src_sent)
     enc_mask = self.enc_mask.get_active_one_mask().transpose() if self.enc_mask is not None else None
-    # Compose the lose
     ret = LossBuilder()
-    ## Length prior
+    # 2. Length prior
     alpha = self.length_prior_alpha.value() if self.length_prior_alpha is not None else 0
     if alpha > 0:
-      reward += self.segment_length_prior * alpha
-    # reward z-score normalization
-    if self.z_normalization:
-      reward = dy.cdiv(reward-dy.mean_batches(reward), dy.std_batches(reward) + EPS)
-    # BOW_LOSS
+      reward.add_loss("lp_reward", dy.nobackprop(self.segment_length_prior * alpha))
+    # 3. Bag of words rewards + loss
     if self.bow_loss:
       bow_rep = self.bow_representation(trg)
       mask = None
@@ -362,6 +361,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         p_rep = dy.sum_dim(p_rep, d=[0])
       bow_loss = dy.squared_distance(p_rep, bow_rep)
       ret.add_loss("rmse_bow", bow_loss)
+      reward.add_loss("bow_reward", dy.nobackprop(-bow_loss))
+    reward = reward.sum(batch_sum=False)
+    # reward z-score normalization
+    if self.z_normalization:
+      reward = dy.cdiv(reward-dy.mean_batches(reward), dy.std_batches(reward) + EPS)
     ## Baseline Loss
     if self.use_baseline:
       baseline_loss = []
@@ -372,7 +376,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         loss = dy.squared_distance(reward, baseline)
         if enc_mask is not None:
           loss = dy.cmult(dy.inputTensor(enc_mask[i], batched=True), loss)
-        baseline_loss.append(loss)
+        baseline_loss.append(self.RMSE(loss, 1))
       ret.add_loss("baseline", dy.esum(baseline_loss))
     ## Reinforce Loss
     lmbd = self.lmbd.value()
