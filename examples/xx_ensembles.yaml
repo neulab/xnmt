@@ -1,0 +1,58 @@
+# A standard setup, specifying model architecture, training parameters, 
+# and evaluation of the trained model
+ensemble: !Experiment # 'standard' is the name given to the experiment
+  # global parameters shared throughout the experiment
+  exp_global: !ExpGlobal
+    # {EXP_DIR} is a placeholder for the directory in which the config file lies.
+    # {EXP} is a placeholder for the experiment name (here: 'standard')
+    model_file: '{EXP_DIR}/models/{EXP}.mod'
+    log_file: '{EXP_DIR}/logs/{EXP}.log'
+    default_layer_dim: 512
+    dropout: 0.3
+  # model architecture
+  model: !EnsembleTranslator
+    # src_reader and trg_reader must logically be the same for all members of an
+    # ensemble, and some task functions expect them to be attributes of a
+    # 'model', so we define them here
+    src_reader: !PlainTextReader
+      _xnmt_id: my_src_reader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      _xnmt_id: my_trg_reader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    models:
+    - &my_individual_model !DefaultTranslator
+      # TODO: unfortunately, we have to explicitly reference the readers in the
+      #       submodels right now, as the constructor expects it
+      src_reader: !Ref {name: my_src_reader}
+      trg_reader: !Ref {name: my_trg_reader}
+      encoder: !BiLSTMSeqTransducer
+        layers: 1
+      attender: !MlpAttender
+        hidden_dim: 512
+        state_dim: 512
+        input_dim: 512
+      trg_embedder: !SimpleWordEmbedder
+        emb_dim: 512
+      decoder: !MlpSoftmaxDecoder
+        layers: 1
+        mlp_hidden_dim: 512
+        bridge: !CopyBridge {}
+  # training parameters
+  train: !SimpleTrainingRegimen
+    trainer: !AdamTrainer
+      alpha: 0.001
+    run_for_epochs: 2
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
+  # final evaluation
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp

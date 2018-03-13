@@ -1,5 +1,6 @@
 import dynet as dy
 import numpy as np
+import collections
 import itertools
 
 # Reporting purposes
@@ -469,3 +470,138 @@ class TransformerTranslator(Translator, Serializable, Reportable):
       outputs.append((output_actions, score))
 
     return outputs
+
+
+class EnsembleTranslator(Translator, Serializable):
+  '''
+  A translator that decodes from an ensemble of DefaultTranslator models.
+
+  TODO: currently just assumes that all models are compatible, i.e., they share
+  the same src_reader/trg_reader/vocabs
+  '''
+
+  yaml_tag = '!EnsembleTranslator'
+
+  def __init__(self, models, src_reader, trg_reader, inference=bare(SimpleInference)):
+    register_handler(self)
+    self.models = models
+    self.src_reader = src_reader
+    self.trg_reader = trg_reader
+    self.inference = inference
+    # proxy object used for generation, to avoid code duplication
+    self._proxy = DefaultTranslator(
+      self.src_reader,
+      self.trg_reader,
+      EnsembleListDelegate([model.src_embedder for model in self.models]),
+      EnsembleListDelegate([model.encoder for model in self.models]),
+      EnsembleListDelegate([model.attender for model in self.models]),
+      EnsembleListDelegate([model.trg_embedder for model in self.models]),
+      EnsembleDecoder([model.decoder for model in self.models])
+    )
+
+  def shared_params(self):
+    shared = [params for model in self.models for params in model.shared_params()]
+    # TODO: Is this needed?
+    shared += [set([Path(".src_reader.vocab"), Path(f".models.{i}.src_reader.vocab")]) \
+               for i in range(len(self.models))]
+    shared += [set([Path(".trg_reader.vocab"), Path(f".models.{i}.trg_reader.vocab")]) \
+               for i in range(len(self.models))]
+    return shared
+
+  def set_trg_vocab(self, trg_vocab=None):
+    self._proxy.set_trg_vocab(trg_vocab=trg_vocab)
+
+  def initialize_generator(self, **kwargs):
+    self._proxy.initialize_generator(**kwargs)
+
+  def calc_loss(self, src, trg, loss_calculator):
+    sub_losses = collections.defaultdict(list)
+    for model in self.models:
+      for loss_name, loss in model.calc_loss(src, trg, loss_calculator).loss_values.items():
+        sub_losses[loss_name].append(loss)
+    model_loss = LossBuilder()
+    for loss_name, losslist in sub_losses.items():
+      # TODO: dy.average(losslist)  _or_  dy.esum(losslist) / len(self.models) ?
+      #       -- might not be the same if not all models return all losses
+      model_loss.add_loss(loss_name, dy.average(losslist))
+    return model_loss
+
+  def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
+    return self._proxy.generate(src, idx, src_mask=src_mask, forced_trg_ids=forced_trg_ids)
+
+
+class EnsembleListDelegate(object):
+  '''
+  Auxiliary object to wrap a list of objects for ensembling.
+
+  This class can wrap a list of objects that exist in parallel and do not need
+  to interact with each other. The main functions of this class are:
+
+  - All attribute access and function calls are delegated to the wrapped objects.
+  - When wrapped objects return values, the list of all returned values is also
+    wrapped in an EnsembleListDelegate object.
+  - When EnsembleListDelegate objects are supplied as arguments, they are
+    "unwrapped" so the i-th object receives the i-th element of the
+    EnsembleListDelegate argument.
+  '''
+
+  def __init__(self, objects):
+    assert isinstance(objects, (tuple, list))
+    assert len(set(type(obj) for obj in objects)) == 1, \
+      "Wrapped objects must all have the same type"
+    self._objects = objects
+
+  def __getitem__(self, key):
+    return self._objects[key]
+
+  def __iter__(self):
+    return self._objects.__iter__()
+
+  def __call__(self, *args, **kwargs):
+    return self.__getattr__('__call__')(*args, **kwargs)
+
+  def __getattr__(self, attr):
+    def unwrap(list_idx, args, kwargs):
+      args = [arg if not isinstance(arg, EnsembleListDelegate) else arg[list_idx] \
+              for arg in args]
+      kwargs = {key: val if not isinstance(arg, EnsembleListDelegate) else val[list_idx] \
+                for key, val in kwargs.items()}
+      return args, kwargs
+
+    attrs = [getattr(obj, attr) for obj in self._objects]
+    if callable(attrs[0]):
+      def wrapper_func(*args, **kwargs):
+        ret = []
+        for i, attr_ in enumerate(attrs):
+          args, kwargs = unwrap(i, args, kwargs)
+          ret.append(attr_(*args, **kwargs))
+        if all(val is None for val in ret):
+          return None
+        else:
+          return EnsembleListDelegate(ret)
+      return wrapper_func
+    else:
+      return EnsembleListDelegate(attrs)
+
+  def __setattr__(self, attr, value):
+    if not attr.startswith('_'):
+      if isinstance(value, EnsembleListDelegate):
+        for i, obj in enumerate(self._objects):
+          setattr(obj, attr, value[i])
+      else:
+        for obj in self._objects:
+          setattr(obj, attr, value)
+    else:
+      self.__dict__[attr] = value
+
+
+class EnsembleDecoder(EnsembleListDelegate):
+  '''
+  Ensemble decoder.
+
+  Currently gathers the scores of all decoders and averages them.
+  TODO: Could make this configurable to allow other types of ensembling.
+  '''
+  def get_scores(self, mlp_dec_states):
+    scores = [obj.get_scores(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
+    return dy.average(scores)
