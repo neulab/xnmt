@@ -305,9 +305,11 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         self.training_state.cur_attempt += 1
         if self.lr_decay < 1.0:
           should_decay = False
-          if (self.initial_patience is None or self.training_state.num_times_lr_decayed>0) and self.training_state.cur_attempt >= self.patience:
+          if (self.initial_patience is None or self.training_state.num_times_lr_decayed>0) \
+                  and self.training_state.cur_attempt >= self.patience:
             should_decay = True
-          if self.initial_patience is not None and self.training_state.num_times_lr_decayed==0 and self.training_state.cur_attempt >= self.initial_patience:
+          if self.initial_patience is not None and self.training_state.num_times_lr_decayed==0 \
+                  and self.training_state.cur_attempt >= self.initial_patience:
             should_decay = True
           if should_decay:
             self.training_state.num_times_lr_decayed += 1
@@ -315,6 +317,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
               logger.info('  Early stopping')
               self.early_stopping_reached = True
             else:
+              self.training_state.cur_attempt = 0
               self.trainer.learning_rate *= self.lr_decay
               logger.info('  new learning rate: %s' % self.trainer.learning_rate)
               if self.restart_trainer:
