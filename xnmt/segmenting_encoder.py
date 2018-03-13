@@ -361,7 +361,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         p_rep = dy.cmult(dy.transpose(p_rep), mask)
       if len(p_rep.dim()[0]) > 1:
         p_rep = dy.sum_dim(p_rep, d=[0])
-      bow_loss = dy.sqrt(dy.squared_distance(p_rep, bow_rep))
+      bow_loss = dy.squared_distance(p_rep, bow_rep)
       ret.add_loss("rmse_bow", bow_loss)
     ## Baseline Loss
     if self.use_baseline:
@@ -370,7 +370,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       for i, encoding in enumerate(self.encodings):
         baseline = self.baseline(dy.nobackprop(encoding))
         baseline_score.append(dy.nobackprop(baseline))
-        loss = dy.sqrt(dy.squared_distance(reward, baseline))
+        loss = dy.squared_distance(reward, baseline)
         if enc_mask is not None:
           loss = dy.cmult(dy.inputTensor(enc_mask[i], batched=True), loss)
         baseline_loss.append(loss)
