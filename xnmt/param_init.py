@@ -46,7 +46,7 @@ class UniformInitializer(ParamInitializer, Serializable):
   
   Initialize the parameters with a uniform distribution.
   Args:
-    scale (float): Parameters are sampled from :math:`\mathcal U([-\\texttt{scale},\\texttt{scale}])`
+    scale (float): Parameters are sampled from :math:`\\mathcal U([-\\texttt{scale},\\texttt{scale}])`
   """
   yaml_tag = "!UniformInitializer"
   def __init__(self, scale):
@@ -75,7 +75,7 @@ class GlorotInitializer(ParamInitializer, Serializable):
   
   Initializes the weights according to `Glorot & Bengio (2011) <http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf>`_ 
     
-    If the dimensions of the parameter matrix are :math:`m,n`, the weights are sampled from :math:`\mathcal U([-g\sqrt{\\frac{6}{m+n}},g\sqrt{\\frac{6}{m+n}}])`
+    If the dimensions of the parameter matrix are :math:`m,n`, the weights are sampled from :math:`\\mathcal U([-g\\sqrt{\\frac{6}{m+n}},g\\sqrt{\\frac{6}{m+n}}])`
     
     The gain :math:`g` depends on the activation function : 
 
