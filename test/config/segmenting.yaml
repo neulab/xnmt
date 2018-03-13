@@ -51,6 +51,7 @@ debug-segmenting: !Experiment
       learn_delete: False
       print_sample: True
       print_sample_prob: 1.0
+      bow_loss: True
     attender: !MlpAttender
       state_dim: 16
       hidden_dim: 16

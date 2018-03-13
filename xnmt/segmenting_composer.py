@@ -26,6 +26,10 @@ class SegmentComposer(Serializable, Reportable):
   def next_item(self):
     pass
 
+  @property
+  def hidden_dim(self):
+    return self.encoder.hidden_dim
+
   def transduce(self, inputs, word=None):
     return self.transformer.transform(self.encoder, self.encoder(inputs), word)
 

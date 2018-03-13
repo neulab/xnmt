@@ -43,13 +43,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                # For segmentation warmup (Always use the poisson prior)
                segmentation_warmup=0,
                src_vocab = Ref(Path("model.src_reader.vocab")),
+               trg_vocab = Ref(Path("model.trg_reader.vocab")),
                ## FLAGS
                learn_delete       = False,
                use_baseline       = True,
-               learn_baseline     = True,
                z_normalization    = True,
                learn_segmentation = True,
                compose_char       = False,
+               bow_loss           = False,
                print_sample=False):
     register_handler(self)
     model = exp_global.dynet_param_collection.param_col
@@ -60,6 +61,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
     self.src_vocab = src_vocab
+    self.trg_vocab = trg_vocab
     if not hasattr(embed_encoder, "hidden_dim"):
       embed_encoder_dim = yaml_context.default_layer_dim
     else:
@@ -76,15 +78,18 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.baseline = linear.Linear(input_dim = embed_encoder_dim,
                                   output_dim = 1,
                                   model = model)
+    self.bow_projector = linear.Linear(input_dim = self.segment_composer.hidden_dim,
+                                       output_dim = len(trg_vocab),
+                                       model = model)
     # Flags
     self.use_baseline = use_baseline
+    self.bow_loss = bow_loss
     self.learn_segmentation = learn_segmentation
     self.learn_delete = learn_delete
     self.z_normalization = z_normalization
     self.compose_char = compose_char
     self.print_sample = print_sample
     self.print_sample_prob = print_sample_prob
-    self.learn_baseline = learn_baseline
     # Fixed Parameters
     self.length_prior = length_prior
     self.segmentation_warmup = segmentation_warmup
@@ -162,20 +167,19 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       np_arr = numpy.zeros((len(self.src_sent[0]), batch_size))
       np_arr[-1][:] = 1
       enc_mask = Mask(np_arr.transpose())
-    # Padding
+    # Packing output together
     outputs, masks = self.pad(outputs)
     self.segment_decisions = segment_decisions
     self.segment_logsoftmaxes = segment_logsoftmaxes
+    self.encodings = encodings
     self.enc_mask = enc_mask
-    # Packing output together
-    if self.learn_segmentation:
-      if length_prior_enabled:
-        self.segment_length_prior = dy.log(dy.inputTensor(length_prior, batched=True)+EPS)
-      if self.use_baseline:
-        self.bs = [self.baseline(dy.nobackprop(enc)) for enc in encodings]
+    self.outputs = dy.concatenate_to_batch(outputs)
+    self.out_mask = masks
+    if length_prior_enabled:
+      self.segment_length_prior = dy.log(dy.inputTensor(length_prior, batched=True)+EPS)
     # Decide to print or not
     if self.print_sample:
-      self.print_sample_triggered = (self.print_sample_prob - numpy.random.random()) >= 0
+      self.print_sample_triggered = (self.print_sample_prob-numpy.random.random()) >= 0
       if self.print_sample_triggered:
         self.print_sample_enc(outputs, enc_mask, masks)
     if not self.train:
@@ -183,9 +187,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       self.set_report_resource("segmentation", self.segment_decisions)
       self.set_report_input(segment_decisions)
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
-    return self.final_transducer(expression_sequence.ExpressionSequence(
-                                       expr_tensor=dy.concatenate_to_batch(outputs),
-                                       mask=masks))
+    return self.final_transducer(expression_sequence.ExpressionSequence(expr_tensor=self.outputs,
+                                                                        mask=masks))
 
   @handle_xnmt_event
   def on_start_sent(self, src=None):
@@ -241,12 +244,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if len(mask[i]) != 0:
           segment_decisions[i-1][mask[i]] = 1
     segment_decisions[-1][:] = 1 # </s>
-
     #### DEBUG
     #print(segment_decisions.transpose()[0])
     #print(numpy.exp(numpy.array([list(log.npvalue().transpose()[0]) for log in segment_logsoftmaxes])))
     ####
-
     return segment_decisions, segment_logsoftmaxes
 
   # Sample from prior segmentation
@@ -317,8 +318,19 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           p = p.value()
         logger.debug(n + ": " + str(p))
 
+  def bow_representation(self, trg):
+    ret = []
+    for trg_i in trg:
+      if "one_hot_sum" not in trg_i:
+        one_hot_sum = [0 for _ in range(len(self.trg_vocab))]
+        for word in trg_i:
+          one_hot_sum[word] += 1
+        trg_i.one_hot_sum = one_hot_sum
+      ret.append(dy.inputTensor(trg_i.one_hot_sum))
+    return dy.concatenate_to_batch(ret)
+
   @handle_xnmt_event
-  def on_calc_additional_loss(self, translator_loss, trg_words_counts):
+  def on_calc_additional_loss(self, src, trg, translator_loss, trg_words_counts):
     if not self.learn_segmentation or self.segment_decisions is None:
       return None
     reward = -(translator_loss.sum())
@@ -337,17 +349,32 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # reward z-score normalization
     if self.z_normalization:
       reward = dy.cdiv(reward-dy.mean_batches(reward), dy.std_batches(reward) + EPS)
+    # BOW_LOSS
+    if self.bow_loss:
+      bow_rep = self.bow_representation(trg)
+      mask = None
+      if self.out_mask is not None:
+        mask = dy.inputTensor(self.out_mask.get_active_one_mask().transpose(), batched=True)
+      
+      p_rep = dy.softmax(self.bow_projector(self.outputs), d=0)
+      if mask is not None:
+        p_rep = dy.cmult(dy.transpose(p_rep), mask)
+      if len(p_rep.dim()[0]) > 1:
+        p_rep = dy.sum_dim(p_rep, d=[0])
+      bow_loss = dy.sqrt(dy.squared_distance(p_rep, bow_rep))
+      ret.add_loss("rmse_bow", bow_loss)
     ## Baseline Loss
-    if self.use_baseline and self.learn_baseline:
+    if self.use_baseline:
       baseline_loss = []
-      for i, baseline in enumerate(self.bs):
-        loss = dy.squared_distance(reward, baseline)
+      baseline_score = []
+      for i, encoding in enumerate(self.encodings):
+        baseline = self.baseline(dy.nobackprop(encoding))
+        baseline_score.append(dy.nobackprop(baseline))
+        loss = dy.sqrt(dy.squared_distance(reward, baseline))
         if enc_mask is not None:
           loss = dy.cmult(dy.inputTensor(enc_mask[i], batched=True), loss)
         baseline_loss.append(loss)
-
       ret.add_loss("baseline", dy.esum(baseline_loss))
-
     ## Reinforce Loss
     lmbd = self.lmbd.value()
     rewards = []
@@ -364,8 +391,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         lls.append(ll)
         # reward
         if self.use_baseline:
-          r_i = reward - dy.nobackprop(self.bs[i])
-          baseline.append(self.bs[i])
+          r_i = reward - baseline_score[i]
+          baseline.append(baseline_score[i])
         else:
           r_i = reward
         rewards.append(r_i)

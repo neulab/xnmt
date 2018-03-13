@@ -249,7 +249,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
     loss_builder = LossBuilder()
     standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-    additional_loss = self.model.calc_additional_loss(standard_loss, trg_word_counts)
+    additional_loss = self.model.calc_additional_loss(src, trg, standard_loss, trg_word_counts)
     loss_builder.add_loss("standard_loss", standard_loss)
     loss_builder.add_loss("additional_loss", additional_loss)
 
