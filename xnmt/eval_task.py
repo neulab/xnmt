@@ -2,14 +2,16 @@ from simple_settings import settings
 
 import dynet as dy
 
+import xnmt.input_reader
 from xnmt.serialize.serializer import Serializable
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
 from xnmt.serialize.tree_tools import Path, Ref
 from xnmt.loss import LossBuilder, LossScalarBuilder
 import xnmt.xnmt_evaluate
+from xnmt.experiment import Experiment
 
-class EvalTask:
+class EvalTask(object):
   '''
   An EvalTask is a task that does evaluation and returns one or more EvalScore objects.
   '''
@@ -19,9 +21,19 @@ class EvalTask:
 class LossEvalTask(Serializable):
   '''
   A task that does evaluation of the loss function.
+
+  Args:
+    src_file (str):
+    ref_file (str):
+    model (GeneratorModel):
+    batcher (Batcher):
+    loss_calculator (LossCalculator):
+    max_src_len (int):
+    max_trg_len (int):
+    desc (str):
   '''
 
-  yaml_tag = u'!LossEvalTask'
+  yaml_tag = '!LossEvalTask'
 
   def __init__(self, src_file, ref_file, model=Ref(path=Path("model")),
                 batcher=Ref(path=Path("train.batcher"), required=False),
@@ -40,7 +52,7 @@ class LossEvalTask(Serializable):
   def eval(self):
     if self.src_data == None:
       self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
-        xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
+        xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                         self.src_file, self.ref_file, batcher=self.batcher,
                                         max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
     loss_val = LossScalarBuilder()
@@ -68,9 +80,19 @@ class LossEvalTask(Serializable):
 class AccuracyEvalTask(Serializable):
   '''
   A task that does evaluation of some measure of accuracy.
+
+  Args:
+    src_file (str):
+    ref_file (str):
+    hyp_file (str):
+    model (GeneratorModel):
+    eval_metrics (str): comma-separated list of evaluation metrics
+    inference (SimpleInference):
+    candidate_id_file (str):
+    desc (str):
   '''
 
-  yaml_tag = u'!AccuracyEvalTask'
+  yaml_tag = '!AccuracyEvalTask'
 
   def __init__(self, src_file, ref_file, hyp_file, model=Ref(path=Path("model")),
                eval_metrics="bleu", inference=None, candidate_id_file=None,

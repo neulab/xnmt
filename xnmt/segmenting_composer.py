@@ -1,5 +1,4 @@
 import dynet as dy
-import io
 
 import xnmt.linear
 import xnmt.embedder
@@ -11,7 +10,7 @@ from xnmt.reports import Reportable
 from xnmt.vocab import Vocab
 
 class SegmentComposer(Serializable, Reportable):
-  yaml_tag = u"!SegmentComposer"
+  yaml_tag = "!SegmentComposer"
 
   def __init__(self, encoder, transformer):
     register_handler(self)
@@ -43,7 +42,7 @@ class TailSegmentTransformer(SegmentTransformer, Serializable):
     return encoder.get_final_states()[0]._main_expr
 
 class TailWordSegmentTransformer(SegmentTransformer):
-  yaml_tag = u"!TailWordSegmentTransformer"
+  yaml_tag = "!TailWordSegmentTransformer"
 
   def __init__(self, exp_global=Ref(Path("exp_global")), vocab=None, vocab_size=1e6,
                count_file=None, min_count=1, embed_dim=None):
@@ -56,7 +55,7 @@ class TailWordSegmentTransformer(SegmentTransformer):
     if count_file is not None:
       print("Reading count reference...")
       frequent_words = set()
-      with io.open(count_file, "r") as fp:
+      with open(count_file, "r") as fp:
         for line in fp:
           line = line.strip().split("\t")
           cnt = int(line[-1])
@@ -76,12 +75,12 @@ class TailWordSegmentTransformer(SegmentTransformer):
     return ret
 
 class WordOnlySegmentTransformer(TailWordSegmentTransformer):
-  yaml_tag = u"!WordOnlySegmentTransformer"
+  yaml_tag = "!WordOnlySegmentTransformer"
   def transform(self, encoder, encodings, word):
     return self.lookup[self.get_word(word)]
 
 class AverageSegmentTransformer(SegmentTransformer):
-  yaml_tag = u"!AverageSegmentTransformer"
+  yaml_tag = "!AverageSegmentTransformer"
   def transform(self, encoder, encodings, word=None):
     return dy.average(encodings.as_list())
 

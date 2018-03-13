@@ -82,7 +82,9 @@ class LossTracker(object):
   def report_train_process(self):
     """
     Print training report if eval_train_every sents have been evaluated.
-    :return: True if the training process is reported
+
+    Return:
+      True if the training process is reported
     """
     print_report = self.sent_num_not_report_train >= self.eval_train_every \
                    or self.sent_num == self.total_train_sent
@@ -133,7 +135,9 @@ class LossTracker(object):
   def report_dev_and_check_model(self, model_file):
     """
     Print dev testing report and check whether the dev loss is the best seen so far.
-    :return: True if the dev loss is the best and required save operations
+
+    Return:
+      True if the dev loss is the best and required save operations
     """
     this_report_time = time.time()
     sent_num = self.eval_dev_every if self.eval_dev_every != 0 else self.total_train_sent

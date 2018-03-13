@@ -6,11 +6,13 @@ from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.expression_sequence import ExpressionSequence
 
 class FullyConnectedSeqTransducer(SeqTransducer, Serializable):
-  yaml_tag = u'!FullyConnectedSeqTransducer'
+  yaml_tag = '!FullyConnectedSeqTransducer'
   def __init__(self, in_height, out_height, nonlinearity='linear', exp_global=Ref(Path("exp_global"))):
     """
-      :param in_height, out_height: input and output dimension of the affine transform
-      :param nonlinearity: nonlinear activation function
+    Args:
+      in_height: input dimension of the affine transform
+      out_height: output dimension of the affine transform
+      nonlinearity: nonlinear activation function
     """
     model = exp_global.dynet_param_collection.param_col
     self.in_height = in_height

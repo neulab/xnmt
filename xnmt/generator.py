@@ -1,6 +1,7 @@
 from xnmt.events import register_xnmt_event, register_xnmt_event_sum
 
 class GeneratorModel(object):
+  # TODO: document me
   def generate_output(self, *args, **kwargs):
     # Generate the output
     generation_output = self.generate(*args, **kwargs)

@@ -1,9 +1,5 @@
-from __future__ import division, generators
-
-import numpy as np
 import dynet as dy
 
-from xnmt.batcher import Mask
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
 from xnmt.serialize.serializable import Serializable
@@ -14,27 +10,24 @@ from xnmt.transducer import SeqTransducer, FinalTransducerState
 
 class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
   """
-  Builder for pyramidal RNNs that delegates to regular RNNs and wires them together.
+  Builder for pyramidal RNNs that delegates to :class:`xnmt.lstm.UniLSTMSeqTransducer` objects and wires them together.
   See https://arxiv.org/abs/1508.01211
 
-  Every layer (except the first) reduces sequence length by factor 2.
+  Every layer (except the first) reduces sequence length by the specified factor.
 
-      builder = PyramidalRNNBuilder(4, 128, 100, model, VanillaLSTMBuilder)
-      [o1,o2,o3] = builder.transduce([i1,i2,i3])
+  Args:
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    layers (int): number of layers
+    input_dim (int): input dimension; if None, use exp_global.default_layer_dim
+    hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
+    downsampling_method (str): how to perform downsampling (concat|skip)
+    reduce_factor: integer, or list of ints (different skip for each layer)
+    dropout (float): dropout probability; if None, use exp_global.dropout
   """
-  yaml_tag = u'!PyramidalLSTMSeqTransducer'
+  yaml_tag = '!PyramidalLSTMSeqTransducer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None,
                downsampling_method="concat", reduce_factor=2, dropout=None):
-    """
-    :param layers: depth of the PyramidalRNN
-    :param input_dim: size of the inputs
-    :param hidden_dim: size of the outputs (and intermediate layer representations)
-    :param model
-    :param rnn_builder_factory: RNNBuilder subclass, e.g. VanillaLSTMBuilder
-    :param downsampling_method: how to perform downsampling (concat|skip)
-    :param reduce_factor: integer, or list of ints (different skip for each layer)
-    """
     register_handler(self)
     hidden_dim = hidden_dim or exp_global.default_layer_dim
     input_dim = input_dim or exp_global.default_layer_dim
@@ -77,7 +70,8 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
     to the current state, one by one, to both the forward and backward RNNs,
     and concatenating.
 
-    :param es: an ExpressionSequence
+    Args:
+      es: an ExpressionSequence
     """
 
     es_list = [es]

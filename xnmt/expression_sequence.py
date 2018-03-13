@@ -10,12 +10,13 @@ class ExpressionSequence(object):
   def __init__(self, expr_list=None, expr_tensor=None, mask=None):
     """Constructor.
 
-    :param expr_list: a python list of expressions
-    :param expr_tensor: a tensor where last dimension are the sequence items
-    :param mask: a numpy array consisting of whether things should be masked or not
-    :raises valueError:
-      raises an exception if neither expr_list nor expr_tensor are given,
-      or if both have inconsistent length
+    Args:
+      expr_list: a python list of expressions
+      expr_tensor: a tensor where last dimension are the sequence items
+      mask: a numpy array consisting of whether things should be masked or not
+    Raises:
+      valueError: raises an exception if neither expr_list nor expr_tensor are given,
+                  or if both have inconsistent length
     """
     self.expr_list = expr_list
     self.expr_tensor = expr_tensor
@@ -39,7 +40,8 @@ class ExpressionSequence(object):
   def __len__(self):
     """Return length.
 
-    :returns: length of sequence
+    Returns:
+      length of sequence
     """
     if self.expr_list: return len(self.expr_list)
     else: return self.expr_tensor.dim()[0][-1]
@@ -47,7 +49,8 @@ class ExpressionSequence(object):
   def __iter__(self):
     """Return iterator.
 
-    :returns: iterator over the sequence; results in explicit conversion to list
+    Returns:
+      iterator over the sequence; results in explicit conversion to list
     """
     if self.expr_list is None:
       self.expr_list = [self[i] for i in range(len(self))]
@@ -56,7 +59,8 @@ class ExpressionSequence(object):
   def __getitem__(self, key):
     """Get a single item.
 
-    :returns: sequence item (expression); does not result in explicit conversion to list
+    Returns:
+      sequence item (expression); does not result in explicit conversion to list
     """
     if self.expr_list: return self.expr_list[key]
     else:
@@ -65,7 +69,9 @@ class ExpressionSequence(object):
 
   def as_list(self):
     """Get a list.
-    :returns: the whole sequence as a list with each element one of the embeddings.
+
+    Returns:
+      the whole sequence as a list with each element one of the embeddings.
     """
     if self.expr_list is None:
       self.expr_list = [self[i] for i in range(len(self))]
@@ -73,13 +79,15 @@ class ExpressionSequence(object):
 
   def has_list(self):
     """
-    :returns: False if as_list() will result in creating additional expressions, True otherwise
+    Returns:
+      False if as_list() will result in creating additional expressions, True otherwise
     """
     return self.expr_list is not None
 
   def as_tensor(self):
     """Get a tensor.
-    :returns: the whole sequence as a tensor expression where each column is one of the embeddings.
+    Returns:
+      the whole sequence as a tensor expression where each column is one of the embeddings.
     """
     if self.expr_tensor is None:
       self.expr_tensor = dy.concatenate_cols(self.expr_list)
@@ -87,7 +95,8 @@ class ExpressionSequence(object):
 
   def has_tensor(self):
     """
-    :returns: False if as_tensor() will result in creating additional expressions, True otherwise
+    Returns:
+      False if as_tensor() will result in creating additional expressions, True otherwise
     """
     return self.expr_tensor is not None
 
@@ -98,7 +107,8 @@ class LazyNumpyExpressionSequence(ExpressionSequence):
   """
   def __init__(self, lazy_data, mask=None):
     """
-    :param lazy_data: numpy array, or Batcher.Batch of numpy arrays
+    Args:
+      lazy_data: numpy array, or Batcher.Batch of numpy arrays
     """
     self.lazy_data = lazy_data
     self.expr_list, self.expr_tensor = None, None

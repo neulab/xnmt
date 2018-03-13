@@ -24,7 +24,7 @@ class YamlSerializer(object):
   @staticmethod
   def is_initialized(obj):
     """
-    :returns: True if a serializable object's __init__ has been invoked (either programmatically or through YAML deserialization)
+    Returns: True if a serializable object's __init__ has been invoked (either programmatically or through YAML deserialization)
               False if __init__ has not been invoked, i.e. the object has been produced by the YAML parser but is not ready to use
     """
     return type(obj) != UninitializedYamlObject
@@ -33,8 +33,10 @@ class YamlSerializer(object):
     """
     Initializes a hierarchy of deserialized YAML objects.
 
-    :param deserialized_yaml_wrapper: deserialized YAML data inside a UninitializedYamlObject wrapper (classes are resolved and class members set, but __init__() has not been called at this point)
-    :returns: the appropriate object, with properly shared parameters and __init__() having been invoked
+    Args:
+      deserialized_yaml_wrapper: deserialized YAML data inside a UninitializedYamlObject wrapper (classes are resolved and class members set, but __init__() has not been called at this point)
+    Returns:
+      the appropriate object, with properly shared parameters and __init__() having been invoked
     """
     if self.is_initialized(deserialized_yaml_wrapper):
       raise AssertionError()
@@ -177,8 +179,10 @@ class YamlSerializer(object):
   @lru_cache(maxsize=None)
   def init_component(self, path):
     """
-    :param path: path to uninitialized object
-    :returns: initialized object; this method is cached, so multiple requests for the same path will return the exact same object
+    Args:
+      path: path to uninitialized object
+    Returns:
+      initialized object; this method is cached, so multiple requests for the same path will return the exact same object
     """
     obj = tree_tools.get_descendant(self.deserialized_yaml, path)
     if not isinstance(obj, Serializable):

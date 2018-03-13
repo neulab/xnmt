@@ -1,13 +1,11 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 from distutils.core import Extension
 from Cython.Build import cythonize
 import sys
-import io
-import os
 
 sys.path.append("./xnmt")
 
-with io.open("requirements.txt", encoding="utf-8") as req_fp:
+with open("requirements.txt", encoding="utf-8") as req_fp:
   install_requires = req_fp.readlines()
 
 ext_modules = []

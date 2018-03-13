@@ -3,7 +3,6 @@ from __future__ import print_function
 import copy
 import logging
 logger = logging.getLogger('xnmt')
-import io
 import numpy
 import dynet as dy
 
@@ -28,7 +27,7 @@ from xnmt.hyper_parameters import GeometricSequence
 EPS = 1e-10
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
-  yaml_tag = u'!SegmentingSeqTransducer'
+  yaml_tag = '!SegmentingSeqTransducer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")),
                ## COMPONENTS
@@ -473,16 +472,16 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     segmented = [x for x, delete in segmented]
     logsoftmaxes = [x.npvalue() for x in self.segment_logsoftmaxes]
 
-    with io.open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
+    with open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
       if len(segmented) > 0:
         print(" ".join(segmented), file=segmentation_file)
 
     if self.learn_segmentation:
-      with io.open(self.get_report_path() + ".segdecision", encoding='utf-8', mode='w') as segmentation_file:
+      with open(self.get_report_path() + ".segdecision", encoding='utf-8', mode='w') as segmentation_file:
         for softmax in logsoftmaxes:
           print(" ".join(["%.5f" % f for f in numpy.exp(softmax)]), file=segmentation_file)
 
-      with io.open(self.get_report_path() + ".segprob", encoding='utf-8', mode='w') as segmentation_file:
+      with open(self.get_report_path() + ".segprob", encoding='utf-8', mode='w') as segmentation_file:
         logprob = 0
         for logsoftmax, decision in zip(logsoftmaxes, segment_decision):
           logprob += logsoftmax[decision]
@@ -518,7 +517,7 @@ class SegmentationConfidencePenalty(Serializable):
   ''' https://arxiv.org/pdf/1701.06548.pdf
       strength: the beta value
   '''
-  yaml_tag = u"!SegmentationConfidencePenalty"
+  yaml_tag = "!SegmentationConfidencePenalty"
 
   def __init__(self, strength):
     self.strength = strength
