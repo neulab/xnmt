@@ -6,6 +6,7 @@ from xnmt.serialize.tree_tools import Ref, Path
 import xnmt.batcher
 from xnmt.events import register_handler, handle_xnmt_event
 import xnmt.linear
+import xnmt.lstm
 import xnmt.residual
 from xnmt.bridge import CopyBridge
 from xnmt.param_init import GlorotInitializer
@@ -25,13 +26,15 @@ class Decoder(object):
 
 class RnnDecoder(Decoder):
   @staticmethod
-  def rnn_from_spec(spec, num_layers, input_dim, hidden_dim, model, residual_to_output):
+  def rnn_from_spec(spec, num_layers, input_dim, hidden_dim, exp_global, residual_to_output):
     decoder_type = spec.lower()
     if decoder_type == "lstm":
-      return dy.CompactVanillaLSTMBuilder(num_layers, input_dim, hidden_dim, model)
+      return xnmt.lstm.UniLSTMSeqTransducer(layers=num_layers, input_dim=input_dim,
+                                            hidden_dim=hidden_dim, exp_global=exp_global)
     elif decoder_type == "residuallstm":
       return xnmt.residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim,
-                                         model, residual_to_output)
+                                         exp_global.dynet_param_collection.param_col,
+                                         residual_to_output)
     else:
       raise RuntimeError("Unknown decoder type {}".format(spec))
 
@@ -79,7 +82,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                                               num_layers = layers,
                                               input_dim  = lstm_input,
                                               hidden_dim = lstm_dim,
-                                              model = self.param_col,
+                                              exp_global = exp_global,
                                               residual_to_output = residual_to_output)
     param_init_lstm = param_init_lstm or exp_global.param_init
     if not isinstance(param_init_lstm, GlorotInitializer): raise NotImplementedError("For the decoder LSTM, only Glorot initialization is currently supported")

@@ -9,6 +9,53 @@ from xnmt.events import register_handler, handle_xnmt_event
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.serialize.tree_tools import Ref, Path
 
+class UniLSTMState(object):
+  """
+  State object for UniLSTMSeqTransducer.
+  """
+  def __init__(self, network, prev=None, c=None, h=None):
+    self._network = network
+    if c is None:
+      c = [dy.zeroes(dim=(network.hidden_dim,)) for _ in range(network.num_layers)]
+    if h is None:
+      h = [dy.zeroes(dim=(network.hidden_dim,)) for _ in range(network.num_layers)]
+    self._c = tuple(c)
+    self._h = tuple(h)
+    self._prev = prev
+
+  def add_input(self, x):
+    new_c, new_h = self._network.add_input_to_prev(self, x)
+    return UniLSTMState(self._network, prev=self, c=new_c, h=new_h)
+
+  def b(self):
+    return self._network
+
+  def h(self):
+    return self._h
+
+  def s(self):
+    return self._c + self._h
+
+  def prev(self):
+    return self._prev
+
+  def set_h(self, es=None):
+    if es is not None:
+      assert len(es) == self._network.num_layers
+    self._h = tuple(es)
+    return self
+
+  def set_s(self, es=None):
+    if es is not None:
+      assert len(es) == 2 * self._network.num_layers
+    self._c = tuple(es[:self._network.num_layers])
+    self._h = tuple(es[self._network.num_layers:])
+    return self
+
+  def output(self):
+    return self._h[-1]
+
+
 class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   This implements an LSTM builder based on the memory-friendly dedicated DyNet nodes.
@@ -61,6 +108,12 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   def get_final_states(self):
     return self._final_states
 
+  def initial_state(self):
+    return UniLSTMState(self)
+
+  def set_dropout(self, dropout):
+    self.dropout_rate = dropout
+
   def set_dropout_masks(self, batch_size=1):
     if self.dropout_rate > 0.0 and self.train:
       retention_rate = 1.0 - self.dropout_rate
@@ -68,6 +121,33 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
       self.dropout_mask_x = [dy.random_bernoulli((self.input_dim,), retention_rate, scale, batch_size=batch_size)]
       self.dropout_mask_x += [dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size) for _ in range(1, self.num_layers)]
       self.dropout_mask_h = [dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size) for _ in range(self.num_layers)]
+
+  def add_input_to_prev(self, prev_state, x):
+    if isinstance(x, dy.Expression):
+      x = [x]
+    elif type(x) != list:
+      x = list(x)
+
+    if self.dropout_rate > 0.0 and self.train and self.dropout_mask_x is None:
+      self.set_dropout_masks()
+
+    new_c, new_h = [], []
+    for layer_i in range(self.num_layers):
+      if self.dropout_rate > 0.0 and self.train:
+        # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)
+        gates = dy.vanilla_lstm_gates_dropout_concat(
+          x, prev_state._h[layer_i], self.Wx[layer_i], self.Wh[layer_i], self.b[layer_i],
+          self.dropout_mask_x[layer_i], self.dropout_mask_h[layer_i],
+          self.weightnoise_std if self.train else 0.0)
+      else:
+        gates = dy.vanilla_lstm_gates_concat(
+          x, prev_state._h[layer_i], self.Wx[layer_i], self.Wh[layer_i], self.b[layer_i],
+          self.weightnoise_std if self.train else 0.0)
+      new_c.append(dy.vanilla_lstm_c(prev_state._c[layer_i], gates))
+      new_h.append(dy.vanilla_lstm_h(new_c[-1], gates))
+      x = [new_h[-1]]
+
+    return new_c, new_h
 
   def __call__(self, expr_seq):
     """
