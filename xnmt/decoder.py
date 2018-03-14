@@ -6,7 +6,7 @@ from xnmt.serialize.tree_tools import Ref, Path
 import xnmt.batcher
 from xnmt.events import register_handler, handle_xnmt_event
 import xnmt.linear
-import xnmt.lstm
+from xnmt.lstm import UniLSTMSeqTransducer
 import xnmt.residual
 from xnmt.bridge import CopyBridge
 from xnmt.param_init import GlorotInitializer
@@ -29,8 +29,8 @@ class RnnDecoder(Decoder):
   def rnn_from_spec(spec, num_layers, input_dim, hidden_dim, exp_global, residual_to_output):
     decoder_type = spec.lower()
     if decoder_type == "lstm":
-      return xnmt.lstm.UniLSTMSeqTransducer(layers=num_layers, input_dim=input_dim,
-                                            hidden_dim=hidden_dim, exp_global=exp_global)
+      return UniLSTMSeqTransducer(layers=num_layers, input_dim=input_dim,
+                                  hidden_dim=hidden_dim, exp_global=exp_global)
     elif decoder_type == "residuallstm":
       return xnmt.residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim,
                                          exp_global.dynet_param_collection.param_col,
@@ -50,18 +50,22 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
 
   yaml_tag = u'!MlpSoftmaxDecoder'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, lstm_dim=None,
-               mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
-               rnn_spec="lstm", residual_to_output=False, input_feeding=True,
-               param_init_lstm=None, param_init_context=None, bias_init_context=None,
+  def __init__(self, exp_global=Ref(Path("exp_global")),
+               rnn_layer=bare(UniLSTMSeqTransducer), input_dim=None,
+               mlp_hidden_dim=None, trg_embed_dim=None, input_feeding=True,
+               param_init_context=None, bias_init_context=None,
                param_init_output=None, bias_init_output=None,
                bridge=bare(CopyBridge), label_smoothing=0.0,
                vocab_projector=None, vocab_size = None, vocab = None,
                trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
+               # obsolete or moved into rnn_layer:
+               #layers=1, lstm_dim=None,
+               #dropout=None,
+               #rnn_spec="lstm", residual_to_output=False,
+               #param_init_lstm=None,
     register_handler(self)
     self.param_col = exp_global.dynet_param_collection.param_col
     # Define dim
-    lstm_dim       = lstm_dim or exp_global.default_layer_dim
     self.mlp_hidden_dim = mlp_hidden_dim = mlp_hidden_dim or exp_global.default_layer_dim
     trg_embed_dim  = trg_embed_dim or exp_global.default_layer_dim
     input_dim      = input_dim or exp_global.default_layer_dim
@@ -69,30 +73,29 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     self.label_smoothing = label_smoothing
     # Input feeding
     self.input_feeding = input_feeding
-    self.lstm_dim = lstm_dim
-    lstm_input = trg_embed_dim
+    rnn_input_dim = trg_embed_dim
     if input_feeding:
-      lstm_input += input_dim
+      rnn_input_dim += input_dim
+    assert rnn_input_dim == rnn_layer.input_dim, "Wrong input dimension in RNN layer"
     # Bridge
-    self.lstm_layers = layers
     self.bridge = bridge
 
     # LSTM
-    self.fwd_lstm  = RnnDecoder.rnn_from_spec(spec       = rnn_spec,
-                                              num_layers = layers,
-                                              input_dim  = lstm_input,
-                                              hidden_dim = lstm_dim,
-                                              exp_global = exp_global,
-                                              residual_to_output = residual_to_output)
-    param_init_lstm = param_init_lstm or exp_global.param_init
-    if not isinstance(param_init_lstm, GlorotInitializer): raise NotImplementedError("For the decoder LSTM, only Glorot initialization is currently supported")
-    if getattr(param_init_lstm,"gain",1.0) != 1.0:
-      for l in range(layers):
-        for i in [0,1]:
-          self.fwd_lstm.param_collection().parameters_list()[3*l+i].scale(param_init_lstm.gain)
-      
+    self.rnn_layer = rnn_layer
+
+    #=== TODO: what does this do and why is it needed? how to preserve it with
+    #===       the refactoring?
+    #
+    #if not isinstance(param_init_lstm, GlorotInitializer):
+    #  raise NotImplementedError("For the decoder LSTM, only Glorot initialization is currently supported")
+    #if getattr(param_init_lstm,"gain",1.0) != 1.0:
+    #  for l in range(layers):
+    #    for i in [0,1]:
+    #      self.rnn_layer.param_collection().parameters_list()[3*l+i].scale(param_init_lstm.gain)
+    #===========================================================================
+
     # MLP
-    self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + lstm_dim,
+    self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + self.rnn_layer.hidden_dim,
                                                 output_dim = mlp_hidden_dim,
                                                 model = self.param_col,
                                                 param_init = param_init_context or exp_global.param_init,
@@ -103,8 +106,6 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                                                                  model = self.param_col,
                                                                  param_init = param_init_output or exp_global.param_init,
                                                                  bias_init = bias_init_output or exp_global.bias_init)
-    # Dropout
-    self.dropout = dropout or exp_global.dropout
 
   def choose_vocab_size(self, vocab_size, vocab, trg_reader):
     """Choose the vocab size for the embedder basd on the passed arguments
@@ -121,8 +122,13 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
       return len(trg_reader.vocab)
 
   def shared_params(self):
-    return [set([Path(".layers"), Path(".bridge.dec_layers")]),
-            set([Path(".lstm_dim"), Path(".bridge.dec_dim")])]
+    # TODO: one idea to get proper dimensionality in the rnn_layer is to explicitly share these parameters
+    #       -- but the rnn_layer would also somehow need to know if it's even being used inside a decoder
+    # set([Path(".trg_embed_dim"), Path(".rnn_layer.input_dim")]),
+    # set([Path(".input_dim"), Path(".rnn_layer._decoder_input_dim")]),
+    # set([Path(".input_feeding"), Path(".rnn_layer._decoder_input_feeding")])
+    return [set([Path(".rnn_layer.layers"), Path(".bridge.dec_layers")]),
+            set([Path(".rnn_layer.hidden_dim"), Path(".bridge.dec_dim")])]
 
   def initial_state(self, enc_final_states, ss_expr):
     """Get the initial state of the decoder given the encoder final states.
@@ -130,7 +136,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     :param enc_final_states: The encoder final states.
     :returns: An MlpSoftmaxDecoderState
     """
-    rnn_state = self.fwd_lstm.initial_state()
+    rnn_state = self.rnn_layer.initial_state()
     rnn_state = rnn_state.set_s(self.bridge.decoder_init(enc_final_states))
     zeros = dy.zeros(self.input_dim) if self.input_feeding else None
     rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]))
@@ -184,8 +190,3 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
       ls_loss = -dy.mean_elems(log_prob)
       loss = ((1 - self.label_smoothing) * pre_loss) + (self.label_smoothing * ls_loss)
       return loss
-
-  @handle_xnmt_event
-  def on_set_train(self, val):
-    self.fwd_lstm.set_dropout(self.dropout if val else 0.0)
-

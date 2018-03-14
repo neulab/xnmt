@@ -24,7 +24,9 @@ standard: !Experiment # 'standard' is the name given to the experiment
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 512
     decoder: !MlpSoftmaxDecoder
-      layers: 1
+      rnn_layer: !UniLSTMSeqTransducer
+        input_dim: 1024
+        layers: 1
       mlp_hidden_dim: 512
       bridge: !CopyBridge {}
   # training parameters
