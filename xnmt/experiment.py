@@ -1,28 +1,40 @@
 import logging
 logger = logging.getLogger('xnmt')
+from typing import List
 
 from xnmt.exp_global import ExpGlobal
+from xnmt.preproc_runner import PreprocRunner
 from xnmt.serialize.serializable import Serializable, bare
+from xnmt.training_regimen import TrainingRegimen
+from xnmt.generator import GeneratorModel
+from xnmt.eval_task import EvalTask
 
 class Experiment(Serializable):
   '''
   A default experiment that performs preprocessing, training, and evaluation.
   
   Args:
-    exp_global (ExpGlobal): global experiment settings
-    load (str): path to load a serialized experiment from (if given, only overwrite but no other arguments can be specified)
-    overwrite (list): to be combined with ``load``. list of dictionaries for overwriting individual parts, with dictionaries looking like e.g. ``{"path": exp_global.eval_only, "val": True}``
-    preproc (PreprocRunner): carry out preprocessing if specified
-    model (GeneratorModel): The main model. In the case of multitask training, several models must be specified, in which case the models will live not here but inside the training task objects.
-    train (TrainingRegimen): The training regimen defines the training loop.
-    evaluate (List[EvalTask]): list of tasks to evaluate the model after training finishes.
-    random_search_report (dict): When random search is used, this holds the settings that were randomly drawn for documentary purposes.
+    exp_global: global experiment settings
+    load: to be combined with ``overwrite``. Path to load a serialized experiment from (if given, only overwrite but no other arguments can be specified)
+    overwrite: to be combined with ``load``. List of dictionaries for overwriting individual parts, with dictionaries looking like e.g. ``{"path": exp_global.eval_only, "val": True}``
+    preproc: carry out preprocessing if specified
+    model: The main model. In the case of multitask training, several models must be specified, in which case the models will live not here but inside the training task objects.
+    train: The training regimen defines the training loop.
+    evaluate: list of tasks to evaluate the model after training finishes.
+    random_search_report: When random search is used, this holds the settings that were randomly drawn for documentary purposes.
   '''
 
   yaml_tag = '!Experiment'
 
-  def __init__(self, exp_global=bare(ExpGlobal), load=None, overwrite=None, preproc=None,
-               model=None, train=None, evaluate=None, random_search_report=None):
+  def __init__(self,
+               exp_global:ExpGlobal = bare(ExpGlobal),
+               load:str = None,
+               overwrite:str = None,
+               preproc:PreprocRunner = None,
+               model:GeneratorModel = None,
+               train:TrainingRegimen = None,
+               evaluate:List[EvalTask] = None,
+               random_search_report:dict = None) -> None:
     """
     This is called after all other components have been initialized, so we can safely load DyNet weights here. 
     """

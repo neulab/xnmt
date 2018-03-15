@@ -19,16 +19,16 @@ class PreprocRunner(Serializable):
   Preprocess and filter the input files, and create the vocabulary.
 
   Args:
-    preproc_specs (list): A specification for a preprocessing step, including in_files (the input files), out_files (the output files), type (normalize/filter/vocab), and spec for that particular preprocessing type
-                          The types of arguments that preproc_spec expects:
-                          * Option("in_files", help_str="list of paths to the input files"),
-                          * Option("out_files", help_str="list of paths for the output files"),
-                          * Option("type", help_str="type of preprocessing (normalize,filter,vocab)"),
-                          * Option("spec", help_str="The specifications describing which type of processing to use. For normalize and vocab, should consist of the 'lang' and 'spec', where 'lang' can either be 'all' to apply the same type of processing to all languages, or a zero-indexed integer indicating which language to process."),
-    overwrite (bool): Whether to overwrite files if they already exist.
+    preproc_specs: A specification for a preprocessing step, including in_files (the input files), out_files (the output files), type (normalize/filter/vocab), and spec for that particular preprocessing type
+                    The types of arguments that preproc_spec expects:
+                    * Option("in_files", help_str="list of paths to the input files"),
+                    * Option("out_files", help_str="list of paths for the output files"),
+                    * Option("type", help_str="type of preprocessing (normalize,filter,vocab)"),
+                    * Option("spec", help_str="The specifications describing which type of processing to use. For normalize and vocab, should consist of the 'lang' and 'spec', where 'lang' can either be 'all' to apply the same type of processing to all languages, or a zero-indexed integer indicating which language to process."),
+    overwrite: Whether to overwrite files if they already exist.
   """
   yaml_tag = "!PreprocRunner"
-  def __init__(self, preproc_specs, overwrite=False):
+  def __init__(self, preproc_specs:list, overwrite:bool=False):
     logger.info("> Preprocessing")
     
     args = dict(preproc_specs=preproc_specs, overwrite=overwrite)
