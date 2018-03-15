@@ -1,6 +1,7 @@
 from xnmt.events import register_xnmt_event, register_xnmt_event_sum
 
 class GeneratorModel(object):
+  # TODO: document me
   def generate_output(self, *args, **kwargs):
     # Generate the output
     generation_output = self.generate(*args, **kwargs)
@@ -37,7 +38,8 @@ class GeneratorModel(object):
   @register_xnmt_event_sum
   def calc_additional_loss(self, reward):
     ''' Calculate reinforce loss based on the reward
-    :param reward: The default is log likelihood (-1 * calc_loss).
+    Args:
+      reward: The default is log likelihood (-1 * calc_loss).
     '''
     return None
 
