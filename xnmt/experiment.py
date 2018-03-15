@@ -1,6 +1,6 @@
 import logging
 logger = logging.getLogger('xnmt')
-from typing import List
+from typing import List, Optional
 
 from xnmt.exp_global import ExpGlobal
 from xnmt.preproc_runner import PreprocRunner
@@ -27,14 +27,14 @@ class Experiment(Serializable):
   yaml_tag = '!Experiment'
 
   def __init__(self,
-               exp_global:ExpGlobal = bare(ExpGlobal),
-               load:str = None,
-               overwrite:str = None,
+               exp_global = bare(ExpGlobal),
+               load:Optional[str] = None,
+               overwrite:Optional[str] = None,
                preproc:PreprocRunner = None,
-               model:GeneratorModel = None,
+               model:Optional[GeneratorModel] = None,
                train:TrainingRegimen = None,
-               evaluate:List[EvalTask] = None,
-               random_search_report:dict = None) -> None:
+               evaluate:Optional[List[EvalTask]] = None,
+               random_search_report:Optional[dict] = None) -> None:
     """
     This is called after all other components have been initialized, so we can safely load DyNet weights here. 
     """

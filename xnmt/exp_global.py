@@ -35,8 +35,8 @@ class ExpGlobal(Serializable):
                param_init:ParamInitializer=bare(GlorotInitializer),
                bias_init:ParamInitializer=bare(ZeroInitializer),
                save_num_checkpoints:int=1,
-               eval_only:bool=False,
-               commandline_args=None,
+               eval_only:bool = False,
+               commandline_args = None,
                dynet_param_collection = None):
     self.model_file = model_file
     self.log_file = log_file
