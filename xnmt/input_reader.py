@@ -164,11 +164,19 @@ class H5Reader(InputReader, Serializable):
 
   Args:
     transpose (bool):
+    feat_from (int):
+    feat_to (int):
+    feat_skip (int):
+    word_skip (int):
   """
   yaml_tag = u"!H5Reader"
 
-  def __init__(self, transpose=False):
+  def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, word_skip=None):
     self.transpose = transpose
+    self.feat_from = feat_from
+    self.feat_to = feat_to
+    self.feat_skip = feat_skip
+    self.word_skip = word_skip
 
   def read_sents(self, filename, filter_ids=None):
     with h5py.File(filename, "r") as hf:
@@ -179,6 +187,14 @@ class H5Reader(InputReader, Serializable):
         inp = hf[key][:]
         if self.transpose:
           inp = inp.transpose()
+
+        sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, ::self.word_skip]
+        if sub_inp.size < inp.size:
+          inp = np.empty_like(sub_inp)
+          np.copyto(inp, sub_inp)
+        else:
+          inp = sub_inp
+
         if idx % 1000 == 999:
           logger.info(f"Read {idx+1} lines ({float(idx+1)/len(h5_keys)*100:.2f}%) of {filename} at {key}")
         yield ArrayInput(inp)
@@ -210,11 +226,19 @@ class NpzReader(InputReader, Serializable):
 
   Args:
     transpose (bool):
+    feat_from (int):
+    feat_to (int):
+    feat_skip (int):
+    word_skip (int):
   """
   yaml_tag = u"!NpzReader"
 
-  def __init__(self, transpose=False):
+  def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, word_skip=None):
     self.transpose = transpose
+    self.feat_from = feat_from
+    self.feat_to = feat_to
+    self.feat_skip = feat_skip
+    self.word_skip = word_skip
 
   def read_sents(self, filename, filter_ids=None):
     npzFile = np.load(filename, mmap_mode=None if filter_ids is None else "r")
@@ -225,6 +249,14 @@ class NpzReader(InputReader, Serializable):
       inp = npzFile[key]
       if self.transpose:
         inp = inp.transpose()
+
+      sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, ::self.word_skip]
+      if sub_inp.size < inp.size:
+        inp = np.empty_like(sub_inp)
+        np.copyto(inp, sub_inp)
+      else:
+        inp = sub_inp
+
       if idx % 1000 == 999:
         logger.info(f"Read {idx+1} lines ({float(idx+1)/len(npzKeys)*100:.2f}%) of {filename} at {key}")
       yield ArrayInput(inp)
