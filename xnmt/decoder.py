@@ -22,20 +22,6 @@ class Decoder(object):
   def calc_loss(self, x, ref_action):
     raise NotImplementedError('calc_loss must be implemented in Decoder subclasses')
 
-class RnnDecoder(Decoder):
-  @staticmethod
-  def rnn_from_spec(spec, num_layers, input_dim, hidden_dim, exp_global, residual_to_output):
-    decoder_type = spec.lower()
-    if decoder_type == "lstm":
-      return UniLSTMSeqTransducer(layers=num_layers, input_dim=input_dim,
-                                  hidden_dim=hidden_dim, exp_global=exp_global)
-    elif decoder_type == "residuallstm":
-      return xnmt.residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim,
-                                         exp_global.dynet_param_collection.param_col,
-                                         residual_to_output)
-    else:
-      raise RuntimeError("Unknown decoder type {}".format(spec))
-
 class MlpSoftmaxDecoderState(object):
   """A state holding all the information needed for MLPSoftmaxDecoder
   
@@ -47,7 +33,7 @@ class MlpSoftmaxDecoderState(object):
     self.rnn_state = rnn_state
     self.context = context
 
-class MlpSoftmaxDecoder(RnnDecoder, Serializable):
+class MlpSoftmaxDecoder(Decoder, Serializable):
   """
   Standard MLP softmax decoder.
 
@@ -91,11 +77,6 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                bridge=bare(CopyBridge), label_smoothing=0.0,
                vocab_projector=None, vocab_size = None, vocab = None,
                trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
-               # obsolete or moved into rnn_layer:
-               #layers=1, lstm_dim=None,
-               #dropout=None,
-               #rnn_spec="lstm", residual_to_output=False,
-               #param_init_lstm=None,
     register_handler(self)
     self.param_col = exp_global.dynet_param_collection.param_col
     # Define dim

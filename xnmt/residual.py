@@ -48,10 +48,18 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
   
   yaml_tag = '!ResidualLSTMSeqTransducer'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
+  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=512, layers=1, hidden_dim=None,
+               residual_to_output=False, dropout=None, bidirectional=True,
+               yaml_path=None, decoder_input_dim=None, decoder_input_feeding=True):
     register_handler(self)
     self._final_states = None
+    if yaml_path is not None and "decoder" in yaml_path:
+      bidirectional = False
+      if decoder_input_feeding:
+        input_dim += decoder_input_dim or exp_global.default_layer_dim
+    self.input_dim = input_dim
     hidden_dim = hidden_dim or exp_global.default_layer_dim
+    self.hidden_dim = hidden_dim
     if bidirectional:
       self.builder = ResidualBiRNNBuilder(num_layers=layers, input_dim=input_dim, hidden_dim=hidden_dim, add_to_output=residual_to_output, exp_global=exp_global, dropout=dropout)
     else:
@@ -67,6 +75,9 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
       output = ExpressionSequence(expr_list=output)
     self._final_states = self.builder.get_final_states()
     return output
+
+  def initial_state(self):
+    return self.builder.initial_state()
 
   def get_final_states(self):
     assert self._final_states is not None, "ResidualLSTMSeqTransducer.__call__() must be invoked before ResidualLSTMSeqTransducer.get_final_states()"
