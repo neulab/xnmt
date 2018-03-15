@@ -83,17 +83,6 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     # LSTM
     self.rnn_layer = rnn_layer
 
-    #=== TODO: what does this do and why is it needed? how to preserve it with
-    #===       the refactoring?
-    #
-    #if not isinstance(param_init_lstm, GlorotInitializer):
-    #  raise NotImplementedError("For the decoder LSTM, only Glorot initialization is currently supported")
-    #if getattr(param_init_lstm,"gain",1.0) != 1.0:
-    #  for l in range(layers):
-    #    for i in [0,1]:
-    #      self.rnn_layer.param_collection().parameters_list()[3*l+i].scale(param_init_lstm.gain)
-    #===========================================================================
-
     # MLP
     self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + self.rnn_layer.hidden_dim,
                                                 output_dim = mlp_hidden_dim,
@@ -122,12 +111,10 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
       return len(trg_reader.vocab)
 
   def shared_params(self):
-    # TODO: one idea to get proper dimensionality in the rnn_layer is to explicitly share these parameters
-    #       -- but the rnn_layer would also somehow need to know if it's even being used inside a decoder
-    # set([Path(".trg_embed_dim"), Path(".rnn_layer.input_dim")]),
-    # set([Path(".input_dim"), Path(".rnn_layer._decoder_input_dim")]),
-    # set([Path(".input_feeding"), Path(".rnn_layer._decoder_input_feeding")])
-    return [set([Path(".rnn_layer.layers"), Path(".bridge.dec_layers")]),
+    return [set([Path(".trg_embed_dim"), Path(".rnn_layer.input_dim")]),
+            set([Path(".input_dim"), Path(".rnn_layer.decoder_input_dim")]),
+            set([Path(".input_feeding"), Path(".rnn_layer.decoder_input_feeding")]),
+            set([Path(".rnn_layer.layers"), Path(".bridge.dec_layers")]),
             set([Path(".rnn_layer.hidden_dim"), Path(".bridge.dec_dim")])]
 
   def initial_state(self, enc_final_states, ss_expr):

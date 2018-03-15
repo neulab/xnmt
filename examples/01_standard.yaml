@@ -25,7 +25,6 @@ standard: !Experiment # 'standard' is the name given to the experiment
       emb_dim: 512
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
-        input_dim: 1024
         layers: 1
       mlp_hidden_dim: 512
       bridge: !CopyBridge {}

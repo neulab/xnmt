@@ -65,11 +65,15 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = u'!UniLSTMSeqTransducer'
   
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None,
-               dropout = None, weightnoise_std=None, param_init=None, bias_init=None):
+               dropout=None, weightnoise_std=None, param_init=None, bias_init=None,
+               yaml_path=None, decoder_input_dim=None, decoder_input_feeding=True):
     register_handler(self)
     self.num_layers = layers
     model = exp_global.dynet_param_collection.param_col
     input_dim = input_dim or exp_global.default_layer_dim
+    if yaml_path is not None and "decoder" in yaml_path:
+      if decoder_input_feeding:
+        input_dim += decoder_input_dim or exp_global.default_layer_dim
     hidden_dim = hidden_dim or exp_global.default_layer_dim
     self.hidden_dim = hidden_dim
     self.dropout_rate = dropout or exp_global.dropout
