@@ -26,7 +26,8 @@ standard: !Experiment # 'standard' is the name given to the experiment
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_hidden_dim: 512
+      mlp_layer: !MLP
+        hidden_dim: 512
       bridge: !CopyBridge {}
   # training parameters
   train: !SimpleTrainingRegimen

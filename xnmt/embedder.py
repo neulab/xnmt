@@ -74,12 +74,12 @@ class Embedder(object):
       if src_reader == None or src_reader.vocab == None:
         raise ValueError("Could not determine src_embedder's vocabulary. Please set its vocab member explicitly, or specify the vocabulary of src_reader ahead of time.")
       return len(src_reader.vocab)
-    elif "trg_embedder" in yaml_path or "vocab_projector" in yaml_path:
+    elif "trg_embedder" in yaml_path or "output_projector" in yaml_path:
       if trg_reader == None or trg_reader.vocab == None:
         raise ValueError("Could not determine trg_embedder's vocabulary. Please set its vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
       return len(trg_reader.vocab)
     else:
-      raise ValueError("Attempted to determine vocab size of {} (path: {}), but path was not src_embedder, trg_embedder, or vocab_projector, so it could not determine what part of the model to use. Please set vocab_size or vocab explicitly.".format(self.__class__, yaml_path))
+      raise ValueError("Attempted to determine vocab size of {} (path: {}), but path was not src_embedder, trg_embedder, or output_projector, so it could not determine what part of the model to use. Please set vocab_size or vocab explicitly.".format(self.__class__, yaml_path))
 
   def choose_vocab_size(self, vocab_size, vocab, yaml_path, src_reader, trg_reader):
     """Choose the vocab size for the embedder basd on the passed arguments
@@ -104,12 +104,12 @@ class Embedder(object):
       if src_reader == None or src_reader.vocab == None:
         raise ValueError("Could not determine src_embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of src_reader ahead of time.")
       return len(src_reader.vocab)
-    elif "trg_embedder" in yaml_path or "vocab_projector" in yaml_path:
+    elif "trg_embedder" in yaml_path or "output_projector" in yaml_path:
       if trg_reader == None or trg_reader.vocab == None:
         raise ValueError("Could not determine target embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
       return len(trg_reader.vocab)
     else:
-      raise ValueError("Attempted to determine vocab size of {} (path: {}), but path was not src_embedder, trg_embedder, or vocab_projector, so it could not determine what part of the model to use. Please set vocab_size or vocab explicitly.".format(self.__class__, yaml_path))
+      raise ValueError("Attempted to determine vocab size of {} (path: {}), but path was not src_embedder, trg_embedder, or output_projector, so it could not determine what part of the model to use. Please set vocab_size or vocab explicitly.".format(self.__class__, yaml_path))
 
 class DenseWordEmbedder(Embedder, Linear, Serializable):
   """
