@@ -4,11 +4,15 @@ API Doc
 Experiment
 ----------
 
-.. autoclass:: xnmt.experiment.Experiment
+.. autoclass:: experiment.Experiment
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.exp_global.ExpGlobal
+.. autoclass:: experiment.Experiment
+   :members:
+   :show-inheritance:
+
+.. autoclass:: exp_global.ExpGlobal
    :members:
    :show-inheritance:
 
@@ -18,140 +22,140 @@ Model
 GeneratorModel
 ~~~~~~~~~~~~~~
 
-.. autoclass:: xnmt.generator.GeneratorModel
+.. autoclass:: generator.GeneratorModel
    :show-inheritance:
    :members:
 
 Translator
 ~~~~~~~~~~
 
-.. autoclass:: xnmt.translator.Translator
+.. autoclass:: translator.Translator
    :members:
 
-.. autoclass:: xnmt.translator.DefaultTranslator
+.. autoclass:: translator.DefaultTranslator
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.translator.TransformerTranslator
+.. autoclass:: translator.TransformerTranslator
    :members:
    :show-inheritance:
 
 Embedder
 ~~~~~~~~
 
-.. autoclass:: xnmt.embedder.Embedder
+.. autoclass:: embedder.Embedder
    :members:
 
-.. autoclass:: xnmt.embedder.SimpleWordEmbedder
+.. autoclass:: embedder.SimpleWordEmbedder
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.embedder.NoopEmbedder
+.. autoclass:: embedder.NoopEmbedder
    :members:
    :show-inheritance:
 
 Transducer
 ~~~~~~~~~~
 
-.. autoclass:: xnmt.transducer.Transducer
+.. autoclass:: transducer.Transducer
    :members:
 
-.. autoclass:: xnmt.transducer.SeqTransducer
-   :members:
-   :show-inheritance:
-
-.. autoclass:: xnmt.transducer.FinalTransducerState
+.. autoclass:: transducer.SeqTransducer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.transducer.ModularSeqTransducer
+.. autoclass:: transducer.FinalTransducerState
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.transducer.IdentitySeqTransducer
+.. autoclass:: transducer.ModularSeqTransducer
+   :members:
+   :show-inheritance:
+
+.. autoclass:: transducer.IdentitySeqTransducer
    :members:
    :show-inheritance:
 
 RNN
 ~~~
 
-.. autoclass:: xnmt.lstm.UniLSTMSeqTransducer
+.. autoclass:: lstm.UniLSTMSeqTransducer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.lstm.BiLSTMSeqTransducer
+.. autoclass:: lstm.BiLSTMSeqTransducer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.pyramidal.PyramidalLSTMSeqTransducer
+.. autoclass:: pyramidal.PyramidalLSTMSeqTransducer
    :members:
    :show-inheritance:
    
-.. autoclass:: xnmt.residual.ResidualLSTMSeqTransducer
+.. autoclass:: residual.ResidualLSTMSeqTransducer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.residual.ResidualRNNBuilder
+.. autoclass:: residual.ResidualRNNBuilder
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.residual.ResidualBiRNNBuilder
+.. autoclass:: residual.ResidualBiRNNBuilder
    :members:
    :show-inheritance:
    
 Attender
 ~~~~~~~~
 
-.. autoclass:: xnmt.attender.Attender
+.. autoclass:: attender.Attender
    :members:
 
-.. autoclass:: xnmt.attender.MlpAttender
-   :members:
-   :show-inheritance:
-
-.. autoclass:: xnmt.attender.DotAttender
+.. autoclass:: attender.MlpAttender
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.attender.BilinearAttender
+.. autoclass:: attender.DotAttender
+   :members:
+   :show-inheritance:
+
+.. autoclass:: attender.BilinearAttender
    :members:
    :show-inheritance:
 
 Decoder
 ~~~~~~~
 
-.. autoclass:: xnmt.decoder.Decoder
+.. autoclass:: decoder.Decoder
    :members:
 
-.. autoclass:: xnmt.decoder.MlpSoftmaxDecoder
+.. autoclass:: decoder.MlpSoftmaxDecoder
    :members:
    :show-inheritance:
    
-.. autoclass:: xnmt.decoder.MlpSoftmaxDecoderState
+.. autoclass:: decoder.MlpSoftmaxDecoderState
    :members:
    :show-inheritance:
 
 Bridge
 ~~~~~~
-.. autoclass:: xnmt.bridge.Bridge
+.. autoclass:: bridge.Bridge
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.bridge.NoBridge
+.. autoclass:: bridge.NoBridge
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.bridge.CopyBridge
+.. autoclass:: bridge.CopyBridge
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.bridge.LinearBridge
+.. autoclass:: bridge.LinearBridge
    :members:
    :show-inheritance:
 
 Linear
 ~~~~~~
-.. autoclass:: xnmt.linear.Linear
+.. autoclass:: linear.Linear
    :members:
    :show-inheritance:
 
@@ -161,26 +165,26 @@ Loss
 LossBuilder
 ~~~~~~~~~~~
 
-.. autoclass:: xnmt.loss.LossBuilder
+.. autoclass:: loss.LossBuilder
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.loss.LossScalarBuilder
+.. autoclass:: loss.LossScalarBuilder
    :members:
    :show-inheritance:
 
 LossCalculator
 ~~~~~~~~~~~~~~
 
-.. autoclass:: xnmt.loss_calculator.LossCalculator
+.. autoclass:: loss_calculator.LossCalculator
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.loss_calculator.MLELoss
+.. autoclass:: loss_calculator.MLELoss
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.loss_calculator.ReinforceLoss
+.. autoclass:: loss_calculator.ReinforceLoss
    :members:
    :show-inheritance:
 
@@ -189,37 +193,37 @@ Training
 
 TrainingRegimen
 ~~~~~~~~~~~~~~~
-.. autoclass:: xnmt.training_regimen.TrainingRegimen
+.. autoclass:: training_regimen.TrainingRegimen
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.training_regimen.SimpleTrainingRegimen
+.. autoclass:: training_regimen.SimpleTrainingRegimen
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.training_regimen.MultiTaskTrainingRegimen
+.. autoclass:: training_regimen.MultiTaskTrainingRegimen
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.training_regimen.SameBatchMultiTaskTrainingRegimen
+.. autoclass:: training_regimen.SameBatchMultiTaskTrainingRegimen
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.training_regimen.AlternatingBatchMultiTaskTrainingRegimen
+.. autoclass:: training_regimen.AlternatingBatchMultiTaskTrainingRegimen
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.training_regimen.SerialMultiTaskTrainingRegimen
+.. autoclass:: training_regimen.SerialMultiTaskTrainingRegimen
    :members:
    :show-inheritance:
 
 TrainingTask
 ~~~~~~~~~~~~
-.. autoclass:: xnmt.training_task.TrainingTask
+.. autoclass:: training_task.TrainingTask
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.training_task.SimpleTrainingTask
+.. autoclass:: training_task.SimpleTrainingTask
    :members:
    :show-inheritance:
 
@@ -228,7 +232,7 @@ Parameters
 
 PersistentParamCollection
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: xnmt.exp_global.PersistentParamCollection
+.. autoclass:: exp_global.PersistentParamCollection
    :members:
    :show-inheritance:
 
@@ -236,69 +240,69 @@ PersistentParamCollection
 Optimizer
 ~~~~~~~~~
 
-.. autoclass:: xnmt.optimizer.XnmtOptimizer
+.. autoclass:: optimizer.XnmtOptimizer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.optimizer.SimpleSGDTrainer
+.. autoclass:: optimizer.SimpleSGDTrainer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.optimizer.MomentumSGDTrainer
+.. autoclass:: optimizer.MomentumSGDTrainer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.optimizer.AdagradTrainer
+.. autoclass:: optimizer.AdagradTrainer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.optimizer.AdadeltaTrainer
+.. autoclass:: optimizer.AdadeltaTrainer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.optimizer.AdamTrainer
+.. autoclass:: optimizer.AdamTrainer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.optimizer.TransformerAdamTrainer
+.. autoclass:: optimizer.TransformerAdamTrainer
    :members:
    :show-inheritance:
 
 ParamInitializer
 ~~~~~~~~~~~~~~~~
-.. autoclass:: xnmt.param_init.ParamInitializer
+.. autoclass:: param_init.ParamInitializer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.param_init.NormalInitializer
+.. autoclass:: param_init.NormalInitializer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.param_init.UniformInitializer
+.. autoclass:: param_init.UniformInitializer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.param_init.ConstInitializer
+.. autoclass:: param_init.ConstInitializer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.param_init.GlorotInitializer
+.. autoclass:: param_init.GlorotInitializer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.param_init.FromFileInitializer
+.. autoclass:: param_init.FromFileInitializer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.param_init.NumpyInitializer
+.. autoclass:: param_init.NumpyInitializer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.param_init.ZeroInitializer
+.. autoclass:: param_init.ZeroInitializer
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.param_init.LeCunUniformInitializer
+.. autoclass:: param_init.LeCunUniformInitializer
    :members:
    :show-inheritance:
 
@@ -309,45 +313,45 @@ Inference
 SimpleInference
 ~~~~~~~~~~~~~~~
 
-.. autoclass:: xnmt.inference.SimpleInference 
+.. autoclass:: inference.SimpleInference 
    :members:
    :show-inheritance:
 
 SearchStrategy
 ~~~~~~~~~~~~~~
 
-.. autoclass:: xnmt.search_strategy.SearchStrategy 
+.. autoclass:: search_strategy.SearchStrategy 
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.search_strategy.BeamSearch
+.. autoclass:: search_strategy.BeamSearch
    :members:
    :show-inheritance:
 
 LengthNormalization
 ~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: xnmt.length_normalization.LengthNormalization
+.. autoclass:: length_normalization.LengthNormalization
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.length_normalization.NoNormalization
+.. autoclass:: length_normalization.NoNormalization
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.length_normalization.AdditiveNormalization
+.. autoclass:: length_normalization.AdditiveNormalization
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.length_normalization.PolynomialNormalization
+.. autoclass:: length_normalization.PolynomialNormalization
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.length_normalization.MultinomialNormalization
+.. autoclass:: length_normalization.MultinomialNormalization
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.length_normalization.GaussianNormalization
+.. autoclass:: length_normalization.GaussianNormalization
    :members:
    :show-inheritance:
 
@@ -356,93 +360,93 @@ Evaluation
 
 EvalTaks
 ~~~~~~~~
-.. autoclass:: xnmt.eval_task.EvalTask
+.. autoclass:: eval_task.EvalTask
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.eval_task.LossEvalTask
+.. autoclass:: eval_task.LossEvalTask
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.eval_task.AccuracyEvalTask
+.. autoclass:: eval_task.AccuracyEvalTask
    :members:
    :show-inheritance:
 
 EvalScore
 ~~~~~~~~~
 
-.. autoclass:: xnmt.evaluator.EvalScore
+.. autoclass:: evaluator.EvalScore
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.LossScore
+.. autoclass:: evaluator.LossScore
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.BLEUScore
+.. autoclass:: evaluator.BLEUScore
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.GLEUScore
+.. autoclass:: evaluator.GLEUScore
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.WERScore
+.. autoclass:: evaluator.WERScore
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.CERScore
+.. autoclass:: evaluator.CERScore
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.RecallScore
+.. autoclass:: evaluator.RecallScore
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.ExternalScore
+.. autoclass:: evaluator.ExternalScore
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.SequenceAccuracyScore
+.. autoclass:: evaluator.SequenceAccuracyScore
    :members:
    :show-inheritance:
 
 
 Evaluator
 ~~~~~~~~~
-.. autoclass:: xnmt.evaluator.Evaluator
+.. autoclass:: evaluator.Evaluator
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.BLEUEvaluator
+.. autoclass:: evaluator.BLEUEvaluator
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.GLEUEvaluator
+.. autoclass:: evaluator.GLEUEvaluator
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.WEREvaluator
+.. autoclass:: evaluator.WEREvaluator
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.CEREvaluator
+.. autoclass:: evaluator.CEREvaluator
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.ExternalEvaluator
+.. autoclass:: evaluator.ExternalEvaluator
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.RecallEvaluator
+.. autoclass:: evaluator.RecallEvaluator
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.MeanAvgPrecisionEvaluator
+.. autoclass:: evaluator.MeanAvgPrecisionEvaluator
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.evaluator.SequenceAccuracyEvaluator
+.. autoclass:: evaluator.SequenceAccuracyEvaluator
    :members:
    :show-inheritance:
 
@@ -454,138 +458,138 @@ Data
 Input
 ~~~~~
 
-.. autoclass:: xnmt.input.Input 
+.. autoclass:: input.Input 
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.input.SimpleSentenceInput
+.. autoclass:: input.SimpleSentenceInput
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.input.ArrayInput
+.. autoclass:: input.ArrayInput
    :members:
    :show-inheritance:
 
 InputReader
 ~~~~~~~~~~~
 
-.. autoclass:: xnmt.input_reader.InputReader
+.. autoclass:: input_reader.InputReader
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.input_reader.BaseTextReader
+.. autoclass:: input_reader.BaseTextReader
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.input_reader.PlainTextReader
+.. autoclass:: input_reader.PlainTextReader
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.input_reader.SegmentationTextReader
+.. autoclass:: input_reader.SegmentationTextReader
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.input_reader.ContVecReader
+.. autoclass:: input_reader.ContVecReader
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.input_reader.IDReader
+.. autoclass:: input_reader.IDReader
    :members:
    :show-inheritance:
 
 Vocab
 ~~~~~
 
-.. autoclass:: xnmt.vocab.Vocab
+.. autoclass:: vocab.Vocab
    :members:
    :show-inheritance:
 
 Batcher
 ~~~~~~~
 
-.. autoclass:: xnmt.batcher.Batch
+.. autoclass:: batcher.Batch
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.batcher.Mask
+.. autoclass:: batcher.Mask
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.batcher.Batcher
+.. autoclass:: batcher.Batcher
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.batcher.InOrderBatcher
+.. autoclass:: batcher.InOrderBatcher
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.batcher.SrcBatcher
+.. autoclass:: batcher.SrcBatcher
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.batcher.TrgBatcher
+.. autoclass:: batcher.TrgBatcher
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.batcher.SrcTrgBatcher
+.. autoclass:: batcher.SrcTrgBatcher
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.batcher.TrgSrcBatcher
+.. autoclass:: batcher.TrgSrcBatcher
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.batcher.SentShuffleBatcher
+.. autoclass:: batcher.SentShuffleBatcher
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.batcher.WordShuffleBatcher
+.. autoclass:: batcher.WordShuffleBatcher
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.batcher.WordSrcBatcher
+.. autoclass:: batcher.WordSrcBatcher
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.batcher.WordTrgBatcher
+.. autoclass:: batcher.WordTrgBatcher
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.batcher.WordSrcTrgBatcher
+.. autoclass:: batcher.WordSrcTrgBatcher
    :members:
    :show-inheritance:
 
-.. autoclass:: xnmt.batcher.WordTrgSrcBatcher
+.. autoclass:: batcher.WordTrgSrcBatcher
    :members:
    :show-inheritance:
 
 Preprocessing
 ~~~~~~~~~~~~~
 
-.. autoclass:: xnmt.preproc_runner.PreprocRunner
+.. autoclass:: preproc_runner.PreprocRunner
    :members:
    :show-inheritance:
 
 Serialization
 -------------
 
-.. autoclass:: xnmt.serialize.serializable.Serializable
+.. autoclass:: serialize.serializable.Serializable
    :show-inheritance:
    :members:
 
-.. autofunction:: xnmt.serialize.serializable.bare
+.. autofunction:: serialize.serializable.bare
 
-.. autoclass:: xnmt.serialize.tree_tools.Path
+.. autoclass:: serialize.tree_tools.Path
    :show-inheritance:
    :members:
 
-.. autoclass:: xnmt.serialize.tree_tools.Ref
+.. autoclass:: serialize.tree_tools.Ref
    :show-inheritance:
    :members:
 
 Reportable
 ----------
 
-.. autoclass:: xnmt.reports.Reportable
+.. autoclass:: reports.Reportable
    :show-inheritance:
    :members:
