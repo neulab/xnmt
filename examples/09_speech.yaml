@@ -27,7 +27,6 @@ speech: !Experiment
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-        hidden_dim: 64
       mlp_layer: !MLP
         hidden_dim: 64
       bridge: !CopyBridge {}

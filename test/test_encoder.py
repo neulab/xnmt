@@ -9,6 +9,7 @@ from xnmt.pyramidal import PyramidalLSTMSeqTransducer
 from xnmt.translator import DefaultTranslator
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
+from xnmt.mlp import MLP
 from xnmt.residual import ResidualLSTMSeqTransducer
 from xnmt.attender import MlpAttender
 from xnmt.decoder import MlpSoftmaxDecoder
@@ -52,7 +53,9 @@ class TestEncoder(unittest.TestCase):
               encoder=BiLSTMSeqTransducer(self.exp_global, layers=3),
               attender=MlpAttender(self.exp_global),
               trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.exp_global,
+                                        rnn_layer=UniLSTMSeqTransducer(exp_global=self.exp_global, yaml_path="model.decoder.rnn_layer"),
+                                        mlp_layer=MLP(exp_global=self.exp_global, vocab_size=100, yaml_path="model.decoder.rnn_layer")),
             )
     self.assert_in_out_len_equal(model)
 
@@ -64,7 +67,9 @@ class TestEncoder(unittest.TestCase):
               encoder=UniLSTMSeqTransducer(self.exp_global),
               attender=MlpAttender(self.exp_global),
               trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.exp_global,
+                                        rnn_layer=UniLSTMSeqTransducer(exp_global=self.exp_global, yaml_path="model.decoder.rnn_layer"),
+                                        mlp_layer=MLP(exp_global=self.exp_global, vocab_size=100, yaml_path="model.decoder.rnn_layer")),
             )
     self.assert_in_out_len_equal(model)
 
@@ -76,7 +81,9 @@ class TestEncoder(unittest.TestCase):
               encoder=ResidualLSTMSeqTransducer(self.exp_global, layers=3),
               attender=MlpAttender(self.exp_global),
               trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.exp_global,
+                                        rnn_layer=UniLSTMSeqTransducer(exp_global=self.exp_global, yaml_path="model.decoder.rnn_layer"),
+                                        mlp_layer=MLP(exp_global=self.exp_global, vocab_size=100, yaml_path="model.decoder.rnn_layer")),
             )
     self.assert_in_out_len_equal(model)
 
@@ -88,7 +95,9 @@ class TestEncoder(unittest.TestCase):
               encoder=PyramidalLSTMSeqTransducer(self.exp_global, layers=3),
               attender=MlpAttender(self.exp_global),
               trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.exp_global,
+                                        rnn_layer=UniLSTMSeqTransducer(exp_global=self.exp_global, yaml_path="model.decoder.rnn_layer"),
+                                        mlp_layer=MLP(exp_global=self.exp_global, vocab_size=100, yaml_path="model.decoder.rnn_layer")),
             )
     self.set_train(True)
     for sent_i in range(10):
@@ -107,7 +116,9 @@ class TestEncoder(unittest.TestCase):
               encoder=PyramidalLSTMSeqTransducer(self.exp_global, layers=1),
               attender=MlpAttender(self.exp_global),
               trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100),
+              decoder=MlpSoftmaxDecoder(self.exp_global,
+                                        rnn_layer=UniLSTMSeqTransducer(exp_global=self.exp_global, yaml_path="model.decoder.rnn_layer"),
+                                        mlp_layer=MLP(exp_global=self.exp_global, vocab_size=100, yaml_path="model.decoder.rnn_layer")),
             )
 
     batcher = xnmt.batcher.TrgBatcher(batch_size=3)

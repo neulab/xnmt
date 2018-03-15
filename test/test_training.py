@@ -11,8 +11,9 @@ from xnmt.embedder import SimpleWordEmbedder
 from xnmt.eval_task import LossEvalTask
 import xnmt.events
 from xnmt.input_reader import PlainTextReader
-from xnmt.lstm import BiLSTMSeqTransducer
+from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculator import LossCalculator
+from xnmt.mlp import MLP
 from xnmt.optimizer import AdamTrainer
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
 import xnmt.training_regimen
@@ -72,7 +73,10 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               encoder=BiLSTMSeqTransducer(self.exp_global),
               attender=MlpAttender(self.exp_global),
               trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
+              decoder=MlpSoftmaxDecoder(self.exp_global,
+                                        rnn_layer=UniLSTMSeqTransducer(exp_global=self.exp_global, yaml_path="model.decoder.rnn_layer"),
+                                        mlp_layer=MLP(exp_global=self.exp_global, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                        bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -85,7 +89,10 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               encoder=PyramidalLSTMSeqTransducer(self.exp_global, layers=3),
               attender=MlpAttender(self.exp_global),
               trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
+              decoder=MlpSoftmaxDecoder(self.exp_global,
+                                        rnn_layer=UniLSTMSeqTransducer(exp_global=self.exp_global, yaml_path="model.decoder.rnn_layer"),
+                                        mlp_layer=MLP(exp_global=self.exp_global, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                        bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model, pad_src_to_multiple=4)
@@ -98,7 +105,10 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               encoder=BiLSTMSeqTransducer(self.exp_global, layers=3),
               attender=MlpAttender(self.exp_global),
               trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global,
+                                        rnn_layer=UniLSTMSeqTransducer(exp_global=self.exp_global, yaml_path="model.decoder.rnn_layer"),
+                                        mlp_layer=MLP(exp_global=self.exp_global, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                        bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -111,7 +121,10 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               encoder=BiLSTMSeqTransducer(self.exp_global),
               attender=DotAttender(self.exp_global),
               trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
+              decoder=MlpSoftmaxDecoder(self.exp_global,
+                                        rnn_layer=UniLSTMSeqTransducer(exp_global=self.exp_global, yaml_path="model.decoder.rnn_layer"),
+                                        mlp_layer=MLP(exp_global=self.exp_global, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                        bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -171,7 +184,10 @@ class TestBatchTraining(unittest.TestCase):
               encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
               attender=MlpAttender(exp_global=self.exp_global),
               trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global,
+                                        rnn_layer=UniLSTMSeqTransducer(exp_global=self.exp_global, yaml_path="model.decoder.rnn_layer"),
+                                        mlp_layer=MLP(exp_global=self.exp_global, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                        bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -184,7 +200,10 @@ class TestBatchTraining(unittest.TestCase):
               encoder=PyramidalLSTMSeqTransducer(exp_global=self.exp_global, layers=3),
               attender=MlpAttender(exp_global=self.exp_global),
               trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global,
+                                        rnn_layer=UniLSTMSeqTransducer(exp_global=self.exp_global, yaml_path="model.decoder.rnn_layer"),
+                                        mlp_layer=MLP(exp_global=self.exp_global, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                        bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model, pad_src_to_multiple=4)
@@ -197,7 +216,10 @@ class TestBatchTraining(unittest.TestCase):
               encoder=BiLSTMSeqTransducer(exp_global=self.exp_global, layers=3),
               attender=MlpAttender(exp_global=self.exp_global),
               trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
+              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global,
+                                        rnn_layer=UniLSTMSeqTransducer(exp_global=self.exp_global, yaml_path="model.decoder.rnn_layer"),
+                                        mlp_layer=MLP(exp_global=self.exp_global, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                        bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -221,7 +243,10 @@ class TestTrainDevLoss(unittest.TestCase):
                                             encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
                                             attender=MlpAttender(exp_global=self.exp_global),
                                             trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
-                                            decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
+                                            decoder=MlpSoftmaxDecoder(exp_global=self.exp_global,
+                                                                      rnn_layer=UniLSTMSeqTransducer(exp_global=self.exp_global, yaml_path="model.decoder.rnn_layer"),
+                                                                      mlp_layer=MLP(exp_global=self.exp_global, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                                                      bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
                                             src_file="examples/data/head.ja",
@@ -256,7 +281,10 @@ class TestOverfitting(unittest.TestCase):
                                             encoder=BiLSTMSeqTransducer(self.exp_global),
                                             attender=MlpAttender(self.exp_global),
                                             trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-                                            decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
+                                            decoder=MlpSoftmaxDecoder(self.exp_global,
+                                                                      rnn_layer=UniLSTMSeqTransducer(exp_global=self.exp_global, yaml_path="model.decoder.rnn_layer"),
+                                                                      mlp_layer=MLP(exp_global=self.exp_global, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                                                      bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
                                             src_file="examples/data/head.ja",

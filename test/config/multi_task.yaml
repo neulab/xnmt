@@ -39,10 +39,12 @@ exp1-multi_task_exp: !Experiment
           emb_dim: 64
           vocab: !Ref {name: trg_vocab}
         decoder: !MlpSoftmaxDecoder
-          layers: 1
-          lstm_dim: 64
+          rnn_layer: !UniLSTMSeqTransducer
+            layers: 1
+            hidden_dim: 64
           bridge: !CopyBridge {}
-          vocab: !Ref {name: trg_vocab}
+          mlp_layer: !MLP
+            vocab: !Ref {name: trg_vocab}
       dev_tasks:
         - !AccuracyEvalTask
           model: !Ref { name: first_task_model }
@@ -74,9 +76,11 @@ exp1-multi_task_exp: !Experiment
           emb_dim: 64
           vocab: !Ref {name: trg_vocab}
         decoder: !MlpSoftmaxDecoder
-          layers: 1
+          rnn_layer: !UniLSTMSeqTransducer
+            layers: 1
           bridge: !CopyBridge {}
-          vocab: !Ref {name: trg_vocab}
+          mlp_layer: !MLP
+            vocab: !Ref {name: trg_vocab}
       dev_tasks:
         - !AccuracyEvalTask
           model: !Ref { name: second_task_model }
@@ -93,4 +97,4 @@ exp1-multi_task_exp: !Experiment
       hyp_file: examples/output/{EXP}.test_hyp
 
 exp2-finetune-model: !Experiment
-  load: examples/output/exp1-multi_task_exp.mod  
+  load: examples/output/exp1-multi_task_exp.mod
