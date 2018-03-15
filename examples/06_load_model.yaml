@@ -27,8 +27,10 @@ exp1-pretrain-model: !Experiment
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
     decoder: !MlpSoftmaxDecoder
-      layers: 1
-      mlp_hidden_dim: 64
+      rnn_layer: !UniLSTMSeqTransducer
+        layers: 1
+      mlp_layer: !MLP
+        hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
     inference: !SimpleInference {}

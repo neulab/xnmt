@@ -32,12 +32,14 @@ exp1.pretrain: !Experiment
       _xnmt_id: trg_emb # this id must be unique and is needed to create a reference-by-name below.
       emb_dim: 32
     decoder: !MlpSoftmaxDecoder
-      layers: 1
+      rnn_layer: !UniLSTMSeqTransducer
+        layers: 1
+      mlp_layer: !MLP
+        output_projector: !Ref { name: trg_emb }
+        #                alternatively, the same could be achieved like this,
+        #                in which case model.trg_embedder._xnmt_id is not required:
+        #                !Ref { path: model.trg_embedder }
       bridge: !CopyBridge {}
-      vocab_projector: !Ref { name: trg_emb }
-      #                alternatively, the same could be achieved like this,
-      #                in which case model.trg_embedder._xnmt_id is not required:
-      #                !Ref { path: model.trg_embedder }
     inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
