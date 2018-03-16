@@ -65,12 +65,15 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   Args:
     exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     layers (int): number of layers
-    input_dim (int): input dimension; if None, use exp_global.default_layer_dim
-    hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
-    dropout (float): dropout probability; if None, use exp_global.dropout
-    weightnoise_std (float): weight noise standard deviation; if None, use exp_global.weightnoise_std
+    input_dim (int): input dimension; if None, use ``exp_global.default_layer_dim``
+    hidden_dim (int): hidden dimension; if None, use ``exp_global.default_layer_dim``
+    dropout (float): dropout probability; if None, use ``exp_global.dropout``
+    weightnoise_std (float): weight noise standard deviation; if None, use ``exp_global.weightnoise_std``
     param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
     bias_init (ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
+    yaml_path (str):
+    decoder_input_dim (int): input dimension of the decoder; if ``yaml_path`` contains 'decoder' and ``decoder_input_feeding`` is True, this will be added to ``input_dim``; if None, use ``exp_global.default_layer_dim``
+    decoder_input_feeding (bool): whether this transducer is part of an input-feeding decoder; cf. ``decoder_input_dim``
   """
   yaml_tag = '!UniLSTMSeqTransducer'
 

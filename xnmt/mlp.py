@@ -11,15 +11,17 @@ class MLP(Serializable):
   Args:
     input_dim (int): input dimension; if None, use ``exp_global.default_layer_dim``
     hidden_dim (int): hidden dimension; if None, use ``exp_global.default_layer_dim``
-    output_dim (int): output dimension; if None, use ``exp_global.default_layer_dim``
+    output_dim (int): output dimension; if None, use ``exp_global.default_layer_dim``; if ``yaml_path`` contains 'decoder', this argument will be ignored (and set via ``vocab_size``/``vocab``/``trg_reader`` instead)
     param_init_hidden (ParamInitializer): how to initialize hidden weight matrices; if None, use ``exp_global.param_init``
     bias_init_hidden (ParamInitializer): how to initialize hidden bias vectors; if None, use ``exp_global.bias_init``
     param_init_output (ParamInitializer): how to initialize output weight matrices; if None, use ``exp_global.param_init``
     bias_init_output (ParamInitializer): how to initialize output bias vectors; if None, use ``exp_global.bias_init``
     output_projector: TODO
-    vocab_size (int): vocab size or None; only relevant if MLP is used as a decoder component
-    vocab (Vocab): vocab or None; only relevant if MLP is used as a decoder component
-    trg_reader (InputReader): Model's trg_reader, if exists and unambiguous; only relevant if MLP is used as a decoder component
+    yaml_path (str):
+    vocab_size (int): vocab size or None; if not None and ``yaml_path`` contains 'decoder', this will overwrite ``output_dim``
+    vocab (Vocab): vocab or None; if not None and ``yaml_path`` contains 'decoder', this will overwrite ``output_dim``
+    trg_reader (InputReader): Model's trg_reader, if exists and unambiguous; if not None and ``yaml_path`` contains 'decoder', this will overwrite ``output_dim``
+    decoder_rnn_dim (int): dimension of a decoder RNN that feeds into this MLP; if ``yaml_path`` contains 'decoder', this will be added to ``input_dim``; if None, use ``exp_global.default_layer_dim``
   """
   yaml_tag = '!MLP'
 
@@ -28,9 +30,9 @@ class MLP(Serializable):
                param_init_hidden=None, bias_init_hidden=None,
                param_init_output=None, bias_init_output=None,
                output_projector=None,
-               vocab_size=None, vocab=None,
+               yaml_path=None, vocab_size=None, vocab=None,
                trg_reader=Ref(path=Path("model.trg_reader"), required=False),
-               yaml_path=None, decoder_rnn_dim=None):
+               decoder_rnn_dim=None):
     model = exp_global.dynet_param_collection.param_col
     self.input_dim = input_dim or exp_global.default_layer_dim
     self.hidden_dim = hidden_dim or exp_global.default_layer_dim
