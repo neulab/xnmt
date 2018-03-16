@@ -80,8 +80,8 @@ class LinearBridge(Bridge, Serializable):
     self.dec_layers = dec_layers
     self.enc_dim = enc_dim or exp_global.default_layer_dim
     self.dec_dim = dec_dim or exp_global.default_layer_dim
-    self.projector = xnmt.linear.Linear(input_dim  = enc_dim,
-                                           output_dim = dec_dim,
+    self.projector = xnmt.linear.Linear(input_dim  = self.enc_dim,
+                                           output_dim = self.dec_dim,
                                            model = param_col,
                                            param_init = param_init or exp_global.param_init,
                                            bias_init = bias_init or exp_global.bias_init)
