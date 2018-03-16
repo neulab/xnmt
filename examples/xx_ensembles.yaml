@@ -21,23 +21,51 @@ ensemble: !Experiment # 'standard' is the name given to the experiment
       _xnmt_id: my_trg_reader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     models:
-    - &my_individual_model !DefaultTranslator
-      # TODO: unfortunately, we have to explicitly reference the readers in the
-      #       submodels right now, as the constructor expects it
-      src_reader: !Ref {name: my_src_reader}
-      trg_reader: !Ref {name: my_trg_reader}
-      encoder: !BiLSTMSeqTransducer
-        layers: 1
-      attender: !MlpAttender
-        hidden_dim: 512
-        state_dim: 512
-        input_dim: 512
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 512
-      decoder: !MlpSoftmaxDecoder
-        layers: 1
-        mlp_hidden_dim: 512
-        bridge: !CopyBridge {}
+      - !DefaultTranslator
+        # TODO: unfortunately, we have to explicitly reference the readers in the
+        #       submodels right now, as the constructor expects it
+        src_reader: !Ref {name: my_src_reader}
+        trg_reader: !Ref {name: my_trg_reader}
+        encoder: !BiLSTMSeqTransducer
+          _xnmt_id: first_model_encoder
+          layers: 1
+        attender: !MlpAttender
+          hidden_dim: 512
+          state_dim: 512
+          input_dim: 512
+        trg_embedder: !SimpleWordEmbedder
+          emb_dim: 512
+        decoder: !MlpSoftmaxDecoder
+          layers: 1
+          mlp_hidden_dim: 512
+          bridge: !CopyBridge {}
+      - !DefaultTranslator
+        src_reader: !Ref {name: my_src_reader}
+        trg_reader: !Ref {name: my_trg_reader}
+        # this model has a different number of layers with different dimensions
+        encoder: !BiLSTMSeqTransducer
+          layers: 3
+        trg_embedder: !SimpleWordEmbedder
+          emb_dim: 64
+        decoder: !MlpSoftmaxDecoder
+          layers: 3
+          mlp_hidden_dim: 64
+          bridge: !CopyBridge {}
+      - !DefaultTranslator
+        src_reader: !Ref {name: my_src_reader}
+        trg_reader: !Ref {name: my_trg_reader}
+        # let's share the first model's encoder with this one, and use some
+        # different components compared to the other models
+        encoder: !Ref {name: first_model_encoder}
+        trg_embedder: !DenseWordEmbedder
+          _xnmt_id: third_model_embedder
+          emb_dim: 32
+        decoder: !MlpSoftmaxDecoder
+          layers: 1
+          mlp_hidden_dim: 32
+          bridge: !LinearBridge
+            dec_layers: 1
+          vocab_projector: !Ref {name: third_model_embedder}
   # training parameters
   train: !SimpleTrainingRegimen
     trainer: !AdamTrainer

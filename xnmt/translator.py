@@ -547,8 +547,6 @@ class EnsembleListDelegate(object):
 
   def __init__(self, objects):
     assert isinstance(objects, (tuple, list))
-    assert len(set(type(obj) for obj in objects)) == 1, \
-      "Wrapped objects must all have the same type"
     self._objects = objects
 
   def __getitem__(self, key):
@@ -573,8 +571,8 @@ class EnsembleListDelegate(object):
       def wrapper_func(*args, **kwargs):
         ret = []
         for i, attr_ in enumerate(attrs):
-          args, kwargs = unwrap(i, args, kwargs)
-          ret.append(attr_(*args, **kwargs))
+          args_i, kwargs_i = unwrap(i, args, kwargs)
+          ret.append(attr_(*args_i, **kwargs_i))
         if all(val is None for val in ret):
           return None
         else:
@@ -594,6 +592,8 @@ class EnsembleListDelegate(object):
     else:
       self.__dict__[attr] = value
 
+  def __repr__(self):
+    return "EnsembleListDelegate([" + ', '.join(repr(elem) for elem in self._objects) + "])"
 
 class EnsembleDecoder(EnsembleListDelegate):
   '''
