@@ -4,8 +4,7 @@ from subprocess import Popen
 import random
 import numpy as np
 
-from xnmt.serialize.serializable import Serializable, bare
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, bare, serializable_init, Ref, Path
 from xnmt.loss import LossBuilder
 from xnmt.events import register_xnmt_event
 from xnmt.loss_calculator import LossCalculator, MLELoss
@@ -69,7 +68,33 @@ class TrainingTask(object):
 
 
 class SimpleTrainingTask(TrainingTask, Serializable):
+  """
+  Args:
+    exp_global:
+    model: a generator.GeneratorModel object
+    src_file: The file for the source data.
+    trg_file: The file for the target data.
+    dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
+    batcher: Type of batcher
+    loss_calculator:
+    lr_decay (float):
+    lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
+    patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
+    initial_patience (int): if given, allows adjusting patience for the first LR decay
+    dev_tasks: A list of tasks to run on the development set
+    restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
+    reload_command: Command to change the input data after each epoch.
+                         --epoch EPOCH_NUM will be appended to the command.
+                         To just reload the data after each epoch set the command to 'true'.
+    sample_train_sents:
+    max_num_train_sents:
+    max_src_len:
+    max_trg_len:
+    name: will be prepended to log outputs if given
+  """
   yaml_tag = '!SimpleTrainingTask'
+
+  @serializable_init
   def __init__(self, model, src_file=None, trg_file=None, dev_every=0,
                batcher=bare(SrcBatcher, batch_size=32), loss_calculator=None,
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
@@ -77,30 +102,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                reload_command=None, name=None, sample_train_sents=None,
                max_num_train_sents=None, max_src_len=None, max_trg_len=None,
                exp_global=Ref(Path("exp_global"))):
-    """
-    Args:
-      exp_global:
-      model: a generator.GeneratorModel object
-      src_file: The file for the source data.
-      trg_file: The file for the target data.
-      dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
-      batcher: Type of batcher
-      loss_calculator:
-      lr_decay (float):
-      lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
-      patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
-      initial_patience (int): if given, allows adjusting patience for the first LR decay
-      dev_tasks: A list of tasks to run on the development set
-      restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
-      reload_command: Command to change the input data after each epoch.
-                           --epoch EPOCH_NUM will be appended to the command.
-                           To just reload the data after each epoch set the command to 'true'.
-      sample_train_sents:
-      max_num_train_sents:
-      max_src_len:
-      max_trg_len:
-      name: will be prepended to log outputs if given
-    """
     self.exp_global = exp_global
     self.model_file = self.exp_global.dynet_param_collection.model_file
     self.src_file = src_file

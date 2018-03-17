@@ -4,7 +4,7 @@ logger = logging.getLogger('xnmt')
 import sys
 import os.path
 import subprocess
-from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializable import Serializable, serializable_init
 
 ##### Preprocessors
 
@@ -45,6 +45,7 @@ class Tokenizer(Normalizer, Serializable):
 
   TODO: only StreamTokenizers are supported by the preproc runner right now.
   """
+
   def tokenize(self, sent):
     raise RuntimeError("Subclasses of Tokenizer must implement tokenize() or tokenize_stream()")
 
@@ -70,6 +71,7 @@ class BPETokenizer(Tokenizer):
   """
   yaml_tag = '!BPETokenizer'
 
+  @serializable_init
   def __init__(self, vocab_size, train_files):
     """Determine the BPE based on the vocab size and corpora"""
     raise NotImplementedError("BPETokenizer is not implemented")
@@ -83,6 +85,10 @@ class CharacterTokenizer(Tokenizer):
   Tokenize into characters, with __ indicating blank spaces
   """
   yaml_tag = '!CharacterTokenizer'
+
+  @serializable_init
+  def __init__(self):
+    pass
 
   def tokenize(self, sent):
     """Tokenizes a single sentence into characters."""
@@ -99,6 +105,7 @@ class ExternalTokenizer(Tokenizer):
   """
   yaml_tag = '!ExternalTokenizer'
 
+  @serializable_init
   def __init__(self, path, tokenizer_args={}, arg_separator=' '):
     """Initialize the wrapper around the external tokenizer. """
     tokenizer_options = []
@@ -139,6 +146,7 @@ class SentencepieceTokenizer(ExternalTokenizer):
   """
   yaml_tag = '!SentencepieceTokenizer'
 
+  @serializable_init
   def __init__(self, path, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
       , output_format='piece', model_type='bpe'
       , encode_extra_options=None, decode_extra_options=None):

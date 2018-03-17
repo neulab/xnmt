@@ -3,7 +3,7 @@ logger = logging.getLogger('xnmt')
 import os.path
 
 from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer
-from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializable import Serializable, serializable_init
 ##### Main function
 
 def make_parent_dir(filename):
@@ -28,6 +28,8 @@ class PreprocRunner(Serializable):
     overwrite (bool): Whether to overwrite files if they already exist.
   """
   yaml_tag = "!PreprocRunner"
+
+  @serializable_init
   def __init__(self, preproc_specs, overwrite=False):
     logger.info("> Preprocessing")
     

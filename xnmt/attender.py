@@ -4,8 +4,7 @@ logger = logging.getLogger('xnmt')
 import math
 import dynet as dy
 
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, serializable_init, Ref, Path
 
 class Attender(object):
   '''
@@ -54,6 +53,7 @@ class MlpAttender(Attender, Serializable):
 
   yaml_tag = '!MlpAttender'
 
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, 
                hidden_dim=None, param_init=None, bias_init=None):
     input_dim = input_dim or exp_global.default_layer_dim
@@ -112,6 +112,7 @@ class DotAttender(Attender, Serializable):
 
   yaml_tag = '!DotAttender'
 
+  @serializable_init
   def __init__(self, scale=True):
     self.curr_sent = None
     self.scale = scale
@@ -151,6 +152,7 @@ class BilinearAttender(Attender, Serializable):
 
   yaml_tag = '!BilinearAttender'
 
+  serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, param_init=None):
     input_dim = input_dim or exp_global.default_layer_dim
     state_dim = state_dim or exp_global.default_layer_dim

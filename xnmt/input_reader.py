@@ -7,7 +7,7 @@ import ast
 import numpy as np
 
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
-from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializable import Serializable, serializable_init
 from xnmt.vocab import Vocab
 
 ###### Classes that will read in a file and turn it into an input
@@ -82,6 +82,8 @@ class PlainTextReader(BaseTextReader, Serializable):
     include_vocab_reference (bool): TODO document me
   """
   yaml_tag = '!PlainTextReader'
+
+  @serializable_init
   def __init__(self, vocab=None, include_vocab_reference=False):
     self.vocab = vocab
     self.include_vocab_reference = include_vocab_reference
@@ -113,6 +115,10 @@ class SegmentationTextReader(PlainTextReader):
   yaml_tag = '!SegmentationTextReader'
   
   # TODO: document me
+
+  @serializable_init
+  def __init__(self, vocab=None, include_vocab_reference=False):
+    super().__init__(vocab=vocab, include_vocab_reference=include_vocab_reference)
 
   def read_sents(self, filename, filter_ids=None):
     if self.vocab is None:
@@ -171,6 +177,7 @@ class ContVecReader(InputReader, Serializable):
   """
   yaml_tag = "!ContVecReader"
 
+  @serializable_init
   def __init__(self, transpose=False):
     self.transpose = transpose
 
@@ -201,6 +208,10 @@ class IDReader(BaseTextReader, Serializable):
   Files must be text files containing a single integer per line.
   """
   yaml_tag = "!IDReader"
+
+  @serializable_init
+  def __init__(self):
+    pass
 
   def read_sents(self, filename, filter_ids=None):
     return map(lambda l: int(l.strip()), self.iterate_filtered(filename, filter_ids))

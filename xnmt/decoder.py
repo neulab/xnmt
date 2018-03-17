@@ -1,6 +1,5 @@
 import dynet as dy
-from xnmt.serialize.serializable import Serializable, bare
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, bare, serializable_init, Ref, Path
 import xnmt.batcher
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 import xnmt.linear
@@ -81,6 +80,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   yaml_tag = '!MlpSoftmaxDecoder'
 
   @register_xnmt_handler
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,

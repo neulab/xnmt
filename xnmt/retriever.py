@@ -9,7 +9,7 @@ from simple_settings import settings
 import xnmt.batcher
 from xnmt.events import handle_xnmt_event
 from xnmt.generator import GeneratorModel
-from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializable import Serializable, serializable_init
 from xnmt.reports import Reportable
 from xnmt.expression_sequence import ExpressionSequence
 
@@ -23,6 +23,7 @@ class StandardRetrievalDatabase(Serializable):
 
   yaml_tag = "!StandardRetrievalDatabase"
 
+  @serializable_init
   def __init__(self, reader, database_file, dev_id_file=None, test_id_file=None):
     self.reader = reader
     self.database_file = database_file
@@ -86,7 +87,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
 
   yaml_tag = '!DotProductRetriever'
 
-
+  @serializable_init
   def __init__(self, src_embedder, src_encoder, trg_embedder, trg_encoder, database, loss_direction="forward"):
     '''Constructor.
 

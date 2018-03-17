@@ -1,4 +1,26 @@
+from functools import wraps
+import inspect
+
 import yaml
+
+def serializable_init(f):
+  @wraps(f)
+  def wrapper(obj, *args, **kwargs):
+    serialize_params = dict(kwargs)
+    if len(args)>0:
+      params = inspect.signature(f).parameters
+      param_names = [p.name for p in list(params.values())]
+      for i, arg in enumerate(args):
+        serialize_params[param_names[i]] = arg
+    for arg in list(args) + list(kwargs.values()):
+      if isinstance(arg, Ref):
+        raise ValueError(f"Cannot pass unresolved Ref {arg} to {type(obj).__name__}.__init__()")
+      # if getattr(arg, "_is_bare", False):
+      #   raise ValueError(f"Cannot pass bare object {arg} to {type(obj).__name__}.__init__()")
+    f(obj, *args, **kwargs)
+    serialize_params.update(getattr(obj,"serialize_params",{}))
+    obj.serialize_params = serialize_params
+  return wrapper
 
 
 class Serializable(yaml.YAMLObject):
@@ -86,3 +108,148 @@ def bare(class_type, **kwargs):
   setattr(obj, "_is_bare", True)
   setattr(obj, "_bare_kwargs", kwargs)
   return obj
+
+
+class Ref(Serializable):
+  """
+  A reference to a place in the component hierarchy. Supported a referencing by path or referencing by name.
+
+  Args:
+    path (Path): reference-by-path
+    name (str): reference-by-name. The name refers to a unique ``_xnmt_id`` property that must be set in exactly one component.
+  """
+  yaml_tag = "!Ref"
+
+  def __init__(self, path=None, name=None, required=True):
+    if name is not None and path is not None:
+      raise ValueError(f"Ref cannot be initialized with both a name and a path ({name} / {path})")
+    self.name = name
+    self.path = path
+    self.required = required
+    self.serialize_params = {'name': name} if name else {'path': str(path)}
+
+  def get_name(self):
+    return getattr(self, "name", None)
+
+  def get_path(self):
+    return getattr(self, "path", None)
+
+  def is_required(self):
+    return getattr(self, "required", True)
+
+  def __str__(self):
+    if self.get_name():
+      return f"Ref(name={self.get_name()})"
+    else:
+      return f"Ref(path={self.get_path()})"
+
+  def __repr__(self):
+    return str(self)
+
+  def resolve_path(self, named_paths):
+    if self.get_path():
+      if isinstance(self.get_path(), str):
+        # need to do this here, because the initializer is never called when
+        # Ref objects are specified in the YAML file
+        self.path = Path(self.get_path())
+      return self.path
+    elif self.get_name() in named_paths:
+      return named_paths[self.get_name()]
+    else:
+      raise ValueError(f"Could not resolve path of reference {self}")
+
+
+class Path(object):
+  """
+  A relative or absolute path in the component hierarchy.
+
+  Args:
+    path_str (str): path string. If prefixed by ".", marks a relative path, otherwise absolute.
+  """
+
+  def __init__(self, path_str=""):
+    if (len(path_str) > 1 and path_str[-1] == "." and path_str[-2] != ".") \
+            or ".." in path_str.strip("."):
+      raise ValueError(f"'{path_str}' is not a valid path string")
+    self.path_str = path_str
+
+  def append(self, link):
+    if not link or "." in link:
+      raise ValueError(f"'{link}' is not a valid link")
+    if len(self.path_str.strip(".")) == 0:
+      return Path(f"{self.path_str}{link}")
+    else:
+      return Path(f"{self.path_str}.{link}")
+
+  def add_path(self, path_to_add):
+    if path_to_add.is_relative_path(): raise NotImplementedError("add_path() is not implemented for relative paths.")
+    if len(self.path_str.strip(".")) == 0 or len(path_to_add.path_str) == 0:
+      return Path(f"{self.path_str}{path_to_add.path_str}")
+    else:
+      return Path(f"{self.path_str}.{path_to_add.path_str}")
+
+  def __str__(self):
+    return self.path_str
+
+  def __repr__(self):
+    return self.path_str
+
+  def is_relative_path(self):
+    return self.path_str.startswith(".")
+
+  def get_absolute(self, rel_to):
+    if rel_to.is_relative_path(): raise ValueError("rel_to must be an absolute path!")
+    if self.is_relative_path():
+      num_up = len(self.path_str) - len(self.path_str.strip(".")) - 1
+      for _ in range(num_up):
+        rel_to = rel_to.parent()
+      s = self.path_str.strip(".")
+      if len(s) > 0:
+        for link in s.split("."):
+          rel_to = rel_to.append(link)
+      return rel_to
+    else:
+      return self
+
+  def descend_one(self):
+    if self.is_relative_path() or len(self) == 0:
+      raise ValueError(f"Can't call descend_one() on path {self.path_str}")
+    return Path(".".join(self.path_str.split(".")[1:]))
+
+  def __len__(self):
+    if self.is_relative_path():
+      raise ValueError(f"Can't call __len__() on path {self.path_str}")
+    if len(self.path_str) == 0: return 0
+    return len(self.path_str.split("."))
+
+  def __getitem__(self, key):
+    if self.is_relative_path():
+      raise ValueError(f"Can't call __getitem__() on path {self.path_str}")
+    return self.path_str.split(".")[key]
+
+  def parent(self):
+    if len(self.path_str.strip(".")) == 0:
+      raise ValueError(f"Path '{self.path_str}' has no parent")
+    else:
+      spl = self.path_str.split(".")[:-1]
+      if '.'.join(spl) == "" and self.path_str.startswith("."):
+        return Path(".")
+      else:
+        return Path(".".join(spl))
+
+  def __hash__(self):
+    return hash(self.path_str)
+
+  def __eq__(self, other):
+    if isinstance(other, Path):
+      return self.path_str == other.path_str
+    else:
+      return False
+
+  def ancestors(self):
+    a = self
+    ret = set([a])
+    while len(a.path_str.strip(".")) > 0:
+      a = a.parent()
+      ret.add(a)
+    return ret

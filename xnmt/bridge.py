@@ -1,8 +1,7 @@
 import dynet as dy
 
 import xnmt.linear
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, serializable_init, Ref, Path
 
 class Bridge(object):
   """
@@ -29,6 +28,8 @@ class NoBridge(Bridge, Serializable):
     exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
   """
   yaml_tag = '!NoBridge'
+
+  @serializable_init
   def __init__(self, dec_layers = 1, dec_dim = None, exp_global=Ref(Path("exp_global"))):
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim or exp_global.default_layer_dim
@@ -50,6 +51,8 @@ class CopyBridge(Bridge, Serializable):
     exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
   """
   yaml_tag = '!CopyBridge'
+
+  @serializable_init
   def __init__(self, dec_layers = 1, dec_dim = None, exp_global=Ref(Path("exp_global"))):
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim or exp_global.default_layer_dim
@@ -75,6 +78,8 @@ class LinearBridge(Bridge, Serializable):
     bias_init (ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
   """
   yaml_tag = '!LinearBridge'
+
+  @serializable_init
   def __init__(self, dec_layers = 1, enc_dim = None, dec_dim = None, exp_global=Ref(Path("exp_global")), param_init=None, bias_init=None):
     param_col = exp_global.dynet_param_collection.param_col
     self.dec_layers = dec_layers

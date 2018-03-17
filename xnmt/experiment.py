@@ -2,7 +2,7 @@ import logging
 logger = logging.getLogger('xnmt')
 
 from xnmt.exp_global import ExpGlobal
-from xnmt.serialize.serializable import Serializable, bare
+from xnmt.serialize.serializable import Serializable, bare, serializable_init
 
 class Experiment(Serializable):
   '''
@@ -21,6 +21,7 @@ class Experiment(Serializable):
 
   yaml_tag = '!Experiment'
 
+  @serializable_init
   def __init__(self, exp_global=bare(ExpGlobal), load=None, overwrite=None, preproc=None,
                model=None, train=None, evaluate=None, random_search_report=None):
     """

@@ -6,8 +6,7 @@ import dynet as dy
 
 import xnmt.batcher
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, serializable_init, Ref, Path
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 from xnmt.linear import Linear
 
@@ -132,6 +131,7 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
   yaml_tag = "!DenseWordEmbedder"
 
   @register_xnmt_handler
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
                fix_norm=None, param_init=None, bias_init=None, vocab_size=None, vocab=None, yaml_path=None,
                src_reader=Ref(path=Path("model.src_reader"), required=False),
@@ -212,6 +212,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
   yaml_tag = '!SimpleWordEmbedder'
 
   @register_xnmt_handler
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
                fix_norm=None, init=None, vocab_size = None, vocab = None, yaml_path = None,
                src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False),
@@ -276,6 +277,8 @@ class NoopEmbedder(Embedder, Serializable):
   """
 
   yaml_tag = '!NoopEmbedder'
+
+  @serializable_init
   def __init__(self, emb_dim):
     self.emb_dim = emb_dim
 
@@ -322,6 +325,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
 
   yaml_tag = '!PretrainedSimpleWordEmbedder'
 
+  @serializable_init
   def __init__(self, filename, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm = None, vocab = None, yaml_path = None,
                src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False), 
                exp_global=Ref(Path("exp_global"))):

@@ -1,8 +1,7 @@
 import numpy as np
 import dynet as dy
 from xnmt.linear import Linear
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, serializable_init, Ref, Path
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.param_init import LeCunUniformInitializer
 
@@ -241,6 +240,7 @@ class TransformerEncoder(Serializable):
   yaml_tag = '!TransformerEncoder'
 
   @register_xnmt_handler
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=512, h=1,
                dropout=0.0, attn_dropout=False, layer_norm=False, **kwargs):
     dy_model = exp_global.dynet_param_collection.param_col
@@ -274,6 +274,7 @@ class TransformerDecoder(Serializable):
   yaml_tag = '!TransformerDecoder'
 
   @register_xnmt_handler
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=512, h=1,
                dropout=0.0, attn_dropout=False, layer_norm=False,
                vocab_size = None, vocab = None,

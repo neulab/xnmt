@@ -20,10 +20,10 @@ from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
 import xnmt.plot
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable, bare
+from xnmt.serialize.serializable import Serializable, bare, serializable_init
 from xnmt.search_strategy import BeamSearch, GreedySearch
 import xnmt.serialize.serializer
-from xnmt.serialize.tree_tools import Path
+from xnmt.serialize.serializable import Path
 from xnmt.vocab import Vocab
 
 class Translator(GeneratorModel):
@@ -80,6 +80,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   yaml_tag = '!DefaultTranslator'
 
   @register_xnmt_handler
+  @serializable_init
   def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
@@ -287,6 +288,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
   yaml_tag = '!TransformerTranslator'
 
   @register_xnmt_handler
+  @serializable_init
   def __init__(self, src_reader, src_embedder, encoder, trg_reader, trg_embedder, decoder, inference=None, input_dim=512):
     self.src_reader = src_reader
     self.src_embedder = src_embedder

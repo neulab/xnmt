@@ -2,8 +2,7 @@ import dynet as dy
 
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, serializable_init, Ref, Path
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 
@@ -27,6 +26,7 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!PyramidalLSTMSeqTransducer'
 
   @register_xnmt_handler
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None,
                downsampling_method="concat", reduce_factor=2, dropout=None):
     hidden_dim = hidden_dim or exp_global.default_layer_dim

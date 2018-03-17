@@ -1,9 +1,8 @@
 import dynet as dy
 
 from xnmt.transducer import SeqTransducer, FinalTransducerState
-from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializable import Serializable, Ref, Path
 from xnmt.expression_sequence import ExpressionSequence
-from xnmt.serialize.tree_tools import Ref, Path
 
 class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!ConvConnectedSeqTransducer'

@@ -2,8 +2,7 @@ import dynet as dy
 
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, Ref, Path, serializable_init
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 
@@ -49,6 +48,7 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!ResidualLSTMSeqTransducer'
 
   @register_xnmt_handler
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
     self._final_states = None
     hidden_dim = hidden_dim or exp_global.default_layer_dim

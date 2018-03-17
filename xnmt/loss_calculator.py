@@ -2,9 +2,8 @@ import dynet as dy
 import numpy as np
 
 from xnmt.loss import LossBuilder
-from xnmt.serialize.serializer import Serializable
+from xnmt.serialize.serializable import Serializable, serializable_init, Ref, Path
 from xnmt.vocab import Vocab
-from xnmt.serialize.tree_tools import Ref, Path
 import xnmt.evaluator
 import xnmt.linear as linear
 
@@ -15,6 +14,7 @@ class LossCalculator(Serializable):
   '''
   yaml_tag = '!LossCalculator'
 
+  @serializable_init
   def __init__(self, loss_calculator = None):
     if loss_calculator is None:
       self.loss_calculator = MLELoss()
@@ -29,6 +29,10 @@ class MLELoss(Serializable):
   yaml_tag = '!MLELoss'
   
   # TODO: document me
+
+  @serializable_init
+  def __init__(self):
+    pass
 
   def __call__(self, translator, dec_state, src, trg):
     trg_mask = trg.mask if xnmt.batcher.is_batched(trg) else None
@@ -57,6 +61,7 @@ class ReinforceLoss(Serializable):
 
   # TODO: document me
 
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):
     self.sample_length = sample_length
     if evaluation_metric is None:

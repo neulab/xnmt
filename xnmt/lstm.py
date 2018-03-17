@@ -4,10 +4,9 @@ import numpy as np
 import dynet as dy
 
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
-from xnmt.serialize.serializable import Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event, register_xnmt_handler
 from xnmt.transducer import SeqTransducer, FinalTransducerState
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, serializable_init, Ref, Path
 
 class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   """
@@ -27,6 +26,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     bias_init (ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
   """
   @register_xnmt_handler
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, hidden_dim=None,
                dropout = None, weightnoise_std=None, param_init=None, bias_init=None):
     model = exp_global.dynet_param_collection.param_col
@@ -135,6 +135,7 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!BiLSTMSeqTransducer'
 
   @register_xnmt_handler
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None, 
                dropout=None, weightnoise_std=None, param_init=None, bias_init=None):
     self.num_layers = layers

@@ -4,8 +4,7 @@ from simple_settings import settings
 import numpy as np
 import dynet as dy
 
-from xnmt.serialize.serializable import Serializable, bare
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, bare, serializable_init, Ref, Path
 import xnmt.optimizer
 from xnmt.training_task import SimpleTrainingTask
 
@@ -64,6 +63,8 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     exp_global (ExpGlobal):
   """
   yaml_tag = '!SimpleTrainingRegimen'
+
+  @serializable_init
   def __init__(self, model=Ref(path=Path("model")), src_file=None, trg_file=None,
                dev_every=0, batcher=bare(xnmt.batcher.SrcBatcher, batch_size=32),
                loss_calculator=None, trainer=None, run_for_epochs=None,
@@ -171,6 +172,8 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     exp_global (ExpGlobal): global experiment settings
   """
   yaml_tag = "!SameBatchMultiTaskTrainingRegimen"
+
+  @serializable_init
   def __init__(self, tasks, trainer=None, exp_global=Ref(Path("exp_global"))):
     super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
     self.exp_global = exp_global
@@ -215,6 +218,8 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     exp_global (ExpGlobal): global experiment settings
   """
   yaml_tag = "!AlternatingBatchMultiTaskTrainingRegimen"
+
+  @serializable_init
   def __init__(self, tasks, task_weights=None, trainer=None, exp_global=Ref(Path("exp_global"))):
     super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks)
@@ -258,6 +263,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
 
   yaml_tag = "!SerialMultiTaskTrainingRegimen"
 
+  @serializable_init
   def __init__(self, exp_global, tasks, trainer=None):
     super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
     self.exp_global = exp_global

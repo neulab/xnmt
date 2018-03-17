@@ -182,14 +182,17 @@ class YamlSerializer(object):
     except TypeError as e:
       raise ComponentInitError(f"{type(obj)} could not be initialized using params {init_params}, expecting params {init_args.keys()}. "
                                f"Error message: {e}")
-    serialize_params.update(getattr(initialized_obj,"serialize_params",{}))
-    initialized_obj.serialize_params = serialize_params
+    # serialize_params.update(getattr(initialized_obj,"serialize_params",{}))
+    # initialized_obj.serialize_params = serialize_params
     return initialized_obj
 
   def resolve_serialize_refs(self, root):
 #     for _, node in tree_tools.traverse_serializable_breadth_first(root):
     for _, node in tree_tools.traverse_serializable(root):
       if isinstance(node, Serializable):
+        if not hasattr(node, "serialize_params"):
+          raise ValueError(f"Cannot serialize node that has no serialize_params attribute: {node}\n"
+                           "Did you forget to wrap the __init__() in @serializable_init ?")
         node.resolved_serialize_params = node.serialize_params
     refs_inserted_at = set()
     refs_inserted_to = set()

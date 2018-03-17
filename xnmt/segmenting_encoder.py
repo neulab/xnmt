@@ -12,10 +12,9 @@ import xnmt.linear as linear
 import xnmt.expression_sequence as expression_sequence
 
 from xnmt.batcher import Mask
-from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializable import Serializable, serializable_init, Ref, Path
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import LossBuilder
 from xnmt.segmenting_composer import TailWordSegmentTransformer, WordOnlySegmentTransformer
@@ -27,6 +26,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = '!SegmentingSeqTransducer'
 
   @register_xnmt_handler
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")),
                ## COMPONENTS
                embed_encoder=None, segment_composer=None, final_transducer=None,
@@ -425,6 +425,7 @@ class SegmentationConfidencePenalty(Serializable):
   '''
   yaml_tag = "!SegmentationConfidencePenalty"
 
+  @serializable_init
   def __init__(self, strength):
     self.strength = strength
     if strength.value() < 0:

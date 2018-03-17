@@ -1,8 +1,7 @@
 import dynet as dy
 
 from xnmt.transducer import SeqTransducer, FinalTransducerState
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, Ref, Path
 from xnmt.expression_sequence import ExpressionSequence
 
 class FullyConnectedSeqTransducer(SeqTransducer, Serializable):

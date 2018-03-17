@@ -3,8 +3,7 @@ logger = logging.getLogger('xnmt')
 
 import dynet as dy
 import numpy as np
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, serializable_init, Ref, Path
 """
 The purpose of this module is mostly to expose the DyNet trainers to YAML serialization,
 but may also be extended to customize optimizers / training schedules
@@ -75,6 +74,7 @@ class SimpleSGDTrainer(XnmtOptimizer, Serializable):
   """
   yaml_tag = '!SimpleSGDTrainer'
 
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.1):
     self.optimizer = dy.SimpleSGDTrainer(exp_global.dynet_param_collection.param_col,
                                          e0)
@@ -90,6 +90,8 @@ class MomentumSGDTrainer(XnmtOptimizer, Serializable):
     mom (number): Momentum
   """
   yaml_tag = '!MomentumSGDTrainer'
+
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.01, mom = 0.9):
     self.optimizer = dy.MomentumSGDTrainer(exp_global.dynet_param_collection.param_col,
                                            e0, mom)
@@ -107,6 +109,7 @@ class AdagradTrainer(XnmtOptimizer, Serializable):
   """
   yaml_tag = '!AdagradTrainer'
 
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.1, eps = 1e-20):
     self.optimizer = dy.AdagradTrainer(exp_global.dynet_param_collection.param_col,
                                        e0, eps=eps)
@@ -124,6 +127,7 @@ class AdadeltaTrainer(XnmtOptimizer, Serializable):
   """
   yaml_tag = '!AdadeltaTrainer'
 
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), eps = 1e-6, rho = 0.95):
     self.optimizer = dy.AdadeltaTrainer(exp_global.dynet_param_collection.param_col,
                                         eps, rho)
@@ -143,6 +147,7 @@ class AdamTrainer(XnmtOptimizer, Serializable):
   """
   yaml_tag = '!AdamTrainer'
 
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
     self.optimizer = dy.AdamTrainer(exp_global.dynet_param_collection.param_col,
                                     alpha, beta_1, beta_2, eps)
@@ -162,6 +167,8 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
     eps (float):
   """
   yaml_tag = '!TransformerAdamTrainer'
+
+  @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), alpha=1.0, dim=512, warmup_steps=4000, beta_1=0.9, beta_2=0.98, eps=1e-9):
     self.optimizer = dy.AdamTrainer(exp_global.dynet_param_collection.param_col,
                                     alpha=alpha,

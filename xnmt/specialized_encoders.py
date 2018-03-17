@@ -1,8 +1,7 @@
 import dynet as dy
 
 from xnmt.expression_sequence import ExpressionSequence
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, Ref, Path
 from xnmt.transducer import Transducer, SeqTransducer
 
 # This is a file for specialized encoders that implement a particular model

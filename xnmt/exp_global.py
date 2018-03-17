@@ -5,7 +5,7 @@ import os
 from simple_settings import settings
 import dynet as dy
 
-from xnmt.serialize.serializable import Serializable, bare
+from xnmt.serialize.serializable import Serializable, bare, serializable_init
 from xnmt.param_init import ZeroInitializer, GlorotInitializer
 
 class ExpGlobal(Serializable):
@@ -26,6 +26,8 @@ class ExpGlobal(Serializable):
     dynet_param_collection (PersistentParamCollection): Manages DyNet weights
   """
   yaml_tag = '!ExpGlobal'
+
+  @serializable_init
   def __init__(self,
                model_file=settings.DEFAULT_MOD_PATH,
                log_file=settings.DEFAULT_LOG_PATH,

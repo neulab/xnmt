@@ -3,10 +3,9 @@ from simple_settings import settings
 import dynet as dy
 
 import xnmt.input_reader
-from xnmt.serialize.serializer import Serializable
+from xnmt.serialize.serializable import Serializable, serializable_init, Path, Ref
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
-from xnmt.serialize.tree_tools import Path, Ref
 from xnmt.loss import LossBuilder, LossScalarBuilder
 import xnmt.xnmt_evaluate
 from xnmt.experiment import Experiment
@@ -35,6 +34,7 @@ class LossEvalTask(Serializable):
 
   yaml_tag = '!LossEvalTask'
 
+  @serializable_init
   def __init__(self, src_file, ref_file, model=Ref(path=Path("model")),
                 batcher=Ref(path=Path("train.batcher"), required=False),
                 loss_calculator=None, max_src_len=None, max_trg_len=None,
@@ -93,6 +93,7 @@ class AccuracyEvalTask(Serializable):
 
   yaml_tag = '!AccuracyEvalTask'
 
+  @serializable_init
   def __init__(self, src_file, ref_file, hyp_file, model=Ref(path=Path("model")),
                eval_metrics="bleu", inference=None, candidate_id_file=None,
                desc=None):

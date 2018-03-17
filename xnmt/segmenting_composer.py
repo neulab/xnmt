@@ -3,8 +3,7 @@ import dynet as dy
 import xnmt.linear
 import xnmt.embedder
 
-from xnmt.serialize.tree_tools import Ref, Path
-from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializable import Serializable, Ref, Path, serializable_init
 from xnmt.events import register_xnmt_handler, handle_xnmt_event, register_xnmt_event
 from xnmt.reports import Reportable
 from xnmt.vocab import Vocab
@@ -13,6 +12,7 @@ class SegmentComposer(Serializable, Reportable):
   yaml_tag = "!SegmentComposer"
 
   @register_xnmt_handler
+  @serializable_init
   def __init__(self, encoder, transformer):
     self.encoder = encoder
     self.transformer = transformer
