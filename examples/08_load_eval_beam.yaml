@@ -62,7 +62,7 @@ exp2-eval-model: !Experiment
   - path: evaluate
     val: # (re-)define test data and other evaluation settings
     - !AccuracyEvalTask
-      eval_metrics: bleu
+      eval_metrics: bleu,gleu
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.test_hyp
