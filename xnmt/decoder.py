@@ -2,7 +2,7 @@ import dynet as dy
 from xnmt.serialize.serializable import Serializable, bare
 from xnmt.serialize.tree_tools import Ref, Path
 import xnmt.batcher
-from xnmt.events import register_handler, handle_xnmt_event
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
 import xnmt.linear
 import xnmt.residual
 from xnmt.bridge import CopyBridge
@@ -74,12 +74,13 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     vocab (Vocab): vocab or None
     trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
   """
-  
+
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
 
   yaml_tag = '!MlpSoftmaxDecoder'
 
+  @register_xnmt_handler
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
@@ -88,7 +89,6 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                bridge=bare(CopyBridge), label_smoothing=0.0,
                vocab_projector=None, vocab_size = None, vocab = None,
                trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
-    register_handler(self)
     self.param_col = exp_global.dynet_param_collection.param_col
     # Define dim
     lstm_dim       = lstm_dim or exp_global.default_layer_dim
@@ -120,7 +120,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
       for l in range(layers):
         for i in [0,1]:
           self.fwd_lstm.param_collection().parameters_list()[3*l+i].scale(param_init_lstm.gain)
-      
+
     # MLP
     self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + lstm_dim,
                                                 output_dim = mlp_hidden_dim,

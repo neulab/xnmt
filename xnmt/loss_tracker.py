@@ -5,7 +5,7 @@ import time
 
 import xnmt.loss
 from xnmt.vocab import Vocab
-from xnmt.events import register_handler, handle_xnmt_event
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
 
 class LossTracker(object):
   """
@@ -16,8 +16,8 @@ class LossTracker(object):
   REPORT_TEMPLATE_DEV       = 'Epoch {epoch:.4f} dev {score} (words={words}, words/sec={words_per_sec:.2f}, time={time})'
   REPORT_TEMPLATE_DEV_AUX   = 'Epoch {epoch:.4f} dev auxiliary {score}'
 
+  @register_xnmt_handler
   def __init__(self, training_regimen, eval_every, name=None):
-    register_handler(self)
 
     self.training_regimen = training_regimen
     self.eval_train_every = 1000
@@ -73,7 +73,7 @@ class LossTracker(object):
   def format_time(self, seconds):
     return "{}-{}".format(int(seconds) // 86400,
                           time.strftime("%H:%M:%S", time.gmtime(seconds)))
-  
+
   def log_readable_and_structured(self, template, args):
     if self.name: args["task_name"] = self.name
     logger.info(template.format(**args), extra=args)

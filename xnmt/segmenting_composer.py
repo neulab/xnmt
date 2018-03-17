@@ -5,15 +5,15 @@ import xnmt.embedder
 
 from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.serialize.serializable import Serializable
-from xnmt.events import register_handler, handle_xnmt_event, register_xnmt_event
+from xnmt.events import register_xnmt_handler, handle_xnmt_event, register_xnmt_event
 from xnmt.reports import Reportable
 from xnmt.vocab import Vocab
 
 class SegmentComposer(Serializable, Reportable):
   yaml_tag = "!SegmentComposer"
 
+  @register_xnmt_handler
   def __init__(self, encoder, transformer):
-    register_handler(self)
     self.encoder = encoder
     self.transformer = transformer
 

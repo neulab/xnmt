@@ -10,7 +10,7 @@ from xnmt.attender import MlpAttender
 from xnmt.batcher import mark_as_batch, is_batched
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
-from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_handler
+from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 from xnmt.generator import GeneratorModel
 from xnmt.inference import SimpleInference
 from xnmt.input import SimpleSentenceInput
@@ -79,11 +79,11 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
   yaml_tag = '!DefaultTranslator'
 
+  @register_xnmt_handler
   def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
                inference=bare(SimpleInference), calc_global_fertility=False, calc_attention_entropy=False):
-    register_handler(self)
     self.src_reader = src_reader
     self.trg_reader = trg_reader
     self.src_embedder = src_embedder
@@ -286,8 +286,8 @@ class TransformerTranslator(Translator, Serializable, Reportable):
 
   yaml_tag = '!TransformerTranslator'
 
+  @register_xnmt_handler
   def __init__(self, src_reader, src_embedder, encoder, trg_reader, trg_embedder, decoder, inference=None, input_dim=512):
-    register_handler(self)
     self.src_reader = src_reader
     self.src_embedder = src_embedder
     self.encoder = encoder

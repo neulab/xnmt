@@ -4,7 +4,7 @@ from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
 from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.tree_tools import Ref, Path
-from xnmt.events import register_handler, handle_xnmt_event
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 
 class PseudoState(object):
@@ -45,11 +45,11 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
     dropout (float): dropout probability; if None, use exp_global.dropout
     bidirectional (bool): whether the LSTM layers should be bidirectional
   """
-  
+
   yaml_tag = '!ResidualLSTMSeqTransducer'
 
+  @register_xnmt_handler
   def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
-    register_handler(self)
     self._final_states = None
     hidden_dim = hidden_dim or exp_global.default_layer_dim
     if bidirectional:

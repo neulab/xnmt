@@ -5,7 +5,7 @@ import dynet as dy
 
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
 from xnmt.serialize.serializable import Serializable
-from xnmt.events import register_handler, handle_xnmt_event
+from xnmt.events import register_xnmt_handler, handle_xnmt_event, register_xnmt_handler
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.serialize.tree_tools import Ref, Path
 
@@ -26,9 +26,9 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
     bias_init (ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
   """
+  @register_xnmt_handler
   def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, hidden_dim=None,
                dropout = None, weightnoise_std=None, param_init=None, bias_init=None):
-    register_handler(self)
     model = exp_global.dynet_param_collection.param_col
     input_dim = input_dim or exp_global.default_layer_dim
     hidden_dim = hidden_dim or exp_global.default_layer_dim
@@ -133,10 +133,10 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
                If None, use ``exp_global.param_init``
   """
   yaml_tag = '!BiLSTMSeqTransducer'
-  
+
+  @register_xnmt_handler
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None, 
                dropout=None, weightnoise_std=None, param_init=None, bias_init=None):
-    register_handler(self)
     self.num_layers = layers
     input_dim = input_dim or exp_global.default_layer_dim
     hidden_dim = hidden_dim or exp_global.default_layer_dim

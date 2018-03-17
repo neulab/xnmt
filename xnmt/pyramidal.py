@@ -4,7 +4,7 @@ from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
 from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.tree_tools import Ref, Path
-from xnmt.events import register_handler, handle_xnmt_event
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 
 
@@ -26,9 +26,9 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   yaml_tag = '!PyramidalLSTMSeqTransducer'
 
+  @register_xnmt_handler
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None,
                downsampling_method="concat", reduce_factor=2, dropout=None):
-    register_handler(self)
     hidden_dim = hidden_dim or exp_global.default_layer_dim
     input_dim = input_dim or exp_global.default_layer_dim
     self.dropout = dropout or exp_global.dropout
@@ -108,9 +108,9 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
         ret_es = ExpressionSequence(expr_list=[dy.concatenate([f, b]) for f, b in zip(fs, ReversedExpressionSequence(bs))], mask=mask_out)
 
     self._final_states = [FinalTransducerState(dy.concatenate([fb.get_final_states()[0].main_expr(),
-                                                            bb.get_final_states()[0].main_expr()]),
-                                            dy.concatenate([fb.get_final_states()[0].cell_expr(),
-                                                            bb.get_final_states()[0].cell_expr()])) \
+                                                               bb.get_final_states()[0].main_expr()]),
+                                               dy.concatenate([fb.get_final_states()[0].cell_expr(),
+                                                               bb.get_final_states()[0].cell_expr()])) \
                           for (fb, bb) in self.builder_layers]
 
     return ret_es
