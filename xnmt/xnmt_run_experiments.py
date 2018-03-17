@@ -10,6 +10,7 @@ import argparse
 import os
 import random
 import sys
+import socket
 import faulthandler
 faulthandler.enable()
 
@@ -20,10 +21,13 @@ if settings.RESOURCE_WARNINGS:
   warnings.simplefilter('always', ResourceWarning)
 
 from xnmt.serialize.options import OptionParser
-from xnmt.tee import Tee
+from xnmt.tee import Tee, get_git_revision
 from xnmt.serialize.serializer import YamlSerializer
 
 def main(overwrite_args=None):
+
+  logger.debug(f"running XNMT revision {get_git_revision()} on {socket.gethostname()}")
+
   with Tee(), Tee(error=True):
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--dynet-mem", type=str)
@@ -51,7 +55,7 @@ def main(overwrite_args=None):
     if args.dynet_gpu:
       if settings.CHECK_VALIDITY:
         settings.CHECK_VALIDITY = False
-        logger.warn("disabling CHECK_VALIDITY because it is not supported on GPU currently")
+        logger.warning("disabling CHECK_VALIDITY because it is not supported on GPU currently")
   
     import xnmt.serialize.imports
     config_experiment_names = config_parser.experiment_names_from_file(args.experiments_file)
