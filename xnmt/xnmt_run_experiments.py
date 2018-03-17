@@ -26,8 +26,6 @@ from xnmt.serialize.serializer import YamlSerializer
 
 def main(overwrite_args=None):
 
-  logger.debug(f"running XNMT revision {get_git_revision()} on {socket.gethostname()}")
-
   with Tee(), Tee(error=True):
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--dynet-mem", type=str)
@@ -74,7 +72,8 @@ def main(overwrite_args=None):
       uninitialized_exp_args = config_parser.parse_experiment(args.experiments_file, experiment_name)
   
       logger.info("=> Running {}".format(experiment_name))
-  
+      logger.debug(f"running XNMT revision {get_git_revision()} on {socket.gethostname()}")
+
       yaml_serializer = YamlSerializer()
   
       glob_args = uninitialized_exp_args.data.exp_global
