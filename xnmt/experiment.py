@@ -10,7 +10,7 @@ class Experiment(Serializable):
   
   Args:
     exp_global (ExpGlobal): global experiment settings
-    load (str): path to load a serialized experiment from (if given, only overwrite but no other arguments can be specified)
+    load (str): to be combined with ``overwrite``. path to load a serialized experiment from (if given, only overwrite but no other arguments can be specified)
     overwrite (list): to be combined with ``load``. list of dictionaries for overwriting individual parts, with dictionaries looking like e.g. ``{"path": exp_global.eval_only, "val": True}``
     preproc (PreprocRunner): carry out preprocessing if specified
     model (GeneratorModel): The main model. In the case of multitask training, several models must be specified, in which case the models will live not here but inside the training task objects.

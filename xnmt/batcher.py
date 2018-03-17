@@ -442,7 +442,7 @@ class WordTrgSrcBatcher(WordSortBatcher, Serializable):
   def __init__(self, words_per_batch=None, avg_batch_size=None,
                src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True,
                pad_src_to_multiple=1):
-    return super(WordTrgSrcBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]),
+    super(WordTrgSrcBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]),
                                             src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                                             break_ties_randomly=break_ties_randomly,
                                             pad_src_to_multiple=pad_src_to_multiple)

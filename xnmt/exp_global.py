@@ -23,7 +23,7 @@ class ExpGlobal(Serializable):
     save_num_checkpoints (int): save DyNet parameters for the most recent n checkpoints, useful for model averaging/ensembling
     eval_only (bool): If True, skip the training loop
     commandline_args: Holds commandline arguments with which XNMT was launched
-    dynet_param_collection (PersistentParamCollection): Manages DyNet weights
+    dynet_param_collection (Optional[ParamCollection]): Manages DyNet weights
   """
   yaml_tag = '!ExpGlobal'
   def __init__(self,
@@ -50,13 +50,25 @@ class ExpGlobal(Serializable):
     self.dynet_param_collection = dynet_param_collection or PersistentParamCollection(model_file, save_num_checkpoints)
     self.commandline_args = commandline_args
 
-class PersistentParamCollection(object):
+class ParamCollection(object):
+  def revert_to_best_model(self):
+    raise NotImplementedError()
+  def save(self, fname=None):
+    raise NotImplementedError()
+  def remove_existing_history(self):
+    raise NotImplementedError()
+  def shift_safed_checkpoints(self):
+    raise NotImplementedError()
+  def load_from_data_file(self, datafile):
+    raise NotImplementedError()
+
+class PersistentParamCollection(ParamCollection):
   """
   A persistent DyNet parameter collection.
 
   Args:
     model_file (str): file name of the model. Parameters will be written to this filename with ".data" appended
-    save_num_checkpoint (int): keep the most recent this many checkpoints, by writing ".data.1" files etc.
+    save_num_checkpoints (int): keep the most recent this many checkpoints, by writing ".data.1" files etc.
   """
   def __init__(self, model_file, save_num_checkpoints=1):
     self.model_file = model_file
@@ -86,7 +98,10 @@ class PersistentParamCollection(object):
   def load_from_data_file(self, datafile):
     self.param_col.populate(datafile)
 
-class NonPersistentParamCollection(object):
+class NonPersistentParamCollection(ParamCollection):
+  """
+  Non-persistent parameter collection, mostly for unit-testing purposes.
+  """
   def __init__(self):
     self.param_col = dy.Model()
     self.model_file = None
