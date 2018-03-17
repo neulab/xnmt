@@ -180,8 +180,10 @@ class YamlSerializer(object):
       initialized_obj = obj.__class__(**init_params)
       logger.debug(f"initialized {path}: {obj.__class__.__name__}@{id(obj)}({dict(init_params)})"[:1000])
     except TypeError as e:
-      raise ComponentInitError(f"{type(obj)} could not be initialized using params {init_params}, expecting params {init_args.keys()}. "
-                               f"Error message: {e}")
+      raise ComponentInitError(f"An error occurred trying to invoke {type(obj).__name__}.__init__()\n"
+                               f" The following arguments were passed: {init_params}\n"
+                               f" The following arguments were expected: {init_args.keys()}\n"
+                               f" Error message: {e}")
     serialize_params.update(getattr(initialized_obj,"serialize_params",{}))
     initialized_obj.serialize_params = serialize_params
     return initialized_obj
