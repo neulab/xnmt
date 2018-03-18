@@ -43,7 +43,8 @@ for fname in files:
 extensions = ['sphinx.ext.autodoc',
     'sphinx.ext.imgmath',
     'sphinx.ext.viewcode',
-    'sphinx.ext.githubpages']
+    'sphinx.ext.githubpages',
+    'sphinxcontrib.napoleon']
 
 # Add any paths that contain templates here, relative to this directory.
 # templates_path = ['_templates']

@@ -1,7 +1,5 @@
 import unittest
-import os, shutil, sys
-
-if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.unittest")
+import os, shutil
 
 from xnmt.test.utils import has_cython
 import xnmt.xnmt_run_experiments as run

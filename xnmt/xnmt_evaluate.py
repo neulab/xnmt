@@ -1,7 +1,6 @@
 import logging
 logger = logging.getLogger('xnmt')
 import sys
-import io
 import ast
 
 from xnmt.evaluator import BLEUEvaluator, GLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator, ExternalEvaluator, MeanAvgPrecisionEvaluator, SequenceAccuracyEvaluator
@@ -16,7 +15,7 @@ def read_data(loc_, post_process=None):
   """Reads the lines in the file specified in loc_ and return the list after inserting the tokens
   """
   data = list()
-  with io.open(loc_, encoding='utf-8') as fp:
+  with open(loc_, encoding='utf-8') as fp:
     for line in fp:
       t = line.strip()
       if post_process is not None:
@@ -32,9 +31,11 @@ def eval_or_empty_list(x):
 
 def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu", desc=None):
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
-  :param ref_file: path of the reference file
-  :param hyp_file: path of the hypothesis trg file
-  :param evaluator: Evaluation metrics (bleu/wer/cer)
+
+  Args:
+    ref_file: path of the reference file
+    hyp_file: path of the hypothesis trg file
+    evaluator: Evaluation metrics (bleu/wer/cer)
   """
   args = dict(ref_file=ref_file, hyp_file=hyp_file, evaluator=evaluator)
   cols = args["evaluator"].split("|")

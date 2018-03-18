@@ -1,8 +1,5 @@
 import math
 import unittest
-import sys
-
-if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.unittest")
 
 import xnmt.evaluator as evaluator
 import xnmt.events

@@ -5,7 +5,7 @@ from xnmt.serialize.serializable import Serializable
 
 class ScalingParam(Serializable):
   ''' initial * scaler(epoch-1) '''
-  yaml_tag = u"!ScalingParam"
+  yaml_tag = "!ScalingParam"
 
   def __init__(self, initial=0.0, scaler=None):
     self.__value = initial
@@ -21,7 +21,7 @@ class ScalingParam(Serializable):
     return str(self.value())
 
 class Scalar(Serializable):
-  yaml_tag = u"!Scalar"
+  yaml_tag = "!Scalar"
 
   def __init__(self, initial=0.0):
     self.__value = initial
@@ -34,7 +34,7 @@ class Scalar(Serializable):
 
 class GeometricSequence(Serializable):
   ''' initial^(epoch) '''
-  yaml_tag = u'!GeometricSequence'
+  yaml_tag = '!GeometricSequence'
 
   # Do not set warmup_counter manually.
   def __init__(self, initial=0.1, warmup=0, ratio=1, min_value=0.0, max_value=1.0):
@@ -65,7 +65,7 @@ class GeometricSequence(Serializable):
     return repr(self.value())
 
 class DefinedSequence(Serializable):
-  yaml_tag = u'!DefinedSequence'
+  yaml_tag = '!DefinedSequence'
   def __init__(self, sequence=None):
     assert sequence is not None
     assert type(sequence) == list, "DefinedSequence need to have a list type"
