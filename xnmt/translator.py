@@ -11,7 +11,7 @@ from simple_settings import settings
 
 from xnmt.attender import MlpAttender
 from xnmt.batcher import mark_as_batch, is_batched
-from xnmt.decoder import MlpSoftmaxDecoder
+from xnmt.decoder import MlpSoftmaxDecoder, TreeHierDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_handler
 from xnmt.generator import GeneratorModel
@@ -20,11 +20,11 @@ from xnmt.input import SimpleSentenceInput
 import xnmt.length_normalization
 from xnmt.loss import LossBuilder
 from xnmt.lstm import BiLSTMSeqTransducer
-from xnmt.output import TextOutput
+from xnmt.output import TextOutput, TreeHierOutput
 import xnmt.plot
 from xnmt.reports import Reportable
 from xnmt.serialize.serializable import Serializable, bare
-from xnmt.search_strategy import BeamSearch, GreedySearch
+from xnmt.search_strategy import BeamSearch, GreedySearch, TrDecBeamSearch
 import xnmt.serialize.serializer
 from xnmt.serialize.tree_tools import Path
 from xnmt.vocab import Vocab
@@ -470,8 +470,9 @@ class TreeTranslator(Translator, Serializable, Reportable):
 
   yaml_tag = u'!TreeTranslator'
 
-  def __init__(self, src_embedder, encoder, attender, decoder,
-               word_attender, word_embedder):
+  def __init__(self, src_embedder=bare(SimpleWordEmbedder), encoder=bare(BiLSTMSeqTransducer),
+               attender=bare(MlpAttender), decoder=bare(TreeHierDecoder),
+               word_attender=bare(MlpAttender), word_embedder=None):
     '''Constructor.
 
     :param src_embedder: A word embedder for the input language
@@ -497,21 +498,6 @@ class TreeTranslator(Translator, Serializable, Reportable):
   def initialize_generator(self, train_src, train_trg, **kwargs):
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
-      #else:
-      #  if type(kwargs["len_norm_type"]) == MultinomialNormalization:
-      #    len_norm_args = kwargs["len_norm_type"]
-      #    sent_stats = SentenceStats()
-      #    sent_stats.populate_statistics(train_src, train_trg)
-      #    len_norm = MultinomialNormalization(sent_stats, m=len_norm_args.m,
-      #                                        apply_during_search=len_norm_args.apply_during_search)
-      #  elif type(kwargs["len_norm_type"]) == GaussianNormalization:
-      #    len_norm_args = kwargs["len_norm_type"]
-      #    sent_stats = SentenceStats()
-      #    sent_stats.populate_statistics(train_src, train_trg)
-      #    len_norm = GaussianNormalization(sent_stats,
-      #                                        apply_during_search=len_norm_args.apply_during_search,
-      #                                        length_ratio=len_norm_args.length_ratio,
-      #                                        div=len_norm_args.div)
     else:
       len_norm = xnmt.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
     search_args = {}
@@ -524,28 +510,21 @@ class TreeTranslator(Translator, Serializable, Reportable):
       #self.search_strategy = Sampling(**search_args)
       self.sampling = True
     else:
-      if kwargs.get("beam", None) is None:
-        self.search_strategy = GreedySearch(**search_args)
-      else:
-        search_args["beam_size"] = kwargs.get("beam", 1)
-        search_args["len_norm"] = len_norm
-        self.search_strategy = BeamSearch(**search_args)
-        if kwargs.get("output_beam", 0) > 0:
-          self.output_beam = kwargs["output_beam"]
+      search_args["beam_size"] = kwargs.get("beam", 1)
+      search_args["len_norm"] = len_norm
+      self.search_strategy = TrDecBeamSearch(**search_args)
+      if kwargs.get("output_beam", 0) > 0:
+        self.output_beam = kwargs["output_beam"]
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)
 
-  def initialize_training_strategy(self, training_strategy):
-    assert type(training_strategy) == TrainingTreeLoss
-    self.loss_calculator = training_strategy
-
-  def calc_loss(self, src, trg, trg_rule_vocab=None, word_vocab=None):
+  def calc_loss(self, src, trg, loss_calculator, trg_rule_vocab=None, word_vocab=None):
     """
     :param src: source sequence (unbatched, or batched + padded)
     :param trg: target sequence (unbatched, or batched + padded); losses will be accumulated only if trg_mask[batch,pos]==0, or no mask is set
     :returns: (possibly batched) loss expression
     """
-    assert hasattr(self, "loss_calculator")
+    #assert hasattr(self, "loss_calculator")
     if hasattr(self.decoder, 'decoding'):
       self.decoder.decoding = False
     # Initialize the hidden state from the encoder
@@ -576,7 +555,8 @@ class TreeTranslator(Translator, Serializable, Reportable):
       rule_count += rule_c
       word_count += word_c
       word_eos_count += word_eos_c
-    return (dy.esum(rule_losses), dy.esum(word_losses), dy.esum(word_eos_losses), rule_count, word_count, word_eos_count)
+    #return (dy.esum(rule_losses), dy.esum(word_losses), dy.esum(word_eos_losses), rule_count, word_count, word_eos_count)
+    return dy.esum(rule_losses + word_losses + word_eos_losses)
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None, trg_rule_vocab=None, word_vocab=None):
     if hasattr(self.decoder, 'decoding'):
