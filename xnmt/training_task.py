@@ -4,7 +4,8 @@ from subprocess import Popen
 import random
 import numpy as np
 
-from xnmt.serialize.serializable import Serializable, bare, serializable_init, Ref, Path
+from xnmt.serialize.serializable import Serializable, bare, Ref, Path
+from xnmt.serialize.serializer import serializable_init
 from xnmt.loss import LossBuilder
 from xnmt.events import register_xnmt_event
 from xnmt.loss_calculator import LossCalculator, MLELoss

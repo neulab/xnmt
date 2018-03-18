@@ -1,3 +1,4 @@
+from functools import wraps
 import logging
 logger = logging.getLogger('xnmt')
 import os
@@ -9,13 +10,9 @@ import inspect
 import yaml
 
 import xnmt.serialize.tree_tools as tree_tools
-from xnmt.serialize.serializable import Serializable, UninitializedYamlObject
-
+from xnmt.serialize.serializable import Serializable, UninitializedYamlObject, Ref
 
 class YamlSerializer(object):
-
-  def __init__(self):
-    self.representers_added = False
 
   def initialize_if_needed(self, obj):
     if self.is_initialized(obj): return obj
@@ -233,4 +230,27 @@ class YamlSerializer(object):
 
 class ComponentInitError(Exception):
   pass
+
+yaml_serializer = YamlSerializer()
+
+def serializable_init(f):
+  @wraps(f)
+  def wrapper(obj, *args, **kwargs):
+    serialize_params = dict(kwargs)
+    if len(args)>0:
+      params = inspect.signature(f).parameters
+      param_names = [p.name for p in list(params.values())]
+      assert param_names[0] == "self"
+      param_names = param_names[1:]
+      for i, arg in enumerate(args):
+        serialize_params[param_names[i]] = arg
+    for key, arg in serialize_params.items():
+      if isinstance(arg, Ref):
+        raise ValueError(f"Cannot pass unresolved Ref {arg} to {type(obj).__name__}.__init__()")
+      if getattr(arg, "_is_bare", False):
+        serialize_params[key] = yaml_serializer.initialize_object(UninitializedYamlObject(arg))
+    f(obj, **serialize_params)
+    serialize_params.update(getattr(obj,"serialize_params",{}))
+    obj.serialize_params = serialize_params
+  return wrapper
 

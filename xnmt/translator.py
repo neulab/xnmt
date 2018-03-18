@@ -20,7 +20,8 @@ from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
 import xnmt.plot
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable, bare, serializable_init
+from xnmt.serialize.serializable import Serializable, bare
+from xnmt.serialize.serializer import serializable_init
 from xnmt.search_strategy import BeamSearch, GreedySearch
 import xnmt.serialize.serializer
 from xnmt.serialize.serializable import Path

@@ -7,7 +7,8 @@ import ast
 import numpy as np
 
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
-from xnmt.serialize.serializable import Serializable, serializable_init
+from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializer import serializable_init
 from xnmt.vocab import Vocab
 
 ###### Classes that will read in a file and turn it into an input

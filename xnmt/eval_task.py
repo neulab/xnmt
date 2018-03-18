@@ -3,7 +3,8 @@ from simple_settings import settings
 import dynet as dy
 
 import xnmt.input_reader
-from xnmt.serialize.serializable import Serializable, serializable_init, Path, Ref
+from xnmt.serialize.serializable import Serializable, Path, Ref
+from xnmt.serialize.serializer import serializable_init
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
 from xnmt.loss import LossBuilder, LossScalarBuilder

@@ -6,7 +6,8 @@ import dynet as dy
 
 import xnmt.batcher
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.serialize.serializable import Serializable, serializable_init, Ref, Path
+from xnmt.serialize.serializable import Serializable, Ref, Path
+from xnmt.serialize.serializer import serializable_init
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 from xnmt.linear import Linear
 

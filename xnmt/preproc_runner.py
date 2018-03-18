@@ -3,7 +3,9 @@ logger = logging.getLogger('xnmt')
 import os.path
 
 from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer
-from xnmt.serialize.serializable import Serializable, serializable_init
+from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializer import serializable_init
+
 ##### Main function
 
 def make_parent_dir(filename):

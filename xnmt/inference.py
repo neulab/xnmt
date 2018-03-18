@@ -11,7 +11,8 @@ import dynet as dy
 from xnmt.loss_calculator import LossCalculator
 import xnmt.output
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable, serializable_init, Ref, Path
+from xnmt.serialize.serializable import Serializable, Ref, Path
+from xnmt.serialize.serializer import serializable_init
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 

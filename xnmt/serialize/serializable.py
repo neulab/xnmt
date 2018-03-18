@@ -1,27 +1,4 @@
-from functools import wraps
-import inspect
-
 import yaml
-
-def serializable_init(f):
-  @wraps(f)
-  def wrapper(obj, *args, **kwargs):
-    serialize_params = dict(kwargs)
-    if len(args)>0:
-      params = inspect.signature(f).parameters
-      param_names = [p.name for p in list(params.values())]
-      for i, arg in enumerate(args):
-        serialize_params[param_names[i]] = arg
-    for arg in list(args) + list(kwargs.values()):
-      if isinstance(arg, Ref):
-        raise ValueError(f"Cannot pass unresolved Ref {arg} to {type(obj).__name__}.__init__()")
-      # if getattr(arg, "_is_bare", False):
-      #   raise ValueError(f"Cannot pass bare object {arg} to {type(obj).__name__}.__init__()")
-    f(obj, *args, **kwargs)
-    serialize_params.update(getattr(obj,"serialize_params",{}))
-    obj.serialize_params = serialize_params
-  return wrapper
-
 
 class Serializable(yaml.YAMLObject):
   """

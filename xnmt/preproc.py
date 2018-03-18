@@ -4,7 +4,8 @@ logger = logging.getLogger('xnmt')
 import sys
 import os.path
 import subprocess
-from xnmt.serialize.serializable import Serializable, serializable_init
+from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializer import serializable_init
 
 ##### Preprocessors
 

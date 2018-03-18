@@ -1,5 +1,6 @@
 import dynet as dy
-from xnmt.serialize.serializable import Serializable, bare, serializable_init, Ref, Path
+from xnmt.serialize.serializable import Serializable, bare, Ref, Path
+from xnmt.serialize.serializer import serializable_init
 import xnmt.batcher
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 import xnmt.linear

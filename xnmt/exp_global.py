@@ -5,7 +5,8 @@ import os
 from simple_settings import settings
 import dynet as dy
 
-from xnmt.serialize.serializable import Serializable, bare, serializable_init
+from xnmt.serialize.serializable import Serializable, bare
+from xnmt.serialize.serializer import serializable_init
 from xnmt.param_init import ZeroInitializer, GlorotInitializer
 
 class ExpGlobal(Serializable):

@@ -2,7 +2,8 @@ import logging
 logger = logging.getLogger('xnmt')
 
 from xnmt.exp_global import ExpGlobal
-from xnmt.serialize.serializable import Serializable, bare, serializable_init
+from xnmt.serialize.serializable import Serializable, bare
+from xnmt.serialize.serializer import serializable_init
 
 class Experiment(Serializable):
   '''

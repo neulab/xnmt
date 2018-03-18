@@ -4,7 +4,8 @@ from simple_settings import settings
 import numpy as np
 import dynet as dy
 
-from xnmt.serialize.serializable import Serializable, bare, serializable_init, Ref, Path
+from xnmt.serialize.serializable import Serializable, bare, Ref, Path
+from xnmt.serialize.serializer import serializable_init
 import xnmt.optimizer
 from xnmt.training_task import SimpleTrainingTask
 

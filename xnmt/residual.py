@@ -2,7 +2,8 @@ import dynet as dy
 
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
-from xnmt.serialize.serializable import Serializable, Ref, Path, serializable_init
+from xnmt.serialize.serializable import Serializable, Ref, Path
+from xnmt.serialize.serializer import serializable_init
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 
