@@ -56,12 +56,11 @@ exp2-score: !Experiment
   overwrite:
   - path: exp_global.eval_only
     val: True
-  - path: model.inference.mode
-    val: score
-  - path: model.inference.ref_file
-    val: examples/data/head.nbest.en
-  - path: model.inference.src_file
-    val: examples/data/head.ja
+  - path: model.inference
+    val: !SimpleInference
+      mode: score
+      ref_file: examples/data/head.nbest.en
+      src_file: examples/data/head.ja
   - path: evaluate.0
     val: !AccuracyEvalTask
       src_file: examples/data/head.ja
