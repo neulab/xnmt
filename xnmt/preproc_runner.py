@@ -15,6 +15,10 @@ def make_parent_dir(filename):
       if exc.errno != os.errno.EEXIST:
         raise
 
+class PreprocTask(object):
+  def run_preproc_task(self, overwrite=False):
+    ...
+
 class PreprocRunner(Serializable):
   """
   Preprocess and filter the input files, and create the vocabulary.
@@ -39,9 +43,6 @@ class PreprocRunner(Serializable):
 
       task.run_preproc_task(overwrite = overwrite)
 
-class PreprocTask(object):
-  def run_preproc_task(self, overwrite=False):
-    ...
 
 class PreprocExtract(PreprocTask, Serializable):
   yaml_tag = "!PreprocExtract"
