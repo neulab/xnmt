@@ -15,6 +15,8 @@ standard: !Experiment # 'standard' is the name given to the experiment
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 512
     encoder: !BiLSTMSeqTransducer
       layers: 1
     attender: !MlpAttender
