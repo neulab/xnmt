@@ -51,7 +51,7 @@ def main(overwrite_args=None):
     if args.dynet_gpu:
       if settings.CHECK_VALIDITY:
         settings.CHECK_VALIDITY = False
-        logger.warn("disabling CHECK_VALIDITY because it is not supported on GPU currently")
+        logger.warning("disabling CHECK_VALIDITY because it is not supported on GPU currently")
   
     import xnmt.serialize.imports
     config_experiment_names = config_parser.experiment_names_from_file(args.experiments_file)

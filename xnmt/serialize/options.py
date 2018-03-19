@@ -71,7 +71,7 @@ class OptionParser(object):
     except IOError as e:
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
     except yaml.constructor.ConstructorError:
-      logger.error("for proper deserialization of a class object, make sure the class is a subclass of xnmt.serialize.serializable.Serializable, specifies a proper yaml_tag with leading '!', and it's module is imported under xnmt/serialize/imports.py")
+      logger.error("for proper deserialization of a class object, make sure the class is a subclass of xnmt.serialize.serializable.Serializable, specifies a proper yaml_tag with leading '!', and its module is imported under xnmt/serialize/imports.py")
       raise
 
     if "defaults" in experiments: del experiments["defaults"]
@@ -121,7 +121,7 @@ class OptionParser(object):
         if not hasattr(experiment, saved_key):
           setattr(experiment, saved_key, saved_val)
 
-      if hasattr(experiment, "overwrite"):
+      if getattr(experiment, "overwrite", None):
         for d in experiment.overwrite:
           path = tree_tools.Path(d["path"])
           try:

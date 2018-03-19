@@ -7,6 +7,7 @@ import xnmt.decoder
 import xnmt.embedder
 import xnmt.eval_task
 import xnmt.evaluator
+import xnmt.exp_global
 import xnmt.experiment
 import xnmt.ff
 import xnmt.hyper_parameters
@@ -14,7 +15,6 @@ import xnmt.inference
 import xnmt.input
 import xnmt.input_reader
 import xnmt.lstm
-import xnmt.exp_global
 import xnmt.optimizer
 import xnmt.param_init
 import xnmt.preproc_runner

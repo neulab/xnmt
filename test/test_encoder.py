@@ -13,7 +13,7 @@ from xnmt.residual import ResidualLSTMSeqTransducer
 from xnmt.attender import MlpAttender
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.input_reader import PlainTextReader
-from xnmt.exp_global import ExpGlobal, PersistentParamCollection
+from xnmt.exp_global import ExpGlobal, NonPersistentParamCollection
 import xnmt.events
 from xnmt.vocab import Vocab
 
@@ -21,7 +21,7 @@ class TestEncoder(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
-    self.exp_global = ExpGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
+    self.exp_global = ExpGlobal(dynet_param_collection=NonPersistentParamCollection())
 
     self.src_reader = PlainTextReader()
     self.trg_reader = PlainTextReader()

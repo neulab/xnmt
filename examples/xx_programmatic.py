@@ -1,5 +1,6 @@
 import os
 
+import xnmt.serialize.imports
 from xnmt.attender import MlpAttender
 from xnmt.batcher import SrcBatcher
 from xnmt.bridge import CopyBridge
@@ -64,7 +65,8 @@ evaluate = [AccuracyEvalTask(eval_metrics="bleu,wer",
                              src_file="examples/data/head.ja",
                              ref_file="examples/data/head.en",
                              hyp_file="examples/output/{EXP}.test_hyp",
-                             inference=inference)]
+                             inference=inference,
+                             model=model)]
 
 standard_experiment = Experiment(
   exp_global=exp_global,

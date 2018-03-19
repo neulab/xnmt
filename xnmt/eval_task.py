@@ -37,7 +37,7 @@ class LossEvalTask(Serializable):
 
   @serializable_init
   def __init__(self, src_file, ref_file, model=Ref(path=Path("model")),
-                batcher=Ref(path=Path("train.batcher"), required=False),
+                batcher=Ref(path=Path("train.batcher"), default=None),
                 loss_calculator=None, max_src_len=None, max_trg_len=None,
                 desc=None):
     self.model = model

@@ -89,7 +89,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                param_init_output=None, bias_init_output=None,
                bridge=bare(CopyBridge), label_smoothing=0.0,
                vocab_projector=None, vocab_size = None, vocab = None,
-               trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
+               trg_reader = Ref(path=Path("model.trg_reader"), default=None)):
     self.param_col = exp_global.dynet_param_collection.param_col
     # Define dim
     lstm_dim       = lstm_dim or exp_global.default_layer_dim

@@ -23,7 +23,7 @@ class ExpGlobal(Serializable):
     bias_init (ParamInitializer): Default initializer for bias parameters that should be used by supporting components but can be overwritten
     save_num_checkpoints (int): save DyNet parameters for the most recent n checkpoints, useful for model averaging/ensembling
     eval_only (bool): If True, skip the training loop
-    commandline_args: Holds commandline arguments with which XNMT was launched
+    commandline_args (Namespace): Holds commandline arguments with which XNMT was launched
     dynet_param_collection (PersistentParamCollection): Manages DyNet weights
   """
   yaml_tag = '!ExpGlobal'
@@ -53,7 +53,7 @@ class ExpGlobal(Serializable):
     self.dynet_param_collection = dynet_param_collection or PersistentParamCollection(model_file, save_num_checkpoints)
     self.commandline_args = commandline_args
 
-class PersistentParamCollection(object):
+class PersistentParamCollection(Serializable):
   """
   A persistent DyNet parameter collection.
 
@@ -61,6 +61,8 @@ class PersistentParamCollection(object):
     model_file (str): file name of the model. Parameters will be written to this filename with ".data" appended
     save_num_checkpoint (int): keep the most recent this many checkpoints, by writing ".data.1" files etc.
   """
+  yaml_tag = "!PersistentParamCollection"
+  @serializable_init
   def __init__(self, model_file, save_num_checkpoints=1):
     self.model_file = model_file
     self.param_col = dy.Model()
@@ -89,7 +91,9 @@ class PersistentParamCollection(object):
   def load_from_data_file(self, datafile):
     self.param_col.populate(datafile)
 
-class NonPersistentParamCollection(object):
+class NonPersistentParamCollection(Serializable):
+  yaml_tag="!NonPersistentParamCollection"
+  @serializable_init
   def __init__(self):
     self.param_col = dy.Model()
     self.model_file = None

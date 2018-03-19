@@ -88,22 +88,26 @@ class YamlSerializer(object):
           try:
             tree_tools.get_descendant(root, ancestor)
           except tree_tools.PathError:
-            ancestor_parent = tree_tools.get_descendant(root, ancestor.parent())
-            if isinstance(ancestor_parent, Serializable):
-              init_args_defaults = tree_tools.get_init_args_defaults(ancestor_parent)
-              if ancestor[-1] in init_args_defaults:
-                referenced_arg_default = init_args_defaults[ancestor[-1]].default
+            try:
+              ancestor_parent = tree_tools.get_descendant(root, ancestor.parent())
+              if isinstance(ancestor_parent, Serializable):
+                init_args_defaults = tree_tools.get_init_args_defaults(ancestor_parent)
+                if ancestor[-1] in init_args_defaults:
+                  referenced_arg_default = init_args_defaults[ancestor[-1]].default
+                else:
+                  referenced_arg_default = inspect.Parameter.empty
+                if referenced_arg_default == inspect.Parameter.empty:
+                  if node.is_required():
+                    raise ValueError(f"Reference '{node}' is required but does not exist and has no default arguments")
+                else:
+                  tree_tools.set_descendant(root, ancestor, referenced_arg_default)
               else:
-                referenced_arg_default = inspect.Parameter.empty
-              if referenced_arg_default == inspect.Parameter.empty:
                 if node.is_required():
-                  raise ValueError(f"Reference '{node}' is required but does not exist and has no default arguments")
-              else:
-                tree_tools.set_descendant(root, ancestor, referenced_arg_default)
-            else:
+                  raise ValueError(f"Reference '{node}' is required but does not exist")
+                give_up = True
+            except tree_tools.PathError:
               if node.is_required():
                 raise ValueError(f"Reference '{node}' is required but does not exist")
-              give_up = True
           if give_up: break
 
   def share_init_params_top_down(self, root):
@@ -170,7 +174,6 @@ class YamlSerializer(object):
     if not isinstance(obj, Serializable):
       return obj
     init_params = OrderedDict(tree_tools.name_children(obj, include_reserved=False))
-    serialize_params = OrderedDict(init_params)
     init_args = tree_tools.get_init_args_defaults(obj)
     if "yaml_path" in init_args: init_params["yaml_path"] = path
     try:
@@ -179,8 +182,6 @@ class YamlSerializer(object):
     except TypeError as e:
       raise ComponentInitError(f"{type(obj)} could not be initialized using params {init_params}, expecting params {init_args.keys()}. "
                                f"Error message: {e}")
-    # serialize_params.update(getattr(initialized_obj,"serialize_params",{}))
-    # initialized_obj.serialize_params = serialize_params
     return initialized_obj
 
   def resolve_serialize_refs(self, root):
@@ -237,16 +238,27 @@ def serializable_init(f):
   @wraps(f)
   def wrapper(obj, *args, **kwargs):
     serialize_params = dict(kwargs)
+    params = inspect.signature(f).parameters
     if len(args)>0:
-      params = inspect.signature(f).parameters
       param_names = [p.name for p in list(params.values())]
       assert param_names[0] == "self"
       param_names = param_names[1:]
       for i, arg in enumerate(args):
         serialize_params[param_names[i]] = arg
+    auto_added_defaults = set()
+    for param in params.values():
+      if param.name != "self" and param.default != inspect.Parameter.empty and param.name not in serialize_params:
+        serialize_params[param.name] = param.default
+        auto_added_defaults.add(param.name)
     for key, arg in serialize_params.items():
       if isinstance(arg, Ref):
-        raise ValueError(f"Cannot pass unresolved Ref {arg} to {type(obj).__name__}.__init__()")
+        if not arg.is_required():
+          serialize_params[key] = arg.get_default()
+        else:
+          if key in auto_added_defaults:
+            raise ValueError(f"Required argument '{key}' of {type(obj).__name__}.__init__() was not specified, and {arg} could not be resolved")
+          else:
+            raise ValueError(f"Cannot pass a reference as argument; received {arg} in {type(obj).__name__}.__init__()")
       if getattr(arg, "_is_bare", False):
         serialize_params[key] = yaml_serializer.initialize_object(UninitializedYamlObject(arg))
     f(obj, **serialize_params)

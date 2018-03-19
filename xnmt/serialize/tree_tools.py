@@ -136,10 +136,24 @@ def traverse_serializable_breadth_first(root):
   all_nodes = [item[1] for item in sorted(enumerate(all_nodes), key=lambda x: (len(x[1][0]),x[0]))]
   return iter(all_nodes)
 
-def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), named_paths={}):
+def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), named_paths={}, past_visits=set()):
   """
   Traverse the tree and descend into references. The returned path is that of the resolved reference.
+
+  args:
+    root (Serializable):
+    cur_node (Serializable):
+    traversal_order (TraversalOrder):
+    path_to_node (Path):
+    name_paths (dict):
+    past_visits (set):
   """
+
+  # prevent infinite recursion:
+  cur_call_sig = (id(root), id(cur_node), path_to_node)
+  if cur_call_sig in past_visits: return
+  past_visits.add(cur_call_sig)
+
   if traversal_order==TraversalOrder.ROOT_FIRST:
     yield path_to_node, cur_node
   if isinstance(cur_node, Ref):

@@ -135,8 +135,8 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
   @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
                fix_norm=None, param_init=None, bias_init=None, vocab_size=None, vocab=None, yaml_path=None,
-               src_reader=Ref(path=Path("model.src_reader"), required=False),
-               trg_reader=Ref(path=Path("model.trg_reader"), required=False)):
+               src_reader=Ref(path=Path("model.src_reader"), default=None),
+               trg_reader=Ref(path=Path("model.trg_reader"), default=None)):
     self.fix_norm = fix_norm
     self.weight_noise = weight_noise or exp_global.weight_noise
     self.word_dropout = word_dropout
@@ -216,7 +216,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
   @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
                fix_norm=None, init=None, vocab_size = None, vocab = None, yaml_path = None,
-               src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False),
+               src_reader = Ref(path=Path("model.src_reader"), default=None), trg_reader = Ref(path=Path("model.trg_reader"), default=None),
                param_init=None):
     self.emb_dim = emb_dim or exp_global.default_layer_dim
     self.weight_noise = weight_noise or exp_global.weight_noise
@@ -328,7 +328,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
 
   @serializable_init
   def __init__(self, filename, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm = None, vocab = None, yaml_path = None,
-               src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False), 
+               src_reader = Ref(path=Path("model.src_reader"), default=None), trg_reader = Ref(path=Path("model.trg_reader"), default=None),
                exp_global=Ref(Path("exp_global"))):
     self.emb_dim = emb_dim or exp_global.default_layer_dim
     self.weight_noise = weight_noise or exp_global.weight_noise

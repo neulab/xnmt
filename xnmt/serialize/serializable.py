@@ -97,12 +97,14 @@ class Ref(Serializable):
   """
   yaml_tag = "!Ref"
 
-  def __init__(self, path=None, name=None, required=True):
+  NO_DEFAULT = 1928437192847
+
+  def __init__(self, path=None, name=None, default=NO_DEFAULT):
     if name is not None and path is not None:
       raise ValueError(f"Ref cannot be initialized with both a name and a path ({name} / {path})")
     self.name = name
     self.path = path
-    self.required = required
+    self.default = default
     self.serialize_params = {'name': name} if name else {'path': str(path)}
 
   def get_name(self):
@@ -112,7 +114,10 @@ class Ref(Serializable):
     return getattr(self, "path", None)
 
   def is_required(self):
-    return getattr(self, "required", True)
+    return getattr(self, "default", Ref.NO_DEFAULT) == Ref.NO_DEFAULT
+
+  def get_default(self):
+    return getattr(self, "default", None)
 
   def __str__(self):
     if self.get_name():
