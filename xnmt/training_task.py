@@ -4,14 +4,15 @@ from subprocess import Popen
 import random
 import numpy as np
 
+from xnmt.batcher import SrcBatcher
+from xnmt.events import register_xnmt_event
+import xnmt.input_reader
+from xnmt.loss import LossBuilder
+from xnmt.loss_calculator import LossCalculator, MLELoss
+from xnmt.loss_tracker import BatchLossTracker
+from xnmt.param_collection import ParamManager
 from xnmt.serialize.serializable import Serializable, bare, Ref, Path
 from xnmt.serialize.serializer import serializable_init
-from xnmt.loss import LossBuilder
-from xnmt.events import register_xnmt_event
-from xnmt.loss_calculator import LossCalculator, MLELoss
-from xnmt.batcher import SrcBatcher
-from xnmt.loss_tracker import BatchLossTracker
-import xnmt.input_reader
 
 class TrainingTask(object):
   """
@@ -104,7 +105,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                max_num_train_sents=None, max_src_len=None, max_trg_len=None,
                exp_global=Ref(Path("exp_global"))):
     self.exp_global = exp_global
-    self.model_file = self.exp_global.dynet_param_collection.model_file
+    self.model_file = ParamManager.param_col.model_file
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks

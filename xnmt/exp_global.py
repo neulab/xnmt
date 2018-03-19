@@ -1,17 +1,17 @@
 import logging
 logger = logging.getLogger('xnmt')
-import os
 
 from simple_settings import settings
-import dynet as dy
 
 from xnmt.serialize.serializable import Serializable, bare
 from xnmt.serialize.serializer import serializable_init
+from xnmt.param_collection import ParamManager
 from xnmt.param_init import ZeroInitializer, GlorotInitializer
 
 class ExpGlobal(Serializable):
   """
-  An object that holds global settings that can be used by components wherever appropriate. Also holds the DyNet parameter collection.
+  An object that holds global settings that can be referenced by components wherever appropriate.
+  Also sets up the global DyNet parameter collection.
   
   Args:
     model_file (str): Location to write model file to
@@ -24,7 +24,6 @@ class ExpGlobal(Serializable):
     save_num_checkpoints (int): save DyNet parameters for the most recent n checkpoints, useful for model averaging/ensembling
     eval_only (bool): If True, skip the training loop
     commandline_args (Namespace): Holds commandline arguments with which XNMT was launched
-    dynet_param_collection (PersistentParamCollection): Manages DyNet weights
   """
   yaml_tag = '!ExpGlobal'
 
@@ -39,8 +38,9 @@ class ExpGlobal(Serializable):
                bias_init=bare(ZeroInitializer),
                save_num_checkpoints=1,
                eval_only=False,
-               commandline_args=None,
-               dynet_param_collection = None):
+               commandline_args=None):
+    # TODO: want to resolve all of these via references rather than passing the exp_global object itself.
+    # once that's done, can remove the below attribute assignments
     self.model_file = model_file
     self.log_file = log_file
     self.dropout = dropout
@@ -50,60 +50,9 @@ class ExpGlobal(Serializable):
     self.bias_init = bias_init
     self.model_file = None
     self.eval_only = eval_only
-    self.dynet_param_collection = dynet_param_collection or PersistentParamCollection(model_file, save_num_checkpoints)
     self.commandline_args = commandline_args
 
-class PersistentParamCollection(Serializable):
-  """
-  A persistent DyNet parameter collection.
+    ParamManager.init_param_col()
+    ParamManager.param_col.model_file = model_file
+    ParamManager.param_col.save_num_checkpoints = save_num_checkpoints
 
-  Args:
-    model_file (str): file name of the model. Parameters will be written to this filename with ".data" appended
-    save_num_checkpoint (int): keep the most recent this many checkpoints, by writing ".data.1" files etc.
-  """
-  yaml_tag = "!PersistentParamCollection"
-  @serializable_init
-  def __init__(self, model_file, save_num_checkpoints=1):
-    self.model_file = model_file
-    self.param_col = dy.Model()
-    self.is_saved = False
-    assert save_num_checkpoints >= 1 or (model_file is None and save_num_checkpoints==0)
-    if save_num_checkpoints>0: self.data_files = [self.model_file + '.data']
-    for i in range(1,save_num_checkpoints):
-      self.data_files.append(self.model_file + '.data.' + str(i))
-  def revert_to_best_model(self):
-    self.param_col.populate(self.model_file + '.data')
-  def save(self, fname=None):
-    if fname: assert fname == self.data_files[0], "%s != %s" % (fname + '.data', self.data_files[0])
-    if not self.is_saved:
-      self.remove_existing_history()
-    self.shift_safed_checkpoints()
-    self.param_col.save(self.data_files[0])
-    self.is_saved = True
-  def remove_existing_history(self):
-    for fname in self.data_files[1:]:
-      if os.path.exists(fname):
-        os.remove(fname)
-  def shift_safed_checkpoints(self):
-    for i in range(len(self.data_files)-1)[::-1]:
-      if os.path.exists(self.data_files[i]):
-        os.rename(self.data_files[i], self.data_files[i+1])
-  def load_from_data_file(self, datafile):
-    self.param_col.populate(datafile)
-
-class NonPersistentParamCollection(Serializable):
-  yaml_tag="!NonPersistentParamCollection"
-  @serializable_init
-  def __init__(self):
-    self.param_col = dy.Model()
-    self.model_file = None
-  def revert_to_best_model(self):
-    logger.warning("reverting a non-persistent param collection has no effect")
-  def save(self, fname=None):
-    logger.warning("saving a non-persistent param collection has no effect")
-  def remove_existing_history(self):
-    logger.warning("editing history of a non-persistent param collection has no effect")
-  def shift_safed_checkpoints(self):
-    logger.warning("editing history of a non-persistent param collection has no effect")
-  def load_from_data_file(self, datafile):
-    self.param_col.populate(datafile)

@@ -1,12 +1,14 @@
 import dynet as dy
-from xnmt.serialize.serializable import Serializable, bare, Ref, Path
-from xnmt.serialize.serializer import serializable_init
+
 import xnmt.batcher
+from xnmt.bridge import CopyBridge
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 import xnmt.linear
 import xnmt.residual
-from xnmt.bridge import CopyBridge
 from xnmt.param_init import GlorotInitializer
+from xnmt.param_collection import ParamManager
+from xnmt.serialize.serializable import Serializable, bare, Ref, Path
+from xnmt.serialize.serializer import serializable_init
 
 class Decoder(object):
   '''
@@ -90,7 +92,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                bridge=bare(CopyBridge), label_smoothing=0.0,
                vocab_projector=None, vocab_size = None, vocab = None,
                trg_reader = Ref(path=Path("model.trg_reader"), default=None)):
-    self.param_col = exp_global.dynet_param_collection.param_col
+    self.param_col = ParamManager.my_subcollection(self)
     # Define dim
     lstm_dim       = lstm_dim or exp_global.default_layer_dim
     self.mlp_hidden_dim = mlp_hidden_dim = mlp_hidden_dim or exp_global.default_layer_dim

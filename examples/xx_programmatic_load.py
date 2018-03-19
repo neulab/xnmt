@@ -25,6 +25,6 @@ exp_global = loaded_experiment.exp_global
 
 # run experiment
 loaded_experiment(save_fct=lambda: YamlSerializer().save_to_file(model_file,
-                                                                   loaded_experiment,
-                                                                   exp_global.dynet_param_collection))
+                                                                 loaded_experiment,
+                                                                 exp_global.dynet_param_collection))
 

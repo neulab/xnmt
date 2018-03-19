@@ -7,7 +7,7 @@ import yaml
 from xnmt.serialize.serializable import Serializable, Path, Ref
 
 
-reserved_arg_names = ["_xnmt_id", "yaml_path", "serialize_params", "init_params", "kwargs", "self"]
+reserved_arg_names = ["_xnmt_id", "yaml_path", "serialize_params", "init_params", "kwargs", "self", "xnmt_subcol_name"]
 
 def get_init_args_defaults(obj):
     return inspect.signature(obj.__init__).parameters

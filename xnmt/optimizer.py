@@ -3,6 +3,7 @@ logger = logging.getLogger('xnmt')
 
 import dynet as dy
 import numpy as np
+from xnmt.param_collection import ParamManager
 from xnmt.serialize.serializable import Serializable, Ref, Path
 from xnmt.serialize.serializer import serializable_init
 
@@ -78,7 +79,7 @@ class SimpleSGDTrainer(XnmtOptimizer, Serializable):
 
   @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.1):
-    self.optimizer = dy.SimpleSGDTrainer(exp_global.dynet_param_collection.param_col,
+    self.optimizer = dy.SimpleSGDTrainer(ParamManager.global_collection(),
                                          e0)
 class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   """
@@ -151,7 +152,7 @@ class AdamTrainer(XnmtOptimizer, Serializable):
 
   @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
-    self.optimizer = dy.AdamTrainer(exp_global.dynet_param_collection.param_col,
+    self.optimizer = dy.AdamTrainer(ParamManager.global_collection(),
                                     alpha, beta_1, beta_2, eps)
 
 class TransformerAdamTrainer(XnmtOptimizer, Serializable):

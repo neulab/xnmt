@@ -6,10 +6,11 @@ import dynet as dy
 
 import xnmt.batcher
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.serialize.serializable import Serializable, Ref, Path
-from xnmt.serialize.serializer import serializable_init
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 from xnmt.linear import Linear
+from xnmt.param_collection import ParamManager
+from xnmt.serialize.serializable import Serializable, Ref, Path
+from xnmt.serialize.serializer import serializable_init
 
 class Embedder(object):
   """
@@ -224,10 +225,10 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.fix_norm = fix_norm
     self.word_id_mask = None
     self.train = False
-    self.dynet_param_collection = exp_global.dynet_param_collection
+    self.dynet_param_collection = ParamManager.my_subcollection(self)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
     param_init = param_init or exp_global.param_init
-    self.embeddings = self.dynet_param_collection.param_col \
+    self.embeddings = self.dynet_param_collection \
       .add_lookup_parameters((self.vocab_size, self.emb_dim),
                              init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
 

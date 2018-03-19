@@ -19,9 +19,10 @@ if settings.RESOURCE_WARNINGS:
   import warnings
   warnings.simplefilter('always', ResourceWarning)
 
+from xnmt.param_collection import ParamManager
 from xnmt.serialize.options import OptionParser
-from xnmt.tee import Tee
 from xnmt.serialize.serializer import YamlSerializer
+from xnmt.tee import Tee
 
 def main(overwrite_args=None):
   with Tee(), Tee(error=True):
@@ -67,6 +68,9 @@ def main(overwrite_args=None):
         raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
   
     for experiment_name in experiment_names:
+
+      ParamManager.init_param_col()
+
       uninitialized_exp_args = config_parser.parse_experiment_file(args.experiments_file, experiment_name)
   
       logger.info("=> Running {}".format(experiment_name))
@@ -91,7 +95,7 @@ def main(overwrite_args=None):
   
       # Run the experiment
       eval_scores = experiment(save_fct = lambda: yaml_serializer.save_to_file(model_file, experiment,
-                                                                               experiment.exp_global.dynet_param_collection))
+                                                                               ParamManager.param_col))
       results.append((experiment_name, eval_scores))
       print_results(results)
       

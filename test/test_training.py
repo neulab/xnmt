@@ -10,15 +10,16 @@ from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.eval_task import LossEvalTask
 import xnmt.events
+from xnmt.exp_global import ExpGlobal
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.loss_calculator import LossCalculator
 from xnmt.optimizer import AdamTrainer
+from xnmt.param_collection import NonPersistentParamCollection
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
 import xnmt.training_regimen
 from xnmt.translator import DefaultTranslator
 from xnmt.vocab import Vocab
-from xnmt.exp_global import ExpGlobal, NonPersistentParamCollection
 
 class TestTruncatedBatchTraining(unittest.TestCase):
 

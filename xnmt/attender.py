@@ -4,6 +4,7 @@ logger = logging.getLogger('xnmt')
 import math
 import dynet as dy
 
+from xnmt.param_collection import ParamManager
 from xnmt.serialize.serializable import Serializable, Ref, Path
 from xnmt.serialize.serializer import serializable_init
 
@@ -65,7 +66,7 @@ class MlpAttender(Attender, Serializable):
     self.hidden_dim = hidden_dim
     param_init = param_init or exp_global.param_init
     bias_init = bias_init or exp_global.bias_init
-    param_collection = exp_global.dynet_param_collection.param_col
+    param_collection = ParamManager.my_subcollection(self)
     self.pW = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
     self.pV = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
     self.pb = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))

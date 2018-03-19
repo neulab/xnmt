@@ -2,17 +2,19 @@ import logging
 logger = logging.getLogger('xnmt')
 
 from xnmt.exp_global import ExpGlobal
+from xnmt.param_collection import ParamManager
 from xnmt.serialize.serializable import Serializable, bare
 from xnmt.serialize.serializer import serializable_init
 
 class Experiment(Serializable):
   '''
   A default experiment that performs preprocessing, training, and evaluation.
+
+  The initializer calls ParamManager.populate(), meaning that model construction should be finalized at this point.
+  __call__() runs the individual steps.
   
   Args:
     exp_global (ExpGlobal): global experiment settings
-    load (str): path to load a serialized experiment from (if given, only overwrite but no other arguments can be specified)
-    overwrite (list): to be combined with ``load``. list of dictionaries for overwriting individual parts, with dictionaries looking like e.g. ``{"path": exp_global.eval_only, "val": True}``
     preproc (PreprocRunner): carry out preprocessing if specified
     model (GeneratorModel): The main model. In the case of multitask training, several models must be specified, in which case the models will live not here but inside the training task objects.
     train (TrainingRegimen): The training regimen defines the training loop.
@@ -23,21 +25,17 @@ class Experiment(Serializable):
   yaml_tag = '!Experiment'
 
   @serializable_init
-  def __init__(self, exp_global=bare(ExpGlobal), load=None, overwrite=None, preproc=None,
-               model=None, train=None, evaluate=None, random_search_report=None):
+  def __init__(self, exp_global=bare(ExpGlobal), preproc=None,  model=None, train=None, evaluate=None,
+               random_search_report=None):
     """
     This is called after all other components have been initialized, so we can safely load DyNet weights here. 
     """
     self.exp_global = exp_global
-    self.load = load
-    self.overwrite = overwrite
     self.preproc = preproc
     self.model = model
     self.train = train
     self.evaluate = evaluate
-    if load:
-      exp_global.dynet_param_collection.load_from_data_file(f"{load}.data")
-      logger.info(f"> populated DyNet weights from {load}.data")
+    ParamManager.populate()
 
     if random_search_report:
       logger.info(f"> instantiated random parameter search: {random_search_report}")
@@ -52,7 +50,7 @@ class Experiment(Serializable):
       logger.info("> Training")
       self.train.run_training(save_fct = save_fct)
       logger.info('reverting learned weights to best checkpoint..')
-      self.exp_global.dynet_param_collection.revert_to_best_model()
+      ParamManager.param_col.revert_to_best_model()
 
     evaluate_args = self.evaluate
     if evaluate_args:

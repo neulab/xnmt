@@ -6,6 +6,7 @@ import copy
 from functools import lru_cache
 from collections import OrderedDict
 import inspect
+import random
 
 import yaml
 
@@ -177,7 +178,10 @@ class YamlSerializer(object):
     init_args = tree_tools.get_init_args_defaults(obj)
     if "yaml_path" in init_args: init_params["yaml_path"] = path
     try:
-      initialized_obj = obj.__class__(**init_params)
+      if hasattr(obj, "xnmt_subcol_name"):
+        initialized_obj = obj.__class__(**init_params, xnmt_subcol_name=obj.xnmt_subcol_name)
+      else:
+        initialized_obj = obj.__class__(**init_params)
       logger.debug(f"initialized {path}: {obj.__class__.__name__}@{id(obj)}({dict(init_params)})"[:1000])
     except TypeError as e:
       raise ComponentInitError(f"{type(obj)} could not be initialized using params {init_params}, expecting params {init_args.keys()}. "
@@ -218,7 +222,7 @@ class YamlSerializer(object):
       os.makedirs(dirname)
     with open(fname, 'w') as f:
       f.write(self.dump(mod))
-    persistent_param_collection.save(fname + '.data')
+    persistent_param_collection.save()
 
   def load_from_file(self, fname, param):
     with open(fname, 'r') as f:
@@ -234,9 +238,21 @@ class ComponentInitError(Exception):
 
 yaml_serializer = YamlSerializer()
 
+subcol_rand = random.Random()
+def generate_subcol_name(subcol_owner):
+  rand_bits = subcol_rand.getrandbits(32)
+  rand_hex = "%008x" % rand_bits
+  return f"{type(subcol_owner).__name__}.{rand_hex}"
+
 def serializable_init(f):
   @wraps(f)
   def wrapper(obj, *args, **kwargs):
+    if "xnmt_subcol_name" in kwargs:
+      xnmt_subcol_name = kwargs.pop("xnmt_subcol_name")
+    else:
+      xnmt_subcol_name = generate_subcol_name(obj)
+    subcol_rand.seed(xnmt_subcol_name) # make sure that objects created inside __init__() get a consistent subcol_name
+    obj.xnmt_subcol_name = xnmt_subcol_name
     serialize_params = dict(kwargs)
     params = inspect.signature(f).parameters
     if len(args)>0:
@@ -262,6 +278,7 @@ def serializable_init(f):
       if getattr(arg, "_is_bare", False):
         serialize_params[key] = yaml_serializer.initialize_object(UninitializedYamlObject(arg))
     f(obj, **serialize_params)
+    serialize_params["xnmt_subcol_name"] = xnmt_subcol_name
     serialize_params.update(getattr(obj,"serialize_params",{}))
     obj.serialize_params = serialize_params
   return wrapper

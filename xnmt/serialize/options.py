@@ -12,6 +12,7 @@ import yaml
 from xnmt.serialize.serializable import Serializable, UninitializedYamlObject
 import xnmt.serialize.tree_tools as tree_tools
 from xnmt.serialize.tree_tools import set_descendant
+from xnmt.param_collection import ParamManager
 
 class Option(object):
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
@@ -122,6 +123,7 @@ class OptionParser(object):
             loaded_obj = yaml.load(stream)
         except IOError as e:
           raise RuntimeError(f"Could not read configuration file {node.filename}: {e}")
+        ParamManager.add_load_path(f"{node.filename}.data")
         loaded_obj = tree_tools.get_descendant(loaded_obj, tree_tools.Path(getattr(node, "path", "")))
         # TODO: in case the components contain references to a component outside
         # the loaded path, we need to move it over and change other components'
@@ -144,7 +146,7 @@ class OptionParser(object):
     if hasattr(obj, "kwargs"):
       for k, v in obj.kwargs.items():
         if hasattr(obj, k):
-          raise ValueError("kwargs %s already specified as class member for object %s" % (str(k), str(obj)))
+          raise ValueError(f"kwargs '{str(k)}' already specified as class member for object '{str(obj)}'")
         setattr(obj, k, v)
       delattr(obj, "kwargs")
 

@@ -5,6 +5,7 @@ import dynet as dy
 
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
 from xnmt.events import register_xnmt_handler, handle_xnmt_event, register_xnmt_handler
+from xnmt.param_collection import ParamManager
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.serialize.serializable import Serializable, Ref, Path
 from xnmt.serialize.serializer import serializable_init
@@ -30,7 +31,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   @serializable_init
   def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, hidden_dim=None,
                dropout = None, weightnoise_std=None, param_init=None, bias_init=None):
-    model = exp_global.dynet_param_collection.param_col
+    model = ParamManager.my_subcollection(self)
     input_dim = input_dim or exp_global.default_layer_dim
     hidden_dim = hidden_dim or exp_global.default_layer_dim
     self.hidden_dim = hidden_dim
