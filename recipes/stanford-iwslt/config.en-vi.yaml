@@ -5,9 +5,9 @@ iwslt-experiment: !Experiment
     dropout: 0.3
   model: !DefaultTranslator
     src_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: '{EXP_DIR}/vocab.en'}
+      vocab: !Vocab {vocab_file: '{EXP_DIR}/vocab.en.xnmt'}
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: '{EXP_DIR}/vocab.vi'}
+      vocab: !Vocab {vocab_file: '{EXP_DIR}/vocab.vi.xnmt'}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 128
     encoder: !BiLSTMSeqTransducer
