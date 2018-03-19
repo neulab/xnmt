@@ -10,12 +10,13 @@ Before running *xnmt* you must install the required packages, including Python b
 `DyNet <http://github.com/clab/dynet>`_.
 This can be done by running ``pip -r requirements.txt``
 
-Next, install *xnmt* by running ``python setup.py install`` for normal usage or ``python setup.py develop`` for development.
+Next, install *xnmt* by running ``python setup.py install`` for normal usage or ``python setup.py develop`` for
+development.
 
 Running the examples
 --------------------
 
-*xnmt* includes a series of tutorial-style examples in the examples subfolder.
+*xnmt* includes a series of tutorial-style examples in the ``examples/`` subfolder.
 These are a good starting point to get familiarized with specifying models and
 experiments. To run the first experiment, use the following::
 
@@ -24,7 +25,13 @@ experiments. To run the first experiment, use the following::
 Make sure to read the comments provided in ``examples/01_standard.yaml``.
 
 See ``experiments.md`` for more details about writing experiment configuration files
-that allow you to specify the various 
+that allow you to specify the various
+
+Running recipes
+---------------
+
+*xnmt* includes several self-contained recipes on publically available data with competitive model settings, and
+including scripts for data preparation, in the ``recipes/`` subfolder.
 
 Running unit tests
 ------------------
