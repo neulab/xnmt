@@ -3,8 +3,8 @@
 preproc: !Experiment
   preproc: !PreprocRunner
     overwrite: False
-    preproc_specs:
-    - type: tokenize
+    tasks:
+    - !PreprocTokenize
       in_files:
       - examples/data/train.ja
       - examples/data/train.en
@@ -32,7 +32,7 @@ preproc: !Experiment
           vocab_size: 8000
           model_type: unigram
           model_prefix: examples/preproc/sentpiece
-    - type: normalize
+    - !PreprocNormalize
       in_files:
       - examples/preproc/train.tok.ja
       - examples/preproc/train.tok.en
@@ -55,7 +55,7 @@ preproc: !Experiment
       - filenum: all
         spec:
         - type: lower
-    - type: filter
+    - !PreprocFilter
       in_files:
       - examples/preproc/train.tok.norm.ja
       - examples/preproc/train.tok.norm.en

@@ -24,6 +24,9 @@ class ExpGlobal(Serializable):
     eval_only (bool): If True, skip the training loop
     commandline_args: Holds commandline arguments with which XNMT was launched
     dynet_param_collection (PersistentParamCollection): Manages DyNet weights
+    placeholders (Dict[str,str]): these will be used as arguments for a format() call applied to every string in the config.
+                                  For example, ``placeholders: {"PATH":"/some/path"} will cause each occurence of ``"{PATH}"`` in a string
+                                  to be replaced by ``"/some/path"``.
   """
   yaml_tag = '!ExpGlobal'
   def __init__(self,
@@ -37,7 +40,8 @@ class ExpGlobal(Serializable):
                save_num_checkpoints:int=1,
                eval_only:bool = False,
                commandline_args = None,
-               dynet_param_collection = None):
+               dynet_param_collection = None,
+               placeholders={}):
     self.model_file = model_file
     self.log_file = log_file
     self.dropout = dropout
@@ -49,6 +53,7 @@ class ExpGlobal(Serializable):
     self.eval_only = eval_only
     self.dynet_param_collection = dynet_param_collection or PersistentParamCollection(model_file, save_num_checkpoints)
     self.commandline_args = commandline_args
+    self.placeholders = placeholders
 
 class PersistentParamCollection(object):
   """
