@@ -11,6 +11,7 @@ import os
 import random
 import sys
 import socket
+import datetime
 import faulthandler
 faulthandler.enable()
 
@@ -72,7 +73,7 @@ def main(overwrite_args=None):
       uninitialized_exp_args = config_parser.parse_experiment(args.experiments_file, experiment_name)
   
       logger.info("=> Running {}".format(experiment_name))
-      logger.debug(f"running XNMT revision {get_git_revision()} on {socket.gethostname()}")
+      logger.debug(f"running XNMT revision {get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
       yaml_serializer = YamlSerializer()
   
