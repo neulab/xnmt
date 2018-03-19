@@ -13,8 +13,8 @@ preproc: !Experiment
 
   preproc: !PreprocRunner
     overwrite: False
-    preproc_specs:
-    - type: tokenize
+    tasks:
+    - !PreprocTokenize
       in_files:
       - '{DATA_IN}/train.ja'
       - '{DATA_IN}/train.en'
@@ -42,7 +42,7 @@ preproc: !Experiment
           vocab_size: 8000
           model_type: unigram
           model_prefix: '{DATA_OUT}/sentpiece'
-    - type: normalize
+    - !PreprocNormalize
       in_files:
       - '{DATA_OUT}/train.tok.ja'
       - '{DATA_OUT}/train.tok.en'
@@ -65,7 +65,7 @@ preproc: !Experiment
       - filenum: all
         spec:
         - type: lower
-    - type: filter
+    - !PreprocFilter
       in_files:
       - '{DATA_OUT}/train.tok.norm.ja'
       - '{DATA_OUT}/train.tok.norm.en'

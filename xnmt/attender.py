@@ -112,7 +112,7 @@ class DotAttender(Attender, Serializable):
 
   yaml_tag = '!DotAttender'
 
-  def __init__(self, scale=True):
+  def __init__(self, scale:bool=True):
     self.curr_sent = None
     self.scale = scale
     self.attention_vecs = []
