@@ -67,7 +67,7 @@ def main(overwrite_args=None):
         raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
   
     for experiment_name in experiment_names:
-      uninitialized_exp_args = config_parser.parse_experiment(args.experiments_file, experiment_name)
+      uninitialized_exp_args = config_parser.parse_experiment_file(args.experiments_file, experiment_name)
   
       logger.info("=> Running {}".format(experiment_name))
   

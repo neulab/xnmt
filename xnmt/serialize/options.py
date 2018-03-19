@@ -77,10 +77,7 @@ class OptionParser(object):
     if "defaults" in experiments: del experiments["defaults"]
     return sorted(experiments.keys())
 
-  def parse_experiment(self, filename, exp_name):
-    """
-    Returns a dictionary of experiments => {task => {arguments object}}
-    """
+  def parse_experiment_file(self, filename, exp_name):
     try:
       with open(filename) as stream:
         config = yaml.load(stream)
@@ -88,6 +85,9 @@ class OptionParser(object):
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
 
     experiment = config[exp_name]
+    return self.parse_loaded_experiment(experiment, exp_name = exp_name, exp_dir = os.path.dirname(filename))
+
+  def parse_loaded_experiment(self, experiment, exp_name, exp_dir):
 
     for _, node in tree_tools.traverse_tree(experiment):
       if isinstance(node, Serializable):
@@ -103,7 +103,7 @@ class OptionParser(object):
     self.resolve_bare_default_args(experiment)
       
     self.format_strings(experiment, {"EXP":exp_name,"PID":os.getpid(),
-                                     "EXP_DIR":os.path.dirname(filename)})
+                                     "EXP_DIR":exp_dir})
 
     return UninitializedYamlObject(experiment)
 

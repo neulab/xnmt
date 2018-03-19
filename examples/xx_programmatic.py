@@ -18,12 +18,10 @@ from xnmt.training_regimen import SimpleTrainingRegimen
 from xnmt.translator import DefaultTranslator
 from xnmt.vocab import Vocab
 
-placeholders = {
-  "EXP_DIR": os.path.dirname(__file__),
-  "EXP": "standard"
-}
+EXP_DIR = os.path.dirname(__file__)
+EXP = "programmatic"
 
-model_file = "{EXP_DIR}/models/{EXP}.mod".format(**placeholders)
+model_file = f"{EXP_DIR}/models/{EXP}.mod"
 
 exp_global = ExpGlobal(
   dynet_param_collection=PersistentParamCollection(model_file=model_file))
@@ -64,7 +62,7 @@ train = SimpleTrainingRegimen(
 evaluate = [AccuracyEvalTask(eval_metrics="bleu,wer",
                              src_file="examples/data/head.ja",
                              ref_file="examples/data/head.en",
-                             hyp_file="examples/output/{EXP}.test_hyp",
+                             hyp_file=f"examples/output/{EXP}.test_hyp",
                              inference=inference,
                              model=model)]
 
