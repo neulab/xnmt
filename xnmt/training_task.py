@@ -188,7 +188,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     New epoch event.
 
     Args:
-      training_task: Indicates which training regimen is advancing to the next epoch.
+      training_task: Indicates which training task is advancing to the next epoch.
       num_sents: Number of sentences in the upcoming epoch (may change between epochs)
     """
     pass
