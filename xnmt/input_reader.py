@@ -10,35 +10,99 @@ from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
 from xnmt.serialize.serializable import Serializable
 from xnmt.vocab import Vocab
 
+
 ###### Classes that will read in a file and turn it into an input
 
 class InputReader(object):
-  """
-  A base class for classes that will read in a file and turn it into an :class:`xnmt.input.Input`.
-  """
-  
   def read_sents(self, filename, filter_ids=None):
     """
-    Reads content.
-    
-    Args:
-      filename (str): data file
-      filter_ids (list of int): only read sentences with these ids (0-indexed)
-    Returns:
-      iterator over sentences from filename
+    :param filename: data file
+    :param filter_ids: only read sentences with these ids (0-indexed)
+    :returns: iterator over sentences from filename
     """
-    raise RuntimeError("Input readers must implement the read_sents function")
+    if self.vocab is None:
+      self.vocab = Vocab()
+    return self.iterate_filtered(filename, filter_ids)
+
+  def read_sent(self, sentence, filter_ids=None):
+    """
+    :param sentence: a single input string
+    :param filter_ids: only read sentences with these ids (0-indexed)
+    :returns: a SentenceInput object for the input sentence
+    """
+    raise RuntimeError("Input readers must implement the read_sent function")
 
   def count_sents(self, filename):
     """
-    Counts number of sents. Separate from read_sents() because counting is much faster than reading contents for some file types.
-    
-    Args:
-      filename (str): data file
-    Returns:
-      number of sentences in the data file
+    :param filename: data file
+    :returns: number of sentences in the data file
     """
     raise RuntimeError("Input readers must implement the count_sents function")
+
+  def freeze(self):
+    pass
+
+class BaseTextReader(InputReader):
+  def count_sents(self, filename):
+    f = open(filename, encoding='utf-8')
+    try:
+      return sum(1 for _ in f)
+    finally:
+      f.close()
+
+  def iterate_filtered(self, filename, filter_ids=None):
+    """
+    :param filename: data file (text file)
+    :param filter_ids:
+    :returns: iterator over lines as strings (useful for subclasses to implement read_sents)
+    """
+    sent_count = 0
+    max_id = None
+    if filter_ids is not None:
+      max_id = max(filter_ids)
+      filter_ids = set(filter_ids)
+    with open(filename, encoding='utf-8') as f:
+      for line in f:
+        if filter_ids is None or sent_count in filter_ids:
+          yield self.read_sent(line)
+        sent_count += 1
+        if max_id is not None and sent_count > max_id:
+          break
+
+class PlainTextReader(BaseTextReader, Serializable):
+  """
+  Handles the typical case of reading plain text files,
+  with one sent per line.
+  """
+  yaml_tag = u'!PlainTextReader'
+  def __init__(self, vocab=None, include_vocab_reference=False):
+    self.vocab = vocab
+    self.include_vocab_reference = include_vocab_reference
+    if vocab is not None:
+      self.vocab.freeze()
+      self.vocab.set_unk(Vocab.UNK_STR)
+
+  def read_sent(self, sentence, filter_ids=None):
+    vocab_reference = self.vocab if self.include_vocab_reference else None
+    return SimpleSentenceInput([self.vocab.convert(word) for word in sentence.strip().split()] + \
+                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
+
+  def freeze(self):
+    self.vocab.freeze()
+    self.vocab.set_unk(Vocab.UNK_STR)
+    self.overwrite_serialize_param("vocab", self.vocab)
+
+  def count_words(self, trg_words):
+    trg_cnt = 0
+    for x in trg_words:
+      if type(x) == int:
+        trg_cnt += 1 if x != Vocab.ES else 0
+      else:
+        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
+    return trg_cnt
+
+  def vocab_size(self):
+    return len(self.vocab)
 
 class BaseTextReader(InputReader):
   """
@@ -71,43 +135,6 @@ class BaseTextReader(InputReader):
         sent_count += 1
         if max_id is not None and sent_count > max_id:
           break
-
-class PlainTextReader(BaseTextReader, Serializable):
-  """
-  Handles the typical case of reading plain text files,
-  with one sent per line.
-  
-  Args:
-    vocab (Vocab): turns tokens strings into token IDs
-    include_vocab_reference (bool): TODO document me
-  """
-  yaml_tag = '!PlainTextReader'
-  def __init__(self, vocab=None, include_vocab_reference=False):
-    self.vocab = vocab
-    self.include_vocab_reference = include_vocab_reference
-    if vocab is not None:
-      self.vocab.freeze()
-      self.vocab.set_unk(Vocab.UNK_STR)
-
-  def read_sents(self, filename, filter_ids=None):
-    if self.vocab is None:
-      self.vocab = Vocab()
-    vocab_reference = self.vocab if self.include_vocab_reference else None
-    return map(lambda l: SimpleSentenceInput([self.vocab.convert(word) for word in l.strip().split()] + \
-                                             [self.vocab.convert(Vocab.ES_STR)], vocab_reference),
-               self.iterate_filtered(filename, filter_ids))
-
-  def count_words(self, trg_words):
-    trg_cnt = 0
-    for x in trg_words:
-      if type(x) == int:
-        trg_cnt += 1 if x != Vocab.ES else 0
-      else:
-        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
-    return trg_cnt
-
-  def vocab_size(self):
-    return len(self.vocab)
 
 class SegmentationTextReader(PlainTextReader):
   yaml_tag = '!SegmentationTextReader'
