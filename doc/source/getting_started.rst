@@ -24,8 +24,7 @@ experiments. To run the first experiment, use the following::
 
 Make sure to read the comments provided in ``examples/01_standard.yaml``.
 
-See ``experiments.md`` for more details about writing experiment configuration files
-that allow you to specify the various
+See the ``experiment-config-files`` documentation entry for more details about writing experiment configuration files.
 
 Running recipes
 ---------------
