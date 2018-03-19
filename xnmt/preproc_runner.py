@@ -1,9 +1,11 @@
 import logging
 logger = logging.getLogger('xnmt')
 import os.path
+from typing import List
 
 from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer
 from xnmt.serialize.serializable import Serializable
+
 
 def make_parent_dir(filename):
   if not os.path.exists(os.path.dirname(filename)):
@@ -18,15 +20,15 @@ class PreprocRunner(Serializable):
   Preprocess and filter the input files, and create the vocabulary.
 
   Args:
-    tasks (List[PreprocTask]): A list of preprocessing steps, usually parametrized by in_files (the input files), out_files (the output files), and spec for that particular preprocessing type
-                               The types of arguments that preproc_spec expects:
-                               * Option("in_files", help_str="list of paths to the input files"),
-                               * Option("out_files", help_str="list of paths for the output files"),
-                               * Option("spec", help_str="The specifications describing which type of processing to use. For normalize and vocab, should consist of the 'lang' and 'spec', where 'lang' can either be 'all' to apply the same type of processing to all languages, or a zero-indexed integer indicating which language to process."),
-    overwrite (bool): Whether to overwrite files if they already exist.
+    tasks: A list of preprocessing steps, usually parametrized by in_files (the input files), out_files (the output files), and spec for that particular preprocessing type
+           The types of arguments that preproc_spec expects:
+           * Option("in_files", help_str="list of paths to the input files"),
+           * Option("out_files", help_str="list of paths for the output files"),
+           * Option("spec", help_str="The specifications describing which type of processing to use. For normalize and vocab, should consist of the 'lang' and 'spec', where 'lang' can either be 'all' to apply the same type of processing to all languages, or a zero-indexed integer indicating which language to process."),
+    overwrite: Whether to overwrite files if they already exist.
   """
   yaml_tag = "!PreprocRunner"
-  def __init__(self, tasks=[], overwrite=False):
+  def __init__(self, tasks:List[PreprocTask]=[], overwrite:bool=False):
     logger.info("> Preprocessing")
     
     for task in tasks:
