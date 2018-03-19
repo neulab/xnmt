@@ -2,7 +2,7 @@
 
 # need absolute paths here:
 tedliumdir=/project/data_asr/EN/TEDLIUM_release2
-datadir=/project/data-audio/tedlium-multi/tedlium-wav
+datadir= { set to a location with sufficient free space, and adjust the DATA_DIR in config.las-pyramidal.yaml accordingly }
 
 ##### convert to .wav #######
 

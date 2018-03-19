@@ -3,7 +3,7 @@ las-pyramidal: !Experiment
     dropout: 0.2
     default_layer_dim: 512
     placeholders:
-      DATA_DIR: /project/data-audio/tedlium-multi/tedlium-wav
+      DATA_DIR: { set to same directory as the 'datadir' directory in prep-data.sh }
   preproc: !PreprocRunner
     overwrite: False
     tasks:
@@ -50,14 +50,13 @@ las-pyramidal: !Experiment
     trg_file: '{DATA_DIR}/transcript/train.char'
     max_src_len: 1500
     max_trg_len: 350
-    max_num_train_sents: 10 # TODO: remove
     run_for_epochs: 500
     batcher: !WordSrcBatcher
       avg_batch_size: 24
       pad_src_to_multiple: 8
       src_pad_token: ~
     trainer: !AdamTrainer
-      alpha: 0.0003
+      alpha: 0.001
     lr_decay: 0.5
     lr_decay_times: 3
     patience: 8
