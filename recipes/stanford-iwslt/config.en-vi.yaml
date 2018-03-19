@@ -1,0 +1,50 @@
+# standard settings + BPE
+iwslt-experiment: !Experiment
+  exp_global: !ExpGlobal
+    default_layer_dim: 512
+    dropout: 0.3
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: '{EXP_DIR}/vocab.en'}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: '{EXP_DIR}/vocab.vi'}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 128
+    encoder: !BiLSTMSeqTransducer
+      layers: 1
+    attender: !MlpAttender {}
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 128
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      bridge: !CopyBridge {}
+    inference: !SimpleInference
+      beam: 5
+  train: !SimpleTrainingRegimen
+    trainer: !AdamTrainer
+      alpha: 0.001
+    batcher: !WordSrcBatcher
+      avg_batch_size: 64
+    run_for_epochs: 20
+    src_file: '{EXP_DIR}/train.en'
+    trg_file: '{EXP_DIR}/train.vi'
+    dev_tasks:
+      - !AccuracyEvalTask
+        eval_metrics: bleu
+        src_file: &dev_src '{EXP_DIR}/tst2012.en'
+        ref_file: &dev_trg '{EXP_DIR}/tst2012.vi'
+        hyp_file: '{EXP_DIR}/hyp/{EXP}.dev_hyp'
+      - !LossEvalTask
+        src_file: *dev_src
+        ref_file: *dev_trg
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: *dev_src
+      ref_file: *dev_trg
+      hyp_file: '{EXP_DIR}/hyp/{EXP}.test_hyp.tst2012'
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: '{EXP_DIR}/tst2013.en'
+      ref_file: '{EXP_DIR}/tst2013.vi'
+      hyp_file: '{EXP_DIR}/hyp/{EXP}.test_hyp.tst2013'
