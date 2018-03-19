@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import os
 import logging
 logger = logging.getLogger('xnmt')
 from collections.abc import Iterable
@@ -111,6 +112,11 @@ class SimpleInference(Serializable):
         else:
           ref_scores.append(loss_expr.value())
       ref_scores = [-x for x in ref_scores]
+
+    # Make the parent directory if necessary
+    directory = os.path.dirname(args["trg_file"])
+    if not os.path.exists(directory):
+      os.makedirs(directory)
 
     # Perform generation of output
     with open(args["trg_file"], 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
