@@ -12,6 +12,7 @@ from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 from xnmt.linear import Linear
+from xnmt.vocab import Vocab
 
 class Embedder(object):
   """
@@ -76,7 +77,10 @@ class Embedder(object):
     if vocab_size != None:
       return vocab_size
     elif vocab != None:
-      return len(vocab)
+      size = len(vocab)
+      if Vocab.UNK_STR not in vocab.w2i:
+        size += 1
+      return size
     elif "src_embedder" in yaml_path:
       if src_reader == None or src_reader.vocab == None:
         raise ValueError("Could not determine src_embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of src_reader ahead of time.")

@@ -313,6 +313,7 @@ class TreeReader(BaseTextReader, Serializable):
     if word_vocab is not None:
       self.word_vocab.freeze()
       self.word_vocab.set_unk(Vocab.UNK_STR)
+
   def read_sents(self, filename, filter_ids=None):
     if self.vocab is None:
       self.vocab = RuleVocab()
@@ -402,6 +403,7 @@ class TreeReader(BaseTextReader, Serializable):
           sent_count += 1
           if max_id is not None and sent_count > max_id:
             break
+
 class TreeNode(object):
   """A class that represents a tree node object """
   def __init__(self, string, children, timestep=-1, id=-1, last_word_t=0):
@@ -551,21 +553,11 @@ class Tree(object):
     self.open_nonterm_ids = []
     self.last_word_t = -1
     if root:
-      self.root = TreeNode(u'XXX', [root])
-      # if sent_piece:
-      #    split_sent_piece(self.root, sent_piece_segs(sent_piece), 0)
-      # if binarize:
-      #    self.root = right_binarize(self.root)
-      # self.root.set_timestep(0, self.t2n, self.id2n, open_stack=['XXX'])
+      self.root = TreeNode('XXX', [root])
     else:
       self.last_word_t = 0
-      self.root = TreeNode(u'XXX', [], id=0, timestep=0)
+      self.root = TreeNode('XXX', [], id=0, timestep=0)
       self.id2n[0] = self.root
-      # self.root.set_timestep(0, self.t2n)
-      # id = self.root.add_child(TreeNode(u'ROOT', []), self.id2n)
-      # if id >= 0:
-      #  self.open_nonterm_ids.append(id)
-      # self.open_nonterm_ids.append(0)
   def reset_timestep(self):
     self.root.set_timestep(0, self.t2n, self.id2n, open_stack=['XXX'])
   def __str__(self):
@@ -579,7 +571,7 @@ class Tree(object):
     copied_tree.t2n = {}
     copied_tree.open_nonterm_ids = self.open_nonterm_ids[:]
     copied_tree.last_word_t = self.last_word_t
-    root = TreeNode(u'trash', [])
+    root = TreeNode('trash', [])
     stack = [self.root]
     copy_stack = [root]
     while stack:
@@ -611,7 +603,7 @@ class Tree(object):
       r, stop = x
       p_tree = stack_tree.pop()
       if type(r) != Rule:
-        if p_tree.label != u'*':
+        if p_tree.label != '*':
           for i in derivs:
             if type(i[0]) != Rule:
               print
@@ -619,7 +611,7 @@ class Tree(object):
             else:
               print
               i[0], i[1]
-        assert p_tree.label == u'*', p_tree.label
+        assert p_tree.label == '*', p_tree.label
         if wordswitch:
           if r != Vocab.ES_STR:
             p_tree.add_child(r)
@@ -646,7 +638,7 @@ class Tree(object):
           print
           p_tree.label.encode('utf-8'), r.lhs.encode('utf-8')
           exit(1)
-        assert p_tree.label == r.lhs, u"%s %s" % (p_tree.label, r.lhs)
+        assert p_tree.label == r.lhs, "%s %s" % (p_tree.label, r.lhs)
         new_tree = p_tree
       open_nonterms = []
       for child in r.rhs:
@@ -720,9 +712,10 @@ class Tree(object):
           is_first = False
         data[-1][4] = 1
       else:
+        r = Rule(node.label, children, open_nonterms)
         d = [rule_vocab.convert(Rule(node.label, children, open_nonterms)), paren_t,
-             node.last_word_t, is_terminal,
-             rule_vocab.tag_vocab.convert(node.frontir_label), rule_vocab.tag_vocab.convert(node.label), False]
+             node.last_word_t, is_terminal, None, None, False]
+             #rule_vocab.tag_vocab.convert(node.frontir_label), rule_vocab.tag_vocab.convert(node.label), False]
         data.append(d)
     return data
   def get_bpe_rule(self, rule_vocab):
@@ -736,12 +729,12 @@ class Tree(object):
       for c in node.children:
         if type(c) == str:
           if attach_tag:
-            children.append(u'{}_{}'.format(c, child_idx))
+            children.append('{}_{}'.format(c, child_idx))
           else:
             children.append(c)
         else:
           if attach_tag:
-            children.append(u'{}_{}'.format(c.label, child_idx))
+            children.append('{}_{}'.format(c.label, child_idx))
           else:
             children.append(c.label)
           open_nonterms.append(c.label)
@@ -848,7 +841,7 @@ def right_binarize(root, read_word=False):
 def add_preterminal(root):
   ''' Add preterminal X before each terminal symbol '''
   for i, c in enumerate(root.children):
-    if type(c) == str or type(c) == unicode:
+    if type(c) == str:
       n = TreeNode(u'*', [c])
       n.set_parent(root)
       root.children[i] = n
@@ -867,9 +860,9 @@ def add_preterminal_wordswitch(root, add_eos):
       root.add_child(Vocab.ES_STR)
     return root
   for i, c in enumerate(root.children):
-    if type(c) == str or type(c) == unicode:
+    if type(c) == str:
       if not preterm_paren:
-        preterm_paren = TreeNode(u'*', [])
+        preterm_paren = TreeNode('*', [])
         preterm_paren.set_parent(root)
         new_children.append(preterm_paren)
       preterm_paren.add_child(c)

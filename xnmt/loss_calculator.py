@@ -128,3 +128,59 @@ class ReinforceLoss(Serializable):
 # To be implemented
 class MinRiskLoss(Serializable):
   yaml_tag = 'MinRiskLoss'
+
+
+class TrainingTreeLoss(Serializable):
+  yaml_tag = '!TrainingTreeLoss'
+
+  def __call__(self, translator, dec_state, src, trg, pick_src_elem=-1, trg_rule_vocab=None, word_vocab=None):
+    trg_mask = trg.mask if xnmt.batcher.is_batched(trg) else None
+    rule_losses = []
+    word_losses = []
+    word_eos_losses = []
+    rule_count, word_count, word_eos_count = 0, 0, 0
+    seq_len = len(trg[0]) if xnmt.batcher.is_batched(src) else len(trg)
+
+    if xnmt.batcher.is_batched(src):
+      for j, single_trg in enumerate(trg):
+        assert len(single_trg) == seq_len  # assert consistent length
+    if trg_mask:
+      # batch sze is only 1, do not feed in end of sequence token
+      seq_len = int(len(trg_mask.np_arr[0]) - sum(trg_mask.np_arr[0]))
+    for i in range(seq_len):
+      ref_word = trg[i] if not xnmt.batcher.is_batched(src) \
+        else xnmt.batcher.mark_as_batch([single_trg[i] for single_trg in trg])
+      dec_state.context = translator.attender.calc_context(dec_state.rnn_state.output())
+
+      if translator.decoder.set_word_lstm:
+        dec_state.word_context = translator.word_attender.calc_context(dec_state.word_rnn_state.output())
+      word_loss = translator.decoder.calc_loss(dec_state, ref_word, trg_rule_vocab)
+      is_terminal = ref_word.get_col(3)[0]
+      if xnmt.batcher.is_batched(src) and trg_mask is not None:
+        word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
+      if is_terminal:
+        if ref_word.get_col(0)[0] == Vocab.ES:
+          word_eos_losses.append(word_loss)
+          word_eos_count += 1
+        else:
+          word_losses.append(word_loss)
+          word_count += 1
+      else:
+        rule_losses.append(word_loss)
+        rule_count += 1
+      if i < seq_len - 1:
+        word = ref_word.get_col(0) if type(ref_word[0]) == list else ref_word
+        if translator.word_embedder:
+          dec_state = translator.decoder.add_input(dec_state, ref_word, word_embedder=translator.word_embedder,
+                                                   rule_embedder=translator.trg_embedder,
+                                                   trg_rule_vocab=trg_rule_vocab,
+                                                   word_vocab=word_vocab)
+        else:
+          dec_state = translator.decoder.add_input(dec_state, translator.trg_embedder.embed(word),
+                                                   ref_word,
+                                                   trg_rule_vocab=trg_rule_vocab)
+    if word_eos_losses:
+      eos_loss = dy.esum(word_eos_losses)
+    else:
+      eos_loss = dy.inputTensor([0.])
+    return dy.esum(rule_losses), dy.esum(word_losses), eos_loss, rule_count, word_count, word_eos_count

@@ -470,9 +470,11 @@ class TreeTranslator(Translator, Serializable, Reportable):
 
   yaml_tag = u'!TreeTranslator'
 
-  def __init__(self, src_embedder=bare(SimpleWordEmbedder), encoder=bare(BiLSTMSeqTransducer),
+  def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
+               trg_embedder=None, encoder=bare(BiLSTMSeqTransducer),
                attender=bare(MlpAttender), decoder=bare(TreeHierDecoder),
-               word_attender=bare(MlpAttender), word_embedder=None):
+               word_attender=bare(MlpAttender), inference=None,
+               word_embedder=None):
     '''Constructor.
 
     :param src_embedder: A word embedder for the input language
@@ -487,13 +489,21 @@ class TreeTranslator(Translator, Serializable, Reportable):
     self.attender = attender
     self.decoder = decoder
     self.word_attender = word_attender
+    #self.trg_embedder = SimpleWordEmbedder(emb_dim=Path(".trg_embedder.emb_dim"),
+    #                                        vocab=trg_reader.vocab)
+    #self.word_embedder = SimpleWordEmbedder(emb_dim=Path(".word_embedder.emb_dim"),
+    #                                        vocab=trg_reader.word_vocab)
     self.word_embedder = word_embedder
+    self.trg_embedder = trg_embedder
+    self.inference = inference
+    self.src_reader = src_reader
+    self.trg_reader = trg_reader
 
   def shared_params(self):
-    return [set(["src_embedder.emb_dim", "encoder.input_dim"]),
-            set(["encoder.hidden_dim", "attender.input_dim", "decoder.input_dim"]),
-            set(["attender.state_dim", "decoder.lstm_dim"]),
-            set(["trg_embedder.emb_dim", "decoder.trg_embed_dim"])]
+    return [set([Path(".src_embedder.emb_dim"), Path(".encoder.input_dim")]),
+            set([Path(".encoder.hidden_dim"), Path(".attender.input_dim"), Path(".decoder.input_dim")]),
+            set([Path(".attender.state_dim"), Path(".decoder.lstm_dim")]),
+            set([Path(".trg_embedder.emb_dim"), Path(".decoder.trg_embed_dim")])]
 
   def initialize_generator(self, train_src, train_trg, **kwargs):
     if kwargs.get("len_norm_type", None) is None:
@@ -536,7 +546,7 @@ class TreeTranslator(Translator, Serializable, Reportable):
     ss = mark_as_batch([Vocab.SS])
     emb_ss = self.trg_embedder.embed(ss)
     for i in range(len(trg)):
-      self.start_sent()
+      self.start_sent(src[i])
       embeddings = self.src_embedder.embed_sent(src[i])
       encodings = self.encoder(embeddings)
       self.attender.init_sent(encodings)
@@ -547,7 +557,7 @@ class TreeTranslator(Translator, Serializable, Reportable):
         single_trg = mark_as_batch([trg[i]])
       dec_state = self.decoder.initial_state(self.encoder.get_final_states(), emb_ss)
       rule_loss, word_loss, word_eos_loss, rule_c, word_c, word_eos_c \
-        = self.loss_calculator(self, dec_state, mark_as_batch(src[i]), single_trg,
+        = loss_calculator(self, dec_state, mark_as_batch(src[i]), single_trg,
         trg_rule_vocab=trg_rule_vocab, word_vocab=word_vocab)
       rule_losses.append(rule_loss)
       word_losses.append(word_loss)
@@ -572,7 +582,7 @@ class TreeTranslator(Translator, Serializable, Reportable):
         output_actions = []
         score = []
         for i in range(self.sample_num):
-          self.start_sent()
+          self.start_sent(src)
           embeddings = self.src_embedder.embed_sent(src)
           encodings = self.encoder(embeddings)
           self.attender.init_sent(encodings)
@@ -594,7 +604,7 @@ class TreeTranslator(Translator, Serializable, Reportable):
           score.append(s)
           dy.renew_cg()
       else:
-        self.start_sent()
+        self.start_sent(src)
         embeddings = self.src_embedder.embed_sent(src)
         encodings = self.encoder(embeddings)
         self.attender.init_sent(encodings)

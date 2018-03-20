@@ -206,16 +206,18 @@ class TreeDecoderState:
 class TreeHierDecoder(RnnDecoder, Serializable):
   # TreeHierDecoder final version
   yaml_tag = u'!TreeHierDecoder'
-
-
-  def __init__(self, yaml_context, vocab_size, word_vocab_size, layers=1, input_dim=None, lstm_dim=None,
+  def __init__(self, exp_global = Ref(Path("exp_global")),
+               trg_reader = Ref(Path("model.trg_reader")),
+               layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
                bridge=bare(CopyBridge), start_nonterm='ROOT', bpe_stop=False):
 
     register_handler(self)
-    param_col = yaml_context.dynet_param_collection.param_col
+    self.param_col = exp_global.dynet_param_collection.param_col
     # best setups
+    vocab_size = len(trg_reader.vocab)
+    word_vocab_size = len(trg_reader.word_vocab)
     self.set_word_lstm = True
     self.start_nonterm = start_nonterm
     self.rule_label_smooth = -1
@@ -223,10 +225,10 @@ class TreeHierDecoder(RnnDecoder, Serializable):
 
     self.bpe_stop = bpe_stop
     # Define dim
-    lstm_dim       = lstm_dim or yaml_context.default_layer_dim
-    mlp_hidden_dim = mlp_hidden_dim or yaml_context.default_layer_dim
-    trg_embed_dim  = trg_embed_dim or yaml_context.default_layer_dim
-    input_dim      = input_dim or yaml_context.default_layer_dim
+    lstm_dim       = lstm_dim or exp_global.default_layer_dim
+    mlp_hidden_dim = mlp_hidden_dim or exp_global.default_layer_dim
+    trg_embed_dim  = trg_embed_dim or exp_global.default_layer_dim
+    input_dim      = input_dim or exp_global.default_layer_dim
     self.input_dim = input_dim
     # Input feeding
     self.input_feeding = input_feeding
@@ -254,34 +256,34 @@ class TreeHierDecoder(RnnDecoder, Serializable):
                                               num_layers = layers,
                                               input_dim  = rule_lstm_input,
                                               hidden_dim = lstm_dim,
-                                              model = param_col,
+                                              model = self.param_col,
                                               residual_to_output = residual_to_output)
 
     self.word_lstm = RnnDecoder.rnn_from_spec(spec       = rnn_spec,
                                               num_layers = layers,
                                               input_dim  = word_lstm_input,
                                               hidden_dim = lstm_dim,
-                                              model = param_col,
+                                              model = self.param_col,
                                               residual_to_output = residual_to_output)
     # MLP
     self.rule_context_projector = xnmt.linear.Linear(input_dim=2*input_dim + 2*lstm_dim,
                                                 output_dim=mlp_hidden_dim,
-                                                model=param_col)
+                                                model= self.param_col)
     self.word_context_projector = xnmt.linear.Linear(input_dim=2*input_dim + 2*lstm_dim,
                                                 output_dim=mlp_hidden_dim,
-                                                model=param_col)
+                                                model=self.param_col)
     self.rule_vocab_projector = xnmt.linear.Linear(input_dim = mlp_hidden_dim,
                                          output_dim = vocab_size,
-                                         model = param_col)
+                                         model = self.param_col)
     self.word_vocab_projector = xnmt.linear.Linear(input_dim = mlp_hidden_dim,
                                          output_dim = word_vocab_size,
-                                         model = param_col)
+                                         model = self.param_col)
     # Dropout
-    self.dropout = dropout or yaml_context.dropout
+    self.dropout = dropout or exp_global.dropout
 
   def shared_params(self):
-    return [set(["layers", "bridge.dec_layers"]),
-            set(["lstm_dim", "bridge.dec_dim"])]
+    return [set([Path(".layers"), Path(".bridge.dec_layers")]),
+            set([Path(".lstm_dim"), Path(".bridge.dec_dim")])]
 
   def initial_state(self, enc_final_states, ss_expr, decoding=False):
     """Get the initial state of the decoder given the encoder final states.
@@ -447,10 +449,10 @@ class TreeHierDecoder(RnnDecoder, Serializable):
     ref_word = ref_action.get_col(0)
     is_terminal = ref_action.get_col(3)[0]
     is_stop =ref_action.get_col(4)[0]
-    leaf_len = ref_action.get_col(5)[0]
+    #leaf_len = ref_action.get_col(5)[0]
 
     scores, valid_y_len, stop_prob, len_scores = self.get_scores(tree_dec_state, trg_rule_vocab,
-                                                                 is_terminal, label_idx=1, sample_len=leaf_len>0)
+                                                                 is_terminal, label_idx=1, sample_len=False)
     # single mode
     if not xnmt.batcher.is_batched(ref_action):
       word_loss = dy.pickneglogsoftmax(scores, ref_word)

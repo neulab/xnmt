@@ -1,5 +1,6 @@
 import io
 from xnmt.serialize.serializable import Serializable
+from collections import defaultdict
 
 class Vocab(Serializable):
   '''
@@ -94,7 +95,7 @@ class RuleVocab(Serializable):
   ES_STR = u"</s>"
   UNK_STR = u"<unk>"
 
-  def __init__(self, i2w=None, vocab_file=None, tag_vocab=None):
+  def __init__(self, i2w=None, vocab_file=None):
     """
     :param i2w: list of words, including <s> and </s>
     :param vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
@@ -105,7 +106,7 @@ class RuleVocab(Serializable):
     self.lhs_to_index = defaultdict(list)
 
     if vocab_file:
-      i2w = Vocab.i2w_from_vocab_file(vocab_file)
+      i2w = RuleVocab.i2w_from_vocab_file(vocab_file)
     if (i2w is not None):
       self.i2w = i2w
       self.w2i = {}
@@ -131,6 +132,22 @@ class RuleVocab(Serializable):
 
   def freeze(self):
     self.frozen = True
+
+  @staticmethod
+  def i2w_from_vocab_file(vocab_file):
+    """
+    :param vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
+    """
+    vocab = [Vocab.SS_STR, Vocab.ES_STR]
+    reserved = set([Vocab.SS_STR, Vocab.ES_STR, Vocab.UNK_STR])
+    with io.open(vocab_file, encoding='utf-8') as f:
+      for line in f:
+        word = line.strip()
+        if word in reserved:
+          raise RuntimeError(f"Vocab file {vocab_file} contains a reserved word: {word}")
+        rule = Rule.from_str(word)
+        vocab.append(rule)
+    return vocab
 
   def convert(self, w):
     ''' w is a Rule object'''
@@ -176,7 +193,16 @@ class Rule(Serializable):
     self.serialize_params = {'lhs': self.lhs, 'rhs': self.rhs, 'open_nonterms': self.open_nonterms}
 
   def __str__(self):
-    return (self.lhs + u'|||' + u' '.join(self.rhs) + u'|||' + u' '.join(self.open_nonterms)).encode('utf-8')
+    return (self.lhs + '|||' + ' '.join(self.rhs) + '|||' + ' '.join(self.open_nonterms))
+
+  @staticmethod
+  def from_str(line):
+    segs = line.split('|||')
+    assert len(segs) == 3
+    lhs = segs[0]
+    rhs = segs[1].split()
+    open_nonterms = segs[2].split()
+    return Rule(lhs, rhs, open_nonterms)
 
   def __hash__(self):
     #return hash(str(self) + " ".join(open_nonterms))

@@ -1,0 +1,63 @@
+# A standard setup, specifying model architecture, training parameters, 
+# and evaluation of the trained model
+standard: !Experiment # 'standard' is the name given to the experiment
+  # global parameters shared throughout the experiment
+  exp_global: !ExpGlobal
+    # {EXP_DIR} is a placeholder for the directory in which the config file lies.
+    # {EXP} is a placeholder for the experiment name (here: 'standard')
+    model_file: '{EXP_DIR}/models/{EXP}.mod'
+    log_file: '{EXP_DIR}/logs/{EXP}.log'
+    default_layer_dim: 512
+    dropout: 0.3
+  # model architecture
+  model: !TreeTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !TreeReader
+      del_preterm_POS: True
+      #replace_pos: True
+      read_word: True
+      binarize: False
+      #merge_level: 4
+      add_eos: True
+      bpe_post: True
+      vocab: &trg_rule_vocab !RuleVocab {vocab_file: examples/data/dev-head5.rule.vocab.en}
+      word_vocab: &trg_word_vocab !Vocab {vocab_file: examples/data/dev-head5.word.vocab.en}
+    encoder: !BiLSTMSeqTransducer
+      layers: 1
+    attender: !MlpAttender
+      hidden_dim: 512
+      state_dim: 512
+      input_dim: 512
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 512
+      vocab: *trg_rule_vocab
+    word_embedder: !SimpleWordEmbedder
+      emb_dim: 512
+      vocab: *trg_word_vocab
+    decoder: !TreeHierDecoder
+      layers: 1
+      mlp_hidden_dim: 512
+      bridge: !CopyBridge {}
+    inference: !SimpleInference
+      beam: 5
+  # training parameters
+  train: !SimpleTrainingRegimen
+    trainer: !AdamTrainer
+      alpha: 0.001
+    run_for_epochs: 2
+    src_file: examples/data/dev-head5.piece.ja
+    trg_file: examples/data/dev-head5.parse.en,examples/data/dev-head5.piece.en
+    loss_calculator: !TrainingTreeLoss {}
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/dev-head5.piece.ja
+        ref_file: examples/data/dev-head5.parse.en,examples/data/dev-head5.piece.en
+        loss_calculator: !TrainingTreeLoss {}
+  # final evaluation
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/dev-head5.piece.ja
+      ref_file: examples/data/dev-head5.piece.en
+      hyp_file: examples/output/{EXP}.test_hyp

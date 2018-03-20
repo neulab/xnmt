@@ -16,6 +16,13 @@ class Batch(list):
     super(Batch, self).__init__(batch_list)
     self.mask = mask
 
+  def get_col(self, col, batched=True):
+    if batched:
+      return mark_as_batch(np.reshape(self, (len(self), len(self[0])))[:, col], mask=self.mask)
+    else:
+      return np.reshape(self, (len(self), len(self[0])))[:, col]
+
+
 class Mask(object):
   """
   Masks are represented as numpy array of dimensions batchsize x seq_len, with parts

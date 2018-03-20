@@ -1,0 +1,17 @@
+ROOT|||S|||S
+S|||NP VP *|||NP VP *
+NP|||*|||*
+VP|||* NP|||* NP
+S|||INTJ * ADVP * NP VP *|||INTJ * ADVP * NP VP *
+INTJ|||*|||*
+ADVP|||*|||*
+VP|||* S|||* S
+S|||VP|||VP
+VP|||* VP|||* VP
+NP|||NP PP|||NP PP
+PP|||* NP|||* NP
+VP|||* ADJP|||* ADJP
+ADJP|||* PP|||* PP
+ROOT|||SQ|||SQ
+SQ|||* NP VP *|||* NP VP *
+VP|||*|||*

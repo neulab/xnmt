@@ -1,0 +1,5 @@
+(ROOT (S (NP (DT this)) (VP (VBZ is) (NP (DT a) (JJ dead) (JJ @-@) (NN end) (NN alley))) (. .)) )
+(ROOT (S (INTJ (UH yes)) (, ,) (ADVP (RB sorry)) (, ,) (NP (FW i)) (VP (VBD forgot) (S (VP (TO to) (VP (VB acknowledge) (NP (PRP it)))))) (. .)) )
+(ROOT (S (NP (PRP he)) (VP (VBZ is) (NP (NP (DT a) (NN german)) (PP (IN by) (NP (NN origin))))) (. .)) )
+(ROOT (S (NP (PRP we)) (VP (VBP are) (ADJP (JJ familiar) (PP (IN with) (NP (NP (DT the) (NN legend)) (PP (IN of) (NP (JJ robin) (NN hood))))))) (. .)) )
+(ROOT (SQ (VBZ is) (NP (PRP$ your) (NN trunk)) (VP (VBN locked)) (. ?)) )
