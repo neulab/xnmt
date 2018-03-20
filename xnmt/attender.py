@@ -168,7 +168,7 @@ class BilinearAttender(Attender, Serializable):
 
   # TODO(philip30): Please apply masking here
   def calc_attention(self, state):
-    logger.warn("BilinearAttender does currently not do masking, which may harm training results.")
+    logger.warning("BilinearAttender does currently not do masking, which may harm training results.")
     Wa = dy.parameter(self.pWa)
     scores = (dy.transpose(state) * Wa) * self.I
     normalized = dy.softmax(scores)

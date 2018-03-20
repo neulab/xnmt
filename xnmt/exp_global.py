@@ -1,12 +1,14 @@
 import logging
 logger = logging.getLogger('xnmt')
 import os
+from typing import Optional, Dict
 
 from simple_settings import settings
 import dynet as dy
 
 from xnmt.serialize.serializable import Serializable, bare
 from xnmt.param_init import ZeroInitializer, GlorotInitializer, ParamInitializer
+
 
 class ExpGlobal(Serializable):
   """
@@ -20,11 +22,11 @@ class ExpGlobal(Serializable):
     default_layer_dim: Default layer dimension that should be used by supporting components but can be overwritten
     param_init: Default parameter initializer that should be used by supporting components but can be overwritten
     bias_init: Default initializer for bias parameters that should be used by supporting components but can be overwritten
-    save_num_checkpoints (int): save DyNet parameters for the most recent n checkpoints, useful for model averaging/ensembling
-    eval_only (bool): If True, skip the training loop
+    save_num_checkpoints: save DyNet parameters for the most recent n checkpoints, useful for model averaging/ensembling
+    eval_only: If True, skip the training loop
     commandline_args: Holds commandline arguments with which XNMT was launched
-    dynet_param_collection (PersistentParamCollection): Manages DyNet weights
-    placeholders (Dict[str,str]): these will be used as arguments for a format() call applied to every string in the config.
+    dynet_param_collection: Manages DyNet weights
+    placeholders: these will be used as arguments for a format() call applied to every string in the config.
                                   For example, ``placeholders: {"PATH":"/some/path"} will cause each occurence of ``"{PATH}"`` in a string
                                   to be replaced by ``"/some/path"``.
   """
@@ -40,8 +42,8 @@ class ExpGlobal(Serializable):
                save_num_checkpoints:int=1,
                eval_only:bool = False,
                commandline_args = None,
-               dynet_param_collection = None,
-               placeholders={}):
+               dynet_param_collection:Optional['ParamCollection'] = None,
+               placeholders:Dict[str,str]={}):
     self.model_file = model_file
     self.log_file = log_file
     self.dropout = dropout
@@ -55,13 +57,25 @@ class ExpGlobal(Serializable):
     self.commandline_args = commandline_args
     self.placeholders = placeholders
 
-class PersistentParamCollection(object):
+class ParamCollection(object):
+  def revert_to_best_model(self):
+    raise NotImplementedError()
+  def save(self, fname=None):
+    raise NotImplementedError()
+  def remove_existing_history(self):
+    raise NotImplementedError()
+  def shift_safed_checkpoints(self):
+    raise NotImplementedError()
+  def load_from_data_file(self, datafile):
+    raise NotImplementedError()
+
+class PersistentParamCollection(ParamCollection):
   """
   A persistent DyNet parameter collection.
 
   Args:
     model_file (str): file name of the model. Parameters will be written to this filename with ".data" appended
-    save_num_checkpoint (int): keep the most recent this many checkpoints, by writing ".data.1" files etc.
+    save_num_checkpoints (int): keep the most recent this many checkpoints, by writing ".data.1" files etc.
   """
   def __init__(self, model_file, save_num_checkpoints=1):
     self.model_file = model_file
@@ -91,7 +105,10 @@ class PersistentParamCollection(object):
   def load_from_data_file(self, datafile):
     self.param_col.populate(datafile)
 
-class NonPersistentParamCollection(object):
+class NonPersistentParamCollection(ParamCollection):
+  """
+  Non-persistent parameter collection, mostly for unit-testing purposes.
+  """
   def __init__(self):
     self.param_col = dy.Model()
     self.model_file = None

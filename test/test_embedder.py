@@ -5,7 +5,7 @@ from itertools import islice
 
 from xnmt.input_reader import PlainTextReader
 from xnmt.embedder import PretrainedSimpleWordEmbedder
-from xnmt.exp_global import ExpGlobal, PersistentParamCollection
+from xnmt.exp_global import ExpGlobal, NonPersistentParamCollection
 import xnmt.events
 
 
@@ -14,7 +14,7 @@ class PretrainedSimpleWordEmbedderSanityTest(unittest.TestCase):
     xnmt.events.clear()
     self.input_reader = PlainTextReader()
     list(self.input_reader.read_sents('examples/data/head.ja'))
-    self.context = ExpGlobal(dynet_param_collection=PersistentParamCollection(None, 0))
+    self.context = ExpGlobal(dynet_param_collection=NonPersistentParamCollection())
 
   def test_load(self):
     """

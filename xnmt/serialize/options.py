@@ -12,6 +12,7 @@ import yaml
 from xnmt.serialize.serializable import Serializable, UninitializedYamlObject
 import xnmt.serialize.tree_tools as tree_tools
 from xnmt.serialize.tree_tools import set_descendant
+from xnmt.tee import get_git_revision
 
 class Option(object):
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
@@ -104,7 +105,8 @@ class OptionParser(object):
       
     placeholders = {"EXP":exp_name,
                     "PID":os.getpid(),
-                    "EXP_DIR":os.path.dirname(filename)}
+                    "EXP_DIR":os.path.dirname(filename),
+                    "GIT_REV": get_git_revision}
     try:
       placeholders.update(experiment.exp_global.placeholders)
     except AttributeError:

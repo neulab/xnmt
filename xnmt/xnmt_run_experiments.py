@@ -10,6 +10,8 @@ import argparse
 import os
 import random
 import sys
+import socket
+import datetime
 import faulthandler
 faulthandler.enable()
 
@@ -20,10 +22,11 @@ if settings.RESOURCE_WARNINGS:
   warnings.simplefilter('always', ResourceWarning)
 
 from xnmt.serialize.options import OptionParser
-from xnmt.tee import Tee
+from xnmt.tee import Tee, get_git_revision
 from xnmt.serialize.serializer import YamlSerializer
 
 def main(overwrite_args=None):
+
   with Tee(), Tee(error=True):
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--dynet-mem", type=str)
@@ -51,7 +54,7 @@ def main(overwrite_args=None):
     if args.dynet_gpu:
       if settings.CHECK_VALIDITY:
         settings.CHECK_VALIDITY = False
-        logger.warn("disabling CHECK_VALIDITY because it is not supported on GPU currently")
+        logger.warning("disabling CHECK_VALIDITY because it is not supported on GPU currently")
   
     import xnmt.serialize.imports
     config_experiment_names = config_parser.experiment_names_from_file(args.experiments_file)
@@ -70,7 +73,8 @@ def main(overwrite_args=None):
       uninitialized_exp_args = config_parser.parse_experiment(args.experiments_file, experiment_name)
   
       logger.info("=> Running {}".format(experiment_name))
-  
+      logger.debug(f"running XNMT revision {get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
       yaml_serializer = YamlSerializer()
   
       glob_args = uninitialized_exp_args.data.exp_global

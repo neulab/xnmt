@@ -22,7 +22,6 @@ class SimpleInference(Serializable):
   Main class to perform decoding.
   
   Args:
-    model_file (str): pretrained (saved) model path (required onless model_elements is given)
     src_file (str): path of input src file to be translated
     trg_file (str): path of file where trg translatons will be written
     ref_file (str): path of file with reference translations, e.g. for forced decoding
@@ -38,10 +37,9 @@ class SimpleInference(Serializable):
   """
   
   yaml_tag = '!SimpleInference'
-  def __init__(self, model_file=None, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
+  def __init__(self, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
                   post_process="none", report_path=None, report_type="html",
                   beam=1, max_len=100, len_norm_type=None, mode="onebest", batcher=Ref(Path("train.batcher"), required=False)):
-    self.model_file = model_file
     self.src_file = src_file
     self.trg_file = trg_file
     self.ref_file = ref_file
@@ -64,7 +62,7 @@ class SimpleInference(Serializable):
       trg_file (str): path of file where trg translatons will be written
       candidate_id_file (str): if we are doing something like retrieval where we select from fixed candidates, sometimes we want to limit our candidates to a certain subset of the full set. this setting allows us to do this.
     """
-    args = dict(model_file=self.model_file, src_file=src_file or self.src_file, trg_file=trg_file or self.trg_file, ref_file=self.ref_file, max_src_len=self.max_src_len,
+    args = dict(src_file=src_file or self.src_file, trg_file=trg_file or self.trg_file, ref_file=self.ref_file, max_src_len=self.max_src_len,
                   post_process=self.post_process, candidate_id_file=candidate_id_file, report_path=self.report_path, report_type=self.report_type,
                   beam=self.beam, max_len=self.max_len, len_norm_type=self.len_norm_type, mode=self.mode)
 

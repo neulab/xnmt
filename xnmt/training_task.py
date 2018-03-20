@@ -188,7 +188,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     New epoch event.
 
     Args:
-      training_regimen: Indicates which training regimen is advancing to the next epoch.
+      training_task: Indicates which training task is advancing to the next epoch.
       num_sents: Number of sentences in the upcoming epoch (may change between epochs)
     """
     pass
@@ -199,7 +199,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     return self.early_stopping_reached \
       or self.training_state.epoch_num > self.run_for_epochs \
-      or (self.training_state.epoch_num == self.run_for_epochs and \
+      or (self.training_state.epoch_num == self.run_for_epochs and
           self.training_state.steps_into_epoch >= self.cur_num_minibatches()-1)
 
   def cur_num_minibatches(self):

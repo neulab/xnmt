@@ -454,6 +454,14 @@ class WEREvaluator(Evaluator):
 
   # similarity function:
   def sim(self, word1, word2):
+    """
+    Args:
+      word1:
+      word2:
+
+    Returns:
+      float
+    """
     if word1 == word2:
       return 0
     else:

@@ -1,0 +1,5 @@
+This trains a neural machine translation model on the IWSLT English-Vietnamese data as preprocessed by Stanford.
+
+Steps:
+- ./download.sh
+- python -m xnmt.xnmt_run_expteriments --dynet-gpu recipes/stanford-wmt/config.en-vi.yaml
