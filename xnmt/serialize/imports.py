@@ -24,7 +24,8 @@ import xnmt.retriever
 import xnmt.segmenting_composer
 import xnmt.segmenting_encoder
 import xnmt.serialize.tree_tools
-import xnmt.specialized_encoders
+import xnmt.specialized_encoders.self_attentional_am
+import xnmt.specialized_encoders.tilburg_harwath
 import xnmt.training_regimen
 import xnmt.training_task
 import xnmt.transformer
