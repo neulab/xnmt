@@ -70,12 +70,28 @@ class SimpleInference(Serializable):
     # Corpus
     src_corpus = list(generator.src_reader.read_sents(args["src_file"]))
     # Get reference if it exists and is necessary
-    if args["mode"] == "forced" or args["mode"] == "forceddebug":
+    if args["mode"] == "forced" or args["mode"] == "forceddebug" or args["mode"] == "score":
       if args["ref_file"] == None:
         raise RuntimeError("When performing {} decoding, must specify reference file".format(args["mode"]))
-      ref_corpus = list(generator.trg_reader.read_sents(args["ref_file"]))
-      if self.max_len and any(len(s)>self.max_len for s in ref_corpus):
-        logger.warning("Forced decoding with some targets being longer than max_len. Increase max_len to avoid unexpected behavior.")
+      score_src_corpus = []
+      ref_corpus = []
+      with open(args["ref_file"], "r", encoding="utf-8") as fp:
+        for line in fp:
+          if args["mode"] == "score":
+            nbest = line.split("|||")
+            assert len(nbest) > 1, "When performing scoring, ref_file must have nbest format 'index ||| hypothesis'"
+            src_index = int(nbest[0].strip())
+            assert src_index < len(src_corpus), "The src_file has only {} instances, nbest file has invalid src_index {}".format(len(src_corpus), src_index)
+            score_src_corpus.append(src_corpus[src_index])
+            trg_input = generator.trg_reader.read_sent(nbest[1].strip())
+          else:
+            trg_input = generator.trg_reader.read_sent(line)
+          ref_corpus.append(trg_input)
+      if args["mode"] == "score":
+        src_corpus = score_src_corpus
+      else:
+        if self.max_len and any(len(s) > self.max_len for s in ref_corpus):
+          logger.warning("Forced decoding with some targets being longer than max_len. Increase max_len to avoid unexpected behavior.")
     else:
       ref_corpus = None
     # Vocab
@@ -98,8 +114,8 @@ class SimpleInference(Serializable):
 
     # If we're debugging, calculate the loss for each target sentence
     ref_scores = None
-    if args["mode"] == 'forceddebug':
-      some_batcher = self.batcher or xnmt.batcher.InOrderBatcher(32) # Arbitrary
+    if args["mode"] == 'forceddebug' or args["mode"] == 'score':
+      some_batcher = xnmt.batcher.InOrderBatcher(32) # Arbitrary
       if not isinstance(some_batcher, xnmt.batcher.InOrderBatcher):
         raise ValueError(f"forceddebug requires InOrderBatcher, got: {some_batcher}")
       batched_src, batched_ref = some_batcher.pack(src_corpus, ref_corpus)
@@ -119,28 +135,33 @@ class SimpleInference(Serializable):
       os.makedirs(directory)
 
     # Perform generation of output
-    with open(args["trg_file"], 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
-      src_ret=[]
-      for i, src in enumerate(src_corpus):
-        # This is necessary when the batcher does some sort of pre-processing, e.g.
-        # when the batcher pads to a particular number of dimensions
-        if self.batcher:
-          self.batcher.add_single_batch(src_curr=[src], trg_curr=None, src_ret=src_ret, trg_ret=None)
-          src = src_ret.pop()[0]
-
-        # Do the decoding
-        if args["max_src_len"] is not None and len(src) > args["max_src_len"]:
-          output_txt = NO_DECODING_ATTEMPTED
-        else:
-          dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-          ref_ids = ref_corpus[i] if ref_corpus != None else None
-          output = generator.generate_output(src, i, forced_trg_ids=ref_ids)
-          # If debugging forced decoding, make sure it matches
-          if ref_scores != None and (abs(output[0].score-ref_scores[i]) / abs(ref_scores[i])) > 1e-5:
-            logger.error(f'Forced decoding score {output[0].score} and loss {ref_scores[i]} do not match at sentence {i}')
-          output_txt = output[0].plaintext
-        # Printing to trg file
-        fp.write(f"{output_txt}\n")
+    if args["mode"] != 'score':
+      with open(args["trg_file"], 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
+        src_ret=[]
+        for i, src in enumerate(src_corpus):
+          # This is necessary when the batcher does some sort of pre-processing, e.g.
+          # when the batcher pads to a particular number of dimensions
+          if self.batcher:
+            self.batcher.add_single_batch(src_curr=[src], trg_curr=None, src_ret=src_ret, trg_ret=None)
+            src = src_ret.pop()[0]
+          # Do the decoding
+          if args["max_src_len"] is not None and len(src) > args["max_src_len"]:
+            output_txt = NO_DECODING_ATTEMPTED
+          else:
+            dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+            ref_ids = ref_corpus[i] if ref_corpus != None else None
+            output = generator.generate_output(src, i, forced_trg_ids=ref_ids)
+            # If debugging forced decoding, make sure it matches
+            if ref_scores != None and (abs(output[0].score-ref_scores[i]) / abs(ref_scores[i])) > 1e-5:
+              logger.error(f'Forced decoding score {output[0].score} and loss {ref_scores[i]} do not match at sentence {i}')
+            output_txt = output[0].plaintext
+          # Printing to trg file
+          fp.write(f"{output_txt}\n")
+    else:
+      with open(args["trg_file"], 'wt', encoding='utf-8') as fp:
+        with open(args["ref_file"], "r", encoding="utf-8") as nbest_fp:
+          for nbest, score in zip(nbest_fp, ref_scores):
+            fp.write("{} ||| score={}\n".format(nbest.strip(), score))
   
   def get_output_processor(self):
     spec = self.post_process

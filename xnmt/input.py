@@ -114,6 +114,3 @@ class ArrayInput(Input):
 
   def get_array(self):
     return self.nparr
-
-
-
