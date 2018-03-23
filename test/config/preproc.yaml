@@ -4,8 +4,8 @@ standard-preproc: !Experiment
     log_file: examples/output/{EXP}.log
   preproc: !PreprocRunner
     overwrite: True
-    preproc_specs:
-    - type: tokenize
+    tasks:
+    - !PreprocTokenize
       in_files:
       - examples/data/head.ja
       - examples/data/head.en
@@ -16,7 +16,7 @@ standard-preproc: !Experiment
       - filenum: all
         tokenizers:
         - !CharacterTokenizer {}
-    - type: normalize
+    - !PreprocNormalize
       in_files:
       - examples/output/head.tok.ja
       - examples/output/head.tok.en
@@ -29,7 +29,7 @@ standard-preproc: !Experiment
       - filenum: all
         spec:
         - type: lower
-    - type: filter
+    - !PreprocFilter
       in_files:
       - examples/output/head.tok.norm.ja
       - examples/output/head.tok.norm.en
@@ -40,7 +40,7 @@ standard-preproc: !Experiment
       - type: length
         min: 1
         max: 50
-    - type: vocab
+    - !PreprocVocab
       in_files:
       - examples/output/head.tok.norm.ja
       - examples/output/head.tok.norm.en

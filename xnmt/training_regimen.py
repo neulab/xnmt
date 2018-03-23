@@ -68,7 +68,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                dev_every=0, batcher=bare(xnmt.batcher.SrcBatcher, batch_size=32),
                loss_calculator=None, trainer=None, run_for_epochs=None,
                lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None,
-               dev_tasks=None, restart_trainer=False, reload_command=None,
+               dev_tasks=None, restart_trainer:bool=False, reload_command=None,
                name=None, sample_train_sents=None, max_num_train_sents=None,
                max_src_len=None, max_trg_len=None,
                exp_global=Ref(Path("exp_global"))):

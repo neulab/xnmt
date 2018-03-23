@@ -161,6 +161,18 @@ class YamlSerializer(object):
           tree_tools.set_descendant(root, path, initialized_component)
     return root
 
+  def check_init_param_types(self, obj, init_params):
+    for init_param_name in init_params:
+      param_sig = tree_tools.get_init_args_defaults(obj)
+      if init_param_name in param_sig:
+        annotated_type = param_sig[init_param_name].annotation
+        if annotated_type != inspect.Parameter.empty:
+          try:
+            if not isinstance(init_params[init_param_name], annotated_type):
+              raise ValueError(f"type check failed for {init_param_name} argument of {obj}: expected {annotated_type}, received {init_params[init_param_name]} of type {type(init_params[init_param_name])}")
+          except TypeError:
+            pass # isinstance does not work with types from Python's "typing" module, let's skip test
+
   @lru_cache(maxsize=None)
   def init_component(self, path):
     """
@@ -176,12 +188,15 @@ class YamlSerializer(object):
     serialize_params = OrderedDict(init_params)
     init_args = tree_tools.get_init_args_defaults(obj)
     if "yaml_path" in init_args: init_params["yaml_path"] = path
+    self.check_init_param_types(obj, init_params)
     try:
       initialized_obj = obj.__class__(**init_params)
       logger.debug(f"initialized {path}: {obj.__class__.__name__}@{id(obj)}({dict(init_params)})"[:1000])
     except TypeError as e:
-      raise ComponentInitError(f"{type(obj)} could not be initialized using params {init_params}, expecting params {init_args.keys()}. "
-                               f"Error message: {e}")
+      raise ComponentInitError(f"An error occurred trying to invoke {type(obj).__name__}.__init__()\n"
+                               f" The following arguments were passed: {init_params}\n"
+                               f" The following arguments were expected: {init_args.keys()}\n"
+                               f" Error message: {e}")
     serialize_params.update(getattr(initialized_obj,"serialize_params",{}))
     initialized_obj.serialize_params = serialize_params
     return initialized_obj
