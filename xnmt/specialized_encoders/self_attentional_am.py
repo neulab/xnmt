@@ -26,6 +26,7 @@ from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.tree_tools import Ref, Path
 
+LOG_ATTENTION = False
 
 class MultiHeadedSelfAttention(object):
   def __init__(self, head_count, model_dim, model, downsample_factor=1, input_dim=None,
@@ -224,7 +225,7 @@ class MultiHeadedSelfAttention(object):
 
     # Computing Softmax here.
     attn = dy.softmax(scaled, d=1)
-    if settings.LOG_ATTENTION:
+    if LOG_ATTENTION:
       yaml_logger.info({"key": "selfatt_mat_ax0", "value": np.average(attn.value(), axis=0).dumps(), "desc": self.desc})
       yaml_logger.info({"key": "selfatt_mat_ax1", "value": np.average(attn.value(), axis=1).dumps(), "desc": self.desc})
       yaml_logger.info({"key": "selfatt_mat_ax0_ent", "value": entropy(attn.value()).dumps(), "desc": self.desc})
@@ -464,7 +465,6 @@ class TransformerSeqTransducer(SeqTransducer, Serializable):
       raise ValueError(f"unknown encoding type {self.pos_encoding_type}")
     for module in self.modules:
       enc_sent = module.transduce(sent)
-      self.last_output.append(module._recent_output)
       sent = enc_sent
     self._final_states = [FinalTransducerState(sent[-1])]
     return sent
@@ -473,18 +473,9 @@ class TransformerSeqTransducer(SeqTransducer, Serializable):
     return self._final_states
 
   @handle_xnmt_event
-  def on_start_sent(self, src):
-    self._final_states = None
-    self.last_output = []
-
-  @handle_xnmt_event
   def on_set_train(self, val):
     for module in self.modules:
       module.set_dropout(self.dropout if val else 0.0)
-
-  @handle_xnmt_event
-  def on_collect_recent_outputs(self):
-    return [(self, o) for o in self.last_output]
 
   def initialize_position_encoding(self, length, n_units):
     # Implementation in the Google tensor2tensor repo

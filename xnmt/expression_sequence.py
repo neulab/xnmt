@@ -100,6 +100,18 @@ class ExpressionSequence(object):
     """
     return self.expr_tensor is not None
 
+  def dim(self):
+    """
+    Returns:
+      result of self.as_tensor().dim(), without explicitly constructing that tensor
+    """
+    if self.has_tensor(): return self.as_tensor().dim()
+    else:
+      if self.tensor_transposed:
+        return tuple([len(self)] + list(self[0].dim()[0])), self[0].dim()[1]
+      else:
+        return tuple(list(self[0].dim()[0]) + [len(self)]), self[0].dim()[1]
+
 class LazyNumpyExpressionSequence(ExpressionSequence):
   """
   This is initialized via numpy arrays, and dynet expressions are only created
