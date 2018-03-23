@@ -264,6 +264,32 @@ class SimpleWordEmbedder(Embedder, Serializable):
       ret = dy.noise(ret, self.weight_noise)
     return ret
 
+class PositionEmbedder(Embedder, Serializable):
+
+  yaml_tag = '!PositionEmbedder'
+
+  def __init__(self, max_pos, exp_global=Ref(Path("exp_global")), model=None,
+               emb_dim=None, param_init=None):
+    """
+    max_pos (int): largest embedded position
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    model (dynet.ParameterCollection): dynet param collection; if not given, access via exp_global object
+    emb_dim (int): embedding size
+    param_init (ParamInitializer): how to initialize embedding matrix
+    """
+    register_handler(self)
+    self.max_pos = max_pos
+    self.emb_dim = emb_dim or exp_global.default_layer_dim
+    param_collection = model or exp_global.dynet_param_collection.param_col
+    param_init = param_init or exp_global.param_init
+    dim = (self.emb_dim, max_pos)
+    self.embeddings = param_collection.add_parameters(dim, init=param_init.initializer(dim, is_lookup=True))
+
+  def embed(self, word): raise NotImplementedError("Position-embedding for individual words not implemented yet.")
+  def embed_sent(self, sent_len):
+    embeddings = dy.strided_select(dy.parameter(self.embeddings), [1,1], [0,0], [self.emb_dim, sent_len])
+    return ExpressionSequence(expr_tensor=embeddings, mask=None)
+
 class NoopEmbedder(Embedder, Serializable):
   """
   This embedder performs no lookups but only passes through the inputs.
