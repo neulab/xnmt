@@ -48,15 +48,14 @@ class CopyBridge(Bridge, Serializable):
   
   Args:
     dec_layers (int): number of decoder layers to initialize
-    dec_dim (int): hidden dimension of decoder states; if None, use exp_global.default_layer_dim
-    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    dec_dim (int): hidden dimension of decoder states
   """
   yaml_tag = '!CopyBridge'
 
   @serializable_init
-  def __init__(self, dec_layers = 1, dec_dim = None, exp_global=Ref(Path("exp_global"))):
+  def __init__(self, dec_layers = 1, dec_dim = Ref(Path("exp_global.default_layer_dim"))):
     self.dec_layers = dec_layers
-    self.dec_dim = dec_dim or exp_global.default_layer_dim
+    self.dec_dim = dec_dim
   def decoder_init(self, enc_final_states):
     if self.dec_layers > len(enc_final_states):
       raise RuntimeError("CopyBridge requires dec_layers <= len(enc_final_states), but got %s and %s" % (self.dec_layers, len(enc_final_states)))

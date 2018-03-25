@@ -72,7 +72,6 @@ class TrainingTask(object):
 class SimpleTrainingTask(TrainingTask, Serializable):
   """
   Args:
-    exp_global:
     model: a generator.GeneratorModel object
     src_file: The file for the source data.
     trg_file: The file for the target data.
@@ -102,9 +101,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
                initial_patience=None, dev_tasks=None, restart_trainer=False,
                reload_command=None, name=None, sample_train_sents=None,
-               max_num_train_sents=None, max_src_len=None, max_trg_len=None,
-               exp_global=Ref(Path("exp_global"))):
-    self.exp_global = exp_global
+               max_num_train_sents=None, max_src_len=None, max_trg_len=None):
     self.model_file = ParamManager.param_col.model_file
     self.src_file = src_file
     self.trg_file = trg_file
@@ -326,7 +323,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
               if self.restart_trainer:
                 logger.info('  restarting trainer and reverting learned weights to best checkpoint..')
                 self.trainer.restart()
-                self.exp_global.dynet_param_collection.revert_to_best_model()
+                ParamManager.param_col.revert_to_best_model()
 
     return ret
 

@@ -126,6 +126,7 @@ class ParamCollection(object):
     dir_contents = os.listdir(data_dir)
     for old_file in dir_contents:
       spl = old_file.split(".")
+      # make sure we're only deleting files with the expected filenames
       if len(spl)==2:
         if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
           if re.match(r"^[0-9a-f]{8}$", spl[1]):

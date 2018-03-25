@@ -78,9 +78,8 @@ class SimpleSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!SimpleSGDTrainer'
 
   @serializable_init
-  def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.1):
-    self.optimizer = dy.SimpleSGDTrainer(ParamManager.global_collection(),
-                                         e0)
+  def __init__(self, e0 = 0.1):
+    self.optimizer = dy.SimpleSGDTrainer(ParamManager.global_collection(), e0)
 class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   """
   Stochastic gradient descent with momentum
@@ -142,7 +141,6 @@ class AdamTrainer(XnmtOptimizer, Serializable):
   The Adam optimizer is similar to RMSProp but uses unbiased estimates of the first and second moments of the gradient
 
   Args:
-    exp_global (ExpGlobal): to obtain reference to DyNet parameter collection
     alpha (number): Initial learning rate
     beta_1 (number): Moving average parameter for the mean
     beta_2 (number): Moving average parameter for the variance
@@ -151,9 +149,8 @@ class AdamTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!AdamTrainer'
 
   @serializable_init
-  def __init__(self, exp_global=Ref(Path("exp_global")), alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
-    self.optimizer = dy.AdamTrainer(ParamManager.global_collection(),
-                                    alpha, beta_1, beta_2, eps)
+  def __init__(self, alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
+    self.optimizer = dy.AdamTrainer(ParamManager.global_collection(), alpha, beta_1, beta_2, eps)
 
 class TransformerAdamTrainer(XnmtOptimizer, Serializable):
   """

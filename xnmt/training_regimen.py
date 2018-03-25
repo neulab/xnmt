@@ -72,8 +72,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None,
                dev_tasks=None, restart_trainer=False, reload_command=None,
                name=None, sample_train_sents=None, max_num_train_sents=None,
-               max_src_len=None, max_trg_len=None,
-               exp_global=Ref(Path("exp_global"))):
+               max_src_len=None, max_trg_len=None, commandline_args=Ref(Path("exp_global.commandline_args"), default=None)):
 
     super().__init__(model=model,
                      src_file=src_file,
@@ -93,10 +92,9 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                      sample_train_sents=sample_train_sents,
                      max_num_train_sents=max_num_train_sents,
                      max_src_len=max_src_len,
-                     max_trg_len=max_trg_len,
-                     exp_global=exp_global)
-    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(exp_global=self.exp_global, e0=0.1)
-    self.dynet_profiling = getattr(exp_global.commandline_args, "dynet_profiling", 0)
+                     max_trg_len=max_trg_len)
+    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(e0=0.1)
+    self.dynet_profiling = getattr(commandline_args, "dynet_profiling", 0) if commandline_args else 0
 
   def run_training(self, save_fct, update_weights=True):
     """

@@ -9,7 +9,8 @@ from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 from xnmt.linear import Linear
 from xnmt.param_collection import ParamManager
-from xnmt.serialize.serializable import Serializable, Ref, Path
+from xnmt.param_init import GlorotInitializer
+from xnmt.serialize.serializable import Serializable, Ref, Path, bare
 from xnmt.serialize.serializer import serializable_init
 
 class Embedder(object):
@@ -197,37 +198,41 @@ class SimpleWordEmbedder(Embedder, Serializable):
   Simple word embeddings via lookup.
 
   Args:
-    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     emb_dim (int): embedding dimension; if None, use exp_global.default_layer_dim
     weight_noise (float): apply Gaussian noise with given standard deviation to embeddings; if ``None``, use exp_global.weight_noise
     word_dropout (float): drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
     fix_norm (float): fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
-    init: deprecated
+    param_init (ParamInitializer): how to initialize lookup matrices; if None, use ``exp_global.param_init``
     vocab_size (int): vocab size or None
     vocab (Vocab): vocab or None
     yaml_path (Path): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
     src_reader (InputReader): A reader for the source side. Automatically set by the YAML deserializer.
     trg_reader (InputReader): A reader for the target side. Automatically set by the YAML deserializer.
-    param_init (ParamInitializer): how to initialize lookup matrices; if None, use ``exp_global.param_init``
   """
 
   yaml_tag = '!SimpleWordEmbedder'
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
-               fix_norm=None, init=None, vocab_size = None, vocab = None, yaml_path = None,
-               src_reader = Ref(path=Path("model.src_reader"), default=None), trg_reader = Ref(path=Path("model.trg_reader"), default=None),
-               param_init=None):
-    self.emb_dim = emb_dim or exp_global.default_layer_dim
-    self.weight_noise = weight_noise or exp_global.weight_noise
+  def __init__(self,
+               emb_dim=Ref(Path("exp_global.default_layer_dim")),
+               weight_noise=Ref(Path("exp_global.weight_noise"), default=0.0),
+               word_dropout=0.0,
+               fix_norm=None,
+               param_init=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer)),
+               vocab_size = None,
+               vocab = None,
+               yaml_path = None,
+               src_reader = Ref(path=Path("model.src_reader"), default=None),
+               trg_reader = Ref(path=Path("model.trg_reader"), default=None)):
+    self.emb_dim = emb_dim
+    self.weight_noise = weight_noise
     self.word_dropout = word_dropout
     self.fix_norm = fix_norm
     self.word_id_mask = None
     self.train = False
     self.dynet_param_collection = ParamManager.my_subcollection(self)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
-    param_init = param_init or exp_global.param_init
     self.embeddings = self.dynet_param_collection \
       .add_lookup_parameters((self.vocab_size, self.emb_dim),
                              init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))

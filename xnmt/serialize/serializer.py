@@ -152,7 +152,10 @@ class YamlSerializer(object):
             hits_before = self.init_component.cache_info().hits
             initialized_component = self.init_component(resolved_path)
           except tree_tools.PathError:
-            initialized_component = None
+            if node.default == tree_tools.Ref.NO_DEFAULT:
+              initialized_component = None
+            else:
+              initialized_component = node.default
           if self.init_component.cache_info().hits > hits_before:
             logger.debug(f"for {path}: reusing previously initialized {initialized_component}")
         else:
@@ -266,6 +269,9 @@ def serializable_init(f):
       if param.name != "self" and param.default != inspect.Parameter.empty and param.name not in serialize_params:
         serialize_params[param.name] = param.default
         auto_added_defaults.add(param.name)
+    for arg in serialize_params.values():
+      if type(obj).__name__ != "Experiment":
+        assert type(arg).__name__ != "ExpGlobal", "ExpGlobal can no longer be passed directly. Use a reference to its properties instead."
     for key, arg in serialize_params.items():
       if isinstance(arg, Ref):
         if not arg.is_required():
