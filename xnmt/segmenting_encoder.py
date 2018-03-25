@@ -65,12 +65,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.final_transducer = final_transducer
     # Decision layer of segmentation
     self.segment_transform = linear.Linear(input_dim  = embed_encoder_dim,
-                                           output_dim = 3 if learn_delete else 2,
-                                           model=model)
+                                           output_dim = 3 if learn_delete else 2)
     # The baseline linear regression model
     self.baseline = linear.Linear(input_dim = embed_encoder_dim,
-                                  output_dim = 1,
-                                  model = model)
+                                  output_dim = 1)
     # Flags
     self.use_baseline = use_baseline
     self.learn_segmentation = learn_segmentation

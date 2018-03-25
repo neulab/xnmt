@@ -63,7 +63,7 @@ class ReinforceLoss(Serializable):
   # TODO: document me
 
   @serializable_init
-  def __init__(self, exp_global=Ref(Path("exp_global")), evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):
+  def __init__(self, evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=Ref(Path("exp_global.default_layer_dim"))):
     self.sample_length = sample_length
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
@@ -71,9 +71,7 @@ class ReinforceLoss(Serializable):
       self.evaluation_metric = evaluation_metric
     self.use_baseline = use_baseline
     if self.use_baseline:
-      model = exp_global.dynet_param_collection.param_col
-      decoder_hidden_dim = decoder_hidden_dim or exp_global.default_layer_dim
-      self.baseline = linear.Linear(input_dim=decoder_hidden_dim, output_dim=1, model=model)
+      self.baseline = linear.Linear(input_dim=decoder_hidden_dim, output_dim=1)
 
   def __call__(self, translator, dec_state, src, trg):
     # TODO: apply trg.mask ?

@@ -92,7 +92,6 @@ class LinearBridge(Bridge, Serializable):
     self.dec_dim = dec_dim
     self.projector = xnmt.linear.Linear(input_dim  = enc_dim,
                                            output_dim = dec_dim,
-                                           model = param_col,
                                            param_init = param_init,
                                            bias_init = bias_init)
   def decoder_init(self, enc_final_states):

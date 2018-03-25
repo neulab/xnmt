@@ -9,7 +9,6 @@ from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
 from xnmt.loss import LossBuilder, LossScalarBuilder
 import xnmt.xnmt_evaluate
-from xnmt.experiment import Experiment
 
 class EvalTask(object):
   '''
