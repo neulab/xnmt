@@ -3,6 +3,7 @@ import dynet as dy
 import xnmt.linear
 import xnmt.embedder
 
+from xnmt.param_collection import ParamManager
 from xnmt.serialize.serializable import Serializable, Ref, Path
 from xnmt.serialize.serializer import serializable_init
 from xnmt.events import register_xnmt_handler, handle_xnmt_event, register_xnmt_event
@@ -41,12 +42,11 @@ class TailSegmentTransformer(SegmentTransformer):
 class TailWordSegmentTransformer(SegmentTransformer):
   yaml_tag = "!TailWordSegmentTransformer"
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), vocab=None, vocab_size=1e6,
-               count_file=None, min_count=1, embed_dim=None):
+  def __init__(self, vocab=None, vocab_size=1e6,
+               count_file=None, min_count=1, embed_dim=Ref(Path("exp_global.default_layer_dim"))):
     assert vocab is not None
     self.vocab = vocab
-    embed_dim = embed_dim or xnmt_global.default_layer_dim
-    self.lookup = exp_global.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, embed_dim))
+    self.lookup = ParamManager.my_subcollection(self).add_lookup_parameters((vocab_size, embed_dim))
     self.frequent_words = None
 
     if count_file is not None:

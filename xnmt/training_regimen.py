@@ -4,6 +4,7 @@ from simple_settings import settings
 import numpy as np
 import dynet as dy
 
+from xnmt.param_collection import ParamManager
 from xnmt.serialize.serializable import Serializable, bare, Ref, Path
 from xnmt.serialize.serializer import serializable_init
 import xnmt.optimizer
@@ -61,7 +62,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     max_num_train_sents (int):
     max_src_len (int):
     max_trg_len (int):
-    exp_global (ExpGlobal):
+    commandline_args (Namespace):
   """
   yaml_tag = '!SimpleTrainingRegimen'
 
@@ -125,17 +126,21 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
                 will control early stopping, learning rate schedule, and
                 model checkpoints.
     trainer (XnmtOptimizer): Trainer object, default is SGD with learning rate 0.1
+    commandline_args (Namespace):
   """
-  def __init__(self, tasks, trainer=None, exp_global=Ref(Path("exp_global"))):
-    self.dynet_profiling = exp_global.commandline_args.dynet_profiling
+  def __init__(self,
+               tasks,
+               trainer=None,
+               commandline_args=Ref(Path("exp_global.commandline_args"), default=None)):
+    self.dynet_profiling = getattr(commandline_args, "dynet_profiling", 0) if commandline_args else 0
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
-    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(exp_global=self.exp_global, e0=0.1)
+    self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(e0=0.1)
     for task in tasks[1:]:
       if hasattr(task, "trainer") and task.trainer is not None:
         raise ValueError("Can instantiate only one trainer object. Possibly, multiple training regimens were created when training tasks should have been used.")
     self.train = None
-    self.model_file = exp_global.dynet_param_collection.model_file
+    self.model_file = ParamManager.param_col.model_file
     for task in tasks:
       task.trainer = trainer
 
@@ -168,14 +173,14 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   Args:
     tasks (List[TrainingTask]): training tasks
     trainer (XnmtOptimizer): the trainer is shared across tasks
-    exp_global (ExpGlobal): global experiment settings
+    commandline_args (Namespace):
   """
   yaml_tag = "!SameBatchMultiTaskTrainingRegimen"
 
   @serializable_init
-  def __init__(self, tasks, trainer=None, exp_global=Ref(Path("exp_global"))):
-    super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
-    self.exp_global = exp_global
+  def __init__(self, tasks, trainer=None,
+               commandline_args=Ref(Path("exp_global.commandline_args"), default=None)):
+    super().__init__(tasks=tasks, trainer=trainer, commandline_args=commandline_args)
   def run_training(self, save_fct, update_weights=True):
     self.load_data()
     task_generators = OrderedDict()
@@ -214,15 +219,15 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
   Args:
     tasks (List[TrainingTask]): training tasks
     trainer (XnmtOptimizer): the trainer is shared across tasks
-    exp_global (ExpGlobal): global experiment settings
+    commandline_args (Namespace):
   """
   yaml_tag = "!AlternatingBatchMultiTaskTrainingRegimen"
 
   @serializable_init
-  def __init__(self, tasks, task_weights=None, trainer=None, exp_global=Ref(Path("exp_global"))):
-    super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
+  def __init__(self, tasks, task_weights=None, trainer=None,
+               commandline_args=Ref(Path("exp_global.commandline_args"), default=None)):
+    super().__init__(tasks=tasks, trainer=trainer, commandline_args=commandline_args)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks)
-    self.exp_global = exp_global
   def run_training(self, save_fct, update_weights=True):
     self.load_data()
     task_generators = OrderedDict()
@@ -257,15 +262,14 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   Args:
     tasks (List[TrainingTask]): training tasks. The currently active task is treated as main task.
     trainer (XnmtOptimizer): the trainer is shared across tasks
-    exp_global (ExpGlobal): global experiment settings
+    commandline_args (Namespace):
   """
 
   yaml_tag = "!SerialMultiTaskTrainingRegimen"
 
   @serializable_init
-  def __init__(self, exp_global, tasks, trainer=None):
-    super().__init__(exp_global=exp_global, tasks=tasks, trainer=trainer)
-    self.exp_global = exp_global
+  def __init__(self, tasks, trainer=None, commandline_args=Ref(Path("exp_global.commandline_args"), default=None)):
+    super().__init__(tasks=tasks, trainer=trainer, commandline_args=commandline_args)
   def run_training(self, save_fct, update_weights=True):
     self.load_data()
     for cur_task_id in range(len(self.tasks)):

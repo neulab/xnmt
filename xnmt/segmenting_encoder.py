@@ -20,6 +20,7 @@ from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import LossBuilder
 from xnmt.segmenting_composer import TailWordSegmentTransformer, WordOnlySegmentTransformer
 from xnmt.hyper_parameters import GeometricSequence
+from xnmt.param_collection import ParamManager
 
 EPS = 1e-10
 
@@ -28,7 +29,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, exp_global=Ref(Path("exp_global")),
+  def __init__(self,
                ## COMPONENTS
                embed_encoder=None, segment_composer=None, final_transducer=None,
                ## OPTIONS
@@ -48,7 +49,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                log_reward         = True,
                debug=False,
                print_sample=False):
-    model = exp_global.dynet_param_collection.param_col
+    model = ParamManager.my_subcollection(self)
     # Sanity check
     assert embed_encoder is not None
     assert segment_composer is not None
