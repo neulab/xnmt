@@ -187,7 +187,7 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
     return ExpressionSequence(expr_list=[dy.concatenate([forward_es[i],rev_backward_es[-i-1]]) for i in range(len(forward_es))], mask=mask)
 
 
-class CustomLSTMSeqTransducer(SeqTransducer):
+class CustomLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   This implements an LSTM builder based on elementary DyNet operations.
   It is more memory-hungry than the compact LSTM, but can be extended more easily.
@@ -198,21 +198,24 @@ class CustomLSTMSeqTransducer(SeqTransducer):
     layers (int): number of layers
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
-    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
-    param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects 
+    param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
                 specifying how to initialize weight matrices. If a list is given, each entry denotes one layer.
                 If None, use ``exp_global.param_init``
     bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects 
                specifying how to initialize bias vectors. If a list is given, each entry denotes one layer.
                If None, use ``exp_global.param_init``
   """
-  def __init__(self, layers, input_dim, hidden_dim, exp_global=Ref(Path("exp_global")), param_init=None, bias_init=None):
+  yaml_tag = "!CustomLSTMSeqTransducer"
+  def __init__(self,
+               layers,
+               input_dim,
+               hidden_dim,
+               param_init=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer)),
+               bias_init=Ref(Path("exp_global.bias_init"), default=bare(ZeroInitializer))):
     if layers!=1: raise RuntimeError("CustomLSTMSeqTransducer supports only exactly one layer")
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
-    model = exp_global.dynet_param_collection.param_col
-    param_init = param_init or exp_global.param_init
-    bias_init = bias_init or exp_global.bias_init
+    model = ParamManager.my_subcollection(self)
 
     # [i; f; o; g]
     self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim), init=param_init.initializer((hidden_dim*4, input_dim)))
