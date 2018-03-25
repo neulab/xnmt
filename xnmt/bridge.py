@@ -1,7 +1,9 @@
 import dynet as dy
 
 import xnmt.linear
-from xnmt.serialize.serializable import Serializable, Ref, Path
+from xnmt.param_collection import ParamManager
+from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.serialize.serializable import Serializable, Ref, Path, bare
 from xnmt.serialize.serializer import serializable_init
 
 class Bridge(object):
@@ -25,15 +27,14 @@ class NoBridge(Bridge, Serializable):
 
   Args:
     dec_layers (int): number of decoder layers to initialize
-    dec_dim (int): hidden dimension of decoder states; if None, use exp_global.default_layer_dim
-    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    dec_dim (int): hidden dimension of decoder states
   """
   yaml_tag = '!NoBridge'
 
   @serializable_init
-  def __init__(self, dec_layers = 1, dec_dim = None, exp_global=Ref(Path("exp_global"))):
+  def __init__(self, dec_layers = 1, dec_dim = Ref(Path("exp_global.default_layer_dim"))):
     self.dec_layers = dec_layers
-    self.dec_dim = dec_dim or exp_global.default_layer_dim
+    self.dec_dim = dec_dim
   def decoder_init(self, enc_final_states):
     batch_size = enc_final_states[0].main_expr().dim()[1]
     z = dy.zeros(self.dec_dim, batch_size)
@@ -71,25 +72,29 @@ class LinearBridge(Bridge, Serializable):
   
   Args:
     dec_layers (int): number of decoder layers to initialize
-    enc_dim (int): hidden dimension of encoder states; if None, use exp_global.default_layer_dim
-    dec_dim (int): hidden dimension of decoder states; if None, use exp_global.default_layer_dim
-    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    enc_dim (int): hidden dimension of encoder states
+    dec_dim (int): hidden dimension of decoder states
     param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
     bias_init (ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
   """
   yaml_tag = '!LinearBridge'
 
   @serializable_init
-  def __init__(self, dec_layers = 1, enc_dim = None, dec_dim = None, exp_global=Ref(Path("exp_global")), param_init=None, bias_init=None):
-    param_col = exp_global.dynet_param_collection.param_col
+  def __init__(self,
+               dec_layers = 1,
+               enc_dim = Ref(Path("exp_global.default_layer_dim")),
+               dec_dim = Ref(Path("exp_global.default_layer_dim")),
+               param_init=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer)),
+               bias_init=Ref(Path("exp_global.bias_init"), default=bare(ZeroInitializer))):
+    param_col = ParamManager.my_subcollection(self)
     self.dec_layers = dec_layers
-    self.enc_dim = enc_dim or exp_global.default_layer_dim
-    self.dec_dim = dec_dim or exp_global.default_layer_dim
+    self.enc_dim = enc_dim
+    self.dec_dim = dec_dim
     self.projector = xnmt.linear.Linear(input_dim  = enc_dim,
                                            output_dim = dec_dim,
                                            model = param_col,
-                                           param_init = param_init or exp_global.param_init,
-                                           bias_init = bias_init or exp_global.bias_init)
+                                           param_init = param_init,
+                                           bias_init = bias_init)
   def decoder_init(self, enc_final_states):
     if self.dec_layers > len(enc_final_states):
       raise RuntimeError("LinearBridge requires dec_layers <= len(enc_final_states), but got %s and %s" % (self.dec_layers, len(enc_final_states)))

@@ -154,13 +154,13 @@ class BilinearAttender(Attender, Serializable):
   yaml_tag = '!BilinearAttender'
 
   serializable_init
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, param_init=None):
-    input_dim = input_dim or exp_global.default_layer_dim
-    state_dim = state_dim or exp_global.default_layer_dim
+  def __init__(self,
+               input_dim=Ref(Path("exp_global.default_layer_dim")),
+               state_dim=Ref(Path("exp_global.default_layer_dim")),
+               param_init=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer))):
     self.input_dim = input_dim
     self.state_dim = state_dim
-    param_init = param_init or exp_global.param_init
-    param_collection = exp_global.dynet_param_collection.param_col
+    param_collection = ParamManager.my_subcollection(self)
     self.pWa = param_collection.add_parameters((input_dim, state_dim), init=param_init.initializer((input_dim, state_dim)))
     self.curr_sent = None
 

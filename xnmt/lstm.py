@@ -4,7 +4,7 @@ import numpy as np
 import dynet as dy
 
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
-from xnmt.events import register_xnmt_handler, handle_xnmt_event, register_xnmt_handler
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.transducer import SeqTransducer, FinalTransducerState
