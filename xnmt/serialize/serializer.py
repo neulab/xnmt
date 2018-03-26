@@ -97,18 +97,12 @@ class YamlSerializer(object):
                   referenced_arg_default = init_args_defaults[ancestor[-1]].default
                 else:
                   referenced_arg_default = inspect.Parameter.empty
-                if referenced_arg_default == inspect.Parameter.empty:
-                  if node.is_required():
-                    raise ValueError(f"Reference '{node}' (path: {path}) is required but does not exist and has no default arguments")
-                else:
+                if referenced_arg_default != inspect.Parameter.empty:
                   tree_tools.set_descendant(root, ancestor, referenced_arg_default)
               else:
-                if node.is_required():
-                  raise ValueError(f"Reference '{node}' (path: {path}) is required but does not exist")
                 give_up = True
             except tree_tools.PathError:
-              if node.is_required():
-                raise ValueError(f"Reference '{node}' is required but does not exist")
+              pass
           if give_up: break
 
   def share_init_params_top_down(self, root):
