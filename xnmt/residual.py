@@ -50,7 +50,7 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
   @register_xnmt_handler
   @serializable_init
   def __init__(self, input_dim=512, layers=1, hidden_dim=Ref(Path("exp_global.default_layer_dim")),
-               residual_to_output=False, dropout=None, bidirectional=True):
+               residual_to_output=False, dropout=0.0, bidirectional=True):
     self._final_states = None
     if bidirectional:
       self.builder = ResidualBiRNNBuilder(num_layers=layers, input_dim=input_dim, hidden_dim=hidden_dim, add_to_output=residual_to_output, dropout=dropout)

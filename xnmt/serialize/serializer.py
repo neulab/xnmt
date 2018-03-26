@@ -78,7 +78,7 @@ class YamlSerializer(object):
               setattr(node, expected_arg, arg_default)
 
   def create_referenced_default_args(self, root):
-    for _, node in tree_tools.traverse_tree(root):
+    for path, node in tree_tools.traverse_tree(root):
       if isinstance(node, tree_tools.Ref):
         referenced_path = node.get_path()
         if not referenced_path:
@@ -99,12 +99,12 @@ class YamlSerializer(object):
                   referenced_arg_default = inspect.Parameter.empty
                 if referenced_arg_default == inspect.Parameter.empty:
                   if node.is_required():
-                    raise ValueError(f"Reference '{node}' is required but does not exist and has no default arguments")
+                    raise ValueError(f"Reference '{node}' (path: {path}) is required but does not exist and has no default arguments")
                 else:
                   tree_tools.set_descendant(root, ancestor, referenced_arg_default)
               else:
                 if node.is_required():
-                  raise ValueError(f"Reference '{node}' is required but does not exist")
+                  raise ValueError(f"Reference '{node}' (path: {path}) is required but does not exist")
                 give_up = True
             except tree_tools.PathError:
               if node.is_required():
@@ -135,7 +135,8 @@ class YamlSerializer(object):
         for _, child_of_shared_param in tree_tools.traverse_tree(new_shared_val, include_root=False):
           if isinstance(child_of_shared_param, Serializable):
             raise ValueError(f"{path} shared params {shared_param_set} contains Serializable sub-object {child_of_shared_param} which is not permitted")
-        shared_val_choices.add(new_shared_val)
+        if not isinstance(new_shared_val, Ref):
+          shared_val_choices.add(new_shared_val)
       if len(shared_val_choices)>1:
         logger.warning(f"inconsistent shared params at {path} for {shared_param_set}: {shared_val_choices}; Ignoring these shared parameters.")
       elif len(shared_val_choices)==1:
@@ -187,7 +188,7 @@ class YamlSerializer(object):
         initialized_obj = obj.__class__(**init_params)
       logger.debug(f"initialized {path}: {obj.__class__.__name__}@{id(obj)}({dict(init_params)})"[:1000])
     except TypeError as e:
-      raise ComponentInitError(f"{type(obj)} could not be initialized using params {init_params}, expecting params {init_args.keys()}. "
+      raise ComponentInitError(f"{type(obj).__name__} could not be initialized using params {init_params}, expecting params {init_args.keys()}. "
                                f"Error message: {e}")
     return initialized_obj
 

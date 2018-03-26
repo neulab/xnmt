@@ -123,14 +123,18 @@ class ParamCollection(object):
       if os.path.exists(fname):
         self._remove_data_dir(fname)
   def _remove_data_dir(self, data_dir):
-    dir_contents = os.listdir(data_dir)
-    for old_file in dir_contents:
-      spl = old_file.split(".")
-      # make sure we're only deleting files with the expected filenames
-      if len(spl)==2:
-        if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
-          if re.match(r"^[0-9a-f]{8}$", spl[1]):
-            os.remove(os.path.join(data_dir, old_file))
+    assert data_dir.endswith(".data") or data_dir.split(".")[-2] == "data"
+    try:
+      dir_contents = os.listdir(data_dir)
+      for old_file in dir_contents:
+        spl = old_file.split(".")
+        # make sure we're only deleting files with the expected filenames
+        if len(spl)==2:
+          if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
+            if re.match(r"^[0-9a-f]{8}$", spl[1]):
+              os.remove(os.path.join(data_dir, old_file))
+    except NotADirectoryError:
+      os.remove(data_dir)
   def _shift_saved_checkpoints(self):
     if os.path.exists(self._data_files[-1]):
       self._remove_data_dir(self._data_files[-1])

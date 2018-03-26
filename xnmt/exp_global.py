@@ -52,6 +52,7 @@ class ExpGlobal(Serializable):
     self.eval_only = eval_only
     self.commandline_args = commandline_args
 
+    # TODO: should this live here?
     ParamManager.init_param_col()
     ParamManager.param_col.model_file = model_file
     ParamManager.param_col.save_num_checkpoints = save_num_checkpoints

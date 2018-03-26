@@ -13,7 +13,7 @@ from xnmt.residual import ResidualLSTMSeqTransducer
 from xnmt.attender import MlpAttender
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.input_reader import PlainTextReader
-from xnmt.exp_global import ExpGlobal, NonPersistentParamCollection
+from xnmt.param_collection import ParamManager
 import xnmt.events
 from xnmt.vocab import Vocab
 
@@ -21,7 +21,7 @@ class TestEncoder(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
-    self.exp_global = ExpGlobal(dynet_param_collection=NonPersistentParamCollection())
+    ParamManager.init_param_col()
 
     self.src_reader = PlainTextReader()
     self.trg_reader = PlainTextReader()
@@ -45,51 +45,60 @@ class TestEncoder(unittest.TestCase):
     self.assertEqual(len(embeddings), len(encodings))
 
   def test_bi_lstm_encoder_len(self):
+    layer_dim = 512
     model = DefaultTranslator(
-              src_reader=self.src_reader,
-              trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              encoder=BiLSTMSeqTransducer(self.exp_global, layers=3),
-              attender=MlpAttender(self.exp_global),
-              trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100),
-            )
+      src_reader=self.src_reader,
+      trg_reader=self.trg_reader,
+      src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, layers=3),
+      attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
+      trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim, lstm_dim=layer_dim, mlp_hidden_dim=layer_dim,
+                                trg_embed_dim=layer_dim, vocab_size=100),
+    )
     self.assert_in_out_len_equal(model)
 
   def test_uni_lstm_encoder_len(self):
+    layer_dim = 512
     model = DefaultTranslator(
-              src_reader=self.src_reader,
-              trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              encoder=UniLSTMSeqTransducer(self.exp_global),
-              attender=MlpAttender(self.exp_global),
-              trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100),
-            )
+      src_reader=self.src_reader,
+      trg_reader=self.trg_reader,
+      src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      encoder=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
+      attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
+      trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim, lstm_dim=layer_dim, mlp_hidden_dim=layer_dim,
+                                trg_embed_dim=layer_dim,
+                                vocab_size=100),
+    )
     self.assert_in_out_len_equal(model)
 
   def test_res_lstm_encoder_len(self):
+    layer_dim = 512
     model = DefaultTranslator(
-              src_reader=self.src_reader,
-              trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              encoder=ResidualLSTMSeqTransducer(self.exp_global, layers=3),
-              attender=MlpAttender(self.exp_global),
-              trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100),
-            )
+      src_reader=self.src_reader,
+      trg_reader=self.trg_reader,
+      src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      encoder=ResidualLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, layers=3),
+      attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
+      trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim, lstm_dim=layer_dim, mlp_hidden_dim=layer_dim,
+                                trg_embed_dim=layer_dim, vocab_size=100),
+    )
     self.assert_in_out_len_equal(model)
 
   def test_py_lstm_encoder_len(self):
+    layer_dim = 512
     model = DefaultTranslator(
-              src_reader=self.src_reader,
-              trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              encoder=PyramidalLSTMSeqTransducer(self.exp_global, layers=3),
-              attender=MlpAttender(self.exp_global),
-              trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100),
-            )
+      src_reader=self.src_reader,
+      trg_reader=self.trg_reader,
+      src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      encoder=PyramidalLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, layers=3),
+      attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
+      trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim, lstm_dim=layer_dim, mlp_hidden_dim=layer_dim,
+                                trg_embed_dim=layer_dim, vocab_size=100),
+    )
     self.set_train(True)
     for sent_i in range(10):
       dy.renew_cg()
@@ -100,15 +109,17 @@ class TestEncoder(unittest.TestCase):
       self.assertEqual(int(math.ceil(len(embeddings) / float(4))), len(encodings))
 
   def test_py_lstm_mask(self):
+    layer_dim = 512
     model = DefaultTranslator(
-              src_reader=self.src_reader,
-              trg_reader=self.trg_reader,
-              src_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              encoder=PyramidalLSTMSeqTransducer(self.exp_global, layers=1),
-              attender=MlpAttender(self.exp_global),
-              trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100),
-            )
+      src_reader=self.src_reader,
+      trg_reader=self.trg_reader,
+      src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      encoder=PyramidalLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, layers=1),
+      attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
+      trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim, lstm_dim=layer_dim, mlp_hidden_dim=layer_dim,
+                                trg_embed_dim=layer_dim, vocab_size=100),
+    )
 
     batcher = xnmt.batcher.TrgBatcher(batch_size=3)
     train_src, _ = \
