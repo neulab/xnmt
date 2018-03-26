@@ -120,10 +120,11 @@ class Ref(Serializable):
     return getattr(self, "default", None)
 
   def __str__(self):
+    default_str = f", default={self.default}" if self.default != Ref.NO_DEFAULT else ""
     if self.get_name():
-      return f"Ref(name={self.get_name()})"
+      return f"Ref(name={self.get_name()}{default_str})"
     else:
-      return f"Ref(path={self.get_path()})"
+      return f"Ref(path={self.get_path()}{default_str})"
 
   def __repr__(self):
     return str(self)

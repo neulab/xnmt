@@ -38,6 +38,7 @@ class YamlSerializer(object):
     """
     if self.is_initialized(deserialized_yaml_wrapper):
       raise AssertionError()
+    self.init_component.cache_clear()
     # make a copy to avoid side effects
     self.deserialized_yaml = copy.deepcopy(deserialized_yaml_wrapper.data)
     # make sure only arguments accepted by the Serializable derivatives' __init__() methods were passed
@@ -267,17 +268,17 @@ def serializable_init(f):
     for arg in serialize_params.values():
       if type(obj).__name__ != "Experiment":
         assert type(arg).__name__ != "ExpGlobal", "ExpGlobal can no longer be passed directly. Use a reference to its properties instead."
-    for key, arg in serialize_params.items():
-      if isinstance(arg, Ref):
-        if not arg.is_required():
-          serialize_params[key] = arg.get_default()
+    for key in serialize_params:
+      if isinstance(serialize_params[key], Ref):
+        if not serialize_params[key].is_required():
+          serialize_params[key] = serialize_params[key].get_default()
         else:
           if key in auto_added_defaults:
-            raise ValueError(f"Required argument '{key}' of {type(obj).__name__}.__init__() was not specified, and {arg} could not be resolved")
+            raise ValueError(f"Required argument '{key}' of {type(obj).__name__}.__init__() was not specified, and {serialize_params[key]} could not be resolved")
           else:
-            raise ValueError(f"Cannot pass a reference as argument; received {arg} in {type(obj).__name__}.__init__()")
-      if getattr(arg, "_is_bare", False):
-        serialize_params[key] = yaml_serializer.initialize_object(UninitializedYamlObject(arg))
+            raise ValueError(f"Cannot pass a reference as argument; received {serialize_params[key]} in {type(obj).__name__}.__init__()")
+      if getattr(serialize_params[key], "_is_bare", False):
+        serialize_params[key] = yaml_serializer.initialize_object(UninitializedYamlObject(serialize_params[key]))
     f(obj, **serialize_params)
     serialize_params["xnmt_subcol_name"] = xnmt_subcol_name
     serialize_params.update(getattr(obj,"serialize_params",{}))

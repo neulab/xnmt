@@ -7,12 +7,12 @@ from xnmt.bridge import CopyBridge
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.eval_task import LossEvalTask, AccuracyEvalTask
-from xnmt.exp_global import ExpGlobal, PersistentParamCollection
 from xnmt.experiment import Experiment
 from xnmt.inference import SimpleInference
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.optimizer import AdamTrainer
+from xnmt.param_collection import ParamManager
 from xnmt.serialize.serializer import YamlSerializer
 from xnmt.training_regimen import SimpleTrainingRegimen
 from xnmt.translator import DefaultTranslator
@@ -23,8 +23,8 @@ EXP = "programmatic"
 
 model_file = f"{EXP_DIR}/models/{EXP}.mod"
 
-exp_global = ExpGlobal(
-  dynet_param_collection=PersistentParamCollection(model_file=model_file))
+ParamManager.init_param_col()
+ParamManager.param_col.model_file = model_file
 
 src_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
 trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
@@ -33,22 +33,25 @@ batcher = SrcBatcher(batch_size=64)
 
 inference = SimpleInference(batcher=batcher)
 
+layer_dim = 512
+
 model = DefaultTranslator(
   src_reader=PlainTextReader(vocab=src_vocab),
   trg_reader=PlainTextReader(vocab=trg_vocab),
-  src_embedder=SimpleWordEmbedder(exp_global=exp_global, vocab_size=len(src_vocab)),
-  encoder=BiLSTMSeqTransducer(exp_global=exp_global, layers=1),
-  attender=MlpAttender(exp_global=exp_global, hidden_dim=512, state_dim=512, input_dim=512),
-  trg_embedder=SimpleWordEmbedder(exp_global=exp_global, vocab_size=len(trg_vocab)),
-  decoder=MlpSoftmaxDecoder(exp_global=exp_global, vocab_size=len(trg_vocab),
-                            bridge=CopyBridge(exp_global=exp_global, dec_layers=1)),
+  src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=len(src_vocab)),
+  encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, layers=1),
+  attender=MlpAttender(hidden_dim=layer_dim, state_dim=layer_dim, input_dim=layer_dim),
+  trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=len(trg_vocab)),
+  decoder=MlpSoftmaxDecoder(input_dim=layer_dim, lstm_dim=layer_dim, mlp_hidden_dim=layer_dim, trg_embed_dim=layer_dim,
+                            vocab_size=len(trg_vocab),
+                            bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
   inference=inference
 )
 
 train = SimpleTrainingRegimen(
   model=model,
   batcher=batcher,
-  trainer=AdamTrainer(alpha=0.001, exp_global=exp_global),
+  trainer=AdamTrainer(alpha=0.001),
   run_for_epochs=2,
   src_file="examples/data/head.ja",
   trg_file="examples/data/head.en",
@@ -56,7 +59,6 @@ train = SimpleTrainingRegimen(
                           ref_file="examples/data/head.en",
                           model=model,
                           batcher=batcher)],
-  exp_global=exp_global
 )
 
 evaluate = [AccuracyEvalTask(eval_metrics="bleu,wer",
@@ -67,7 +69,6 @@ evaluate = [AccuracyEvalTask(eval_metrics="bleu,wer",
                              model=model)]
 
 standard_experiment = Experiment(
-  exp_global=exp_global,
   model=model,
   train=train,
   evaluate=evaluate
@@ -76,5 +77,6 @@ standard_experiment = Experiment(
 # run experiment
 standard_experiment(save_fct=lambda: YamlSerializer().save_to_file(model_file,
                                                                    standard_experiment,
-                                                                   exp_global.dynet_param_collection))
+                                                                   ParamManager.param_col))
 
+exit()
