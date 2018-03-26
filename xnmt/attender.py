@@ -20,7 +20,7 @@ class Attender(object):
 
   def calc_attention(self, state):
     """ Compute attention weights.
-    
+
     Args:
       state (dy.Expression): the current decoder state, aka query, for which to compute the weights.
     """
@@ -28,7 +28,7 @@ class Attender(object):
 
   def calc_context(self, state):
     """ Compute weighted sum.
-    
+
     Args:
       state (dy.Expression): the current decoder state, aka query, for which to compute the weighted sum.
     """
@@ -42,7 +42,7 @@ class Attender(object):
 class MlpAttender(Attender, Serializable):
   '''
   Implements the attention model of Bahdanau et. al (2014)
-  
+
   Args:
     exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
@@ -54,7 +54,7 @@ class MlpAttender(Attender, Serializable):
 
   yaml_tag = '!MlpAttender'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, 
+  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None,
                hidden_dim=None, param_init=None, bias_init=None):
     input_dim = input_dim or exp_global.default_layer_dim
     state_dim = state_dim or exp_global.default_layer_dim
@@ -105,14 +105,14 @@ class DotAttender(Attender, Serializable):
   '''
   Implements dot product attention of https://arxiv.org/abs/1508.04025
   Also (optionally) perform scaling of https://arxiv.org/abs/1706.03762
-  
+
   Args:
     scale (bool): whether to perform scaling
   '''
 
   yaml_tag = '!DotAttender'
 
-  def __init__(self, scale=True):
+  def __init__(self, scale:bool=True):
     self.curr_sent = None
     self.scale = scale
     self.attention_vecs = []
@@ -168,7 +168,7 @@ class BilinearAttender(Attender, Serializable):
 
   # TODO(philip30): Please apply masking here
   def calc_attention(self, state):
-    logger.warn("BilinearAttender does currently not do masking, which may harm training results.")
+    logger.warning("BilinearAttender does currently not do masking, which may harm training results.")
     Wa = dy.parameter(self.pWa)
     scores = (dy.transpose(state) * Wa) * self.I
     normalized = dy.softmax(scores)

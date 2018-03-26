@@ -5,12 +5,14 @@ import logging
 logger = logging.getLogger('xnmt')
 import random
 import os
+import copy
 
 import yaml
 
 from xnmt.serialize.serializable import Serializable, UninitializedYamlObject
 import xnmt.serialize.tree_tools as tree_tools
 from xnmt.serialize.tree_tools import set_descendant
+from xnmt.tee import get_git_revision
 
 class Option(object):
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
@@ -98,11 +100,18 @@ class OptionParser(object):
     if random_search_report:
       setattr(experiment, 'random_search_report', random_search_report)
       
-    # if arguments were not given in the YAML file and are set to a Serializable-Stub by default, copy the bare object into the object hierarchy so it can used w/ param sharing etc.
+    # if arguments were not given in the YAML file and are set to a bare(Serializable) by default, copy the bare object into the object hierarchy so it can used w/ param sharing etc.
     self.resolve_bare_default_args(experiment)
       
-    self.format_strings(experiment, {"EXP":exp_name,"PID":os.getpid(),
-                                     "EXP_DIR":os.path.dirname(filename)})
+    placeholders = {"EXP":exp_name,
+                    "PID":os.getpid(),
+                    "EXP_DIR":os.path.dirname(filename),
+                    "GIT_REV": get_git_revision}
+    try:
+      placeholders.update(experiment.exp_global.placeholders)
+    except AttributeError:
+      pass
+    self.format_strings(experiment, placeholders)
 
     return UninitializedYamlObject(experiment)
 
@@ -167,7 +176,7 @@ class OptionParser(object):
                 raise ValueError(f"only Serializables created via bare(SerializableSubtype) are permitted as default arguments; "
                                  f"found a fully initialized Serializable: {arg_default} at {path}")
               self.resolve_bare_default_args(arg_default) # apply recursively
-              setattr(node, expected_arg, arg_default)
+              setattr(node, expected_arg, copy.deepcopy(arg_default))
 
   def format_strings(self, exp_values, format_dict):
     """

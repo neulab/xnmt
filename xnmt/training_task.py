@@ -193,7 +193,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     New epoch event.
 
     Args:
-      training_regimen: Indicates which training regimen is advancing to the next epoch.
+      training_task: Indicates which training task is advancing to the next epoch.
       num_sents: Number of sentences in the upcoming epoch (may change between epochs)
     """
     pass
@@ -204,7 +204,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     return self.early_stopping_reached \
       or self.training_state.epoch_num > self.run_for_epochs \
-      or (self.training_state.epoch_num == self.run_for_epochs and \
+      or (self.training_state.epoch_num == self.run_for_epochs and
           self.training_state.steps_into_epoch >= self.cur_num_minibatches()-1)
 
   def cur_num_minibatches(self):
@@ -315,9 +315,11 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         self.training_state.cur_attempt += 1
         if self.lr_decay < 1.0:
           should_decay = False
-          if (self.initial_patience is None or self.training_state.num_times_lr_decayed>0) and self.training_state.cur_attempt >= self.patience:
+          if (self.initial_patience is None or self.training_state.num_times_lr_decayed>0) \
+                  and self.training_state.cur_attempt >= self.patience:
             should_decay = True
-          if self.initial_patience is not None and self.training_state.num_times_lr_decayed==0 and self.training_state.cur_attempt >= self.initial_patience:
+          if self.initial_patience is not None and self.training_state.num_times_lr_decayed==0 \
+                  and self.training_state.cur_attempt >= self.initial_patience:
             should_decay = True
           if should_decay:
             self.training_state.num_times_lr_decayed += 1
@@ -325,6 +327,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
               logger.info('  Early stopping')
               self.early_stopping_reached = True
             else:
+              self.training_state.cur_attempt = 0
               self.trainer.learning_rate *= self.lr_decay
               logger.info('  new learning rate: %s' % self.trainer.learning_rate)
               if self.restart_trainer:

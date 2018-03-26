@@ -35,12 +35,12 @@ class Translator(GeneratorModel):
 
   def calc_loss(self, src, trg, loss_calculator):
     '''Calculate loss based on input-output pairs.
-    
+
     Args:
       src: The source, a sentence (:class:`xnmt.input.Input`) or a batch of sentences (:class:`xnmt.batcher.Batch`).
       trg: The target, a sentence (:class:`xnmt.input.Input`) or a batch of sentences (:class:`xnmt.batcher.Batch`).
       loss_calculator (LossCalculator):
-    
+
     Returns:
       xnmt.loss.LossBuilder: A (possibly batched) expression representing the loss. Losses are accumulated only if trg_mask[batch,pos]==0, or no mask is set
     '''
@@ -211,7 +211,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def set_reporting_src_vocab(self, src_vocab):
     """
     Sets source vocab for reporting purposes.
-    
+
     Args:
       src_vocab (Vocab):
     """

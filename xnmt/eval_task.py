@@ -9,7 +9,6 @@ from xnmt.evaluator import LossScore
 from xnmt.serialize.tree_tools import Path, Ref
 from xnmt.loss import LossBuilder, LossScalarBuilder
 import xnmt.xnmt_evaluate
-from xnmt.experiment import Experiment
 
 class EvalTask(object):
   '''

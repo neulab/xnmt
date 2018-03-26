@@ -109,7 +109,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               trg_reader=self.trg_reader,
               src_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.exp_global),
-              attender=DotAttender(self.exp_global),
+              attender=DotAttender(),
               trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )

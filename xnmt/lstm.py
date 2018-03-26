@@ -14,9 +14,9 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   This implements a single LSTM layer based on the memory-friendly dedicated DyNet nodes.
   It works similar to DyNet's CompactVanillaLSTMBuilder, but in addition supports
   taking multiple inputs that are concatenated on-the-fly.
-  
+
   Currently only supports transducing a complete sequence at once.
-  
+
   Args:
     exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
@@ -36,7 +36,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     self.dropout_rate = dropout or exp_global.dropout
     self.weightnoise_std = weightnoise_std or exp_global.weight_noise
     self.input_dim = input_dim
-    
+
     param_init = param_init or exp_global.param_init
     bias_init = bias_init or exp_global.bias_init
 
@@ -125,16 +125,16 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
     hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
     dropout (float): dropout probability; if None, use exp_global.dropout
     weightnoise_std (float): weight noise standard deviation; if None, use exp_global.weightnoise_std
-    param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects 
+    param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
                 specifying how to initialize weight matrices. If a list is given, each entry denotes one layer.
                 If None, use ``exp_global.param_init``
-    bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects 
+    bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
                specifying how to initialize bias vectors. If a list is given, each entry denotes one layer.
                If None, use ``exp_global.param_init``
   """
   yaml_tag = '!BiLSTMSeqTransducer'
-  
-  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None, 
+
+  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None,
                dropout=None, weightnoise_std=None, param_init=None, bias_init=None):
     register_handler(self)
     self.num_layers = layers
@@ -146,16 +146,16 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
     assert hidden_dim % 2 == 0
     param_init = param_init or exp_global.param_init
     bias_init = bias_init or exp_global.bias_init
-    self.forward_layers = [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std, 
+    self.forward_layers = [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std,
                                                 param_init=param_init[0] if isinstance(param_init, Sequence) else param_init,
                                                 bias_init=bias_init[0] if isinstance(bias_init, Sequence) else bias_init)]
-    self.backward_layers = [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std, 
+    self.backward_layers = [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std,
                                                  param_init=param_init[0] if isinstance(param_init, Sequence) else param_init,
                                                  bias_init=bias_init[0] if isinstance(bias_init, Sequence) else bias_init)]
-    self.forward_layers += [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std, 
+    self.forward_layers += [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std,
                                                  param_init=param_init[i] if isinstance(param_init, Sequence) else param_init,
                                                  bias_init=bias_init[i] if isinstance(bias_init, Sequence) else bias_init) for i in range(1, layers)]
-    self.backward_layers += [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std, 
+    self.backward_layers += [UniLSTMSeqTransducer(exp_global=exp_global, input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std,
                                                   param_init=param_init[i] if isinstance(param_init, Sequence) else param_init,
                                                   bias_init=bias_init[i] if isinstance(bias_init, Sequence) else bias_init) for i in range(1, layers)]
 
@@ -191,16 +191,16 @@ class CustomLSTMSeqTransducer(SeqTransducer):
   It is more memory-hungry than the compact LSTM, but can be extended more easily.
   It currently does not support dropout or multiple layers and is mostly meant as a
   starting point for LSTM extensions.
-  
+
   Args:
     layers (int): number of layers
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
     exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
-    param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects 
+    param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
                 specifying how to initialize weight matrices. If a list is given, each entry denotes one layer.
                 If None, use ``exp_global.param_init``
-    bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects 
+    bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
                specifying how to initialize bias vectors. If a list is given, each entry denotes one layer.
                If None, use ``exp_global.param_init``
   """

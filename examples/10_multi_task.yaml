@@ -91,7 +91,7 @@ exp1-multi_task: !Experiment
   evaluate:
     - !AccuracyEvalTask
       model: !Ref { name: first_task_model }
-      eval_metrics: bleu,wer
+      eval_metrics: bleu
       src_file: *first_task_dev_src
       ref_file: *first_task_dev_trg
       hyp_file: examples/output/{EXP}.test_hyp

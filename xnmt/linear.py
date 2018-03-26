@@ -5,7 +5,7 @@ from xnmt.param_init import GlorotInitializer, ZeroInitializer
 class Linear(object):
   """
   Linear projection with optional bias.
-  
+
   Args:
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     output_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
@@ -14,7 +14,7 @@ class Linear(object):
     param_init (ParamInitializer): how to initialize weight matrices
     bias_init (ParamInitializer): how to initialize bias vectors
   """
-  
+
   def __init__(self, input_dim, output_dim, model, bias=True, param_init=GlorotInitializer(), bias_init=ZeroInitializer()):
     self.bias = bias
     self.output_dim = output_dim

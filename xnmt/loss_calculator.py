@@ -27,7 +27,7 @@ class LossCalculator(Serializable):
 
 class MLELoss(Serializable):
   yaml_tag = '!MLELoss'
-  
+
   # TODO: document me
 
   def __call__(self, translator, dec_state, src, trg):

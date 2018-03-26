@@ -34,8 +34,8 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   Residual LSTM sequence transducer. Wrapper class that delegates to
   :class:`xnmt.residual.ResidualRNNBuilder` or :class:`xnmt.residual.ResidualBiRNNBuilder`,
-  depending on the value of the bidirectional argument. 
-  
+  depending on the value of the bidirectional argument.
+
   Args:
     exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     input_dim (int): size of the inputs
@@ -45,7 +45,7 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
     dropout (float): dropout probability; if None, use exp_global.dropout
     bidirectional (bool): whether the LSTM layers should be bidirectional
   """
-  
+
   yaml_tag = '!ResidualLSTMSeqTransducer'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=512, layers=1, hidden_dim=None, residual_to_output=False, dropout=None, bidirectional=True):
@@ -80,7 +80,7 @@ class ResidualRNNBuilder(object):
 
   input ---> hidden layer 1 ---> hidden layer 2 -+--> ... -+---> hidden layer n ---+--->
                               \_________________/  \_ ... _/ \_(if add_to_output)_/
-                              
+
   Note: This is currently not serializable and therefore can't be directly specified in the config file; use :class:`xnmt.residual.ResidualLSTMSeqTransducer` instead.
 
   Args:
@@ -174,7 +174,7 @@ class ResidualRNNBuilder(object):
 class ResidualBiRNNBuilder(object):
   """
   A residual network with bidirectional first layer.
-  
+
   Note: This is currently not serializable and therefore can't be directly specified in the config file; use :class:`xnmt.residual.ResidualLSTMSeqTransducer` instead.
 
   Args:
@@ -188,8 +188,8 @@ class ResidualBiRNNBuilder(object):
   def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None, exp_global=Ref(Path("exp_global"))):
     assert num_layers > 1
     assert hidden_dim % 2 == 0
-    self.forward_layer = UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout)
-    self.backward_layer = UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout)
+    self.forward_layer = UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim//2, dropout=dropout)
+    self.backward_layer = UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim//2, dropout=dropout)
     self.residual_network = ResidualRNNBuilder(exp_global=exp_global, num_layers=num_layers - 1, input_dim=hidden_dim, hidden_dim=hidden_dim,
                                                add_to_output=add_to_output, dropout=dropout)
 

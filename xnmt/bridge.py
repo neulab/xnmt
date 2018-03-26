@@ -43,7 +43,7 @@ class CopyBridge(Bridge, Serializable):
   Requires that:
   - encoder / decoder dimensions match for every layer
   - num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
-  
+
   Args:
     dec_layers (int): number of decoder layers to initialize
     dec_dim (int): hidden dimension of decoder states; if None, use exp_global.default_layer_dim
@@ -65,7 +65,7 @@ class LinearBridge(Bridge, Serializable):
   """
   This bridge does a linear transform of final states from the encoder to the decoder initial states.
   Requires that  num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
-  
+
   Args:
     dec_layers (int): number of decoder layers to initialize
     enc_dim (int): hidden dimension of encoder states; if None, use exp_global.default_layer_dim
@@ -80,8 +80,8 @@ class LinearBridge(Bridge, Serializable):
     self.dec_layers = dec_layers
     self.enc_dim = enc_dim or exp_global.default_layer_dim
     self.dec_dim = dec_dim or exp_global.default_layer_dim
-    self.projector = xnmt.linear.Linear(input_dim  = enc_dim,
-                                           output_dim = dec_dim,
+    self.projector = xnmt.linear.Linear(input_dim  = self.enc_dim,
+                                           output_dim = self.dec_dim,
                                            model = param_col,
                                            param_init = param_init or exp_global.param_init,
                                            bias_init = bias_init or exp_global.bias_init)

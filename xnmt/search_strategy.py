@@ -30,7 +30,7 @@ class SearchStrategy(object):
 class GreedySearch(SearchStrategy):
   '''
   Performs greedy search (aka beam search with beam size 1)
-  
+
   Args:
     max_len (int): maximum number of tokens to generate.
   '''
@@ -58,10 +58,10 @@ class GreedySearch(SearchStrategy):
     return SearchOutput(word_ids, attentions), score
 
 class BeamSearch(SearchStrategy):
-  
+
   """
   Performs beam search.
-  
+
   Args:
     beam_size (int):
     max_len (int): maximum number of tokens to generate.

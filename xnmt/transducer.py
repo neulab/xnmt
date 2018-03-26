@@ -26,7 +26,7 @@ class Transducer(object):
   def __call__(self, *args, **kwargs):
     """
     May take any parameters.
-    
+
     Returns:
       result of transduction
     """
@@ -59,7 +59,7 @@ class FinalTransducerState(object):
   Represents the final encoder state; Currently handles a main (hidden) state and a cell
   state. If cell state is not provided, it is created as tanh^{-1}(hidden state).
   Could in the future be extended to handle dimensions other than h and c.
-  
+
   Args:
     main_expr (dy.Expression): expression for hidden state
     cell_expr (dy.Expression): expression for cell state, if exists
@@ -83,7 +83,7 @@ class ModularSeqTransducer(SeqTransducer, Serializable):
   """
   A sequence transducer that stacks several :class:`xnmt.transducer.SeqTransducer` objects, all of which must
   accept exactly one argument (an :class:`xnmt.expression_sequence.ExpressionSequence`) in their __call__ method.
-  
+
   Args:
     input_dim (int): input dimension (not required)
     modules (list of :class:`xnmt.transducer.SeqTransducer`): list of SeqTransducer modules

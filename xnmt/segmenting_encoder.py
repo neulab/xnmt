@@ -353,7 +353,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       mask = None
       if self.out_mask is not None:
         mask = dy.inputTensor(self.out_mask.get_active_one_mask().transpose(), batched=True)
-      
+
       p_rep = dy.softmax(self.bow_projector(self.outputs), d=0)
       if mask is not None:
         p_rep = dy.cmult(dy.transpose(p_rep), mask)

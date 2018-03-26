@@ -24,7 +24,7 @@ class Embedder(object):
     Args:
       word: This will generally be an integer word ID, but could also be something like a string. It could
             also be batched, in which case the input will be a :class:`xnmt.batcher.Batch` of integers or other things.
-    
+
     Returns:
       A DyNet Expression corresponding to the embedding of the word(s), possibly batched using :class:`xnmt.batcher.Batch`.
     """
@@ -36,7 +36,7 @@ class Embedder(object):
     Args:
       sent: This will generally be a list of word IDs, but could also be a list of strings or some other format.
             It could also be batched, in which case it will be a (possibly masked) :class:`xnmt.batcher.Batch` object
-    
+
     Returns:
       xnmt.expression_sequence.ExpressionSequence: An expression sequence representing vectors of each word in the input.
     """
@@ -58,13 +58,13 @@ class Embedder(object):
     """Choose the vocab for the embedder basd on the passed arguments
 
     This is done in order of priority of vocab, model+yaml_path
-    
+
     Args:
       vocab (Vocab): If None, try to obtain from ``src_reader`` or ``trg_reader``, depending on the ``yaml_path``
       yaml_path (Path): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
       src_reader (InputReader): Model's src_reader, if exists and unambiguous.
       trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
-    
+
     Returns:
       xnmt.vocab.Vocab: chosen vocab
     """
@@ -92,7 +92,7 @@ class Embedder(object):
       yaml_path (Path): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
       src_reader (InputReader): Model's src_reader, if exists and unambiguous.
       trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
-    
+
     Returns:
       int: chosen vocab size
     """
@@ -114,7 +114,7 @@ class Embedder(object):
 class DenseWordEmbedder(Embedder, Linear, Serializable):
   """
   Word embeddings via full matrix.
-  
+
   Args:
     exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     emb_dim (int): embedding dimension; if None, use exp_global.default_layer_dim
@@ -131,7 +131,7 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
   """
   yaml_tag = "!DenseWordEmbedder"
   def __init__(self, exp_global=Ref(Path("exp_global")), emb_dim=None, weight_noise=None, word_dropout=0.0,
-               fix_norm=None, param_init=None, bias_init=None, vocab_size=None, vocab=None, yaml_path=None, 
+               fix_norm=None, param_init=None, bias_init=None, vocab_size=None, vocab=None, yaml_path=None,
                src_reader=Ref(path=Path("model.src_reader"), required=False),
                trg_reader=Ref(path=Path("model.trg_reader"), required=False)):
     register_handler(self)
@@ -269,7 +269,7 @@ class NoopEmbedder(Embedder, Serializable):
   This embedder performs no lookups but only passes through the inputs.
 
   Normally, the input is an Input object, which is converted to an expression.
-  
+
   Args:
     emb_dim (int): Size of the inputs (not required)
   """
@@ -305,7 +305,7 @@ class NoopEmbedder(Embedder, Serializable):
 class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
   """
   Simple word embeddings via lookup. Initial pretrained embeddings must be supplied in FastText text format.
-  
+
   Args:
     filename (str): Filename for the pretrained embeddings
     emb_dim (int): embedding dimension; if None, use exp_global.default_layer_dim
@@ -322,7 +322,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
   yaml_tag = '!PretrainedSimpleWordEmbedder'
 
   def __init__(self, filename, emb_dim=None, weight_noise=None, word_dropout=0.0, fix_norm = None, vocab = None, yaml_path = None,
-               src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False), 
+               src_reader = Ref(path=Path("model.src_reader"), required=False), trg_reader = Ref(path=Path("model.trg_reader"), required=False),
                exp_global=Ref(Path("exp_global"))):
     self.emb_dim = emb_dim or exp_global.default_layer_dim
     self.weight_noise = weight_noise or exp_global.weight_noise

@@ -35,7 +35,7 @@ class RnnDecoder(Decoder):
 
 class MlpSoftmaxDecoderState(object):
   """A state holding all the information needed for MLPSoftmaxDecoder
-  
+
   Args:
     rnn_state: a DyNet RNN state
     context: a DyNet expression
@@ -74,7 +74,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     vocab (Vocab): vocab or None
     trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
   """
-  
+
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
 
@@ -120,7 +120,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
       for l in range(layers):
         for i in [0,1]:
           self.fwd_lstm.param_collection().parameters_list()[3*l+i].scale(param_init_lstm.gain)
-      
+
     # MLP
     self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + lstm_dim,
                                                 output_dim = mlp_hidden_dim,
@@ -144,9 +144,8 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     Args:
       vocab_size (int): vocab size or None
       vocab (Vocab): vocab or None
-      yaml_path (Path): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
       trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
-    
+
     Returns:
       int: chosen vocab size
     """
@@ -179,7 +178,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
 
   def add_input(self, mlp_dec_state, trg_embedding):
     """Add an input and update the state.
-    
+
     Args:
       mlp_dec_state (MlpSoftmaxDecoderState): An object containing the current state.
       trg_embedding: The embedding of the word to input.

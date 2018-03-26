@@ -3,9 +3,9 @@ from xnmt.serialize.serializable import Serializable
 class Vocab(Serializable):
   '''
   Converts between strings and integer ids.
-  
+
   Configured via either i2w or vocab_file (mutually exclusive).
-  
+
   Args:
     i2w (list of string): list of words, including <s> and </s>
     vocab_file (str): file containing one word per line, and not containing <s>, </s>, <unk>
@@ -80,7 +80,7 @@ class Vocab(Serializable):
   def set_unk(self, w):
     """
     Sets the unknown word token. Can only be invoked after calling freeze().
-    
+
     Args:
       w (str): unknown word token
     """

@@ -1,6 +1,7 @@
 import logging
 logger = logging.getLogger('xnmt')
 
+import h5py
 import numpy as np
 
 class Input(object):
@@ -16,7 +17,7 @@ class Input(object):
   def get_padded_sent(self, token, pad_len):
     """
     Return padded version of the sent.
-    
+
     Args:
       token: padding token
       pad_len (int): number of tokens to append
@@ -28,10 +29,10 @@ class Input(object):
 class SimpleSentenceInput(Input):
   """
   A simple sent, represented as a list of tokens
-  
+
   Args:
-    words: list of integer word ids
-    vocab (xnmt):
+    words (List[int]): list of integer word ids
+    vocab (Vocab):
   """
   def __init__(self, words, vocab=None):
     self.words = words
@@ -46,7 +47,7 @@ class SimpleSentenceInput(Input):
   def get_padded_sent(self, token, pad_len):
     """
     Return padded version of the sent.
-    
+
     Args:
       token (int): padding token
       pad_len (int): number of tokens to append
@@ -78,7 +79,7 @@ class AnnotatedSentenceInput(SimpleSentenceInput):
 class ArrayInput(Input):
   """
   A sent based on a single numpy array; first dimension contains tokens.
-  
+
   Args:
     nparr: numpy array
   """
@@ -94,7 +95,7 @@ class ArrayInput(Input):
   def get_padded_sent(self, token, pad_len):
     """
     Return padded version of the sent.
-    
+
     Args:
       token: None (replicate last frame) or 0 (pad zeros)
       pad_len (int): number of tokens to append
@@ -113,5 +114,3 @@ class ArrayInput(Input):
 
   def get_array(self):
     return self.nparr
-
-

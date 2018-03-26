@@ -9,7 +9,7 @@ class Batch(list):
   """
   Specialization of list that indicates a (mini)batch of things, together with an optional mask.
   Should be treated as immutable object.
-  
+
   Args:
     batch_list (list): list of things
     mask (Mask): optional mask when  batch contains items of unequal size
@@ -22,7 +22,7 @@ class Mask(object):
   """
   Masks are represented as numpy array of dimensions batchsize x seq_len, with parts
   belonging to the sequence set to 0, and parts that should be masked set to 1
-  
+
   Args:
     np_arr: numpy array
   """
@@ -128,7 +128,7 @@ class Batcher(object):
 class InOrderBatcher(Batcher, Serializable):
   """
   A class to create batches in order of the original corpus.
-  
+
   Args:
     batch_size (int): number of sents in each batch
     src_pad_token: padding token on src side
@@ -215,7 +215,7 @@ def len_or_zero(val):
 class SrcBatcher(SortBatcher, Serializable):
   """
   A batcher that creates fixed-size batches, grouped by src len.
-  
+
   Args:
     batch_size (int): number of sents in each batch
     src_pad_token: padding token on src side
@@ -225,7 +225,7 @@ class SrcBatcher(SortBatcher, Serializable):
   """
   yaml_tag = "!SrcBatcher"
   def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               break_ties_randomly=True, pad_src_to_multiple=1):
+               break_ties_randomly:bool=True, pad_src_to_multiple=1):
     super(SrcBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[0]), granularity='sent',
                                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                                      break_ties_randomly=break_ties_randomly,
@@ -234,7 +234,7 @@ class SrcBatcher(SortBatcher, Serializable):
 class TrgBatcher(SortBatcher, Serializable):
   """
   A batcher that creates fixed-size batches, grouped by trg len.
-  
+
   Args:
     batch_size (int): number of sents in each batch
     src_pad_token: padding token on src side
@@ -244,7 +244,7 @@ class TrgBatcher(SortBatcher, Serializable):
   """
   yaml_tag = "!TrgBatcher"
   def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               break_ties_randomly=True, pad_src_to_multiple=1):
+               break_ties_randomly:bool=True, pad_src_to_multiple=1):
     super(TrgBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[1]), granularity='sent',
                                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                                      break_ties_randomly=break_ties_randomly,
@@ -253,7 +253,7 @@ class TrgBatcher(SortBatcher, Serializable):
 class SrcTrgBatcher(SortBatcher, Serializable):
   """
   A batcher that creates fixed-size batches, grouped by src len, then trg len.
-  
+
   Args:
     batch_size (int): number of sents in each batch
     src_pad_token: padding token on src side
@@ -263,7 +263,7 @@ class SrcTrgBatcher(SortBatcher, Serializable):
   """
   yaml_tag = "!SrcTrgBatcher"
   def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               break_ties_randomly=True, pad_src_to_multiple=1):
+               break_ties_randomly:bool=True, pad_src_to_multiple=1):
     super(SrcTrgBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[0])+1.0e-6*len(x[1]),
                                         granularity='sent',
                                         src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
@@ -273,7 +273,7 @@ class SrcTrgBatcher(SortBatcher, Serializable):
 class TrgSrcBatcher(SortBatcher, Serializable):
   """
   A batcher that creates fixed-size batches, grouped by trg len, then src len.
-  
+
   Args:
     batch_size (int): number of sents in each batch
     src_pad_token: padding token on src side
@@ -283,7 +283,7 @@ class TrgSrcBatcher(SortBatcher, Serializable):
   """
   yaml_tag = "!TrgSrcBatcher"
   def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               break_ties_randomly=True, pad_src_to_multiple=1):
+               break_ties_randomly:bool=True, pad_src_to_multiple=1):
     super(TrgSrcBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]),
                                         granularity='sent',
                                         src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
@@ -293,7 +293,7 @@ class TrgSrcBatcher(SortBatcher, Serializable):
 class SentShuffleBatcher(ShuffleBatcher, Serializable):
   """
   A batcher that creates fixed-size batches or random order.
-  
+
   Args:
     batch_size (int): number of sents in each batch
     src_pad_token: padding token on src side
@@ -310,7 +310,7 @@ class SentShuffleBatcher(ShuffleBatcher, Serializable):
 class WordShuffleBatcher(ShuffleBatcher, Serializable):
   """
   A batcher that creates fixed-size batches, grouped by src len.
-  
+
   Args:
     batch_size (int): number of sents in each batch
     src_pad_token: padding token on src side
@@ -347,7 +347,7 @@ class WordSortBatcher(SortBatcher, Serializable):
 class WordSrcBatcher(WordSortBatcher, Serializable):
   """
   A batcher that creates variable-sized batches with given average (src) words per batch, grouped by src len.
-  
+
   Args:
     words_per_batch (int): number of src words in each batch
     avg_batch_size (number): avg number of sents in each batch (if words_per_batch not given)
@@ -359,7 +359,7 @@ class WordSrcBatcher(WordSortBatcher, Serializable):
   yaml_tag = "!WordSrcBatcher"
 
   def __init__(self, words_per_batch=None, avg_batch_size=None,
-               src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True,
+               src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly:bool=True,
                pad_src_to_multiple=1):
     super(WordSrcBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[0]),
                                          src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
@@ -374,7 +374,7 @@ class WordSrcBatcher(WordSortBatcher, Serializable):
 class WordTrgBatcher(WordSortBatcher, Serializable):
   """
   A batcher that creates variable-sized batches with given average (trg) words per batch, grouped by trg len.
-  
+
   Args:
     words_per_batch (int): number of trg words in each batch
     avg_batch_size (number): avg number of sents in each batch (if words_per_batch not given)
@@ -386,7 +386,7 @@ class WordTrgBatcher(WordSortBatcher, Serializable):
   yaml_tag = "!WordTrgBatcher"
 
   def __init__(self, words_per_batch=None, avg_batch_size=None,
-               src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True,
+               src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly:bool=True,
                pad_src_to_multiple=1):
     super(WordTrgBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[1]),
                                          src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
@@ -401,7 +401,7 @@ class WordTrgBatcher(WordSortBatcher, Serializable):
 class WordSrcTrgBatcher(WordSortBatcher, Serializable):
   """
   A batcher that creates variable-sized batches with given average number of src + trg words per batch, grouped by src len, then trg len.
-  
+
   Args:
     words_per_batch (int): number of src + trg words in each batch
     avg_batch_size (number): avg number of sents in each batch (if words_per_batch not given)
@@ -413,7 +413,7 @@ class WordSrcTrgBatcher(WordSortBatcher, Serializable):
   yaml_tag = "!WordSrcTrgBatcher"
 
   def __init__(self, words_per_batch=None, avg_batch_size=None,
-               src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True,
+               src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly:bool=True,
                pad_src_to_multiple=1):
     super(WordSrcTrgBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[0])+1.0e-6*len(x[1]),
                                             src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
@@ -428,7 +428,7 @@ class WordSrcTrgBatcher(WordSortBatcher, Serializable):
 class WordTrgSrcBatcher(WordSortBatcher, Serializable):
   """
   A batcher that creates variable-sized batches with given average number of src + trg words per batch, grouped by trg len, then src len.
-  
+
   Args:
     words_per_batch (int): number of src + trg words in each batch
     avg_batch_size (number): avg number of sents in each batch (if words_per_batch not given)
@@ -440,9 +440,9 @@ class WordTrgSrcBatcher(WordSortBatcher, Serializable):
   yaml_tag = "!WordTrgSrcBatcher"
 
   def __init__(self, words_per_batch=None, avg_batch_size=None,
-               src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True,
+               src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly:bool=True,
                pad_src_to_multiple=1):
-    return super(WordTrgSrcBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]),
+    super(WordTrgSrcBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]),
                                             src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                                             break_ties_randomly=break_ties_randomly,
                                             pad_src_to_multiple=pad_src_to_multiple)
