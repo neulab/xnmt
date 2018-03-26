@@ -277,7 +277,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   # Sample from the softmax
   def sample_from_softmax(self, encodings, batch_size, segment_logsoftmaxes):
     # Sample from the softmax
-    if self.train:
+    if self.train and self.learn_segmentation:
       segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
                            for log_softmax in segment_logsoftmaxes]
       if batch_size == 1:
