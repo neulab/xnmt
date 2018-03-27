@@ -152,6 +152,7 @@ def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST
   # prevent infinite recursion:
   cur_call_sig = (id(root), id(cur_node), path_to_node)
   if cur_call_sig in past_visits: return
+  past_visits = set(past_visits)
   past_visits.add(cur_call_sig)
 
   if traversal_order==TraversalOrder.ROOT_FIRST:
@@ -159,12 +160,12 @@ def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST
   if isinstance(cur_node, Ref):
     resolved_path = cur_node.resolve_path(named_paths)
     try:
-      yield from traverse_tree_deep(root, get_descendant(root, resolved_path), traversal_order, resolved_path, named_paths)
+      yield from traverse_tree_deep(root, get_descendant(root, resolved_path), traversal_order, resolved_path, named_paths, past_visits=past_visits)
     except PathError:
       pass
   else:
     for child_name, child in name_children(cur_node, include_reserved=False):
-      yield from traverse_tree_deep(root, child, traversal_order, path_to_node.append(child_name), named_paths)
+      yield from traverse_tree_deep(root, child, traversal_order, path_to_node.append(child_name), named_paths, past_visits=past_visits)
   if traversal_order==TraversalOrder.ROOT_LAST:
     yield path_to_node, cur_node
 

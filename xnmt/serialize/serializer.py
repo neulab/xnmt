@@ -12,7 +12,7 @@ import yaml
 
 import xnmt.serialize.tree_tools as tree_tools
 from xnmt.serialize.serializable import Serializable, UninitializedYamlObject, Ref
-
+from xnmt.serialize.options import OptionParser
 class YamlSerializer(object):
 
   def initialize_if_needed(self, obj):
@@ -43,6 +43,8 @@ class YamlSerializer(object):
     self.deserialized_yaml = copy.deepcopy(deserialized_yaml_wrapper.data)
     # make sure only arguments accepted by the Serializable derivatives' __init__() methods were passed
     self.check_args(self.deserialized_yaml)
+    # if arguments were not given in the YAML file and are set to a bare(Serializable) by default, copy the bare object into the object hierarchy so it can be used w/ param sharing etc.
+    OptionParser.resolve_bare_default_args(self.deserialized_yaml)
     self.named_paths = self.get_named_paths(self.deserialized_yaml)
     # if arguments were not given in the YAML file and are set to a Ref by default, copy this Ref into the object structure so that it can be properly resolved in a subsequent step
     self.resolve_ref_default_args(self.deserialized_yaml)
@@ -51,7 +53,8 @@ class YamlSerializer(object):
     # apply sharing as requested by Serializable.shared_params()
     self.share_init_params_top_down(self.deserialized_yaml)
     # finally, initialize each component via __init__(**init_params), while properly resolving references
-    return self.init_components_bottom_up(self.deserialized_yaml)
+    initialized = self.init_components_bottom_up(self.deserialized_yaml)
+    return initialized
 
   def check_args(self, root):
     for _, node in tree_tools.traverse_tree(root):
@@ -156,6 +159,7 @@ class YamlSerializer(object):
             logger.debug(f"for {path}: reusing previously initialized {initialized_component}")
         else:
           initialized_component = self.init_component(path)
+        assert not getattr(initialized_component, "_is_bare", False), "assert no 2"
         if len(path)==0:
           root = initialized_component
         else:
@@ -268,17 +272,20 @@ def serializable_init(f):
     for arg in serialize_params.values():
       if type(obj).__name__ != "Experiment":
         assert type(arg).__name__ != "ExpGlobal", "ExpGlobal can no longer be passed directly. Use a reference to its properties instead."
-    for key in serialize_params:
-      if isinstance(serialize_params[key], Ref):
-        if not serialize_params[key].is_required():
-          serialize_params[key] = serialize_params[key].get_default()
+    for key, arg in list(serialize_params.items()):
+      if isinstance(arg, Ref):
+        if not arg.is_required():
+          serialize_params[key] = arg.get_default()
         else:
           if key in auto_added_defaults:
-            raise ValueError(f"Required argument '{key}' of {type(obj).__name__}.__init__() was not specified, and {serialize_params[key]} could not be resolved")
+            raise ValueError(f"Required argument '{key}' of {type(obj).__name__}.__init__() was not specified, and {arg} could not be resolved")
           else:
             raise ValueError(f"Cannot pass a reference as argument; received {serialize_params[key]} in {type(obj).__name__}.__init__()")
-      if getattr(serialize_params[key], "_is_bare", False):
-        serialize_params[key] = yaml_serializer.initialize_object(UninitializedYamlObject(serialize_params[key]))
+    for key, arg in list(serialize_params.items()):
+      if getattr(arg, "_is_bare", False):
+        initialized = yaml_serializer.initialize_object(UninitializedYamlObject(arg))
+        assert not getattr(initialized, "_is_bare", False)
+        serialize_params[key] = initialized
     f(obj, **serialize_params)
     serialize_params["xnmt_subcol_name"] = xnmt_subcol_name
     serialize_params.update(getattr(obj,"serialize_params",{}))

@@ -106,9 +106,9 @@ class OptionParser(object):
     random_search_report = self.instantiate_random_search(experiment)
     if random_search_report:
       setattr(experiment, 'random_search_report', random_search_report)
-      
-    # if arguments were not given in the YAML file and are set to a bare(Serializable) by default, copy the bare object into the object hierarchy so it can used w/ param sharing etc.
-    self.resolve_bare_default_args(experiment)
+
+    # if arguments were not given in the YAML file and are set to a bare(Serializable) by default, copy the bare object into the object hierarchy so it can be used w/ param sharing etc.
+    OptionParser.resolve_bare_default_args(experiment)
       
     self.format_strings(experiment, {"EXP":exp_name,"PID":os.getpid(),
                                      "EXP_DIR":exp_dir})
@@ -163,8 +163,9 @@ class OptionParser(object):
         set_descendant(experiment, path, v)
         param_report[path] = v
     return param_report
-  
-  def resolve_bare_default_args(self, root):
+
+  @staticmethod
+  def resolve_bare_default_args(root):
     for path, node in tree_tools.traverse_tree(root):
       if isinstance(node, Serializable):
         init_args_defaults = tree_tools.get_init_args_defaults(node)
@@ -175,7 +176,7 @@ class OptionParser(object):
               if not getattr(arg_default, "_is_bare", False):
                 raise ValueError(f"only Serializables created via bare(SerializableSubtype) are permitted as default arguments; "
                                  f"found a fully initialized Serializable: {arg_default} at {path}")
-              self.resolve_bare_default_args(arg_default) # apply recursively
+              OptionParser.resolve_bare_default_args(arg_default) # apply recursively
               setattr(node, expected_arg, copy.deepcopy(arg_default))
 
   def format_strings(self, exp_values, format_dict):

@@ -1,4 +1,9 @@
+import logging
+logger = logging.getLogger('xnmt')
 import os
+import random
+
+import numpy as np
 
 import xnmt.serialize.imports
 from xnmt.attender import MlpAttender
@@ -14,14 +19,22 @@ from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.optimizer import AdamTrainer
 from xnmt.param_collection import ParamManager
 from xnmt.serialize.serializer import YamlSerializer
+import xnmt.tee
 from xnmt.training_regimen import SimpleTrainingRegimen
 from xnmt.translator import DefaultTranslator
 from xnmt.vocab import Vocab
+
+seed=13
+random.seed(seed)
+np.random.seed(seed)
 
 EXP_DIR = os.path.dirname(__file__)
 EXP = "programmatic"
 
 model_file = f"{EXP_DIR}/models/{EXP}.mod"
+log_file = f"{EXP_DIR}/logs/{EXP}.log"
+
+xnmt.tee.set_out_file(log_file)
 
 ParamManager.init_param_col()
 ParamManager.param_col.model_file = model_file

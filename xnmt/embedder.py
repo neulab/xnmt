@@ -230,6 +230,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
                yaml_path = None,
                src_reader = Ref(path=Path("model.src_reader"), default=None),
                trg_reader = Ref(path=Path("model.trg_reader"), default=None)):
+    #print(f"embedder received param_init: {param_init}")
     self.emb_dim = emb_dim
     self.weight_noise = weight_noise
     self.word_dropout = word_dropout
