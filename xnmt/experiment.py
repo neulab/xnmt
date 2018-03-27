@@ -17,7 +17,7 @@ class Experiment(Serializable):
     exp_global (ExpGlobal): global experiment settings
     preproc (PreprocRunner): carry out preprocessing if specified
     model (GeneratorModel): The main model. In the case of multitask training, several models must be specified, in which case the models will live not here but inside the training task objects.
-    train (TrainingRegimen): The training regimen defines the training loop.
+    train (Optional[TrainingRegimen]): The training regimen defines the training loop. If None, skip training loop (useful e.g. for testing already trained models).
     evaluate (List[EvalTask]): list of tasks to evaluate the model after training finishes.
     random_search_report (dict): When random search is used, this holds the settings that were randomly drawn for documentary purposes.
   '''
@@ -41,8 +41,7 @@ class Experiment(Serializable):
     Launch training loop, followed by final evaluation.
     """
     eval_scores = "Not evaluated"
-    eval_only = self.exp_global.eval_only
-    if not eval_only:
+    if self.train:
       logger.info("> Training")
       self.train.run_training(save_fct = save_fct)
       logger.info('reverting learned weights to best checkpoint..')

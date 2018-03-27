@@ -12,7 +12,7 @@ model_file = f"{EXP_DIR}/models/{EXP}.mod"
 load_experiment = Experiment(
   load = f"{EXP_DIR}/models/programmatic.mod",
   overwrite = [
-    {"path" : "exp_global.eval_only", "val" : True}
+    {"path" : "train", "val" : None}
   ]
 )
 

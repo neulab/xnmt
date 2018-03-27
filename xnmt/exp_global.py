@@ -22,7 +22,6 @@ class ExpGlobal(Serializable):
     param_init (ParamInitializer): Default parameter initializer that should be used by supporting components but can be overwritten
     bias_init (ParamInitializer): Default initializer for bias parameters that should be used by supporting components but can be overwritten
     save_num_checkpoints (int): save DyNet parameters for the most recent n checkpoints, useful for model averaging/ensembling
-    eval_only (bool): If True, skip the training loop
     commandline_args (Namespace): Holds commandline arguments with which XNMT was launched
   """
   yaml_tag = '!ExpGlobal'
@@ -37,7 +36,6 @@ class ExpGlobal(Serializable):
                param_init=bare(GlorotInitializer),
                bias_init=bare(ZeroInitializer),
                save_num_checkpoints=1,
-               eval_only=False,
                commandline_args=None):
     # TODO: want to resolve all of these via references rather than passing the exp_global object itself.
     # once that's done, can remove the below attribute assignments
@@ -48,6 +46,5 @@ class ExpGlobal(Serializable):
     self.default_layer_dim = default_layer_dim
     self.param_init = param_init
     self.bias_init = bias_init
-    self.eval_only = eval_only
     self.commandline_args = commandline_args
     self.save_num_checkpoints = save_num_checkpoints
