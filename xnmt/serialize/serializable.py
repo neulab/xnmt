@@ -44,6 +44,14 @@ class Serializable(yaml.YAMLObject):
       self.serialize_params = {}
     self.serialize_params[key] = val
 
+  def reuse_or_register(self, name, passed, create_fct):
+    if passed is None:
+      initialized = create_fct()
+      self.overwrite_serialize_param(name, initialized)
+      return initialized
+    else:
+      return passed
+
   def __repr__(self):
     if getattr(self, "_is_bare", False):
       return f"bare({self.__class__.__name__}{self._bare_kwargs if self._bare_kwargs else ''})"

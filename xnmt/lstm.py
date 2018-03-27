@@ -27,6 +27,8 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     param_init (ParamInitializer): how to initialize weight matrices
     bias_init (ParamInitializer): how to initialize bias vectors
   """
+  yaml_tag="!UniLSTMSeqTransducer"
+
   @register_xnmt_handler
   @serializable_init
   def __init__(self,
@@ -142,24 +144,25 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
                dropout=Ref(Path("exp_global.dropout"), default=0.0),
                weightnoise_std=Ref(Path("exp_global.weight_noise"), default=0.0),
                param_init=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer)),
-               bias_init=Ref(Path("exp_global.bias_init"), default=bare(ZeroInitializer))):
+               bias_init=Ref(Path("exp_global.bias_init"), default=bare(ZeroInitializer)),
+               forward_layers=None, backward_layers=None):
     self.num_layers = layers
     self.hidden_dim = hidden_dim
     self.dropout_rate = dropout
     self.weightnoise_std = weightnoise_std
     assert hidden_dim % 2 == 0
-    self.forward_layers = [UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std,
-                                                param_init=param_init[0] if isinstance(param_init, Sequence) else param_init,
-                                                bias_init=bias_init[0] if isinstance(bias_init, Sequence) else bias_init)]
-    self.backward_layers = [UniLSTMSeqTransducer( input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std,
-                                                 param_init=param_init[0] if isinstance(param_init, Sequence) else param_init,
-                                                 bias_init=bias_init[0] if isinstance(bias_init, Sequence) else bias_init)]
-    self.forward_layers += [UniLSTMSeqTransducer(input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std,
-                                                 param_init=param_init[i] if isinstance(param_init, Sequence) else param_init,
-                                                 bias_init=bias_init[i] if isinstance(bias_init, Sequence) else bias_init) for i in range(1, layers)]
-    self.backward_layers += [UniLSTMSeqTransducer(input_dim=hidden_dim, hidden_dim=hidden_dim/2, dropout=dropout, weightnoise_std=weightnoise_std,
-                                                  param_init=param_init[i] if isinstance(param_init, Sequence) else param_init,
-                                                  bias_init=bias_init[i] if isinstance(bias_init, Sequence) else bias_init) for i in range(1, layers)]
+    self.forward_layers = self.reuse_or_register("forward_layers", forward_layers, lambda: [
+      UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim / 2, dropout=dropout,
+                           weightnoise_std=weightnoise_std,
+                           param_init=param_init[i] if isinstance(param_init, Sequence) else param_init,
+                           bias_init=bias_init[i] if isinstance(bias_init, Sequence) else bias_init) for i in
+      range(layers)])
+    self.backward_layers = self.reuse_or_register("backward_layers", backward_layers, lambda: [
+      UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim / 2, dropout=dropout,
+                           weightnoise_std=weightnoise_std,
+                           param_init=param_init[i] if isinstance(param_init, Sequence) else param_init,
+                           bias_init=bias_init[i] if isinstance(bias_init, Sequence) else bias_init) for i in
+      range(layers)])
 
   @handle_xnmt_event
   def on_start_sent(self, src):

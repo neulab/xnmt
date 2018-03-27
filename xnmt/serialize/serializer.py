@@ -13,6 +13,8 @@ import yaml
 import xnmt.serialize.tree_tools as tree_tools
 from xnmt.serialize.serializable import Serializable, UninitializedYamlObject, Ref
 from xnmt.serialize.options import OptionParser
+from xnmt.param_collection import ParamManager
+
 class YamlSerializer(object):
 
   def __init__(self):
@@ -268,7 +270,6 @@ def serializable_init(f):
       xnmt_subcol_name = kwargs.pop("xnmt_subcol_name")
     else:
       xnmt_subcol_name = generate_subcol_name(obj)
-    subcol_rand.seed(xnmt_subcol_name) # make sure that objects created inside __init__() get a consistent subcol_name
     obj.xnmt_subcol_name = xnmt_subcol_name
     serialize_params = dict(kwargs)
     params = inspect.signature(f).parameters
@@ -301,7 +302,8 @@ def serializable_init(f):
         assert not getattr(initialized, "_is_bare", False)
         serialize_params[key] = initialized
     f(obj, **serialize_params)
-    serialize_params["xnmt_subcol_name"] = xnmt_subcol_name
+    if xnmt_subcol_name in ParamManager.param_col.subcols:
+      serialize_params["xnmt_subcol_name"] = xnmt_subcol_name
     serialize_params.update(getattr(obj,"serialize_params",{}))
     obj.serialize_params = serialize_params
   return wrapper
