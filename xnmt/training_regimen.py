@@ -72,7 +72,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
                loss_calculator=None, trainer=None, run_for_epochs=None,
                lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None,
                dev_tasks=None, restart_trainer=False, reload_command=None,
-               name=None, sample_train_sents=None, max_num_train_sents=None,
+               name="{EXP}", sample_train_sents=None, max_num_train_sents=None,
                max_src_len=None, max_trg_len=None, commandline_args=Ref(Path("exp_global.commandline_args"), default=None)):
 
     super().__init__(model=model,
