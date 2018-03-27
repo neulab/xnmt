@@ -73,7 +73,7 @@ def main(overwrite_args=None):
 
       uninitialized_exp_args = config_parser.parse_experiment_file(args.experiments_file, experiment_name)
   
-      logger.info("=> Running {}".format(experiment_name))
+      logger.info(f"=> Running {experiment_name}")
   
       yaml_serializer = YamlSerializer()
   
@@ -94,6 +94,7 @@ def main(overwrite_args=None):
       experiment = yaml_serializer.initialize_if_needed(uninitialized_exp_args)
       ParamManager.param_col.model_file = experiment.exp_global.model_file
       ParamManager.param_col.save_num_checkpoints = experiment.exp_global.save_num_checkpoints
+      ParamManager.populate()
 
       # Run the experiment
       eval_scores = experiment(save_fct = lambda: yaml_serializer.save_to_file(model_file, experiment,

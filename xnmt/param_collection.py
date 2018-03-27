@@ -27,12 +27,19 @@ class ParamManager(object):
 
   @staticmethod
   def populate():
+    populated_subcols = []
     for subcol_name in ParamManager.param_col.subcols:
       for load_path in ParamManager.load_paths:
         data_file = os.path.join(load_path, subcol_name)
         if os.path.isfile(data_file):
           ParamManager.param_col.load_subcol_from_data_file(subcol_name, data_file)
-          logger.info(f"> populated DyNet weights of {subcol_name} from {data_file}")
+          populated_subcols.append(subcol_name)
+    if len(ParamManager.param_col.subcols) == len(populated_subcols):
+      logger.info(f"> populated DyNet weights of all components from given data files")
+    elif len(populated_subcols)==0:
+      logger.info(f"> use randomly initialized DyNet weights of all components")
+    else:
+      logger.info(f"> populated a subset of DyNet weights from given data files: {populated_subcols}")
 
   @staticmethod
   def my_subcollection(subcol_owner):

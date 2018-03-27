@@ -27,15 +27,11 @@ class Experiment(Serializable):
   @serializable_init
   def __init__(self, exp_global=bare(ExpGlobal), preproc=None,  model=None, train=None, evaluate=None,
                random_search_report=None):
-    """
-    This is called after all other components have been initialized, so we can safely load DyNet weights here. 
-    """
     self.exp_global = exp_global
     self.preproc = preproc
     self.model = model
     self.train = train
     self.evaluate = evaluate
-    ParamManager.populate()
 
     if random_search_report:
       logger.info(f"> instantiated random parameter search: {random_search_report}")
