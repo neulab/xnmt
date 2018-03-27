@@ -18,8 +18,7 @@ load_experiment = Experiment(
 
 config_parser = OptionParser()
 uninitialized_experiment = config_parser.parse_loaded_experiment(load_experiment, exp_dir=EXP_DIR, exp_name=EXP)
-yaml_serializer = YamlSerializer()
-loaded_experiment = yaml_serializer.initialize_if_needed(uninitialized_experiment)
+loaded_experiment = YamlSerializer().initialize_if_needed(uninitialized_experiment)
 
 exp_global = loaded_experiment.exp_global
 

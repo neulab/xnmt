@@ -132,7 +132,7 @@ class LossTracker(object):
     else:
       return self.sent_num_not_report_dev >= self.total_train_sent
 
-  def report_dev_and_check_model(self, model_file):
+  def report_dev_and_check_model(self):
     """
     Print dev testing report and check whether the dev loss is the best seen so far.
 
@@ -157,7 +157,7 @@ class LossTracker(object):
       save_model = self.dev_score.better_than(self.best_dev_score)
     if save_model:
       self.best_dev_score = self.dev_score
-      logger.info("Epoch {:.4f}: best dev score, writing model to {}".format(self.fractional_epoch, model_file))
+      logger.info(f"Epoch {self.fractional_epoch:.4f}: best dev score, writing out model")
     return save_model
 
   def report_auxiliary_score(self, score):

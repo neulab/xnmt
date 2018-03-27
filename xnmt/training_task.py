@@ -102,7 +102,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                initial_patience=None, dev_tasks=None, restart_trainer=False,
                reload_command=None, name=None, sample_train_sents=None,
                max_num_train_sents=None, max_src_len=None, max_trg_len=None):
-    self.model_file = ParamManager.param_col.model_file
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks
@@ -296,9 +295,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     if control_learning_schedule:
       logger.info("> Checkpoint")
       # Write out the model if it's the best one
-      if self.logger.report_dev_and_check_model(self.model_file):
-        if self.model_file is not None:
-          ret = True
+      if self.logger.report_dev_and_check_model():
+        ret = True
         self.training_state.cur_attempt = 0
       else:
         # otherwise: learning rate decay / early stopping

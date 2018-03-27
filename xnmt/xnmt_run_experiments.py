@@ -79,7 +79,7 @@ def main(overwrite_args=None):
   
       glob_args = uninitialized_exp_args.data.exp_global
       log_file = glob_args.log_file
-      
+
       if os.path.isfile(log_file) and not settings.OVERWRITE_LOG:
         logger.warning(f"log file {log_file} already exists; please delete by hand if you want to overwrite it (or use --settings=settings.debug or otherwise set OVERWRITE_LOG=True); skipping experiment..")
         continue
@@ -92,7 +92,9 @@ def main(overwrite_args=None):
   
       # Create the model
       experiment = yaml_serializer.initialize_if_needed(uninitialized_exp_args)
-  
+      ParamManager.param_col.model_file = experiment.exp_global.model_file
+      ParamManager.param_col.save_num_checkpoints = experiment.exp_global.save_num_checkpoints
+
       # Run the experiment
       eval_scores = experiment(save_fct = lambda: yaml_serializer.save_to_file(model_file, experiment,
                                                                                ParamManager.param_col))

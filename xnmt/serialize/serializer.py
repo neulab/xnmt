@@ -15,7 +15,21 @@ from xnmt.serialize.serializable import Serializable, UninitializedYamlObject, R
 from xnmt.serialize.options import OptionParser
 class YamlSerializer(object):
 
+  def __init__(self):
+    self.has_been_called = False
+
   def initialize_if_needed(self, obj):
+    """
+    Initialize if obj has not yet been initialized.
+
+    Note: make sure to always create a new YamlSerializer before calling this, e.g. using YamlSerializer().initialize_object()
+
+    Args:
+      obj (Union[Serializable,UninitializedYamlObject]): object to be potentially serialized
+
+    Returns:
+      Serializable: initialized object
+    """
     if self.is_initialized(obj): return obj
     else: return self.initialize_object(deserialized_yaml_wrapper=obj)
 
@@ -31,14 +45,17 @@ class YamlSerializer(object):
     """
     Initializes a hierarchy of deserialized YAML objects.
 
+    Note: make sure to always create a new YamlSerializer before calling this, e.g. using YamlSerializer().initialize_object()
+
     Args:
       deserialized_yaml_wrapper: deserialized YAML data inside a UninitializedYamlObject wrapper (classes are resolved and class members set, but __init__() has not been called at this point)
     Returns:
       the appropriate object, with properly shared parameters and __init__() having been invoked
     """
+    assert not self.has_been_called
+    self.has_been_called = True
     if self.is_initialized(deserialized_yaml_wrapper):
       raise AssertionError()
-    self.init_component.cache_clear()
     # make a copy to avoid side effects
     self.deserialized_yaml = copy.deepcopy(deserialized_yaml_wrapper.data)
     # make sure only arguments accepted by the Serializable derivatives' __init__() methods were passed
@@ -77,7 +94,7 @@ class YamlSerializer(object):
         init_args_defaults = tree_tools.get_init_args_defaults(node)
         for expected_arg in init_args_defaults:
           if not expected_arg in [x[0] for x in tree_tools.name_children(node, include_reserved=False)]:
-            arg_default = init_args_defaults[expected_arg].default
+            arg_default = copy.deepcopy(init_args_defaults[expected_arg].default)
             if isinstance(arg_default, tree_tools.Ref):
               setattr(node, expected_arg, arg_default)
 
@@ -102,7 +119,7 @@ class YamlSerializer(object):
                 else:
                   referenced_arg_default = inspect.Parameter.empty
                 if referenced_arg_default != inspect.Parameter.empty:
-                  tree_tools.set_descendant(root, ancestor, referenced_arg_default)
+                  tree_tools.set_descendant(root, ancestor, copy.deepcopy(referenced_arg_default))
               else:
                 give_up = True
             except tree_tools.PathError:
@@ -154,12 +171,11 @@ class YamlSerializer(object):
             if node.default == tree_tools.Ref.NO_DEFAULT:
               initialized_component = None
             else:
-              initialized_component = node.default
+              initialized_component = copy.deepcopy(node.default)
           if self.init_component.cache_info().hits > hits_before:
             logger.debug(f"for {path}: reusing previously initialized {initialized_component}")
         else:
           initialized_component = self.init_component(path)
-        assert not getattr(initialized_component, "_is_bare", False), "assert no 2"
         if len(path)==0:
           root = initialized_component
         else:
@@ -239,8 +255,6 @@ class YamlSerializer(object):
 class ComponentInitError(Exception):
   pass
 
-yaml_serializer = YamlSerializer()
-
 subcol_rand = random.Random()
 def generate_subcol_name(subcol_owner):
   rand_bits = subcol_rand.getrandbits(32)
@@ -267,7 +281,7 @@ def serializable_init(f):
     auto_added_defaults = set()
     for param in params.values():
       if param.name != "self" and param.default != inspect.Parameter.empty and param.name not in serialize_params:
-        serialize_params[param.name] = param.default
+        serialize_params[param.name] = copy.deepcopy(param.default)
         auto_added_defaults.add(param.name)
     for arg in serialize_params.values():
       if type(obj).__name__ != "Experiment":
@@ -275,7 +289,7 @@ def serializable_init(f):
     for key, arg in list(serialize_params.items()):
       if isinstance(arg, Ref):
         if not arg.is_required():
-          serialize_params[key] = arg.get_default()
+          serialize_params[key] = copy.deepcopy(arg.get_default())
         else:
           if key in auto_added_defaults:
             raise ValueError(f"Required argument '{key}' of {type(obj).__name__}.__init__() was not specified, and {arg} could not be resolved")
@@ -283,7 +297,7 @@ def serializable_init(f):
             raise ValueError(f"Cannot pass a reference as argument; received {serialize_params[key]} in {type(obj).__name__}.__init__()")
     for key, arg in list(serialize_params.items()):
       if getattr(arg, "_is_bare", False):
-        initialized = yaml_serializer.initialize_object(UninitializedYamlObject(arg))
+        initialized = YamlSerializer().initialize_object(UninitializedYamlObject(arg))
         assert not getattr(initialized, "_is_bare", False)
         serialize_params[key] = initialized
     f(obj, **serialize_params)
