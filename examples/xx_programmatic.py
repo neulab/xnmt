@@ -62,6 +62,7 @@ model = DefaultTranslator(
 )
 
 train = SimpleTrainingRegimen(
+  name=f"{EXP}",
   model=model,
   batcher=batcher,
   trainer=AdamTrainer(alpha=0.001),

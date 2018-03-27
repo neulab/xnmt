@@ -10,23 +10,28 @@ class ParamManager(object):
   A static class that manages the currently loaded DyNet parameters.
   There is only one parameter manager, but it can manage parameters from multiple models via named subcollections.
   """
+  initialized = False
 
   @staticmethod
   def init_param_col():
     ParamManager.param_col = ParamCollection()
     ParamManager.load_paths = []
+    ParamManager.initialized = True
 
   @staticmethod
   def set_save_file(file_name, save_num_checkpoints=1):
+    assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
     ParamManager.param_col.model_file = file_name
     ParamManager.param_col.save_num_checkpoints = save_num_checkpoints
 
   @staticmethod
   def add_load_path(data_file):
+    assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
     ParamManager.load_paths.append(data_file)
 
   @staticmethod
   def populate():
+    assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
     populated_subcols = []
     for subcol_name in ParamManager.param_col.subcols:
       for load_path in ParamManager.load_paths:
@@ -39,10 +44,12 @@ class ParamManager(object):
     elif len(populated_subcols)==0:
       logger.info(f"> use randomly initialized DyNet weights of all components")
     else:
-      logger.info(f"> populated a subset of DyNet weights from given data files: {populated_subcols}")
+      logger.info(f"> populated a subset of DyNet weights from given data files: {populated_subcols}.\n"
+                  f"  Did not populate {ParamManager.param_col.subcols.keys() - set(populated_subcols)}")
 
   @staticmethod
   def my_subcollection(subcol_owner):
+    assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
     """Creates a dedicated subcollection for a serializable object. This should only be called from the __init__ method
     of a Serializable.
 
@@ -67,6 +74,7 @@ class ParamManager(object):
     Returns:
       dynet.ParamCollection: top-level DyNet parameter collection
     """
+    assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
     return ParamManager.param_col._param_col
 
 class ParamCollection(object):
