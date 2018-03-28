@@ -85,26 +85,26 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   @serializable_init
   def __init__(self,
                layers=1,
-               input_dim=Ref(Path("exp_global.default_layer_dim")),
-               lstm_dim=Ref(Path("exp_global.default_layer_dim")),
-               mlp_hidden_dim=Ref(Path("exp_global.default_layer_dim")),
-               trg_embed_dim=Ref(Path("exp_global.default_layer_dim")),
-               dropout=Ref(Path("exp_global.dropout"), default=0.0),
+               input_dim=Ref("exp_global.default_layer_dim"),
+               lstm_dim=Ref("exp_global.default_layer_dim"),
+               mlp_hidden_dim=Ref("exp_global.default_layer_dim"),
+               trg_embed_dim=Ref("exp_global.default_layer_dim"),
+               dropout=Ref("exp_global.dropout", default=0.0),
                rnn_spec="lstm",
                residual_to_output=False,
                input_feeding=True,
-               param_init_lstm=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer)),
-               param_init_context=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer)),
-               bias_init_context=Ref(Path("exp_global.bias_init"), default=bare(ZeroInitializer)),
-               param_init_output=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer)),
-               bias_init_output=Ref(Path("exp_global.bias_init"), default=bare(ZeroInitializer)),
+               param_init_lstm=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               param_init_context=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init_context=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               param_init_output=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init_output=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
                bridge=bare(CopyBridge),
                label_smoothing=0.0,
                vocab_projector=None,
                context_projector=None,
                vocab_size = None,
                vocab = None,
-               trg_reader = Ref(path=Path("model.trg_reader"), default=None)):
+               trg_reader = Ref("model.trg_reader", default=None)):
     self.param_col = ParamManager.my_subcollection(self)
     self.mlp_hidden_dim = mlp_hidden_dim = mlp_hidden_dim
     self.input_dim = input_dim

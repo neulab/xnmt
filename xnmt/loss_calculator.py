@@ -63,7 +63,8 @@ class ReinforceLoss(Serializable):
   # TODO: document me
 
   @serializable_init
-  def __init__(self, evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=Ref(Path("exp_global.default_layer_dim"))):
+  def __init__(self, evaluation_metric=None, sample_length=50, use_baseline=False,
+               decoder_hidden_dim=Ref("exp_global.default_layer_dim")):
     self.sample_length = sample_length
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)

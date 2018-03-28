@@ -57,11 +57,11 @@ class MlpAttender(Attender, Serializable):
 
   @serializable_init
   def __init__(self,
-               input_dim=Ref(Path("exp_global.default_layer_dim")),
-               state_dim=Ref(Path("exp_global.default_layer_dim")),
-               hidden_dim=Ref(Path("exp_global.default_layer_dim")),
-               param_init=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer)),
-               bias_init=Ref(Path("exp_global.bias_init"), default=bare(ZeroInitializer))):
+               input_dim=Ref("exp_global.default_layer_dim"),
+               state_dim=Ref("exp_global.default_layer_dim"),
+               hidden_dim=Ref("exp_global.default_layer_dim"),
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
@@ -155,9 +155,9 @@ class BilinearAttender(Attender, Serializable):
 
   serializable_init
   def __init__(self,
-               input_dim=Ref(Path("exp_global.default_layer_dim")),
-               state_dim=Ref(Path("exp_global.default_layer_dim")),
-               param_init=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer))):
+               input_dim=Ref("exp_global.default_layer_dim"),
+               state_dim=Ref("exp_global.default_layer_dim"),
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer))):
     self.input_dim = input_dim
     self.state_dim = state_dim
     param_collection = ParamManager.my_subcollection(self)

@@ -113,8 +113,8 @@ class Ref(Serializable):
   A reference to a place in the component hierarchy. Supported a referencing by path or referencing by name.
 
   Args:
-    path (Path): reference-by-path
-    name (str): reference-by-name. The name refers to a unique ``_xnmt_id`` property that must be set in exactly one component.
+    path (Optional[Union[Path,str]]): reference-by-path
+    name (Optional[str]): reference-by-name. The name refers to a unique ``_xnmt_id`` property that must be set in exactly one component.
   """
   yaml_tag = "!Ref"
 
@@ -123,6 +123,7 @@ class Ref(Serializable):
   def __init__(self, path=None, name=None, default=NO_DEFAULT):
     if name is not None and path is not None:
       raise ValueError(f"Ref cannot be initialized with both a name and a path ({name} / {path})")
+    if isinstance(path, str): path = Path(path)
     self.name = name
     self.path = path
     self.default = default

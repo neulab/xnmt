@@ -32,12 +32,12 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   @register_xnmt_handler
   @serializable_init
   def __init__(self,
-               input_dim=Ref(Path("exp_global.default_layer_dim")),
-               hidden_dim=Ref(Path("exp_global.default_layer_dim")),
-               dropout = Ref(Path("exp_global.dropout"), default=0.0),
-               weightnoise_std=Ref(Path("exp_global.weight_noise"), default=0.0),
-               param_init=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer)),
-               bias_init=Ref(Path("exp_global.bias_init"), default=bare(ZeroInitializer))):
+               input_dim=Ref("exp_global.default_layer_dim"),
+               hidden_dim=Ref("exp_global.default_layer_dim"),
+               dropout = Ref("exp_global.dropout", default=0.0),
+               weightnoise_std=Ref("exp_global.weight_noise", default=0.0),
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     model = ParamManager.my_subcollection(self)
     self.hidden_dim = hidden_dim
     self.dropout_rate = dropout
@@ -139,12 +139,12 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
   @serializable_init
   def __init__(self,
                layers=1,
-               input_dim=Ref(Path("exp_global.default_layer_dim")),
-               hidden_dim=Ref(Path("exp_global.default_layer_dim")),
-               dropout=Ref(Path("exp_global.dropout"), default=0.0),
-               weightnoise_std=Ref(Path("exp_global.weight_noise"), default=0.0),
-               param_init=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer)),
-               bias_init=Ref(Path("exp_global.bias_init"), default=bare(ZeroInitializer)),
+               input_dim=Ref("exp_global.default_layer_dim"),
+               hidden_dim=Ref("exp_global.default_layer_dim"),
+               dropout=Ref("exp_global.dropout", default=0.0),
+               weightnoise_std=Ref("exp_global.weight_noise", default=0.0),
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
                forward_layers=None, backward_layers=None):
     self.num_layers = layers
     self.hidden_dim = hidden_dim
@@ -213,8 +213,8 @@ class CustomLSTMSeqTransducer(SeqTransducer, Serializable):
                layers,
                input_dim,
                hidden_dim,
-               param_init=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer)),
-               bias_init=Ref(Path("exp_global.bias_init"), default=bare(ZeroInitializer))):
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     if layers!=1: raise RuntimeError("CustomLSTMSeqTransducer supports only exactly one layer")
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim

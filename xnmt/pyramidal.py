@@ -28,11 +28,11 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
   @register_xnmt_handler
   @serializable_init
   def __init__(self, layers=1,
-               input_dim=Ref(Path("exp_global.default_layer_dim")),
-               hidden_dim=Ref(Path("exp_global.default_layer_dim")),
+               input_dim=Ref("exp_global.default_layer_dim"),
+               hidden_dim=Ref("exp_global.default_layer_dim"),
                downsampling_method="concat",
                reduce_factor=2,
-               dropout=Ref(Path("exp_global.dropout"), default=0.0)):
+               dropout=Ref("exp_global.dropout", default=0.0)):
     self.dropout = dropout
     assert layers > 0
     assert hidden_dim % 2 == 0

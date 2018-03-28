@@ -43,7 +43,7 @@ class TailWordSegmentTransformer(SegmentTransformer):
   yaml_tag = "!TailWordSegmentTransformer"
 
   def __init__(self, vocab=None, vocab_size=1e6,
-               count_file=None, min_count=1, embed_dim=Ref(Path("exp_global.default_layer_dim"))):
+               count_file=None, min_count=1, embed_dim=Ref("exp_global.default_layer_dim")):
     assert vocab is not None
     self.vocab = vocab
     self.lookup = ParamManager.my_subcollection(self).add_lookup_parameters((vocab_size, embed_dim))

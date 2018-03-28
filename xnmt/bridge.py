@@ -32,7 +32,7 @@ class NoBridge(Bridge, Serializable):
   yaml_tag = '!NoBridge'
 
   @serializable_init
-  def __init__(self, dec_layers = 1, dec_dim = Ref(Path("exp_global.default_layer_dim"))):
+  def __init__(self, dec_layers = 1, dec_dim = Ref("exp_global.default_layer_dim")):
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim
   def decoder_init(self, enc_final_states):
@@ -54,7 +54,7 @@ class CopyBridge(Bridge, Serializable):
   yaml_tag = '!CopyBridge'
 
   @serializable_init
-  def __init__(self, dec_layers = 1, dec_dim = Ref(Path("exp_global.default_layer_dim"))):
+  def __init__(self, dec_layers = 1, dec_dim = Ref("exp_global.default_layer_dim")):
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim
   def decoder_init(self, enc_final_states):
@@ -82,10 +82,10 @@ class LinearBridge(Bridge, Serializable):
   @serializable_init
   def __init__(self,
                dec_layers = 1,
-               enc_dim = Ref(Path("exp_global.default_layer_dim")),
-               dec_dim = Ref(Path("exp_global.default_layer_dim")),
-               param_init=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer)),
-               bias_init=Ref(Path("exp_global.bias_init"), default=bare(ZeroInitializer))):
+               enc_dim = Ref("exp_global.default_layer_dim"),
+               dec_dim = Ref("exp_global.default_layer_dim"),
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     param_col = ParamManager.my_subcollection(self)
     self.dec_layers = dec_layers
     self.enc_dim = enc_dim

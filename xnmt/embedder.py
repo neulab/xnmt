@@ -135,17 +135,17 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
   @register_xnmt_handler
   @serializable_init
   def __init__(self,
-               emb_dim=Ref(Path("exp_global.default_layer_dim")),
-               weight_noise=Ref(Path("exp_global.weight_noise"), default=0.0),
+               emb_dim=Ref("exp_global.default_layer_dim"),
+               weight_noise=Ref("exp_global.weight_noise", default=0.0),
                word_dropout=0.0,
                fix_norm=None,
-               param_init=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer)),
-               bias_init=Ref(Path("exp_global.bias_init"), default=bare(ZeroInitializer)),
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
                vocab_size=None,
                vocab=None,
                yaml_path=None,
-               src_reader=Ref(path=Path("model.src_reader"), default=None),
-               trg_reader=Ref(path=Path("model.trg_reader"), default=None)):
+               src_reader=Ref("model.src_reader", default=None),
+               trg_reader=Ref("model.trg_reader", default=None)):
     self.fix_norm = fix_norm
     self.weight_noise = weight_noise
     self.word_dropout = word_dropout
@@ -220,16 +220,16 @@ class SimpleWordEmbedder(Embedder, Serializable):
   @register_xnmt_handler
   @serializable_init
   def __init__(self,
-               emb_dim=Ref(Path("exp_global.default_layer_dim")),
-               weight_noise=Ref(Path("exp_global.weight_noise"), default=0.0),
+               emb_dim=Ref("exp_global.default_layer_dim"),
+               weight_noise=Ref("exp_global.weight_noise", default=0.0),
                word_dropout=0.0,
                fix_norm=None,
-               param_init=Ref(Path("exp_global.param_init"), default=bare(GlorotInitializer)),
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                vocab_size = None,
                vocab = None,
                yaml_path = None,
-               src_reader = Ref(path=Path("model.src_reader"), default=None),
-               trg_reader = Ref(path=Path("model.trg_reader"), default=None)):
+               src_reader = Ref("model.src_reader", default=None),
+               trg_reader = Ref("model.trg_reader", default=None)):
     #print(f"embedder received param_init: {param_init}")
     self.emb_dim = emb_dim
     self.weight_noise = weight_noise
@@ -340,14 +340,14 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
   @serializable_init
   def __init__(self,
                filename,
-               emb_dim=Ref(Path("exp_global.default_layer_dim")),
-               weight_noise=Ref(Path("exp_global.weight_noise"), default=0.0),
+               emb_dim=Ref("exp_global.default_layer_dim"),
+               weight_noise=Ref("exp_global.weight_noise", default=0.0),
                word_dropout=0.0,
                fix_norm = None,
                vocab = None,
                yaml_path = None,
-               src_reader = Ref(path=Path("model.src_reader"), default=None),
-               trg_reader = Ref(path=Path("model.trg_reader"), default=None)):
+               src_reader = Ref("model.src_reader", default=None),
+               trg_reader = Ref("model.trg_reader", default=None)):
     self.emb_dim = emb_dim
     self.weight_noise = weight_noise
     self.word_dropout = word_dropout

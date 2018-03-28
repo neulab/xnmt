@@ -41,7 +41,7 @@ class SimpleInference(Serializable):
   @serializable_init
   def __init__(self, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
                   post_process="none", report_path=None, report_type="html",
-                  beam=1, max_len=100, len_norm_type=None, mode="onebest", batcher=Ref(Path("train.batcher"), default=None)):
+                  beam=1, max_len=100, len_norm_type=None, mode="onebest", batcher=Ref("train.batcher", default=None)):
     self.src_file = src_file
     self.trg_file = trg_file
     self.ref_file = ref_file

@@ -35,8 +35,8 @@ class LossEvalTask(Serializable):
   yaml_tag = '!LossEvalTask'
 
   @serializable_init
-  def __init__(self, src_file, ref_file, model=Ref(path=Path("model")),
-                batcher=Ref(path=Path("train.batcher"), default=None),
+  def __init__(self, src_file, ref_file, model=Ref("model"),
+                batcher=Ref("train.batcher", default=None),
                 loss_calculator=None, max_src_len=None, max_trg_len=None,
                 desc=None):
     self.model = model
@@ -94,7 +94,7 @@ class AccuracyEvalTask(Serializable):
   yaml_tag = '!AccuracyEvalTask'
 
   @serializable_init
-  def __init__(self, src_file, ref_file, hyp_file, model=Ref(path=Path("model")),
+  def __init__(self, src_file, ref_file, hyp_file, model=Ref("model"),
                eval_metrics="bleu", inference=None, candidate_id_file=None,
                desc=None):
     self.model = model

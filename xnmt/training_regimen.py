@@ -67,14 +67,14 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
   yaml_tag = '!SimpleTrainingRegimen'
 
   @serializable_init
-  def __init__(self, model=Ref(path=Path("model")), src_file=None, trg_file=None,
+  def __init__(self, model=Ref("model"), src_file=None, trg_file=None,
                dev_every=0, batcher=bare(xnmt.batcher.SrcBatcher, batch_size=32),
                loss_calculator=None, trainer=None, run_for_epochs=None,
                lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None,
                dev_tasks=None, restart_trainer: bool = False, reload_command=None,
                name="{EXP}", sample_train_sents=None, max_num_train_sents=None,
                max_src_len=None, max_trg_len=None,
-               commandline_args=Ref(Path("exp_global.commandline_args"), default=None)):
+               commandline_args=Ref("exp_global.commandline_args", default=None)):
 
     super().__init__(model=model,
                      src_file=src_file,
@@ -132,7 +132,7 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
   def __init__(self,
                tasks,
                trainer=None,
-               commandline_args=Ref(Path("exp_global.commandline_args"), default=None)):
+               commandline_args=Ref("exp_global.commandline_args", default=None)):
     self.dynet_profiling = getattr(commandline_args, "dynet_profiling", 0) if commandline_args else 0
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
@@ -180,7 +180,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
 
   @serializable_init
   def __init__(self, tasks, trainer=None,
-               commandline_args=Ref(Path("exp_global.commandline_args"), default=None)):
+               commandline_args=Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, commandline_args=commandline_args)
   def run_training(self, save_fct, update_weights=True):
     self.load_data()
@@ -226,7 +226,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
 
   @serializable_init
   def __init__(self, tasks, task_weights=None, trainer=None,
-               commandline_args=Ref(Path("exp_global.commandline_args"), default=None)):
+               commandline_args=Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, commandline_args=commandline_args)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks)
   def run_training(self, save_fct, update_weights=True):
@@ -269,7 +269,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   yaml_tag = "!SerialMultiTaskTrainingRegimen"
 
   @serializable_init
-  def __init__(self, tasks, trainer=None, commandline_args=Ref(Path("exp_global.commandline_args"), default=None)):
+  def __init__(self, tasks, trainer=None, commandline_args=Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, commandline_args=commandline_args)
   def run_training(self, save_fct, update_weights=True):
     self.load_data()
