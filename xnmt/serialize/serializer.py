@@ -165,9 +165,9 @@ class YamlSerializer(object):
     for path, node in tree_tools.traverse_tree_deep_once(root, root, tree_tools.TraversalOrder.ROOT_LAST, named_paths=self.named_paths):
       if isinstance(node, Serializable):
         if isinstance(node, tree_tools.Ref):
+          hits_before = self.init_component.cache_info().hits
           try:
             resolved_path = node.resolve_path(self.named_paths)
-            hits_before = self.init_component.cache_info().hits
             initialized_component = self.init_component(resolved_path)
           except tree_tools.PathError:
             if node.default == tree_tools.Ref.NO_DEFAULT:
@@ -184,6 +184,18 @@ class YamlSerializer(object):
           tree_tools.set_descendant(root, path, initialized_component)
     return root
 
+  def check_init_param_types(self, obj, init_params):
+    for init_param_name in init_params:
+      param_sig = tree_tools.get_init_args_defaults(obj)
+      if init_param_name in param_sig:
+        annotated_type = param_sig[init_param_name].annotation
+        if annotated_type != inspect.Parameter.empty:
+          try:
+            if not isinstance(init_params[init_param_name], annotated_type):
+              raise ValueError(f"type check failed for {init_param_name} argument of {obj}: expected {annotated_type}, received {init_params[init_param_name]} of type {type(init_params[init_param_name])}")
+          except TypeError:
+            pass # isinstance does not work with types from Python's "typing" module, let's skip test
+
   @lru_cache(maxsize=None)
   def init_component(self, path):
     """
@@ -198,6 +210,7 @@ class YamlSerializer(object):
     init_params = OrderedDict(tree_tools.name_children(obj, include_reserved=False))
     init_args = tree_tools.get_init_args_defaults(obj)
     if "yaml_path" in init_args: init_params["yaml_path"] = path
+    self.check_init_param_types(obj, init_params)
     try:
       if hasattr(obj, "xnmt_subcol_name"):
         initialized_obj = obj.__class__(**init_params, xnmt_subcol_name=obj.xnmt_subcol_name)
@@ -205,8 +218,10 @@ class YamlSerializer(object):
         initialized_obj = obj.__class__(**init_params)
       logger.debug(f"initialized {path}: {obj.__class__.__name__}@{id(obj)}({dict(init_params)})"[:1000])
     except TypeError as e:
-      raise ComponentInitError(f"{type(obj).__name__} could not be initialized using params {init_params}, expecting params {init_args.keys()}. "
-                               f"Error message: {e}")
+      raise ComponentInitError(f"An error occurred trying to invoke {type(obj).__name__}.__init__()\n"
+                               f" The following arguments were passed: {init_params}\n"
+                               f" The following arguments were expected: {init_args.keys()}\n"
+                               f" Error message: {e}")
     return initialized_obj
 
   def resolve_serialize_refs(self, root):

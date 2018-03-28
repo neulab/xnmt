@@ -5,41 +5,108 @@ from itertools import zip_longest
 import ast
 
 import numpy as np
+import h5py
 
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
 from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.serializer import serializable_init
 from xnmt.vocab import Vocab
 
+
 ###### Classes that will read in a file and turn it into an input
 
 class InputReader(object):
-  """
-  A base class for classes that will read in a file and turn it into an :class:`xnmt.input.Input`.
-  """
-  
   def read_sents(self, filename, filter_ids=None):
     """
-    Reads content.
-    
-    Args:
-      filename (str): data file
-      filter_ids (list of int): only read sentences with these ids (0-indexed)
-    Returns:
-      iterator over sentences from filename
+    :param filename: data file
+    :param filter_ids: only read sentences with these ids (0-indexed)
+    :returns: iterator over sentences from filename
     """
-    raise RuntimeError("Input readers must implement the read_sents function")
+    if self.vocab is None:
+      self.vocab = Vocab()
+    return self.iterate_filtered(filename, filter_ids)
+
+  def read_sent(self, sentence, filter_ids=None):
+    """
+    :param sentence: a single input string
+    :param filter_ids: only read sentences with these ids (0-indexed)
+    :returns: a SentenceInput object for the input sentence
+    """
+    raise RuntimeError("Input readers must implement the read_sent function")
 
   def count_sents(self, filename):
     """
-    Counts number of sents. Separate from read_sents() because counting is much faster than reading contents for some file types.
-    
-    Args:
-      filename (str): data file
-    Returns:
-      number of sentences in the data file
+    :param filename: data file
+    :returns: number of sentences in the data file
     """
     raise RuntimeError("Input readers must implement the count_sents function")
+
+  def freeze(self):
+    pass
+
+class BaseTextReader(InputReader):
+  def count_sents(self, filename):
+    f = open(filename, encoding='utf-8')
+    try:
+      return sum(1 for _ in f)
+    finally:
+      f.close()
+
+  def iterate_filtered(self, filename, filter_ids=None):
+    """
+    :param filename: data file (text file)
+    :param filter_ids:
+    :returns: iterator over lines as strings (useful for subclasses to implement read_sents)
+    """
+    sent_count = 0
+    max_id = None
+    if filter_ids is not None:
+      max_id = max(filter_ids)
+      filter_ids = set(filter_ids)
+    with open(filename, encoding='utf-8') as f:
+      for line in f:
+        if filter_ids is None or sent_count in filter_ids:
+          yield self.read_sent(line)
+        sent_count += 1
+        if max_id is not None and sent_count > max_id:
+          break
+
+class PlainTextReader(BaseTextReader, Serializable):
+  """
+  Handles the typical case of reading plain text files,
+  with one sent per line.
+  """
+  yaml_tag = '!PlainTextReader'
+
+  @serializable_init
+  def __init__(self, vocab=None, include_vocab_reference=False):
+    self.vocab = vocab
+    self.include_vocab_reference = include_vocab_reference
+    if vocab is not None:
+      self.vocab.freeze()
+      self.vocab.set_unk(Vocab.UNK_STR)
+
+  def read_sent(self, sentence, filter_ids=None):
+    vocab_reference = self.vocab if self.include_vocab_reference else None
+    return SimpleSentenceInput([self.vocab.convert(word) for word in sentence.strip().split()] + \
+                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
+
+  def freeze(self):
+    self.vocab.freeze()
+    self.vocab.set_unk(Vocab.UNK_STR)
+    self.overwrite_serialize_param("vocab", self.vocab)
+
+  def count_words(self, trg_words):
+    trg_cnt = 0
+    for x in trg_words:
+      if type(x) == int:
+        trg_cnt += 1 if x != Vocab.ES else 0
+      else:
+        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
+    return trg_cnt
+
+  def vocab_size(self):
+    return len(self.vocab)
 
 class BaseTextReader(InputReader):
   """
@@ -72,45 +139,6 @@ class BaseTextReader(InputReader):
         sent_count += 1
         if max_id is not None and sent_count > max_id:
           break
-
-class PlainTextReader(BaseTextReader, Serializable):
-  """
-  Handles the typical case of reading plain text files,
-  with one sent per line.
-  
-  Args:
-    vocab (Vocab): turns tokens strings into token IDs
-    include_vocab_reference (bool): TODO document me
-  """
-  yaml_tag = '!PlainTextReader'
-
-  @serializable_init
-  def __init__(self, vocab=None, include_vocab_reference=False):
-    self.vocab = vocab
-    self.include_vocab_reference = include_vocab_reference
-    if vocab is not None:
-      self.vocab.freeze()
-      self.vocab.set_unk(Vocab.UNK_STR)
-
-  def read_sents(self, filename, filter_ids=None):
-    if self.vocab is None:
-      self.vocab = Vocab()
-    vocab_reference = self.vocab if self.include_vocab_reference else None
-    return map(lambda l: SimpleSentenceInput([self.vocab.convert(word) for word in l.strip().split()] + \
-                                             [self.vocab.convert(Vocab.ES_STR)], vocab_reference),
-               self.iterate_filtered(filename, filter_ids))
-
-  def count_words(self, trg_words):
-    trg_cnt = 0
-    for x in trg_words:
-      if type(x) == int:
-        trg_cnt += 1 if x != Vocab.ES else 0
-      else:
-        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
-    return trg_cnt
-
-  def vocab_size(self):
-    return len(self.vocab)
 
 class SegmentationTextReader(PlainTextReader):
   yaml_tag = '!SegmentationTextReader'
@@ -154,7 +182,64 @@ class SegmentationTextReader(PlainTextReader):
   def count_sents(self, filename):
     return super(SegmentationTextReader, self).count_sents(filename[0])
 
-class ContVecReader(InputReader, Serializable):
+
+class H5Reader(InputReader, Serializable):
+  """
+  Handles the case where sents are sequences of continuous-space vectors.
+
+  The input is a ".h5" file, which can be created for example using xnmt.preproc.MelFiltExtractor
+
+  The data items are assumed to be labeled with integers 0, 1, .. (converted to strings).
+
+  Each data item will be a 2D matrix representing a sequence of vectors. They can
+  be in either order, depending on the value of the "transpose" variable:
+  * sents[sent_id][feat_ind,word_ind] if transpose=False
+  * sents[sent_id][word_ind,feat_ind] if transpose=True
+
+  Args:
+    transpose (bool):
+    feat_from (int):
+    feat_to (int):
+    feat_skip (int):
+    word_skip (int):
+  """
+  yaml_tag = u"!H5Reader"
+  @serializable_init
+  def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, word_skip=None):
+    self.transpose = transpose
+    self.feat_from = feat_from
+    self.feat_to = feat_to
+    self.feat_skip = feat_skip
+    self.word_skip = word_skip
+
+  def read_sents(self, filename, filter_ids=None):
+    with h5py.File(filename, "r") as hf:
+      h5_keys = sorted(hf.keys(), key=lambda x: int(x))
+      if filter_ids is not None:
+        h5_keys = [h5_keys[i] for i in filter_ids]
+      for idx, key in enumerate(h5_keys):
+        inp = hf[key][:]
+        if self.transpose:
+          inp = inp.transpose()
+
+        sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, ::self.word_skip]
+        if sub_inp.size < inp.size:
+          inp = np.empty_like(sub_inp)
+          np.copyto(inp, sub_inp)
+        else:
+          inp = sub_inp
+
+        if idx % 1000 == 999:
+          logger.info(f"Read {idx+1} lines ({float(idx+1)/len(h5_keys)*100:.2f}%) of {filename} at {key}")
+        yield ArrayInput(inp)
+
+  def count_sents(self, filename):
+    with h5py.File(filename, "r") as hf:
+      l = len(hf.keys())
+    return l
+
+
+class NpzReader(InputReader, Serializable):
   """
   Handles the case where sents are sequences of continuous-space vectors.
 
@@ -172,15 +257,23 @@ class ContVecReader(InputReader, Serializable):
   be in either order, depending on the value of the "transpose" variable:
   * sents[sent_id][feat_ind,word_ind] if transpose=False
   * sents[sent_id][word_ind,feat_ind] if transpose=True
-  
+
   Args:
     transpose (bool):
+    feat_from (int):
+    feat_to (int):
+    feat_skip (int):
+    word_skip (int):
   """
-  yaml_tag = "!ContVecReader"
+  yaml_tag = u"!NpzReader"
 
   @serializable_init
-  def __init__(self, transpose=False):
+  def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, word_skip=None):
     self.transpose = transpose
+    self.feat_from = feat_from
+    self.feat_to = feat_to
+    self.feat_skip = feat_skip
+    self.word_skip = word_skip
 
   def read_sents(self, filename, filter_ids=None):
     npzFile = np.load(filename, mmap_mode=None if filter_ids is None else "r")
@@ -191,16 +284,25 @@ class ContVecReader(InputReader, Serializable):
       inp = npzFile[key]
       if self.transpose:
         inp = inp.transpose()
+
+      sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, ::self.word_skip]
+      if sub_inp.size < inp.size:
+        inp = np.empty_like(sub_inp)
+        np.copyto(inp, sub_inp)
+      else:
+        inp = sub_inp
+
       if idx % 1000 == 999:
         logger.info(f"Read {idx+1} lines ({float(idx+1)/len(npzKeys)*100:.2f}%) of {filename} at {key}")
       yield ArrayInput(inp)
     npzFile.close()
 
   def count_sents(self, filename):
-    npzFile = np.load(filename, mmap_mode="r") # for counting sentences, only read the index
+    npzFile = np.load(filename, mmap_mode="r")  # for counting sentences, only read the index
     l = len(npzFile.files)
     npzFile.close()
     return l
+
 
 class IDReader(BaseTextReader, Serializable):
   """

@@ -20,7 +20,7 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
     input_dim (int): input dimension
     hidden_dim (int): hidden dimension
     downsampling_method (str): how to perform downsampling (concat|skip)
-    reduce_factor: integer, or list of ints (different skip for each layer)
+    reduce_factor (Union[int,List[int]): integer, or list of ints (different skip for each layer)
     dropout (float): dropout probability; if None, use exp_global.dropout
   """
   yaml_tag = '!PyramidalLSTMSeqTransducer'

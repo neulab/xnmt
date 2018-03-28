@@ -155,7 +155,6 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     Args:
       vocab_size (int): vocab size or None
       vocab (Vocab): vocab or None
-      yaml_path (Path): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
       trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
     
     Returns:

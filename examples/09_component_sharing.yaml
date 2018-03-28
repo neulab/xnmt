@@ -49,7 +49,7 @@ exp1.pretrain: !Experiment
         ref_file: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
   evaluate:
     - !AccuracyEvalTask
-      eval_metrics: bleu,wer
+      eval_metrics: bleu
       src_file: *dev_src # Copy over the file path from the dev tasks using YAML anchors.
       ref_file: *dev_trg # The same could also be done for more complex objects.
       hyp_file: examples/output/{EXP}.test_hyp

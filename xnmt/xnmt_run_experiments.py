@@ -10,6 +10,8 @@ import argparse
 import os
 import random
 import sys
+import socket
+import datetime
 import faulthandler
 faulthandler.enable()
 
@@ -21,10 +23,11 @@ if settings.RESOURCE_WARNINGS:
 
 from xnmt.param_collection import ParamManager
 from xnmt.serialize.options import OptionParser
+from xnmt.tee import Tee, get_git_revision
 from xnmt.serialize.serializer import YamlSerializer
-from xnmt.tee import Tee
 
 def main(overwrite_args=None):
+
   with Tee(), Tee(error=True):
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--dynet-mem", type=str)
@@ -74,7 +77,8 @@ def main(overwrite_args=None):
       uninitialized_exp_args = config_parser.parse_experiment_file(args.experiments_file, experiment_name)
   
       logger.info(f"=> Running {experiment_name}")
-  
+      logger.debug(f"running XNMT revision {get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
       yaml_serializer = YamlSerializer()
   
       glob_args = uninitialized_exp_args.data.exp_global

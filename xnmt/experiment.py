@@ -1,10 +1,15 @@
 import logging
 logger = logging.getLogger('xnmt')
+from typing import List, Optional
 
 from xnmt.exp_global import ExpGlobal
 from xnmt.param_collection import ParamManager
-from xnmt.serialize.serializable import Serializable, bare
 from xnmt.serialize.serializer import serializable_init
+from xnmt.preproc_runner import PreprocRunner
+from xnmt.serialize.serializable import Serializable, bare
+from xnmt.training_regimen import TrainingRegimen
+from xnmt.generator import GeneratorModel
+from xnmt.eval_task import EvalTask
 
 class Experiment(Serializable):
   '''
@@ -14,19 +19,24 @@ class Experiment(Serializable):
   __call__() runs the individual steps.
   
   Args:
-    exp_global (ExpGlobal): global experiment settings
-    preproc (PreprocRunner): carry out preprocessing if specified
-    model (GeneratorModel): The main model. In the case of multitask training, several models must be specified, in which case the models will live not here but inside the training task objects.
-    train (Optional[TrainingRegimen]): The training regimen defines the training loop. If None, skip training loop (useful e.g. for testing already trained models).
-    evaluate (List[EvalTask]): list of tasks to evaluate the model after training finishes.
-    random_search_report (dict): When random search is used, this holds the settings that were randomly drawn for documentary purposes.
+    exp_global: global experiment settings
+    preproc: carry out preprocessing if specified
+    model: The main model. In the case of multitask training, several models must be specified, in which case the models will live not here but inside the training task objects.
+    train: The training regimen defines the training loop.
+    evaluate: list of tasks to evaluate the model after training finishes.
+    random_search_report: When random search is used, this holds the settings that were randomly drawn for documentary purposes.
   '''
 
   yaml_tag = '!Experiment'
 
   @serializable_init
-  def __init__(self, exp_global=bare(ExpGlobal), preproc=None,  model=None, train=None, evaluate=None,
-               random_search_report=None):
+  def __init__(self,
+               exp_global:Optional[ExpGlobal] = bare(ExpGlobal),
+               preproc:Optional[PreprocRunner] = None,
+               model:Optional[GeneratorModel] = None,
+               train:Optional[TrainingRegimen] = None,
+               evaluate:Optional[List[EvalTask]] = None,
+               random_search_report:Optional[dict] = None) -> None:
     self.exp_global = exp_global
     self.preproc = preproc
     self.model = model

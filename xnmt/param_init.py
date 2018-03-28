@@ -103,12 +103,12 @@ class GlorotInitializer(ParamInitializer, Serializable):
   @serializable_init
   def __init__(self, gain=1.0):
     self.gain = gain
-  def initializer(self, dim, is_lookup=False, num_shared=1):
+  def initializer(self, dim:tuple, is_lookup:bool=False, num_shared:int=1):
     """
     Args:
-      dim (tuple): dimensions of parameter tensor
-      is_lookup (bool): Whether the parameter is a lookup parameter
-      num_shared (int): If > 1, treat the first dimension as spanning multiple matrices, each of which is initialized individually
+      dim: dimensions of parameter tensor
+      is_lookup : Whether the parameter is a lookup parameter
+      num_shared: If > 1, treat the first dimension as spanning multiple matrices, each of which is initialized individually
     Returns:
       a dynet initializer object
     """

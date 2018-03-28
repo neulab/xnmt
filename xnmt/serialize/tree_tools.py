@@ -21,7 +21,7 @@ def check_serializable_args_valid(node):
     if name in base_arg_names or name in class_param_names: continue
     if name.startswith("_") or name in reserved_arg_names: continue
     if name not in init_args:
-      raise ValueError(f"'{name}' is not a valid init parameter of {node}. Valid are {list(init_args.keys())}")
+      raise ValueError(f"'{name}' is not a accepted argument of {type(node).__name__}.__init__(). Valid are {list(init_args.keys())}")
 
 
 @singledispatch

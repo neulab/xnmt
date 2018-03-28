@@ -30,7 +30,7 @@ settings: !Experiment
         ref_file: examples/data/head.en
   evaluate:
     - !AccuracyEvalTask
-      eval_metrics: bleu,wer
+      eval_metrics: bleu
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.test_hyp

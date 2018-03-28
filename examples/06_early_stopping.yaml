@@ -1,0 +1,36 @@
+# Early stopping is achieved by configuring SimpleTrainingRegimen, with the following options:
+# - run_for_epochs
+# - lr_decay
+# - lr_decay_times
+# - patience
+# - initial_patience
+# - dev_tasks (to configure the metric used to determine lr decay or early stopping)
+minimal: !Experiment
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 100 # maximum number of epochs, but might stop earlier depending on the following settings.
+    lr_decay: 0.5
+    lr_decay_times: 3
+    patience: 1
+    initial_patience: 2
+    dev_tasks: # the first metric (here: bleu) is used for checking whether LR should be decayed.
+      - !AccuracyEvalTask
+        eval_metrics: bleu,gleu
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
+        hyp_file: examples/output/{EXP}.test_hyp
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp
