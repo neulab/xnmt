@@ -43,6 +43,7 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
     residual_to_output (bool): whether to add a residual connection to the output layer
     dropout (float): dropout probability
     bidirectional (bool): whether the LSTM layers should be bidirectional
+    builder (Union[ResidualRNNBuilder,ResidualBiRNNBuilder]): builder to delegate to
   """
 
   yaml_tag = '!ResidualLSTMSeqTransducer'
@@ -50,12 +51,20 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
   @register_xnmt_handler
   @serializable_init
   def __init__(self, input_dim=512, layers=1, hidden_dim=Ref(Path("exp_global.default_layer_dim")),
-               residual_to_output=False, dropout=0.0, bidirectional=True):
+               residual_to_output=False, dropout=0.0, bidirectional=True, builder=None):
     self._final_states = None
     if bidirectional:
-      self.builder = ResidualBiRNNBuilder(num_layers=layers, input_dim=input_dim, hidden_dim=hidden_dim, add_to_output=residual_to_output, dropout=dropout)
+      self.builder = self.reuse_or_register("builder", builder,
+                                            lambda: ResidualBiRNNBuilder(num_layers=layers, input_dim=input_dim,
+                                                                         hidden_dim=hidden_dim,
+                                                                         add_to_output=residual_to_output,
+                                                                         dropout=dropout))
     else:
-      self.builder = ResidualRNNBuilder(num_layers=layers, input_dim=input_dim, hidden_dim=hidden_dim, add_to_output=residual_to_output, dropout=dropout)
+      self.builder = self.reuse_or_register("builder", builder,
+                                            lambda: ResidualRNNBuilder(num_layers=layers, input_dim=input_dim,
+                                                                       hidden_dim=hidden_dim,
+                                                                       add_to_output=residual_to_output,
+                                                                       dropout=dropout))
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -72,7 +81,7 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
     assert self._final_states is not None, "ResidualLSTMSeqTransducer.__call__() must be invoked before ResidualLSTMSeqTransducer.get_final_states()"
     return self._final_states
 
-class ResidualRNNBuilder(object):
+class ResidualRNNBuilder(Serializable):
   """
 
   Builder for RNNs that implements additional residual connections between layers: the output of each
@@ -89,15 +98,15 @@ class ResidualRNNBuilder(object):
     hidden_dim (int): size of the outputs (and intermediate layer representations)
     add_to_output (bool): whether to add a residual connection to the output layer
     dropout (float): dropout probability; if None, use exp_global.dropout
-    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    builder_layers (List[UniLSTMSeqTransducer]): builder layers
   """
-
-  def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None):
+  yaml_tag = "!ResidualRNNBuilder"
+  @serializable_init
+  def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None, builder_layers=None):
     assert num_layers > 0
-    self.builder_layers = []
-    self.builder_layers.append(UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim, dropout=dropout))
-    for _ in range(num_layers - 1):
-      self.builder_layers.append(UniLSTMSeqTransducer(input_dim=hidden_dim, hidden_dim=hidden_dim, dropout=dropout))
+    self.builder_layers = self.reuse_or_register("builder_layers", builder_layers, lambda: [
+      UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim, dropout=dropout) for i
+      in range(num_layers)])
 
     self.add_to_output = add_to_output
 
@@ -171,7 +180,7 @@ class ResidualRNNBuilder(object):
     return PseudoState(self)
 
 
-class ResidualBiRNNBuilder(object):
+class ResidualBiRNNBuilder(Serializable):
   """
   A residual network with bidirectional first layer.
   
@@ -183,14 +192,30 @@ class ResidualBiRNNBuilder(object):
     hidden_dim (int): hidden dimension
     add_to_output (bool): whether to add a residual connection to the output layer
     dropout (float): dropout probability
+    forward_layer (UniLSTMSeqTransducer):
+    backward_layer (UniLSTMSeqTransducer):
+    residual_network (ResidualRNNBuilder):
   """
-  def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=Ref(Path("exp_global.dropout"), default=0.0)):
+  @serializable_init
+  def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False,
+               dropout=Ref(Path("exp_global.dropout"), default=0.0), forward_layer=None, backward_layer=None,
+               residual_network=None):
     assert num_layers > 1
     assert hidden_dim % 2 == 0
-    self.forward_layer = UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout)
-    self.backward_layer = UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim/2, dropout=dropout)
-    self.residual_network = ResidualRNNBuilder(num_layers=num_layers - 1, input_dim=hidden_dim, hidden_dim=hidden_dim,
-                                               add_to_output=add_to_output, dropout=dropout)
+    self.forward_layer = self.reuse_or_register("forward_layer", forward_layer,
+                                                lambda: UniLSTMSeqTransducer(input_dim=input_dim,
+                                                                             hidden_dim=hidden_dim / 2,
+                                                                             dropout=dropout))
+    self.backward_layer = self.reuse_or_register("backward_layer", backward_layer,
+                                                 lambda: UniLSTMSeqTransducer(input_dim=input_dim,
+                                                                              hidden_dim=hidden_dim / 2,
+                                                                              dropout=dropout))
+    self.residual_network = self.reuse_or_register("residual_network", residual_network,
+                                                   lambda: ResidualRNNBuilder(num_layers=num_layers - 1,
+                                                                              input_dim=hidden_dim,
+                                                                              hidden_dim=hidden_dim,
+                                                                              add_to_output=add_to_output,
+                                                                              dropout=dropout))
 
   def get_final_states(self):
     return self._final_states

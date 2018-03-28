@@ -45,6 +45,19 @@ class Serializable(yaml.YAMLObject):
     self.serialize_params[key] = val
 
   def reuse_or_register(self, name, passed, create_fct):
+    """
+    Helper to create a Serializable sub-object.
+
+    Args:
+      name (str): name of the object
+      passed (Optional[Union[Serializable,Container[Serializable]]]): object as passed in the constructor.
+                                                                      If None, will be created using create_fct.
+      create_fct (Callable[[],Optional[Union[Serializable,Container[Serializable]]]]): a callable with no arguments that
+                                                                returns a Serializable or a collection of Serializables.
+
+    Returns:
+      Optional[Union[Serializable,Container[Serializable]]]: reused or newly created object(s).
+    """
     if passed is None:
       initialized = create_fct()
       self.overwrite_serialize_param(name, initialized)
