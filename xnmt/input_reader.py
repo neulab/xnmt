@@ -5,7 +5,11 @@ from itertools import zip_longest
 import ast
 
 import numpy as np
-import h5py
+
+import warnings
+with warnings.catch_warnings():
+  warnings.simplefilter("ignore", lineno=36)
+  import h5py
 
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
 from xnmt.serialize.serializable import Serializable

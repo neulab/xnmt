@@ -7,7 +7,10 @@ import subprocess
 from collections import defaultdict
 
 import numpy as np
-import h5py
+import warnings
+with warnings.catch_warnings():
+  warnings.simplefilter("ignore", lineno=36)
+  import h5py
 import yaml
 
 from xnmt.serialize.serializable import Serializable

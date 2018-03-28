@@ -1,7 +1,6 @@
 import logging
 logger = logging.getLogger('xnmt')
 
-import h5py
 import numpy as np
 
 class Input(object):

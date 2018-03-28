@@ -42,10 +42,6 @@ class ExpGlobal(Serializable):
                save_num_checkpoints: int = 1,
                commandline_args=None,
                placeholders: Dict[str, str] = {}):
-
-    # TODO: want to resolve all of these via references rather than passing the exp_global object itself.
-    # once that's done, can remove the below attribute assignments
-
     self.model_file = model_file
     self.log_file = log_file
     self.dropout = dropout
