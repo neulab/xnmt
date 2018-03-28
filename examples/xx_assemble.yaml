@@ -1,0 +1,86 @@
+exp1-pretrain1: !Experiment
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    encoder: !BiLSTMSeqTransducer
+      layers: 2
+      input_dim: 64
+    attender: !MlpAttender
+      state_dim: 64
+      hidden_dim: 64
+      input_dim: 64
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 64
+      input_feeding: True
+      bridge: !CopyBridge {}
+    inference: !SimpleInference {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 1
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+
+exp2-pretrain2: !Experiment
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    encoder: !BiLSTMSeqTransducer
+      layers: 2
+      input_dim: 64
+    attender: !MlpAttender
+      state_dim: 64
+      hidden_dim: 64
+      input_dim: 64
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 64
+      input_feeding: True
+      bridge: !CopyBridge {}
+    inference: !SimpleInference {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 1
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+
+
+exp3-assemble: !Experiment
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !LoadSerialized
+      filename: examples/models/exp1-pretrain1.mod
+      path: 'model.src_embedder'
+    encoder: !BiLSTMSeqTransducer
+      layers: 2
+      input_dim: 64
+    attender: !MlpAttender
+      state_dim: 64
+      hidden_dim: 64
+      input_dim: 64
+    trg_embedder: !LoadSerialized
+      filename: examples/models/exp2-pretrain2.mod
+      path: 'model.trg_embedder'
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 64
+      input_feeding: True
+      bridge: !CopyBridge {}
+    inference: !SimpleInference {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 1
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en

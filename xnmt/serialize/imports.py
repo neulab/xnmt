@@ -24,6 +24,7 @@ import xnmt.retriever
 import xnmt.segmenting_composer
 import xnmt.segmenting_encoder
 import xnmt.serialize.tree_tools
+import xnmt.serialize.serializable
 import xnmt.specialized_encoders
 import xnmt.training_regimen
 import xnmt.training_task

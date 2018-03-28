@@ -1,3 +1,18 @@
+# It is also possible to configure model training using Python code rather than
+# YAML config files. This is less convenient and usually not necessary, but there
+# may be cases where the added flexibility is needed. This basically works by
+# using XNMT as a library of components that are initialized and run in this
+# config file.
+#
+# This demonstrates a standard model training, including set up of logging, model
+# saving, etc.; models are saved into YAML files that can again be loaded using
+# the standard YAML  way (examples/07_load_finetune.yaml) or the Python way
+# (10_programmatic_load.py)
+#
+# To launch this, use ``python -m examples.09_programmatic``, making sure that XNMT
+# setup.py has been run properly.
+
+
 import logging
 logger = logging.getLogger('xnmt')
 import os
