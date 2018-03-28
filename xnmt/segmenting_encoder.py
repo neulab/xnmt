@@ -115,7 +115,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     outputs = [[] for _ in range(batch_size)]
     last_segment = [-1 for _ in range(batch_size)]
     length_prior_enabled = self.length_prior_alpha is not None and self.length_prior_alpha.value() > 0
-    self.segment_composer.set_input_size(batch_size, len(encodings))
     # input
     enc_inp = encodings if not self.compose_char else embed_sent
     # Loop through all the frames (word / item) in input.
@@ -132,25 +131,16 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         # Append the encoding for this item to the buffer
         buffers[i].append(enc_i)
         if decision == SegmentingAction.SEGMENT.value:
-          # Special case for TailWordSegmentTransformer only
-          words = None
-          vocab = self.src_sent[i].vocab
-          words = self.src_sent[i].words[last_segment[i]+1:j+1]
-          if vocab is not None:
-            words = "".join(w for w in [vocab[c] for c in words if c != vocab.unk_token])
-          else:
-            words = tuple(words)
           # Reducing the [expression] -> expression
           expr_seq = expression_sequence.ExpressionSequence(expr_list=buffers[i])
-          transduce_output = self.segment_composer.transduce(expr_seq, words)
+          self.segment_composer.set_word_boundary(last_segment[i], j, self.src_sent[i])
+          transduce_output = self.segment_composer.transduce(expr_seq)
           outputs[i].append(transduce_output)
           buffers[i] = []
           # Calculate length prior
           #if length_prior_enabled:
           #  length_prior[i] += numpy.log(poisson.pmf(j-last_segment[i], self.length_prior))
           last_segment[i] = j
-        # Notify the segment transducer to process the next decision
-        self.segment_composer.next_item()
     if length_prior_enabled:
       length_prior = [poisson.pmf(len(outputs[i]), len(self.src_sent[i]) / self.length_prior) for i in range(len(outputs))]
     # Flag out </s>
@@ -219,7 +209,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     eps = self.eps.value() if self.eps is not None else None
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
     # Flags
-    is_presegment_provided = len(self.src_sent) != 0 and hasattr(self.src_sent[0], "annotation")
+    is_presegment_provided = len(self.src_sent) != 0 and self.src_sent[0].has_annotation("segment")
     is_warmup = self.is_segmentation_warmup()
     is_epsgreedy_triggered = eps is not None and numpy.random.random() <= eps
     # Sample based on the criterion

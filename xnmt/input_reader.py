@@ -7,7 +7,7 @@ import ast
 import numpy as np
 import h5py
 
-from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
+from xnmt.input import SimpleSentenceInput, ArrayInput
 from xnmt.serialize.serializable import Serializable
 from xnmt.vocab import Vocab
 
@@ -76,17 +76,15 @@ class PlainTextReader(BaseTextReader, Serializable):
   with one sent per line.
   """
   yaml_tag = u'!PlainTextReader'
-  def __init__(self, vocab=None, include_vocab_reference=False):
+  def __init__(self, vocab=None):
     self.vocab = vocab
-    self.include_vocab_reference = include_vocab_reference
     if vocab is not None:
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
 
   def read_sent(self, sentence, filter_ids=None):
-    vocab_reference = self.vocab if self.include_vocab_reference else None
     return SimpleSentenceInput([self.vocab.convert(word) for word in sentence.strip().split()] + \
-                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
+                                                       [self.vocab.convert(Vocab.ES_STR)])
 
   def freeze(self):
     self.vocab.freeze()
@@ -146,8 +144,8 @@ class SegmentationTextReader(PlainTextReader):
     if self.vocab is None:
       self.vocab = Vocab()
     def convert(line, segmentation):
-      line = line.strip().split()
-      ret = AnnotatedSentenceInput(list(map(self.vocab.convert, line)) + [self.vocab.convert(Vocab.ES_STR)])
+      line = line.strip().split() + [Vocab.ES_STR]
+      ret = SimpleSentenceInput([self.vocab.convert(w) for w in line])
       ret.annotate("segment", list(map(int, segmentation.strip().split())))
       return ret
 
@@ -295,6 +293,41 @@ class NpzReader(InputReader, Serializable):
     npzFile.close()
     return l
 
+class TextToBOWReader(InputReader, Serializable):
+  yaml_tag = u'!TextToBOWReader'
+
+  def __init__(self, vocab=None):
+    self.vocab = vocab
+    if vocab is not None:
+      self.vocab.freeze()
+      self.vocab.set_unk(Vocab.UNK_STR)
+
+  def count_sents(self, filename):
+    with open(self, filename) as fp:
+      return len(fp.keys())
+
+  def count_words(self, trg_words):
+    trg_cnt = 0
+    for x in trg_words:
+      if type(x) == int:
+        trg_cnt += 1 if x != Vocab.ES else 0
+      else:
+        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
+    return trg_cnt
+
+  def read_sents(self, filename, filter_ids=None):
+    if self.vocab is None:
+      self.vocab = Vocab()
+    if filter_ids is not None:
+      logger.warning("filter_ids is not implemented in TextToBOWReader yet!")
+    with open(filename) as fp:
+      for line in fp:
+        line = [self.vocab.convert(word) for word in line.strip().split()]
+        line.append(self.vocab.convert(self.vocab.ES_STR))
+        bow = {}
+        for word in line:
+          bow[word] = bow.get(word, 0) + 1
+        yield SimpleSentenceInput(line, {"bow": bow})
 
 class IDReader(BaseTextReader, Serializable):
   """

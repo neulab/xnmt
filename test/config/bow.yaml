@@ -1,0 +1,34 @@
+# A standard training run, should almost never break
+bow: !Experiment
+  exp_global: !ExpGlobal
+    model_file: examples/output/{EXP}.mod
+    log_file: examples/output/{EXP}.log
+    default_layer_dim: 64
+  model: !BOWPredictor
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !TextToBOWReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    encoder: !SegmentingSeqTransducer
+      # Components
+      embed_encoder: !BiLSTMSeqTransducer {}
+      segment_composer: !SegmentComposer
+        encoder: !BiLSTMSeqTransducer {}
+        transformer: !TailSegmentTransformer {}
+      final_transducer: !BiLSTMSeqTransducer {}
+      # Options
+      reinforce_scale: !DefinedSequence
+        sequence: [1]
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 10
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
+  evaluate:
+    - !LossEvalTask
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      

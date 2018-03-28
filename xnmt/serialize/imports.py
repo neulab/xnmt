@@ -29,6 +29,7 @@ import xnmt.training_regimen
 import xnmt.training_task
 import xnmt.transformer
 import xnmt.translator
+import xnmt.bow_predictor
 
 def init_representer(dumper, obj):
   if not hasattr(obj, "resolved_serialize_params") and not hasattr(obj, "serialize_params"):

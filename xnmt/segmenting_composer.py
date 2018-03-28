@@ -18,34 +18,32 @@ class SegmentComposer(Serializable, Reportable):
     self.transformer = transformer
 
   @register_xnmt_event
-  def set_input_size(self, batch_size, input_len):
-    pass
-
-  @register_xnmt_event
-  def next_item(self):
+  def set_word_boundary(self, start, end, src):
     pass
 
   @property
   def hidden_dim(self):
     return self.encoder.hidden_dim
 
-  def transduce(self, inputs, word=None):
-    return self.transformer.transform(self.encoder, self.encoder(inputs), word)
+  def transduce(self, inputs):
+    return self.transformer.transform(self.encoder, self.encoder(inputs))
 
 class SegmentTransformer(Serializable):
-  def transform(self, encoder, encodings, word=None):
+  def transform(self, encoder, encodings):
     raise RuntimeError("Should call subclass of SegmentTransformer instead")
 
 class TailSegmentTransformer(SegmentTransformer, Serializable):
   yaml_tag = u"!TailSegmentTransformer"
-  def transform(self, encoder, encodings, word=None):
+  def transform(self, encoder, encodings):
     return encoder.get_final_states()[0]._main_expr
 
 class TailWordSegmentTransformer(SegmentTransformer):
   yaml_tag = "!TailWordSegmentTransformer"
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), vocab=None, vocab_size=1e6,
-               count_file=None, min_count=1, embed_dim=None):
+  def __init__(self, exp_global=Ref(Path("exp_global")),
+                     vocab=Ref(Path("model.src_reader.vocab")),
+                     vocab_size=1e6,
+                     count_file=None, min_count=1, embed_dim=None):
     assert vocab is not None
     self.vocab = vocab
     embed_dim = embed_dim or xnmt_global.default_layer_dim
@@ -64,15 +62,16 @@ class TailWordSegmentTransformer(SegmentTransformer):
             frequent_words.add(substr)
       self.frequent_words = frequent_words
 
-  def transform(self, encoder, encodings, word):
-    return encoder.get_final_states()[0]._main_expr + self.lookup[self.get_word(word)]
-
-  def get_word(self, word):
+  def set_word_boundary(self, start, end, src):
+    word = tuple(src[start+1:end+1])
     if self.frequent_words is not None and word not in self.frequent_words:
-      ret = self.vocab.convert(self.vocab.UNK_STR)
+      self.word = self.vocab.convert(self.vocab.UNK_STR)
     else:
-      ret = self.vocab.convert(word)
-    return ret
+      self.word = self.vocab.convert(word)
+
+  def transform(self, encoder, encodings):
+    # TODO(philip30): needs to be fixed ?
+    return encoder.get_final_states()[0]._main_expr + self.lookup[self.word]
 
 class WordOnlySegmentTransformer(TailWordSegmentTransformer):
   yaml_tag = "!WordOnlySegmentTransformer"
@@ -81,7 +80,6 @@ class WordOnlySegmentTransformer(TailWordSegmentTransformer):
 
 class AverageSegmentTransformer(SegmentTransformer):
   yaml_tag = "!AverageSegmentTransformer"
-  def transform(self, encoder, encodings, word=None):
+  def transform(self, encoder, encodings):
     return dy.average(encodings.as_list())
-
 

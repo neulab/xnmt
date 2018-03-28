@@ -3,6 +3,7 @@ logger = logging.getLogger('xnmt')
 
 import h5py
 import numpy as np
+from xnmt.vocab import Vocab
 
 class Input(object):
   """
@@ -32,17 +33,26 @@ class SimpleSentenceInput(Input):
 
   Args:
     words (List[int]): list of integer word ids
-    vocab (Vocab):
+    Annotation (Dict): annotation for the sentence
   """
-  def __init__(self, words, vocab=None):
+  def __init__(self, words, annotation=None):
     self.words = words
-    self.vocab = vocab
+    self.annotation = annotation or {}
 
   def __len__(self):
     return len(self.words)
 
   def __getitem__(self, key):
     return self.words[key]
+
+  def annotate(self, key, value):
+    self.annotation[key] = value
+
+  def get_annotation(self, key):
+    return self.annotation[key]
+
+  def has_annotation(self, key):
+    return key in self.annotation
 
   def get_padded_sent(self, token, pad_len):
     """
@@ -58,23 +68,10 @@ class SimpleSentenceInput(Input):
       return self
     new_words = list(self.words)
     new_words.extend([token] * pad_len)
-    return self.__class__(new_words, self.vocab)
+    return self.__class__(new_words, self.annotation)
 
   def __str__(self):
     return " ".join(map(str, self.words))
-
-class AnnotatedSentenceInput(SimpleSentenceInput):
-  def __init__(self, words, vocab=None):
-    super(AnnotatedSentenceInput, self).__init__(words, vocab)
-    self.annotation = {}
-
-  def annotate(self, key, value):
-    self.annotation[key] = value
-
-  def get_padded_sent(self, token, pad_len):
-    sent = super(AnnotatedSentenceInput, self).get_padded_sent(token, pad_len)
-    sent.annotation = self.annotation
-    return sent
 
 class ArrayInput(Input):
   """
@@ -114,3 +111,4 @@ class ArrayInput(Input):
 
   def get_array(self):
     return self.nparr
+
