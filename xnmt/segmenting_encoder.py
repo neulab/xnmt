@@ -366,7 +366,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         loss = dy.squared_distance(reward, baseline)
         if enc_mask is not None:
           loss = dy.cmult(dy.inputTensor(enc_mask[i], batched=True), loss)
-        baseline_loss.append(self.RMSE(loss, 1))
+        baseline_loss.append(loss)
       ret.add_loss("baseline", dy.esum(baseline_loss))
     ## Reinforce Loss
     lmbd = self.lmbd.value()
