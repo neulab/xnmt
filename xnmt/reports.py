@@ -22,6 +22,7 @@ class Reportable(object):
   @register_xnmt_event
   def set_report_path(self, report_path):
     self.__report_path = report_path
+
   @handle_xnmt_event
   def on_set_report_path(self, report_path):
     self.__report_path = report_path
@@ -31,6 +32,7 @@ class Reportable(object):
     if not hasattr(self, "__reportable_resources"):
       self.__reportable_resources = {}
     self.__reportable_resources[key] = value
+
   @handle_xnmt_event
   def on_set_report_resource(self, key, value):
     if not hasattr(self, "__reportable_resources"):
@@ -41,6 +43,7 @@ class Reportable(object):
   def clear_report_resources(self):
     if hasattr(self, "clear_resources"):
       self.__reportable_resources.clear()
+
   @handle_xnmt_event
   def on_clear_report_resources(self):
     if hasattr(self, "clear_resources"):

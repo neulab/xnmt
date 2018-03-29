@@ -24,7 +24,7 @@ from xnmt.reports import Reportable
 from xnmt.serialize.serializable import Serializable, bare
 from xnmt.search_strategy import BeamSearch, GreedySearch
 import xnmt.serialize.serializer
-from xnmt.serialize.tree_tools import Path
+from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.vocab import Vocab
 
 class Translator(GeneratorModel):
@@ -83,7 +83,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
-               inference=bare(SimpleInference), calc_global_fertility=False, calc_attention_entropy=False,
+               inference=bare(SimpleInference),
+               calc_global_fertility=False, calc_attention_entropy=False,
                global_fertility_weight=None, attention_entropy_weight=None):
     register_handler(self)
     self.src_reader = src_reader
@@ -98,6 +99,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.attention_entropy_weight = attention_entropy_weight
     self.global_fertility_weight = global_fertility_weight
     self.inference = inference
+    self.src_vocab = src_reader.vocab
 
   def shared_params(self):
     return [set([Path(".src_embedder.emb_dim"), Path(".encoder.input_dim")]),
@@ -164,10 +166,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, dec_state, src_length=len(sents), forced_trg_ids=forced_trg_ids)
       # In case of reporting
       if self.report_path is not None:
-        if self.reporting_src_vocab:
-          src_words = [self.reporting_src_vocab[w] for w in sents]
-        else:
-          src_words = ['' for w in sents]
+        src_words = [self.src_vocab[w] for w in sents]
         trg_words = [self.trg_vocab[w] for w in output_actions.word_ids]
         # Attentions
         attentions = output_actions.attentions
@@ -207,15 +206,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       entropy.append(-dy.cmult(val, dy.log(val)))
 
     return multiply_weight(dy.sum_elems(dy.esum(entropy)), self.attention_entropy_weight)
-
-  def set_reporting_src_vocab(self, src_vocab):
-    """
-    Sets source vocab for reporting purposes.
-
-    Args:
-      src_vocab (Vocab):
-    """
-    self.reporting_src_vocab = src_vocab
 
   @register_xnmt_event_assign
   def html_report(self, context=None):
@@ -324,12 +314,6 @@ class TransformerTranslator(Translator, Serializable, Reportable):
 
   def initialize_training_strategy(self, training_strategy):
     self.loss_calculator = training_strategy
-
-  def set_reporting_src_vocab(self, src_vocab):
-    """
-    Sets source vocab for reporting purposes.
-    """
-    self.reporting_src_vocab = src_vocab
 
   def make_attention_mask(self, source_block, target_block):
     mask = (target_block[:, None, :] <= 0) * (source_block[:, :, None] <= 0)
@@ -459,7 +443,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     # In case of reporting
     sents = src[0]
     if self.report_path is not None:
-      src_words = [self.reporting_src_vocab[w] for w in sents]
+      src_words = [self.src_vocab[w] for w in sents]
       trg_words = [self.trg_vocab[w] for w in output_actions]
       self.set_report_input(idx, src_words, trg_words)
       self.set_report_resource("src_words", src_words)

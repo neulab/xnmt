@@ -1,4 +1,5 @@
 import logging
+import collections
 from Cython.Compiler.TypeSlots import descrdelfunc
 logger = logging.getLogger('xnmt')
 from collections import defaultdict, Counter
@@ -162,6 +163,21 @@ class SequenceAccuracyScore(EvalScore, Serializable):
   def score_str(self):
     return f"{self.value()*100.0:.2f}%"
 
+class F1TokenScore(EvalScore, Serializable):
+  yaml_tag = "!F1TokenScore"
+  def __init__(self, prec, recall, higher_is_better=True, desc=None):
+    self.prec = prec
+    self.recall = recall
+    self.f1_score = (2*prec*recall) / (prec+recall) if prec + recall > 0 else 0
+    self.higher_is_better = higher_is_better
+    self.desc = desc
+    self.serialize_params = {"prec": prec, "recall": recall, "f1_score": self.f1_score}
+    if desc is not None: self.serialize_params["desc"] = desc
+  def higher_is_better(self): return self.higher_is_better
+  def value(self): return self.f1_score
+  def metric_name(self): return "F1TokenScore"
+  def score_str(self):
+    return "F1={:.3f}, Prec={:.3f}, Rec={:.3f}".format(self.f1_score, self.prec, self.recall)
 
 class Evaluator(object):
   """
@@ -605,3 +621,36 @@ class SequenceAccuracyEvaluator(Evaluator):
     correct = sum(self.compare(ref_sent, hyp_sent) for ref_sent, hyp_sent in zip(ref, hyp))
     accuracy = float(correct) / len(ref)
     return SequenceAccuracyScore(accuracy, desc=self.desc)
+
+class F1TokenEvaluator(Evaluator):
+  """
+  A class to evaluate the quality of unigram outputs.
+  """
+  def __init__(self, desc=None):
+    self.desc = desc
+
+  def metric_name(self):
+    return "F1 Unigram Score"
+
+  def evaluate(self, ref, hyp):
+    """
+    Calculate the accuracy of the unigram
+    Args:
+      ref: list of list of reference words
+      hyp: list of list of decoded words
+    return: formatted string
+    """
+    assert len(ref) == len(hyp)
+    tp = 0
+    fp = 0
+    fn = 0
+    for ref_i, hyp_i in zip(ref, hyp):
+      ref_i = collections.Counter(ref_i)
+      hyp_i = collections.Counter(hyp_i)
+      tp += sum((ref_i & hyp_i).values())
+      fp += sum((hyp_i - ref_i).values())
+      fn += sum((ref_i - hyp_i).values())
+    prec = tp / (tp+fp) if tp + fp > 0 else 0
+    rec = tp / (tp+fn) if tp + fn > 0 else 0
+    return F1TokenScore(prec, rec, desc=self.desc)
+

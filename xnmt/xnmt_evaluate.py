@@ -3,7 +3,16 @@ logger = logging.getLogger('xnmt')
 import sys
 import ast
 
-from xnmt.evaluator import BLEUEvaluator, GLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator, ExternalEvaluator, MeanAvgPrecisionEvaluator, SequenceAccuracyEvaluator
+# Don't make a long line dirty code, let's list them one by one
+from xnmt.evaluator import BLEUEvaluator
+from xnmt.evaluator import GLEUEvaluator
+from xnmt.evaluator import WEREvaluator
+from xnmt.evaluator import CEREvaluator
+from xnmt.evaluator import RecallEvaluator
+from xnmt.evaluator import ExternalEvaluator
+from xnmt.evaluator import MeanAvgPrecisionEvaluator
+from xnmt.evaluator import SequenceAccuracyEvaluator
+from xnmt.evaluator import F1TokenEvaluator
 from xnmt.inference import NO_DECODING_ATTEMPTED
 
 """
@@ -75,7 +84,8 @@ def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu", desc=None):
     evaluator = ExternalEvaluator(path=path, higher_better=higher_better, desc=desc)
   elif eval_type == 'accuracy':
     evaluator = SequenceAccuracyEvaluator(desc=desc)
-
+  elif eval_type == 'f1token':
+    evaluator = F1TokenEvaluator(desc=desc)
   else:
     raise RuntimeError("Unknown evaluation metric {}".format(eval_type))
 
