@@ -58,7 +58,7 @@ class NormalizerRemovePunct(Normalizer):
     else:
       words = []
       for w in sent.split():
-        words.append(w.strip(self.exclude))
+        words.append(w.strip(''.join(ch for ch in self.exclude)))
       return " ".join(words)
 
 ###### Tokenizers
