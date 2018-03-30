@@ -49,9 +49,17 @@ class NormalizerLower(Normalizer):
 
 class NormalizerRemovePunct(Normalizer):
   """Remove punctuation from the text."""
-  exclude = set(string.punctuation)
+  def __init__(self, spec=None):
+    self.exclude = set(string.punctuation) - set(spec.get("allowed_chars", ""))
+    self.remove_inside_word = spec.get("remove_inside_word", False)
   def normalize(self, sent):
-    return ''.join(ch for ch in sent if ch not in NormalizerRemovePunct.exclude)
+    if self.remove_inside_word:
+      return ''.join(ch for ch in sent if ch not in self.exclude)
+    else:
+      words = []
+      for w in sent.split():
+        words.append(w.strip(self.exclude))
+      return " ".join(words)
 
 ###### Tokenizers
 
