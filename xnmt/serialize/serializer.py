@@ -64,7 +64,7 @@ class YamlSerializer(object):
     self.check_args(self.deserialized_yaml)
     # if arguments were not given in the YAML file and are set to a bare(Serializable) by default, copy the bare object into the object hierarchy so it can be used w/ param sharing etc.
     OptionParser.resolve_bare_default_args(self.deserialized_yaml)
-    self.named_paths = self.get_named_paths(self.deserialized_yaml)
+    self.named_paths = tree_tools.get_named_paths(self.deserialized_yaml)
     # if arguments were not given in the YAML file and are set to a Ref by default, copy this Ref into the object structure so that it can be properly resolved in a subsequent step
     self.resolve_ref_default_args(self.deserialized_yaml)
     # if references point to places that are not specified explicitly in the YAML file, but have given default arguments, substitute those default arguments
@@ -79,16 +79,6 @@ class YamlSerializer(object):
     for _, node in tree_tools.traverse_tree(root):
       if isinstance(node, Serializable):
         tree_tools.check_serializable_args_valid(node)
-
-  def get_named_paths(self, root):
-    d = {}
-    for path, node in tree_tools.traverse_tree(root):
-      if "_xnmt_id" in [name for (name,_) in tree_tools.name_children(node, include_reserved=True)]:
-        xnmt_id = tree_tools.get_child(node, "_xnmt_id")
-        if xnmt_id in d:
-          raise ValueError(f"_xnmt_id {xnmt_id} was specified multiple times!")
-        d[xnmt_id] = path
-    return d
 
   def resolve_ref_default_args(self, root):
     for _, node in tree_tools.traverse_tree(root):
@@ -225,7 +215,6 @@ class YamlSerializer(object):
     return initialized_obj
 
   def resolve_serialize_refs(self, root):
-#     for _, node in tree_tools.traverse_serializable_breadth_first(root):
     for _, node in tree_tools.traverse_serializable(root):
       if isinstance(node, Serializable):
         if not hasattr(node, "serialize_params"):
@@ -234,11 +223,9 @@ class YamlSerializer(object):
         node.resolved_serialize_params = node.serialize_params
     refs_inserted_at = set()
     refs_inserted_to = set()
-#     for path_to, node in tree_tools.traverse_serializable_breadth_first(root):
     for path_to, node in tree_tools.traverse_serializable(root):
       if not refs_inserted_at & path_to.ancestors() and not refs_inserted_at & path_to.ancestors():
         if isinstance(node, Serializable):
-#           for path_from, matching_node in tree_tools.traverse_serializable_breadth_first(root):
           for path_from, matching_node in tree_tools.traverse_serializable(root):
             if not path_from in refs_inserted_to:
               if path_from!=path_to and matching_node is node:

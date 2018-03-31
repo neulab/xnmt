@@ -58,12 +58,12 @@ exp2-pretrain2: !Experiment
 exp3-assemble: !Experiment
   model: !DefaultTranslator
     src_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
-    trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     src_embedder: !LoadSerialized
       filename: examples/models/exp1-pretrain1.mod
-      path: 'model.src_embedder'
+      path: 'model.trg_embedder'
     encoder: !BiLSTMSeqTransducer
       layers: 2
       input_dim: 64
@@ -73,7 +73,7 @@ exp3-assemble: !Experiment
       input_dim: 64
     trg_embedder: !LoadSerialized
       filename: examples/models/exp2-pretrain2.mod
-      path: 'model.trg_embedder'
+      path: 'model.src_embedder'
     decoder: !MlpSoftmaxDecoder
       layers: 1
       mlp_hidden_dim: 64
@@ -82,5 +82,40 @@ exp3-assemble: !Experiment
     inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
-    src_file: examples/data/head.ja
-    trg_file: examples/data/head.en
+    src_file: examples/data/head.en
+    trg_file: examples/data/head.ja
+
+
+
+exp4-assemble: !Experiment
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    encoder: !ModularSeqTransducer
+      modules:
+      - !LoadSerialized
+        filename: examples/models/exp1-pretrain1.mod
+        path: model.encoder
+#      - !LoadSerialized
+#        filename: examples/models/exp1-pretrain2.mod
+#        path: model.encoder
+    attender: !MlpAttender
+      state_dim: 64
+      hidden_dim: 64
+      input_dim: 64
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 64
+      input_feeding: True
+      bridge: !CopyBridge {}
+    inference: !SimpleInference {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 1
+    src_file: examples/data/head.en
+    trg_file: examples/data/head.ja

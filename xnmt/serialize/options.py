@@ -9,7 +9,7 @@ import copy
 
 import yaml
 
-from xnmt.serialize.serializable import Serializable, UninitializedYamlObject
+from xnmt.serialize.serializable import Serializable, UninitializedYamlObject, Ref, Path
 import xnmt.serialize.tree_tools as tree_tools
 from xnmt.serialize.tree_tools import set_descendant
 from xnmt.param_collection import ParamManager
@@ -128,22 +128,39 @@ class OptionParser(object):
       if isinstance(node, LoadSerialized):
         try:
           with open(node.filename) as stream:
-            loaded_obj = yaml.load(stream)
+            loaded_root = yaml.load(stream)
         except IOError as e:
           raise RuntimeError(f"Could not read configuration file {node.filename}: {e}")
         ParamManager.add_load_path(f"{node.filename}.data")
-        loaded_obj = tree_tools.get_descendant(loaded_obj, tree_tools.Path(getattr(node, "path", "")))
-        # TODO: in case the components contain references to a component outside
-        # the loaded path, we need to move it over and change other components'
-        # references to the same object accordingly
+        cur_path = tree_tools.Path(getattr(node, "path", ""))
+        loaded_trg = tree_tools.get_descendant(loaded_root, cur_path)
+
+        found_outside_ref = True
+        while found_outside_ref:
+          found_outside_ref = False
+          named_paths = tree_tools.get_named_paths(loaded_root)
+          replaced_paths = {}
+          for sub_path, sub_node in tree_tools.traverse_tree(loaded_trg, path_to_node=cur_path):
+            if isinstance(sub_node, Ref):
+              referenced_path = sub_node.resolve_path(named_paths)
+              if referenced_path.is_relative_path():
+                raise NotImplementedError("Handling of relative paths with LoadSerialized is not yet implemented.")
+              if referenced_path in replaced_paths:
+                tree_tools.set_descendant(loaded_trg, Path(".".join(sub_path[len(cur_path):])), Ref(replaced_paths[referenced_path]))
+              # if outside node:
+              elif not str(referenced_path).startswith(str(cur_path)):
+                found_outside_ref = True
+                referenced_obj = tree_tools.get_descendant(loaded_root, referenced_path)
+                tree_tools.set_descendant(loaded_trg, Path(".".join(sub_path[len(cur_path):])), referenced_obj)
+                replaced_paths[referenced_path] = sub_path
 
         for d in getattr(node, "overwrite", []):
           overwrite_path = tree_tools.Path(d["path"])
-          tree_tools.set_descendant(loaded_obj, overwrite_path, d["val"])
+          tree_tools.set_descendant(loaded_trg, overwrite_path, d["val"])
         if len(path)==0:
-          experiment = loaded_obj
+          experiment = loaded_trg
         else:
-          set_descendant(experiment, path, loaded_obj)
+          set_descendant(experiment, path, loaded_trg)
     return experiment
 
   def resolve_kwargs(self, obj):

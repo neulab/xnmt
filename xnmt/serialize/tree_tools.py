@@ -179,6 +179,17 @@ def traverse_tree_deep_once(root, cur_node, traversal_order=TraversalOrder.ROOT_
       yielded_paths.add(path)
       yield (path, node)
 
+def get_named_paths(root):
+  d = {}
+  for path, node in traverse_tree(root):
+    if "_xnmt_id" in [name for (name,_) in name_children(node, include_reserved=True)]:
+      xnmt_id = get_child(node, "_xnmt_id")
+      if xnmt_id in d:
+        raise ValueError(f"_xnmt_id {xnmt_id} was specified multiple times!")
+      d[xnmt_id] = path
+  return d
+
+
 class PathError(Exception):
   def __init__(self, message):
     super().__init__(message)
