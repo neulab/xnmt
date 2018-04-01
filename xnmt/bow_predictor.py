@@ -32,6 +32,7 @@ class BOWPredictor(GeneratorModel, Serializable):
                encoder=bare(BiLSTMSeqTransducer),
                inference=bare(SimpleInference),
                encoder_hidden_dim=None,
+               weigh_loss=False,
                src_vocab=Ref(Path("model.src_reader.vocab")),
                trg_vocab=Ref(Path("model.trg_reader.vocab"))):
     register_handler(self)
@@ -42,6 +43,7 @@ class BOWPredictor(GeneratorModel, Serializable):
     self.inference = inference
     self.src_vocab = src_vocab
     self.trg_vocab = trg_vocab
+    self.weigh_loss = weigh_loss
     encoder_hidden_dim = encoder_hidden_dim or exp_global.default_layer_dim
 
     self.bow_projector = Linear(encoder_hidden_dim,
@@ -66,26 +68,26 @@ class BOWPredictor(GeneratorModel, Serializable):
     embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder(embeddings)
 
-#   Needs to be fixed and use sparse_inputTensor instead
-#    bow = [trg[i].annotation["bow"] for i in range(len(trg))]
-#    key = [list(bow[i].keys()) for i in range(len(bow))]
-#    val = [list(bow[i].values()) for i in range(len(bow))]
-#    tensor = dy.sparse_inputTensor(key, val, shape=(len(self.trg_reader.vocab), len(trg)), batched=True)
-
     encoding_tensor = encodings.as_tensor()
-    # Double transpose operation seems silly, but this is to prevent dynet deleting one dimension if sequence length = 1
-    bow_prediction = dy.transpose(dy.transpose(dy.rectify(self.bow_projector(encoding_tensor))))
+    bow_prediction = dy.logistic(self.bow_projector(encoding_tensor))
     if encodings.mask is not None:
       mask = dy.transpose(dy.inputTensor(encodings.mask.get_active_one_mask().transpose(), batched=True))
       bow_prediction = dy.cmult(bow_prediction, mask)
-    bow_prediction_sum = dy.sum_dim(bow_prediction, [1])
-
+    if len(bow_prediction.dim()[0]) != 1:
+      bow_prediction_sum = dy.sum_dim(bow_prediction, [1])
+    else:
+      bow_prediction_sum = bow_prediction
     if infer_prediction:
       return np.round(bow_prediction_sum.npvalue().transpose()).astype(int)
     else:
       assert trg is not None
       # Turn TRG into vectors
       trg_bow = []
+      #   Needs to be fixed and use sparse_inputTensor instead
+      #    bow = [trg[i].annotation["bow"] for i in range(len(trg))]
+      #    key = [list(bow[i].keys()) for i in range(len(bow))]
+      #    val = [list(bow[i].values()) for i in range(len(bow))]
+      #    tensor = dy.sparse_inputTensor(key, val, shape=(len(self.trg_reader.vocab), len(trg)), batched=True)
       for i in range(len(trg)):
         bow_vct = [0 for _ in range(len(self.trg_reader.vocab))]
         for key, val in trg[i].annotation["bow"].items():
@@ -93,8 +95,14 @@ class BOWPredictor(GeneratorModel, Serializable):
         trg_bow.append(bow_vct)
       trg_bow = dy.inputTensor(np.asarray(trg_bow).transpose(), batched=True)
       # Calculate loss
-      loss = dy.squared_distance(bow_prediction_sum, trg_bow)
+      loss = self.weighted_sd(bow_prediction_sum, trg_bow)
       return LossBuilder({"bow": loss})
+
+  def weighted_sd(self, v1, v2):
+    if self.weigh_loss:
+      raise NotImplementedError()
+    else:
+      return dy.squared_distance(v1, v2)
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
     self.start_sent(src)
