@@ -230,7 +230,12 @@ class Path(object):
   def __getitem__(self, key):
     if self.is_relative_path():
       raise ValueError(f"Can't call __getitem__() on path {self.path_str}")
-    return self.path_str.split(".")[key]
+    if isinstance(key, slice):
+      _, _, step = key.indices(len(self))
+      if step is not None and step != 1: raise ValueError(f"step must be 1, found {step}")
+      return Path(".".join(self.path_str.split(".")[key]))
+    else:
+      return self.path_str.split(".")[key]
 
   def parent(self):
     if len(self.path_str.strip(".")) == 0:

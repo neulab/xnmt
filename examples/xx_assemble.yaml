@@ -100,9 +100,9 @@ exp4-assemble: !Experiment
       - !LoadSerialized
         filename: examples/models/exp1-pretrain1.mod
         path: model.encoder
-#      - !LoadSerialized
-#        filename: examples/models/exp1-pretrain2.mod
-#        path: model.encoder
+      - !LoadSerialized
+        filename: examples/models/exp2-pretrain2.mod
+        path: model.encoder
     attender: !MlpAttender
       state_dim: 64
       hidden_dim: 64

@@ -72,6 +72,13 @@ class TestPath(unittest.TestCase):
     self.assertEqual(Path("one.2.3")[-1], "3")
     with self.assertRaises(ValueError):
       Path(".one.2.3")[-1]
+  def test_get_item_slice(self):
+    self.assertEqual(str(Path("one")[0:1]), "one")
+    self.assertEqual(str(Path("one.2.3")[1:3]), "2.3")
+    self.assertEqual(str(Path("one.2.3")[0:-1]), "one.2")
+    self.assertEqual(str(Path("one.2.3")[-1:]), "3")
+    with self.assertRaises(ValueError):
+      Path(".one.2.3")[0:1:-1]
   def test_parent(self):
     self.assertEqual(Path("one").parent(), Path(""))
     self.assertEqual(Path("one.two.three").parent(), Path("one.two"))

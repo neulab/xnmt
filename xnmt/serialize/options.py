@@ -146,13 +146,17 @@ class OptionParser(object):
               if referenced_path.is_relative_path():
                 raise NotImplementedError("Handling of relative paths with LoadSerialized is not yet implemented.")
               if referenced_path in replaced_paths:
-                tree_tools.set_descendant(loaded_trg, Path(".".join(sub_path[len(cur_path):])), Ref(replaced_paths[referenced_path]))
+                tree_tools.set_descendant(loaded_trg, sub_path[len(cur_path):],
+                                          Ref(replaced_paths[referenced_path], default=sub_node.get_default()))
               # if outside node:
               elif not str(referenced_path).startswith(str(cur_path)):
                 found_outside_ref = True
                 referenced_obj = tree_tools.get_descendant(loaded_root, referenced_path)
-                tree_tools.set_descendant(loaded_trg, Path(".".join(sub_path[len(cur_path):])), referenced_obj)
+                tree_tools.set_descendant(loaded_trg, sub_path[len(cur_path):], referenced_obj)
                 replaced_paths[referenced_path] = sub_path
+              else:
+                tree_tools.set_descendant(loaded_trg, sub_path[len(cur_path):],
+                                          Ref(path.add_path(referenced_path[len(cur_path):]), default=sub_node.get_default()))
 
         for d in getattr(node, "overwrite", []):
           overwrite_path = tree_tools.Path(d["path"])

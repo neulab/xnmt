@@ -378,6 +378,7 @@ class MelFiltExtractor(Extractor, Serializable):
           y, sr = librosa.load(db_item["wav"], sr=16000, 
                                offset=db_item.get("offset", 0.0), 
                                duration=db_item.get("duration", None))
+          if len(y)==0: raise ValueError(f"encountered an empty or out of bounds segment: {db_item}")
           logmel = logfbank(y, samplerate=sr, nfilt=self.nfilt)
           if self.delta:
             delta = calculate_delta(logmel)
