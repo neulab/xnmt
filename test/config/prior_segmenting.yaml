@@ -26,14 +26,14 @@ prior-segmenting: !Experiment
         input_dim: 16
         hidden_dim: 16
         layers: 1
-      learn_segmentation: True
+      learn_segmentation: False
       learn_delete: False
       reinforce_scale: !GeometricSequence
         initial: 0.1
         ratio: 2
         warmup: 1
-        min_value: 0.0
-        max_value: 1.0
+        min: 0.0
+        max: 1.0
       length_prior: 3.5
     attender: !MlpAttender
       state_dim: 16

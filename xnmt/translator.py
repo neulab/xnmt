@@ -179,8 +179,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         # Segmentation
         segment = self.get_report_resource("segmentation")
         if segment is not None:
-          segment = [int(x[0]) for x in segment]
-          src_inp = [x[0] for x in self.encoder.apply_segmentation(src_words, segment)]
+          src_inp = self.encoder.apply_segmentation(src_words, segment)
         else:
           src_inp = src_words
         # Other Resources

@@ -41,17 +41,16 @@ debug-segmenting: !Experiment
       length_prior: 3.3
       length_prior_alpha: !Scalar
         initial: 0.1
-      epsilon_greedy: !GeometricSequence
-        initial: 0.3
-        ratio: 0.5
+      epsilon_greedy: !DefinedSequence
+        sequence: [1, 0]
       # Flags
-      compose_char: False
+      compose_char: True
       z_normalization: False
       learn_segmentation: True
       learn_delete: False
       print_sample: True
       print_sample_prob: 1.0
-      bow_loss: True
+      use_baseline: False
     attender: !MlpAttender
       state_dim: 16
       hidden_dim: 16
@@ -69,6 +68,8 @@ debug-segmenting: !Experiment
     run_for_epochs: 3
     src_file: examples/data/head-char.ja
     trg_file: examples/data/head.en
+    batcher: !TrgSrcBatcher
+      batch_size: 4
     dev_tasks:
       - !LossEvalTask
         src_file: examples/data/dev-char-head5.ja
