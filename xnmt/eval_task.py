@@ -8,6 +8,7 @@ from xnmt.evaluator import LossScore
 from xnmt.serialize.tree_tools import Path, Ref
 from xnmt.loss import LossBuilder, LossScalarBuilder
 import xnmt.xnmt_evaluate
+from xnmt.input import TreeReader
 
 class EvalTask:
   '''
@@ -26,7 +27,7 @@ class LossEvalTask(Serializable):
   def __init__(self, src_file, ref_file, model=Ref(path=Path("model")),
                 batcher=Ref(path=Path("train.batcher"), required=False),
                 loss_calculator=None, max_src_len=None, max_trg_len=None,
-                desc=None):
+                desc=None, ref_len_file=None):
     self.model = model
     self.loss_calculator = loss_calculator or LossCalculator(MLELoss())
     self.src_file = src_file
@@ -36,15 +37,18 @@ class LossEvalTask(Serializable):
     self.max_src_len = max_src_len
     self.max_trg_len = max_trg_len
     self.desc=desc
+    self.ref_len_file = ref_len_file
 
   def eval(self):
     if self.src_data == None:
-      self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
+      self.src_data, self.ref_data, self.src_batches, self.ref_batches, self.ref_len_batches = \
         xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
-                                        self.src_file, self.ref_file, batcher=self.batcher,
+                                        self.src_file, self.ref_file, ref_len_file=self.ref_len_file,
+                                        batcher=self.batcher,
                                         max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
     loss_val = LossScalarBuilder()
     ref_words_cnt = 0
+    i = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
 
@@ -54,9 +58,12 @@ class LossEvalTask(Serializable):
       loss_builder.add_loss("standard_loss", standard_loss)
       loss_builder.add_loss("additional_loss", additional_loss)
 
-      ref_words_cnt += self.model.trg_reader.count_words(trg)
+      if self.ref_len_batches is not None:
+        ref_words_cnt += sum(self.ref_len_batches[i])
+      else:
+        ref_words_cnt += self.model.trg_reader.count_words(trg)
       loss_val += loss_builder.get_loss_stats()
-
+      i += 1
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
 
     try:
@@ -101,8 +108,13 @@ class AccuracyEvalTask(Serializable):
       eval_scores.append(xnmt.xnmt_evaluate.xnmt_evaluate(**evaluate_args))
     # Calculate the reference file size
     ref_words_cnt = 0
-    for ref_sent in self.model.trg_reader.read_sents(self.ref_file):
-      ref_words_cnt += self.model.trg_reader.count_words(ref_sent)
-      ref_words_cnt += 0
+    if type(self.model.trg_reader) == TreeReader:
+      with open(self.ref_file, 'r', encoding='utf-8') as myfile:
+        for line in myfile:
+          ref_words_cnt += len(line.split())
+    else:
+      for ref_sent in self.model.trg_reader.read_sents(self.ref_file):
+        ref_words_cnt += self.model.trg_reader.count_words(ref_sent)
+        ref_words_cnt += 0
     return eval_scores, ref_words_cnt
 

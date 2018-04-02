@@ -968,7 +968,7 @@ def parse_root(toks):
 
 
 ###### A utility function to read a parallel corpus
-def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
+def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file, ref_len_file=None,
                          batcher=None, sample_sents=None, max_num_sents=None, max_src_len=None, max_trg_len=None):
   '''
   A utility function to read a parallel corpus.
@@ -977,6 +977,12 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
   '''
   src_data = []
   trg_data = []
+  if ref_len_file:
+    trg_len_data = []
+    ref_len_nums = []
+    with open(ref_len_file, encoding='utf-8') as fp:
+      for line in fp:
+        ref_len_nums.append(line)
   if sample_sents:
     src_len = src_reader.count_sents(src_file)
     trg_len = trg_reader.count_sents(trg_file)
@@ -987,6 +993,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
     src_len, trg_len = 0, 0
   src_train_iterator = src_reader.read_sents(src_file, filter_ids)
   trg_train_iterator = trg_reader.read_sents(trg_file, filter_ids)
+  i = 0
   for src_sent, trg_sent in six.moves.zip_longest(src_train_iterator, trg_train_iterator):
     if src_sent is None or trg_sent is None:
       raise RuntimeError(f"training src sentences don't match trg sentences: {src_len or src_reader.count_sents(src_file)} != {trg_len or trg_reader.count_sents(trg_file)}!")
@@ -997,11 +1004,21 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
     if src_len_ok and trg_len_ok:
       src_data.append(src_sent)
       trg_data.append(trg_sent)
-
+      if ref_len_file:
+        n = len(ref_len_nums[i].split())
+        trg_len_data.append(n)
+    i+=1
   # Pack batches
   if batcher != None:
-    src_batches, trg_batches = batcher.pack(src_data, trg_data)
+    if ref_len_file:
+     src_batches, trg_batches, trg_len_batches = batcher.pack(src_data, trg_data, trg_len=trg_len_data)
+    else:
+      src_batches, trg_batches = batcher.pack(src_data, trg_data)
+      trg_len_batches = None
   else:
     src_batches, trg_batches = src_data, trg_data
-
-  return src_data, trg_data, src_batches, trg_batches
+    if ref_len_file:
+      trg_len_batches = trg_len_data
+    else:
+      trg_len_batches = None
+  return src_data, trg_data, src_batches, trg_batches, trg_len_batches

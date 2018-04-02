@@ -132,14 +132,16 @@ class TrDecBeamSearch(SearchStrategy):
     self.entrs = []
 
   class Hypothesis:
-    def __init__(self, score, output, state):
+    def __init__(self, score, id_list, state):
       self.score = score
       self.state = state
-      self.output = output
+      self.id_list = id_list
+
     def __str__(self):
-      return "hypo S=%s ids=%s" % (self.score, self.output.word_ids)
+      return "hypo S=%s ids=%s" % (self.score, self.id_list)
+
     def __repr__(self):
-      return "hypo S=%s |ids|=%s" % (self.score, len(self.output.word_ids))
+      return "hypo S=%s |ids|=%s" % (self.score, len(self.id_list))
 
   def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, word_embedder=None,
                       forced_trg_ids=None, trg_rule_vocab=None, tag_embedder=None, word_attender=None,
@@ -229,15 +231,15 @@ class TrDecBeamSearch(SearchStrategy):
           if trg_rule_vocab:
             if score[cur_id] == -np.inf: continue
             new_set.append(self.Hypothesis(
-              self.len_norm.normalize_partial(hyp.score, score[cur_id], len(new_list), src_length=src_length),
+              #self.len_norm.normalize_partial(hyp.score, score[cur_id], len(new_list), src_length=src_length),
+              self.len_norm.normalize_partial(hyp.score, score[cur_id], len(new_list)),
               new_list, dec_state.copy()))
           else:
             new_set.append(self.Hypothesis(
-              self.len_norm.normalize_partial(hyp.score, score[cur_id], len(new_list), src_length=src_length),
+              #self.len_norm.normalize_partial(hyp.score, score[cur_id], len(new_list), src_length=src_length),
+              self.len_norm.normalize_partial(hyp.score, score[cur_id], len(new_list)),
               new_list, dec_state))
-
       length += 1
-
       if trg_rule_vocab and num_valid_rule >= 0:
         active_hyp = sorted(new_set, key=lambda x: x.score, reverse=True)[:min(self.beam_size, num_valid_rule)]
       else:

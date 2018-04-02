@@ -1,4 +1,5 @@
 from xnmt.vocab import Vocab
+from xnmt.input import Tree
 
 class Output(object):
   '''
@@ -93,6 +94,16 @@ class CcgPieceOutputProcessor(OutputProcessor):
 
   def words_to_string(self, word_list):
     return u"".join(word_list).replace(self.merge_indicator, u" ").strip()
+
+class RuleOutputProcessor(PlainTextOutputProcessor):
+  def __init__(self, piece=True, wordswitch=False):
+    self.piece = piece
+    self.wordswitch = wordswitch
+
+  def words_to_string(self, rule_list):
+    tree = Tree.from_rule_deriv(rule_list, wordswitch=self.wordswitch)
+    return [tree.to_string(self.piece), tree.to_parse_string()]
+
 
 class TreeHierOutput(Output):
   def __init__(self, actions=None, rule_vocab=None, word_vocab=None):

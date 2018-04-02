@@ -149,5 +149,7 @@ class SimpleInference(Serializable):
       return xnmt.output.JoinedBPETextOutputProcessor()
     elif spec == "join-piece":
       return xnmt.output.JoinedPieceTextOutputProcessor()
+    elif spec == "rule":
+      return xnmt.output.RuleOutputProcessor(piece=True, wordswitch=True)
     else:
       raise RuntimeError("Unknown postprocessing argument {}".format(spec))

@@ -505,26 +505,27 @@ class TreeTranslator(Translator, Serializable, Reportable):
             set([Path(".attender.state_dim"), Path(".decoder.lstm_dim")]),
             set([Path(".trg_embedder.emb_dim"), Path(".decoder.trg_embed_dim")])]
 
-  def initialize_generator(self, train_src, train_trg, **kwargs):
+  def initialize_generator(self, **kwargs):
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
     else:
       len_norm = xnmt.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
     search_args = {}
     if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
-    self.sample_num = kwargs["sample_num"]
+    #self.sample_num = kwargs["sample_num"]
+    self.sample_num = -1
     self.sampling = False
     self.output_beam = False
-    if kwargs.get("sample_num", -1) > 0:
+    #if kwargs.get("sample_num", -1) > 0:
       #search_args["sample_num"] = kwargs["sample_num"]
       #self.search_strategy = Sampling(**search_args)
-      self.sampling = True
-    else:
-      search_args["beam_size"] = kwargs.get("beam", 1)
-      search_args["len_norm"] = len_norm
-      self.search_strategy = TrDecBeamSearch(**search_args)
-      if kwargs.get("output_beam", 0) > 0:
-        self.output_beam = kwargs["output_beam"]
+      #self.sampling = True
+    #else:
+    search_args["beam_size"] = kwargs.get("beam", 1)
+    search_args["len_norm"] = len_norm
+    self.search_strategy = TrDecBeamSearch(**search_args)
+    if kwargs.get("output_beam", 0) > 0:
+      self.output_beam = kwargs["output_beam"]
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)
 
@@ -566,7 +567,9 @@ class TreeTranslator(Translator, Serializable, Reportable):
       word_count += word_c
       word_eos_count += word_eos_c
     #return (dy.esum(rule_losses), dy.esum(word_losses), dy.esum(word_eos_losses), rule_count, word_count, word_eos_count)
-    return dy.esum(rule_losses + word_losses + word_eos_losses)
+    model_loss = LossBuilder()
+    model_loss.add_loss("mle", dy.esum(rule_losses + word_losses + word_eos_losses))
+    return model_loss
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None, trg_rule_vocab=None, word_vocab=None):
     if hasattr(self.decoder, 'decoding'):
@@ -578,56 +581,30 @@ class TreeTranslator(Translator, Serializable, Reportable):
     outputs = []
     scores = []
     for sents in src:
-      if self.sample_num > 0:
-        output_actions = []
-        score = []
-        for i in range(self.sample_num):
-          self.start_sent(src)
-          embeddings = self.src_embedder.embed_sent(src)
-          encodings = self.encoder(embeddings)
-          self.attender.init_sent(encodings)
-
-          self.word_attender.init_sent(encodings)
-          ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
-
-          dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss),
-                                                   decoding=True)
-          o, s = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder,
-                                                      dec_state, src_length=len(sents),
-                                                      forced_trg_ids=forced_trg_ids,
-                                                      trg_rule_vocab=trg_rule_vocab,
-                                                      word_vocab=word_vocab,
-                                                      tag_embedder=self.tag_embedder,
-                                                      word_attender=self.word_attender,
-                                                      word_embedder=self.word_embedder)
-          output_actions.append(o)
-          score.append(s)
-          dy.renew_cg()
-      else:
-        self.start_sent(src)
-        embeddings = self.src_embedder.embed_sent(src)
-        encodings = self.encoder(embeddings)
-        self.attender.init_sent(encodings)
-        if self.word_attender:
-          self.word_attender.init_sent(encodings)
-        ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
-        dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss),
-                                                decoding=True)
-        output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder,
-                                                                     dec_state, src_length=len(sents),
-                                                                     forced_trg_ids=forced_trg_ids,
-                                                                     trg_rule_vocab=trg_rule_vocab,
-                                                                     word_attender=self.word_attender,
-                                                                     word_embedder=self.word_embedder,
-                                                                     word_vocab=word_vocab,
-                                                                     output_beam=self.output_beam)
+      self.start_sent(src)
+      embeddings = self.src_embedder.embed_sent(src)
+      encodings = self.encoder(embeddings)
+      self.attender.init_sent(encodings)
+      if self.word_attender:
+        self.word_attender.init_sent(encodings)
+      ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
+      dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss),
+                                              decoding=True)
+      output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder,
+                                                                   dec_state, src_length=len(sents),
+                                                                   forced_trg_ids=forced_trg_ids,
+                                                                   trg_rule_vocab=self.trg_reader.vocab,
+                                                                   word_attender=self.word_attender,
+                                                                   word_embedder=self.word_embedder,
+                                                                   word_vocab=self.trg_reader.word_vocab,
+                                                                   output_beam=self.output_beam)
 
       # Append output to the outputs
       if self.sampling or self.output_beam:
         if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
           if self.word_embedder:
             for action in output_actions:
-              outputs.append(TreeHierOutput(action, rule_vocab=self.trg_vocab, word_vocab=word_vocab))
+              outputs.append(TreeHierOutput(action, rule_vocab=self.trg_vocab, word_vocab=self.trg_reader.word_vocab))
           else:
             for action in output_actions:
               outputs.append(TextOutput(action, self.trg_vocab))
@@ -638,7 +615,7 @@ class TreeTranslator(Translator, Serializable, Reportable):
       else:
         if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
           if self.word_embedder:
-            outputs.append(TreeHierOutput(output_actions, rule_vocab=self.trg_vocab, word_vocab=word_vocab))
+            outputs.append(TreeHierOutput(output_actions, rule_vocab=self.trg_vocab, word_vocab=self.trg_reader.word_vocab))
           else:
             outputs.append(TextOutput(output_actions, self.trg_vocab))
         else:

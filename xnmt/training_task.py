@@ -131,7 +131,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     if self.reload_command is not None:
       self._augmentation_handle = None
       self._augment_data_initial()
-    self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
+    self.src_data, self.trg_data, self.src_batches, self.trg_batches, self.ref_len_batches = \
         xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                         self.src_file, self.trg_file,
                                         batcher=self.batcher, sample_sents=self.sample_train_sents,

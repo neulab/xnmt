@@ -53,11 +53,14 @@ standard: !Experiment # 'standard' is the name given to the experiment
       - !LossEvalTask
         src_file: examples/data/dev-head5.piece.ja
         ref_file: examples/data/dev-head5.parse.en,examples/data/dev-head5.piece.en
+        ref_len_file: examples/data/dev-head5.piece.en
         loss_calculator: !TrainingTreeLoss {}
   # final evaluation
   evaluate:
     - !AccuracyEvalTask
-      eval_metrics: bleu,wer
+      eval_metrics: bleu
       src_file: examples/data/dev-head5.piece.ja
       ref_file: examples/data/dev-head5.piece.en
       hyp_file: examples/output/{EXP}.test_hyp
+      inference: !SimpleInference
+        post_process: rule
