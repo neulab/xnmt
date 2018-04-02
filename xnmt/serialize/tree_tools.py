@@ -98,11 +98,15 @@ def set_child_list(node, name, val):
 def set_child_dict(node, name, val):
   node[name] = val
 
-def get_descendant(node, path):
+def get_descendant(node, path, redirect=False):
   if len(path)==0:
     return node
+  elif redirect and isinstance(node, Ref):
+    node_path = node.get_path()
+    if isinstance(node_path, str): node_path = Path(node_path)
+    return Ref(node_path.add_path(path), default=node.get_default())
   else:
-    return get_descendant(get_child(node, path[0]), path.descend_one())
+    return get_descendant(get_child(node, path[0]), path.descend_one(), redirect=redirect)
 def set_descendant(root, path, val):
   if len(path)==0:
     raise ValueError("path was empty")

@@ -7,6 +7,7 @@ exp1-pretrain1: !Experiment
     src_embedder: !SimpleWordEmbedder
       emb_dim: 64
     encoder: !BiLSTMSeqTransducer
+      _xnm_id: my_enc
       layers: 2
       input_dim: 64
     attender: !MlpAttender
@@ -35,6 +36,7 @@ exp2-pretrain2: !Experiment
     src_embedder: !SimpleWordEmbedder
       emb_dim: 64
     encoder: !BiLSTMSeqTransducer
+      _xnm_id: my_enc
       layers: 2
       input_dim: 64
     attender: !MlpAttender

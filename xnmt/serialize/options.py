@@ -133,7 +133,11 @@ class OptionParser(object):
           raise RuntimeError(f"Could not read configuration file {node.filename}: {e}")
         ParamManager.add_load_path(f"{node.filename}.data")
         cur_path = tree_tools.Path(getattr(node, "path", ""))
-        loaded_trg = tree_tools.get_descendant(loaded_root, cur_path)
+        for _ in range(10): # follow references
+          loaded_trg = tree_tools.get_descendant(loaded_root, cur_path, redirect=True)
+          if isinstance(loaded_trg, Ref):
+            cur_path = loaded_trg.get_path()
+          else: break
 
         found_outside_ref = True
         while found_outside_ref:
