@@ -54,7 +54,7 @@ class LossBuilder(object):
 
   def __repr__(self):
     loss_str = ", ".join(["%s %f" % (loss_name, dy.sum_batches(loss_value).value()) for loss_name, loss_value in self.loss_values.items()])
-    return "{Loss Builder: %s}" % (loss_str)
+    return "{Loss Builder: %s}=%f" % (loss_str)
 
 class LossScalarBuilder(object):
 

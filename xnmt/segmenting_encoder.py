@@ -39,8 +39,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                reinforce_scale=None,    # GeometricSequence
                confidence_penalty=None, # SegmentationConfidencePenalty
                print_sample_prob=0.01,
-               # For segmentation warmup (Always use the poisson prior)
-               segmentation_warmup=0,
                src_vocab = Ref(Path("model.src_reader.vocab")),
                trg_vocab = Ref(Path("model.trg_reader.vocab")),
                ## FLAGS
@@ -91,7 +89,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.print_sample_prob = print_sample_prob
     # Fixed Parameters
     self.length_prior = length_prior
-    self.segmentation_warmup = segmentation_warmup
     # Variable Parameters
     self.length_prior_alpha = length_prior_alpha
     self.lmbd = reinforce_scale
@@ -99,7 +96,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.confidence_penalty = confidence_penalty
     # States of the object
     self.train = False
-    self.segmentation_warmup_counter = 1
 
   def __call__(self, embed_sent):
     batch_size = embed_sent[0].dim()[1]
@@ -210,15 +206,13 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
     # Flags
     is_presegment_provided = len(self.src_sent) != 0 and self.src_sent[0].has_annotation("segment")
-    is_warmup = self.is_segmentation_warmup()
     is_epsgreedy_triggered = eps is not None and numpy.random.random() <= eps
     # Sample based on the criterion
-    if self.learn_segmentation and not is_warmup and not self.train:
-      # During testing always sample from softmax if it is not warmup
+    if self.learn_segmentation and not self.train:
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
     elif is_presegment_provided:
       segment_decisions = self.sample_from_prior(encodings, batch_size)
-    elif is_warmup or is_epsgreedy_triggered:
+    elif is_epsgreedy_triggered:
       segment_decisions = self.sample_from_poisson(encodings, batch_size)
     else:
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
@@ -281,10 +275,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       ret = numpy.squeeze(ret, axis=2)
     return ret
 
-  # Indicates warmup time. So we shouldn't sample from softmax
-  def is_segmentation_warmup(self):
-    return self.segmentation_warmup_counter <= self.segmentation_warmup
-
   @handle_xnmt_event
   def on_set_train(self, train):
     self.train = train
@@ -297,10 +287,9 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   @handle_xnmt_event
   def on_new_epoch(self, training_task, *args, **kwargs):
-    self.segmentation_warmup_counter = training_task.training_state.epoch_num
     name = ["Epsilon Greedy Prob", "Reinforce Weight", "Confidence Penalty Weight", "Length Prior Weight",
             "Epoch Counter"]
-    param = [self.eps, self.lmbd, self.confidence_penalty, self.length_prior_alpha, self.segmentation_warmup_counter]
+    param = [self.eps, self.lmbd, self.confidence_penalty, self.length_prior_alpha]
     for n, p in zip(name, param):
       if p is not None:
         if hasattr(p, "value"):
