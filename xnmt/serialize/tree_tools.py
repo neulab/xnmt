@@ -7,6 +7,12 @@ import yaml
 from xnmt.serialize.serializable import Serializable
 
 class Path(object):
+  """
+  A relative or absolute path in the component hierarchy.
+  
+  Args:
+    path_str (str): path string. If prefixed by ".", marks a relative path, otherwise absolute.  
+  """
   def __init__(self, path_str=""):
     if (len(path_str)>1 and path_str[-1]=="." and path_str[-2]!=".") \
     or ".." in path_str.strip("."):
@@ -76,6 +82,13 @@ class Path(object):
     return ret
 
 class Ref(Serializable):
+  """
+  A reference to a place in the component hierarchy. Supported a referencing by path or referencing by name.
+  
+  Args:
+    path (Path): reference-by-path
+    name (str): reference-by-name. The name refers to a unique ``_xnmt_id`` property that must be set in exactly one component.
+  """
   yaml_tag = "!Ref"
   def __init__(self, path=None, name=None, required=True):
     if name is not None and path is not None:
@@ -95,6 +108,8 @@ class Ref(Serializable):
       return f"Ref(name={self.get_name()})"
     else:
       return f"Ref(path={self.get_path()})"
+  def __repr__(self):
+    return str(self)
   def resolve_path(self, named_paths):
     if self.get_path():
       if isinstance(self.get_path(), str):
@@ -121,7 +136,7 @@ def check_serializable_args_valid(node):
     if name in base_arg_names or name in class_param_names: continue
     if name.startswith("_") or name in reserved_arg_names: continue
     if name not in init_args:
-      raise ValueError(f"'{name}' is not a valid init parameter of {node}. Valid are {list(init_args.keys())}")
+      raise ValueError(f"'{name}' is not a accepted argument of {type(node).__name__}.__init__(). Valid are {list(init_args.keys())}")
 
 
 @singledispatch

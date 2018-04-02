@@ -1,8 +1,5 @@
 import unittest
 import math
-import sys
-
-if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.unittest")
 
 import numpy as np
 import dynet_config
@@ -15,7 +12,7 @@ from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.residual import ResidualLSTMSeqTransducer
 from xnmt.attender import MlpAttender
 from xnmt.decoder import MlpSoftmaxDecoder
-from xnmt.input import PlainTextReader
+from xnmt.input_reader import PlainTextReader
 from xnmt.exp_global import ExpGlobal, PersistentParamCollection
 import xnmt.events
 from xnmt.vocab import Vocab

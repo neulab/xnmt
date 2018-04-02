@@ -33,7 +33,7 @@ def modify_audio(npz_original, npz_new, char_original, char_new, num_epoch, brea
   for i in range(0, new_size):
     feat = feats['arr_%d' % i]
     if break_feats:
-      feat = feat[:,:120]
+      feat = feat[:,:20]
 
     new_feats.append(feat)
 
@@ -44,7 +44,9 @@ def modify_audio(npz_original, npz_new, char_original, char_new, num_epoch, brea
 def select_and_clear_current_version_dir(basedir):
   '''
   Switch which is the current directory and remove all contents of that directory.
-  :return: the name of the new current directory
+
+  Return:
+    the name of the new current directory
   '''
   version_dir_1 = os.path.join(basedir, 'version-1-augmentation')
   version_dir_2 = os.path.join(basedir, 'version-2-augmentation')
@@ -81,8 +83,8 @@ def main():
 
   if args.epoch > 0:
     # do augmentation here
-    data_name = 'synth.contvec.npz'
-    txt_name = 'synth.char'
+    data_name = 'LDC94S13A.npz'
+    txt_name = 'LDC94S13A.char'
     npz_initial = os.path.abspath(os.path.join(args.initial_dir, data_name))
     txt_initial = os.path.abspath(os.path.join(args.initial_dir, txt_name))
     npz_new = os.path.abspath(os.path.join(current_version_dir, data_name))

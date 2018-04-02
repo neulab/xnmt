@@ -44,7 +44,8 @@ This specifies settings that are global to this experiment. An example::
 
 Not that for any strings used here or anywhere in the config file ``{EXP}`` will
 be over-written by the name of the experiment, ``{EXP_DIR}`` will be overwritten
-by the directory the config file lies in, and ``{PID}`` by the process id.
+by the directory the config file lies in, ``{PID}`` by the process id, and
+``{GIT_REV}`` by the current git revision.
 
 To obtain a full list of allowed parameters, please check the constructor of
 ``ExpGlobal``, specified under xnmt/exp_global.py. Behind the scenes, this class
@@ -53,7 +54,7 @@ that use DyNet parameters.
 
 preproc
 ======= 
-``xnmt`` supports a variety of data preprocessing features. Please refer to
+*xnmt* supports a variety of data preprocessing features. Please refer to
 ``preprocessing.rst`` for details.
 
 model
@@ -86,7 +87,7 @@ initializer methods.
 
 Note that some of this Python objects are passed to their parent object's
 initializer method, which requires that the children are initialized first.
-``xnmt`` therefore uses a bottom-up initialization strategy, where siblings
+*xnmt* therefore uses a bottom-up initialization strategy, where siblings
 are initialized in the order they appear in the constructor. Among others,
 this causes ``exp_global`` (the first child of the top-level experiment) to be
 initialized before any model component is initialized, so that model components

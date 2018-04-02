@@ -8,6 +8,8 @@ import xnmt.residual
 from xnmt.bridge import CopyBridge
 import numpy as np
 from xnmt.vocab import Vocab
+from xnmt.param_init import GlorotInitializer
+
 
 class Decoder(object):
   '''
@@ -35,22 +37,59 @@ class RnnDecoder(Decoder):
       raise RuntimeError("Unknown decoder type {}".format(spec))
 
 class MlpSoftmaxDecoderState(object):
-  """A state holding all the information needed for MLPSoftmaxDecoder"""
+  """A state holding all the information needed for MLPSoftmaxDecoder
+  
+  Args:
+    rnn_state: a DyNet RNN state
+    context: a DyNet expression
+  """
   def __init__(self, rnn_state=None, context=None):
     self.rnn_state = rnn_state
     self.context = context
 
 class MlpSoftmaxDecoder(RnnDecoder, Serializable):
+  """
+  Standard MLP softmax decoder.
+
+  Args:
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    layers (int): number of LSTM layers
+    input_dim (int): input dimension; if None, use ``exp_global.default_layer_dim``
+    lstm_dim (int): LSTM hidden dimension; if None, use ``exp_global.default_layer_dim``
+    mlp_hidden_dim (int): MLP hidden dimension; if None, use ``exp_global.default_layer_dim``
+    trg_embed_dim (int): dimension of target embeddings; if None, use ``exp_global.default_layer_dim``
+    dropout (float): dropout probability for LSTM; if None, use exp_global.dropout
+    rnn_spec (str): 'lstm' or 'residuallstm'
+    residual_to_output (bool): option passed on if rnn_spec == 'residuallstm'
+    input_feeding (bool): whether to activate input feeding
+    param_init_lstm (ParamInitializer): how to initialize LSTM weight matrices (currently, only :class:`xnmt.param_init.GlorotInitializer` is supported); if None, use ``exp_global.param_init``
+    param_init_context (ParamInitializer): how to initialize context weight matrices; if None, use ``exp_global.param_init``
+    bias_init_context (ParamInitializer): how to initialize context bias vectors; if None, use ``exp_global.bias_init``
+    param_init_output (ParamInitializer): how to initialize output weight matrices; if None, use ``exp_global.param_init``
+    bias_init_output (ParamInitializer): how to initialize output bias vectors; if None, use ``exp_global.bias_init``
+    bridge (Bridge): how to initialize decoder state
+    label_smoothing (float): label smoothing value (if used, 0.1 is a reasonable value).
+                             Label Smoothing is implemented with reference to Section 7 of the paper
+                             "Rethinking the Inception Architecture for Computer Vision"
+                             (https://arxiv.org/pdf/1512.00567.pdf)
+    vocab_projector (Linear):
+    vocab_size (int): vocab size or None
+    vocab (Vocab): vocab or None
+    trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
+  """
+  
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
 
-  yaml_tag = u'!MlpSoftmaxDecoder'
+  yaml_tag = '!MlpSoftmaxDecoder'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, lstm_dim=None,
                mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
                rnn_spec="lstm", residual_to_output=False, input_feeding=True,
-               bridge=bare(CopyBridge), label_smoothing=0.0, vocab_projector=None,
-               vocab_size = None, vocab = None,
+               param_init_lstm=None, param_init_context=None, bias_init_context=None,
+               param_init_output=None, bias_init_output=None,
+               bridge=bare(CopyBridge), label_smoothing=0.0,
+               vocab_projector=None, vocab_size = None, vocab = None,
                trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
     register_handler(self)
     self.param_col = exp_global.dynet_param_collection.param_col
@@ -78,15 +117,25 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                                               hidden_dim = lstm_dim,
                                               model = self.param_col,
                                               residual_to_output = residual_to_output)
+    param_init_lstm = param_init_lstm or exp_global.param_init
+    if not isinstance(param_init_lstm, GlorotInitializer): raise NotImplementedError("For the decoder LSTM, only Glorot initialization is currently supported")
+    if getattr(param_init_lstm,"gain",1.0) != 1.0:
+      for l in range(layers):
+        for i in [0,1]:
+          self.fwd_lstm.param_collection().parameters_list()[3*l+i].scale(param_init_lstm.gain)
+      
     # MLP
     self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + lstm_dim,
-                                           output_dim = mlp_hidden_dim,
-                                           model = self.param_col)
+                                                output_dim = mlp_hidden_dim,
+                                                model = self.param_col,
+                                                param_init = param_init_context or exp_global.param_init,
+                                                bias_init = bias_init_context or exp_global.bias_init)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, trg_reader)
     self.vocab_projector = vocab_projector or xnmt.linear.Linear(input_dim = self.mlp_hidden_dim,
-                                                                output_dim = self.vocab_size,
-                                                                model = self.param_col)
-
+                                                                 output_dim = self.vocab_size,
+                                                                 model = self.param_col,
+                                                                 param_init = param_init_output or exp_global.param_init,
+                                                                 bias_init = bias_init_output or exp_global.bias_init)
     # Dropout
     self.dropout = dropout or exp_global.dropout
 
@@ -94,6 +143,14 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     """Choose the vocab size for the embedder basd on the passed arguments
 
     This is done in order of priority of vocab_size, vocab, model+yaml_path
+
+    Args:
+      vocab_size (int): vocab size or None
+      vocab (Vocab): vocab or None
+      trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
+    
+    Returns:
+      int: chosen vocab size
     """
     if vocab_size != None:
       return vocab_size
@@ -111,8 +168,10 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   def initial_state(self, enc_final_states, ss_expr):
     """Get the initial state of the decoder given the encoder final states.
 
-    :param enc_final_states: The encoder final states.
-    :returns: An MlpSoftmaxDecoderState
+    Args:
+      enc_final_states: The encoder final states. Usually but not necessarily an :class:`xnmt.expression_sequence.ExpressionSequence`
+    Returns:
+      MlpSoftmaxDecoderState:
     """
     rnn_state = self.fwd_lstm.initial_state()
     rnn_state = rnn_state.set_s(self.bridge.decoder_init(enc_final_states))
@@ -122,10 +181,12 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
 
   def add_input(self, mlp_dec_state, trg_embedding):
     """Add an input and update the state.
-
-    :param mlp_dec_state: An MlpSoftmaxDecoderState object containing the current state.
-    :param trg_embedding: The embedding of the word to input.
-    :returns: The update MLP decoder state.
+    
+    Args:
+      mlp_dec_state (MlpSoftmaxDecoderState): An object containing the current state.
+      trg_embedding: The embedding of the word to input.
+    Returns:
+      The update MLP decoder state.
     """
     inp = trg_embedding
     if self.input_feeding:
@@ -136,18 +197,15 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   def get_scores(self, mlp_dec_state):
     """Get scores given a current state.
 
-    :param mlp_dec_state: An MlpSoftmaxDecoderState object.
-    :returns: Scores over the vocabulary given this state.
+    Args:
+      mlp_dec_state: An :class:`xnmt.decoder.MlpSoftmaxDecoderState` object.
+    Returns:
+      Scores over the vocabulary given this state.
     """
     h_t = dy.tanh(self.context_projector(dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context])))
     return self.vocab_projector(h_t)
 
   def calc_loss(self, mlp_dec_state, ref_action):
-    """
-        Label Smoothing is implemented with reference to Section 7 of the paper
-        "Rethinking the Inception Architecture for Computer Vision"
-        (https://arxiv.org/pdf/1512.00567.pdf)
-        """
     scores = self.get_scores(mlp_dec_state)
 
     if self.label_smoothing == 0.0:

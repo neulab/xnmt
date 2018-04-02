@@ -1,7 +1,4 @@
 import unittest
-import sys
-
-if not any(a.startswith("--settings") for a in sys.argv): sys.argv.insert(1, "--settings=settings.unittest")
 
 import dynet as dy
 import numpy as np
@@ -13,7 +10,7 @@ from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.eval_task import LossEvalTask
 import xnmt.events
-from xnmt.input import PlainTextReader
+from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.loss_calculator import LossCalculator
 from xnmt.optimizer import AdamTrainer
@@ -112,7 +109,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
               trg_reader=self.trg_reader,
               src_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
               encoder=BiLSTMSeqTransducer(self.exp_global),
-              attender=DotAttender(self.exp_global),
+              attender=DotAttender(),
               trg_embedder=SimpleWordEmbedder(self.exp_global, vocab_size=100),
               decoder=MlpSoftmaxDecoder(self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
             )

@@ -1,5 +1,9 @@
+import logging
+logger = logging.getLogger('xnmt')
+
 import math
 import dynet as dy
+
 from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.tree_tools import Ref, Path
 
@@ -8,17 +12,29 @@ class Attender(object):
   A template class for functions implementing attention.
   '''
 
-  def __init__(self, input_dim):
-    """
-    :param input_dim: every attender needs an input_dim
-    """
-    pass
-
   def init_sent(self, sent):
+    """Args:
+         sent: the encoder states, aka keys and values. Usually but not necessarily an :class:`xnmt.expression_sequence.ExpressionSequence`
+    """
     raise NotImplementedError('init_sent must be implemented for Attender subclasses')
 
   def calc_attention(self, state):
+    """ Compute attention weights.
+    
+    Args:
+      state (dy.Expression): the current decoder state, aka query, for which to compute the weights.
+    """
     raise NotImplementedError('calc_attention must be implemented for Attender subclasses')
+
+  def calc_context(self, state):
+    """ Compute weighted sum.
+    
+    Args:
+      state (dy.Expression): the current decoder state, aka query, for which to compute the weighted sum.
+    """
+    attention = self.calc_attention(state)
+    I = self.curr_sent.as_tensor()
+    return I * attention
 
   def get_last_attention(self):
     return self.attention_vecs[-1]
@@ -26,22 +42,33 @@ class Attender(object):
 class MlpAttender(Attender, Serializable):
   '''
   Implements the attention model of Bahdanau et. al (2014)
+  
+  Args:
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    input_dim (int): input dimension; if None, use exp_global.default_layer_dim
+    state_dim (int): dimension of state inputs; if None, use exp_global.default_layer_dim
+    hidden_dim (int): hidden MLP dimension; if None, use exp_global.default_layer_dim
+    param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
+    bias_init (ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
   '''
 
-  yaml_tag = u'!MlpAttender'
+  yaml_tag = '!MlpAttender'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, hidden_dim=None):
+  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, 
+               hidden_dim=None, param_init=None, bias_init=None):
     input_dim = input_dim or exp_global.default_layer_dim
     state_dim = state_dim or exp_global.default_layer_dim
     hidden_dim = hidden_dim or exp_global.default_layer_dim
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
+    param_init = param_init or exp_global.param_init
+    bias_init = bias_init or exp_global.bias_init
     param_collection = exp_global.dynet_param_collection.param_col
-    self.pW = param_collection.add_parameters((hidden_dim, input_dim))
-    self.pV = param_collection.add_parameters((hidden_dim, state_dim))
-    self.pb = param_collection.add_parameters(hidden_dim)
-    self.pU = param_collection.add_parameters((1, hidden_dim))
+    self.pW = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
+    self.pV = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
+    self.pb = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
+    self.pU = param_collection.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
     self.curr_sent = None
 
   def init_sent(self, sent):
@@ -78,11 +105,14 @@ class DotAttender(Attender, Serializable):
   '''
   Implements dot product attention of https://arxiv.org/abs/1508.04025
   Also (optionally) perform scaling of https://arxiv.org/abs/1706.03762
+  
+  Args:
+    scale (bool): whether to perform scaling
   '''
 
-  yaml_tag = u'!DotAttender'
+  yaml_tag = '!DotAttender'
 
-  def __init__(self, scale=True):
+  def __init__(self, scale:bool=True):
     self.curr_sent = None
     self.scale = scale
     self.attention_vecs = []
@@ -111,17 +141,24 @@ class BilinearAttender(Attender, Serializable):
   '''
   Implements a bilinear attention, equivalent to the 'general' linear
   attention of https://arxiv.org/abs/1508.04025
+
+  Args:
+    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
+    input_dim (int): input dimension; if None, use exp_global.default_layer_dim
+    state_dim (int): dimension of state inputs; if None, use exp_global.default_layer_dim
+    param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
   '''
 
-  yaml_tag = u'!BilinearAttender'
+  yaml_tag = '!BilinearAttender'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None):
+  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, param_init=None):
     input_dim = input_dim or exp_global.default_layer_dim
     state_dim = state_dim or exp_global.default_layer_dim
     self.input_dim = input_dim
     self.state_dim = state_dim
+    param_init = param_init or exp_global.param_init
     param_collection = exp_global.dynet_param_collection.param_col
-    self.pWa = param_collection.add_parameters((input_dim, state_dim))
+    self.pWa = param_collection.add_parameters((input_dim, state_dim), init=param_init.initializer((input_dim, state_dim)))
     self.curr_sent = None
 
   def init_sent(self, sent):
@@ -131,6 +168,7 @@ class BilinearAttender(Attender, Serializable):
 
   # TODO(philip30): Please apply masking here
   def calc_attention(self, state):
+    logger.warning("BilinearAttender does currently not do masking, which may harm training results.")
     Wa = dy.parameter(self.pWa)
     scores = (dy.transpose(state) * Wa) * self.I
     normalized = dy.softmax(scores)

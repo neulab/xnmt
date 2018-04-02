@@ -7,7 +7,6 @@ import six
 import re
 
 import numpy as np
-
 from xnmt.serialize.serializable import Serializable
 from xnmt.vocab import Vocab, Rule, RuleVocab
 
@@ -15,7 +14,7 @@ from xnmt.vocab import Vocab, Rule, RuleVocab
 
 class Input(object):
   """
-  A template class to represent all inputs.
+  A template class to represent a single input of any type.
   """
   def __len__(self):
     raise NotImplementedError("__len__() must be implemented by Input subclasses")
@@ -24,11 +23,24 @@ class Input(object):
     raise NotImplementedError("__getitem__() must be implemented by Input subclasses")
 
   def get_padded_sent(self, token, pad_len):
+    """
+    Return padded version of the sent.
+    
+    Args:
+      token: padding token
+      pad_len (int): number of tokens to append
+    Returns:
+      xnmt.input.Input: padded sent
+    """
     raise NotImplementedError("get_padded_sent() must be implemented by Input subclasses")
 
 class SimpleSentenceInput(Input):
   """
   A simple sent, represented as a list of tokens
+  
+  Args:
+    words (List[int]): list of integer word ids
+    vocab (Vocab):
   """
   def __init__(self, words, vocab=None):
     self.words = words
@@ -41,6 +53,15 @@ class SimpleSentenceInput(Input):
     return self.words[key]
 
   def get_padded_sent(self, token, pad_len):
+    """
+    Return padded version of the sent.
+    
+    Args:
+      token (int): padding token
+      pad_len (int): number of tokens to append
+    Returns:
+      xnmt.input.SimpleSentenceInput: padded sentence
+    """
     if pad_len == 0:
       return self
     new_words = list(self.words)
@@ -48,7 +69,7 @@ class SimpleSentenceInput(Input):
     return self.__class__(new_words, self.vocab)
 
   def __str__(self):
-    return " ".join(six.moves.map(str, self.words))
+    return " ".join(map(str, self.words))
 
 class AnnotatedSentenceInput(SimpleSentenceInput):
   def __init__(self, words, vocab=None):
@@ -65,7 +86,10 @@ class AnnotatedSentenceInput(SimpleSentenceInput):
 
 class ArrayInput(Input):
   """
-  A sent based on a single numpy array; first dimension contains tokens
+  A sent based on a single numpy array; first dimension contains tokens.
+  
+  Args:
+    nparr: numpy array
   """
   def __init__(self, nparr):
     self.nparr = nparr
@@ -78,8 +102,13 @@ class ArrayInput(Input):
 
   def get_padded_sent(self, token, pad_len):
     """
-    :param token: None (replicate last frame) or 0 (pad zeros)
-    :param pad_len:
+    Return padded version of the sent.
+    
+    Args:
+      token: None (replicate last frame) or 0 (pad zeros)
+      pad_len (int): number of tokens to append
+    Returns:
+      xnmt.input.ArrayInput: padded sentence
     """
     if pad_len == 0:
       return self

@@ -1,12 +1,10 @@
-# encoding: utf-8
-from __future__ import division, generators
-
 import numpy as np
 import dynet as dy
 from xnmt.linear import Linear
 from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.events import register_handler, handle_xnmt_event
+from xnmt.param_init import LeCunUniformInitializer
 
 MIN_VALUE = -10000
 
@@ -27,7 +25,7 @@ class ReverseTimeDistributed(object):
 
 class LinearSent(object):
   def __init__(self, dy_model, input_dim, output_dim):
-    self.L = Linear(input_dim, output_dim, dy_model, init='LeCunUniform')
+    self.L = Linear(input_dim, output_dim, dy_model, param_init=LeCunUniformInitializer(), bias_init=LeCunUniformInitializer())
 
   def __call__(self, input_expr, reconstruct_shape=True, timedistributed=False):
     if not timedistributed:
@@ -44,7 +42,7 @@ class LinearSent(object):
 
 class LinearNoBiasSent(object):
   def __init__(self, dy_model, input_dim, output_dim):
-    self.L = Linear(input_dim, output_dim, dy_model, bias=False, init='LeCunUniform')
+    self.L = Linear(input_dim, output_dim, dy_model, bias=False, param_init=LeCunUniformInitializer(), bias_init=LeCunUniformInitializer())
     self.output_dim = output_dim
 
   def __call__(self, input_expr):
@@ -240,7 +238,7 @@ class DecoderLayer(object):
 
 
 class TransformerEncoder(Serializable):
-  yaml_tag = u'!TransformerEncoder'
+  yaml_tag = '!TransformerEncoder'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=512, h=1,
                dropout=0.0, attn_dropout=False, layer_norm=False, **kwargs):
@@ -273,7 +271,7 @@ class TransformerEncoder(Serializable):
 
 
 class TransformerDecoder(Serializable):
-  yaml_tag = u'!TransformerDecoder'
+  yaml_tag = '!TransformerDecoder'
 
   def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=512, h=1,
                dropout=0.0, attn_dropout=False, layer_norm=False,
