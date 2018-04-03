@@ -347,6 +347,7 @@ class TreeHierDecoder(RnnDecoder, Serializable):
     """Get the initial state of the decoder given the encoder final states.
 
     :param enc_final_states: The encoder final states.
+    :param ss_expr: Start expression (e.g. bos token).
     :returns: An MlpSoftmaxDecoderState
     """
     init_state = self.bridge.decoder_init(enc_final_states)
@@ -391,36 +392,42 @@ class TreeHierDecoder(RnnDecoder, Serializable):
       paren_tm1_states = tree_dec_state.states[trg.get_col(1)] # ((hidden_dim,), batch_size) * batch_size
       is_terminal = trg.get_col(3, batched=False)
       paren_tm1_state = paren_tm1_states[0]
-      if is_terminal[0] == 0:
-        # rule rnn
-        rule_idx = trg.get_col(0)
-        inp = rule_embedder.embed(rule_idx)
-        if self.input_feeding:
-          inp = dy.concatenate([inp, tree_dec_state.context])
-        inp = dy.concatenate([inp, paren_tm1_state, word_rnn_state.output()])
+      # get the index of the word or rule
+      idx = trg.get_col(0)
+      
+      # Create the mask indicating whether this is a word or rule update
+      word_masks = np.array([is_terminal[0] for is_terminal in is_terminal_batch])
 
-        rnn_state = rnn_state.add_input(inp)
+      # Embed words and rules in the same space
+      inp = embedder.embed_batch(idxs)
+
+      # Update the rule RNN based on word or rule embeddings
+      if self.input_feeding:
+        rule_inp = dy.concatenate([inp, tree_dec_state.context, paren_tm1_state, word_rnn_state.output()])
+      else:
+        rule_inp = dy.concatenate([inp, paren_tm1_state, word_rnn_state.output()])
+
+      # if this is end of phrase append states list
+      if self.input_feeding:
+        word_inp = dy.concatenate([inp, tree_dec_state.word_context, paren_tm1_state])
+      else:
+        word_inp = dy.concatenate([inp, paren_tm1_state])
+
+      # Update the rule RNN
+      rnn_state = rnn_state.add_input(rule_inp)
+      new_word_rnn_state = word_rnn_state.add_input(word_inp)
+      word_rnn_state.set_s(new_word_rnn_state.get_s() * word_mask + word_rnn_state.get_s() * (1-word_mask))
+
+      if is_terminal[0] == 0:
         states = np.append(states, rnn_state.output())
       else:
-        # word rnn
-        word_idx = trg.get_col(0)
-        # if this is end of phrase append states list
-        inp = word_embedder.embed(word_idx)
-        if self.input_feeding:
-          inp = dy.concatenate([inp, tree_dec_state.word_context])
-        inp = dy.concatenate([inp, paren_tm1_state])
-        word_rnn_state = word_rnn_state.add_input(inp)
-        # update rule RNN
-        rnn_inp = dy.concatenate([dy.zeros(self.rule_lstm_input - self.lstm_dim),
-                                  word_rnn_state.output()])
-        rnn_state = rnn_state.add_input(rnn_inp)
         # if this is end of phrase append states list
         if self.bpe_stop:
-          word = word_vocab[word_idx[0]]
+          word = word_vocab[idx[0]]
           if not word.endswith('@@'):
             states = np.append(states, rnn_state.output())
         else:
-          if word_idx[0] == Vocab.ES:
+          if idx[0] == Vocab.ES:
             states = np.append(states, rnn_state.output())
 
       return TreeDecoderState(rnn_state=rnn_state, context=tree_dec_state.context, word_rnn_state=word_rnn_state, word_context=tree_dec_state.word_context, \
