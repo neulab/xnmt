@@ -1,7 +1,6 @@
 import dynet as dy
 
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, Ref, Path, bare
 import xnmt.linear
 from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.serializer import serializable_init
