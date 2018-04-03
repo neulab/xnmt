@@ -12,7 +12,7 @@ class LengthNormalization(object):
     Normalization step applied to completed hypotheses after search.
     
     Args:
-      completed hyps: list of completed Hypothesis objects, will be normalized in-place
+      completed_hyps: list of completed Hypothesis objects, will be normalized in-place
       src_length: length of source sequence (None if not given)
     """
     raise NotImplementedError('normalize_completed must be implemented in LengthNormalization subclasses')
@@ -96,7 +96,9 @@ class MultinomialNormalization(LengthNormalization, Serializable):
 
   def normalize_completed(self, completed_hyps, src_length=None):
     """
-    :type src_length: length of the src sent
+    Args:
+      completed_hyps:
+      src_length: length of the src sent
     """
     assert (src_length is not None), "Length of Source Sentence is required"
     for hyp in completed_hyps:

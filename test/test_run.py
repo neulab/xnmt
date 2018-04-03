@@ -10,6 +10,9 @@ class TestRunningConfig(unittest.TestCase):
   def setUp(self):
     xnmt.events.clear()
 
+  def test_assemble(self):
+    run.main(["test/config/assemble.yaml"])
+
   def test_component_sharing(self):
     run.main(["test/config/component_sharing.yaml"])
 

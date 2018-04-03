@@ -30,8 +30,8 @@ class SimpleSentenceInput(Input):
   A simple sent, represented as a list of tokens
   
   Args:
-    words: list of integer word ids
-    vocab (xnmt):
+    words (List[int]): list of integer word ids
+    vocab (Vocab):
   """
   def __init__(self, words, vocab=None):
     self.words = words
@@ -113,5 +113,3 @@ class ArrayInput(Input):
 
   def get_array(self):
     return self.nparr
-
-

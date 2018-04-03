@@ -5,6 +5,8 @@ __pycache__
 *.so
 .idea
 examples/output
+examples/logs
+examples/models
 doc/build
 xnmt.egg-info
 build/

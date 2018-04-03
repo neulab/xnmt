@@ -9,9 +9,11 @@ import copy
 
 import yaml
 
-from xnmt.serialize.serializable import Serializable, UninitializedYamlObject
+from xnmt.serialize.serializable import Serializable, UninitializedYamlObject, Ref, Path
 import xnmt.serialize.tree_tools as tree_tools
 from xnmt.serialize.tree_tools import set_descendant
+from xnmt.param_collection import ParamManager
+from xnmt.tee import get_git_revision
 
 class Option(object):
   def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
@@ -59,6 +61,13 @@ class RandomParam(yaml.YAMLObject):
       self.drawn_value = random.choice(self.values)
     return self.drawn_value
 
+class LoadSerialized(Serializable):
+  yaml_tag = "!LoadSerialized"
+  def __init__(self, filename, path="", overwrite=[]):
+    self.filename = filename
+    self.path = path
+    self.overwrite = overwrite
+
 class OptionParser(object):
   def __init__(self):
     self.tasks = {}
@@ -71,16 +80,13 @@ class OptionParser(object):
     except IOError as e:
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
     except yaml.constructor.ConstructorError:
-      logger.error("for proper deserialization of a class object, make sure the class is a subclass of xnmt.serialize.serializable.Serializable, specifies a proper yaml_tag with leading '!', and it's module is imported under xnmt/serialize/imports.py")
+      logger.error("for proper deserialization of a class object, make sure the class is a subclass of xnmt.serialize.serializable.Serializable, specifies a proper yaml_tag with leading '!', and its module is imported under xnmt/serialize/imports.py")
       raise
 
     if "defaults" in experiments: del experiments["defaults"]
     return sorted(experiments.keys())
 
-  def parse_experiment(self, filename, exp_name):
-    """
-    Returns a dictionary of experiments => {task => {arguments object}}
-    """
+  def parse_experiment_file(self, filename, exp_name):
     try:
       with open(filename) as stream:
         config = yaml.load(stream)
@@ -88,47 +94,82 @@ class OptionParser(object):
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
 
     experiment = config[exp_name]
+    return self.parse_loaded_experiment(experiment, exp_name = exp_name, exp_dir = os.path.dirname(filename))
+
+  def parse_loaded_experiment(self, experiment, exp_name, exp_dir):
 
     for _, node in tree_tools.traverse_tree(experiment):
       if isinstance(node, Serializable):
         self.resolve_kwargs(node)
 
-    self.load_referenced_model(experiment)
+    experiment = self.load_referenced_serialized(experiment)
 
     random_search_report = self.instantiate_random_search(experiment)
     if random_search_report:
       setattr(experiment, 'random_search_report', random_search_report)
+
+    # if arguments were not given in the YAML file and are set to a bare(Serializable) by default, copy the bare object into the object hierarchy so it can be used w/ param sharing etc.
+    OptionParser.resolve_bare_default_args(experiment)
       
-    # if arguments were not given in the YAML file and are set to a bare(Serializable) by default, copy the bare object into the object hierarchy so it can used w/ param sharing etc.
-    self.resolve_bare_default_args(experiment)
-      
-    self.format_strings(experiment, {"EXP":exp_name,"PID":os.getpid(),
-                                     "EXP_DIR":os.path.dirname(filename)})
+    placeholders = {"EXP":exp_name,
+                    "PID":os.getpid(),
+                    "EXP_DIR":exp_dir,
+                    "GIT_REV": get_git_revision}
+    try:
+      placeholders.update(experiment.exp_global.placeholders)
+    except AttributeError:
+      pass
+    self.format_strings(experiment, placeholders)
 
     return UninitializedYamlObject(experiment)
 
-  def load_referenced_model(self, experiment):
-    if hasattr(experiment, "load") or hasattr(experiment, "overwrite"):
-      exp_args = set([x[0] for x in tree_tools.name_children(experiment, include_reserved=False)])
-      if exp_args not in [set(["load"]), set(["load","overwrite"])]:
-        raise ValueError(f"When loading a model from an external YAML file, only 'load' and 'overwrite' are permitted ('load' is required) as arguments to the experiment. Found: {exp_args}")
-      try:
-        with open(experiment.load) as stream:
-          saved_obj = yaml.load(stream)
-      except IOError as e:
-        raise RuntimeError(f"Could not read configuration file {experiment.load}: {e}")
-      for saved_key, saved_val in tree_tools.name_children(saved_obj, include_reserved=True):
-        if not hasattr(experiment, saved_key):
-          setattr(experiment, saved_key, saved_val)
+  def load_referenced_serialized(self, experiment):
+    for path, node in tree_tools.traverse_tree(experiment):
+      if isinstance(node, LoadSerialized):
+        try:
+          with open(node.filename) as stream:
+            loaded_root = yaml.load(stream)
+        except IOError as e:
+          raise RuntimeError(f"Could not read configuration file {node.filename}: {e}")
+        ParamManager.add_load_path(f"{node.filename}.data")
+        cur_path = tree_tools.Path(getattr(node, "path", ""))
+        for _ in range(10): # follow references
+          loaded_trg = tree_tools.get_descendant(loaded_root, cur_path, redirect=True)
+          if isinstance(loaded_trg, Ref):
+            cur_path = loaded_trg.get_path()
+          else: break
 
-      if hasattr(experiment, "overwrite"):
-        for d in experiment.overwrite:
-          path = tree_tools.Path(d["path"])
-          try:
-            tree_tools.set_descendant(experiment, path, d["val"])
-          except:
-            tree_tools.set_descendant(experiment, path, d["val"])
-        delattr(experiment, "overwrite")
+        found_outside_ref = True
+        while found_outside_ref:
+          found_outside_ref = False
+          named_paths = tree_tools.get_named_paths(loaded_root)
+          replaced_paths = {}
+          for sub_path, sub_node in tree_tools.traverse_tree(loaded_trg, path_to_node=cur_path):
+            if isinstance(sub_node, Ref):
+              referenced_path = sub_node.resolve_path(named_paths)
+              if referenced_path.is_relative_path():
+                raise NotImplementedError("Handling of relative paths with LoadSerialized is not yet implemented.")
+              if referenced_path in replaced_paths:
+                tree_tools.set_descendant(loaded_trg, sub_path[len(cur_path):],
+                                          Ref(replaced_paths[referenced_path], default=sub_node.get_default()))
+              # if outside node:
+              elif not str(referenced_path).startswith(str(cur_path)):
+                found_outside_ref = True
+                referenced_obj = tree_tools.get_descendant(loaded_root, referenced_path)
+                tree_tools.set_descendant(loaded_trg, sub_path[len(cur_path):], referenced_obj)
+                replaced_paths[referenced_path] = sub_path
+              else:
+                tree_tools.set_descendant(loaded_trg, sub_path[len(cur_path):],
+                                          Ref(path.add_path(referenced_path[len(cur_path):]), default=sub_node.get_default()))
+
+        for d in getattr(node, "overwrite", []):
+          overwrite_path = tree_tools.Path(d["path"])
+          tree_tools.set_descendant(loaded_trg, overwrite_path, d["val"])
+        if len(path)==0:
+          experiment = loaded_trg
+        else:
+          set_descendant(experiment, path, loaded_trg)
+    return experiment
 
   def resolve_kwargs(self, obj):
     """
@@ -138,25 +179,26 @@ class OptionParser(object):
     if hasattr(obj, "kwargs"):
       for k, v in obj.kwargs.items():
         if hasattr(obj, k):
-          raise ValueError("kwargs %s already specified as class member for object %s" % (str(k), str(obj)))
+          raise ValueError(f"kwargs '{str(k)}' already specified as class member for object '{str(obj)}'")
         setattr(obj, k, v)
       delattr(obj, "kwargs")
 
-  def instantiate_random_search(self, exp_values):
+  def instantiate_random_search(self, experiment):
     param_report = {}
     initialized_random_params={}
-    for path, v in tree_tools.traverse_tree(exp_values):
+    for path, v in tree_tools.traverse_tree(experiment):
       if isinstance(v, RandomParam):
         if hasattr(v, "_xnmt_id") and v._xnmt_id in initialized_random_params:
           v = initialized_random_params[v._xnmt_id]
         v = v.draw_value()
         if hasattr(v, "_xnmt_id"):
           initialized_random_params[v._xnmt_id] = v
-        set_descendant(exp_values, path, v)
+        set_descendant(experiment, path, v)
         param_report[path] = v
     return param_report
-  
-  def resolve_bare_default_args(self, root):
+
+  @staticmethod
+  def resolve_bare_default_args(root):
     for path, node in tree_tools.traverse_tree(root):
       if isinstance(node, Serializable):
         init_args_defaults = tree_tools.get_init_args_defaults(node)
@@ -167,7 +209,7 @@ class OptionParser(object):
               if not getattr(arg_default, "_is_bare", False):
                 raise ValueError(f"only Serializables created via bare(SerializableSubtype) are permitted as default arguments; "
                                  f"found a fully initialized Serializable: {arg_default} at {path}")
-              self.resolve_bare_default_args(arg_default) # apply recursively
+              OptionParser.resolve_bare_default_args(arg_default) # apply recursively
               setattr(node, expected_arg, copy.deepcopy(arg_default))
 
   def format_strings(self, exp_values, format_dict):
