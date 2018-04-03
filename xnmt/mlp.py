@@ -3,6 +3,8 @@ import dynet as dy
 from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.tree_tools import Ref, Path
 import xnmt.linear
+from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializer import serializable_init
 
 class MLP(Serializable):
   """
@@ -25,31 +27,35 @@ class MLP(Serializable):
   """
   yaml_tag = '!MLP'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")),
-               input_dim=None, hidden_dim=None, output_dim=None,
-               param_init_hidden=None, bias_init_hidden=None,
-               param_init_output=None, bias_init_output=None,
+  @serializable_init
+  def __init__(self,
+               input_dim=Ref("exp_global.default_layer_dim"),
+               hidden_dim=Ref("exp_global.default_layer_dim"),
+               output_dim=Ref("exp_global.default_layer_dim"),
+               param_init_hidden=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init_hidden=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               param_init_output=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init_output=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
                output_projector=None,
-               yaml_path=None, vocab_size=None, vocab=None,
+               yaml_path=None,
+               vocab_size=None,
+               vocab=None,
                trg_reader=Ref(path=Path("model.trg_reader"), required=False),
-               decoder_rnn_dim=None):
-    model = exp_global.dynet_param_collection.param_col
-    self.input_dim = input_dim or exp_global.default_layer_dim
-    self.hidden_dim = hidden_dim or exp_global.default_layer_dim
-    self.output_dim = output_dim or exp_global.default_layer_dim
+               decoder_rnn_dim=Ref("exp_global.default_layer_dim")):
+    model = ParamManager.my_params(self)
+    self.input_dim = input_dim
+    self.hidden_dim = hidden_dim
+    self.output_dim = output_dim
     if yaml_path is not None and "decoder" in yaml_path:
-      decoder_rnn_dim = decoder_rnn_dim or exp_global.default_layer_dim
       self.input_dim += decoder_rnn_dim
       self.output_dim = self.choose_vocab_size(vocab_size, vocab, trg_reader)
 
     self.hidden = xnmt.linear.Linear(
       self.input_dim, self.hidden_dim, model,
-      param_init=param_init_hidden or exp_global.param_init,
-      bias_init=bias_init_hidden or exp_global.bias_init)
+      param_init=param_init_hidden, bias_init=bias_init_hidden)
     self.output = output_projector or xnmt.linear.Linear(
       self.hidden_dim, self.output_dim, model,
-      param_init=param_init_output or exp_global.param_init,
-      bias_init=bias_init_hidden or exp_global.bias_init)
+      param_init=param_init_output, bias_init=bias_init_hidden)
 
   def __call__(self, input_expr):
     return self.output(dy.tanh(self.hidden(input_expr)))

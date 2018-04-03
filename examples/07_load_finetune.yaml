@@ -1,0 +1,67 @@
+# Saving and loading models is a key feature demonstrated in this config file.
+# This example shows how to load a trained model for fine tuning.
+# pretrained model.
+exp1-pretrain-model: !Experiment
+  exp_global: !ExpGlobal
+    # The model file contain the whole contents of this experiment in YAML
+    # format. Note that {EXP} expressions are left intact when saving.
+    default_layer_dim: 64
+    dropout: 0.3
+    weight_noise: 0.1
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    encoder: !BiLSTMSeqTransducer
+      layers: 2
+      input_dim: 64
+    attender: !MlpAttender
+      state_dim: 64
+      hidden_dim: 64
+      input_dim: 64
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    decoder: !MlpSoftmaxDecoder
+      rnn_layer: !UniLSTMSeqTransducer
+        layers: 1
+      mlp_layer: !MLP
+        hidden_dim: 64
+      input_feeding: True
+      bridge: !CopyBridge {}
+    inference: !SimpleInference {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 2
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.dev_hyp
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp
+
+exp2-finetune-model: !LoadSerialized
+  # This will load the contents of the above experiments that were saved to the
+  # YAML file specified after filename:
+  # This will carry out the exact same thing, except that {EXP} is resolved to
+  # a different value (making sure we don't overwrite the previous model),
+  # and except for the things explicitly overwritten in the overwrite: section.
+  # It's possible to change any settings as long as these don't change the number
+  # or nature of DyNet parameters allocated for the component.
+  filename: examples/models/exp1-pretrain-model.mod
+  path: ''
+  overwrite: # list of [path, value] pairs. Value can be scalar or an arbitrary object
+  - path: train.trainer
+    val: !AdamTrainer
+        alpha: 0.0002
+  - path: exp_global.dropout
+    val: 0.5

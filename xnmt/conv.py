@@ -1,9 +1,9 @@
 import dynet as dy
 
-from xnmt.transducer import SeqTransducer, FinalTransducerState
-from xnmt.serialize.serializable import Serializable
 from xnmt.expression_sequence import ExpressionSequence
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.param_collection import ParamManager
+from xnmt.serialize.serializable import Serializable, Ref, Path
+from xnmt.transducer import SeqTransducer, FinalTransducerState
 
 class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!ConvConnectedSeqTransducer'
@@ -13,7 +13,7 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
     Embedding sequence has same length as Input sequence
     """
 
-  def __init__(self, input_dim, window_receptor,output_dim,num_layers,internal_dim,non_linearity='linear', exp_global=Ref(Path("exp_global"))):
+  def __init__(self, input_dim, window_receptor,output_dim,num_layers,internal_dim,non_linearity='linear'):
     """
     Args:
       num_layers: num layers after first receptor conv
@@ -24,7 +24,7 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
       non_linearity: Non linearity to apply between layers
       """
 
-    model = exp_global.dynet_param_collection.param_col
+    model = ParamManager.my_params(self)
     self.input_dim = input_dim
     self.window_receptor = window_receptor
     self.internal_dim = internal_dim

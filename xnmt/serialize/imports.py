@@ -7,6 +7,7 @@ import xnmt.decoder
 import xnmt.embedder
 import xnmt.eval_task
 import xnmt.evaluator
+import xnmt.exp_global
 import xnmt.experiment
 import xnmt.ff
 import xnmt.hyper_parameters
@@ -25,6 +26,7 @@ import xnmt.retriever
 import xnmt.segmenting_composer
 import xnmt.segmenting_encoder
 import xnmt.serialize.tree_tools
+import xnmt.serialize.serializable
 import xnmt.specialized_encoders
 import xnmt.training_regimen
 import xnmt.training_task

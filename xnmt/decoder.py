@@ -1,13 +1,17 @@
 import dynet as dy
-from xnmt.serialize.serializable import Serializable, bare
-from xnmt.serialize.tree_tools import Ref, Path
+
 import xnmt.batcher
-from xnmt.events import register_handler, handle_xnmt_event
+from xnmt.bridge import CopyBridge
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
 import xnmt.linear
+import xnmt.residual
+from xnmt.bridge import CopyBridge
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.mlp import MLP
-from xnmt.bridge import CopyBridge
-from xnmt.param_init import GlorotInitializer
+from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.param_collection import ParamManager
+from xnmt.serialize.serializable import Serializable, bare, Ref, Path
+from xnmt.serialize.serializer import serializable_init
 
 class Decoder(object):
   '''
@@ -38,9 +42,8 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
   Standard MLP softmax decoder.
 
   Args:
-    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
-    input_dim (int): input dimension; if None, use ``exp_global.default_layer_dim``
-    trg_embed_dim (int): dimension of target embeddings; if None, use ``exp_global.default_layer_dim``
+    input_dim (int): input dimension
+    trg_embed_dim (int): dimension of target embeddings
     input_feeding (bool): whether to activate input feeding
     rnn_layer (SeqTransducer): recurrent layer of the decoder; defaults to UniLSTMSeqTransducer
     mlp_layer (MLP): final prediction layer of the decoder
@@ -50,21 +53,23 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
                              "Rethinking the Inception Architecture for Computer Vision"
                              (https://arxiv.org/pdf/1512.00567.pdf)
   """
-  
+
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
 
   yaml_tag = '!MlpSoftmaxDecoder'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")),
-               input_dim=None, trg_embed_dim=None, input_feeding=True,
-               rnn_layer=bare(UniLSTMSeqTransducer), mlp_layer=bare(MLP),
-               bridge=bare(CopyBridge), label_smoothing=0.0):
-    register_handler(self)
-    self.param_col = exp_global.dynet_param_collection.param_col
-    # Define dim
-    trg_embed_dim  = trg_embed_dim or exp_global.default_layer_dim
-    input_dim      = input_dim or exp_global.default_layer_dim
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self,
+               input_dim=Ref("exp_global.default_layer_dim"),
+               trg_embed_dim=Ref("exp_global.default_layer_dim"),
+               input_feeding=True,
+               rnn_layer=bare(UniLSTMSeqTransducer),
+               mlp_layer=bare(MLP),
+               bridge=bare(CopyBridge),
+               label_smoothing=0.0):
+    self.param_col = ParamManager.my_params(self)
     self.input_dim = input_dim
     self.label_smoothing = label_smoothing
     # Input feeding

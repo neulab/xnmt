@@ -230,11 +230,19 @@ TrainingTask
 Parameters
 ----------
 
-PersistentParamCollection
-~~~~~~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: exp_global.PersistentParamCollection
+ParamManager
+~~~~~~~~~~~~
+.. autoclass:: param_collection.ParamManager
    :members:
    :show-inheritance:
+
+ParamCollection
+~~~~~~~~~~~~~~~
+.. autoclass:: param_collection.ParamCollection
+   :members:
+   :show-inheritance:
+
+
 
 
 Optimizer

@@ -44,7 +44,8 @@ This specifies settings that are global to this experiment. An example::
 
 Not that for any strings used here or anywhere in the config file ``{EXP}`` will
 be over-written by the name of the experiment, ``{EXP_DIR}`` will be overwritten
-by the directory the config file lies in, and ``{PID}`` by the process id.
+by the directory the config file lies in, ``{PID}`` by the process id, and
+``{GIT_REV}`` by the current git revision.
 
 To obtain a full list of allowed parameters, please check the constructor of
 ``ExpGlobal``, specified under xnmt/exp_global.py. Behind the scenes, this class

@@ -4,6 +4,7 @@ import numpy as np
 import dynet as dy
 
 from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializer import serializable_init
 
 class ParamInitializer(object):
   """
@@ -34,6 +35,8 @@ class NormalInitializer(ParamInitializer, Serializable):
     var (float): Variance of the distribution
   """
   yaml_tag = "!NormalInitializer"
+
+  @serializable_init
   def __init__(self, mean=0, var=1):
     self.mean = mean
     self.var = var
@@ -46,9 +49,11 @@ class UniformInitializer(ParamInitializer, Serializable):
   
   Initialize the parameters with a uniform distribution.
   Args:
-    scale (float): Parameters are sampled from :math:`\mathcal U([-\\texttt{scale},\\texttt{scale}])`
+    scale (float): Parameters are sampled from :math:`\\mathcal U([-\\texttt{scale},\\texttt{scale}])`
   """
   yaml_tag = "!UniformInitializer"
+
+  @serializable_init
   def __init__(self, scale):
     self.scale = scale
   def initializer(self, dim, is_lookup=False, num_shared=1):
@@ -64,6 +69,8 @@ class ConstInitializer(ParamInitializer, Serializable):
     c (float): Value to initialize the parameters
   """
   yaml_tag = "!ConstInitializer"
+
+  @serializable_init
   def __init__(self, c):
     self.c = c
   def initializer(self, dim, is_lookup=False, num_shared=1):
@@ -75,7 +82,7 @@ class GlorotInitializer(ParamInitializer, Serializable):
   
   Initializes the weights according to `Glorot & Bengio (2011) <http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf>`_ 
     
-    If the dimensions of the parameter matrix are :math:`m,n`, the weights are sampled from :math:`\mathcal U([-g\sqrt{\\frac{6}{m+n}},g\sqrt{\\frac{6}{m+n}}])`
+    If the dimensions of the parameter matrix are :math:`m,n`, the weights are sampled from :math:`\\mathcal U([-g\\sqrt{\\frac{6}{m+n}},g\\sqrt{\\frac{6}{m+n}}])`
     
     The gain :math:`g` depends on the activation function : 
 
@@ -92,14 +99,16 @@ class GlorotInitializer(ParamInitializer, Serializable):
     gain (float): Gain (Depends on the activation function)
   """
   yaml_tag = "!GlorotInitializer"
+
+  @serializable_init
   def __init__(self, gain=1.0):
     self.gain = gain
-  def initializer(self, dim, is_lookup=False, num_shared=1):
+  def initializer(self, dim:tuple, is_lookup:bool=False, num_shared:int=1):
     """
     Args:
-      dim (tuple): dimensions of parameter tensor
-      is_lookup (bool): Whether the parameter is a lookup parameter
-      num_shared (int): If > 1, treat the first dimension as spanning multiple matrices, each of which is initialized individually
+      dim: dimensions of parameter tensor
+      is_lookup : Whether the parameter is a lookup parameter
+      num_shared: If > 1, treat the first dimension as spanning multiple matrices, each of which is initialized individually
     Returns:
       a dynet initializer object
     """
@@ -124,6 +133,8 @@ class FromFileInitializer(ParamInitializer, Serializable):
     fname (str): File name
   """
   yaml_tag = "!FromFileInitializer"
+
+  @serializable_init
   def __init__(self, fname):
     self.fname = fname
   def initializer(self, dim, is_lookup=False, num_shared=1):
@@ -141,6 +152,8 @@ class NumpyInitializer(ParamInitializer, Serializable):
     array (np.ndarray): Numpy array
   """
   yaml_tag = "!NumpyInitializer"
+
+  @serializable_init
   def __init__(self, array):
     self.array = array
   def initializer(self, dim, is_lookup=False, num_shared=1):
@@ -154,6 +167,11 @@ class ZeroInitializer(ParamInitializer, Serializable):
   Initializes parameter matrix to zero (most appropriate for bias parameters).
   """
   yaml_tag="!ZeroInitializer"
+
+  @serializable_init
+  def __init__(self):
+    pass
+
   def initializer(self, dim, is_lookup=False, num_shared=1):
     return dy.ConstInitializer(c=0.0)
 
@@ -166,8 +184,11 @@ class LeCunUniformInitializer(ParamInitializer, Serializable):
     scale (float): scale
   """
   yaml_tag = "!LeCunUniformInitializer"
+
+  @serializable_init
   def __init__(self, scale=1.0):
     self.scale = scale
+
   def initializer(self, dim, is_lookup=False, num_shared=1):
     if is_lookup:
       fan_in = dim[0]

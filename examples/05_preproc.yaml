@@ -1,24 +1,34 @@
 # XNMT supports various ways to preprocess data as demonstrated in this example.
 # Note that some preprocessing functionality relies on third-party tools.
 preproc: !Experiment
+  exp_global: !ExpGlobal
+    # define some named strings that can be used throughout the experiment config:
+    placeholders:
+      # Specify <SENTENCEPIECE_SRC_PATH> with src/ directory of sentencepiece repository
+      # The spm_* executables should be located at <SENTENCEPIECE_SRC_PATH>
+      SENTENCEPIECE_SRC_PATH: ''
+
+      DATA_IN: examples/data/
+      DATA_OUT: examples/preproc/
+
   preproc: !PreprocRunner
     overwrite: False
-    preproc_specs:
-    - type: tokenize
+    tasks:
+    - !PreprocTokenize
       in_files:
-      - examples/data/train.ja
-      - examples/data/train.en
-      - examples/data/dev.ja
-      - examples/data/dev.en
-      - examples/data/test.ja
-      - examples/data/test.en
+      - '{DATA_IN}/train.ja'
+      - '{DATA_IN}/train.en'
+      - '{DATA_IN}/dev.ja'
+      - '{DATA_IN}/dev.en'
+      - '{DATA_IN}/test.ja'
+      - '{DATA_IN}/test.en'
       out_files:
-      - examples/preproc/train.tok.ja
-      - examples/preproc/train.tok.en
-      - examples/preproc/dev.tok.ja
-      - examples/preproc/dev.tok.en
-      - examples/preproc/test.tok.ja
-      - examples/preproc/test.tok.en
+      - '{DATA_OUT}/train.tok.ja'
+      - '{DATA_OUT}/train.tok.en'
+      - '{DATA_OUT}/dev.tok.ja'
+      - '{DATA_OUT}/dev.tok.en'
+      - '{DATA_OUT}/test.tok.ja'
+      - '{DATA_OUT}/test.tok.en'
       specs:
       - filenum: all
         tokenizers:
@@ -27,52 +37,52 @@ preproc: !Experiment
           # The spm_* executables should be located at <SENTENCEPIECE_SRC_PATH>
           path: <SENTENCEPIECE_SRC_PATH>
           train_files:
-           - examples/data/train.ja
-           - examples/data/train.en
+           - '{DATA_IN}/train.ja'
+           - '{DATA_IN}/train.en'
           vocab_size: 8000
           model_type: unigram
-          model_prefix: examples/preproc/sentpiece
-    - type: normalize
+          model_prefix: '{DATA_OUT}/sentpiece'
+    - !PreprocNormalize
       in_files:
-      - examples/preproc/train.tok.ja
-      - examples/preproc/train.tok.en
-      - examples/preproc/dev.tok.ja
-      - examples/preproc/dev.tok.en
-      - examples/preproc/test.tok.ja
-      - examples/preproc/test.tok.en
-      - examples/data/dev.en
-      - examples/data/test.en
+      - '{DATA_OUT}/train.tok.ja'
+      - '{DATA_OUT}/train.tok.en'
+      - '{DATA_OUT}/dev.tok.ja'
+      - '{DATA_OUT}/dev.tok.en'
+      - '{DATA_OUT}/test.tok.ja'
+      - '{DATA_OUT}/test.tok.en'
+      - '{DATA_IN}/dev.en'
+      - '{DATA_IN}/test.en'
       out_files:
-      - examples/preproc/train.tok.norm.ja
-      - examples/preproc/train.tok.norm.en
-      - examples/preproc/dev.tok.norm.ja
-      - examples/preproc/dev.tok.norm.en
-      - examples/preproc/test.tok.norm.ja
-      - examples/preproc/test.tok.norm.en
-      - examples/preproc/dev.norm.en
-      - examples/preproc/test.norm.en
+      - '{DATA_OUT}/train.tok.norm.ja'
+      - '{DATA_OUT}/train.tok.norm.en'
+      - '{DATA_OUT}/dev.tok.norm.ja'
+      - '{DATA_OUT}/dev.tok.norm.en'
+      - '{DATA_OUT}/test.tok.norm.ja'
+      - '{DATA_OUT}/test.tok.norm.en'
+      - '{DATA_OUT}/dev.norm.en'
+      - '{DATA_OUT}/test.norm.en'
       specs:
       - filenum: all
         spec:
         - type: lower
-    - type: filter
+    - !PreprocFilter
       in_files:
-      - examples/preproc/train.tok.norm.ja
-      - examples/preproc/train.tok.norm.en
+      - '{DATA_OUT}/train.tok.norm.ja'
+      - '{DATA_OUT}/train.tok.norm.en'
       out_files:
-      - examples/preproc/train.tok.norm.filter.ja
-      - examples/preproc/train.tok.norm.filter.en
+      - '{DATA_OUT}/train.tok.norm.filter.ja'
+      - '{DATA_OUT}/train.tok.norm.filter.en'
       specs:
       - type: length
         min: 1
         max: 60
     - type: vocab
       in_files:
-      - examples/preproc/train.tok.norm.ja
-      - examples/preproc/train.tok.norm.en
+      - '{DATA_OUT}/train.tok.norm.ja'
+      - '{DATA_OUT}/train.tok.norm.en'
       out_files:
-      - examples/preproc/train.vocab.ja
-      - examples/preproc/train.vocab.en
+      - '{DATA_OUT}/train.vocab.ja'
+      - '{DATA_OUT}/train.vocab.en'
       specs:
       - filenum: all
         spec:
@@ -105,20 +115,20 @@ preproc: !Experiment
       post_process: join-piece
   train: !SimpleTrainingRegimen
     run_for_epochs: 20
-    src_file: examples/preproc/dev.tok.norm.ja
-    trg_file: examples/preproc/dev.tok.norm.en
+    src_file: '{DATA_OUT}/dev.tok.norm.ja'
+    trg_file: '{DATA_OUT}/dev.tok.norm.en'
     dev_tasks:
       - !AccuracyEvalTask
         eval_metrics: bleu
-        src_file: examples/preproc/dev.tok.norm.ja
-        ref_file: examples/preproc/dev.norm.en
+        src_file: '{DATA_OUT}/dev.tok.norm.ja'
+        ref_file: '{DATA_OUT}/dev.norm.en'
         hyp_file: examples/output/{EXP}.dev_hyp
       - !LossEvalTask
-        src_file: examples/preproc/dev.tok.norm.ja
-        ref_file: examples/preproc/dev.tok.norm.en
+        src_file: '{DATA_OUT}/dev.tok.norm.ja'
+        ref_file: '{DATA_OUT}/dev.tok.norm.en'
   evaluate:
   - !AccuracyEvalTask
     eval_metrics: bleu
-    src_file: examples/preproc/test.tok.norm.ja
-    ref_file: examples/preproc/test.norm.en
+    src_file: '{DATA_OUT}/test.tok.norm.ja'
+    ref_file: '{DATA_OUT}/test.norm.en'
     hyp_file: examples/output/{EXP}.test_hyp
