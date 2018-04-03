@@ -150,7 +150,7 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
     self.weight_noise = weight_noise
     self.word_dropout = word_dropout
     self.emb_dim = emb_dim
-    param_collection = ParamManager.my_subcollection(self)
+    param_collection = ParamManager.my_params(self)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
     self.overwrite_serialize_param("vocab_size", self.vocab_size)
     self.embeddings = param_collection.add_parameters((self.vocab_size, self.emb_dim), init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
@@ -238,7 +238,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.fix_norm = fix_norm
     self.word_id_mask = None
     self.train = False
-    param_collection = ParamManager.my_subcollection(self)
+    param_collection = ParamManager.my_params(self)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
     self.overwrite_serialize_param("vocab_size", self.vocab_size)
     self.embeddings = param_collection.add_lookup_parameters((self.vocab_size, self.emb_dim),
@@ -357,7 +357,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     self.train = False
     self.fix_norm = fix_norm
     self.pretrained_filename = filename
-    param_collection = ParamManager.my_subcollection(self)
+    param_collection = ParamManager.my_params(self)
     self.vocab = self.choose_vocab(vocab, yaml_path, src_reader, trg_reader)
     self.vocab_size = len(vocab)
     self.overwrite_serialize_param("vocab_size", self.vocab_size)

@@ -43,7 +43,7 @@ class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
     self.attention_dim = attention_dim
     self.residual = residual
 
-    model = ParamManager.my_subcollection(self)
+    model = ParamManager.my_params(self)
     # Convolutional layer
     self.filter_conv = model.add_parameters(dim=(self.filter_height, self.filter_width, self.channels, self.num_filters))
     # Recurrent highway layer
@@ -117,7 +117,7 @@ class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
       input_dim: size of the inputs
       hidden_dim: size of the outputs (and intermediate RNN layer representations)
     """
-    model = ParamManager.my_subcollection(self)
+    model = ParamManager.my_params(self)
     self.filter_height = filter_height
     self.filter_width = filter_width
     self.channels = channels
@@ -180,7 +180,7 @@ class HarwathImageTransducer(Transducer, Serializable):
       hidden_dim: size of the outputs (and intermediate RNN layer representations)
       """
 
-    model = ParamManager.my_subcollection(self)
+    model = ParamManager.my_params(self)
     self.in_height = in_height
     self.out_height = out_height
 

@@ -44,7 +44,7 @@ class Serializable(yaml.YAMLObject):
       self.serialize_params = {}
     self.serialize_params[key] = val
 
-  def reuse_or_register(self, name, passed, create_fct):
+  def add_serializable_component(self, name, passed, create_fct):
     """
     Helper to create a Serializable sub-object.
 

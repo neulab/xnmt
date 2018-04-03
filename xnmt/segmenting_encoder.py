@@ -49,7 +49,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                log_reward         = True,
                debug=False,
                print_sample=False):
-    model = ParamManager.my_subcollection(self)
+    model = ParamManager.my_params(self)
     # Sanity check
     assert embed_encoder is not None
     assert segment_composer is not None

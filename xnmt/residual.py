@@ -54,17 +54,18 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
                residual_to_output=False, dropout=0.0, bidirectional=True, builder=None):
     self._final_states = None
     if bidirectional:
-      self.builder = self.reuse_or_register("builder", builder,
-                                            lambda: ResidualBiRNNBuilder(num_layers=layers, input_dim=input_dim,
-                                                                         hidden_dim=hidden_dim,
-                                                                         add_to_output=residual_to_output,
-                                                                         dropout=dropout))
+      self.builder = self.add_serializable_component("builder", builder,
+                                                     lambda: ResidualBiRNNBuilder(num_layers=layers,
+                                                                                  input_dim=input_dim,
+                                                                                  hidden_dim=hidden_dim,
+                                                                                  add_to_output=residual_to_output,
+                                                                                  dropout=dropout))
     else:
-      self.builder = self.reuse_or_register("builder", builder,
-                                            lambda: ResidualRNNBuilder(num_layers=layers, input_dim=input_dim,
-                                                                       hidden_dim=hidden_dim,
-                                                                       add_to_output=residual_to_output,
-                                                                       dropout=dropout))
+      self.builder = self.add_serializable_component("builder", builder,
+                                                     lambda: ResidualRNNBuilder(num_layers=layers, input_dim=input_dim,
+                                                                                hidden_dim=hidden_dim,
+                                                                                add_to_output=residual_to_output,
+                                                                                dropout=dropout))
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -104,7 +105,7 @@ class ResidualRNNBuilder(Serializable):
   @serializable_init
   def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None, builder_layers=None):
     assert num_layers > 0
-    self.builder_layers = self.reuse_or_register("builder_layers", builder_layers, lambda: [
+    self.builder_layers = self.add_serializable_component("builder_layers", builder_layers, lambda: [
       UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim, dropout=dropout) for i
       in range(num_layers)])
 
@@ -202,20 +203,20 @@ class ResidualBiRNNBuilder(Serializable):
                residual_network=None):
     assert num_layers > 1
     assert hidden_dim % 2 == 0
-    self.forward_layer = self.reuse_or_register("forward_layer", forward_layer,
-                                                lambda: UniLSTMSeqTransducer(input_dim=input_dim,
-                                                                             hidden_dim=hidden_dim / 2,
-                                                                             dropout=dropout))
-    self.backward_layer = self.reuse_or_register("backward_layer", backward_layer,
-                                                 lambda: UniLSTMSeqTransducer(input_dim=input_dim,
-                                                                              hidden_dim=hidden_dim / 2,
-                                                                              dropout=dropout))
-    self.residual_network = self.reuse_or_register("residual_network", residual_network,
-                                                   lambda: ResidualRNNBuilder(num_layers=num_layers - 1,
-                                                                              input_dim=hidden_dim,
-                                                                              hidden_dim=hidden_dim,
-                                                                              add_to_output=add_to_output,
-                                                                              dropout=dropout))
+    self.forward_layer = self.add_serializable_component("forward_layer", forward_layer,
+                                                         lambda: UniLSTMSeqTransducer(input_dim=input_dim,
+                                                                                      hidden_dim=hidden_dim / 2,
+                                                                                      dropout=dropout))
+    self.backward_layer = self.add_serializable_component("backward_layer", backward_layer,
+                                                          lambda: UniLSTMSeqTransducer(input_dim=input_dim,
+                                                                                       hidden_dim=hidden_dim / 2,
+                                                                                       dropout=dropout))
+    self.residual_network = self.add_serializable_component("residual_network", residual_network,
+                                                            lambda: ResidualRNNBuilder(num_layers=num_layers - 1,
+                                                                                       input_dim=hidden_dim,
+                                                                                       hidden_dim=hidden_dim,
+                                                                                       add_to_output=add_to_output,
+                                                                                       dropout=dropout))
 
   def get_final_states(self):
     return self._final_states

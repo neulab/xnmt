@@ -15,11 +15,13 @@ sharing of DyNet parameters, etc., one must adhere to the Serializable interface
 6. If the component uses DyNet parameters, the calls to ``dynet_model.add_parameters()`` etc. must take place in ``__init__`` (or a
    helper called from within ``__init__``). It is not permitted to allocate parameters after ``__init__`` has been executed.
    The component will get assigned its own unique DyNet parameter collection, which can be requested using
-   ``xnmt.param_collection.ParamManager.my_subcollection(self)``. Subcollections should never be passed to sub-objects
+   ``xnmt.param_collection.ParamManager.my_params(self)``. Subcollections should never be passed to sub-objects
    that are ``Serializable``. Behind the scenes, components will get assigned a unique subcollection id which ensures
    that they can be loaded later along with their pretrained weights, and even combined with components trained from
    a different config file.
 7. If a class uses helper objects that are also ``Serializable``, this must occur in a certain way:
 
  - the ``Serializable`` object must be accepted as argument in ``__init__``.
- - It can be set to ``None`` by default, in which case it must be constructed manually within ``__init__``. This should take place using the Serializable.reuse_or_register() helper, e.g. as follows: ``self.vocab_projector = self.reuse_or_register("vocab_projector", vocab_projector, lambda: xnmt.linear.Linear(input_dim=mlp_hidden_dim, output_dim=vocab_size, param_init=param_init_output, bias_init=bias_init_output))``
+ - It can be set to ``None`` by default, in which case it must be constructed manually within ``__init__``.
+   This should take place using the Serializable.add_serializable_component() helper, e.g. as follows:
+   ``self.vocab_projector = self.add_serializable_component("vocab_projector", vocab_projector, lambda: xnmt.linear.Linear(input_dim=mlp_hidden_dim, output_dim=vocab_size, param_init=param_init_output, bias_init=bias_init_output))``

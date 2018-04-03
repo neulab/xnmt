@@ -25,7 +25,7 @@ class Linear(Serializable):
     self.bias = bias
     self.output_dim = output_dim
 
-    model = ParamManager.my_subcollection(self)
+    model = ParamManager.my_params(self)
     self.W1 = model.add_parameters((output_dim, input_dim), init=param_init.initializer((output_dim, input_dim)))
     if self.bias:
       self.b1 = model.add_parameters((output_dim,), init=bias_init.initializer((output_dim,)))

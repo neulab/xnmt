@@ -24,7 +24,7 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
       non_linearity: Non linearity to apply between layers
       """
 
-    model = ParamManager.my_subcollection(self)
+    model = ParamManager.my_params(self)
     self.input_dim = input_dim
     self.window_receptor = window_receptor
     self.internal_dim = internal_dim

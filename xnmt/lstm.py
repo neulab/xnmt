@@ -38,7 +38,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
                weightnoise_std=Ref("exp_global.weight_noise", default=0.0),
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
-    model = ParamManager.my_subcollection(self)
+    model = ParamManager.my_params(self)
     self.hidden_dim = hidden_dim
     self.dropout_rate = dropout
     self.weightnoise_std = weightnoise_std
@@ -151,13 +151,13 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
     self.dropout_rate = dropout
     self.weightnoise_std = weightnoise_std
     assert hidden_dim % 2 == 0
-    self.forward_layers = self.reuse_or_register("forward_layers", forward_layers, lambda: [
+    self.forward_layers = self.add_serializable_component("forward_layers", forward_layers, lambda: [
       UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim / 2, dropout=dropout,
                            weightnoise_std=weightnoise_std,
                            param_init=param_init[i] if isinstance(param_init, Sequence) else param_init,
                            bias_init=bias_init[i] if isinstance(bias_init, Sequence) else bias_init) for i in
       range(layers)])
-    self.backward_layers = self.reuse_or_register("backward_layers", backward_layers, lambda: [
+    self.backward_layers = self.add_serializable_component("backward_layers", backward_layers, lambda: [
       UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim / 2, dropout=dropout,
                            weightnoise_std=weightnoise_std,
                            param_init=param_init[i] if isinstance(param_init, Sequence) else param_init,
@@ -218,7 +218,7 @@ class CustomLSTMSeqTransducer(SeqTransducer, Serializable):
     if layers!=1: raise RuntimeError("CustomLSTMSeqTransducer supports only exactly one layer")
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
-    model = ParamManager.my_subcollection(self)
+    model = ParamManager.my_params(self)
 
     # [i; f; o; g]
     self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim), init=param_init.initializer((hidden_dim*4, input_dim)))

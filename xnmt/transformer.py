@@ -245,7 +245,7 @@ class TransformerEncoder(Serializable):
   @serializable_init
   def __init__(self, layers=1, input_dim=512, h=1,
                dropout=0.0, attn_dropout=False, layer_norm=False, **kwargs):
-    dy_model = ParamManager.my_subcollection(self)
+    dy_model = ParamManager.my_params(self)
     self.layer_names = []
     for i in range(1, layers + 1):
       name = 'l{}'.format(i)
@@ -280,7 +280,7 @@ class TransformerDecoder(Serializable):
                dropout=0.0, attn_dropout=False, layer_norm=False,
                vocab_size = None, vocab = None,
                trg_reader = Ref("model.trg_reader")):
-    dy_model = ParamManager.my_subcollection(self)
+    dy_model = ParamManager.my_params(self)
     self.layer_names = []
     for i in range(1, layers + 1):
       name = 'l{}'.format(i)

@@ -86,7 +86,7 @@ class LinearBridge(Bridge, Serializable):
                dec_dim = Ref("exp_global.default_layer_dim"),
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
-    param_col = ParamManager.my_subcollection(self)
+    param_col = ParamManager.my_params(self)
     self.dec_layers = dec_layers
     self.enc_dim = enc_dim
     self.dec_dim = dec_dim

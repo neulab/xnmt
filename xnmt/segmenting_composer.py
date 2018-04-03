@@ -46,7 +46,7 @@ class TailWordSegmentTransformer(SegmentTransformer):
                count_file=None, min_count=1, embed_dim=Ref("exp_global.default_layer_dim")):
     assert vocab is not None
     self.vocab = vocab
-    self.lookup = ParamManager.my_subcollection(self).add_lookup_parameters((vocab_size, embed_dim))
+    self.lookup = ParamManager.my_params(self).add_lookup_parameters((vocab_size, embed_dim))
     self.frequent_words = None
 
     if count_file is not None:

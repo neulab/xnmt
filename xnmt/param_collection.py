@@ -48,10 +48,10 @@ class ParamManager(object):
                   f"  Did not populate {ParamManager.param_col.subcols.keys() - set(populated_subcols)}")
 
   @staticmethod
-  def my_subcollection(subcol_owner):
+  def my_params(subcol_owner):
     assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
-    """Creates a dedicated subcollection for a serializable object. This should only be called from the __init__ method
-    of a Serializable.
+    """Creates a dedicated parameter subcollection for a serializable object. This should only be called from the
+    __init__ method of a Serializable.
 
     Args:
       subcol_owner (Serializable): The object which is requesting to be assigned a subcollection.

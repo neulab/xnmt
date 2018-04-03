@@ -105,7 +105,7 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                vocab_size = None,
                vocab = None,
                trg_reader = Ref("model.trg_reader", default=None)):
-    self.param_col = ParamManager.my_subcollection(self)
+    self.param_col = ParamManager.my_params(self)
     self.mlp_hidden_dim = mlp_hidden_dim = mlp_hidden_dim
     self.input_dim = input_dim
     self.label_smoothing = label_smoothing
@@ -133,17 +133,17 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
           self.fwd_lstm.param_collection().parameters_list()[3*l+i].scale(param_init_lstm.gain)
 
     # MLP
-    self.context_projector = self.reuse_or_register("context_projector", context_projector,
-                                                    lambda: xnmt.linear.Linear(input_dim=input_dim + lstm_dim,
-                                                                               output_dim=mlp_hidden_dim,
-                                                                               param_init=param_init_context,
-                                                                               bias_init=bias_init_context))
+    self.context_projector = self.add_serializable_component("context_projector", context_projector,
+                                                             lambda: xnmt.linear.Linear(input_dim=input_dim + lstm_dim,
+                                                                                        output_dim=mlp_hidden_dim,
+                                                                                        param_init=param_init_context,
+                                                                                        bias_init=bias_init_context))
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, trg_reader)
-    self.vocab_projector = self.reuse_or_register("vocab_projector", vocab_projector,
-                                                  lambda: xnmt.linear.Linear(input_dim=self.mlp_hidden_dim,
-                                                                             output_dim=self.vocab_size,
-                                                                             param_init=param_init_output,
-                                                                             bias_init=bias_init_output))
+    self.vocab_projector = self.add_serializable_component("vocab_projector", vocab_projector,
+                                                           lambda: xnmt.linear.Linear(input_dim=self.mlp_hidden_dim,
+                                                                                      output_dim=self.vocab_size,
+                                                                                      param_init=param_init_output,
+                                                                                      bias_init=bias_init_output))
     # Dropout
     self.dropout = dropout
 

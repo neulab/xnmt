@@ -65,7 +65,7 @@ class MlpAttender(Attender, Serializable):
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
-    param_collection = ParamManager.my_subcollection(self)
+    param_collection = ParamManager.my_params(self)
     self.pW = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
     self.pV = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
     self.pb = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
@@ -160,7 +160,7 @@ class BilinearAttender(Attender, Serializable):
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer))):
     self.input_dim = input_dim
     self.state_dim = state_dim
-    param_collection = ParamManager.my_subcollection(self)
+    param_collection = ParamManager.my_params(self)
     self.pWa = param_collection.add_parameters((input_dim, state_dim), init=param_init.initializer((input_dim, state_dim)))
     self.curr_sent = None
 

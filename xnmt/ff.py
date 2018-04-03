@@ -14,7 +14,7 @@ class FullyConnectedSeqTransducer(SeqTransducer, Serializable):
       out_height: output dimension of the affine transform
       nonlinearity: nonlinear activation function
     """
-    model = ParamManager.my_subcollection(self)
+    model = ParamManager.my_params(self)
     self.in_height = in_height
     self.out_height = out_height
     self.nonlinearity = nonlinearity
