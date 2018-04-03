@@ -52,7 +52,7 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
   @serializable_init
   def __init__(self, input_dim=512, layers=1, hidden_dim=Ref("exp_global.default_layer_dim"),
                residual_to_output=False, dropout=0.0, bidirectional=True, builder=None,
-               yaml_path=None, decoder_input_dim=Ref("exp_global.default_layer_dim"), decoder_input_feeding=True):
+               yaml_path=None, decoder_input_dim=Ref("exp_global.default_layer_dim", default=None), decoder_input_feeding=True):
     self._final_states = None
     if yaml_path is not None and "decoder" in yaml_path:
       bidirectional = False

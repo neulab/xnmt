@@ -76,6 +76,8 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     decoder_input_dim (int): input dimension of the decoder; if ``yaml_path`` contains 'decoder' and ``decoder_input_feeding`` is True, this will be added to ``input_dim``
     decoder_input_feeding (bool): whether this transducer is part of an input-feeding decoder; cf. ``decoder_input_dim``
   """
+  yaml_tag = '!UniLSTMSeqTransducer'
+
   @register_xnmt_handler
   @serializable_init
   def __init__(self,
@@ -87,8 +89,8 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
                yaml_path=None,
-               decoder_input_dim=Ref("exp_global.default_layer_dim"),
-               decoder_input_feeding=False):
+               decoder_input_dim=Ref("exp_global.default_layer_dim", default=None),
+               decoder_input_feeding=True):
     self.num_layers = layers
     model = ParamManager.my_params(self)
     if yaml_path is not None and "decoder" in yaml_path:
@@ -98,6 +100,11 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     self.dropout_rate = dropout
     self.weightnoise_std = weightnoise_std
     self.input_dim = input_dim
+
+    if not isinstance(param_init, Sequence):
+        param_init = [param_init] * layers
+    if not isinstance(bias_init, Sequence):
+        bias_init = [bias_init] * layers
 
     # [i; f; o; g]
     self.p_Wx = [model.add_parameters(dim=(hidden_dim*4, input_dim), init=param_init[0].initializer((hidden_dim*4, input_dim), num_shared=4))]

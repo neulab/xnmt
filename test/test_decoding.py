@@ -35,8 +35,8 @@ class TestForcedDecodingOutputs(unittest.TestCase):
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)
@@ -70,8 +70,8 @@ class TestForcedDecodingLoss(unittest.TestCase):
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)
@@ -107,8 +107,8 @@ class TestFreeDecodingLoss(unittest.TestCase):
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)

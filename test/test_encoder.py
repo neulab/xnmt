@@ -12,6 +12,7 @@ from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.mlp import MLP
 from xnmt.residual import ResidualLSTMSeqTransducer
 from xnmt.attender import MlpAttender
+from xnmt.bridge import CopyBridge
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.input_reader import PlainTextReader
 from xnmt.param_collection import ParamManager
@@ -56,8 +57,8 @@ class TestEncoder(unittest.TestCase):
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.assert_in_out_len_equal(model)
@@ -73,8 +74,8 @@ class TestEncoder(unittest.TestCase):
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.assert_in_out_len_equal(model)
@@ -90,8 +91,8 @@ class TestEncoder(unittest.TestCase):
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.assert_in_out_len_equal(model)
@@ -107,8 +108,8 @@ class TestEncoder(unittest.TestCase):
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.set_train(True)
@@ -131,8 +132,8 @@ class TestEncoder(unittest.TestCase):
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
 

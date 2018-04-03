@@ -1,5 +1,6 @@
 import dynet as dy
 
+from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.serialize.serializable import Serializable, Ref, Path, bare
 from xnmt.serialize.serializer import serializable_init
@@ -10,19 +11,19 @@ class MLP(Serializable):
   Multi-layer perceptron.
 
   Args:
-    input_dim (int): input dimension; if None, use ``exp_global.default_layer_dim``
-    hidden_dim (int): hidden dimension; if None, use ``exp_global.default_layer_dim``
-    output_dim (int): output dimension; if None, use ``exp_global.default_layer_dim``; if ``yaml_path`` contains 'decoder', this argument will be ignored (and set via ``vocab_size``/``vocab``/``trg_reader`` instead)
-    param_init_hidden (ParamInitializer): how to initialize hidden weight matrices; if None, use ``exp_global.param_init``
-    bias_init_hidden (ParamInitializer): how to initialize hidden bias vectors; if None, use ``exp_global.bias_init``
-    param_init_output (ParamInitializer): how to initialize output weight matrices; if None, use ``exp_global.param_init``
-    bias_init_output (ParamInitializer): how to initialize output bias vectors; if None, use ``exp_global.bias_init``
+    input_dim (int): input dimension
+    hidden_dim (int): hidden dimension
+    output_dim (int): output dimension; if ``yaml_path`` contains 'decoder', this argument will be ignored (and set via ``vocab_size``/``vocab``/``trg_reader`` instead)
+    param_init_hidden (ParamInitializer): how to initialize hidden weight matrices
+    bias_init_hidden (ParamInitializer): how to initialize hidden bias vectors
+    param_init_output (ParamInitializer): how to initialize output weight matrices
+    bias_init_output (ParamInitializer): how to initialize output bias vectors
     output_projector: TODO
     yaml_path (str):
     vocab_size (int): vocab size or None; if not None and ``yaml_path`` contains 'decoder', this will overwrite ``output_dim``
     vocab (Vocab): vocab or None; if not None and ``yaml_path`` contains 'decoder', this will overwrite ``output_dim``
     trg_reader (InputReader): Model's trg_reader, if exists and unambiguous; if not None and ``yaml_path`` contains 'decoder', this will overwrite ``output_dim``
-    decoder_rnn_dim (int): dimension of a decoder RNN that feeds into this MLP; if ``yaml_path`` contains 'decoder', this will be added to ``input_dim``; if None, use ``exp_global.default_layer_dim``
+    decoder_rnn_dim (int): dimension of a decoder RNN that feeds into this MLP; if ``yaml_path`` contains 'decoder', this will be added to ``input_dim``
   """
   yaml_tag = '!MLP'
 
@@ -30,7 +31,7 @@ class MLP(Serializable):
   def __init__(self,
                input_dim=Ref("exp_global.default_layer_dim"),
                hidden_dim=Ref("exp_global.default_layer_dim"),
-               output_dim=Ref("exp_global.default_layer_dim"),
+               output_dim=Ref("exp_global.default_layer_dim", default=None),
                param_init_hidden=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init_hidden=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
                param_init_output=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
@@ -39,8 +40,8 @@ class MLP(Serializable):
                yaml_path=None,
                vocab_size=None,
                vocab=None,
-               trg_reader=Ref(path=Path("model.trg_reader"), required=False),
-               decoder_rnn_dim=Ref("exp_global.default_layer_dim")):
+               trg_reader=Ref("model.trg_reader", default=None),
+               decoder_rnn_dim=Ref("exp_global.default_layer_dim", default=None)):
     model = ParamManager.my_params(self)
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
