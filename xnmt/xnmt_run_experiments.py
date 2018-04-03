@@ -21,6 +21,7 @@ if settings.RESOURCE_WARNINGS:
   import warnings
   warnings.simplefilter('always', ResourceWarning)
 
+from xnmt.param_collection import ParamManager
 from xnmt.serialize.options import OptionParser
 from xnmt.tee import Tee, get_git_revision
 from xnmt.serialize.serializer import YamlSerializer
@@ -70,16 +71,19 @@ def main(overwrite_args=None):
         raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
   
     for experiment_name in experiment_names:
-      uninitialized_exp_args = config_parser.parse_experiment(args.experiments_file, experiment_name)
+
+      ParamManager.init_param_col()
+
+      uninitialized_exp_args = config_parser.parse_experiment_file(args.experiments_file, experiment_name)
   
-      logger.info("=> Running {}".format(experiment_name))
+      logger.info(f"=> Running {experiment_name}")
       logger.debug(f"running XNMT revision {get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
       yaml_serializer = YamlSerializer()
   
       glob_args = uninitialized_exp_args.data.exp_global
       log_file = glob_args.log_file
-      
+
       if os.path.isfile(log_file) and not settings.OVERWRITE_LOG:
         logger.warning(f"log file {log_file} already exists; please delete by hand if you want to overwrite it (or use --settings=settings.debug or otherwise set OVERWRITE_LOG=True); skipping experiment..")
         continue
@@ -92,10 +96,13 @@ def main(overwrite_args=None):
   
       # Create the model
       experiment = yaml_serializer.initialize_if_needed(uninitialized_exp_args)
-  
+      ParamManager.param_col.model_file = experiment.exp_global.model_file
+      ParamManager.param_col.save_num_checkpoints = experiment.exp_global.save_num_checkpoints
+      ParamManager.populate()
+
       # Run the experiment
       eval_scores = experiment(save_fct = lambda: yaml_serializer.save_to_file(model_file, experiment,
-                                                                               experiment.exp_global.dynet_param_collection))
+                                                                               ParamManager.param_col))
       results.append((experiment_name, eval_scores))
       print_results(results)
       

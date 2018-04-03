@@ -1,4 +1,5 @@
 from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializer import serializable_init
 
 class Vocab(Serializable):
   '''
@@ -20,6 +21,7 @@ class Vocab(Serializable):
   ES_STR = "</s>"
   UNK_STR = "<unk>"
 
+  @serializable_init
   def __init__(self, i2w=None, vocab_file=None):
     assert i2w is None or vocab_file is None
     if vocab_file:

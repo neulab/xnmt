@@ -1,12 +1,14 @@
 import dynet as dy
-from xnmt.serialize.serializable import Serializable, bare
-from xnmt.serialize.tree_tools import Ref, Path
+
 import xnmt.batcher
-from xnmt.events import register_handler, handle_xnmt_event
+from xnmt.bridge import CopyBridge
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
 import xnmt.linear
 import xnmt.residual
-from xnmt.bridge import CopyBridge
-from xnmt.param_init import GlorotInitializer
+from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.param_collection import ParamManager
+from xnmt.serialize.serializable import Serializable, bare, Ref, Path
+from xnmt.serialize.serializer import serializable_init
 
 class Decoder(object):
   '''
@@ -49,21 +51,20 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
   Standard MLP softmax decoder.
 
   Args:
-    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     layers (int): number of LSTM layers
-    input_dim (int): input dimension; if None, use ``exp_global.default_layer_dim``
-    lstm_dim (int): LSTM hidden dimension; if None, use ``exp_global.default_layer_dim``
-    mlp_hidden_dim (int): MLP hidden dimension; if None, use ``exp_global.default_layer_dim``
-    trg_embed_dim (int): dimension of target embeddings; if None, use ``exp_global.default_layer_dim``
-    dropout (float): dropout probability for LSTM; if None, use exp_global.dropout
+    input_dim (int): input dimension
+    lstm_dim (int): LSTM hidden dimension
+    mlp_hidden_dim (int): MLP hidden dimension
+    trg_embed_dim (int): dimension of target embeddings
+    dropout (float): dropout probability for LSTM
     rnn_spec (str): 'lstm' or 'residuallstm'
     residual_to_output (bool): option passed on if rnn_spec == 'residuallstm'
     input_feeding (bool): whether to activate input feeding
-    param_init_lstm (ParamInitializer): how to initialize LSTM weight matrices (currently, only :class:`xnmt.param_init.GlorotInitializer` is supported); if None, use ``exp_global.param_init``
-    param_init_context (ParamInitializer): how to initialize context weight matrices; if None, use ``exp_global.param_init``
-    bias_init_context (ParamInitializer): how to initialize context bias vectors; if None, use ``exp_global.bias_init``
-    param_init_output (ParamInitializer): how to initialize output weight matrices; if None, use ``exp_global.param_init``
-    bias_init_output (ParamInitializer): how to initialize output bias vectors; if None, use ``exp_global.bias_init``
+    param_init_lstm (ParamInitializer): how to initialize LSTM weight matrices (currently, only :class:`xnmt.param_init.GlorotInitializer` is supported)
+    param_init_context (ParamInitializer): how to initialize context weight matrices
+    bias_init_context (ParamInitializer): how to initialize context bias vectors
+    param_init_output (ParamInitializer): how to initialize output weight matrices
+    bias_init_output (ParamInitializer): how to initialize output bias vectors
     bridge (Bridge): how to initialize decoder state
     label_smoothing (float): label smoothing value (if used, 0.1 is a reasonable value).
                              Label Smoothing is implemented with reference to Section 7 of the paper
@@ -74,27 +75,38 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     vocab (Vocab): vocab or None
     trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
   """
-  
+
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
 
   yaml_tag = '!MlpSoftmaxDecoder'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, lstm_dim=None,
-               mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
-               rnn_spec="lstm", residual_to_output=False, input_feeding=True,
-               param_init_lstm=None, param_init_context=None, bias_init_context=None,
-               param_init_output=None, bias_init_output=None,
-               bridge=bare(CopyBridge), label_smoothing=0.0,
-               vocab_projector=None, vocab_size = None, vocab = None,
-               trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
-    register_handler(self)
-    self.param_col = exp_global.dynet_param_collection.param_col
-    # Define dim
-    lstm_dim       = lstm_dim or exp_global.default_layer_dim
-    self.mlp_hidden_dim = mlp_hidden_dim = mlp_hidden_dim or exp_global.default_layer_dim
-    trg_embed_dim  = trg_embed_dim or exp_global.default_layer_dim
-    input_dim      = input_dim or exp_global.default_layer_dim
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self,
+               layers=1,
+               input_dim=Ref("exp_global.default_layer_dim"),
+               lstm_dim=Ref("exp_global.default_layer_dim"),
+               mlp_hidden_dim=Ref("exp_global.default_layer_dim"),
+               trg_embed_dim=Ref("exp_global.default_layer_dim"),
+               dropout=Ref("exp_global.dropout", default=0.0),
+               rnn_spec="lstm",
+               residual_to_output=False,
+               input_feeding=True,
+               param_init_lstm=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               param_init_context=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init_context=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               param_init_output=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init_output=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               bridge=bare(CopyBridge),
+               label_smoothing=0.0,
+               vocab_projector=None,
+               context_projector=None,
+               vocab_size = None,
+               vocab = None,
+               trg_reader = Ref("model.trg_reader", default=None)):
+    self.param_col = ParamManager.my_params(self)
+    self.mlp_hidden_dim = mlp_hidden_dim = mlp_hidden_dim
     self.input_dim = input_dim
     self.label_smoothing = label_smoothing
     # Input feeding
@@ -114,27 +126,26 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
                                               hidden_dim = lstm_dim,
                                               model = self.param_col,
                                               residual_to_output = residual_to_output)
-    param_init_lstm = param_init_lstm or exp_global.param_init
     if not isinstance(param_init_lstm, GlorotInitializer): raise NotImplementedError("For the decoder LSTM, only Glorot initialization is currently supported")
     if getattr(param_init_lstm,"gain",1.0) != 1.0:
       for l in range(layers):
         for i in [0,1]:
           self.fwd_lstm.param_collection().parameters_list()[3*l+i].scale(param_init_lstm.gain)
-      
+
     # MLP
-    self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + lstm_dim,
-                                                output_dim = mlp_hidden_dim,
-                                                model = self.param_col,
-                                                param_init = param_init_context or exp_global.param_init,
-                                                bias_init = bias_init_context or exp_global.bias_init)
+    self.context_projector = self.add_serializable_component("context_projector", context_projector,
+                                                             lambda: xnmt.linear.Linear(input_dim=input_dim + lstm_dim,
+                                                                                        output_dim=mlp_hidden_dim,
+                                                                                        param_init=param_init_context,
+                                                                                        bias_init=bias_init_context))
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, trg_reader)
-    self.vocab_projector = vocab_projector or xnmt.linear.Linear(input_dim = self.mlp_hidden_dim,
-                                                                 output_dim = self.vocab_size,
-                                                                 model = self.param_col,
-                                                                 param_init = param_init_output or exp_global.param_init,
-                                                                 bias_init = bias_init_output or exp_global.bias_init)
+    self.vocab_projector = self.add_serializable_component("vocab_projector", vocab_projector,
+                                                           lambda: xnmt.linear.Linear(input_dim=self.mlp_hidden_dim,
+                                                                                      output_dim=self.vocab_size,
+                                                                                      param_init=param_init_output,
+                                                                                      bias_init=bias_init_output))
     # Dropout
-    self.dropout = dropout or exp_global.dropout
+    self.dropout = dropout
 
   def choose_vocab_size(self, vocab_size, vocab, trg_reader):
     """Choose the vocab size for the embedder basd on the passed arguments

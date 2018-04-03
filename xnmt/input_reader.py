@@ -5,10 +5,15 @@ from itertools import zip_longest
 import ast
 
 import numpy as np
-import h5py
+
+import warnings
+with warnings.catch_warnings():
+  warnings.simplefilter("ignore", lineno=36)
+  import h5py
 
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
 from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializer import serializable_init
 from xnmt.vocab import Vocab
 
 
@@ -75,7 +80,9 @@ class PlainTextReader(BaseTextReader, Serializable):
   Handles the typical case of reading plain text files,
   with one sent per line.
   """
-  yaml_tag = u'!PlainTextReader'
+  yaml_tag = '!PlainTextReader'
+
+  @serializable_init
   def __init__(self, vocab=None, include_vocab_reference=False):
     self.vocab = vocab
     self.include_vocab_reference = include_vocab_reference
@@ -142,6 +149,10 @@ class SegmentationTextReader(PlainTextReader):
   
   # TODO: document me
 
+  @serializable_init
+  def __init__(self, vocab=None, include_vocab_reference=False):
+    super().__init__(vocab=vocab, include_vocab_reference=include_vocab_reference)
+
   def read_sents(self, filename, filter_ids=None):
     if self.vocab is None:
       self.vocab = Vocab()
@@ -197,7 +208,7 @@ class H5Reader(InputReader, Serializable):
     word_skip (int):
   """
   yaml_tag = u"!H5Reader"
-
+  @serializable_init
   def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, word_skip=None):
     self.transpose = transpose
     self.feat_from = feat_from
@@ -260,6 +271,7 @@ class NpzReader(InputReader, Serializable):
   """
   yaml_tag = u"!NpzReader"
 
+  @serializable_init
   def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, word_skip=None):
     self.transpose = transpose
     self.feat_from = feat_from
@@ -303,6 +315,10 @@ class IDReader(BaseTextReader, Serializable):
   Files must be text files containing a single integer per line.
   """
   yaml_tag = "!IDReader"
+
+  @serializable_init
+  def __init__(self):
+    pass
 
   def read_sents(self, filename, filter_ids=None):
     return map(lambda l: int(l.strip()), self.iterate_filtered(filename, filter_ids))

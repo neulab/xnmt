@@ -5,7 +5,7 @@ from typing import List
 
 from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer
 from xnmt.serialize.serializable import Serializable
-
+from xnmt.serialize.serializer import serializable_init
 
 def make_parent_dir(filename):
   if not os.path.exists(os.path.dirname(filename)):
@@ -32,6 +32,8 @@ class PreprocRunner(Serializable):
     overwrite: Whether to overwrite files if they already exist.
   """
   yaml_tag = "!PreprocRunner"
+
+  @serializable_init
   def __init__(self, tasks:List[PreprocTask]=[], overwrite:bool=False):
     logger.info("> Preprocessing")
     
@@ -46,6 +48,7 @@ class PreprocRunner(Serializable):
 
 class PreprocExtract(PreprocTask, Serializable):
   yaml_tag = "!PreprocExtract"
+  @serializable_init
   def __init__(self, in_files, out_files, specs):
     self.in_files = in_files
     self.out_files = out_files
@@ -59,6 +62,7 @@ class PreprocExtract(PreprocTask, Serializable):
 
 class PreprocTokenize(PreprocTask, Serializable):
   yaml_tag = "!PreprocTokenize"
+  @serializable_init
   def __init__(self, in_files, out_files, specs):
     self.in_files = in_files
     self.out_files = out_files
@@ -80,6 +84,7 @@ class PreprocTokenize(PreprocTask, Serializable):
 
 class PreprocNormalize(PreprocTask, Serializable):
   yaml_tag = "!PreprocNormalize"
+  @serializable_init
   def __init__(self, in_files, out_files, specs):
     self.in_files = in_files
     self.out_files = out_files
@@ -100,6 +105,7 @@ class PreprocNormalize(PreprocTask, Serializable):
 
 class PreprocFilter(PreprocTask, Serializable):
   yaml_tag = "!PreprocFilter"
+  @serializable_init
   def __init__(self, in_files, out_files, specs):
     self.in_files = in_files
     self.out_files = out_files
@@ -124,6 +130,7 @@ class PreprocFilter(PreprocTask, Serializable):
 
 class PreprocVocab(PreprocTask, Serializable):
   yaml_tag = "!PreprocVocab"
+  @serializable_init
   def __init__(self, in_files, out_files, specs):
     self.in_files = in_files
     self.out_files = out_files

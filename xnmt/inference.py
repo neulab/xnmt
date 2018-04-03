@@ -12,8 +12,8 @@ import dynet as dy
 from xnmt.loss_calculator import LossCalculator
 import xnmt.output
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.serialize.serializable import Serializable, Ref, Path
+from xnmt.serialize.serializer import serializable_init
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 
@@ -37,9 +37,11 @@ class SimpleInference(Serializable):
   """
   
   yaml_tag = '!SimpleInference'
+
+  @serializable_init
   def __init__(self, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
                   post_process="none", report_path=None, report_type="html",
-                  beam=1, max_len=100, len_norm_type=None, mode="onebest", batcher=Ref(Path("train.batcher"), required=False)):
+                  beam=1, max_len=100, len_norm_type=None, mode="onebest", batcher=Ref("train.batcher", default=None)):
     self.src_file = src_file
     self.trg_file = trg_file
     self.ref_file = ref_file

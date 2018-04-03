@@ -4,125 +4,10 @@ from enum import IntEnum, auto
 
 import yaml
 
-from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializable import Serializable, Path, Ref
 
-class Path(object):
-  """
-  A relative or absolute path in the component hierarchy.
-  
-  Args:
-    path_str (str): path string. If prefixed by ".", marks a relative path, otherwise absolute.  
-  """
-  def __init__(self, path_str=""):
-    if (len(path_str)>1 and path_str[-1]=="." and path_str[-2]!=".") \
-    or ".." in path_str.strip("."):
-      raise ValueError(f"'{path_str}' is not a valid path string")
-    self.path_str = path_str
-  def append(self, link):
-    if not link or "." in link:
-      raise ValueError(f"'{link}' is not a valid link")
-    if len(self.path_str.strip("."))==0: return Path(f"{self.path_str}{link}")
-    else: return Path(f"{self.path_str}.{link}")
-  def add_path(self, path_to_add):
-    if path_to_add.is_relative_path(): raise NotImplementedError("add_path() is not implemented for relative paths.")
-    if len(self.path_str.strip("."))==0 or len(path_to_add.path_str)==0:
-      return Path(f"{self.path_str}{path_to_add.path_str}")
-    else:
-      return Path(f"{self.path_str}.{path_to_add.path_str}")
-  def __str__(self):
-    return self.path_str
-  def __repr__(self):
-    return self.path_str
-  def is_relative_path(self):
-    return self.path_str.startswith(".")
-  def get_absolute(self, rel_to):
-    if rel_to.is_relative_path(): raise ValueError("rel_to must be an absolute path!")
-    if self.is_relative_path():
-      num_up = len(self.path_str) - len(self.path_str.strip(".")) - 1
-      for _ in range(num_up):
-        rel_to = rel_to.parent()
-      s = self.path_str.strip(".")
-      if len(s)>0:
-        for link in s.split("."):
-          rel_to = rel_to.append(link)
-      return rel_to
-    else: return self
-  def descend_one(self):
-    if self.is_relative_path() or len(self)==0:
-      raise ValueError(f"Can't call descend_one() on path {self.path_str}")
-    return Path(".".join(self.path_str.split(".")[1:]))
-  def __len__(self):
-    if self.is_relative_path():
-      raise ValueError(f"Can't call __len__() on path {self.path_str}")
-    if len(self.path_str)==0: return 0
-    return len(self.path_str.split("."))
-  def __getitem__(self, key):
-    if self.is_relative_path():
-      raise ValueError(f"Can't call __getitem__() on path {self.path_str}")
-    return self.path_str.split(".")[key]
-  def parent(self):
-    if len(self.path_str.strip(".")) == 0: raise ValueError(f"Path '{self.path_str}' has no parent")
-    else:
-      spl = self.path_str.split(".")[:-1]
-      if '.'.join(spl)=="" and self.path_str.startswith("."): return Path(".")
-      else: return Path(".".join(spl))
-  def __hash__(self):
-    return hash(self.path_str)
-  def __eq__(self, other):
-    if isinstance(other,Path):
-      return self.path_str == other.path_str
-    else:
-      return False
-  def ancestors(self):
-    a = self
-    ret = set([a])
-    while len(a.path_str.strip("."))>0:
-      a = a.parent()
-      ret.add(a)
-    return ret
 
-class Ref(Serializable):
-  """
-  A reference to a place in the component hierarchy. Supported a referencing by path or referencing by name.
-  
-  Args:
-    path (Path): reference-by-path
-    name (str): reference-by-name. The name refers to a unique ``_xnmt_id`` property that must be set in exactly one component.
-  """
-  yaml_tag = "!Ref"
-  def __init__(self, path=None, name=None, required=True):
-    if name is not None and path is not None:
-      raise ValueError(f"Ref cannot be initialized with both a name and a path ({name} / {path})")
-    self.name = name
-    self.path = path
-    self.required = required
-    self.serialize_params = {'name':name} if name else {'path':str(path)}
-  def get_name(self):
-    return getattr(self, "name", None)
-  def get_path(self):
-    return getattr(self, "path", None)
-  def is_required(self):
-    return getattr(self, "required", True)
-  def __str__(self):
-    if self.get_name():
-      return f"Ref(name={self.get_name()})"
-    else:
-      return f"Ref(path={self.get_path()})"
-  def __repr__(self):
-    return str(self)
-  def resolve_path(self, named_paths):
-    if self.get_path():
-      if isinstance(self.get_path(), str):
-        # need to do this here, because the initializer is never called when
-        # Ref objects are specified in the YAML file
-        self.path = Path(self.get_path())
-      return self.path
-    elif self.get_name() in named_paths:
-      return named_paths[self.get_name()]
-    else:
-      raise ValueError(f"Could not resolve path of reference {self}")
-
-reserved_arg_names = ["_xnmt_id", "yaml_path", "serialize_params", "init_params", "kwargs", "self"]
+reserved_arg_names = ["_xnmt_id", "yaml_path", "serialize_params", "init_params", "kwargs", "self", "xnmt_subcol_name"]
 
 def get_init_args_defaults(obj):
     return inspect.signature(obj.__init__).parameters
@@ -172,26 +57,26 @@ def name_children_list(node, include_reserved):
 
 @singledispatch
 def get_child(node, name):
-  if not hasattr(node, name): raise PathError(f"{node} has not child named {name}")
+  if not hasattr(node, name): raise PathError(f"{node} has no child named {name}")
   return getattr(node,name)
 @get_child.register(list)
 def get_child_list(node, name):
   try:
     name = int(name)
   except:
-    raise PathError(f"{node} has not child named {name} (integer expected)")
+    raise PathError(f"{node} has no child named {name} (integer expected)")
   if not 0 <= name < len(node):
-    raise PathError(f"{node} has not child named {name} (index error)")
+    raise PathError(f"{node} has no child named {name} (index error)")
   return node[int(name)]
 @get_child.register(dict)
 def get_child_dict(node, name):
   if not name in node.keys():
-    raise PathError(f"{node} has not child named {name} (key error)")
+    raise PathError(f"{node} has no child named {name} (key error)")
   return node[name]
 @get_child.register(Serializable)
 def get_child_serializable(node, name):
   if not hasattr(node, name):
-    raise PathError(f"{node} has not child named {name}")
+    raise PathError(f"{node} has no child named {name}")
   return getattr(node,name)
 
 @singledispatch
@@ -205,19 +90,23 @@ def set_child_list(node, name, val):
   try:
     name = int(name)
   except:
-    raise PathError(f"{node} has not child named {name} (integer expected)")
+    raise PathError(f"{node} has no child named {name} (integer expected)")
   if not 0 <= name < len(node):
-    raise PathError(f"{node} has not child named {name} (index error)")
+    raise PathError(f"{node} has no child named {name} (index error)")
   node[int(name)] = val
 @set_child.register(dict)
 def set_child_dict(node, name, val):
   node[name] = val
 
-def get_descendant(node, path):
+def get_descendant(node, path, redirect=False):
   if len(path)==0:
     return node
+  elif redirect and isinstance(node, Ref):
+    node_path = node.get_path()
+    if isinstance(node_path, str): node_path = Path(node_path)
+    return Ref(node_path.add_path(path), default=node.get_default())
   else:
-    return get_descendant(get_child(node, path[0]), path.descend_one())
+    return get_descendant(get_child(node, path[0]), path.descend_one(), redirect=redirect)
 def set_descendant(root, path, val):
   if len(path)==0:
     raise ValueError("path was empty")
@@ -251,22 +140,36 @@ def traverse_serializable_breadth_first(root):
   all_nodes = [item[1] for item in sorted(enumerate(all_nodes), key=lambda x: (len(x[1][0]),x[0]))]
   return iter(all_nodes)
 
-def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), named_paths={}):
+def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), named_paths={}, past_visits=set()):
   """
   Traverse the tree and descend into references. The returned path is that of the resolved reference.
+
+  args:
+    root (Serializable):
+    cur_node (Serializable):
+    traversal_order (TraversalOrder):
+    path_to_node (Path):
+    name_paths (dict):
+    past_visits (set):
   """
+
+  # prevent infinite recursion:
+  cur_call_sig = (id(root), id(cur_node), path_to_node)
+  if cur_call_sig in past_visits: return
+  past_visits = set(past_visits)
+  past_visits.add(cur_call_sig)
+
   if traversal_order==TraversalOrder.ROOT_FIRST:
     yield path_to_node, cur_node
   if isinstance(cur_node, Ref):
     resolved_path = cur_node.resolve_path(named_paths)
     try:
-      yield from traverse_tree_deep(root, get_descendant(root, resolved_path), traversal_order, resolved_path, named_paths)
+      yield from traverse_tree_deep(root, get_descendant(root, resolved_path), traversal_order, resolved_path, named_paths, past_visits=past_visits)
     except PathError:
-      if cur_node.is_required():
-        raise ValueError(f"Was not able to find required reference '{resolved_path}' at '{path_to_node}'")
+      pass
   else:
     for child_name, child in name_children(cur_node, include_reserved=False):
-      yield from traverse_tree_deep(root, child, traversal_order, path_to_node.append(child_name), named_paths)
+      yield from traverse_tree_deep(root, child, traversal_order, path_to_node.append(child_name), named_paths, past_visits=past_visits)
   if traversal_order==TraversalOrder.ROOT_LAST:
     yield path_to_node, cur_node
 
@@ -279,6 +182,17 @@ def traverse_tree_deep_once(root, cur_node, traversal_order=TraversalOrder.ROOT_
     if not (path.ancestors() & yielded_paths):
       yielded_paths.add(path)
       yield (path, node)
+
+def get_named_paths(root):
+  d = {}
+  for path, node in traverse_tree(root):
+    if "_xnmt_id" in [name for (name,_) in name_children(node, include_reserved=True)]:
+      xnmt_id = get_child(node, "_xnmt_id")
+      if xnmt_id in d:
+        raise ValueError(f"_xnmt_id {xnmt_id} was specified multiple times!")
+      d[xnmt_id] = path
+  return d
+
 
 class PathError(Exception):
   def __init__(self, message):

@@ -3,11 +3,13 @@ import unittest
 import xnmt.batcher
 import xnmt.input
 import xnmt.events
+from xnmt.param_collection import ParamManager
 
 class TestBatcher(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
+    ParamManager.init_param_col()
 
   def test_batch_src(self):
     src_sents = [xnmt.input.SimpleSentenceInput([0] * i) for i in range(1,7)]

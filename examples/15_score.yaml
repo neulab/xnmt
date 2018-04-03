@@ -51,11 +51,11 @@ exp1-model: !Experiment
       ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.test_hyp
 
-exp2-score: !Experiment
-  load: examples/output/exp1-model.mod
+exp2-score: !LoadSerialized
+  filename: examples/output/exp1-model.mod
   overwrite:
-  - path: exp_global.eval_only
-    val: True
+  - path: train
+    val: null
   - path: model.inference.mode
     val: score
   - path: model.inference.ref_file

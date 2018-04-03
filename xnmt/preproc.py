@@ -7,10 +7,14 @@ import subprocess
 from collections import defaultdict
 
 import numpy as np
-import h5py
+import warnings
+with warnings.catch_warnings():
+  warnings.simplefilter("ignore", lineno=36)
+  import h5py
 import yaml
 
 from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializer import serializable_init
 from xnmt.speech_features import logfbank, calculate_delta, get_mean_std, normalize
 
 ##### Preprocessors
@@ -52,6 +56,7 @@ class Tokenizer(Normalizer, Serializable):
 
   TODO: only StreamTokenizers are supported by the preproc runner right now.
   """
+
   def tokenize(self, sent):
     raise RuntimeError("Subclasses of Tokenizer must implement tokenize() or tokenize_stream()")
 
@@ -77,6 +82,7 @@ class BPETokenizer(Tokenizer):
   """
   yaml_tag = '!BPETokenizer'
 
+  @serializable_init
   def __init__(self, vocab_size, train_files):
     """Determine the BPE based on the vocab size and corpora"""
     raise NotImplementedError("BPETokenizer is not implemented")
@@ -90,6 +96,10 @@ class CharacterTokenizer(Tokenizer):
   Tokenize into characters, with __ indicating blank spaces
   """
   yaml_tag = '!CharacterTokenizer'
+
+  @serializable_init
+  def __init__(self):
+    pass
 
   def tokenize(self, sent):
     """Tokenizes a single sentence into characters."""
@@ -106,6 +116,7 @@ class ExternalTokenizer(Tokenizer):
   """
   yaml_tag = '!ExternalTokenizer'
 
+  @serializable_init
   def __init__(self, path, tokenizer_args={}, arg_separator=' '):
     """Initialize the wrapper around the external tokenizer. """
     tokenizer_options = []
@@ -146,6 +157,7 @@ class SentencepieceTokenizer(ExternalTokenizer):
   """
   yaml_tag = '!SentencepieceTokenizer'
 
+  @serializable_init
   def __init__(self, path, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
       , output_format='piece', model_type='bpe'
       , encode_extra_options=None, decode_extra_options=None):
@@ -335,6 +347,7 @@ class Extractor(object):
 
 class MelFiltExtractor(Extractor, Serializable):
   yaml_tag = "!MelFiltExtractor"
+  @serializable_init
   def __init__(self, nfilt=40, delta=False):
     self.delta = delta
     self.nfilt = nfilt
@@ -365,6 +378,7 @@ class MelFiltExtractor(Extractor, Serializable):
           y, sr = librosa.load(db_item["wav"], sr=16000, 
                                offset=db_item.get("offset", 0.0), 
                                duration=db_item.get("duration", None))
+          if len(y)==0: raise ValueError(f"encountered an empty or out of bounds segment: {db_item}")
           logmel = logfbank(y, samplerate=sr, nfilt=self.nfilt)
           if self.delta:
             delta = calculate_delta(logmel)

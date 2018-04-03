@@ -54,5 +54,6 @@ exp1.pretrain: !Experiment
       ref_file: *dev_trg # The same could also be done for more complex objects.
       hyp_file: examples/output/{EXP}.test_hyp
 
-exp2.load: !Experiment
-  load: examples/output/exp1.pretrain.mod
+exp2.load: !LoadSerialized
+  filename: examples/output/exp1.pretrain.mod
+  
