@@ -104,7 +104,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     """
     self.load_data()
     self.model.set_train(update_weights)
-    for i, (src,trg) in enumerate(self.next_minibatch()):
+    for src,trg in self.next_minibatch():
       if self.dev_zero:
         self.checkpoint_and_save(save_fct, update_weights)
         self.dev_zero = False
