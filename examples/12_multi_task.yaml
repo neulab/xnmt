@@ -80,8 +80,6 @@ exp1-multi_task: !Experiment
           emb_dim: 64
           vocab: !Ref {name: trg_vocab}
         decoder: !MlpSoftmaxDecoder
-          rnn_layer: !UniLSTMSeqTransducer
-            layers: 1
           bridge: !CopyBridge {}
           mlp_layer: !MLP
             vocab: !Ref {name: trg_vocab}
