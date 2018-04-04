@@ -190,11 +190,12 @@ class H5Reader(InputReader, Serializable):
   * sents[sent_id][word_ind,feat_ind] if transpose=True
 
   Args:
-    transpose (bool):
-    feat_from (int):
-    feat_to (int):
-    feat_skip (int):
-    word_skip (int):
+    transpose (bool): whether inputs are transposed or not.
+    feat_from (int): use feature dimensions in a range, starting at this index (inclusive)
+    feat_to (int): use feature dimensions in a range, ending at this index (exclusive)
+    feat_skip (int): stride over features
+    word_skip (int): stride over words
+    word_truncate (int): cut off words if sequence is longer than specified value
   """
   yaml_tag = u"!H5Reader"
 
@@ -248,16 +249,17 @@ class NpzReader(InputReader, Serializable):
   numpy.savez_compressed(), in which case the names will be arr_0, arr_1, etc.
 
   Each numpy file will be a 2D matrix representing a sequence of vectors. They can
-  be in either order, depending on the value of the "transpose" variable:
+  be in either order, depending on the value of the "transpose" variable.
   * sents[sent_id][feat_ind,word_ind] if transpose=False
   * sents[sent_id][word_ind,feat_ind] if transpose=True
 
   Args:
-    transpose (bool):
-    feat_from (int):
-    feat_to (int):
-    feat_skip (int):
-    word_skip (int):
+    transpose (bool): whether inputs are transposed or not.
+    feat_from (int): use feature dimensions in a range, starting at this index (inclusive)
+    feat_to (int): use feature dimensions in a range, ending at this index (exclusive)
+    feat_skip (int): stride over features
+    word_skip (int): stride over words
+    word_truncate (int): cut off words if sequence is longer than specified value
   """
   yaml_tag = u"!NpzReader"
 
