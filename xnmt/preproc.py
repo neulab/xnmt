@@ -5,6 +5,7 @@ import sys
 import os.path
 import subprocess
 from collections import defaultdict
+import string
 
 import numpy as np
 import warnings
@@ -38,6 +39,8 @@ class Normalizer(object):
       for my_spec in spec:
         if my_spec["type"] == "lower":
           preproc_list.append(NormalizerLower(my_spec))
+        elif my_spec["type"] == "remove_punct":
+          preproc_list.append(NormalizerRemovePunct(my_spec))
         else:
           raise RuntimeError("Unknown normalizer type {}".format(my_spec["type"]))
     return preproc_list
@@ -47,6 +50,20 @@ class NormalizerLower(Normalizer):
 
   def normalize(self, sent):
     return sent.lower()
+
+class NormalizerRemovePunct(Normalizer):
+  """Remove punctuation from the text."""
+  def __init__(self, spec=None):
+    self.exclude = set(string.punctuation) - set(spec.get("allowed_chars", ""))
+    self.remove_inside_word = spec.get("remove_inside_word", False)
+  def normalize(self, sent):
+    if self.remove_inside_word:
+      return ''.join(ch for ch in sent if ch not in self.exclude)
+    else:
+      words = []
+      for w in sent.split():
+        words.append(w.strip(''.join(ch for ch in self.exclude)))
+      return " ".join(words)
 
 ###### Tokenizers
 
