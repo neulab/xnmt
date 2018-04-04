@@ -71,7 +71,7 @@ class LossEvalTask(Serializable):
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
 
-    return LossScore(loss_val.sum(), loss_stats=loss_stats, desc=self.desc), ref_words_cnt
+    return LossScore(loss_stats[self.model.get_primary_loss()], loss_stats=loss_stats, desc=self.desc), ref_words_cnt
 
 class AccuracyEvalTask(Serializable):
   '''

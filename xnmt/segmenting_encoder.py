@@ -48,6 +48,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                z_normalization    = True,
                learn_segmentation = True,
                compose_char       = False,
+               exp_reward=False,
                print_sample=False):
     register_handler(self)
     model = exp_global.dynet_param_collection.param_col
@@ -83,6 +84,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.compose_char = compose_char
     self.print_sample = print_sample
     self.print_sample_prob = print_sample_prob
+    self.exp_reward = exp_reward
     # Fixed Parameters
     self.length_prior = length_prior
     # Variable Parameters
@@ -204,12 +206,12 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   # Sample from prior segmentation
   def sample_from_prior(self, encodings, batch_size):
-    print("sample_from_prior")
+    #print("sample_from_prior")
     return [sent.annotation["segment"] for sent in self.src_sent]
 
   # Sample from poisson prior
   def sample_from_poisson(self, encodings, batch_size):
-    print("sample_from_poisson")
+    #print("sample_from_poisson")
     randoms = numpy.nonzero(numpy.random.poisson(lam=self.length_prior, size=batch_size*len(encodings)))[0]
     segment_decisions = [[] for _ in range(batch_size)]
     idx = 0
@@ -227,13 +229,13 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def sample_from_softmax(self, encodings, batch_size, segment_logsoftmaxes):
     # Sample from the softmax
     if self.train and self.learn_segmentation:
-      print("sample_from_softmax")
+      #print("sample_from_softmax")
       segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
                            for log_softmax in segment_logsoftmaxes]
       if batch_size == 1:
         segment_decisions = [numpy.array([x]) for x in segment_decisions]
     else:
-      print("sample_from_argmax")
+      #print("sample_from_argmax")
       segment_decisions = [log_softmax.tensor_value().argmax().as_numpy().transpose()
                            for log_softmax in segment_logsoftmaxes]
     ret = [[] for _ in range(batch_size)]
@@ -310,6 +312,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         ll = dy.pick_batch(self.segment_logsoftmaxes[i], decision)
         # reward
         r_i = reward - baseline_score[i] if self.use_baseline else reward
+        if self.exp_reward:
+          r_i = dy.exp(r_i)
         # Loss
         loss = -r_i * ll
         if enc_mask is not None:
@@ -388,13 +392,13 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     segment_decision = self.get_report_input()[0]
     src_words = self.get_report_resource("src_words")
     segmented = self.apply_segmentation(src_words, segment_decision)
-    logsoftmaxes = [x.npvalue() for x in self.segment_logsoftmaxes]
 
     with open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
       if len(segmented) > 0:
         print(" ".join(segmented), file=segmentation_file)
 
-    if self.learn_segmentation:
+    if self.learn_segmentation and self.segment_logsoftmaxes:
+      logsoftmaxes = [x.npvalue() for x in self.segment_logsoftmaxes]
       with open(self.get_report_path() + ".segdecision", encoding='utf-8', mode='w') as segmentation_file:
         for softmax in logsoftmaxes:
           print(" ".join(["%.5f" % f for f in numpy.exp(softmax)]), file=segmentation_file)
