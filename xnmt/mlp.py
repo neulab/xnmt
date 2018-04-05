@@ -55,7 +55,7 @@ class MLP(Serializable):
       param_init=param_init_hidden, bias_init=bias_init_hidden)
     self.output = output_projector or xnmt.linear.Linear(
       self.hidden_dim, self.output_dim, model,
-      param_init=param_init_output, bias_init=bias_init_hidden)
+      param_init=param_init_output, bias_init=bias_init_output)
 
   def __call__(self, input_expr):
     return self.output(dy.tanh(self.hidden(input_expr)))
@@ -78,6 +78,6 @@ class MLP(Serializable):
     elif vocab != None:
       return len(vocab)
     elif trg_reader == None or trg_reader.vocab == None:
-      raise ValueError("Could not determine trg_embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
+      raise ValueError("Could not determine MLP's output size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
     else:
       return len(trg_reader.vocab)
