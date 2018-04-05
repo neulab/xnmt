@@ -1,0 +1,50 @@
+
+exp1-single: &my_experiment !Experiment
+  exp_global: !ExpGlobal
+    model_file: 'examples/models/{EXP}.mod'
+    log_file: 'examples/logs/{EXP}.log'
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      _xnmt_id: my_src_reader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      _xnmt_id: my_trg_reader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 2
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp
+
+exp2-single: *my_experiment
+exp3-single: *my_experiment
+
+exp4-ensemble: !Experiment
+  model: !EnsembleTranslator
+    src_reader: !Ref {name: my_src_reader}
+    trg_reader: !Ref {name: my_trg_reader}
+    models:
+      - !LoadSerialized
+        filename: 'examples/models/exp1-single.mod'
+        path: model
+      - !LoadSerialized
+        filename: 'examples/models/exp2-single.mod'
+        path: model
+      - !LoadSerialized
+        filename: 'examples/models/exp3-single.mod'
+        path: model
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp
