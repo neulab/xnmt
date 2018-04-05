@@ -148,8 +148,11 @@ class YamlSerializer(object):
         logger.warning(f"inconsistent shared params at {path} for {shared_param_set}: {shared_val_choices}; Ignoring these shared parameters.")
       elif len(shared_val_choices)==1:
         for shared_param_path in shared_param_set:
-          if shared_param_path[-1] in tree_tools.get_init_args_defaults(tree_tools.get_descendant(root, shared_param_path.parent())):
-            tree_tools.set_descendant(root, shared_param_path, list(shared_val_choices)[0])
+          try:
+            if shared_param_path[-1] in tree_tools.get_init_args_defaults(tree_tools.get_descendant(root, shared_param_path.parent())):
+              tree_tools.set_descendant(root, shared_param_path, list(shared_val_choices)[0])
+          except tree_tools.PathError:
+            pass # can happen when the shared path contained a reference, which we don't follow to avoid unwanted effects
 
   def init_components_bottom_up(self, root):
     for path, node in tree_tools.traverse_tree_deep_once(root, root, tree_tools.TraversalOrder.ROOT_LAST, named_paths=self.named_paths):
