@@ -36,8 +36,10 @@ ensemble: !Experiment # 'standard' is the name given to the experiment
         trg_embedder: !SimpleWordEmbedder
           emb_dim: 512
         decoder: !MlpSoftmaxDecoder
-          layers: 1
-          mlp_hidden_dim: 512
+          rnn_layer: !UniLSTMSeqTransducer
+            layers: 1
+          mlp_layer: !MLP
+            hidden_dim: 512
           bridge: !CopyBridge {}
       - !DefaultTranslator
         src_reader: !Ref {name: my_src_reader}
@@ -48,8 +50,10 @@ ensemble: !Experiment # 'standard' is the name given to the experiment
         trg_embedder: !SimpleWordEmbedder
           emb_dim: 64
         decoder: !MlpSoftmaxDecoder
-          layers: 3
-          mlp_hidden_dim: 64
+          rnn_layer: !UniLSTMSeqTransducer
+            layers: 3
+          mlp_layer: !MLP
+            hidden_dim: 64
           bridge: !CopyBridge {}
       - !DefaultTranslator
         src_reader: !Ref {name: my_src_reader}
@@ -61,11 +65,13 @@ ensemble: !Experiment # 'standard' is the name given to the experiment
           _xnmt_id: third_model_embedder
           emb_dim: 32
         decoder: !MlpSoftmaxDecoder
-          layers: 1
-          mlp_hidden_dim: 32
+          rnn_layer: !UniLSTMSeqTransducer
+            layers: 1
+          mlp_layer: !MLP
+            hidden_dim: 32
+            output_projector: !Ref {name: third_model_embedder}
           bridge: !LinearBridge
             dec_layers: 1
-          vocab_projector: !Ref {name: third_model_embedder}
   # training parameters
   train: !SimpleTrainingRegimen
     trainer: !AdamTrainer

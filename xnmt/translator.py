@@ -485,8 +485,9 @@ class EnsembleTranslator(Translator, Serializable):
 
   yaml_tag = '!EnsembleTranslator'
 
+  @register_xnmt_handler
+  @serializable_init
   def __init__(self, models, src_reader, trg_reader, inference=bare(SimpleInference)):
-    register_handler(self)
     self.models = models
     self.src_reader = src_reader
     self.trg_reader = trg_reader
