@@ -11,8 +11,9 @@ from xnmt.embedder import SimpleWordEmbedder
 from xnmt.eval_task import LossEvalTask
 import xnmt.events
 from xnmt.input_reader import PlainTextReader
-from xnmt.lstm import BiLSTMSeqTransducer
+from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculator import LossCalculator
+from xnmt.mlp import MLP
 from xnmt.optimizer import AdamTrainer
 from xnmt.param_collection import ParamManager
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
@@ -73,9 +74,18 @@ class TestTruncatedBatchTraining(unittest.TestCase):
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim, lstm_dim=layer_dim, mlp_hidden_dim=layer_dim,
-                                trg_embed_dim=layer_dim, vocab_size=100,
-                                bridge=CopyBridge(dec_layers=1, dec_dim=layer_dim)),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                trg_embed_dim=layer_dim,
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                                               hidden_dim=layer_dim,
+                                                               decoder_input_dim=layer_dim,
+                                                               yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim,
+                                              hidden_dim=layer_dim,
+                                              decoder_rnn_dim=layer_dim,
+                                              vocab_size=100,
+                                              yaml_path="model.decoder.rnn_layer"),
+                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -89,9 +99,18 @@ class TestTruncatedBatchTraining(unittest.TestCase):
       encoder=PyramidalLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, layers=3),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim, lstm_dim=layer_dim, mlp_hidden_dim=layer_dim,
-                                trg_embed_dim=layer_dim, vocab_size=100,
-                                bridge=CopyBridge(dec_layers=1, dec_dim=layer_dim)),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                trg_embed_dim=layer_dim,
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                                               hidden_dim=layer_dim,
+                                                               decoder_input_dim=layer_dim,
+                                                               yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim,
+                                              hidden_dim=layer_dim,
+                                              decoder_rnn_dim=layer_dim,
+                                              vocab_size=100,
+                                              yaml_path="model.decoder.rnn_layer"),
+                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model, pad_src_to_multiple=4)
@@ -105,9 +124,18 @@ class TestTruncatedBatchTraining(unittest.TestCase):
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, layers=3),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim, lstm_dim=layer_dim, mlp_hidden_dim=layer_dim,
-                                trg_embed_dim=layer_dim, vocab_size=100,
-                                bridge=CopyBridge(dec_layers=1, dec_dim=layer_dim)),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                trg_embed_dim=layer_dim,
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                                               hidden_dim=layer_dim,
+                                                               decoder_input_dim=layer_dim,
+                                                               yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim,
+                                              hidden_dim=layer_dim,
+                                              decoder_rnn_dim=layer_dim,
+                                              vocab_size=100,
+                                              yaml_path="model.decoder.rnn_layer"),
+                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -121,9 +149,18 @@ class TestTruncatedBatchTraining(unittest.TestCase):
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=DotAttender(),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim, lstm_dim=layer_dim, mlp_hidden_dim=layer_dim,
-                                trg_embed_dim=layer_dim, vocab_size=100,
-                                bridge=CopyBridge(dec_layers=1, dec_dim=layer_dim)),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                trg_embed_dim=layer_dim,
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                                               hidden_dim=layer_dim,
+                                                               decoder_input_dim=layer_dim,
+                                                               yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim,
+                                              hidden_dim=layer_dim,
+                                              decoder_rnn_dim=layer_dim,
+                                              vocab_size=100,
+                                              yaml_path="model.decoder.rnn_layer"),
+                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -184,9 +221,18 @@ class TestBatchTraining(unittest.TestCase):
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim, lstm_dim=layer_dim, mlp_hidden_dim=layer_dim,
-                                trg_embed_dim=layer_dim, vocab_size=100,
-                                bridge=CopyBridge(dec_layers=1, dec_dim=layer_dim)),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                trg_embed_dim=layer_dim,
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                                               hidden_dim=layer_dim,
+                                                               decoder_input_dim=layer_dim,
+                                                               yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim,
+                                              hidden_dim=layer_dim,
+                                              decoder_rnn_dim=layer_dim,
+                                              vocab_size=100,
+                                              yaml_path="model.decoder.rnn_layer"),
+                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -200,9 +246,18 @@ class TestBatchTraining(unittest.TestCase):
       encoder=PyramidalLSTMSeqTransducer(layers=3, input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim, lstm_dim=layer_dim, mlp_hidden_dim=layer_dim,
-                                trg_embed_dim=layer_dim, vocab_size=100,
-                                bridge=CopyBridge(dec_layers=1, dec_dim=layer_dim)),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                trg_embed_dim=layer_dim,
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                                               hidden_dim=layer_dim,
+                                                               decoder_input_dim=layer_dim,
+                                                               yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim,
+                                              hidden_dim=layer_dim,
+                                              decoder_rnn_dim=layer_dim,
+                                              vocab_size=100,
+                                              yaml_path="model.decoder.rnn_layer"),
+                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model, pad_src_to_multiple=4)
@@ -216,9 +271,18 @@ class TestBatchTraining(unittest.TestCase):
       encoder=BiLSTMSeqTransducer(layers=3, input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim, lstm_dim=layer_dim, mlp_hidden_dim=layer_dim,
-                                trg_embed_dim=layer_dim, vocab_size=100,
-                                bridge=CopyBridge(dec_layers=1, dec_dim=layer_dim)),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                trg_embed_dim=layer_dim,
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                                               hidden_dim=layer_dim,
+                                                               decoder_input_dim=layer_dim,
+                                                               yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim,
+                                              hidden_dim=layer_dim,
+                                              decoder_rnn_dim=layer_dim,
+                                              vocab_size=100,
+                                              yaml_path="model.decoder.rnn_layer"),
+                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
@@ -244,10 +308,18 @@ class TestTrainDevLoss(unittest.TestCase):
                                             attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim,
                                                                  hidden_dim=layer_dim),
                                             trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-                                            decoder=MlpSoftmaxDecoder(input_dim=layer_dim, lstm_dim=layer_dim,
-                                                                      mlp_hidden_dim=layer_dim, trg_embed_dim=layer_dim,
-                                                                      vocab_size=100, bridge=CopyBridge(dec_layers=1,
-                                                                                                        dec_dim=layer_dim)),
+                                            decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                                                      trg_embed_dim=layer_dim,
+                                                                      rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                                                                                     hidden_dim=layer_dim,
+                                                                                                     decoder_input_dim=layer_dim,
+                                                                                                     yaml_path="model.decoder.rnn_layer"),
+                                                                      mlp_layer=MLP(input_dim=layer_dim,
+                                                                                    hidden_dim=layer_dim,
+                                                                                    decoder_rnn_dim=layer_dim,
+                                                                                    vocab_size=100,
+                                                                                    yaml_path="model.decoder.rnn_layer"),
+                                                                      bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
                                             src_file="examples/data/head.ja",
@@ -283,12 +355,18 @@ class TestOverfitting(unittest.TestCase):
                                                                  state_dim=layer_dim,
                                                                  hidden_dim=layer_dim),
                                             trg_embedder=SimpleWordEmbedder(vocab_size=100, emb_dim=layer_dim),
-                                            decoder=MlpSoftmaxDecoder(vocab_size=100, bridge=CopyBridge(dec_layers=1,
-                                                                                                        dec_dim=layer_dim),
-                                                                      input_dim=layer_dim,
-                                                                      lstm_dim=layer_dim,
-                                                                      mlp_hidden_dim=layer_dim,
-                                                                      trg_embed_dim=layer_dim),
+                                            decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                                                      trg_embed_dim=layer_dim,
+                                                                      rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                                                                                     hidden_dim=layer_dim,
+                                                                                                     decoder_input_dim=layer_dim,
+                                                                                                     yaml_path="model.decoder.rnn_layer"),
+                                                                      mlp_layer=MLP(input_dim=layer_dim,
+                                                                                    hidden_dim=layer_dim,
+                                                                                    decoder_rnn_dim=layer_dim,
+                                                                                    vocab_size=100,
+                                                                                    yaml_path="model.decoder.rnn_layer"),
+                                                                      bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
                                             src_file="examples/data/head.ja",

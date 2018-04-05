@@ -16,7 +16,6 @@ iwslt-experiment: !Experiment
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 128
     decoder: !MlpSoftmaxDecoder
-      layers: 1
       bridge: !CopyBridge {}
     inference: !SimpleInference
       beam: 5
