@@ -221,6 +221,7 @@ class H5Reader(InputReader, Serializable):
       h5_keys = sorted(hf.keys(), key=lambda x: int(x))
       if filter_ids is not None:
         h5_keys = [h5_keys[i] for i in filter_ids]
+        h5_keys.sort(key=lambda x: int(x))
       for idx, key in enumerate(h5_keys):
         inp = hf[key][:]
         if self.transpose:
@@ -284,6 +285,7 @@ class NpzReader(InputReader, Serializable):
     npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[-1]))
     if filter_ids is not None:
       npzKeys = [npzKeys[i] for i in filter_ids]
+      npzKeys.sort(key=lambda x: int(x.split('_')[-1]))
     for idx, key in enumerate(npzKeys):
       inp = npzFile[key]
       if self.transpose:

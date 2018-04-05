@@ -76,7 +76,7 @@ preproc: !Experiment
       - type: length
         min: 1
         max: 60
-    - type: vocab
+    - !PreprocVocab
       in_files:
       - '{DATA_OUT}/train.tok.norm.ja'
       - '{DATA_OUT}/train.tok.norm.en'
@@ -106,8 +106,10 @@ preproc: !Experiment
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 512
     decoder: !MlpSoftmaxDecoder
-      layers: 1
-      mlp_hidden_dim: 512
+      rnn_layer: !UniLSTMSeqTransducer
+        layers: 1
+      mlp_layer: !MLP
+        hidden_dim: 512
       bridge: !NoBridge {}
     inference: !SimpleInference
       post_process: join-piece
