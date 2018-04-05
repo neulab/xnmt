@@ -45,7 +45,7 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
     input_dim (int): input dimension
     trg_embed_dim (int): dimension of target embeddings
     input_feeding (bool): whether to activate input feeding
-    rnn_layer (SeqTransducer): recurrent layer of the decoder; defaults to UniLSTMSeqTransducer
+    rnn_layer (UniLSTMSeqTransducer): recurrent layer of the decoder
     mlp_layer (MLP): final prediction layer of the decoder
     bridge (Bridge): how to initialize decoder state
     label_smoothing (float): label smoothing value (if used, 0.1 is a reasonable value).
