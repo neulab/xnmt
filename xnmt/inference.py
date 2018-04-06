@@ -12,8 +12,9 @@ import dynet as dy
 from xnmt.loss_calculator import LossCalculator
 import xnmt.output
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable, Ref, Path
+from xnmt.serialize.serializable import Serializable, Ref
 from xnmt.serialize.serializer import serializable_init
+from xnmt.util import make_parent_dir
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 
@@ -132,9 +133,7 @@ class SimpleInference(Serializable):
       ref_scores = [-x for x in ref_scores]
 
     # Make the parent directory if necessary
-    directory = os.path.dirname(args["trg_file"])
-    if not os.path.exists(directory):
-      os.makedirs(directory)
+    make_parent_dir(args["trg_file"])
 
     # Perform generation of output
     if args["mode"] != 'score':

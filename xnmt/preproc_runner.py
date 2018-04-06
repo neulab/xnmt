@@ -6,14 +6,7 @@ from typing import List
 from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer
 from xnmt.serialize.serializable import Serializable
 from xnmt.serialize.serializer import serializable_init
-
-def make_parent_dir(filename):
-  if not os.path.exists(os.path.dirname(filename)):
-    try:
-      os.makedirs(os.path.dirname(filename))
-    except OSError as exc: # Guard against race condition
-      if exc.errno != os.errno.EEXIST:
-        raise
+from xnmt.util import make_parent_dir
 
 class PreprocTask(object):
   def run_preproc_task(self, overwrite=False):
