@@ -185,7 +185,7 @@ class YamlSerializer(object):
         if annotated_type != inspect.Parameter.empty:
           try:
             if not isinstance(init_params[init_param_name], annotated_type):
-              raise ValueError(f"type check failed for {init_param_name} argument of {obj}: expected {annotated_type}, received {init_params[init_param_name]} of type {type(init_params[init_param_name])}")
+              raise ValueError(f"type check failed for '{init_param_name}' argument of {obj}: expected {annotated_type}, received {init_params[init_param_name]} of type {type(init_params[init_param_name])}")
           except TypeError:
             pass # isinstance does not work with types from Python's "typing" module, let's skip test
 
