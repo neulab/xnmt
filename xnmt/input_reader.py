@@ -197,24 +197,27 @@ class H5Reader(InputReader, Serializable):
 
   Each data item will be a 2D matrix representing a sequence of vectors. They can
   be in either order, depending on the value of the "transpose" variable:
-  * sents[sent_id][feat_ind,word_ind] if transpose=False
-  * sents[sent_id][word_ind,feat_ind] if transpose=True
+  * sents[sent_id][feat_ind,timestep] if transpose=False
+  * sents[sent_id][timestep,feat_ind] if transpose=True
 
   Args:
-    transpose (bool):
-    feat_from (int):
-    feat_to (int):
-    feat_skip (int):
-    word_skip (int):
+    transpose (bool): whether inputs are transposed or not.
+    feat_from (int): use feature dimensions in a range, starting at this index (inclusive)
+    feat_to (int): use feature dimensions in a range, ending at this index (exclusive)
+    feat_skip (int): stride over features
+    timestep_skip (int): stride over timesteps
+    timestep_truncate (int): cut off timesteps if sequence is longer than specified value
   """
   yaml_tag = u"!H5Reader"
   @serializable_init
-  def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, word_skip=None):
+  def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, timestep_skip=None,
+               timestep_truncate=None):
     self.transpose = transpose
     self.feat_from = feat_from
     self.feat_to = feat_to
     self.feat_skip = feat_skip
-    self.word_skip = word_skip
+    self.timestep_skip = timestep_skip
+    self.timestep_truncate = timestep_truncate
 
   def read_sents(self, filename, filter_ids=None):
     with h5py.File(filename, "r") as hf:
@@ -227,7 +230,7 @@ class H5Reader(InputReader, Serializable):
         if self.transpose:
           inp = inp.transpose()
 
-        sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, ::self.word_skip]
+        sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, :self.timestep_truncate:self.timestep_skip]
         if sub_inp.size < inp.size:
           inp = np.empty_like(sub_inp)
           np.copyto(inp, sub_inp)
@@ -259,26 +262,28 @@ class NpzReader(InputReader, Serializable):
   numpy.savez_compressed(), in which case the names will be arr_0, arr_1, etc.
 
   Each numpy file will be a 2D matrix representing a sequence of vectors. They can
-  be in either order, depending on the value of the "transpose" variable:
-  * sents[sent_id][feat_ind,word_ind] if transpose=False
-  * sents[sent_id][word_ind,feat_ind] if transpose=True
+  be in either order, depending on the value of the "transpose" variable.
+  * sents[sent_id][feat_ind,timestep] if transpose=False
+  * sents[sent_id][timestep,feat_ind] if transpose=True
 
   Args:
-    transpose (bool):
-    feat_from (int):
-    feat_to (int):
-    feat_skip (int):
-    word_skip (int):
+    transpose (bool): whether inputs are transposed or not.
+    feat_from (int): use feature dimensions in a range, starting at this index (inclusive)
+    feat_to (int): use feature dimensions in a range, ending at this index (exclusive)
+    feat_skip (int): stride over features
+    timestep_skip (int): stride over timesteps
+    timestep_truncate (int): cut off timesteps if sequence is longer than specified value
   """
   yaml_tag = u"!NpzReader"
-
   @serializable_init
-  def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, word_skip=None):
+  def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, timestep_skip=None,
+               timestep_truncate=None):
     self.transpose = transpose
     self.feat_from = feat_from
     self.feat_to = feat_to
     self.feat_skip = feat_skip
-    self.word_skip = word_skip
+    self.timestep_skip = timestep_skip
+    self.timestep_truncate = timestep_truncate
 
   def read_sents(self, filename, filter_ids=None):
     npzFile = np.load(filename, mmap_mode=None if filter_ids is None else "r")
@@ -291,7 +296,7 @@ class NpzReader(InputReader, Serializable):
       if self.transpose:
         inp = inp.transpose()
 
-      sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, ::self.word_skip]
+      sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, :self.timestep_truncate:self.timestep_skip]
       if sub_inp.size < inp.size:
         inp = np.empty_like(sub_inp)
         np.copyto(inp, sub_inp)
