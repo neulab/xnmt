@@ -98,6 +98,22 @@ def set_child_list(node, name, val):
 def set_child_dict(node, name, val):
   node[name] = val
 
+def redirect_path_untested(path, root, cur_node=None):
+  # note: this might become useful in the future, but is not carefully tested, use with care
+  if cur_node is None: cur_node = root
+  if len(path)==0:
+    if isinstance(cur_node, Ref):
+      return cur_node.get_path()
+    return path
+  elif isinstance(cur_node, Ref):
+    assert not cur_node.get_path().is_relative_path()
+    return redirect_path_untested(cur_node.get_path(), root, get_descendant(root, cur_node.get_path()))
+  else:
+    try:
+      return path[:1].add_path(redirect_path_untested(path.descend_one(), root, get_child(cur_node, path[0])))
+    except PathError: # child does not exist
+      return path
+
 def get_descendant(node, path, redirect=False):
   if len(path)==0:
     return node
