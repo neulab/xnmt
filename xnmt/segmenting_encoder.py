@@ -155,7 +155,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
     # Note we want to use the original length of the input
     # Refactor it better?
-    self.src_length = [src.words.index(Vocab.ES)+1 for src in self.src_sent]
+    self.src_length = [src.original_length for src in self.src_sent]
     self.expected_length = [src_len / self.length_prior for src_len in self.src_length]
 
   def pad(self, outputs):
@@ -180,7 +180,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     eps = self.eps.value() if self.eps is not None else None
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings] if self.learn_segmentation else None
     # Flags
-    is_presegment_provided = len(self.src_sent) != 0 and self.src_sent[0].has_annotation("segment")
+    is_presegment_provided = self.src_sent[0].has_annotation("segment")
     is_epsgreedy_triggered = eps is not None and numpy.random.random() <= eps
     # Sample based on the criterion
     if self.learn_segmentation and not self.train:
@@ -211,18 +211,18 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   # Sample from poisson prior
   def sample_from_poisson(self, encodings, batch_size):
+    assert len(encodings) != 0
     #print("sample_from_poisson")
-    randoms = numpy.nonzero(numpy.random.poisson(lam=self.length_prior, size=batch_size*len(encodings)))[0]
+    randoms = list(filter(lambda x: x > 0, numpy.random.poisson(lam=self.length_prior, size=batch_size*len(encodings))))
     segment_decisions = [[] for _ in range(batch_size)]
     idx = 0
     # Filling up the segmentation matrix based on the poisson distribution
-    if len(encodings) != 0:
-      for decision in segment_decisions:
-        current = randoms[idx]
-        while current < len(encodings):
-          decision.append(current)
-          idx += 1
-          current += randoms[idx]
+    for decision in segment_decisions:
+      current = randoms[idx]
+      while current < len(encodings):
+        decision.append(current)
+        idx += 1
+        current += randoms[idx]
     return segment_decisions
 
   # Sample from the softmax

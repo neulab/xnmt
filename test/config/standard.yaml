@@ -5,6 +5,8 @@ standard: !Experiment
     log_file: examples/output/{EXP}.log
     default_layer_dim: 64
   model: !DefaultTranslator
+    calc_global_fertility: True
+    calc_length_difference: True
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     trg_reader: !PlainTextReader

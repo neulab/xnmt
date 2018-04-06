@@ -65,6 +65,12 @@ class Vocab(Serializable):
       self.i2w.append(w)
     return self.w2i[w]
 
+  def __contains__(self, elem):
+    if type(elem) == int:
+      return elem in self.i2w
+    else:
+      return elem in self.w2i
+
   def __getitem__(self, i):
     return self.i2w[i]
 

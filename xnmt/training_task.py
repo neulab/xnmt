@@ -76,7 +76,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                initial_patience=None, dev_tasks=None, restart_trainer=False,
                reload_command=None, name=None, sample_train_sents=None,
                max_num_train_sents=None, max_src_len=None, max_trg_len=None,
-               only_additional_loss=False, start_epoch=None,
+               loss_scaler=None,
                exp_global=Ref(Path("exp_global"))):
     """
     Args:
@@ -107,6 +107,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks
+    self.loss_scaler = loss_scaler
 
     if lr_decay > 1.0 or lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
@@ -121,10 +122,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     # training state
     self.training_state = TrainingState()
 
-    if start_epoch is not None:
-      self.training_state.epoch_num = start_epoch
-
-    self.only_additional_loss = only_additional_loss
     self.reload_command = reload_command
 
     self.model = model
@@ -262,9 +259,9 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     additional_loss = self.model.calc_additional_loss(src, trg, standard_loss, trg_word_counts)
     loss_builder.add_loss("standard_loss", standard_loss)
     loss_builder.add_loss("additional_loss", additional_loss)
-
-    if self.only_additional_loss:
-      loss_builder.delete_loss(self.model.get_primary_loss())
+    
+    if self.loss_scaler is not None:
+      loss_builder = self.loss_scaler(loss_builder)
 
     loss_value = loss_builder.compute()
     self.logger.update_epoch_loss(src, trg, loss_builder.get_loss_stats())

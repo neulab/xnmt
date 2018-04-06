@@ -38,6 +38,7 @@ class SimpleSentenceInput(Input):
   def __init__(self, words, annotation=None):
     self.words = words
     self.annotation = annotation or {}
+    self.original_length = words.index(Vocab.ES)+1
 
   def __len__(self):
     return len(self.words)

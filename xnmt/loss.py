@@ -31,6 +31,13 @@ class LossBuilder(object):
   def compute(self):
     return dy.sum_batches(self.sum())
 
+  def set_loss(self, loss_name, loss_value):
+    self.modified = True
+    self.loss_values[loss_name] = loss_value
+
+  def get_loss(self, loss_name):
+    return self.loss_values.get(loss_name, None)
+
   def sum(self, batch_sum=True):
     if self.modified:
       self.sum_value = dy.esum(list(self.loss_values.values()))
@@ -54,7 +61,7 @@ class LossBuilder(object):
 
   def __repr__(self):
     loss_str = ", ".join(["%s %f" % (loss_name, dy.sum_batches(loss_value).value()) for loss_name, loss_value in self.loss_values.items()])
-    return "{Loss Builder: %s}=%f" % (loss_str)
+    return "{Loss Builder: %s}" % (loss_str)
 
 class LossScalarBuilder(object):
 

@@ -75,7 +75,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     decoder (Decoder): A decoder
     inference (SimpleInference): The default inference strategy used for this model
     calc_global_fertility (bool):
-    calc_attention_entropy (bool):
   '''
 
   yaml_tag = '!DefaultTranslator'
@@ -84,8 +83,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
                inference=bare(SimpleInference),
-               calc_global_fertility=False, calc_attention_entropy=False,
-               global_fertility_weight=None, attention_entropy_weight=None):
+               calc_global_fertility=False, global_fertility_weight=None,
+               calc_length_difference=False, length_difference_weight=None):
     register_handler(self)
     self.src_reader = src_reader
     self.trg_reader = trg_reader
@@ -95,9 +94,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.trg_embedder = trg_embedder
     self.decoder = decoder
     self.calc_global_fertility = calc_global_fertility
-    self.calc_attention_entropy = calc_attention_entropy
-    self.attention_entropy_weight = attention_entropy_weight
+    self.calc_length_difference = calc_length_difference
     self.global_fertility_weight = global_fertility_weight
+    self.length_difference_weight = length_difference_weight
     self.inference = inference
     self.src_vocab = src_reader.vocab
 
@@ -135,7 +134,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     model_loss = LossBuilder()
     model_loss.add_loss("mle", loss_calculator(self, dec_state, src, trg))
 
-    if self.calc_global_fertility or self.calc_attention_entropy:
+    if self.calc_global_fertility:
       # philip30: I assume that attention_vecs is already masked src wisely.
       # Now applying the mask to the target
       masked_attn = self.attender.attention_vecs
@@ -145,9 +144,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
     if self.calc_global_fertility:
       model_loss.add_loss("fertility", self.global_fertility(masked_attn))
-    if self.calc_attention_entropy:
-      model_loss.add_loss("h(attn)", self.attention_entropy(masked_attn))
 
+    if self.calc_length_difference:
+      model_loss.add_loss("length_difference", self.length_difference(encodings, trg))
     return model_loss
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
@@ -197,14 +196,17 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def global_fertility(self, a):
     return multiply_weight(dy.sum_elems(dy.square(1 - dy.esum(a))), self.global_fertility_weight)
 
-  def attention_entropy(self, a):
-    EPS = 1e-10
-    entropy = []
-    for a_i in a:
-      val = a_i + EPS
-      entropy.append(-dy.cmult(val, dy.log(val)))
-
-    return multiply_weight(dy.sum_elems(dy.esum(entropy)), self.attention_entropy_weight)
+  def length_difference(self, encodings, src_sent):
+    mask = encodings.mask
+    if mask is None:
+      enc_len = len(encodings) * np.ones(len(src_sent))
+    else:
+      mask = mask.np_arr
+      enc_len = [np.flatnonzero(x) for x in mask]
+      enc_len = [enc_len[i][0] if len(enc_len[i]) != 0 else mask.shape[1] for i in range(len(enc_len))]
+    original_len = dy.inputTensor([src.original_length for src in src_sent], batched=True)
+    predicted_len = dy.inputTensor(enc_len, batched=True)
+    return dy.abs(original_len - predicted_len)
 
   @register_xnmt_event_assign
   def html_report(self, context=None):
