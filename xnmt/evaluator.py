@@ -560,6 +560,29 @@ class RecallEvaluator(Evaluator,Serializable):
     score = true_positive / float(len(ref))
     return RecallScore(score, len(hyp), len(ref), nbest=self.nbest, desc=desc)
 
+# The below is needed for evaluating retrieval models, but depends on MeanAvgPrecisionScore which seems to have been
+# lost.
+#
+# class MeanAvgPrecisionEvaluator(object):
+#   def __init__(self, nbest=5, desc=None):
+#     self.nbest = nbest
+#     self.desc = desc
+#
+#   def metric_name(self):
+#     return "MeanAvgPrecision{}".format(str(self.nbest))
+#
+#   def evaluate(self, ref, hyp):
+#     avg = 0
+#     for hyp_i, ref_i in zip(hyp, ref):
+#         score = 0
+#         h = hyp_i[:self.nbest]
+#         for x in range(len(h)):
+#             if ref_i == h[x][0]:
+#                 score = 1/(x+1)
+#         avg += score
+#     avg = avg/float(len(ref))
+#     return MeanAvgPrecisionScore(avg, len(hyp), len(ref), nbest=self.nbest, desc=self.desc)
+
 class SequenceAccuracyEvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of sequence accuracy.
