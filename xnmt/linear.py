@@ -1,24 +1,31 @@
 import dynet as dy
+
+from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.serialize.serializable import Serializable, bare
+from xnmt.serialize.serializer import serializable_init
 
-
-class Linear(object):
+class Linear(Serializable):
   """
   Linear projection with optional bias.
   
   Args:
-    input_dim (int): input dimension; if None, use exp_global.default_layer_dim
-    output_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
+    input_dim (int): input dimension
+    output_dim (int): hidden dimension
     model (dy.ParameterCollection): DyNet parameter collection
     bias (bool): whether to add a bias
     param_init (ParamInitializer): how to initialize weight matrices
     bias_init (ParamInitializer): how to initialize bias vectors
   """
-  
-  def __init__(self, input_dim, output_dim, model, bias=True, param_init=GlorotInitializer(), bias_init=ZeroInitializer()):
+
+  yaml_tag = "!Linear"
+
+  @serializable_init
+  def __init__(self, input_dim, output_dim, bias=True, param_init=bare(GlorotInitializer), bias_init=bare(ZeroInitializer)):
     self.bias = bias
     self.output_dim = output_dim
 
+    model = ParamManager.my_params(self)
     self.W1 = model.add_parameters((output_dim, input_dim), init=param_init.initializer((output_dim, input_dim)))
     if self.bias:
       self.b1 = model.add_parameters((output_dim,), init=bias_init.initializer((output_dim,)))

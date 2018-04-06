@@ -2,9 +2,9 @@ import dynet as dy
 import numpy as np
 
 from xnmt.loss import LossBuilder
-from xnmt.serialize.serializer import Serializable
+from xnmt.serialize.serializable import Serializable, Ref, Path
+from xnmt.serialize.serializer import serializable_init
 from xnmt.vocab import Vocab
-from xnmt.serialize.tree_tools import Ref, Path
 import xnmt.evaluator
 import xnmt.linear as linear
 
@@ -15,6 +15,7 @@ class LossCalculator(Serializable):
   '''
   yaml_tag = '!LossCalculator'
 
+  @serializable_init
   def __init__(self, loss_calculator = None):
     if loss_calculator is None:
       self.loss_calculator = MLELoss()
@@ -29,6 +30,10 @@ class MLELoss(Serializable):
   yaml_tag = '!MLELoss'
   
   # TODO: document me
+
+  @serializable_init
+  def __init__(self):
+    pass
 
   def __call__(self, translator, dec_state, src, trg):
     trg_mask = trg.mask if xnmt.batcher.is_batched(trg) else None
@@ -57,7 +62,9 @@ class ReinforceLoss(Serializable):
 
   # TODO: document me
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), evaluation_metric=None, sample_length=50, use_baseline=False, decoder_hidden_dim=None):
+  @serializable_init
+  def __init__(self, evaluation_metric=None, sample_length=50, use_baseline=False,
+               decoder_hidden_dim=Ref("exp_global.default_layer_dim")):
     self.sample_length = sample_length
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
@@ -65,9 +72,7 @@ class ReinforceLoss(Serializable):
       self.evaluation_metric = evaluation_metric
     self.use_baseline = use_baseline
     if self.use_baseline:
-      model = exp_global.dynet_param_collection.param_col
-      decoder_hidden_dim = decoder_hidden_dim or exp_global.default_layer_dim
-      self.baseline = linear.Linear(input_dim=decoder_hidden_dim, output_dim=1, model=model)
+      self.baseline = linear.Linear(input_dim=decoder_hidden_dim, output_dim=1)
 
   def __call__(self, translator, dec_state, src, trg):
     # TODO: apply trg.mask ?
@@ -78,7 +83,7 @@ class ReinforceLoss(Serializable):
     for _ in range(self.sample_length):
       dec_state.context = translator.attender.calc_context(dec_state.rnn_state.output())
       if self.use_baseline:
-        h_t = dy.tanh(translator.decoder.context_projector(dy.concatenate([dec_state.rnn_state.output(), dec_state.context])))
+        h_t = dy.tanh(translator.decoder.mlp_layer.hidden(dy.concatenate([dec_state.rnn_state.output(), dec_state.context])))
         self.bs.append(self.baseline(dy.nobackprop(h_t)))
       logsoft = dy.log_softmax(translator.decoder.get_scores(dec_state))
       sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]

@@ -3,8 +3,10 @@ logger = logging.getLogger('xnmt')
 
 import dynet as dy
 import numpy as np
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.param_collection import ParamManager
+from xnmt.serialize.serializable import Serializable, Ref, Path
+from xnmt.serialize.serializer import serializable_init
+
 """
 The purpose of this module is mostly to expose the DyNet trainers to YAML serialization,
 but may also be extended to customize optimizers / training schedules
@@ -70,14 +72,13 @@ class SimpleSGDTrainer(XnmtOptimizer, Serializable):
   This trainer performs stochastic gradient descent, the goto optimization procedure for neural networks.
 
   Args:
-    exp_global (ExpGlobal): to obtain reference to DyNet parameter collection
     e0 (number): Initial learning rate
   """
   yaml_tag = '!SimpleSGDTrainer'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.1):
-    self.optimizer = dy.SimpleSGDTrainer(exp_global.dynet_param_collection.param_col,
-                                         e0)
+  @serializable_init
+  def __init__(self, e0 = 0.1):
+    self.optimizer = dy.SimpleSGDTrainer(ParamManager.global_collection(), e0)
 class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   """
   Stochastic gradient descent with momentum
@@ -85,14 +86,14 @@ class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   This is a modified version of the SGD algorithm with momentum to stablize the gradient trajectory.
 
   Args:
-    exp_global (ExpGlobal): to obtain reference to DyNet parameter collection
     e0 (number): Initial learning rate
     mom (number): Momentum
   """
   yaml_tag = '!MomentumSGDTrainer'
-  def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.01, mom = 0.9):
-    self.optimizer = dy.MomentumSGDTrainer(exp_global.dynet_param_collection.param_col,
-                                           e0, mom)
+
+  @serializable_init
+  def __init__(self, e0 = 0.01, mom = 0.9):
+    self.optimizer = dy.MomentumSGDTrainer(ParamManager.global_collection(), e0, mom)
 
 class AdagradTrainer(XnmtOptimizer, Serializable):
   """
@@ -101,15 +102,14 @@ class AdagradTrainer(XnmtOptimizer, Serializable):
   The adagrad algorithm assigns a different learning rate to each parameter.
 
   Args:
-    exp_global (ExpGlobal): to obtain reference to DyNet parameter collection
     e0 (number): Initial learning rate
     eps (number): Epsilon parameter to prevent numerical instability
   """
   yaml_tag = '!AdagradTrainer'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), e0 = 0.1, eps = 1e-20):
-    self.optimizer = dy.AdagradTrainer(exp_global.dynet_param_collection.param_col,
-                                       e0, eps=eps)
+  @serializable_init
+  def __init__(self, e0 = 0.1, eps = 1e-20):
+    self.optimizer = dy.AdagradTrainer(ParamManager.global_collection(), e0, eps=eps)
 
 class AdadeltaTrainer(XnmtOptimizer, Serializable):
   """
@@ -118,15 +118,14 @@ class AdadeltaTrainer(XnmtOptimizer, Serializable):
   The AdaDelta optimizer is a variant of Adagrad aiming to prevent vanishing learning rates.
 
   Args:
-    exp_global (ExpGlobal): to obtain reference to DyNet parameter collection
     eps (number): Epsilon parameter to prevent numerical instability
     rho (number): Update parameter for the moving average of updates in the numerator
   """
   yaml_tag = '!AdadeltaTrainer'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), eps = 1e-6, rho = 0.95):
-    self.optimizer = dy.AdadeltaTrainer(exp_global.dynet_param_collection.param_col,
-                                        eps, rho)
+  @serializable_init
+  def __init__(self, eps = 1e-6, rho = 0.95):
+    self.optimizer = dy.AdadeltaTrainer(ParamManager.global_collection(), eps, rho)
 
 class AdamTrainer(XnmtOptimizer, Serializable):
   """
@@ -135,7 +134,6 @@ class AdamTrainer(XnmtOptimizer, Serializable):
   The Adam optimizer is similar to RMSProp but uses unbiased estimates of the first and second moments of the gradient
 
   Args:
-    exp_global (ExpGlobal): to obtain reference to DyNet parameter collection
     alpha (number): Initial learning rate
     beta_1 (number): Moving average parameter for the mean
     beta_2 (number): Moving average parameter for the variance
@@ -143,9 +141,9 @@ class AdamTrainer(XnmtOptimizer, Serializable):
   """
   yaml_tag = '!AdamTrainer'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
-    self.optimizer = dy.AdamTrainer(exp_global.dynet_param_collection.param_col,
-                                    alpha, beta_1, beta_2, eps)
+  @serializable_init
+  def __init__(self, alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
+    self.optimizer = dy.AdamTrainer(ParamManager.global_collection(), alpha, beta_1, beta_2, eps)
 
 class TransformerAdamTrainer(XnmtOptimizer, Serializable):
   """
@@ -153,7 +151,6 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
   In this the learning rate of Adam Optimizer is increased for the first warmup steps followed by a gradual decay
 
   Args:
-    exp_global (ExpGlobal): to obtain reference to DyNet parameter collection
     alpha (float):
     dim (int):
     warmup_steps (int):
@@ -162,8 +159,10 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
     eps (float):
   """
   yaml_tag = '!TransformerAdamTrainer'
-  def __init__(self, exp_global=Ref(Path("exp_global")), alpha=1.0, dim=512, warmup_steps=4000, beta_1=0.9, beta_2=0.98, eps=1e-9):
-    self.optimizer = dy.AdamTrainer(exp_global.dynet_param_collection.param_col,
+
+  @serializable_init
+  def __init__(self, alpha=1.0, dim=512, warmup_steps=4000, beta_1=0.9, beta_2=0.98, eps=1e-9):
+    self.optimizer = dy.AdamTrainer(ParamManager.global_collection(),
                                     alpha=alpha,
                                     beta_1=beta_1,
                                     beta_2=beta_2,

@@ -18,4 +18,5 @@ It is coded in Python based on `DyNet <http://github.com/clab/dynet>`_.
    preprocessing
    api_doc
    programming_style
+   writing_xnmt_classes
 

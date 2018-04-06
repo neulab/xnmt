@@ -10,7 +10,7 @@ from xnmt.attender import MlpAttender
 from xnmt.batcher import mark_as_batch, is_batched
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
-from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_handler
+from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 from xnmt.generator import GeneratorModel
 from xnmt.inference import SimpleInference
 from xnmt.input import SimpleSentenceInput
@@ -21,9 +21,10 @@ from xnmt.output import TextOutput
 import xnmt.plot
 from xnmt.reports import Reportable
 from xnmt.serialize.serializable import Serializable, bare
+from xnmt.serialize.serializer import serializable_init
 from xnmt.search_strategy import BeamSearch, GreedySearch
 import xnmt.serialize.serializer
-from xnmt.serialize.tree_tools import Path
+from xnmt.serialize.serializable import Path
 from xnmt.vocab import Vocab
 
 class Translator(GeneratorModel):
@@ -79,11 +80,12 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
   yaml_tag = '!DefaultTranslator'
 
+  @register_xnmt_handler
+  @serializable_init
   def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
                inference=bare(SimpleInference), calc_global_fertility=False, calc_attention_entropy=False):
-    register_handler(self)
     self.src_reader = src_reader
     self.trg_reader = trg_reader
     self.src_embedder = src_embedder
@@ -98,7 +100,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def shared_params(self):
     return [set([Path(".src_embedder.emb_dim"), Path(".encoder.input_dim")]),
             set([Path(".encoder.hidden_dim"), Path(".attender.input_dim"), Path(".decoder.input_dim")]),
-            set([Path(".attender.state_dim"), Path(".decoder.lstm_dim")]),
+            set([Path(".attender.state_dim"), Path(".decoder.rnn_layer.hidden_dim")]),
             set([Path(".trg_embedder.emb_dim"), Path(".decoder.trg_embed_dim")])]
 
   def initialize_generator(self, **kwargs):
@@ -286,8 +288,9 @@ class TransformerTranslator(Translator, Serializable, Reportable):
 
   yaml_tag = '!TransformerTranslator'
 
+  @register_xnmt_handler
+  @serializable_init
   def __init__(self, src_reader, src_embedder, encoder, trg_reader, trg_embedder, decoder, inference=None, input_dim=512):
-    register_handler(self)
     self.src_reader = src_reader
     self.src_embedder = src_embedder
     self.encoder = encoder

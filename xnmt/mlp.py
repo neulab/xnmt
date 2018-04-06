@@ -1,10 +1,83 @@
 import dynet as dy
+
+from xnmt.param_collection import ParamManager
+from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.serialize.serializable import Serializable, Ref, Path, bare
+from xnmt.serialize.serializer import serializable_init
 import xnmt.linear
 
-class MLP(object):
-  def __init__(self, input_dim, hidden_dim, output_dim, model):
-    self.hidden = xnmt.linear.Linear(input_dim, hidden_dim, model)
-    self.output = xnmt.linear.Linear(hidden_dim, output_dim, model)
+class MLP(Serializable):
+  """
+  Multi-layer perceptron.
+
+  Args:
+    input_dim (int): input dimension
+    hidden_dim (int): hidden dimension
+    output_dim (int): output dimension; if ``yaml_path`` contains 'decoder', this argument will be ignored (and set via ``vocab_size``/``vocab``/``trg_reader`` instead)
+    param_init_hidden (ParamInitializer): how to initialize hidden weight matrices
+    bias_init_hidden (ParamInitializer): how to initialize hidden bias vectors
+    param_init_output (ParamInitializer): how to initialize output weight matrices
+    bias_init_output (ParamInitializer): how to initialize output bias vectors
+    output_projector: TODO
+    yaml_path (str):
+    vocab_size (int): vocab size or None; if not None and ``yaml_path`` contains 'decoder', this will overwrite ``output_dim``
+    vocab (Vocab): vocab or None; if not None and ``yaml_path`` contains 'decoder', this will overwrite ``output_dim``
+    trg_reader (InputReader): Model's trg_reader, if exists and unambiguous; if not None and ``yaml_path`` contains 'decoder', this will overwrite ``output_dim``
+    decoder_rnn_dim (int): dimension of a decoder RNN that feeds into this MLP; if ``yaml_path`` contains 'decoder', this will be added to ``input_dim``
+  """
+  yaml_tag = '!MLP'
+
+  @serializable_init
+  def __init__(self,
+               input_dim=Ref("exp_global.default_layer_dim"),
+               hidden_dim=Ref("exp_global.default_layer_dim"),
+               output_dim=Ref("exp_global.default_layer_dim", default=None),
+               param_init_hidden=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init_hidden=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               param_init_output=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init_output=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               output_projector=None,
+               yaml_path=None,
+               vocab_size=None,
+               vocab=None,
+               trg_reader=Ref("model.trg_reader", default=None),
+               decoder_rnn_dim=Ref("exp_global.default_layer_dim", default=None)):
+    model = ParamManager.my_params(self)
+    self.input_dim = input_dim
+    self.hidden_dim = hidden_dim
+    self.output_dim = output_dim
+    if yaml_path is not None and "decoder" in yaml_path:
+      self.input_dim += decoder_rnn_dim
+      self.output_dim = self.choose_vocab_size(vocab_size, vocab, trg_reader)
+
+    self.hidden = xnmt.linear.Linear(
+      self.input_dim, self.hidden_dim, model,
+      param_init=param_init_hidden, bias_init=bias_init_hidden)
+    self.output = output_projector or xnmt.linear.Linear(
+      self.hidden_dim, self.output_dim, model,
+      param_init=param_init_output, bias_init=bias_init_output)
 
   def __call__(self, input_expr):
     return self.output(dy.tanh(self.hidden(input_expr)))
+
+  def choose_vocab_size(self, vocab_size, vocab, trg_reader):
+    """Choose the vocab size for the embedder basd on the passed arguments
+
+    This is done in order of priority of vocab_size, vocab, model+yaml_path
+
+    Args:
+      vocab_size (int): vocab size or None
+      vocab (Vocab): vocab or None
+      trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
+
+    Returns:
+      int: chosen vocab size
+    """
+    if vocab_size != None:
+      return vocab_size
+    elif vocab != None:
+      return len(vocab)
+    elif trg_reader == None or trg_reader.vocab == None:
+      raise ValueError("Could not determine MLP's output size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
+    else:
+      return len(trg_reader.vocab)
