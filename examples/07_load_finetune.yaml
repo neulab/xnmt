@@ -65,3 +65,6 @@ exp2-finetune-model: !LoadSerialized
         alpha: 0.0002
   - path: exp_global.dropout
     val: 0.5
+  - path: train.dev_zero
+    val: True
+
