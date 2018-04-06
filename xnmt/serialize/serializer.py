@@ -307,7 +307,7 @@ def serializable_init(f):
         assert not getattr(initialized, "_is_bare", False)
         serialize_params[key] = initialized
     f(obj, **serialize_params)
-    if xnmt_subcol_name in ParamManager.param_col.subcols:
+    if ParamManager.initialized and xnmt_subcol_name in ParamManager.param_col.subcols:
       serialize_params["xnmt_subcol_name"] = xnmt_subcol_name
     serialize_params.update(getattr(obj,"serialize_params",{}))
     obj.serialize_params = serialize_params

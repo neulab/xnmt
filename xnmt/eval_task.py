@@ -106,7 +106,7 @@ class AccuracyEvalTask(Serializable):
                desc: Optional = None):
     self.model = model
     if isinstance(eval_metrics, str):
-      eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut] for shortcut in eval_metrics.split(",")]
+      eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
     self.eval_metrics = eval_metrics
     self.src_file = src_file
     self.ref_file = ref_file

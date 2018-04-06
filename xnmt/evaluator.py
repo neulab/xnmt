@@ -7,6 +7,7 @@ import subprocess
 import numpy as np
 
 from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializer import serializable_init
 
 class EvalScore(object):
   def higher_is_better(self):
@@ -188,9 +189,12 @@ class Evaluator(object):
   def evaluate_fast(self, ref, hyp):
     raise NotImplementedError('evaluate_fast is not implemented for:', self.__class__.__name__)
 
-class BLEUEvaluator(Evaluator):
+class BLEUEvaluator(Evaluator, Serializable):
   # Class for computing BLEU Scores accroding to
   # K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
+  yaml_tag = "!BLEUEvaluator"
+
+  @serializable_init
   def __init__(self, ngram=4, smooth=0):
     """
     Args:
@@ -342,8 +346,10 @@ class BLEUEvaluator(Evaluator):
 
     return clipped_ngram_count, candidate_ngram_count
 
-class GLEUEvaluator(Evaluator):
+class GLEUEvaluator(Evaluator, Serializable):
   # Class for computing GLEU Scores
+  yaml_tag = "!GLEUEvaluator"
+  @serializable_init
   def __init__(self, min_length=1, max_length=4):
     self.min = min_length
     self.max = max_length
@@ -404,11 +410,12 @@ class GLEUEvaluator(Evaluator):
     return GLEUScore(gleu_score, total_ref_len, total_hyp_len, desc=desc)
 
 
-class WEREvaluator(Evaluator):
+class WEREvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of word error rate.
   """
-
+  yaml_tag = "!WEREvaluator"
+  @serializable_init
   def __init__(self, case_sensitive=False):
     self.case_sensitive = case_sensitive
 
@@ -479,11 +486,13 @@ class WEREvaluator(Evaluator):
         F[i + 1][j + 1] = max(match, delete, insert)
     return F[len(l1)][len(l2)]
 
-class CEREvaluator(object):
+class CEREvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of character error rate.
   """
+  yaml_tag = "!CEREvaluator"
 
+  @serializable_init
   def __init__(self, case_sensitive=False):
     self.wer_evaluator = WEREvaluator(case_sensitive=case_sensitive)
 
@@ -505,12 +514,13 @@ class CEREvaluator(object):
     wer_obj = self.wer_evaluator.evaluate(ref_char, hyp_char)
     return CERScore(wer_obj.value(), wer_obj.hyp_len, wer_obj.ref_len, desc=desc)
 
-class ExternalEvaluator(object):
+class ExternalEvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of the output according to an external evaluation script.
   The external script should only print a number representing the calculated score.
   """
-
+  yaml_tag = "!ExternalEvaluator"
+  @serializable_init
   def __init__(self, path=None, higher_better=True):
     self.path = path
     self.higher_better = higher_better
@@ -533,7 +543,9 @@ class ExternalEvaluator(object):
     external_score = float(out)
     return ExternalScore(external_score, self.higher_better, desc=desc)
 
-class RecallEvaluator(object):
+class RecallEvaluator(Evaluator,Serializable):
+  yaml_tag = "!RecallEvaluator"
+  @serializable_init
   def __init__(self, nbest=5):
     self.nbest = nbest
 
@@ -548,11 +560,12 @@ class RecallEvaluator(object):
     score = true_positive / float(len(ref))
     return RecallScore(score, len(hyp), len(ref), nbest=self.nbest, desc=desc)
 
-class SequenceAccuracyEvaluator(Evaluator):
+class SequenceAccuracyEvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of sequence accuracy.
   """
-
+  yaml_tag = "!SequenceAccuracyEvaluator"
+  @serializable_init
   def __init__(self, case_sensitive=False):
     self.case_sensitive = case_sensitive
 

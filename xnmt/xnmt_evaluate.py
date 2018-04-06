@@ -5,6 +5,7 @@ import argparse
 
 from xnmt.evaluator import *
 from xnmt.inference import NO_DECODING_ATTEMPTED
+from xnmt.serialize.serializable import bare
 from xnmt.util import OneOrSeveral
 
 def read_data(loc_, post_process=None):
@@ -20,17 +21,17 @@ def read_data(loc_, post_process=None):
   return data
 
 eval_shortcuts = {
-  "bleu": BLEUEvaluator(),
-  "gleu": GLEUEvaluator(),
-  "wer": WEREvaluator(),
-  "cer": CEREvaluator(),
-  "recall": RecallEvaluator(),
-  "accuracy": SequenceAccuracyEvaluator()
+  "bleu": lambda:BLEUEvaluator(),
+  "gleu": lambda:GLEUEvaluator(),
+  "wer": lambda:WEREvaluator(),
+  "cer": lambda:CEREvaluator(),
+  "recall": lambda:RecallEvaluator(),
+  "accuracy": lambda:SequenceAccuracyEvaluator(),
 }
 
 
 def xnmt_evaluate(ref_file: OneOrSeveral[str], hyp_file: OneOrSeveral[str],
-                  evaluators: Sequence[Evaluator] = [BLEUEvaluator()], desc: Any = None) -> Sequence[EvalScore]:
+                  evaluators: Sequence[Evaluator], desc: Any = None) -> Sequence[EvalScore]:
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
 
   Args:
@@ -65,7 +66,7 @@ if __name__ == "__main__":
 
   evaluators = args.metrics
   try:
-    evaluators = [eval_shortcuts[shortcut] for shortcut in evaluators.split(",")]
+    evaluators = [eval_shortcuts[shortcut]() for shortcut in evaluators.split(",")]
   except KeyError:
     evaluators = eval(evaluators)
 
