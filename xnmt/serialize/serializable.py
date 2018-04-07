@@ -1,4 +1,8 @@
+from typing import List, Set, Callable
+
 import yaml
+
+from xnmt.util import YamlSerializable
 
 class Serializable(yaml.YAMLObject):
   """
@@ -6,23 +10,32 @@ class Serializable(yaml.YAMLObject):
   Implementing classes must specify a unique yaml_tag class attribute, e.g. ``yaml_tag = "!Serializable"``
   """
   def __init__(self):
-    # below attributes are automatically set when deserializing (i.e., creating actual objects based on a YAML file)
-    # should never be changed manually
+    """
+    Initializer, with its arguments defining what arguments can be passed from a YAML config file.
 
-    # attributes that are in the YAML file (see Serializable.overwrite_serialize_param() for customizing this)
+    The __init__() must always be annotated with @serializable_init. It's arguments are exactly those that can be
+    specified in a YAML config file. If the argument values are Serializable, they are initialized before being passed
+    to this class. The order of the arguments defined here determines in what order children are initialized, which
+    may be important when there are dependencies between children.
+    """
+
+    # attributes that are in the YAML file (never change manually, use Serializable.overwrite_serialize_param() instead)
     self.serialize_params = {}
 
-  def shared_params(self):
+  def shared_params(self) -> List[Set['Path']]:
     """
+    Returns the shared parameters of this Serializable class.
+
     This can be overwritten to specify what parameters of this component and its subcomponents are shared.
     Parameter sharing is performed before any components are initialized, and can therefore only
     include basic data types that are already present in the YAML file (e.g. # dimensions, etc.)
     Sharing is performed if at least one parameter is specified and multiple shared parameters don't conflict.
     In case of conflict a warning is printed, and no sharing is performed.
     The ordering of shared parameters is irrelevant.
+    Note also that if a submodule is replaced by a reference, its shared parameters are ignored.
 
     Returns:
-      List[Set[Path]]: objects referencing params of this component or a subcompononent
+      objects referencing params of this component or a subcompononent
       e.g.::
       
         return [set([Path(".input_dim"),
@@ -31,32 +44,43 @@ class Serializable(yaml.YAMLObject):
     """
     return []
 
-  def overwrite_serialize_param(self, key, val):
+  def overwrite_serialize_param(self, key:str, val:YamlSerializable) -> None:
     """
-    Normally, when serializing an object, the same contents are written as were specified in the config file.
-    This method can be called to serialize something else.
-    
+    Saves a new value for one of this class's init arguments.
+
+    Normally, the serialization mechanism makes sure that the same arguments are passed when creating the class
+    initially based on a config file, and when loading it from a saved model. This method can be called from inside
+    __init__ to save a new value that will be passed when loading the saved model. This can be useful when one doesn't
+    want to recompute something every time (like a vocab) or when something has been passed via implicit referencing
+    which might yield inconsistent result when loading the model to assemble a new model of different structure.
+
     Args:
-      key (str): name of property
-      val (Serializable or basic Python type):
+      key: name of property, must match an argument of __init__()
+      val: new value; a Serializable or basic Python type or list or dict of these
     """
     if not hasattr(self, "serialize_params"):
       self.serialize_params = {}
     self.serialize_params[key] = val
 
-  def add_serializable_component(self, name, passed, create_fct):
+  def add_serializable_component(self, name: str, passed: YamlSerializable,
+                                 create_fct: Callable[YamlSerializable]) -> YamlSerializable:
     """
     Helper to create a Serializable sub-object.
 
+    Serializable objects, or containers of Serializable objects, should always be created using this helper to make
+    sure DyNet parameters are assigned properly and serialization works properly. In addition, __init__ should accept
+    these as argument, which accepts None as default. Arguments are only created if None is passed, otherwise the passed
+    objects are used.
+
     Args:
-      name (str): name of the object
-      passed (Optional[Union[Serializable,Container[Serializable]]]): object as passed in the constructor.
-                                                                      If None, will be created using create_fct.
-      create_fct (Callable[[],Optional[Union[Serializable,Container[Serializable]]]]): a callable with no arguments that
-                                                                returns a Serializable or a collection of Serializables.
+      name: name of the object
+      passed: object as passed in the constructor. If None, will be created using create_fct.
+      create_fct: a callable with no arguments that returns a Serializable or a collection of Serializables.
+                  When loading a saved model, this same object will be passed via the 'passed' argument, and create_fct
+                  is not invoked.
 
     Returns:
-      Optional[Union[Serializable,Container[Serializable]]]: reused or newly created object(s).
+      reused or newly created object(s).
     """
     if passed is None:
       initialized = create_fct()
