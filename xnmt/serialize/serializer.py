@@ -684,9 +684,22 @@ class RandomParam(yaml.YAMLObject):
 
 
 class LoadSerialized(Serializable):
+  """
+  Load content from an external YAML file.
+
+  This object points to an object in an external YAML file and will be replaced by the corresponding content by
+  the YAMLPreloader.
+
+  Args:
+    filename: YAML file name to load from
+    path: path inside the YAML file to load from, with "." separators. Empty string denotes root.
+    overwrite: allows overwriting parts of the loaded model with new content. A list of dictionaries with "path" and
+               "val" entries, where "path" is a path string relative to the loaded sub-object, and "val" is a
+               YamlSerializable specifying the new content.
+  """
   yaml_tag = "!LoadSerialized"
 
-  def __init__(self, filename, path="", overwrite=[]):
+  def __init__(self, filename: str, path: str = "", overwrite: List[Dict] = []):
     self.filename = filename
     self.path = path
     self.overwrite = overwrite
@@ -721,8 +734,7 @@ class YamlPreloader(object):
   def preload_experiment_from_file(filename:str, exp_name:str) -> UninitializedYamlObject:
     """Preload experiment from YAML file.
 
-    Preload the specified experiment from a YAML file, taking care of replacing !LoadSerialized, resolving kwargs
-    syntax, and instantiating random search.
+    Preloading takes care of replacing !LoadSerialized, resolving kwargs syntax, and instantiating random search.
 
     Args:
       filename: YAML config file name
@@ -744,8 +756,8 @@ class YamlPreloader(object):
   def preload_obj(root:YamlSerializable, exp_name:str, exp_dir:str) -> UninitializedYamlObject:
     """Preload a given object.
 
-    Preload a given object, usually an Experiment or LoadSerialized object, and take care of replacing !LoadSerialized,
-    resolving kwargs syntax, and instantiating random search.
+    Preloading a given object, usually an Experiment or LoadSerialized object as parsed by pyyaml, includesreplacing
+    !LoadSerialized, resolving kwargs syntax, and instantiating random search.
 
     Args:
       root: object to preload
