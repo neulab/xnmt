@@ -2,7 +2,7 @@ import dynet as dy
 
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
-from xnmt.serialize.serializer import serializable_init, Serializable, Ref, bare
+from xnmt.serializer import serializable_init, Serializable, Ref, bare
 import xnmt.linear
 
 class MLP(Serializable):

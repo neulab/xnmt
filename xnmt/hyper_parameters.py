@@ -1,6 +1,6 @@
 
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.serialize.serializer import serializable_init, Serializable
+from xnmt.serializer import serializable_init, Serializable
 
 class ScalingParam(Serializable):
   ''' initial * scaler(epoch-1) '''

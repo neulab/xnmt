@@ -27,12 +27,13 @@ import xnmt.residual
 import xnmt.retriever
 import xnmt.segmenting_composer
 import xnmt.segmenting_encoder
-import xnmt.serialize.serializer
 import xnmt.specialized_encoders
 import xnmt.training_regimen
 import xnmt.training_task
 import xnmt.transformer
 import xnmt.translator
+import xnmt.serializer
+
 # TODO: move to package init?
 
 def init_representer(dumper, obj):
@@ -44,5 +45,5 @@ def init_representer(dumper, obj):
     serialize_params = obj.serialize_params
   return dumper.represent_mapping('!' + obj.__class__.__name__, serialize_params)
 
-for SerializableChild in xnmt.serialize.serializer.Serializable.__subclasses__():
+for SerializableChild in xnmt.serializer.Serializable.__subclasses__():
   yaml.add_representer(SerializableChild, init_representer)

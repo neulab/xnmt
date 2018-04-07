@@ -1,12 +1,12 @@
 import logging
-from Cython.Compiler.TypeSlots import descrdelfunc
+
 logger = logging.getLogger('xnmt')
 from collections import defaultdict, Counter
 import math
 import subprocess
 import numpy as np
 
-from xnmt.serialize.serializer import serializable_init, Serializable
+from xnmt.serializer import serializable_init, Serializable
 
 class EvalScore(object):
   def higher_is_better(self):

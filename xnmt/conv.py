@@ -2,7 +2,7 @@ import dynet as dy
 
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.param_collection import ParamManager
-from xnmt.serialize.serializer import Serializable
+from xnmt.serializer import Serializable
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 
 class ConvConnectedSeqTransducer(SeqTransducer, Serializable):

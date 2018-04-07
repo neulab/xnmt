@@ -20,9 +20,8 @@ from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
 import xnmt.plot
 from xnmt.reports import Reportable
-from xnmt.serialize.serializer import serializable_init, Serializable, bare, Path
+from xnmt.serializer import serializable_init, Serializable, bare, Path, YamlSerializer
 from xnmt.search_strategy import BeamSearch, GreedySearch
-import xnmt.serialize.serializer
 from xnmt.vocab import Vocab
 
 class Translator(GeneratorModel):
@@ -102,10 +101,11 @@ class DefaultTranslator(Translator, Serializable, Reportable):
             set([Path(".trg_embedder.emb_dim"), Path(".decoder.trg_embed_dim")])]
 
   def initialize_generator(self, **kwargs):
+    # TODO: refactor?
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
     else:
-      len_norm = xnmt.serialize.serializer.YamlSerializer().initialize_if_needed(kwargs["len_norm_type"])
+      len_norm = YamlSerializer().initialize_if_needed(kwargs["len_norm_type"])
     search_args = {}
     if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
     if kwargs.get("beam", None) is None:
@@ -305,7 +305,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
     else:
-      len_norm = xnmt.serialize.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
+      len_norm = YamlSerializer().initialize_object(kwargs["len_norm_type"])
     search_args = {}
     if kwargs.get("max_len", None) is not None:
       search_args["max_len"] = kwargs["max_len"]

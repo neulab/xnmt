@@ -4,7 +4,7 @@ logger = logging.getLogger('xnmt')
 import dynet as dy
 import numpy as np
 from xnmt.param_collection import ParamManager
-from xnmt.serialize.serializer import serializable_init, Serializable, Ref, Path
+from xnmt.serializer import serializable_init, Serializable
 
 """
 The purpose of this module is mostly to expose the DyNet trainers to YAML serialization,

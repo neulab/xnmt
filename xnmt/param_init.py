@@ -3,7 +3,7 @@ import math
 import numpy as np
 import dynet as dy
 
-from xnmt.serialize.serializer import serializable_init, Serializable
+from xnmt.serializer import serializable_init, Serializable
 
 class ParamInitializer(object):
   """

@@ -1,4 +1,4 @@
-from xnmt.serialize.serializer import *
+from xnmt.serializer import *
 from xnmt.tee import get_git_revision
 from functools import singledispatch
 from enum import IntEnum, auto

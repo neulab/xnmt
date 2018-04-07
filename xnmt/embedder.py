@@ -10,7 +10,7 @@ from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequ
 from xnmt.linear import Linear
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
-from xnmt.serialize.serializer import serializable_init, Serializable, Ref, Path, bare
+from xnmt.serializer import serializable_init, Serializable, Ref, Path, bare
 
 class Embedder(object):
   """
