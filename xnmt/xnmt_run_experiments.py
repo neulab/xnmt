@@ -22,12 +22,12 @@ if settings.RESOURCE_WARNINGS:
   warnings.simplefilter('always', ResourceWarning)
 
 from xnmt.param_collection import ParamManager
-from xnmt.tee import Tee, get_git_revision
+import xnmt.tee as tee
 from xnmt.persistence import YamlSerializer, YamlPreloader
 
 def main(overwrite_args=None):
 
-  with Tee(), Tee(error=True):
+  with tee.Tee(), tee.Tee(error=True):
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--dynet-mem", type=str)
     argparser.add_argument("--dynet-seed", type=int)
@@ -54,7 +54,6 @@ def main(overwrite_args=None):
         settings.CHECK_VALIDITY = False
         logger.warning("disabling CHECK_VALIDITY because it is not supported on GPU currently")
   
-    import xnmt.serialize.imports
     config_experiment_names = YamlPreloader.experiment_names_from_file(args.experiments_file)
   
     results = []
@@ -74,7 +73,7 @@ def main(overwrite_args=None):
       uninitialized_exp_args = YamlPreloader.preload_experiment_from_file(args.experiments_file, experiment_name)
   
       logger.info(f"=> Running {experiment_name}")
-      logger.debug(f"running XNMT revision {get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+      logger.debug(f"running XNMT revision {tee.10()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
       yaml_serializer = YamlSerializer()
   
@@ -85,7 +84,7 @@ def main(overwrite_args=None):
         logger.warning(f"log file {log_file} already exists; please delete by hand if you want to overwrite it (or use --settings=settings.debug or otherwise set OVERWRITE_LOG=True); skipping experiment..")
         continue
   
-      xnmt.tee.set_out_file(log_file)
+      tee.set_out_file(log_file)
   
       model_file = glob_args.model_file
   
@@ -103,7 +102,7 @@ def main(overwrite_args=None):
       results.append((experiment_name, eval_scores))
       print_results(results)
       
-      xnmt.tee.unset_out_file()
+      tee.unset_out_file()
     
 def print_results(results):
   print("")
