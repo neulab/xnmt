@@ -8,7 +8,7 @@ from xnmt.generator import GeneratorModel
 from xnmt.param_collection import ParamManager
 from xnmt.preproc_runner import PreprocRunner
 from xnmt.training_regimen import TrainingRegimen
-from xnmt.serializer import serializable_init, Serializable, bare
+from xnmt.persistence import serializable_init, Serializable, bare
 
 class Experiment(Serializable):
   '''

@@ -32,7 +32,7 @@ import xnmt.training_regimen
 import xnmt.training_task
 import xnmt.transformer
 import xnmt.translator
-import xnmt.serializer
+import xnmt.persistence
 
 # TODO: move to package init?
 
@@ -45,5 +45,5 @@ def init_representer(dumper, obj):
     serialize_params = obj.serialize_params
   return dumper.represent_mapping('!' + obj.__class__.__name__, serialize_params)
 
-for SerializableChild in xnmt.serializer.Serializable.__subclasses__():
+for SerializableChild in xnmt.persistence.Serializable.__subclasses__():
   yaml.add_representer(SerializableChild, init_representer)

@@ -7,7 +7,7 @@ from xnmt.bridge import CopyBridge
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.mlp import MLP
 from xnmt.param_collection import ParamManager
-from xnmt.serializer import serializable_init, Serializable, bare, Ref, Path
+from xnmt.persistence import serializable_init, Serializable, bare, Ref, Path
 
 class Decoder(object):
   '''

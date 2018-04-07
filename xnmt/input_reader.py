@@ -12,7 +12,7 @@ with warnings.catch_warnings():
   import h5py
 
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
-from xnmt.serializer import serializable_init, Serializable
+from xnmt.persistence import serializable_init, Serializable
 from xnmt.vocab import Vocab
 
 

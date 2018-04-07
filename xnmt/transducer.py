@@ -1,6 +1,6 @@
 import dynet as dy
 
-from xnmt.serializer import serializable_init, Serializable, Path
+from xnmt.persistence import serializable_init, Serializable, Path
 from xnmt.expression_sequence import ExpressionSequence
 
 class Transducer(object):

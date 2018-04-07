@@ -5,7 +5,7 @@ import numpy as np
 import dynet as dy
 
 from xnmt.param_collection import ParamManager
-from xnmt.serializer import serializable_init, Serializable, bare, Ref
+from xnmt.persistence import serializable_init, Serializable, bare, Ref
 import xnmt.optimizer
 from xnmt.training_task import SimpleTrainingTask
 

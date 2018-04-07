@@ -2,7 +2,7 @@ import dynet as dy
 import numpy as np
 
 from xnmt.loss import LossBuilder
-from xnmt.serializer import serializable_init, Serializable, Ref
+from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.vocab import Vocab
 import xnmt.evaluator
 import xnmt.linear as linear

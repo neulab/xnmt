@@ -6,7 +6,7 @@ import math
 import subprocess
 import numpy as np
 
-from xnmt.serializer import serializable_init, Serializable
+from xnmt.persistence import serializable_init, Serializable
 
 class EvalScore(object):
   def higher_is_better(self):

@@ -33,7 +33,7 @@ from xnmt.lstm import BiLSTMSeqTransducer, UniLSTMSeqTransducer
 from xnmt.mlp import MLP
 from xnmt.optimizer import AdamTrainer
 from xnmt.param_collection import ParamManager
-from xnmt.serializer import YamlSerializer
+from xnmt.persistence import YamlSerializer
 import xnmt.tee
 from xnmt.training_regimen import SimpleTrainingRegimen
 from xnmt.translator import DefaultTranslator

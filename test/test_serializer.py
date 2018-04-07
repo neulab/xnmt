@@ -1,6 +1,6 @@
 import unittest
 
-from xnmt.serializer import Path
+from xnmt.persistence import Path
 
 class TestPath(unittest.TestCase):
 

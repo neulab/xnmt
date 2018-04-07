@@ -1,4 +1,4 @@
-from xnmt.serializer import serializable_init, Serializable
+from xnmt.persistence import serializable_init, Serializable
 
 class Vocab(Serializable):
   '''

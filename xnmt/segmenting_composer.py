@@ -1,7 +1,7 @@
 import dynet as dy
 
 from xnmt.param_collection import ParamManager
-from xnmt.serializer import serializable_init, Serializable, Ref
+from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.events import register_xnmt_handler, register_xnmt_event
 from xnmt.reports import Reportable
 

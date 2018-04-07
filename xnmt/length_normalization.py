@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import norm
 
-from xnmt.serializer import serializable_init, Serializable
+from xnmt.persistence import serializable_init, Serializable
 
 class LengthNormalization(object):
   '''

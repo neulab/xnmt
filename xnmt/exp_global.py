@@ -4,7 +4,7 @@ from typing import Dict
 
 from simple_settings import settings
 
-from xnmt.serializer import serializable_init, Serializable, bare
+from xnmt.persistence import serializable_init, Serializable, bare
 from xnmt.param_init import ZeroInitializer, GlorotInitializer, ParamInitializer
 
 

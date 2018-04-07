@@ -8,7 +8,7 @@ from xnmt.evaluator import Evaluator
 from xnmt.generator import GeneratorModel
 from xnmt.inference import SimpleInference
 import xnmt.input_reader
-from xnmt.serializer import serializable_init, Serializable, Ref
+from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
 from xnmt.loss import LossBuilder, LossScalarBuilder

@@ -23,7 +23,7 @@ if settings.RESOURCE_WARNINGS:
 
 from xnmt.param_collection import ParamManager
 from xnmt.tee import Tee, get_git_revision
-from xnmt.serializer import YamlSerializer, YamlPreloader
+from xnmt.persistence import YamlSerializer, YamlPreloader
 
 def main(overwrite_args=None):
 

@@ -2,7 +2,7 @@ import dynet as dy
 
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.param_collection import ParamManager
-from xnmt.serializer import Serializable
+from xnmt.persistence import Serializable
 from xnmt.transducer import Transducer, SeqTransducer
 
 # This is a file for specialized encoders that implement a particular model
