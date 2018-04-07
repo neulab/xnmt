@@ -9,7 +9,7 @@ import os
 import copy
 from functools import lru_cache, wraps
 from collections import OrderedDict
-from typing import List, Set, Callable, TypeVar, Type, Union, Optional, Dict
+from typing import List, Set, Callable, TypeVar, Type, Union, Optional, Dict, Sequence
 import inspect, random
 
 import yaml
@@ -622,7 +622,8 @@ def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST
 def traverse_tree_deep_once(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(),
                             named_paths={}):
   """
-  Calls traverse_tree_deep, but skips over nodes that have been visited before (can happen because we're descending into references).
+  Calls traverse_tree_deep, but skips over nodes that have been visited before (can happen because we're descending into
+   references).
   """
   yielded_paths = set()
   for path, node in traverse_tree_deep(root, cur_node, traversal_order, path_to_node, named_paths):
@@ -645,29 +646,6 @@ def get_named_paths(root):
 class PathError(Exception):
   def __init__(self, message):
     super().__init__(message)
-
-
-class Option(object):
-  # TODO: remove this?
-  def __init__(self, name, opt_type=str, default_value=None, required=None, force_flag=False, help_str=None):
-    """
-    Defines a configuration option
-
-    Args:
-      name: Name of the option
-      opt_type: Expected type. Should be a base type.
-      default_value: Default option value. If this is set to anything other than none, and the option is not
-        explicitly marked as required, it will be considered optional.
-      required: Whether the option is required.
-      force_flag: Force making this argument a flag (starting with '--') even though it is required
-      help_str: Help string for documentation
-    """
-    self.name = name
-    self.type = opt_type
-    self.default_value = default_value
-    self.required = required == True or required is None and default_value is None
-    self.force_flag = force_flag
-    self.help = help_str
 
 
 class FormatString(str, yaml.YAMLObject):
@@ -714,13 +692,17 @@ class LoadSerialized(Serializable):
     self.overwrite = overwrite
 
 
-class OptionParser(object):
-  # TODO: rename?
-  def __init__(self):
-    self.tasks = {}
-    """Options, sorted by task"""
+class YamlPreloader(object):
+  """
+  Loads experiments from YAML and performs basic preparation, but does not initialize objects.
 
-  def experiment_names_from_file(self, filename):
+  Takes care of extracting individual experiments from a YAML file, replaces !LoadSerialized by corresponding content,
+  resolves kwargs syntax, and implements random search.
+  """
+
+  @staticmethod
+  def experiment_names_from_file(filename:str) -> Sequence[str]:
+    """Return experiment names as a sorted list."""
     try:
       with open(filename) as stream:
         experiments = yaml.load(stream)
@@ -728,13 +710,27 @@ class OptionParser(object):
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
     except yaml.constructor.ConstructorError:
       logger.error(
-        "for proper deserialization of a class object, make sure the class is a subclass of xnmt.serialize.serializable.Serializable, specifies a proper yaml_tag with leading '!', and its module is imported under xnmt/serialize/imports.py")
+        "for proper deserialization of a class object, make sure the class is a subclass of "
+        "xnmt.serialize.serializable.Serializable, specifies a proper yaml_tag with leading '!', and its module is "
+        "imported under xnmt/serialize/imports.py")
       raise
-
     if "defaults" in experiments: del experiments["defaults"]
     return sorted(experiments.keys())
 
-  def parse_experiment_file(self, filename, exp_name):
+  @staticmethod
+  def preload_experiment_from_file(filename:str, exp_name:str) -> UninitializedYamlObject:
+    """Preload experiment from YAML file.
+
+    Preload the specified experiment from a YAML file, taking care of replacing !LoadSerialized, resolving kwargs
+    syntax, and instantiating random search.
+
+    Args:
+      filename: YAML config file name
+      exp_name: experiment name to load
+
+    Returns:
+      Preloaded but uninitialized object.
+    """
     try:
       with open(filename) as stream:
         config = yaml.load(stream)
@@ -742,36 +738,51 @@ class OptionParser(object):
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
 
     experiment = config[exp_name]
-    return self.parse_loaded_experiment(experiment, exp_name=exp_name, exp_dir=os.path.dirname(filename))
+    return YamlPreloader.preload_obj(experiment, exp_name=exp_name, exp_dir=os.path.dirname(filename))
 
-  def parse_loaded_experiment(self, experiment, exp_name, exp_dir):
+  @staticmethod
+  def preload_obj(root:YamlSerializable, exp_name:str, exp_dir:str) -> UninitializedYamlObject:
+    """Preload a given object.
 
-    for _, node in traverse_tree(experiment):
+    Preload a given object, usually an Experiment or LoadSerialized object, and take care of replacing !LoadSerialized,
+    resolving kwargs syntax, and instantiating random search.
+
+    Args:
+      root: object to preload
+      exp_name: experiment name
+      exp_dir: directory of the corresponding config file.
+
+    Returns:
+      Preloaded but uninitialized object.
+    """
+    for _, node in traverse_tree(root):
       if isinstance(node, Serializable):
-        self.resolve_kwargs(node)
+        YamlPreloader._resolve_kwargs(node)
 
-    experiment = self.load_referenced_serialized(experiment)
+    root = YamlPreloader._load_referenced_serialized(root)
 
-    random_search_report = self.instantiate_random_search(experiment)
+    random_search_report = YamlPreloader._instantiate_random_search(root)
     if random_search_report:
-      setattr(experiment, 'random_search_report', random_search_report)
+      setattr(root, 'random_search_report', random_search_report)
 
-    # if arguments were not given in the YAML file and are set to a bare(Serializable) by default, copy the bare object into the object hierarchy so it can be used w/ param sharing etc.
-    OptionParser.resolve_bare_default_args(experiment)
+    # if arguments were not given in the YAML file and are set to a bare(Serializable) by default, copy the bare object
+    # into the object hierarchy so it can be used w/ param sharing etc.
+    YamlPreloader._resolve_bare_default_args(root)
 
     placeholders = {"EXP": exp_name,
                     "PID": os.getpid(),
                     "EXP_DIR": exp_dir,
                     "GIT_REV": get_git_revision}
     try:
-      placeholders.update(experiment.exp_global.placeholders)
+      placeholders.update(root.exp_global.placeholders)
     except AttributeError:
       pass
-    self.format_strings(experiment, placeholders)
+    YamlPreloader._format_strings(root, placeholders)
 
-    return UninitializedYamlObject(experiment)
+    return UninitializedYamlObject(root)
 
-  def load_referenced_serialized(self, experiment):
+  @staticmethod
+  def _load_referenced_serialized(experiment):
     for path, node in traverse_tree(experiment):
       if isinstance(node, LoadSerialized):
         try:
@@ -821,7 +832,8 @@ class OptionParser(object):
           set_descendant(experiment, path, loaded_trg)
     return experiment
 
-  def resolve_kwargs(self, obj):
+  @staticmethod
+  def _resolve_kwargs(obj):
     """
     If obj has a kwargs attribute (dictionary), set the dictionary items as attributes
     of the object via setattr (asserting that there are no collisions).
@@ -833,7 +845,8 @@ class OptionParser(object):
         setattr(obj, k, v)
       delattr(obj, "kwargs")
 
-  def instantiate_random_search(self, experiment):
+  @staticmethod
+  def _instantiate_random_search(experiment):
     param_report = {}
     initialized_random_params = {}
     for path, v in traverse_tree(experiment):
@@ -848,7 +861,7 @@ class OptionParser(object):
     return param_report
 
   @staticmethod
-  def resolve_bare_default_args(root):
+  def _resolve_bare_default_args(root):
     for path, node in traverse_tree(root):
       if isinstance(node, Serializable):
         init_args_defaults = get_init_args_defaults(node)
@@ -860,10 +873,11 @@ class OptionParser(object):
                 raise ValueError(
                   f"only Serializables created via bare(SerializableSubtype) are permitted as default arguments; "
                   f"found a fully initialized Serializable: {arg_default} at {path}")
-              OptionParser.resolve_bare_default_args(arg_default)  # apply recursively
+              YamlPreloader._resolve_bare_default_args(arg_default)  # apply recursively
               setattr(node, expected_arg, copy.deepcopy(arg_default))
 
-  def format_strings(self, exp_values, format_dict):
+  @staticmethod
+  def _format_strings(exp_values, format_dict):
     """
     - replaces strings containing {EXP} and other supported args
     - also checks if there are default arguments for which no arguments are set and instantiates them with replaced {EXP} if applicable
@@ -940,7 +954,7 @@ class YamlSerializer(object):
     # make sure only arguments accepted by the Serializable derivatives' __init__() methods were passed
     self.check_args(self.deserialized_yaml)
     # if arguments were not given in the YAML file and are set to a bare(Serializable) by default, copy the bare object into the object hierarchy so it can be used w/ param sharing etc.
-    OptionParser.resolve_bare_default_args(self.deserialized_yaml)
+    YamlPreloader._resolve_bare_default_args(self.deserialized_yaml)
     self.named_paths = get_named_paths(self.deserialized_yaml)
     # if arguments were not given in the YAML file and are set to a Ref by default, copy this Ref into the object structure so that it can be properly resolved in a subsequent step
     self.resolve_ref_default_args(self.deserialized_yaml)

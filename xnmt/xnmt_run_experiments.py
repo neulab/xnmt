@@ -23,7 +23,7 @@ if settings.RESOURCE_WARNINGS:
 
 from xnmt.param_collection import ParamManager
 from xnmt.tee import Tee, get_git_revision
-from xnmt.serialize.serializer import YamlSerializer, OptionParser
+from xnmt.serialize.serializer import YamlSerializer, YamlPreloader
 
 def main(overwrite_args=None):
 
@@ -45,8 +45,6 @@ def main(overwrite_args=None):
     argparser.set_defaults(generate_doc=False)
     args = argparser.parse_args(overwrite_args)
   
-    config_parser = OptionParser()
-  
     if args.dynet_seed:
       random.seed(args.dynet_seed)
       np.random.seed(args.dynet_seed)
@@ -57,7 +55,7 @@ def main(overwrite_args=None):
         logger.warning("disabling CHECK_VALIDITY because it is not supported on GPU currently")
   
     import xnmt.serialize.imports
-    config_experiment_names = config_parser.experiment_names_from_file(args.experiments_file)
+    config_experiment_names = YamlPreloader.experiment_names_from_file(args.experiments_file)
   
     results = []
   
@@ -73,7 +71,7 @@ def main(overwrite_args=None):
 
       ParamManager.init_param_col()
 
-      uninitialized_exp_args = config_parser.parse_experiment_file(args.experiments_file, experiment_name)
+      uninitialized_exp_args = YamlPreloader.preload_experiment_from_file(args.experiments_file, experiment_name)
   
       logger.info(f"=> Running {experiment_name}")
       logger.debug(f"running XNMT revision {get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

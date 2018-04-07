@@ -8,7 +8,7 @@ import os
 import xnmt.tee
 import xnmt.serialize.imports
 from xnmt.param_collection import ParamManager
-from xnmt.serialize.serializer import YamlSerializer, OptionParser, LoadSerialized
+from xnmt.serialize.serializer import YamlSerializer, YamlPreloader, LoadSerialized
 
 EXP_DIR = os.path.dirname(__file__)
 EXP = "programmatic-load"
@@ -27,8 +27,7 @@ load_experiment = LoadSerialized(
   ]
 )
 
-config_parser = OptionParser()
-uninitialized_experiment = config_parser.parse_loaded_experiment(load_experiment, exp_dir=EXP_DIR, exp_name=EXP)
+uninitialized_experiment = YamlPreloader.preload_obj(load_experiment, exp_dir=EXP_DIR, exp_name=EXP)
 loaded_experiment = YamlSerializer().initialize_if_needed(uninitialized_experiment)
 
 # if we were to continue training, we would need to set a save model file like this:
