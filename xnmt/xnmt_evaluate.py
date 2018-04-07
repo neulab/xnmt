@@ -5,7 +5,6 @@ import argparse
 
 from xnmt.evaluator import *
 from xnmt.inference import NO_DECODING_ATTEMPTED
-from xnmt.serialize.serializable import bare
 from xnmt.util import OneOrSeveral
 
 def read_data(loc_, post_process=None):

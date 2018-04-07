@@ -8,8 +8,7 @@ import os
 import xnmt.tee
 import xnmt.serialize.imports
 from xnmt.param_collection import ParamManager
-from xnmt.serialize.serializer import YamlSerializer
-from xnmt.serialize.options import OptionParser, LoadSerialized
+from xnmt.serialize.serializer import YamlSerializer, OptionParser, LoadSerialized
 
 EXP_DIR = os.path.dirname(__file__)
 EXP = "programmatic-load"

@@ -12,8 +12,7 @@ with warnings.catch_warnings():
   import h5py
 
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.serializer import serializable_init
+from xnmt.serialize.serializer import serializable_init, Serializable
 from xnmt.vocab import Vocab
 
 
@@ -98,7 +97,7 @@ class PlainTextReader(BaseTextReader, Serializable):
   def freeze(self):
     self.vocab.freeze()
     self.vocab.set_unk(Vocab.UNK_STR)
-    self.overwrite_serialize_param("vocab", self.vocab)
+    self.save_processed_arg("vocab", self.vocab)
 
   def count_words(self, trg_words):
     trg_cnt = 0

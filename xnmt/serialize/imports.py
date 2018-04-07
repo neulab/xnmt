@@ -1,3 +1,5 @@
+import yaml
+
 # all Serializable objects must be imported here in order to be parsable
 # using the !Classname YAML syntax
 import xnmt.attender
@@ -25,13 +27,13 @@ import xnmt.residual
 import xnmt.retriever
 import xnmt.segmenting_composer
 import xnmt.segmenting_encoder
-import xnmt.serialize.tree_tools
-import xnmt.serialize.serializable
+import xnmt.serialize.serializer
 import xnmt.specialized_encoders
 import xnmt.training_regimen
 import xnmt.training_task
 import xnmt.transformer
 import xnmt.translator
+# TODO: move to package init?
 
 def init_representer(dumper, obj):
   if not hasattr(obj, "resolved_serialize_params") and not hasattr(obj, "serialize_params"):
@@ -42,8 +44,5 @@ def init_representer(dumper, obj):
     serialize_params = obj.serialize_params
   return dumper.represent_mapping('!' + obj.__class__.__name__, serialize_params)
 
-from xnmt.serialize.serializable import Serializable
-import yaml
-
-for SerializableChild in Serializable.__subclasses__():
+for SerializableChild in xnmt.serialize.serializer.Serializable.__subclasses__():
   yaml.add_representer(SerializableChild, init_representer)

@@ -1,7 +1,7 @@
 import dynet as dy
 
 from xnmt.transducer import SeqTransducer, FinalTransducerState
-from xnmt.serialize.serializable import Serializable
+from xnmt.serialize.serializer import Serializable
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.param_collection import ParamManager
 

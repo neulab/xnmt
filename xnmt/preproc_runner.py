@@ -4,8 +4,7 @@ import os.path
 from typing import List
 
 from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.serializer import serializable_init
+from xnmt.serialize.serializer import serializable_init, Serializable
 from xnmt.util import make_parent_dir
 
 class PreprocTask(object):

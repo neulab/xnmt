@@ -3,13 +3,12 @@ logger = logging.getLogger('xnmt')
 from typing import List, Optional
 
 from xnmt.exp_global import ExpGlobal
-from xnmt.param_collection import ParamManager
-from xnmt.serialize.serializer import serializable_init
-from xnmt.preproc_runner import PreprocRunner
-from xnmt.serialize.serializable import Serializable, bare
-from xnmt.training_regimen import TrainingRegimen
-from xnmt.generator import GeneratorModel
 from xnmt.eval_task import EvalTask
+from xnmt.generator import GeneratorModel
+from xnmt.param_collection import ParamManager
+from xnmt.preproc_runner import PreprocRunner
+from xnmt.training_regimen import TrainingRegimen
+from xnmt.serialize.serializer import serializable_init, Serializable, bare
 
 class Experiment(Serializable):
   '''

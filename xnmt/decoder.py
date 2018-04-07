@@ -1,17 +1,13 @@
 import dynet as dy
 
 import xnmt.batcher
-from xnmt.bridge import CopyBridge
-from xnmt.events import register_xnmt_handler, handle_xnmt_event
 import xnmt.linear
 import xnmt.residual
 from xnmt.bridge import CopyBridge
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.mlp import MLP
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.param_collection import ParamManager
-from xnmt.serialize.serializable import Serializable, bare, Ref, Path
-from xnmt.serialize.serializer import serializable_init
+from xnmt.serialize.serializer import serializable_init, Serializable, bare, Ref, Path
 
 class Decoder(object):
   '''
@@ -59,7 +55,6 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
 
   yaml_tag = '!MlpSoftmaxDecoder'
 
-  @register_xnmt_handler
   @serializable_init
   def __init__(self,
                input_dim=Ref("exp_global.default_layer_dim"),

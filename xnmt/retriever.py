@@ -9,8 +9,7 @@ from simple_settings import settings
 import xnmt.batcher
 from xnmt.events import handle_xnmt_event
 from xnmt.generator import GeneratorModel
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.serializer import serializable_init
+from xnmt.serialize.serializer import serializable_init, Serializable
 from xnmt.reports import Reportable
 from xnmt.expression_sequence import ExpressionSequence
 

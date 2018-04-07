@@ -8,8 +8,7 @@ from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.transducer import SeqTransducer, FinalTransducerState
-from xnmt.serialize.serializable import Serializable, Ref, Path, bare
-from xnmt.serialize.serializer import serializable_init
+from xnmt.serialize.serializer import serializable_init, Serializable, Ref, bare
 
 class UniLSTMState(object):
   """

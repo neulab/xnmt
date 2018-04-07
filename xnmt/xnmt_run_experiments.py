@@ -22,9 +22,8 @@ if settings.RESOURCE_WARNINGS:
   warnings.simplefilter('always', ResourceWarning)
 
 from xnmt.param_collection import ParamManager
-from xnmt.serialize.options import OptionParser
 from xnmt.tee import Tee, get_git_revision
-from xnmt.serialize.serializer import YamlSerializer
+from xnmt.serialize.serializer import YamlSerializer, OptionParser
 
 def main(overwrite_args=None):
 

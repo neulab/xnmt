@@ -64,7 +64,7 @@ class ParamManager(object):
                        f"Did you forget to wrap the __init__() in @serializable_init ?")
     subcol_name = subcol_owner.xnmt_subcol_name
     subcol = ParamManager.param_col.add_subcollection(subcol_name)
-    subcol_owner.overwrite_serialize_param("xnmt_subcol_name", subcol_name)
+    subcol_owner.save_processed_arg("xnmt_subcol_name", subcol_name)
     return subcol
 
   @staticmethod
