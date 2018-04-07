@@ -115,14 +115,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     for i, decision in enumerate(segment_decisions):
       sequence = dy.pick_batch_elem(sent_encodings, i)
       src_sent = self.src_sent[i]
-      for j in range(len(decision)):
-        upper_bound = decision[j]+1
-        lower_bound = decision[j-1]+1 if j > 0 else 0
-        expr_tensor = dy.pick_range(sequence, lower_bound, upper_bound, 1)
+      lower_bound = 0
+      for upper_bound in sorted(decision):
+        expr_tensor = dy.pick_range(sequence, lower_bound, upper_bound+1, 1)
         expr_seq = expression_sequence.ExpressionSequence(expr_tensor=expr_tensor)
-        self.segment_composer.set_word_boundary(lower_bound-1, upper_bound-1, src_sent)
+        self.segment_composer.set_word_boundary(lower_bound, upper_bound, src_sent)
         composed = self.segment_composer.transduce(expr_seq)
         outputs[i].append(composed)
+        lower_bound = upper_bound+1
     # Padding
     outputs, segment_mask = self.pad(outputs)
     # Packing outputs
@@ -191,18 +191,20 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       segment_decisions = self.sample_from_poisson(encodings, batch_size)
     else:
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
-    # Masking
-    if encodings.mask is not None:
-      src = self.src_sent
-      mask = [numpy.nonzero(m)[0] for m in encodings.mask.np_arr]
-      for segment_dec, m in zip(segment_decisions, mask):
-        if len(m) > 0:
-          segment_dec[:] = [elem for elem in segment_dec if elem < m[0]]
-    # Last decision must be segment
-    for src_length, segment_dec in zip(self.src_length, segment_decisions):
-      if len(segment_dec) == 0 or src_length-1 not in segment_dec:
-        segment_dec.append(src_length-1)
-    return segment_decisions, segment_logsoftmaxes
+    # Masking + adding last dec must be 1
+    ret = []
+    if is_presegment_provided:
+      ret = [set(dec) for dec in segment_decisions]
+    else:
+      for i in range(len(segment_decisions)):
+        segment_decision = segment_decisions[i]
+        src_length = self.src_length[i]
+        mask = encodings.mask.np_arr[i] if encodings.mask is not None else None
+        dec = set(filter(lambda j: True if mask is None else mask[j] == 0, segment_decision))
+        if len(dec) == 0 or src_length-1 not in dec:
+          dec.add(src_length-1)
+        ret.append(dec)
+    return ret, segment_logsoftmaxes
 
   # Sample from prior segmentation
   def sample_from_prior(self, encodings, batch_size):
@@ -238,10 +240,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       #print("sample_from_argmax")
       segment_decisions = [log_softmax.tensor_value().argmax().as_numpy().transpose()
                            for log_softmax in segment_logsoftmaxes]
-    ret = [[] for _ in range(batch_size)]
-    for i, decision in enumerate(segment_decisions):
-      for j in numpy.where(decision == SegmentingAction.SEGMENT.value)[0]:
-        ret[j].append(i)
+    ret = numpy.stack(segment_decisions, axis=1)
+    ret = [numpy.where(line == SegmentingAction.SEGMENT.value)[0] for line in ret]
     return ret
 
   @handle_xnmt_event
@@ -271,8 +271,9 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       return None
     ### Constructing Rewards
     # 1. Translator reward
-    trans_reward = -(translator_loss.sum())
-    trans_reward = dy.cdiv(trans_reward, dy.inputTensor(trg_words_counts, batched=True))
+    trans_loss = translator_loss.get_nobackprop_loss()
+    trans_loss["mle"] = dy.cdiv(trans_loss["mle"], dy.inputTensor(trg_words_counts, batched=True))
+    trans_reward = -dy.esum(list(trans_loss.values()))
     reward = LossBuilder({"trans_reward": dy.nobackprop(trans_reward)})
     assert trans_reward.dim()[1] == len(self.src_sent)
     enc_mask = self.encodings.mask.get_active_one_mask().transpose() if self.encodings.mask else None
@@ -283,6 +284,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       reward.add_loss("lp_reward", dy.nobackprop(self.segment_length_prior * alpha))
     # reward z-score normalization
     reward = reward.sum(batch_sum=False)
+    if self.exp_reward:
+      reward = dy.exp(reward)
     if self.z_normalization:
       reward = dy.cdiv(reward-dy.mean_batches(reward), dy.std_batches(reward) + EPS)
     baseline_score = []
@@ -305,15 +308,12 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     reinforce_loss = []
     if lmbd > 0.0:
       # Calculating the loss of the baseline and reinforce
-      dec_set = [set(segment_dec) for segment_dec in self.segment_decisions]
       for i in range(len(self.segment_logsoftmaxes)):
         # Log likelihood
-        decision = [(1 if i in dec_set[j] else 0) for j in range(len(dec_set))]
+        decision = [(1 if i in dec_set else 0) for dec_set in self.segment_decisions]
         ll = dy.pick_batch(self.segment_logsoftmaxes[i], decision)
         # reward
         r_i = reward - baseline_score[i] if self.use_baseline else reward
-        if self.exp_reward:
-          r_i = dy.exp(r_i)
         # Loss
         loss = -r_i * ll
         if enc_mask is not None:
@@ -405,10 +405,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   def apply_segmentation(self, words, segmentation):
     segmented = []
-    for j in range(len(segmentation)):
-      lower_bound = segmentation[j-1]+1 if j > 0 else 0
-      upper_bound = segmentation[j]+1
-      segmented.append("".join(words[lower_bound:upper_bound]))
+    lower_bound = 0
+    for j in segmentation:
+      upper_bound = j+1
+      segmented.append("".join(words[lower_bound:upper_bound+1]))
+      lower_bound = upper_bound
     return segmented
 
 class SegmentingAction(Enum):

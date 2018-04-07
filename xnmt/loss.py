@@ -53,6 +53,9 @@ class LossBuilder(object):
   def get_loss_stats(self):
     return LossScalarBuilder({k: dy.sum_batches(v).value() for k, v in self.loss_values.items()})
 
+  def get_nobackprop_loss(self):
+    return {k: dy.nobackprop(v) for k, v in self.loss_values.items()}
+
   def __len__(self):
     return len(self.loss_values)
 
