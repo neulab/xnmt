@@ -1,4 +1,3 @@
-from xnmt.persistence import *
 from xnmt.tee import get_git_revision
 from functools import singledispatch
 from enum import IntEnum, auto
@@ -395,7 +394,7 @@ def serializable_init(f):
               f"Cannot pass a reference as argument; received {serialize_params[key]} in {type(obj).__name__}.__init__()")
     for key, arg in list(serialize_params.items()):
       if getattr(arg, "_is_bare", False):
-        initialized = YamlSerializer().initialize_object(UninitializedYamlObject(arg))
+        initialized = initialize_object(UninitializedYamlObject(arg))
         assert not getattr(initialized, "_is_bare", False)
         serialize_params[key] = initialized
     f(obj, **serialize_params)
@@ -669,9 +668,9 @@ class FormatString(str, yaml.YAMLObject):
   def __init__(self, value, serialize_as):
     self.serialize_as = serialize_as
 
-def init_fs_representer(dumper, obj):
+def _init_fs_representer(dumper, obj):
   return dumper.represent_data(obj.serialize_as)
-yaml.add_representer(FormatString, init_fs_representer)
+yaml.add_representer(FormatString, _init_fs_representer)
 
 
 class RandomParam(yaml.YAMLObject):
@@ -924,7 +923,7 @@ class YamlPreloader(object):
                 setattr(node, expected_arg, FormatString(formatted, arg_default))
 
 
-class YamlSerializer(object):
+class _YamlDeserializer(object):
 
   def __init__(self):
     self.has_been_called = False
@@ -933,7 +932,7 @@ class YamlSerializer(object):
     """
     Initialize if obj has not yet been initialized.
 
-    Note: make sure to always create a new YamlSerializer before calling this, e.g. using YamlSerializer().initialize_object()
+    Note: make sure to always create a new _YamlDeserializer before calling this, e.g. using _YamlDeserializer().initialize_object()
 
     Args:
       obj (Union[Serializable,UninitializedYamlObject]): object to be potentially serialized
@@ -956,7 +955,7 @@ class YamlSerializer(object):
     """
     Initializes a hierarchy of deserialized YAML objects.
 
-    Note: make sure to always create a new YamlSerializer before calling this, e.g. using YamlSerializer().initialize_object()
+    Note: make sure to always create a new _YamlDeserializer before calling this, e.g. using _YamlDeserializer().initialize_object()
 
     Args:
       deserialized_yaml_wrapper: deserialized YAML data inside a UninitializedYamlObject wrapper (classes are resolved and class members set, but __init__() has not been called at this point)
@@ -1127,46 +1126,75 @@ class YamlSerializer(object):
                                f" Error message: {e}")
     return initialized_obj
 
-  def resolve_serialize_refs(self, root):
-    for _, node in traverse_serializable(root):
+def _resolve_serialize_refs(root):
+  for _, node in traverse_serializable(root):
+    if isinstance(node, Serializable):
+      if not hasattr(node, "serialize_params"):
+        raise ValueError(f"Cannot serialize node that has no serialize_params attribute: {node}\n"
+                         "Did you forget to wrap the __init__() in @serializable_init ?")
+      node.resolved_serialize_params = node.serialize_params
+  refs_inserted_at = set()
+  refs_inserted_to = set()
+  for path_to, node in traverse_serializable(root):
+    if not refs_inserted_at & path_to.ancestors() and not refs_inserted_at & path_to.ancestors():
       if isinstance(node, Serializable):
-        if not hasattr(node, "serialize_params"):
-          raise ValueError(f"Cannot serialize node that has no serialize_params attribute: {node}\n"
-                           "Did you forget to wrap the __init__() in @serializable_init ?")
-        node.resolved_serialize_params = node.serialize_params
-    refs_inserted_at = set()
-    refs_inserted_to = set()
-    for path_to, node in traverse_serializable(root):
-      if not refs_inserted_at & path_to.ancestors() and not refs_inserted_at & path_to.ancestors():
-        if isinstance(node, Serializable):
-          for path_from, matching_node in traverse_serializable(root):
-            if not path_from in refs_inserted_to:
-              if path_from!=path_to and matching_node is node:
-                  ref = Ref(path=path_to)
-                  ref.resolved_serialize_params = ref.serialize_params
-                  set_descendant(root, path_from.parent().append("resolved_serialize_params").append(path_from[-1]), ref)
-                  refs_inserted_at.add(path_from)
-                  refs_inserted_to.add(path_from)
+        for path_from, matching_node in traverse_serializable(root):
+          if not path_from in refs_inserted_to:
+            if path_from!=path_to and matching_node is node:
+                ref = Ref(path=path_to)
+                ref.resolved_serialize_params = ref.serialize_params
+                set_descendant(root, path_from.parent().append("resolved_serialize_params").append(path_from[-1]), ref)
+                refs_inserted_at.add(path_from)
+                refs_inserted_to.add(path_from)
 
-  def dump(self, ser_obj):
-    self.resolve_serialize_refs(ser_obj)
-    return yaml.dump(ser_obj)
+def _dump(ser_obj):
+  _resolve_serialize_refs(ser_obj)
+  return yaml.dump(ser_obj)
 
-  def save_to_file(self, fname, mod, persistent_param_collection):
-    dirname = os.path.dirname(fname)
-    if dirname and not os.path.exists(dirname):
-      os.makedirs(dirname)
-    with open(fname, 'w') as f:
-      f.write(self.dump(mod))
-    persistent_param_collection.save()
+def save_to_file(fname: str, mod: YamlSerializable, param_collection: 'ParamCollection') -> None:
+  """
+  Save a component hierarchy and corresponding DyNet parameter collection to disk.
 
-  def load_from_file(self, fname, param):
-    with open(fname, 'r') as f:
-      dict_spec = yaml.load(f)
-      corpus_parser = UninitializedYamlObject(dict_spec.corpus_parser)
-      model = UninitializedYamlObject(dict_spec.model)
-      exp_global = UninitializedYamlObject(dict_spec)
-    return corpus_parser, model, exp_global
+  Args:
+    fname: Filename to save to.
+    mod: Component hierarchy.
+    param_collection: global object holding DyNet parameters (usually ParamManager.param_col)
+  """
+  dirname = os.path.dirname(fname)
+  if dirname and not os.path.exists(dirname):
+    os.makedirs(dirname)
+  with open(fname, 'w') as f:
+    f.write(_dump(mod))
+    param_collection.save()
+
+
+def initialize_if_needed(root: Union[YamlSerializable, UninitializedYamlObject]) -> YamlSerializable:
+  """
+  Initialize if obj has not yet been initialized.
+
+  This includes parameter sharing and resolving of references.
+
+  Args:
+    root: object to be potentially serialized
+
+  Returns:
+    initialized object
+  """
+  return _YamlDeserializer().initialize_if_needed(root)
+
+def initialize_object(root: UninitializedYamlObject) -> YamlSerializable:
+  """
+  Initialize an uninitialized object.
+
+  This includes parameter sharing and resolving of references.
+
+  Args:
+    root: object to be serialized
+
+  Returns:
+    initialized object
+  """
+  return _YamlDeserializer().initialize_object(root)
 
 
 class ComponentInitError(Exception):

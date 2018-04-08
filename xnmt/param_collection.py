@@ -45,7 +45,9 @@ class ParamManager(object):
       logger.info(f"> use randomly initialized DyNet weights of all components")
     else:
       logger.info(f"> populated a subset of DyNet weights from given data files: {populated_subcols}.\n"
-                  f"  Did not populate {ParamManager.param_col.subcols.keys() - set(populated_subcols)}")
+                  f"  Did not populate {ParamManager.param_col.subcols.keys() - set(populated_subcols)}.\n"
+                  f"  (Note: if partial population was not intended, likely the unpopulated component or its owner"
+                  f"   does not adhere to the Serializable protocol correctly, see documentation).")
 
   @staticmethod
   def my_params(subcol_owner):

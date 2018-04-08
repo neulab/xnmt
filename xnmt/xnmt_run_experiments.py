@@ -23,7 +23,7 @@ if settings.RESOURCE_WARNINGS:
 
 from xnmt.param_collection import ParamManager
 import xnmt.tee as tee
-from xnmt.persistence import YamlSerializer, YamlPreloader
+from xnmt.persistence import YamlPreloader, save_to_file, initialize_if_needed
 
 def main(overwrite_args=None):
 
@@ -75,8 +75,6 @@ def main(overwrite_args=None):
       logger.info(f"=> Running {experiment_name}")
       logger.debug(f"running XNMT revision {tee.get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-      yaml_serializer = YamlSerializer()
-  
       glob_args = uninitialized_exp_args.data.exp_global
       log_file = glob_args.log_file
 
@@ -91,13 +89,13 @@ def main(overwrite_args=None):
       uninitialized_exp_args.data.exp_global.commandline_args = args
   
       # Create the model
-      experiment = yaml_serializer.initialize_if_needed(uninitialized_exp_args)
+      experiment = initialize_if_needed(uninitialized_exp_args)
       ParamManager.param_col.model_file = experiment.exp_global.model_file
       ParamManager.param_col.save_num_checkpoints = experiment.exp_global.save_num_checkpoints
       ParamManager.populate()
 
       # Run the experiment
-      eval_scores = experiment(save_fct = lambda: yaml_serializer.save_to_file(model_file, experiment,
+      eval_scores = experiment(save_fct = lambda: save_to_file(model_file, experiment,
                                                                                ParamManager.param_col))
       results.append((experiment_name, eval_scores))
       print_results(results)

@@ -33,7 +33,7 @@ from xnmt.lstm import BiLSTMSeqTransducer, UniLSTMSeqTransducer
 from xnmt.mlp import MLP
 from xnmt.optimizer import AdamTrainer
 from xnmt.param_collection import ParamManager
-from xnmt.persistence import YamlSerializer
+from xnmt.persistence import save_to_file
 import xnmt.tee
 from xnmt.training_regimen import SimpleTrainingRegimen
 from xnmt.translator import DefaultTranslator
@@ -107,8 +107,6 @@ standard_experiment = Experiment(
 )
 
 # run experiment
-standard_experiment(save_fct=lambda: YamlSerializer().save_to_file(model_file,
-                                                                   standard_experiment,
-                                                                   ParamManager.param_col))
+standard_experiment(save_fct=lambda: save_to_file(model_file, standard_experiment, ParamManager.param_col))
 
 exit()
