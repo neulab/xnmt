@@ -25,9 +25,6 @@ load_experiment = LoadSerialized(
     {"path" : "train", "val" : None}
   ]
 )
-# TODO: prints the below, should debug:
-# > populated a subset of DyNet weights from given data files: ['SimpleWordEmbedder.77f45fe2', 'UniLSTMSeqTransducer.aff22365', 'UniLSTMSeqTransducer.99318f39', 'MlpAttender.34f8a738', 'SimpleWordEmbedder.bdbb3a11', 'UniLSTMSeqTransducer.747cc597', 'MLP.ed561ae9', 'MlpSoftmaxDecoder.d7b1d2a3'].
-#   Did not populate {'Linear.f3cfe057', 'Linear.3d2abbbd'}
 
 uninitialized_experiment = YamlPreloader.preload_obj(load_experiment, exp_dir=EXP_DIR, exp_name=EXP)
 loaded_experiment = YamlSerializer().initialize_if_needed(uninitialized_experiment)

@@ -2,7 +2,7 @@ import dynet as dy
 
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
-from xnmt.persistence import serializable_init, Serializable, bare
+from xnmt.persistence import serializable_init, Serializable, bare, Ref
 
 class Linear(Serializable):
   """
@@ -20,7 +20,9 @@ class Linear(Serializable):
   yaml_tag = "!Linear"
 
   @serializable_init
-  def __init__(self, input_dim, output_dim, bias=True, param_init=bare(GlorotInitializer), bias_init=bare(ZeroInitializer)):
+  def __init__(self, input_dim, output_dim, bias=True,
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     self.bias = bias
     self.output_dim = output_dim
 
