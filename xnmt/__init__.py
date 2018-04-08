@@ -12,6 +12,11 @@ if package_dir not in sys.path:
   sys.path.append(package_dir)
 
 
+import _dynet
+dyparams = _dynet.DynetParams()
+dyparams.from_args()
+
+
 # all Serializable objects must be imported here in order to be parsable
 # using the !Classname YAML syntax
 import xnmt.attender

@@ -73,7 +73,7 @@ def main(overwrite_args=None):
       uninitialized_exp_args = YamlPreloader.preload_experiment_from_file(args.experiments_file, experiment_name)
   
       logger.info(f"=> Running {experiment_name}")
-      logger.debug(f"running XNMT revision {tee.10()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+      logger.debug(f"running XNMT revision {tee.get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
       yaml_serializer = YamlSerializer()
   
@@ -115,7 +115,4 @@ def print_results(results):
   
 
 if __name__ == '__main__':
-  import _dynet
-  dyparams = _dynet.DynetParams()
-  dyparams.from_args()
   sys.exit(main())
