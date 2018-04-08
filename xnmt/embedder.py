@@ -359,7 +359,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     param_collection = ParamManager.my_params(self)
     self.vocab = self.choose_vocab(vocab, yaml_path, src_reader, trg_reader)
     self.vocab_size = len(vocab)
-    self.save_processed_arg("vocab_size", self.vocab_size)
+    self.save_processed_arg("vocab", self.vocab)
     with open(self.pretrained_filename, encoding='utf-8') as embeddings_file:
       total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
     self.embeddings = param_collection.lookup_parameters_from_numpy(initial_embeddings)

@@ -37,7 +37,7 @@ class Serializable(yaml.YAMLObject):
     # attributes that are in the YAML file (never change manually, use Serializable.save_processed_arg() instead)
     self.serialize_params = {}
 
-  def shared_params(self) -> List[Set[Union[str,Path]]]:
+  def shared_params(self) -> List[Set[Union[str,'Path']]]:
     """
     Returns the shared parameters of this Serializable class.
 
@@ -75,7 +75,8 @@ class Serializable(yaml.YAMLObject):
     """
     if not hasattr(self, "serialize_params"):
       self.serialize_params = {}
-    # TODO: check that key is a valid init argument
+    if key!="xnmt_subcol_name" and key not in get_init_args_defaults(self):
+      raise ValueError(f"{key} is not an init argument of {self}")
     self.serialize_params[key] = val
 
   def add_serializable_component(self, name: str, passed: YamlSerializable,
@@ -660,10 +661,8 @@ class FormatString(str, yaml.YAMLObject):
   def __init__(self, value, serialize_as):
     self.serialize_as = serialize_as
 
-# TODO: need these here?
 def init_fs_representer(dumper, obj):
   return dumper.represent_data(obj.serialize_as)
-
 yaml.add_representer(FormatString, init_fs_representer)
 
 
