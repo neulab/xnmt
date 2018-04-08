@@ -95,10 +95,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.inference = inference
 
   def shared_params(self):
-    return [set([Path(".src_embedder.emb_dim"), Path(".encoder.input_dim")]),
-            set([Path(".encoder.hidden_dim"), Path(".attender.input_dim"), Path(".decoder.input_dim")]),
-            set([Path(".attender.state_dim"), Path(".decoder.rnn_layer.hidden_dim")]),
-            set([Path(".trg_embedder.emb_dim"), Path(".decoder.trg_embed_dim")])]
+    return [set([".src_embedder.emb_dim", ".encoder.input_dim"]),
+            set([".encoder.hidden_dim", ".attender.input_dim", ".decoder.input_dim"]),
+            set([".attender.state_dim", ".decoder.rnn_layer.hidden_dim"]),
+            set([".trg_embedder.emb_dim", ".decoder.trg_embed_dim"])]
 
   def initialize_generator(self, **kwargs):
     # TODO: refactor?

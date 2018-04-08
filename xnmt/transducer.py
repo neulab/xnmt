@@ -93,7 +93,7 @@ class ModularSeqTransducer(SeqTransducer, Serializable):
     self.modules = modules
 
   def shared_params(self):
-    return [set([Path(".input_dim"), Path(".modules.0.input_dim")])]
+    return [set([".input_dim", ".modules.0.input_dim"])]
 
   def __call__(self, es):
     for module in self.modules:

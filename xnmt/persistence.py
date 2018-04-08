@@ -37,7 +37,7 @@ class Serializable(yaml.YAMLObject):
     # attributes that are in the YAML file (never change manually, use Serializable.save_processed_arg() instead)
     self.serialize_params = {}
 
-  def shared_params(self) -> List[Set['Path']]:
+  def shared_params(self) -> List[Set[Union[str,Path]]]:
     """
     Returns the shared parameters of this Serializable class.
 
@@ -53,11 +53,10 @@ class Serializable(yaml.YAMLObject):
       objects referencing params of this component or a subcompononent
       e.g.::
 
-        return [set([Path(".input_dim"),
-                     Path(".sub_module.input_dim"),
-                     Path(".submodules_list.0.input_dim")])]
+        return [set([".input_dim",
+                     ".sub_module.input_dim",
+                     ".submodules_list.0.input_dim"])]
     """
-    # TODO: make this sets of strings instead of sets of paths for better readability?
     return []
 
   def save_processed_arg(self, key: str, val: YamlSerializable) -> None:
@@ -1026,6 +1025,7 @@ class YamlSerializer(object):
     for path, node in traverse_tree(root):
       if isinstance(node, Serializable):
         for shared_param_set in node.shared_params():
+          shared_param_set = set(Path(p) if isinstance(p, str) else p for p in shared_param_set)
           abs_shared_param_set = set(p.get_absolute(path) for p in shared_param_set)
           added = False
           for prev_set in abs_shared_param_sets:

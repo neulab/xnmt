@@ -83,13 +83,13 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
     self.mlp_layer = mlp_layer
 
   def shared_params(self):
-    return [set([Path(".trg_embed_dim"), Path(".rnn_layer.input_dim")]),
-            set([Path(".input_dim"), Path(".rnn_layer.decoder_input_dim")]),
-            set([Path(".input_dim"), Path(".mlp_layer.input_dim")]),
-            set([Path(".input_feeding"), Path(".rnn_layer.decoder_input_feeding")]),
-            set([Path(".rnn_layer.layers"), Path(".bridge.dec_layers")]),
-            set([Path(".rnn_layer.hidden_dim"), Path(".bridge.dec_dim")]),
-            set([Path(".rnn_layer.hidden_dim"), Path(".mlp_layer.decoder_rnn_dim")])]
+    return [set([".trg_embed_dim", ".rnn_layer.input_dim"]),
+            set([".input_dim", ".rnn_layer.decoder_input_dim"]),
+            set([".input_dim", ".mlp_layer.input_dim"]),
+            set([".input_feeding", ".rnn_layer.decoder_input_feeding"]),
+            set([".rnn_layer.layers", ".bridge.dec_layers"]),
+            set([".rnn_layer.hidden_dim", ".bridge.dec_dim"]),
+            set([".rnn_layer.hidden_dim", ".mlp_layer.decoder_rnn_dim"])]
 
   def initial_state(self, enc_final_states, ss_expr):
     """Get the initial state of the decoder given the encoder final states.
