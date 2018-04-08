@@ -26,7 +26,7 @@ class Serializable(yaml.YAMLObject):
 
   def __init__(self):
     """
-    Initializer, with its arguments defining what arguments can be passed from a YAML config file.
+    Initialize class, including allocation of DyNet parameters if needed.
 
     The __init__() must always be annotated with @serializable_init. It's arguments are exactly those that can be
     specified in a YAML config file. If the argument values are Serializable, they are initialized before being passed
@@ -34,12 +34,12 @@ class Serializable(yaml.YAMLObject):
     may be important when there are dependencies between children.
     """
 
-    # attributes that are in the YAML file (never change manually, use Serializable.save_processed_arg() instead)
+    # attributes that are in the YAML file (never change this manually, use Serializable.save_processed_arg() instead)
     self.serialize_params = {}
 
   def shared_params(self) -> List[Set[Union[str,'Path']]]:
     """
-    Returns the shared parameters of this Serializable class.
+    Return the shared parameters of this Serializable class.
 
     This can be overwritten to specify what parameters of this component and its subcomponents are shared.
     Parameter sharing is performed before any components are initialized, and can therefore only
@@ -61,7 +61,7 @@ class Serializable(yaml.YAMLObject):
 
   def save_processed_arg(self, key: str, val: YamlSerializable) -> None:
     """
-    Call from within __init__() to save a new value for an init argument.
+    Save a new value for an init argument (call from within __init__()).
 
     Normally, the serialization mechanism makes sure that the same arguments are passed when creating the class
     initially based on a config file, and when loading it from a saved model. This method can be called from inside
@@ -82,7 +82,7 @@ class Serializable(yaml.YAMLObject):
   def add_serializable_component(self, name: str, passed: YamlSerializable,
                                  create_fct: Callable[[], YamlSerializable]) -> YamlSerializable:
     """
-    Helper to create a Serializable component, or a container component with several Serializable-s.
+    Create a Serializable component, or a container component with several Serializable-s.
 
     Serializable sub-components should always be created using this helper to make sure DyNet parameters are assigned
     properly and serialization works properly. The components must also be accepted as init arguments, defaulting to
@@ -124,23 +124,24 @@ class Serializable(yaml.YAMLObject):
 class UninitializedYamlObject(object):
   """
   Wrapper class to indicate an object created by the YAML parser that still needs initialization.
+
+  Args:
+    data: uninitialized object
   """
 
-  def __init__(self, data):
+  def __init__(self, data: YamlSerializable) -> None:
     if isinstance(data, UninitializedYamlObject):
       raise AssertionError
     self.data = data
 
-  def get(self, key, default):
+  def get(self, key: str, default: YamlSerializable):
     return self.data.get(key, default)
 
 
 T = TypeVar('T')
-
-
 def bare(class_type: Type[T], **kwargs: YamlSerializable) -> T:
   """
-  Returns an uninitialized object of arbitrary type.
+  Create an uninitialized object of arbitrary type.
 
   This is useful to specify XNMT components as default arguments. __init__() commonly requires DyNet parameters,
   component referencing, etc., which are not yet set up at the time the default arguments are loaded.
@@ -150,6 +151,8 @@ def bare(class_type: Type[T], **kwargs: YamlSerializable) -> T:
   Args:
     class_type: class type (must be a subclass of Serializable)
     kwargs: will be passed to class's __init__()
+  Returns:
+    uninitialized object
   """
   obj = class_type.__new__(class_type)
   assert isinstance(obj, Serializable)
@@ -175,7 +178,7 @@ class Ref(Serializable):
   NO_DEFAULT = 1928437192847
 
   def __init__(self, path: Union[None, 'Path', str] = None, name: Optional[str] = None,
-               default: Union[YamlSerializable, None] = NO_DEFAULT):
+               default: Union[YamlSerializable, None] = NO_DEFAULT) -> None:
     if name is not None and path is not None:
       raise ValueError(f"Ref cannot be initialized with both a name and a path ({name} / {path})")
     if isinstance(path, str): path = Path(path)
@@ -185,15 +188,19 @@ class Ref(Serializable):
     self.serialize_params = {'name': name} if name else {'path': str(path)}
 
   def get_name(self) -> str:
+    """Return name, or None if this is not a named reference"""
     return getattr(self, "name", None)
 
   def get_path(self) -> 'Path':
+    """Return path, or None if this is a named reference"""
     return getattr(self, "path", None)
 
   def is_required(self) -> bool:
+    """Return true iff there exists no default value and it is mandatory that this reference be resolved."""
     return getattr(self, "default", Ref.NO_DEFAULT) == Ref.NO_DEFAULT
 
   def get_default(self) -> Union[YamlSerializable, None]:
+    """Return default value, or Ref.NO_DEFAULT if no default value is set (i.e., this is a required reference)."""
     return getattr(self, "default", None)
 
   def __str__(self):
@@ -207,6 +214,7 @@ class Ref(Serializable):
     return str(self)
 
   def resolve_path(self, named_paths: Dict[str, 'Path']) -> 'Path':
+    """Get path, resolving paths properly in case this is a named reference."""
     if self.get_path():
       if isinstance(self.get_path(), str):
         # need to do this here, because the initializer is never called when
