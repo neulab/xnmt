@@ -1,3 +1,20 @@
+"""
+This module takes care of loading and saving YAML files. Both configuration files and saved models are stored in the
+same YAML file format.
+
+The main objects to be aware of are:
+
+* Serializable: must be subclassed by all components that are specified in a YAML file.
+* Ref: a reference that points somewhere in the object hierarchy, for both convenience and to realize parameter sharing.
+* YamlPreloader: pre-loads YAML contents so that some infrastructure can be set up, but does not initialize components.
+* initialize_if_needed, initialize_object: initialize a preloaded YAML tree, taking care of resolving references etc.
+* save_to_file: saves a YAML file along with registered DyNet parameters
+* LoadSerialized: can be used to load, modify, and re-assemble pretrained models.
+* bare: create uninitialized objects, usually for the purpose of specifying them as default arguments.
+* RandomParam: a special Serializable subclass that realizes random parameter search.
+
+"""
+
 from xnmt.tee import get_git_revision
 from functools import singledispatch
 from enum import IntEnum, auto
