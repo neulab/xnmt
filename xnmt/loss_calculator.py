@@ -2,8 +2,7 @@ import dynet as dy
 import numpy as np
 
 from xnmt.loss import LossBuilder
-from xnmt.serialize.serializable import Serializable, Ref, Path
-from xnmt.serialize.serializer import serializable_init
+from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.vocab import Vocab
 import xnmt.evaluator
 import xnmt.linear as linear
@@ -83,7 +82,7 @@ class ReinforceLoss(Serializable):
     for _ in range(self.sample_length):
       dec_state.context = translator.attender.calc_context(dec_state.rnn_state.output())
       if self.use_baseline:
-        h_t = dy.tanh(translator.decoder.mlp_layer.hidden(dy.concatenate([dec_state.rnn_state.output(), dec_state.context])))
+        h_t = dy.tanh(translator.decoder.mlp_layer.hidden_layer(dy.concatenate([dec_state.rnn_state.output(), dec_state.context])))
         self.bs.append(self.baseline(dy.nobackprop(h_t)))
       logsoft = dy.log_softmax(translator.decoder.get_scores(dec_state))
       sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]

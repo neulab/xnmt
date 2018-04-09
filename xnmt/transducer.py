@@ -1,7 +1,6 @@
 import dynet as dy
 
-from xnmt.serialize.serializable import Serializable, Path
-from xnmt.serialize.serializer import serializable_init
+from xnmt.persistence import serializable_init, Serializable, Path
 from xnmt.expression_sequence import ExpressionSequence
 
 class Transducer(object):
@@ -94,7 +93,7 @@ class ModularSeqTransducer(SeqTransducer, Serializable):
     self.modules = modules
 
   def shared_params(self):
-    return [set([Path(".input_dim"), Path(".modules.0.input_dim")])]
+    return [set([".input_dim", ".modules.0.input_dim"])]
 
   def __call__(self, es):
     for module in self.modules:

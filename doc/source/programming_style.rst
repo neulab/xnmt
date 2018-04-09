@@ -47,9 +47,8 @@ should be followed (see _official documentation: https://docs.python.org/3/howto
 
 These loggers can be requested as follows:
 ::
-  import logging
-  logger = logging.getLogger('xnmt')
-  yaml_logger = logging.getLogger('yaml')
+  from xnmt import logger
+  from xnmt import yaml_logger
 
 Contributing
 ------------

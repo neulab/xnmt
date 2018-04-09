@@ -1,17 +1,13 @@
 import dynet as dy
 
 import xnmt.batcher
-from xnmt.bridge import CopyBridge
-from xnmt.events import register_xnmt_handler, handle_xnmt_event
 import xnmt.linear
 import xnmt.residual
 from xnmt.bridge import CopyBridge
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.mlp import MLP
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.param_collection import ParamManager
-from xnmt.serialize.serializable import Serializable, bare, Ref, Path
-from xnmt.serialize.serializer import serializable_init
+from xnmt.persistence import serializable_init, Serializable, bare, Ref, Path
 
 class Decoder(object):
   '''
@@ -59,7 +55,6 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
 
   yaml_tag = '!MlpSoftmaxDecoder'
 
-  @register_xnmt_handler
   @serializable_init
   def __init__(self,
                input_dim=Ref("exp_global.default_layer_dim"),
@@ -88,13 +83,13 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
     self.mlp_layer = mlp_layer
 
   def shared_params(self):
-    return [set([Path(".trg_embed_dim"), Path(".rnn_layer.input_dim")]),
-            set([Path(".input_dim"), Path(".rnn_layer.decoder_input_dim")]),
-            set([Path(".input_dim"), Path(".mlp_layer.input_dim")]),
-            set([Path(".input_feeding"), Path(".rnn_layer.decoder_input_feeding")]),
-            set([Path(".rnn_layer.layers"), Path(".bridge.dec_layers")]),
-            set([Path(".rnn_layer.hidden_dim"), Path(".bridge.dec_dim")]),
-            set([Path(".rnn_layer.hidden_dim"), Path(".mlp_layer.decoder_rnn_dim")])]
+    return [set([".trg_embed_dim", ".rnn_layer.input_dim"]),
+            set([".input_dim", ".rnn_layer.decoder_input_dim"]),
+            set([".input_dim", ".mlp_layer.input_dim"]),
+            set([".input_feeding", ".rnn_layer.decoder_input_feeding"]),
+            set([".rnn_layer.layers", ".bridge.dec_layers"]),
+            set([".rnn_layer.hidden_dim", ".bridge.dec_dim"]),
+            set([".rnn_layer.hidden_dim", ".mlp_layer.decoder_rnn_dim"])]
 
   def initial_state(self, enc_final_states, ss_expr):
     """Get the initial state of the decoder given the encoder final states.

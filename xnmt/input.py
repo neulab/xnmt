@@ -1,6 +1,3 @@
-import logging
-logger = logging.getLogger('xnmt')
-
 import numpy as np
 
 class Input(object):

@@ -1,14 +1,9 @@
 import dynet as dy
 
-import xnmt.linear
-import xnmt.embedder
-
 from xnmt.param_collection import ParamManager
-from xnmt.serialize.serializable import Serializable, Ref, Path
-from xnmt.serialize.serializer import serializable_init
-from xnmt.events import register_xnmt_handler, handle_xnmt_event, register_xnmt_event
+from xnmt.persistence import serializable_init, Serializable, Ref
+from xnmt.events import register_xnmt_handler, register_xnmt_event
 from xnmt.reports import Reportable
-from xnmt.vocab import Vocab
 
 class SegmentComposer(Serializable, Reportable):
   yaml_tag = "!SegmentComposer"

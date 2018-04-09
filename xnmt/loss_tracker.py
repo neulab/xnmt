@@ -1,11 +1,9 @@
-import logging
-logger = logging.getLogger('xnmt')
-yaml_logger = logging.getLogger('yaml')
 import time
 
 import xnmt.loss
 from xnmt.vocab import Vocab
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
+from xnmt import logger, yaml_logger
 
 class LossTracker(object):
   """

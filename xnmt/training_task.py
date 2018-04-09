@@ -1,9 +1,8 @@
-import logging
-logger = logging.getLogger('xnmt')
 from subprocess import Popen
 import random
 import numpy as np
 
+from xnmt import logger
 from xnmt.batcher import SrcBatcher
 from xnmt.events import register_xnmt_event
 import xnmt.input_reader
@@ -11,8 +10,7 @@ from xnmt.loss import LossBuilder
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.loss_tracker import BatchLossTracker
 from xnmt.param_collection import ParamManager
-from xnmt.serialize.serializable import Serializable, bare, Ref, Path
-from xnmt.serialize.serializer import serializable_init
+from xnmt.persistence import serializable_init, Serializable, bare
 
 class TrainingTask(object):
   """

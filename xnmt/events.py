@@ -1,7 +1,3 @@
-import logging
-logger = logging.getLogger('xnmt')
-from functools import wraps
-
 """
 This implements events in XNMT. Events are handled globally, i.e. caller and handler
 do not need to know about each other, and it is not possible to limit the scope of an
@@ -43,6 +39,10 @@ event. Event handling involves two parts:
     returned.
 
 """
+
+from functools import wraps
+
+from xnmt import logger
 
 def clear():
   """

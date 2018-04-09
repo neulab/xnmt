@@ -1,17 +1,14 @@
-import logging
-logger = logging.getLogger('xnmt')
-
 import numpy as np
 import dynet as dy
 
+from xnmt import logger
 import xnmt.batcher
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 from xnmt.linear import Linear
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
-from xnmt.serialize.serializable import Serializable, Ref, Path, bare
-from xnmt.serialize.serializer import serializable_init
+from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
 
 class Embedder(object):
   """
@@ -152,7 +149,7 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
     self.emb_dim = emb_dim
     param_collection = ParamManager.my_params(self)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
-    self.overwrite_serialize_param("vocab_size", self.vocab_size)
+    self.save_processed_arg("vocab_size", self.vocab_size)
     self.embeddings = param_collection.add_parameters((self.vocab_size, self.emb_dim), init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
     self.bias = param_collection.add_parameters((self.vocab_size,), init=bias_init.initializer((self.vocab_size,)))
 
@@ -240,7 +237,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.train = False
     param_collection = ParamManager.my_params(self)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
-    self.overwrite_serialize_param("vocab_size", self.vocab_size)
+    self.save_processed_arg("vocab_size", self.vocab_size)
     self.embeddings = param_collection.add_lookup_parameters((self.vocab_size, self.emb_dim),
                              init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
 
@@ -360,7 +357,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     param_collection = ParamManager.my_params(self)
     self.vocab = self.choose_vocab(vocab, yaml_path, src_reader, trg_reader)
     self.vocab_size = len(vocab)
-    self.overwrite_serialize_param("vocab_size", self.vocab_size)
+    self.save_processed_arg("vocab", self.vocab)
     with open(self.pretrained_filename, encoding='utf-8') as embeddings_file:
       total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
     self.embeddings = param_collection.lookup_parameters_from_numpy(initial_embeddings)

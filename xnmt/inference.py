@@ -1,19 +1,16 @@
 # coding: utf-8
 
-import os
-import logging
-logger = logging.getLogger('xnmt')
 from collections.abc import Iterable
 
 from simple_settings import settings
 
 import dynet as dy
 
+from xnmt import logger
 from xnmt.loss_calculator import LossCalculator
 import xnmt.output
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable, Ref
-from xnmt.serialize.serializer import serializable_init
+from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.util import make_parent_dir
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"

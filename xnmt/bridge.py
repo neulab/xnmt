@@ -3,8 +3,7 @@ import dynet as dy
 import xnmt.linear
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
-from xnmt.serialize.serializable import Serializable, Ref, Path, bare
-from xnmt.serialize.serializer import serializable_init
+from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
 class Bridge(object):
   """

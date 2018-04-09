@@ -1,5 +1,4 @@
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.serializer import serializable_init
+from xnmt.persistence import serializable_init, Serializable
 
 class Vocab(Serializable):
   '''
@@ -39,8 +38,8 @@ class Vocab(Serializable):
       self.i2w.append(self.SS_STR)
       self.i2w.append(self.ES_STR)
       self.frozen = False
-    self.overwrite_serialize_param("i2w", self.i2w)
-    self.overwrite_serialize_param("vocab_file", None)
+    self.save_processed_arg("i2w", self.i2w)
+    self.save_processed_arg("vocab_file", None)
 
   @staticmethod
   def i2w_from_vocab_file(vocab_file):

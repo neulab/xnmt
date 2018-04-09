@@ -3,8 +3,7 @@ import random
 import numpy as np
 import dynet as dy
 from xnmt.vocab import Vocab
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.serializer import serializable_init
+from xnmt.persistence import serializable_init, Serializable
 
 class Batch(list):
   """
