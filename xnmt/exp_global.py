@@ -1,11 +1,9 @@
-import logging
-logger = logging.getLogger('xnmt')
 from typing import Dict
 
 from simple_settings import settings
 
-from xnmt.serialize.serializable import Serializable, bare
-from xnmt.serialize.serializer import serializable_init
+from xnmt import logger
+from xnmt.persistence import serializable_init, Serializable, bare
 from xnmt.param_init import ZeroInitializer, GlorotInitializer, ParamInitializer
 
 

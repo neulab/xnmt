@@ -1,13 +1,10 @@
-import logging
-logger = logging.getLogger('xnmt')
-
 import math
 import dynet as dy
 
+from xnmt import logger
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
-from xnmt.serialize.serializable import Serializable, Ref, Path, bare
-from xnmt.serialize.serializer import serializable_init
+from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
 class Attender(object):
   '''

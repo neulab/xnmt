@@ -1,9 +1,8 @@
-import logging
-logger = logging.getLogger('xnmt')
 from subprocess import Popen
 import random
 import numpy as np
 
+from xnmt import logger
 from xnmt.batcher import SrcBatcher
 from xnmt.events import register_xnmt_event
 import xnmt.input_reader
@@ -11,8 +10,7 @@ from xnmt.loss import LossBuilder
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.loss_tracker import BatchLossTracker
 from xnmt.param_collection import ParamManager
-from xnmt.serialize.serializable import Serializable, bare, Ref, Path
-from xnmt.serialize.serializer import serializable_init
+from xnmt.persistence import serializable_init, Serializable, bare
 
 class TrainingTask(object):
   """
@@ -78,6 +76,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
     batcher: Type of batcher
     loss_calculator:
+    run_for_epochs (int): number of epochs (None for unlimited epochs)
     lr_decay (float):
     lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
     patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
@@ -197,9 +196,9 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     Signal stopping if self.early_stopping_reached is marked or we exhausted the number of requested epochs.
     """
     return self.early_stopping_reached \
-      or self.training_state.epoch_num > self.run_for_epochs \
-      or (self.training_state.epoch_num == self.run_for_epochs and
-          self.training_state.steps_into_epoch >= self.cur_num_minibatches()-1)
+      or self.run_for_epochs is not None and (self.training_state.epoch_num > self.run_for_epochs \
+                                              or (self.training_state.epoch_num == self.run_for_epochs and
+                                                  self.training_state.steps_into_epoch >= self.cur_num_minibatches() - 1))
 
   def cur_num_minibatches(self):
     """

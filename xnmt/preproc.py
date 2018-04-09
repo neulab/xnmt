@@ -1,5 +1,3 @@
-import logging
-logger = logging.getLogger('xnmt')
 import time
 import sys
 import os.path
@@ -14,9 +12,10 @@ with warnings.catch_warnings():
   import h5py
 import yaml
 
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.serializer import serializable_init
+from xnmt import logger
+from xnmt.persistence import serializable_init, Serializable
 from xnmt.speech_features import logfbank, calculate_delta, get_mean_std, normalize
+from xnmt.util import make_parent_dir
 
 ##### Preprocessors
 
@@ -194,12 +193,7 @@ class SentencepieceTokenizer(ExternalTokenizer):
     self.encode_extra_options = ['--extra_options='+encode_extra_options] if encode_extra_options else []
     self.decode_extra_options = ['--extra_options='+decode_extra_options] if decode_extra_options else []
 
-    if not os.path.exists(os.path.dirname(model_prefix)):
-      try:
-        os.makedirs(os.path.dirname(model_prefix))
-      except OSError as exc:
-        if exc.errno != os.errno.EEXIST:
-          raise
+    make_parent_dir(model_prefix)
 
     if ((not os.path.exists(self.model_prefix + '.model')) or
         (not os.path.exists(self.model_prefix + '.vocab')) or
