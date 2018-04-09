@@ -1,4 +1,4 @@
-
+# A model ensemble consisting of three independently trained models
 exp1-single: &my_experiment !Experiment
   exp_global: !ExpGlobal
     model_file: 'examples/models/{EXP}.mod'
@@ -25,9 +25,12 @@ exp1-single: &my_experiment !Experiment
       ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.test_hyp
 
+# We just clone the first model, i.e., we train the same model three times.
+# However, you may also define completely different models here.
 exp2-single: *my_experiment
 exp3-single: *my_experiment
 
+# Construct the ensemble by loading the three previously trained models
 exp4-ensemble: !Experiment
   model: !EnsembleTranslator
     src_reader: !Ref {path: model.models.0.src_reader}

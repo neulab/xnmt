@@ -504,9 +504,9 @@ class EnsembleTranslator(Translator, Serializable):
   def shared_params(self):
     shared = [params for model in self.models for params in model.shared_params()]
     # TODO: Is this needed?
-    shared += [set([Path(".src_reader.vocab"), Path(f".models.{i}.src_reader.vocab")]) \
+    shared += [set([".src_reader.vocab", f".models.{i}.src_reader.vocab"]) \
                for i in range(len(self.models))]
-    shared += [set([Path(".trg_reader.vocab"), Path(f".models.{i}.trg_reader.vocab")]) \
+    shared += [set([".trg_reader.vocab", f".models.{i}.trg_reader.vocab"]) \
                for i in range(len(self.models))]
     return shared
 
