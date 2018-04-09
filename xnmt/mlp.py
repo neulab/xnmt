@@ -49,6 +49,7 @@ class MLP(Serializable):
     if yaml_path is not None and "decoder" in yaml_path:
       self.input_dim += decoder_rnn_dim
       self.output_dim = self.choose_vocab_size(vocab_size, vocab, trg_reader)
+      self.overwrite_serialize_param("vocab_size", self.output_dim)
 
     self.hidden = xnmt.linear.Linear(
       self.input_dim, self.hidden_dim, model,

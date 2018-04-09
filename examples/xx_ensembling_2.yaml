@@ -30,8 +30,8 @@ exp3-single: *my_experiment
 
 exp4-ensemble: !Experiment
   model: !EnsembleTranslator
-    src_reader: !Ref {name: my_src_reader}
-    trg_reader: !Ref {name: my_trg_reader}
+    src_reader: !Ref {path: model.models.0.src_reader}
+    trg_reader: !Ref {path: model.models.0.trg_reader}
     models:
       - !LoadSerialized
         filename: 'examples/models/exp1-single.mod'
