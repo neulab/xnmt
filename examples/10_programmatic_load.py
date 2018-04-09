@@ -1,8 +1,6 @@
 # This demonstrates how to load the model trained using ``09_programmatic.py``
 # the programmatic way and for the purpose of evaluating the model.
 
-import logging
-logger = logging.getLogger('xnmt')
 import os
 
 import xnmt.tee

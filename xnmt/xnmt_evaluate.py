@@ -1,9 +1,8 @@
-import logging
-logger = logging.getLogger('xnmt')
 from typing import Any, Sequence
 import argparse
 
-from xnmt.evaluator import *
+from xnmt import logger
+from xnmt.evaluator import * # import everything so we can parse it with eval()
 from xnmt.inference import NO_DECODING_ATTEMPTED
 from xnmt.util import OneOrSeveral
 

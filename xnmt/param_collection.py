@@ -1,9 +1,9 @@
-import logging
-logger = logging.getLogger('xnmt')
 import os
 import re
 
 import dynet as dy
+
+from xnmt import logger
 
 class ParamManager(object):
   """

@@ -1,11 +1,9 @@
-import logging
-
-logger = logging.getLogger('xnmt')
 from collections import defaultdict, Counter
 import math
 import subprocess
 import numpy as np
 
+from xnmt import logger
 from xnmt.persistence import serializable_init, Serializable
 
 class EvalScore(object):

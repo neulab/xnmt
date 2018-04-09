@@ -1,5 +1,3 @@
-import logging
-logger = logging.getLogger('xnmt')
 import time
 import sys
 import os.path
@@ -14,6 +12,7 @@ with warnings.catch_warnings():
   import h5py
 import yaml
 
+from xnmt import logger
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.speech_features import logfbank, calculate_delta, get_mean_std, normalize
 from xnmt.util import make_parent_dir

@@ -1,13 +1,12 @@
 # coding: utf-8
 
-import logging
-logger = logging.getLogger('xnmt')
 from collections.abc import Iterable
 
 from simple_settings import settings
 
 import dynet as dy
 
+from xnmt import logger
 from xnmt.loss_calculator import LossCalculator
 import xnmt.output
 from xnmt.reports import Reportable

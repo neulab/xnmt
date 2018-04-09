@@ -1,5 +1,3 @@
-import logging
-logger = logging.getLogger('xnmt')
 from itertools import zip_longest
 
 import ast
@@ -11,6 +9,7 @@ with warnings.catch_warnings():
   warnings.simplefilter("ignore", lineno=36)
   import h5py
 
+from xnmt import logger
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.vocab import Vocab

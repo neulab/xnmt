@@ -1,7 +1,6 @@
-import logging
-logger = logging.getLogger('xnmt')
 from typing import List, Optional
 
+from xnmt import logger
 from xnmt.exp_global import ExpGlobal
 from xnmt.eval_task import EvalTask
 from xnmt.generator import GeneratorModel

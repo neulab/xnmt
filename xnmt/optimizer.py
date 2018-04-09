@@ -1,8 +1,7 @@
-import logging
-logger = logging.getLogger('xnmt')
-
 import dynet as dy
 import numpy as np
+
+from xnmt import logger
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable
 

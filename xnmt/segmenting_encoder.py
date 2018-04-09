@@ -1,5 +1,3 @@
-import logging
-logger = logging.getLogger('xnmt')
 import numpy
 import dynet as dy
 

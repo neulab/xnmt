@@ -1,9 +1,7 @@
-import logging
-logger = logging.getLogger('xnmt')
-
 import numpy as np
 import dynet as dy
 
+from xnmt import logger
 import xnmt.batcher
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence

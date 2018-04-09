@@ -4,8 +4,6 @@
 Reads experiments descriptions in the passed configuration file
 and runs them sequentially, logging outputs
 """
-import logging
-logger = logging.getLogger('xnmt')
 import argparse
 import os
 import random
@@ -21,6 +19,7 @@ if settings.RESOURCE_WARNINGS:
   import warnings
   warnings.simplefilter('always', ResourceWarning)
 
+from xnmt import logger
 from xnmt.param_collection import ParamManager
 import xnmt.tee as tee
 from xnmt.persistence import YamlPreloader, save_to_file, initialize_if_needed

@@ -1,9 +1,8 @@
-import logging
-logger = logging.getLogger('xnmt')
 from subprocess import Popen
 import random
 import numpy as np
 
+from xnmt import logger
 from xnmt.batcher import SrcBatcher
 from xnmt.events import register_xnmt_event
 import xnmt.input_reader

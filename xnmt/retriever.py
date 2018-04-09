@@ -1,11 +1,9 @@
-import logging
-logger = logging.getLogger('xnmt')
-
 import dynet as dy
 import numpy as np
 from lxml import etree
 from simple_settings import settings
 
+from xnmt import logger
 import xnmt.batcher
 from xnmt.events import handle_xnmt_event
 from xnmt.generator import GeneratorModel

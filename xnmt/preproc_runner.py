@@ -1,8 +1,7 @@
-import logging
-logger = logging.getLogger('xnmt')
 import os.path
 from typing import List
 
+from xnmt import logger
 from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.util import make_parent_dir

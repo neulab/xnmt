@@ -13,8 +13,6 @@
 # setup.py has been run properly.
 
 
-import logging
-logger = logging.getLogger('xnmt')
 import os
 import random
 
