@@ -49,6 +49,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                learn_segmentation = True,
                compose_char       = False,
                exp_reward=False,
+               exp_logsoftmax=False,
                print_sample=False):
     register_handler(self)
     model = exp_global.dynet_param_collection.param_col
@@ -85,6 +86,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.print_sample = print_sample
     self.print_sample_prob = print_sample_prob
     self.exp_reward = exp_reward
+    self.exp_logsoftmax = exp_logsoftmax
     # Fixed Parameters
     self.length_prior = length_prior
     # Variable Parameters
@@ -135,7 +137,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     if self.print_sample:
       self.print_sample_triggered = (self.print_sample_prob-numpy.random.random()) >= 0
       if self.print_sample_triggered:
-        self.print_sample_enc(outputs, encodings.mask, segment_mask)
+        self.print_sample_enc(outputs, self.enc_mask, segment_mask)
     if not self.train:
       # Rewrite segmentation
       self.set_report_resource("segmentation", self.segment_decisions[0])
@@ -193,17 +195,24 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
     # Masking + adding last dec must be 1
     ret = []
+    if encodings.mask is None:
+      enc_mask = numpy.ones((batch_size, len(encodings)))
+    else:
+      enc_mask = 1-encodings.mask.np_arr
+    self.enc_mask = enc_mask
+
     if is_presegment_provided:
       ret = [set(dec) for dec in segment_decisions]
     else:
       for i in range(len(segment_decisions)):
         segment_decision = segment_decisions[i]
         src_length = self.src_length[i]
-        mask = encodings.mask.np_arr[i] if encodings.mask is not None else None
-        dec = set(filter(lambda j: True if mask is None else mask[j] == 0, segment_decision))
+        mask = enc_mask[i]
+        dec = set(filter(lambda j: mask[j] == 1, segment_decision))
         if len(dec) == 0 or src_length-1 not in dec:
           dec.add(src_length-1)
         ret.append(dec)
+        mask[src_length-1] = 0
     return ret, segment_logsoftmaxes
 
   # Sample from prior segmentation
@@ -276,7 +285,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     trans_reward = -dy.esum(list(trans_loss.values()))
     reward = LossBuilder({"trans_reward": dy.nobackprop(trans_reward)})
     assert trans_reward.dim()[1] == len(self.src_sent)
-    enc_mask = self.encodings.mask.get_active_one_mask().transpose() if self.encodings.mask else None
+    enc_mask = self.enc_mask.transpose()
+    # Sanity check
+    actual = len(self.segment_logsoftmaxes), len(src)
+    assert enc_mask.shape == actual,\
+        "expected %s != actual %s" % (str(enc_mask.shape), str(actual))
     ret = LossBuilder()
     # 2. Length prior
     alpha = self.length_prior_alpha.value() if self.length_prior_alpha is not None else 0
@@ -297,10 +310,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         baseline = self.baseline(dy.nobackprop(encoding))
         baseline_score.append(dy.nobackprop(baseline))
         loss = dy.squared_distance(reward, baseline)
-        if enc_mask is not None:
-          loss = dy.cmult(dy.inputTensor(enc_mask[i], batched=True), loss)
-        baseline_loss.append(loss)
+        baseline_loss.append(dy.cmult(dy.inputTensor(enc_mask[i], batched=True), loss))
       ret.add_loss("baseline", dy.esum(baseline_loss))
+    if self.exp_logsoftmax:
+      self.segment_logsoftmaxes = [dy.exp(logsoftmax) for logsoftmax in self.segment_logsoftmaxes]
     ## Reinforce Loss
     lmbd = self.lmbd.value()
     rewards = []
@@ -316,63 +329,55 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         r_i = reward - baseline_score[i] if self.use_baseline else reward
         # Loss
         loss = -r_i * ll
-        if enc_mask is not None:
-          loss = dy.cmult(dy.inputTensor(enc_mask[i], batched=True), loss)
         rewards.append(r_i)
         lls.append(ll)
-        reinforce_loss.append(loss)
+        reinforce_loss.append(dy.cmult(dy.inputTensor(enc_mask[i], batched=True), loss))
       loss = dy.esum(reinforce_loss) * lmbd
       ret.add_loss("reinf", loss)
     if self.confidence_penalty:
       ls_loss = self.confidence_penalty(self.segment_logsoftmaxes, enc_mask)
       ret.add_loss("conf_pen", ls_loss)
     if self.print_sample and self.print_sample_triggered:
-      self.print_sample_loss(rewards, reward, lls, reinforce_loss, baseline_score)
+      self.print_sample_loss(rewards, reward, lls, reinforce_loss, baseline_score, enc_mask)
     # Total Loss
     return ret
 
   def print_sample_enc(self, outputs, enc_mask, out_mask):
-    src = [self.src_vocab[w] for w in self.src_sent[0]]
+    src = [self.src_vocab[w] for w in self.src_sent[0]][:self.src_length[0]]
     dec = self.segment_decisions[0]
     out = []
     number_seg = 0
-    if enc_mask is not None:
-      self.last_masked = len(enc_mask.np_arr[0]) - numpy.count_nonzero(enc_mask.np_arr[0])
-      src = src[:self.last_masked]
-    else:
-      self.last_masked = None
     segmented = self.apply_segmentation(src, dec)
     segmented = ["SRC: "] + segmented
     logger.debug(" ".join(segmented))
 
   # TODO: Fix if the baseline is none
-  def print_sample_loss(self, rewards, trans_reward, ll, loss, baseline):
+  def print_sample_loss(self, rewards, trans_reward, ll, loss, baseline, enc_mask):
     if loss[0].dim()[1] <= 1:
       return
+    src = [self.src_vocab[w] for w in self.src_sent[0]]
+    dec = numpy.zeros(len(ll))
+    dec[list(self.segment_decisions[0])] = 1
     if hasattr(self, "segment_length_prior") and self.segment_length_prior is not None:
       logger.debug("LP: " + str(self.segment_length_prior.npvalue()[0][0]))
     rw_val = trans_reward.npvalue()[0][0]
     logger.debug("RW: " +  str(rw_val))
-    enc_mask = self.encodings.mask
-    if self.last_masked is not None:
-      rewards = [x.npvalue()[0][0] for x in rewards[:self.last_masked]]
-      ll = [x.npvalue()[0][0] for x in ll[:self.last_masked]]
-      loss = [x.npvalue()[0][0] for x in loss[:self.last_masked]]
-      if self.use_baseline:
-        baseline = [x.npvalue()[0][0] for x in baseline[:self.last_masked]]
+    rewards = [x.npvalue()[0][0] for x in rewards]
+    ll = [x.npvalue()[0][0] for x in ll]
+    loss = [x.npvalue()[0][0] for x in loss]
+    if self.use_baseline:
+      baseline = [x.npvalue()[0][0] for x in baseline]
+    if enc_mask is not None:
+      mask = enc_mask.transpose()[0]
     else:
-      rewards = [x.npvalue()[0][0] for x in rewards]
-      ll = [x.npvalue()[0][0] for x in ll]
-      loss = [x.npvalue()[0][0] for x in loss]
-      if self.use_baseline:
-        baseline = [x.npvalue()[0][0] for x in baseline]
+      mask = [1 for _ in range(len(loss))]
 
     logger.debug("loss = -[ll * (rewards - baseline)]")
     for i, (l, log, r) in enumerate(zip(loss, ll, rewards)):
       if self.use_baseline:
-        logger.debug("%f = -[%f * (%f - %f)]" % (l, log, rw_val, baseline[i]))
+        logger.debug("%f = -[%f * (%f - %f)] [m=%d] %s %d" % (l, log, rw_val, baseline[i], mask[i], src[i], dec[i]))
       else:
-        logger.debug("%f = -[%f * %f]" % (l, log, rw_val))
+        logger.debug("%f = -[%f * %f] [m=%d] %s %d" % (l, log, rw_val, mask[i], src[i], dec[i]))
 
   @handle_xnmt_event
   def on_html_report(self, context):
@@ -406,9 +411,9 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def apply_segmentation(self, words, segmentation):
     segmented = []
     lower_bound = 0
-    for j in segmentation:
+    for j in sorted(segmentation):
       upper_bound = j+1
-      segmented.append("".join(words[lower_bound:upper_bound+1]))
+      segmented.append("".join(words[lower_bound:upper_bound]))
       lower_bound = upper_bound
     return segmented
 
