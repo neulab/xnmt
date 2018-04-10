@@ -10,7 +10,6 @@ from xnmt.linear import Linear
 from xnmt.batcher import mark_as_batch, is_batched
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
-from xnmt.events import register_handler
 from xnmt.generator import GeneratorModel
 from xnmt.inference import SimpleInference
 from xnmt.input import SimpleSentenceInput
@@ -18,10 +17,8 @@ from xnmt.loss import LossBuilder
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable, bare
-from xnmt.search_strategy import BeamSearch, GreedySearch
-from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.vocab import Vocab
+from xnmt.persistence import Ref, bare, Path, Serializable
 
 class BOWPredictor(GeneratorModel, Serializable):
   yaml_tag = u'!BOWPredictor'

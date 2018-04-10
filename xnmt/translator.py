@@ -10,7 +10,7 @@ from xnmt.attender import MlpAttender
 from xnmt.batcher import mark_as_batch, is_batched
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
-from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_handler
+from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 from xnmt.generator import GeneratorModel
 from xnmt.hyper_parameters import multiply_weight
 from xnmt.inference import SimpleInference
@@ -21,11 +21,10 @@ from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
 import xnmt.plot
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable, bare
+from xnmt.persistence import serializable_init, Serializable, bare, initialize_object, initialize_if_needed
 from xnmt.search_strategy import BeamSearch, GreedySearch
-import xnmt.serialize.serializer
-from xnmt.serialize.tree_tools import Ref, Path
 from xnmt.vocab import Vocab
+from xnmt.persistence import Ref, Path
 
 class Translator(GeneratorModel):
   '''
@@ -79,13 +78,14 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
   yaml_tag = '!DefaultTranslator'
 
+  @register_xnmt_handler
+  @serializable_init
   def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
                inference=bare(SimpleInference),
                calc_global_fertility=False, global_fertility_weight=None,
                calc_length_difference=False, length_difference_weight=None):
-    register_handler(self)
     self.src_reader = src_reader
     self.trg_reader = trg_reader
     self.src_embedder = src_embedder
@@ -98,19 +98,19 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.global_fertility_weight = global_fertility_weight
     self.length_difference_weight = length_difference_weight
     self.inference = inference
-    self.src_vocab = src_reader.vocab
 
   def shared_params(self):
-    return [set([Path(".src_embedder.emb_dim"), Path(".encoder.input_dim")]),
-            set([Path(".encoder.hidden_dim"), Path(".attender.input_dim"), Path(".decoder.input_dim")]),
-            set([Path(".attender.state_dim"), Path(".decoder.lstm_dim")]),
-            set([Path(".trg_embedder.emb_dim"), Path(".decoder.trg_embed_dim")])]
+    return [set([".src_embedder.emb_dim", ".encoder.input_dim"]),
+            set([".encoder.hidden_dim", ".attender.input_dim", ".decoder.input_dim"]),
+            set([".attender.state_dim", ".decoder.rnn_layer.hidden_dim"]),
+            set([".trg_embedder.emb_dim", ".decoder.trg_embed_dim"])]
 
   def initialize_generator(self, **kwargs):
+    # TODO: refactor?
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
     else:
-      len_norm = xnmt.serialize.serializer.YamlSerializer().initialize_if_needed(kwargs["len_norm_type"])
+      len_norm = initialize_if_needed(kwargs["len_norm_type"])
     search_args = {}
     if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
     if kwargs.get("beam", None) is None:
@@ -165,7 +165,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, dec_state, src_length=len(sents), forced_trg_ids=forced_trg_ids)
       # In case of reporting
       if self.report_path is not None:
-        src_words = [self.src_vocab[w] for w in sents]
+        src_words = [self.src_reader.vocab[w] for w in sents]
         trg_words = [self.trg_vocab[w] for w in output_actions.word_ids]
         # Attentions
         attentions = output_actions.attentions
@@ -281,8 +281,9 @@ class TransformerTranslator(Translator, Serializable, Reportable):
 
   yaml_tag = '!TransformerTranslator'
 
+  @register_xnmt_handler
+  @serializable_init
   def __init__(self, src_reader, src_embedder, encoder, trg_reader, trg_embedder, decoder, inference=None, input_dim=512):
-    register_handler(self)
     self.src_reader = src_reader
     self.src_embedder = src_embedder
     self.encoder = encoder
@@ -299,7 +300,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
     else:
-      len_norm = xnmt.serialize.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
+      len_norm = initialize_object(kwargs["len_norm_type"])
     search_args = {}
     if kwargs.get("max_len", None) is not None:
       search_args["max_len"] = kwargs["max_len"]
@@ -444,7 +445,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     # In case of reporting
     sents = src[0]
     if self.report_path is not None:
-      src_words = [self.src_vocab[w] for w in sents]
+      src_words = [self.src_reader.vocab[w] for w in sents]
       trg_words = [self.trg_vocab[w] for w in output_actions]
       self.set_report_input(idx, src_words, trg_words)
       self.set_report_resource("src_words", src_words)

@@ -1,4 +1,4 @@
-from xnmt.serialize.serializable import Serializable
+from xnmt.persistence import serializable_init, Serializable
 
 class Vocab(Serializable):
   '''
@@ -20,6 +20,7 @@ class Vocab(Serializable):
   ES_STR = "</s>"
   UNK_STR = "<unk>"
 
+  @serializable_init
   def __init__(self, i2w=None, vocab_file=None):
     assert i2w is None or vocab_file is None
     if vocab_file:
@@ -37,8 +38,8 @@ class Vocab(Serializable):
       self.i2w.append(self.SS_STR)
       self.i2w.append(self.ES_STR)
       self.frozen = False
-    self.overwrite_serialize_param("i2w", self.i2w)
-    self.overwrite_serialize_param("vocab_file", None)
+    self.save_processed_arg("i2w", self.i2w)
+    self.save_processed_arg("vocab_file", None)
 
   @staticmethod
   def i2w_from_vocab_file(vocab_file):

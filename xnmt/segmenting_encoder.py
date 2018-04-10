@@ -1,36 +1,32 @@
-from __future__ import print_function
-
-import copy
-import logging
-logger = logging.getLogger('xnmt')
 import numpy
 import dynet as dy
 
 from enum import Enum
-from xml.sax.saxutils import escape, unescape
+from xml.sax.saxutils import escape
 from lxml import etree
 from scipy.stats import poisson
 
 import xnmt.linear as linear
 import xnmt.expression_sequence as expression_sequence
-
+from xnmt import logger
 from xnmt.vocab import Vocab
 from xnmt.batcher import Mask
-from xnmt.serialize.tree_tools import Ref, Path
-from xnmt.events import register_handler, handle_xnmt_event
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable
-from xnmt.transducer import SeqTransducer, FinalTransducerState
+from xnmt.persistence import serializable_init, Serializable
+from xnmt.transducer import SeqTransducer
 from xnmt.loss import LossBuilder
-from xnmt.segmenting_composer import TailWordSegmentTransformer, WordOnlySegmentTransformer
-from xnmt.hyper_parameters import GeometricSequence
+from xnmt.param_collection import ParamManager
+from xnmt.persistence import Ref, bare, Path
 
 EPS = 1e-10
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = '!SegmentingSeqTransducer'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")),
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self,
                ## COMPONENTS
                embed_encoder=None, segment_composer=None, final_transducer=None,
                ## OPTIONS
@@ -51,8 +47,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                exp_reward=False,
                exp_logsoftmax=False,
                print_sample=False):
-    register_handler(self)
-    model = exp_global.dynet_param_collection.param_col
+    model = ParamManager.my_params(self)
     # Sanity check
     assert embed_encoder is not None
     assert segment_composer is not None
@@ -71,12 +66,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.final_transducer = final_transducer
     # Decision layer of segmentation
     self.segment_transform = linear.Linear(input_dim  = embed_encoder_dim,
-                                           output_dim = 2,
-                                           model=model)
+                                           output_dim = 2)
     # The baseline linear regression model
     self.baseline = linear.Linear(input_dim = embed_encoder_dim,
-                                  output_dim = 1,
-                                  model = model)
+                                  output_dim = 1)
     # Flags
     self.use_baseline = use_baseline
     self.learn_segmentation = learn_segmentation
@@ -256,7 +249,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   @handle_xnmt_event
   def on_set_train(self, train):
     self.train = train
-#
+  #
   def get_final_states(self):
     if hasattr(self.final_transducer, "get_final_states"):
       return self.final_transducer.get_final_states()
@@ -430,6 +423,7 @@ class SegmentationConfidencePenalty(Serializable):
   '''
   yaml_tag = "!SegmentationConfidencePenalty"
 
+  @serializable_init
   def __init__(self, strength):
     self.strength = strength
     if strength.value() < 0:

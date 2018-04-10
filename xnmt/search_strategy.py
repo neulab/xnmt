@@ -3,7 +3,7 @@ import numpy as np
 from collections import namedtuple
 
 from xnmt.length_normalization import NoNormalization
-from xnmt.serialize.serializable import bare
+from xnmt.persistence import bare
 from xnmt.vocab import Vocab
 
 # Output of the search

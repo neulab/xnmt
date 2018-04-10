@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import norm
 
-from xnmt.serialize.serializable import Serializable
+from xnmt.persistence import serializable_init, Serializable
 
 class LengthNormalization(object):
   '''
@@ -33,6 +33,11 @@ class NoNormalization(LengthNormalization, Serializable):
   Adding no form of length normalization
   '''
   yaml_tag = '!NoNormalization'
+
+  @serializable_init
+  def __init__(self):
+    pass
+
   def normalize_completed(self, completed_hyps, src_length=None):
     pass
 
@@ -43,6 +48,7 @@ class AdditiveNormalization(LengthNormalization, Serializable):
   '''
   yaml_tag = '!AdditiveNormalization'
 
+  @serializable_init
   def __init__(self, penalty=-0.1, apply_during_search=False):
     self.penalty = penalty
     self.apply_during_search = apply_during_search
@@ -61,6 +67,7 @@ class PolynomialNormalization(LengthNormalization, Serializable):
   '''
   yaml_tag = '!PolynomialNormalization'
 
+  @serializable_init
   def __init__(self, m=1, apply_during_search=False):
     self.m = m
     self.apply_during_search = apply_during_search
@@ -84,6 +91,7 @@ class MultinomialNormalization(LengthNormalization, Serializable):
   '''
   yaml_tag = '!MultinomialNormalization'
 
+  @serializable_init
   def __init__(self, sent_stats):
     self.stats = sent_stats
 
@@ -113,6 +121,8 @@ class GaussianNormalization(LengthNormalization, Serializable):
    refer: https://arxiv.org/pdf/1509.04942.pdf
   '''
   yaml_tag = '!GaussianNormalization'
+
+  @serializable_init
   def __init__(self, sent_stats):
     self.stats = sent_stats.trg_stat
     self.num_sent = sent_stats.num_pair

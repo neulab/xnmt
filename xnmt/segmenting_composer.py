@@ -1,19 +1,16 @@
 import dynet as dy
 
-import xnmt.linear
-import xnmt.embedder
-
-from xnmt.serialize.tree_tools import Ref, Path
-from xnmt.serialize.serializable import Serializable
-from xnmt.events import register_handler, handle_xnmt_event, register_xnmt_event
+from xnmt.param_collection import ParamManager
+from xnmt.persistence import serializable_init, Serializable, Ref
+from xnmt.events import register_xnmt_handler, register_xnmt_event
 from xnmt.reports import Reportable
-from xnmt.vocab import Vocab
 
 class SegmentComposer(Serializable, Reportable):
   yaml_tag = "!SegmentComposer"
 
+  @register_xnmt_handler
+  @serializable_init
   def __init__(self, encoder, transformer):
-    register_handler(self)
     self.encoder = encoder
     self.transformer = transformer
 
@@ -40,14 +37,12 @@ class TailSegmentTransformer(SegmentTransformer, Serializable):
 class TailWordSegmentTransformer(SegmentTransformer):
   yaml_tag = "!TailWordSegmentTransformer"
 
-  def __init__(self, exp_global=Ref(Path("exp_global")),
-                     vocab=Ref(Path("model.src_reader.vocab")),
-                     vocab_size=1e6,
-                     count_file=None, min_count=1, embed_dim=None):
+
+  def __init__(self, vocab=None, vocab_size=1e6,
+               count_file=None, min_count=1, embed_dim=Ref("exp_global.default_layer_dim")):
     assert vocab is not None
     self.vocab = vocab
-    embed_dim = embed_dim or xnmt_global.default_layer_dim
-    self.lookup = exp_global.dynet_param_collection.param_col.add_lookup_parameters((vocab_size, embed_dim))
+    self.lookup = ParamManager.my_params(self).add_lookup_parameters((vocab_size, embed_dim))
     self.frequent_words = None
 
     if count_file is not None:

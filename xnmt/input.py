@@ -1,7 +1,3 @@
-import logging
-logger = logging.getLogger('xnmt')
-
-import h5py
 import numpy as np
 from xnmt.vocab import Vocab
 
@@ -38,7 +34,10 @@ class SimpleSentenceInput(Input):
   def __init__(self, words, annotation=None):
     self.words = words
     self.annotation = annotation or {}
-    self.original_length = words.index(Vocab.ES)+1
+    try:
+      self.original_length = words.index(Vocab.ES)+1
+    except:
+      self.original_length = 0
 
   def __len__(self):
     return len(self.words)

@@ -1,11 +1,8 @@
-import logging
-logger = logging.getLogger('xnmt')
-
 import dynet as dy
 import numpy as np
 
-from xnmt.serialize.serializer import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt import logger
+from xnmt.persistence import Serializable, Ref, Path
 
 class NegativeLogProbLossScaler(Serializable):
   yaml_tag = '!LossCalculator'

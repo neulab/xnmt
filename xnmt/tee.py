@@ -4,6 +4,8 @@ import logging
 from simple_settings import settings
 import yaml
 
+from xnmt.util import make_parent_dir
+
 STD_OUTPUT_LEVELNO = 35
 
 class NoErrorFilter(logging.Filter):
@@ -52,9 +54,7 @@ yaml_logger.setLevel(logging.INFO)
 
 def set_out_file(out_file):
   unset_out_file()
-  dirname = os.path.dirname(out_file)
-  if dirname and not os.path.exists(dirname):
-    os.makedirs(dirname)
+  make_parent_dir(out_file)
   fh = logging.FileHandler(out_file, mode='w')
   fh.setLevel(settings.LOG_LEVEL_FILE)
   fh.setFormatter(MainFormatter())

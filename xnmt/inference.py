@@ -1,19 +1,17 @@
 # coding: utf-8
 
-import os
-import logging
-logger = logging.getLogger('xnmt')
 from collections.abc import Iterable
 
 from simple_settings import settings
 
 import dynet as dy
 
+from xnmt import logger
 from xnmt.loss_calculator import LossCalculator
 import xnmt.output
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.persistence import serializable_init, Serializable, Ref
+from xnmt.util import make_parent_dir
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 
@@ -37,9 +35,11 @@ class SimpleInference(Serializable):
   """
 
   yaml_tag = '!SimpleInference'
+
+  @serializable_init
   def __init__(self, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
                   post_process="none", report_path=None, report_type="html",
-                  beam=1, max_len=100, len_norm_type=None, mode="onebest", batcher=Ref(Path("train.batcher"), required=False)):
+                  beam=1, max_len=100, len_norm_type=None, mode="onebest", batcher=Ref("train.batcher", default=None)):
     self.src_file = src_file
     self.trg_file = trg_file
     self.ref_file = ref_file
@@ -130,9 +130,7 @@ class SimpleInference(Serializable):
       ref_scores = [-x for x in ref_scores]
 
     # Make the parent directory if necessary
-    directory = os.path.dirname(args["trg_file"])
-    if not os.path.exists(directory):
-      os.makedirs(directory)
+    make_parent_dir(args["trg_file"])
 
     # Perform generation of output
     if args["mode"] != 'score':

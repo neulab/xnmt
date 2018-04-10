@@ -35,8 +35,9 @@ las-pyramidal: !Experiment
       word_dropout: 0.1
       fix_norm: 1
     decoder: !MlpSoftmaxDecoder
-      layers: 1
-      lstm_dim: 512
+      rnn_layer: !UniLSTMSeqTransducer
+        layers: 1
+        hidden_dim: 512
       input_feeding: True
       bridge: !CopyBridge {}
       label_smoothing: 0.1

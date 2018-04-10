@@ -1,11 +1,10 @@
-import logging
-logger = logging.getLogger('xnmt')
-
 import math
 import dynet as dy
 
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt import logger
+from xnmt.param_collection import ParamManager
+from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
 class Attender(object):
   '''
@@ -44,27 +43,27 @@ class MlpAttender(Attender, Serializable):
   Implements the attention model of Bahdanau et. al (2014)
 
   Args:
-    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
-    input_dim (int): input dimension; if None, use exp_global.default_layer_dim
-    state_dim (int): dimension of state inputs; if None, use exp_global.default_layer_dim
-    hidden_dim (int): hidden MLP dimension; if None, use exp_global.default_layer_dim
-    param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
-    bias_init (ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
+    input_dim (int): input dimension
+    state_dim (int): dimension of state inputs
+    hidden_dim (int): hidden MLP dimension
+    param_init (ParamInitializer): how to initialize weight matrices
+    bias_init (ParamInitializer): how to initialize bias vectors
   '''
 
   yaml_tag = '!MlpAttender'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None,
-               hidden_dim=None, param_init=None, bias_init=None):
-    input_dim = input_dim or exp_global.default_layer_dim
-    state_dim = state_dim or exp_global.default_layer_dim
-    hidden_dim = hidden_dim or exp_global.default_layer_dim
+
+  @serializable_init
+  def __init__(self,
+               input_dim=Ref("exp_global.default_layer_dim"),
+               state_dim=Ref("exp_global.default_layer_dim"),
+               hidden_dim=Ref("exp_global.default_layer_dim"),
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
-    param_init = param_init or exp_global.param_init
-    bias_init = bias_init or exp_global.bias_init
-    param_collection = exp_global.dynet_param_collection.param_col
+    param_collection = ParamManager.my_params(self)
     self.pW = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
     self.pV = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
     self.pb = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
@@ -112,6 +111,7 @@ class DotAttender(Attender, Serializable):
 
   yaml_tag = '!DotAttender'
 
+  @serializable_init
   def __init__(self, scale:bool=True):
     self.curr_sent = None
     self.scale = scale
@@ -151,13 +151,14 @@ class BilinearAttender(Attender, Serializable):
 
   yaml_tag = '!BilinearAttender'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=None, state_dim=None, param_init=None):
-    input_dim = input_dim or exp_global.default_layer_dim
-    state_dim = state_dim or exp_global.default_layer_dim
+  serializable_init
+  def __init__(self,
+               input_dim=Ref("exp_global.default_layer_dim"),
+               state_dim=Ref("exp_global.default_layer_dim"),
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer))):
     self.input_dim = input_dim
     self.state_dim = state_dim
-    param_init = param_init or exp_global.param_init
-    param_collection = exp_global.dynet_param_collection.param_col
+    param_collection = ParamManager.my_params(self)
     self.pWa = param_collection.add_parameters((input_dim, state_dim), init=param_init.initializer((input_dim, state_dim)))
     self.curr_sent = None
 

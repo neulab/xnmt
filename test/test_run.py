@@ -10,6 +10,9 @@ class TestRunningConfig(unittest.TestCase):
   def setUp(self):
     xnmt.events.clear()
 
+  def test_assemble(self):
+    run.main(["test/config/assemble.yaml"])
+
   def test_component_sharing(self):
     run.main(["test/config/component_sharing.yaml"])
 
@@ -62,6 +65,9 @@ class TestRunningConfig(unittest.TestCase):
   def test_segmenting(self):
     run.main(["test/config/segmenting.yaml"])
 
+  def test_score(self):
+    run.main(["test/config/score.yaml"])
+
   def test_speech(self):
     run.main(["test/config/speech.yaml"])
 
@@ -80,8 +86,12 @@ class TestRunningConfig(unittest.TestCase):
     run.main(["test/config/translator_loss.yaml"])
 
   def tearDown(self):
-    if os.path.isdir("test/tmp"):
-      shutil.rmtree("test/tmp")
+    try:
+      if os.path.isdir("test/tmp"):
+        shutil.rmtree("test/tmp")
+    except:
+      # Do not fail the test if we can't remove the tmp dir
+      pass
 
 if __name__ == "__main__":
   unittest.main()

@@ -1,17 +1,21 @@
-import logging
-logger = logging.getLogger('xnmt')
 import time
 import sys
 import os.path
 import subprocess
 from collections import defaultdict
+import string
 
 import numpy as np
-import h5py
+import warnings
+with warnings.catch_warnings():
+  warnings.simplefilter("ignore", lineno=36)
+  import h5py
 import yaml
 
-from xnmt.serialize.serializable import Serializable
+from xnmt import logger
+from xnmt.persistence import serializable_init, Serializable
 from xnmt.speech_features import logfbank, calculate_delta, get_mean_std, normalize
+from xnmt.util import make_parent_dir
 
 ##### Preprocessors
 
@@ -34,6 +38,8 @@ class Normalizer(object):
       for my_spec in spec:
         if my_spec["type"] == "lower":
           preproc_list.append(NormalizerLower(my_spec))
+        elif my_spec["type"] == "remove_punct":
+          preproc_list.append(NormalizerRemovePunct(my_spec))
         else:
           raise RuntimeError("Unknown normalizer type {}".format(my_spec["type"]))
     return preproc_list
@@ -44,6 +50,20 @@ class NormalizerLower(Normalizer):
   def normalize(self, sent):
     return sent.lower()
 
+class NormalizerRemovePunct(Normalizer):
+  """Remove punctuation from the text."""
+  def __init__(self, spec=None):
+    self.exclude = set(string.punctuation) - set(spec.get("allowed_chars", ""))
+    self.remove_inside_word = spec.get("remove_inside_word", False)
+  def normalize(self, sent):
+    if self.remove_inside_word:
+      return ''.join(ch for ch in sent if ch not in self.exclude)
+    else:
+      words = []
+      for w in sent.split():
+        words.append(w.strip(''.join(ch for ch in self.exclude)))
+      return " ".join(words)
+
 ###### Tokenizers
 
 class Tokenizer(Normalizer, Serializable):
@@ -52,6 +72,7 @@ class Tokenizer(Normalizer, Serializable):
 
   TODO: only StreamTokenizers are supported by the preproc runner right now.
   """
+
   def tokenize(self, sent):
     raise RuntimeError("Subclasses of Tokenizer must implement tokenize() or tokenize_stream()")
 
@@ -77,6 +98,7 @@ class BPETokenizer(Tokenizer):
   """
   yaml_tag = '!BPETokenizer'
 
+  @serializable_init
   def __init__(self, vocab_size, train_files):
     """Determine the BPE based on the vocab size and corpora"""
     raise NotImplementedError("BPETokenizer is not implemented")
@@ -90,6 +112,10 @@ class CharacterTokenizer(Tokenizer):
   Tokenize into characters, with __ indicating blank spaces
   """
   yaml_tag = '!CharacterTokenizer'
+
+  @serializable_init
+  def __init__(self):
+    pass
 
   def tokenize(self, sent):
     """Tokenizes a single sentence into characters."""
@@ -106,6 +132,7 @@ class ExternalTokenizer(Tokenizer):
   """
   yaml_tag = '!ExternalTokenizer'
 
+  @serializable_init
   def __init__(self, path, tokenizer_args={}, arg_separator=' '):
     """Initialize the wrapper around the external tokenizer. """
     tokenizer_options = []
@@ -146,6 +173,7 @@ class SentencepieceTokenizer(ExternalTokenizer):
   """
   yaml_tag = '!SentencepieceTokenizer'
 
+  @serializable_init
   def __init__(self, path, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
       , output_format='piece', model_type='bpe'
       , encode_extra_options=None, decode_extra_options=None):
@@ -165,12 +193,7 @@ class SentencepieceTokenizer(ExternalTokenizer):
     self.encode_extra_options = ['--extra_options='+encode_extra_options] if encode_extra_options else []
     self.decode_extra_options = ['--extra_options='+decode_extra_options] if decode_extra_options else []
 
-    if not os.path.exists(os.path.dirname(model_prefix)):
-      try:
-        os.makedirs(os.path.dirname(model_prefix))
-      except OSError as exc:
-        if exc.errno != os.errno.EEXIST:
-          raise
+    make_parent_dir(model_prefix)
 
     if ((not os.path.exists(self.model_prefix + '.model')) or
         (not os.path.exists(self.model_prefix + '.vocab')) or
@@ -335,6 +358,7 @@ class Extractor(object):
 
 class MelFiltExtractor(Extractor, Serializable):
   yaml_tag = "!MelFiltExtractor"
+  @serializable_init
   def __init__(self, nfilt=40, delta=False):
     self.delta = delta
     self.nfilt = nfilt
@@ -365,6 +389,7 @@ class MelFiltExtractor(Extractor, Serializable):
           y, sr = librosa.load(db_item["wav"], sr=16000,
                                offset=db_item.get("offset", 0.0),
                                duration=db_item.get("duration", None))
+          if len(y)==0: raise ValueError(f"encountered an empty or out of bounds segment: {db_item}")
           logmel = logfbank(y, samplerate=sr, nfilt=self.nfilt)
           if self.delta:
             delta = calculate_delta(logmel)

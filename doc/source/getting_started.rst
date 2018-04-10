@@ -8,7 +8,7 @@ Prerequisites
 
 Before running *xnmt* you must install the required packages, including Python bindings for
 `DyNet <http://github.com/clab/dynet>`_.
-This can be done by running ``pip -r requirements.txt``
+This can be done by running ``pip install -r requirements.txt``
 
 Next, install *xnmt* by running ``python setup.py install`` for normal usage or ``python setup.py develop`` for
 development.

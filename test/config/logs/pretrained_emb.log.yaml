@@ -1,0 +1,9 @@
+- {data: train, epoch: 1.0, key: train_loss, loss: 4.840896774124313, task_name: '{EXP}',
+  time: '0-00:00:00', words: 91, words_per_sec: 780.0916125392926}
+- epoch: 1.0
+  key: dev_loss
+  score: !LossScore {loss: 4.661773346282623, loss_stats: null}
+  task_name: '{EXP}'
+  time: 0-00:00:00
+  words: 91
+  words_per_sec: 779.7728682392262
