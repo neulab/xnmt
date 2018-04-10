@@ -63,7 +63,8 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
                rnn_layer=bare(UniLSTMSeqTransducer),
                mlp_layer=bare(MLP),
                bridge=bare(CopyBridge),
-               label_smoothing=0.0):
+               label_smoothing=0.0,
+               loss_scaler=None):
     self.param_col = ParamManager.my_params(self)
     self.input_dim = input_dim
     self.label_smoothing = label_smoothing
@@ -73,15 +74,10 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
     if input_feeding:
       rnn_input_dim += input_dim
     assert rnn_input_dim == rnn_layer.input_dim, "Wrong input dimension in RNN layer"
-    # Bridge
     self.bridge = bridge
-
-    # LSTM
-
     self.rnn_layer = rnn_layer
-
-    # MLP
     self.mlp_layer = mlp_layer
+    self.loss_scaler = loss_scaler
 
   def shared_params(self):
     return [set([".trg_embed_dim", ".rnn_layer.input_dim"]),
@@ -133,22 +129,27 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
 
   def calc_loss(self, mlp_dec_state, ref_action):
     scores = self.get_scores(mlp_dec_state)
+    is_batched = xnmt.batcher.is_batched(ref_action)
+    is_vanilla_loss = self.label_smoothing == 0 and self.loss_scaler is None
 
-    if self.label_smoothing == 0.0:
-      # single mode
-      if not xnmt.batcher.is_batched(ref_action):
+    if is_vanilla_loss:
+      if not is_batched:
         return dy.pickneglogsoftmax(scores, ref_action)
-      # minibatch mode
       else:
         return dy.pickneglogsoftmax_batch(scores, ref_action)
-
     else:
       log_prob = dy.log_softmax(scores)
-      if not xnmt.batcher.is_batched(ref_action):
-        pre_loss = -dy.pick(log_prob, ref_action)
+      if not is_batched:
+        loss = -dy.pick(log_prob, ref_action)
       else:
-        pre_loss = -dy.pick_batch(log_prob, ref_action)
+        loss = -dy.pick_batch(log_prob, ref_action)
+      
+      if self.loss_scaler is not None:
+        loss = self.loss_scaler(loss, ref_action)
 
-      ls_loss = -dy.mean_elems(log_prob)
-      loss = ((1 - self.label_smoothing) * pre_loss) + (self.label_smoothing * ls_loss)
+      if self.label_smoothing != 0:
+        ls_loss = -dy.mean_elems(log_prob)
+        loss = ((1 - self.label_smoothing) * loss) + (self.label_smoothing * ls_loss)
+      
       return loss
+
