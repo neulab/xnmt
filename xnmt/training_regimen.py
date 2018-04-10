@@ -101,7 +101,6 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     """
     Main training loop (overwrites TrainingRegimen.run_training())
     """
-    self.load_data()
     self.model.set_train(update_weights)
     for src,trg in self.next_minibatch():
       if self.dev_zero:
@@ -154,10 +153,6 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
       task.trainer = trainer
     self.dev_zero = dev_zero
 
-  def load_data(self):
-    for task in self.tasks:
-      task.load_data()
-
   def trigger_train_event(self, value):
     """
     Trigger set_train event, but only if that would lead to a change of the value
@@ -193,7 +188,6 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                commandline_args=Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
   def run_training(self, save_fct, update_weights=True):
-    self.load_data()
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -249,7 +243,6 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks)
   def run_training(self, save_fct, update_weights=True):
-    self.load_data()
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -298,7 +291,6 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                commandline_args=Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
   def run_training(self, save_fct, update_weights=True):
-    self.load_data()
     dev_zero = {i:self.dev_zero for i in range(len(self.tasks))}
     for cur_task_id in range(len(self.tasks)):
       self.train = None
