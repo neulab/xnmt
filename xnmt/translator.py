@@ -477,8 +477,13 @@ class EnsembleTranslator(Translator, Serializable):
   '''
   A translator that decodes from an ensemble of DefaultTranslator models.
 
-  TODO: currently just assumes that all models are compatible, i.e., they share
-  the same src_reader/trg_reader/vocabs
+  Args:
+    models: A list of DefaultTranslator instances; for all models, their
+      src_reader.vocab and trg_reader.vocab has to match (i.e., provide
+      identical conversions to) those supplied to this class.
+    src_reader (InputReader): A reader for the source side.
+    trg_reader (InputReader): A reader for the target side.
+    inference (SimpleInference): The inference strategy used for this ensemble.
   '''
 
   yaml_tag = '!EnsembleTranslator'
@@ -490,6 +495,14 @@ class EnsembleTranslator(Translator, Serializable):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
     self.inference = inference
+
+    # perform checks to verify the models can logically be ensembled
+    for i, model in enumerate(self.models):
+      assert self.src_reader.vocab.is_compatible(model.src_reader.vocab), \
+        f"src_reader.vocab is not compatible with model {i}"
+      assert self.trg_reader.vocab.is_compatible(model.trg_reader.vocab), \
+        f"trg_reader.vocab is not compatible with model {i}"
+
     # proxy object used for generation, to avoid code duplication
     self._proxy = DefaultTranslator(
       self.src_reader,
@@ -503,11 +516,6 @@ class EnsembleTranslator(Translator, Serializable):
 
   def shared_params(self):
     shared = [params for model in self.models for params in model.shared_params()]
-    # TODO: Is this needed?
-    shared += [set([".src_reader.vocab", f".models.{i}.src_reader.vocab"]) \
-               for i in range(len(self.models))]
-    shared += [set([".trg_reader.vocab", f".models.{i}.trg_reader.vocab"]) \
-               for i in range(len(self.models))]
     return shared
 
   def set_trg_vocab(self, trg_vocab=None):
@@ -597,12 +605,15 @@ class EnsembleListDelegate(object):
   def __repr__(self):
     return "EnsembleListDelegate([" + ', '.join(repr(elem) for elem in self._objects) + "])"
 
+
 class EnsembleDecoder(EnsembleListDelegate):
   '''
-  Ensemble decoder.
+  Auxiliary object to wrap a list of decoders for ensembling.
 
-  Currently gathers the scores of all decoders and averages them.
-  TODO: Could make this configurable to allow other types of ensembling.
+  This behaves like an EnsembleListDelegate, except that it overrides
+  get_scores() to combine the individual decoder's scores.
+
+  Currently only supports averaging.
   '''
   def get_scores(self, mlp_dec_states):
     scores = [obj.get_scores(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
