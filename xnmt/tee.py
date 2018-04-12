@@ -1,7 +1,7 @@
 import sys, os
 import logging
 
-from simple_settings import settings
+from xnmt.settings import settings
 import yaml
 
 from xnmt.util import make_parent_dir
@@ -51,6 +51,11 @@ logger.addHandler(ch_err)
 
 yaml_logger = logging.getLogger("yaml")
 yaml_logger.setLevel(logging.INFO)
+
+def update_level_console():
+  logger.setLevel(min(logging._checkLevel(settings.LOG_LEVEL_CONSOLE), logging._checkLevel(settings.LOG_LEVEL_FILE)))
+  ch_out.setLevel(settings.LOG_LEVEL_CONSOLE)
+  ch_err.setLevel(settings.LOG_LEVEL_CONSOLE)
 
 def set_out_file(out_file):
   unset_out_file()

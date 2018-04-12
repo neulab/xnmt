@@ -1,6 +1,6 @@
 from typing import Sequence, Union, Optional
 
-from simple_settings import settings
+from xnmt.settings import settings
 
 import dynet as dy
 

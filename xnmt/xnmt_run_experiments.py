@@ -14,7 +14,8 @@ import faulthandler
 faulthandler.enable()
 
 import numpy as np
-from simple_settings import settings
+from xnmt.settings import settings, activate as activate_settings
+
 if settings.RESOURCE_WARNINGS:
   import warnings
   warnings.simplefilter('always', ResourceWarning)
@@ -43,6 +44,9 @@ def main(overwrite_args=None):
     argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
     argparser.set_defaults(generate_doc=False)
     args = argparser.parse_args(overwrite_args)
+
+    activate_settings(args.settings)
+    tee.update_level_console()
   
     if args.dynet_seed:
       random.seed(args.dynet_seed)
@@ -78,7 +82,7 @@ def main(overwrite_args=None):
       log_file = glob_args.log_file
 
       if os.path.isfile(log_file) and not settings.OVERWRITE_LOG:
-        logger.warning(f"log file {log_file} already exists; please delete by hand if you want to overwrite it (or use --settings=settings.debug or otherwise set OVERWRITE_LOG=True); skipping experiment..")
+        logger.warning(f"log file {log_file} already exists; please delete by hand if you want to overwrite it (or use --settings debug or otherwise set OVERWRITE_LOG=True); skipping experiment..")
         continue
   
       tee.set_out_file(log_file)

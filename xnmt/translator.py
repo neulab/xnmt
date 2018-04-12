@@ -4,7 +4,7 @@ import itertools
 
 # Reporting purposes
 from lxml import etree
-from simple_settings import settings
+from xnmt.settings import settings
 
 from xnmt.attender import MlpAttender
 from xnmt.batcher import mark_as_batch, is_batched

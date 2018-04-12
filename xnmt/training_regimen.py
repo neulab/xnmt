@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from simple_settings import settings
+from xnmt.settings import settings
 import numpy as np
 import dynet as dy
 
