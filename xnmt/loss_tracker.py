@@ -53,7 +53,6 @@ class LossTracker(object):
       self.epoch_num += 1
       self.sent_num = 0
       self.sent_num_not_report_train = 0
-      self.sent_num_not_report_dev = 0
       self.last_report_words = 0
       self.last_report_train_time = time.time()
 
@@ -126,7 +125,7 @@ class LossTracker(object):
 
   def should_report_dev(self):
     if self.eval_dev_every > 0:
-      return self.sent_num_not_report_dev >= self.eval_dev_every or (self.sent_num == self.total_train_sent)
+      return self.sent_num_not_report_dev >= self.eval_dev_every
     else:
       return self.sent_num_not_report_dev >= self.total_train_sent
 
