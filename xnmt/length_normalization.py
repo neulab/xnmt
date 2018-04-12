@@ -71,7 +71,7 @@ class AdditiveNormalization(LengthNormalization, Serializable):
 
 class PolynomialNormalization(LengthNormalization, Serializable):
   '''
-  Dividing by the length (raised to some power (default 1))
+  Dividing by the length (raised to some power)
   '''
   yaml_tag = '!PolynomialNormalization'
 
@@ -79,6 +79,7 @@ class PolynomialNormalization(LengthNormalization, Serializable):
   def __init__(self, m:Real=1, apply_during_search:bool=False):
     self.m = m
     self.apply_during_search = apply_during_search
+    self.pows = []
 
   def normalize_completed(self, completed_hyps:Sequence['Hypothesis'], src_length:Optional[int]=None) \
           -> Sequence[float]:
@@ -88,9 +89,14 @@ class PolynomialNormalization(LengthNormalization, Serializable):
       return [(hyp.score / pow(len(hyp.output.word_ids), self.m)) for hyp in completed_hyps]
   def normalize_partial(self, score_so_far, score_to_add, new_len):
     if self.apply_during_search:
-      return (score_so_far * pow(new_len-1, self.m) + score_to_add) / pow(new_len, self.m)
+      self.update_pows(new_len)
+      return (score_so_far * self.pows[new_len-1] + score_to_add) / self.pows[new_len]
     else:
       return score_so_far + score_to_add
+  def update_pows(self, new_len):
+    if len(self.pows) < new_len+1:
+      for i in range(len(self.pows), new_len+1):
+        self.pows.append(pow(i, self.m))
 
 
 class MultinomialNormalization(LengthNormalization, Serializable):
