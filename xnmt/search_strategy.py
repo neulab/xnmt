@@ -119,7 +119,8 @@ class BeamSearch(SearchStrategy):
     if len(completed_hyp) == 0:
       completed_hyp = active_hyp
 
-    self.len_norm.normalize_completed(completed_hyp, src_length)
+    normalized_scores = self.len_norm.normalize_completed(completed_hyp, src_length)
+    completed_hyp = [Hypothesis(normalized_scores[i], hyp.output, hyp.state) for i,hyp in enumerate(completed_hyp)]
 
     result = sorted(completed_hyp, key=lambda x: x.score, reverse=True)[0]
     return result.output, result.score
