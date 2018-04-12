@@ -279,6 +279,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
     # Perform evaluation
     if self.dev_tasks and len(self.dev_tasks) > 0:
+      logger.info("> Checkpoint")
       dev_scores = []
       for dev_task in self.dev_tasks:
         dev_score, dev_word_cnt = dev_task.eval()
@@ -293,7 +294,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
     # Control the learning schedule
     if control_learning_schedule:
-      logger.info("> Checkpoint")
       # Write out the model if it's the best one
       if self.logger.report_dev_and_check_model():
         ret = True
