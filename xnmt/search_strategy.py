@@ -8,6 +8,7 @@ from xnmt.vocab import Vocab
 
 # Output of the search
 SearchOutput = namedtuple('SearchOutput', ['word_ids', 'attentions'])
+Hypothesis = namedtuple('Hypothesis', ['score', 'output', 'state'])
 
 class SearchStrategy(object):
   '''
@@ -75,20 +76,10 @@ class BeamSearch(SearchStrategy):
 
     self.entrs = []
 
-  class Hypothesis:
-    def __init__(self, score, output, state):
-      self.score = score
-      self.state = state
-      self.output = output
-    def __str__(self):
-      return "hypo S=%s ids=%s" % (self.score, self.output.word_ids)
-    def __repr__(self):
-      return "hypo S=%s |ids|=%s" % (self.score, len(self.output.word_ids))
-
   def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
 
     if forced_trg_ids is not None: assert self.beam_size == 1
-    active_hyp = [self.Hypothesis(0, SearchOutput([], []), dec_state)]
+    active_hyp = [Hypothesis(0, SearchOutput([], []), dec_state)]
 
     completed_hyp = []
     length = 0
@@ -118,7 +109,7 @@ class BeamSearch(SearchStrategy):
           new_list.append(cur_id)
           new_attn = list(hyp.output.attentions)
           new_attn.append(attender.get_last_attention())
-          new_set.append(self.Hypothesis(self.len_norm.normalize_partial(hyp.score, score[cur_id], len(new_list)),
+          new_set.append(Hypothesis(self.len_norm.normalize_partial(hyp.score, score[cur_id], len(new_list)),
                                          SearchOutput(new_list, new_attn),
                                          dec_state))
       length += 1
@@ -128,7 +119,8 @@ class BeamSearch(SearchStrategy):
     if len(completed_hyp) == 0:
       completed_hyp = active_hyp
 
-    self.len_norm.normalize_completed(completed_hyp, src_length)
+    normalized_scores = self.len_norm.normalize_completed(completed_hyp, src_length)
+    completed_hyp = [Hypothesis(normalized_scores[i], hyp.output, hyp.state) for i,hyp in enumerate(completed_hyp)]
 
     result = sorted(completed_hyp, key=lambda x: x.score, reverse=True)[0]
     return result.output, result.score
