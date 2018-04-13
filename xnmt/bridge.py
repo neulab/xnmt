@@ -87,8 +87,8 @@ class LinearBridge(Bridge, Serializable):
                bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     param_col = ParamManager.my_params(self)
     self.dec_layers = dec_layers
-    self.enc_dim = enc_dim or exp_global.default_layer_dim
-    self.dec_dim = dec_dim or exp_global.default_layer_dim
+    self.enc_dim = enc_dim
+    self.dec_dim = dec_dim
     self.projector = xnmt.linear.Linear(input_dim  = self.enc_dim,
                                         output_dim = self.dec_dim,
                                         param_init = param_init,
