@@ -1,44 +1,38 @@
-from __future__ import division, generators
-
-import numpy as np
 import dynet as dy
 
-from xnmt.batcher import Mask
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
-from xnmt.events import register_handler, handle_xnmt_event
+from xnmt.persistence import serializable_init, Serializable, Ref
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 
 
 class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
   """
-  Builder for pyramidal RNNs that delegates to regular RNNs and wires them together.
+  Builder for pyramidal RNNs that delegates to :class:`xnmt.lstm.UniLSTMSeqTransducer` objects and wires them together.
   See https://arxiv.org/abs/1508.01211
 
-  Every layer (except the first) reduces sequence length by factor 2.
+  Every layer (except the first) reduces sequence length by the specified factor.
 
-      builder = PyramidalRNNBuilder(4, 128, 100, model, VanillaLSTMBuilder)
-      [o1,o2,o3] = builder.transduce([i1,i2,i3])
+  Args:
+    layers (int): number of layers
+    input_dim (int): input dimension
+    hidden_dim (int): hidden dimension
+    downsampling_method (str): how to perform downsampling (concat|skip)
+    reduce_factor (Union[int,List[int]): integer, or list of ints (different skip for each layer)
+    dropout (float): dropout probability; if None, use exp_global.dropout
   """
-  yaml_tag = u'!PyramidalLSTMSeqTransducer'
+  yaml_tag = '!PyramidalLSTMSeqTransducer'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, hidden_dim=None,
-               downsampling_method="concat", reduce_factor=2, dropout=None):
-    """
-    :param layers: depth of the PyramidalRNN
-    :param input_dim: size of the inputs
-    :param hidden_dim: size of the outputs (and intermediate layer representations)
-    :param model
-    :param rnn_builder_factory: RNNBuilder subclass, e.g. VanillaLSTMBuilder
-    :param downsampling_method: how to perform downsampling (concat|skip)
-    :param reduce_factor: integer, or list of ints (different skip for each layer)
-    """
-    register_handler(self)
-    hidden_dim = hidden_dim or exp_global.default_layer_dim
-    input_dim = input_dim or exp_global.default_layer_dim
-    self.dropout = dropout or exp_global.dropout
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self, layers=1,
+               input_dim=Ref("exp_global.default_layer_dim"),
+               hidden_dim=Ref("exp_global.default_layer_dim"),
+               downsampling_method="concat",
+               reduce_factor=2,
+               dropout=Ref("exp_global.dropout", default=0.0)):
+    self.dropout = dropout
     assert layers > 0
     assert hidden_dim % 2 == 0
     assert type(reduce_factor)==int or (type(reduce_factor)==list and len(reduce_factor)==layers-1)
@@ -47,13 +41,13 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
     self.downsampling_method = downsampling_method
     self.reduce_factor = reduce_factor
     self.input_dim = input_dim
-    f = UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
-    b = UniLSTMSeqTransducer(exp_global=exp_global, input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
+    f = UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
+    b = UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
     self.builder_layers.append((f, b))
     for _ in range(layers - 1):
       layer_input_dim = hidden_dim if downsampling_method=="skip" else hidden_dim*reduce_factor
-      f = UniLSTMSeqTransducer(exp_global=exp_global, input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
-      b = UniLSTMSeqTransducer(exp_global=exp_global, input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
+      f = UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
+      b = UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
       self.builder_layers.append((f, b))
 
   @handle_xnmt_event
@@ -77,7 +71,8 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
     to the current state, one by one, to both the forward and backward RNNs,
     and concatenating.
 
-    :param es: an ExpressionSequence
+    Args:
+      es: an ExpressionSequence
     """
 
     es_list = [es]
@@ -114,9 +109,9 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
         ret_es = ExpressionSequence(expr_list=[dy.concatenate([f, b]) for f, b in zip(fs, ReversedExpressionSequence(bs))], mask=mask_out)
 
     self._final_states = [FinalTransducerState(dy.concatenate([fb.get_final_states()[0].main_expr(),
-                                                            bb.get_final_states()[0].main_expr()]),
-                                            dy.concatenate([fb.get_final_states()[0].cell_expr(),
-                                                            bb.get_final_states()[0].cell_expr()])) \
+                                                               bb.get_final_states()[0].main_expr()]),
+                                               dy.concatenate([fb.get_final_states()[0].cell_expr(),
+                                                               bb.get_final_states()[0].cell_expr()])) \
                           for (fb, bb) in self.builder_layers]
 
     return ret_es

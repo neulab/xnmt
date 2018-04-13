@@ -19,9 +19,10 @@ forced: !Experiment
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
     decoder: !MlpSoftmaxDecoder
-      layers: 1
-      lstm_dim: 64
-      bridge: !CopyBridge {} 
+      rnn_layer: !UniLSTMSeqTransducer
+        layers: 1
+        hidden_dim: 64
+      bridge: !CopyBridge {}
     inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2

@@ -1,12 +1,9 @@
-from __future__ import division, generators
-
 import dynet as dy
 import numpy as np
 
 from xnmt.loss import LossBuilder
-from xnmt.serialize.serializer import Serializable
+from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.vocab import Vocab
-from xnmt.serialize.tree_tools import Ref, Path
 import xnmt.evaluator
 import xnmt.linear as linear
 
@@ -15,8 +12,9 @@ class LossCalculator(Serializable):
   '''
   A template class implementing the training strategy and corresponding loss calculation.
   '''
-  yaml_tag = u'!LossCalculator'
+  yaml_tag = '!LossCalculator'
 
+  @serializable_init
   def __init__(self, loss_calculator = None):
     if loss_calculator is None:
       self.loss_calculator = MLELoss()
@@ -29,6 +27,12 @@ class LossCalculator(Serializable):
 
 class MLELoss(Serializable):
   yaml_tag = '!MLELoss'
+  
+  # TODO: document me
+
+  @serializable_init
+  def __init__(self):
+    pass
 
   def __call__(self, translator, dec_state, src, trg):
     trg_mask = trg.mask if xnmt.batcher.is_batched(trg) else None
@@ -64,13 +68,11 @@ def remove_eos(sequence, eos_sym=Vocab.ES):
 class ReinforceLoss(Serializable):
   yaml_tag = '!ReinforceLoss'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")),
-                     evaluation_metric=None,
-                     sample_length=50,
-                     inv_eval = True,
-                     use_baseline=False,
-                     decoder_hidden_dim=None):
-    self.sample_length = sample_length
+  # TODO: document me
+
+  @serializable_init
+  def __init__(self, evaluation_metric=None, sample_length=50, use_baseline=False,
+               decoder_hidden_dim=Ref("exp_global.default_layer_dim")):
     self.use_baseline = use_baseline
     self.inv_eval = inv_eval
     if evaluation_metric is None:
@@ -79,14 +81,13 @@ class ReinforceLoss(Serializable):
       self.evaluation_metric = evaluation_metric
 
     if self.use_baseline:
-      model = exp_global.dynet_param_collection.param_col
-      decoder_hidden_dim = decoder_hidden_dim or exp_global.default_layer_dim
-      self.baseline = linear.Linear(input_dim=decoder_hidden_dim, output_dim=1, model=model)
+      self.baseline = linear.Linear(input_dim=decoder_hidden_dim, output_dim=1)
 
   def __call__(self, model, dec_state, src, trg):
     # TODO: apply trg.mask ?
     logsofts, samples, hts = model.sample_one(dec_state, self.sample_length)
     # Calculate evaluation scores
+
     self.eval_score = []
     for trg_i, sample_i in zip(trg, samples):
       # Removing EOS
@@ -118,8 +119,8 @@ class ReinforceLoss(Serializable):
 class MinRiskLoss(Serializable):
   yaml_tag = '!MinRiskLoss'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")),
-                     evaluation_metric=None,
+  @serializable_init
+  def __init__(self, evaluation_metric=None,
                      sample_length=50,
                      sample_num=20,
                      alpha=0.005,

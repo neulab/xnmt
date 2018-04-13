@@ -4,40 +4,44 @@ Getting Started
 Prerequisites
 -------------
 
-Before running ``xnmt`` you must install the Python bindings for
+*xnmt* requires Python 3.6.
+
+Before running *xnmt* you must install the required packages, including Python bindings for
 `DyNet <http://github.com/clab/dynet>`_.
+This can be done by running ``pip install -r requirements.txt``
 
-Please run ``python setup.py install`` for normal usage or ``python setup.py develop`` for development.
+Next, install *xnmt* by running ``python setup.py install`` for normal usage or ``python setup.py develop`` for
+development.
 
-Training/testing a Model
-------------------------
+Running the examples
+--------------------
 
-If you want to try to run a simple experiment, you can do so using sample 
-configurations in the ``examples`` directory. For example, if you wnat to try
-the default configuration file, which trains an attentional encoder-decoder model,
-you can do so by running::
+*xnmt* includes a series of tutorial-style examples in the ``examples/`` subfolder.
+These are a good starting point to get familiarized with specifying models and
+experiments. To run the first experiment, use the following::
 
-    python xnmt/xnmt_run_experiments.py examples/standard.yaml
+    python -m xnmt.xnmt_run_experiments examples/01_standard.yaml
 
-The various examples that you can use are:
+Make sure to read the comments provided in ``examples/01_standard.yaml``.
 
-- ``examples/standard.yaml``: A standard neural MT model
-- ``examples/speech.yaml``: An example of speech-to-text translation
-- ``examples/debug.yaml``: A simple debugging configuration that should run super-fast
-- ``examples/preproc.yaml``: A configuration including preprocessing directives like tokenization and filtering.
+See the ``experiment-config-files`` documentation entry for more details about writing experiment configuration files.
 
-See ``experiments.md`` for more details about writing experiment configuration files
-that allow you to specify the various 
+Running recipes
+---------------
+
+*xnmt* includes several self-contained recipes on publically available data with competitive model settings, and
+including scripts for data preparation, in the ``recipes/`` subfolder.
 
 Running unit tests
 ------------------
 
-From the main directory, run: ``python -m unittest discover``
+From the main directory, run: ``python -m unittest``
 
-Cython Modules
+Or, to run a specific test, use e.g. ``python -m unittest test.test_run.TestRunningConfig.test_standard``
+
+Cython modules
 ------------------
 
-If you wish to use all the modules in xnmt that need cython, you need to build the cython extensions by this command::
+If you wish to use all the modules in *xnmt* that need cython, you need to build the cython extensions by this command::
 
   python setup.py build_ext --inplace --use-cython-extensions
-

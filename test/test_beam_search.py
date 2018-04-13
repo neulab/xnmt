@@ -8,11 +8,12 @@ from xnmt.bridge import CopyBridge
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
 import xnmt.events
-from xnmt.input import PlainTextReader
-from xnmt.lstm import BiLSTMSeqTransducer
+from xnmt.input_reader import PlainTextReader
+from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculator import LossCalculator
+from xnmt.mlp import MLP
+from xnmt.param_collection import ParamManager
 from xnmt.translator import DefaultTranslator
-from xnmt.exp_global import ExpGlobal, PersistentParamCollection
 
 class TestForcedDecodingOutputs(unittest.TestCase):
 
@@ -22,17 +23,22 @@ class TestForcedDecodingOutputs(unittest.TestCase):
       self.assertEqual(l1[i], l2[i])
 
   def setUp(self):
+    layer_dim = 512
     xnmt.events.clear()
-    self.exp_global = ExpGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
+    ParamManager.init_param_col()
     self.model = DefaultTranslator(
-              src_reader=PlainTextReader(),
-              trg_reader=PlainTextReader(),
-              src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
-              encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
-              attender=MlpAttender(exp_global=self.exp_global),
-              trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
-            )
+      src_reader=PlainTextReader(),
+      trg_reader=PlainTextReader(),
+      src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
+      attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
+      trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                trg_embed_dim=layer_dim,
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
+    )
     self.model.set_train(False)
     self.model.initialize_generator(beam=1)
 
@@ -52,17 +58,22 @@ class TestForcedDecodingOutputs(unittest.TestCase):
 class TestForcedDecodingLoss(unittest.TestCase):
 
   def setUp(self):
+    layer_dim = 512
     xnmt.events.clear()
-    self.exp_global = ExpGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
+    ParamManager.init_param_col()
     self.model = DefaultTranslator(
-              src_reader=PlainTextReader(),
-              trg_reader=PlainTextReader(),
-              src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
-              encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
-              attender=MlpAttender(exp_global=self.exp_global),
-              trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
-            )
+      src_reader=PlainTextReader(),
+      trg_reader=PlainTextReader(),
+      src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
+      attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
+      trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                trg_embed_dim=layer_dim,
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
+    )
     self.model.set_train(False)
     self.model.initialize_generator(beam=1)
 
@@ -78,22 +89,27 @@ class TestForcedDecodingLoss(unittest.TestCase):
     self.model.initialize_generator(beam=1)
     outputs = self.model.generate_output(self.src_data[0], 0,
                                          forced_trg_ids=self.trg_data[0])
-    self.assertAlmostEqual(-outputs[0].score, train_loss, places=5)
+    self.assertAlmostEqual(-outputs[0].score, train_loss, places=4)
 
 class TestFreeDecodingLoss(unittest.TestCase):
 
   def setUp(self):
+    layer_dim = 512
     xnmt.events.clear()
-    self.exp_global = ExpGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
+    ParamManager.init_param_col()
     self.model = DefaultTranslator(
-              src_reader=PlainTextReader(),
-              trg_reader=PlainTextReader(),
-              src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
-              encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
-              attender=MlpAttender(exp_global=self.exp_global),
-              trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
-            )
+      src_reader=PlainTextReader(),
+      trg_reader=PlainTextReader(),
+      src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
+      attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
+      trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                trg_embed_dim=layer_dim,
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
+    )
     self.model.set_train(False)
     self.model.initialize_generator(beam=1)
 
@@ -110,24 +126,29 @@ class TestFreeDecodingLoss(unittest.TestCase):
                                       trg=outputs[0].actions,
                                       loss_calculator=LossCalculator()).value()
 
-    self.assertAlmostEqual(-outputs[0].score, train_loss, places=5)
+    self.assertAlmostEqual(-outputs[0].score, train_loss, places=4)
 
 class TestGreedyVsBeam(unittest.TestCase):
   """
   Test if greedy search produces same output as beam search with beam 1.
   """
   def setUp(self):
+    layer_dim = 512
     xnmt.events.clear()
-    self.exp_global = ExpGlobal(dynet_param_collection=PersistentParamCollection("some_file", 1))
+    ParamManager.init_param_col()
     self.model = DefaultTranslator(
-              src_reader=PlainTextReader(),
-              trg_reader=PlainTextReader(),
-              src_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
-              encoder=BiLSTMSeqTransducer(exp_global=self.exp_global),
-              attender=MlpAttender(exp_global=self.exp_global),
-              trg_embedder=SimpleWordEmbedder(exp_global=self.exp_global, vocab_size=100),
-              decoder=MlpSoftmaxDecoder(exp_global=self.exp_global, vocab_size=100, bridge=CopyBridge(exp_global=self.exp_global, dec_layers=1)),
-            )
+      src_reader=PlainTextReader(),
+      trg_reader=PlainTextReader(),
+      src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
+      attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
+      trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                trg_embed_dim=layer_dim,
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
+    )
     self.model.set_train(False)
 
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))

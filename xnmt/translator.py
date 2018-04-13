@@ -1,6 +1,3 @@
-from __future__ import division, generators
-
-import io
 import dynet as dy
 import numpy as np
 import itertools
@@ -13,7 +10,7 @@ from xnmt.attender import MlpAttender
 from xnmt.batcher import mark_as_batch, is_batched
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
-from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_handler
+from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 from xnmt.generator import GeneratorModel
 from xnmt.inference import SimpleInference
 from xnmt.input import SimpleSentenceInput
@@ -23,10 +20,8 @@ from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
 import xnmt.plot
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable, bare
+from xnmt.persistence import serializable_init, Serializable, bare, initialize_object, initialize_if_needed
 from xnmt.search_strategy import BeamSearch, GreedySearch
-import xnmt.serialize.serializer
-from xnmt.serialize.tree_tools import Path
 from xnmt.vocab import Vocab
 
 class Translator(GeneratorModel):
@@ -35,20 +30,25 @@ class Translator(GeneratorModel):
   loss and generate translations.
   '''
 
-  def calc_loss(self, src, trg):
+  def calc_loss(self, src, trg, loss_calculator):
     '''Calculate loss based on input-output pairs.
-
-    :param src: The source, a sentence or a batch of sentences.
-    :param trg: The target, a sentence or a batch of sentences.
-    :returns: An expression representing the loss.
+    
+    Args:
+      src: The source, a sentence (:class:`xnmt.input.Input`) or a batch of sentences (:class:`xnmt.batcher.Batch`).
+      trg: The target, a sentence (:class:`xnmt.input.Input`) or a batch of sentences (:class:`xnmt.batcher.Batch`).
+      loss_calculator (LossCalculator):
+    
+    Returns:
+      xnmt.loss.LossBuilder: A (possibly batched) expression representing the loss. Losses are accumulated only if trg_mask[batch,pos]==0, or no mask is set
     '''
     raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
 
   def set_trg_vocab(self, trg_vocab=None):
     """
-    Set target vocab for generating outputs.
+    Set target vocab for generating outputs. If not specified, word IDs are generated instead.
 
-    :param trg_vocab: target vocab, or None to generate word ids
+    Args:
+      trg_vocab (Vocab): target vocab, or None to generate word IDs
     """
     self.trg_vocab = trg_vocab
 
@@ -61,26 +61,28 @@ class Translator(GeneratorModel):
 class DefaultTranslator(Translator, Serializable, Reportable):
   '''
   A default translator based on attentional sequence-to-sequence models.
+
+  Args:
+    src_reader (InputReader): A reader for the source side.
+    trg_reader (InputReader): A reader for the target side.
+    src_embedder (Embedder): A word embedder for the input language
+    encoder (Transducer): An encoder to generate encoded inputs
+    attender (Attender): An attention module
+    trg_embedder (Embedder): A word embedder for the output language
+    decoder (Decoder): A decoder
+    inference (SimpleInference): The default inference strategy used for this model
+    calc_global_fertility (bool):
+    calc_attention_entropy (bool):
   '''
 
-  yaml_tag = u'!DefaultTranslator'
+  yaml_tag = '!DefaultTranslator'
 
+  @register_xnmt_handler
+  @serializable_init
   def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
                inference=bare(SimpleInference), calc_global_fertility=False, calc_attention_entropy=False):
-    '''Constructor.
-
-    :param src_reader: A reader for the source side.
-    :param src_embedder: A word embedder for the input language
-    :param encoder: An encoder to generate encoded inputs
-    :param attender: An attention module
-    :param trg_reader: A reader for the target side.
-    :param trg_embedder: A word embedder for the output language
-    :param decoder: A decoder
-    :param inference: The default inference strategy used for this model
-    '''
-    register_handler(self)
     self.src_reader = src_reader
     self.trg_reader = trg_reader
     self.src_embedder = src_embedder
@@ -93,16 +95,17 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.inference = inference
 
   def shared_params(self):
-    return [set([Path(".src_embedder.emb_dim"), Path(".encoder.input_dim")]),
-            set([Path(".encoder.hidden_dim"), Path(".attender.input_dim"), Path(".decoder.input_dim")]),
-            set([Path(".attender.state_dim"), Path(".decoder.lstm_dim")]),
-            set([Path(".trg_embedder.emb_dim"), Path(".decoder.trg_embed_dim")])]
+    return [set([".src_embedder.emb_dim", ".encoder.input_dim"]),
+            set([".encoder.hidden_dim", ".attender.input_dim", ".decoder.input_dim"]),
+            set([".attender.state_dim", ".decoder.rnn_layer.hidden_dim"]),
+            set([".trg_embedder.emb_dim", ".decoder.trg_embed_dim"])]
 
   def initialize_generator(self, **kwargs):
+    # TODO: refactor?
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
     else:
-      len_norm = xnmt.serialize.serializer.YamlSerializer().initialize_if_needed(kwargs["len_norm_type"])
+      len_norm = initialize_if_needed(kwargs["len_norm_type"])
     search_args = {}
     if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
     if kwargs.get("beam", None) is None:
@@ -115,12 +118,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.report_type = kwargs.get("report_type", None)
 
   def calc_loss(self, src, trg, loss_calculator):
-    """
-    :param src: source sequence (unbatched, or batched + padded)
-    :param trg: target sequence (unbatched, or batched + padded); losses will be accumulated only if trg_mask[batch,pos]==0, or no mask is set
-    :param loss_calculator:
-    :returns: (possibly batched) loss expression
-    """
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder(embeddings)
@@ -163,7 +160,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, dec_state, src_length=len(sents), forced_trg_ids=forced_trg_ids)
       # In case of reporting
       if self.report_path is not None:
-        src_words = [self.reporting_src_vocab[w] for w in sents]
+        if self.reporting_src_vocab:
+          src_words = [self.reporting_src_vocab[w] for w in sents]
+        else:
+          src_words = ['' for w in sents]
         trg_words = [self.trg_vocab[w] for w in output_actions.word_ids]
         # Attentions
         attentions = output_actions.attentions
@@ -207,6 +207,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def set_reporting_src_vocab(self, src_vocab):
     """
     Sets source vocab for reporting purposes.
+    
+    Args:
+      src_vocab (Vocab):
     """
     self.reporting_src_vocab = src_vocab
 
@@ -227,13 +230,13 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     main_content = etree.SubElement(body, 'div', name='main_content')
 
     # Generating main content
-    captions = [u"Source Words", u"Target Words"]
+    captions = ["Source Words", "Target Words"]
     inputs = [src, trg]
     for caption, inp in zip(captions, inputs):
       if inp is None: continue
       sent = ' '.join(inp)
       p = etree.SubElement(main_content, 'p')
-      p.text = u"{}: {}".format(caption, sent)
+      p.text = f"{caption}: {sent}"
 
     # Generating attention
     if not any([src is None, trg is None, att is None]):
@@ -241,7 +244,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       att_text = etree.SubElement(attention, 'b')
       att_text.text = "Attention:"
       etree.SubElement(attention, 'br')
-      attention_file = u"{}.attention.png".format(path_to_report)
+      attention_file = f"{path_to_report}.attention.png"
       xnmt.plot.plot_attention(src, trg, att, file_name = attention_file)
 
     # return the parent context to be used as child context
@@ -255,7 +258,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     for word in trg:
       col_length.append(max(len(word), 6))
     col_length.append(max(len(x) for x in src))
-    with io.open(self.get_report_path() + ".attention.txt", encoding='utf-8', mode='w') as attn_file:
+    with open(self.get_report_path() + ".attention.txt", encoding='utf-8', mode='w') as attn_file:
       for i in range(len(src)+1):
         if i == 0:
           words = trg + [""]
@@ -266,54 +269,27 @@ class DefaultTranslator(Translator, Serializable, Reportable):
           str_format += "{:%ds}" % (length+2)
         print(str_format.format(*words), file=attn_file)
 
-  def sample_one(self, dec_state, sample_length, forced_trg=None):
-    EPS = 1e-10
-    # Outputs
-    logsofts = []
-    samples = []
-    hts = []
-    # Sample one sequence
-    done = None
-    for i in range(sample_length):
-      dec_state.context = self.attender.calc_context(dec_state.rnn_state.output())
-      h_t = self.decoder.get_ht(dec_state)
-      logsoft = dy.log_softmax(self.decoder.get_scores(dec_state, h_t))
-      if forced_trg is None:
-        sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]
-        # Keep track of previously sampled EOS
-        if done is not None:
-          sample = [sample_i if not done_i else Vocab.ES for sample_i, done_i in zip(sample, done)]
-      else:
-        sample = [forced_trg[j][i] if len(forced_trg[j]) > i else Vocab.ES for j in range(len(forced_trg))]
-      # Appending and feeding in the decoder
-      logsoft = dy.pick_batch(logsoft, sample)
-      if done is not None:
-        mask = [1 if not done_i else 0 for done_i in done]
-        logsoft = dy.cmult(logsoft, dy.inputTensor(mask, batched=True))
-      logsofts.append(logsoft)
-      samples.append(sample)
-      hts.append(h_t)
-      dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(xnmt.batcher.mark_as_batch(sample)))
-      done = [x == Vocab.ES for x in sample]
-      # Check if we are done.
-      if all(done):
-        break
-
-    return logsofts, np.stack(samples, axis=1).tolist(), hts
-
-
+  
 class TransformerTranslator(Translator, Serializable, Reportable):
-  yaml_tag = u'!TransformerTranslator'
+  '''
+  A translator based on the transformer model.
 
+  Args:
+    src_reader (InputReader): A reader for the source side.
+    src_embedder (Embedder): A word embedder for the input language
+    encoder (TransformerEncoder): An encoder to generate encoded inputs
+    trg_reader (InputReader): A reader for the target side.
+    trg_embedder (Embedder): A word embedder for the output language
+    decoder (TransformerDecoder): A decoder
+    inference (SimpleInference): The default inference strategy used for this model
+    input_dim (int):
+  '''
+
+  yaml_tag = '!TransformerTranslator'
+
+  @register_xnmt_handler
+  @serializable_init
   def __init__(self, src_reader, src_embedder, encoder, trg_reader, trg_embedder, decoder, inference=None, input_dim=512):
-    '''Constructor.
-    :param src_embedder: A word embedder for the input language
-    :param encoder: An encoder to generate encoded inputs
-    :param attender: An attention module
-    :param trg_embedder: A word embedder for the output language
-    :param decoder: A decoder
-    '''
-    register_handler(self)
     self.src_reader = src_reader
     self.src_embedder = src_embedder
     self.encoder = encoder
@@ -330,7 +306,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     if kwargs.get("len_norm_type", None) is None:
       len_norm = xnmt.length_normalization.NoNormalization()
     else:
-      len_norm = xnmt.serialize.serializer.YamlSerializer().initialize_object(kwargs["len_norm_type"])
+      len_norm = initialize_object(kwargs["len_norm_type"])
     search_args = {}
     if kwargs.get("max_len", None) is not None:
       search_args["max_len"] = kwargs["max_len"]

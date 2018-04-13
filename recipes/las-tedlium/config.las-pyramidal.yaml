@@ -1,0 +1,98 @@
+las-pyramidal: !Experiment
+  exp_global: !ExpGlobal
+    dropout: 0.2
+    default_layer_dim: 512
+    placeholders:
+      DATA_DIR: { set to same directory as the 'datadir' directory in prep-data.sh }
+  preproc: !PreprocRunner
+    overwrite: False
+    tasks:
+    - !PreprocExtract
+      in_files:
+      - '{DATA_DIR}/db/dev.yaml'
+      - '{DATA_DIR}/db/test.yaml'
+      - '{DATA_DIR}/db/train.yaml'
+      out_files:
+      - '{DATA_DIR}/feat/dev.h5'
+      - '{DATA_DIR}/feat/test.h5'
+      - '{DATA_DIR}/feat/train.h5'
+      specs: !MelFiltExtractor {}
+  model: !DefaultTranslator
+    src_embedder: !NoopEmbedder
+      emb_dim: 40
+    encoder: !ModularSeqTransducer
+      modules:
+      - !PyramidalLSTMSeqTransducer
+        layers: 4
+        reduce_factor: 2
+        downsampling_method: concat
+        input_dim: 40
+        hidden_dim: 512
+    attender: !MlpAttender
+      hidden_dim: 128
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+      word_dropout: 0.1
+      fix_norm: 1
+    decoder: !MlpSoftmaxDecoder
+      rnn_layer: !UniLSTMSeqTransducer
+        layers: 1
+        hidden_dim: 512
+      input_feeding: True
+      bridge: !CopyBridge {}
+      label_smoothing: 0.1
+    src_reader: !H5Reader
+      transpose: true
+    trg_reader: !PlainTextReader
+      vocab: !Vocab
+        vocab_file: '{EXP_DIR}/vocab.char'
+  train: !SimpleTrainingRegimen
+    src_file: '{DATA_DIR}/feat/train.h5'
+    trg_file: '{DATA_DIR}/transcript/train.char'
+    max_src_len: 1500
+    max_trg_len: 350
+    run_for_epochs: 500
+    batcher: !WordSrcBatcher
+      avg_batch_size: 24
+      pad_src_to_multiple: 8
+      src_pad_token: ~
+    trainer: !AdamTrainer
+      alpha: 0.001
+    lr_decay: 0.5
+    lr_decay_times: 3
+    patience: 8
+    initial_patience: 15
+    dev_every: 0
+    restart_trainer: True
+    dev_tasks:
+      - !AccuracyEvalTask
+        eval_metrics: wer,cer
+        src_file: &dev_src '{DATA_DIR}/feat/dev.h5'
+        ref_file: '{DATA_DIR}/transcript/dev.words'
+        hyp_file: '{EXP_DIR}/logs/{EXP}.dev_hyp'
+        inference: !SimpleInference
+          max_src_len: 1500
+          post_process: join-char
+          max_len: 500
+          beam: 20
+          len_norm_type: !PolynomialNormalization
+            apply_during_search: true
+            m: 1.5
+      - !LossEvalTask
+        max_src_len: 1500
+        src_file: *dev_src
+        ref_file: '{DATA_DIR}/transcript/dev.char'
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: wer,cer
+      src_file: '{DATA_DIR}/feat/test.h5'
+      ref_file: '{DATA_DIR}/transcript/test.words'
+      hyp_file: '{EXP_DIR}/logs/{EXP}.test_hyp'
+      inference: !SimpleInference
+        max_src_len: 1500
+        post_process: join-char
+        max_len: 500
+        beam: 20
+        len_norm_type: !PolynomialNormalization
+          apply_during_search: true
+          m: 1.5

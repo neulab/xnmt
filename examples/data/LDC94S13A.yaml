@@ -1,0 +1,18 @@
+# mini db containing the example utterance from https://catalog.ldc.upenn.edu/ldc94s13a 5 times
+- wav: examples/data/LDC94S13A.wav
+  offset: 0.1
+  speaker_id: s0
+- wav: examples/data/LDC94S13A.wav
+  offset: 0.05
+  duration: 1
+  speaker_id: s0
+- wav: examples/data/LDC94S13A.wav
+  offset: 1.0
+  speaker_id: s1
+- wav: examples/data/LDC94S13A.wav
+  offset: 0.2
+  speaker_id: s1
+- wav: examples/data/LDC94S13A.wav
+  offset: 0.3
+  speaker_id: s1
+ 

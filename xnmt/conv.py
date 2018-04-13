@@ -1,31 +1,30 @@
-from __future__ import division, generators
-
 import dynet as dy
 
-from xnmt.transducer import SeqTransducer, FinalTransducerState
-from xnmt.serialize.serializable import Serializable
 from xnmt.expression_sequence import ExpressionSequence
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.param_collection import ParamManager
+from xnmt.persistence import Serializable
+from xnmt.transducer import SeqTransducer, FinalTransducerState
 
 class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
-  yaml_tag = u'!ConvConnectedSeqTransducer'
+  yaml_tag = '!ConvConnectedSeqTransducer'
   """
     Input goes through through a first convolution in time and space, no stride,
     dimension is not reduced, then CNN layer for each frame several times
     Embedding sequence has same length as Input sequence
     """
 
-  def __init__(self, input_dim, window_receptor,output_dim,num_layers,internal_dim,non_linearity='linear', exp_global=Ref(Path("exp_global"))):
+  def __init__(self, input_dim, window_receptor,output_dim,num_layers,internal_dim,non_linearity='linear'):
     """
-      :param num_layers: num layers after first receptor conv
-      :param input_dim: size of the inputs
-      :param window_receptor: window for the receptor
-      :param ouput_dim: size of the outputs
-      :param internal_dim: size of hidden dimension, internal dimension
-      :param non_linearity: Non linearity to apply between layers
+    Args:
+      num_layers: num layers after first receptor conv
+      input_dim: size of the inputs
+      window_receptor: window for the receptor
+      ouput_dim: size of the outputs
+      internal_dim: size of hidden dimension, internal dimension
+      non_linearity: Non linearity to apply between layers
       """
 
-    model = exp_global.dynet_param_collection.param_col
+    model = ParamManager.my_params(self)
     self.input_dim = input_dim
     self.window_receptor = window_receptor
     self.internal_dim = internal_dim

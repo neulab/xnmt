@@ -1,18 +1,20 @@
 import dynet as dy
 
 from xnmt.transducer import SeqTransducer, FinalTransducerState
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.persistence import Serializable
 from xnmt.expression_sequence import ExpressionSequence
+from xnmt.param_collection import ParamManager
 
 class FullyConnectedSeqTransducer(SeqTransducer, Serializable):
-  yaml_tag = u'!FullyConnectedSeqTransducer'
-  def __init__(self, in_height, out_height, nonlinearity='linear', exp_global=Ref(Path("exp_global"))):
+  yaml_tag = '!FullyConnectedSeqTransducer'
+  def __init__(self, in_height, out_height, nonlinearity='linear'):
     """
-      :param in_height, out_height: input and output dimension of the affine transform
-      :param nonlinearity: nonlinear activation function
+    Args:
+      in_height: input dimension of the affine transform
+      out_height: output dimension of the affine transform
+      nonlinearity: nonlinear activation function
     """
-    model = exp_global.dynet_param_collection.param_col
+    model = ParamManager.my_params(self)
     self.in_height = in_height
     self.out_height = out_height
     self.nonlinearity = nonlinearity

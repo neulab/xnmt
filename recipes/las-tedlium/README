@@ -1,0 +1,12 @@
+This trains a speech recognizer on TEDLIUM data, using a basic listen-attend-spell architecture.
+
+Steps:
+- download TEDLIUM from http://www-lium.univ-lemans.fr/en/content/ted-lium-corpus
+- extract
+- edit prep-data.sh by specifying the path of the extracted TEDLIUM and the path where converted and preprocessed data should be written to (making sure enough disk space is available)
+- run:
+  ./prep-data.sh
+- edit config.las-pyramidal.yaml: change the DATA_DIR placeholder to point the the same data path specified previously in prep-data.sh
+- train and test model:
+  python -m xnmt.xnmt_run_expteriments --dynet-gpu recipes/las-tedlium/config.las-pyramidal.yaml
+

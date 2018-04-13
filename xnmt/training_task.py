@@ -1,18 +1,16 @@
-import logging
-logger = logging.getLogger('xnmt')
 from subprocess import Popen
 import random
 import numpy as np
-import dynet as dy
 
-from xnmt.serialize.serializable import Serializable, bare
-from xnmt.serialize.tree_tools import Ref, Path
-from xnmt.loss import LossBuilder
-from xnmt.events import register_xnmt_event
-from xnmt.loss_calculator import LossCalculator, MLELoss
+from xnmt import logger
 from xnmt.batcher import SrcBatcher
+from xnmt.events import register_xnmt_event
+import xnmt.input_reader
+from xnmt.loss import LossBuilder
+from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.loss_tracker import BatchLossTracker
-import xnmt.input
+from xnmt.param_collection import ParamManager
+from xnmt.persistence import serializable_init, Serializable, bare
 
 class TrainingTask(object):
   """
@@ -30,7 +28,8 @@ class TrainingTask(object):
     raise NotImplementedError("")
   def should_stop_training(self):
     """
-    :returns: True iff training is finished, i.e. training_step(...) should not be called again
+    Returns:
+      True iff training is finished, i.e. training_step(...) should not be called again
     """
     raise NotImplementedError("")
 
@@ -40,9 +39,11 @@ class TrainingTask(object):
     Training logic like switching epochs, reshuffling batches, etc. must be
     handled as well.
 
-    :param src: src minibatch
-    :param trg: trg minibatch
-    :returns: Loss
+    Args:
+      src: src minibatch
+      trg: trg minibatch
+    Returns:
+      Loss
     """
     raise NotImplementedError("")
 
@@ -53,50 +54,53 @@ class TrainingTask(object):
                  encoding='utf-8'):
     """
     Performs a dev checkpoint
-    :param control_learning_schedule: If False, only evaluate dev data.
+
+    Args:
+      control_learning_schedule: If False, only evaluate dev data.
                                       If True, also perform model saving, LR decay etc. if needed.
-    :param out_ext:
-    :param ref_ext:
-    :param encoding:
-    :returns: True if the model needs saving, False otherwise
+      out_ext:
+      ref_ext:
+      encoding:
+    Returns:
+      True if the model needs saving, False otherwise
     """
     raise NotImplementedError()
 
 
 class SimpleTrainingTask(TrainingTask, Serializable):
+  """
+  Args:
+    model: a generator.GeneratorModel object
+    src_file: The file for the source data.
+    trg_file: The file for the target data.
+    dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
+    batcher: Type of batcher
+    loss_calculator:
+    run_for_epochs (int): number of epochs (None for unlimited epochs)
+    lr_decay (float):
+    lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
+    patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
+    initial_patience (int): if given, allows adjusting patience for the first LR decay
+    dev_tasks: A list of tasks to run on the development set
+    restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
+    reload_command: Command to change the input data after each epoch.
+                         --epoch EPOCH_NUM will be appended to the command.
+                         To just reload the data after each epoch set the command to 'true'.
+    sample_train_sents:
+    max_num_train_sents:
+    max_src_len:
+    max_trg_len:
+    name: will be prepended to log outputs if given
+  """
   yaml_tag = '!SimpleTrainingTask'
+
+  @serializable_init
   def __init__(self, model, src_file=None, trg_file=None, dev_every=0,
                batcher=bare(SrcBatcher, batch_size=32), loss_calculator=None,
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
                initial_patience=None, dev_tasks=None, restart_trainer=False,
                reload_command=None, name=None, sample_train_sents=None,
-               max_num_train_sents=None, max_src_len=None, max_trg_len=None,
-               exp_global=Ref(Path("exp_global"))):
-    """
-    :param exp_global:
-    :param model: a generator.GeneratorModel object
-    :param src_file: The file for the source data.
-    :param trg_file: The file for the target data.
-    :param dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
-    :param batcher: Type of batcher
-    :param loss_calculator:
-    :param lr_decay (float):
-    :param lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
-    :param patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
-    :param initial_patience (int): if given, allows adjusting patience for the first LR decay
-    :param dev_tasks: A list of tasks to run on the development set
-    :param restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
-    :param reload_command: Command to change the input data after each epoch.
-                           --epoch EPOCH_NUM will be appended to the command.
-                           To just reload the data after each epoch set the command to 'true'.
-    :param sample_train_sents:
-    :param max_num_train_sents:
-    :param max_src_len:
-    :param max_trg_len:
-    :param name: will be prepended to log outputs if given
-    """
-    self.exp_global = exp_global
-    self.model_file = self.exp_global.dynet_param_collection.model_file
+               max_num_train_sents=None, max_src_len=None, max_trg_len=None):
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks
@@ -132,7 +136,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       self._augmentation_handle = None
       self._augment_data_initial()
     self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
-        xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
+        xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                         self.src_file, self.trg_file,
                                         batcher=self.batcher, sample_sents=self.sample_train_sents,
                                         max_num_sents=self.max_num_train_sents,
@@ -166,7 +170,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         logger.info('using reloaded data')
       # reload the data   
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
-          xnmt.input.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
+          xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                           self.src_file, self.trg_file,
                                           batcher=self.batcher, sample_sents=self.sample_train_sents,
                                           max_num_sents=self.max_num_train_sents,
@@ -180,8 +184,10 @@ class SimpleTrainingTask(TrainingTask, Serializable):
   def new_epoch(self, training_task, num_sents):
     """
     New epoch event.
-    :param training_regimen: Indicates which training regimen is advancing to the next epoch.
-    :param num_sents: Number of sentences in the upcoming epoch (may change between epochs)
+
+    Args:
+      training_task: Indicates which training task is advancing to the next epoch.
+      num_sents: Number of sentences in the upcoming epoch (may change between epochs)
     """
     pass
 
@@ -190,9 +196,9 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     Signal stopping if self.early_stopping_reached is marked or we exhausted the number of requested epochs.
     """
     return self.early_stopping_reached \
-      or self.training_state.epoch_num > self.run_for_epochs \
-      or (self.training_state.epoch_num == self.run_for_epochs and \
-          self.training_state.steps_into_epoch >= self.cur_num_minibatches()-1)
+      or self.run_for_epochs is not None and (self.training_state.epoch_num > self.run_for_epochs \
+                                              or (self.training_state.epoch_num == self.run_for_epochs and
+                                                  self.training_state.steps_into_epoch >= self.cur_num_minibatches() - 1))
 
   def cur_num_minibatches(self):
     """
@@ -226,7 +232,9 @@ class SimpleTrainingTask(TrainingTask, Serializable):
   def next_minibatch(self):
     """
     Infinitely loops over training minibatches and calls advance_epoch() after every complete sweep over the corpus.
-    :returns: Generator yielding (src_batch,trg_batch) tuples
+
+    Returns:
+      Generator yielding (src_batch,trg_batch) tuples
     """
     while True:
       self.advance_epoch()
@@ -258,9 +266,12 @@ class SimpleTrainingTask(TrainingTask, Serializable):
   def checkpoint(self, control_learning_schedule=True):
     """
     Performs a dev checkpoint
-    :param control_learning_schedule: If False, only evaluate dev data.
+
+    Args:
+      control_learning_schedule: If False, only evaluate dev data.
                                       If True, also perform model saving, LR decay etc. if needed.
-    :returns: True if the model needs saving, False otherwise
+    Returns:
+      True if the model needs saving, False otherwise
     """
     ret = False
     self.logger.new_dev()
@@ -283,18 +294,19 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     if control_learning_schedule:
       logger.info("> Checkpoint")
       # Write out the model if it's the best one
-      if self.logger.report_dev_and_check_model(self.model_file):
-        if self.model_file is not None:
-          ret = True
+      if self.logger.report_dev_and_check_model():
+        ret = True
         self.training_state.cur_attempt = 0
       else:
         # otherwise: learning rate decay / early stopping
         self.training_state.cur_attempt += 1
         if self.lr_decay < 1.0:
           should_decay = False
-          if (self.initial_patience is None or self.training_state.num_times_lr_decayed>0) and self.training_state.cur_attempt >= self.patience:
+          if (self.initial_patience is None or self.training_state.num_times_lr_decayed>0) \
+                  and self.training_state.cur_attempt >= self.patience:
             should_decay = True
-          if self.initial_patience is not None and self.training_state.num_times_lr_decayed==0 and self.training_state.cur_attempt >= self.initial_patience:
+          if self.initial_patience is not None and self.training_state.num_times_lr_decayed==0 \
+                  and self.training_state.cur_attempt >= self.initial_patience:
             should_decay = True
           if should_decay:
             self.training_state.num_times_lr_decayed += 1
@@ -302,12 +314,13 @@ class SimpleTrainingTask(TrainingTask, Serializable):
               logger.info('  Early stopping')
               self.early_stopping_reached = True
             else:
+              self.training_state.cur_attempt = 0
               self.trainer.learning_rate *= self.lr_decay
               logger.info('  new learning rate: %s' % self.trainer.learning_rate)
               if self.restart_trainer:
                 logger.info('  restarting trainer and reverting learned weights to best checkpoint..')
                 self.trainer.restart()
-                self.exp_global.dynet_param_collection.revert_to_best_model()
+                ParamManager.param_col.revert_to_best_model()
 
     return ret
 

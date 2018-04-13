@@ -1,139 +1,120 @@
-Experiment Configuration File Format
+Experiment configuration file format
 ------------------------------------
 
 Configuration files are in `YAML dictionary format <https://docs.ansible.com/ansible/YAMLSyntax.html>`_.
 
-Top-level entries in the file correspond to individual experiments to run. Each
-such entry must have four subsections: ``experiment``, ``train``, ``decode``,
-and ``evaluate``. Options for each subsection are listed below.
+At the top-level, a config file consists of a dictionary where keys are experiment
+names and values are the experiment specifications. By default, all experiments
+are run in lexicographical ordering, but xnmt_run_experiments can also be told
+to run only a selection of the specified experiments. An example template with
+2 experiments looks like this::
 
-There can be a special top-level entry named ``defaults``; if it is
-present, parameters defined in it will act as defaults for other experiments
-in the configuration file.
+    exp1: !Experiment
+      exp_global: ...
+      preproc: ...
+      model: ...
+      train: ...
+      evaluate: ...
+    exp2: !Experiment
+      exp_global: ...
+      preproc: ...
+      model: ...
+      train: ...
+      evaluate: ...
 
-If any string option includes "<EXP>" this will be over-written by the name of the experiment.
+``!Experiment`` is YAML syntax specifying a Python object of the same name, and
+its parameters will be passed on to the Python constructor.
+There can be a special top-level entry named ``defaults``; this experiment will
+never be run, but can be used as a template where components are partially shared
+using YAML anchors or the !Ref mechanism (more on this later).
 
-Option Tables
-=============
+The usage of ``exp_global``, ``preproc``, ``model``, ``train``, ``evaluate``
+are explained below.
+Not all of them need to be specified, depending on the use case.
 
-experiment
-~~~~~~~~~~
+exp_global
+==========
+This specifies settings that are global to this experiment. An example::
 
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| Name               | Description                                                     | Type | Default   |
-+====================+=================================================================+======+===========+
-| model_file         | Location to write the model file                                | str  | <EXP>.mod |
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| hyp_file           | Location to write decoded output for evaluation                 | str  | <EXP>.hyp |
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| out_file           | A file for writing stdout logging output                        | str  | <EXP>.out |
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| err_file           | A file for writing stderr logging errput                        | str  | <EXP>.err |
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| eval_metrics       | Comma-separated list of evaluation metrics (bleu/wer/cer)       | str  | bleu      |
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| **run_for_epochs** | How many epochs to run each test for                            | int  |           |
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| decode_every       | Evaluation period in iters, or 0 for never evaluating.          | int  | 0         |
-+--------------------+-----------------------------------------------------------------+------+-----------+
+  exp_global: !ExpGlobal
+    model_file: '{EXP_DIR}/models/{EXP}.mod'
+    log_file: '{EXP_DIR}/logs/{EXP}.log'
+    default_layer_dim: 512
+    dropout: 0.3
 
-decode
-~~~~~~
+Not that for any strings used here or anywhere in the config file ``{EXP}`` will
+be over-written by the name of the experiment, ``{EXP_DIR}`` will be overwritten
+by the directory the config file lies in, ``{PID}`` by the process id, and
+``{GIT_REV}`` by the current git revision.
 
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| Name               | Description                                                     | Type | Default   |
-+====================+=================================================================+======+===========+
-| **src_file**       | path of input source file to be translated                      | str  |           |
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| trg_file           | path of file where expected trg translatons will be written     | str  |           |
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| input_format       | format of input data: text/contvec                              | str  | text      |
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| post_process       | post-processing of translation outputs: none/join-char/join-bpe | str  | none      |
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| beam               | beam size for beam-search                                       | int  | 1         |
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| max-len            | max prediction length                                           | int  | 100       |
-+--------------------+-----------------------------------------------------------------+------+-----------+
+To obtain a full list of allowed parameters, please check the constructor of
+``ExpGlobal``, specified under xnmt/exp_global.py. Behind the scenes, this class
+also manages the DyNet parameters, it is therefore referenced by all components
+that use DyNet parameters.
 
-evaluate
-~~~~~~~~
+preproc
+======= 
+*xnmt* supports a variety of data preprocessing features. Please refer to
+``preprocessing.rst`` for details.
 
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| Name               | Description                                                     | Type | Default   |
-+====================+=================================================================+======+===========+
-| **ref_file**       | path of the reference file                                      | str  |           |
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| hyp_file           | path of the hypothesis file                                     | str  |           |
-+--------------------+-----------------------------------------------------------------+------+-----------+
-| evaluator          | Evaluation metrics (bleu/wer/cer)                               | str  | bleu      |
-+--------------------+-----------------------------------------------------------------+------+-----------+
+model
+=====
+This specifies the model architecture. An typical example looks like this::
+
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    encoder: !BiLSTMSeqTransducer
+      layers: 1
+    attender: !MlpAttender
+      hidden_dim: 512
+      state_dim: 512
+      input_dim: 512
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 512
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      mlp_hidden_dim: 512
+      bridge: !CopyBridge {}
+
+The top level entry is typically DefaultTranslator, which implements a standard
+attentional sequence-to-sequence model. It allows flexible specification of
+encoder, attender, source / target embedder, and other settings. Again, to obtain
+the full list of supported options, please refer to the corresponding class
+initializer methods.
+
+Note that some of this Python objects are passed to their parent object's
+initializer method, which requires that the children are initialized first.
+*xnmt* therefore uses a bottom-up initialization strategy, where siblings
+are initialized in the order they appear in the constructor. Among others,
+this causes ``exp_global`` (the first child of the top-level experiment) to be
+initialized before any model component is initialized, so that model components
+are free to use exp_global's global default settings, DyNet parameters, etc.
+It also guarantees that preprocessing is carried out before the model training.
 
 train
-~~~~~
+=====
+A typical example looks like this::
 
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| Name                  | Description                                                     | Type | Default   |
-+=======================+=================================================================+======+===========+
-| eval_every            |                                                                 | int  | 1000      |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| batcher               |                                                                 | str  | None      |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| **train_src**         |                                                                 | str  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| **train_trg**         |                                                                 | str  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| **dev_src**           |                                                                 | str  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| **dev_trg**           |                                                                 | str  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| max_src_len           | Remove source sentences from train/dev data that if longer      | str  |           | 
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| max_trg_len           | Remove target sentences from train/dev data that if longer      | str  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| model_file            | Location to write the model file                                | str  | <EXP>.mod |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| pretrained_model_file | Path of pre-trained model file                                  | str  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| input_vocab           | Path of fixed input vocab file                                  | str  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| output_vocab          | Path of fixed output vocab file                                 | str  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| input_format          | Format of input data: text/contvec                              | str  | text      |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| default_layer_dim     | Default size to use for layers if not otherwise overridden      | int  | 512       |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| input_word_embed_dim  |                                                                 | int  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| output_word_embed_dim |                                                                 | int  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| output_state_dim      |                                                                 | int  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| output_mlp_hidden_dim |                                                                 | int  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| attender_hidden_dim   |                                                                 | int  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| attention_context_dim |                                                                 | int  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| trainer               | Optimization algorithm for training (sgd/adam)                  | str  | sgd       |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| learning_rate         |                                                                 | float| 0.1       |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| lr_decay              |                                                                 | float| 1.0       |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| lr_threshold          |                                                                 | float| 1e-5      |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| eval_metrics          |                                                                 | str  | bleu      |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| encoder.layers        | Amount of layers in encoder                                     | int  | 1         |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| encoder.type          |                                                                 | str  | LSTM      |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| encoder.input_dim     |                                                                 | int  |           |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| decoder_type          |                                                                 | str  | LSTM      |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| decoder_layers        | Amount of layers in decoder                                     | int  | 2         |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
-| residual_to_output    | Whether to add a residual connection to the output layer        | bool | True      |
-+-----------------------+-----------------------------------------------------------------+------+-----------+
+  train: !SimpleTrainingRegimen
+    trainer: !AdamTrainer
+      alpha: 0.001
+    run_for_epochs: 2
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
+
+The expected object here is a subclass of TrainingRegimen. Besides
+``SimpleTrainingRegimen``, multi-task style training regimens are supported.
+For multi task training, each training regimen uses their own model, so in this
+case models must be specified as sub-components of the training regimen. Please
+refer to examples/08_multitask.yaml for more details on this.
+
+evaluate
+========
+If specified, the model is tested after training finished.

@@ -1,0 +1,31 @@
+# An example for how to use pretrained embeddings (TODO: broken)
+pretrained_emb: !Experiment
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !PretrainedSimpleWordEmbedder
+      filename: examples/data/wiki.ja.vec.small
+      emb_dim: 300
+      vocab: !Ref {path: model.src_reader.vocab}
+    encoder: !BiLSTMSeqTransducer
+      layers: 1
+    attender: !MlpAttender
+      hidden_dim: 512
+      state_dim: 512
+      input_dim: 512
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 512
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 20
+    restart_trainer: True
+    trainer: !AdamTrainer
+      alpha: 0.0002
+    lr_decay: 0.5
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en

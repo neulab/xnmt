@@ -2,7 +2,8 @@ import dynet as dy
 import numpy as np
 from collections import namedtuple
 
-from xnmt.length_normalization import *
+from xnmt.length_normalization import NoNormalization
+from xnmt.persistence import bare
 from xnmt.vocab import Vocab
 
 # Output of the search
@@ -13,11 +14,25 @@ class SearchStrategy(object):
   A template class to generate translation from the output probability model.
   '''
   def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
+    """
+    Args:
+      decoder (Decoder):
+      attender (Attender):
+      output_embedder (Embedder): target embedder
+      dec_state (MlpSoftmaxDecoderState): initial decoder state
+      src_length (int): length of src sequence, required for some types of length normalization
+      forced_trg_ids (List[int]): list of word ids, if given will force to generate this is the target sequence
+    Returns:
+      Tuple[List[int],float]: (id list, score)
+    """
     raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')
 
 class GreedySearch(SearchStrategy):
   '''
   Performs greedy search (aka beam search with beam size 1)
+  
+  Args:
+    max_len (int): maximum number of tokens to generate.
   '''
   def __init__(self, max_len=100):
     self.max_len = max_len
@@ -43,13 +58,20 @@ class GreedySearch(SearchStrategy):
     return SearchOutput(word_ids, attentions), score
 
 class BeamSearch(SearchStrategy):
+  
+  """
+  Performs beam search.
+  
+  Args:
+    beam_size (int):
+    max_len (int): maximum number of tokens to generate.
+    len_norm (LengthNormalization): type of length normalization to apply
+  """
 
-  def __init__(self, beam_size, max_len=100, len_norm=None):
+  def __init__(self, beam_size, max_len=100, len_norm=bare(NoNormalization)):
     self.beam_size = beam_size
     self.max_len = max_len
-    # The only reason why we don't set NoNormalization as the default is because it currently
-    # breaks our documentation pipeline
-    self.len_norm = len_norm if len_norm != None else NoNormalization()
+    self.len_norm = len_norm
 
     self.entrs = []
 
@@ -64,15 +86,6 @@ class BeamSearch(SearchStrategy):
       return "hypo S=%s |ids|=%s" % (self.score, len(self.output.word_ids))
 
   def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
-    """
-    :param decoder: decoder.Decoder subclass
-    :param attender: attender.Attender subclass
-    :param output_embedder: embedder.Embedder subclass
-    :param dec_state: The decoder state
-    :param src_length: length of src sequence, required for some types of length normalization
-    :param forced_trg_ids: list of word ids, if given will force to generate this is the target sequence
-    :returns: (id list, score)
-    """
 
     if forced_trg_ids is not None: assert self.beam_size == 1
     active_hyp = [self.Hypothesis(0, SearchOutput([], []), dec_state)]
@@ -119,3 +132,48 @@ class BeamSearch(SearchStrategy):
 
     result = sorted(completed_hyp, key=lambda x: x.score, reverse=True)[0]
     return result.output, result.score
+
+class SoftmaxSampleSearch(SearchStrategy):
+
+  def __init__(self, max_length):
+    self.max_length = max_length
+
+  '''
+  A template class to generate translation from the output probability model.
+  '''
+  def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
+    forced_trg = forced_trg_ids
+    # Outputs
+    logsofts = []
+    samples = []
+    hts = []
+    # Sample one sequence
+    done = None
+    for i in range(sample_length):
+      dec_state.context = self.attender.calc_context(dec_state.rnn_state.output())
+      h_t = self.decoder.get_ht(dec_state)
+      logsoft = dy.log_softmax(self.decoder.get_scores(dec_state, h_t))
+      if forced_trg is None:
+        sample = logsoft.tensor_value().categorical_sample_log_prob().as_numpy()[0]
+        # Keep track of previously sampled EOS
+        if done is not None:
+          sample = [sample_i if not done_i else Vocab.ES for sample_i, done_i in zip(sample, done)]
+      else:
+        sample = [forced_trg[j][i] if len(forced_trg[j]) > i else Vocab.ES for j in range(len(forced_trg))]
+      # Appending and feeding in the decoder
+      logsoft = dy.pick_batch(logsoft, sample)
+      if done is not None:
+        mask = [1 if not done_i else 0 for done_i in done]
+        logsoft = dy.cmult(logsoft, dy.inputTensor(mask, batched=True))
+      logsofts.append(logsoft)
+      samples.append(sample)
+      hts.append(h_t)
+      dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(xnmt.batcher.mark_as_batch(sample)))
+      done = [x == Vocab.ES for x in sample]
+      # Check if we are done.
+      if all(done):
+        break
+
+    return logsofts, np.stack(samples, axis=1).tolist(), hts
+
+

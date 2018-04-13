@@ -1,6 +1,3 @@
-import logging
-logger = logging.getLogger('xnmt')
-
 """
 This implements events in XNMT. Events are handled globally, i.e. caller and handler
 do not need to know about each other, and it is not possible to limit the scope of an
@@ -20,13 +17,14 @@ event. Event handling involves two parts:
   - handlers are named 'on_' + name of the event, e.g. on_my_event
   - method arguments must be consistent
   - handlers must be decorated with @handle_xnmt_event
-  - the instances of the handler must call register_handler(self) in its __init__ method
+  - the handler's __init__ method must be decorated with @register_xnmt_handler(self)
 
   example:
 
   class AnotherObject(object):
+    @register_xnmt_handler
     def __init__(self):
-      register_handler(self)
+      ...
     @handle_xnmt_event
     def on_my_event():
       # do something
@@ -42,6 +40,10 @@ event. Event handling involves two parts:
 
 """
 
+from functools import wraps
+
+from xnmt import logger
+
 def clear():
   """
   clear handler (mostly useful to remove side effects when running a series of unit tests)
@@ -55,12 +57,18 @@ handler_instances = []
 handler_method_names = set()
 event_names = set()
 
-def register_handler(inst):
-  handler_instances.append(inst)
+def register_xnmt_handler(f):
+  @wraps(f)
+  def wrapper(obj, *args, **kwargs):
+    f(obj, *args, **kwargs)
+    handler_instances.append(obj)
+  return wrapper
 
 def register_xnmt_event(f):
+  @wraps(f)
   def wrapper(obj, *args, **kwargs):
-    assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(handler_method_names-event_names)
+    assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(
+      handler_method_names - event_names)
     f(obj, *args, **kwargs)
     for handler in handler_instances:
       bound_handler = getattr(handler, "on_" + f.__name__, None)
@@ -72,9 +80,11 @@ def register_xnmt_event(f):
   return wrapper
 
 def register_xnmt_event_assign(f):
+  @wraps(f)
   def wrapper(obj, *args, **kwargs):
     assert "context" in kwargs, "register_xnmt_event_assign requires \"context\" in kwargs"
-    assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(handler_method_names-event_names)
+    assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(
+      handler_method_names - event_names)
     kwargs["context"] = f(obj, *args, **kwargs)
     for handler in handler_instances:
       bound_handler = getattr(handler, "on_" + f.__name__, None)
@@ -88,8 +98,10 @@ def register_xnmt_event_assign(f):
   return wrapper
 
 def register_xnmt_event_sum(f):
+  @wraps(f)
   def wrapper(obj, *args, **kwargs):
-    assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(handler_method_names-event_names)
+    assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(
+      handler_method_names - event_names)
     res = f(obj, *args, **kwargs)
     for handler in handler_instances:
       bound_handler = getattr(handler, "on_" + f.__name__, None)
@@ -105,6 +117,7 @@ def register_xnmt_event_sum(f):
   return wrapper
 
 def handle_xnmt_event(f):
+  @wraps(f)
   def wrapper(obj, *args, **kwargs):
     try:
       return f(obj, *args, **kwargs), f.__name__

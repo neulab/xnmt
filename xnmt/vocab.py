@@ -1,9 +1,14 @@
-import io
-from xnmt.serialize.serializable import Serializable
+from xnmt.persistence import serializable_init, Serializable
 
 class Vocab(Serializable):
   '''
-  Converts between strings and integer ids
+  Converts between strings and integer ids.
+  
+  Configured via either i2w or vocab_file (mutually exclusive).
+  
+  Args:
+    i2w (list of string): list of words, including <s> and </s>
+    vocab_file (str): file containing one word per line, and not containing <s>, </s>, <unk>
   '''
 
   yaml_tag = "!Vocab"
@@ -11,16 +16,12 @@ class Vocab(Serializable):
   SS = 0
   ES = 1
 
-  SS_STR = u"<s>"
-  ES_STR = u"</s>"
-  UNK_STR = u"<unk>"
+  SS_STR = "<s>"
+  ES_STR = "</s>"
+  UNK_STR = "<unk>"
 
+  @serializable_init
   def __init__(self, i2w=None, vocab_file=None):
-    """
-    :param i2w: list of words, including <s> and </s>
-    :param vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
-    i2w and vocab_file are mutually exclusive
-    """
     assert i2w is None or vocab_file is None
     if vocab_file:
       i2w = Vocab.i2w_from_vocab_file(vocab_file)
@@ -37,17 +38,18 @@ class Vocab(Serializable):
       self.i2w.append(self.SS_STR)
       self.i2w.append(self.ES_STR)
       self.frozen = False
-    self.overwrite_serialize_param("i2w", self.i2w)
-    self.overwrite_serialize_param("vocab_file", None)
+    self.save_processed_arg("i2w", self.i2w)
+    self.save_processed_arg("vocab_file", None)
 
   @staticmethod
   def i2w_from_vocab_file(vocab_file):
     """
-    :param vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
+    Args:
+      vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
     """
     vocab = [Vocab.SS_STR, Vocab.ES_STR]
     reserved = set([Vocab.SS_STR, Vocab.ES_STR, Vocab.UNK_STR])
-    with io.open(vocab_file, encoding='utf-8') as f:
+    with open(vocab_file, encoding='utf-8') as f:
       for line in f:
         word = line.strip()
         if word in reserved:
@@ -71,9 +73,18 @@ class Vocab(Serializable):
     return len(self.i2w)
 
   def freeze(self):
+    """
+    Mark this vocab as fixed, so no further words can be added. Only after freezing can the unknown word token be set.
+    """
     self.frozen = True
 
   def set_unk(self, w):
+    """
+    Sets the unknown word token. Can only be invoked after calling freeze().
+    
+    Args:
+      w (str): unknown word token
+    """
     assert self.frozen, 'Attempt to call set_unk on a non-frozen dict'
     if w not in self.w2i:
       self.w2i[w] = len(self.i2w)

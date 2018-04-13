@@ -1,16 +1,16 @@
-standard: !Experiment
+# This example demonstrates how to use the Transformer architecture following
+# https://arxiv.org/abs/1706.03762
+transformer: !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     dropout: 0.2
     default_layer_dim: 512
   model: !TransformerTranslator
     src_embedder: !SimpleWordEmbedder
-      init: LeCunUniform
+      param_init: !LeCunUniformInitializer {}
     encoder: !TransformerEncoder
       layers: 1
     trg_embedder: !SimpleWordEmbedder
-      init: LeCunUniform
+      param_init: !LeCunUniformInitializer {}
     decoder: !TransformerDecoder
       layers: 1
     src_reader: !PlainTextReader
