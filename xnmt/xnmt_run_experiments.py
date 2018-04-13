@@ -14,16 +14,16 @@ import faulthandler
 faulthandler.enable()
 
 import numpy as np
-from xnmt.settings import settings, activate as activate_settings
-
-if settings.RESOURCE_WARNINGS:
-  import warnings
-  warnings.simplefilter('always', ResourceWarning)
+from xnmt.settings import settings
 
 from xnmt import logger
 from xnmt.param_collection import ParamManager
 import xnmt.tee as tee
 from xnmt.persistence import YamlPreloader, save_to_file, initialize_if_needed
+
+if settings.RESOURCE_WARNINGS:
+  import warnings
+  warnings.simplefilter('always', ResourceWarning)
 
 def main(overwrite_args=None):
 
@@ -39,15 +39,14 @@ def main(overwrite_args=None):
     argparser.add_argument("--dynet-gpus", type=int)
     argparser.add_argument("--dynet-weight-decay", type=float)
     argparser.add_argument("--dynet-profiling", type=int)
-    argparser.add_argument("--settings", type=str, default="standard")
+    argparser.add_argument("--settings", type=str, default="standard", help="settings (standard, debug, or unittest)"
+                                                                            "must be given in '=' syntax, e.g."
+                                                                            " --settings=standard")
     argparser.add_argument("experiments_file")
     argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
     argparser.set_defaults(generate_doc=False)
     args = argparser.parse_args(overwrite_args)
 
-    activate_settings(args.settings)
-    tee.update_level_console()
-  
     if args.dynet_seed:
       random.seed(args.dynet_seed)
       np.random.seed(args.dynet_seed)

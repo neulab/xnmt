@@ -52,11 +52,6 @@ logger.addHandler(ch_err)
 yaml_logger = logging.getLogger("yaml")
 yaml_logger.setLevel(logging.INFO)
 
-def update_level_console():
-  logger.setLevel(min(logging._checkLevel(settings.LOG_LEVEL_CONSOLE), logging._checkLevel(settings.LOG_LEVEL_FILE)))
-  ch_out.setLevel(settings.LOG_LEVEL_CONSOLE)
-  ch_err.setLevel(settings.LOG_LEVEL_CONSOLE)
-
 def set_out_file(out_file):
   unset_out_file()
   make_parent_dir(out_file)

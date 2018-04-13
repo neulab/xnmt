@@ -1,3 +1,5 @@
+import sys
+import os
 
 class Standard(object):
   OVERWRITE_LOG = False
@@ -24,11 +26,24 @@ class Unittest(Standard):
 
 class SettingsAccessor(object):
   def __getattr__(self, item):
+    if _active is None:
+      _resolve_active_settings()
     return getattr(_active, item)
 
 settings = SettingsAccessor()
 
-_active = Standard
+def _resolve_active_settings():
+  # use command line argument, if not given use environment var, if not given us 'standard'
+  global _active
+  settings_alias = "standard"
+  settings_alias = os.environ.get("XNMT_SETTINGS", default=settings_alias)
+  for arg in sys.argv:
+    if arg.startswith("--settings"):
+      settings_alias = arg.split("=")[1]
+  _active = _aliases[settings_alias]
+
+
+_active = None
 
 _aliases = {
   "settings.standard" : Standard,
@@ -38,7 +53,3 @@ _aliases = {
   "settings.unittest" : Unittest,
   "unittest": Unittest,
 }
-
-def activate(settings_alias):
-  global _active
-  _active = _aliases[settings_alias]
