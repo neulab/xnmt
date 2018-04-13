@@ -1,6 +1,5 @@
 import os
 import sys
-os.environ['XNMT_SETTINGS'] = os.environ.get('XNMT_SETTINGS', default='standard')
 
 # No support for python2
 if sys.version_info[0] == 2:
