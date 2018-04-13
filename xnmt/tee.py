@@ -1,7 +1,7 @@
 import sys, os
 import logging
 
-from simple_settings import settings
+from xnmt.settings import settings
 import yaml
 
 from xnmt.util import make_parent_dir
