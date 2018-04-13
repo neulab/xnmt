@@ -1,0 +1,63 @@
+# Define two experiments with different models (that share the same target
+# vocab), then load them and combine them to an ensemble
+
+ensemble1: !Experiment
+  exp_global: &globals !ExpGlobal
+    model_file: examples/output/{EXP}.mod
+    log_file: examples/output/{EXP}.log
+    default_layer_dim: 32
+  # Just use default model settings here
+  model: !DefaultTranslator
+    src_reader: &src_reader !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: &trg_reader !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+  train: &train !SimpleTrainingRegimen
+    run_for_epochs: 2
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
+
+ensemble2: !Experiment
+  exp_global: *globals
+  model: !DefaultTranslator
+    src_reader: *src_reader
+    trg_reader: *trg_reader
+    # Let's use a different number of layers here, different dimensionalities,
+    # and a different target embedder
+    encoder: !BiLSTMSeqTransducer
+      layers: 3
+      hidden_dim: 64
+    trg_embedder: !DenseWordEmbedder
+      _xnmt_id: dense_embed
+      emb_dim: 64
+    decoder: !MlpSoftmaxDecoder
+      rnn_layer: !UniLSTMSeqTransducer
+        hidden_dim: 64
+      mlp_layer: !MLP
+        hidden_dim: 64
+        output_projector: !Ref {name: dense_embed}
+  train: *train
+
+# Construct the ensemble by loading the previously trained models
+ensemble3-load: !Experiment
+  exp_global: *globals
+  model: !EnsembleTranslator
+    src_reader: !Ref {path: model.models.0.src_reader}
+    trg_reader: !Ref {path: model.models.0.trg_reader}
+    models:
+      - !LoadSerialized
+        filename: 'examples/output/ensemble1.mod'
+        path: model
+      - !LoadSerialized
+        filename: 'examples/output/ensemble2.mod'
+        path: model
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp
