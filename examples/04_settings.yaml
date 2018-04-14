@@ -1,20 +1,13 @@
-# The basic XNMT behavior can be configured using setting files.
-# By default, 3 setting files are included:
-# - settings/standard.py
-# - settings/debug.py
-# - settings/unittest.py
-# These specify things like verbosity, default paths, whether experiments
-# should be skipped if the log file already exists, and whether to activate
-# the DyNet check_validity and immediate_compute options.
+# The basic XNMT behavior can be controlled via predefined configurations.
+# These are defined under xnmt/settings.py, and include "standard", "debug", and "unittest" settings.
+# These specify things like verbosity, default paths, whether experiments should be skipped if the log file already
+# exists, and whether to activate the DyNet check_validity and immediate_compute options.
 # 
 # As the name suggests, e.g. when debugging one might use XNMT as follows:
-# python -m xnmt.xnmt_run_experiments --settings=settings.debug examples/04_settings.yaml
+# python -m xnmt.xnmt_run_experiments --settings=debug examples/04_settings.yaml
 # 
-# It is easy to include custom setting files (when not installed in development
-# mode, setup.py might have to be re-run after changing settings).
-# These can partially overwrite the existing settings when used like this:
-# --settings=settings.debug,settings.my_custom_settings
-settings: !Experiment
+# It is easy to change behavior by either changing these configurations, or adding a new configuration to the module.
+settings-exp: !Experiment
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}

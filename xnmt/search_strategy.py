@@ -86,7 +86,7 @@ class GreedySearch(Serializable, SearchStrategy):
       word_ids.append(word_id)
       attentions.append(current_output.attention)
       logsoftmaxes.append(dy.pick_batch(current_output.logsoftmax, word_id))
-      states.append(dy.nobackprop(current_state.rnn_state.output()))
+      states.append(translator.get_nobp_state(current_state))
       # Check if we are done.
       done = [x == Vocab.ES for x in word_id]
       if all(done):
@@ -172,7 +172,7 @@ class BeamSearch(Serializable, SearchStrategy):
         word_ids.append(current.word)
         attentions.append(current.output.attention)
         logsoftmaxes.append(dy.pick(current.output.logsoftmax, current.word))
-        states.append(dy.nobackprop(current.output.state.rnn_state.output()))
+        states.append(translator.get_nobp_state(current.output.state))
         current = current.parent
       results.append(SearchOutput([list(reversed(word_ids))], [list(reversed(attentions))],
                                   [score], list(reversed(logsoftmaxes)), [states], None))
@@ -236,7 +236,7 @@ class SamplingSearch(Serializable, SearchStrategy):
       # Appending output
       logsofts.append(logsoft)
       samples.append(sample)
-      states.append(dy.nobackprop(translator_output.state.rnn_state.output()))
+      states.append(translator.get_nobp_state(translator_output.state))
       attentions.append(translator_output.attention)
       # Next time step
       current_words = sample

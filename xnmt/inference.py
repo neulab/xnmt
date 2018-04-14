@@ -2,7 +2,7 @@
 
 from collections.abc import Iterable
 
-from simple_settings import settings
+from xnmt.settings import settings
 
 import dynet as dy
 

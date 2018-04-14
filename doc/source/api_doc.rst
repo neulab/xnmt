@@ -90,7 +90,7 @@ RNN
 .. autoclass:: pyramidal.PyramidalLSTMSeqTransducer
    :members:
    :show-inheritance:
-   
+
 .. autoclass:: residual.ResidualLSTMSeqTransducer
    :members:
    :show-inheritance:
@@ -102,7 +102,7 @@ RNN
 .. autoclass:: residual.ResidualBiRNNBuilder
    :members:
    :show-inheritance:
-   
+
 Attender
 ~~~~~~~~
 
@@ -130,7 +130,7 @@ Decoder
 .. autoclass:: decoder.MlpSoftmaxDecoder
    :members:
    :show-inheritance:
-   
+
 .. autoclass:: decoder.MlpSoftmaxDecoderState
    :members:
    :show-inheritance:
@@ -321,14 +321,14 @@ Inference
 SimpleInference
 ~~~~~~~~~~~~~~~
 
-.. autoclass:: inference.SimpleInference 
+.. autoclass:: inference.SimpleInference
    :members:
    :show-inheritance:
 
 SearchStrategy
 ~~~~~~~~~~~~~~
 
-.. autoclass:: search_strategy.SearchStrategy 
+.. autoclass:: search_strategy.SearchStrategy
    :members:
    :show-inheritance:
 
@@ -466,7 +466,7 @@ Data
 Input
 ~~~~~
 
-.. autoclass:: input.Input 
+.. autoclass:: input.Input
    :members:
    :show-inheritance:
 

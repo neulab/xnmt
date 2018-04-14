@@ -19,6 +19,9 @@ class TestRunningConfig(unittest.TestCase):
   def test_encoders(self):
     run.main(["test/config/encoders.yaml"])
 
+  def test_ensembling(self):
+    run.main(["test/config/ensembling.yaml"])
+
   def test_forced(self):
     run.main(["test/config/forced.yaml"])
 
