@@ -4,6 +4,7 @@ import numpy as np
 from xnmt.loss import LossBuilder
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.vocab import Vocab
+from xnmt.constants import INFINITY
 import xnmt.evaluator
 import xnmt.linear as linear
 
@@ -21,8 +22,8 @@ class LossCalculator(Serializable):
     else:
       self.loss_calculator = loss_calculator
 
-  def __call__(self, translator, dec_state, src, trg):
-      return self.loss_calculator(translator, dec_state, src, trg)
+  def __call__(self, translator, initial_state, src, trg):
+    return self.loss_calculator(translator, initial_state, src, trg)
 
 
 class MLELoss(Serializable):
@@ -34,7 +35,8 @@ class MLELoss(Serializable):
   def __init__(self):
     pass
 
-  def __call__(self, translator, dec_state, src, trg):
+  def __call__(self, translator, initial_state, src, trg):
+    dec_state = initial_state
     trg_mask = trg.mask if xnmt.batcher.is_batched(trg) else None
     losses = []
     seq_len = len(trg[0]) if xnmt.batcher.is_batched(src) else len(trg)
@@ -72,7 +74,7 @@ class ReinforceLoss(Serializable):
 
   @serializable_init
   def __init__(self, evaluation_metric=None, sample_length=50, use_baseline=False,
-               decoder_hidden_dim=Ref("exp_global.default_layer_dim")):
+               inv_eval=True, decoder_hidden_dim=Ref("exp_global.default_layer_dim")):
     self.use_baseline = use_baseline
     self.inv_eval = inv_eval
     if evaluation_metric is None:
@@ -83,15 +85,15 @@ class ReinforceLoss(Serializable):
     if self.use_baseline:
       self.baseline = linear.Linear(input_dim=decoder_hidden_dim, output_dim=1)
 
-  def __call__(self, model, dec_state, src, trg):
-    # TODO: apply trg.mask ?
-    logsofts, samples, hts = model.sample_one(dec_state, self.sample_length)
+  def __call__(self, translator, initial_state, src, trg):
+    # TODO(philip30): currently only using the best hypothesis / first sample for reinforce loss
+    # A small further implementation is needed if we want to do reinforce with multiple samples.
+    search_output = translator.search_strategy.generate_output(translator, initial_state)[0]
     # Calculate evaluation scores
-
     self.eval_score = []
-    for trg_i, sample_i in zip(trg, samples):
+    for trg_i, sample_i in zip(trg, search_output.word_ids):
       # Removing EOS
-      sample_i = remove_eos(sample_i)
+      sample_i = remove_eos(sample_i.tolist())
       ref_i = remove_eos(trg_i.words)
       # Evaluating 
       if len(sample_i) == 0:
@@ -106,10 +108,13 @@ class ReinforceLoss(Serializable):
     if self.use_baseline:
       baseline_loss = []
       losses = []
-      for i, (h_t, logsoft) in enumerate(zip(hts, logsofts)):
-        bs_score = self.baseline(dy.nobackprop(h_t))
+      for state, logsoft, mask in zip(search_output.state,
+                                      search_output.logsoftmaxes,
+                                      search_output.mask):
+        bs_score = self.baseline(state)
         baseline_loss.append(dy.squared_distance(self.true_score, bs_score))
-        losses.append(dy.cmult(logsoft, self.true_score - bs_score))
+        loss_i = dy.cmult(logsoft, self.true_score - bs_score)
+        losses.append(dy.cmult(loss_i, dy.inputTensor(mask, batched=True)))
       loss.add_loss("reinforce", dy.sum_elems(dy.esum(losses)))
       loss.add_loss("reinf_baseline", dy.sum_elems(dy.esum(baseline_loss)))
     else:
@@ -120,38 +125,35 @@ class MinRiskLoss(Serializable):
   yaml_tag = '!MinRiskLoss'
 
   @serializable_init
-  def __init__(self, evaluation_metric=None,
-                     sample_length=50,
-                     sample_num=20,
-                     alpha=0.005,
-                     inv_eval=True):
+  def __init__(self, evaluation_metric=None, alpha=0.005, inv_eval=True, unique_sample=True):
     # Samples
-    self.sample_length = sample_length
-    self.sample_num = sample_num
     self.alpha = alpha
     if evaluation_metric is None:
       self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
     self.inv_eval = inv_eval
+    self.unique_sample = unique_sample
 
-  # TODO Implement masking here!
-  def __call__(self, model, dec_state, src, trg):
-    INF = 1e20
+  def __call__(self, translator, initial_state, src, trg):
     batch_size = len(trg)
     uniques = [set() for _ in range(batch_size)]
     deltas = []
     probs = []
-    for i in range(self.sample_num):
-      ref = trg if i == 0 else None
-      logprob, sample, _ = model.sample_one(dec_state, self.sample_length, ref)
+    
+    search_outputs = translator.search_strategy.generate_output(translator, initial_state, forced_trg_ids=trg)
+    for search_output in search_outputs:
+      logprob = search_output.logsoftmaxes
+      sample = search_output.word_ids
+      attentions = search_output.attentions
+
       logprob = dy.esum(logprob) * self.alpha
       # Calculate the evaluation score
       eval_score = [0 for _ in range(batch_size)]
       mask = []
       for j in range(batch_size):
         ref_j = remove_eos(trg[j].words)
-        hyp_j = remove_eos(sample[j])
+        hyp_j = remove_eos(sample[j].tolist())
         hash_val = hash(tuple(hyp_j))
         if len(hyp_j) == 0 or hash_val in uniques[j]:
           mask.append(0)
@@ -163,7 +165,7 @@ class MinRiskLoss(Serializable):
           eval_score[j] = self.evaluation_metric.evaluate_fast(ref_j, hyp_j) * \
                           (-1 if self.inv_eval else 1)
       # Appending the delta and logprob of this sample
-      neg_inf_mask = dy.inputTensor([-INF if mask[i] == 0 else 0 for i in range(len(mask))], batched=True)
+      neg_inf_mask = dy.inputTensor([-INFINITY if mask[i] == 0 else 0 for i in range(len(mask))], batched=True)
       prob = logprob + neg_inf_mask
       deltas.append(dy.inputTensor(eval_score, batched=True))
       probs.append(prob)
