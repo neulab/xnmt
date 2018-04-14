@@ -14,6 +14,7 @@ from xnmt.loss_calculator import LossCalculator
 from xnmt.mlp import MLP
 from xnmt.param_collection import ParamManager
 from xnmt.translator import DefaultTranslator
+from xnmt.search_strategy import BeamSearch, GreedySearch
 
 class TestForcedDecodingOutputs(unittest.TestCase):
 
@@ -47,7 +48,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
 
   def assert_forced_decoding(self, sent_id):
     dy.renew_cg()
-    outputs = self.model.generate_output(self.src_data[sent_id], sent_id,
+    outputs = self.model.generate_output(self.src_data[sent_id], sent_id, BeamSearch(),
                                          forced_trg_ids=self.trg_data[sent_id])
     self.assertItemsEqual(self.trg_data[sent_id], outputs[0].actions)
 
@@ -86,8 +87,8 @@ class TestForcedDecodingLoss(unittest.TestCase):
                                       trg=self.trg_data[0],
                                       loss_calculator=LossCalculator()).value()
     dy.renew_cg()
-    self.model.initialize_generator(beam=1)
-    outputs = self.model.generate_output(self.src_data[0], 0,
+    self.model.initialize_generator()
+    outputs = self.model.generate_output(self.src_data[0], 0, BeamSearch(beam_size=1),
                                          forced_trg_ids=self.trg_data[0])
     self.assertAlmostEqual(-outputs[0].score, train_loss, places=4)
 
@@ -119,7 +120,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
   def test_single(self):
     dy.renew_cg()
     self.model.initialize_generator(beam=1)
-    outputs = self.model.generate_output(self.src_data[0], 0,
+    outputs = self.model.generate_output(self.src_data[0], 0, BeamSearch(),
                                          forced_trg_ids=self.trg_data[0])
     dy.renew_cg()
     train_loss = self.model.calc_loss(src=self.src_data[0],
@@ -156,14 +157,14 @@ class TestGreedyVsBeam(unittest.TestCase):
 
   def test_greedy_vs_beam(self):
     dy.renew_cg()
-    self.model.initialize_generator(beam=1)
-    outputs = self.model.generate_output(self.src_data[0], 0,
+    self.model.initialize_generator()
+    outputs = self.model.generate_output(self.src_data[0], 0, BeamSearch(beam_size=1),
                                          forced_trg_ids=self.trg_data[0])
     output_score1 = outputs[0].score
 
     dy.renew_cg()
     self.model.initialize_generator()
-    outputs = self.model.generate_output(self.src_data[0], 0,
+    outputs = self.model.generate_output(self.src_data[0], 0, GreedySearch(),
                                          forced_trg_ids=self.trg_data[0])
     output_score2 = outputs[0].score
 

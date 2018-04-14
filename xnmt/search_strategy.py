@@ -2,6 +2,7 @@ import dynet as dy
 import numpy as np
 from collections import namedtuple
 
+import xnmt.batcher
 from xnmt.length_normalization import NoNormalization
 from xnmt.persistence import bare, Serializable, serializable_init, Ref, bare
 from xnmt.vocab import Vocab
@@ -69,7 +70,10 @@ class GreedySearch(Serializable, SearchStrategy):
         if len(word_id.shape) == 2:
           word_id = word_id[0]
       else:
-        word_id = [forced_trg_ids[i][length] for i in range(len(forced_trg_ids))]
+        if xnmt.batcher.is_batched(forced_trg_ids):
+          word_id = [forced_trg_ids[i][length] for i in range(len(forced_trg_ids))]
+        else:
+          word_id = [forced_trg_ids[length]]
       logsoft = dy.pick_batch(current_output.logsoftmax, word_id)
       if done is not None:
         word_id = [word_id[i] if not done[i] else Vocab.ES for i in range(len(done))]
@@ -107,7 +111,7 @@ class BeamSearch(Serializable, SearchStrategy):
   Hypothesis = namedtuple('Hypothesis', ['score', 'output', 'parent', 'word'])
   
   @serializable_init
-  def __init__(self, beam_size=3, max_len=100, len_norm=bare(NoNormalization), one_best=True):
+  def __init__(self, beam_size=1, max_len=100, len_norm=bare(NoNormalization), one_best=True):
     self.beam_size = beam_size
     self.max_len = max_len
     self.len_norm = len_norm
@@ -136,7 +140,7 @@ class BeamSearch(Serializable, SearchStrategy):
           completed_hyp.append(hyp)
           continue
         current_output = translator.output_one_step(prev_word, prev_state)
-        score = current_output.logsoftmax.npvalue().transpose()[0]
+        score = current_output.logsoftmax.npvalue().transpose()
         # Next Words
         if forced_trg_ids is None:
           top_words = np.argpartition(score, max(-len(score),-self.beam_size))[-self.beam_size:]

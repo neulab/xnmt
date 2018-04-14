@@ -27,12 +27,13 @@ defaults: &defaults !Experiment
         hidden_dim: 64
       bridge: !CopyBridge {}
     inference: !SimpleInference
-      beam: !RandomParam
-        values: [1,2,3,4,5]
-      len_norm_type: !PolynomialNormalization
-        apply_during_search: true
-        m: !RandomParam
-          values: [0.2,0.5,0.7,1.0,1.3]
+      search_strategy: !BeamSearch
+        beam_size: !RandomParam
+          values: [1,2,3,4,5]
+        len_norm: !PolynomialNormalization
+          apply_during_search: true
+          m: !RandomParam
+            values: [0.2,0.5,0.7,1.0,1.3]
   train: null
   evaluate:
     - !AccuracyEvalTask

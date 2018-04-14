@@ -139,7 +139,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
     return model_loss
 
-  def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
+  def generate(self, src, idx, search_strategy, src_mask=None, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
     else:
@@ -153,12 +153,12 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       self.attender.init_sent(encodings)
       ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
       initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
-      search_outputs = self.search_strategy.generate_output(self, initial_state,
-                                                            src_length=[len(sents)],
-                                                            forced_trg_ids=forced_trg_ids)
+      search_outputs = search_strategy.generate_output(self, initial_state,
+                                                       src_length=[len(sents)],
+                                                       forced_trg_ids=forced_trg_ids)
       best_output = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)[0]
       output_actions = [x for x in best_output.word_ids[0]]
-      attentions = [x[0] for x in best_output.attentions]
+      attentions = [x for x in best_output.attentions[0]]
       score = best_output.score[0]
       # In case of reporting
       if self.report_path is not None:
@@ -168,13 +168,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
           src_words = ['' for w in sents]
         trg_words = [self.trg_vocab[w] for w in output_actions]
         # Attentions
-        attentions = output_actions.attentions
-        if type(attentions) == dy.Expression:
-          attentions = attentions.npvalue()
-        elif type(attentions) == list:
-          attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
-        elif type(attentions) != np.ndarray:
-          raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
+        attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
         # Segmentation
         segment = self.get_report_resource("segmentation")
         if segment is not None:
@@ -217,7 +211,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
   def output_one_step(self, current_word, current_state):
     if current_word is not None:
-      if type(current_word) != int:
+      if type(current_word) == int:
+        current_word = [current_word]
+      if type(current_word) == list or type(current_word) == np.ndarray:
         current_word = xnmt.batcher.mark_as_batch(current_word)
       current_word_embed = self.trg_embedder.embed(current_word)
       next_state = self.decoder.add_input(current_state, current_word_embed)
@@ -426,7 +422,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     loss = self.decoder.output_and_loss(h_block, concat_t_block)
     return LossBuilder({"mle": loss})
 
-  def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
+  def generate(self, src, idx, src_mask=None, forced_trg_ids=None, search_strategy=None):
     self.start_sent(src)
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
@@ -442,6 +438,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     output_actions = []
     score = 0.
 
+    # TODO Fix this with output_one_step and use the appropriate search_strategy
     for _ in range(self.max_len):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       log_prob_tail = self.calc_loss(src, trg, loss_cal=None, infer_prediction=True)
