@@ -230,7 +230,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     else:
       next_state = current_state
     next_state.context = self.attender.calc_context(next_state.rnn_state.output())
-    next_logsoftmax = dy.log_softmax(self.decoder.get_scores(next_state))
+    next_logsoftmax = self.decoder.get_scores_logsoftmax(next_state)
     return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
 
   @register_xnmt_event_assign
