@@ -44,6 +44,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                z_normalization    = True,
                learn_segmentation = True,
                compose_char       = False,
+               sample_during_search = False,
                exp_reward=False,
                exp_logsoftmax=False,
                print_sample=False):
@@ -89,6 +90,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.confidence_penalty = confidence_penalty
     # States of the object
     self.train = False
+    self.sample_during_search = sample_during_search
 
     if learn_delete:
       raise NotImplementedError("Learn delete is not supported yet.")
@@ -232,7 +234,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   # Sample from the softmax
   def sample_from_softmax(self, encodings, batch_size, segment_logsoftmaxes):
     # Sample from the softmax
-    if self.train and self.learn_segmentation:
+    if self.train and self.learn_segmentation or self.sample_during_search:
       #print("sample_from_softmax")
       segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
                            for log_softmax in segment_logsoftmaxes]
