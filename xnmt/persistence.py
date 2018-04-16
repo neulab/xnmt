@@ -772,7 +772,7 @@ class YamlPreloader(object):
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
 
     experiment = config[exp_name]
-    return YamlPreloader.preload_obj(experiment, exp_name=exp_name, exp_dir=os.path.dirname(filename))
+    return YamlPreloader.preload_obj(experiment, exp_name=exp_name, exp_dir=os.path.dirname(filename) or ".")
 
   @staticmethod
   def preload_obj(root:YamlSerializable, exp_name:str, exp_dir:str) -> UninitializedYamlObject:
