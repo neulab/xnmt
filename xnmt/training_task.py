@@ -189,7 +189,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     return self.early_stopping_reached \
       or self.run_for_epochs is not None and (self.training_state.epoch_num > self.run_for_epochs \
                                               or (self.training_state.epoch_num == self.run_for_epochs and
-                                                  self.training_state.steps_into_epoch >= self.cur_num_minibatches() - 1))
+                                                  self.training_state.steps_into_epoch >= self.cur_num_minibatches()))
 
   def cur_num_minibatches(self):
     """
@@ -244,9 +244,9 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       for batch_num in self.minibatch_order:
         src = self.src_batches[batch_num]
         trg = self.trg_batches[batch_num]
-        yield src, trg
         self.training_state.steps_into_epoch += 1
         self.training_state.sents_into_epoch += len(src)
+        yield src, trg
 
   def training_step(self, src, trg):
     """
@@ -261,7 +261,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     loss_value = loss_builder.compute()
     self.train_loss_tracker.update_epoch_loss(src, trg, loss_builder.get_loss_stats())
     self.train_loss_tracker.report_train_process()
-    self.dev_loss_tracker.update_epoch_loss(src)
 
     return loss_value
 
