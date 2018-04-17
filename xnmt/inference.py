@@ -7,7 +7,7 @@ from xnmt.settings import settings
 import dynet as dy
 
 from xnmt import logger
-from xnmt.loss_calculator import LossCalculator
+from xnmt.loss_calculator import MLELoss
 import xnmt.output
 from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
@@ -119,7 +119,7 @@ class SimpleInference(Serializable):
       ref_scores = []
       for src, ref in zip(batched_src, batched_ref):
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-        loss_expr = generator.calc_loss(src, ref, loss_calculator=LossCalculator())
+        loss_expr = generator.calc_loss(src, ref, loss_calculator=MLELoss())
         if isinstance(loss_expr.value(), Iterable):
           ref_scores.extend(loss_expr.value())
         else:

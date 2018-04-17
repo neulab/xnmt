@@ -122,7 +122,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.reload_command = reload_command
 
     self.model = model
-    assert loss_calculator is not None
     self.loss_calculator = loss_calculator
 
     self.sample_train_sents = sample_train_sents
