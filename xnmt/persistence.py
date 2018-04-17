@@ -482,6 +482,9 @@ def name_children_dict(node, include_reserved):
 def name_children_list(node, include_reserved):
   return [(str(n), l) for n, l in enumerate(node)]
 
+@name_children.register(tuple)
+def name_children_list(node, include_reserved):
+  raise ValueError(f"Tuples are not serializable, use a list instead. Found this tuple: {node}.")
 
 @singledispatch
 def get_child(node, name):
