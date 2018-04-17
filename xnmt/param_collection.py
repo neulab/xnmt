@@ -42,7 +42,7 @@ class ParamManager(object):
     requested component identifiers.
 
     Args:
-      data_file: a data directory (usually named *.data) containing DyNet parameter collections.
+      data_file: a data directory (usually named ``*.data``) containing DyNet parameter collections.
     """
     assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
     ParamManager.load_paths.append(data_file)
