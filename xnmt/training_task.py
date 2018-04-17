@@ -246,6 +246,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         trg = self.trg_batches[batch_num]
         self.training_state.steps_into_epoch += 1
         self.training_state.sents_into_epoch += len(src)
+        self.training_state.sents_since_start += len(src)
         yield src, trg
 
   def training_step(self, src, trg):
@@ -259,8 +260,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     loss_builder.add_loss("additional_loss", additional_loss)
 
     loss_value = loss_builder.compute()
-    self.train_loss_tracker.update_epoch_loss(src, trg, loss_builder.get_loss_stats())
-    self.train_loss_tracker.report_train_process()
+    self.train_loss_tracker.update_epoch_loss(trg, loss_builder.get_loss_stats())
+    self.train_loss_tracker.report_if_needed()
 
     return loss_value
 
@@ -336,7 +337,7 @@ class TrainingState(object):
     self.cur_attempt = 0
     self.epoch_num = 0
     self.steps_into_epoch = 0
-    self.total_sents = 0
+    self.sents_since_start = 0
     self.sents_into_epoch = 0
-    # used to pack and shuffle minibatches; storing helps resuming crashed trainings
+    # used to pack and shuffle minibatches (keeping track might help resuming crashed trainings in the future)
     self.epoch_seed = random.randint(1,2147483647)

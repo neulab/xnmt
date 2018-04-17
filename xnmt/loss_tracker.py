@@ -32,14 +32,13 @@ class TrainLossTracker(object):
     Clear epoch-wise counters for starting a new training epoch.
     """
     if training_task is self.training_task:
-      self.total_train_sent = num_sents
       self.epoch_loss.zero()
       self.epoch_words = 0
-      self.last_report_sents_into_epoch = 0
+      self.last_report_sents_since_start = 0
       self.last_report_words = 0
       self.last_report_train_time = time.time()
 
-  def update_epoch_loss(self, src, trg, loss):
+  def update_epoch_loss(self, trg, loss):
     """
     Update epoch-wise counters for each iteration.
     """
@@ -51,19 +50,17 @@ class TrainLossTracker(object):
     logger.info(template.format(**args), extra=args)
     yaml_logger.info(args)
 
-  def report_train_process(self):
+  def report_if_needed(self):
     """
     Print training report if EVAL_TRAIN_EVERY sents have been evaluated.
-
-    Return:
-      True if the training process is reported
     """
-    sent_num_not_report = self.training_task.training_state.sents_into_epoch - self.last_report_sents_into_epoch
-    print_report = sent_num_not_report >= TrainLossTracker.EVAL_TRAIN_EVERY \
-                   or self.training_task.training_state.sents_into_epoch == self.total_train_sent
+    sent_num_not_report = self.training_task.training_state.sents_since_start - self.last_report_sents_since_start
+    should_report = sent_num_not_report >= TrainLossTracker.EVAL_TRAIN_EVERY \
+                    or self.training_task.training_state.sents_into_epoch == self.training_task.cur_num_sentences()
 
-    if print_report:
-      fractional_epoch = (self.training_task.training_state.epoch_num - 1) + self.training_task.training_state.sents_into_epoch / self.total_train_sent
+    if should_report:
+      fractional_epoch = (self.training_task.training_state.epoch_num - 1) \
+                         + self.training_task.training_state.sents_into_epoch / self.training_task.cur_num_sentences()
       this_report_time = time.time()
       self.log_readable_and_structured(TrainLossTracker.REPORT_TEMPLATE,
                                        {"key": "train_loss", "data" : "train",
@@ -83,9 +80,7 @@ class TrainLossTracker(object):
       self.last_report_words = self.epoch_words
       self.last_report_train_time = this_report_time
 
-      self.last_report_sents_into_epoch = self.training_task.training_state.sents_into_epoch
-
-      return print_report
+      self.last_report_sents_since_start = self.training_task.training_state.sents_since_start
 
   def count_trg_words(self, trg_words):
     trg_cnt = 0
@@ -101,12 +96,11 @@ class DevLossTracker(object):
   REPORT_TEMPLATE_DEV       = 'Epoch {epoch:.4f} dev {score} (words={words}, words/sec={words_per_sec:.2f}, time={time})'
   REPORT_TEMPLATE_DEV_AUX   = 'Epoch {epoch:.4f} dev auxiliary {score}'
 
-  @register_xnmt_handler
   def __init__(self, training_task, eval_every, name=None):
     self.training_task = training_task
     self.eval_dev_every = eval_every
 
-    self.last_report_sents_into_epoch = 0
+    self.last_report_sents_since_start = 0
     self.fractional_epoch = 0
 
     self.dev_score = None
@@ -116,14 +110,6 @@ class DevLossTracker(object):
     self.start_time = time.time()
     self.dev_start_time = self.start_time
     self.name = name
-
-  @handle_xnmt_event
-  def on_new_epoch(self, training_task, num_sents):
-    """
-    Clear epoch-wise counters for starting a new training epoch.
-    """
-    if training_task is self.training_task:
-      self.total_train_sent = num_sents
 
   def log_readable_and_structured(self, template, args):
     if self.name: args["task_name"] = self.name
@@ -144,11 +130,11 @@ class DevLossTracker(object):
     self.dev_words = dev_words
 
   def should_report_dev(self):
-    sent_num_not_report = self.training_task.training_state.sents_into_epoch - self.last_report_sents_into_epoch
+    sent_num_not_report = self.training_task.training_state.sents_since_start - self.last_report_sents_since_start
     if self.eval_dev_every > 0:
       return sent_num_not_report >= self.eval_dev_every
     else:
-      return sent_num_not_report >= self.total_train_sent
+      return sent_num_not_report >= self.training_task.cur_num_sentences()
 
   def report_dev_and_check_model(self):
     """
@@ -158,9 +144,9 @@ class DevLossTracker(object):
       True if the dev loss is the best and required save operations
     """
     this_report_time = time.time()
-    sent_num = self.eval_dev_every if self.eval_dev_every != 0 else self.total_train_sent
-    self.last_report_sents_into_epoch = self.training_task.training_state.sents_into_epoch
-    self.fractional_epoch = (self.training_task.training_state.epoch_num - 1) + self.training_task.training_state.sents_into_epoch / self.total_train_sent
+    self.last_report_sents_since_start = self.training_task.training_state.sents_since_start
+    self.fractional_epoch = (self.training_task.training_state.epoch_num - 1) \
+                            + self.training_task.training_state.sents_into_epoch / self.training_task.cur_num_sentences()
     self.log_readable_and_structured(DevLossTracker.REPORT_TEMPLATE_DEV,
                                      {"key" : "dev_loss",
                                       "epoch" : self.fractional_epoch,
