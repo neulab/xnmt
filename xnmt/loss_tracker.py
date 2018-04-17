@@ -15,13 +15,10 @@ class TrainLossTracker(object):
   def __init__(self, training_task, name=None):
     self.training_task = training_task
 
-    self.epoch_num = 0
-
     self.epoch_loss = xnmt.loss.LossScalarBuilder()
     self.epoch_words = 0
     self.sent_num = 0
     self.sent_num_not_report_train = 0
-    self.fractional_epoch = 0
 
     self.last_report_words = 0
 
@@ -38,7 +35,6 @@ class TrainLossTracker(object):
       self.total_train_sent = num_sents
       self.epoch_loss.zero()
       self.epoch_words = 0
-      self.epoch_num += 1
       self.sent_num = 0
       self.sent_num_not_report_train = 0
       self.last_report_words = 0
@@ -71,11 +67,11 @@ class TrainLossTracker(object):
 
     if print_report:
       self.sent_num_not_report_train = self.sent_num_not_report_train % TrainLossTracker.EVAL_TRAIN_EVERY
-      self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
+      fractional_epoch = (self.training_task.training_state.epoch_num - 1) + self.sent_num / self.total_train_sent
       this_report_time = time.time()
       self.log_readable_and_structured(TrainLossTracker.REPORT_TEMPLATE,
                                        {"key": "train_loss", "data" : "train",
-                                        "epoch" : self.fractional_epoch,
+                                        "epoch" : fractional_epoch,
                                         "loss" : self.epoch_loss.sum() / self.epoch_words,
                                         "words" : self.epoch_words,
                                         "words_per_sec" : (self.epoch_words - self.last_report_words) / (this_report_time - self.last_report_train_time),
@@ -112,7 +108,6 @@ class DevLossTracker(object):
     self.training_task = training_task
     self.eval_dev_every = eval_every
 
-    self.epoch_num = 0
     self.sent_num = 0
     self.sent_num_not_report_dev = 0
     self.fractional_epoch = 0
@@ -132,7 +127,6 @@ class DevLossTracker(object):
     """
     if training_task is self.training_task:
       self.total_train_sent = num_sents
-      self.epoch_num += 1
       self.sent_num = 0
 
   def update_epoch_loss(self, src):
@@ -176,7 +170,7 @@ class DevLossTracker(object):
     this_report_time = time.time()
     sent_num = self.eval_dev_every if self.eval_dev_every != 0 else self.total_train_sent
     self.sent_num_not_report_dev = self.sent_num_not_report_dev % sent_num
-    self.fractional_epoch = (self.epoch_num - 1) + self.sent_num / self.total_train_sent
+    self.fractional_epoch = (self.training_task.training_state.epoch_num - 1) + self.sent_num / self.total_train_sent
     self.log_readable_and_structured(DevLossTracker.REPORT_TEMPLATE_DEV,
                                      {"key" : "dev_loss",
                                       "epoch" : self.fractional_epoch,
