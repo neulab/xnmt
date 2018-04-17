@@ -346,7 +346,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
     max_trg_len (int): skip pair if trg side is too long
 
   Returns:
-    A tuple of (src_data, trg_data, src_batches, trg_batches) where *_batches = *_data if batcher=None
+    A tuple of (src_data, trg_data, src_batches, trg_batches) where ``*_batches = *_data`` if ``batcher=None``
   '''
   src_data = []
   trg_data = []
