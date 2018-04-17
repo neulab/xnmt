@@ -2,6 +2,7 @@ import dynet as dy
 import numpy as np
 import collections
 import itertools
+import os
 
 # Reporting purposes
 from lxml import etree
@@ -265,6 +266,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       att_text.text = "Attention:"
       etree.SubElement(attention, 'br')
       attention_file = f"{path_to_report}.attention.png"
+      att_img = etree.SubElement(attention, 'img')
+      att_img_src = f"{path_to_report}.attention.png"
+      att_img.attrib['src'] = os.path.basename(att_img_src)
+      att_img.attrib['alt'] = 'attention matrix'
       xnmt.plot.plot_attention(src, trg, att, file_name = attention_file)
 
     # return the parent context to be used as child context
