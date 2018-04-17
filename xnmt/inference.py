@@ -28,6 +28,7 @@ class SimpleInference(Serializable):
     post_process (str): post-processing of translation outputs: ``none/join-char/join-bpe/join-piece``
     report_path (str): a path to which decoding reports will be written
     report_type (str): report to generate ``file/html``. Can be multiple, separate with comma.
+    search_strategy (SearchStrategy): a search strategy used during decoding.
     mode (str): type of decoding to perform. ``onebest``: generate one best. ``forced``: perform forced decoding. ``forceddebug``: perform forced decoding, calculate training loss, and make suer the scores are identical for debugging purposes.
     batcher (Batcher):
   """

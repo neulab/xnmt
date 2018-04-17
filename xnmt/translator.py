@@ -25,6 +25,7 @@ from xnmt.persistence import serializable_init, Serializable, bare, initialize_o
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from collections import namedtuple
 from xnmt.vocab import Vocab
+from xnmt.constants import EPSILON
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
@@ -202,10 +203,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     return dy.sum_elems(dy.square(1 - dy.esum(a)))
 
   def attention_entropy(self, a):
-    EPS = 1e-10
     entropy = []
     for a_i in a:
-      a_i += EPS
+      a_i += EPSILON
       entropy.append(dy.cmult(a_i, dy.log(a_i)))
 
     return -dy.sum_elems(dy.esum(entropy))

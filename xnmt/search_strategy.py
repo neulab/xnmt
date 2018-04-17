@@ -15,6 +15,7 @@ from xnmt.vocab import Vocab
 # logsoftmaxes: a corresponding softmax vector of the score. score = logsoftmax[word_id]
 # state: a NON-BACKPROPAGATEABLE state that is used to produce the logsoftmax layer
 #        state is usually used to generate 'baseline' in reinforce loss
+# masks: whether the particular word id should be ignored or not (1 for not, 0 for yes)
 SearchOutput = namedtuple('SearchOutput', ['word_ids', 'attentions', 'score', 'logsoftmaxes', 'state', 'mask'])
 
 class SearchStrategy(object):
@@ -115,11 +116,9 @@ class BeamSearch(Serializable, SearchStrategy):
     self.beam_size = beam_size
     self.max_len = max_len
     self.len_norm = len_norm
-    self.entrs = []
     self.one_best = one_best
 
-  def generate_output(self, translator, initial_state,
-                      src_length=None, forced_trg_ids=None):
+  def generate_output(self, translator, initial_state, src_length=None, forced_trg_ids=None):
     # TODO(philip30): can only do single decoding, not batched
     assert forced_trg_ids is None or self.beam_size == 1
     active_hyp = [self.Hypothesis(0, None, None, None)]
@@ -171,11 +170,16 @@ class BeamSearch(Serializable, SearchStrategy):
       while current.parent != None:
         word_ids.append(current.word)
         attentions.append(current.output.attention)
-        logsoftmaxes.append(dy.pick(current.output.logsoftmax, current.word))
-        states.append(translator.get_nobp_state(current.output.state))
+        # TODO(philip30): This should probably be uncommented.
+        # These 2 statements are an overhead because it is need only for reinforce and minrisk
+        # Furthermore, the attentions is only needed for report.
+        # We should have a global flag to indicate whether this is needed or not?
+        # The global flag is modified if certain objects is instantiated.
+        #logsoftmaxes.append(dy.pick(current.output.logsoftmax, current.word))
+        #states.append(translator.get_nobp_state(current.output.state))
         current = current.parent
       results.append(SearchOutput([list(reversed(word_ids))], [list(reversed(attentions))],
-                                  [score], list(reversed(logsoftmaxes)), [states], None))
+                                  [score], list(reversed(logsoftmaxes)), list(reversed(states)), None))
     return results
 
 class SamplingSearch(Serializable, SearchStrategy):
@@ -251,4 +255,5 @@ class SamplingSearch(Serializable, SearchStrategy):
     masks.insert(0, [1 for _ in range(len(done))])
     samples = np.stack(samples, axis=1)
     return SearchOutput(samples, attentions, scores, logsofts, states, masks)
+    self.entrs = []
 
