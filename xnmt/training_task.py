@@ -9,7 +9,7 @@ from xnmt.events import register_xnmt_event
 import xnmt.input_reader
 from xnmt.loss import LossBuilder
 from xnmt.loss_calculator import LossCalculator, MLELoss
-from xnmt.loss_tracker import BatchLossTracker
+from xnmt.loss_tracker import TrainLossTracker, DevLossTracker
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare
 
@@ -130,7 +130,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.max_trg_len = max_trg_len
 
     self.batcher = batcher
-    self.logger = BatchLossTracker(self, dev_every, name)
+    self.train_loss_tracker = TrainLossTracker(self, name)
+    self.dev_loss_tracker = DevLossTracker(self, dev_every, name)
 
   def _augment_data_initial(self):
     """
@@ -256,13 +257,14 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     loss_builder.add_loss("additional_loss", additional_loss)
 
     loss_value = loss_builder.compute()
-    self.logger.update_epoch_loss(src, trg, loss_builder.get_loss_stats())
-    self.logger.report_train_process()
+    self.train_loss_tracker.update_epoch_loss(src, trg, loss_builder.get_loss_stats())
+    self.train_loss_tracker.report_train_process()
+    self.dev_loss_tracker.update_epoch_loss(src)
 
     return loss_value
 
   def checkpoint_needed(self):
-    return self.logger.should_report_dev()
+    return self.dev_loss_tracker.should_report_dev()
 
   def checkpoint(self, control_learning_schedule=True):
     """
@@ -275,7 +277,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       True if the model needs saving, False otherwise
     """
     ret = False
-    self.logger.new_dev()
+    self.dev_loss_tracker.new_dev()
 
     # Perform evaluation
     if self.dev_tasks and len(self.dev_tasks) > 0:
@@ -287,15 +289,14 @@ class SimpleTrainingTask(TrainingTask, Serializable):
           dev_scores.extend(dev_score)
         else:
           dev_scores.append(dev_score)
-      # TODO: This is passing "1" for the number of words, as this is not implemented yet
-      self.logger.set_dev_score(dev_word_cnt, dev_scores[0])
+      self.dev_loss_tracker.set_dev_score(dev_word_cnt, dev_scores[0])
       for dev_score in dev_scores[1:]:
-        self.logger.report_auxiliary_score(dev_score)
+        self.dev_loss_tracker.report_auxiliary_score(dev_score)
 
     # Control the learning schedule
     if control_learning_schedule:
       # Write out the model if it's the best one
-      if self.logger.report_dev_and_check_model():
+      if self.dev_loss_tracker.report_dev_and_check_model():
         ret = True
         self.training_state.cur_attempt = 0
       else:
