@@ -227,6 +227,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       self.batcher.pack(self.src_data, self.trg_data)
     self.training_state.epoch_num += 1
     self.training_state.steps_into_epoch = 0
+    self.training_state.sents_into_epoch = 0
     self.minibatch_order = list(range(0, self.cur_num_minibatches()))
     np.random.shuffle(self.minibatch_order)
     self.new_epoch(training_task=self, num_sents=self.cur_num_sentences())
@@ -245,6 +246,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         trg = self.trg_batches[batch_num]
         yield src, trg
         self.training_state.steps_into_epoch += 1
+        self.training_state.sents_into_epoch += len(src)
 
   def training_step(self, src, trg):
     """
@@ -335,5 +337,7 @@ class TrainingState(object):
     self.cur_attempt = 0
     self.epoch_num = 0
     self.steps_into_epoch = 0
+    self.total_sents = 0
+    self.sents_into_epoch = 0
     # used to pack and shuffle minibatches; storing helps resuming crashed trainings
     self.epoch_seed = random.randint(1,2147483647)
