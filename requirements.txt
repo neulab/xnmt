@@ -4,5 +4,4 @@ lxml
 dynet    
 matplotlib    
 cython   
-librosa==0.6.0
-h5py==2.7.1
+h5py

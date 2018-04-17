@@ -9,28 +9,26 @@ import xnmt.evaluator
 import xnmt.linear as linear
 
 
-class LossCalculator(Serializable):
+class LossCalculator(object):
   '''
   A template class implementing the training strategy and corresponding loss calculation.
   '''
-  yaml_tag = '!LossCalculator'
-
-  @serializable_init
-  def __init__(self, loss_calculator = None):
-    if loss_calculator is None:
-      self.loss_calculator = MLELoss()
-    else:
-      self.loss_calculator = loss_calculator
-
   def __call__(self, translator, initial_state, src, trg):
-    return self.loss_calculator(translator, initial_state, src, trg)
+    raise NotImplementedError()
 
+  def remove_eos(self, sequence, eos_sym=Vocab.ES):
+    try:
+      idx = sequence.index(Vocab.ES)
+      sequence = sequence[:idx]
+    except ValueError:
+      # NO EOS
+      pass
+    return sequence
 
-class MLELoss(Serializable):
+class MLELoss(Serializable, LossCalculator):
   yaml_tag = '!MLELoss'
   
   # TODO: document me
-
   @serializable_init
   def __init__(self):
     pass
@@ -58,20 +56,10 @@ class MLELoss(Serializable):
 
     return dy.esum(losses)
 
-def remove_eos(sequence, eos_sym=Vocab.ES):
-  try:
-    idx = sequence.index(Vocab.ES)
-    sequence = sequence[:idx]
-  except ValueError:
-    # NO EOS
-    pass
-  return sequence
-
-class ReinforceLoss(Serializable):
+class ReinforceLoss(Serializable, LossCalculator):
   yaml_tag = '!ReinforceLoss'
 
   # TODO: document me
-
   @serializable_init
   def __init__(self, evaluation_metric=None, sample_length=50, use_baseline=False,
                inv_eval=True, decoder_hidden_dim=Ref("exp_global.default_layer_dim")):
@@ -93,8 +81,8 @@ class ReinforceLoss(Serializable):
     self.eval_score = []
     for trg_i, sample_i in zip(trg, search_output.word_ids):
       # Removing EOS
-      sample_i = remove_eos(sample_i.tolist())
-      ref_i = remove_eos(trg_i.words)
+      sample_i = self.remove_eos(sample_i.tolist())
+      ref_i = self.remove_eos(trg_i.words)
       # Evaluating 
       if len(sample_i) == 0:
         score = 0
@@ -121,7 +109,7 @@ class ReinforceLoss(Serializable):
       loss.add_loss("reinforce", dy.sum_elems(dy.cmult(self.true_score, dy.esum(logsofts))))
     return loss
 
-class MinRiskLoss(Serializable):
+class MinRiskLoss(Serializable, LossCalculator):
   yaml_tag = '!MinRiskLoss'
 
   @serializable_init
@@ -149,24 +137,24 @@ class MinRiskLoss(Serializable):
 
       logprob = dy.esum(logprob) * self.alpha
       # Calculate the evaluation score
-      eval_score = [0 for _ in range(batch_size)]
-      mask = []
+      eval_score = np.zeros(batch_size, dtype=float)
+      mask = np.zeros(batch_size, dtype=float)
       for j in range(batch_size):
-        ref_j = remove_eos(trg[j].words)
-        hyp_j = remove_eos(sample[j].tolist())
-        hash_val = hash(tuple(hyp_j))
-        if len(hyp_j) == 0 or hash_val in uniques[j]:
-          mask.append(0)
-        else:
-          # Count this sample in
-          mask.append(1)
-          uniques[j].add(hash_val)
+        ref_j = self.remove_eos(trg[j].words)
+        hyp_j = self.remove_eos(sample[j].tolist())
+        if self.unique_sample:
+          hash_val = hash(tuple(hyp_j))
+          if len(hyp_j) == 0 or hash_val in uniques[j]:
+            mask[j] = -INFINITY
+            continue
+          else:
+            # Count this sample in
+            uniques[j].add(hash_val)
           # Calc evaluation score
-          eval_score[j] = self.evaluation_metric.evaluate_fast(ref_j, hyp_j) * \
-                          (-1 if self.inv_eval else 1)
+        eval_score[j] = self.evaluation_metric.evaluate_fast(ref_j, hyp_j) * \
+                        (-1 if self.inv_eval else 1)
       # Appending the delta and logprob of this sample
-      neg_inf_mask = dy.inputTensor([-INFINITY if mask[i] == 0 else 0 for i in range(len(mask))], batched=True)
-      prob = logprob + neg_inf_mask
+      prob = logprob + dy.inputTensor(mask, batched=True)
       deltas.append(dy.inputTensor(eval_score, batched=True))
       probs.append(prob)
     sample_prob = dy.softmax(dy.concatenate(probs))

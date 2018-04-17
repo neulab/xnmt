@@ -48,7 +48,7 @@ class Experiment(Serializable):
     """
     Launch training loop, followed by final evaluation.
     """
-    eval_scores = "Not evaluated"
+    eval_scores = ["Not evaluated"]
     if self.train:
       logger.info("> Training")
       self.train.run_training(save_fct = save_fct)

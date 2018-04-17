@@ -2,6 +2,7 @@ import dynet as dy
 import numpy as np
 import collections
 import itertools
+import os
 
 # Reporting purposes
 from lxml import etree
@@ -25,6 +26,7 @@ from xnmt.persistence import serializable_init, Serializable, bare, initialize_o
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from collections import namedtuple
 from xnmt.vocab import Vocab
+from xnmt.constants import EPSILON
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
@@ -202,10 +204,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     return dy.sum_elems(dy.square(1 - dy.esum(a)))
 
   def attention_entropy(self, a):
-    EPS = 1e-10
     entropy = []
     for a_i in a:
-      a_i += EPS
+      a_i += EPSILON
       entropy.append(dy.cmult(a_i, dy.log(a_i)))
 
     return -dy.sum_elems(dy.esum(entropy))
@@ -265,6 +266,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       att_text.text = "Attention:"
       etree.SubElement(attention, 'br')
       attention_file = f"{path_to_report}.attention.png"
+      att_img = etree.SubElement(attention, 'img')
+      att_img_src = f"{path_to_report}.attention.png"
+      att_img.attrib['src'] = os.path.basename(att_img_src)
+      att_img.attrib['alt'] = 'attention matrix'
       xnmt.plot.plot_attention(src, trg, att, file_name = attention_file)
 
     # return the parent context to be used as child context

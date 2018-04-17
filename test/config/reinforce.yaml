@@ -1,4 +1,3 @@
-# A standard training run, should almost never break
 reinforce: !Experiment
   exp_global: !ExpGlobal
     model_file: examples/output/{EXP}.mod

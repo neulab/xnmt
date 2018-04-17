@@ -8,7 +8,7 @@ from xnmt.batcher import SrcBatcher
 from xnmt.events import register_xnmt_event
 import xnmt.input_reader
 from xnmt.loss import LossBuilder
-from xnmt.loss_calculator import LossCalculator, MLELoss
+from xnmt.loss_calculator import MLELoss
 from xnmt.loss_tracker import BatchLossTracker
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare
@@ -97,7 +97,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
   @serializable_init
   def __init__(self, model, src_file=None, trg_file=None, dev_every=0,
-               batcher=bare(SrcBatcher, batch_size=32), loss_calculator=None,
+               batcher=bare(SrcBatcher, batch_size=32), loss_calculator=bare(MLELoss),
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
                initial_patience=None, dev_tasks=None, restart_trainer=False,
                reload_command=None, name=None, sample_train_sents: Optional[int] = None,
@@ -122,7 +122,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.reload_command = reload_command
 
     self.model = model
-    self.loss_calculator = loss_calculator or LossCalculator(MLELoss())
+    self.loss_calculator = loss_calculator
 
     self.sample_train_sents = sample_train_sents
     self.max_num_train_sents = max_num_train_sents

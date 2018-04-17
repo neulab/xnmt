@@ -10,7 +10,7 @@ from xnmt.embedder import SimpleWordEmbedder
 import xnmt.events
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculator import LossCalculator
+from xnmt.loss_calculator import MLELoss
 from xnmt.mlp import MLP
 from xnmt.param_collection import ParamManager
 from xnmt.translator import DefaultTranslator
@@ -85,7 +85,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
     dy.renew_cg()
     train_loss = self.model.calc_loss(src=self.src_data[0],
                                       trg=self.trg_data[0],
-                                      loss_calculator=LossCalculator()).value()
+                                      loss_calculator=MLELoss()).value()
     dy.renew_cg()
     self.model.initialize_generator()
     outputs = self.model.generate_output(self.src_data[0], 0, BeamSearch(beam_size=1),
@@ -125,7 +125,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
     dy.renew_cg()
     train_loss = self.model.calc_loss(src=self.src_data[0],
                                       trg=outputs[0].actions,
-                                      loss_calculator=LossCalculator()).value()
+                                      loss_calculator=MLELoss()).value()
 
     self.assertAlmostEqual(-outputs[0].score, train_loss, places=4)
 
