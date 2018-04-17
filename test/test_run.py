@@ -85,12 +85,16 @@ class TestRunningConfig(unittest.TestCase):
     run.main(["test/config/transformer.yaml"])
 
   @unittest.skipUnless(has_cython(), "requires cython to run")
-  def test_translator_loss(self):
-    run.main(["test/config/translator_loss.yaml"])
+  def test_search_strategy(self):
+    run.main(["test/config/reinforce.yaml"])
+    run.main(["test/config/minrisk.yaml"])
 
   def tearDown(self):
-    if os.path.isdir("test/tmp"):
-      shutil.rmtree("test/tmp")
+    try:
+      if os.path.isdir("test/tmp"):
+        shutil.rmtree("test/tmp")
+    except:
+      pass
 
 if __name__ == "__main__":
   unittest.main()

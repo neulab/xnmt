@@ -85,3 +85,4 @@ class MLP(Serializable):
       raise ValueError("Could not determine MLP's output size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
     else:
       return len(trg_reader.vocab)
+
