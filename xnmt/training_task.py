@@ -8,8 +8,8 @@ from xnmt.batcher import SrcBatcher
 from xnmt.events import register_xnmt_event
 import xnmt.input_reader
 from xnmt.loss import LossBuilder
+from xnmt.loss_tracker import DevLossTracker
 from xnmt.loss_calculator import MLELoss
-from xnmt.loss_tracker import BatchLossTracker
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare
 
@@ -130,7 +130,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.max_trg_len = max_trg_len
 
     self.batcher = batcher
-    self.logger = BatchLossTracker(self, dev_every, name)
+    self.dev_loss_tracker = DevLossTracker(self, dev_every, name)
+    self.name = name
 
   def _augment_data_initial(self):
     """
@@ -188,7 +189,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     return self.early_stopping_reached \
       or self.run_for_epochs is not None and (self.training_state.epoch_num > self.run_for_epochs \
                                               or (self.training_state.epoch_num == self.run_for_epochs and
-                                                  self.training_state.steps_into_epoch >= self.cur_num_minibatches() - 1))
+                                                  self.training_state.steps_into_epoch >= self.cur_num_minibatches()))
 
   def cur_num_minibatches(self):
     """
@@ -226,6 +227,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       self.batcher.pack(self.src_data, self.trg_data)
     self.training_state.epoch_num += 1
     self.training_state.steps_into_epoch = 0
+    self.training_state.sents_into_epoch = 0
     self.minibatch_order = list(range(0, self.cur_num_minibatches()))
     np.random.shuffle(self.minibatch_order)
     self.new_epoch(training_task=self, num_sents=self.cur_num_sentences())
@@ -242,8 +244,10 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       for batch_num in self.minibatch_order:
         src = self.src_batches[batch_num]
         trg = self.trg_batches[batch_num]
-        yield src, trg
         self.training_state.steps_into_epoch += 1
+        self.training_state.sents_into_epoch += len(src)
+        self.training_state.sents_since_start += len(src)
+        yield src, trg
 
   def training_step(self, src, trg):
     """
@@ -254,15 +258,10 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     additional_loss = self.model.calc_additional_loss(standard_loss)
     loss_builder.add_loss("standard_loss", standard_loss)
     loss_builder.add_loss("additional_loss", additional_loss)
-
-    loss_value = loss_builder.compute()
-    self.logger.update_epoch_loss(src, trg, loss_builder.get_loss_stats())
-    self.logger.report_train_process()
-
-    return loss_value
+    return loss_builder
 
   def checkpoint_needed(self):
-    return self.logger.should_report_dev()
+    return self.dev_loss_tracker.should_report_dev()
 
   def checkpoint(self, control_learning_schedule=True):
     """
@@ -274,56 +273,61 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     Returns:
       True if the model needs saving, False otherwise
     """
-    ret = False
-    self.logger.new_dev()
-
     # Perform evaluation
     if self.dev_tasks and len(self.dev_tasks) > 0:
-      logger.info("> Checkpoint")
-      dev_scores = []
-      for dev_task in self.dev_tasks:
-        dev_score, dev_word_cnt = dev_task.eval()
-        if type(dev_score) == list:
-          dev_scores.extend(dev_score)
+      with self.dev_loss_tracker.time_tracker:
+        logger.info("> Checkpoint")
+        dev_scores = []
+        for dev_task in self.dev_tasks:
+          dev_score, dev_word_cnt = dev_task.eval()
+          if type(dev_score) == list:
+            dev_scores.extend(dev_score)
+          else:
+            dev_scores.append(dev_score)
+        self.dev_loss_tracker.set_dev_score(dev_word_cnt, dev_scores[0])
+        for dev_score in dev_scores[1:]:
+          self.dev_loss_tracker.add_aux_score(dev_score)
+      self.dev_loss_tracker.report()
+
+      # Control the learning schedule
+      if control_learning_schedule:
+        # Write out the model if it's the best one
+        if dev_scores[0].better_than(self.training_state.best_dev_score):
+          self.training_state.best_dev_score = dev_scores[0]
+          self.training_state.cur_attempt = 0
+          needs_saving = True
+          logger.info(f"  best dev score, writing out model")
         else:
-          dev_scores.append(dev_score)
-      # TODO: This is passing "1" for the number of words, as this is not implemented yet
-      self.logger.set_dev_score(dev_word_cnt, dev_scores[0])
-      for dev_score in dev_scores[1:]:
-        self.logger.report_auxiliary_score(dev_score)
+          needs_saving = False
+          # otherwise: learning rate decay / early stopping
+          self.training_state.cur_attempt += 1
+          if self.lr_decay < 1.0:
+            should_decay = False
+            if (self.initial_patience is None or self.training_state.num_times_lr_decayed>0) \
+                    and self.training_state.cur_attempt >= self.patience:
+              should_decay = True
+            if self.initial_patience is not None and self.training_state.num_times_lr_decayed==0 \
+                    and self.training_state.cur_attempt >= self.initial_patience:
+              should_decay = True
+            if should_decay:
+              self.training_state.num_times_lr_decayed += 1
+              if self.training_state.num_times_lr_decayed > self.lr_decay_times:
+                logger.info('  Early stopping')
+                self.early_stopping_reached = True
+              else:
+                self.training_state.cur_attempt = 0
+                self.trainer.learning_rate *= self.lr_decay
+                logger.info('  new learning rate: %s' % self.trainer.learning_rate)
+                if self.restart_trainer:
+                  logger.info('  restarting trainer and reverting learned weights to best checkpoint..')
+                  self.trainer.restart()
+                  ParamManager.param_col.revert_to_best_model()
+      else: # case of not controling learning schedule
+        needs_saving = False
+    else: # case of no dev tasks
+      needs_saving = True
 
-    # Control the learning schedule
-    if control_learning_schedule:
-      # Write out the model if it's the best one
-      if self.logger.report_dev_and_check_model():
-        ret = True
-        self.training_state.cur_attempt = 0
-      else:
-        # otherwise: learning rate decay / early stopping
-        self.training_state.cur_attempt += 1
-        if self.lr_decay < 1.0:
-          should_decay = False
-          if (self.initial_patience is None or self.training_state.num_times_lr_decayed>0) \
-                  and self.training_state.cur_attempt >= self.patience:
-            should_decay = True
-          if self.initial_patience is not None and self.training_state.num_times_lr_decayed==0 \
-                  and self.training_state.cur_attempt >= self.initial_patience:
-            should_decay = True
-          if should_decay:
-            self.training_state.num_times_lr_decayed += 1
-            if self.training_state.num_times_lr_decayed > self.lr_decay_times:
-              logger.info('  Early stopping')
-              self.early_stopping_reached = True
-            else:
-              self.training_state.cur_attempt = 0
-              self.trainer.learning_rate *= self.lr_decay
-              logger.info('  new learning rate: %s' % self.trainer.learning_rate)
-              if self.restart_trainer:
-                logger.info('  restarting trainer and reverting learned weights to best checkpoint..')
-                self.trainer.restart()
-                ParamManager.param_col.revert_to_best_model()
-
-    return ret
+    return needs_saving
 
 class TrainingState(object):
   """
@@ -334,5 +338,8 @@ class TrainingState(object):
     self.cur_attempt = 0
     self.epoch_num = 0
     self.steps_into_epoch = 0
-    # used to pack and shuffle minibatches; storing helps resuming crashed trainings
+    self.sents_since_start = 0
+    self.sents_into_epoch = 0
+    self.best_dev_score = None
+    # used to pack and shuffle minibatches (keeping track might help resuming crashed trainings in the future)
     self.epoch_seed = random.randint(1,2147483647)

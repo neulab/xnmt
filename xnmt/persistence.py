@@ -1092,7 +1092,7 @@ class _YamlDeserializer(object):
             resolved_path = node.resolve_path(self.named_paths)
             initialized_component = self.init_component(resolved_path)
           except PathError:
-            if node.default == Ref.NO_DEFAULT:
+            if getattr(node, "default", Ref.NO_DEFAULT) == Ref.NO_DEFAULT:
               initialized_component = None
             else:
               initialized_component = copy.deepcopy(node.default)
