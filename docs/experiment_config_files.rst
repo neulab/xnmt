@@ -138,110 +138,110 @@ Here are more elaborate examples from the github repository.
 Standard
 ~~~~~~~~
 
-.. literalinclude:: ../01_standard.yaml
+.. literalinclude:: examples/01_standard.yaml
     :language: yaml
 
 Minimal
 ~~~~~~~
 
-.. literalinclude:: ../02_minimal.yaml
+.. literalinclude:: examples/02_minimal.yaml
     :language: yaml
 
 Multiple experiments
 ~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../03_multiple_exp.yaml
+.. literalinclude:: examples/03_multiple_exp.yaml
     :language: yaml
 
 Settings
 ~~~~~~~~
 
-.. literalinclude:: ../04_settings.yaml
+.. literalinclude:: examples/04_settings.yaml
     :language: yaml
 
 Preprocessing
 ~~~~~~~~~~~~~
 
-.. literalinclude:: ../05_preproc.yaml
+.. literalinclude:: examples/05_preproc.yaml
     :language: yaml
 
 Early stopping
 ~~~~~~~~~~~~~~
 
-.. literalinclude:: ../06_early_stopping.yaml
+.. literalinclude:: examples/06_early_stopping.yaml
     :language: yaml
 
 Fine-tuning
 ~~~~~~~~~~~
 
-.. literalinclude:: ../07_load_finetune.yaml
+.. literalinclude:: examples/07_load_finetune.yaml
     :language: yaml
 
 Beam search
 ~~~~~~~~~~~
 
-.. literalinclude:: ../08_load_eval_beam.yaml
+.. literalinclude:: examples/08_load_eval_beam.yaml
     :language: yaml
 
 Programmatic usage
 ~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../09_programmatic.py
+.. literalinclude:: examples/09_programmatic.py
     :language: python
 
 Programmatic loading
 ~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../10_programmatic_load.py
+.. literalinclude:: examples/10_programmatic_load.py
     :language: python
 
 Programmatic sharing
 ~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../11_component_sharing.yaml
+.. literalinclude:: examples/11_component_sharing.yaml
     :language: yaml
 
 Multi-task
 ~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../12_multi_task.yaml
+.. literalinclude:: examples/12_multi_task.yaml
     :language: yaml
 
 Speech
 ~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../13_speech.yaml
+.. literalinclude:: examples/13_speech.yaml
     :language: yaml
 
 Reporting attention matrices
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../14_report.yaml
+.. literalinclude:: examples/14_report.yaml
     :language: yaml
 
 Scoring N-best lists
 ~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../15_score.yaml
+.. literalinclude:: examples/15_score.yaml
     :language: yaml
 
 Transformer
 ~~~~~~~~~~~
 
-.. literalinclude:: ../16_transformer.yaml
+.. literalinclude:: examples/16_transformer.yaml
     :language: yaml
 
 Ensembling
 ~~~~~~~~~~
 
-.. literalinclude:: ../17_ensembling.yaml
+.. literalinclude:: examples/17_ensembling.yaml
     :language: yaml
 
 
 Minimum risk training
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../18_minrisk.yaml
+.. literalinclude:: examples/18_minrisk.yaml
     :language: yaml
 
 
