@@ -3,17 +3,34 @@ import time
 import xnmt.loss
 from xnmt.vocab import Vocab
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt import logger, yaml_logger
+from xnmt import logger
 from xnmt.util import format_time, log_readable_and_structured
+
+class AccumTimeTracker(object):
+  def __init__(self):
+    self.start_time = None
+    self.accum_time = 0.0
+
+  def __enter__(self):
+    self.start_time = time.time()
+
+  def __exit__(self, *args):
+    self.accum_time += time.time() - self.start_time
+
+  def get_and_reset(self):
+    ret = self.accum_time
+    self.accum_time = 0.0
+    return ret
 
 class TrainLossTracker(object):
 
-  REPORT_TEMPLATE = 'Epoch {epoch:.4f}: {data}_loss/word={loss:.6f} (words={words}, words/sec={words_per_sec:.2f}, time={time})'
+  REPORT_TEMPLATE_SPEED = 'Epoch {epoch:.4f}: {data}_loss/word={loss:.6f} (words={words}, words/sec={words_per_sec:.2f}, time={time})'
+  REPORT_TEMPLATE = 'Epoch {epoch:.4f}: {data}_loss/word={loss:.6f} (words={words}, time={time})'
   REPORT_TEMPLATE_ADDITIONAL = '- {loss_name} {loss:5.6f}'
   REPORT_EVERY = 1000
 
   @register_xnmt_handler
-  def __init__(self, training_task, name=None):
+  def __init__(self, training_task):
     self.training_task = training_task
 
     self.epoch_loss = xnmt.loss.LossScalarBuilder()
@@ -23,8 +40,9 @@ class TrainLossTracker(object):
 
     self.last_report_words = 0
 
-    self.accumulated_time = 0
-    self.name = name
+    self.time_tracker = AccumTimeTracker()
+    self.start_time = time.time()
+    self.name = self.training_task.name
 
   @handle_xnmt_event
   def on_new_epoch(self, training_task, num_sents):
@@ -36,12 +54,6 @@ class TrainLossTracker(object):
       self.epoch_words = 0
       self.last_report_sents_since_start = 0
       self.last_report_words = 0
-
-  def __enter__(self):
-    self.start_time = time.time()
-
-  def __exit__(self, *args):
-    self.accumulated_time += time.time() - self.start_time
 
   def report(self, trg, loss):
     """
@@ -57,15 +69,17 @@ class TrainLossTracker(object):
     if should_report:
       fractional_epoch = (self.training_task.training_state.epoch_num - 1) \
                          + self.training_task.training_state.sents_into_epoch / self.training_task.cur_num_sentences()
-      log_readable_and_structured(TrainLossTracker.REPORT_TEMPLATE,
-                                  {"key": "train_loss", "data": "train",
-                                   "epoch": fractional_epoch,
-                                   "loss": self.epoch_loss.sum() / self.epoch_words,
-                                   "words": self.epoch_words,
-                                   "words_per_sec": (self.epoch_words - self.last_report_words) / (
-                                             self.accumulated_time),
-                                   "time": format_time(time.time() - self.start_time)},
-                                  task_name=self.name)
+      accum_time = self.time_tracker.get_and_reset()
+      log_readable_and_structured(
+        TrainLossTracker.REPORT_TEMPLATE_SPEED if accum_time else TrainLossTracker.REPORT_TEMPLATE,
+        {"key": "train_loss", "data": "train",
+         "epoch": fractional_epoch,
+         "loss": self.epoch_loss.sum() / self.epoch_words,
+         "words": self.epoch_words,
+         "words_per_sec": (self.epoch_words - self.last_report_words) / (
+           accum_time) if accum_time else "-",
+         "time": format_time(time.time() - self.start_time)},
+        task_name=self.name)
 
       if len(self.epoch_loss) > 1:
         for loss_name, loss_values in self.epoch_loss.items():
@@ -76,8 +90,6 @@ class TrainLossTracker(object):
                                       task_name=self.name)
 
       self.last_report_words = self.epoch_words
-      self.accumulated_time = 0
-
       self.last_report_sents_since_start = self.training_task.training_state.sents_since_start
 
   def count_trg_words(self, trg_words):

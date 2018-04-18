@@ -9,7 +9,7 @@ from xnmt.events import register_xnmt_event
 import xnmt.input_reader
 from xnmt.loss import LossBuilder
 from xnmt.loss_calculator import LossCalculator, MLELoss
-from xnmt.loss_tracker import TrainLossTracker, DevLossTracker
+from xnmt.loss_tracker import DevLossTracker
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare
 
@@ -105,7 +105,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks
-    self.train_loss_tracker = TrainLossTracker(self, name)
 
     if lr_decay > 1.0 or lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
@@ -132,6 +131,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
     self.batcher = batcher
     self.dev_loss_tracker = DevLossTracker(self, dev_every, name)
+    self.name = name
 
   def _augment_data_initial(self):
     """
@@ -253,14 +253,11 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     Performs forward pass, backward pass, parameter update for the given minibatch
     """
-    with self.train_loss_tracker:
-      loss_builder = LossBuilder()
-      standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-      additional_loss = self.model.calc_additional_loss(standard_loss)
-      loss_builder.add_loss("standard_loss", standard_loss)
-      loss_builder.add_loss("additional_loss", additional_loss)
-      loss_value = loss_builder.compute()
-    self.train_loss_tracker.report(trg, loss_builder.get_loss_stats())
+    loss_builder = LossBuilder()
+    standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
+    additional_loss = self.model.calc_additional_loss(standard_loss)
+    loss_builder.add_loss("standard_loss", standard_loss)
+    loss_builder.add_loss("additional_loss", additional_loss)
     return loss_builder
 
   def checkpoint_needed(self):
