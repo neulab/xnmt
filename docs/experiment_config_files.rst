@@ -7,7 +7,9 @@ At the top-level, a config file consists of a dictionary where keys are experime
 names and values are the experiment specifications. By default, all experiments
 are run in lexicographical ordering, but xnmt_run_experiments can also be told
 to run only a selection of the specified experiments. An example template with
-2 experiments looks like this::
+2 experiments looks like this
+
+.. code-block:: yaml
 
     exp1: !Experiment
       exp_global: ...
@@ -32,9 +34,12 @@ The usage of ``exp_global``, ``preproc``, ``model``, ``train``, ``evaluate``
 are explained below.
 Not all of them need to be specified, depending on the use case.
 
-exp_global
+Experiment
 ==========
-This specifies settings that are global to this experiment. An example::
+
+This specifies settings that are global to this experiment. An example
+
+.. code-block:: yaml
 
   exp_global: !ExpGlobal
     model_file: '{EXP_DIR}/models/{EXP}.mod'
@@ -52,14 +57,17 @@ To obtain a full list of allowed parameters, please check the constructor of
 also manages the DyNet parameters, it is therefore referenced by all components
 that use DyNet parameters.
 
-preproc
-======= 
+Preprocessing
+=============
+
 *xnmt* supports a variety of data preprocessing features. Please refer to
 ``preprocessing.rst`` for details.
 
-model
+Model
 =====
-This specifies the model architecture. An typical example looks like this::
+This specifies the model architecture. An typical example looks like this
+
+.. code-block:: yaml
 
   model: !DefaultTranslator
     src_reader: !PlainTextReader
@@ -94,9 +102,12 @@ initialized before any model component is initialized, so that model components
 are free to use exp_global's global default settings, DyNet parameters, etc.
 It also guarantees that preprocessing is carried out before the model training.
 
-train
-=====
-A typical example looks like this::
+Training
+========
+
+A typical example looks like this
+
+.. code-block:: yaml
 
   train: !SimpleTrainingRegimen
     trainer: !AdamTrainer
@@ -115,6 +126,122 @@ For multi task training, each training regimen uses their own model, so in this
 case models must be specified as sub-components of the training regimen. Please
 refer to examples/08_multitask.yaml for more details on this.
 
-evaluate
-========
+Evaluation
+==========
 If specified, the model is tested after training finished.
+
+Examples
+========
+
+Here are more elaborate examples from the github repository.
+
+Standard
+~~~~~~~~
+
+.. literalinclude:: ../01_standard.yaml
+    :language: yaml
+
+Minimal
+~~~~~~~
+
+.. literalinclude:: ../02_minimal.yaml
+    :language: yaml
+
+Multiple experiments
+~~~~~~~~~~~~~~~~~~~~
+
+.. literalinclude:: ../03_multiple_exp.yaml
+    :language: yaml
+
+Settings
+~~~~~~~~
+
+.. literalinclude:: ../04_settings.yaml
+    :language: yaml
+
+Preprocessing
+~~~~~~~~~~~~~
+
+.. literalinclude:: ../05_preproc.yaml
+    :language: yaml
+
+Early stopping
+~~~~~~~~~~~~~~
+
+.. literalinclude:: ../06_early_stopping.yaml
+    :language: yaml
+
+Fine-tuning
+~~~~~~~~~~~
+
+.. literalinclude:: ../07_load_finetune.yaml
+    :language: yaml
+
+Beam search
+~~~~~~~~~~~
+
+.. literalinclude:: ../08_load_eval_beam.yaml
+    :language: yaml
+
+Programmatic usage
+~~~~~~~~~~~~~~~~~~
+
+.. literalinclude:: ../09_programmatic.py
+    :language: python
+
+Programmatic loading
+~~~~~~~~~~~~~~~~~~~~
+
+.. literalinclude:: ../10_programmatic_load.py
+    :language: python
+
+Programmatic sharing
+~~~~~~~~~~~~~~~~~~~~
+
+.. literalinclude:: ../11_component_sharing.yaml
+    :language: yaml
+
+Multi-task
+~~~~~~~~~~~~~~~~~~~~
+
+.. literalinclude:: ../12_multi_task.yaml
+    :language: yaml
+
+Speech
+~~~~~~~~~~~~~~~~~~~~
+
+.. literalinclude:: ../13_speech.yaml
+    :language: yaml
+
+Reporting attention matrices
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. literalinclude:: ../14_report.yaml
+    :language: yaml
+
+Scoring N-best lists
+~~~~~~~~~~~~~~~~~~~~
+
+.. literalinclude:: ../15_score.yaml
+    :language: yaml
+
+Transformer
+~~~~~~~~~~~
+
+.. literalinclude:: ../16_transformer.yaml
+    :language: yaml
+
+Ensembling
+~~~~~~~~~~
+
+.. literalinclude:: ../17_ensembling.yaml
+    :language: yaml
+
+
+Minimum risk training
+~~~~~~~~~~~~~~~~~~~~~
+
+.. literalinclude:: ../18_minrisk.yaml
+    :language: yaml
+
+
