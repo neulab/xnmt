@@ -105,6 +105,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks
+    self.train_loss_tracker = TrainLossTracker(self, name)
 
     if lr_decay > 1.0 or lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
@@ -130,7 +131,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.max_trg_len = max_trg_len
 
     self.batcher = batcher
-    self.train_loss_tracker = TrainLossTracker(self, name)
     self.dev_loss_tracker = DevLossTracker(self, dev_every, name)
 
   def _augment_data_initial(self):
@@ -253,16 +253,15 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     Performs forward pass, backward pass, parameter update for the given minibatch
     """
-    loss_builder = LossBuilder()
-    standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-    additional_loss = self.model.calc_additional_loss(standard_loss)
-    loss_builder.add_loss("standard_loss", standard_loss)
-    loss_builder.add_loss("additional_loss", additional_loss)
-
-    loss_value = loss_builder.compute()
+    with self.train_loss_tracker:
+      loss_builder = LossBuilder()
+      standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
+      additional_loss = self.model.calc_additional_loss(standard_loss)
+      loss_builder.add_loss("standard_loss", standard_loss)
+      loss_builder.add_loss("additional_loss", additional_loss)
+      loss_value = loss_builder.compute()
     self.train_loss_tracker.report(trg, loss_builder.get_loss_stats())
-
-    return loss_value
+    return loss_builder
 
   def checkpoint_needed(self):
     return self.dev_loss_tracker.should_report_dev()

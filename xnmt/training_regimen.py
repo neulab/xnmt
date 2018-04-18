@@ -8,6 +8,7 @@ from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 import xnmt.optimizer
 from xnmt.training_task import SimpleTrainingTask
+from xnmt.loss_tracker import TrainLossTracker
 
 class TrainingRegimen(object):
   """
@@ -96,6 +97,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     self.dev_zero = dev_zero
     self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(e0=0.1)
     self.dynet_profiling = getattr(commandline_args, "dynet_profiling", 0) if commandline_args else 0
+    # self.train_loss_tracker = TrainLossTracker(self, name)
 
   def run_training(self, save_fct, update_weights=True):
     """
@@ -107,8 +109,10 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
         self.checkpoint_and_save(save_fct, update_weights)
         self.dev_zero = False
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-      loss = self.training_step(src, trg)
+      # with self.train_loss_tracker:
+      loss = self.training_step(src, trg).compute()
       if update_weights: self.update_weights(loss, self.trainer, self.dynet_profiling)
+      # self.train_loss_tracker.report(trg, loss)
       if self.checkpoint_needed():
         self.checkpoint_and_save(save_fct, update_weights)
       if self.should_stop_training(): break
@@ -202,7 +206,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
         self.checkpoint_and_save(save_fct, update_weights)
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       for task, src, trg in task_src_trg:
-        task_losses.append(task.training_step(src, trg))
+        task_losses.append(task.training_step(src, trg).compute())
       if update_weights:
         self.update_weights(sum(task_losses), self.trainer, self.dynet_profiling)
       if update_weights: self.tasks[0].model.set_train(False)
@@ -255,7 +259,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
       task_gen = task_generators[cur_task]
       src, trg = next(task_gen)
       if dev_zero[cur_task_i]: self.checkpoint_and_save(cur_task, cur_task_i, save_fct, update_weights, dev_zero)
-      task_loss = cur_task.training_step(src, trg)
+      task_loss = cur_task.training_step(src, trg).compute()
       if update_weights:
         self.update_weights(task_loss, self.trainer, self.dynet_profiling)
       self.checkpoint_and_save(cur_task, cur_task_i, save_fct, update_weights, dev_zero)
@@ -301,7 +305,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
         src, trg = next(task_gen)
         if dev_zero[cur_task_id]: self.checkpoint_and_save(cur_task, cur_task_id, save_fct, update_weights, dev_zero)
-        task_loss = cur_task.training_step(src, trg)
+        task_loss = cur_task.training_step(src, trg).compute()
         if update_weights:
           self.update_weights(task_loss, self.trainer, self.dynet_profiling)
         self.checkpoint_and_save(cur_task, cur_task_id, save_fct, update_weights, dev_zero)

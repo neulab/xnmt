@@ -19,11 +19,11 @@ class TrainLossTracker(object):
     self.epoch_loss = xnmt.loss.LossScalarBuilder()
     self.epoch_words = 0
     self.last_report_sents_into_epoch = 0
+    self.last_report_sents_since_start = 0
 
     self.last_report_words = 0
 
-    self.start_time = time.time()
-    self.last_report_train_time = self.start_time
+    self.accumulated_time = 0
     self.name = name
 
   @handle_xnmt_event
@@ -36,7 +36,12 @@ class TrainLossTracker(object):
       self.epoch_words = 0
       self.last_report_sents_since_start = 0
       self.last_report_words = 0
-      self.last_report_train_time = time.time()
+
+  def __enter__(self):
+    self.start_time = time.time()
+
+  def __exit__(self, *args):
+    self.accumulated_time += time.time() - self.start_time
 
   def report(self, trg, loss):
     """
@@ -52,14 +57,13 @@ class TrainLossTracker(object):
     if should_report:
       fractional_epoch = (self.training_task.training_state.epoch_num - 1) \
                          + self.training_task.training_state.sents_into_epoch / self.training_task.cur_num_sentences()
-      this_report_time = time.time()
       log_readable_and_structured(TrainLossTracker.REPORT_TEMPLATE,
                                   {"key": "train_loss", "data": "train",
                                    "epoch": fractional_epoch,
                                    "loss": self.epoch_loss.sum() / self.epoch_words,
                                    "words": self.epoch_words,
                                    "words_per_sec": (self.epoch_words - self.last_report_words) / (
-                                             this_report_time - self.last_report_train_time),
+                                             self.accumulated_time),
                                    "time": format_time(time.time() - self.start_time)},
                                   task_name=self.name)
 
@@ -72,7 +76,7 @@ class TrainLossTracker(object):
                                       task_name=self.name)
 
       self.last_report_words = self.epoch_words
-      self.last_report_train_time = this_report_time
+      self.accumulated_time = 0
 
       self.last_report_sents_since_start = self.training_task.training_state.sents_since_start
 
