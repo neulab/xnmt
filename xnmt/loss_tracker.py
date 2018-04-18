@@ -3,7 +3,6 @@ import time
 import xnmt.loss
 from xnmt.vocab import Vocab
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt import logger
 from xnmt.util import format_time, log_readable_and_structured
 
 class AccumTimeTracker(object):
@@ -103,8 +102,9 @@ class TrainLossTracker(object):
 
 class DevLossTracker(object):
 
-  REPORT_TEMPLATE_DEV       = 'Epoch {epoch:.4f} dev {score} (words={words}, words/sec={words_per_sec:.2f}, time={time})'
-  REPORT_TEMPLATE_DEV_AUX   = 'Epoch {epoch:.4f} dev auxiliary {score}'
+  REPORT_TEMPLATE_DEV         = 'Epoch {epoch:.4f} dev {score} (words={words}, time={time})'
+  REPORT_TEMPLATE_DEV_AUX     = '             dev auxiliary {score}'
+  REPORT_TEMPLATE_TIME_NEEDED = '             checkpoint took {time_needed}'
 
   def __init__(self, training_task, eval_every, name=None):
     self.training_task = training_task
@@ -155,7 +155,6 @@ class DevLossTracker(object):
                                  "epoch": self.fractional_epoch,
                                  "score": self.dev_score,
                                  "words": self.dev_words,
-                                 "words_per_sec": self.dev_words / dev_time,
                                  "time": format_time(this_report_time - self.start_time)
                                  },
                                 task_name=self.name)
@@ -163,5 +162,8 @@ class DevLossTracker(object):
       log_readable_and_structured(DevLossTracker.REPORT_TEMPLATE_DEV_AUX,
                                   {"key": "auxiliary_score", "epoch": self.fractional_epoch, "score": score},
                                   task_name=self.name)
+    log_readable_and_structured(DevLossTracker.REPORT_TEMPLATE_TIME_NEEDED,
+                                {"key": "dev_time_needed", "epoch": self.fractional_epoch, "time_needed": format_time(dev_time)},
+                                task_name=self.name)
     self.aux_scores = []
 
