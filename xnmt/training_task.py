@@ -288,14 +288,17 @@ class SimpleTrainingTask(TrainingTask, Serializable):
           dev_scores.append(dev_score)
       self.dev_loss_tracker.set_dev_score(dev_word_cnt, dev_scores[0])
       for dev_score in dev_scores[1:]:
-        self.dev_loss_tracker.report_auxiliary_score(dev_score)
+        self.dev_loss_tracker.report_auxiliary(dev_score)
 
     # Control the learning schedule
     if control_learning_schedule:
       # Write out the model if it's the best one
-      if self.dev_loss_tracker.report_dev_and_check_model():
-        ret = True
+      self.dev_loss_tracker.report()
+      if dev_scores[0].better_than(self.training_state.best_dev_score):
+        self.training_state.best_dev_score = dev_scores[0]
         self.training_state.cur_attempt = 0
+        ret = True
+        logger.info(f"  best dev score, writing out model")
       else:
         # otherwise: learning rate decay / early stopping
         self.training_state.cur_attempt += 1
@@ -336,3 +339,4 @@ class TrainingState(object):
     self.sents_into_epoch = 0
     # used to pack and shuffle minibatches (keeping track might help resuming crashed trainings in the future)
     self.epoch_seed = random.randint(1,2147483647)
+    self.best_dev_score = None

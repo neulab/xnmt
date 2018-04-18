@@ -114,7 +114,6 @@ class DevLossTracker(object):
     self.fractional_epoch = 0
 
     self.dev_score = None
-    self.best_dev_score = None
     self.dev_words = 0
 
     self.start_time = time.time()
@@ -141,7 +140,7 @@ class DevLossTracker(object):
     else:
       return sent_num_not_report >= self.training_task.cur_num_sentences()
 
-  def report_dev_and_check_model(self):
+  def report(self):
     """
     Print dev testing report and check whether the dev loss is the best seen so far.
 
@@ -162,15 +161,7 @@ class DevLossTracker(object):
                                  },
                                 task_name=self.name)
 
-    save_model = True
-    if self.best_dev_score is not None:
-      save_model = self.dev_score.better_than(self.best_dev_score)
-    if save_model:
-      self.best_dev_score = self.dev_score
-      logger.info(f"Epoch {self.fractional_epoch:.4f}: best dev score, writing out model")
-    return save_model
-
-  def report_auxiliary_score(self, score):
+  def report_auxiliary(self, score):
     log_readable_and_structured(DevLossTracker.REPORT_TEMPLATE_DEV_AUX,
                                 {"key": "auxiliary_score", "epoch": self.fractional_epoch, "score": score},
                                 task_name=self.name)
