@@ -105,6 +105,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     """
     self.model.set_train(update_weights)
     for src,trg in self.next_minibatch():
+      if self.should_stop_training(): break
       if self.dev_zero:
         self.checkpoint_and_save(save_fct, update_weights)
         self.dev_zero = False
@@ -116,7 +117,6 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
       self.train_loss_tracker.report(trg, loss_builder.get_loss_stats())
       if self.checkpoint_needed():
         self.checkpoint_and_save(save_fct, update_weights)
-      if self.should_stop_training(): break
 
   def checkpoint_and_save(self, save_fct, update_weights=True):
     if update_weights: self.model.set_train(False)
@@ -199,6 +199,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
       task_generators[task] = task.next_minibatch()
     self.trigger_train_event(update_weights)
     while True:
+      if self.tasks[0].should_stop_training(): break
       task_losses = []
       task_src_trg = []
       for task, task_gen in task_generators.items():
@@ -219,7 +220,6 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
         self.train_loss_trackers[task].report(trg, stats)
       if update_weights: self.tasks[0].model.set_train(False)
       self.checkpoint_and_save(save_fct, update_weights)
-      if self.tasks[0].should_stop_training(): break
   def checkpoint_and_save(self, save_fct, update_weights=True):
     for task_i, task in enumerate(self.tasks):
       if self.dev_zero or task.checkpoint_needed():
@@ -262,6 +262,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     self.trigger_train_event(update_weights)
     dev_zero = {i:self.dev_zero for i in range(len(self.tasks))}
     while True:
+      if self.tasks[0].should_stop_training(): break
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       cur_task_i = np.random.choice(range(len(self.tasks)), p=self.task_weights)
       cur_task = self.tasks[cur_task_i]
@@ -275,7 +276,6 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
           self.update_weights(loss=loss_builder.compute(), trainer=self.trainer, dynet_profiling=self.dynet_profiling)
       cur_train_loss_tracker.report(trg, loss_builder.get_loss_stats())
       self.checkpoint_and_save(cur_task, cur_task_i, save_fct, update_weights, dev_zero)
-      if self.tasks[0].should_stop_training(): break
   def checkpoint_and_save(self, cur_task, cur_task_i, save_fct, update_weights, dev_zero):
     if dev_zero[cur_task_i] or cur_task.checkpoint_needed():
       dev_zero[cur_task_i] = False
@@ -316,6 +316,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
       task_gen = cur_task.next_minibatch()
       self.trigger_train_event(update_weights)
       while True:
+        if cur_task.should_stop_training(): break
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
         src, trg = next(task_gen)
         if dev_zero[cur_task_id]: self.checkpoint_and_save(cur_task, cur_task_id, save_fct, update_weights, dev_zero)
@@ -326,7 +327,6 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
             self.update_weights(task_loss, self.trainer, self.dynet_profiling)
         cur_train_loss_tracker.report(trg, loss_builder.get_loss_stats())
         self.checkpoint_and_save(cur_task, cur_task_id, save_fct, update_weights, dev_zero)
-        if cur_task.should_stop_training(): break
   def checkpoint_and_save(self, cur_task, cur_task_id, save_fct, update_weights, dev_zero):
     if dev_zero[cur_task_id] or cur_task.checkpoint_needed():
       dev_zero[cur_task_id] = False
