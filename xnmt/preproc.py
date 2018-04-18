@@ -160,6 +160,8 @@ class ExternalTokenizer(Tokenizer):
     if isinstance(sent, str):
       string = sent.encode('utf-8')
     stdout, stderr = encode_proc.communicate(string)
+    if isinstance(stdout, bytes):
+      stdout = stdout.decode('utf-8')
     if stderr:
       if isinstance(stderr, bytes):
         stderr = stderr.decode('utf-8')
