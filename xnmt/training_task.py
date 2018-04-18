@@ -260,8 +260,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     loss_builder.add_loss("additional_loss", additional_loss)
 
     loss_value = loss_builder.compute()
-    self.train_loss_tracker.update_epoch_loss(trg, loss_builder.get_loss_stats())
-    self.train_loss_tracker.report_if_needed()
+    self.train_loss_tracker.report(trg, loss_builder.get_loss_stats())
 
     return loss_value
 

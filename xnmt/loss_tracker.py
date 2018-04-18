@@ -10,7 +10,7 @@ class TrainLossTracker(object):
 
   REPORT_TEMPLATE = 'Epoch {epoch:.4f}: {data}_loss/word={loss:.6f} (words={words}, words/sec={words_per_sec:.2f}, time={time})'
   REPORT_TEMPLATE_ADDITIONAL = '- {loss_name} {loss:5.6f}'
-  EVAL_TRAIN_EVERY = 1000
+  REPORT_EVERY = 1000
 
   @register_xnmt_handler
   def __init__(self, training_task, name=None):
@@ -38,24 +38,20 @@ class TrainLossTracker(object):
       self.last_report_words = 0
       self.last_report_train_time = time.time()
 
-  def update_epoch_loss(self, trg, loss):
-    """
-    Update epoch-wise counters for each iteration.
-    """
-    self.epoch_words += self.count_trg_words(trg)
-    self.epoch_loss += loss
-
   def log_readable_and_structured(self, template, args):
     if self.name: args["task_name"] = self.name
     logger.info(template.format(**args), extra=args)
     yaml_logger.info(args)
 
-  def report_if_needed(self):
+  def report(self, trg, loss):
     """
-    Print training report if EVAL_TRAIN_EVERY sents have been evaluated.
+    Accumulate training loss and report every REPORT_EVERY sentences.
     """
+    self.epoch_words += self.count_trg_words(trg)
+    self.epoch_loss += loss
+
     sent_num_not_report = self.training_task.training_state.sents_since_start - self.last_report_sents_since_start
-    should_report = sent_num_not_report >= TrainLossTracker.EVAL_TRAIN_EVERY \
+    should_report = sent_num_not_report >= TrainLossTracker.REPORT_EVERY \
                     or self.training_task.training_state.sents_into_epoch == self.training_task.cur_num_sentences()
 
     if should_report:
