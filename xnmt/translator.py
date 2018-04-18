@@ -633,6 +633,6 @@ class EnsembleDecoder(EnsembleListDelegate):
   Currently only supports averaging.
   '''
   def get_scores_logsoftmax(self, mlp_dec_states):
-    scores = [obj.get_scores(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
+    scores = [obj.get_scores_logsoftmax(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
     return dy.average(scores)
 
