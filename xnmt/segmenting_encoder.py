@@ -39,15 +39,18 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                src_vocab = Ref(Path("model.src_reader.vocab")),
                trg_vocab = Ref(Path("model.trg_reader.vocab")),
                ## FLAGS
-               learn_delete       = False,
-               use_baseline       = True,
-               z_normalization    = True,
-               learn_segmentation = True,
-               compose_char       = False,
+               learn_delete         = False,
+               use_baseline         = True,
+               z_normalization      = False,
+               learn_segmentation   = True,
+               compose_char         = False,
                sample_during_search = False,
-               exp_reward=False,
-               exp_logsoftmax=False,
-               print_sample=False):
+               exp_reward           = True,
+               exp_logsoftmax       = False,
+               print_sample         = False,
+               # Serializable (do not manually change)
+               segment_transform=None,
+               baseline=None):
     model = ParamManager.my_params(self)
     # Sanity check
     assert embed_encoder is not None
@@ -66,11 +69,13 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # The final transducer
     self.final_transducer = final_transducer
     # Decision layer of segmentation
-    self.segment_transform = linear.Linear(input_dim  = embed_encoder_dim,
-                                           output_dim = 2)
+    self.segment_transform = self.add_serializable_component("segment_transform", segment_transform,
+                                                             lambda: linear.Linear(input_dim  = embed_encoder_dim,
+                                                                                   output_dim = 2))
     # The baseline linear regression model
-    self.baseline = linear.Linear(input_dim = embed_encoder_dim,
-                                  output_dim = 1)
+    self.baseline = self.add_serializable_component("baseline", baseline,
+                                                    lambda: linear.Linear(input_dim = embed_encoder_dim,
+                                                                          output_dim = 1))
     # Flags
     self.use_baseline = use_baseline
     self.learn_segmentation = learn_segmentation
@@ -81,6 +86,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.print_sample_prob = print_sample_prob
     self.exp_reward = exp_reward
     self.exp_logsoftmax = exp_logsoftmax
+    self.sample_during_search = sample_during_search
     # Fixed Parameters
     self.length_prior = length_prior
     # Variable Parameters
@@ -90,8 +96,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.confidence_penalty = confidence_penalty
     # States of the object
     self.train = False
-    self.sample_during_search = sample_during_search
-
     if learn_delete:
       raise NotImplementedError("Learn delete is not supported yet.")
 
