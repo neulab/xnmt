@@ -178,7 +178,7 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
             ret *= self.fix_norm
     # minibatch mode
     else:
-      ret = dy.concatenate_to_batch([dy.pick(emb_e, index=xi) for xi in x])
+      ret = dy.pick_batch(emb_e, x)
       if self.fix_norm != None:
         ret = dy.cdiv(ret, dy.l2_norm(ret))
         if self.fix_norm != 1:
