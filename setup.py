@@ -1,6 +1,5 @@
 from setuptools import setup
 from distutils.core import Extension
-from Cython.Build import cythonize
 import sys
 
 sys.path.append("./xnmt")
@@ -10,6 +9,7 @@ with open("requirements.txt", encoding="utf-8") as req_fp:
 
 ext_modules = []
 if "--use-cython-extensions" in sys.argv:
+  from Cython.Build import cythonize
   extra_compile_args = ["-std=c++11"]
   if sys.platform == "darwin":
     extra_compile_args.append("-mmacosx-version-min=10.9")
@@ -31,6 +31,7 @@ setup(
   install_requires=install_requires,
   packages=[
       'xnmt',
+      'xnmt.speech_features',
   ],
   ext_modules=ext_modules,
 )

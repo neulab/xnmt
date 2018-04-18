@@ -1,7 +1,7 @@
 import dynet as dy
 import numpy as np
 from lxml import etree
-from simple_settings import settings
+from xnmt.settings import settings
 
 from xnmt import logger
 import xnmt.batcher

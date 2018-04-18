@@ -378,7 +378,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
     max_trg_len (int): skip pair if trg side is too long
 
   Returns:
-    A tuple of (src_data, trg_data, src_batches, trg_batches) where *_batches = *_data if batcher=None
+    A tuple of (src_data, trg_data, src_batches, trg_batches) where ``*_batches = *_data`` if ``batcher=None``
   '''
   src_data = []
   trg_data = []
@@ -386,6 +386,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
     src_len = src_reader.count_sents(src_file)
     trg_len = trg_reader.count_sents(trg_file)
     if src_len != trg_len: raise RuntimeError(f"training src sentences don't match trg sentences: {src_len} != {trg_len}!")
+    if max_num_sents and max_num_sents < src_len: src_len = trg_len = max_num_sents
     filter_ids = np.random.choice(src_len, sample_sents, replace=False)
   else:
     filter_ids = None

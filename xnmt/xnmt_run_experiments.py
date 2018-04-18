@@ -14,15 +14,16 @@ import faulthandler
 faulthandler.enable()
 
 import numpy as np
-from simple_settings import settings
-if settings.RESOURCE_WARNINGS:
-  import warnings
-  warnings.simplefilter('always', ResourceWarning)
+from xnmt.settings import settings
 
 from xnmt import logger
 from xnmt.param_collection import ParamManager
 import xnmt.tee as tee
 from xnmt.persistence import YamlPreloader, save_to_file, initialize_if_needed
+
+if settings.RESOURCE_WARNINGS:
+  import warnings
+  warnings.simplefilter('always', ResourceWarning)
 
 def main(overwrite_args=None):
 
@@ -38,11 +39,14 @@ def main(overwrite_args=None):
     argparser.add_argument("--dynet-gpus", type=int)
     argparser.add_argument("--dynet-weight-decay", type=float)
     argparser.add_argument("--dynet-profiling", type=int)
-    argparser.add_argument("--settings", type=str, default="standard")
+    argparser.add_argument("--settings", type=str, default="standard", help="settings (standard, debug, or unittest)"
+                                                                            "must be given in '=' syntax, e.g."
+                                                                            " --settings=standard")
     argparser.add_argument("experiments_file")
     argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
     argparser.set_defaults(generate_doc=False)
     args = argparser.parse_args(overwrite_args)
+
     if args.dynet_seed:
       random.seed(args.dynet_seed)
       np.random.seed(args.dynet_seed)
@@ -77,7 +81,7 @@ def main(overwrite_args=None):
       log_file = glob_args.log_file
 
       if os.path.isfile(log_file) and not settings.OVERWRITE_LOG:
-        logger.warning(f"log file {log_file} already exists; please delete by hand if you want to overwrite it (or use --settings=settings.debug or otherwise set OVERWRITE_LOG=True); skipping experiment..")
+        logger.warning(f"log file {log_file} already exists; please delete by hand if you want to overwrite it (or use --settings debug or otherwise set OVERWRITE_LOG=True); skipping experiment..")
         continue
   
       tee.set_out_file(log_file)

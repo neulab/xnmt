@@ -1,10 +1,12 @@
 import dynet as dy
 import numpy as np
+import collections
 import itertools
+import os
 
 # Reporting purposes
 from lxml import etree
-from simple_settings import settings
+from xnmt.settings import settings
 
 from xnmt.attender import MlpAttender
 from xnmt.batcher import mark_as_batch, is_batched
@@ -23,8 +25,12 @@ import xnmt.plot
 from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable, bare, initialize_object, initialize_if_needed
 from xnmt.search_strategy import BeamSearch, GreedySearch
+from collections import namedtuple
 from xnmt.vocab import Vocab
 from xnmt.persistence import Ref, Path
+from xnmt.constants import EPSILON
+
+TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
 class Translator(GeneratorModel):
   '''
@@ -60,6 +66,18 @@ class Translator(GeneratorModel):
   def get_primary_loss(self):
     return "mle"
 
+  def output_one_step(self):
+    raise NotImplementedError()
+
+  def get_nobp_state(self, state):
+    output_state = state.rnn_state.output()
+    if type(output_state) == EnsembleListDelegate:
+      for i in range(len(output_state)):
+        output_state[i] = dy.nobackprop(output_state[i])
+    else:
+      output_state = dy.nobackprop(output_state)
+    return output_state
+
 class DefaultTranslator(Translator, Serializable, Reportable):
   '''
   A default translator based on attentional sequence-to-sequence models.
@@ -83,7 +101,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
-               inference=bare(SimpleInference),
+               inference=bare(SimpleInference), search_strategy=bare(BeamSearch),
                calc_global_fertility=False, global_fertility_weight=None,
                calc_length_difference=False, length_difference_weight=None):
     self.src_reader = src_reader
@@ -98,6 +116,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.global_fertility_weight = global_fertility_weight
     self.length_difference_weight = length_difference_weight
     self.inference = inference
+    self.search_strategy = search_strategy
 
   def shared_params(self):
     return [set([".src_embedder.emb_dim", ".encoder.input_dim"]),
@@ -106,19 +125,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
             set([".trg_embedder.emb_dim", ".decoder.trg_embed_dim"])]
 
   def initialize_generator(self, **kwargs):
-    # TODO: refactor?
-    if kwargs.get("len_norm_type", None) is None:
-      len_norm = xnmt.length_normalization.NoNormalization()
-    else:
-      len_norm = initialize_if_needed(kwargs["len_norm_type"])
-    search_args = {}
-    if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
-    if kwargs.get("beam", None) is None:
-      self.search_strategy = GreedySearch(**search_args)
-    else:
-      search_args["beam_size"] = kwargs.get("beam", 1)
-      search_args["len_norm"] = len_norm
-      self.search_strategy = BeamSearch(**search_args)
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)
 
@@ -129,10 +135,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.attender.init_sent(encodings)
     # Initialize the hidden state from the encoder
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
-    dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
+    initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
     # Compose losses
     model_loss = LossBuilder()
-    model_loss.add_loss("mle", loss_calculator(self, dec_state, src, trg))
+    model_loss.add_loss("mle", loss_calculator(self, initial_state, src, trg))
 
     if self.calc_global_fertility:
       # philip30: I assume that attention_vecs is already masked src wisely.
@@ -149,11 +155,12 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       model_loss.add_loss("length_difference", self.length_difference(encodings, trg))
     return model_loss
 
-  def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
+  def generate(self, src, idx, search_strategy, src_mask=None, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
     else:
       assert src_mask is not None
+    # Generating outputs
     outputs = []
     for sents in src:
       self.start_sent(src)
@@ -161,20 +168,23 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       encodings = self.encoder(embeddings)
       self.attender.init_sent(encodings)
       ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
-      dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
-      output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, dec_state, src_length=len(sents), forced_trg_ids=forced_trg_ids)
+      initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
+      search_outputs = search_strategy.generate_output(self, initial_state,
+                                                       src_length=[len(sents)],
+                                                       forced_trg_ids=forced_trg_ids)
+      best_output = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)[0]
+      output_actions = [x for x in best_output.word_ids[0]]
+      attentions = [x for x in best_output.attentions[0]]
+      score = best_output.score[0]
       # In case of reporting
       if self.report_path is not None:
-        src_words = [self.src_reader.vocab[w] for w in sents]
-        trg_words = [self.trg_vocab[w] for w in output_actions.word_ids]
+        if hasattr(self.src_reader, "vocab"):
+          src_words = [self.src_reader.vocab[w] for w in sents]
+        else:
+          src_words = ['' for w in sents]
+        trg_words = [self.trg_vocab[w] for w in output_actions]
         # Attentions
-        attentions = output_actions.attentions
-        if type(attentions) == dy.Expression:
-          attentions = attentions.npvalue()
-        elif type(attentions) == list:
-          attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
-        elif type(attentions) != np.ndarray:
-          raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
+        attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
         # Segmentation
         segment = self.get_report_resource("segmentation")
         if segment is not None:
@@ -187,7 +197,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
         self.generate_report(self.report_type)
       # Append output to the outputs
-      outputs.append(TextOutput(actions=output_actions.word_ids,
+      outputs.append(TextOutput(actions=output_actions,
                                 vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
                                 score=score))
     self.outputs = outputs
@@ -207,6 +217,20 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     original_len = dy.inputTensor([src.original_length for src in src_sent], batched=True)
     predicted_len = dy.inputTensor(enc_len, batched=True)
     return dy.abs(original_len - predicted_len)
+
+  def output_one_step(self, current_word, current_state):
+    if current_word is not None:
+      if type(current_word) == int:
+        current_word = [current_word]
+      if type(current_word) == list or type(current_word) == np.ndarray:
+        current_word = xnmt.batcher.mark_as_batch(current_word)
+      current_word_embed = self.trg_embedder.embed(current_word)
+      next_state = self.decoder.add_input(current_state, current_word_embed)
+    else:
+      next_state = current_state
+    next_state.context = self.attender.calc_context(next_state.rnn_state.output())
+    next_logsoftmax = dy.log_softmax(self.decoder.get_scores(next_state))
+    return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
 
   @register_xnmt_event_assign
   def html_report(self, context=None):
@@ -240,6 +264,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       att_text.text = "Attention:"
       etree.SubElement(attention, 'br')
       attention_file = f"{path_to_report}.attention.png"
+      att_img = etree.SubElement(attention, 'img')
+      att_img_src = f"{path_to_report}.attention.png"
+      att_img.attrib['src'] = os.path.basename(att_img_src)
+      att_img.attrib['alt'] = 'attention matrix'
       xnmt.plot.plot_attention(src, trg, att, file_name = attention_file)
 
     # return the parent context to be used as child context
@@ -264,6 +292,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
           str_format += "{:%ds}" % (length+2)
         print(str_format.format(*words), file=attn_file)
 
+  
 class TransformerTranslator(Translator, Serializable, Reportable):
   '''
   A translator based on the transformer model.
@@ -297,20 +326,6 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     self.initialize_position_encoding(self.max_input_len, input_dim)  # TODO: parametrize this
 
   def initialize_generator(self, **kwargs):
-    if kwargs.get("len_norm_type", None) is None:
-      len_norm = xnmt.length_normalization.NoNormalization()
-    else:
-      len_norm = initialize_object(kwargs["len_norm_type"])
-    search_args = {}
-    if kwargs.get("max_len", None) is not None:
-      search_args["max_len"] = kwargs["max_len"]
-      self.max_len = kwargs.get("max_len", 50)
-    if kwargs.get("beam", None) is None:
-      self.search_strategy = GreedySearch(**search_args)
-    else:
-      search_args["beam_size"] = kwargs.get("beam", 1)
-      search_args["len_norm"] = len_norm
-      # self.search_strategy = TransformerBeamSearch(**search_args)
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)
 
@@ -414,7 +429,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     loss = self.decoder.output_and_loss(h_block, concat_t_block)
     return LossBuilder({"mle": loss})
 
-  def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
+  def generate(self, src, idx, src_mask=None, forced_trg_ids=None, search_strategy=None):
     self.start_sent(src)
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
@@ -430,6 +445,8 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     output_actions = []
     score = 0.
 
+    # TODO Fix this with output_one_step and use the appropriate search_strategy
+    self.max_len = 100 # This is a temporary hack
     for _ in range(self.max_len):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       log_prob_tail = self.calc_loss(src, trg, loss_cal=None, infer_prediction=True)
@@ -459,3 +476,155 @@ class TransformerTranslator(Translator, Serializable, Reportable):
       outputs.append((output_actions, score))
 
     return outputs
+
+class EnsembleTranslator(Translator, Serializable):
+  '''
+  A translator that decodes from an ensemble of DefaultTranslator models.
+
+  Args:
+    models: A list of DefaultTranslator instances; for all models, their
+      src_reader.vocab and trg_reader.vocab has to match (i.e., provide
+      identical conversions to) those supplied to this class.
+    src_reader (InputReader): A reader for the source side.
+    trg_reader (InputReader): A reader for the target side.
+    inference (SimpleInference): The inference strategy used for this ensemble.
+  '''
+
+  yaml_tag = '!EnsembleTranslator'
+
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self, models, src_reader, trg_reader, inference=bare(SimpleInference)):
+    self.models = models
+    self.src_reader = src_reader
+    self.trg_reader = trg_reader
+    self.inference = inference
+
+    # perform checks to verify the models can logically be ensembled
+    for i, model in enumerate(self.models):
+      assert self.src_reader.vocab.is_compatible(model.src_reader.vocab), \
+        f"src_reader.vocab is not compatible with model {i}"
+      assert self.trg_reader.vocab.is_compatible(model.trg_reader.vocab), \
+        f"trg_reader.vocab is not compatible with model {i}"
+
+    # proxy object used for generation, to avoid code duplication
+    self._proxy = DefaultTranslator(
+      self.src_reader,
+      self.trg_reader,
+      EnsembleListDelegate([model.src_embedder for model in self.models]),
+      EnsembleListDelegate([model.encoder for model in self.models]),
+      EnsembleListDelegate([model.attender for model in self.models]),
+      EnsembleListDelegate([model.trg_embedder for model in self.models]),
+      EnsembleDecoder([model.decoder for model in self.models])
+    )
+
+  def shared_params(self):
+    shared = [params for model in self.models for params in model.shared_params()]
+    return shared
+
+  def set_trg_vocab(self, trg_vocab=None):
+    self._proxy.set_trg_vocab(trg_vocab=trg_vocab)
+
+  def initialize_generator(self, **kwargs):
+    self._proxy.initialize_generator(**kwargs)
+
+  def calc_loss(self, src, trg, loss_calculator):
+    sub_losses = collections.defaultdict(list)
+    for model in self.models:
+      for loss_name, loss in model.calc_loss(src, trg, loss_calculator).loss_values.items():
+        sub_losses[loss_name].append(loss)
+    model_loss = LossBuilder()
+    for loss_name, losslist in sub_losses.items():
+      # TODO: dy.average(losslist)  _or_  dy.esum(losslist) / len(self.models) ?
+      #       -- might not be the same if not all models return all losses
+      model_loss.add_loss(loss_name, dy.average(losslist))
+    return model_loss
+
+  def generate(self, src, idx, search_strategy, src_mask=None, forced_trg_ids=None):
+    return self._proxy.generate(src, idx, search_strategy, src_mask=src_mask, forced_trg_ids=forced_trg_ids)
+
+class EnsembleListDelegate(object):
+  '''
+  Auxiliary object to wrap a list of objects for ensembling.
+
+  This class can wrap a list of objects that exist in parallel and do not need
+  to interact with each other. The main functions of this class are:
+
+  - All attribute access and function calls are delegated to the wrapped objects.
+  - When wrapped objects return values, the list of all returned values is also
+    wrapped in an EnsembleListDelegate object.
+  - When EnsembleListDelegate objects are supplied as arguments, they are
+    "unwrapped" so the i-th object receives the i-th element of the
+    EnsembleListDelegate argument.
+  '''
+
+  def __init__(self, objects):
+    assert isinstance(objects, (tuple, list))
+    self._objects = objects
+
+  def __getitem__(self, key):
+    return self._objects[key]
+
+  def __setitem__(self, key, value):
+    self._objects[key] = value
+
+  def __iter__(self):
+    return self._objects.__iter__()
+
+  def __call__(self, *args, **kwargs):
+    return self.__getattr__('__call__')(*args, **kwargs)
+
+  def __len__(self):
+    return len(self._objects)
+
+  def __getattr__(self, attr):
+    def unwrap(list_idx, args, kwargs):
+      args = [arg if not isinstance(arg, EnsembleListDelegate) else arg[list_idx] \
+              for arg in args]
+      kwargs = {key: val if not isinstance(arg, EnsembleListDelegate) else val[list_idx] \
+                for key, val in kwargs.items()}
+      return args, kwargs
+
+    attrs = [getattr(obj, attr) for obj in self._objects]
+    if callable(attrs[0]):
+      def wrapper_func(*args, **kwargs):
+        ret = []
+        for i, attr_ in enumerate(attrs):
+          args_i, kwargs_i = unwrap(i, args, kwargs)
+          ret.append(attr_(*args_i, **kwargs_i))
+        if all(val is None for val in ret):
+          return None
+        else:
+          return EnsembleListDelegate(ret)
+      return wrapper_func
+    else:
+      return EnsembleListDelegate(attrs)
+
+  def __setattr__(self, attr, value):
+    if not attr.startswith('_'):
+      if isinstance(value, EnsembleListDelegate):
+        for i, obj in enumerate(self._objects):
+          setattr(obj, attr, value[i])
+      else:
+        for obj in self._objects:
+          setattr(obj, attr, value)
+    else:
+      self.__dict__[attr] = value
+
+  def __repr__(self):
+    return "EnsembleListDelegate([" + ', '.join(repr(elem) for elem in self._objects) + "])"
+
+
+class EnsembleDecoder(EnsembleListDelegate):
+  '''
+  Auxiliary object to wrap a list of decoders for ensembling.
+
+  This behaves like an EnsembleListDelegate, except that it overrides
+  get_scores() to combine the individual decoder's scores.
+
+  Currently only supports averaging.
+  '''
+  def get_scores(self, mlp_dec_states):
+    scores = [obj.get_scores(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
+    return dy.average(scores)
+

@@ -1,13 +1,14 @@
 from subprocess import Popen
 import random
 import numpy as np
+from typing import Optional
 
 from xnmt import logger
 from xnmt.batcher import SrcBatcher
 from xnmt.events import register_xnmt_event
 import xnmt.input_reader
 from xnmt.loss import LossBuilder
-from xnmt.loss_calculator import LossCalculator, MLELoss
+from xnmt.loss_calculator import MLELoss
 from xnmt.loss_tracker import BatchLossTracker
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare
@@ -86,7 +87,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     reload_command: Command to change the input data after each epoch.
                          --epoch EPOCH_NUM will be appended to the command.
                          To just reload the data after each epoch set the command to 'true'.
-    sample_train_sents:
+    sample_train_sents: If given, load a random subset of training sentences before each epoch. Useful when training data does not fit in memory.
     max_num_train_sents:
     max_src_len:
     max_trg_len:
@@ -96,10 +97,10 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
   @serializable_init
   def __init__(self, model, src_file=None, trg_file=None, dev_every=0,
-               batcher=bare(SrcBatcher, batch_size=32), loss_calculator=None,
+               batcher=bare(SrcBatcher, batch_size=32), loss_calculator=bare(MLELoss),
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
                initial_patience=None, dev_tasks=None, restart_trainer=False,
-               reload_command=None, name=None, sample_train_sents=None,
+               reload_command=None, name=None, sample_train_sents: Optional[int] = None,
                max_num_train_sents=None, max_src_len=None, max_trg_len=None):
     self.src_file = src_file
     self.trg_file = trg_file
@@ -121,7 +122,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.reload_command = reload_command
 
     self.model = model
-    self.loss_calculator = loss_calculator or LossCalculator(MLELoss())
+    self.loss_calculator = loss_calculator
 
     self.sample_train_sents = sample_train_sents
     self.max_num_train_sents = max_num_train_sents
@@ -130,17 +131,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
     self.batcher = batcher
     self.logger = BatchLossTracker(self, dev_every, name)
-
-  def load_data(self):
-    if self.reload_command is not None:
-      self._augmentation_handle = None
-      self._augment_data_initial()
-    self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
-        xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
-                                        self.src_file, self.trg_file,
-                                        batcher=self.batcher, sample_sents=self.sample_train_sents,
-                                        max_num_sents=self.max_num_train_sents,
-                                        max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
 
   def _augment_data_initial(self):
     """
@@ -214,10 +204,21 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
   def advance_epoch(self):
     """
-    Shifts internal state to the next epoch, including batch re-packing and shuffling.
+    Shifts internal state to the next epoch, including data (re-)loading, batch re-packing and shuffling.
     """
     if self.reload_command is not None:
-      self._augment_data_next_epoch()
+      if self.training_state.epoch_num==0:
+        self._augmentation_handle = None
+        self._augment_data_initial()
+      else:
+        self._augment_data_next_epoch()
+    if self.training_state.epoch_num==0 or self.sample_train_sents:
+      self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
+        xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
+                                               self.src_file, self.trg_file,
+                                               batcher=self.batcher, sample_sents=self.sample_train_sents,
+                                               max_num_sents=self.max_num_train_sents,
+                                               max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
     self.training_state.epoch_seed = random.randint(1,2147483647)
     random.seed(self.training_state.epoch_seed)
     np.random.seed(self.training_state.epoch_seed)
@@ -280,6 +281,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
     # Perform evaluation
     if self.dev_tasks and len(self.dev_tasks) > 0:
+      logger.info("> Checkpoint")
       dev_scores = []
       for dev_task in self.dev_tasks:
         dev_score, dev_word_cnt = dev_task.eval()
@@ -294,7 +296,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
     # Control the learning schedule
     if control_learning_schedule:
-      logger.info("> Checkpoint")
       # Write out the model if it's the best one
       if self.logger.report_dev_and_check_model():
         ret = True

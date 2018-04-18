@@ -58,7 +58,6 @@ if __name__ == "__main__":
                                       f"metrics with non-default settings can by used by specifying a Python list of "
                                       f"Evaluator objects to be parsed using eval(). "
                                       f"Example: '[WEREvaluator(case_sensitive=True)]'")
-  parser.add_argument("--settings")
   args = parser.parse_args()
 
   evaluators = args.metrics

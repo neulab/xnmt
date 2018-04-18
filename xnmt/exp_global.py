@@ -1,8 +1,6 @@
 from typing import Dict
 
-from simple_settings import settings
-
-from xnmt import logger
+from xnmt.settings import settings
 from xnmt.persistence import serializable_init, Serializable, bare
 from xnmt.param_init import ZeroInitializer, GlorotInitializer, ParamInitializer
 

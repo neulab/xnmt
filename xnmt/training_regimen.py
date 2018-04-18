@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from simple_settings import settings
+from xnmt.settings import settings
 import numpy as np
 import dynet as dy
 
@@ -8,6 +8,7 @@ from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 import xnmt.optimizer
 from xnmt.training_task import SimpleTrainingTask
+from xnmt.loss_calculator import MLELoss
 
 class TrainingRegimen(object):
   """
@@ -68,7 +69,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
 
   @serializable_init
   def __init__(self, model=Ref("model"), src_file=None, trg_file=None, dev_every=0, dev_zero=False,
-               batcher=bare(xnmt.batcher.SrcBatcher, batch_size=32), loss_calculator=None, trainer=None,
+               batcher=bare(xnmt.batcher.SrcBatcher, batch_size=32), loss_calculator=bare(MLELoss), trainer=None,
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None, dev_tasks=None,
                restart_trainer: bool = False, reload_command=None, name="{EXP}", sample_train_sents=None,
                max_num_train_sents=None, max_src_len=None, max_trg_len=None,
@@ -101,7 +102,6 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     """
     Main training loop (overwrites TrainingRegimen.run_training())
     """
-    self.load_data()
     self.model.set_train(update_weights)
     for src,trg in self.next_minibatch():
       if self.dev_zero:
@@ -154,10 +154,6 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
       task.trainer = trainer
     self.dev_zero = dev_zero
 
-  def load_data(self):
-    for task in self.tasks:
-      task.load_data()
-
   def trigger_train_event(self, value):
     """
     Trigger set_train event, but only if that would lead to a change of the value
@@ -193,7 +189,6 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                commandline_args=Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
   def run_training(self, save_fct, update_weights=True):
-    self.load_data()
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -249,7 +244,6 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks)
   def run_training(self, save_fct, update_weights=True):
-    self.load_data()
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -298,7 +292,6 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                commandline_args=Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
   def run_training(self, save_fct, update_weights=True):
-    self.load_data()
     dev_zero = {i:self.dev_zero for i in range(len(self.tasks))}
     for cur_task_id in range(len(self.tasks)):
       self.train = None

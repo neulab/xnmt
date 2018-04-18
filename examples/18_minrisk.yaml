@@ -49,23 +49,20 @@ exp1-pretrain-model: !Experiment
       ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.test_hyp
 
-exp2-finetune-model: !LoadSerialized
-  # This will load the contents of the above experiments that were saved to the
-  # YAML file specified after filename:
-  # This will carry out the exact same thing, except that {EXP} is resolved to
-  # a different value (making sure we don't overwrite the previous model),
-  # and except for the things explicitly overwritten in the overwrite: section.
-  # It's possible to change any settings as long as these don't change the number
-  # or nature of DyNet parameters allocated for the component.
+exp2-finetune-minrisk: !LoadSerialized
+  # This will perform minimum risk training with SamplingSearch.
+  # Same as above, the pretrained model will be loaded and an appropriate search_strategy
+  # will be used during minimum risk training.
   filename: examples/models/exp1-pretrain-model.mod
   path: ''
-  overwrite: # list of [path, value] pairs. Value can be scalar or an arbitrary object
-  - path: train.trainer
-    val: !AdamTrainer
-        alpha: 0.0002
-  - path: exp_global.dropout
-    val: 0.5
-  - path: train.dev_zero
-    val: True
-
+  overwrite:
+  - path: train.loss_calculator
+    val: !MinRiskLoss
+      alpha: 0.005
+  - path: model.search_strategy
+    val: !SamplingSearch
+      sample_size: 10
+      max_length: 50
+  - path: train.run_for_epochs
+    val: 1
 

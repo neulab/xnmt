@@ -89,10 +89,10 @@ class LinearBridge(Bridge, Serializable):
     self.dec_layers = dec_layers
     self.enc_dim = enc_dim
     self.dec_dim = dec_dim
-    self.projector = xnmt.linear.Linear(input_dim=enc_dim,
-                                        output_dim=dec_dim,
-                                        param_init=param_init,
-                                        bias_init=bias_init)
+    self.projector = xnmt.linear.Linear(input_dim  = self.enc_dim,
+                                        output_dim = self.dec_dim,
+                                        param_init = param_init,
+                                        bias_init = bias_init)
   def decoder_init(self, enc_final_states):
     if self.dec_layers > len(enc_final_states):
       raise RuntimeError("LinearBridge requires dec_layers <= len(enc_final_states), but got %s and %s" % (self.dec_layers, len(enc_final_states)))

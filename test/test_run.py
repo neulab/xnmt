@@ -19,6 +19,9 @@ class TestRunningConfig(unittest.TestCase):
   def test_encoders(self):
     run.main(["test/config/encoders.yaml"])
 
+  def test_ensembling(self):
+    run.main(["test/config/ensembling.yaml"])
+
   def test_forced(self):
     run.main(["test/config/forced.yaml"])
 
@@ -82,15 +85,15 @@ class TestRunningConfig(unittest.TestCase):
     run.main(["test/config/transformer.yaml"])
 
   @unittest.skipUnless(has_cython(), "requires cython to run")
-  def test_translator_loss(self):
-    run.main(["test/config/translator_loss.yaml"])
+  def test_search_strategy(self):
+    run.main(["test/config/reinforce.yaml"])
+    run.main(["test/config/minrisk.yaml"])
 
   def tearDown(self):
     try:
       if os.path.isdir("test/tmp"):
         shutil.rmtree("test/tmp")
     except:
-      # Do not fail the test if we can't remove the tmp dir
       pass
 
 if __name__ == "__main__":

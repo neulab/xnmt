@@ -75,6 +75,18 @@ class Vocab(Serializable):
   def __len__(self):
     return len(self.i2w)
 
+  def is_compatible(self, other):
+    """
+    Check if this vocab produces the same conversions as another one.
+    """
+    if not isinstance(other, Vocab):
+      return False
+    if len(self) != len(other):
+      return False
+    if self.frozen != other.frozen or self.unk_token != other.unk_token:
+      return False
+    return self.w2i == other.w2i
+
   def freeze(self):
     """
     Mark this vocab as fixed, so no further words can be added. Only after freezing can the unknown word token be set.
