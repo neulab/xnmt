@@ -18,3 +18,5 @@ test/config/logs/
 test/config/models/
 /*.yaml
 examples/preproc/
+/test/config/logs/
+/test/config/models/

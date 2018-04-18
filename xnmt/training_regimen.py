@@ -9,6 +9,7 @@ from xnmt.persistence import serializable_init, Serializable, bare, Ref
 import xnmt.optimizer
 from xnmt.training_task import SimpleTrainingTask
 from xnmt.loss_tracker import TrainLossTracker
+from xnmt.loss_calculator import MLELoss
 
 class TrainingRegimen(object):
   """
@@ -69,7 +70,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
 
   @serializable_init
   def __init__(self, model=Ref("model"), src_file=None, trg_file=None, dev_every=0, dev_zero=False,
-               batcher=bare(xnmt.batcher.SrcBatcher, batch_size=32), loss_calculator=None, trainer=None,
+               batcher=bare(xnmt.batcher.SrcBatcher, batch_size=32), loss_calculator=bare(MLELoss), trainer=None,
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None, dev_tasks=None,
                restart_trainer: bool = False, reload_command=None, name="{EXP}", sample_train_sents=None,
                max_num_train_sents=None, max_src_len=None, max_trg_len=None,

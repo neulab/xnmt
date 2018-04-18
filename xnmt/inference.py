@@ -7,11 +7,12 @@ from xnmt.settings import settings
 import dynet as dy
 
 from xnmt import logger
-from xnmt.loss_calculator import LossCalculator
+from xnmt.loss_calculator import MLELoss
 import xnmt.output
 from xnmt.reports import Reportable
-from xnmt.persistence import serializable_init, Serializable, Ref
+from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.util import make_parent_dir
+from xnmt.search_strategy import BeamSearch
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 
@@ -27,9 +28,7 @@ class SimpleInference(Serializable):
     post_process (str): post-processing of translation outputs: ``none/join-char/join-bpe/join-piece``
     report_path (str): a path to which decoding reports will be written
     report_type (str): report to generate ``file/html``. Can be multiple, separate with comma.
-    beam (int):
-    max_len (int):
-    len_norm_type (LengthNormalization):
+    search_strategy (SearchStrategy): a search strategy used during decoding.
     mode (str): type of decoding to perform. ``onebest``: generate one best. ``forced``: perform forced decoding. ``forceddebug``: perform forced decoding, calculate training loss, and make suer the scores are identical for debugging purposes.
     batcher (Batcher):
   """
@@ -39,7 +38,7 @@ class SimpleInference(Serializable):
   @serializable_init
   def __init__(self, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
                   post_process="none", report_path=None, report_type="html",
-                  beam=1, max_len=100, len_norm_type=None, mode="onebest", batcher=Ref("train.batcher", default=None)):
+                  search_strategy=bare(BeamSearch), mode="onebest", max_len=None, batcher=Ref("train.batcher", default=None)):
     self.src_file = src_file
     self.trg_file = trg_file
     self.ref_file = ref_file
@@ -47,11 +46,10 @@ class SimpleInference(Serializable):
     self.post_process = post_process
     self.report_path = report_path
     self.report_type = report_type
-    self.beam = beam
-    self.max_len = max_len
-    self.len_norm_type = len_norm_type
     self.mode = mode
     self.batcher = batcher
+    self.search_strategy = search_strategy
+    self.max_len = max_len
 
 
   def __call__(self, generator, src_file=None, trg_file=None, candidate_id_file=None):
@@ -63,8 +61,7 @@ class SimpleInference(Serializable):
       candidate_id_file (str): if we are doing something like retrieval where we select from fixed candidates, sometimes we want to limit our candidates to a certain subset of the full set. this setting allows us to do this.
     """
     args = dict(src_file=src_file or self.src_file, trg_file=trg_file or self.trg_file, ref_file=self.ref_file, max_src_len=self.max_src_len,
-                  post_process=self.post_process, candidate_id_file=candidate_id_file, report_path=self.report_path, report_type=self.report_type,
-                  beam=self.beam, max_len=self.max_len, len_norm_type=self.len_norm_type, mode=self.mode)
+                  post_process=self.post_process, candidate_id_file=candidate_id_file, report_path=self.report_path, report_type=self.report_type, mode=self.mode)
 
     is_reporting = issubclass(generator.__class__, Reportable) and args["report_path"] is not None
     # Corpus
@@ -122,7 +119,7 @@ class SimpleInference(Serializable):
       ref_scores = []
       for src, ref in zip(batched_src, batched_ref):
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-        loss_expr = generator.calc_loss(src, ref, loss_calculator=LossCalculator())
+        loss_expr = generator.calc_loss(src, ref, loss_calculator=MLELoss())
         if isinstance(loss_expr.value(), Iterable):
           ref_scores.extend(loss_expr.value())
         else:
@@ -148,7 +145,7 @@ class SimpleInference(Serializable):
           else:
             dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
             ref_ids = ref_corpus[i] if ref_corpus != None else None
-            output = generator.generate_output(src, i, forced_trg_ids=ref_ids)
+            output = generator.generate_output(src, i, forced_trg_ids=ref_ids, search_strategy=self.search_strategy)
             # If debugging forced decoding, make sure it matches
             if ref_scores != None and (abs(output[0].score-ref_scores[i]) / abs(ref_scores[i])) > 1e-5:
               logger.error(f'Forced decoding score {output[0].score} and loss {ref_scores[i]} do not match at sentence {i}')

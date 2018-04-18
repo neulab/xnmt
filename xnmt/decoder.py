@@ -151,3 +151,4 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
       ls_loss = -dy.mean_elems(log_prob)
       loss = ((1 - self.label_smoothing) * pre_loss) + (self.label_smoothing * ls_loss)
       return loss
+

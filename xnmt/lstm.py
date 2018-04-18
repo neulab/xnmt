@@ -101,7 +101,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     self.input_dim = input_dim
 
     if not isinstance(param_init, Sequence):
-        param_init = [param_init] * layers
+      param_init = [param_init] * layers
     if not isinstance(bias_init, Sequence):
         bias_init = [bias_init] * layers
 

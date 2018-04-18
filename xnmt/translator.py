@@ -24,7 +24,11 @@ import xnmt.plot
 from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable, bare, initialize_object, initialize_if_needed
 from xnmt.search_strategy import BeamSearch, GreedySearch
+from collections import namedtuple
 from xnmt.vocab import Vocab
+from xnmt.constants import EPSILON
+
+TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
 class Translator(GeneratorModel):
   '''
@@ -60,6 +64,18 @@ class Translator(GeneratorModel):
   def get_primary_loss(self):
     return "mle"
 
+  def output_one_step(self):
+    raise NotImplementedError()
+
+  def get_nobp_state(self, state):
+    output_state = state.rnn_state.output()
+    if type(output_state) == EnsembleListDelegate:
+      for i in range(len(output_state)):
+        output_state[i] = dy.nobackprop(output_state[i])
+    else:
+      output_state = dy.nobackprop(output_state)
+    return output_state
+
 class DefaultTranslator(Translator, Serializable, Reportable):
   '''
   A default translator based on attentional sequence-to-sequence models.
@@ -84,7 +100,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
-               inference=bare(SimpleInference), calc_global_fertility=False, calc_attention_entropy=False):
+               inference=bare(SimpleInference), search_strategy=bare(BeamSearch),
+               calc_global_fertility=False, calc_attention_entropy=False):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
     self.src_embedder = src_embedder
@@ -95,6 +112,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.calc_global_fertility = calc_global_fertility
     self.calc_attention_entropy = calc_attention_entropy
     self.inference = inference
+    self.search_strategy = search_strategy
 
   def shared_params(self):
     return [set([".src_embedder.emb_dim", ".encoder.input_dim"]),
@@ -103,19 +121,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
             set([".trg_embedder.emb_dim", ".decoder.trg_embed_dim"])]
 
   def initialize_generator(self, **kwargs):
-    # TODO: refactor?
-    if kwargs.get("len_norm_type", None) is None:
-      len_norm = xnmt.length_normalization.NoNormalization()
-    else:
-      len_norm = initialize_if_needed(kwargs["len_norm_type"])
-    search_args = {}
-    if kwargs.get("max_len", None) is not None: search_args["max_len"] = kwargs["max_len"]
-    if kwargs.get("beam", None) is None:
-      self.search_strategy = GreedySearch(**search_args)
-    else:
-      search_args["beam_size"] = kwargs.get("beam", 1)
-      search_args["len_norm"] = len_norm
-      self.search_strategy = BeamSearch(**search_args)
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)
 
@@ -126,10 +131,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.attender.init_sent(encodings)
     # Initialize the hidden state from the encoder
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
-    dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
+    initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
     # Compose losses
     model_loss = LossBuilder()
-    model_loss.add_loss("mle", loss_calculator(self, dec_state, src, trg))
+    model_loss.add_loss("mle", loss_calculator(self, initial_state, src, trg))
 
     if self.calc_global_fertility or self.calc_attention_entropy:
       # philip30: I assume that attention_vecs is already masked src wisely.
@@ -146,11 +151,12 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
     return model_loss
 
-  def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
+  def generate(self, src, idx, search_strategy, src_mask=None, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
     else:
       assert src_mask is not None
+    # Generating outputs
     outputs = []
     for sents in src:
       self.start_sent(src)
@@ -158,23 +164,23 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       encodings = self.encoder(embeddings)
       self.attender.init_sent(encodings)
       ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
-      dec_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
-      output_actions, score = self.search_strategy.generate_output(self.decoder, self.attender, self.trg_embedder, dec_state, src_length=len(sents), forced_trg_ids=forced_trg_ids)
+      initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
+      search_outputs = search_strategy.generate_output(self, initial_state,
+                                                       src_length=[len(sents)],
+                                                       forced_trg_ids=forced_trg_ids)
+      best_output = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)[0]
+      output_actions = [x for x in best_output.word_ids[0]]
+      attentions = [x for x in best_output.attentions[0]]
+      score = best_output.score[0]
       # In case of reporting
       if self.report_path is not None:
         if self.reporting_src_vocab:
           src_words = [self.reporting_src_vocab[w] for w in sents]
         else:
           src_words = ['' for w in sents]
-        trg_words = [self.trg_vocab[w] for w in output_actions.word_ids]
+        trg_words = [self.trg_vocab[w] for w in output_actions]
         # Attentions
-        attentions = output_actions.attentions
-        if type(attentions) == dy.Expression:
-          attentions = attentions.npvalue()
-        elif type(attentions) == list:
-          attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
-        elif type(attentions) != np.ndarray:
-          raise RuntimeError("Illegal type for attentions in translator report: {}".format(type(attentions)))
+        attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
         # Segmentation
         segment = self.get_report_resource("segmentation")
         if segment is not None:
@@ -188,7 +194,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
         self.generate_report(self.report_type)
       # Append output to the outputs
-      outputs.append(TextOutput(actions=output_actions.word_ids,
+      outputs.append(TextOutput(actions=output_actions,
                                 vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
                                 score=score))
     self.outputs = outputs
@@ -198,10 +204,9 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     return dy.sum_elems(dy.square(1 - dy.esum(a)))
 
   def attention_entropy(self, a):
-    EPS = 1e-10
     entropy = []
     for a_i in a:
-      a_i += EPS
+      a_i += EPSILON
       entropy.append(dy.cmult(a_i, dy.log(a_i)))
 
     return -dy.sum_elems(dy.esum(entropy))
@@ -214,6 +219,20 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       src_vocab (Vocab):
     """
     self.reporting_src_vocab = src_vocab
+
+  def output_one_step(self, current_word, current_state):
+    if current_word is not None:
+      if type(current_word) == int:
+        current_word = [current_word]
+      if type(current_word) == list or type(current_word) == np.ndarray:
+        current_word = xnmt.batcher.mark_as_batch(current_word)
+      current_word_embed = self.trg_embedder.embed(current_word)
+      next_state = self.decoder.add_input(current_state, current_word_embed)
+    else:
+      next_state = current_state
+    next_state.context = self.attender.calc_context(next_state.rnn_state.output())
+    next_logsoftmax = dy.log_softmax(self.decoder.get_scores(next_state))
+    return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
 
   @register_xnmt_event_assign
   def html_report(self, context=None):
@@ -275,6 +294,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
           str_format += "{:%ds}" % (length+2)
         print(str_format.format(*words), file=attn_file)
 
+  
 class TransformerTranslator(Translator, Serializable, Reportable):
   '''
   A translator based on the transformer model.
@@ -308,20 +328,6 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     self.initialize_position_encoding(self.max_input_len, input_dim)  # TODO: parametrize this
 
   def initialize_generator(self, **kwargs):
-    if kwargs.get("len_norm_type", None) is None:
-      len_norm = xnmt.length_normalization.NoNormalization()
-    else:
-      len_norm = initialize_object(kwargs["len_norm_type"])
-    search_args = {}
-    if kwargs.get("max_len", None) is not None:
-      search_args["max_len"] = kwargs["max_len"]
-      self.max_len = kwargs.get("max_len", 50)
-    if kwargs.get("beam", None) is None:
-      self.search_strategy = GreedySearch(**search_args)
-    else:
-      search_args["beam_size"] = kwargs.get("beam", 1)
-      search_args["len_norm"] = len_norm
-      # self.search_strategy = TransformerBeamSearch(**search_args)
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)
 
@@ -431,7 +437,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     loss = self.decoder.output_and_loss(h_block, concat_t_block)
     return LossBuilder({"mle": loss})
 
-  def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
+  def generate(self, src, idx, src_mask=None, forced_trg_ids=None, search_strategy=None):
     self.start_sent(src)
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
@@ -447,6 +453,8 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     output_actions = []
     score = 0.
 
+    # TODO Fix this with output_one_step and use the appropriate search_strategy
+    self.max_len = 100 # This is a temporary hack
     for _ in range(self.max_len):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       log_prob_tail = self.calc_loss(src, trg, loss_cal=None, infer_prediction=True)
@@ -476,7 +484,6 @@ class TransformerTranslator(Translator, Serializable, Reportable):
       outputs.append((output_actions, score))
 
     return outputs
-
 
 class EnsembleTranslator(Translator, Serializable):
   '''
@@ -541,9 +548,8 @@ class EnsembleTranslator(Translator, Serializable):
       model_loss.add_loss(loss_name, dy.average(losslist))
     return model_loss
 
-  def generate(self, src, idx, src_mask=None, forced_trg_ids=None):
-    return self._proxy.generate(src, idx, src_mask=src_mask, forced_trg_ids=forced_trg_ids)
-
+  def generate(self, src, idx, search_strategy, src_mask=None, forced_trg_ids=None):
+    return self._proxy.generate(src, idx, search_strategy, src_mask=src_mask, forced_trg_ids=forced_trg_ids)
 
 class EnsembleListDelegate(object):
   '''
@@ -567,11 +573,17 @@ class EnsembleListDelegate(object):
   def __getitem__(self, key):
     return self._objects[key]
 
+  def __setitem__(self, key, value):
+    self._objects[key] = value
+
   def __iter__(self):
     return self._objects.__iter__()
 
   def __call__(self, *args, **kwargs):
     return self.__getattr__('__call__')(*args, **kwargs)
+
+  def __len__(self):
+    return len(self._objects)
 
   def __getattr__(self, attr):
     def unwrap(list_idx, args, kwargs):
@@ -623,3 +635,4 @@ class EnsembleDecoder(EnsembleListDelegate):
   def get_scores(self, mlp_dec_states):
     scores = [obj.get_scores(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
     return dy.average(scores)
+
