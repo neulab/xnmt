@@ -589,7 +589,7 @@ class EnsembleListDelegate(object):
     def unwrap(list_idx, args, kwargs):
       args = [arg if not isinstance(arg, EnsembleListDelegate) else arg[list_idx] \
               for arg in args]
-      kwargs = {key: val if not isinstance(arg, EnsembleListDelegate) else val[list_idx] \
+      kwargs = {key: val if not isinstance(val, EnsembleListDelegate) else val[list_idx] \
                 for key, val in kwargs.items()}
       return args, kwargs
 
@@ -632,7 +632,7 @@ class EnsembleDecoder(EnsembleListDelegate):
 
   Currently only supports averaging.
   '''
-  def get_scores(self, mlp_dec_states):
+  def get_scores_logsoftmax(self, mlp_dec_states):
     scores = [obj.get_scores(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
     return dy.average(scores)
 
