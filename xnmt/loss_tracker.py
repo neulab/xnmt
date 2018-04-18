@@ -115,16 +115,11 @@ class DevLossTracker(object):
 
     self.dev_score = None
     self.dev_words = 0
+    self.aux_scores = []
 
     self.start_time = time.time()
-    self.dev_start_time = self.start_time
     self.name = name
-
-  def new_dev(self):
-    """
-    Clear dev counters for starting a new dev testing.
-    """
-    self.dev_start_time = time.time()
+    self.time_tracker = AccumTimeTracker()
 
   def set_dev_score(self, dev_words, dev_score):
     """
@@ -132,6 +127,9 @@ class DevLossTracker(object):
     """
     self.dev_score = dev_score
     self.dev_words = dev_words
+
+  def add_aux_score(self, score):
+    self.aux_scores.append(score)
 
   def should_report_dev(self):
     sent_num_not_report = self.training_task.training_state.sents_since_start - self.last_report_sents_since_start
@@ -151,17 +149,19 @@ class DevLossTracker(object):
     self.last_report_sents_since_start = self.training_task.training_state.sents_since_start
     self.fractional_epoch = (self.training_task.training_state.epoch_num - 1) \
                             + self.training_task.training_state.sents_into_epoch / self.training_task.cur_num_sentences()
+    dev_time = self.time_tracker.get_and_reset()
     log_readable_and_structured(DevLossTracker.REPORT_TEMPLATE_DEV,
                                 {"key": "dev_loss",
                                  "epoch": self.fractional_epoch,
                                  "score": self.dev_score,
                                  "words": self.dev_words,
-                                 "words_per_sec": self.dev_words / (this_report_time - self.dev_start_time),
+                                 "words_per_sec": self.dev_words / dev_time,
                                  "time": format_time(this_report_time - self.start_time)
                                  },
                                 task_name=self.name)
+    for score in self.aux_scores:
+      log_readable_and_structured(DevLossTracker.REPORT_TEMPLATE_DEV_AUX,
+                                  {"key": "auxiliary_score", "epoch": self.fractional_epoch, "score": score},
+                                  task_name=self.name)
+    self.aux_scores = []
 
-  def report_auxiliary(self, score):
-    log_readable_and_structured(DevLossTracker.REPORT_TEMPLATE_DEV_AUX,
-                                {"key": "auxiliary_score", "epoch": self.fractional_epoch, "score": score},
-                                task_name=self.name)

@@ -273,58 +273,61 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     Returns:
       True if the model needs saving, False otherwise
     """
-    ret = False
-    self.dev_loss_tracker.new_dev()
-
     # Perform evaluation
     if self.dev_tasks and len(self.dev_tasks) > 0:
-      logger.info("> Checkpoint")
-      dev_scores = []
-      for dev_task in self.dev_tasks:
-        dev_score, dev_word_cnt = dev_task.eval()
-        if type(dev_score) == list:
-          dev_scores.extend(dev_score)
-        else:
-          dev_scores.append(dev_score)
-      self.dev_loss_tracker.set_dev_score(dev_word_cnt, dev_scores[0])
-      for dev_score in dev_scores[1:]:
-        self.dev_loss_tracker.report_auxiliary(dev_score)
-
-    # Control the learning schedule
-    if control_learning_schedule:
-      # Write out the model if it's the best one
+      with self.dev_loss_tracker.time_tracker:
+        logger.info("> Checkpoint")
+        dev_scores = []
+        for dev_task in self.dev_tasks:
+          dev_score, dev_word_cnt = dev_task.eval()
+          if type(dev_score) == list:
+            dev_scores.extend(dev_score)
+          else:
+            dev_scores.append(dev_score)
+        self.dev_loss_tracker.set_dev_score(dev_word_cnt, dev_scores[0])
+        for dev_score in dev_scores[1:]:
+          self.dev_loss_tracker.add_aux_score(dev_score)
       self.dev_loss_tracker.report()
-      if dev_scores[0].better_than(self.training_state.best_dev_score):
-        self.training_state.best_dev_score = dev_scores[0]
-        self.training_state.cur_attempt = 0
-        ret = True
-        logger.info(f"  best dev score, writing out model")
-      else:
-        # otherwise: learning rate decay / early stopping
-        self.training_state.cur_attempt += 1
-        if self.lr_decay < 1.0:
-          should_decay = False
-          if (self.initial_patience is None or self.training_state.num_times_lr_decayed>0) \
-                  and self.training_state.cur_attempt >= self.patience:
-            should_decay = True
-          if self.initial_patience is not None and self.training_state.num_times_lr_decayed==0 \
-                  and self.training_state.cur_attempt >= self.initial_patience:
-            should_decay = True
-          if should_decay:
-            self.training_state.num_times_lr_decayed += 1
-            if self.training_state.num_times_lr_decayed > self.lr_decay_times:
-              logger.info('  Early stopping')
-              self.early_stopping_reached = True
-            else:
-              self.training_state.cur_attempt = 0
-              self.trainer.learning_rate *= self.lr_decay
-              logger.info('  new learning rate: %s' % self.trainer.learning_rate)
-              if self.restart_trainer:
-                logger.info('  restarting trainer and reverting learned weights to best checkpoint..')
-                self.trainer.restart()
-                ParamManager.param_col.revert_to_best_model()
 
-    return ret
+      # Control the learning schedule
+      if control_learning_schedule:
+        # Write out the model if it's the best one
+        if dev_scores[0].better_than(self.training_state.best_dev_score):
+          self.training_state.best_dev_score = dev_scores[0]
+          self.training_state.cur_attempt = 0
+          needs_saving = True
+          logger.info(f"  best dev score, writing out model")
+        else:
+          needs_saving = False
+          # otherwise: learning rate decay / early stopping
+          self.training_state.cur_attempt += 1
+          if self.lr_decay < 1.0:
+            should_decay = False
+            if (self.initial_patience is None or self.training_state.num_times_lr_decayed>0) \
+                    and self.training_state.cur_attempt >= self.patience:
+              should_decay = True
+            if self.initial_patience is not None and self.training_state.num_times_lr_decayed==0 \
+                    and self.training_state.cur_attempt >= self.initial_patience:
+              should_decay = True
+            if should_decay:
+              self.training_state.num_times_lr_decayed += 1
+              if self.training_state.num_times_lr_decayed > self.lr_decay_times:
+                logger.info('  Early stopping')
+                self.early_stopping_reached = True
+              else:
+                self.training_state.cur_attempt = 0
+                self.trainer.learning_rate *= self.lr_decay
+                logger.info('  new learning rate: %s' % self.trainer.learning_rate)
+                if self.restart_trainer:
+                  logger.info('  restarting trainer and reverting learned weights to best checkpoint..')
+                  self.trainer.restart()
+                  ParamManager.param_col.revert_to_best_model()
+      else: # case of not controling learning schedule
+        needs_saving = False
+    else: # case of no dev tasks
+      needs_saving = True
+
+    return needs_saving
 
 class TrainingState(object):
   """
@@ -337,6 +340,6 @@ class TrainingState(object):
     self.steps_into_epoch = 0
     self.sents_since_start = 0
     self.sents_into_epoch = 0
+    self.best_dev_score = None
     # used to pack and shuffle minibatches (keeping track might help resuming crashed trainings in the future)
     self.epoch_seed = random.randint(1,2147483647)
-    self.best_dev_score = None
