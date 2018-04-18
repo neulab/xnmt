@@ -45,9 +45,6 @@ class TrainLossTracker(object):
 
   @handle_xnmt_event
   def on_new_epoch(self, training_task, num_sents):
-    """
-    Clear epoch-wise counters for starting a new training epoch.
-    """
     if training_task is self.training_task:
       self.epoch_loss.zero()
       self.epoch_words = 0
@@ -122,9 +119,6 @@ class DevLossTracker(object):
     self.time_tracker = AccumTimeTracker()
 
   def set_dev_score(self, dev_words, dev_score):
-    """
-    Update dev counters for each iteration.
-    """
     self.dev_score = dev_score
     self.dev_words = dev_words
 
@@ -139,12 +133,6 @@ class DevLossTracker(object):
       return sent_num_not_report >= self.training_task.cur_num_sentences()
 
   def report(self):
-    """
-    Print dev testing report and check whether the dev loss is the best seen so far.
-
-    Return:
-      True if the dev loss is the best and required save operations
-    """
     this_report_time = time.time()
     self.last_report_sents_since_start = self.training_task.training_state.sents_since_start
     self.fractional_epoch = (self.training_task.training_state.epoch_num - 1) \
