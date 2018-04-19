@@ -49,7 +49,8 @@ in the Sentencepiece `readme <https://github.com/google/sentencepiece/blob/maste
    Please refer to the sentencepiece documentation for more details
  - ``model_prefix``: The trained bpe model will be saved under ``{model_prefix}.model``/``.vocab``
  - ``vocab_size``: fixes the vocabulary size
- - ``hard_vocab_limit``: setting this to ``False`` will make the vocab size a soft limit
+ - ``hard_vocab_limit``: setting this to ``False`` will make the vocab size a soft limit.
+   Useful for small datasets. This is ``True`` by default.
 
 Some notable exceptions are below:
 

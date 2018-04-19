@@ -178,14 +178,15 @@ class SentencepieceTokenizer(Tokenizer):
       Please refer to the sentencepiece documentation for more details
     - ``model_prefix``: The trained bpe model will be saved under ``{model_prefix}.model``/``.vocab``
     - ``vocab_size``: fixes the vocabulary size
-    - ``hard_vocab_limit``: setting this to ``False`` will make the vocab size a soft limit
+    - ``hard_vocab_limit``: setting this to ``False`` will make the vocab size a soft limit. 
+      Useful for small datasets. This is ``True`` by default.
   """
 
   yaml_tag = '!SentencepieceTokenizer'
 
   @serializable_init
   def __init__(self, path, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
-      , output_format='piece', model_type='bpe', hard_vocab_limit=False,
+      , output_format='piece', model_type='bpe', hard_vocab_limit=True
       , encode_extra_options=None, decode_extra_options=None):
     """
     This will initialize and train the sentencepiece tokenizer.
