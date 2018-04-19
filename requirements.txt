@@ -5,3 +5,4 @@ dynet
 matplotlib    
 cython   
 h5py
+sentencepiece

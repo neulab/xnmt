@@ -11,6 +11,7 @@ with warnings.catch_warnings():
   warnings.simplefilter("ignore", lineno=36)
   import h5py
 import yaml
+import sentencepiece as spm
 
 from xnmt import logger
 from xnmt.persistence import serializable_init, Serializable
@@ -168,19 +169,27 @@ class ExternalTokenizer(Tokenizer):
       sys.stderr.write(stderr + '\n')
     return stdout
 
-class SentencepieceTokenizer(ExternalTokenizer):
+class SentencepieceTokenizer(Tokenizer):
   """
-  A wrapper around an independent installation of the sentencepiece tokenizer
-  with passable parameters.
+  Sentencepiece tokenizer
+  The options supported by the SentencepieceTokenizer are almost exactly those presented in the Sentencepiece `readme <https://github.com/google/sentencepiece/blob/master/README.md>`_, namely:
+
+    - ``model_type``: Either ``unigram`` (default), ``bpe``, ``char`` or ``word``.
+      Please refer to the sentencepiece documentation for more details
+    - ``model_prefix``: The trained bpe model will be saved under ``{model_prefix}.model``/``.vocab``
+    - ``vocab_size``: fixes the vocabulary size
+    - ``hard_vocab_limit``: setting this to ``False`` will make the vocab size a soft limit. 
+      Useful for small datasets. This is ``True`` by default.
   """
+
   yaml_tag = '!SentencepieceTokenizer'
 
   @serializable_init
   def __init__(self, path, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
-      , output_format='piece', model_type='bpe'
+      , output_format='piece', model_type='bpe', hard_vocab_limit=True
       , encode_extra_options=None, decode_extra_options=None):
     """
-    Initialize the wrapper around sentencepiece and train the tokenizer.
+    This will initialize and train the sentencepiece tokenizer.
 
     If overwrite is set to False, learned model will not be overwritten, even if parameters
     are changed.
@@ -188,6 +197,7 @@ class SentencepieceTokenizer(ExternalTokenizer):
     "File" output for Sentencepiece written to StringIO temporarily before being written to disk.
 
     """
+    # TODO: deprecate the path argument
     self.sentpiece_path = path
     self.model_prefix = model_prefix
     self.output_format = output_format
@@ -200,21 +210,24 @@ class SentencepieceTokenizer(ExternalTokenizer):
     if ((not os.path.exists(self.model_prefix + '.model')) or
         (not os.path.exists(self.model_prefix + '.vocab')) or
         overwrite):
-      sentpiece_train_exec_loc = os.path.join(path, 'spm_train')
-      sentpiece_train_command = [sentpiece_train_exec_loc
-          , '--input=' + ','.join(train_files)
-          , '--model_prefix=' + str(model_prefix)
-          , '--vocab_size=' + str(vocab_size)
-          , '--model_type=' + str(model_type)
-          ]
-      subprocess.call(sentpiece_train_command)
+      sentpiece_train_args = ['--input=' + ','.join(train_files),
+                              '--model_prefix=' + str(model_prefix),
+                              '--vocab_size=' + str(vocab_size),
+                              '--hard_vocab_limit=' + str(hard_vocab_limit).lower(),
+                              '--model_type=' + str(model_type)
+                             ]
+      # This calls sentencepiece. It's pretty verbose
+      spm.SentencePieceTrainer.Train(' '.join(sentpiece_train_args))
+    
+    self.sentpiece_processor = spm.SentencePieceProcessor()
+    self.sentpiece_processor.Load('%s.model' % model_prefix)
 
-    sentpiece_encode_exec_loc = os.path.join(self.sentpiece_path, 'spm_encode')
-    sentpiece_encode_command = [sentpiece_encode_exec_loc
-        , '--model=' + self.model_prefix + '.model'
-        , '--output_format=' + self.output_format
-        ] + self.encode_extra_options
-    self.tokenizer_command = sentpiece_encode_command
+    self.sentpiece_encode = self.sentpiece_processor.EncodeAsPieces if self.output_format == 'piece' else self.sentpiece_processor.EncodeAsIds
+  
+  def tokenize(self, sent):
+    """Tokenizes a single sentence into pieces."""
+    return ' '.join(self.sentpiece_encode(sent))
+
 
 ##### Sentence filterers
 
