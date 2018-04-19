@@ -59,19 +59,19 @@ class MLP(Serializable):
                                                                                    param_init=param_init_hidden,
                                                                                    bias_init=bias_init_hidden))
     if activation == 'tanh':
-        self.activation = dy.tanh
+      self.activation = dy.tanh
     elif activation == 'relu':
-        self.activation = dy.rectify
+      self.activation = dy.rectify
     elif activation == 'sigmoid':
-        self.activation = dy.sigmoid
+      self.activation = dy.sigmoid
     elif activation == 'elu':
-        self.activation = dy.elu
+      self.activation = dy.elu
     elif activation == 'selu':
-        self.activation = dy.selu
+      self.activation = dy.selu
     elif activation == 'asinh':
-        self.activation = dy.asinh
+      self.activation = dy.asinh
     else:
-        raise ValueError('Unknown activation %s' % activation)
+      raise ValueError('Unknown activation %s' % activation)
 
     self.output_projector = self.add_serializable_component("output_projector", output_projector,
                                                             lambda: output_projector or xnmt.linear.Linear(
