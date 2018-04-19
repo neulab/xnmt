@@ -202,6 +202,7 @@ class SentencepieceTokenizer(Tokenizer):
     self.model_prefix = model_prefix
     self.output_format = output_format
     self.input_format = output_format
+    self.overwrite = overwrite
     self.encode_extra_options = ['--extra_options='+encode_extra_options] if encode_extra_options else []
     self.decode_extra_options = ['--extra_options='+decode_extra_options] if decode_extra_options else []
 
@@ -218,7 +219,7 @@ class SentencepieceTokenizer(Tokenizer):
   def init_sentencepiece(self):
     if ((not os.path.exists(self.model_prefix + '.model')) or
         (not os.path.exists(self.model_prefix + '.vocab')) or
-        overwrite):
+        self.overwrite):
       # This calls sentencepiece. It's pretty verbose
       spm.SentencePieceTrainer.Train(' '.join(self.sentpiece_train_args))
     
