@@ -221,6 +221,7 @@ class BLEUEvaluator(Evaluator, Serializable):
     Args:
       ref: list of reference sents ( a sent is a list of tokens )
       hyp: list of hypothesis sents ( a sent is a list of tokens )
+      desc: description to pass on to returned score
     Return:
       Formatted string having BLEU Score with different intermediate results such as ngram ratio,
       sent length, brevity penalty
@@ -375,6 +376,7 @@ class GLEUEvaluator(Evaluator, Serializable):
     Args:
       ref: list of reference sents ( a sent is a list of tokens )
       hyp: list of hypothesis sents ( a sent is a list of tokens )
+      desc: description to pass on to returned score
     Return:
       Formatted string having GLEU Score
     """
@@ -426,6 +428,7 @@ class WEREvaluator(Evaluator, Serializable):
     Args:
       ref: list of list of reference words
       hyp: list of list of decoded words
+      desc: description to pass on to returned score
     Return:
       formatted string (word error rate: (ins+del+sub) / (ref_len), plus more statistics)
     """
@@ -503,6 +506,7 @@ class CEREvaluator(Evaluator, Serializable):
     Args:
       ref: list of list of reference words
       hyp: list of list of decoded words
+      desc: description to pass on to returned score
     Return:
       character error rate: (ins+del+sub) / (ref_len)
     """
@@ -532,6 +536,7 @@ class ExternalEvaluator(Evaluator, Serializable):
     Args:
       ref: list of list of reference words
       hyp: list of list of decoded words
+      desc: description to pass on to returned score
     Return:
       external eval script score
     """
@@ -606,6 +611,7 @@ class SequenceAccuracyEvaluator(Evaluator, Serializable):
     Args:
       ref: list of list of reference words
       hyp: list of list of decoded words
+      desc: description to pass on to returned score
     Return: formatted string
     """
     correct = sum(self.compare(ref_sent, hyp_sent) for ref_sent, hyp_sent in zip(ref, hyp))

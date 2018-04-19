@@ -102,6 +102,7 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
 
     Args:
       enc_final_states: The encoder final states. Usually but not necessarily an :class:`xnmt.expression_sequence.ExpressionSequence`
+      ss_expr: first input
     Returns:
       MlpSoftmaxDecoderState:
     """
