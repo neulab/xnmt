@@ -45,8 +45,12 @@ class MLELoss(Serializable, LossCalculator):
     for i in range(seq_len):
       ref_word = trg[i] if not xnmt.batcher.is_batched(src) \
                       else xnmt.batcher.mark_as_batch([single_trg[i] for single_trg in trg])
+      # TODO: only use unmasked words
 
       dec_state.context = translator.attender.calc_context(dec_state.rnn_state.output())
+      # TODO: if batch size has shrunk, select unmasked context
+      # TODO: optimize calc_context so that attention computation won't waste memory
+      # TODO: if batch size has shrunk, select unmasked RNN state
       word_loss = translator.decoder.calc_loss(dec_state, ref_word)
       if xnmt.batcher.is_batched(src) and trg_mask is not None:
         word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
