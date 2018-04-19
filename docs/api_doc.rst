@@ -82,6 +82,12 @@ Linear
    :members:
    :show-inheritance:
 
+Linear
+~~~~~~
+.. automodule:: xnmt.mlp
+   :members:
+   :show-inheritance:
+
 Loss
 ----
 
