@@ -52,10 +52,8 @@ be over-written by the name of the experiment, ``{EXP_DIR}`` will be overwritten
 by the directory the config file lies in, ``{PID}`` by the process id, and
 ``{GIT_REV}`` by the current git revision.
 
-To obtain a full list of allowed parameters, please check the constructor of
-``ExpGlobal``, specified under xnmt/exp_global.py. Behind the scenes, this class
-also manages the DyNet parameters, it is therefore referenced by all components
-that use DyNet parameters.
+To obtain a full list of allowed parameters, please check the documentation for
+:class:`xnmt.exp_global.ExpGlobal`.
 
 Preprocessing
 =============
@@ -97,10 +95,7 @@ Note that some of this Python objects are passed to their parent object's
 initializer method, which requires that the children are initialized first.
 *xnmt* therefore uses a bottom-up initialization strategy, where siblings
 are initialized in the order they appear in the constructor. Among others,
-this causes ``exp_global`` (the first child of the top-level experiment) to be
-initialized before any model component is initialized, so that model components
-are free to use exp_global's global default settings, DyNet parameters, etc.
-It also guarantees that preprocessing is carried out before the model training.
+this guarantees that preprocessing is carried out before the model training.
 
 Training
 ========
