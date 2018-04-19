@@ -6,9 +6,9 @@
 """
 
 def usage():
-    print """usage: extract_db.py [options] tedlium-path data-path
+    print("""usage: extract_db.py [options] tedlium-path data-path
     -h --help: print this Help message
-"""
+""")
 
 import sys
 import re
@@ -95,8 +95,8 @@ def main(argv=None):
         ###########################
 
     except Usage, err:
-        print >>sys.stderr, err.msg
-        print >>sys.stderr, "for help use --help"
+        print(err.msg)
+        print("for help use --help")
         return 2
 
 
