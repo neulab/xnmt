@@ -82,8 +82,8 @@ Linear
    :members:
    :show-inheritance:
 
-Linear
-~~~~~~
+Multi-layer Perceptron
+~~~~~~~~~~~~~~~~~~~~~~
 .. automodule:: xnmt.mlp
    :members:
    :show-inheritance:
