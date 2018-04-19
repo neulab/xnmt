@@ -11,6 +11,7 @@ with warnings.catch_warnings():
   warnings.simplefilter("ignore", lineno=36)
   import h5py
 import yaml
+import sentencepiece as spm
 
 from xnmt import logger
 from xnmt.persistence import serializable_init, Serializable
@@ -168,7 +169,7 @@ class ExternalTokenizer(Tokenizer):
       sys.stderr.write(stderr + '\n')
     return stdout
 
-class SentencepieceTokenizer(ExternalTokenizer):
+class SentencepieceTokenizer(Tokenizer):
   """
   A wrapper around an independent installation of the sentencepiece tokenizer
   with passable parameters.
@@ -188,6 +189,7 @@ class SentencepieceTokenizer(ExternalTokenizer):
     "File" output for Sentencepiece written to StringIO temporarily before being written to disk.
 
     """
+    # TODO: deprecate the path argument
     self.sentpiece_path = path
     self.model_prefix = model_prefix
     self.output_format = output_format
@@ -200,21 +202,23 @@ class SentencepieceTokenizer(ExternalTokenizer):
     if ((not os.path.exists(self.model_prefix + '.model')) or
         (not os.path.exists(self.model_prefix + '.vocab')) or
         overwrite):
-      sentpiece_train_exec_loc = os.path.join(path, 'spm_train')
-      sentpiece_train_command = [sentpiece_train_exec_loc
-          , '--input=' + ','.join(train_files)
-          , '--model_prefix=' + str(model_prefix)
-          , '--vocab_size=' + str(vocab_size)
-          , '--model_type=' + str(model_type)
-          ]
-      subprocess.call(sentpiece_train_command)
+      sentpiece_train_args = ['--input=' + ','.join(train_files),
+                              '--model_prefix=' + str(model_prefix),
+                              '--vocab_size=' + str(vocab_size),
+                              '--model_type=' + str(model_type)
+                             ]
+      # This calls sentencepiece. It's pretty verbose
+      spm.SentencePieceTrainer.Train(' '.join(sentpiece_train_args))
+    
+    self.sentpiece_processor = spm.SentencePieceProcessor()
+    self.sentpiece_processor.Load('%s.model' % model_prefix)
 
-    sentpiece_encode_exec_loc = os.path.join(self.sentpiece_path, 'spm_encode')
-    sentpiece_encode_command = [sentpiece_encode_exec_loc
-        , '--model=' + self.model_prefix + '.model'
-        , '--output_format=' + self.output_format
-        ] + self.encode_extra_options
-    self.tokenizer_command = sentpiece_encode_command
+    self.sentpiece_encode = self.sentpiece_processor.EncodeAsPieces if self.output_format == 'piece' else self.sentpiece_processor.EncodeAsIds
+  
+  def tokenize(self, sent):
+    """Tokenizes a single sentence into pieces."""
+    return ' '.join(self.sentpiece_encode(sent))
+
 
 ##### Sentence filterers
 
