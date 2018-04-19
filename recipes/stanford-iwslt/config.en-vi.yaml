@@ -18,7 +18,8 @@ iwslt-experiment: !Experiment
     decoder: !MlpSoftmaxDecoder
       bridge: !CopyBridge {}
     inference: !SimpleInference
-      beam: 5
+      search_strategy: !BeamSearch
+        beam_size: 5
   train: !SimpleTrainingRegimen
     trainer: !AdamTrainer
       alpha: 0.001
