@@ -219,6 +219,10 @@ Preprocessing
    :members:
    :show-inheritance:
 
+.. automodule:: xnmt.preproc
+   :members:
+   :show-inheritance:
+
 Persistence
 -------------
 
