@@ -2,7 +2,7 @@ This trains a neural machine translation model on the IWSLT English-Vietnamese d
 
 Steps:
 - ./download.sh
-- python -m xnmt.xnmt_run_experiments --dynet-gpu ./config.en-vi.yaml
+- xnmt --dynet-gpu ./config.en-vi.yaml
 
 Reference output after the final evaluation:
 
