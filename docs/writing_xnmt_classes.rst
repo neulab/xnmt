@@ -4,11 +4,11 @@ Writing XNMT classes
 In order to write new components that can be created both from YAML config files as well as programmatically, support
 sharing of DyNet parameters, etc., one must adhere to the Serializable interface including a few simple conventions.
 
-1. Classes must have ``Serializable`` from the ``xnmt.serialize.serializable`` module as super class.
+1. Classes must have ``Serializable`` from the ``xnmt.persistence`` module as super class.
 2. Classes must have a unique name, regardless of module placement.
 3. Class must specify a yaml_tag class attribute, set to ``!ClassName`` with ClassName replaced by the unique class
    name.
-4. The ``__init__`` must be decorated with ``@serializable_init`` from the ``xnmt.serialize.serializer`` module. Even if
+4. The ``__init__`` must be decorated with ``@serializable_init`` from the ``xnmt.persistence`` module. Even if
    ``__init__`` contains no functionality, it should be specified regardless.
 5. In the YAML config file, all arguments given in the ``__init__`` method are accepted. Sub-objects are initialized
    before being passed to ``__init__``, and in the order in which they are specified in ``__init__``.

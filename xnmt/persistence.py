@@ -749,7 +749,7 @@ class YamlPreloader(object):
     except yaml.constructor.ConstructorError:
       logger.error(
         "for proper deserialization of a class object, make sure the class is a subclass of "
-        "xnmt.serialize.serializable.Serializable, specifies a proper yaml_tag with leading '!', and its module is "
+        "xnmt.persistence.Serializable, specifies a proper yaml_tag with leading '!', and its module is "
         "imported under xnmt/__init__.py")
       raise
     if "defaults" in experiments: del experiments["defaults"]
