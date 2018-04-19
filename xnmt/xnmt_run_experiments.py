@@ -5,6 +5,7 @@ Reads experiments descriptions in the passed configuration file
 and runs them sequentially, logging outputs
 """
 import argparse
+import logging
 import os
 import random
 import sys
@@ -17,6 +18,7 @@ import numpy as np
 from xnmt.settings import settings
 
 from xnmt import logger
+from xnmt.tee import log_preamble
 from xnmt.param_collection import ParamManager
 import xnmt.tee as tee
 from xnmt.persistence import YamlPreloader, save_to_file, initialize_if_needed
@@ -54,28 +56,28 @@ def main(overwrite_args=None):
     if args.dynet_gpu:
       if settings.CHECK_VALIDITY:
         settings.CHECK_VALIDITY = False
-        logger.warning("disabling CHECK_VALIDITY because it is not supported on GPU currently")
-  
+        log_preamble("disabling CHECK_VALIDITY because it is not supported on GPU currently", logging.WARNING)
+
     config_experiment_names = YamlPreloader.experiment_names_from_file(args.experiments_file)
-  
+
     results = []
-  
+
     # Check ahead of time that all experiments exist, to avoid bad surprises
     experiment_names = args.experiment_name or config_experiment_names
-  
+
     if args.experiment_name:
       nonexistent = set(experiment_names).difference(config_experiment_names)
       if len(nonexistent) != 0:
         raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
-  
+
+    log_preamble(f"running XNMT revision {tee.get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     for experiment_name in experiment_names:
 
       ParamManager.init_param_col()
 
       uninitialized_exp_args = YamlPreloader.preload_experiment_from_file(args.experiments_file, experiment_name)
-  
+
       logger.info(f"=> Running {experiment_name}")
-      logger.debug(f"running XNMT revision {tee.get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
       glob_args = uninitialized_exp_args.data.exp_global
       log_file = glob_args.log_file
@@ -85,13 +87,13 @@ def main(overwrite_args=None):
                        f"(or activate OVERWRITE_LOG, by either specifying an environment variable as OVERWRITE_LOG=1, "
                        f"or specifying --settings=debug, or changing xnmt.settings.Standard.OVERWRITE_LOG manually)")
         continue
-  
+
       tee.set_out_file(log_file)
-  
+
       model_file = glob_args.model_file
-  
+
       uninitialized_exp_args.data.exp_global.commandline_args = args
-  
+
       # Create the model
       experiment = initialize_if_needed(uninitialized_exp_args)
       ParamManager.param_col.model_file = experiment.exp_global.model_file
@@ -100,10 +102,10 @@ def main(overwrite_args=None):
 
       # Run the experiment
       eval_scores = experiment(save_fct = lambda: save_to_file(model_file, experiment,
-                                                                               ParamManager.param_col))
+                                                               ParamManager.param_col))
       results.append((experiment_name, eval_scores))
       print_results(results)
-      
+
       tee.unset_out_file()
     
 def print_results(results):
