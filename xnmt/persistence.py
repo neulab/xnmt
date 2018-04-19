@@ -619,7 +619,7 @@ def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST
     cur_node (Serializable):
     traversal_order (TraversalOrder):
     path_to_node (Path):
-    name_paths (dict):
+    named_paths (dict):
     past_visits (set):
   """
 
