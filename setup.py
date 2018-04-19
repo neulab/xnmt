@@ -30,7 +30,7 @@ setup(
   url='https://github.com/neulab/xnmt',
   license='Apache License',
   install_requires=install_requires,
-  packages=find_packages(exclude=['test*']),
+  packages=find_packages(exclude=['test*', 'xnmt.cython', 'xnmt.test']),
   ext_modules=ext_modules,
   python_requires='>=3.6',
   project_urls={

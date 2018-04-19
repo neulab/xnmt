@@ -6,12 +6,13 @@ Prerequisites
 
 *xnmt* requires Python 3.6.
 
-Before running *xnmt*, it must be installed by running ``python setup.py install`` for normal usage or
-``python setup.py develop`` for development (the latter allows changing code without re-running install).
-This will also install the required packages (including Python bindings for `DyNet <http://github.com/clab/dynet>`_)
-from requirements.txt, which can also be manually installed by typing ``pip install -r requirements.txt``.
-(There is also ``requirements-extra.txt`` that has some requirements for utility scripts that are not part of *xnmt*
-itself.)
+Before running *xnmt* you must install the required packages, including Python bindings for
+`DyNet <http://github.com/clab/dynet>`_.
+This can be done by running ``pip install -r requirements.txt``.
+(There is also ``requirements-extra.txt`` that has some requirements for utility scripts that are not part of *xnmt* itself.)
+
+Next, install *xnmt* by running ``python setup.py install`` for normal usage or ``python setup.py develop`` for
+development.
 
 Running the examples
 --------------------
