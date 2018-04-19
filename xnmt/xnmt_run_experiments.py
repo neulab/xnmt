@@ -30,7 +30,7 @@ def main(overwrite_args=None):
   with tee.Tee(), tee.Tee(error=True):
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--dynet-mem", type=str)
-    argparser.add_argument("--dynet-seed", type=int)
+    argparser.add_argument("--dynet-seed", type=int, help="set random seed for DyNet and XNMT.")
     argparser.add_argument("--dynet-autobatch", type=int)
     argparser.add_argument("--dynet-devices", type=str)
     argparser.add_argument("--dynet-viz", action='store_true', help="use visualization")
