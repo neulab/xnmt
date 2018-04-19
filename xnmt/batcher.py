@@ -97,6 +97,7 @@ class Batcher(object):
     return False
 
   def add_single_batch(self, src_curr, trg_curr, src_ret, trg_ret):
+    src_curr, trg_curr = zip(*sorted(zip(src_curr, trg_curr), key=lambda x: len(x[1]))) # sort by trg length
     src_id, src_mask = pad(src_curr, pad_token=self.src_pad_token, pad_src_to_multiple=self.pad_src_to_multiple)
     src_ret.append(Batch(src_id, src_mask))
     if trg_ret is not None:
