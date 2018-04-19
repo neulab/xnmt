@@ -15,13 +15,11 @@ import faulthandler
 faulthandler.enable()
 
 import numpy as np
-from xnmt.settings import settings
 
+import xnmt
+from xnmt.settings import settings
 from xnmt import logger
-from xnmt.tee import log_preamble
-from xnmt.param_collection import ParamManager
-import xnmt.tee as tee
-from xnmt.persistence import YamlPreloader, save_to_file, initialize_if_needed
+import xnmt.param_collection as param_collection
 
 if settings.RESOURCE_WARNINGS:
   import warnings
@@ -29,7 +27,7 @@ if settings.RESOURCE_WARNINGS:
 
 def main(overwrite_args=None):
 
-  with tee.Tee(), tee.Tee(error=True):
+  with xnmt.tee.Tee(), xnmt.tee.Tee(error=True):
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--dynet-mem", type=str)
     argparser.add_argument("--dynet-seed", type=int, help="set random seed for DyNet and XNMT.")
@@ -56,9 +54,9 @@ def main(overwrite_args=None):
     if args.dynet_gpu:
       if settings.CHECK_VALIDITY:
         settings.CHECK_VALIDITY = False
-        log_preamble("disabling CHECK_VALIDITY because it is not supported on GPU currently", logging.WARNING)
+        xnmt.tee.log_preamble("disabling CHECK_VALIDITY because it is not supported on GPU currently", logging.WARNING)
 
-    config_experiment_names = YamlPreloader.experiment_names_from_file(args.experiments_file)
+    config_experiment_names = xnmt.persistence.YamlPreloader.experiment_names_from_file(args.experiments_file)
 
     results = []
 
@@ -70,12 +68,13 @@ def main(overwrite_args=None):
       if len(nonexistent) != 0:
         raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
 
-    log_preamble(f"running XNMT revision {tee.get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    xnmt.tee.log_preamble(f"running XNMT revision {xnmt.tee.get_git_revision()} on {socket.gethostname()} on "
+                          f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     for experiment_name in experiment_names:
 
-      ParamManager.init_param_col()
+      param_collection.ParamManager.init_param_col()
 
-      uninitialized_exp_args = YamlPreloader.preload_experiment_from_file(args.experiments_file, experiment_name)
+      uninitialized_exp_args = xnmt.persistence.YamlPreloader.preload_experiment_from_file(args.experiments_file, experiment_name)
 
       logger.info(f"=> Running {experiment_name}")
 
@@ -88,25 +87,25 @@ def main(overwrite_args=None):
                        f"or specifying --settings=debug, or changing xnmt.settings.Standard.OVERWRITE_LOG manually)")
         continue
 
-      tee.set_out_file(log_file)
+      xnmt.tee.set_out_file(log_file)
 
       model_file = glob_args.model_file
 
       uninitialized_exp_args.data.exp_global.commandline_args = args
 
       # Create the model
-      experiment = initialize_if_needed(uninitialized_exp_args)
-      ParamManager.param_col.model_file = experiment.exp_global.model_file
-      ParamManager.param_col.save_num_checkpoints = experiment.exp_global.save_num_checkpoints
-      ParamManager.populate()
+      experiment = xnmt.persistence.initialize_if_needed(uninitialized_exp_args)
+      param_collection.ParamManager.param_col.model_file = experiment.exp_global.model_file
+      param_collection.ParamManager.param_col.save_num_checkpoints = experiment.exp_global.save_num_checkpoints
+      param_collection.ParamManager.populate()
 
       # Run the experiment
-      eval_scores = experiment(save_fct = lambda: save_to_file(model_file, experiment,
-                                                               ParamManager.param_col))
+      eval_scores = experiment(save_fct=lambda: xnmt.persistence.save_to_file(model_file, experiment,
+                                                                              param_collection.ParamManager.param_col))
       results.append((experiment_name, eval_scores))
       print_results(results)
 
-      tee.unset_out_file()
+      xnmt.tee.unset_out_file()
     
 def print_results(results):
   print("")
