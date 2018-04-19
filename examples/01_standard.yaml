@@ -30,6 +30,7 @@ standard: !Experiment # 'standard' is the name given to the experiment
         layers: 1
       mlp_layer: !MLP
         hidden_dim: 512
+        activation: 'tanh'
       bridge: !CopyBridge {}
   # training parameters
   train: !SimpleTrainingRegimen
