@@ -1,5 +1,6 @@
-from typing import Any, Sequence
 import argparse
+import sys
+from typing import Any, Sequence
 
 from xnmt import logger
 from xnmt.evaluator import * # import everything so we can parse it with eval()
@@ -50,7 +51,7 @@ def xnmt_evaluate(ref_file: OneOrSeveral[str], hyp_file: OneOrSeveral[str],
 
   return [evaluator.evaluate(ref_corpus, hyp_corpus, desc=desc) for evaluator in evaluators]
 
-if __name__ == "__main__":
+def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("ref", help="Path to read reference file from")
   parser.add_argument("hyp", help="Path to read hypothesis file from")
@@ -71,3 +72,5 @@ if __name__ == "__main__":
   for score in scores:
     print(score)
 
+if __name__ == "__main__":
+  sys.exit(main())
