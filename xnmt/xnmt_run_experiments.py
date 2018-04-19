@@ -81,7 +81,9 @@ def main(overwrite_args=None):
       log_file = glob_args.log_file
 
       if os.path.isfile(log_file) and not settings.OVERWRITE_LOG:
-        logger.warning(f"log file {log_file} already exists; please delete by hand if you want to overwrite it (or use --settings debug or otherwise set OVERWRITE_LOG=True); skipping experiment..")
+        logger.warning(f"log file {log_file} already exists, skipping experiment; please delete log file by hand if you want to overwrite it "
+                       f"(or activate OVERWRITE_LOG, by either specifying an environment variable as OVERWRITE_LOG=1, "
+                       f"or specifying --settings=debug, or changing xnmt.settings.Standard.OVERWRITE_LOG manually)")
         continue
   
       tee.set_out_file(log_file)

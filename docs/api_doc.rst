@@ -203,3 +203,9 @@ Reportable
 
 .. automodule:: xnmt.reports
    :members:
+
+Settings
+--------
+
+.. automodule:: xnmt.settings
+   :members:
