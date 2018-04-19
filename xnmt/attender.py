@@ -2,9 +2,8 @@ import math
 import dynet as dy
 
 from xnmt import logger
-from xnmt.param_collection import ParamManager
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
+import xnmt.param_init
 
 class Attender(object):
   '''
@@ -57,12 +56,12 @@ class MlpAttender(Attender, Serializable):
                input_dim=Ref("exp_global.default_layer_dim"),
                state_dim=Ref("exp_global.default_layer_dim"),
                hidden_dim=Ref("exp_global.default_layer_dim"),
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+               param_init=Ref("exp_global.param_init", default=bare(xnmt.param_init.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(xnmt.param_init.ZeroInitializer))):
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
-    param_collection = ParamManager.my_params(self)
+    param_collection = xnmt.param_collection.ParamManager.my_params(self)
     self.pW = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
     self.pV = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
     self.pb = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
@@ -154,10 +153,10 @@ class BilinearAttender(Attender, Serializable):
   def __init__(self,
                input_dim=Ref("exp_global.default_layer_dim"),
                state_dim=Ref("exp_global.default_layer_dim"),
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer))):
+               param_init=Ref("exp_global.param_init", default=bare(xnmt.param_init.GlorotInitializer))):
     self.input_dim = input_dim
     self.state_dim = state_dim
-    param_collection = ParamManager.my_params(self)
+    param_collection = xnmt.param_collection.ParamManager.my_params(self)
     self.pWa = param_collection.add_parameters((input_dim, state_dim), init=param_init.initializer((input_dim, state_dim)))
     self.curr_sent = None
 

@@ -16,9 +16,9 @@ faulthandler.enable()
 
 import numpy as np
 
-import xnmt
 from xnmt.settings import settings
 from xnmt import logger
+import xnmt
 import xnmt.param_collection as param_collection
 
 if settings.RESOURCE_WARNINGS:
