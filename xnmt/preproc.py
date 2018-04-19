@@ -171,17 +171,24 @@ class ExternalTokenizer(Tokenizer):
 
 class SentencepieceTokenizer(Tokenizer):
   """
-  A wrapper around an independent installation of the sentencepiece tokenizer
-  with passable parameters.
+  Sentencepiece tokenizer
+  The options supported by the SentencepieceTokenizer are almost exactly those presented in the Sentencepiece `readme <https://github.com/google/sentencepiece/blob/master/README.md>`_, namely:
+
+    - ``model_type``: Either ``unigram`` (default), ``bpe``, ``char`` or ``word``.
+      Please refer to the sentencepiece documentation for more details
+    - ``model_prefix``: The trained bpe model will be saved under ``{model_prefix}.model``/``.vocab``
+    - ``vocab_size``: fixes the vocabulary size
+    - ``hard_vocab_limit``: setting this to ``False`` will make the vocab size a soft limit
   """
+
   yaml_tag = '!SentencepieceTokenizer'
 
   @serializable_init
   def __init__(self, path, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
-      , output_format='piece', model_type='bpe'
+      , output_format='piece', model_type='bpe', hard_vocab_limit=False,
       , encode_extra_options=None, decode_extra_options=None):
     """
-    Initialize the wrapper around sentencepiece and train the tokenizer.
+    This will initialize and train the sentencepiece tokenizer.
 
     If overwrite is set to False, learned model will not be overwritten, even if parameters
     are changed.
@@ -205,6 +212,7 @@ class SentencepieceTokenizer(Tokenizer):
       sentpiece_train_args = ['--input=' + ','.join(train_files),
                               '--model_prefix=' + str(model_prefix),
                               '--vocab_size=' + str(vocab_size),
+                              '--hard_vocab_limit=' + str(hard_vocab_limit).lower(),
                               '--model_type=' + str(model_type)
                              ]
       # This calls sentencepiece. It's pretty verbose
