@@ -2,10 +2,10 @@ import dynet as dy
 import numpy as np
 from collections import namedtuple
 
+from xnmt.persistence import Serializable, serializable_init, bare
 import xnmt.batcher
-from xnmt.length_normalization import NoNormalization
-from xnmt.persistence import bare, Serializable, serializable_init, Ref, bare
-from xnmt.vocab import Vocab
+import xnmt.length_normalization as length_normalization
+import xnmt.vocab as vocab
 
 
 # Output of the search
@@ -77,7 +77,7 @@ class GreedySearch(Serializable, SearchStrategy):
           word_id = [forced_trg_ids[length]]
       logsoft = dy.pick_batch(current_output.logsoftmax, word_id)
       if done is not None:
-        word_id = [word_id[i] if not done[i] else Vocab.ES for i in range(len(done))]
+        word_id = [word_id[i] if not done[i] else vocab.ES for i in range(len(done))]
         # masking for logsoftmax
         mask = [1 if not done[i] else 0 for i in range(len(done))]
         logsoft = dy.cmult(logsoft, dy.inputTensor(mask, batched=True))
@@ -89,7 +89,7 @@ class GreedySearch(Serializable, SearchStrategy):
       logsoftmaxes.append(dy.pick_batch(current_output.logsoftmax, word_id))
       states.append(translator.get_nobp_state(current_state))
       # Check if we are done.
-      done = [x == Vocab.ES for x in word_id]
+      done = [x == vocab.ES for x in word_id]
       if all(done):
         break
     masks.insert(0, [1 for _ in range(len(done))])
@@ -112,7 +112,7 @@ class BeamSearch(Serializable, SearchStrategy):
   Hypothesis = namedtuple('Hypothesis', ['score', 'output', 'parent', 'word'])
   
   @serializable_init
-  def __init__(self, beam_size=1, max_len=100, len_norm=bare(NoNormalization), one_best=True):
+  def __init__(self, beam_size=1, max_len=100, len_norm=bare(length_normalization.NoNormalization), one_best=True):
     self.beam_size = beam_size
     self.max_len = max_len
     self.len_norm = len_norm
@@ -135,7 +135,7 @@ class BeamSearch(Serializable, SearchStrategy):
         else:
           prev_word = None
           prev_state = initial_state
-        if prev_word == Vocab.ES:
+        if prev_word == vocab.ES:
           completed_hyp.append(hyp)
           continue
         current_output = translator.output_one_step(prev_word, prev_state)
@@ -229,10 +229,10 @@ class SamplingSearch(Serializable, SearchStrategy):
         if len(sample.shape) == 2:
           sample = sample[0]
       else:
-        sample = [forced_trg[length] if len(forced_trg) > length else Vocab.ES for forced_trg in forced_trg_ids]
+        sample = [forced_trg[length] if len(forced_trg) > length else vocab.ES for forced_trg in forced_trg_ids]
       logsoft = dy.pick_batch(translator_output.logsoftmax, sample)
       if done is not None:
-        sample = [sample[i] if not done[i] else Vocab.ES for i in range(len(done))]
+        sample = [sample[i] if not done[i] else vocab.ES for i in range(len(done))]
         # masking for logsoftmax
         mask = [1 if not done[i] else 0 for i in range(len(done))]
         logsoft = dy.cmult(logsoft, dy.inputTensor(mask, batched=True))
@@ -246,7 +246,7 @@ class SamplingSearch(Serializable, SearchStrategy):
       current_words = sample
       current_state = translator_output.state
       # Check done
-      done = [x == Vocab.ES for x in sample]
+      done = [x == vocab.ES for x in sample]
       # Check if we are done.
       if all(done):
         break

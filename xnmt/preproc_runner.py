@@ -2,8 +2,8 @@ import os.path
 from typing import List
 
 from xnmt import logger
-from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer
 from xnmt.persistence import serializable_init, Serializable
+import xnmt.preproc as preproc
 from xnmt.util import make_parent_dir
 
 class PreprocTask(object):
@@ -81,7 +81,7 @@ class PreprocNormalize(PreprocTask, Serializable):
     self.out_files = out_files
     self.specs = specs
   def run_preproc_task(self, overwrite=False):
-    normalizers = {my_opts["filenum"]: Normalizer.from_spec(my_opts["spec"]) for my_opts in self.specs}
+    normalizers = {my_opts["filenum"]: preproc.Normalizer.from_spec(my_opts["spec"]) for my_opts in self.specs}
     for i, (in_file, out_file) in enumerate(zip(self.in_files, self.out_files)):
       if overwrite or not os.path.isfile(out_file):
         make_parent_dir(out_file)
@@ -104,7 +104,7 @@ class PreprocFilter(PreprocTask, Serializable):
   def run_preproc_task(self, overwrite=False):
     # TODO: This will only work with plain-text sentences at the moment. It would be nice if it plays well with the readers
     #       in input.py
-    filters = SentenceFilterer.from_spec(self.specs)
+    filters = preproc.SentenceFilterer.from_spec(self.specs)
     out_streams = [open(x, 'w', encoding='utf-8') if overwrite or not os.path.isfile(x) else None for x in self.out_files]
     if any(x is not None for x in out_streams):
       in_streams = [open(x, 'r', encoding='utf-8') for x in self.in_files]
@@ -127,7 +127,7 @@ class PreprocVocab(PreprocTask, Serializable):
     self.out_files = out_files
     self.specs = specs
   def run_preproc_task(self, overwrite=False):
-    filters = {my_opts["filenum"]: VocabFilterer.from_spec(my_opts["spec"]) for my_opts in self.specs}
+    filters = {my_opts["filenum"]: preproc.VocabFilterer.from_spec(my_opts["spec"]) for my_opts in self.specs}
     for i, (in_file, out_file) in enumerate(zip(self.in_files, self.out_files)):
       if overwrite or not os.path.isfile(out_file):
         make_parent_dir(out_file)

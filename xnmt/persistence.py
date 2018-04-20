@@ -30,8 +30,8 @@ import inspect, random
 
 import yaml
 
-from xnmt.param_collection import ParamManager
-from xnmt.util import YamlSerializable
+import xnmt.param_collection as pc
+import xnmt.util as util
 
 
 class Serializable(yaml.YAMLObject):
@@ -75,7 +75,7 @@ class Serializable(yaml.YAMLObject):
     """
     return []
 
-  def save_processed_arg(self, key: str, val: YamlSerializable) -> None:
+  def save_processed_arg(self, key: str, val: util.YamlSerializable) -> None:
     """
     Save a new value for an init argument (call from within __init__()).
 
@@ -95,8 +95,8 @@ class Serializable(yaml.YAMLObject):
       raise ValueError(f"{key} is not an init argument of {self}")
     self.serialize_params[key] = val
 
-  def add_serializable_component(self, name: str, passed: YamlSerializable,
-                                 create_fct: Callable[[], YamlSerializable]) -> YamlSerializable:
+  def add_serializable_component(self, name: str, passed: util.YamlSerializable,
+                                 create_fct: Callable[[], util.YamlSerializable]) -> util.YamlSerializable:
     """
     Create a Serializable component, or a container component with several Serializable-s.
 
@@ -145,17 +145,17 @@ class UninitializedYamlObject(object):
     data: uninitialized object
   """
 
-  def __init__(self, data: YamlSerializable) -> None:
+  def __init__(self, data: util.YamlSerializable) -> None:
     if isinstance(data, UninitializedYamlObject):
       raise AssertionError
     self.data = data
 
-  def get(self, key: str, default: YamlSerializable):
+  def get(self, key: str, default: util.YamlSerializable):
     return self.data.get(key, default)
 
 
 T = TypeVar('T')
-def bare(class_type: Type[T], **kwargs: YamlSerializable) -> T:
+def bare(class_type: Type[T], **kwargs: util.YamlSerializable) -> T:
   """
   Create an uninitialized object of arbitrary type.
 
@@ -194,7 +194,7 @@ class Ref(Serializable):
   NO_DEFAULT = 1928437192847
 
   def __init__(self, path: Union[None, 'Path', str] = None, name: Optional[str] = None,
-               default: Union[YamlSerializable, None] = NO_DEFAULT) -> None:
+               default: Union[util.YamlSerializable, None] = NO_DEFAULT) -> None:
     if name is not None and path is not None:
       raise ValueError(f"Ref cannot be initialized with both a name and a path ({name} / {path})")
     if isinstance(path, str): path = Path(path)
@@ -215,7 +215,7 @@ class Ref(Serializable):
     """Return true iff there exists no default value and it is mandatory that this reference be resolved."""
     return getattr(self, "default", Ref.NO_DEFAULT) == Ref.NO_DEFAULT
 
-  def get_default(self) -> Union[YamlSerializable, None]:
+  def get_default(self) -> Union[util.YamlSerializable, None]:
     """Return default value, or Ref.NO_DEFAULT if no default value is set (i.e., this is a required reference)."""
     return getattr(self, "default", None)
 
@@ -415,7 +415,7 @@ def serializable_init(f):
         assert not getattr(initialized, "_is_bare", False)
         serialize_params[key] = initialized
     f(obj, **serialize_params)
-    if ParamManager.initialized and xnmt_subcol_name in ParamManager.param_col.subcols:
+    if pc.ParamManager.initialized and xnmt_subcol_name in pc.ParamManager.param_col.subcols:
       serialize_params["xnmt_subcol_name"] = xnmt_subcol_name
     serialize_params.update(getattr(obj, "serialize_params", {}))
     obj.serialize_params = serialize_params
@@ -720,7 +720,7 @@ class LoadSerialized(Serializable):
     path: path inside the YAML file to load from, with "." separators. Empty string denotes root.
     overwrite: allows overwriting parts of the loaded model with new content. A list of dictionaries with "path" and
                "val" entries, where "path" is a path string relative to the loaded sub-object, and "val" is a
-               YamlSerializable specifying the new content.
+               util.YamlSerializable specifying the new content.
   """
   yaml_tag = "!LoadSerialized"
 
@@ -778,7 +778,7 @@ class YamlPreloader(object):
     return YamlPreloader.preload_obj(experiment, exp_name=exp_name, exp_dir=os.path.dirname(filename) or ".")
 
   @staticmethod
-  def preload_obj(root:YamlSerializable, exp_name:str, exp_dir:str) -> UninitializedYamlObject:
+  def preload_obj(root:util.YamlSerializable, exp_name:str, exp_dir:str) -> UninitializedYamlObject:
     """Preload a given object.
 
     Preloading a given object, usually an Experiment or LoadSerialized object as parsed by pyyaml, includesreplacing
@@ -827,7 +827,7 @@ class YamlPreloader(object):
             loaded_root = yaml.load(stream)
         except IOError as e:
           raise RuntimeError(f"Could not read configuration file {node.filename}: {e}")
-        ParamManager.add_load_path(f"{node.filename}.data")
+        pc.ParamManager.add_load_path(f"{node.filename}.data")
         cur_path = Path(getattr(node, "path", ""))
         for _ in range(10):  # follow references
           loaded_trg = get_descendant(loaded_root, cur_path, redirect=True)
@@ -1171,14 +1171,14 @@ def _dump(ser_obj):
   _resolve_serialize_refs(ser_obj)
   return yaml.dump(ser_obj)
 
-def save_to_file(fname: str, mod: YamlSerializable, param_collection: 'ParamCollection') -> None:
+def save_to_file(fname: str, mod: util.YamlSerializable, param_collection: 'ParamCollection') -> None:
   """
   Save a component hierarchy and corresponding DyNet parameter collection to disk.
 
   Args:
     fname: Filename to save to.
     mod: Component hierarchy.
-    param_collection: global object holding DyNet parameters (usually ParamManager.param_col)
+    param_collection: global object holding DyNet parameters (usually pc.ParamManager.param_col)
   """
   dirname = os.path.dirname(fname)
   if dirname and not os.path.exists(dirname):
@@ -1188,7 +1188,7 @@ def save_to_file(fname: str, mod: YamlSerializable, param_collection: 'ParamColl
     param_collection.save()
 
 
-def initialize_if_needed(root: Union[YamlSerializable, UninitializedYamlObject]) -> YamlSerializable:
+def initialize_if_needed(root: Union[util.YamlSerializable, UninitializedYamlObject]) -> util.YamlSerializable:
   """
   Initialize if obj has not yet been initialized.
 
@@ -1202,7 +1202,7 @@ def initialize_if_needed(root: Union[YamlSerializable, UninitializedYamlObject])
   """
   return _YamlDeserializer().initialize_if_needed(root)
 
-def initialize_object(root: UninitializedYamlObject) -> YamlSerializable:
+def initialize_object(root: UninitializedYamlObject) -> util.YamlSerializable:
   """
   Initialize an uninitialized object.
 

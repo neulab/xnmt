@@ -4,7 +4,7 @@ import logging
 import yaml
 
 from xnmt.settings import settings
-from xnmt.util import make_parent_dir
+import xnmt.util as util
 
 STD_OUTPUT_LEVELNO = 35
 
@@ -70,7 +70,7 @@ def set_out_file(out_file):
     out_file: file name
   """
   unset_out_file()
-  make_parent_dir(out_file)
+  util.make_parent_dir(out_file)
   with open(out_file, mode="w") as f_out:
     for line in _preamble_content:
       f_out.write(f"{line}\n")

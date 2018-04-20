@@ -1,6 +1,7 @@
 from collections import defaultdict, Counter
 import math
 import subprocess
+
 import numpy as np
 
 from xnmt import logger

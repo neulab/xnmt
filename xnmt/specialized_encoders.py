@@ -1,9 +1,9 @@
 import dynet as dy
 
-from xnmt.expression_sequence import ExpressionSequence
-from xnmt.param_collection import ParamManager
 from xnmt.persistence import Serializable
-from xnmt.transducer import Transducer, SeqTransducer
+import xnmt.expression_sequence as expression_sequence
+import xnmt.param_collection as pc
+import xnmt.transducer as transducer
 
 # This is a file for specialized encoders that implement a particular model
 # Ideally, these will eventually be refactored to use standard components and the ModularSeqTransducer framework,
@@ -28,7 +28,7 @@ def padding(src, min_size):
     return dy.concatenate([dy.zeroes((src_dim[0][0], left_border, channels)), src, dy.zeroes((src_dim[0][0], right_border, channels))], d=1) # do concatenate along cols
 
 
-class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
+class TilburgSpeechSeqTransducer(transducer.SeqTransducer, Serializable):
   yaml_tag = '!TilburgSpeechSeqTransducer'
   def __init__(self, filter_height, filter_width, channels, num_filters, stride, rhn_num_hidden_layers, rhn_dim,
                rhn_microsteps, attention_dim, residual= False):
@@ -43,7 +43,7 @@ class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
     self.attention_dim = attention_dim
     self.residual = residual
 
-    model = ParamManager.my_params(self)
+    model = pc.ParamManager.my_params(self)
     # Convolutional layer
     self.filter_conv = model.add_parameters(dim=(self.filter_height, self.filter_width, self.channels, self.num_filters))
     # Recurrent highway layer
@@ -104,11 +104,11 @@ class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
     scores = dy.transpose(dy.parameter(self.attention[0][1]))*dy.tanh(dy.parameter(self.attention[0][0])*rhn_in) # ((1,510), batch_size)
     scores = dy.reshape(scores, (scores.dim()[0][1],), batch_size = scores.dim()[1])
     attn_out = rhn_in*dy.softmax(scores) # # rhn_in.as_tensor() is ((1024,510), batch_size) softmax is ((510,), batch_size)
-    return ExpressionSequence(expr_tensor = attn_out)
+    return expression_sequence.ExpressionSequence(expr_tensor = attn_out)
 
 # This is a CNN-based encoder that was used in the following paper:
 #  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
-class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
+class HarwathSpeechSeqTransducer(transducer.SeqTransducer, Serializable):
   yaml_tag = '!HarwathSpeechSeqTransducer'
   def __init__(self, filter_height, filter_width, channels, num_filters, stride):
     """
@@ -117,7 +117,7 @@ class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
       input_dim: size of the inputs
       hidden_dim: size of the outputs (and intermediate RNN layer representations)
     """
-    model = ParamManager.my_params(self)
+    model = pc.ParamManager.my_params(self)
     self.filter_height = filter_height
     self.filter_width = filter_width
     self.channels = channels
@@ -159,12 +159,12 @@ class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
     output = dy.cdiv(pool3,my_norm)
     output = dy.reshape(output, (self.num_filters[2],), batch_size = batch_size)
 
-    return ExpressionSequence(expr_tensor=output)
+    return expression_sequence.ExpressionSequence(expr_tensor=output)
 
 
 # This is an image encoder that takes in features and does a linear transform from the following paper
 #  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
-class HarwathImageTransducer(Transducer, Serializable):
+class HarwathImageTransducer(transducer.Transducer, Serializable):
   yaml_tag = '!HarwathImageTransducer'
   """
     Inputs are first put through 2 CNN layers, each with stride (2,2), so dimensionality
@@ -180,7 +180,7 @@ class HarwathImageTransducer(Transducer, Serializable):
       hidden_dim: size of the outputs (and intermediate RNN layer representations)
       """
 
-    model = ParamManager.my_params(self)
+    model = pc.ParamManager.my_params(self)
     self.in_height = in_height
     self.out_height = out_height
 
@@ -202,5 +202,5 @@ class HarwathImageTransducer(Transducer, Serializable):
     # convolution and pooling layers
     l1 = (W*src)+b
     output = dy.cdiv(l1,dy.sqrt(dy.squared_norm(l1)))
-    return ExpressionSequence(expr_tensor=output)
+    return expression_sequence.ExpressionSequence(expr_tensor=output)
 

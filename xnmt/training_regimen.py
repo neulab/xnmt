@@ -4,12 +4,12 @@ from xnmt.settings import settings
 import numpy as np
 import dynet as dy
 
-from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
+import xnmt.param_collection as pc
 import xnmt.optimizer
-from xnmt.training_task import SimpleTrainingTask
-from xnmt.loss_tracker import TrainLossTracker
-from xnmt.loss_calculator import MLELoss
+import xnmt.training_task as training_task
+import xnmt.loss_tracker as loss_tracker
+import xnmt.loss_calculator as loss_calculator
 
 class TrainingRegimen(object):
   """
@@ -38,7 +38,7 @@ class TrainingRegimen(object):
     loss.backward()
     trainer.update()
 
-class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
+class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, Serializable):
   """
   Args:
     model (GeneratorModel): the model
@@ -70,7 +70,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
 
   @serializable_init
   def __init__(self, model=Ref("model"), src_file=None, trg_file=None, dev_every=0, dev_zero=False,
-               batcher=bare(xnmt.batcher.SrcBatcher, batch_size=32), loss_calculator=bare(MLELoss), trainer=None,
+               batcher=bare(xnmt.batcher.SrcBatcher, batch_size=32), loss_calculator=bare(loss_calculator.MLELoss), trainer=None,
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None, dev_tasks=None,
                restart_trainer: bool = False, reload_command=None, name="{EXP}", sample_train_sents=None,
                max_num_train_sents=None, max_src_len=None, max_trg_len=None,
@@ -98,7 +98,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     self.dev_zero = dev_zero
     self.trainer = trainer or xnmt.optimizer.SimpleSGDTrainer(e0=0.1)
     self.dynet_profiling = getattr(commandline_args, "dynet_profiling", 0) if commandline_args else 0
-    self.train_loss_tracker = TrainLossTracker(self)
+    self.train_loss_tracker = loss_tracker.TrainLossTracker(self)
 
   def run_training(self, save_fct, update_weights=True):
     """
@@ -155,7 +155,7 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
       if hasattr(task, "trainer") and task.trainer is not None:
         raise ValueError("Can instantiate only one trainer object. Possibly, multiple training regimens were created when training tasks should have been used.")
     self.train = None
-    self.model_file = ParamManager.param_col.model_file
+    self.model_file = pc.ParamManager.param_col.model_file
     for task in tasks:
       task.trainer = trainer
     self.dev_zero = dev_zero
@@ -194,7 +194,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   def __init__(self, tasks, trainer=None, dev_zero=False,
                commandline_args=Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
-    self.train_loss_trackers = {task : TrainLossTracker(task) for task in tasks}
+    self.train_loss_trackers = {task : loss_tracker.TrainLossTracker(task) for task in tasks}
   def run_training(self, save_fct, update_weights=True):
     task_generators = OrderedDict()
     for task in self.tasks:
@@ -257,7 +257,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
                commandline_args=Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks)
-    self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
+    self.train_loss_trackers = {task: loss_tracker.TrainLossTracker(task) for task in tasks}
   def run_training(self, save_fct, update_weights=True):
     task_generators = OrderedDict()
     for task in self.tasks:
@@ -310,7 +310,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   def __init__(self, tasks, trainer=None, dev_zero=False,
                commandline_args=Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
-    self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
+    self.train_loss_trackers = {task: loss_tracker.TrainLossTracker(task) for task in tasks}
   def run_training(self, save_fct, update_weights=True):
     dev_zero = {i:self.dev_zero for i in range(len(self.tasks))}
     for cur_task_id in range(len(self.tasks)):

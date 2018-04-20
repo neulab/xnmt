@@ -1,5 +1,6 @@
-import dynet as dy
 import collections
+
+import dynet as dy
 
 class LossBuilder(object):
   

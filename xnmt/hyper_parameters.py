@@ -1,6 +1,5 @@
-
-from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.persistence import serializable_init, Serializable
+import xnmt.events as events
 
 class ScalingParam(Serializable):
   ''' initial * scaler(epoch-1) '''
@@ -38,7 +37,7 @@ class GeometricSequence(Serializable):
   yaml_tag = '!GeometricSequence'
 
   # Do not set warmup_counter manually.
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   @serializable_init
   def __init__(self, initial=0.1, warmup=0, ratio=1, min_value=0.0, max_value=1.0):
     self.__value = initial
@@ -54,7 +53,7 @@ class GeometricSequence(Serializable):
     else:
       return 0.0
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_new_epoch(self, training_task, *args, **kwargs):
     self.epoch_num = training_task.training_state.epoch_num
     if self.epoch_num > self.warmup:
@@ -68,7 +67,7 @@ class GeometricSequence(Serializable):
 
 class DefinedSequence(Serializable):
   yaml_tag = '!DefinedSequence'
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   @serializable_init
   def __init__(self, sequence=None):
     assert sequence is not None
@@ -77,7 +76,7 @@ class DefinedSequence(Serializable):
     self.sequence = sequence
     self.epoch_num = 0
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_new_epoch(self, training_task, *args, **kwargs):
     self.epoch_num = training_task.training_state.epoch_num
 

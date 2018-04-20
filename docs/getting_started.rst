@@ -21,8 +21,9 @@ Running the examples
 These are a good starting point to get familiarized with specifying models and
 experiments. To run the first experiment, use the following::
 
-    python -m xnmt.xnmt_run_experiments examples/01_standard.yaml
+    xnmt examples/01_standard.yaml
 
+This is a shortcut for typing ``python -m xnmt.xnmt_run_experiments examples/01_standard.yaml``.
 Make sure to read the comments provided in ``examples/01_standard.yaml``.
 
 See the ``experiment-config-files`` documentation entry for more details about writing experiment configuration files.

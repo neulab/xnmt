@@ -2,13 +2,13 @@ import numpy as np
 import dynet as dy
 
 from xnmt import logger
-import xnmt.batcher
-from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
-from xnmt.linear import Linear
-from xnmt.param_collection import ParamManager
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
+import xnmt.batcher
+import xnmt.events as events
+import xnmt.expression_sequence as es
+import xnmt.linear as linear
+import xnmt.param_collection as pc
+import xnmt.param_init as pi
 
 class Embedder(object):
   """
@@ -37,7 +37,7 @@ class Embedder(object):
             It could also be batched, in which case it will be a (possibly masked) :class:`xnmt.batcher.Batch` object
     
     Returns:
-      xnmt.expression_sequence.ExpressionSequence: An expression sequence representing vectors of each word in the input.
+      es.ExpressionSequence: An expression sequence representing vectors of each word in the input.
     """
     # single mode
     if not xnmt.batcher.is_batched(sent):
@@ -51,7 +51,7 @@ class Embedder(object):
         batch = xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])
         embeddings.append(self.embed(batch))
 
-    return ExpressionSequence(expr_list=embeddings, mask=sent.mask if xnmt.batcher.is_batched(sent) else None)
+    return es.ExpressionSequence(expr_list=embeddings, mask=sent.mask if xnmt.batcher.is_batched(sent) else None)
 
   def choose_vocab(self, vocab, yaml_path, src_reader, trg_reader):
     """Choose the vocab for the embedder basd on the passed arguments
@@ -110,7 +110,7 @@ class Embedder(object):
     else:
       raise ValueError("Attempted to determine vocab size of {} (path: {}), but path was not src_embedder, trg_embedder, or output_projector, so it could not determine what part of the model to use. Please set vocab_size or vocab explicitly.".format(self.__class__, yaml_path))
 
-class DenseWordEmbedder(Embedder, Linear, Serializable):
+class DenseWordEmbedder(Embedder, linear.Linear, Serializable):
   """
   Word embeddings via full matrix.
   
@@ -129,15 +129,15 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
   """
   yaml_tag = "!DenseWordEmbedder"
 
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
                emb_dim=Ref("exp_global.default_layer_dim"),
                weight_noise=Ref("exp_global.weight_noise", default=0.0),
                word_dropout=0.0,
                fix_norm=None,
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               param_init=Ref("exp_global.param_init", default=bare(pi.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(pi.ZeroInitializer)),
                vocab_size=None,
                vocab=None,
                yaml_path=None,
@@ -147,17 +147,17 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
     self.weight_noise = weight_noise
     self.word_dropout = word_dropout
     self.emb_dim = emb_dim
-    param_collection = ParamManager.my_params(self)
+    param_collection = pc.ParamManager.my_params(self)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
     self.save_processed_arg("vocab_size", self.vocab_size)
     self.embeddings = param_collection.add_parameters((self.vocab_size, self.emb_dim), init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
     self.bias = param_collection.add_parameters((self.vocab_size,), init=bias_init.initializer((self.vocab_size,)))
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_start_sent(self, src):
     self.word_id_mask = None
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_set_train(self, val):
     self.train = val
 
@@ -215,14 +215,14 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   yaml_tag = '!SimpleWordEmbedder'
 
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
                emb_dim=Ref("exp_global.default_layer_dim"),
                weight_noise=Ref("exp_global.weight_noise", default=0.0),
                word_dropout=0.0,
                fix_norm=None,
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               param_init=Ref("exp_global.param_init", default=bare(pi.GlorotInitializer)),
                vocab_size = None,
                vocab = None,
                yaml_path = None,
@@ -235,17 +235,17 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.fix_norm = fix_norm
     self.word_id_mask = None
     self.train = False
-    param_collection = ParamManager.my_params(self)
+    param_collection = pc.ParamManager.my_params(self)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
     self.save_processed_arg("vocab_size", self.vocab_size)
     self.embeddings = param_collection.add_lookup_parameters((self.vocab_size, self.emb_dim),
                              init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_set_train(self, val):
     self.train = val
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_start_sent(self, src):
     self.word_id_mask = None
 
@@ -302,9 +302,9 @@ class NoopEmbedder(Embedder, Serializable):
     first_sent = sent[0] if batched else sent
     if hasattr(first_sent, "get_array"):
       if not batched:
-        return LazyNumpyExpressionSequence(lazy_data=sent.get_array())
+        return es.LazyNumpyExpressionSequence(lazy_data=sent.get_array())
       else:
-        return LazyNumpyExpressionSequence(lazy_data=xnmt.batcher.mark_as_batch(
+        return es.LazyNumpyExpressionSequence(lazy_data=xnmt.batcher.mark_as_batch(
                                            map(lambda s: s.get_array(), sent)),
                                            mask=sent.mask)
     else:
@@ -314,7 +314,7 @@ class NoopEmbedder(Embedder, Serializable):
         embeddings = []
         for word_i in range(len(first_sent)):
           embeddings.append(self.embed(xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
-      return ExpressionSequence(expr_list=embeddings, mask=sent.mask)
+      return es.ExpressionSequence(expr_list=embeddings, mask=sent.mask)
 
 
 class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
@@ -354,7 +354,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
     self.train = False
     self.fix_norm = fix_norm
     self.pretrained_filename = filename
-    param_collection = ParamManager.my_params(self)
+    param_collection = pc.ParamManager.my_params(self)
     self.vocab = self.choose_vocab(vocab, yaml_path, src_reader, trg_reader)
     self.vocab_size = len(vocab)
     self.save_processed_arg("vocab", self.vocab)

@@ -1,12 +1,12 @@
 import dynet as dy
 import numpy as np
 
-from xnmt.loss import LossBuilder
 from xnmt.persistence import serializable_init, Serializable, Ref
-from xnmt.vocab import Vocab
-from xnmt.constants import INFINITY
+import xnmt.constants as constants
 import xnmt.evaluator
 import xnmt.linear as linear
+import xnmt.loss
+import xnmt.vocab as vocab
 
 
 class LossCalculator(object):
@@ -16,9 +16,9 @@ class LossCalculator(object):
   def __call__(self, translator, initial_state, src, trg):
     raise NotImplementedError()
 
-  def remove_eos(self, sequence, eos_sym=Vocab.ES):
+  def remove_eos(self, sequence, eos_sym=vocab.ES):
     try:
-      idx = sequence.index(Vocab.ES)
+      idx = sequence.index(eos_sym)
       sequence = sequence[:idx]
     except ValueError:
       # NO EOS
@@ -41,7 +41,8 @@ class MLELoss(Serializable, LossCalculator):
     if xnmt.batcher.is_batched(src):
       for j, single_trg in enumerate(trg):
         assert len(single_trg) == seq_len # assert consistent length
-        assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask.np_arr[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
+        assert 1 == len([i for i in range(seq_len) if (trg_mask is None or trg_mask.np_arr[j, i] == 0) and single_trg[
+          i] == vocab.ES])  # assert exactly one unmasked ES token
     for i in range(seq_len):
       ref_word = trg[i] if not xnmt.batcher.is_batched(src) \
                       else xnmt.batcher.mark_as_batch([single_trg[i] for single_trg in trg])
@@ -92,7 +93,7 @@ class ReinforceLoss(Serializable, LossCalculator):
       self.eval_score.append(score)
     self.true_score = dy.inputTensor(self.eval_score, batched=True)
     # Composing losses
-    loss = LossBuilder()
+    loss = xnmt.loss.LossBuilder()
     if self.use_baseline:
       baseline_loss = []
       losses = []
@@ -145,7 +146,7 @@ class MinRiskLoss(Serializable, LossCalculator):
         if self.unique_sample:
           hash_val = hash(tuple(hyp_j))
           if len(hyp_j) == 0 or hash_val in uniques[j]:
-            mask[j] = -INFINITY
+            mask[j] = -constants.INFINITY
             continue
           else:
             # Count this sample in
@@ -167,5 +168,5 @@ class MinRiskLoss(Serializable, LossCalculator):
     #print("----------------------")
     ### End debug
 
-    return LossBuilder({"risk": risk})
+    return xnmt.loss.LossBuilder({"risk": risk})
 

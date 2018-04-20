@@ -3,34 +3,34 @@ import numpy as np
 import collections
 import itertools
 import os
+from collections import namedtuple
 
 # Reporting purposes
 from lxml import etree
-from xnmt.settings import settings
 
-from xnmt.attender import MlpAttender
-from xnmt.batcher import mark_as_batch, is_batched
-from xnmt.decoder import MlpSoftmaxDecoder
-from xnmt.embedder import SimpleWordEmbedder
-from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
-from xnmt.generator import GeneratorModel
-from xnmt.inference import SimpleInference
-from xnmt.input import SimpleSentenceInput
+from xnmt.settings import settings
+from xnmt.persistence import serializable_init, Serializable, bare
+import xnmt.attender
+import xnmt.batcher
+import xnmt.constants as constants
+import xnmt.decoder
+import xnmt.embedder
+import xnmt.events as events
+import xnmt.generator
+import xnmt.inference
+import xnmt.input
 import xnmt.length_normalization
-from xnmt.loss import LossBuilder
-from xnmt.lstm import BiLSTMSeqTransducer
-from xnmt.output import TextOutput
+import xnmt.loss
+import xnmt.lstm
+import xnmt.output
 import xnmt.plot
-from xnmt.reports import Reportable
-from xnmt.persistence import serializable_init, Serializable, bare, initialize_object, initialize_if_needed
-from xnmt.search_strategy import BeamSearch, GreedySearch
-from collections import namedtuple
-from xnmt.vocab import Vocab
-from xnmt.constants import EPSILON
+import xnmt.reports as reports
+import xnmt.search_strategy
+import xnmt.vocab
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
-class Translator(GeneratorModel):
+class Translator(xnmt.generator.GeneratorModel):
   '''
   A template class implementing an end-to-end translator that can calculate a
   loss and generate translations.
@@ -54,7 +54,7 @@ class Translator(GeneratorModel):
     Set target vocab for generating outputs. If not specified, word IDs are generated instead.
 
     Args:
-      trg_vocab (Vocab): target vocab, or None to generate word IDs
+      trg_vocab (xnmt.vocab.Vocab): target vocab, or None to generate word IDs
     """
     self.trg_vocab = trg_vocab
 
@@ -76,7 +76,7 @@ class Translator(GeneratorModel):
       output_state = dy.nobackprop(output_state)
     return output_state
 
-class DefaultTranslator(Translator, Serializable, Reportable):
+class DefaultTranslator(Translator, Serializable, reports.Reportable):
   '''
   A default translator based on attentional sequence-to-sequence models.
 
@@ -88,19 +88,19 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     attender (Attender): An attention module
     trg_embedder (Embedder): A word embedder for the output language
     decoder (Decoder): A decoder
-    inference (SimpleInference): The default inference strategy used for this model
+    inference (xnmt.inference.SimpleInference): The default inference strategy used for this model
     calc_global_fertility (bool):
     calc_attention_entropy (bool):
   '''
 
   yaml_tag = '!DefaultTranslator'
 
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   @serializable_init
-  def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
-               encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
-               trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
-               inference=bare(SimpleInference), search_strategy=bare(BeamSearch),
+  def __init__(self, src_reader, trg_reader, src_embedder=bare(xnmt.embedder.SimpleWordEmbedder),
+               encoder=bare(xnmt.lstm.BiLSTMSeqTransducer), attender=bare(xnmt.attender.MlpAttender),
+               trg_embedder=bare(xnmt.embedder.SimpleWordEmbedder), decoder=bare(xnmt.decoder.MlpSoftmaxDecoder),
+               inference=bare(xnmt.inference.SimpleInference), search_strategy=bare(xnmt.search_strategy.BeamSearch),
                calc_global_fertility=False, calc_attention_entropy=False):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
@@ -130,10 +130,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     encodings = self.encoder(embeddings)
     self.attender.init_sent(encodings)
     # Initialize the hidden state from the encoder
-    ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
+    ss = xnmt.batcher.mark_as_batch([xnmt.vocab.SS] * len(src)) if xnmt.batcher.is_batched(src) else xnmt.vocab.SS
     initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
     # Compose losses
-    model_loss = LossBuilder()
+    model_loss = xnmt.loss.LossBuilder()
     model_loss.add_loss("mle", loss_calculator(self, initial_state, src, trg))
 
     if self.calc_global_fertility or self.calc_attention_entropy:
@@ -163,7 +163,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       embeddings = self.src_embedder.embed_sent(src)
       encodings = self.encoder(embeddings)
       self.attender.init_sent(encodings)
-      ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
+      ss = xnmt.batcher.mark_as_batch([xnmt.vocab.SS] * len(src)) if xnmt.batcher.is_batched(src) else xnmt.vocab.SS
       initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
       search_outputs = search_strategy.generate_output(self, initial_state,
                                                        src_length=[len(sents)],
@@ -194,7 +194,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
         self.generate_report(self.report_type)
       # Append output to the outputs
-      outputs.append(TextOutput(actions=output_actions,
+      outputs.append(xnmt.output.TextOutput(actions=output_actions,
                                 vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
                                 score=score))
     self.outputs = outputs
@@ -206,7 +206,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
   def attention_entropy(self, a):
     entropy = []
     for a_i in a:
-      a_i += EPSILON
+      a_i += constants.EPSILON
       entropy.append(dy.cmult(a_i, dy.log(a_i)))
 
     return -dy.sum_elems(dy.esum(entropy))
@@ -216,7 +216,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     Sets source vocab for reporting purposes.
     
     Args:
-      src_vocab (Vocab):
+      src_vocab (xnmt.vocab.Vocab):
     """
     self.reporting_src_vocab = src_vocab
 
@@ -234,7 +234,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     next_logsoftmax = self.decoder.get_scores_logsoftmax(next_state)
     return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
 
-  @register_xnmt_event_assign
+  @events.register_xnmt_event_assign
   def html_report(self, context=None):
     assert(context is None)
     idx, src, trg, att = self.get_report_input()
@@ -275,7 +275,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     # return the parent context to be used as child context
     return html
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_file_report(self):
     idx, src, trg, attn = self.get_report_input()
     assert attn.shape == (len(src), len(trg))
@@ -295,7 +295,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         print(str_format.format(*words), file=attn_file)
 
   
-class TransformerTranslator(Translator, Serializable, Reportable):
+class TransformerTranslator(Translator, Serializable, reports.Reportable):
   '''
   A translator based on the transformer model.
 
@@ -306,13 +306,13 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     trg_reader (InputReader): A reader for the target side.
     trg_embedder (Embedder): A word embedder for the output language
     decoder (TransformerDecoder): A decoder
-    inference (SimpleInference): The default inference strategy used for this model
+    inference (xnmt.inference.SimpleInference): The default inference strategy used for this model
     input_dim (int):
   '''
 
   yaml_tag = '!TransformerTranslator'
 
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   @serializable_init
   def __init__(self, src_reader, src_embedder, encoder, trg_reader, trg_embedder, decoder, inference=None, input_dim=512):
     self.src_reader = src_reader
@@ -396,7 +396,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
       src = xnmt.batcher.mark_as_batch([src])
     if not xnmt.batcher.is_batched(trg):
       trg = xnmt.batcher.mark_as_batch([trg])
-    src_words = np.array([[Vocab.SS] + x.words for x in src])
+    src_words = np.array([[xnmt.vocab.SS] + x.words for x in src])
     batch_size, src_len = src_words.shape
 
     if isinstance(src.mask, type(None)):
@@ -407,7 +407,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     src_embeddings = self.sentence_block_embed(self.src_embedder.embeddings, src_words, src_mask)
     src_embeddings = self.make_input_embedding(src_embeddings, src_len)
 
-    trg_words = np.array(list(map(lambda x: [Vocab.SS] + x.words[:-1], trg)))
+    trg_words = np.array(list(map(lambda x: [xnmt.vocab.SS] + x.words[:-1], trg)))
     batch_size, trg_len = trg_words.shape
 
     if isinstance(trg.mask, type(None)):
@@ -435,7 +435,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
     concat_t_block = (1 - trg_mask.ravel()).reshape(-1) * np.array(ref_list)
     loss = self.decoder.output_and_loss(h_block, concat_t_block)
-    return LossBuilder({"mle": loss})
+    return xnmt.loss.LossBuilder({"mle": loss})
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None, search_strategy=None):
     self.start_sent(src)
@@ -445,7 +445,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
       assert src_mask is not None
     outputs = []
 
-    trg = SimpleSentenceInput([0])
+    trg = xnmt.input.SimpleSentenceInput([0])
 
     if not xnmt.batcher.is_batched(trg):
       trg = xnmt.batcher.mark_as_batch([trg])
@@ -459,11 +459,11 @@ class TransformerTranslator(Translator, Serializable, Reportable):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       log_prob_tail = self.calc_loss(src, trg, loss_cal=None, infer_prediction=True)
       ys = np.argmax(log_prob_tail.npvalue(), axis=0).astype('i')
-      if ys == Vocab.ES:
+      if ys == xnmt.vocab.ES:
         output_actions.append(ys)
         break
       output_actions.append(ys)
-      trg = SimpleSentenceInput(output_actions + [0])
+      trg = xnmt.input.SimpleSentenceInput(output_actions + [0])
       if not xnmt.batcher.is_batched(trg):
         trg = xnmt.batcher.mark_as_batch([trg])
 
@@ -479,7 +479,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
 
     # Append output to the outputs
     if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
-      outputs.append(TextOutput(output_actions, self.trg_vocab))
+      outputs.append(xnmt.output.TextOutput(output_actions, self.trg_vocab))
     else:
       outputs.append((output_actions, score))
 
@@ -495,14 +495,14 @@ class EnsembleTranslator(Translator, Serializable):
       identical conversions to) those supplied to this class.
     src_reader (InputReader): A reader for the source side.
     trg_reader (InputReader): A reader for the target side.
-    inference (SimpleInference): The inference strategy used for this ensemble.
+    inference (xnmt.inference.SimpleInference): The inference strategy used for this ensemble.
   '''
 
   yaml_tag = '!EnsembleTranslator'
 
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   @serializable_init
-  def __init__(self, models, src_reader, trg_reader, inference=bare(SimpleInference)):
+  def __init__(self, models, src_reader, trg_reader, inference=bare(xnmt.inference.SimpleInference)):
     self.models = models
     self.src_reader = src_reader
     self.trg_reader = trg_reader
@@ -541,7 +541,7 @@ class EnsembleTranslator(Translator, Serializable):
     for model in self.models:
       for loss_name, loss in model.calc_loss(src, trg, loss_calculator).loss_values.items():
         sub_losses[loss_name].append(loss)
-    model_loss = LossBuilder()
+    model_loss = xnmt.loss.LossBuilder()
     for loss_name, losslist in sub_losses.items():
       # TODO: dy.average(losslist)  _or_  dy.esum(losslist) / len(self.models) ?
       #       -- might not be the same if not all models return all losses

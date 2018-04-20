@@ -1,8 +1,8 @@
 import dynet as dy
 
-from xnmt.param_collection import ParamManager
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
+import xnmt.param_collection as pc
+import xnmt.param_init as pi
 
 class Linear(Serializable):
   """
@@ -21,12 +21,12 @@ class Linear(Serializable):
 
   @serializable_init
   def __init__(self, input_dim, output_dim, bias=True,
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+               param_init=Ref("exp_global.param_init", default=bare(pi.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(pi.ZeroInitializer))):
     self.bias = bias
     self.output_dim = output_dim
 
-    model = ParamManager.my_params(self)
+    model = pc.ParamManager.my_params(self)
     self.W1 = model.add_parameters((output_dim, input_dim), init=param_init.initializer((output_dim, input_dim)))
     if self.bias:
       self.b1 = model.add_parameters((output_dim,), init=bias_init.initializer((output_dim,)))

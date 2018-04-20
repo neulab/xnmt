@@ -17,7 +17,7 @@ from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.input_reader import PlainTextReader
 from xnmt.param_collection import ParamManager
 import xnmt.events
-from xnmt.vocab import Vocab
+import xnmt.vocab
 
 class TestEncoder(unittest.TestCase):
 
@@ -115,7 +115,7 @@ class TestEncoder(unittest.TestCase):
     self.set_train(True)
     for sent_i in range(10):
       dy.renew_cg()
-      src = self.src_data[sent_i].get_padded_sent(Vocab.ES, 4 - (len(self.src_data[sent_i]) % 4))
+      src = self.src_data[sent_i].get_padded_sent(xnmt.vocab.ES, 4 - (len(self.src_data[sent_i]) % 4))
       self.start_sent(src)
       embeddings = model.src_embedder.embed_sent(src)
       encodings = model.encoder(embeddings)

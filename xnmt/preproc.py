@@ -14,8 +14,8 @@ import yaml
 
 from xnmt import logger
 from xnmt.persistence import serializable_init, Serializable
-from xnmt.speech_features import logfbank, calculate_delta, get_mean_std, normalize
-from xnmt.util import make_parent_dir
+import xnmt.speech_features as speech_features
+import xnmt.util as util
 
 ##### Preprocessors
 
@@ -168,19 +168,27 @@ class ExternalTokenizer(Tokenizer):
       sys.stderr.write(stderr + '\n')
     return stdout
 
-class SentencepieceTokenizer(ExternalTokenizer):
+class SentencepieceTokenizer(Tokenizer):
   """
-  A wrapper around an independent installation of the sentencepiece tokenizer
-  with passable parameters.
+  Sentencepiece tokenizer
+  The options supported by the SentencepieceTokenizer are almost exactly those presented in the Sentencepiece `readme <https://github.com/google/sentencepiece/blob/master/README.md>`_, namely:
+
+    - ``model_type``: Either ``unigram`` (default), ``bpe``, ``char`` or ``word``.
+      Please refer to the sentencepiece documentation for more details
+    - ``model_prefix``: The trained bpe model will be saved under ``{model_prefix}.model``/``.vocab``
+    - ``vocab_size``: fixes the vocabulary size
+    - ``hard_vocab_limit``: setting this to ``False`` will make the vocab size a soft limit. 
+      Useful for small datasets. This is ``True`` by default.
   """
+
   yaml_tag = '!SentencepieceTokenizer'
 
   @serializable_init
   def __init__(self, path, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
-      , output_format='piece', model_type='bpe'
+      , output_format='piece', model_type='bpe', hard_vocab_limit=True
       , encode_extra_options=None, decode_extra_options=None):
     """
-    Initialize the wrapper around sentencepiece and train the tokenizer.
+    This will initialize and train the sentencepiece tokenizer.
 
     If overwrite is set to False, learned model will not be overwritten, even if parameters
     are changed.
@@ -188,6 +196,8 @@ class SentencepieceTokenizer(ExternalTokenizer):
     "File" output for Sentencepiece written to StringIO temporarily before being written to disk.
 
     """
+    import sentencepiece as spm
+    # TODO: deprecate the path argument
     self.sentpiece_path = path
     self.model_prefix = model_prefix
     self.output_format = output_format
@@ -195,26 +205,29 @@ class SentencepieceTokenizer(ExternalTokenizer):
     self.encode_extra_options = ['--extra_options='+encode_extra_options] if encode_extra_options else []
     self.decode_extra_options = ['--extra_options='+decode_extra_options] if decode_extra_options else []
 
-    make_parent_dir(model_prefix)
+    util.make_parent_dir(model_prefix)
 
     if ((not os.path.exists(self.model_prefix + '.model')) or
         (not os.path.exists(self.model_prefix + '.vocab')) or
         overwrite):
-      sentpiece_train_exec_loc = os.path.join(path, 'spm_train')
-      sentpiece_train_command = [sentpiece_train_exec_loc
-          , '--input=' + ','.join(train_files)
-          , '--model_prefix=' + str(model_prefix)
-          , '--vocab_size=' + str(vocab_size)
-          , '--model_type=' + str(model_type)
-          ]
-      subprocess.call(sentpiece_train_command)
+      sentpiece_train_args = ['--input=' + ','.join(train_files),
+                              '--model_prefix=' + str(model_prefix),
+                              '--vocab_size=' + str(vocab_size),
+                              '--hard_vocab_limit=' + str(hard_vocab_limit).lower(),
+                              '--model_type=' + str(model_type)
+                             ]
+      # This calls sentencepiece. It's pretty verbose
+      spm.SentencePieceTrainer.Train(' '.join(sentpiece_train_args))
+    
+    self.sentpiece_processor = spm.SentencePieceProcessor()
+    self.sentpiece_processor.Load('%s.model' % model_prefix)
 
-    sentpiece_encode_exec_loc = os.path.join(self.sentpiece_path, 'spm_encode')
-    sentpiece_encode_command = [sentpiece_encode_exec_loc
-        , '--model=' + self.model_prefix + '.model'
-        , '--output_format=' + self.output_format
-        ] + self.encode_extra_options
-    self.tokenizer_command = sentpiece_encode_command
+    self.sentpiece_encode = self.sentpiece_processor.EncodeAsPieces if self.output_format == 'piece' else self.sentpiece_processor.EncodeAsIds
+  
+  def tokenize(self, sent):
+    """Tokenizes a single sentence into pieces."""
+    return ' '.join(self.sentpiece_encode(sent))
+
 
 ##### Sentence filterers
 
@@ -392,15 +405,15 @@ class MelFiltExtractor(Extractor, Serializable):
                                offset=db_item.get("offset", 0.0), 
                                duration=db_item.get("duration", None))
           if len(y)==0: raise ValueError(f"encountered an empty or out of bounds segment: {db_item}")
-          logmel = logfbank(y, samplerate=sr, nfilt=self.nfilt)
+          logmel = speech_features.logfbank(y, samplerate=sr, nfilt=self.nfilt)
           if self.delta:
-            delta = calculate_delta(logmel)
+            delta = speech_features.calculate_delta(logmel)
             features = np.concatenate([logmel, delta], axis=1)
           else:
             features = logmel
           data.append(features)
-        mean, std = get_mean_std(np.concatenate(data))
+        mean, std = speech_features.get_mean_std(np.concatenate(data))
         for features, db_item in zip(data, db_by_speaker[speaker_id]):
-          features = normalize(features, mean, std)
+          features = speech_features.normalize(features, mean, std)
           hf.create_dataset(str(db_item["index"]), data=features)
     logger.debug(f"feature extraction took {time.time()-start_time:.3f} seconds")

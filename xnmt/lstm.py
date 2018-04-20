@@ -3,11 +3,11 @@ from collections.abc import Sequence
 import numpy as np
 import dynet as dy
 
-from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
-from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.param_collection import ParamManager
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
-from xnmt.transducer import SeqTransducer, FinalTransducerState
+import xnmt.expression_sequence as expression_sequence
+import xnmt.events as events
+import xnmt.param_collection as pc
+import xnmt.param_init as pi
+import xnmt.transducer as transducer
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
 class UniLSTMState(object):
@@ -57,7 +57,7 @@ class UniLSTMState(object):
     return self._h[-1]
 
 
-class UniLSTMSeqTransducer(SeqTransducer, Serializable):
+class UniLSTMSeqTransducer(transducer.SeqTransducer, Serializable):
   """
   This implements a single LSTM layer based on the memory-friendly dedicated DyNet nodes.
   It works similar to DyNet's CompactVanillaLSTMBuilder, but in addition supports
@@ -77,7 +77,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   yaml_tag = '!UniLSTMSeqTransducer'
 
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
                layers=1,
@@ -85,13 +85,13 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
                hidden_dim=Ref("exp_global.default_layer_dim"),
                dropout = Ref("exp_global.dropout", default=0.0),
                weightnoise_std=Ref("exp_global.weight_noise", default=0.0),
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               param_init=Ref("exp_global.param_init", default=bare(pi.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(pi.ZeroInitializer)),
                yaml_path=None,
                decoder_input_dim=Ref("exp_global.default_layer_dim", default=None),
                decoder_input_feeding=True):
     self.num_layers = layers
-    model = ParamManager.my_params(self)
+    model = pc.ParamManager.my_params(self)
     if yaml_path is not None and "decoder" in yaml_path:
       if decoder_input_feeding:
         input_dim += decoder_input_dim
@@ -114,11 +114,11 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     self.dropout_mask_x = None
     self.dropout_mask_h = None
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_set_train(self, val):
     self.train = val
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_start_sent(self, src):
     self._final_states = None
     self.Wx = [dy.parameter(Wx) for Wx in self.p_Wx]
@@ -180,7 +180,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     Returns:
       expression sequence
     """
-    if isinstance(expr_seq, ExpressionSequence):
+    if isinstance(expr_seq, expression_sequence.ExpressionSequence):
       expr_seq = [expr_seq]
     batch_size = expr_seq[0][0].dim()[1]
     seq_len = len(expr_seq[0])
@@ -212,12 +212,12 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
         else:
           c.append(expr_seq[0].mask.cmult_by_timestep_expr(c_t,pos_i,True) + expr_seq[0].mask.cmult_by_timestep_expr(c[-1],pos_i,False))
           h.append(expr_seq[0].mask.cmult_by_timestep_expr(h_t,pos_i,True) + expr_seq[0].mask.cmult_by_timestep_expr(h[-1],pos_i,False))
-      self._final_states.append(FinalTransducerState(h[-1], c[-1]))
+      self._final_states.append(transducer.FinalTransducerState(h[-1], c[-1]))
       cur_input = [h[1:]]
 
-    return ExpressionSequence(expr_list=h[1:], mask=expr_seq[0].mask)
+    return expression_sequence.ExpressionSequence(expr_list=h[1:], mask=expr_seq[0].mask)
 
-class BiLSTMSeqTransducer(SeqTransducer, Serializable):
+class BiLSTMSeqTransducer(transducer.SeqTransducer, Serializable):
   """
   This implements a bidirectional LSTM and requires about 8.5% less memory per timestep
   than DyNet's CompactVanillaLSTMBuilder due to avoiding concat operations.
@@ -236,7 +236,7 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
   """
   yaml_tag = '!BiLSTMSeqTransducer'
 
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
                layers=1,
@@ -244,8 +244,8 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
                hidden_dim=Ref("exp_global.default_layer_dim"),
                dropout=Ref("exp_global.dropout", default=0.0),
                weightnoise_std=Ref("exp_global.weight_noise", default=0.0),
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               param_init=Ref("exp_global.param_init", default=bare(pi.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(pi.ZeroInitializer)),
                forward_layers=None, backward_layers=None):
     self.num_layers = layers
     self.hidden_dim = hidden_dim
@@ -265,33 +265,35 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
                            bias_init=bias_init[i] if isinstance(bias_init, Sequence) else bias_init) for i in
       range(layers)])
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_start_sent(self, src):
     self._final_states = None
 
   def get_final_states(self):
     return self._final_states
 
-  def __call__(self, es):
-    mask = es.mask
+  def __call__(self, inp):
+    mask = inp.mask
     # first layer
-    forward_es = self.forward_layers[0](es)
-    rev_backward_es = self.backward_layers[0](ReversedExpressionSequence(es))
+    forward_es = self.forward_layers[0](inp)
+    rev_backward_es = self.backward_layers[0](expression_sequence.ReversedExpressionSequence(inp))
 
     for layer_i in range(1, len(self.forward_layers)):
-      new_forward_es = self.forward_layers[layer_i]([forward_es, ReversedExpressionSequence(rev_backward_es)])
-      rev_backward_es = ExpressionSequence(self.backward_layers[layer_i]([ReversedExpressionSequence(forward_es), rev_backward_es]).as_list(), mask=mask)
+      new_forward_es = self.forward_layers[layer_i]([forward_es, expression_sequence.ReversedExpressionSequence(rev_backward_es)])
+      rev_backward_es = expression_sequence.ExpressionSequence(self.backward_layers[layer_i](
+        [expression_sequence.ReversedExpressionSequence(forward_es), rev_backward_es]).as_list(), mask=mask)
       forward_es = new_forward_es
 
-    self._final_states = [FinalTransducerState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
+    self._final_states = [transducer.FinalTransducerState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
                                                             self.backward_layers[layer_i].get_final_states()[0].main_expr()]),
                                             dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].cell_expr(),
                                                             self.backward_layers[layer_i].get_final_states()[0].cell_expr()])) \
                           for layer_i in range(len(self.forward_layers))]
-    return ExpressionSequence(expr_list=[dy.concatenate([forward_es[i],rev_backward_es[-i-1]]) for i in range(len(forward_es))], mask=mask)
+    return expression_sequence.ExpressionSequence(
+      expr_list=[dy.concatenate([forward_es[i], rev_backward_es[-i - 1]]) for i in range(len(forward_es))], mask=mask)
 
 
-class CustomLSTMSeqTransducer(SeqTransducer, Serializable):
+class CustomLSTMSeqTransducer(transducer.SeqTransducer, Serializable):
   """
   This implements an LSTM builder based on elementary DyNet operations.
   It is more memory-hungry than the compact LSTM, but can be extended more easily.
@@ -314,12 +316,12 @@ class CustomLSTMSeqTransducer(SeqTransducer, Serializable):
                layers,
                input_dim,
                hidden_dim,
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+               param_init=Ref("exp_global.param_init", default=bare(pi.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(pi.ZeroInitializer))):
     if layers!=1: raise RuntimeError("CustomLSTMSeqTransducer supports only exactly one layer")
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
-    model = ParamManager.my_params(self)
+    model = pc.ParamManager.my_params(self)
 
     # [i; f; o; g]
     self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim), init=param_init.initializer((hidden_dim*4, input_dim)))

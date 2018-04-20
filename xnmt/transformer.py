@@ -1,10 +1,11 @@
 import numpy as np
 import dynet as dy
-from xnmt.linear import Linear
+
 from xnmt.persistence import serializable_init, Serializable, Ref
-from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.param_init import LeCunUniformInitializer
-from xnmt.param_collection import ParamManager
+import xnmt.linear as linear
+import xnmt.events as events
+import xnmt.param_init as pi
+import xnmt.param_collection as pc
 
 MIN_VALUE = -10000
 
@@ -25,7 +26,7 @@ class ReverseTimeDistributed(object):
 
 class LinearSent(object):
   def __init__(self, dy_model, input_dim, output_dim):
-    self.L = Linear(input_dim, output_dim, dy_model, param_init=LeCunUniformInitializer(), bias_init=LeCunUniformInitializer())
+    self.L = linear.Linear(input_dim, output_dim, dy_model, param_init=pi.LeCunUniformInitializer(), bias_init=pi.LeCunUniformInitializer())
 
   def __call__(self, input_expr, reconstruct_shape=True, timedistributed=False):
     if not timedistributed:
@@ -42,7 +43,7 @@ class LinearSent(object):
 
 class LinearNoBiasSent(object):
   def __init__(self, dy_model, input_dim, output_dim):
-    self.L = Linear(input_dim, output_dim, dy_model, bias=False, param_init=LeCunUniformInitializer(), bias_init=LeCunUniformInitializer())
+    self.L = linear.Linear(input_dim, output_dim, dy_model, bias=False, param_init=pi.LeCunUniformInitializer(), bias_init=pi.LeCunUniformInitializer())
     self.output_dim = output_dim
 
   def __call__(self, input_expr):
@@ -240,11 +241,11 @@ class DecoderLayer(object):
 class TransformerEncoder(Serializable):
   yaml_tag = '!TransformerEncoder'
 
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   @serializable_init
   def __init__(self, layers=1, input_dim=512, h=1,
                dropout=0.0, attn_dropout=False, layer_norm=False, **kwargs):
-    dy_model = ParamManager.my_params(self)
+    dy_model = pc.ParamManager.my_params(self)
     self.layer_names = []
     for i in range(1, layers + 1):
       name = 'l{}'.format(i)
@@ -253,7 +254,7 @@ class TransformerEncoder(Serializable):
 
     self.dropout_val = dropout
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_set_train(self, val):
     self.set_dropout(self.dropout_val if val else 0.0)
 
@@ -273,13 +274,13 @@ class TransformerEncoder(Serializable):
 class TransformerDecoder(Serializable):
   yaml_tag = '!TransformerDecoder'
 
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   @serializable_init
   def __init__(self, layers=1, input_dim=512, h=1,
                dropout=0.0, attn_dropout=False, layer_norm=False,
                vocab_size = None, vocab = None,
                trg_reader = Ref("model.trg_reader")):
-    dy_model = ParamManager.my_params(self)
+    dy_model = pc.ParamManager.my_params(self)
     self.layer_names = []
     for i in range(1, layers + 1):
       name = 'l{}'.format(i)
@@ -304,7 +305,7 @@ class TransformerDecoder(Serializable):
     else:
       return len(trg_reader.vocab)
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_set_train(self, val):
     self.set_dropout(self.dropout_val if val else 0.0)
 

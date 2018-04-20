@@ -1,7 +1,7 @@
 import dynet as dy
 
-from xnmt.persistence import serializable_init, Serializable, Path
-from xnmt.expression_sequence import ExpressionSequence
+from xnmt.persistence import serializable_init, Serializable
+import xnmt.expression_sequence as expression_sequence
 
 class Transducer(object):
   """
@@ -116,7 +116,7 @@ class IdentitySeqTransducer(Transducer, Serializable):
 
   @serializable_init
   def __call__(self, output):
-    if not isinstance(output, ExpressionSequence):
-      output = ExpressionSequence(expr_list=output)
+    if not isinstance(output, expression_sequence.ExpressionSequence):
+      output = expression_sequence.ExpressionSequence(expr_list=output)
     return output
 

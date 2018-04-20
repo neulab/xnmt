@@ -1,10 +1,10 @@
 import dynet as dy
 
-from xnmt.lstm import UniLSTMSeqTransducer
-from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
 from xnmt.persistence import serializable_init, Serializable, Ref
-from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.transducer import SeqTransducer, FinalTransducerState
+import xnmt.lstm as lstm
+import xnmt.expression_sequence as expression_sequence
+import xnmt.events as events
+import xnmt.transducer as transducer
 
 class PseudoState(object):
   """
@@ -29,7 +29,7 @@ class PseudoState(object):
     raise NotImplementedError("s() is not supported on PseudoStates")
 
 
-class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
+class ResidualLSTMSeqTransducer(transducer.SeqTransducer, Serializable):
   """
   Residual LSTM sequence transducer. Wrapper class that delegates to
   :class:`xnmt.residual.ResidualRNNBuilder` or :class:`xnmt.residual.ResidualBiRNNBuilder`,
@@ -47,7 +47,7 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
 
   yaml_tag = '!ResidualLSTMSeqTransducer'
 
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   @serializable_init
   def __init__(self, input_dim=512, layers=1, hidden_dim=Ref("exp_global.default_layer_dim"),
                residual_to_output=False, dropout=0.0, bidirectional=True, builder=None,
@@ -71,14 +71,14 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
                                                                                 add_to_output=residual_to_output,
                                                                                 dropout=dropout))
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_start_sent(self, src):
     self._final_states = None
 
   def __call__(self, sent):
     output = self.builder.transduce(sent)
-    if not isinstance(output, ExpressionSequence):
-      output = ExpressionSequence(expr_list=output)
+    if not isinstance(output, expression_sequence.ExpressionSequence):
+      output = expression_sequence.ExpressionSequence(expr_list=output)
     self._final_states = self.builder.get_final_states()
     return output
 
@@ -106,14 +106,14 @@ class ResidualRNNBuilder(Serializable):
     hidden_dim (int): size of the outputs (and intermediate layer representations)
     add_to_output (bool): whether to add a residual connection to the output layer
     dropout (float): dropout probability; if None, use exp_global.dropout
-    builder_layers (List[UniLSTMSeqTransducer]): builder layers
+    builder_layers (List[lstm.UniLSTMSeqTransducer]): builder layers
   """
   yaml_tag = "!ResidualRNNBuilder"
   @serializable_init
   def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False, dropout=None, builder_layers=None):
     assert num_layers > 0
     self.builder_layers = self.add_serializable_component("builder_layers", builder_layers, lambda: [
-      UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim, dropout=dropout) for i
+      lstm.UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim, dropout=dropout) for i
       in range(num_layers)])
 
     self.add_to_output = add_to_output
@@ -172,14 +172,14 @@ class ResidualRNNBuilder(Serializable):
       return es
 
     for l in self.builder_layers[1:]:
-      es = ExpressionSequence(expr_list=self._sum_lists(l(es), es))
-      self._final_states.append(FinalTransducerState(es[-1], l.get_final_states()[0].cell_expr()))
+      es = expression_sequence.ExpressionSequence(expr_list=self._sum_lists(l(es), es))
+      self._final_states.append(transducer.FinalTransducerState(es[-1], l.get_final_states()[0].cell_expr()))
 
     last_output = self.builder_layers[-1](es)
 
     if self.add_to_output:
-      self._final_states.append(FinalTransducerState(last_output[-1], self.builder_layers[-1].get_final_states()[0].cell_expr()))
-      return ExpressionSequence(expr_list=self._sum_lists(last_output, es))
+      self._final_states.append(transducer.FinalTransducerState(last_output[-1], self.builder_layers[-1].get_final_states()[0].cell_expr()))
+      return expression_sequence.ExpressionSequence(expr_list=self._sum_lists(last_output, es))
     else:
       self._final_states.append(self.builder_layers[-1].get_final_states()[0])
       return last_output
@@ -200,8 +200,8 @@ class ResidualBiRNNBuilder(Serializable):
     hidden_dim (int): hidden dimension
     add_to_output (bool): whether to add a residual connection to the output layer
     dropout (float): dropout probability
-    forward_layer (UniLSTMSeqTransducer):
-    backward_layer (UniLSTMSeqTransducer):
+    forward_layer (lstm.UniLSTMSeqTransducer):
+    backward_layer (lstm.UniLSTMSeqTransducer):
     residual_network (ResidualRNNBuilder):
   """
   @serializable_init
@@ -211,11 +211,11 @@ class ResidualBiRNNBuilder(Serializable):
     assert num_layers > 1
     assert hidden_dim % 2 == 0
     self.forward_layer = self.add_serializable_component("forward_layer", forward_layer,
-                                                         lambda: UniLSTMSeqTransducer(input_dim=input_dim,
+                                                         lambda: lstm.UniLSTMSeqTransducer(input_dim=input_dim,
                                                                                       hidden_dim=hidden_dim / 2,
                                                                                       dropout=dropout))
     self.backward_layer = self.add_serializable_component("backward_layer", backward_layer,
-                                                          lambda: UniLSTMSeqTransducer(input_dim=input_dim,
+                                                          lambda: lstm.UniLSTMSeqTransducer(input_dim=input_dim,
                                                                                        hidden_dim=hidden_dim / 2,
                                                                                        dropout=dropout))
     self.residual_network = self.add_serializable_component("residual_network", residual_network,
@@ -233,13 +233,13 @@ class ResidualBiRNNBuilder(Serializable):
 
   def transduce(self, es):
     forward_e = self.forward_layer(es)
-    backward_e = self.backward_layer(ReversedExpressionSequence(es))
-    self._final_states = [FinalTransducerState(dy.concatenate([self.forward_layer.get_final_states()[0].main_expr(),
+    backward_e = self.backward_layer(expression_sequence.ReversedExpressionSequence(es))
+    self._final_states = [transducer.FinalTransducerState(dy.concatenate([self.forward_layer.get_final_states()[0].main_expr(),
                                                             self.backward_layer.get_final_states()[0].main_expr()]),
                                             dy.concatenate([self.forward_layer.get_final_states()[0].cell_expr(),
                                                             self.backward_layer.get_final_states()[0].cell_expr()]))]
 
-    output = self.residual_network.transduce(ExpressionSequence(expr_list=[dy.concatenate([f,b]) for f,b in zip(forward_e, ReversedExpressionSequence(backward_e))]))
+    output = self.residual_network.transduce(expression_sequence.ExpressionSequence(expr_list=[dy.concatenate([f,b]) for f,b in zip(forward_e, expression_sequence.ReversedExpressionSequence(backward_e))]))
     self._final_states += self.residual_network.get_final_states()
     return output
 

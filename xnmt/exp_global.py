@@ -2,7 +2,7 @@ from typing import Dict
 
 from xnmt.settings import settings
 from xnmt.persistence import serializable_init, Serializable, bare
-from xnmt.param_init import ZeroInitializer, GlorotInitializer, ParamInitializer
+import xnmt.param_init as pi
 
 
 class ExpGlobal(Serializable):
@@ -34,8 +34,8 @@ class ExpGlobal(Serializable):
                dropout: float = 0.3,
                weight_noise: float = 0.0,
                default_layer_dim: int = 512,
-               param_init: ParamInitializer = bare(GlorotInitializer),
-               bias_init: ParamInitializer = bare(ZeroInitializer),
+               param_init: pi.ParamInitializer = bare(pi.GlorotInitializer),
+               bias_init: pi.ParamInitializer = bare(pi.ZeroInitializer),
                save_num_checkpoints: int = 1,
                commandline_args=None,
                placeholders: Dict[str, str] = {}) -> None:

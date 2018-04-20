@@ -1,8 +1,7 @@
 import dynet as dy
 
-from xnmt.param_collection import ParamManager
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
+import xnmt.param_init as pi
 import xnmt.linear
 
 class MLP(Serializable):
@@ -31,10 +30,10 @@ class MLP(Serializable):
                input_dim=Ref("exp_global.default_layer_dim"),
                hidden_dim=Ref("exp_global.default_layer_dim"),
                output_dim=Ref("exp_global.default_layer_dim", default=None),
-               param_init_hidden=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init_hidden=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
-               param_init_output=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init_output=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               param_init_hidden=Ref("exp_global.param_init", default=bare(pi.GlorotInitializer)),
+               bias_init_hidden=Ref("exp_global.bias_init", default=bare(pi.ZeroInitializer)),
+               param_init_output=Ref("exp_global.param_init", default=bare(pi.GlorotInitializer)),
+               bias_init_output=Ref("exp_global.bias_init", default=bare(pi.ZeroInitializer)),
                hidden_layer=None,
                output_projector=None,
                yaml_path=None,
@@ -42,7 +41,6 @@ class MLP(Serializable):
                vocab=None,
                trg_reader=Ref("model.trg_reader", default=None),
                decoder_rnn_dim=Ref("exp_global.default_layer_dim", default=None)):
-    model = ParamManager.my_params(self)
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
     self.output_dim = output_dim

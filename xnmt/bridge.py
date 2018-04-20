@@ -1,9 +1,8 @@
 import dynet as dy
 
-import xnmt.linear
-from xnmt.param_collection import ParamManager
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
+import xnmt.linear
+import xnmt.param_init as param_init
 
 class Bridge(object):
   """
@@ -83,9 +82,8 @@ class LinearBridge(Bridge, Serializable):
                dec_layers = 1,
                enc_dim = Ref("exp_global.default_layer_dim"),
                dec_dim = Ref("exp_global.default_layer_dim"),
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
-    param_col = ParamManager.my_params(self)
+               param_init=Ref("exp_global.param_init", default=bare(param_init.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(param_init.ZeroInitializer))):
     self.dec_layers = dec_layers
     self.enc_dim = enc_dim
     self.dec_dim = dec_dim

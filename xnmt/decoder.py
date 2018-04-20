@@ -1,19 +1,18 @@
-import dynet as dy
-import numpy as np
-import collections
 import functools
 
+import dynet as dy
+import numpy as np
+
+from xnmt import logger
+from xnmt.persistence import serializable_init, Serializable, bare, Ref, Path
 import xnmt.batcher
 import xnmt.linear
 import xnmt.residual
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
-from xnmt import logger
-from xnmt.bridge import CopyBridge
-from xnmt.lstm import UniLSTMSeqTransducer
-from xnmt.mlp import MLP
-from xnmt.param_collection import ParamManager
-from xnmt.persistence import serializable_init, Serializable, bare, Ref, Path
-from xnmt.events import register_xnmt_handler, handle_xnmt_event
+import xnmt.bridge as bridge
+import xnmt.lstm as lstm
+import xnmt.mlp as mlp
+import xnmt.param_collection as pc
+import xnmt.events as events
 
 class Decoder(object):
   '''
@@ -47,9 +46,9 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
     input_dim (int): input dimension
     trg_embed_dim (int): dimension of target embeddings
     input_feeding (bool): whether to activate input feeding
-    rnn_layer (UniLSTMSeqTransducer): recurrent layer of the decoder
-    mlp_layer (MLP): final prediction layer of the decoder
-    bridge (Bridge): how to initialize decoder state
+    rnn_layer (lstm.UniLSTMSeqTransducer): recurrent layer of the decoder
+    mlp_layer (mlp.MLP): final prediction layer of the decoder
+    bridge (bridge.Bridge): how to initialize decoder state
     label_smoothing (float): label smoothing value (if used, 0.1 is a reasonable value).
                              Label Smoothing is implemented with reference to Section 7 of the paper
                              "Rethinking the Inception Architecture for Computer Vision"
@@ -66,11 +65,11 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
                input_dim=Ref("exp_global.default_layer_dim"),
                trg_embed_dim=Ref("exp_global.default_layer_dim"),
                input_feeding=True,
-               rnn_layer=bare(UniLSTMSeqTransducer),
-               mlp_layer=bare(MLP),
-               bridge=bare(CopyBridge),
+               rnn_layer=bare(lstm.UniLSTMSeqTransducer),
+               mlp_layer=bare(mlp.MLP),
+               bridge=bare(bridge.CopyBridge),
                label_smoothing=0.0):
-    self.param_col = ParamManager.my_params(self)
+    self.param_col = pc.ParamManager.my_params(self)
     self.input_dim = input_dim
     self.label_smoothing = label_smoothing
     # Input feeding
@@ -165,15 +164,15 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
 class MlpSoftmaxLexiconDecoder(MlpSoftmaxDecoder, Serializable):
   yaml_tag = '!MlpSoftmaxLexiconDecoder'
 
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
                input_dim=Ref("exp_global.default_layer_dim"),
                trg_embed_dim=Ref("exp_global.default_layer_dim"),
                input_feeding=True,
-               rnn_layer=bare(UniLSTMSeqTransducer),
-               mlp_layer=bare(MLP),
-               bridge=bare(CopyBridge),
+               rnn_layer=bare(lstm.UniLSTMSeqTransducer),
+               mlp_layer=bare(mlp.MLP),
+               bridge=bare(bridge.CopyBridge),
                label_smoothing=0.0,
                lexicon_file=None,
                src_vocab=Ref(Path("model.src_reader.vocab")),
@@ -182,8 +181,6 @@ class MlpSoftmaxLexiconDecoder(MlpSoftmaxDecoder, Serializable):
                lexicon_type='bias',
                lexicon_alpha=0.001,
                linear_projector=None,
-               param_init_lin=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init_lin=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
                ):
     super().__init__(input_dim, trg_embed_dim, input_feeding, rnn_layer,
                      mlp_layer, bridge, label_smoothing)
@@ -235,14 +232,14 @@ class MlpSoftmaxLexiconDecoder(MlpSoftmaxDecoder, Serializable):
     lexicon[src_unk_id] = {trg_unk_id: 1.0}
     return lexicon
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_new_epoch(self, training_task, *args, **kwargs):
     if hasattr(self, "lexicon_prob"):
       del self.lexicon_prob
     if not hasattr(self, "lexicon"):
       self.lexicon = self.load_lexicon()
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_start_sent(self, src):
     batch_size = len(src)
     col_size = len(src[0])

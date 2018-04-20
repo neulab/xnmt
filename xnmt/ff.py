@@ -1,11 +1,11 @@
 import dynet as dy
 
-from xnmt.transducer import SeqTransducer, FinalTransducerState
+import xnmt.expression_sequence as es
+import xnmt.transducer as transducer
 from xnmt.persistence import Serializable
-from xnmt.expression_sequence import ExpressionSequence
 from xnmt.param_collection import ParamManager
 
-class FullyConnectedSeqTransducer(SeqTransducer, Serializable):
+class FullyConnectedSeqTransducer(transducer.SeqTransducer, Serializable):
   yaml_tag = '!FullyConnectedSeqTransducer'
   def __init__(self, in_height, out_height, nonlinearity='linear'):
     """
@@ -42,7 +42,7 @@ class FullyConnectedSeqTransducer(SeqTransducer, Serializable):
       output = 2*dy.logistic(l1) - 1
     elif self.nonlinearity is 'relu':
       output = dy.rectify(l1)
-    output_seq = ExpressionSequence(expr_tensor=output)
-    self._final_states = [FinalTransducerState(output_seq[-1])]
+    output_seq = es.ExpressionSequence(expr_tensor=output)
+    self._final_states = [transducer.FinalTransducerState(output_seq[-1])]
     return output_seq
 

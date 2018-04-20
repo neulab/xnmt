@@ -1,4 +1,5 @@
 import dynet as dy
+
 import xnmt.batcher
 
 class ExpressionSequence(object):

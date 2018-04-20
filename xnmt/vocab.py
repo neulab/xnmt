@@ -1,5 +1,12 @@
 from xnmt.persistence import serializable_init, Serializable
 
+SS = 0
+ES = 1
+
+SS_STR = "<s>"
+ES_STR = "</s>"
+UNK_STR = "<unk>"
+
 class Vocab(Serializable):
   '''
   Converts between strings and integer ids.
@@ -12,13 +19,6 @@ class Vocab(Serializable):
   '''
 
   yaml_tag = "!Vocab"
-
-  SS = 0
-  ES = 1
-
-  SS_STR = "<s>"
-  ES_STR = "</s>"
-  UNK_STR = "<unk>"
 
   @serializable_init
   def __init__(self, i2w=None, vocab_file=None):
@@ -33,10 +33,10 @@ class Vocab(Serializable):
       self.w2i = {}
       self.i2w = []
       self.unk_token = None
-      self.w2i[self.SS_STR] = self.SS
-      self.w2i[self.ES_STR] = self.ES
-      self.i2w.append(self.SS_STR)
-      self.i2w.append(self.ES_STR)
+      self.w2i[SS_STR] = SS
+      self.w2i[ES_STR] = ES
+      self.i2w.append(SS_STR)
+      self.i2w.append(ES_STR)
       self.frozen = False
     self.save_processed_arg("i2w", self.i2w)
     self.save_processed_arg("vocab_file", None)
@@ -47,8 +47,8 @@ class Vocab(Serializable):
     Args:
       vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
     """
-    vocab = [Vocab.SS_STR, Vocab.ES_STR]
-    reserved = set([Vocab.SS_STR, Vocab.ES_STR, Vocab.UNK_STR])
+    vocab = [SS_STR, ES_STR]
+    reserved = set([SS_STR, ES_STR, UNK_STR])
     with open(vocab_file, encoding='utf-8') as f:
       for line in f:
         word = line.strip()

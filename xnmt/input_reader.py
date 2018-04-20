@@ -1,18 +1,16 @@
 from itertools import zip_longest
-
 import ast
+import warnings
 
 import numpy as np
-
-import warnings
 with warnings.catch_warnings():
   warnings.simplefilter("ignore", lineno=36)
   import h5py
 
 from xnmt import logger
-from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
 from xnmt.persistence import serializable_init, Serializable
-from xnmt.vocab import Vocab
+import xnmt.input
+import xnmt.vocab
 
 class InputReader(object):
   """
@@ -28,7 +26,7 @@ class InputReader(object):
     Returns: iterator over sentences from filename
     """
     if self.vocab is None:
-      self.vocab = Vocab()
+      self.vocab = xnmt.vocab.Vocab()
     return self.iterate_filtered(filename, filter_ids)
 
   def read_sent(self, sentence, filter_ids=None):
@@ -98,25 +96,25 @@ class PlainTextReader(BaseTextReader, Serializable):
     self.include_vocab_reference = include_vocab_reference
     if vocab is not None:
       self.vocab.freeze()
-      self.vocab.set_unk(Vocab.UNK_STR)
+      self.vocab.set_unk(xnmt.vocab.UNK_STR)
 
   def read_sent(self, sentence, filter_ids=None):
     vocab_reference = self.vocab if self.include_vocab_reference else None
-    return SimpleSentenceInput([self.vocab.convert(word) for word in sentence.strip().split()] + \
-                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
+    return xnmt.input.SimpleSentenceInput([self.vocab.convert(word) for word in sentence.strip().split()] + \
+                                                       [self.vocab.convert(xnmt.vocab.ES_STR)], vocab_reference)
 
   def freeze(self):
     self.vocab.freeze()
-    self.vocab.set_unk(Vocab.UNK_STR)
+    self.vocab.set_unk(xnmt.vocab.UNK_STR)
     self.save_processed_arg("vocab", self.vocab)
 
   def count_words(self, trg_words):
     trg_cnt = 0
     for x in trg_words:
       if type(x) == int:
-        trg_cnt += 1 if x != Vocab.ES else 0
+        trg_cnt += 1 if x != xnmt.vocab.ES else 0
       else:
-        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
+        trg_cnt += sum([1 if y != xnmt.vocab.ES else 0 for y in x])
     return trg_cnt
 
   def vocab_size(self):
@@ -165,10 +163,10 @@ class SegmentationTextReader(PlainTextReader):
 
   def read_sents(self, filename, filter_ids=None):
     if self.vocab is None:
-      self.vocab = Vocab()
+      self.vocab = xnmt.vocab.Vocab()
     def convert(line, segmentation):
       line = line.strip().split()
-      ret = AnnotatedSentenceInput(list(map(self.vocab.convert, line)) + [self.vocab.convert(Vocab.ES_STR)])
+      ret = xnmt.input.AnnotatedSentenceInput(list(map(self.vocab.convert, line)) + [self.vocab.convert(xnmt.vocab.ES_STR)])
       ret.annotate("segment", list(map(int, segmentation.strip().split())))
       return ret
 
@@ -249,7 +247,7 @@ class H5Reader(InputReader, Serializable):
 
         if idx % 1000 == 999:
           logger.info(f"Read {idx+1} lines ({float(idx+1)/len(h5_keys)*100:.2f}%) of {filename} at {key}")
-        yield ArrayInput(inp)
+        yield xnmt.input.ArrayInput(inp)
 
   def count_sents(self, filename):
     with h5py.File(filename, "r") as hf:
@@ -315,7 +313,7 @@ class NpzReader(InputReader, Serializable):
 
       if idx % 1000 == 999:
         logger.info(f"Read {idx+1} lines ({float(idx+1)/len(npzKeys)*100:.2f}%) of {filename} at {key}")
-      yield ArrayInput(inp)
+      yield xnmt.input.ArrayInput(inp)
     npzFile.close()
 
   def count_sents(self, filename):

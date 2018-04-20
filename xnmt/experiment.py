@@ -1,19 +1,19 @@
 from typing import List, Optional
 
 from xnmt import logger
-from xnmt.exp_global import ExpGlobal
-from xnmt.eval_task import EvalTask
-from xnmt.generator import GeneratorModel
-from xnmt.param_collection import ParamManager
-from xnmt.preproc_runner import PreprocRunner
-from xnmt.training_regimen import TrainingRegimen
 from xnmt.persistence import serializable_init, Serializable, bare
+import xnmt.exp_global as exp_global
+import xnmt.eval_task as eval_task
+import xnmt.generator as generator
+import xnmt.param_collection as pc
+import xnmt.preproc_runner as preproc_runner
+import xnmt.training_regimen as training_regimen
 
 class Experiment(Serializable):
   '''
   A default experiment that performs preprocessing, training, and evaluation.
 
-  The initializer calls ParamManager.populate(), meaning that model construction should be finalized at this point.
+  The initializer calls param_collection.ParamManager.populate(), meaning that model construction should be finalized at this point.
   __call__() runs the individual steps.
   
   Args:
@@ -29,11 +29,11 @@ class Experiment(Serializable):
 
   @serializable_init
   def __init__(self,
-               exp_global:Optional[ExpGlobal] = bare(ExpGlobal),
-               preproc:Optional[PreprocRunner] = None,
-               model:Optional[GeneratorModel] = None,
-               train:Optional[TrainingRegimen] = None,
-               evaluate:Optional[List[EvalTask]] = None,
+               exp_global:Optional[exp_global.ExpGlobal] = bare(exp_global.ExpGlobal),
+               preproc:Optional[preproc_runner.PreprocRunner] = None,
+               model:Optional[generator.GeneratorModel] = None,
+               train:Optional[training_regimen.TrainingRegimen] = None,
+               evaluate:Optional[List[eval_task.EvalTask]] = None,
                random_search_report:Optional[dict] = None) -> None:
     self.exp_global = exp_global
     self.preproc = preproc
@@ -54,7 +54,7 @@ class Experiment(Serializable):
       save_fct() # save initial model
       self.train.run_training(save_fct = save_fct)
       logger.info('reverting learned weights to best checkpoint..')
-      ParamManager.param_col.revert_to_best_model()
+      pc.ParamManager.param_col.revert_to_best_model()
 
     evaluate_args = self.evaluate
     if evaluate_args:

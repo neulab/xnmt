@@ -6,23 +6,22 @@ from xml.sax.saxutils import escape
 from lxml import etree
 from scipy.stats import poisson
 
+from xnmt.persistence import serializable_init, Serializable
 import xnmt.linear as linear
 import xnmt.expression_sequence as expression_sequence
-
-from xnmt.batcher import Mask
-from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.reports import Reportable
-from xnmt.persistence import serializable_init, Serializable
-from xnmt.transducer import SeqTransducer
-from xnmt.loss import LossBuilder
-from xnmt.param_collection import ParamManager
+import xnmt.batcher as batcher
+import xnmt.events as events
+import xnmt.reports as reports
+import xnmt.transducer as transducer
+import xnmt.loss
+import xnmt.param_collection as pc
 
 EPS = 1e-10
 
-class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
+class SegmentingSeqTransducer(transducer.SeqTransducer, Serializable, reports.Reportable):
   yaml_tag = '!SegmentingSeqTransducer'
 
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
                ## COMPONENTS
@@ -44,7 +43,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                log_reward         = True,
                debug=False,
                print_sample=False):
-    model = ParamManager.my_params(self)
+    model = pc.ParamManager.my_params(self)
     # Sanity check
     assert embed_encoder is not None
     assert segment_composer is not None
@@ -153,7 +152,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return self.final_transducer(expression_sequence.ExpressionSequence(expr_tensor=outputs, mask=masks))
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_start_sent(self, src=None):
     self.src_sent = src
     self.segment_length_prior = None
@@ -175,7 +174,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         mask[-deficit:] = 1
         modified = True
       ret.append(dy.concatenate_cols(xs))
-    mask = Mask(masks) if modified else None
+    mask = batcher.Mask(masks) if modified else None
     return dy.concatenate_to_batch(ret), mask
 
   def sample_segmentation(self, encodings, batch_size):
@@ -257,7 +256,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def is_segmentation_warmup(self):
     return self.segmentation_warmup_counter <= self.segmentation_warmup
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_set_train(self, train):
     self.train = train
   #
@@ -267,7 +266,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     else:
       return self.embed_encoder.get_final_states()
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_new_epoch(self, training_task, *args, **kwargs):
     self.segmentation_warmup_counter = training_task.training_state.epoch_num
     name = ["Epsilon Greedy Prob", "Reinforce Loss Weight", "Confidence Penalty Weight", "Length Prior Weight",
@@ -277,7 +276,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       if p is not None:
         print(n + ":", str(p))
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_calc_additional_loss(self, translator_loss):
     if not self.learn_segmentation or self.segment_decisions is None:
       return None
@@ -291,7 +290,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # Mask
     enc_mask = self.enc_mask.get_active_one_mask().transpose() if self.enc_mask is not None else None
     # Compose the lose
-    ret = LossBuilder()
+    ret = xnmt.loss.LossBuilder()
     ## Length prior
     alpha = self.length_prior_alpha.value() if self.length_prior_alpha is not None else 0
     if alpha > 0:
@@ -334,7 +333,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # Total Loss
     return ret
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_html_report(self, context):
     segment_decision = self.get_report_input()[0]
     segment_decision = [int(x[0]) for x in segment_decision]
@@ -349,7 +348,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
     return context
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_file_report(self):
     segment_decision = self.get_report_input()[0]
     segment_decision = [int(x[0]) for x in segment_decision]

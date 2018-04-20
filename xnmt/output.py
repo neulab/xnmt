@@ -1,4 +1,4 @@
-from xnmt.vocab import Vocab
+import xnmt.vocab
 
 class Output(object):
   '''
@@ -16,7 +16,7 @@ class TextOutput(Output):
     self.actions = actions or []
     self.vocab = vocab
     self.score = score
-    self.filtered_tokens = set([Vocab.SS, Vocab.ES])
+    self.filtered_tokens = set([xnmt.vocab.SS, xnmt.vocab.ES])
 
   def to_string(self):
     map_func = lambda wi: self.vocab[wi] if self.vocab != None else str

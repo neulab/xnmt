@@ -1,18 +1,15 @@
-# coding: utf-8
-
 from collections.abc import Iterable
-
-from xnmt.settings import settings
 
 import dynet as dy
 
 from xnmt import logger
-from xnmt.loss_calculator import MLELoss
-import xnmt.output
-from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.util import make_parent_dir
-from xnmt.search_strategy import BeamSearch
+from xnmt.settings import settings
+import xnmt.loss_calculator as loss_calculator
+import xnmt.output
+import xnmt.reports as reports
+import xnmt.util as util
+import xnmt.search_strategy as search_strategy
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 
@@ -29,16 +26,18 @@ class SimpleInference(Serializable):
     report_path (str): a path to which decoding reports will be written
     report_type (str): report to generate ``file/html``. Can be multiple, separate with comma.
     search_strategy (SearchStrategy): a search strategy used during decoding.
-    mode (str): type of decoding to perform. ``onebest``: generate one best. ``forced``: perform forced decoding. ``forceddebug``: perform forced decoding, calculate training loss, and make suer the scores are identical for debugging purposes.
+    mode (str): type of decoding to perform. ``onebest``: generate one best. ``forced``: perform forced decoding.
+                ``forceddebug``: perform forced decoding, calculate training loss, and make suer the scores are
+                identical for debugging purposes.
     batcher (Batcher):
   """
   
   yaml_tag = '!SimpleInference'
 
   @serializable_init
-  def __init__(self, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
-                  post_process="none", report_path=None, report_type="html",
-                  search_strategy=bare(BeamSearch), mode="onebest", max_len=None, batcher=Ref("train.batcher", default=None)):
+  def __init__(self, src_file=None, trg_file=None, ref_file=None, max_src_len=None, post_process="none",
+               report_path=None, report_type="html", search_strategy=bare(search_strategy.BeamSearch), mode="onebest",
+               max_len=None, batcher=Ref("train.batcher", default=None)):
     self.src_file = src_file
     self.trg_file = trg_file
     self.ref_file = ref_file
@@ -63,7 +62,7 @@ class SimpleInference(Serializable):
     args = dict(src_file=src_file or self.src_file, trg_file=trg_file or self.trg_file, ref_file=self.ref_file, max_src_len=self.max_src_len,
                   post_process=self.post_process, candidate_id_file=candidate_id_file, report_path=self.report_path, report_type=self.report_type, mode=self.mode)
 
-    is_reporting = issubclass(generator.__class__, Reportable) and args["report_path"] is not None
+    is_reporting = issubclass(generator.__class__, reports.Reportable) and args["report_path"] is not None
     # Corpus
     src_corpus = list(generator.src_reader.read_sents(args["src_file"]))
     # Get reference if it exists and is necessary
@@ -119,7 +118,7 @@ class SimpleInference(Serializable):
       ref_scores = []
       for src, ref in zip(batched_src, batched_ref):
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-        loss_expr = generator.calc_loss(src, ref, loss_calculator=MLELoss())
+        loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calculator.MLELoss())
         if isinstance(loss_expr.value(), Iterable):
           ref_scores.extend(loss_expr.value())
         else:
@@ -127,7 +126,7 @@ class SimpleInference(Serializable):
       ref_scores = [-x for x in ref_scores]
 
     # Make the parent directory if necessary
-    make_parent_dir(args["trg_file"])
+    util.make_parent_dir(args["trg_file"])
 
     # Perform generation of output
     if args["mode"] != 'score':

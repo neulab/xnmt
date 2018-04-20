@@ -1,10 +1,11 @@
-from typing import Any, Sequence
 import argparse
+import sys
+from typing import Any, Sequence
 
 from xnmt import logger
 from xnmt.evaluator import * # import everything so we can parse it with eval()
-from xnmt.inference import NO_DECODING_ATTEMPTED
-from xnmt.util import OneOrSeveral
+import xnmt.inference
+import xnmt.util as util
 
 def read_data(loc_, post_process=None):
   """Reads the lines in the file specified in loc_ and return the list after inserting the tokens
@@ -28,7 +29,7 @@ eval_shortcuts = {
 }
 
 
-def xnmt_evaluate(ref_file: OneOrSeveral[str], hyp_file: OneOrSeveral[str],
+def xnmt_evaluate(ref_file: util.OneOrSeveral[str], hyp_file: util.OneOrSeveral[str],
                   evaluators: Sequence[Evaluator], desc: Any = None) -> Sequence[EvalScore]:
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
 
@@ -44,13 +45,13 @@ def xnmt_evaluate(ref_file: OneOrSeveral[str], hyp_file: OneOrSeveral[str],
   ref_corpus = read_data(ref_file, post_process=ref_postprocess)
   hyp_corpus = read_data(hyp_file, post_process=hyp_postprocess)
   len_before = len(hyp_corpus)
-  ref_corpus, hyp_corpus = zip(*filter(lambda x: NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
+  ref_corpus, hyp_corpus = zip(*filter(lambda x: xnmt.inference.NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
   if len(ref_corpus) < len_before:
     logger.info(f"> ignoring {len_before - len(ref_corpus)} out of {len_before} test sentences.")
 
   return [evaluator.evaluate(ref_corpus, hyp_corpus, desc=desc) for evaluator in evaluators]
 
-if __name__ == "__main__":
+def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("ref", help="Path to read reference file from")
   parser.add_argument("hyp", help="Path to read hypothesis file from")
@@ -71,3 +72,5 @@ if __name__ == "__main__":
   for score in scores:
     print(score)
 
+if __name__ == "__main__":
+  sys.exit(main())

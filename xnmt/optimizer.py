@@ -2,8 +2,8 @@ import dynet as dy
 import numpy as np
 
 from xnmt import logger
-from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable
+import xnmt.param_collection as pc
 
 """
 The purpose of this module is mostly to expose the DyNet trainers to YAML serialization,
@@ -76,7 +76,7 @@ class SimpleSGDTrainer(XnmtOptimizer, Serializable):
 
   @serializable_init
   def __init__(self, e0 = 0.1):
-    self.optimizer = dy.SimpleSGDTrainer(ParamManager.global_collection(), e0)
+    self.optimizer = dy.SimpleSGDTrainer(pc.ParamManager.global_collection(), e0)
 class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   """
   Stochastic gradient descent with momentum
@@ -91,7 +91,7 @@ class MomentumSGDTrainer(XnmtOptimizer, Serializable):
 
   @serializable_init
   def __init__(self, e0 = 0.01, mom = 0.9):
-    self.optimizer = dy.MomentumSGDTrainer(ParamManager.global_collection(), e0, mom)
+    self.optimizer = dy.MomentumSGDTrainer(pc.ParamManager.global_collection(), e0, mom)
 
 class AdagradTrainer(XnmtOptimizer, Serializable):
   """
@@ -107,7 +107,7 @@ class AdagradTrainer(XnmtOptimizer, Serializable):
 
   @serializable_init
   def __init__(self, e0 = 0.1, eps = 1e-20):
-    self.optimizer = dy.AdagradTrainer(ParamManager.global_collection(), e0, eps=eps)
+    self.optimizer = dy.AdagradTrainer(pc.ParamManager.global_collection(), e0, eps=eps)
 
 class AdadeltaTrainer(XnmtOptimizer, Serializable):
   """
@@ -123,7 +123,7 @@ class AdadeltaTrainer(XnmtOptimizer, Serializable):
 
   @serializable_init
   def __init__(self, eps = 1e-6, rho = 0.95):
-    self.optimizer = dy.AdadeltaTrainer(ParamManager.global_collection(), eps, rho)
+    self.optimizer = dy.AdadeltaTrainer(pc.ParamManager.global_collection(), eps, rho)
 
 class AdamTrainer(XnmtOptimizer, Serializable):
   """
@@ -141,7 +141,7 @@ class AdamTrainer(XnmtOptimizer, Serializable):
 
   @serializable_init
   def __init__(self, alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8):
-    self.optimizer = dy.AdamTrainer(ParamManager.global_collection(), alpha, beta_1, beta_2, eps)
+    self.optimizer = dy.AdamTrainer(pc.ParamManager.global_collection(), alpha, beta_1, beta_2, eps)
 
 class TransformerAdamTrainer(XnmtOptimizer, Serializable):
   """
@@ -160,7 +160,7 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
 
   @serializable_init
   def __init__(self, alpha=1.0, dim=512, warmup_steps=4000, beta_1=0.9, beta_2=0.98, eps=1e-9):
-    self.optimizer = dy.AdamTrainer(ParamManager.global_collection(),
+    self.optimizer = dy.AdamTrainer(pc.ParamManager.global_collection(),
                                     alpha=alpha,
                                     beta_1=beta_1,
                                     beta_2=beta_2,

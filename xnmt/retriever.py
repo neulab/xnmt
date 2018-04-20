@@ -4,12 +4,12 @@ from lxml import etree
 from xnmt.settings import settings
 
 from xnmt import logger
-import xnmt.batcher
-from xnmt.events import handle_xnmt_event
-from xnmt.generator import GeneratorModel
 from xnmt.persistence import serializable_init, Serializable
-from xnmt.reports import Reportable
-from xnmt.expression_sequence import ExpressionSequence
+import xnmt.batcher
+import xnmt.events as events
+import xnmt.expression_sequence as expression_sequence
+import xnmt.generator as generator
+import xnmt.reports as reports
 
 ##### A class for retrieval databases
 # This file contains databases used for retrieval.
@@ -35,7 +35,7 @@ class StandardRetrievalDatabase(Serializable):
     return xnmt.batcher.mark_as_batch(trg_examples), trg_masks
 
 ##### The actual retriever class
-class Retriever(GeneratorModel):
+class Retriever(generator.GeneratorModel):
   '''
   A template class implementing a retrieval model.
   '''
@@ -78,7 +78,7 @@ class Retriever(GeneratorModel):
     self.index_database(candidates)
     self.report_path = kwargs["report_path"]
 
-class DotProductRetriever(Retriever, Serializable, Reportable):
+class DotProductRetriever(Retriever, Serializable, reports.Reportable):
   '''
   A retriever trains using max-margin methods.
   '''
@@ -105,7 +105,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
 
   def exprseq_pooling(self, exprseq):
     # Reduce to vector
-    exprseq = ExpressionSequence(expr_tensor=exprseq.mask.add_to_tensor_expr(exprseq.as_tensor(),-1e10), mask=exprseq.mask)
+    exprseq = expression_sequence.ExpressionSequence(expr_tensor=exprseq.mask.add_to_tensor_expr(exprseq.as_tensor(),-1e10), mask=exprseq.mask)
     if exprseq.expr_tensor != None:
       if len(exprseq.expr_tensor.dim()[0]) > 1:
         return dy.max_dim(exprseq.expr_tensor, d=1)
@@ -199,7 +199,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
     else:
       raise RuntimeError("Illegal return_type to retrieve: {}".format(return_type))
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_html_report(self, context=None):
     logger.warning("Unimplemented html report for retriever!")
     idx, src_words, scores, kbest = self.html_input

@@ -1,18 +1,17 @@
 from typing import Sequence, Union, Optional
 
-from xnmt.settings import settings
 
 import dynet as dy
 
-from xnmt.evaluator import Evaluator
-from xnmt.generator import GeneratorModel
-from xnmt.inference import SimpleInference
-import xnmt.input_reader
+from xnmt.settings import settings
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.loss_calculator import LossCalculator, MLELoss
-from xnmt.evaluator import LossScore
-from xnmt.loss import LossBuilder, LossScalarBuilder
-from xnmt.util import OneOrSeveral
+import xnmt.evaluator as evaluator
+import xnmt.generator as generator
+import xnmt.inference as inference
+import xnmt.input_reader
+import xnmt.loss as loss
+import xnmt.loss_calculator as loss_calculator
+import xnmt.util as util
 import xnmt.xnmt_evaluate
 
 class EvalTask(object):
@@ -29,9 +28,9 @@ class LossEvalTask(EvalTask, Serializable):
   Args:
     src_file (str):
     ref_file (str):
-    model (GeneratorModel):
+    model (generator.GeneratorModel):
     batcher (Batcher):
-    loss_calculator (LossCalculator):
+    loss_calculator (loss_calculator.LossCalculator):
     max_src_len (int):
     max_trg_len (int):
     desc (str):
@@ -42,7 +41,7 @@ class LossEvalTask(EvalTask, Serializable):
   @serializable_init
   def __init__(self, src_file, ref_file, model=Ref("model"),
                 batcher=Ref("train.batcher", default=None),
-                loss_calculator=bare(MLELoss), max_src_len=None, max_trg_len=None,
+                loss_calculator=bare(loss_calculator.MLELoss), max_src_len=None, max_trg_len=None,
                 desc=None):
     self.model = model
     self.loss_calculator = loss_calculator
@@ -60,12 +59,12 @@ class LossEvalTask(EvalTask, Serializable):
         xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                         self.src_file, self.ref_file, batcher=self.batcher,
                                         max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
-    loss_val = LossScalarBuilder()
+    loss_val = loss.LossScalarBuilder()
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
 
-      loss_builder = LossBuilder()
+      loss_builder = loss.LossBuilder()
       standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
       additional_loss = self.model.calc_additional_loss(standard_loss)
       loss_builder.add_loss("standard_loss", standard_loss)
@@ -77,7 +76,7 @@ class LossEvalTask(EvalTask, Serializable):
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
 
     try:
-      return LossScore(loss_stats[self.model.get_primary_loss()], loss_stats=loss_stats, desc=self.desc), ref_words_cnt
+      return evaluator.LossScore(loss_stats[self.model.get_primary_loss()], loss_stats=loss_stats, desc=self.desc), ref_words_cnt
     except KeyError:
       raise RuntimeError("Did you wrap your loss calculation with LossBuilder({'primary_loss': loss_value}) ?")
 
@@ -90,7 +89,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
     ref_file: path(s) to read reference file from
     hyp_file: path to write hypothesis file to
     model: generator model to generate hypothesis with
-    eval_metrics: list of evaluation metrics (list of Evaluator objects or string of comma-separated shortcuts)
+    eval_metrics: list of evaluation metrics (list of evaluator.Evaluator objects or string of comma-separated shortcuts)
     inference: inference object
     candidate_id_file (str):
     desc: human-readable description passed on to resulting score objects
@@ -99,9 +98,9 @@ class AccuracyEvalTask(EvalTask, Serializable):
   yaml_tag = '!AccuracyEvalTask'
 
   @serializable_init
-  def __init__(self, src_file: OneOrSeveral[str], ref_file: OneOrSeveral[str], hyp_file: str,
-               model: GeneratorModel = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
-               inference: Optional[SimpleInference] = None, candidate_id_file: Optional[str] = None,
+  def __init__(self, src_file: util.OneOrSeveral[str], ref_file: util.OneOrSeveral[str], hyp_file: str,
+               model: generator.GeneratorModel = Ref("model"), eval_metrics: Union[str, Sequence[evaluator.Evaluator]] = "bleu",
+               inference: Optional[inference.SimpleInference] = None, candidate_id_file: Optional[str] = None,
                desc: Optional = None):
     self.model = model
     if isinstance(eval_metrics, str):
