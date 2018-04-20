@@ -202,30 +202,37 @@ class SentencepieceTokenizer(Tokenizer):
     self.model_prefix = model_prefix
     self.output_format = output_format
     self.input_format = output_format
+    self.overwrite = overwrite
     self.encode_extra_options = ['--extra_options='+encode_extra_options] if encode_extra_options else []
     self.decode_extra_options = ['--extra_options='+decode_extra_options] if decode_extra_options else []
 
     util.make_parent_dir(model_prefix)
+    self.sentpiece_train_args = ['--input=' + ','.join(train_files),
+                                 '--model_prefix=' + str(model_prefix),
+                                 '--vocab_size=' + str(vocab_size),
+                                 '--hard_vocab_limit=' + str(hard_vocab_limit).lower(),
+                                 '--model_type=' + str(model_type)
+                                ]
 
+    self.sentpiece_processor = None
+
+  def init_sentencepiece(self):
     if ((not os.path.exists(self.model_prefix + '.model')) or
         (not os.path.exists(self.model_prefix + '.vocab')) or
-        overwrite):
-      sentpiece_train_args = ['--input=' + ','.join(train_files),
-                              '--model_prefix=' + str(model_prefix),
-                              '--vocab_size=' + str(vocab_size),
-                              '--hard_vocab_limit=' + str(hard_vocab_limit).lower(),
-                              '--model_type=' + str(model_type)
-                             ]
+        self.overwrite):
       # This calls sentencepiece. It's pretty verbose
-      spm.SentencePieceTrainer.Train(' '.join(sentpiece_train_args))
+      spm.SentencePieceTrainer.Train(' '.join(self.sentpiece_train_args))
     
     self.sentpiece_processor = spm.SentencePieceProcessor()
-    self.sentpiece_processor.Load('%s.model' % model_prefix)
+    self.sentpiece_processor.Load('%s.model' % self.model_prefix)
 
     self.sentpiece_encode = self.sentpiece_processor.EncodeAsPieces if self.output_format == 'piece' else self.sentpiece_processor.EncodeAsIds
+
   
   def tokenize(self, sent):
     """Tokenizes a single sentence into pieces."""
+    if self.sentpiece_processor is None:
+        self.init_sentencepiece()
     return ' '.join(self.sentpiece_encode(sent))
 
 
