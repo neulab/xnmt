@@ -9,6 +9,7 @@ class Vocab(Serializable):
   Args:
     i2w (list of string): list of words, including <s> and </s>
     vocab_file (str): file containing one word per line, and not containing <s>, </s>, <unk>
+    sentencepiece_vocab (bool): Set to ``True`` if ``vocab_file`` is the output of the sentencepiece tokenizer. Defaults to ``False``.
   '''
 
   yaml_tag = "!Vocab"
@@ -21,7 +22,7 @@ class Vocab(Serializable):
   UNK_STR = "<unk>"
 
   @serializable_init
-  def __init__(self, i2w=None, vocab_file=None):
+  def __init__(self, i2w=None, vocab_file=None, sentencepiece_vocab=False):
     assert i2w is None or vocab_file is None
     if vocab_file:
       i2w = Vocab.i2w_from_vocab_file(vocab_file)
@@ -41,9 +42,14 @@ class Vocab(Serializable):
     self.save_processed_arg("i2w", self.i2w)
     self.save_processed_arg("vocab_file", None)
 
+    self.sentencepiece_vocab = sentencepiece_vocab
+
   @staticmethod
   def i2w_from_vocab_file(vocab_file):
-    """
+    """Loads the vocabulary from a file.
+    
+    If ``sentencepiece_vocab`` is set to True, this will accept a sentencepiece vocabulary file
+    
     Args:
       vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
     """
@@ -52,8 +58,15 @@ class Vocab(Serializable):
     with open(vocab_file, encoding='utf-8') as f:
       for line in f:
         word = line.strip()
+        # Sentencepiece vocab files have second field, ignore it
+        if self.sentencepiece_vocab:
+          word = word.split('\t')[0]
         if word in reserved:
-          raise RuntimeError(f"Vocab file {vocab_file} contains a reserved word: {word}")
+          # Ignore if this is a sentencepiece vocab file
+          if self.sentencepiece_vocab:
+            continue
+          else:
+            raise RuntimeError(f"Vocab file {vocab_file} contains a reserved word: {word}")
         vocab.append(word)
     return vocab
 
@@ -102,3 +115,4 @@ class Vocab(Serializable):
       self.w2i[w] = len(self.i2w)
       self.i2w.append(w)
     self.unk_token = self.w2i[w]
+
