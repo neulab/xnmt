@@ -7,7 +7,7 @@ from xnmt import logger, yaml_logger
 
 OneOrSeveral = Union[T,Sequence[T]]
 
-YamlSerializable=Union[None,bool,int,float,'Serializable',List['YamlSerializable'],Dict[str,'YamlSerializable']]
+YamlSerializable='Union[None,bool,int,float,xnmt.persistance.Serializable,List[xnmt.util.YamlSerializable],Dict[str,xnmt.util.YamlSerializable]]'
 
 def make_parent_dir(filename):
   if not os.path.exists(os.path.dirname(filename)):

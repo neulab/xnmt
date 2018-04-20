@@ -1,5 +1,4 @@
-from typing import Sequence, Union, Optional
-
+from typing import Sequence, Union, Optional, Any
 
 import dynet as dy
 
@@ -101,7 +100,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
   def __init__(self, src_file: util.OneOrSeveral[str], ref_file: util.OneOrSeveral[str], hyp_file: str,
                model: generator.GeneratorModel = Ref("model"), eval_metrics: Union[str, Sequence[evaluator.Evaluator]] = "bleu",
                inference: Optional[inference.SimpleInference] = None, candidate_id_file: Optional[str] = None,
-               desc: Optional = None):
+               desc: Optional[Any] = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]

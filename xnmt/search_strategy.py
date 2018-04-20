@@ -18,6 +18,8 @@ import xnmt.vocab as vocab
 # masks: whether the particular word id should be ignored or not (1 for not, 0 for yes)
 SearchOutput = namedtuple('SearchOutput', ['word_ids', 'attentions', 'score', 'logsoftmaxes', 'state', 'mask'])
 
+Hypothesis = namedtuple('Hypothesis', ['score', 'output', 'parent', 'word'])
+
 class SearchStrategy(object):
   '''
   A template class to generate translation from the output probability model. (Non-batched operation)
@@ -109,8 +111,7 @@ class BeamSearch(Serializable, SearchStrategy):
   """
 
   yaml_tag = '!BeamSearch'
-  Hypothesis = namedtuple('Hypothesis', ['score', 'output', 'parent', 'word'])
-  
+
   @serializable_init
   def __init__(self, beam_size=1, max_len=100, len_norm=bare(length_normalization.NoNormalization), one_best=True):
     self.beam_size = beam_size
@@ -121,7 +122,7 @@ class BeamSearch(Serializable, SearchStrategy):
   def generate_output(self, translator, initial_state, src_length=None, forced_trg_ids=None):
     # TODO(philip30): can only do single decoding, not batched
     assert forced_trg_ids is None or self.beam_size == 1
-    active_hyp = [self.Hypothesis(0, None, None, None)]
+    active_hyp = [Hypothesis(0, None, None, None)]
     completed_hyp = []
     for length in range(self.max_len):
       if len(completed_hyp) >= self.beam_size:
@@ -148,7 +149,7 @@ class BeamSearch(Serializable, SearchStrategy):
         # Queue next states
         for cur_word in top_words:
           new_score = self.len_norm.normalize_partial(hyp.score, score[cur_word], length+1)
-          new_set.append(self.Hypothesis(new_score, current_output, hyp, cur_word))
+          new_set.append(Hypothesis(new_score, current_output, hyp, cur_word))
       # Next top hypothesis
       active_hyp = sorted(new_set, key=lambda x: x.score, reverse=True)[:self.beam_size]
     # There is no hyp reached </s>
