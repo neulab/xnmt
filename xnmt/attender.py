@@ -2,6 +2,7 @@ import math
 import dynet as dy
 
 from xnmt import logger
+import xnmt.batcher
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
@@ -86,10 +87,12 @@ class MlpAttender(Attender, Serializable):
     V = dy.parameter(self.pV)
     U = dy.parameter(self.pU)
 
-    h = dy.tanh(dy.colwise_add(self.WI, V * state))
+    WI = self.WI
+    state, WI = xnmt.batcher.truncate_batches(state, WI)
+    h = dy.tanh(dy.colwise_add(WI, V * state))
     scores = dy.transpose(U * h)
     if self.curr_sent.mask is not None:
-      scores = self.curr_sent.mask.add_to_tensor_expr(scores, multiplicator = -100.0)
+      scores = self.curr_sent.mask.add_to_tensor_expr(scores, multiplicator = -100.0, truncate_batch_dim=True)
     normalized = dy.softmax(scores)
     self.attention_vecs.append(normalized)
     return normalized
@@ -97,6 +100,7 @@ class MlpAttender(Attender, Serializable):
   def calc_context(self, state):
     attention = self.calc_attention(state)
     I = self.curr_sent.as_tensor()
+    I, attention = xnmt.batcher.truncate_batches(I, attention)
     return I * attention
 
 class DotAttender(Attender, Serializable):

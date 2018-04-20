@@ -1,9 +1,11 @@
+from typing import Union, List
 import math
 import random
 import numpy as np
 import dynet as dy
 from xnmt.vocab import Vocab
 from xnmt.persistence import serializable_init, Serializable
+import xnmt.expression_sequence
 
 class Batch(list):
   """
@@ -38,15 +40,18 @@ class Mask(object):
   def reversed(self):
     return Mask(self.np_arr[:,::-1])
 
-  def add_to_tensor_expr(self, tensor_expr, multiplicator=None):
+  def add_to_tensor_expr(self, tensor_expr, multiplicator=None, truncate_batch_dim=False):
     # TODO: might cache these expressions to save memory
     if np.count_nonzero(self.np_arr) == 0:
       return tensor_expr
     else:
+      transp_arr = self.np_arr.transpose()
+      if truncate_batch_dim and transp_arr.shape[-1] > tensor_expr.dim()[1]:
+        transp_arr = transp_arr[:,tensor_expr.dim()[1]]
       if multiplicator is not None:
-        mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1) * multiplicator, batched=True)
+        mask_expr = dy.inputTensor(np.expand_dims(transp_arr, axis=1) * multiplicator, batched=True)
       else:
-        mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1), batched=True)
+        mask_expr = dy.inputTensor(np.expand_dims(transp_arr, axis=1), batched=True)
       return tensor_expr + mask_expr
 
   def lin_subsampled(self, reduce_factor=None, trg_len=None):
@@ -97,7 +102,8 @@ class Batcher(object):
     return False
 
   def add_single_batch(self, src_curr, trg_curr, src_ret, trg_ret):
-    src_curr, trg_curr = zip(*sorted(zip(src_curr, trg_curr), key=lambda x: len(x[1]))) # sort by trg length
+    if trg_curr is not None:
+      src_curr, trg_curr = zip(*sorted(zip(src_curr, trg_curr), key=lambda x: len(x[1]))) # sort by trg length
     src_id, src_mask = pad(src_curr, pad_token=self.src_pad_token, pad_src_to_multiple=self.pad_src_to_multiple)
     src_ret.append(Batch(src_id, src_mask))
     if trg_ret is not None:
@@ -469,3 +475,33 @@ class WordTrgSrcBatcher(WordSortBatcher, Serializable):
       self.batch_size = sum([len(s) for s in trg]) / len(trg) * self.avg_batch_size
     return super(WordTrgSrcBatcher, self).pack_by_order(src, trg, order)
 
+def truncate_batches(*xl):
+  batch_sizes = []
+  for x in xl:
+    if isinstance(x, dy.Expression) or isinstance(x, xnmt.expression_sequence.ExpressionSequence):
+      batch_sizes.append(x.dim()[1])
+    elif isinstance(x, Batch):
+      batch_sizes.append(len(x))
+    elif isinstance(x, Mask):
+      batch_sizes.append(x.batch_size())
+    elif isinstance(x, xnmt.lstm.UniLSTMState):
+      batch_sizes.append(x.output().dim()[1])
+    else:
+      raise ValueError(f"unsupported type {type(x)}")
+    assert batch_sizes[-1] > 0
+  ret = []
+  for i, x in enumerate(xl):
+    if batch_sizes[i] > min(batch_sizes):
+      if isinstance(x, dy.Expression) or isinstance(x, xnmt.expression_sequence.ExpressionSequence):
+        ret.append(x[tuple([slice(None)]*len(x.dim()[0]) + [slice(min(batch_sizes))])])
+      elif isinstance(x, Batch):
+        ret.append(mark_as_batch(x[:min(batch_sizes)]))
+      elif isinstance(x, Mask):
+        ret.append(Mask(x.np_arr[:min(batch_sizes)]))
+      elif isinstance(x, xnmt.lstm.UniLSTMState):
+        ret.append(x[:,:min(batch_sizes)])
+      else:
+        raise ValueError(f"unsupported type {type(x)}")
+    else:
+      ret.append(x)
+  return ret

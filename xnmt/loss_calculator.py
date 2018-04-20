@@ -7,7 +7,7 @@ from xnmt.vocab import Vocab
 from xnmt.constants import INFINITY
 import xnmt.evaluator
 import xnmt.linear as linear
-
+import xnmt.batcher
 
 class LossCalculator(object):
   '''
@@ -26,9 +26,10 @@ class LossCalculator(object):
     return sequence
 
 class MLELoss(Serializable, LossCalculator):
+  """
+  Max likelihood loss calculator.
+  """
   yaml_tag = '!MLELoss'
-  
-  # TODO: document me
   @serializable_init
   def __init__(self):
     pass
@@ -43,11 +44,11 @@ class MLELoss(Serializable, LossCalculator):
         assert len(single_trg) == seq_len # assert consistent length
         assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask.np_arr[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
     for i in range(seq_len):
-      ref_word = trg[i] if not xnmt.batcher.is_batched(src) \
-                      else xnmt.batcher.mark_as_batch([single_trg[i] for single_trg in trg])
-      # TODO: only use unmasked words
+      ref_word = trg[i] if not xnmt.batcher.is_batched(src) else xnmt.batcher.mark_as_batch(
+        [single_trg[i] for (j, single_trg) in enumerate(trg) if trg_mask.np_arr[j, i] == 0 or np.sum(trg_mask.np_arr[:,i]) == trg_mask.np_arr.shape[0]])
 
-      dec_state.context = translator.attender.calc_context(dec_state.rnn_state.output())
+      rnn_output, ref_word = xnmt.batcher.truncate_batches(dec_state.rnn_state.output(), ref_word)
+      dec_state.context = translator.attender.calc_context(rnn_output)
       # TODO: if batch size has shrunk, select unmasked context
       # TODO: optimize calc_context so that attention computation won't waste memory
       # TODO: if batch size has shrunk, select unmasked RNN state

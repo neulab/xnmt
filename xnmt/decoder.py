@@ -124,7 +124,8 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
     inp = trg_embedding
     if self.input_feeding:
       inp = dy.concatenate([inp, mlp_dec_state.context])
-    return MlpSoftmaxDecoderState(rnn_state=mlp_dec_state.rnn_state.add_input(inp),
+    rnn_state, inp = xnmt.batcher.truncate_batches(mlp_dec_state.rnn_state, inp)
+    return MlpSoftmaxDecoderState(rnn_state=rnn_state.add_input(inp),
                                   context=mlp_dec_state.context)
 
   def get_scores(self, mlp_dec_state):
@@ -149,6 +150,7 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
         return dy.pickneglogsoftmax(scores, ref_action)
       # minibatch mode
       else:
+        scores, ref_action = xnmt.batcher.truncate_batches(scores, ref_action)
         return dy.pickneglogsoftmax_batch(scores, ref_action)
 
     else:
