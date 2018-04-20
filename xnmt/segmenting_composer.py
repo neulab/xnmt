@@ -2,23 +2,23 @@ import dynet as dy
 
 import xnmt.param_collection as pc
 from xnmt.persistence import serializable_init, Serializable, Ref
-from xnmt.events import register_xnmt_handler, register_xnmt_event
+from xnmt.events import register_handler, register_event
 from xnmt.reports import Reportable
 
 class SegmentComposer(Serializable, Reportable):
   yaml_tag = "!SegmentComposer"
 
-  @register_xnmt_handler
+  @register_handler
   @serializable_init
   def __init__(self, encoder, transformer):
     self.encoder = encoder
     self.transformer = transformer
 
-  @register_xnmt_event
+  @register_event
   def set_input_size(self, batch_size, input_len):
     pass
 
-  @register_xnmt_event
+  @register_event
   def next_item(self):
     pass
 

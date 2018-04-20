@@ -129,7 +129,7 @@ class DenseWordEmbedder(Embedder, linear.Linear, Serializable):
   """
   yaml_tag = "!DenseWordEmbedder"
 
-  @events.register_xnmt_handler
+  @events.register_handler
   @serializable_init
   def __init__(self,
                emb_dim=Ref("exp_global.default_layer_dim"),
@@ -153,11 +153,11 @@ class DenseWordEmbedder(Embedder, linear.Linear, Serializable):
     self.embeddings = param_collection.add_parameters((self.vocab_size, self.emb_dim), init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
     self.bias = param_collection.add_parameters((self.vocab_size,), init=bias_init.initializer((self.vocab_size,)))
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_start_sent(self, src):
     self.word_id_mask = None
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_set_train(self, val):
     self.train = val
 
@@ -215,7 +215,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   yaml_tag = '!SimpleWordEmbedder'
 
-  @events.register_xnmt_handler
+  @events.register_handler
   @serializable_init
   def __init__(self,
                emb_dim=Ref("exp_global.default_layer_dim"),
@@ -241,11 +241,11 @@ class SimpleWordEmbedder(Embedder, Serializable):
     self.embeddings = param_collection.add_lookup_parameters((self.vocab_size, self.emb_dim),
                              init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_set_train(self, val):
     self.train = val
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_start_sent(self, src):
     self.word_id_mask = None
 

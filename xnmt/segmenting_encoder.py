@@ -21,7 +21,7 @@ EPS = 1e-10
 class SegmentingSeqTransducer(transducer.SeqTransducer, Serializable, reports.Reportable):
   yaml_tag = '!SegmentingSeqTransducer'
 
-  @events.register_xnmt_handler
+  @events.register_handler
   @serializable_init
   def __init__(self,
                ## COMPONENTS
@@ -152,7 +152,7 @@ class SegmentingSeqTransducer(transducer.SeqTransducer, Serializable, reports.Re
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return self.final_transducer(expression_sequence.ExpressionSequence(expr_tensor=outputs, mask=masks))
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_start_sent(self, src=None):
     self.src_sent = src
     self.segment_length_prior = None
@@ -256,7 +256,7 @@ class SegmentingSeqTransducer(transducer.SeqTransducer, Serializable, reports.Re
   def is_segmentation_warmup(self):
     return self.segmentation_warmup_counter <= self.segmentation_warmup
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_set_train(self, train):
     self.train = train
   #
@@ -266,7 +266,7 @@ class SegmentingSeqTransducer(transducer.SeqTransducer, Serializable, reports.Re
     else:
       return self.embed_encoder.get_final_states()
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_new_epoch(self, training_task, *args, **kwargs):
     self.segmentation_warmup_counter = training_task.training_state.epoch_num
     name = ["Epsilon Greedy Prob", "Reinforce Loss Weight", "Confidence Penalty Weight", "Length Prior Weight",
@@ -276,7 +276,7 @@ class SegmentingSeqTransducer(transducer.SeqTransducer, Serializable, reports.Re
       if p is not None:
         print(n + ":", str(p))
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_calc_additional_loss(self, translator_loss):
     if not self.learn_segmentation or self.segment_decisions is None:
       return None
@@ -333,7 +333,7 @@ class SegmentingSeqTransducer(transducer.SeqTransducer, Serializable, reports.Re
     # Total Loss
     return ret
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_html_report(self, context):
     segment_decision = self.get_report_input()[0]
     segment_decision = [int(x[0]) for x in segment_decision]
@@ -348,7 +348,7 @@ class SegmentingSeqTransducer(transducer.SeqTransducer, Serializable, reports.Re
 
     return context
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_file_report(self):
     segment_decision = self.get_report_input()[0]
     segment_decision = [int(x[0]) for x in segment_decision]

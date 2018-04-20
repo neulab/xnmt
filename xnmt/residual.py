@@ -47,7 +47,7 @@ class ResidualLSTMSeqTransducer(transducer.SeqTransducer, Serializable):
 
   yaml_tag = '!ResidualLSTMSeqTransducer'
 
-  @events.register_xnmt_handler
+  @events.register_handler
   @serializable_init
   def __init__(self, input_dim=512, layers=1, hidden_dim=Ref("exp_global.default_layer_dim"),
                residual_to_output=False, dropout=0.0, bidirectional=True, builder=None,
@@ -71,7 +71,7 @@ class ResidualLSTMSeqTransducer(transducer.SeqTransducer, Serializable):
                                                                                 add_to_output=residual_to_output,
                                                                                 dropout=dropout))
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_start_sent(self, src):
     self._final_states = None
 

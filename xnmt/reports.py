@@ -6,7 +6,7 @@ class Reportable(object):
   
   # TODO: document me
   
-  @events.register_xnmt_event_assign
+  @events.register_event_assign
   def html_report(self, context=None):
     raise NotImplementedError()
 
@@ -20,29 +20,29 @@ class Reportable(object):
   def get_report_path(self):
     return self.__report_path
 
-  @events.register_xnmt_event
+  @events.register_event
   def set_report_path(self, report_path):
     self.__report_path = report_path
-  @events.handle_xnmt_event
+  @events.handle
   def on_set_report_path(self, report_path):
     self.__report_path = report_path
 
-  @events.register_xnmt_event
+  @events.register_event
   def set_report_resource(self, key, value):
     if not hasattr(self, "__reportable_resources"):
       self.__reportable_resources = {}
     self.__reportable_resources[key] = value
-  @events.handle_xnmt_event
+  @events.handle
   def on_set_report_resource(self, key, value):
     if not hasattr(self, "__reportable_resources"):
       self.__reportable_resources = {}
     self.__reportable_resources[key] = value
 
-  @events.register_xnmt_event
+  @events.register_event
   def clear_report_resources(self):
     if hasattr(self, "clear_resources"):
       self.__reportable_resources.clear()
-  @events.handle_xnmt_event
+  @events.handle
   def on_clear_report_resources(self):
     if hasattr(self, "clear_resources"):
       self.__reportable_resources.clear()
@@ -60,7 +60,7 @@ class Reportable(object):
   def generate_file_report(self):
     self.file_report()
 
-  @events.register_xnmt_event
+  @events.register_event
   def file_report(self):
     pass
 

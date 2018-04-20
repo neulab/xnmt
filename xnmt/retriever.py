@@ -199,7 +199,7 @@ class DotProductRetriever(Retriever, Serializable, reports.Reportable):
     else:
       raise RuntimeError("Illegal return_type to retrieve: {}".format(return_type))
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_html_report(self, context=None):
     logger.warning("Unimplemented html report for retriever!")
     idx, src_words, scores, kbest = self.html_input

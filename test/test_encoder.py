@@ -30,10 +30,10 @@ class TestEncoder(unittest.TestCase):
     self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
 
-  @xnmt.events.register_xnmt_event
+  @xnmt.events.register_event
   def set_train(self, val):
     pass
-  @xnmt.events.register_xnmt_event
+  @xnmt.events.register_event
   def start_sent(self, src):
     pass
 

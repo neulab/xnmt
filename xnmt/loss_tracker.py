@@ -28,7 +28,7 @@ class TrainLossTracker(object):
   REPORT_TEMPLATE_ADDITIONAL = '- {loss_name} {loss:5.6f}'
   REPORT_EVERY = 1000
 
-  @events.register_xnmt_handler
+  @events.register_handler
   def __init__(self, training_task):
     self.training_task = training_task
 
@@ -43,7 +43,7 @@ class TrainLossTracker(object):
     self.start_time = time.time()
     self.name = self.training_task.name
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_new_epoch(self, training_task, num_sents):
     if training_task is self.training_task:
       self.epoch_loss.zero()

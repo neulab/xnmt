@@ -77,7 +77,7 @@ class UniLSTMSeqTransducer(transducer.SeqTransducer, Serializable):
   """
   yaml_tag = '!UniLSTMSeqTransducer'
 
-  @events.register_xnmt_handler
+  @events.register_handler
   @serializable_init
   def __init__(self,
                layers=1,
@@ -114,11 +114,11 @@ class UniLSTMSeqTransducer(transducer.SeqTransducer, Serializable):
     self.dropout_mask_x = None
     self.dropout_mask_h = None
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_set_train(self, val):
     self.train = val
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_start_sent(self, src):
     self._final_states = None
     self.Wx = [dy.parameter(Wx) for Wx in self.p_Wx]
@@ -236,7 +236,7 @@ class BiLSTMSeqTransducer(transducer.SeqTransducer, Serializable):
   """
   yaml_tag = '!BiLSTMSeqTransducer'
 
-  @events.register_xnmt_handler
+  @events.register_handler
   @serializable_init
   def __init__(self,
                layers=1,
@@ -265,7 +265,7 @@ class BiLSTMSeqTransducer(transducer.SeqTransducer, Serializable):
                            bias_init=bias_init[i] if isinstance(bias_init, Sequence) else bias_init) for i in
       range(layers)])
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_start_sent(self, src):
     self._final_states = None
 

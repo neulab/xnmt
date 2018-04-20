@@ -164,7 +164,7 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
 class MlpSoftmaxLexiconDecoder(MlpSoftmaxDecoder, Serializable):
   yaml_tag = '!MlpSoftmaxLexiconDecoder'
 
-  @events.register_xnmt_handler
+  @events.register_handler
   @serializable_init
   def __init__(self,
                input_dim=Ref("exp_global.default_layer_dim"),
@@ -232,14 +232,14 @@ class MlpSoftmaxLexiconDecoder(MlpSoftmaxDecoder, Serializable):
     lexicon[src_unk_id] = {trg_unk_id: 1.0}
     return lexicon
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_new_epoch(self, training_task, *args, **kwargs):
     if hasattr(self, "lexicon_prob"):
       del self.lexicon_prob
     if not hasattr(self, "lexicon"):
       self.lexicon = self.load_lexicon()
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_start_sent(self, src):
     batch_size = len(src)
     col_size = len(src[0])

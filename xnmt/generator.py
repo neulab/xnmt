@@ -13,19 +13,19 @@ class GeneratorModel(object):
   def generate(self, *args, **kwargs):
     raise NotImplementedError()
 
-  @events.register_xnmt_event
+  @events.register_event
   def initialize_generator(self, **kwargs):
     pass
 
-  @events.register_xnmt_event
+  @events.register_event
   def new_epoch(self, training_task, num_sents):
     pass
 
-  @events.register_xnmt_event
+  @events.register_event
   def set_train(self, val):
     pass
 
-  @events.register_xnmt_event
+  @events.register_event
   def start_sent(self, src):
     pass
 
@@ -35,7 +35,7 @@ class GeneratorModel(object):
   def get_primary_loss(self):
     raise NotImplementedError("Pick a key for primary loss that is used for dev_loss calculation")
 
-  @events.register_xnmt_event_sum
+  @events.register_event_sum
   def calc_additional_loss(self, reward):
     ''' Calculate reinforce loss based on the reward
     Args:

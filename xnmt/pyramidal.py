@@ -24,7 +24,7 @@ class PyramidalLSTMSeqTransducer(transducer.SeqTransducer, Serializable):
   """
   yaml_tag = '!PyramidalLSTMSeqTransducer'
 
-  @events.register_xnmt_handler
+  @events.register_handler
   @serializable_init
   def __init__(self, layers=1,
                input_dim=Ref("exp_global.default_layer_dim"),
@@ -50,7 +50,7 @@ class PyramidalLSTMSeqTransducer(transducer.SeqTransducer, Serializable):
       b = lstm.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
       self.builder_layers.append((f, b))
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_start_sent(self, src):
     self._final_states = None
 

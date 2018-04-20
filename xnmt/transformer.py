@@ -241,7 +241,7 @@ class DecoderLayer(object):
 class TransformerEncoder(Serializable):
   yaml_tag = '!TransformerEncoder'
 
-  @events.register_xnmt_handler
+  @events.register_handler
   @serializable_init
   def __init__(self, layers=1, input_dim=512, h=1,
                dropout=0.0, attn_dropout=False, layer_norm=False, **kwargs):
@@ -254,7 +254,7 @@ class TransformerEncoder(Serializable):
 
     self.dropout_val = dropout
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_set_train(self, val):
     self.set_dropout(self.dropout_val if val else 0.0)
 
@@ -274,7 +274,7 @@ class TransformerEncoder(Serializable):
 class TransformerDecoder(Serializable):
   yaml_tag = '!TransformerDecoder'
 
-  @events.register_xnmt_handler
+  @events.register_handler
   @serializable_init
   def __init__(self, layers=1, input_dim=512, h=1,
                dropout=0.0, attn_dropout=False, layer_norm=False,
@@ -305,7 +305,7 @@ class TransformerDecoder(Serializable):
     else:
       return len(trg_reader.vocab)
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_set_train(self, val):
     self.set_dropout(self.dropout_val if val else 0.0)
 

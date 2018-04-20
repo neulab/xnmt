@@ -7,7 +7,7 @@ event. Event handling involves two parts:
   means decorating them as such:
 
   class MyObject(object):
-    @register_xnmt_event
+    @register_event
     def my_event():
       pass
 
@@ -16,26 +16,26 @@ event. Event handling involves two parts:
   must hold:
   - handlers are named 'on_' + name of the event, e.g. on_my_event
   - method arguments must be consistent
-  - handlers must be decorated with @handle_xnmt_event
-  - the handler's __init__ method must be decorated with @register_xnmt_handler(self)
+  - handlers must be decorated with @handle
+  - the handler's __init__ method must be decorated with @register_handler(self)
 
   example:
 
   class AnotherObject(object):
-    @register_xnmt_handler
+    @register_handler
     def __init__(self):
       ...
-    @handle_xnmt_event
+    @handle
     def on_my_event():
       # do something
 
 
   events can also return values. To make use of return   values, 2 special decorators are
   available:
-  - @register_xnmt_event_assign assumes a special keyword argument named "context".
+  - @register_event_assign assumes a special keyword argument named "context".
     The return value is an updated value for this context argument, and will then be
     passed on to the next event handler
-  - @register_xnmt_event_sum here the return values of all handlers are summed up and
+  - @register_event_sum here the return values of all handlers are summed up and
     returned.
 
 """
@@ -57,14 +57,14 @@ handler_instances = []
 handler_method_names = set()
 event_names = set()
 
-def register_xnmt_handler(f):
+def register_handler(f):
   @wraps(f)
   def wrapper(obj, *args, **kwargs):
     f(obj, *args, **kwargs)
     handler_instances.append(obj)
   return wrapper
 
-def register_xnmt_event(f):
+def register_event(f):
   @wraps(f)
   def wrapper(obj, *args, **kwargs):
     assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(
@@ -79,10 +79,10 @@ def register_xnmt_event(f):
   event_names.add(f.__name__)
   return wrapper
 
-def register_xnmt_event_assign(f):
+def register_event_assign(f):
   @wraps(f)
   def wrapper(obj, *args, **kwargs):
-    assert "context" in kwargs, "register_xnmt_event_assign requires \"context\" in kwargs"
+    assert "context" in kwargs, "register_event_assign requires \"context\" in kwargs"
     assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(
       handler_method_names - event_names)
     kwargs["context"] = f(obj, *args, **kwargs)
@@ -97,7 +97,7 @@ def register_xnmt_event_assign(f):
   event_names.add(f.__name__)
   return wrapper
 
-def register_xnmt_event_sum(f):
+def register_event_sum(f):
   @wraps(f)
   def wrapper(obj, *args, **kwargs):
     assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(
@@ -116,7 +116,7 @@ def register_xnmt_event_sum(f):
   event_names.add(f.__name__)
   return wrapper
 
-def handle_xnmt_event(f):
+def handle(f):
   @wraps(f)
   def wrapper(obj, *args, **kwargs):
     try:

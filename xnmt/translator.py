@@ -95,7 +95,7 @@ class DefaultTranslator(Translator, Serializable, reports.Reportable):
 
   yaml_tag = '!DefaultTranslator'
 
-  @events.register_xnmt_handler
+  @events.register_handler
   @serializable_init
   def __init__(self, src_reader, trg_reader, src_embedder=bare(xnmt.embedder.SimpleWordEmbedder),
                encoder=bare(xnmt.lstm.BiLSTMSeqTransducer), attender=bare(xnmt.attender.MlpAttender),
@@ -234,7 +234,7 @@ class DefaultTranslator(Translator, Serializable, reports.Reportable):
     next_logsoftmax = self.decoder.get_scores_logsoftmax(next_state)
     return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
 
-  @events.register_xnmt_event_assign
+  @events.register_event_assign
   def html_report(self, context=None):
     assert(context is None)
     idx, src, trg, att = self.get_report_input()
@@ -275,7 +275,7 @@ class DefaultTranslator(Translator, Serializable, reports.Reportable):
     # return the parent context to be used as child context
     return html
 
-  @events.handle_xnmt_event
+  @events.handle
   def on_file_report(self):
     idx, src, trg, attn = self.get_report_input()
     assert attn.shape == (len(src), len(trg))
@@ -312,7 +312,7 @@ class TransformerTranslator(Translator, Serializable, reports.Reportable):
 
   yaml_tag = '!TransformerTranslator'
 
-  @events.register_xnmt_handler
+  @events.register_handler
   @serializable_init
   def __init__(self, src_reader, src_embedder, encoder, trg_reader, trg_embedder, decoder, inference=None, input_dim=512):
     self.src_reader = src_reader
@@ -500,7 +500,7 @@ class EnsembleTranslator(Translator, Serializable):
 
   yaml_tag = '!EnsembleTranslator'
 
-  @events.register_xnmt_handler
+  @events.register_handler
   @serializable_init
   def __init__(self, models, src_reader, trg_reader, inference=bare(xnmt.inference.SimpleInference)):
     self.models = models

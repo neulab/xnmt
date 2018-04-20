@@ -171,7 +171,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     else:
       logger.info('new data set is not ready yet, using data from last epoch.')
 
-  @events.register_xnmt_event
+  @events.register_event
   def new_epoch(self, training_task, num_sents):
     """
     New epoch event.
