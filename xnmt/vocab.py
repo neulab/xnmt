@@ -25,7 +25,7 @@ class Vocab(Serializable):
   def __init__(self, i2w=None, vocab_file=None, sentencepiece_vocab=False):
     assert i2w is None or vocab_file is None
     if vocab_file:
-      i2w = Vocab.i2w_from_vocab_file(vocab_file)
+      i2w = Vocab.i2w_from_vocab_file(vocab_file, sentencepiece_vocab)
     if (i2w is not None):
       self.i2w = i2w
       self.w2i = {word: word_id for (word_id, word) in enumerate(self.i2w)}
@@ -42,16 +42,15 @@ class Vocab(Serializable):
     self.save_processed_arg("i2w", self.i2w)
     self.save_processed_arg("vocab_file", None)
 
-    self.sentencepiece_vocab = sentencepiece_vocab
-
   @staticmethod
-  def i2w_from_vocab_file(vocab_file):
+  def i2w_from_vocab_file(vocab_file, sentencepiece_vocab=False):
     """Loads the vocabulary from a file.
     
     If ``sentencepiece_vocab`` is set to True, this will accept a sentencepiece vocabulary file
     
     Args:
       vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
+      sentencepiece_vocab (bool): Set to ``True`` if ``vocab_file`` is the output of the sentencepiece tokenizer. Defaults to ``False``.
     """
     vocab = [Vocab.SS_STR, Vocab.ES_STR]
     reserved = set([Vocab.SS_STR, Vocab.ES_STR, Vocab.UNK_STR])
@@ -59,11 +58,11 @@ class Vocab(Serializable):
       for line in f:
         word = line.strip()
         # Sentencepiece vocab files have second field, ignore it
-        if self.sentencepiece_vocab:
+        if sentencepiece_vocab:
           word = word.split('\t')[0]
         if word in reserved:
           # Ignore if this is a sentencepiece vocab file
-          if self.sentencepiece_vocab:
+          if sentencepiece_vocab:
             continue
           else:
             raise RuntimeError(f"Vocab file {vocab_file} contains a reserved word: {word}")
