@@ -82,6 +82,12 @@ Linear
    :members:
    :show-inheritance:
 
+Multi-layer Perceptron
+~~~~~~~~~~~~~~~~~~~~~~
+.. automodule:: xnmt.mlp
+   :members:
+   :show-inheritance:
+
 Loss
 ----
 
@@ -216,6 +222,10 @@ Preprocessing
 ~~~~~~~~~~~~~
 
 .. automodule:: xnmt.preproc_runner
+   :members:
+   :show-inheritance:
+
+.. automodule:: xnmt.preproc
    :members:
    :show-inheritance:
 
