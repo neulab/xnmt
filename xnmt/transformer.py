@@ -81,15 +81,6 @@ class MultiHeadAttention(object):
     self.scale_score = 1. / (n_units / h) ** 0.5
     self.attn_dropout = attn_dropout
 
-  def split_rows(self, X, h):
-    (n_rows, _), batch = X.dim()
-    l = range(n_rows)
-    steps = n_rows // h
-    output = []
-    for i in range(0, n_rows, steps):
-      output.append(dy.pickrange(X, i, i + steps))
-    return output
-
   def split_batch(self, X, h):
     (n_rows, _), batch = X.dim()
     l = range(batch)
@@ -117,19 +108,20 @@ class MultiHeadAttention(object):
     (n_units, n_querys), batch = Q.dim()
     (_, n_keys), _ = K.dim()
 
-    batch_Q = dy.concatenate_to_batch(self.split_rows(Q, h))
-    batch_K = dy.concatenate_to_batch(self.split_rows(K, h))
-    batch_V = dy.concatenate_to_batch(self.split_rows(V, h))
+    assert(n_units % h == 0)
 
-    assert(batch_Q.dim() == (n_units // h, n_querys), batch * h)
-    assert(batch_K.dim() == (n_units // h, n_keys), batch * h)
-    assert(batch_V.dim() == (n_units // h, n_keys), batch * h)
+    batch_Q = dy.reshape(dy.transpose(Q), (n_querys, n_units//h), batch_size=batch*h)
+    batch_K = dy.reshape(dy.transpose(K), (n_keys, n_units//h), batch_size=batch*h)
+    batch_V = dy.reshape(dy.transpose(V), (n_keys, n_units//h), batch_size=batch*h)
+    
+    batch_A = (batch_Q * dy.transpose(batch_K)) * self.scale_score
 
-    mask = np.concatenate([mask] * h, axis=0)
-    mask = np.moveaxis(mask, [1, 0, 2], [0, 2, 1])
-    mask = dy.inputTensor(mask, batched=True)
-    batch_A = (dy.transpose(batch_Q) * batch_K) * self.scale_score
-    batch_A = dy.cmult(batch_A, mask) + (1 - mask)*MIN_VALUE
+    if not isinstance(mask, type(None)):
+      # print(mask.shape)
+      # mask = np.concatenate([mask] * h, axis=0)
+      # mask = np.moveaxis(mask, [0, 1, 2], [2, 0, 1])
+      mask = dy.inputTensor(mask, batched=True)
+      batch_A = batch_A + (1 - mask)*MIN_VALUE
 
     sent_len = batch_A.dim()[0][0]
     if sent_len == 1:
@@ -137,14 +129,11 @@ class MultiHeadAttention(object):
     else:
         batch_A = dy.softmax(batch_A, d=1)
 
-    batch_A = dy.cmult(batch_A, mask)
-    assert (batch_A.dim() == ((n_querys, n_keys), batch * h))
-
     if self.attn_dropout:
       if self.dropout != 0.0:
         batch_A = dy.dropout(batch_A, self.dropout)
 
-    batch_C = dy.transpose(batch_A * dy.transpose(batch_V))
+    batch_C = dy.transpose(batch_A * batch_V)
     assert (batch_C.dim() == ((n_units // h, n_querys), batch * h))
 
     C = dy.concatenate(self.split_batch(batch_C, h), d=0)

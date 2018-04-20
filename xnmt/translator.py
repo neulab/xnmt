@@ -340,16 +340,22 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     """
     self.reporting_src_vocab = src_vocab
 
-  def make_attention_mask(self, source_block, target_block):
-    mask = (target_block[:, None, :] <= 0) * (source_block[:, :, None] <= 0)
-    # (batch, source_length, target_length)
-    return mask
+  def make_attention_mask(self, src_block, trg_block):
+    # (source_length or 1, target_length or 1, batch)
+    if isinstance(src_block, type(None)):
+      if isinstance(trg_block, type(None)): 
+        return None
+      else:
+        return trg_block[None,:,:]
+    else:
+      if isinstance(trg_block, type(None)):
+        return src_block[:,None,:]
+      else:
+        return (trg_block[None,:,:] <= 0) * (src_block[:,None,:] <= 0)
 
-  def make_history_mask(self, block):
-    batch, length = block.shape
+  def make_history_mask(self, length):
     arange = np.arange(length)
-    history_mask = (arange[None,] <= arange[:, None])[None,]
-    history_mask = np.broadcast_to(history_mask, (batch, length, length))
+    history_mask = (arange[None,] <= arange[:,None])
     return history_mask
 
   def mask_embeddings(self, embeddings, mask):
@@ -382,11 +388,11 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     emb_block += dy.inputTensor(self.position_encoding_block[0, :, :length])
     return emb_block
 
-  def sentence_block_embed(self, embed, x, mask):
-    batch, length = x.shape
-    x_mask = mask.reshape((batch * length,))
-    _, units = embed.shape()  # According to updated Dynet
-    e = dy.concatenate_cols([dy.zeros(units) if x_mask[j] == 1 else dy.lookup(embed, id_) for j, id_ in enumerate(x.reshape((batch * length,)))])
+  def sentence_block_embed(self, embed, sents):
+    length = len(sents[0])
+    batch = len(sents)
+    e = dy.lookup_batch(embed, list(itertools.chain(*sents)))
+    units = e.dim()[0][0]
     e = dy.reshape(e, (units, length), batch_size=batch)
     return e
 
@@ -396,32 +402,31 @@ class TransformerTranslator(Translator, Serializable, Reportable):
       src = xnmt.batcher.mark_as_batch([src])
     if not xnmt.batcher.is_batched(trg):
       trg = xnmt.batcher.mark_as_batch([trg])
-    src_words = np.array([[Vocab.SS] + x.words for x in src])
-    batch_size, src_len = src_words.shape
+    src_words = [x.words for x in src]
 
-    if isinstance(src.mask, type(None)):
-      src_mask = np.zeros((batch_size, src_len), dtype=np.int)
-    else:
-      src_mask = np.concatenate([np.zeros((batch_size, 1), dtype=np.int), src.mask.np_arr.astype(np.int)], axis=1)
+    src_len = len(src_words[0])
+    batch_size = len(src_words)
 
-    src_embeddings = self.sentence_block_embed(self.src_embedder.embeddings, src_words, src_mask)
+    src_mask = None
+    if not isinstance(src.mask, type(None)):
+      src_mask = np.transpose(src.mask.np_arr.astype(np.int))
+    src_embeddings = self.sentence_block_embed(self.src_embedder.embeddings, src_words)
     src_embeddings = self.make_input_embedding(src_embeddings, src_len)
 
     trg_words = np.array(list(map(lambda x: [Vocab.SS] + x.words[:-1], trg)))
-    batch_size, trg_len = trg_words.shape
+    trg_len = len(trg_words[0])
 
-    if isinstance(trg.mask, type(None)):
-      trg_mask = np.zeros((batch_size, trg_len), dtype=np.int)
-    else:
-      trg_mask = trg.mask.np_arr.astype(np.int)
-
-    trg_embeddings = self.sentence_block_embed(self.trg_embedder.embeddings, trg_words, trg_mask)
+    trg_mask = None
+    if not isinstance(trg.mask, type(None)):
+      trg_mask = np.transpose(trg.mask.np_arr.astype(np.int))
+    trg_embeddings = self.sentence_block_embed(self.trg_embedder.embeddings, trg_words)
     trg_embeddings = self.make_input_embedding(trg_embeddings, trg_len)
 
     xx_mask = self.make_attention_mask(src_mask, src_mask)
     xy_mask = self.make_attention_mask(trg_mask, src_mask)
-    yy_mask = self.make_attention_mask(trg_mask, trg_mask)
-    yy_mask *= self.make_history_mask(trg_mask)
+    yy_mask = self.make_history_mask(trg_len)[:,:,None]
+    if not isinstance(trg_mask, type(None)):
+      yy_mask = yy_mask * self.make_attention_mask(trg_mask, trg_mask)
 
     z_blocks = self.encoder(src_embeddings, xx_mask)
     h_block = self.decoder(trg_embeddings, z_blocks, xy_mask, yy_mask)
