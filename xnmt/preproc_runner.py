@@ -116,7 +116,7 @@ class PreprocFilter(PreprocTask, Serializable):
       for x in in_streams:
         x.close()
     for x in out_streams:
-      if x != None:
+      if x is not None:
         x.close()
 
 class PreprocVocab(PreprocTask, Serializable):

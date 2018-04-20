@@ -6,9 +6,9 @@ from xnmt.persistence import serializable_init, Serializable, Ref, bare
 import xnmt.param_init
 
 class Attender(object):
-  '''
+  """
   A template class for functions implementing attention.
-  '''
+  """
 
   def init_sent(self, sent):
     """Args:
@@ -38,16 +38,16 @@ class Attender(object):
     return self.attention_vecs[-1]
 
 class MlpAttender(Attender, Serializable):
-  '''
+  """
   Implements the attention model of Bahdanau et. al (2014)
-  
+
   Args:
     input_dim (int): input dimension
     state_dim (int): dimension of state inputs
     hidden_dim (int): hidden MLP dimension
     param_init (ParamInitializer): how to initialize weight matrices
     bias_init (ParamInitializer): how to initialize bias vectors
-  '''
+  """
 
   yaml_tag = '!MlpAttender'
 
@@ -99,13 +99,13 @@ class MlpAttender(Attender, Serializable):
     return I * attention
 
 class DotAttender(Attender, Serializable):
-  '''
+  """
   Implements dot product attention of https://arxiv.org/abs/1508.04025
   Also (optionally) perform scaling of https://arxiv.org/abs/1706.03762
-  
+
   Args:
     scale (bool): whether to perform scaling
-  '''
+  """
 
   yaml_tag = '!DotAttender'
 
@@ -136,7 +136,7 @@ class DotAttender(Attender, Serializable):
     return I * attention
 
 class BilinearAttender(Attender, Serializable):
-  '''
+  """
   Implements a bilinear attention, equivalent to the 'general' linear
   attention of https://arxiv.org/abs/1508.04025
 
@@ -144,7 +144,7 @@ class BilinearAttender(Attender, Serializable):
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     state_dim (int): dimension of state inputs; if None, use exp_global.default_layer_dim
     param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
-  '''
+  """
 
   yaml_tag = '!BilinearAttender'
 

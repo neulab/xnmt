@@ -15,10 +15,10 @@ import xnmt.param_collection as pc
 import xnmt.events as events
 
 class Decoder(object):
-  '''
+  """
   A template class to convert a prefix of previously generated words and
   a context vector into a probability distribution over possible next words.
-  '''
+  """
 
   '''
   Document me

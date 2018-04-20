@@ -14,14 +14,14 @@ import xnmt.util as util
 import xnmt.xnmt_evaluate
 
 class EvalTask(object):
-  '''
+  """
   An EvalTask is a task that does evaluation and returns one or more EvalScore objects.
-  '''
+  """
   def eval(self):
     raise NotImplementedError("EvalTask.eval needs to be implemented in child classes")
 
 class LossEvalTask(EvalTask, Serializable):
-  '''
+  """
   A task that does evaluation of the loss function.
 
   Args:
@@ -33,7 +33,7 @@ class LossEvalTask(EvalTask, Serializable):
     max_src_len (int):
     max_trg_len (int):
     desc (str):
-  '''
+  """
 
   yaml_tag = '!LossEvalTask'
 
@@ -53,7 +53,7 @@ class LossEvalTask(EvalTask, Serializable):
     self.desc=desc
 
   def eval(self):
-    if self.src_data == None:
+    if self.src_data is None:
       self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
         xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                         self.src_file, self.ref_file, batcher=self.batcher,
@@ -80,7 +80,7 @@ class LossEvalTask(EvalTask, Serializable):
       raise RuntimeError("Did you wrap your loss calculation with LossBuilder({'primary_loss': loss_value}) ?")
 
 class AccuracyEvalTask(EvalTask, Serializable):
-  '''
+  """
   A task that does evaluation of some measure of accuracy.
 
   Args:
@@ -92,7 +92,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
     inference: inference object
     candidate_id_file (str):
     desc: human-readable description passed on to resulting score objects
-  '''
+  """
 
   yaml_tag = '!AccuracyEvalTask'
 

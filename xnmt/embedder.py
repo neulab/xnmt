@@ -67,14 +67,14 @@ class Embedder(object):
     Returns:
       xnmt.vocab.Vocab: chosen vocab
     """
-    if vocab != None:
+    if vocab is not None:
       return len(vocab)
     elif "src_embedder" in yaml_path:
-      if src_reader == None or src_reader.vocab == None:
+      if src_reader is not None or src_reader.vocab is not None:
         raise ValueError("Could not determine src_embedder's vocabulary. Please set its vocab member explicitly, or specify the vocabulary of src_reader ahead of time.")
       return len(src_reader.vocab)
     elif "trg_embedder" in yaml_path or "output_projector" in yaml_path:
-      if trg_reader == None or trg_reader.vocab == None:
+      if trg_reader is not None or trg_reader.vocab is not None:
         raise ValueError("Could not determine trg_embedder's vocabulary. Please set its vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
       return len(trg_reader.vocab)
     else:
@@ -95,16 +95,16 @@ class Embedder(object):
     Returns:
       int: chosen vocab size
     """
-    if vocab_size != None:
+    if vocab_size is not None:
       return vocab_size
-    elif vocab != None:
+    elif vocab is not None:
       return len(vocab)
     elif "src_embedder" in yaml_path:
-      if src_reader == None or src_reader.vocab == None:
+      if src_reader is not None or src_reader.vocab is not None:
         raise ValueError("Could not determine src_embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of src_reader ahead of time.")
       return len(src_reader.vocab)
     elif "trg_embedder" in yaml_path or "output_projector" in yaml_path:
-      if trg_reader == None or trg_reader.vocab == None:
+      if trg_reader is None or trg_reader.vocab is None:
         raise ValueError("Could not determine target embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
       return len(trg_reader.vocab)
     else:
@@ -172,14 +172,14 @@ class DenseWordEmbedder(Embedder, linear.Linear, Serializable):
         ret = dy.zeros((self.emb_dim,))
       else:
         ret = dy.pick(emb_e, index=x)
-        if self.fix_norm != None:
+        if self.fix_norm is not None:
           ret = dy.cdiv(ret, dy.l2_norm(ret))
           if self.fix_norm != 1:
             ret *= self.fix_norm
     # minibatch mode
     else:
       ret = dy.pick_batch(emb_e, x)
-      if self.fix_norm != None:
+      if self.fix_norm is not None:
         ret = dy.cdiv(ret, dy.l2_norm(ret))
         if self.fix_norm != 1:
           ret *= self.fix_norm
@@ -259,14 +259,14 @@ class SimpleWordEmbedder(Embedder, Serializable):
         ret = dy.zeros((self.emb_dim,))
       else:
         ret = self.embeddings[x]
-        if self.fix_norm != None:
+        if self.fix_norm is not None:
           ret = dy.cdiv(ret, dy.l2_norm(ret))
           if self.fix_norm != 1:
             ret *= self.fix_norm
     # minibatch mode
     else:
       ret = self.embeddings.batch(x)
-      if self.fix_norm != None:
+      if self.fix_norm is not None:
         ret = dy.cdiv(ret, dy.l2_norm(ret))
         if self.fix_norm != 1:
           ret *= self.fix_norm

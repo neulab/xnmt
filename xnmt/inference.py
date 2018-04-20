@@ -67,7 +67,7 @@ class SimpleInference(Serializable):
     src_corpus = list(generator.src_reader.read_sents(args["src_file"]))
     # Get reference if it exists and is necessary
     if args["mode"] == "forced" or args["mode"] == "forceddebug" or args["mode"] == "score":
-      if args["ref_file"] == None:
+      if args["ref_file"] is None:
         raise RuntimeError("When performing {} decoding, must specify reference file".format(args["mode"]))
       score_src_corpus = []
       ref_corpus = []
@@ -143,10 +143,10 @@ class SimpleInference(Serializable):
             output_txt = NO_DECODING_ATTEMPTED
           else:
             dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-            ref_ids = ref_corpus[i] if ref_corpus != None else None
+            ref_ids = ref_corpus[i] if ref_corpus is not None else None
             output = generator.generate_output(src, i, forced_trg_ids=ref_ids, search_strategy=self.search_strategy)
             # If debugging forced decoding, make sure it matches
-            if ref_scores != None and (abs(output[0].score-ref_scores[i]) / abs(ref_scores[i])) > 1e-5:
+            if ref_scores is not None and (abs(output[0].score - ref_scores[i]) / abs(ref_scores[i])) > 1e-5:
               logger.error(f'Forced decoding score {output[0].score} and loss {ref_scores[i]} do not match at sentence {i}')
             output_txt = output[0].plaintext
           # Printing to trg file

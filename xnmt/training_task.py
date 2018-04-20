@@ -51,17 +51,13 @@ class TrainingTask(object):
   def checkpoint_needed(self):
     raise NotImplementedError()
 
-  def checkpoint(self, control_learning_schedule=False, out_ext=".dev_hyp", ref_ext=".dev_ref",
-                 encoding='utf-8'):
+  def checkpoint(self, control_learning_schedule=False):
     """
     Performs a dev checkpoint
 
     Args:
       control_learning_schedule: If False, only evaluate dev data.
                                       If True, also perform model saving, LR decay etc. if needed.
-      out_ext:
-      ref_ext:
-      encoding:
     Returns:
       True if the model needs saving, False otherwise
     """

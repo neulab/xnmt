@@ -414,9 +414,9 @@ class SegmentingAction(Enum):
   DELETE = 2
 
 class SegmentationConfidencePenalty(Serializable):
-  ''' https://arxiv.org/pdf/1701.06548.pdf
+  """ https://arxiv.org/pdf/1701.06548.pdf
       strength: the beta value
-  '''
+  """
   yaml_tag = "!SegmentationConfidencePenalty"
 
   @serializable_init

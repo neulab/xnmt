@@ -2,7 +2,7 @@ from xnmt.persistence import serializable_init, Serializable
 import xnmt.events as events
 
 class ScalingParam(Serializable):
-  ''' initial * scaler(epoch-1) '''
+  """ initial * scaler(epoch-1) """
   yaml_tag = "!ScalingParam"
 
   @serializable_init
@@ -33,7 +33,7 @@ class Scalar(Serializable):
     return str(self.value())
 
 class GeometricSequence(Serializable):
-  ''' initial^(epoch) '''
+  """ initial^(epoch) """
   yaml_tag = '!GeometricSequence'
 
   # Do not set warmup_counter manually.

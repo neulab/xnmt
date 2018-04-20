@@ -41,13 +41,13 @@ class PyramidalLSTMSeqTransducer(transducer.SeqTransducer, Serializable):
     self.downsampling_method = downsampling_method
     self.reduce_factor = reduce_factor
     self.input_dim = input_dim
-    f = lstm.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
-    b = lstm.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
+    f = lstm.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim // 2, dropout=dropout)
+    b = lstm.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim // 2, dropout=dropout)
     self.builder_layers.append((f, b))
     for _ in range(layers - 1):
       layer_input_dim = hidden_dim if downsampling_method=="skip" else hidden_dim*reduce_factor
-      f = lstm.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
-      b = lstm.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
+      f = lstm.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim // 2, dropout=dropout)
+      b = lstm.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim // 2, dropout=dropout)
       self.builder_layers.append((f, b))
 
   @events.handle

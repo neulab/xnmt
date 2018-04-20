@@ -34,7 +34,7 @@ class Normalizer(object):
   def from_spec(spec):
     """Takes a list of normalizer specifications, and returns the appropriate processors."""
     preproc_list = []
-    if spec != None:
+    if spec is not None:
       for my_spec in spec:
         if my_spec["type"] == "lower":
           preproc_list.append(NormalizerLower(my_spec))
@@ -255,7 +255,7 @@ class SentenceFilterer():
   def from_spec(spec):
     """Takes a list of preprocessor specifications, and returns the appropriate processors."""
     preproc_list = []
-    if spec != None:
+    if spec is not None:
       for my_spec in spec:
         if my_spec["type"] == "length":
           preproc_list.append(SentenceFiltererLength(my_spec))
@@ -331,7 +331,7 @@ class VocabFilterer(object):
   def from_spec(spec):
     """Takes a list of preprocessor specifications, and returns the appropriate processors."""
     preproc_list = []
-    if spec != None:
+    if spec is not None:
       for my_spec in spec:
         if my_spec["type"] == "freq":
           preproc_list.append(VocabFiltererFreq(my_spec))

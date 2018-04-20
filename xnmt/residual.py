@@ -212,11 +212,11 @@ class ResidualBiRNNBuilder(Serializable):
     assert hidden_dim % 2 == 0
     self.forward_layer = self.add_serializable_component("forward_layer", forward_layer,
                                                          lambda: lstm.UniLSTMSeqTransducer(input_dim=input_dim,
-                                                                                      hidden_dim=hidden_dim / 2,
+                                                                                      hidden_dim=hidden_dim // 2,
                                                                                       dropout=dropout))
     self.backward_layer = self.add_serializable_component("backward_layer", backward_layer,
                                                           lambda: lstm.UniLSTMSeqTransducer(input_dim=input_dim,
-                                                                                       hidden_dim=hidden_dim / 2,
+                                                                                       hidden_dim=hidden_dim // 2,
                                                                                        dropout=dropout))
     self.residual_network = self.add_serializable_component("residual_network", residual_network,
                                                             lambda: ResidualRNNBuilder(num_layers=num_layers - 1,

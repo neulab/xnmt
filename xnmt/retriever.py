@@ -36,58 +36,58 @@ class StandardRetrievalDatabase(Serializable):
 
 ##### The actual retriever class
 class Retriever(generator.GeneratorModel):
-  '''
+  """
   A template class implementing a retrieval model.
-  '''
+  """
 
   def calc_loss(self, src, db_idx):
-    '''Calculate loss based on a database index.
+    """Calculate loss based on a database index.
 
     Args:
       src: The source input.
       db_idx: The correct index in the database to be retrieved.
     Returns:
       An expression representing the loss.
-    '''
+    """
     raise NotImplementedError('calc_loss must be implemented for Retriever subclasses')
 
   def index_database(self, indices=None):
-    '''A function that can be called before actually performing retrieval.
+    """A function that can be called before actually performing retrieval.
 
     This will perform any necessary pre-processing to make retrieval more efficient.
     If the model is updated, assume that the indexing result is stale and no longer applicable.
-    '''
+    """
     pass
 
   def generate(self, src, i):
-    '''Perform retrieval, trying to get the sentence that most closely matches in the database.
+    """Perform retrieval, trying to get the sentence that most closely matches in the database.
 
     Args:
       src: The source.
       i: Id of the input (for reporting)
     Returns:
       The ID of the example that most closely matches in the database.
-    '''
+    """
     raise NotImplementedError('generate must be implemented for Retriever subclasses')
 
   def initialize_generator(self, **kwargs):
     candidates = None
-    if kwargs["candidate_id_file"] != None:
+    if kwargs["candidate_id_file"] is not None:
       with open(kwargs["candidate_id_file"], "r") as f:
         candidates = sorted({int(x):1 for x in f}.keys())
     self.index_database(candidates)
     self.report_path = kwargs["report_path"]
 
 class DotProductRetriever(Retriever, Serializable, reports.Reportable):
-  '''
+  """
   A retriever trains using max-margin methods.
-  '''
+  """
 
   yaml_tag = '!DotProductRetriever'
 
   @serializable_init
   def __init__(self, src_embedder, src_encoder, trg_embedder, trg_encoder, database, loss_direction="forward"):
-    '''Constructor.
+    """Constructor.
 
     Args:
       src_embedder: A word embedder for the source language
@@ -95,7 +95,7 @@ class DotProductRetriever(Retriever, Serializable, reports.Reportable):
       trg_embedder: A word embedder for the target language
       trg_encoder: An encoder for the target language
       database: A database of things to retrieve
-    '''
+    """
     self.src_embedder = src_embedder
     self.src_encoder = src_encoder
     self.trg_embedder = trg_embedder
@@ -106,7 +106,7 @@ class DotProductRetriever(Retriever, Serializable, reports.Reportable):
   def exprseq_pooling(self, exprseq):
     # Reduce to vector
     exprseq = expression_sequence.ExpressionSequence(expr_tensor=exprseq.mask.add_to_tensor_expr(exprseq.as_tensor(),-1e10), mask=exprseq.mask)
-    if exprseq.expr_tensor != None:
+    if exprseq.expr_tensor is not None:
       if len(exprseq.expr_tensor.dim()[0]) > 1:
         return dy.max_dim(exprseq.expr_tensor, d=1)
       else:
@@ -150,7 +150,7 @@ class DotProductRetriever(Retriever, Serializable, reports.Reportable):
 
   def index_database(self, indices=None):
     # Create the inverted index if necessary
-    if indices == None:
+    if indices is None:
       indices = range(len(self.database.data))
       self.database.inverted_index = None
     else:
@@ -181,7 +181,7 @@ class DotProductRetriever(Retriever, Serializable, reports.Reportable):
     # print("--- scores: {}".format(list(scores[0])))
     kbest = np.argsort(scores, axis=1)[0,-nbest:][::-1]
     # print("--- kbest: {}".format(kbest))
-    ids = kbest if self.database.inverted_index == None else [self.database.inverted_index[x] for x in kbest]
+    ids = kbest if self.database.inverted_index is None else [self.database.inverted_index[x] for x in kbest]
     # In case of reporting
     if self.report_path is not None:
       src_vocab = self.get_html_resource("src_vocab")

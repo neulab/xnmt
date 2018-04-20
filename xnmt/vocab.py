@@ -8,15 +8,15 @@ ES_STR = "</s>"
 UNK_STR = "<unk>"
 
 class Vocab(Serializable):
-  '''
+  """
   Converts between strings and integer ids.
-  
+
   Configured via either i2w or vocab_file (mutually exclusive).
-  
+
   Args:
     i2w (list of string): list of words, including <s> and </s>
     vocab_file (str): file containing one word per line, and not containing <s>, </s>, <unk>
-  '''
+  """
 
   yaml_tag = "!Vocab"
 
@@ -60,7 +60,7 @@ class Vocab(Serializable):
   def convert(self, w):
     if w not in self.w2i:
       if self.frozen:
-        assert self.unk_token != None, 'Attempt to convert an OOV in a frozen vocabulary with no UNK token set'
+        assert self.unk_token is not None, 'Attempt to convert an OOV in a frozen vocabulary with no UNK token set'
         return self.unk_token
       self.w2i[w] = len(self.i2w)
       self.i2w.append(w)

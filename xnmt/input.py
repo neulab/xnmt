@@ -7,7 +7,7 @@ class Input(object):
   def __len__(self):
     raise NotImplementedError("__len__() must be implemented by Input subclasses")
 
-  def __getitem__(self):
+  def __getitem__(self, key):
     raise NotImplementedError("__getitem__() must be implemented by Input subclasses")
 
   def get_padded_sent(self, token, pad_len):

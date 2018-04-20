@@ -31,22 +31,22 @@ import xnmt.vocab
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
 class Translator(xnmt.generator.GeneratorModel):
-  '''
+  """
   A template class implementing an end-to-end translator that can calculate a
   loss and generate translations.
-  '''
+  """
 
   def calc_loss(self, src, trg, loss_calculator):
-    '''Calculate loss based on input-output pairs.
-    
+    """Calculate loss based on input-output pairs.
+
     Args:
       src: The source, a sentence (:class:`xnmt.input.Input`) or a batch of sentences (:class:`xnmt.batcher.Batch`).
       trg: The target, a sentence (:class:`xnmt.input.Input`) or a batch of sentences (:class:`xnmt.batcher.Batch`).
       loss_calculator (LossCalculator):
-    
+
     Returns:
       xnmt.loss.LossBuilder: A (possibly batched) expression representing the loss. Losses are accumulated only if trg_mask[batch,pos]==0, or no mask is set
-    '''
+    """
     raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
 
   def set_trg_vocab(self, trg_vocab=None):
@@ -77,7 +77,7 @@ class Translator(xnmt.generator.GeneratorModel):
     return output_state
 
 class DefaultTranslator(Translator, Serializable, reports.Reportable):
-  '''
+  """
   A default translator based on attentional sequence-to-sequence models.
 
   Args:
@@ -91,7 +91,7 @@ class DefaultTranslator(Translator, Serializable, reports.Reportable):
     inference (xnmt.inference.SimpleInference): The default inference strategy used for this model
     calc_global_fertility (bool):
     calc_attention_entropy (bool):
-  '''
+  """
 
   yaml_tag = '!DefaultTranslator'
 
@@ -296,7 +296,7 @@ class DefaultTranslator(Translator, Serializable, reports.Reportable):
 
   
 class TransformerTranslator(Translator, Serializable, reports.Reportable):
-  '''
+  """
   A translator based on the transformer model.
 
   Args:
@@ -308,7 +308,7 @@ class TransformerTranslator(Translator, Serializable, reports.Reportable):
     decoder (TransformerDecoder): A decoder
     inference (xnmt.inference.SimpleInference): The default inference strategy used for this model
     input_dim (int):
-  '''
+  """
 
   yaml_tag = '!TransformerTranslator'
 
@@ -486,7 +486,7 @@ class TransformerTranslator(Translator, Serializable, reports.Reportable):
     return outputs
 
 class EnsembleTranslator(Translator, Serializable):
-  '''
+  """
   A translator that decodes from an ensemble of DefaultTranslator models.
 
   Args:
@@ -496,7 +496,7 @@ class EnsembleTranslator(Translator, Serializable):
     src_reader (InputReader): A reader for the source side.
     trg_reader (InputReader): A reader for the target side.
     inference (xnmt.inference.SimpleInference): The inference strategy used for this ensemble.
-  '''
+  """
 
   yaml_tag = '!EnsembleTranslator'
 
@@ -552,7 +552,7 @@ class EnsembleTranslator(Translator, Serializable):
     return self._proxy.generate(src, idx, search_strategy, src_mask=src_mask, forced_trg_ids=forced_trg_ids)
 
 class EnsembleListDelegate(object):
-  '''
+  """
   Auxiliary object to wrap a list of objects for ensembling.
 
   This class can wrap a list of objects that exist in parallel and do not need
@@ -564,7 +564,7 @@ class EnsembleListDelegate(object):
   - When EnsembleListDelegate objects are supplied as arguments, they are
     "unwrapped" so the i-th object receives the i-th element of the
     EnsembleListDelegate argument.
-  '''
+  """
 
   def __init__(self, objects):
     assert isinstance(objects, (tuple, list))
@@ -624,14 +624,14 @@ class EnsembleListDelegate(object):
 
 
 class EnsembleDecoder(EnsembleListDelegate):
-  '''
+  """
   Auxiliary object to wrap a list of decoders for ensembling.
 
   This behaves like an EnsembleListDelegate, except that it overrides
   get_scores() to combine the individual decoder's scores.
 
   Currently only supports averaging.
-  '''
+  """
   def get_scores_logsoftmax(self, mlp_dec_states):
     scores = [obj.get_scores_logsoftmax(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
     return dy.average(scores)

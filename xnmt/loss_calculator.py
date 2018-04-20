@@ -10,9 +10,9 @@ import xnmt.vocab as vocab
 
 
 class LossCalculator(object):
-  '''
+  """
   A template class implementing the training strategy and corresponding loss calculation.
-  '''
+  """
   def __call__(self, translator, initial_state, src, trg):
     raise NotImplementedError()
 

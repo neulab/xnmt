@@ -30,7 +30,7 @@ def plot_attention(src_words, trg_words, attention_matrix, file_name=None):
   plt.pcolor(attention_matrix, cmap=plt.cm.Blues, vmin=0, vmax=1)
   plt.colorbar()
 
-  if file_name != None:
+  if file_name is not None:
     plt.savefig(file_name, dpi=100)
   else:
     plt.show()

@@ -37,9 +37,9 @@ class GeneratorModel(object):
 
   @events.register_event_sum
   def calc_additional_loss(self, reward):
-    ''' Calculate reinforce loss based on the reward
+    """ Calculate reinforce loss based on the reward
     Args:
       reward: The default is log likelihood (-1 * calc_loss).
-    '''
+    """
     return None
 

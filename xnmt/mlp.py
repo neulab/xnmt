@@ -75,11 +75,11 @@ class MLP(Serializable):
     Returns:
       int: chosen vocab size
     """
-    if vocab_size != None:
+    if vocab_size is not None:
       return vocab_size
-    elif vocab != None:
+    elif vocab is not None:
       return len(vocab)
-    elif trg_reader == None or trg_reader.vocab == None:
+    elif trg_reader is None or trg_reader.vocab is None:
       raise ValueError("Could not determine MLP's output size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
     else:
       return len(trg_reader.vocab)

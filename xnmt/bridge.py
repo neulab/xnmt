@@ -8,11 +8,9 @@ class Bridge(object):
   """
   Responsible for initializing the decoder LSTM, based on the final encoder state
   """
-  def decoder_init(self, dec_layers, dec_dim, enc_final_states):
+  def decoder_init(self, enc_final_states):
     """
     Args:
-      dec_layers (int): number of decoder layers
-      dec_dim (int): dimension of decoder layers
       enc_final_states (List[FinalTransducerState]): list of final states for each encoder layer
     Returns:
       list of dy.Expression: list of initial hidden and cell expressions for each layer. List indices 0..n-1 hold hidden states, n..2n-1 hold cell states.

@@ -8,9 +8,9 @@ from xnmt.persistence import serializable_init, Serializable
 import xnmt.search_strategy
 
 class LengthNormalization(object):
-  '''
+  """
   A template class to generate translation from the output probability model.
-  '''
+  """
   def normalize_completed(self, completed_hyps:'Sequence[xnmt.search_strategy.Hypothesis]', src_length:Optional[int]=None) \
           -> Sequence[float]:
     """
@@ -36,9 +36,9 @@ class LengthNormalization(object):
     return score_so_far + score_to_add # default behavior: add up the log probs
 
 class NoNormalization(LengthNormalization, Serializable):
-  '''
+  """
   Adding no form of length normalization
-  '''
+  """
   yaml_tag = '!NoNormalization'
 
   @serializable_init
@@ -50,9 +50,9 @@ class NoNormalization(LengthNormalization, Serializable):
     return [hyp.score for hyp in completed_hyps]
 
 class AdditiveNormalization(LengthNormalization, Serializable):
-  '''
+  """
   Adding a fixed word penalty everytime the word is added.
-  '''
+  """
   yaml_tag = '!AdditiveNormalization'
 
   @serializable_init
@@ -71,9 +71,9 @@ class AdditiveNormalization(LengthNormalization, Serializable):
 
 
 class PolynomialNormalization(LengthNormalization, Serializable):
-  '''
+  """
   Dividing by the length (raised to some power)
-  '''
+  """
   yaml_tag = '!PolynomialNormalization'
 
   @serializable_init
@@ -101,11 +101,11 @@ class PolynomialNormalization(LengthNormalization, Serializable):
 
 
 class MultinomialNormalization(LengthNormalization, Serializable):
-  '''
+  """
   The algorithm followed by:
   Tree-to-Sequence Attentional Neural Machine Translation
   https://arxiv.org/pdf/1603.06075.pdf
-  '''
+  """
   yaml_tag = '!MultinomialNormalization'
 
   @serializable_init
@@ -131,12 +131,12 @@ class MultinomialNormalization(LengthNormalization, Serializable):
 
 
 class GaussianNormalization(LengthNormalization, Serializable):
-  '''
+  """
    The Gaussian regularization encourages the inference
    to select sents that have similar lengths as the
    sents in the training set.
    refer: https://arxiv.org/pdf/1509.04942.pdf
-  '''
+  """
   yaml_tag = '!GaussianNormalization'
 
   @serializable_init

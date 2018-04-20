@@ -21,9 +21,9 @@ SearchOutput = namedtuple('SearchOutput', ['word_ids', 'attentions', 'score', 'l
 Hypothesis = namedtuple('Hypothesis', ['score', 'output', 'parent', 'word'])
 
 class SearchStrategy(object):
-  '''
+  """
   A template class to generate translation from the output probability model. (Non-batched operation)
-  '''
+  """
   def generate_output(self, translator, dec_state,
                       src_length=None, forced_trg_ids=None):
     """
@@ -38,12 +38,12 @@ class SearchStrategy(object):
     raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')
 
 class GreedySearch(Serializable, SearchStrategy):
-  '''
+  """
   Performs greedy search (aka beam search with beam size 1)
-  
+
   Args:
     max_len (int): maximum number of tokens to generate.
-  '''
+  """
 
   yaml_tag = '!GreedySearch'
 
@@ -168,7 +168,7 @@ class BeamSearch(Serializable, SearchStrategy):
       attentions = []
       states = []
       current = end_hyp
-      while current.parent != None:
+      while current.parent is not None:
         word_ids.append(current.word)
         attentions.append(current.output.attention)
         # TODO(philip30): This should probably be uncommented.
@@ -256,5 +256,4 @@ class SamplingSearch(Serializable, SearchStrategy):
     masks.insert(0, [1 for _ in range(len(done))])
     samples = np.stack(samples, axis=1)
     return SearchOutput(samples, attentions, scores, logsofts, states, masks)
-    self.entrs = []
 
