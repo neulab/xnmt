@@ -1,2 +1,3 @@
 librosa
 nltk
+sentencepiece>=0.0.6
