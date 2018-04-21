@@ -120,6 +120,7 @@ class MultiHeadAttention(object):
       # print(mask.shape)
       # mask = np.concatenate([mask] * h, axis=0)
       # mask = np.moveaxis(mask, [0, 1, 2], [2, 0, 1])
+      print("mask: {}".format(mask))
       mask = dy.inputTensor(mask, batched=True)
       batch_A = batch_A + (1 - mask)*MIN_VALUE
 

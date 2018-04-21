@@ -413,13 +413,14 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     src_embeddings = self.sentence_block_embed(self.src_embedder.embeddings, src_words)
     src_embeddings = self.make_input_embedding(src_embeddings, src_len)
 
-    trg_words = np.array(list(map(lambda x: [Vocab.SS] + x.words[:-1], trg)))
-    trg_len = len(trg_words[0])
+    trg_out_words = [x.words for x in trg]
+    trg_in_words = [[Vocab.SS] + x.words[:-1] for x in trg]
+    trg_len = len(trg_out_words[0])
 
     trg_mask = None
     if not isinstance(trg.mask, type(None)):
       trg_mask = np.transpose(trg.mask.np_arr.astype(np.int))
-    trg_embeddings = self.sentence_block_embed(self.trg_embedder.embeddings, trg_words)
+    trg_embeddings = self.sentence_block_embed(self.trg_embedder.embeddings, trg_in_words)
     trg_embeddings = self.make_input_embedding(trg_embeddings, trg_len)
 
     xx_mask = self.make_attention_mask(src_mask, src_mask)

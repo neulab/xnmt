@@ -14,9 +14,10 @@ transformer: !Experiment
     decoder: !TransformerDecoder
       layers: 1
     src_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+      vocab: !Vocab {vocab_file: examples/data/train.ja.vocab}
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+      vocab: !Vocab {vocab_file: examples/data/train.en.vocab}
+    inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 30
     batcher: !SentShuffleBatcher
@@ -26,8 +27,8 @@ transformer: !Experiment
       alpha: 1.0
       warmup_steps: 4000
     lr_decay: 1.0
-    src_file: examples/data/train-big.ja
-    trg_file: examples/data/train-big.en
+    src_file: examples/data/train.ja
+    trg_file: examples/data/train.en
     dev_tasks:
       - !AccuracyEvalTask
         eval_metrics: bleu
