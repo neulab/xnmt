@@ -1,7 +1,9 @@
+.. _sec-exp-conf:
+
 Experiment configuration file format
 ------------------------------------
 
-Configuration files are in `YAML dictionary format <https://docs.ansible.com/ansible/YAMLSyntax.html>`_.
+Configuration files are in `YAML format <https://docs.ansible.com/ansible/YAMLSyntax.html>`_.
 
 At the top-level, a config file consists of a dictionary where keys are experiment
 names and values are the experiment specifications. By default, all experiments
@@ -53,13 +55,13 @@ by the directory the config file lies in, ``{PID}`` by the process id, and
 ``{GIT_REV}`` by the current git revision.
 
 To obtain a full list of allowed parameters, please check the documentation for
-:class:`xnmt.exp_global.ExpGlobal`.
+:ref:`ExpGlobal <mod-exp_global>`.
 
 Preprocessing
 =============
 
 *xnmt* supports a variety of data preprocessing features. Please refer to
-``preprocessing.rst`` for details.
+:ref:`sec-preproc` for details.
 
 Model
 =====
@@ -91,7 +93,7 @@ The top level entry is typically DefaultTranslator, which implements a standard
 attentional sequence-to-sequence model. It allows flexible specification of
 encoder, attender, source / target embedder, and other settings. Again, to obtain
 the full list of supported options, please refer to the corresponding class
-initializer methods.
+in the :ref:`sec-api-doc`.
 
 Note that some of this Python objects are passed to their parent object's
 initializer method, which requires that the children are initialized first.
@@ -118,10 +120,10 @@ A typical example looks like this
         ref_file: examples/data/head.en
 
 The expected object here is a subclass of TrainingRegimen. Besides
-``SimpleTrainingRegimen``, multi-task style training regimens are supported.
+:class:`xnmt.training_regimen.SimpleTrainingRegimen`, multi-task style training regimens are supported.
 For multi task training, each training regimen uses their own model, so in this
-case models must be specified as sub-components of the training regimen. Please
-refer to examples/08_multitask.yaml for more details on this.
+case models must be specified as sub-components of the training regimen. An example
+:ref:`ex-multi-task` configuration can be refered to for more details on this.
 
 Evaluation
 ==========
@@ -131,6 +133,8 @@ Examples
 ========
 
 Here are more elaborate examples from the github repository.
+
+.. _ex-standard:
 
 Standard
 ~~~~~~~~
@@ -192,11 +196,13 @@ Programmatic loading
 .. literalinclude:: examples/10_programmatic_load.py
     :language: python
 
-Programmatic sharing
+Parameter sharing
 ~~~~~~~~~~~~~~~~~~~~
 
 .. literalinclude:: examples/11_component_sharing.yaml
     :language: yaml
+
+.. _ex-multi-task:
 
 Multi-task
 ~~~~~~~~~~~~~~~~~~~~

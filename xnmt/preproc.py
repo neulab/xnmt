@@ -392,6 +392,7 @@ class MelFiltExtractor(Extractor, Serializable):
              - offset (float): start time stamp (optional)
              - duration (float): stop time stamp (optional)
              - speaker: speaker id for normalization (optional; if not given, the filename is used as speaker id)
+
     out_file: a filename ending in ".h5"
     """
     import librosa
