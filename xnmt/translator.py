@@ -435,12 +435,11 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     if infer_prediction:
       y_len = h_block.dim()[0][1]
       last_col = dy.pick(h_block, dim=1, index=y_len - 1)
-      logits = self.decoder.output(last_col)
+      logits = self.decoder.output_affine(last_col)
       return logits
 
-    ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
-    concat_t_block = (1 - trg_mask.ravel()).reshape(-1) * np.array(ref_list)
-    loss = self.decoder.output_and_loss(h_block, concat_t_block)
+    logits = self.decoder.output_affine(h_block)
+    loss = self.decoder.loss_from_logits(logits, trg_out_words)
     return LossBuilder({"mle": loss})
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None, search_strategy=None):
