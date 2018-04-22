@@ -11,7 +11,6 @@ with warnings.catch_warnings():
   warnings.simplefilter("ignore", lineno=36)
   import h5py
 import yaml
-import sentencepiece as spm
 
 from xnmt import logger
 from xnmt.persistence import serializable_init, Serializable
@@ -197,6 +196,7 @@ class SentencepieceTokenizer(Tokenizer):
     "File" output for Sentencepiece written to StringIO temporarily before being written to disk.
 
     """
+    import sentencepiece as spm
     # TODO: deprecate the path argument
     self.sentpiece_path = path
     self.model_prefix = model_prefix
@@ -392,6 +392,7 @@ class MelFiltExtractor(Extractor, Serializable):
              - offset (float): start time stamp (optional)
              - duration (float): stop time stamp (optional)
              - speaker: speaker id for normalization (optional; if not given, the filename is used as speaker id)
+
     out_file: a filename ending in ".h5"
     """
     import librosa

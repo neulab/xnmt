@@ -1,3 +1,5 @@
+.. _sec-getting-started:
+
 Getting Started
 ===============
 
@@ -14,6 +16,17 @@ This can be done by running ``pip install -r requirements.txt``.
 Next, install *xnmt* by running ``python setup.py install`` for normal usage or ``python setup.py develop`` for
 development.
 
+Command line tools
+------------------
+
+*xnmt* currently ships with two command line interfaces:
+
+* ``xnmt`` runs experiments given a configuration file that can specify preprocessing, model training, and evaluation.
+  The corresponding Python file is xnmt/xnmt_run_experiments.py.
+* ``xnmt_evaluate`` computes an evaluation metric given hypothesis and reference files. The corresponding Python file
+  is xnmt/xnmt_evaluate.py.
+
+
 Running the examples
 --------------------
 
@@ -24,9 +37,9 @@ experiments. To run the first experiment, use the following::
     xnmt examples/01_standard.yaml
 
 This is a shortcut for typing ``python -m xnmt.xnmt_run_experiments examples/01_standard.yaml``.
-Make sure to read the comments provided in ``examples/01_standard.yaml``.
+Make sure to read the comments provided in the :ref:`example configuration <ex-standard>`.
 
-See the ``experiment-config-files`` documentation entry for more details about writing experiment configuration files.
+See the ref:`sec-exp-conf` documentation entry for more details about writing experiment configuration files.
 
 Running recipes
 ---------------

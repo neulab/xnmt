@@ -1,3 +1,5 @@
+.. _sec-preproc:
+
 Preprocessing
 =============
 
@@ -19,8 +21,8 @@ the other. It is worth noting, however, that if you want to exactly specify your
 at tokenization first, an exact-size tokenizer like BPE should be specified (and thus run) *last*. 
 
 1. Sentencepiece:         An external tokenizer library that permits a large number of tokenization
-                          options, is written in C++, and is very fast. It is a required dependency 
-                          for xnmt, no need to install anything else separately to *xnmt*. 
+                          options, is written in C++, and is very fast. It is a optional dependency
+                          for xnmt (install via ``pip install sentencepiece``, see requirements-extra.txt).
                           Specification of the training file is set through the experiment framework,
                           but that (and all other) options can be passed transparently by adding them
                           to the experiment config.

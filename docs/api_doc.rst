@@ -1,3 +1,5 @@
+.. _sec-api-doc:
+
 API Doc
 =======
 
@@ -5,6 +7,11 @@ Experiment
 ----------
 
 .. automodule:: xnmt.experiment
+   :members:
+   :show-inheritance:
+
+.. _mod-exp_global:
+.. automodule:: xnmt.exp_global
    :members:
    :show-inheritance:
 

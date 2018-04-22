@@ -8,8 +8,7 @@ from xnmt.param_init import ZeroInitializer, GlorotInitializer, ParamInitializer
 class ExpGlobal(Serializable):
   """
   An object that holds global settings that can be referenced by components wherever appropriate.
-  Also sets up the global DyNet parameter collection.
-  
+
   Args:
     model_file: Location to write model file to
     log_file: Location to write log file to
