@@ -1,4 +1,5 @@
 from subprocess import Popen
+from asteval import Interpreter
 import random
 import parser
 import numpy as np
@@ -84,11 +85,11 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
     initial_patience (int): if given, allows adjusting patience for the first LR decay
     dev_tasks: A list of tasks to run on the development set
-    dev_combinator (str): A formula to combine together development scores into a single score to
-                          choose whether to perform learning rate decay, etc.
-                          e.g. 'x[0]-x[1]' would say that the first dev task score minus the
-                          second dev task score is our measure of how good we're doing. If not
-                          specified, only the score from the first dev task will be used.
+    dev_combinator: A formula to combine together development scores into a single score to
+                    choose whether to perform learning rate decay, etc.
+                    e.g. 'x[0]-x[1]' would say that the first dev task score minus the
+                    second dev task score is our measure of how good we're doing. If not
+                    specified, only the score from the first dev task will be used.
     restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
     reload_command: Command to change the input data after each epoch.
                          --epoch EPOCH_NUM will be appended to the command.
@@ -302,8 +303,9 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         is_best = False
         if self.dev_combinator != None:
           x = [y.value() for y in dev_scores]
-          # TODO: This is a security hole!
-          my_score = eval(self.dev_combinator)
+          aevala = Interpreter()
+          my_score = aevala(self.dev_combinator)
+          logger.info('  combined dev scores according to {}: {}'.format(self.dev_combinator, my_score))
           if self.training_state.best_dev_score == None or my_score > self.training_state.best_dev_score:
             self.training_state.best_dev_score = my_score
             is_best = True
