@@ -55,11 +55,11 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
     initial_patience (int): if given, allows adjusting patience for the first LR decay
     dev_tasks (List[EvalTask]): A list of tasks to use during the development stage.
-    dev_combinator (str): A formula to combine together development scores into a single score to
-                          choose whether to perform learning rate decay, etc.
-                          e.g. 'x[0]-x[1]' would say that the first dev task score minus the
-                          second dev task score is our measure of how good we're doing. If not
-                          specified, only the score from the first dev task will be used.
+    dev_combinator: A formula to combine together development scores into a single score to
+                    choose whether to perform learning rate decay, etc.
+                    e.g. 'x[0]-x[1]' would say that the first dev task score minus the
+                    second dev task score is our measure of how good we're doing. If not
+                    specified, only the score from the first dev task will be used.
     restart_trainer (bool): Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
     reload_command (str): Command to change the input data after each epoch.
                          --epoch EPOCH_NUM will be appended to the command.
@@ -77,7 +77,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
   def __init__(self, model=Ref("model"), src_file=None, trg_file=None, dev_every=0, dev_zero=False,
                batcher=bare(xnmt.batcher.SrcBatcher, batch_size=32), loss_calculator=bare(MLELoss), trainer=None,
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None, dev_tasks=None,
-               dev_combinator: str=None, restart_trainer: bool = False,
+               dev_combinator=None, restart_trainer: bool = False,
                reload_command=None, name="{EXP}", sample_train_sents=None,
                max_num_train_sents=None, max_src_len=None, max_trg_len=None,
                commandline_args=Ref("exp_global.commandline_args", default=None)):
