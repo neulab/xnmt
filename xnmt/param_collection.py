@@ -157,6 +157,8 @@ class ParamCollection(object):
     self._is_saved = True
 
   def revert_to_best_model(self):
+    if not self._is_saved:
+      raise ValueError("revert_to_best_model() is illegal because this model has never been saved.")
     for subcol_name, subcol in self.subcols.items():
       subcol.populate(os.path.join(self._data_files[0], subcol_name))
 

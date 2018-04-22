@@ -74,10 +74,11 @@ las-pyramidal: !Experiment
           max_src_len: 1500
           post_process: join-char
           max_len: 500
-          beam: 20
-          len_norm_type: !PolynomialNormalization
-            apply_during_search: true
-            m: 1.5
+          search_strategy: !BeamSearch
+            beam_size: 20
+            len_norm: !PolynomialNormalization
+              apply_during_search: true
+              m: 1.5
       - !LossEvalTask
         max_src_len: 1500
         src_file: *dev_src
@@ -92,7 +93,8 @@ las-pyramidal: !Experiment
         max_src_len: 1500
         post_process: join-char
         max_len: 500
-        beam: 20
-        len_norm_type: !PolynomialNormalization
-          apply_during_search: true
-          m: 1.5
+        search_strategy: !BeamSearch
+          beam_size: 20
+          len_norm: !PolynomialNormalization
+            apply_during_search: true
+            m: 1.5

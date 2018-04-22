@@ -1,3 +1,5 @@
+.. _sec-preproc:
+
 Preprocessing
 =============
 
@@ -18,9 +20,9 @@ running the Moses tokenizer before performing Byte-pair encoding (BPE) is prefer
 the other. It is worth noting, however, that if you want to exactly specify your vocabulary size
 at tokenization first, an exact-size tokenizer like BPE should be specified (and thus run) *last*. 
 
-1. Sentencepiece:         An extenral tokenizer library that permits a large number of tokenization
-                          options, is written in C++, and is very fast. However, it must be installed
-                          separately to *xnmt*. 
+1. Sentencepiece:         An external tokenizer library that permits a large number of tokenization
+                          options, is written in C++, and is very fast. It is a optional dependency
+                          for xnmt (install via ``pip install sentencepiece``, see requirements-extra.txt).
                           Specification of the training file is set through the experiment framework,
                           but that (and all other) options can be passed transparently by adding them
                           to the experiment config.
@@ -32,15 +34,27 @@ at tokenization first, an exact-size tokenizer like BPE should be specified (and
                           The option ``detokenizer_path``, and its option dictionary, ``detokenizer_args``,
                           can optionally be used to specify a detokenizer.
 
-.. 3. Byte-Pair Encoding:    A compression-inspired unsupervised sub-word unit encoding
+3. Byte-Pair Encoding:    A compression-inspired unsupervised sub-word unit encoding
                           that performs well (Sennrich, 2016) and permits specification
                           of an exact vocabulary size. Native to *xnmt*; written in Python.
-                          Invoked with tokenizer type ``bpe``. (TODO)
+                          Invoked with tokenizer type ``bpe``.
+                          Right now there is no separate bpe implementation (contributions are welcome),
+                          however sentencepiece provides a ``bpe`` options that performs something
+                          similar for a fixed vocabulary size see the following section for more details. 
 
 Sentencepiece
 +++++++++++++
 The YAML options supported by the SentencepieceTokenizer are almost exactly those presented
-in the Sentencepiece readme. Some notable exceptions are below:
+in the Sentencepiece `readme <https://github.com/google/sentencepiece/blob/master/README.md>`_, namely:
+
+ - ``model_type``: Either ``unigram`` (default), ``bpe``, ``char`` or ``word``.
+   Please refer to the sentencepiece documentation for more details
+ - ``model_prefix``: The trained bpe model will be saved under ``{model_prefix}.model``/``.vocab``
+ - ``vocab_size``: fixes the vocabulary size
+ - ``hard_vocab_limit``: setting this to ``False`` will make the vocab size a soft limit.
+   Useful for small datasets. This is ``True`` by default.
+
+Some notable exceptions are below:
 
  - Instead of ``extra_options``, since one must be able to pass separate options to the 
    encoder and the decoder, use ``encode_extra_options`` and ``decode_extra_options``, respectively.
@@ -51,5 +65,4 @@ in the Sentencepiece readme. Some notable exceptions are below:
      - If the Moses tokenizer is run first, and tokenizes files that are to be used for training BPE
        in Sentencepiece, Sentencepiece will learn off of the *original* files, not the Moses-tokenized
        ones. 
-
 

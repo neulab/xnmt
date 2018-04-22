@@ -17,6 +17,7 @@ class MLP(Serializable):
     bias_init_hidden (ParamInitializer): how to initialize hidden bias vectors
     param_init_output (ParamInitializer): how to initialize output weight matrices
     bias_init_output (ParamInitializer): how to initialize output bias vectors
+    activation (str): One of ``tanh``, ``relu``, ``sigmoid``, ``elu``, ``selu`` or ``asinh``. Defaults to ``tanh``
     output_projector:
     yaml_path (str):
     vocab_size (int): vocab size or None; if not None and ``yaml_path`` contains 'decoder', this will overwrite ``output_dim``
@@ -35,6 +36,7 @@ class MLP(Serializable):
                bias_init_hidden=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
                param_init_output=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init_output=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               activation='tanh',
                hidden_layer=None,
                output_projector=None,
                yaml_path=None,
@@ -56,13 +58,28 @@ class MLP(Serializable):
                                                                                    output_dim=self.hidden_dim,
                                                                                    param_init=param_init_hidden,
                                                                                    bias_init=bias_init_hidden))
+    if activation == 'tanh':
+      self.activation = dy.tanh
+    elif activation == 'relu':
+      self.activation = dy.rectify
+    elif activation == 'sigmoid':
+      self.activation = dy.sigmoid
+    elif activation == 'elu':
+      self.activation = dy.elu
+    elif activation == 'selu':
+      self.activation = dy.selu
+    elif activation == 'asinh':
+      self.activation = dy.asinh
+    else:
+      raise ValueError('Unknown activation %s' % activation)
+
     self.output_projector = self.add_serializable_component("output_projector", output_projector,
                                                             lambda: output_projector or xnmt.linear.Linear(
                                                               input_dim=self.hidden_dim, output_dim=self.output_dim,
                                                               param_init=param_init_output, bias_init=bias_init_output))
 
   def __call__(self, input_expr):
-    return self.output_projector(dy.tanh(self.hidden_layer(input_expr)))
+    return self.output_projector(self.activation(self.hidden_layer(input_expr)))
 
   def choose_vocab_size(self, vocab_size, vocab, trg_reader):
     """Choose the vocab size for the embedder basd on the passed arguments

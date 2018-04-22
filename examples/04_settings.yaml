@@ -4,7 +4,7 @@
 # exists, and whether to activate the DyNet check_validity and immediate_compute options.
 # 
 # As the name suggests, e.g. when debugging one might use XNMT as follows:
-# python -m xnmt.xnmt_run_experiments --settings=debug examples/04_settings.yaml
+# ``xnmt --settings=debug examples/04_settings.yaml``
 # 
 # It is easy to change behavior by either changing these configurations, or adding a new configuration to the module.
 settings-exp: !Experiment
