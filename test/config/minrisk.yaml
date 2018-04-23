@@ -9,7 +9,7 @@ minrisk: !Experiment
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     search_strategy: !SamplingSearch
-      max_length: 10
+      max_len: 10
       sample_size: 10
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
