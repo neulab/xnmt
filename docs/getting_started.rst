@@ -39,7 +39,7 @@ experiments. To run the first experiment, use the following::
 This is a shortcut for typing ``python -m xnmt.xnmt_run_experiments examples/01_standard.yaml``.
 Make sure to read the comments provided in the :ref:`example configuration <ex-standard>`.
 
-See the ref:`sec-exp-conf` documentation entry for more details about writing experiment configuration files.
+See the :ref:`sec-exp-conf` documentation entry for more details about writing experiment configuration files.
 
 Running recipes
 ---------------
