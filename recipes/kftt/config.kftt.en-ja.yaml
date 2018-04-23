@@ -1,0 +1,82 @@
+# standard settings
+kftt.en-ja: !Experiment
+  exp_global: !ExpGlobal
+    default_layer_dim: 512 # Hidden layer size 512 by default
+    dropout: 0.3           # Dropout 0.3 by default
+  preproc: !PreprocRunner
+    overwrite: False       # Don't redo preprocessing if it's been done once before
+    tasks:
+    - !PreprocVocab        # Create vocabulary files from the training data
+      in_files:
+      - '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-train.cln.en'
+      - '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-train.cln.ja'
+      out_files:
+      - '{EXP_DIR}/vocab.en'
+      - '{EXP_DIR}/vocab.ja'
+      specs:
+      - filenum: all
+        spec:
+        - type: rank
+          max_rank: 40000 # Limit the vocabulary size to the 40k most frequent words
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: '{EXP_DIR}/vocab.en'}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: '{EXP_DIR}/vocab.ja'}
+    src_embedder: !SimpleWordEmbedder   # Embed source words as 256 dimensional vectors
+      emb_dim: 512
+    encoder: !ResidualLSTMSeqTransducer
+      layers: 2
+      residual_to_output: True
+    attender: !MlpAttender {}
+    trg_embedder: !DenseWordEmbedder    # Represent target words as a 40000x256 matrix
+      emb_dim: 512
+    decoder: !MlpSoftmaxDecoder
+      bridge: !LinearBridge {}          # Initialize the first state of the decoder with an affine transform of the last state of the encoder
+      rnn_layer: !UniLSTMSeqTransducer  # Just your standard LSTM decoder
+        layers: 2                       # With 2 layers
+      mlp_layer: !MLP
+        output_projector: !Ref
+          path: model.trg_embedder      # Tie the softmax output to the target word embeddings
+        hidden_dim: !Ref
+          path: model.trg_embedder.emb_dim
+        activation: 'relu'
+      label_smoothing: 0.1              # Smooth the output labels with the uniform distribution
+    inference: !SimpleInference
+      search_strategy: !BeamSearch
+        beam_size: 5
+        len_norm: !PolynomialNormalization
+          apply_during_search: true
+          m: 0.8
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 20  # Run for at most 20 epochs
+    initial_patience: 2 # Run for at least 2 epochs without decreasing the learning rate
+    patience: 1         # After there is no improvement for 1 epoch, decrease the learning rate
+    lr_decay: 0.5       # Decay the learning rate by half whenever there is no improvement
+    lr_decay_times: 2   # If there is still no improvement after decreasing the learning rate 2 times in a row, stop training
+    trainer: !AdamTrainer
+      alpha: 0.001
+    batcher: !WordSrcBatcher
+      avg_batch_size: 64
+    src_file: '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-train.cln.en'
+    trg_file: '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-train.cln.ja'
+    dev_tasks:
+      - !AccuracyEvalTask
+        eval_metrics: bleu
+        src_file: &dev_src '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-dev.en'
+        ref_file: &dev_trg '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-dev.ja'
+        hyp_file: '{EXP_DIR}/hyp/{EXP}.dev.ja'
+      - !LossEvalTask
+        src_file: *dev_src
+        ref_file: *dev_trg
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: *dev_src
+      ref_file: *dev_trg
+      hyp_file: '{EXP_DIR}/hyp/{EXP}.dev.ja'
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: &test_src '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-test.en'
+      ref_file: &test_trg '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-test.ja'
+      hyp_file: '{EXP_DIR}/hyp/{EXP}.test.ja'
