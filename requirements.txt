@@ -5,3 +5,5 @@ dynet
 matplotlib    
 cython   
 h5py
+asteval
+sentencepiece>=0.0.6

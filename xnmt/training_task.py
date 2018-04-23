@@ -1,5 +1,7 @@
 from subprocess import Popen
+from asteval import Interpreter
 import random
+import parser
 import numpy as np
 from typing import Optional
 
@@ -83,6 +85,11 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
     initial_patience (int): if given, allows adjusting patience for the first LR decay
     dev_tasks: A list of tasks to run on the development set
+    dev_combinator: A formula to combine together development scores into a single score to
+                    choose whether to perform learning rate decay, etc.
+                    e.g. 'x[0]-x[1]' would say that the first dev task score minus the
+                    second dev task score is our measure of how good we're doing. If not
+                    specified, only the score from the first dev task will be used.
     restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
     reload_command: Command to change the input data after each epoch.
                          --epoch EPOCH_NUM will be appended to the command.
@@ -99,12 +106,13 @@ class SimpleTrainingTask(TrainingTask, Serializable):
   def __init__(self, model, src_file=None, trg_file=None, dev_every=0,
                batcher=bare(SrcBatcher, batch_size=32), loss_calculator=bare(MLELoss),
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
-               initial_patience=None, dev_tasks=None, restart_trainer=False,
+               initial_patience=None, dev_tasks=None, dev_combinator=None, restart_trainer=False,
                reload_command=None, name=None, sample_train_sents: Optional[int] = None,
                max_num_train_sents=None, max_src_len=None, max_trg_len=None):
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks
+    self.dev_combinator = dev_combinator
 
     if lr_decay > 1.0 or lr_decay <= 0.0:
       raise RuntimeError("illegal lr_decay, must satisfy: 0.0 < lr_decay <= 1.0")
@@ -275,9 +283,9 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     # Perform evaluation
     if self.dev_tasks and len(self.dev_tasks) > 0:
+      dev_scores = []
       with self.dev_loss_tracker.time_tracker:
         logger.info("> Checkpoint")
-        dev_scores = []
         for dev_task in self.dev_tasks:
           dev_score, dev_word_cnt = dev_task.eval()
           if type(dev_score) == list:
@@ -291,9 +299,21 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
       # Control the learning schedule
       if control_learning_schedule:
-        # Write out the model if it's the best one
-        if dev_scores[0].better_than(self.training_state.best_dev_score):
+        # Check if this is the best
+        is_best = False
+        if self.dev_combinator != None:
+          x = [y.value() for y in dev_scores]
+          aevala = Interpreter()
+          my_score = aevala(self.dev_combinator)
+          logger.info('  combined dev scores according to {}: {}'.format(self.dev_combinator, my_score))
+          if self.training_state.best_dev_score == None or my_score > self.training_state.best_dev_score:
+            self.training_state.best_dev_score = my_score
+            is_best = True
+        elif dev_scores[0].better_than(self.training_state.best_dev_score):
           self.training_state.best_dev_score = dev_scores[0]
+          is_best = True
+        # If this is the best, write the model out
+        if is_best:
           self.training_state.cur_attempt = 0
           needs_saving = True
           logger.info(f"  best dev score, writing out model")
