@@ -8,7 +8,6 @@ import xnmt.batcher
 from xnmt.events import handle_xnmt_event
 from xnmt.generator import GeneratorModel
 from xnmt.persistence import serializable_init, Serializable
-from xnmt.reports import Reportable
 from xnmt.expression_sequence import ExpressionSequence
 
 ##### A class for retrieval databases
@@ -78,7 +77,7 @@ class Retriever(GeneratorModel):
     self.index_database(candidates)
     self.report_path = kwargs["report_path"]
 
-class DotProductRetriever(Retriever, Serializable, Reportable):
+class DotProductRetriever(Retriever, Serializable):
   '''
   A retriever trains using max-margin methods.
   '''

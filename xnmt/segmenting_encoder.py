@@ -12,7 +12,6 @@ from xnmt import logger
 from xnmt.vocab import Vocab
 from xnmt.batcher import Mask
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.transducer import SeqTransducer
 from xnmt.loss import LossBuilder
@@ -21,7 +20,7 @@ from xnmt.persistence import Ref, bare, Path
 
 EPS = 1e-10
 
-class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
+class SegmentingSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!SegmentingSeqTransducer'
 
   @register_xnmt_handler
@@ -139,8 +138,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         self.print_sample_enc(outputs, self.enc_mask, segment_mask)
     if not self.train:
       # Rewrite segmentation
-      self.set_report_resource("segmentation", self.segment_decisions[0])
-      self.set_report_input(segment_decisions[0])
+      self.segmentation = self.segment_decisions[0]
+      self.segmentation_prob = dy.pick_batch_elem(dy.esum(segment_logsoftmaxes), 0).scalar_value()
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return self.final_transducer(expression_sequence.ExpressionSequence(expr_tensor=self.outputs,
                                                                         mask=segment_mask))
@@ -350,7 +349,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     segmented = ["SRC: "] + segmented
     logger.debug(" ".join(segmented))
 
-  # TODO: Fix if the baseline is none
   def print_sample_loss(self, rewards, trans_reward, ll, loss, baseline, enc_mask):
     if loss[0].dim()[1] <= 1:
       return
@@ -380,7 +378,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   @handle_xnmt_event
   def on_html_report(self, context):
-    segment_decision = self.get_report_input()[0]
+    segment_decision = self.segmentation
     src_words = [escape(x) for x in self.get_report_resource("src_words")]
     main_content = context.xpath("//body/div[@name='main_content']")[0]
     # construct the sub element from string
@@ -392,20 +390,24 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     return context
 
   @handle_xnmt_event
-  def on_file_report(self):
-    segment_decision = self.get_report_input()[0]
+  def on_file_report(self, report_path):
+    segment_decision = self.segmentation
     src_words = self.get_report_resource("src_words")
     segmented = self.apply_segmentation(src_words, segment_decision)
 
-    with open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
+    with open(report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
       if len(segmented) > 0:
         print(" ".join(segmented), file=segmentation_file)
 
     if self.learn_segmentation and self.segment_logsoftmaxes:
       logsoftmaxes = [x.npvalue() for x in self.segment_logsoftmaxes]
-      with open(self.get_report_path() + ".segdecision", encoding='utf-8', mode='w') as segmentation_file:
+      with open(report_path() + ".segdecision", encoding='utf-8', mode='w') as segmentation_file:
         for softmax in logsoftmaxes:
           print(" ".join(["%.5f" % f for f in numpy.exp(softmax)]), file=segmentation_file)
+
+  @handle_xnmt_event
+  def on_line_report(self, output_dict):
+    output_dict["02segenc"] = self.segmentation_prob
 
   def apply_segmentation(self, words, segmentation):
     segmented = []

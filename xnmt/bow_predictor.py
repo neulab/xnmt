@@ -16,7 +16,6 @@ from xnmt.input import SimpleSentenceInput
 from xnmt.loss import LossBuilder
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
-from xnmt.reports import Reportable
 from xnmt.vocab import Vocab
 from xnmt.persistence import Ref, bare, Path, Serializable
 

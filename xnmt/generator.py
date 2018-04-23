@@ -1,21 +1,21 @@
 from xnmt.events import register_xnmt_event, register_xnmt_event_sum
+from xnmt.report import Reportable
 
-class GeneratorModel(object):
-  # TODO: document me
+class GeneratorModel(Reportable):
+  """
+  A model that generates output from a given input.
+  """
   def generate_output(self, *args, **kwargs):
-    # Generate the output
-    generation_output = self.generate(*args, **kwargs)
-    # Post process it
+    output = self.generate(*args, **kwargs)
     if hasattr(self, "post_processor"):
-      self.post_processor.process_outputs(generation_output)
-    return generation_output
+      self.post_processor.process_outputs(output)
+    return output
 
   def generate(self, *args, **kwargs):
     raise NotImplementedError()
 
-  @register_xnmt_event
-  def initialize_generator(self, **kwargs):
-    pass
+  def set_post_processor(self, post_processor):
+    self.post_processor = post_processor
 
   @register_xnmt_event
   def new_epoch(self, training_task, num_sents):
@@ -38,4 +38,5 @@ class GeneratorModel(object):
   @register_xnmt_event_sum
   def calc_additional_loss(self, src, trg, translator_loss, trg_counts):
     return None
+
 

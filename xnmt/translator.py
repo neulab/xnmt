@@ -22,7 +22,6 @@ from xnmt.loss import LossBuilder
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
 import xnmt.plot
-from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable, bare, initialize_object, initialize_if_needed
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from collections import namedtuple
@@ -60,9 +59,6 @@ class Translator(GeneratorModel):
     """
     self.trg_vocab = trg_vocab
 
-  def set_post_processor(self, post_processor):
-    self.post_processor = post_processor
-
   def get_primary_loss(self):
     return "mle"
 
@@ -78,7 +74,7 @@ class Translator(GeneratorModel):
       output_state = dy.nobackprop(output_state)
     return output_state
 
-class DefaultTranslator(Translator, Serializable, Reportable):
+class DefaultTranslator(Translator, Serializable):
   '''
   A default translator based on attentional sequence-to-sequence models.
 
@@ -124,10 +120,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
             set([".attender.state_dim", ".decoder.rnn_layer.hidden_dim"]),
             set([".trg_embedder.emb_dim", ".decoder.trg_embed_dim"])]
 
-  def initialize_generator(self, **kwargs):
-    self.report_path = kwargs.get("report_path", None)
-    self.report_type = kwargs.get("report_type", None)
-
   def calc_loss(self, src, trg, loss_calculator):
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
@@ -155,7 +147,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       model_loss.add_loss("length_difference", self.length_difference(encodings, trg))
     return model_loss
 
-  def generate(self, src, idx, search_strategy, src_mask=None, forced_trg_ids=None):
+  def generate(self, src, search_strategy, src_mask=None, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
     else:
@@ -183,20 +175,19 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         else:
           src_words = ['' for w in sents]
         trg_words = [self.trg_vocab[w] for w in output_actions]
-        # Attentions
-        attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
+        # Attention
+        attention = np.concatenate([x.npvalue() for x in attentions], axis=1)
         # Segmentation
-        segment = self.get_report_resource("segmentation")
-        if segment is not None:
-          src_inp = self.encoder.apply_segmentation(src_words, segment)
+        if hasattr(self.encoder, "segmentation"):
+          src_inp = self.encoder.apply_segmentation(src_words, self.encoder.segmentation)
         else:
           src_inp = src_words
         # Other Resources
-        self.set_report_input(idx, src_inp, trg_words, attentions)
-        self.set_report_resource("src_words", src_words)
-        self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
-        self.generate_report(self.report_type)
-      # Append output to the outputs
+        self.src = src_inp
+        self.trg = trg_words
+        self.attention = attention
+        self.score = score
+      # Append output to the `outputs
       outputs.append(TextOutput(actions=output_actions,
                                 vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
                                 score=score))
@@ -234,20 +225,16 @@ class DefaultTranslator(Translator, Serializable, Reportable):
 
   @register_xnmt_event_assign
   def html_report(self, context=None):
-    assert(context is None)
-    idx, src, trg, att = self.get_report_input()
-    path_to_report = self.get_report_path()
+    assert context is None
+    src, trg, att = self.src, self.trg, self.attention
+    path_to_report = self.report_path
     html = etree.Element('html')
     head = etree.SubElement(html, 'head')
     title = etree.SubElement(head, 'title')
     body = etree.SubElement(html, 'body')
     report = etree.SubElement(body, 'h1')
-    if idx is not None:
-      title.text = report.text = 'Translation Report for Sentence %d' % (idx)
-    else:
-      title.text = report.text = 'Translation Report'
+    title.text = report.text = 'Translation Report'
     main_content = etree.SubElement(body, 'div', name='main_content')
-
     # Generating main content
     captions = ["Source Words", "Target Words"]
     inputs = [src, trg]
@@ -256,7 +243,6 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       sent = ' '.join(inp)
       p = etree.SubElement(main_content, 'p')
       p.text = f"{caption}: {sent}"
-
     # Generating attention
     if not any([src is None, trg is None, att is None]):
       attention = etree.SubElement(main_content, 'p')
@@ -269,19 +255,23 @@ class DefaultTranslator(Translator, Serializable, Reportable):
       att_img.attrib['src'] = os.path.basename(att_img_src)
       att_img.attrib['alt'] = 'attention matrix'
       xnmt.plot.plot_attention(src, trg, att, file_name = attention_file)
-
     # return the parent context to be used as child context
     return html
 
   @handle_xnmt_event
-  def on_file_report(self):
-    idx, src, trg, attn = self.get_report_input()
+  def on_line_report(self, output_dicts):
+    output_dicts["01trans"] = " ".join(self.src)
+    output_dicts["02trans"] = str(self.score)
+
+  @handle_xnmt_event
+  def on_file_report(self, report_path):
+    src, trg, attn = self.src, self.trg, self.attention
     assert attn.shape == (len(src), len(trg))
     col_length = []
     for word in trg:
       col_length.append(max(len(word), 6))
     col_length.append(max(len(x) for x in src))
-    with open(self.get_report_path() + ".attention.txt", encoding='utf-8', mode='w') as attn_file:
+    with open(self.report_path + ".attention.txt", encoding='utf-8', mode='w') as attn_file:
       for i in range(len(src)+1):
         if i == 0:
           words = trg + [""]
@@ -291,9 +281,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         for length in col_length:
           str_format += "{:%ds}" % (length+2)
         print(str_format.format(*words), file=attn_file)
-
   
-class TransformerTranslator(Translator, Serializable, Reportable):
+class TransformerTranslator(Translator, Serializable):
   '''
   A translator based on the transformer model.
 
@@ -429,7 +418,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     loss = self.decoder.output_and_loss(h_block, concat_t_block)
     return LossBuilder({"mle": loss})
 
-  def generate(self, src, idx, src_mask=None, forced_trg_ids=None, search_strategy=None):
+  def generate(self, src, src_mask=None, forced_trg_ids=None, search_strategy=None):
     self.start_sent(src)
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
@@ -540,8 +529,8 @@ class EnsembleTranslator(Translator, Serializable):
       model_loss.add_loss(loss_name, dy.average(losslist))
     return model_loss
 
-  def generate(self, src, idx, search_strategy, src_mask=None, forced_trg_ids=None):
-    return self._proxy.generate(src, idx, search_strategy, src_mask=src_mask, forced_trg_ids=forced_trg_ids)
+  def generate(self, src, search_strategy, src_mask=None, forced_trg_ids=None):
+    return self._proxy.generate(src, search_strategy, src_mask=src_mask, forced_trg_ids=forced_trg_ids)
 
 class EnsembleListDelegate(object):
   '''

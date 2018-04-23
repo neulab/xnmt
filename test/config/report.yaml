@@ -45,4 +45,4 @@ report: !Experiment
       hyp_file: examples/output/{EXP}.test_hyp
       inference: !SimpleInference
         report_path: examples/output/{EXP}.report
-        report_type: html, file
+        report_type: html, file, line
