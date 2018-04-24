@@ -358,7 +358,7 @@ class WordSortBatcher(SortBatcher):
 
 class WordSrcBatcher(WordSortBatcher, Serializable):
   """
-  A batcher that creates variable-sized batches with given average (src) words per batch, grouped by src len.
+  A batcher that creates variable-sized batches with given average (src+trg) words per batch, grouped by src len.
   
   Args:
     words_per_batch (int): number of src words in each batch
@@ -381,12 +381,12 @@ class WordSrcBatcher(WordSortBatcher, Serializable):
 
   def pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
-      self.batch_size = sum([len(s) for s in src]) / len(src) * self.avg_batch_size
+      self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
     return super(WordSrcBatcher, self).pack_by_order(src, trg, order)
 
 class WordTrgBatcher(WordSortBatcher, Serializable):
   """
-  A batcher that creates variable-sized batches with given average (trg) words per batch, grouped by trg len.
+  A batcher that creates variable-sized batches with given average (src+trg) words per batch, grouped by trg len.
   
   Args:
     words_per_batch (int): number of trg words in each batch
@@ -409,7 +409,7 @@ class WordTrgBatcher(WordSortBatcher, Serializable):
 
   def pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
-      self.batch_size = sum([len(s) for s in trg]) / len(trg) * self.avg_batch_size
+      self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
     return super(WordTrgBatcher, self).pack_by_order(src, trg, order)
 
 class WordSrcTrgBatcher(WordSortBatcher, Serializable):
@@ -437,7 +437,7 @@ class WordSrcTrgBatcher(WordSortBatcher, Serializable):
 
   def pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
-      self.batch_size = sum([len(s) for s in src]) / len(src) * self.avg_batch_size
+      self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
     return super(WordSrcTrgBatcher, self).pack_by_order(src, trg, order)
 
 class WordTrgSrcBatcher(WordSortBatcher, Serializable):
@@ -465,6 +465,6 @@ class WordTrgSrcBatcher(WordSortBatcher, Serializable):
 
   def pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
-      self.batch_size = sum([len(s) for s in trg]) / len(trg) * self.avg_batch_size
+      self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
     return super(WordTrgSrcBatcher, self).pack_by_order(src, trg, order)
 
