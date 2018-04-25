@@ -34,7 +34,7 @@ class Normalizer(object):
   def from_spec(spec):
     """Takes a list of normalizer specifications, and returns the appropriate processors."""
     preproc_list = []
-    if spec != None:
+    if spec is not None:
       for my_spec in spec:
         if my_spec["type"] == "lower":
           preproc_list.append(NormalizerLower(my_spec))
@@ -133,8 +133,9 @@ class ExternalTokenizer(Tokenizer):
   yaml_tag = '!ExternalTokenizer'
 
   @serializable_init
-  def __init__(self, path, tokenizer_args={}, arg_separator=' '):
+  def __init__(self, path, tokenizer_args=None, arg_separator=' '):
     """Initialize the wrapper around the external tokenizer. """
+    if tokenizer_args is None: tokenizer_args = {}
     tokenizer_options = []
     if arg_separator != ' ':
       tokenizer_options = [option + arg_separator + str(tokenizer_args[option])
@@ -158,8 +159,8 @@ class ExternalTokenizer(Tokenizer):
     encode_proc = subprocess.Popen(self.tokenizer_command, stdin=subprocess.PIPE
         , stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if isinstance(sent, str):
-      string = sent.encode('utf-8')
-    stdout, stderr = encode_proc.communicate(string)
+      sent = sent.encode('utf-8')
+    stdout, stderr = encode_proc.communicate(sent)
     if isinstance(stdout, bytes):
       stdout = stdout.decode('utf-8')
     if stderr:
@@ -196,7 +197,6 @@ class SentencepieceTokenizer(Tokenizer):
     "File" output for Sentencepiece written to StringIO temporarily before being written to disk.
 
     """
-    import sentencepiece as spm
     # TODO: deprecate the path argument
     self.sentpiece_path = path
     self.model_prefix = model_prefix
@@ -217,6 +217,7 @@ class SentencepieceTokenizer(Tokenizer):
     self.sentpiece_processor = None
 
   def init_sentencepiece(self):
+    import sentencepiece as spm
     if ((not os.path.exists(self.model_prefix + '.model')) or
         (not os.path.exists(self.model_prefix + '.vocab')) or
         self.overwrite):
@@ -262,7 +263,7 @@ class SentenceFilterer():
   def from_spec(spec):
     """Takes a list of preprocessor specifications, and returns the appropriate processors."""
     preproc_list = []
-    if spec != None:
+    if spec is not None:
       for my_spec in spec:
         if my_spec["type"] == "length":
           preproc_list.append(SentenceFiltererLength(my_spec))
@@ -338,7 +339,7 @@ class VocabFilterer(object):
   def from_spec(spec):
     """Takes a list of preprocessor specifications, and returns the appropriate processors."""
     preproc_list = []
-    if spec != None:
+    if spec is not None:
       for my_spec in spec:
         if my_spec["type"] == "freq":
           preproc_list.append(VocabFiltererFreq(my_spec))

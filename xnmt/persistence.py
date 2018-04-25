@@ -357,7 +357,7 @@ class Path(object):
 
   def ancestors(self) -> Set['Path']:
     a = self
-    ret = set([a])
+    ret = {a}
     while len(a.path_str.strip(".")) > 0:
       a = a.parent()
       ret.add(a)
@@ -609,7 +609,7 @@ def traverse_serializable_breadth_first(root):
   return iter(all_nodes)
 
 
-def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), named_paths={},
+def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), named_paths=None,
                        past_visits=set()):
   """
   Traverse the tree and descend into references. The returned path is that of the resolved reference.
@@ -624,6 +624,8 @@ def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST
   """
 
   # prevent infinite recursion:
+  if named_paths is None:
+    named_paths = {}
   cur_call_sig = (id(root), id(cur_node), path_to_node)
   if cur_call_sig in past_visits: return
   past_visits = set(past_visits)
@@ -724,7 +726,8 @@ class LoadSerialized(Serializable):
   """
   yaml_tag = "!LoadSerialized"
 
-  def __init__(self, filename: str, path: str = "", overwrite: List[Dict] = []):
+  def __init__(self, filename: str, path: str = "", overwrite: Optional[List[Dict]] = None):
+    if overwrite is None: overwrite = []
     self.filename = filename
     self.path = path
     self.overwrite = overwrite

@@ -53,7 +53,7 @@ class Vocab(Serializable):
       sentencepiece_vocab (bool): Set to ``True`` if ``vocab_file`` is the output of the sentencepiece tokenizer. Defaults to ``False``.
     """
     vocab = [Vocab.SS_STR, Vocab.ES_STR]
-    reserved = set([Vocab.SS_STR, Vocab.ES_STR, Vocab.UNK_STR])
+    reserved = {Vocab.SS_STR, Vocab.ES_STR, Vocab.UNK_STR}
     with open(vocab_file, encoding='utf-8') as f:
       for line in f:
         word = line.strip()
@@ -72,7 +72,7 @@ class Vocab(Serializable):
   def convert(self, w):
     if w not in self.w2i:
       if self.frozen:
-        assert self.unk_token != None, 'Attempt to convert an OOV in a frozen vocabulary with no UNK token set'
+        assert self.unk_token is not None, 'Attempt to convert an OOV in a frozen vocabulary with no UNK token set'
         return self.unk_token
       self.w2i[w] = len(self.i2w)
       self.i2w.append(w)

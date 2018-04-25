@@ -22,8 +22,8 @@ from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
 import xnmt.plot
 from xnmt.reports import Reportable
-from xnmt.persistence import serializable_init, Serializable, bare, initialize_object, initialize_if_needed
-from xnmt.search_strategy import BeamSearch, GreedySearch, MctsSearch
+from xnmt.persistence import serializable_init, Serializable, bare
+from xnmt.search_strategy import BeamSearch
 from collections import namedtuple
 from xnmt.vocab import Vocab
 from xnmt.constants import EPSILON
@@ -115,10 +115,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.search_strategy = search_strategy
 
   def shared_params(self):
-    return [set([".src_embedder.emb_dim", ".encoder.input_dim"]),
-            set([".encoder.hidden_dim", ".attender.input_dim", ".decoder.input_dim"]),
-            set([".attender.state_dim", ".decoder.rnn_layer.hidden_dim"]),
-            set([".trg_embedder.emb_dim", ".decoder.trg_embed_dim"])]
+    return [{".src_embedder.emb_dim", ".encoder.input_dim"},
+            {".encoder.hidden_dim", ".attender.input_dim", ".decoder.input_dim"},
+            {".attender.state_dim", ".decoder.rnn_layer.hidden_dim"},
+            {".trg_embedder.emb_dim", ".decoder.trg_embed_dim"}]
 
   def initialize_generator(self, **kwargs):
     self.report_path = kwargs.get("report_path", None)
