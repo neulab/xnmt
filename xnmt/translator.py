@@ -177,6 +177,7 @@ class DefaultTranslator(Translator, Serializable):
         trg_words = [self.trg_vocab[w] for w in output_actions]
         # Attention
         attention = np.concatenate([x.npvalue() for x in attentions], axis=1)
+        src_inp_len = len(src_words)
         # Segmentation
         if hasattr(self.encoder, "segmentation"):
           src_inp = self.encoder.apply_segmentation(src_words, self.encoder.segmentation)
@@ -185,12 +186,13 @@ class DefaultTranslator(Translator, Serializable):
         # Other Resources
         self.src = src_inp
         self.trg = trg_words
+        self.src_inp_len = src_inp_len
         self.attention = attention
         self.score = score
       # Append output to the `outputs
       outputs.append(TextOutput(actions=output_actions,
                                 vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
-                                score=score))
+                                score=score.normalized))
     self.outputs = outputs
     return outputs
 
@@ -260,8 +262,12 @@ class DefaultTranslator(Translator, Serializable):
 
   @handle_xnmt_event
   def on_line_report(self, output_dicts):
-    output_dicts["01trans"] = " ".join(self.src)
-    output_dicts["02trans"] = str(self.score)
+    output_dicts["01src"] = " ".join(self.src)
+    output_dicts["02hyp"] = " ".join(self.trg)
+    output_dicts["03srclen"] = self.src_inp_len
+    output_dicts["04enclen"] = len(self.src)
+    output_dicts["05hyplen"] = len(self.trg)
+    output_dicts["06trans_prob"] = str(self.score.unnormalized)
 
   @handle_xnmt_event
   def on_file_report(self, report_path):

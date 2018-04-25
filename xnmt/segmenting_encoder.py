@@ -138,8 +138,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
         self.print_sample_enc(outputs, self.enc_mask, segment_mask)
     if not self.train:
       # Rewrite segmentation
-      self.segmentation = self.segment_decisions[0]
-      self.segmentation_prob = dy.pick_batch_elem(dy.esum(segment_logsoftmaxes), 0).scalar_value()
+      self.segmentation = self.segment_decisions[0] 
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return self.final_transducer(expression_sequence.ExpressionSequence(expr_tensor=self.outputs,
                                                                         mask=segment_mask))
@@ -379,7 +378,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
   @handle_xnmt_event
   def on_html_report(self, context):
     segment_decision = self.segmentation
-    src_words = [escape(x) for x in self.get_report_resource("src_words")]
+    src_words = [escape(self.src_vocab[x]) for x in self.src_sent[0].words]
     main_content = context.xpath("//body/div[@name='main_content']")[0]
     # construct the sub element from string
     segmented = self.apply_segmentation(src_words, segment_decision)
@@ -392,22 +391,22 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
   @handle_xnmt_event
   def on_file_report(self, report_path):
     segment_decision = self.segmentation
-    src_words = self.get_report_resource("src_words")
+    src_words = [self.src_vocab[x] for x in self.src_sent[0].words]
     segmented = self.apply_segmentation(src_words, segment_decision)
-
-    with open(report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
-      if len(segmented) > 0:
-        print(" ".join(segmented), file=segmentation_file)
 
     if self.learn_segmentation and self.segment_logsoftmaxes:
       logsoftmaxes = [x.npvalue() for x in self.segment_logsoftmaxes]
-      with open(report_path() + ".segdecision", encoding='utf-8', mode='w') as segmentation_file:
+      with open(report_path + ".segdecision", encoding='utf-8', mode='w') as segmentation_file:
         for softmax in logsoftmaxes:
           print(" ".join(["%.5f" % f for f in numpy.exp(softmax)]), file=segmentation_file)
 
   @handle_xnmt_event
   def on_line_report(self, output_dict):
-    output_dict["02segenc"] = self.segmentation_prob
+    logsoft = self.segment_logsoftmaxes
+    decision = lambda i: [(1 if i in dec_set else 0) for dec_set in self.segment_decisions]
+    segmentation_prob = [dy.pick_batch(logsoft[i], decision(i)) for i in range(len(logsoft))]
+    segmentation_prob = dy.pick_batch_elem(dy.esum(segmentation_prob), 0)
+    output_dict["07segenc"] = segmentation_prob.scalar_value()
 
   def apply_segmentation(self, words, segmentation):
     segmented = []

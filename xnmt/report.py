@@ -22,6 +22,8 @@ class Reportable(object):
 
   @register_xnmt_event
   def report_item(self, i):
+    if self.report_path is None:
+      return
     report_path = '{}.{}'.format(self.report_path, str(i))
     for typ in self.report_type:
       if typ == "html":

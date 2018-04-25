@@ -18,6 +18,11 @@ from xnmt.vocab import Vocab
 # masks: whether the particular word id should be ignored or not (1 for not, 0 for yes)
 SearchOutput = namedtuple('SearchOutput', ['word_ids', 'attentions', 'score', 'logsoftmaxes', 'state', 'mask'])
 
+class HypScore(object):
+  def __init__(self, normalized, unnormalized=None):
+    self.normalized = normalized
+    self.unnormalized = unnormalized or normalized
+
 class SearchStrategy(object):
   '''
   A template class to generate translation from the output probability model. (Non-batched operation)
@@ -95,7 +100,7 @@ class GreedySearch(Serializable, SearchStrategy):
     masks.insert(0, [1 for _ in range(len(done))])
     words = np.stack(word_ids, axis=1)
     score = np.sum(score, axis=0)
-    return [SearchOutput(words, attentions, score, logsoftmaxes, states, masks)]
+    return [SearchOutput(words, attentions, HypScore(score), logsoftmaxes, states, masks)]
 
 class BeamSearch(Serializable, SearchStrategy):
   """
@@ -109,7 +114,7 @@ class BeamSearch(Serializable, SearchStrategy):
   """
 
   yaml_tag = '!BeamSearch'
-  Hypothesis = namedtuple('Hypothesis', ['score', 'output', 'parent', 'word'])
+  Hypothesis = namedtuple('Hypothesis', ['score', 'output', 'parent', 'word', 'unnormalized'])
   
   @serializable_init
   def __init__(self, beam_size=1, max_len=100, len_norm=bare(NoNormalization), one_best=True):
@@ -121,7 +126,7 @@ class BeamSearch(Serializable, SearchStrategy):
   def generate_output(self, translator, initial_state, src_length=None, forced_trg_ids=None):
     # TODO(philip30): can only do single decoding, not batched
     assert forced_trg_ids is None or self.beam_size == 1
-    active_hyp = [self.Hypothesis(0, None, None, None)]
+    active_hyp = [self.Hypothesis(0, None, None, None, 0)]
     completed_hyp = []
     for length in range(self.max_len):
       if len(completed_hyp) >= self.beam_size:
@@ -148,7 +153,8 @@ class BeamSearch(Serializable, SearchStrategy):
         # Queue next states
         for cur_word in top_words:
           new_score = self.len_norm.normalize_partial(hyp.score, score[cur_word], length+1)
-          new_set.append(self.Hypothesis(new_score, current_output, hyp, cur_word))
+          new_original = score[cur_word] + hyp.unnormalized
+          new_set.append(self.Hypothesis(new_score, current_output, hyp, cur_word, new_original))
       # Next top hypothesis
       active_hyp = sorted(new_set, key=lambda x: x.score, reverse=True)[:self.beam_size]
     # There is no hyp reached </s>
@@ -179,7 +185,8 @@ class BeamSearch(Serializable, SearchStrategy):
         #states.append(translator.get_nobp_state(current.output.state))
         current = current.parent
       results.append(SearchOutput([list(reversed(word_ids))], [list(reversed(attentions))],
-                                  [score], list(reversed(logsoftmaxes)), list(reversed(states)), None))
+                                  [HypScore(score, end_hyp.unnormalized)], list(reversed(logsoftmaxes)),
+                                  list(reversed(states)), None))
     return results
 
 class SamplingSearch(Serializable, SearchStrategy):
@@ -254,5 +261,5 @@ class SamplingSearch(Serializable, SearchStrategy):
     scores = dy.esum(logsofts).npvalue()
     masks.insert(0, [1 for _ in range(len(done))])
     samples = np.stack(samples, axis=1)
-    return SearchOutput(samples, attentions, scores, logsofts, states, masks)
+    return SearchOutput(samples, attentions, HypScore(scores), logsofts, states, masks)
 

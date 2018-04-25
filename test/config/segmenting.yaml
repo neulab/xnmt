@@ -47,7 +47,7 @@ debug-segmenting: !Experiment
       bridge: !CopyBridge {}  
     inference: !SimpleInference
       report_path: examples/output/{EXP}.report
-      report_type: html, file
+      report_type: html, file, line
   train: !SimpleTrainingRegimen
     run_for_epochs: 10
     src_file: examples/data/head-char.ja
