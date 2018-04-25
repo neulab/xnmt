@@ -111,11 +111,11 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
     """
     Main training loop (overwrites TrainingRegimen.run_training())
     """
-    self.model.set_train(update_weights)
+    self.model.set_train(True)
     if self.run_for_epochs > 0:
       for src,trg in self.next_minibatch():
         if self.dev_zero:
-          self.checkpoint_and_save(save_fct, update_weights)
+          self.checkpoint_and_save(save_fct)
           self.dev_zero = False
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
         with self.train_loss_tracker.time_tracker:
@@ -124,15 +124,15 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
           if update_weights: self.update_weights(loss, self.trainer, self.dynet_profiling)
         self.train_loss_tracker.report(trg, loss_builder.get_loss_stats())
         if self.checkpoint_needed():
-          self.checkpoint_and_save(save_fct, update_weights)
+          self.checkpoint_and_save(save_fct)
         if self.should_stop_training(): break
 
-  def checkpoint_and_save(self, save_fct, update_weights=True):
-    if update_weights: self.model.set_train(False)
+  def checkpoint_and_save(self, save_fct):
+    self.model.set_train(False)
     should_save = self.checkpoint()
     if should_save:
       save_fct()
-    if update_weights: self.model.set_train(True)
+    self.model.set_train(True)
 
 
 class MultiTaskTrainingRegimen(TrainingRegimen):
@@ -206,7 +206,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
-    self.trigger_train_event(update_weights)
+    self.trigger_train_event(True)
     if self.tasks[0].run_for_epochs > 0:
       while True:
         task_losses = []
@@ -215,7 +215,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
           src, trg = next(task_gen)
           task_src_trg.append((task, src, trg))
         if self.dev_zero: # True only in first iteration
-          self.checkpoint_and_save(save_fct, update_weights)
+          self.checkpoint_and_save(save_fct)
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
         task_trg_loss_stats = {}
         with self.train_loss_trackers[self.tasks[0]].time_tracker:
@@ -227,17 +227,18 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
             self.update_weights(sum(task_losses), self.trainer, self.dynet_profiling)
         for task, (trg, stats) in task_trg_loss_stats.items():
           self.train_loss_trackers[task].report(trg, stats)
-        if update_weights: self.tasks[0].model.set_train(False)
-        self.checkpoint_and_save(save_fct, update_weights)
+        self.tasks[0].model.set_train(False)
+        self.checkpoint_and_save(save_fct)
         if self.tasks[0].should_stop_training(): break
-  def checkpoint_and_save(self, save_fct, update_weights=True):
+
+  def checkpoint_and_save(self, save_fct):
     for task_i, task in enumerate(self.tasks):
       if self.dev_zero or task.checkpoint_needed():
         self.trigger_train_event(False)
         should_save = task.checkpoint(control_learning_schedule=(task_i == 0))
         if should_save:
           save_fct()
-    self.trigger_train_event(update_weights)
+    self.trigger_train_event(True)
     self.dev_zero = False
 
 
@@ -265,11 +266,12 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks)
     self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
+
   def run_training(self, save_fct, update_weights=True):
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
-    self.trigger_train_event(update_weights)
+    self.trigger_train_event(True)
     dev_zero = {i:self.dev_zero for i in range(len(self.tasks))}
     if self.tasks[0].run_for_epochs > 0:
       while True:
@@ -278,23 +280,24 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
         cur_task = self.tasks[cur_task_i]
         task_gen = task_generators[cur_task]
         src, trg = next(task_gen)
-        if dev_zero[cur_task_i]: self.checkpoint_and_save(cur_task, cur_task_i, save_fct, update_weights, dev_zero)
+        if dev_zero[cur_task_i]: self.checkpoint_and_save(cur_task, cur_task_i, save_fct, dev_zero)
         cur_train_loss_tracker = self.train_loss_trackers[cur_task]
         with cur_train_loss_tracker.time_tracker:
           loss_builder = cur_task.training_step(src, trg)
           if update_weights:
             self.update_weights(loss=loss_builder.compute(), trainer=self.trainer, dynet_profiling=self.dynet_profiling)
         cur_train_loss_tracker.report(trg, loss_builder.get_loss_stats())
-        self.checkpoint_and_save(cur_task, cur_task_i, save_fct, update_weights, dev_zero)
+        self.checkpoint_and_save(cur_task, cur_task_i, save_fct, dev_zero)
         if self.tasks[0].should_stop_training(): break
-  def checkpoint_and_save(self, cur_task, cur_task_i, save_fct, update_weights, dev_zero):
+
+  def checkpoint_and_save(self, cur_task, cur_task_i, save_fct, dev_zero):
     if dev_zero[cur_task_i] or cur_task.checkpoint_needed():
       dev_zero[cur_task_i] = False
       self.trigger_train_event(False)
       should_save = cur_task.checkpoint(control_learning_schedule=(cur_task_i == 0))
       if should_save:
         save_fct()
-    self.trigger_train_event(update_weights)
+    self.trigger_train_event(True)
 
 
 class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
@@ -318,6 +321,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                commandline_args=Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
     self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
+
   def run_training(self, save_fct, update_weights=True):
     dev_zero = {i:self.dev_zero for i in range(len(self.tasks))}
     for cur_task_id in range(len(self.tasks)):
@@ -325,25 +329,26 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
       cur_task = self.tasks[cur_task_id]
       cur_train_loss_tracker = self.train_loss_trackers[cur_task]
       task_gen = cur_task.next_minibatch()
-      self.trigger_train_event(update_weights)
+      self.trigger_train_event(True)
       if cur_task.run_for_epochs > 0:
         while True:
           dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
           src, trg = next(task_gen)
-          if dev_zero[cur_task_id]: self.checkpoint_and_save(cur_task, cur_task_id, save_fct, update_weights, dev_zero)
+          if dev_zero[cur_task_id]: self.checkpoint_and_save(cur_task, cur_task_id, save_fct, dev_zero)
           with cur_train_loss_tracker.time_tracker:
             loss_builder = cur_task.training_step(src, trg)
             task_loss = loss_builder.compute()
             if update_weights:
               self.update_weights(task_loss, self.trainer, self.dynet_profiling)
           cur_train_loss_tracker.report(trg, loss_builder.get_loss_stats())
-          self.checkpoint_and_save(cur_task, cur_task_id, save_fct, update_weights, dev_zero)
+          self.checkpoint_and_save(cur_task, cur_task_id, save_fct, dev_zero)
           if cur_task.should_stop_training(): break
-  def checkpoint_and_save(self, cur_task, cur_task_id, save_fct, update_weights, dev_zero):
+
+  def checkpoint_and_save(self, cur_task, cur_task_id, save_fct, dev_zero):
     if dev_zero[cur_task_id] or cur_task.checkpoint_needed():
       dev_zero[cur_task_id] = False
       self.trigger_train_event(False)
       should_save = cur_task.checkpoint(control_learning_schedule=True)
       if should_save:
         save_fct()
-    self.trigger_train_event(update_weights)
+    self.trigger_train_event(True)
