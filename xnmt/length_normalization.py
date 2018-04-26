@@ -5,12 +5,13 @@ import numpy as np
 from scipy.stats import norm
 
 from xnmt.persistence import serializable_init, Serializable
+from xnmt import search_strategy
 
 class LengthNormalization(object):
   '''
   A template class to generate translation from the output probability model.
   '''
-  def normalize_completed(self, completed_hyps:Sequence['Hypothesis'], src_length:Optional[int]=None) \
+  def normalize_completed(self, completed_hyps:Sequence['search_strategy.BeamSearch.Hypothesis'], src_length:Optional[int]=None) \
           -> Sequence[float]:
     """
     Apply normalization step to completed hypotheses after search and return the normalized scores.
@@ -44,7 +45,7 @@ class NoNormalization(LengthNormalization, Serializable):
   def __init__(self):
     pass
 
-  def normalize_completed(self, completed_hyps:Sequence['Hypothesis'], src_length:Optional[int]=None) \
+  def normalize_completed(self, completed_hyps:Sequence['search_strategy.BeamSearch.Hypothesis'], src_length:Optional[int]=None) \
           -> Sequence[float]:
     return [hyp.score for hyp in completed_hyps]
 
@@ -59,7 +60,7 @@ class AdditiveNormalization(LengthNormalization, Serializable):
     self.penalty = penalty
     self.apply_during_search = apply_during_search
 
-  def normalize_completed(self, completed_hyps:Sequence['Hypothesis'], src_length:Optional[int]=None) \
+  def normalize_completed(self, completed_hyps:Sequence['search_strategy.BeamSearch.Hypothesis'], src_length:Optional[int]=None) \
           -> Sequence[float]:
     if self.apply_during_search:
       return [hyp.score for hyp in completed_hyps]
@@ -81,7 +82,7 @@ class PolynomialNormalization(LengthNormalization, Serializable):
     self.apply_during_search = apply_during_search
     self.pows = []
 
-  def normalize_completed(self, completed_hyps:Sequence['Hypothesis'], src_length:Optional[int]=None) \
+  def normalize_completed(self, completed_hyps:Sequence['search_strategy.BeamSearch.Hypothesis'], src_length:Optional[int]=None) \
           -> Sequence[float]:
     if self.apply_during_search:
       return [hyp.score for hyp in completed_hyps]
@@ -157,6 +158,6 @@ class GaussianNormalization(LengthNormalization, Serializable):
   def trg_length_prob(self, trg_length):
     return self.distr.pdf(trg_length)
 
-  def normalize_completed(self, completed_hyps:Sequence['Hypothesis'], src_length:Optional[int]=None) \
+  def normalize_completed(self, completed_hyps:Sequence['search_strategy.BeamSearch.Hypothesis'], src_length:Optional[int]=None) \
           -> Sequence[float]:
     return [hyp.score / self.trg_length_prob(len(hyp.id_list)) for hyp in completed_hyps]

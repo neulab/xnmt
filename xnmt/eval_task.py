@@ -1,4 +1,4 @@
-from typing import Sequence, Union, Optional
+from typing import Sequence, Union, Optional, Any
 
 from xnmt.settings import settings
 
@@ -12,7 +12,6 @@ from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
 from xnmt.loss import LossBuilder, LossScalarBuilder
-from xnmt.util import OneOrSeveral
 import xnmt.xnmt_evaluate
 
 class EvalTask(object):
@@ -100,10 +99,10 @@ class AccuracyEvalTask(Serializable):
   yaml_tag = '!AccuracyEvalTask'
 
   @serializable_init
-  def __init__(self, src_file: OneOrSeveral[str], ref_file: OneOrSeveral[str], hyp_file: str,
+  def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: GeneratorModel = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
                inference: Optional[SimpleInference] = None, candidate_id_file: Optional[str] = None,
-               desc: Optional = None):
+               desc: Optional[Any] = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
