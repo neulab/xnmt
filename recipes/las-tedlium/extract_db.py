@@ -39,9 +39,9 @@ def extract(mypath, out_yaml, out_text, wavdir="{WAVDIR}/dev"):
   out_data = []
   durations = []
   make_parent_dir(out_text)
-  out_file_text = open(out_text, "w")
+  out_file_text = open(out_text, "w", encoding="utf-8")
   for stm_file in stm_files:
-    f = open(mypath + "/" + stm_file)
+    f = open(mypath + "/" + stm_file, encoding="utf-8")
     for line in f:
       if not "ignore_time_segment_in_scoring" in line:
         spl = line.split()
@@ -62,7 +62,7 @@ def extract(mypath, out_yaml, out_text, wavdir="{WAVDIR}/dev"):
     f.close()
   out_file_text.close()
   make_parent_dir(out_yaml)
-  f_out = open(out_yaml, "w")
+  f_out = open(out_yaml, "w", encoding="utf-8")
   f_out.write(yaml.dump(out_data))
   f_out.close()
 
