@@ -1,4 +1,4 @@
-from typing import Union, List
+from typing import Union, Sequence
 import math
 import random
 import numpy as np
@@ -515,7 +515,22 @@ class WordTrgSrcBatcher(WordSortBatcher, Serializable):
       self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
     return super(WordTrgSrcBatcher, self).pack_by_order(src, trg, order)
 
-def truncate_batches(*xl):
+def truncate_batches(*xl: Union[dy.Expression, Batch, Mask, xnmt.lstm.UniLSTMState]) \
+        -> Sequence[dy.Expression, Batch, Mask, xnmt.lstm.UniLSTMState]:
+  """
+  Truncate a list of batched items so that all items have the batch size of the input with the smallest batch size.
+
+  Inputs can be of various types and would usually correspond to a single time step.
+  Assume that the batch elements with index 0 correspond across the inputs, so that batch elements will be truncated
+  from the top, i.e. starting with the highest-indexed batch elements.
+  Masks are not considered even if attached to a input of :class:`Batch` type.
+
+  Args:
+    *xl: batched timesteps of various types
+
+  Returns:
+    Copies of the inputs, truncated to consistent batch size.
+  """
   batch_sizes = []
   for x in xl:
     if isinstance(x, dy.Expression) or isinstance(x, xnmt.expression_sequence.ExpressionSequence):
