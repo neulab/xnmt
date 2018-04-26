@@ -28,26 +28,33 @@ class LossCalculator(object):
 class MLELoss(Serializable, LossCalculator):
   """
   Max likelihood loss calculator.
+
+  Args:
+    truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
   """
   yaml_tag = '!MLELoss'
   @serializable_init
-  def __init__(self, truncate_batches=True):
-    self.truncate_batches = truncate_batches
+  def __init__(self, truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
+    self.truncate_dec_batches = truncate_dec_batches
 
-  def select_leading_unmasked_at_index(self, sent, index):
-    mask = sent.mask if xnmt.batcher.is_batched(sent) else None
-    if not xnmt.batcher.is_batched(sent):
-      return sent[index]
+  def select_ref_words(self, sent, index, truncate_masked = False):
+    if truncate_masked:
+      mask = sent.mask if xnmt.batcher.is_batched(sent) else None
+      if not xnmt.batcher.is_batched(sent):
+        return sent[index]
+      else:
+        ret = []
+        found_masked = False
+        for (j, single_trg) in enumerate(sent):
+          if mask is None or mask.np_arr[j, index] == 0 or np.sum(mask.np_arr[:, index]) == mask.np_arr.shape[0]:
+            assert not found_masked, "sentences must be sorted by decreasing target length"
+            ret.append(single_trg[index])
+          else:
+            found_masked = True
+        return xnmt.batcher.mark_as_batch(ret)
     else:
-      ret = []
-      found_masked = False
-      for (j, single_trg) in enumerate(sent):
-        if mask is None or mask.np_arr[j, index] == 0 or np.sum(mask.np_arr[:, index]) == mask.np_arr.shape[0]:
-          assert not found_masked, "sentences must be sorted by decreasing target length"
-          ret.append(single_trg[index])
-        else:
-          found_masked = True
-      return xnmt.batcher.mark_as_batch(ret)
+      if not xnmt.batcher.is_batched(sent): return sent[index]
+      else: return xnmt.batcher.mark_as_batch([single_trg[index] for single_trg in sent])
 
   def __call__(self, translator, initial_state, src, trg):
     dec_state = initial_state
@@ -59,8 +66,8 @@ class MLELoss(Serializable, LossCalculator):
         assert len(single_trg) == seq_len # assert consistent length
         assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask.np_arr[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
     for i in range(seq_len):
-      ref_word = self.select_leading_unmasked_at_index(trg, i)
-      if self.truncate_batches and xnmt.batcher.is_batched(ref_word):
+      ref_word = self.select_ref_words(trg, i, truncate_masked=self.truncate_dec_batches)
+      if self.truncate_dec_batches and xnmt.batcher.is_batched(ref_word):
         dec_state.rnn_state, ref_word = xnmt.batcher.truncate_batches(dec_state.rnn_state, ref_word)
       #   rnn_output, ref_word = xnmt.batcher.truncate_batches(dec_state.rnn_state.output(), ref_word)
       # else:
@@ -71,13 +78,13 @@ class MLELoss(Serializable, LossCalculator):
       # TODO: optimize calc_context so that attention computation won't waste memory
       # TODO: if batch size has shrunk, select unmasked RNN state
       word_loss = translator.decoder.calc_loss(dec_state, ref_word)
-      if not self.truncate_batches and xnmt.batcher.is_batched(src) and trg_mask is not None:
+      if not self.truncate_dec_batches and xnmt.batcher.is_batched(src) and trg_mask is not None:
         word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
       losses.append(word_loss)
       if i < seq_len-1:
         dec_state = translator.decoder.add_input(dec_state, translator.trg_embedder.embed(ref_word))
 
-    if self.truncate_batches:
+    if self.truncate_dec_batches:
       return dy.esum([dy.sum_batches(wl) for wl in losses])
     else:
       return dy.esum(losses)

@@ -70,8 +70,8 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
                rnn_layer: UniLSTMSeqTransducer = bare(UniLSTMSeqTransducer),
                mlp_layer: MLP = bare(MLP),
                bridge: Bridge = bare(CopyBridge),
-               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches"),
-               label_smoothing: float = 0.0):
+               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False),
+               label_smoothing: float = 0.0) -> None:
     self.param_col = ParamManager.my_params(self)
     self.input_dim = input_dim
     self.truncate_dec_batches = truncate_dec_batches
@@ -188,10 +188,10 @@ class MlpSoftmaxLexiconDecoder(MlpSoftmaxDecoder, Serializable):
                lexicon_type='bias',
                lexicon_alpha=0.001,
                linear_projector=None,
-               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches"),
+               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False),
                param_init_lin=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init_lin=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
-               ):
+               ) -> None:
     super().__init__(input_dim, trg_embed_dim, input_feeding, rnn_layer,
                      mlp_layer, bridge, truncate_dec_batches, label_smoothing)
     assert lexicon_file is not None

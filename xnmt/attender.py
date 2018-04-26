@@ -61,7 +61,7 @@ class MlpAttender(Attender, Serializable):
                hidden_dim: int = Ref("exp_global.default_layer_dim"),
                param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init: ParamInitializer = Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
-               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches")):
+               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
@@ -97,8 +97,8 @@ class MlpAttender(Attender, Serializable):
       else: state, WI = xnmt.batcher.truncate_batches(state, WI)
     h = dy.tanh(dy.colwise_add(WI, V * state))
     scores = dy.transpose(U * h)
-    if self.curr_sent.mask is not None:
-      scores = self.curr_sent.mask.add_to_tensor_expr(scores, multiplicator = -100.0)
+    if curr_sent_mask is not None:
+      scores = curr_sent_mask.add_to_tensor_expr(scores, multiplicator = -100.0)
     normalized = dy.softmax(scores)
     self.attention_vecs.append(normalized)
     return normalized
@@ -122,7 +122,8 @@ class DotAttender(Attender, Serializable):
   yaml_tag = '!DotAttender'
 
   @serializable_init
-  def __init__(self, scale: bool = True, truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches")):
+  def __init__(self, scale: bool = True,
+               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
     if truncate_dec_batches: raise NotImplementedError("truncate_dec_batches not yet implemented for DotAttender")
     self.curr_sent = None
     self.scale = scale
@@ -167,7 +168,7 @@ class BilinearAttender(Attender, Serializable):
                input_dim: int = Ref("exp_global.default_layer_dim"),
                state_dim: int = Ref("exp_global.default_layer_dim"),
                param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches")):
+               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
     if truncate_dec_batches: raise NotImplementedError("truncate_dec_batches not yet implemented for BilinearAttender")
     self.input_dim = input_dim
     self.state_dim = state_dim
