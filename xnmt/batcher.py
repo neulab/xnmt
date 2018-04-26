@@ -45,14 +45,12 @@ class Mask(object):
   def reversed(self):
     return Mask(self.np_arr[:,::-1])
 
-  def add_to_tensor_expr(self, tensor_expr, multiplicator=None, truncate_batch_dim=False):
+  def add_to_tensor_expr(self, tensor_expr, multiplicator=None):
     # TODO: might cache these expressions to save memory
     if np.count_nonzero(self.np_arr) == 0:
       return tensor_expr
     else:
       transp_arr = self.np_arr.transpose()
-      if truncate_batch_dim and transp_arr.shape[-1] > tensor_expr.dim()[1]:
-        transp_arr = transp_arr[:,tensor_expr.dim()[1]]
       if multiplicator is not None:
         mask_expr = dy.inputTensor(np.expand_dims(transp_arr, axis=1) * multiplicator, batched=True)
       else:

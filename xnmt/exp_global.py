@@ -17,6 +17,7 @@ class ExpGlobal(Serializable):
     default_layer_dim: Default layer dimension that should be used by supporting components but can be overwritten
     param_init: Default parameter initializer that should be used by supporting components but can be overwritten
     bias_init: Default initializer for bias parameters that should be used by supporting components but can be overwritten
+    truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
     save_num_checkpoints: save DyNet parameters for the most recent n checkpoints, useful for model averaging/ensembling
     commandline_args: Holds commandline arguments with which XNMT was launched
     placeholders: these will be used as arguments for a format() call applied to every string in the config.
@@ -35,6 +36,7 @@ class ExpGlobal(Serializable):
                default_layer_dim: int = 512,
                param_init: ParamInitializer = bare(GlorotInitializer),
                bias_init: ParamInitializer = bare(ZeroInitializer),
+               truncate_dec_batches: bool = False,
                save_num_checkpoints: int = 1,
                commandline_args=None,
                placeholders: Dict[str, str] = {}) -> None:
@@ -45,6 +47,7 @@ class ExpGlobal(Serializable):
     self.default_layer_dim = default_layer_dim
     self.param_init = param_init
     self.bias_init = bias_init
+    self.truncate_dec_batches = truncate_dec_batches
     self.commandline_args = commandline_args
     self.save_num_checkpoints = save_num_checkpoints
     self.placeholders = placeholders
