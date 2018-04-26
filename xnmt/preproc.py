@@ -196,7 +196,6 @@ class SentencepieceTokenizer(Tokenizer):
     "File" output for Sentencepiece written to StringIO temporarily before being written to disk.
 
     """
-    import sentencepiece as spm
     # TODO: deprecate the path argument
     self.sentpiece_path = path
     self.model_prefix = model_prefix
@@ -214,9 +213,10 @@ class SentencepieceTokenizer(Tokenizer):
                                  '--model_type=' + str(model_type)
                                 ]
 
-    self.sentpiece_processor = None
+    self.sentpiece_initialized = False
 
   def init_sentencepiece(self):
+    import sentencepiece as spm
     if ((not os.path.exists(self.model_prefix + '.model')) or
         (not os.path.exists(self.model_prefix + '.vocab')) or
         self.overwrite):
@@ -227,11 +227,12 @@ class SentencepieceTokenizer(Tokenizer):
     self.sentpiece_processor.Load('%s.model' % self.model_prefix)
 
     self.sentpiece_encode = self.sentpiece_processor.EncodeAsPieces if self.output_format == 'piece' else self.sentpiece_processor.EncodeAsIds
+    self.sentpiece_initialized = True
 
   
   def tokenize(self, sent):
     """Tokenizes a single sentence into pieces."""
-    if self.sentpiece_processor is None:
+    if not self.sentpiece_initialized:
         self.init_sentencepiece()
     return ' '.join(self.sentpiece_encode(sent))
 
