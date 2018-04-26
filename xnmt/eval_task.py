@@ -55,6 +55,7 @@ class LossEvalTask(Serializable):
     self.desc=desc
 
   def eval(self):
+    self.model.set_train(False)
     if self.src_data == None:
       self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
         xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
@@ -115,6 +116,7 @@ class AccuracyEvalTask(Serializable):
     self.desc=desc
 
   def eval(self):
+    self.model.set_train(False)
     self.inference(generator = self.model,
                    src_file = self.src_file,
                    trg_file = self.hyp_file,

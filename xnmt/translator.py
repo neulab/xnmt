@@ -23,7 +23,7 @@ from xnmt.output import TextOutput
 import xnmt.plot
 from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable, bare, initialize_object, initialize_if_needed
-from xnmt.search_strategy import BeamSearch, GreedySearch
+from xnmt.search_strategy import BeamSearch, GreedySearch, MctsSearch
 from collections import namedtuple
 from xnmt.vocab import Vocab
 from xnmt.constants import EPSILON
