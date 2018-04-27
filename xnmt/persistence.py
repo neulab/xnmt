@@ -32,6 +32,7 @@ import yaml
 
 from xnmt.param_collection import ParamManager
 from xnmt.util import YamlSerializable
+from xnmt import param_collection
 
 
 class Serializable(yaml.YAMLObject):
@@ -1171,7 +1172,7 @@ def _dump(ser_obj):
   _resolve_serialize_refs(ser_obj)
   return yaml.dump(ser_obj)
 
-def save_to_file(fname: str, mod: YamlSerializable, param_collection: 'ParamCollection') -> None:
+def save_to_file(fname: str, mod: YamlSerializable, param_collection: 'param_collection.ParamCollection') -> None:
   """
   Save a component hierarchy and corresponding DyNet parameter collection to disk.
 
