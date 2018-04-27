@@ -1,3 +1,7 @@
+"""
+This module contains classes for computing evaluation metrics and corresponding classes that contain resulting scores.
+"""
+
 from collections import defaultdict, Counter
 import math
 import subprocess
@@ -412,11 +416,17 @@ class GLEUEvaluator(Evaluator, Serializable):
 class WEREvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of word error rate.
+
+  Args:
+    case_sensitive: whether scoring should be case-sensitive
+    cross_lines: if True, merge all lines into a single line before scoring
+                 (careful with long files, quadratic time and space complexity!)
   """
   yaml_tag = "!WEREvaluator"
   @serializable_init
-  def __init__(self, case_sensitive=False):
+  def __init__(self, case_sensitive: bool = False, cross_lines: bool = False):
     self.case_sensitive = case_sensitive
+    self.cross_lines = cross_lines
 
   def metric_name(self):
     return "Word error rate"
@@ -432,6 +442,9 @@ class WEREvaluator(Evaluator, Serializable):
     Return:
       formatted string (word error rate: (ins+del+sub) / (ref_len), plus more statistics)
     """
+    if self.cross_lines:
+      ref = [sum(ref, [])]
+      hyp = [sum(hyp, [])]
     total_dist, total_ref_len, total_hyp_len = 0, 0, 0
     for ref_sent, hyp_sent in zip(ref, hyp):
       dist = self.dist_one_pair(ref_sent, hyp_sent)
@@ -489,12 +502,17 @@ class WEREvaluator(Evaluator, Serializable):
 class CEREvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of character error rate.
+
+  Args:
+    case_sensitive: whether scoring should be case-sensitive
+    cross_lines: if True, merge all lines into a single line before scoring
+                 (careful with long files, quadratic time and space complexity!)
   """
   yaml_tag = "!CEREvaluator"
 
   @serializable_init
-  def __init__(self, case_sensitive=False):
-    self.wer_evaluator = WEREvaluator(case_sensitive=case_sensitive)
+  def __init__(self, case_sensitive=False, cross_lines=False):
+    self.wer_evaluator = WEREvaluator(case_sensitive=case_sensitive, cross_lines=cross_lines)
 
   def metric_name(self):
     return "Character error rate"
