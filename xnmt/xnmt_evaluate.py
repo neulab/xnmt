@@ -1,11 +1,9 @@
 import argparse
 import sys
-from typing import Any, Sequence
+from typing import Any, Sequence, Union
 
-from xnmt import logger
 from xnmt.evaluator import * # import everything so we can parse it with eval()
 from xnmt.inference import NO_DECODING_ATTEMPTED
-from xnmt.util import OneOrSeveral
 
 def read_data(loc_, post_process=None):
   """Reads the lines in the file specified in loc_ and return the list after inserting the tokens
@@ -29,7 +27,7 @@ eval_shortcuts = {
 }
 
 
-def xnmt_evaluate(ref_file: OneOrSeveral[str], hyp_file: OneOrSeveral[str],
+def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequence[str]],
                   evaluators: Sequence[Evaluator], desc: Any = None) -> Sequence[EvalScore]:
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
 

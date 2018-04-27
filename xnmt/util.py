@@ -1,11 +1,8 @@
 import os
 from typing import TypeVar, Sequence, Union, Dict,List
-T = TypeVar('T')
 import time
 
 from xnmt import logger, yaml_logger
-
-OneOrSeveral = Union[T,Sequence[T]]
 
 YamlSerializable=Union[None,bool,int,float,'Serializable',List['YamlSerializable'],Dict[str,'YamlSerializable']]
 
