@@ -1,3 +1,7 @@
+"""
+This module contains classes for computing evaluation metrics and corresponding classes that contain resulting scores.
+"""
+
 from collections import defaultdict, Counter
 import math
 import subprocess
@@ -415,7 +419,7 @@ class WEREvaluator(Evaluator, Serializable):
 
   Args:
     case_sensitive: whether scoring should be case-sensitive
-    cross-lines: if True, merge all lines into a single line before scoring
+    cross_lines: if True, merge all lines into a single line before scoring
                  (careful with long files, quadratic time and space complexity!)
   """
   yaml_tag = "!WEREvaluator"
@@ -501,7 +505,7 @@ class CEREvaluator(Evaluator, Serializable):
 
   Args:
     case_sensitive: whether scoring should be case-sensitive
-    cross-lines: if True, merge all lines into a single line before scoring
+    cross_lines: if True, merge all lines into a single line before scoring
                  (careful with long files, quadratic time and space complexity!)
   """
   yaml_tag = "!CEREvaluator"
