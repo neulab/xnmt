@@ -33,10 +33,11 @@ exp1-train-model: !Experiment
       input_feeding: True
       bridge: !CopyBridge {}
     inference: !SimpleInference
-      beam: 5
-      len_norm_type: !PolynomialNormalization
-        apply_during_search: true
-        m: 0.8
+      search_strategy: !BeamSearch
+        beam_size: 5
+        len_norm: !PolynomialNormalization
+          apply_during_search: true
+          m: 0.8
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
@@ -59,7 +60,7 @@ exp2-eval-model: !LoadSerialized
   overwrite: # list of [path, value] pairs. Value can be scalar or an arbitrary object
   - path: train # skip the training loop
     val: null
-  - path: model.inference.beam # try some new beam settings
+  - path: model.inference.search_strategy.beam_size # try some new beam settings
     val: 10
   - path: evaluate
     val: # (re-)define test data and other evaluation settings

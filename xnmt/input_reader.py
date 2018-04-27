@@ -1,5 +1,3 @@
-import logging
-logger = logging.getLogger('xnmt')
 from itertools import zip_longest
 
 import ast
@@ -11,20 +9,23 @@ with warnings.catch_warnings():
   warnings.simplefilter("ignore", lineno=36)
   import h5py
 
+from xnmt import logger
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.serializer import serializable_init
+from xnmt.persistence import serializable_init, Serializable
 from xnmt.vocab import Vocab
 
-
-###### Classes that will read in a file and turn it into an input
-
 class InputReader(object):
+  """
+  A base class to read in a file and turn it into an input
+  """
   def read_sents(self, filename, filter_ids=None):
     """
-    :param filename: data file
-    :param filter_ids: only read sentences with these ids (0-indexed)
-    :returns: iterator over sentences from filename
+    Read sentences and return an iterator.
+
+    Args:
+      filename: data file
+      filter_ids: only read sentences with these ids (0-indexed)
+    Returns: iterator over sentences from filename
     """
     if self.vocab is None:
       self.vocab = Vocab()
@@ -32,20 +33,29 @@ class InputReader(object):
 
   def read_sent(self, sentence, filter_ids=None):
     """
-    :param sentence: a single input string
-    :param filter_ids: only read sentences with these ids (0-indexed)
-    :returns: a SentenceInput object for the input sentence
+    Convert a raw sentence into a SentenceInput object.
+
+    Args:
+      sentence: a single input string
+      filter_ids: only read sentences with these ids (0-indexed)
+    Returns: a SentenceInput object for the input sentence
     """
     raise RuntimeError("Input readers must implement the read_sent function")
 
   def count_sents(self, filename):
     """
-    :param filename: data file
-    :returns: number of sentences in the data file
+    Count the number of sentences in a data file.
+
+    Args:
+      filename: data file
+    Returns: number of sentences in the data file
     """
     raise RuntimeError("Input readers must implement the count_sents function")
 
   def freeze(self):
+    """
+    Freeze the data representation, e.g. by freezing the vocab.
+    """
     pass
 
 class BaseTextReader(InputReader):
@@ -58,9 +68,10 @@ class BaseTextReader(InputReader):
 
   def iterate_filtered(self, filename, filter_ids=None):
     """
-    :param filename: data file (text file)
-    :param filter_ids:
-    :returns: iterator over lines as strings (useful for subclasses to implement read_sents)
+    Args:
+      filename: data file (text file)
+      filter_ids:
+    Returns: iterator over lines as strings (useful for subclasses to implement read_sents)
     """
     sent_count = 0
     max_id = None
@@ -77,8 +88,7 @@ class BaseTextReader(InputReader):
 
 class PlainTextReader(BaseTextReader, Serializable):
   """
-  Handles the typical case of reading plain text files,
-  with one sent per line.
+  Handles the typical case of reading plain text files, with one sent per line.
   """
   yaml_tag = '!PlainTextReader'
 
@@ -98,7 +108,7 @@ class PlainTextReader(BaseTextReader, Serializable):
   def freeze(self):
     self.vocab.freeze()
     self.vocab.set_unk(Vocab.UNK_STR)
-    self.overwrite_serialize_param("vocab", self.vocab)
+    self.save_processed_arg("vocab", self.vocab)
 
   def count_words(self, trg_words):
     trg_cnt = 0
@@ -348,7 +358,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
     max_trg_len (int): skip pair if trg side is too long
 
   Returns:
-    A tuple of (src_data, trg_data, src_batches, trg_batches) where *_batches = *_data if batcher=None
+    A tuple of (src_data, trg_data, src_batches, trg_batches) where ``*_batches = *_data`` if ``batcher=None``
   '''
   src_data = []
   trg_data = []
@@ -356,6 +366,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
     src_len = src_reader.count_sents(src_file)
     trg_len = trg_reader.count_sents(trg_file)
     if src_len != trg_len: raise RuntimeError(f"training src sentences don't match trg sentences: {src_len} != {trg_len}!")
+    if max_num_sents and max_num_sents < src_len: src_len = trg_len = max_num_sents
     filter_ids = np.random.choice(src_len, sample_sents, replace=False)
   else:
     filter_ids = None

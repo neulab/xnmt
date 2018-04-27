@@ -1,36 +1,60 @@
-import logging
-logger = logging.getLogger('xnmt')
 import os
 import re
 
 import dynet as dy
 
+from xnmt import logger
+
 class ParamManager(object):
   """
-  A static class that manages the currently loaded DyNet parameters.
-  There is only one parameter manager, but it can manage parameters from multiple models via named subcollections.
+  A static class that manages the currently loaded DyNet parameters of all components.
+
+  Responsibilities are registering of all components that use DyNet parameters and loading pretrained parameters.
+  Components can register parameters by calling ParamManager.my_params(self) from within their __init__() method.
+  This allocates a subcollection with a unique identifier for this component. When loading previously saved parameters,
+  one or several paths are specified to look for the corresponding saved DyNet collection named after this identifier.
   """
   initialized = False
 
   @staticmethod
-  def init_param_col():
+  def init_param_col() -> None:
+    """
+    Initializes or resets the parameter collection.
+
+    This must be invoked before every time a new model is loaded (e.g. on startup and between consecutive experiments).
+    """
     ParamManager.param_col = ParamCollection()
     ParamManager.load_paths = []
     ParamManager.initialized = True
 
-  @staticmethod
-  def set_save_file(file_name, save_num_checkpoints=1):
-    assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
-    ParamManager.param_col.model_file = file_name
-    ParamManager.param_col.save_num_checkpoints = save_num_checkpoints
+  # @staticmethod
+  # def set_save_file(file_name: str, save_num_checkpoints: int=1) -> None:
+  #   assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
+  #   ParamManager.param_col.model_file = file_name
+  #   ParamManager.param_col.save_num_checkpoints = save_num_checkpoints
 
   @staticmethod
-  def add_load_path(data_file):
+  def add_load_path(data_file: str) -> None:
+    """
+    Add new data directory path to load from.
+
+    When calling populate(), pretrained parameters from all directories added in this way are searched for the
+    requested component identifiers.
+
+    Args:
+      data_file: a data directory (usually named ``*.data``) containing DyNet parameter collections.
+    """
     assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
     ParamManager.load_paths.append(data_file)
 
   @staticmethod
-  def populate():
+  def populate() -> None:
+    """
+    Populate the parameter collections.
+
+    Searches the given data paths and loads parameter collections if they exist, otherwise leave parameters in their
+    randomly initialized state.
+    """
     assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
     populated_subcols = []
     for subcol_name in ParamManager.param_col.subcols:
@@ -45,34 +69,37 @@ class ParamManager(object):
       logger.info(f"> use randomly initialized DyNet weights of all components")
     else:
       logger.info(f"> populated a subset of DyNet weights from given data files: {populated_subcols}.\n"
-                  f"  Did not populate {ParamManager.param_col.subcols.keys() - set(populated_subcols)}")
+                  f"  Did not populate {ParamManager.param_col.subcols.keys() - set(populated_subcols)}.\n"
+                  f"  (Note: if partial population was not intended, likely the unpopulated component or its owner"
+                  f"   does not adhere to the Serializable protocol correctly, see documentation).")
 
   @staticmethod
-  def my_params(subcol_owner):
-    assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
-    """Creates a dedicated parameter subcollection for a serializable object. This should only be called from the
-    __init__ method of a Serializable.
+  def my_params(subcol_owner) -> dy.ParameterCollection:
+    """Creates a dedicated parameter subcollection for a serializable object.
+
+    This should only be called from the __init__ method of a Serializable.
 
     Args:
       subcol_owner (Serializable): The object which is requesting to be assigned a subcollection.
 
     Returns:
-      dynet.ParamManager: The assigned subcollection.
+      The assigned subcollection.
     """
+    assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
     if not hasattr(subcol_owner, "xnmt_subcol_name"):
       raise ValueError(f"{node} does not have an attribute 'xnmt_subcol_name'.\n"
                        f"Did you forget to wrap the __init__() in @serializable_init ?")
     subcol_name = subcol_owner.xnmt_subcol_name
     subcol = ParamManager.param_col.add_subcollection(subcol_name)
-    subcol_owner.overwrite_serialize_param("xnmt_subcol_name", subcol_name)
+    subcol_owner.save_processed_arg("xnmt_subcol_name", subcol_name)
     return subcol
 
   @staticmethod
-  def global_collection():
-    """ Access the top-level parameter collection
+  def global_collection() -> dy.ParameterCollection:
+    """ Access the top-level parameter collection, including all parameters.
 
     Returns:
-      dynet.ParamCollection: top-level DyNet parameter collection
+      top-level DyNet parameter collection
     """
     assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
     return ParamManager.param_col._param_col
@@ -130,6 +157,8 @@ class ParamCollection(object):
     self._is_saved = True
 
   def revert_to_best_model(self):
+    if not self._is_saved:
+      raise ValueError("revert_to_best_model() is illegal because this model has never been saved.")
     for subcol_name, subcol in self.subcols.items():
       subcol.populate(os.path.join(self._data_files[0], subcol_name))
 

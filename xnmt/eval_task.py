@@ -1,6 +1,6 @@
-from typing import Sequence, Union, Any, Optional
+from typing import Sequence, Union, Optional
 
-from simple_settings import settings
+from xnmt.settings import settings
 
 import dynet as dy
 
@@ -8,8 +8,7 @@ from xnmt.evaluator import Evaluator
 from xnmt.generator import GeneratorModel
 from xnmt.inference import SimpleInference
 import xnmt.input_reader
-from xnmt.serialize.serializable import Serializable, Ref
-from xnmt.serialize.serializer import serializable_init
+from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
 from xnmt.loss import LossBuilder, LossScalarBuilder
@@ -43,10 +42,10 @@ class LossEvalTask(Serializable):
   @serializable_init
   def __init__(self, src_file, ref_file, model=Ref("model"),
                 batcher=Ref("train.batcher", default=None),
-                loss_calculator=None, max_src_len=None, max_trg_len=None,
+                loss_calculator=bare(MLELoss), max_src_len=None, max_trg_len=None,
                 desc=None):
     self.model = model
-    self.loss_calculator = loss_calculator or LossCalculator(MLELoss())
+    self.loss_calculator = loss_calculator
     self.src_file = src_file
     self.ref_file = ref_file
     self.batcher = batcher
@@ -56,6 +55,7 @@ class LossEvalTask(Serializable):
     self.desc=desc
 
   def eval(self):
+    self.model.set_train(False)
     if self.src_data == None:
       self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
         xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
@@ -116,6 +116,7 @@ class AccuracyEvalTask(Serializable):
     self.desc=desc
 
   def eval(self):
+    self.model.set_train(False)
     self.inference(generator = self.model,
                    src_file = self.src_file,
                    trg_file = self.hyp_file,

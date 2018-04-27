@@ -12,7 +12,7 @@ from xnmt.eval_task import LossEvalTask
 import xnmt.events
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculator import LossCalculator
+from xnmt.loss_calculator import MLELoss
 from xnmt.mlp import MLP
 from xnmt.optimizer import AdamTrainer
 from xnmt.param_collection import ParamManager
@@ -55,14 +55,14 @@ class TestTruncatedBatchTraining(unittest.TestCase):
       dy.renew_cg()
       train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
                                    trg=trg_sents_trunc[sent_id],
-                                   loss_calculator=LossCalculator()).value()
+                                   loss_calculator=MLELoss()).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
                                    trg=mark_as_batch(trg_sents_trunc),
-                                   loss_calculator=LossCalculator()).value()
+                                   loss_calculator=MLELoss()).value()
     self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)
 
   def test_loss_model1(self):
@@ -202,14 +202,14 @@ class TestBatchTraining(unittest.TestCase):
       dy.renew_cg()
       train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
                                    trg=trg_sents[sent_id],
-                                   loss_calculator=LossCalculator()).value()
+                                   loss_calculator=MLELoss()).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
                                    trg=mark_as_batch(trg_sents_padded, trg_masks),
-                                   loss_calculator=LossCalculator()).value()
+                                   loss_calculator=MLELoss()).value()
     self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)
 
   def test_loss_model1(self):
@@ -300,7 +300,7 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args = {}
     train_args['src_file'] = "examples/data/head.ja"
     train_args['trg_file'] = "examples/data/head.en"
-    train_args['loss_calculator'] = LossCalculator()
+    train_args['loss_calculator'] = MLELoss()
     train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(),
                                             trg_reader=PlainTextReader(),
                                             src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
@@ -330,8 +330,8 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['run_for_epochs'] = 1
     training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(**train_args)
     training_regimen.run_training(save_fct = lambda: None, update_weights=False)
-    self.assertAlmostEqual(training_regimen.logger.epoch_loss.sum() / training_regimen.logger.epoch_words,
-                           training_regimen.logger.dev_score.loss, places=5)
+    self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum() / training_regimen.train_loss_tracker.epoch_words,
+                           training_regimen.dev_loss_tracker.dev_score.loss, places=5)
 
 class TestOverfitting(unittest.TestCase):
 
@@ -345,7 +345,7 @@ class TestOverfitting(unittest.TestCase):
     train_args = {}
     train_args['src_file'] = "examples/data/head.ja"
     train_args['trg_file'] = "examples/data/head.en"
-    train_args['loss_calculator'] = LossCalculator()
+    train_args['loss_calculator'] = MLELoss()
     train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(),
                                             trg_reader=PlainTextReader(),
                                             src_embedder=SimpleWordEmbedder(vocab_size=100, emb_dim=layer_dim),
@@ -379,7 +379,7 @@ class TestOverfitting(unittest.TestCase):
     for _ in range(50):
       training_regimen.run_training(save_fct=lambda:None, update_weights=True)
     self.assertAlmostEqual(0.0,
-                           training_regimen.logger.epoch_loss.sum() / training_regimen.logger.epoch_words,
+                           training_regimen.train_loss_tracker.epoch_loss.sum() / training_regimen.train_loss_tracker.epoch_words,
                            places=2)
 
 if __name__ == '__main__':

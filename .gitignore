@@ -14,5 +14,9 @@ xnmt/cython/*.cpp
 xnmt/cython/*.c
 xnmt/cython/*.so
 test/tmp
+test/config/logs/
+test/config/models/
 /*.yaml
 examples/preproc/
+/test/config/logs/
+/test/config/models/

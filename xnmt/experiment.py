@@ -1,15 +1,13 @@
-import logging
-logger = logging.getLogger('xnmt')
 from typing import List, Optional
 
+from xnmt import logger
 from xnmt.exp_global import ExpGlobal
-from xnmt.param_collection import ParamManager
-from xnmt.serialize.serializer import serializable_init
-from xnmt.preproc_runner import PreprocRunner
-from xnmt.serialize.serializable import Serializable, bare
-from xnmt.training_regimen import TrainingRegimen
-from xnmt.generator import GeneratorModel
 from xnmt.eval_task import EvalTask
+from xnmt.generator import GeneratorModel
+from xnmt.param_collection import ParamManager
+from xnmt.preproc_runner import PreprocRunner
+from xnmt.training_regimen import TrainingRegimen
+from xnmt.persistence import serializable_init, Serializable, bare
 
 class Experiment(Serializable):
   '''
@@ -50,9 +48,10 @@ class Experiment(Serializable):
     """
     Launch training loop, followed by final evaluation.
     """
-    eval_scores = "Not evaluated"
+    eval_scores = ["Not evaluated"]
     if self.train:
       logger.info("> Training")
+      save_fct() # save initial model
       self.train.run_training(save_fct = save_fct)
       logger.info('reverting learned weights to best checkpoint..')
       ParamManager.param_col.revert_to_best_model()

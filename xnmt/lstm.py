@@ -8,8 +8,7 @@ from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.transducer import SeqTransducer, FinalTransducerState
-from xnmt.serialize.serializable import Serializable, Ref, Path, bare
-from xnmt.serialize.serializer import serializable_init
+from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
 class UniLSTMState(object):
   """
@@ -102,7 +101,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     self.input_dim = input_dim
 
     if not isinstance(param_init, Sequence):
-        param_init = [param_init] * layers
+      param_init = [param_init] * layers
     if not isinstance(bias_init, Sequence):
         bias_init = [bias_init] * layers
 

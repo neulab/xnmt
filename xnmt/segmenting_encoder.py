@@ -1,10 +1,8 @@
-import logging
-logger = logging.getLogger('xnmt')
 import numpy
 import dynet as dy
 
 from enum import Enum
-from xml.sax.saxutils import escape, unescape
+from xml.sax.saxutils import escape
 from lxml import etree
 from scipy.stats import poisson
 
@@ -14,12 +12,9 @@ import xnmt.expression_sequence as expression_sequence
 from xnmt.batcher import Mask
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable, Ref, Path
-from xnmt.serialize.serializer import serializable_init
-from xnmt.transducer import SeqTransducer, FinalTransducerState
+from xnmt.persistence import serializable_init, Serializable
+from xnmt.transducer import SeqTransducer
 from xnmt.loss import LossBuilder
-from xnmt.segmenting_composer import TailWordSegmentTransformer, WordOnlySegmentTransformer
-from xnmt.hyper_parameters import GeometricSequence
 from xnmt.param_collection import ParamManager
 
 EPS = 1e-10

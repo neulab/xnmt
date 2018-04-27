@@ -1,11 +1,10 @@
-import logging
-logger = logging.getLogger('xnmt')
-from typing import Any, Sequence
 import argparse
+import sys
+from typing import Any, Sequence
 
-from xnmt.evaluator import *
+from xnmt import logger
+from xnmt.evaluator import * # import everything so we can parse it with eval()
 from xnmt.inference import NO_DECODING_ATTEMPTED
-from xnmt.serialize.serializable import bare
 from xnmt.util import OneOrSeveral
 
 def read_data(loc_, post_process=None):
@@ -52,7 +51,7 @@ def xnmt_evaluate(ref_file: OneOrSeveral[str], hyp_file: OneOrSeveral[str],
 
   return [evaluator.evaluate(ref_corpus, hyp_corpus, desc=desc) for evaluator in evaluators]
 
-if __name__ == "__main__":
+def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("ref", help="Path to read reference file from")
   parser.add_argument("hyp", help="Path to read hypothesis file from")
@@ -61,7 +60,6 @@ if __name__ == "__main__":
                                       f"metrics with non-default settings can by used by specifying a Python list of "
                                       f"Evaluator objects to be parsed using eval(). "
                                       f"Example: '[WEREvaluator(case_sensitive=True)]'")
-  parser.add_argument("--settings")
   args = parser.parse_args()
 
   evaluators = args.metrics
@@ -74,3 +72,5 @@ if __name__ == "__main__":
   for score in scores:
     print(score)
 
+if __name__ == "__main__":
+  sys.exit(main())

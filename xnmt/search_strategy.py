@@ -1,64 +1,105 @@
+from collections import namedtuple
+import math
+
 import dynet as dy
 import numpy as np
-from collections import namedtuple
 
+import xnmt.batcher
 from xnmt.length_normalization import NoNormalization
-from xnmt.serialize.serializable import bare
+from xnmt.persistence import bare, Serializable, serializable_init, Ref, bare
 from xnmt.vocab import Vocab
 
+
 # Output of the search
-SearchOutput = namedtuple('SearchOutput', ['word_ids', 'attentions'])
+# words_ids: list of generated word ids
+# attentions: list of corresponding attention vector of word_ids
+# score: a single value of log(p(E|F))
+# logsoftmaxes: a corresponding softmax vector of the score. score = logsoftmax[word_id]
+# state: a NON-BACKPROPAGATEABLE state that is used to produce the logsoftmax layer
+#        state is usually used to generate 'baseline' in reinforce loss
+# masks: whether the particular word id should be ignored or not (1 for not, 0 for yes)
+SearchOutput = namedtuple('SearchOutput', ['word_ids', 'attentions', 'score', 'logsoftmaxes', 'state', 'mask'])
 
 class SearchStrategy(object):
   '''
-  A template class to generate translation from the output probability model.
+  A template class to generate translation from the output probability model. (Non-batched operation)
   '''
-  def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
+  def generate_output(self, translator, dec_state,
+                      src_length=None, forced_trg_ids=None):
     """
     Args:
-      decoder (Decoder):
-      attender (Attender):
-      output_embedder (Embedder): target embedder
+      translator (Translator): a translator
       dec_state (MlpSoftmaxDecoderState): initial decoder state
       src_length (int): length of src sequence, required for some types of length normalization
       forced_trg_ids (List[int]): list of word ids, if given will force to generate this is the target sequence
     Returns:
-      Tuple[List[int],float]: (id list, score)
+      List[SearchOutput]: List of (word_ids, attentions, score, logsoftmaxes)
     """
     raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')
 
-class GreedySearch(SearchStrategy):
+class GreedySearch(Serializable, SearchStrategy):
   '''
   Performs greedy search (aka beam search with beam size 1)
   
   Args:
     max_len (int): maximum number of tokens to generate.
   '''
+
+  yaml_tag = '!GreedySearch'
+
+  @serializable_init
   def __init__(self, max_len=100):
     self.max_len = max_len
-  def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
-    score = 0.0
+
+  def generate_output(self, translator, initial_state,
+                      src_length=None, forced_trg_ids=None):
+    # Output variables
+    score = []
     word_ids = []
     attentions = []
-
-    while (word_ids==[] or word_ids[-1]!=Vocab.ES) and len(word_ids) < self.max_len:
-      if len(word_ids) > 0: # don't feed in the initial start-of-sentence token
-        dec_state = decoder.add_input(dec_state, output_embedder.embed(word_ids[-1] if forced_trg_ids is None else forced_trg_ids[len(word_ids)-1]))
-      dec_state.context = attender.calc_context(dec_state.rnn_state.output())
-      logsoftmax = dy.log_softmax(decoder.get_scores(dec_state)).npvalue()
+    logsoftmaxes = []
+    states = []
+    masks = []
+    # Search Variables
+    done = None
+    current_state = initial_state
+    current_output = None
+    for length in range(self.max_len):
+      prev_word = word_ids[length-1] if length > 0 else None
+      current_output = translator.output_one_step(prev_word, current_state)
+      current_state = current_output.state
       if forced_trg_ids is None:
-        cur_id = np.argmax(logsoftmax)
+        word_id = np.argmax(current_output.logsoftmax.npvalue(), axis=0)
+        if len(word_id.shape) == 2:
+          word_id = word_id[0]
       else:
-        cur_id = forced_trg_ids[len(word_ids)]
+        if xnmt.batcher.is_batched(forced_trg_ids):
+          word_id = [forced_trg_ids[i][length] for i in range(len(forced_trg_ids))]
+        else:
+          word_id = [forced_trg_ids[length]]
+      logsoft = dy.pick_batch(current_output.logsoftmax, word_id)
+      if done is not None:
+        word_id = [word_id[i] if not done[i] else Vocab.ES for i in range(len(done))]
+        # masking for logsoftmax
+        mask = [1 if not done[i] else 0 for i in range(len(done))]
+        logsoft = dy.cmult(logsoft, dy.inputTensor(mask, batched=True))
+        masks.append(mask)
+      # Packing outputs
+      score.append(logsoft.npvalue())
+      word_ids.append(word_id)
+      attentions.append(current_output.attention)
+      logsoftmaxes.append(dy.pick_batch(current_output.logsoftmax, word_id))
+      states.append(translator.get_nobp_state(current_state))
+      # Check if we are done.
+      done = [x == Vocab.ES for x in word_id]
+      if all(done):
+        break
+    masks.insert(0, [1 for _ in range(len(done))])
+    words = np.stack(word_ids, axis=1)
+    score = np.sum(score, axis=0)
+    return [SearchOutput(words, attentions, score, logsoftmaxes, states, masks)]
 
-      score += logsoftmax[cur_id]
-      word_ids.append(cur_id)
-      attentions.append(attender.get_last_attention())
-
-    return SearchOutput(word_ids, attentions), score
-
-class BeamSearch(SearchStrategy):
-  
+class BeamSearch(Serializable, SearchStrategy):
   """
   Performs beam search.
   
@@ -66,69 +107,328 @@ class BeamSearch(SearchStrategy):
     beam_size (int):
     max_len (int): maximum number of tokens to generate.
     len_norm (LengthNormalization): type of length normalization to apply
+    one_best (bool): Whether to output the best hyp only or all completed hyps.
   """
 
-  def __init__(self, beam_size, max_len=100, len_norm=bare(NoNormalization)):
+  yaml_tag = '!BeamSearch'
+  Hypothesis = namedtuple('Hypothesis', ['score', 'output', 'parent', 'word'])
+  
+  @serializable_init
+  def __init__(self, beam_size=1, max_len=100, len_norm=bare(NoNormalization), one_best=True):
     self.beam_size = beam_size
     self.max_len = max_len
     self.len_norm = len_norm
+    self.one_best = one_best
 
-    self.entrs = []
-
-  class Hypothesis:
-    def __init__(self, score, output, state):
-      self.score = score
-      self.state = state
-      self.output = output
-    def __str__(self):
-      return "hypo S=%s ids=%s" % (self.score, self.output.word_ids)
-    def __repr__(self):
-      return "hypo S=%s |ids|=%s" % (self.score, len(self.output.word_ids))
-
-  def generate_output(self, decoder, attender, output_embedder, dec_state, src_length=None, forced_trg_ids=None):
-
-    if forced_trg_ids is not None: assert self.beam_size == 1
-    active_hyp = [self.Hypothesis(0, SearchOutput([], []), dec_state)]
-
+  def generate_output(self, translator, initial_state, src_length=None, forced_trg_ids=None):
+    # TODO(philip30): can only do single decoding, not batched
+    assert forced_trg_ids is None or self.beam_size == 1
+    active_hyp = [self.Hypothesis(0, None, None, None)]
     completed_hyp = []
-    length = 0
-
-    # TODO(philip30): Copying the output at each hypothesis expansion is not time efficient (memory efficient?).
-    # every hyp should just store the output at its timestep, store the reference to the parent hyp
-    # and do backtracking to collect all the outputs.
-    while len(completed_hyp) < self.beam_size and length < self.max_len:
+    for length in range(self.max_len):
+      if len(completed_hyp) >= self.beam_size:
+        break
+      # Expand hyp
       new_set = []
       for hyp in active_hyp:
-        dec_state = hyp.state
-        if length > 0: # don't feed in the initial start-of-sentence token
-          last_generated = hyp.output.word_ids[-1]
-          if last_generated == Vocab.ES:
-            completed_hyp.append(hyp)
-            continue
-          dec_state = decoder.add_input(dec_state, output_embedder.embed(last_generated if forced_trg_ids is None else forced_trg_ids[length-1]))
-        dec_state.context = attender.calc_context(dec_state.rnn_state.output())
-        score = dy.log_softmax(decoder.get_scores(dec_state)).npvalue()
-        if forced_trg_ids is None:
-          top_ids = np.argpartition(score, max(-len(score),-self.beam_size))[-self.beam_size:]
+        if length > 0:
+          prev_word = hyp.word
+          prev_state = hyp.output.state
         else:
-          top_ids = [forced_trg_ids[length]]
-
-        for cur_id in top_ids:
-          new_list = list(hyp.output.word_ids)
-          new_list.append(cur_id)
-          new_attn = list(hyp.output.attentions)
-          new_attn.append(attender.get_last_attention())
-          new_set.append(self.Hypothesis(self.len_norm.normalize_partial(hyp.score, score[cur_id], len(new_list)),
-                                         SearchOutput(new_list, new_attn),
-                                         dec_state))
-      length += 1
-
+          prev_word = None
+          prev_state = initial_state
+        if prev_word == Vocab.ES:
+          completed_hyp.append(hyp)
+          continue
+        current_output = translator.output_one_step(prev_word, prev_state)
+        score = current_output.logsoftmax.npvalue().transpose()
+        # Next Words
+        if forced_trg_ids is None:
+          top_words = np.argpartition(score, max(-len(score),-self.beam_size))[-self.beam_size:]
+        else:
+          top_words = [forced_trg_ids[length]]
+        # Queue next states
+        for cur_word in top_words:
+          new_score = self.len_norm.normalize_partial(hyp.score, score[cur_word], length+1)
+          new_set.append(self.Hypothesis(new_score, current_output, hyp, cur_word))
+      # Next top hypothesis
       active_hyp = sorted(new_set, key=lambda x: x.score, reverse=True)[:self.beam_size]
-
+    # There is no hyp reached </s>
     if len(completed_hyp) == 0:
       completed_hyp = active_hyp
+    # Length Normalization
+    normalized_scores = self.len_norm.normalize_completed(completed_hyp, src_length)
+    hyp_and_score = sorted(list(zip(completed_hyp, normalized_scores)), key=lambda x: x[1], reverse=True)
+    if self.one_best:
+      hyp_and_score = [hyp_and_score[0]]
+    # Backtracing + Packing outputs
+    results = []
+    for end_hyp, score in hyp_and_score:
+      logsoftmaxes = []
+      word_ids = []
+      attentions = []
+      states = []
+      current = end_hyp
+      while current.parent != None:
+        word_ids.append(current.word)
+        attentions.append(current.output.attention)
+        # TODO(philip30): This should probably be uncommented.
+        # These 2 statements are an overhead because it is need only for reinforce and minrisk
+        # Furthermore, the attentions is only needed for report.
+        # We should have a global flag to indicate whether this is needed or not?
+        # The global flag is modified if certain objects is instantiated.
+        #logsoftmaxes.append(dy.pick(current.output.logsoftmax, current.word))
+        #states.append(translator.get_nobp_state(current.output.state))
+        current = current.parent
+      results.append(SearchOutput([list(reversed(word_ids))], [list(reversed(attentions))],
+                                  [score], list(reversed(logsoftmaxes)), list(reversed(states)), None))
+    return results
 
-    self.len_norm.normalize_completed(completed_hyp, src_length)
+class SamplingSearch(Serializable, SearchStrategy):
+  """
+  Performs search based on the softmax probability distribution.
+  Similar to greedy searchol
+  
+  Args:
+    max_len (int):
+    sample_size (int): 
+  """
 
-    result = sorted(completed_hyp, key=lambda x: x.score, reverse=True)[0]
-    return result.output, result.score
+  yaml_tag = '!SamplingSearch'
+
+  @serializable_init
+  def __init__(self, max_len=100, sample_size=5):
+    self.max_len = max_len
+    self.sample_size = sample_size
+
+  def generate_output(self, translator, initial_state,
+                      src_length=None, forced_trg_ids=None):
+    outputs = []
+    for k in range(self.sample_size):
+      if k == 0 and forced_trg_ids is not None:
+        outputs.append(self.sample_one(translator, initial_state, forced_trg_ids))
+      else:
+        outputs.append(self.sample_one(translator, initial_state))
+    return outputs
+ 
+  # Words ids, attentions, score, logsoftmax, state
+  def sample_one(self, translator, initial_state, forced_trg_ids=None):
+    # Search variables
+    current_words = None
+    current_state = initial_state
+    done = None
+    # Outputs
+    logsofts = []
+    samples = []
+    states = []
+    attentions = []
+    masks = []
+    # Sample to the max length
+    for length in range(self.max_len):
+      translator_output = translator.output_one_step(current_words, current_state)
+      if forced_trg_ids is None:
+        sample = translator_output.logsoftmax.tensor_value().categorical_sample_log_prob().as_numpy()
+        if len(sample.shape) == 2:
+          sample = sample[0]
+      else:
+        sample = [forced_trg[length] if len(forced_trg) > length else Vocab.ES for forced_trg in forced_trg_ids]
+      logsoft = dy.pick_batch(translator_output.logsoftmax, sample)
+      if done is not None:
+        sample = [sample[i] if not done[i] else Vocab.ES for i in range(len(done))]
+        # masking for logsoftmax
+        mask = [1 if not done[i] else 0 for i in range(len(done))]
+        logsoft = dy.cmult(logsoft, dy.inputTensor(mask, batched=True))
+        masks.append(mask)
+      # Appending output
+      logsofts.append(logsoft)
+      samples.append(sample)
+      states.append(translator.get_nobp_state(translator_output.state))
+      attentions.append(translator_output.attention)
+      # Next time step
+      current_words = sample
+      current_state = translator_output.state
+      # Check done
+      done = [x == Vocab.ES for x in sample]
+      # Check if we are done.
+      if all(done):
+        break
+    # Packing output
+    scores = dy.esum(logsofts).npvalue()
+    masks.insert(0, [1 for _ in range(len(done))])
+    samples = np.stack(samples, axis=1)
+    return SearchOutput(samples, attentions, scores, logsofts, states, masks)
+
+
+class MctsNode:
+  def __init__(self, parent, prior_dist, word, attention, translator, dec_state):
+    self.parent = parent
+    self.prior_dist = prior_dist  # log of softmax
+    self.word = word
+    self.attention = attention
+
+    self.translator = translator
+    self.dec_state = dec_state
+
+    self.tries = 0
+    self.avg_value = 0.0
+    self.children = {}
+
+    # If the child is unvisited, set its avg_value to
+    # parent value - reduction where reduction = c * sqrt(sum of scores of all visited children)
+    # where c is 0.25 in leela
+    self.reduction = 0.0
+
+  def choose_child(self):
+    return max(range(len(self.prior_dist)),
+               key=lambda move: self.compute_priority(move))
+
+  def compute_priority(self, move):
+    if move not in self.children:
+      child_val = self.prior_dist[move] + self.avg_value - self.reduction
+      child_tries = 0
+    else:
+      child_val = self.prior_dist[move] + self.children[move].avg_value
+      child_tries = self.children[move].tries
+
+    K = 5.0
+    exp_term = math.sqrt(1.0 * self.tries + 1.0) / (child_tries + 1)
+    # TODO: This exp could be done before the prior is passed into the MctsNode
+    # so it's done as a big batch
+    exp_term *= K * math.exp(self.prior_dist[move])
+    total_value = child_val + exp_term
+    return total_value
+
+  def expand(self):
+    if self.word == Vocab.ES:
+      return self
+
+    move = self.choose_child()
+    if move in self.children:
+      return self.children[move].expand()
+    else:
+      output = self.translator.output_one_step(move, self.dec_state)
+      prior_dist = output.logsoftmax.npvalue()
+      attention = output.attention
+
+      path = []
+      node = self
+      while node != None:
+        path.append(node.word)
+        node = node.parent
+      path = ' '.join(str(word) for word in reversed(path))
+      print('Creating new node:', path, '+', move)
+      new_node = MctsNode(self, prior_dist, move, attention,
+                          self.translator, output.state)
+      self.children[move] = new_node
+      return new_node
+
+  def rollout(self, sample_func, max_len):
+    prefix = []
+    scores = []
+    prev_word = None
+    dec_state = self.dec_state
+
+    if self.word == Vocab.ES:
+      return prefix, scores
+
+    while True:
+      output = self.translator.output_one_step(prev_word, dec_state)
+      logsoftmax = output.logsoftmax.npvalue()
+      attention = output.attention
+      best_id = sample_func(logsoftmax)
+      print("Rolling out node with word=", best_id, 'score=', logsoftmax[best_id])
+
+      prefix.append(best_id)
+      scores.append(logsoftmax[best_id])
+
+      if best_id == Vocab.ES or len(prefix) >= max_len:
+        break
+      prev_word = best_id
+      dec_state = output.state
+    return prefix, scores
+
+  def backup(self, result):
+    print('Backing up', result)
+    self.avg_value = self.avg_value * (self.tries / (self.tries + 1)) + result / (self.tries + 1)
+    self.tries += 1
+    if self.parent is not None:
+      my_prob = self.parent.prior_dist[self.word]
+      self.parent.backup(result + my_prob)
+
+  def collect(self, words, attentions):
+    if self.word != None:
+      words.append(self.word)
+      attentions.append(self.attention)
+    if len(self.children) > 0:
+      best_child = max(self.children.itervalues(), key=lambda child: child.visits)
+      best_child.collect(words, attentions)
+
+
+def random_choice(logsoftmax):
+  #logsoftmax *= 100
+  probs = np.exp(logsoftmax)
+  probs /= sum(probs)
+  choices = np.random.choice(len(probs), 1, p=probs)
+  return choices[0]
+
+
+def greedy_choice(logsoftmax):
+  return np.argmax(logsoftmax)
+
+
+class MctsSearch(Serializable, SearchStrategy):
+  '''
+  Performs search with Monte Carlo Tree Search
+  '''
+  yaml_tag = '!MctsSearch'
+
+  def __init__(self, visits=200, max_len=100):
+    self.max_len = max_len
+    self.visits = visits
+
+  def generate_output(self, translator, dec_state, src_length=None, forced_trg_ids=None):
+    assert forced_trg_ids is None
+    orig_dec_state = dec_state
+
+    output = translator.output_one_step(None, dec_state)
+    dec_state = output.state
+    assert dec_state == orig_dec_state
+    logsoftmax = output.logsoftmax.npvalue()
+    root_node = MctsNode(None, logsoftmax, None, None, translator, dec_state)
+    for i in range(self.visits):
+      terminal = root_node.expand()
+      words, scores = terminal.rollout(random_choice, self.max_len)
+      terminal.backup(sum(scores))
+      print()
+
+    print('Final stats:')
+    for word in root_node.children:
+      print (word, root_node.compute_priority(word), root_node.prior_dist[word] + root_node.children[word].avg_value, root_node.children[word].tries)
+    print()
+
+    scores = []
+    logsoftmaxes = []
+    word_ids = []
+    attentions = []
+    states = []
+    masks = []
+
+    node = root_node
+    while True:
+      if len(node.children) == 0:
+        break
+      best_word = max(node.children, key=lambda word: node.children[word].tries)
+      score = node.prior_dist[best_word]
+      attention = node.children[best_word].attention
+
+      scores.append(score)
+      logsoftmaxes.append(node.prior_dist)
+      word_ids.append(best_word)
+      attentions.append(attention)
+      states.append(node.dec_state)
+      masks.append(1)
+
+      node = node.children[best_word]
+
+    word_ids = np.expand_dims(word_ids, axis=0)
+    return [SearchOutput(word_ids, attentions, scores, logsoftmaxes, states, masks)]

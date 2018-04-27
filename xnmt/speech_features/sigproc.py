@@ -3,8 +3,8 @@
 import decimal
 
 import numpy
-import logging
 
+from xnmt import logger
 
 def round_half_up(number):
   return int(decimal.Decimal(number).quantize(decimal.Decimal('1'), rounding=decimal.ROUND_HALF_UP))
@@ -106,7 +106,7 @@ def magspec(frames, NFFT):
   :returns: If frames is an NxD matrix, output will be Nx(NFFT/2+1). Each row will be the magnitude spectrum of the corresponding frame.
   """
   if numpy.shape(frames)[1] > NFFT:
-    logging.warn(
+    logger.warn(
         'frame length (%d) is greater than FFT size (%d), frame will be truncated. Increase NFFT to avoid.',
         numpy.shape(frames)[1], NFFT)
   complex_spec = numpy.fft.rfft(frames, NFFT)

@@ -1,9 +1,9 @@
 import sys, os
 import logging
 
-from simple_settings import settings
 import yaml
 
+from xnmt.settings import settings
 from xnmt.util import make_parent_dir
 
 STD_OUTPUT_LEVELNO = 35
@@ -52,10 +52,29 @@ logger.addHandler(ch_err)
 yaml_logger = logging.getLogger("yaml")
 yaml_logger.setLevel(logging.INFO)
 
+_preamble_content = []
+def log_preamble(log_line, level=logging.INFO):
+  """
+  Logs a message when no out_file is set. Once out_file is set, all preamble strings will be prepended to the out_file.
+  Args:
+    log_line: log message
+    level: log level
+  """
+  _preamble_content.append(log_line)
+  logger.log(level=level, msg=log_line)
+
 def set_out_file(out_file):
+  """
+  Set the file to log to. Before calling this, logs are only passed to stdout/stderr.
+  Args:
+    out_file: file name
+  """
   unset_out_file()
   make_parent_dir(out_file)
-  fh = logging.FileHandler(out_file, mode='w')
+  with open(out_file, mode="w") as f_out:
+    for line in _preamble_content:
+      f_out.write(f"{line}\n")
+  fh = logging.FileHandler(out_file)
   fh.setLevel(settings.LOG_LEVEL_FILE)
   fh.setFormatter(MainFormatter())
   logger.addHandler(fh)
@@ -66,6 +85,9 @@ def set_out_file(out_file):
   yaml_logger.addHandler(yaml_fh)
 
 def unset_out_file():
+  """
+  Unset the file to log to.
+  """
   for hdlr in list(logger.handlers):
     if isinstance(hdlr, logging.FileHandler):
       hdlr.close()

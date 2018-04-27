@@ -1,13 +1,10 @@
-import logging
-from Cython.Compiler.TypeSlots import descrdelfunc
-logger = logging.getLogger('xnmt')
 from collections import defaultdict, Counter
 import math
 import subprocess
 import numpy as np
 
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.serializer import serializable_init
+from xnmt import logger
+from xnmt.persistence import serializable_init, Serializable
 
 class EvalScore(object):
   def higher_is_better(self):
@@ -64,7 +61,7 @@ class BLEUScore(EvalScore, Serializable):
     self.serialize_params = {"bleu":bleu, "ngram":ngram}
     self.serialize_params.update({k:getattr(self,k) for k in ["frac_score_list","brevity_penalty_score","hyp_len","ref_len","desc"] if getattr(self,k) is not None})
 
-  def value(self): return self.bleu
+  def value(self): return self.bleu if self.bleu != None else 0.0
   def metric_name(self): return "BLEU" + str(self.ngram)
   def higher_is_better(self): return True
   def score_str(self):
@@ -224,6 +221,7 @@ class BLEUEvaluator(Evaluator, Serializable):
     Args:
       ref: list of reference sents ( a sent is a list of tokens )
       hyp: list of hypothesis sents ( a sent is a list of tokens )
+      desc: description to pass on to returned score
     Return:
       Formatted string having BLEU Score with different intermediate results such as ngram ratio,
       sent length, brevity penalty
@@ -378,6 +376,7 @@ class GLEUEvaluator(Evaluator, Serializable):
     Args:
       ref: list of reference sents ( a sent is a list of tokens )
       hyp: list of hypothesis sents ( a sent is a list of tokens )
+      desc: description to pass on to returned score
     Return:
       Formatted string having GLEU Score
     """
@@ -435,6 +434,7 @@ class WEREvaluator(Evaluator, Serializable):
     Args:
       ref: list of list of reference words
       hyp: list of list of decoded words
+      desc: description to pass on to returned score
     Return:
       formatted string (word error rate: (ins+del+sub) / (ref_len), plus more statistics)
     """
@@ -520,6 +520,7 @@ class CEREvaluator(Evaluator, Serializable):
     Args:
       ref: list of list of reference words
       hyp: list of list of decoded words
+      desc: description to pass on to returned score
     Return:
       character error rate: (ins+del+sub) / (ref_len)
     """
@@ -549,6 +550,7 @@ class ExternalEvaluator(Evaluator, Serializable):
     Args:
       ref: list of list of reference words
       hyp: list of list of decoded words
+      desc: description to pass on to returned score
     Return:
       external eval script score
     """
@@ -623,6 +625,7 @@ class SequenceAccuracyEvaluator(Evaluator, Serializable):
     Args:
       ref: list of list of reference words
       hyp: list of list of decoded words
+      desc: description to pass on to returned score
     Return: formatted string
     """
     correct = sum(self.compare(ref_sent, hyp_sent) for ref_sent, hyp_sent in zip(ref, hyp))

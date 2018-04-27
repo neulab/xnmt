@@ -1,5 +1,5 @@
 .. xnmt documentation master file, created by
-   sphinx-quickstart on Mon May 29 09:58:33 2017.
+   sphinx-quickstart on Tue Apr 17 10:09:35 2018.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
@@ -20,3 +20,10 @@ It is coded in Python based on `DyNet <http://github.com/clab/dynet>`_.
    programming_style
    writing_xnmt_classes
 
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
