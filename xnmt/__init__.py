@@ -63,4 +63,7 @@ def init_representer(dumper, obj):
 
 import yaml
 for SerializableChild in xnmt.persistence.Serializable.__subclasses__():
+  assert hasattr(SerializableChild,
+                 "yaml_tag") and SerializableChild.yaml_tag == f"!{SerializableChild.__name__}",\
+    f"missing or misnamed yaml_tag attribute for class {SerializableChild.__name__}"
   yaml.add_representer(SerializableChild, init_representer)

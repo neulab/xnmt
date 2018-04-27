@@ -66,7 +66,7 @@ class NormalizerRemovePunct(Normalizer):
 
 ###### Tokenizers
 
-class Tokenizer(Normalizer, Serializable):
+class Tokenizer(Normalizer):
   """
   Pass the text through an internal or external tokenizer.
 
@@ -90,7 +90,7 @@ class Tokenizer(Normalizer, Serializable):
     for line in stream:
       yield self.tokenize(line.strip())
 
-class BPETokenizer(Tokenizer):
+class BPETokenizer(Tokenizer, Serializable):
   """
   Class for byte-pair encoding tokenizer.
 
@@ -107,7 +107,7 @@ class BPETokenizer(Tokenizer):
     """Tokenizes a single sentence according to the determined BPE."""
     raise NotImplementedError("BPETokenizer is not implemented")
 
-class CharacterTokenizer(Tokenizer):
+class CharacterTokenizer(Tokenizer, Serializable):
   """
   Tokenize into characters, with __ indicating blank spaces
   """
@@ -121,7 +121,7 @@ class CharacterTokenizer(Tokenizer):
     """Tokenizes a single sentence into characters."""
     return ' '.join([('__' if x == ' ' else x) for x in sent])
 
-class ExternalTokenizer(Tokenizer):
+class ExternalTokenizer(Tokenizer, Serializable):
   """
   Class for arbitrary external tokenizer that accepts untokenized text to stdin and
   emits tokenized tezt to stdout, with passable parameters.
@@ -169,7 +169,7 @@ class ExternalTokenizer(Tokenizer):
       sys.stderr.write(stderr + '\n')
     return stdout
 
-class SentencepieceTokenizer(Tokenizer):
+class SentencepieceTokenizer(Tokenizer, Serializable):
   """
   Sentencepiece tokenizer
   The options supported by the SentencepieceTokenizer are almost exactly those presented in the Sentencepiece `readme <https://github.com/google/sentencepiece/blob/master/README.md>`_, namely:
@@ -239,7 +239,7 @@ class SentencepieceTokenizer(Tokenizer):
 
 ##### Sentence filterers
 
-class SentenceFilterer():
+class SentenceFilterer(object):
   """Filters sentences that don't match a criterion."""
 
   def __init__(self, spec):

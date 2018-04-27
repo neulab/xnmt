@@ -75,6 +75,7 @@ class BLEUScore(EvalScore, Serializable):
       return f"{self.bleu}, {'/'.join(self.frac_score_list)} (BP = {self.brevity_penalty_score:.6f}, ratio={self.hyp_len / self.ref_len:.2f}, hyp_len={self.hyp_len}, ref_len={self.ref_len})"
 
 class GLEUScore(EvalScore, Serializable):
+  yaml_tag = "!GLEUScore"
   def __init__(self, gleu, hyp_len, ref_len, desc=None):
     self.gleu = gleu
     self.hyp_len = hyp_len
