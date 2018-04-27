@@ -61,7 +61,7 @@ class BLEUScore(EvalScore, Serializable):
     self.serialize_params = {"bleu":bleu, "ngram":ngram}
     self.serialize_params.update({k:getattr(self,k) for k in ["frac_score_list","brevity_penalty_score","hyp_len","ref_len","desc"] if getattr(self,k) is not None})
 
-  def value(self): return self.bleu if self.bleu != None else 0.0
+  def value(self): return self.bleu if self.bleu is not None else 0.0
   def metric_name(self): return "BLEU" + str(self.ngram)
   def higher_is_better(self): return True
   def score_str(self):

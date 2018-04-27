@@ -16,10 +16,10 @@ class TextOutput(Output):
     self.actions = actions or []
     self.vocab = vocab
     self.score = score
-    self.filtered_tokens = set([Vocab.SS, Vocab.ES])
+    self.filtered_tokens = {Vocab.SS, Vocab.ES}
 
   def to_string(self):
-    map_func = lambda wi: self.vocab[wi] if self.vocab != None else str
+    map_func = lambda wi: self.vocab[wi] if self.vocab is not None else str
     return map(map_func, filter(lambda wi: wi not in self.filtered_tokens, self.actions))
 
 class OutputProcessor(object):

@@ -1,7 +1,6 @@
 from subprocess import Popen
 from asteval import Interpreter
 import random
-import parser
 import numpy as np
 from typing import Optional
 
@@ -195,7 +194,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     Signal stopping if self.early_stopping_reached is marked or we exhausted the number of requested epochs.
     """
     return self.early_stopping_reached \
-      or self.run_for_epochs is not None and (self.training_state.epoch_num > self.run_for_epochs \
+      or self.run_for_epochs is not None and (self.training_state.epoch_num > self.run_for_epochs
                                               or (self.training_state.epoch_num == self.run_for_epochs and
                                                   self.training_state.steps_into_epoch >= self.cur_num_minibatches()))
 
@@ -301,12 +300,12 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       if control_learning_schedule:
         # Check if this is the best
         is_best = False
-        if self.dev_combinator != None:
+        if self.dev_combinator is not None:
           x = [y.value() for y in dev_scores]
           aevala = Interpreter()
           my_score = aevala(self.dev_combinator)
           logger.info('  combined dev scores according to {}: {}'.format(self.dev_combinator, my_score))
-          if self.training_state.best_dev_score == None or my_score > self.training_state.best_dev_score:
+          if self.training_state.best_dev_score is None or my_score > self.training_state.best_dev_score:
             self.training_state.best_dev_score = my_score
             is_best = True
         elif dev_scores[0].better_than(self.training_state.best_dev_score):

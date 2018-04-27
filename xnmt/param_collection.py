@@ -87,7 +87,7 @@ class ParamManager(object):
     """
     assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
     if not hasattr(subcol_owner, "xnmt_subcol_name"):
-      raise ValueError(f"{node} does not have an attribute 'xnmt_subcol_name'.\n"
+      raise ValueError(f"{subcol_owner} does not have an attribute 'xnmt_subcol_name'.\n"
                        f"Did you forget to wrap the __init__() in @serializable_init ?")
     subcol_name = subcol_owner.xnmt_subcol_name
     subcol = ParamManager.param_col.add_subcollection(subcol_name)

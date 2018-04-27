@@ -1,6 +1,5 @@
 import dynet as dy
 import numpy as np
-import collections
 import functools
 
 import xnmt.batcher
@@ -91,11 +90,11 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
   def shared_params(self):
     return [set([".trg_embed_dim", ".rnn_layer.input_dim"]),
             set([".input_dim", ".rnn_layer.decoder_input_dim"]),
-            set([".input_dim", ".mlp_layer.input_dim"]),
-            set([".input_feeding", ".rnn_layer.decoder_input_feeding"]),
-            set([".rnn_layer.layers", ".bridge.dec_layers"]),
-            set([".rnn_layer.hidden_dim", ".bridge.dec_dim"]),
-            set([".rnn_layer.hidden_dim", ".mlp_layer.decoder_rnn_dim"])]
+            {".input_dim", ".mlp_layer.input_dim"},
+            {".input_feeding", ".rnn_layer.decoder_input_feeding"},
+            {".rnn_layer.layers", ".bridge.dec_layers"},
+            {".rnn_layer.hidden_dim", ".bridge.dec_dim"},
+            {".rnn_layer.hidden_dim", ".mlp_layer.decoder_rnn_dim"}]
 
   def initial_state(self, enc_final_states, ss_expr):
     """Get the initial state of the decoder given the encoder final states.

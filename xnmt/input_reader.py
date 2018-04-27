@@ -385,7 +385,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
       trg_data.append(trg_sent)
 
   # Pack batches
-  if batcher != None:
+  if batcher is not None:
     src_batches, trg_batches = batcher.pack(src_data, trg_data)
   else:
     src_batches, trg_batches = src_data, trg_data

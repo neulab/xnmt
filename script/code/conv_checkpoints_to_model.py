@@ -20,7 +20,6 @@ Options:
 from docopt import docopt
 from glob import glob
 import os
-import sys
 
 SUBCOL_TAG = "xnmt_subcol_name: "
 SEP = "C"

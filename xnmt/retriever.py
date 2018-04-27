@@ -72,7 +72,7 @@ class Retriever(GeneratorModel):
 
   def initialize_generator(self, **kwargs):
     candidates = None
-    if kwargs["candidate_id_file"] != None:
+    if kwargs["candidate_id_file"] is not None:
       with open(kwargs["candidate_id_file"], "r") as f:
         candidates = sorted({int(x):1 for x in f}.keys())
     self.index_database(candidates)
@@ -106,7 +106,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
   def exprseq_pooling(self, exprseq):
     # Reduce to vector
     exprseq = ExpressionSequence(expr_tensor=exprseq.mask.add_to_tensor_expr(exprseq.as_tensor(),-1e10), mask=exprseq.mask)
-    if exprseq.expr_tensor != None:
+    if exprseq.expr_tensor is not None:
       if len(exprseq.expr_tensor.dim()[0]) > 1:
         return dy.max_dim(exprseq.expr_tensor, d=1)
       else:
@@ -150,7 +150,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
 
   def index_database(self, indices=None):
     # Create the inverted index if necessary
-    if indices == None:
+    if indices is None:
       indices = range(len(self.database.data))
       self.database.inverted_index = None
     else:
@@ -181,7 +181,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
     # print("--- scores: {}".format(list(scores[0])))
     kbest = np.argsort(scores, axis=1)[0,-nbest:][::-1]
     # print("--- kbest: {}".format(kbest))
-    ids = kbest if self.database.inverted_index == None else [self.database.inverted_index[x] for x in kbest]
+    ids = kbest if self.database.inverted_index is None else [self.database.inverted_index[x] for x in kbest]
     # In case of reporting
     if self.report_path is not None:
       src_vocab = self.get_html_resource("src_vocab")

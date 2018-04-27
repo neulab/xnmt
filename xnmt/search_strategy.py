@@ -6,7 +6,7 @@ import numpy as np
 
 import xnmt.batcher
 from xnmt.length_normalization import NoNormalization
-from xnmt.persistence import bare, Serializable, serializable_init, Ref, bare
+from xnmt.persistence import Serializable, serializable_init, bare
 from xnmt.vocab import Vocab
 
 
@@ -169,7 +169,7 @@ class BeamSearch(Serializable, SearchStrategy):
       attentions = []
       states = []
       current = end_hyp
-      while current.parent != None:
+      while current.parent is not None:
         word_ids.append(current.word)
         attentions.append(current.output.attention)
         # TODO(philip30): This should probably be uncommented.
@@ -312,7 +312,7 @@ class MctsNode:
 
       path = []
       node = self
-      while node != None:
+      while node is not None:
         path.append(node.word)
         node = node.parent
       path = ' '.join(str(word) for word in reversed(path))
@@ -356,7 +356,7 @@ class MctsNode:
       self.parent.backup(result + my_prob)
 
   def collect(self, words, attentions):
-    if self.word != None:
+    if self.word is not None:
       words.append(self.word)
       attentions.append(self.attention)
     if len(self.children) > 0:

@@ -55,7 +55,7 @@ class LossEvalTask(Serializable):
 
   def eval(self):
     self.model.set_train(False)
-    if self.src_data == None:
+    if self.src_data is None:
       self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
         xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                         self.src_file, self.ref_file, batcher=self.batcher,
