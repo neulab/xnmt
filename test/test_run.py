@@ -85,8 +85,10 @@ class TestRunningConfig(unittest.TestCase):
     run.main(["test/config/transformer.yaml"])
 
   @unittest.skipUnless(has_cython(), "requires cython to run")
-  def test_search_strategy(self):
+  def test_search_strategy_reinforce(self):
     run.main(["test/config/reinforce.yaml"])
+
+  def test_search_strategy_minrisk(self):
     run.main(["test/config/minrisk.yaml"])
 
   def tearDown(self):
