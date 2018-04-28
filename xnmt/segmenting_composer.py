@@ -27,6 +27,11 @@ class SegmentComposer(Serializable, Reportable):
 
 class SegmentTransformer(Serializable):
   yaml_tag = "!SegmentTransformer"
+
+  @serializable_init
+  def __init__(self):
+    pass
+
   def transform(self, encoder, encodings, word=None):
     raise RuntimeError("Should call subclass of SegmentTransformer instead")
 
