@@ -167,7 +167,7 @@ class FeedForwardLayerSent(object):
     return e
 
 
-class EncoderLayer(Serializable):
+class EncoderLayer(object):
   def __init__(self, dy_model, n_units, h=1, attn_dropout=False, layer_norm=False):
     self.self_attention = MultiHeadAttention(dy_model, n_units, h, attn_dropout=attn_dropout)
     self.feed_forward = FeedForwardLayerSent(dy_model, n_units)
