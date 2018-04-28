@@ -69,7 +69,6 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
                mlp_layer=bare(MLP),
                bridge=bare(CopyBridge),
                label_smoothing=0.0):
-    self.param_col = ParamManager.my_params(self)
     self.input_dim = input_dim
     self.label_smoothing = label_smoothing
     # Input feeding
