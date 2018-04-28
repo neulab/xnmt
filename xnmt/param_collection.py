@@ -86,6 +86,8 @@ class ParamManager(object):
       The assigned subcollection.
     """
     assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
+    assert not getattr(subcol_owner, "init_completed", False), \
+      f"my_params(obj) cannot be called after obj.__init__() has completed. Conflicting obj: {subcol_owner}"
     if not hasattr(subcol_owner, "xnmt_subcol_name"):
       raise ValueError(f"{subcol_owner} does not have an attribute 'xnmt_subcol_name'.\n"
                        f"Did you forget to wrap the __init__() in @serializable_init ?")

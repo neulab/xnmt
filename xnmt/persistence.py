@@ -225,6 +225,7 @@ def serializable_init(f):
       serialize_params["xnmt_subcol_name"] = xnmt_subcol_name
     serialize_params.update(getattr(obj, "serialize_params", {}))
     obj.serialize_params = serialize_params
+    obj.init_completed = True
 
   wrapper.uses_serializable_init = True
   return wrapper
@@ -424,7 +425,8 @@ def generate_subcol_name(subcol_owner):
   return f"{type(subcol_owner).__name__}.{rand_hex}"
 
 
-reserved_arg_names = ["_xnmt_id", "yaml_path", "serialize_params", "init_params", "kwargs", "self", "xnmt_subcol_name"]
+reserved_arg_names = ["_xnmt_id", "yaml_path", "serialize_params", "init_params", "kwargs", "self", "xnmt_subcol_name",
+                      "init_completed"]
 
 def get_init_args_defaults(obj):
   return inspect.signature(obj.__init__).parameters
