@@ -90,7 +90,7 @@ class ParamManager(object):
       raise ValueError(f"{subcol_owner} does not have an attribute 'xnmt_subcol_name'.\n"
                        f"Did you forget to wrap the __init__() in @serializable_init ?")
     subcol_name = subcol_owner.xnmt_subcol_name
-    subcol = ParamManager.param_col.add_subcollection(subcol_name)
+    subcol = ParamManager.param_col.add_subcollection(subcol_owner, subcol_name)
     subcol_owner.save_processed_arg("xnmt_subcol_name", subcol_name)
     return subcol
 
@@ -114,6 +114,7 @@ class ParamCollection(object):
     self._param_col = dy.Model()
     self._is_saved = False
     self.subcols = {}
+    self.all_subcol_owners = set()
 
   @property
   def save_num_checkpoints(self):
@@ -137,7 +138,9 @@ class ParamCollection(object):
     else:
       self._data_files = []
 
-  def add_subcollection(self, subcol_name):
+  def add_subcollection(self, subcol_owner, subcol_name):
+    assert subcol_owner not in self.all_subcol_owners
+    self.all_subcol_owners.add(subcol_owner)
     assert subcol_name not in self.subcols
     new_subcol = self._param_col.add_subcollection(subcol_name)
     self.subcols[subcol_name] = new_subcol
