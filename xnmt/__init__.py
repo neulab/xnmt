@@ -62,8 +62,13 @@ def init_representer(dumper, obj):
   return dumper.represent_mapping('!' + obj.__class__.__name__, serialize_params)
 
 import yaml
+seen_yaml_tags = set()
 for SerializableChild in xnmt.persistence.Serializable.__subclasses__():
   assert hasattr(SerializableChild,
                  "yaml_tag") and SerializableChild.yaml_tag == f"!{SerializableChild.__name__}",\
     f"missing or misnamed yaml_tag attribute for class {SerializableChild.__name__}"
+  assert SerializableChild.yaml_tag not in seen_yaml_tags, \
+    f"encountered naming conflict: more than one class with yaml_tag='{SerializableChild.yaml_tag}'. " \
+    f"Change to a unique class name."
+  seen_yaml_tags.add(SerializableChild.yaml_tag)
   yaml.add_representer(SerializableChild, init_representer)
