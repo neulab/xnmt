@@ -34,13 +34,66 @@ from xnmt.param_collection import ParamManager
 from xnmt.util import YamlSerializable
 from xnmt import param_collection
 
+def serializable_init(f):
+  @wraps(f)
+  def wrapper(obj, *args, **kwargs):
+    if "xnmt_subcol_name" in kwargs:
+      xnmt_subcol_name = kwargs.pop("xnmt_subcol_name")
+    else:
+      xnmt_subcol_name = generate_subcol_name(obj)
+    obj.xnmt_subcol_name = xnmt_subcol_name
+    serialize_params = dict(kwargs)
+    params = inspect.signature(f).parameters
+    if len(args) > 0:
+      param_names = [p.name for p in list(params.values())]
+      assert param_names[0] == "self"
+      param_names = param_names[1:]
+      for i, arg in enumerate(args):
+        serialize_params[param_names[i]] = arg
+    auto_added_defaults = set()
+    for param in params.values():
+      if param.name != "self" and param.default != inspect.Parameter.empty and param.name not in serialize_params:
+        serialize_params[param.name] = copy.deepcopy(param.default)
+        auto_added_defaults.add(param.name)
+    for arg in serialize_params.values():
+      if type(obj).__name__ != "Experiment":
+        assert type(arg).__name__ != "ExpGlobal", \
+          "ExpGlobal can no longer be passed directly. Use a reference to its properties instead."
+        assert type(arg).__name__ != "ParameterCollection", \
+          "cannot pass dy.ParameterCollection to a Serializable class. " \
+          "Use ParamManager.my_params() from within the Serializable class's __init__() method instead."
+    for key, arg in list(serialize_params.items()):
+      if isinstance(arg, Ref):
+        if not arg.is_required():
+          serialize_params[key] = copy.deepcopy(arg.get_default())
+        else:
+          if key in auto_added_defaults:
+            raise ValueError(
+              f"Required argument '{key}' of {type(obj).__name__}.__init__() was not specified, and {arg} could not be resolved")
+          else:
+            raise ValueError(
+              f"Cannot pass a reference as argument; received {serialize_params[key]} in {type(obj).__name__}.__init__()")
+    for key, arg in list(serialize_params.items()):
+      if getattr(arg, "_is_bare", False):
+        initialized = initialize_object(UninitializedYamlObject(arg))
+        assert not getattr(initialized, "_is_bare", False)
+        serialize_params[key] = initialized
+    f(obj, **serialize_params)
+    if ParamManager.initialized and xnmt_subcol_name in ParamManager.param_col.subcols:
+      serialize_params["xnmt_subcol_name"] = xnmt_subcol_name
+    serialize_params.update(getattr(obj, "serialize_params", {}))
+    obj.serialize_params = serialize_params
+    obj.init_completed = True
+
+  wrapper.uses_serializable_init = True
+  return wrapper
 
 class Serializable(yaml.YAMLObject):
   """
   All model components that appear in a YAML file must inherit from Serializable.
   Implementing classes must specify a unique yaml_tag class attribute, e.g. ``yaml_tag = "!Serializable"``
   """
-
+  @serializable_init
   def __init__(self):
     """
     Initialize class, including allocation of DyNet parameters if needed.
@@ -179,59 +232,6 @@ def bare(class_type: Type[T], **kwargs: YamlSerializable) -> T:
   setattr(obj, "_bare_kwargs", kwargs)
   return obj
 
-def serializable_init(f):
-  @wraps(f)
-  def wrapper(obj, *args, **kwargs):
-    if "xnmt_subcol_name" in kwargs:
-      xnmt_subcol_name = kwargs.pop("xnmt_subcol_name")
-    else:
-      xnmt_subcol_name = generate_subcol_name(obj)
-    obj.xnmt_subcol_name = xnmt_subcol_name
-    serialize_params = dict(kwargs)
-    params = inspect.signature(f).parameters
-    if len(args) > 0:
-      param_names = [p.name for p in list(params.values())]
-      assert param_names[0] == "self"
-      param_names = param_names[1:]
-      for i, arg in enumerate(args):
-        serialize_params[param_names[i]] = arg
-    auto_added_defaults = set()
-    for param in params.values():
-      if param.name != "self" and param.default != inspect.Parameter.empty and param.name not in serialize_params:
-        serialize_params[param.name] = copy.deepcopy(param.default)
-        auto_added_defaults.add(param.name)
-    for arg in serialize_params.values():
-      if type(obj).__name__ != "Experiment":
-        assert type(arg).__name__ != "ExpGlobal", \
-          "ExpGlobal can no longer be passed directly. Use a reference to its properties instead."
-        assert type(arg).__name__ != "ParameterCollection", \
-          "cannot pass dy.ParameterCollection to a Serializable class. " \
-          "Use ParamManager.my_params() from within the Serializable class's __init__() method instead."
-    for key, arg in list(serialize_params.items()):
-      if isinstance(arg, Ref):
-        if not arg.is_required():
-          serialize_params[key] = copy.deepcopy(arg.get_default())
-        else:
-          if key in auto_added_defaults:
-            raise ValueError(
-              f"Required argument '{key}' of {type(obj).__name__}.__init__() was not specified, and {arg} could not be resolved")
-          else:
-            raise ValueError(
-              f"Cannot pass a reference as argument; received {serialize_params[key]} in {type(obj).__name__}.__init__()")
-    for key, arg in list(serialize_params.items()):
-      if getattr(arg, "_is_bare", False):
-        initialized = initialize_object(UninitializedYamlObject(arg))
-        assert not getattr(initialized, "_is_bare", False)
-        serialize_params[key] = initialized
-    f(obj, **serialize_params)
-    if ParamManager.initialized and xnmt_subcol_name in ParamManager.param_col.subcols:
-      serialize_params["xnmt_subcol_name"] = xnmt_subcol_name
-    serialize_params.update(getattr(obj, "serialize_params", {}))
-    obj.serialize_params = serialize_params
-    obj.init_completed = True
-
-  wrapper.uses_serializable_init = True
-  return wrapper
 
 class Ref(Serializable):
   """
