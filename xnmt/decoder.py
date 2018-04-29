@@ -88,8 +88,8 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
     self.mlp_layer = mlp_layer
 
   def shared_params(self):
-    return [set([".trg_embed_dim", ".rnn_layer.input_dim"]),
-            set([".input_dim", ".rnn_layer.decoder_input_dim"]),
+    return [{".trg_embed_dim", ".rnn_layer.input_dim"},
+            {".input_dim", ".rnn_layer.decoder_input_dim"},
             {".input_dim", ".mlp_layer.input_dim"},
             {".input_feeding", ".rnn_layer.decoder_input_feeding"},
             {".rnn_layer.layers", ".bridge.dec_layers"},

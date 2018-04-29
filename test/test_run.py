@@ -89,6 +89,7 @@ class TestRunningConfig(unittest.TestCase):
   def test_search_strategy_reinforce(self):
     run.main(["test/config/reinforce.yaml"])
 
+  @unittest.skipUnless(has_cython(), "requires cython to run")
   def test_search_strategy_minrisk(self):
     run.main(["test/config/minrisk.yaml"])
 
