@@ -44,6 +44,7 @@ class MLP(Serializable):
                vocab=None,
                trg_reader=Ref("model.trg_reader", default=None),
                decoder_rnn_dim=Ref("exp_global.default_layer_dim", default=None)):
+    model = ParamManager.my_params(self)
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
     self.output_dim = output_dim
