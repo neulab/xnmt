@@ -5,7 +5,6 @@ from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSeque
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.transducer import SeqTransducer, FinalTransducerState
-from xnmt.param_collection import ParamManager
 
 
 class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):

@@ -202,8 +202,11 @@ def serializable_init(f):
         auto_added_defaults.add(param.name)
     for arg in serialize_params.values():
       if type(obj).__name__ != "Experiment":
-        assert type(
-          arg).__name__ != "ExpGlobal", "ExpGlobal can no longer be passed directly. Use a reference to its properties instead."
+        assert type(arg).__name__ != "ExpGlobal", \
+          "ExpGlobal can no longer be passed directly. Use a reference to its properties instead."
+        assert type(arg).__name__ != "ParameterCollection", \
+          "cannot pass dy.ParameterCollection to a Serializable class. " \
+          "Use ParamManager.my_params() from within the Serializable class's __init__() method instead."
     for key, arg in list(serialize_params.items()):
       if isinstance(arg, Ref):
         if not arg.is_required():
