@@ -32,7 +32,10 @@ def get_git_revision():
   except (CalledProcessError, OSError):
     rev = None
   return rev
-open("./xnmt/git_rev.py", "w").write("def get_git_revision(): return \"" + get_git_revision() + "\" # via setup.py")
+if "install" in sys.argv:
+  open("./xnmt/git_rev.py", "w").write("CUR_GIT_REVISION = \"" + get_git_revision() + "\" # via setup.py")
+else: # develop mode
+  open("./xnmt/git_rev.py", "w").write("CUR_GIT_REVISION = None")
 
 setup(
   name='xnmt',

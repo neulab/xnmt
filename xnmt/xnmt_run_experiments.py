@@ -21,7 +21,6 @@ from xnmt import logger
 from xnmt.tee import log_preamble
 from xnmt.param_collection import ParamManager
 import xnmt.tee as tee
-from xnmt.git_rev import get_git_revision
 from xnmt.persistence import YamlPreloader, save_to_file, initialize_if_needed
 
 if settings.RESOURCE_WARNINGS:
@@ -71,7 +70,7 @@ def main(overwrite_args=None):
       if len(nonexistent) != 0:
         raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
 
-    log_preamble(f"running XNMT revision {get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    log_preamble(f"running XNMT revision {tee.get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     for experiment_name in experiment_names:
 
       ParamManager.init_param_col()
