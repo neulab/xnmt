@@ -188,20 +188,20 @@ class Evaluator(object):
   """
     raise NotImplementedError('metric_name must be implemented in Evaluator subclasses')
 
-  def evaluate_fast(self, ref, hyp):
-    raise NotImplementedError('evaluate_fast is not implemented for:', self.__class__.__name__)
+class FastBLEUEvaluator(Evaluator, Serializable):
+  """
+  Class for computing BLEU scores using a fast Cython implementation.
 
-class BLEUEvaluator(Evaluator, Serializable):
-  # Class for computing BLEU Scores accroding to
-  # K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
-  yaml_tag = "!BLEUEvaluator"
+  BLEU scores are computed according to K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
+
+  Args:
+    ngram: consider ngrams up to this order (usually 4)
+    smooth:
+  """
+  yaml_tag = "!FastBLEUEvaluator"
 
   @serializable_init
-  def __init__(self, ngram=4, smooth=0):
-    """
-    Args:
-      ngram: default value of 4 is generally used
-    """
+  def __init__(self, ngram: int = 4, smooth = 0):
     self.ngram = ngram
     self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
     self.smooth = smooth
@@ -211,7 +211,7 @@ class BLEUEvaluator(Evaluator, Serializable):
   def metric_name(self):
     return "BLEU%d score" % (self.ngram)
 
-  def evaluate_fast(self, ref, hyp, ):
+  def evaluate(self, ref, hyp, desc=None):
     try:
       from xnmt.cython import xnmt_cython
     except:
@@ -220,7 +220,28 @@ class BLEUEvaluator(Evaluator, Serializable):
       raise
     return xnmt_cython.bleu_sentence(self.ngram, self.smooth, ref, hyp)
 
-  # Doc to be added
+
+class BLEUEvaluator(Evaluator, Serializable):
+  """
+  Class for computing BLEU scores.
+
+  BLEU scores are computed according to K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
+
+  Args:
+    ngram: consider ngrams up to this order (usually 4)
+  """
+  yaml_tag = "!BLEUEvaluator"
+
+  @serializable_init
+  def __init__(self, ngram:int=4):
+    self.ngram = ngram
+    self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
+    self.reference_corpus = None
+    self.candidate_corpus = None
+
+  def metric_name(self):
+    return "BLEU%d score" % (self.ngram)
+
   def evaluate(self, ref, hyp, desc=None):
     """
     Args:
