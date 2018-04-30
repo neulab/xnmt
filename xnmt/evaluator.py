@@ -5,6 +5,8 @@ This module contains classes for computing evaluation metrics and corresponding 
 from collections import defaultdict, Counter
 import math
 import subprocess
+from typing import List, Sequence, Dict, Tuple
+
 import numpy as np
 
 from xnmt import logger
@@ -83,7 +85,7 @@ class GLEUScore(EvalScore, Serializable):
     self.desc = desc
     self.serialize_params = {"gleu":gleu, "hyp_len":hyp_len,"ref_len":ref_len}
     if desc is not None: self.serialize_params["desc"] = desc
-    
+
   def value(self): return self.gleu
   def metric_name(self): return "GLEU"
   def higher_is_better(self): return True
@@ -209,7 +211,7 @@ class FastBLEUEvaluator(Evaluator, Serializable):
     self.candidate_corpus = None
 
   def metric_name(self):
-    return "BLEU%d score" % (self.ngram)
+    return f"BLEU{self.ngram} score"
 
   def evaluate(self, ref, hyp, desc=None):
     try:
@@ -242,7 +244,7 @@ class BLEUEvaluator(Evaluator, Serializable):
     self.multi_ref = multi_ref
 
   def metric_name(self):
-    return "BLEU%d score" % (self.ngram)
+    return f"BLEU{self.ngram} score"
 
   def evaluate(self, ref, hyp, desc=None):
     """
@@ -280,8 +282,10 @@ class BLEUEvaluator(Evaluator, Serializable):
         word_counter['reference'] += ref_lens[0][0]
         counts = [self.modified_precision(ref_sent_i, can_sent) for ref_sent_i in ref_sent]
         full_count_dict = counts[0][1]
-        clip_count_dict = Counter()
-        for i in range(len(counts)): clip_count_dict |= counts[i][0]
+        clip_count_dict = defaultdict(Counter)
+        for ngram_type in candidate_ngram_count:
+          for i in range(len(counts)):
+            clip_count_dict[ngram_type] |= counts[i][0][ngram_type]
 
       for ngram_type in full_count_dict:
         if ngram_type in clip_count_dict:
@@ -319,7 +323,7 @@ class BLEUEvaluator(Evaluator, Serializable):
     return BLEUScore(bleu_score, frac_score_list, brevity_penalty_score, word_counter['candidate'], word_counter['reference'], ngram=self.ngram, desc=desc)
 
   # Doc to be added
-  def brevity_penalty(self, r, c):
+  def brevity_penalty(self, r: int, c: int) -> float:
     """
     Args:
       r: number of words in reference corpus
@@ -337,7 +341,7 @@ class BLEUEvaluator(Evaluator, Serializable):
       penalty = np.exp(1. - (r / c))
     return penalty
 
-  def extract_ngrams(self, tokens):
+  def extract_ngrams(self, tokens: Sequence[str]) -> Dict[int,Counter]:
     """
     Extracts ngram counts from the input string
 
@@ -360,7 +364,8 @@ class BLEUEvaluator(Evaluator, Serializable):
 
     return ngram_count
 
-  def modified_precision(self, reference_sent, candidate_sent):
+  def modified_precision(self, reference_sent: List[str], candidate_sent: List[str]) \
+          -> Tuple[Dict[int,Counter],Dict[int,Counter]]:
     """
     Computes counts useful in modified precision calculations
 
@@ -389,6 +394,9 @@ class GLEUEvaluator(Evaluator, Serializable):
   def __init__(self, min_length=1, max_length=4):
     self.min = min_length
     self.max = max_length
+
+  def metric_name(self):
+    return f"GLEU{self.ngram}"
 
   def extract_all_ngrams(self, tokens):
     """
@@ -520,7 +528,7 @@ class WEREvaluator(Evaluator, Serializable):
 
   def seq_sim(self, l1, l2):
     # compute matrix
-    F = [[0] * (len(l2) + 1) for i in range((len(l1) + 1))]
+    F = [[0] * (len(l2) + 1) for _ in range((len(l1) + 1))]
     for i in range(len(l1) + 1):
       F[i][0] = i * self.gapPenalty
     for j in range(len(l2) + 1):

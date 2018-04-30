@@ -43,7 +43,9 @@ def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequ
   if isinstance(ref_file, str): ref_corpus = read_data(ref_file, post_process=ref_postprocess)
   else:
     if len(ref_file)==1: ref_corpus = read_data(ref_file[0], post_process=ref_postprocess)
-    else: ref_corpus = zip(read_data(ref_file_i, post_process=ref_postprocess) for ref_file_i in ref_file)
+    else:
+      ref_corpora = [read_data(ref_file_i, post_process=ref_postprocess) for ref_file_i in ref_file]
+      ref_corpus = [tuple(ref_corpora[i][j] for i in range(len(ref_file))) for j in range(len(ref_corpora[0]))]
   hyp_corpus = read_data(hyp_file, post_process=hyp_postprocess)
   len_before = len(hyp_corpus)
   ref_corpus, hyp_corpus = zip(*filter(lambda x: NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
