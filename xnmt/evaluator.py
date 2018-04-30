@@ -229,15 +229,17 @@ class BLEUEvaluator(Evaluator, Serializable):
 
   Args:
     ngram: consider ngrams up to this order (usually 4)
+    multi_ref: if True, expect the given references to be tuples of sentences (instead of single sentences)
   """
   yaml_tag = "!BLEUEvaluator"
 
   @serializable_init
-  def __init__(self, ngram:int=4):
+  def __init__(self, ngram: int = 4, multi_ref: bool = False):
     self.ngram = ngram
     self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
     self.reference_corpus = None
     self.candidate_corpus = None
+    self.multi_ref = multi_ref
 
   def metric_name(self):
     return "BLEU%d score" % (self.ngram)
@@ -266,18 +268,27 @@ class BLEUEvaluator(Evaluator, Serializable):
     word_counter = Counter()
 
     for ref_sent, can_sent in zip(self.reference_corpus, self.candidate_corpus):
-      word_counter['reference'] += len(ref_sent)
       word_counter['candidate'] += len(can_sent)
+      if not self.multi_ref:
+        word_counter['reference'] += len(ref_sent)
 
-      clip_count_dict, full_count_dict = self.modified_precision(ref_sent, can_sent)
+        clip_count_dict, full_count_dict = self.modified_precision(ref_sent, can_sent)
+
+      else:
+        ref_lens = sorted([(len(ref_sent_i), abs(len(ref_sent_i) - len(can_sent))) for ref_sent_i in ref_sent],
+                          key=lambda x: x[1])
+        word_counter['reference'] += ref_lens[0][0]
+        counts = [self.modified_precision(ref_sent_i, can_sent) for ref_sent_i in ref_sent]
+        full_count_dict = counts[0][1]
+        clip_count_dict = Counter()
+        for i in range(len(counts)): clip_count_dict |= counts[i][0]
 
       for ngram_type in full_count_dict:
         if ngram_type in clip_count_dict:
           clipped_ngram_count[ngram_type] += sum(clip_count_dict[ngram_type].values())
-        else:
-          clipped_ngram_count[ngram_type] += 0.  # This line may not be required
-
         candidate_ngram_count[ngram_type] += sum(full_count_dict[ngram_type].values())
+
+
 
     # Edge case
     # Return 0 if there are no matching n-grams
@@ -326,7 +337,6 @@ class BLEUEvaluator(Evaluator, Serializable):
       penalty = np.exp(1. - (r / c))
     return penalty
 
-  # Doc to be added
   def extract_ngrams(self, tokens):
     """
     Extracts ngram counts from the input string
@@ -371,7 +381,9 @@ class BLEUEvaluator(Evaluator, Serializable):
     return clipped_ngram_count, candidate_ngram_count
 
 class GLEUEvaluator(Evaluator, Serializable):
-  # Class for computing GLEU Scores
+  """
+  Class for computing GLEU Scores.
+  """
   yaml_tag = "!GLEUEvaluator"
   @serializable_init
   def __init__(self, min_length=1, max_length=4):
