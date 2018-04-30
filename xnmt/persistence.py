@@ -15,7 +15,7 @@ The main objects to be aware of are:
 
 """
 
-from xnmt.tee import get_git_revision
+from xnmt.git_rev import get_git_revision
 from functools import singledispatch
 from enum import IntEnum, auto
 

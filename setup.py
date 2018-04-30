@@ -1,6 +1,7 @@
 from setuptools import setup, find_packages
 from distutils.core import Extension
 import sys
+import os
 
 sys.path.append("./xnmt")
 
@@ -21,6 +22,17 @@ if "--use-cython-extensions" in sys.argv:
                           extra_compile_args=extra_compile_args,
                           extra_link_args=["-std=c++11"])
   ext_modules = cythonize(extensions)
+
+def get_git_revision():
+  from subprocess import CalledProcessError, check_output
+  try:
+    command = 'git rev-parse --short HEAD'
+    print("checking git revision in", __file__)
+    rev = check_output(command.split(u' '), cwd=(os.path.dirname(__file__) or ".")).decode('ascii').strip()
+  except (CalledProcessError, OSError):
+    rev = None
+  return rev
+open("./xnmt/git_rev.py", "w").write("def get_git_revision(): return \"" + get_git_revision() + "\" # via setup.py")
 
 setup(
   name='xnmt',
