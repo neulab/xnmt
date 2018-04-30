@@ -41,7 +41,7 @@ setup(
   entry_points={
     'console_scripts': [
       'xnmt = xnmt.xnmt_run_experiments:main',
-      'xnmt_evaluate = xnmt.xnmt_run_experiments:main',
+      'xnmt_evaluate = xnmt.xnmt_evaluate:main',
     ],
   }
 )

@@ -51,13 +51,13 @@ def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequ
 
 def main():
   parser = argparse.ArgumentParser()
-  parser.add_argument("ref", help="Path to read reference file from")
-  parser.add_argument("hyp", help="Path to read hypothesis file from")
-  parser.add_argument("metrics", help=f"Scoring metric(s), a comma-separated string. "
+  parser.add_argument("--metric", help=f"Scoring metric(s), a comma-separated string. "
                                       f"Accepted metrics are {', '.join(eval_shortcuts.keys())}. Alternatively, "
                                       f"metrics with non-default settings can by used by specifying a Python list of "
                                       f"Evaluator objects to be parsed using eval(). "
                                       f"Example: '[WEREvaluator(case_sensitive=True)]'")
+  parser.add_argument("--hyp", help="Path to read hypothesis file from")
+  parser.add_argument("--ref", help="Path to read reference file from")
   args = parser.parse_args()
 
   evaluators = args.metrics
