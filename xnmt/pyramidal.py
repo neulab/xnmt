@@ -85,7 +85,6 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
     Args:
       es: an ExpressionSequence
     """
-
     es_list = [es]
 
     for layer_i, (fb, bb) in enumerate(self.builder_layers):
