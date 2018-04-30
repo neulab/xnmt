@@ -101,8 +101,7 @@ def main(overwrite_args=None):
       ParamManager.populate()
 
       # Run the experiment
-      eval_scores = experiment(save_fct = lambda: save_to_file(model_file, experiment,
-                                                               ParamManager.param_col))
+      eval_scores = experiment(save_fct = lambda: save_to_file(model_file, experiment))
       results.append((experiment_name, eval_scores))
       print_results(results)
 

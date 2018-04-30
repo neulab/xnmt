@@ -1151,12 +1151,19 @@ class _YamlDeserializer(object):
     return initialized_obj
 
 def _resolve_serialize_refs(root):
+  all_serializable = set()
   for _, node in traverse_serializable(root):
     if isinstance(node, Serializable):
+      all_serializable.add(node)
       if not hasattr(node, "serialize_params"):
         raise ValueError(f"Cannot serialize node that has no serialize_params attribute: {node}\n"
                          "Did you forget to wrap the __init__() in @serializable_init ?")
       node.resolved_serialize_params = node.serialize_params
+  if  not ParamManager.param_col.all_subcol_owners <= all_serializable:
+    raise RuntimeError(f"Not all registered DyNet parameter collections written out. "
+                       f"Missing: {ParamManager.param_col.all_subcol_owners - all_serializable}.\n"
+                       f"This indicates that potentially not all components adhere to the protocol of using "
+                       f"Serializable.add_serializable_component() for creating serializable sub-components.")
   refs_inserted_at = set()
   refs_inserted_to = set()
   for path_to, node in traverse_serializable(root):
@@ -1175,7 +1182,7 @@ def _dump(ser_obj):
   _resolve_serialize_refs(ser_obj)
   return yaml.dump(ser_obj)
 
-def save_to_file(fname: str, mod: YamlSerializable, param_collection: 'param_collection.ParamCollection') -> None:
+def save_to_file(fname: str, mod: YamlSerializable) -> None:
   """
   Save a component hierarchy and corresponding DyNet parameter collection to disk.
 
@@ -1189,7 +1196,7 @@ def save_to_file(fname: str, mod: YamlSerializable, param_collection: 'param_col
     os.makedirs(dirname)
   with open(fname, 'w') as f:
     f.write(_dump(mod))
-    param_collection.save()
+    param_collection.ParamManager.param_col.save()
 
 
 def initialize_if_needed(root: Union[YamlSerializable, UninitializedYamlObject]) -> YamlSerializable:
