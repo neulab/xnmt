@@ -40,7 +40,10 @@ def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequ
   hyp_postprocess = lambda line: line.split()
   ref_postprocess = lambda line: line.split()
 
-  ref_corpus = read_data(ref_file, post_process=ref_postprocess)
+  if isinstance(ref_file, str): ref_corpus = read_data(ref_file, post_process=ref_postprocess)
+  else:
+    if len(ref_file)==1: ref_corpus = read_data(ref_file[0], post_process=ref_postprocess)
+    else: ref_corpus = zip(read_data(ref_file_i, post_process=ref_postprocess) for ref_file_i in ref_file)
   hyp_corpus = read_data(hyp_file, post_process=hyp_postprocess)
   len_before = len(hyp_corpus)
   ref_corpus, hyp_corpus = zip(*filter(lambda x: NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
@@ -51,20 +54,18 @@ def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequ
 
 def main():
   parser = argparse.ArgumentParser()
-  parser.add_argument("--metric", help=f"Scoring metric(s), a comma-separated string. "
-                                      f"Accepted metrics are {', '.join(eval_shortcuts.keys())}. Alternatively, "
-                                      f"metrics with non-default settings can by used by specifying a Python list of "
-                                      f"Evaluator objects to be parsed using eval(). "
-                                      f"Example: '[WEREvaluator(case_sensitive=True)]'")
+  parser.add_argument("--metric",
+                      help=f"Scoring metric(s), a string. "
+                           f"Accepted metrics are {', '.join(eval_shortcuts.keys())}."
+                           f"Alternatively, metrics with non-default settings can by used by specifying a Python "
+                           f"Evaluator object to be parsed using eval(). Example: 'WEREvaluator(case_sensitive=True)'",
+                      nargs="+")
   parser.add_argument("--hyp", help="Path to read hypothesis file from")
-  parser.add_argument("--ref", help="Path to read reference file from")
+  parser.add_argument("--ref", help="Path to read reference file from", nargs="+")
   args = parser.parse_args()
 
-  evaluators = args.metrics
-  try:
-    evaluators = [eval_shortcuts[shortcut]() for shortcut in evaluators.split(",")]
-  except KeyError:
-    evaluators = eval(evaluators)
+  evaluators = args.metric
+  evaluators = [eval_shortcuts[shortcut]() if shortcut in eval_shortcuts else eval(shortcut) for shortcut in evaluators]
 
   scores = xnmt_evaluate(args.ref, args.hyp, evaluators)
   for score in scores:
