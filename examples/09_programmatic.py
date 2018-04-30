@@ -105,6 +105,6 @@ standard_experiment = Experiment(
 )
 
 # run experiment
-standard_experiment(save_fct=lambda: save_to_file(model_file, standard_experiment, ParamManager.param_col))
+standard_experiment(save_fct=lambda: save_to_file(model_file, standard_experiment))
 
 exit()

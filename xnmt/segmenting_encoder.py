@@ -26,7 +26,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   @serializable_init
   def __init__(self,
                ## COMPONENTS
-               embed_encoder=None, segment_composer=None, final_transducer=None,
+               embed_encoder=None, segment_composer=None, final_transducer=None, segment_transform=None, baseline=None,
                ## OPTIONS
                length_prior=3.3,
                length_prior_alpha=None, # GeometricSequence
@@ -51,20 +51,18 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     assert final_transducer is not None
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
-    if not hasattr(embed_encoder, "hidden_dim"):
-      embed_encoder_dim = yaml_context.default_layer_dim
-    else:
-      embed_encoder_dim = embed_encoder.hidden_dim
+    embed_encoder_dim = embed_encoder.hidden_dim
     # The Segment transducer produced word embeddings based on sequence of character embeddings
     self.segment_composer = segment_composer
     # The final transducer
     self.final_transducer = final_transducer
     # Decision layer of segmentation
-    self.segment_transform = linear.Linear(input_dim  = embed_encoder_dim,
-                                           output_dim = 3 if learn_delete else 2)
+    self.segment_transform = self.add_serializable_component("segment_transform", segment_transform,
+                                                             lambda: linear.Linear(input_dim=embed_encoder_dim,
+                                                                                   output_dim=3 if learn_delete else 2))
     # The baseline linear regression model
-    self.baseline = linear.Linear(input_dim = embed_encoder_dim,
-                                  output_dim = 1)
+    self.baseline = self.add_serializable_component("baseline", baseline,
+                                                    lambda: linear.Linear(input_dim=embed_encoder_dim, output_dim=1))
     # Flags
     self.use_baseline = use_baseline
     self.learn_segmentation = learn_segmentation

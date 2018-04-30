@@ -84,19 +84,24 @@ class LinearBridge(Bridge, Serializable):
                enc_dim = Ref("exp_global.default_layer_dim"),
                dec_dim = Ref("exp_global.default_layer_dim"),
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               projector=None):
     param_col = ParamManager.my_params(self)
     self.dec_layers = dec_layers
     self.enc_dim = enc_dim
     self.dec_dim = dec_dim
-    self.projector = xnmt.linear.Linear(input_dim  = self.enc_dim,
-                                        output_dim = self.dec_dim,
-                                        param_init = param_init,
-                                        bias_init = bias_init)
+    self.projector = self.add_serializable_component("projector",
+                                                     projector,
+                                                     lambda: xnmt.linear.Linear(input_dim=self.enc_dim,
+                                                                                output_dim=self.dec_dim,
+                                                                                param_init=param_init,
+                                                                                bias_init=bias_init))
   def decoder_init(self, enc_final_states):
     if self.dec_layers > len(enc_final_states):
-      raise RuntimeError("LinearBridge requires dec_layers <= len(enc_final_states), but got %s and %s" % (self.dec_layers, len(enc_final_states)))
+      raise RuntimeError(
+        f"LinearBridge requires dec_layers <= len(enc_final_states), but got {self.dec_layers} and {len(enc_final_states)}")
     if enc_final_states[0].main_expr().dim()[0][0] != self.enc_dim:
-      raise RuntimeError("LinearBridge requires enc_dim == %s, but got %s" % (self.enc_dim, enc_final_states[0].main_expr().dim()[0][0]))
+      raise RuntimeError(
+        f"LinearBridge requires enc_dim == {self.enc_dim}, but got {enc_final_states[0].main_expr().dim()[0][0]}")
     decoder_init = [self.projector(enc_state.main_expr()) for enc_state in enc_final_states[-self.dec_layers:]]
     return decoder_init + [dy.tanh(dec) for dec in decoder_init]
