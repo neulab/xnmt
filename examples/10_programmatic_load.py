@@ -33,4 +33,4 @@ ParamManager.populate()
 exp_global = loaded_experiment.exp_global
 
 # run experiment
-loaded_experiment(save_fct=lambda: save_to_file(model_file, loaded_experiment, ParamManager.param_col))
+loaded_experiment(save_fct=lambda: save_to_file(model_file, loaded_experiment))

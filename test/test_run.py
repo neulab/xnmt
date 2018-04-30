@@ -81,13 +81,16 @@ class TestRunningConfig(unittest.TestCase):
   def test_standard(self):
     run.main(["test/config/standard.yaml"])
 
-  @unittest.expectedFailure  # TODO: these tests need to be fixed
+  @unittest.expectedFailure # TODO: these tests need to be fixed
   def test_transformer(self):
     run.main(["test/config/transformer.yaml"])
 
   @unittest.skipUnless(has_cython(), "requires cython to run")
-  def test_search_strategy(self):
+  def test_search_strategy_reinforce(self):
     run.main(["test/config/reinforce.yaml"])
+
+  @unittest.skipUnless(has_cython(), "requires cython to run")
+  def test_search_strategy_minrisk(self):
     run.main(["test/config/minrisk.yaml"])
 
   def tearDown(self):
