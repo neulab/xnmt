@@ -61,7 +61,6 @@ def init_representer(dumper, obj):
   return dumper.represent_mapping('!' + obj.__class__.__name__, serialize_params)
 
 import yaml
-import inspect
 seen_yaml_tags = set()
 for SerializableChild in xnmt.persistence.Serializable.__subclasses__():
   assert hasattr(SerializableChild,
