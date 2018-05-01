@@ -38,6 +38,8 @@ class EvalScore(object):
 
 class LossScore(EvalScore, Serializable):
   yaml_tag = "!LossScore"
+
+  @serializable_init
   def __init__(self, loss, loss_stats=None, desc=None):
     self.loss = loss
     self.loss_stats = loss_stats
@@ -57,6 +59,7 @@ class LossScore(EvalScore, Serializable):
 class BLEUScore(EvalScore, Serializable):
   yaml_tag = "!BLEUScore"
 
+  @serializable_init
   def __init__(self, bleu, frac_score_list=None, brevity_penalty_score=None, hyp_len=None, ref_len=None, ngram=4,
                desc=None):
     self.bleu = bleu
@@ -83,6 +86,8 @@ class BLEUScore(EvalScore, Serializable):
 
 class GLEUScore(EvalScore, Serializable):
   yaml_tag = "!GLEUScore"
+
+  @serializable_init
   def __init__(self, gleu, hyp_len, ref_len, desc=None):
     self.gleu = gleu
     self.hyp_len = hyp_len
@@ -99,6 +104,8 @@ class GLEUScore(EvalScore, Serializable):
 
 class WERScore(EvalScore, Serializable):
   yaml_tag = "!WERScore"
+
+  @serializable_init
   def __init__(self, wer, hyp_len, ref_len, desc=None):
     self.wer = wer
     self.hyp_len = hyp_len
@@ -114,6 +121,8 @@ class WERScore(EvalScore, Serializable):
 
 class CERScore(WERScore, Serializable):
   yaml_tag = "!CERScore"
+
+  @serializable_init
   def __init__(self, cer, hyp_len, ref_len, desc=None):
     self.cer = cer
     self.hyp_len = hyp_len
@@ -126,6 +135,8 @@ class CERScore(WERScore, Serializable):
 
 class RecallScore(WERScore, Serializable):
   yaml_tag = "!RecallScore"
+
+  @serializable_init
   def __init__(self, recall, hyp_len, ref_len, nbest=5, desc=None):
     self.recall  = recall
     self.hyp_len = hyp_len
@@ -146,6 +157,8 @@ class RecallScore(WERScore, Serializable):
 
 class ExternalScore(EvalScore, Serializable):
   yaml_tag = "!ExternalScore"
+
+  @serializable_init
   def __init__(self, value, higher_is_better=True, desc=None):
     self.value = value
     self.higher_is_better = higher_is_better
@@ -160,6 +173,8 @@ class ExternalScore(EvalScore, Serializable):
 
 class SequenceAccuracyScore(EvalScore, Serializable):
   yaml_tag = "!SequenceAccuracyScore"
+
+  @serializable_init
   def __init__(self, accuracy, desc=None):
     self.accuracy = accuracy
     self.desc = desc

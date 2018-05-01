@@ -1,12 +1,14 @@
 import dynet as dy
 
 from xnmt.transducer import SeqTransducer, FinalTransducerState
-from xnmt.persistence import Serializable
+from xnmt.persistence import Serializable, serializable_init
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.param_collection import ParamManager
 
 class FullyConnectedSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!FullyConnectedSeqTransducer'
+
+  @serializable_init
   def __init__(self, in_height, out_height, nonlinearity='linear'):
     """
     Args:

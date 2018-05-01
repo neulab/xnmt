@@ -2,7 +2,7 @@ import dynet as dy
 
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.param_collection import ParamManager
-from xnmt.persistence import Serializable
+from xnmt.persistence import Serializable, serializable_init
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 
 class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
@@ -13,6 +13,7 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
     Embedding sequence has same length as Input sequence
     """
 
+  @serializable_init
   def __init__(self, input_dim, window_receptor,output_dim,num_layers,internal_dim,non_linearity='linear'):
     """
     Args:

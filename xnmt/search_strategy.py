@@ -382,6 +382,7 @@ class MctsSearch(Serializable, SearchStrategy):
   '''
   yaml_tag = '!MctsSearch'
 
+  @serializable_init
   def __init__(self, visits=200, max_len=100):
     self.max_len = max_len
     self.visits = visits
