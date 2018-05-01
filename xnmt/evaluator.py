@@ -5,7 +5,7 @@ This module contains classes for computing evaluation metrics and corresponding 
 from collections import defaultdict, Counter
 import math
 import subprocess
-from typing import List, Sequence, Dict, Tuple
+from typing import List, Sequence, Dict, Tuple, Union, Any
 
 import numpy as np
 
@@ -52,11 +52,13 @@ class LossScore(EvalScore, Serializable):
     if self.loss_stats is not None and len(self.loss_stats) > 1:
       return "{" + ", ".join("%s: %.5f" % (k, v) for k, v in self.loss_stats.items()) + "}"
     else:
-      return "{:.3f}".format(self.value())
+      return "{self.value():.3f}"
 
 class BLEUScore(EvalScore, Serializable):
   yaml_tag = "!BLEUScore"
-  def __init__(self, bleu, frac_score_list=None, brevity_penalty_score=None, hyp_len=None, ref_len=None, ngram=4, desc=None):
+
+  def __init__(self, bleu, frac_score_list=None, brevity_penalty_score=None, hyp_len=None, ref_len=None, ngram=4,
+               desc=None):
     self.bleu = bleu
     self.frac_score_list = frac_score_list
     self.brevity_penalty_score = brevity_penalty_score
@@ -65,7 +67,9 @@ class BLEUScore(EvalScore, Serializable):
     self.ngram   = ngram
     self.desc = desc
     self.serialize_params = {"bleu":bleu, "ngram":ngram}
-    self.serialize_params.update({k:getattr(self,k) for k in ["frac_score_list","brevity_penalty_score","hyp_len","ref_len","desc"] if getattr(self,k) is not None})
+    self.serialize_params.update(
+      {k: getattr(self, k) for k in ["frac_score_list", "brevity_penalty_score", "hyp_len", "ref_len", "desc"] if
+       getattr(self, k) is not None})
 
   def value(self): return self.bleu if self.bleu is not None else 0.0
   def metric_name(self): return "BLEU" + str(self.ngram)
@@ -74,7 +78,8 @@ class BLEUScore(EvalScore, Serializable):
     if self.bleu is None:
       return "0"
     else:
-      return f"{self.bleu}, {'/'.join(self.frac_score_list)} (BP = {self.brevity_penalty_score:.6f}, ratio={self.hyp_len / self.ref_len:.2f}, hyp_len={self.hyp_len}, ref_len={self.ref_len})"
+      return f"{self.bleu}, {'/'.join(self.frac_score_list)} (BP = {self.brevity_penalty_score:.6f}, " \
+             f"ratio={self.hyp_len / self.ref_len:.2f}, hyp_len={self.hyp_len}, ref_len={self.ref_len})"
 
 class GLEUScore(EvalScore, Serializable):
   yaml_tag = "!GLEUScore"
@@ -225,36 +230,35 @@ class FastBLEUEvaluator(Evaluator, Serializable):
 
 class BLEUEvaluator(Evaluator, Serializable):
   """
-  Class for computing BLEU scores.
+  Compute BLEU scores against one or several references.
 
   BLEU scores are computed according to K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
 
   Args:
     ngram: consider ngrams up to this order (usually 4)
-    multi_ref: if True, expect the given references to be tuples of sentences (instead of single sentences)
   """
   yaml_tag = "!BLEUEvaluator"
 
   @serializable_init
-  def __init__(self, ngram: int = 4, multi_ref: bool = False):
+  def __init__(self, ngram: int = 4):
     self.ngram = ngram
     self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
     self.reference_corpus = None
     self.candidate_corpus = None
-    self.multi_ref = multi_ref
 
   def metric_name(self):
     return f"BLEU{self.ngram} score"
 
-  def evaluate(self, ref, hyp, desc=None):
+  def evaluate(self, ref: Sequence[Union[Sequence[str], Sequence[Sequence[str]]]], hyp: Sequence[Sequence[str]],
+               desc: Any = None) -> BLEUScore:
     """
     Args:
-      ref: list of reference sents ( a sent is a list of tokens )
-      hyp: list of hypothesis sents ( a sent is a list of tokens )
+      ref: reference sentences (single-reference case: sentence is list of strings;
+                                multi-reference case: sentence is list of tuple of strings)
+      hyp: list of hypothesis sentences ( a sentence is a list of tokens )
       desc: description to pass on to returned score
     Return:
-      Formatted string having BLEU Score with different intermediate results such as ngram ratio,
-      sent length, brevity penalty
+      Score, including intermediate results such as ngram ratio, sentence length, brevity penalty
     """
     self.reference_corpus = ref
     self.candidate_corpus = hyp
@@ -271,7 +275,8 @@ class BLEUEvaluator(Evaluator, Serializable):
 
     for ref_sent, can_sent in zip(self.reference_corpus, self.candidate_corpus):
       word_counter['candidate'] += len(can_sent)
-      if not self.multi_ref:
+      multi_ref = not isinstance(ref_sent[0], str)
+      if not multi_ref:
         word_counter['reference'] += len(ref_sent)
 
         clip_count_dict, full_count_dict = self.modified_precision(ref_sent, can_sent)
