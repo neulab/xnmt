@@ -129,7 +129,8 @@ class AccuracyEvalTask(Serializable):
 
     # Calculate the reference file size
     ref_words_cnt = 0
-    for ref_sent in self.model.trg_reader.read_sents(self.ref_file):
+    for ref_sent in self.model.trg_reader.read_sents(
+            self.ref_file if isinstance(self.ref_file, str) else self.ref_file[0]):
       ref_words_cnt += self.model.trg_reader.count_words(ref_sent)
       ref_words_cnt += 0
     return eval_scores, ref_words_cnt
