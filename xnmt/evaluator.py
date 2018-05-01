@@ -309,7 +309,7 @@ class BLEUEvaluator(Evaluator, Serializable):
 
       else:
         ref_lens = sorted([(len(ref_sent_i), abs(len(ref_sent_i) - len(can_sent))) for ref_sent_i in ref_sent],
-                          key=lambda x: x[1])
+                          key=lambda x: (x[1],x[0]))
         word_counter['reference'] += ref_lens[0][0]
         counts = [self.modified_precision(ref_sent_i, can_sent) for ref_sent_i in ref_sent]
         full_count_dict = counts[0][1]
