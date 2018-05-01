@@ -1122,11 +1122,8 @@ class _YamlDeserializer(object):
       if init_param_name in param_sig:
         annotated_type = param_sig[init_param_name].annotation
         if annotated_type != inspect.Parameter.empty:
-          try:
-            if not isinstance(init_params[init_param_name], annotated_type):
-              raise ValueError(f"type check failed for '{init_param_name}' argument of {obj}: expected {annotated_type}, received {init_params[init_param_name]} of type {type(init_params[init_param_name])}")
-          except TypeError:
-            pass # isinstance does not work with types from Python's "typing" module, let's skip test
+          if not check_type(init_params[init_param_name], annotated_type):
+            raise ValueError(f"type check failed for '{init_param_name}' argument of {obj}: expected {annotated_type}, received {init_params[init_param_name]} of type {type(init_params[init_param_name])}")
 
   @lru_cache(maxsize=None)
   def init_component(self, path):
@@ -1238,3 +1235,35 @@ class ComponentInitError(Exception):
   pass
 
 
+def check_type(obj, desired_type):
+  """
+  Checks argument types using isinstance, or some custom logic if types from the 'typing' module are given
+
+  Note that not all 'typing' types are supported; in case of unsupported, this evaluates to True.
+  (typing.Tuple is not checked as it is not needed because tuples aren't supported by the XNMT serializer)
+
+  Args:
+    obj: object whose type to check
+    desired_type: desired type of obj
+
+  Returns:
+    True iff the type matches.
+  """
+  try:
+    return isinstance(obj, desired_type)
+  except TypeError:
+    if desired_type.__class__.__name__ == "_Any":
+      return True
+    elif desired_type == type(None):
+      return obj is None
+    elif desired_type.__class__.__name__ == "_Union":
+      return any(check_type(obj, subtype) for subtype in desired_type.__args__)
+    elif desired_type.__class__.__name__ == "TupleMeta":
+      if not isinstance(obj, tuple): return False
+      if desired_type.__args__:
+        if desired_type.__args__[-1] == ...:
+          return check_type(obj[0], desired_type.__args__[0])
+        else:
+          return len(obj) == desired_type.__args__ and all(check_type(obj[i], desired_type.__args__[i]) for i in range(len(obj)))
+      else: return True
+    return True # case of unsupported types: return True
