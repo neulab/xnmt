@@ -5,7 +5,7 @@ This module contains classes for computing evaluation metrics and corresponding 
 from collections import defaultdict, Counter
 import math
 import subprocess
-from typing import List, Sequence, Dict, Tuple, Union, Any
+from typing import List, Sequence, Dict, Tuple, Union, Any, Optional
 
 import numpy as np
 
@@ -192,33 +192,35 @@ class Evaluator(object):
   A class to evaluate the quality of output.
   """
 
-  def evaluate(self, ref, hyp, desc=None):
+  def evaluate(self, ref: Sequence, hyp: Sequence, desc: Optional[Any] = None) -> EvalScore:
     """
-  Calculate the quality of output given a references.
+  Calculate the quality of output given a reference.
 
   Args:
-    ref: list of reference sents ( a sent is a list of tokens )
-    hyp: list of hypothesis sents ( a sent is a list of tokens )
+    ref: list of reference sents ( a sentence is a list of tokens )
+    hyp: list of hypothesis sents ( a sentence is a list of tokens )
     desc: optional description that is passed on to score objects
+  Returns:
   """
     raise NotImplementedError('evaluate must be implemented in Evaluator subclasses')
 
-  def metric_name(self):
+  def evaluate_multi(self, ref: Sequence[Sequence], hyp: Sequence, desc: Optional[Any] = None) -> EvalScore:
+    """
+  Calculate the quality of output given multiple references.
+
+  Args:
+    ref: list of tuples of reference sentences ( a sentence is a list of tokens )
+    hyp: list of hypothesis sentences ( a sentence is a list of tokens )
+    desc: optional description that is passed on to score objects
+  """
+    raise NotImplementedError(f'evaluate_multi() is not implemented for {type(self)}.')
+
+  def metric_name(self) -> str:
     """
   Return:
-    str:
+    metric name
   """
     raise NotImplementedError('metric_name must be implemented in Evaluator subclasses')
-
-  @staticmethod
-  def _is_multi_ref(ref_sents):
-    return not isinstance(ref_sents[0][0], str)
-  @staticmethod
-  def _get_single_ref(ref_sents):
-    if Evaluator._is_multi_ref(ref_sents):
-      return [ref_sent[0] for ref_sent in ref_sents]
-    else:
-      return ref_sents
 
 class FastBLEUEvaluator(Evaluator, Serializable):
   """
@@ -275,17 +277,31 @@ class BLEUEvaluator(Evaluator, Serializable):
   def metric_name(self):
     return f"BLEU{self.ngram} score"
 
-  def evaluate(self, ref: Sequence[Union[Sequence[str], Sequence[Sequence[str]]]], hyp: Sequence[Sequence[str]],
-               desc: Any = None) -> BLEUScore:
+  def evaluate(self, ref: Sequence[Sequence[str]], hyp: Sequence[Sequence[str]], desc: Any = None) -> BLEUScore:
     """
     Args:
       ref: reference sentences (single-reference case: sentence is list of strings;
-                                multi-reference case: sentence is list of tuple of strings)
       hyp: list of hypothesis sentences ( a sentence is a list of tokens )
       desc: description to pass on to returned score
     Return:
       Score, including intermediate results such as ngram ratio, sentence length, brevity penalty
     """
+    return self._eval(ref, hyp, is_multi_ref=False, desc=desc)
+
+  def evaluate_multi(self, ref: Sequence[Sequence[Sequence[str]]], hyp: Sequence[Sequence[str]],
+               desc: Any = None) -> BLEUScore:
+    """
+    Args:
+      ref: list of tuples of reference sentences ( a sentence is a list of tokens )
+      hyp: list of hypothesis sentences ( a sentence is a list of tokens )
+      desc: optional description that is passed on to score objects
+    Return:
+      Score, including intermediate results such as ngram ratio, sentence length, brevity penalty
+    """
+    return self._eval(ref, hyp, is_multi_ref=True, desc=desc)
+
+  def _eval(self, ref: Sequence[Union[Sequence[str], Sequence[Sequence[str]]]], hyp: Sequence[Sequence[str]],
+            is_multi_ref: bool, desc: Any = None) -> BLEUScore:
     self.reference_corpus = ref
     self.candidate_corpus = hyp
 
@@ -301,17 +317,16 @@ class BLEUEvaluator(Evaluator, Serializable):
 
     for ref_sent, can_sent in zip(self.reference_corpus, self.candidate_corpus):
       word_counter['candidate'] += len(can_sent)
-      multi_ref = not isinstance(ref_sent[0], str)
-      if not multi_ref:
+      if not is_multi_ref:
         word_counter['reference'] += len(ref_sent)
 
-        clip_count_dict, full_count_dict = self.modified_precision(ref_sent, can_sent)
+        clip_count_dict, full_count_dict = self._modified_precision(ref_sent, can_sent)
 
       else:
         ref_lens = sorted([(len(ref_sent_i), abs(len(ref_sent_i) - len(can_sent))) for ref_sent_i in ref_sent],
                           key=lambda x: (x[1],x[0]))
         word_counter['reference'] += ref_lens[0][0]
-        counts = [self.modified_precision(ref_sent_i, can_sent) for ref_sent_i in ref_sent]
+        counts = [self._modified_precision(ref_sent_i, can_sent) for ref_sent_i in ref_sent]
         full_count_dict = counts[0][1]
         clip_count_dict = defaultdict(Counter)
         for ngram_type in candidate_ngram_count:
@@ -322,8 +337,6 @@ class BLEUEvaluator(Evaluator, Serializable):
         if ngram_type in clip_count_dict:
           clipped_ngram_count[ngram_type] += sum(clip_count_dict[ngram_type].values())
         candidate_ngram_count[ngram_type] += sum(full_count_dict[ngram_type].values())
-
-
 
     # Edge case
     # Return 0 if there are no matching n-grams
@@ -347,13 +360,13 @@ class BLEUEvaluator(Evaluator, Serializable):
     precision_score = math.exp(log_precision_score)
 
     # Brevity Penalty Score
-    brevity_penalty_score = self.brevity_penalty(word_counter['reference'], word_counter['candidate'])
+    brevity_penalty_score = self._brevity_penalty(word_counter['reference'], word_counter['candidate'])
 
     # BLEU Score
     bleu_score = brevity_penalty_score * precision_score
     return BLEUScore(bleu_score, frac_score_list, brevity_penalty_score, word_counter['candidate'], word_counter['reference'], ngram=self.ngram, desc=desc)
 
-  def brevity_penalty(self, r: int, c: int) -> float:
+  def _brevity_penalty(self, r: int, c: int) -> float:
     """
     Args:
       r: number of words in reference corpus
@@ -371,7 +384,7 @@ class BLEUEvaluator(Evaluator, Serializable):
       penalty = np.exp(1. - (r / c))
     return penalty
 
-  def extract_ngrams(self, tokens: Sequence[str]) -> Dict[int,Counter]:
+  def _extract_ngrams(self, tokens: Sequence[str]) -> Dict[int, Counter]:
     """
     Extracts ngram counts from the input string
 
@@ -394,7 +407,7 @@ class BLEUEvaluator(Evaluator, Serializable):
 
     return ngram_count
 
-  def modified_precision(self, reference_sent: List[str], candidate_sent: List[str]) \
+  def _modified_precision(self, reference_sent: List[str], candidate_sent: List[str]) \
           -> Tuple[Dict[int,Counter],Dict[int,Counter]]:
     """
     Computes counts useful in modified precision calculations
@@ -407,8 +420,8 @@ class BLEUEvaluator(Evaluator, Serializable):
 
     clipped_ngram_count = defaultdict(Counter)
 
-    reference_ngram_count = self.extract_ngrams(reference_sent)
-    candidate_ngram_count = self.extract_ngrams(candidate_sent)
+    reference_ngram_count = self._extract_ngrams(reference_sent)
+    candidate_ngram_count = self._extract_ngrams(candidate_sent)
 
     for ngram_type in candidate_ngram_count:
       clipped_ngram_count[ngram_type] = candidate_ngram_count[ngram_type] & reference_ngram_count[ngram_type]
@@ -419,7 +432,7 @@ class GLEUEvaluator(Evaluator, Serializable):
   """
   Class for computing GLEU Scores.
 
-  If multiple references are given, ignore all but the first one.
+  Does not support multiple references.
   """
   yaml_tag = "!GLEUEvaluator"
   @serializable_init
@@ -458,7 +471,6 @@ class GLEUEvaluator(Evaluator, Serializable):
     Return:
       Formatted string having GLEU Score
     """
-    ref = Evaluator._get_single_ref(ref)
     assert (len(ref) == len(hyp)), \
       "Length of Reference Corpus and Candidate Corpus should be same"
     corpus_n_match = 0
@@ -492,7 +504,7 @@ class WEREvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of word error rate.
 
-  If multiple references are given, ignore all but the first one.
+  Does not support multiple references.
 
   Args:
     case_sensitive: whether scoring should be case-sensitive
@@ -519,7 +531,6 @@ class WEREvaluator(Evaluator, Serializable):
     Return:
       formatted string (word error rate: (ins+del+sub) / (ref_len), plus more statistics)
     """
-    ref = Evaluator._get_single_ref(ref)
     if self.cross_lines:
       ref = [sum(ref, [])]
       hyp = [sum(hyp, [])]
@@ -581,7 +592,7 @@ class CEREvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of character error rate.
 
-  If multiple references are given, ignore all but the first one.
+  Does not support multiple references.
 
   Args:
     case_sensitive: whether scoring should be case-sensitive
@@ -608,7 +619,6 @@ class CEREvaluator(Evaluator, Serializable):
     Return:
       character error rate: (ins+del+sub) / (ref_len)
     """
-    ref = Evaluator._get_single_ref(ref)
     ref_char = [list("".join(ref_sent)) for ref_sent in ref]
     hyp_char = [list("".join(hyp_sent)) for hyp_sent in hyp]
     wer_obj = self.wer_evaluator.evaluate(ref_char, hyp_char)

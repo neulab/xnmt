@@ -36,7 +36,6 @@ class LossEvalTask(Serializable):
     max_trg_len:omit sentences with target length greater than specified number
     desc: description to pass on to computed score objects
   """
-
   yaml_tag = '!LossEvalTask'
 
   @serializable_init

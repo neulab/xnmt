@@ -178,8 +178,8 @@ LengthNormalization
 Evaluation
 ----------
 
-EvalTaks
-~~~~~~~~
+EvalTasks
+~~~~~~~~~
 .. automodule:: xnmt.eval_task
    :members:
    :show-inheritance:

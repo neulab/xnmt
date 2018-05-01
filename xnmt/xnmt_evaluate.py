@@ -40,10 +40,13 @@ def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequ
   hyp_postprocess = lambda line: line.split()
   ref_postprocess = lambda line: line.split()
 
-  if isinstance(ref_file, str): ref_corpus = read_data(ref_file, post_process=ref_postprocess)
+  is_multi = False
+  if isinstance(ref_file, str):
+    ref_corpus = read_data(ref_file, post_process=ref_postprocess)
   else:
     if len(ref_file)==1: ref_corpus = read_data(ref_file[0], post_process=ref_postprocess)
     else:
+      is_multi = True
       ref_corpora = [read_data(ref_file_i, post_process=ref_postprocess) for ref_file_i in ref_file]
       ref_corpus = [tuple(ref_corpora[i][j] for i in range(len(ref_file))) for j in range(len(ref_corpora[0]))]
   hyp_corpus = read_data(hyp_file, post_process=hyp_postprocess)
@@ -52,7 +55,10 @@ def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequ
   if len(ref_corpus) < len_before:
     logger.info(f"> ignoring {len_before - len(ref_corpus)} out of {len_before} test sentences.")
 
-  return [evaluator.evaluate(ref_corpus, hyp_corpus, desc=desc) for evaluator in evaluators]
+  if is_multi:
+    return [evaluator.evaluate_multi(ref_corpus, hyp_corpus, desc=desc) for evaluator in evaluators]
+  else:
+    return [evaluator.evaluate(ref_corpus, hyp_corpus, desc=desc) for evaluator in evaluators]
 
 def main():
   parser = argparse.ArgumentParser()
