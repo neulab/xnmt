@@ -4,6 +4,7 @@ from xnmt.settings import settings
 
 import dynet as dy
 
+from xnmt.batcher import Batcher
 from xnmt.evaluator import Evaluator
 from xnmt.generator import GeneratorModel
 from xnmt.inference import SimpleInference
@@ -15,34 +16,33 @@ from xnmt.loss import LossBuilder, LossScalarBuilder
 import xnmt.xnmt_evaluate
 
 class EvalTask(object):
-  '''
+  """
   An EvalTask is a task that does evaluation and returns one or more EvalScore objects.
-  '''
+  """
   def eval(self):
-    raise NotImplementedError("EvalTask.eval needs to be implemented in child classes")
+    raise NotImplementedError("EvalTask.eval() needs to be implemented in child classes")
 
 class LossEvalTask(Serializable):
-  '''
+  """
   A task that does evaluation of the loss function.
 
   Args:
-    src_file (str):
-    ref_file (str):
-    model (GeneratorModel):
-    batcher (Batcher):
-    loss_calculator (LossCalculator):
-    max_src_len (int):
-    max_trg_len (int):
-    desc (str):
-  '''
+    src_file: source file name
+    ref_file: reference file name
+    model: generator model to use for inference
+    batcher: batcher to use
+    loss_calculator: loss calculator
+    max_src_len: omit sentences with source length greater than specified number
+    max_trg_len:omit sentences with target length greater than specified number
+    desc: description to pass on to computed score objects
+  """
 
   yaml_tag = '!LossEvalTask'
 
   @serializable_init
-  def __init__(self, src_file, ref_file, model=Ref("model"),
-                batcher=Ref("train.batcher", default=None),
-                loss_calculator=bare(MLELoss), max_src_len=None, max_trg_len=None,
-                desc=None):
+  def __init__(self, src_file: str, ref_file: str, model: GeneratorModel = Ref("model"),
+               batcher: Batcher = Ref("train.batcher", default=None), loss_calculator: LossCalculator = bare(MLELoss),
+               max_src_len: Optional[int] = None, max_trg_len: Optional[int] = None, desc: Any = None):
     self.model = model
     self.loss_calculator = loss_calculator
     self.src_file = src_file
@@ -82,19 +82,19 @@ class LossEvalTask(Serializable):
       raise RuntimeError("Did you wrap your loss calculation with LossBuilder({'primary_loss': loss_value}) ?")
 
 class AccuracyEvalTask(Serializable):
-  '''
+  """
   A task that does evaluation of some measure of accuracy.
 
   Args:
-    src_file: path(s) to read source file from
-    ref_file: path(s) to read reference file from
+    src_file: path(s) to read source file(s) from
+    ref_file: path(s) to read reference file(s) from
     hyp_file: path to write hypothesis file to
     model: generator model to generate hypothesis with
     eval_metrics: list of evaluation metrics (list of Evaluator objects or string of comma-separated shortcuts)
     inference: inference object
-    candidate_id_file (str):
+    candidate_id_file:
     desc: human-readable description passed on to resulting score objects
-  '''
+  """
 
   yaml_tag = '!AccuracyEvalTask'
 
@@ -134,4 +134,3 @@ class AccuracyEvalTask(Serializable):
       ref_words_cnt += self.model.trg_reader.count_words(ref_sent)
       ref_words_cnt += 0
     return eval_scores, ref_words_cnt
-

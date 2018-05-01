@@ -210,10 +210,21 @@ class Evaluator(object):
   """
     raise NotImplementedError('metric_name must be implemented in Evaluator subclasses')
 
+  @staticmethod
+  def _is_multi_ref(ref_sents):
+    return not isinstance(ref_sents[0][0], str)
+  @staticmethod
+  def _get_single_ref(ref_sents):
+    if Evaluator._is_multi_ref(ref_sents):
+      return [ref_sent[0] for ref_sent in ref_sents]
+    else:
+      return ref_sents
+
 class FastBLEUEvaluator(Evaluator, Serializable):
   """
   Class for computing BLEU scores using a fast Cython implementation.
 
+  Does not support multiple references.
   BLEU scores are computed according to K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
 
   Args:
@@ -342,7 +353,6 @@ class BLEUEvaluator(Evaluator, Serializable):
     bleu_score = brevity_penalty_score * precision_score
     return BLEUScore(bleu_score, frac_score_list, brevity_penalty_score, word_counter['candidate'], word_counter['reference'], ngram=self.ngram, desc=desc)
 
-  # Doc to be added
   def brevity_penalty(self, r: int, c: int) -> float:
     """
     Args:
@@ -408,6 +418,8 @@ class BLEUEvaluator(Evaluator, Serializable):
 class GLEUEvaluator(Evaluator, Serializable):
   """
   Class for computing GLEU Scores.
+
+  If multiple references are given, ignore all but the first one.
   """
   yaml_tag = "!GLEUEvaluator"
   @serializable_init
@@ -446,6 +458,7 @@ class GLEUEvaluator(Evaluator, Serializable):
     Return:
       Formatted string having GLEU Score
     """
+    ref = Evaluator._get_single_ref(ref)
     assert (len(ref) == len(hyp)), \
       "Length of Reference Corpus and Candidate Corpus should be same"
     corpus_n_match = 0
@@ -479,6 +492,8 @@ class WEREvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of word error rate.
 
+  If multiple references are given, ignore all but the first one.
+
   Args:
     case_sensitive: whether scoring should be case-sensitive
     cross_lines: if True, merge all lines into a single line before scoring
@@ -504,6 +519,7 @@ class WEREvaluator(Evaluator, Serializable):
     Return:
       formatted string (word error rate: (ins+del+sub) / (ref_len), plus more statistics)
     """
+    ref = Evaluator._get_single_ref(ref)
     if self.cross_lines:
       ref = [sum(ref, [])]
       hyp = [sum(hyp, [])]
@@ -565,6 +581,8 @@ class CEREvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of character error rate.
 
+  If multiple references are given, ignore all but the first one.
+
   Args:
     case_sensitive: whether scoring should be case-sensitive
     cross_lines: if True, merge all lines into a single line before scoring
@@ -590,6 +608,7 @@ class CEREvaluator(Evaluator, Serializable):
     Return:
       character error rate: (ins+del+sub) / (ref_len)
     """
+    ref = Evaluator._get_single_ref(ref)
     ref_char = [list("".join(ref_sent)) for ref_sent in ref]
     hyp_char = [list("".join(hyp_sent)) for hyp_sent in hyp]
     wer_obj = self.wer_evaluator.evaluate(ref_char, hyp_char)
@@ -598,6 +617,8 @@ class CEREvaluator(Evaluator, Serializable):
 class ExternalEvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of the output according to an external evaluation script.
+
+  Does not support multiple references.
   The external script should only print a number representing the calculated score.
   """
   yaml_tag = "!ExternalEvaluator"
@@ -614,8 +635,8 @@ class ExternalEvaluator(Evaluator, Serializable):
     Calculate the quality of output according to an external script.
 
     Args:
-      ref: list of list of reference words
-      hyp: list of list of decoded words
+      ref: (ignored)
+      hyp: (ignored)
       desc: description to pass on to returned score
     Return:
       external eval script score
@@ -668,6 +689,8 @@ class RecallEvaluator(Evaluator,Serializable):
 class SequenceAccuracyEvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of sequence accuracy.
+
+  Does not support multiple references.
   """
   yaml_tag = "!SequenceAccuracyEvaluator"
   @serializable_init
