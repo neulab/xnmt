@@ -1255,7 +1255,12 @@ def check_type(obj, desired_type):
     False if types don't match or desired_type is unsupported, True otherwise.
   """
   try:
-    return isinstance(obj, desired_type)
+    if isinstance(obj, desired_type): return True
+    if isinstance(obj, Serializable): # handle some special issues, probably caused by inconsistent imports:
+      if obj.__class__.__name__ == desired_type.__name__ or any(
+              base.__name__ == desired_type.__name__ for base in obj.__class__.__bases__):
+        return True
+    return False
   except TypeError:
     if desired_type.__class__.__name__ == "_Any":
       return True
