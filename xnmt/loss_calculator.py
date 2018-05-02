@@ -66,7 +66,7 @@ class ReinforceLoss(Serializable, LossCalculator):
     self.use_baseline = use_baseline
     self.inv_eval = inv_eval
     if evaluation_metric is None:
-      self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
+      self.evaluation_metric = xnmt.evaluator.FastBLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
 
@@ -88,7 +88,7 @@ class ReinforceLoss(Serializable, LossCalculator):
       if len(sample_i) == 0:
         score = 0
       else:
-        score = self.evaluation_metric.evaluate_fast(ref_i, sample_i) * \
+        score = self.evaluation_metric.evaluate(ref_i, sample_i) * \
                 (-1 if self.inv_eval else 1)
       self.eval_score.append(score)
     self.true_score = dy.inputTensor(self.eval_score, batched=True)
@@ -118,7 +118,7 @@ class MinRiskLoss(Serializable, LossCalculator):
     # Samples
     self.alpha = alpha
     if evaluation_metric is None:
-      self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
+      self.evaluation_metric = xnmt.evaluator.FastBLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
     self.inv_eval = inv_eval
@@ -152,7 +152,7 @@ class MinRiskLoss(Serializable, LossCalculator):
             # Count this sample in
             uniques[j].add(hash_val)
           # Calc evaluation score
-        eval_score[j] = self.evaluation_metric.evaluate_fast(ref_j, hyp_j) * \
+        eval_score[j] = self.evaluation_metric.evaluate(ref_j, hyp_j) * \
                         (-1 if self.inv_eval else 1)
       # Appending the delta and logprob of this sample
       prob = logprob + dy.inputTensor(mask, batched=True)
