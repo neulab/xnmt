@@ -36,6 +36,6 @@ class GeneratorModel(object):
     raise NotImplementedError("Pick a key for primary loss that is used for dev_loss calculation")
 
   @register_xnmt_event_sum
-  def calc_additional_loss(self, src, trg, translator_loss, trg_counts):
+  def calc_additional_loss(self, src, trg, translator_loss):
     return None
 

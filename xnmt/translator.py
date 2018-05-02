@@ -23,8 +23,8 @@ from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
 import xnmt.plot
 from xnmt.reports import Reportable
-from xnmt.persistence import serializable_init, Serializable, bare, initialize_object, initialize_if_needed
-from xnmt.search_strategy import BeamSearch, GreedySearch
+from xnmt.persistence import serializable_init, Serializable, bare
+from xnmt.search_strategy import BeamSearch
 from collections import namedtuple
 from xnmt.vocab import Vocab
 from xnmt.persistence import Ref, Path
@@ -119,10 +119,10 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     self.search_strategy = search_strategy
 
   def shared_params(self):
-    return [set([".src_embedder.emb_dim", ".encoder.input_dim"]),
-            set([".encoder.hidden_dim", ".attender.input_dim", ".decoder.input_dim"]),
-            set([".attender.state_dim", ".decoder.rnn_layer.hidden_dim"]),
-            set([".trg_embedder.emb_dim", ".decoder.trg_embed_dim"])]
+    return [{".src_embedder.emb_dim", ".encoder.input_dim"},
+            {".encoder.hidden_dim", ".attender.input_dim", ".decoder.input_dim"},
+            {".attender.state_dim", ".decoder.rnn_layer.hidden_dim"},
+            {".trg_embedder.emb_dim", ".decoder.trg_embed_dim"}]
 
   def initialize_generator(self, **kwargs):
     self.report_path = kwargs.get("report_path", None)
@@ -229,7 +229,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     else:
       next_state = current_state
     next_state.context = self.attender.calc_context(next_state.rnn_state.output())
-    next_logsoftmax = dy.log_softmax(self.decoder.get_scores(next_state))
+    next_logsoftmax = self.decoder.get_scores_logsoftmax(next_state)
     return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
 
   @register_xnmt_event_assign
@@ -581,7 +581,7 @@ class EnsembleListDelegate(object):
     def unwrap(list_idx, args, kwargs):
       args = [arg if not isinstance(arg, EnsembleListDelegate) else arg[list_idx] \
               for arg in args]
-      kwargs = {key: val if not isinstance(arg, EnsembleListDelegate) else val[list_idx] \
+      kwargs = {key: val if not isinstance(val, EnsembleListDelegate) else val[list_idx] \
                 for key, val in kwargs.items()}
       return args, kwargs
 
@@ -624,7 +624,7 @@ class EnsembleDecoder(EnsembleListDelegate):
 
   Currently only supports averaging.
   '''
-  def get_scores(self, mlp_dec_states):
-    scores = [obj.get_scores(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
+  def get_scores_logsoftmax(self, mlp_dec_states):
+    scores = [obj.get_scores_logsoftmax(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
     return dy.average(scores)
 

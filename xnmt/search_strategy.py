@@ -1,10 +1,12 @@
+from collections import namedtuple
+import math
+
 import dynet as dy
 import numpy as np
-from collections import namedtuple
 
 import xnmt.batcher
 from xnmt.length_normalization import NoNormalization
-from xnmt.persistence import bare, Serializable, serializable_init, Ref, bare
+from xnmt.persistence import Serializable, serializable_init, bare
 from xnmt.vocab import Vocab
 
 
@@ -167,7 +169,7 @@ class BeamSearch(Serializable, SearchStrategy):
       attentions = []
       states = []
       current = end_hyp
-      while current.parent != None:
+      while current.parent is not None:
         word_ids.append(current.word)
         attentions.append(current.output.attention)
         # TODO(philip30): This should probably be uncommented.
@@ -188,15 +190,15 @@ class SamplingSearch(Serializable, SearchStrategy):
   Similar to greedy searchol
   
   Args:
-    max_length (int):
+    max_len (int):
     sample_size (int): 
   """
 
   yaml_tag = '!SamplingSearch'
 
   @serializable_init
-  def __init__(self, max_length=100, sample_size=5):
-    self.max_length = max_length
+  def __init__(self, max_len=100, sample_size=5):
+    self.max_len = max_len
     self.sample_size = sample_size
 
   def generate_output(self, translator, initial_state,
@@ -222,7 +224,7 @@ class SamplingSearch(Serializable, SearchStrategy):
     attentions = []
     masks = []
     # Sample to the max length
-    for length in range(self.max_length):
+    for length in range(self.max_len):
       translator_output = translator.output_one_step(current_words, current_state)
       if forced_trg_ids is None:
         sample = translator_output.logsoftmax.tensor_value().categorical_sample_log_prob().as_numpy()
@@ -256,3 +258,178 @@ class SamplingSearch(Serializable, SearchStrategy):
     samples = np.stack(samples, axis=1)
     return SearchOutput(samples, attentions, scores, logsofts, states, masks)
 
+
+class MctsNode:
+  def __init__(self, parent, prior_dist, word, attention, translator, dec_state):
+    self.parent = parent
+    self.prior_dist = prior_dist  # log of softmax
+    self.word = word
+    self.attention = attention
+
+    self.translator = translator
+    self.dec_state = dec_state
+
+    self.tries = 0
+    self.avg_value = 0.0
+    self.children = {}
+
+    # If the child is unvisited, set its avg_value to
+    # parent value - reduction where reduction = c * sqrt(sum of scores of all visited children)
+    # where c is 0.25 in leela
+    self.reduction = 0.0
+
+  def choose_child(self):
+    return max(range(len(self.prior_dist)),
+               key=lambda move: self.compute_priority(move))
+
+  def compute_priority(self, move):
+    if move not in self.children:
+      child_val = self.prior_dist[move] + self.avg_value - self.reduction
+      child_tries = 0
+    else:
+      child_val = self.prior_dist[move] + self.children[move].avg_value
+      child_tries = self.children[move].tries
+
+    K = 5.0
+    exp_term = math.sqrt(1.0 * self.tries + 1.0) / (child_tries + 1)
+    # TODO: This exp could be done before the prior is passed into the MctsNode
+    # so it's done as a big batch
+    exp_term *= K * math.exp(self.prior_dist[move])
+    total_value = child_val + exp_term
+    return total_value
+
+  def expand(self):
+    if self.word == Vocab.ES:
+      return self
+
+    move = self.choose_child()
+    if move in self.children:
+      return self.children[move].expand()
+    else:
+      output = self.translator.output_one_step(move, self.dec_state)
+      prior_dist = output.logsoftmax.npvalue()
+      attention = output.attention
+
+      path = []
+      node = self
+      while node is not None:
+        path.append(node.word)
+        node = node.parent
+      path = ' '.join(str(word) for word in reversed(path))
+      print('Creating new node:', path, '+', move)
+      new_node = MctsNode(self, prior_dist, move, attention,
+                          self.translator, output.state)
+      self.children[move] = new_node
+      return new_node
+
+  def rollout(self, sample_func, max_len):
+    prefix = []
+    scores = []
+    prev_word = None
+    dec_state = self.dec_state
+
+    if self.word == Vocab.ES:
+      return prefix, scores
+
+    while True:
+      output = self.translator.output_one_step(prev_word, dec_state)
+      logsoftmax = output.logsoftmax.npvalue()
+      attention = output.attention
+      best_id = sample_func(logsoftmax)
+      print("Rolling out node with word=", best_id, 'score=', logsoftmax[best_id])
+
+      prefix.append(best_id)
+      scores.append(logsoftmax[best_id])
+
+      if best_id == Vocab.ES or len(prefix) >= max_len:
+        break
+      prev_word = best_id
+      dec_state = output.state
+    return prefix, scores
+
+  def backup(self, result):
+    print('Backing up', result)
+    self.avg_value = self.avg_value * (self.tries / (self.tries + 1)) + result / (self.tries + 1)
+    self.tries += 1
+    if self.parent is not None:
+      my_prob = self.parent.prior_dist[self.word]
+      self.parent.backup(result + my_prob)
+
+  def collect(self, words, attentions):
+    if self.word is not None:
+      words.append(self.word)
+      attentions.append(self.attention)
+    if len(self.children) > 0:
+      best_child = max(self.children.itervalues(), key=lambda child: child.visits)
+      best_child.collect(words, attentions)
+
+
+def random_choice(logsoftmax):
+  #logsoftmax *= 100
+  probs = np.exp(logsoftmax)
+  probs /= sum(probs)
+  choices = np.random.choice(len(probs), 1, p=probs)
+  return choices[0]
+
+
+def greedy_choice(logsoftmax):
+  return np.argmax(logsoftmax)
+
+
+class MctsSearch(Serializable, SearchStrategy):
+  '''
+  Performs search with Monte Carlo Tree Search
+  '''
+  yaml_tag = '!MctsSearch'
+
+  @serializable_init
+  def __init__(self, visits=200, max_len=100):
+    self.max_len = max_len
+    self.visits = visits
+
+  def generate_output(self, translator, dec_state, src_length=None, forced_trg_ids=None):
+    assert forced_trg_ids is None
+    orig_dec_state = dec_state
+
+    output = translator.output_one_step(None, dec_state)
+    dec_state = output.state
+    assert dec_state == orig_dec_state
+    logsoftmax = output.logsoftmax.npvalue()
+    root_node = MctsNode(None, logsoftmax, None, None, translator, dec_state)
+    for i in range(self.visits):
+      terminal = root_node.expand()
+      words, scores = terminal.rollout(random_choice, self.max_len)
+      terminal.backup(sum(scores))
+      print()
+
+    print('Final stats:')
+    for word in root_node.children:
+      print (word, root_node.compute_priority(word), root_node.prior_dist[word] + root_node.children[word].avg_value, root_node.children[word].tries)
+    print()
+
+    scores = []
+    logsoftmaxes = []
+    word_ids = []
+    attentions = []
+    states = []
+    masks = []
+
+    node = root_node
+    while True:
+      if len(node.children) == 0:
+        break
+      best_word = max(node.children, key=lambda word: node.children[word].tries)
+      score = node.prior_dist[best_word]
+      attention = node.children[best_word].attention
+
+      scores.append(score)
+      logsoftmaxes.append(node.prior_dist)
+      word_ids.append(best_word)
+      attentions.append(attention)
+      states.append(node.dec_state)
+      masks.append(1)
+
+      node = node.children[best_word]
+
+    word_ids = np.expand_dims(word_ids, axis=0)
+    return [SearchOutput(word_ids, attentions, scores, logsoftmaxes, states, masks)]

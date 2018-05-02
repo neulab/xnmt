@@ -311,6 +311,8 @@ class CustomLSTMSeqTransducer(SeqTransducer, Serializable):
                If None, use ``exp_global.param_init``
   """
   yaml_tag = "!CustomLSTMSeqTransducer"
+
+  @serializable_init
   def __init__(self,
                layers,
                input_dim,

@@ -1,10 +1,5 @@
-# A standard setup, specifying model architecture, training parameters, 
-# and evaluation of the trained model
-standard: !Experiment # 'standard' is the name given to the experiment
-  # global parameters shared throughout the experiment
+lexbias: !Experiment # 'standard' is the name given to the experiment
   exp_global: !ExpGlobal
-    # {EXP_DIR} is a placeholder for the directory in which the config file lies.
-    # {EXP} is a placeholder for the experiment name (here: 'standard')
     model_file: '{EXP_DIR}/models/{EXP}.mod'
     log_file: '{EXP_DIR}/logs/{EXP}.log'
     default_layer_dim: 512
@@ -12,9 +7,9 @@ standard: !Experiment # 'standard' is the name given to the experiment
   # model architecture
   model: !DefaultTranslator
     src_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
-    trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 512
     encoder: !BiLSTMSeqTransducer
@@ -25,13 +20,17 @@ standard: !Experiment # 'standard' is the name given to the experiment
       input_dim: 512
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 512
-    decoder: !MlpSoftmaxDecoder
+    decoder: !MlpSoftmaxLexiconDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
       mlp_layer: !MLP
         hidden_dim: 512
-        activation: 'tanh'
       bridge: !CopyBridge {}
+      lexicon_file: examples/data/head-ja_given_en.lex
+      # can choose between bias/linear
+      lexicon_type: bias
+      # The small epsilon value to be added to the bias
+      lexicon_alpha: 0.001
   # training parameters
   train: !SimpleTrainingRegimen
     batcher: !SrcBatcher
@@ -39,16 +38,16 @@ standard: !Experiment # 'standard' is the name given to the experiment
     trainer: !AdamTrainer
       alpha: 0.001
     run_for_epochs: 2
-    src_file: examples/data/head.ja
-    trg_file: examples/data/head.en
+    src_file: examples/data/head.en
+    trg_file: examples/data/head.ja
     dev_tasks:
       - !LossEvalTask
-        src_file: examples/data/head.ja
-        ref_file: examples/data/head.en
+        src_file: examples/data/head.en
+        ref_file: examples/data/head.ja
   # final evaluation
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu
-      src_file: examples/data/head.ja
-      ref_file: examples/data/head.en
+      src_file: examples/data/head.en
+      ref_file: examples/data/head.ja
       hyp_file: examples/output/{EXP}.test_hyp

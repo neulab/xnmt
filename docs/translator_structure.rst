@@ -1,3 +1,5 @@
+.. _sec-translator-structure:
+
 Translator Structure
 ====================
 

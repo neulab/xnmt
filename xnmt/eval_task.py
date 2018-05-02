@@ -1,4 +1,4 @@
-from typing import Sequence, Union, Optional
+from typing import Sequence, Union, Optional, Any
 
 from xnmt.settings import settings
 
@@ -12,7 +12,6 @@ from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
 from xnmt.loss import LossBuilder, LossScalarBuilder
-from xnmt.util import OneOrSeveral
 import xnmt.xnmt_evaluate
 
 class EvalTask(object):
@@ -55,7 +54,8 @@ class LossEvalTask(Serializable):
     self.desc=desc
 
   def eval(self):
-    if self.src_data == None:
+    self.model.set_train(False)
+    if self.src_data is None:
       self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
         xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                         self.src_file, self.ref_file, batcher=self.batcher,
@@ -68,7 +68,7 @@ class LossEvalTask(Serializable):
 
       loss_builder = LossBuilder()
       standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-      additional_loss = self.model.calc_additional_loss(src, trg, standard_loss, [trg_word_count])
+      additional_loss = self.model.calc_additional_loss(src, trg, standard_loss)
       loss_builder.add_loss("standard_loss", standard_loss)
       loss_builder.add_loss("additional_loss", additional_loss)
 
@@ -97,10 +97,10 @@ class AccuracyEvalTask(Serializable):
   yaml_tag = '!AccuracyEvalTask'
 
   @serializable_init
-  def __init__(self, src_file: OneOrSeveral[str], ref_file: OneOrSeveral[str], hyp_file: str,
+  def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: GeneratorModel = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
                inference: Optional[SimpleInference] = None, candidate_id_file: Optional[str] = None,
-               desc: Optional = None):
+               desc: Optional[Any] = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
@@ -113,6 +113,7 @@ class AccuracyEvalTask(Serializable):
     self.desc=desc
 
   def eval(self):
+    self.model.set_train(False)
     self.inference(generator = self.model,
                    src_file = self.src_file,
                    trg_file = self.hyp_file,

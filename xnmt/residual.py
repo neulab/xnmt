@@ -204,6 +204,7 @@ class ResidualBiRNNBuilder(Serializable):
     backward_layer (UniLSTMSeqTransducer):
     residual_network (ResidualRNNBuilder):
   """
+  yaml_tag = "!ResidualBiRNNBuilder"
   @serializable_init
   def __init__(self, num_layers, input_dim, hidden_dim, add_to_output=False,
                dropout=Ref("exp_global.dropout", default=0.0), forward_layer=None, backward_layer=None,

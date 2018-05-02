@@ -1,4 +1,5 @@
-minrisk: !Experiment
+# A standard training run, should almost never break
+dev_combinator: !Experiment
   exp_global: !ExpGlobal
     model_file: examples/output/{EXP}.mod
     log_file: examples/output/{EXP}.log
@@ -8,9 +9,8 @@ minrisk: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-    search_strategy: !SamplingSearch
-      max_len: 10
-      sample_size: 10
+    search_strategy: !BeamSearch
+      beam_size: 5
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
@@ -24,8 +24,7 @@ minrisk: !Experiment
       - !LossEvalTask
         src_file: examples/data/head.ja
         ref_file: examples/data/head.en
-    loss_calculator: !MinRiskLoss
-      alpha: 0.005
+    dev_combinator: "x[0]-x[1]"
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu
@@ -33,3 +32,4 @@ minrisk: !Experiment
       ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.test_hyp
 
+      

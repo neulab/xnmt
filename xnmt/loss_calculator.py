@@ -62,7 +62,7 @@ class ReinforceLoss(Serializable, LossCalculator):
   # TODO: document me
   @serializable_init
   def __init__(self, evaluation_metric=None, sample_length=50, use_baseline=False,
-               inv_eval=True, decoder_hidden_dim=Ref("exp_global.default_layer_dim")):
+               inv_eval=True, decoder_hidden_dim=Ref("exp_global.default_layer_dim"), baseline=None):
     self.use_baseline = use_baseline
     self.inv_eval = inv_eval
     if evaluation_metric is None:
@@ -71,7 +71,8 @@ class ReinforceLoss(Serializable, LossCalculator):
       self.evaluation_metric = evaluation_metric
 
     if self.use_baseline:
-      self.baseline = linear.Linear(input_dim=decoder_hidden_dim, output_dim=1)
+      self.baseline = self.add_serializable_component("baseline", baseline,
+                                                      lambda: linear.Linear(input_dim=decoder_hidden_dim, output_dim=1))
 
   def __call__(self, translator, initial_state, src, trg):
     # TODO(philip30): currently only using the best hypothesis / first sample for reinforce loss

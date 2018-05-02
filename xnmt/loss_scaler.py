@@ -15,7 +15,7 @@ class NegativeLogProbLossScaler(Serializable):
   def __init__(self, trg_vocab=Ref(Path("model.trg_reader.vocab")), word_count=None, expected_vocab_size=1e6):
     self.weight = np.zeros(len(trg_vocab))
     total_count = 0
-    with open(word_count) as fp:
+    with open(word_count, encoding='utf-8') as fp:
       for line in fp:
         line = line.strip().split()
         word = " ".join(line[:-1])
@@ -26,13 +26,13 @@ class NegativeLogProbLossScaler(Serializable):
           total_count += count
         else:
           logger.debug("WARNING, ignoring because it is not contained in vocab: " + word)
-    
+
     unigram_prob = 0.95 * (self.weight / total_count) + (0.05 / expected_vocab_size)
     self.weight = -np.log(unigram_prob)
     self.first = True
     self.trg_vocab = trg_vocab
     self.train = False
-    
+
   @handle_xnmt_event
   def on_set_train(self, train):
     self.train = train
@@ -51,3 +51,4 @@ class NegativeLogProbLossScaler(Serializable):
 
     weight = dy.nobackprop(dy.pick_batch(dy.inputTensor(self.weight), ref_action))
     return dy.cmult(weight, loss)
+
