@@ -395,6 +395,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
   @handle_xnmt_event
   def on_line_report(self, output_dict):
     logsoft = self.segment_logsoftmaxes
+    if logsoft is None:
+      return
     decision = lambda i: [(1 if i in dec_set else 0) for dec_set in self.segment_decisions]
     segmentation_prob = [dy.pick_batch(logsoft[i], decision(i)) for i in range(len(logsoft))]
     segmentation_prob = dy.pick_batch_elem(dy.esum(segmentation_prob), 0)
