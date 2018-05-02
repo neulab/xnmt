@@ -65,6 +65,7 @@ class SimpleInference(Serializable):
     # Get reference if it exists and is necessary
     if mode == "forced" or mode == "forceddebug" or mode == "score":
       if self.ref_file == None:
+        raise RuntimeError("When performing {} decoding, must specify reference file".format(mode))
       score_src_corpus = []
       ref_corpus = []
       with open(self.ref_file, "r", encoding="utf-8") as fp:
