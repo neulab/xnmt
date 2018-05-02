@@ -1,1 +1,2 @@
 librosa
+sentencepiece>=0.0.6

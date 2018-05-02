@@ -1,5 +1,5 @@
 import os.path
-from typing import List
+from typing import List, Optional
 
 from xnmt import logger
 from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer
@@ -25,7 +25,8 @@ class PreprocRunner(Serializable):
   yaml_tag = "!PreprocRunner"
 
   @serializable_init
-  def __init__(self, tasks:List[PreprocTask]=[], overwrite:bool=False):
+  def __init__(self, tasks:Optional[List[PreprocTask]]=None, overwrite:bool=False):
+    if tasks is None: tasks = []
     logger.info("> Preprocessing")
 
     for task in tasks:
@@ -114,7 +115,7 @@ class PreprocFilter(PreprocTask, Serializable):
       for x in in_streams:
         x.close()
     for x in out_streams:
-      if x != None:
+      if x is not None:
         x.close()
 
 class PreprocVocab(PreprocTask, Serializable):

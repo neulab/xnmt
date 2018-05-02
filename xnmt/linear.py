@@ -11,7 +11,6 @@ class Linear(Serializable):
   Args:
     input_dim (int): input dimension
     output_dim (int): hidden dimension
-    model (dy.ParameterCollection): DyNet parameter collection
     bias (bool): whether to add a bias
     param_init (ParamInitializer): how to initialize weight matrices
     bias_init (ParamInitializer): how to initialize bias vectors

@@ -1,3 +1,7 @@
+"""
+This module contains classes for computing evaluation metrics and corresponding classes that contain resulting scores.
+"""
+
 from collections import defaultdict, Counter
 import math
 import subprocess
@@ -32,6 +36,8 @@ class EvalScore(object):
 
 class LossScore(EvalScore, Serializable):
   yaml_tag = "!LossScore"
+
+  @serializable_init
   def __init__(self, loss, loss_stats=None, desc=None):
     self.loss = loss
     self.loss_stats = loss_stats
@@ -50,6 +56,8 @@ class LossScore(EvalScore, Serializable):
 
 class BLEUScore(EvalScore, Serializable):
   yaml_tag = "!BLEUScore"
+
+  @serializable_init
   def __init__(self, bleu, frac_score_list=None, brevity_penalty_score=None, hyp_len=None, ref_len=None, ngram=4, desc=None):
     self.bleu = bleu
     self.frac_score_list = frac_score_list
@@ -61,7 +69,7 @@ class BLEUScore(EvalScore, Serializable):
     self.serialize_params = {"bleu":bleu, "ngram":ngram}
     self.serialize_params.update({k:getattr(self,k) for k in ["frac_score_list","brevity_penalty_score","hyp_len","ref_len","desc"] if getattr(self,k) is not None})
 
-  def value(self): return self.bleu
+  def value(self): return self.bleu if self.bleu is not None else 0.0
   def metric_name(self): return "BLEU" + str(self.ngram)
   def higher_is_better(self): return True
   def score_str(self):
@@ -71,6 +79,9 @@ class BLEUScore(EvalScore, Serializable):
       return f"{self.bleu}, {'/'.join(self.frac_score_list)} (BP = {self.brevity_penalty_score:.6f}, ratio={self.hyp_len / self.ref_len:.2f}, hyp_len={self.hyp_len}, ref_len={self.ref_len})"
 
 class GLEUScore(EvalScore, Serializable):
+  yaml_tag = "!GLEUScore"
+
+  @serializable_init
   def __init__(self, gleu, hyp_len, ref_len, desc=None):
     self.gleu = gleu
     self.hyp_len = hyp_len
@@ -87,6 +98,8 @@ class GLEUScore(EvalScore, Serializable):
 
 class WERScore(EvalScore, Serializable):
   yaml_tag = "!WERScore"
+
+  @serializable_init
   def __init__(self, wer, hyp_len, ref_len, desc=None):
     self.wer = wer
     self.hyp_len = hyp_len
@@ -102,6 +115,8 @@ class WERScore(EvalScore, Serializable):
 
 class CERScore(WERScore, Serializable):
   yaml_tag = "!CERScore"
+
+  @serializable_init
   def __init__(self, cer, hyp_len, ref_len, desc=None):
     self.cer = cer
     self.hyp_len = hyp_len
@@ -114,6 +129,8 @@ class CERScore(WERScore, Serializable):
 
 class RecallScore(WERScore, Serializable):
   yaml_tag = "!RecallScore"
+
+  @serializable_init
   def __init__(self, recall, hyp_len, ref_len, nbest=5, desc=None):
     self.recall  = recall
     self.hyp_len = hyp_len
@@ -134,6 +151,8 @@ class RecallScore(WERScore, Serializable):
 
 class ExternalScore(EvalScore, Serializable):
   yaml_tag = "!ExternalScore"
+
+  @serializable_init
   def __init__(self, value, higher_is_better=True, desc=None):
     self.value = value
     self.higher_is_better = higher_is_better
@@ -148,6 +167,8 @@ class ExternalScore(EvalScore, Serializable):
 
 class SequenceAccuracyScore(EvalScore, Serializable):
   yaml_tag = "!SequenceAccuracyScore"
+
+  @serializable_init
   def __init__(self, accuracy, desc=None):
     self.accuracy = accuracy
     self.desc = desc
@@ -158,22 +179,6 @@ class SequenceAccuracyScore(EvalScore, Serializable):
   def metric_name(self): return "SequenceAccuracy"
   def score_str(self):
     return f"{self.value()*100.0:.2f}%"
-
-class F1TokenScore(EvalScore, Serializable):
-  yaml_tag = "!F1TokenScore"
-  def __init__(self, prec, recall, higher_is_better=True, desc=None):
-    self.prec = prec
-    self.recall = recall
-    self.f1_score = (2*prec*recall) / (prec+recall) if prec + recall > 0 else 0
-    self.higher_is_better = higher_is_better
-    self.desc = desc
-    self.serialize_params = {"prec": prec, "recall": recall, "f1_score": self.f1_score}
-    if desc is not None: self.serialize_params["desc"] = desc
-  def higher_is_better(self): return self.higher_is_better
-  def value(self): return self.f1_score
-  def metric_name(self): return "F1TokenScore"
-  def score_str(self):
-    return "F1={:.3f}, Prec={:.3f}, Rec={:.3f}".format(self.f1_score, self.prec, self.recall)
 
 class Evaluator(object):
   """
@@ -236,6 +241,7 @@ class BLEUEvaluator(Evaluator, Serializable):
     Args:
       ref: list of reference sents ( a sent is a list of tokens )
       hyp: list of hypothesis sents ( a sent is a list of tokens )
+      desc: description to pass on to returned score
     Return:
       Formatted string having BLEU Score with different intermediate results such as ngram ratio,
       sent length, brevity penalty
@@ -390,6 +396,7 @@ class GLEUEvaluator(Evaluator, Serializable):
     Args:
       ref: list of reference sents ( a sent is a list of tokens )
       hyp: list of hypothesis sents ( a sent is a list of tokens )
+      desc: description to pass on to returned score
     Return:
       Formatted string having GLEU Score
     """
@@ -425,11 +432,17 @@ class GLEUEvaluator(Evaluator, Serializable):
 class WEREvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of word error rate.
+
+  Args:
+    case_sensitive: whether scoring should be case-sensitive
+    cross_lines: if True, merge all lines into a single line before scoring
+                 (careful with long files, quadratic time and space complexity!)
   """
   yaml_tag = "!WEREvaluator"
   @serializable_init
-  def __init__(self, case_sensitive=False):
+  def __init__(self, case_sensitive: bool = False, cross_lines: bool = False):
     self.case_sensitive = case_sensitive
+    self.cross_lines = cross_lines
 
   def metric_name(self):
     return "Word error rate"
@@ -441,9 +454,13 @@ class WEREvaluator(Evaluator, Serializable):
     Args:
       ref: list of list of reference words
       hyp: list of list of decoded words
+      desc: description to pass on to returned score
     Return:
       formatted string (word error rate: (ins+del+sub) / (ref_len), plus more statistics)
     """
+    if self.cross_lines:
+      ref = [sum(ref, [])]
+      hyp = [sum(hyp, [])]
     total_dist, total_ref_len, total_hyp_len = 0, 0, 0
     for ref_sent, hyp_sent in zip(ref, hyp):
       dist = self.dist_one_pair(ref_sent, hyp_sent)
@@ -501,12 +518,17 @@ class WEREvaluator(Evaluator, Serializable):
 class CEREvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of character error rate.
+
+  Args:
+    case_sensitive: whether scoring should be case-sensitive
+    cross_lines: if True, merge all lines into a single line before scoring
+                 (careful with long files, quadratic time and space complexity!)
   """
   yaml_tag = "!CEREvaluator"
 
   @serializable_init
-  def __init__(self, case_sensitive=False):
-    self.wer_evaluator = WEREvaluator(case_sensitive=case_sensitive)
+  def __init__(self, case_sensitive=False, cross_lines=False):
+    self.wer_evaluator = WEREvaluator(case_sensitive=case_sensitive, cross_lines=cross_lines)
 
   def metric_name(self):
     return "Character error rate"
@@ -518,6 +540,7 @@ class CEREvaluator(Evaluator, Serializable):
     Args:
       ref: list of list of reference words
       hyp: list of list of decoded words
+      desc: description to pass on to returned score
     Return:
       character error rate: (ins+del+sub) / (ref_len)
     """
@@ -547,6 +570,7 @@ class ExternalEvaluator(Evaluator, Serializable):
     Args:
       ref: list of list of reference words
       hyp: list of list of decoded words
+      desc: description to pass on to returned score
     Return:
       external eval script score
     """
@@ -621,41 +645,11 @@ class SequenceAccuracyEvaluator(Evaluator, Serializable):
     Args:
       ref: list of list of reference words
       hyp: list of list of decoded words
+      desc: description to pass on to returned score
     Return: formatted string
     """
     correct = sum(self.compare(ref_sent, hyp_sent) for ref_sent, hyp_sent in zip(ref, hyp))
     accuracy = float(correct) / len(ref)
     return SequenceAccuracyScore(accuracy, desc=self.desc)
 
-class F1TokenEvaluator(Evaluator):
-  """
-  A class to evaluate the quality of unigram outputs.
-  """
-  def __init__(self, desc=None):
-    self.desc = desc
-
-  def metric_name(self):
-    return "F1 Unigram Score"
-
-  def evaluate(self, ref, hyp):
-    """
-    Calculate the accuracy of the unigram
-    Args:
-      ref: list of list of reference words
-      hyp: list of list of decoded words
-    return: formatted string
-    """
-    assert len(ref) == len(hyp)
-    tp = 0
-    fp = 0
-    fn = 0
-    for ref_i, hyp_i in zip(ref, hyp):
-      ref_i = Counter(ref_i)
-      hyp_i = Counter(hyp_i)
-      tp += sum((ref_i & hyp_i).values())
-      fp += sum((hyp_i - ref_i).values())
-      fn += sum((ref_i - hyp_i).values())
-    prec = tp / (tp+fp) if tp + fp > 0 else 0
-    rec = tp / (tp+fn) if tp + fn > 0 else 0
-    return F1TokenScore(prec, rec, desc=self.desc)
 

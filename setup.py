@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from distutils.core import Extension
 import sys
 
@@ -27,12 +27,21 @@ setup(
   version='0.0.1',
   description='eXtensible Neural Machine Translation',
   author='neulab',
+  url='https://github.com/neulab/xnmt',
   license='Apache License',
   install_requires=install_requires,
-  packages=[
-      'xnmt',
-      'xnmt.speech_features',
-  ],
+  packages=find_packages(exclude=['test*', 'xnmt.cython', 'xnmt.test']),
   ext_modules=ext_modules,
+  python_requires='>=3.6',
+  project_urls={
+    'Documentation': 'http://xnmt.readthedocs.io/en/latest/',
+    'Source': 'https://github.com/neulab/xnmt',
+    'Tracker': 'https://github.com/neulab/xnmt/issues',
+  },
+  entry_points={
+    'console_scripts': [
+      'xnmt = xnmt.xnmt_run_experiments:main',
+      'xnmt_evaluate = xnmt.xnmt_evaluate:main',
+    ],
+  }
 )
-

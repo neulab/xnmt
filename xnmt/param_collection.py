@@ -86,11 +86,13 @@ class ParamManager(object):
       The assigned subcollection.
     """
     assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
+    assert not getattr(subcol_owner, "init_completed", False), \
+      f"my_params(obj) cannot be called after obj.__init__() has completed. Conflicting obj: {subcol_owner}"
     if not hasattr(subcol_owner, "xnmt_subcol_name"):
-      raise ValueError(f"{node} does not have an attribute 'xnmt_subcol_name'.\n"
+      raise ValueError(f"{subcol_owner} does not have an attribute 'xnmt_subcol_name'.\n"
                        f"Did you forget to wrap the __init__() in @serializable_init ?")
     subcol_name = subcol_owner.xnmt_subcol_name
-    subcol = ParamManager.param_col.add_subcollection(subcol_name)
+    subcol = ParamManager.param_col.add_subcollection(subcol_owner, subcol_name)
     subcol_owner.save_processed_arg("xnmt_subcol_name", subcol_name)
     return subcol
 
@@ -114,6 +116,7 @@ class ParamCollection(object):
     self._param_col = dy.Model()
     self._is_saved = False
     self.subcols = {}
+    self.all_subcol_owners = set()
 
   @property
   def save_num_checkpoints(self):
@@ -137,7 +140,9 @@ class ParamCollection(object):
     else:
       self._data_files = []
 
-  def add_subcollection(self, subcol_name):
+  def add_subcollection(self, subcol_owner, subcol_name):
+    assert subcol_owner not in self.all_subcol_owners
+    self.all_subcol_owners.add(subcol_owner)
     assert subcol_name not in self.subcols
     new_subcol = self._param_col.add_subcollection(subcol_name)
     self.subcols[subcol_name] = new_subcol
@@ -157,6 +162,8 @@ class ParamCollection(object):
     self._is_saved = True
 
   def revert_to_best_model(self):
+    if not self._is_saved:
+      raise ValueError("revert_to_best_model() is illegal because this model has never been saved.")
     for subcol_name, subcol in self.subcols.items():
       subcol.populate(os.path.join(self._data_files[0], subcol_name))
 

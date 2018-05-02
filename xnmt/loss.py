@@ -8,7 +8,7 @@ class LossBuilder(object):
   def __init__(self, init_loss=None):
     self.loss_values = collections.defaultdict(lambda: dy.scalarInput(0))
     self.modified = True
-    if init_loss != None:
+    if init_loss is not None:
       for key, val in init_loss.items():
         self.loss_values[key] = val
 
@@ -71,7 +71,7 @@ class LossScalarBuilder(object):
   # TODO: document me
 
   def __init__(self, loss_stats=None):
-    if loss_stats == None:
+    if loss_stats is None:
       loss_stats = {}
     self.__loss_stats = loss_stats
 

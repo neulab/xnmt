@@ -3,6 +3,7 @@ import dynet as dy
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.events import register_xnmt_handler, register_xnmt_event
+from xnmt.reports import Reportable
 
 @serializable_init
 class SegmentComposer(Serializable):
@@ -26,6 +27,12 @@ class SegmentComposer(Serializable):
     return self.transformer.transform(self.encoder, self.encoder(inputs))
 
 class SegmentTransformer(Serializable):
+  yaml_tag = "!SegmentTransformer"
+
+  @serializable_init
+  def __init__(self):
+    pass
+
   def transform(self, encoder, encodings):
     raise RuntimeError("Should call subclass of SegmentTransformer instead")
 

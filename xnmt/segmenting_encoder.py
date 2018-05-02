@@ -17,8 +17,7 @@ from xnmt.transducer import SeqTransducer
 from xnmt.loss import LossBuilder
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import Ref, bare, Path
-
-EPS = 1e-10
+from xnmt.constants import EPSILON
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!SegmentingSeqTransducer'
@@ -27,7 +26,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
   @serializable_init
   def __init__(self,
                ## COMPONENTS
-               embed_encoder=None, segment_composer=None, final_transducer=None,
+               embed_encoder=None, segment_composer=None, final_transducer=None, segment_transform=None, baseline=None,
                ## OPTIONS
                length_prior=3.3,
                length_prior_alpha=None, # GeometricSequence
@@ -46,10 +45,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
                sample_during_search = False,
                exp_reward           = True,
                exp_logsoftmax       = False,
-               print_sample         = False,
-               # Serializable (do not manually change)
-               segment_transform=None,
-               baseline=None):
+               print_sample         = False):
     model = ParamManager.my_params(self)
     # Sanity check
     assert embed_encoder is not None
@@ -57,24 +53,19 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     assert final_transducer is not None
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
-    self.src_vocab = src_vocab
-    self.trg_vocab = trg_vocab
-    if not hasattr(embed_encoder, "hidden_dim"):
-      embed_encoder_dim = yaml_context.default_layer_dim
-    else:
-      embed_encoder_dim = embed_encoder.hidden_dim
+    embed_encoder_dim = embed_encoder.hidden_dim
     # The Segment transducer produced word embeddings based on sequence of character embeddings
     self.segment_composer = segment_composer
     # The final transducer
     self.final_transducer = final_transducer
     # Decision layer of segmentation
     self.segment_transform = self.add_serializable_component("segment_transform", segment_transform,
-                                                             lambda: linear.Linear(input_dim  = embed_encoder_dim,
-                                                                                   output_dim = 2))
+                                                             lambda: linear.Linear(input_dim=embed_encoder_dim,
+                                                                                   output_dim=3 if learn_delete else 2))
     # The baseline linear regression model
     self.baseline = self.add_serializable_component("baseline", baseline,
-                                                    lambda: linear.Linear(input_dim = embed_encoder_dim,
-                                                                          output_dim = 1))
+                                                    lambda: linear.Linear(input_dim=embed_encoder_dim, output_dim=1))
+    self.src_vocab = src_vocab
     # Flags
     self.use_baseline = use_baseline
     self.learn_segmentation = learn_segmentation
@@ -105,7 +96,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size)
     # Length prior
     if self.length_prior_alpha is not None and self.length_prior_alpha.value() > 0:
-      length_prior = [poisson.pmf(len(seg_dec), exp_len)+EPS \
+      length_prior = [poisson.pmf(len(seg_dec), exp_len)+EPSILON \
                       for seg_dec, exp_len in zip(segment_decisions, self.expected_length)]
       self.segment_length_prior = dy.log(dy.inputTensor(length_prior, batched=True))
     # Composing segments
@@ -272,13 +263,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
         logger.debug(n + ": " + str(p))
 
   @handle_xnmt_event
-  def on_calc_additional_loss(self, src, trg, translator_loss, trg_words_counts):
+  def on_calc_additional_loss(self, src, trg, translator_loss):
     if not self.learn_segmentation or self.segment_decisions is None:
       return None
     ### Constructing Rewards
     # 1. Translator reward
     trans_loss = translator_loss.get_nobackprop_loss()
-    trans_loss["mle"] = dy.cdiv(trans_loss["mle"], dy.inputTensor(trg_words_counts, batched=True))
+    trg_counts = [t.original_length for t in trg]
+    trans_loss["mle"] = dy.cdiv(trans_loss["mle"], dy.inputTensor(trg_counts, batched=True))
     trans_reward = -dy.esum(list(trans_loss.values()))
     reward = LossBuilder({"trans_reward": dy.nobackprop(trans_reward)})
     assert trans_reward.dim()[1] == len(self.src_sent)
@@ -297,7 +289,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     if self.exp_reward:
       reward = dy.exp(reward)
     if self.z_normalization:
-      reward = dy.cdiv(reward-dy.mean_batches(reward), dy.std_batches(reward) + EPS)
+      reward = dy.cdiv(reward-dy.mean_batches(reward), dy.std_batches(reward) + EPSILON)
     baseline_score = []
     ## Baseline Loss
     if self.use_baseline:

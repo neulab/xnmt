@@ -12,9 +12,15 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
+import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
+
+# Add symlinks to files we need in the repo (because readthedocs doesn't like relative paths smh)
+examples_folder = 'examples'
+if os.path.islink(examples_folder):
+    os.remove(examples_folder)
+os.symlink('../examples', examples_folder)
 
 
 # -- Project information -----------------------------------------------------
@@ -45,7 +51,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'sphinxcontrib.napoleon',
-#    'sphinx_autodoc_typehints',
+    'sphinx_autodoc_typehints',
 ]
 
 # Add any paths that contain templates here, relative to this directory.

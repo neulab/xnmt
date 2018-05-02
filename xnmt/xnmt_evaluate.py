@@ -1,10 +1,9 @@
-from typing import Any, Sequence
 import argparse
+import sys
+from typing import Any, Sequence, Union
 
-from xnmt import logger
 from xnmt.evaluator import * # import everything so we can parse it with eval()
 from xnmt.inference import NO_DECODING_ATTEMPTED
-from xnmt.util import OneOrSeveral
 
 def read_data(loc_, post_process=None):
   """Reads the lines in the file specified in loc_ and return the list after inserting the tokens
@@ -28,7 +27,7 @@ eval_shortcuts = {
 }
 
 
-def xnmt_evaluate(ref_file: OneOrSeveral[str], hyp_file: OneOrSeveral[str],
+def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequence[str]],
                   evaluators: Sequence[Evaluator], desc: Any = None) -> Sequence[EvalScore]:
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
 
@@ -49,7 +48,7 @@ def xnmt_evaluate(ref_file: OneOrSeveral[str], hyp_file: OneOrSeveral[str],
 
   return [evaluator.evaluate(ref_corpus, hyp_corpus, desc=desc) for evaluator in evaluators]
 
-if __name__ == "__main__":
+def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("ref", help="Path to read reference file from")
   parser.add_argument("hyp", help="Path to read hypothesis file from")
@@ -70,3 +69,5 @@ if __name__ == "__main__":
   for score in scores:
     print(score)
 
+if __name__ == "__main__":
+  sys.exit(main())

@@ -65,7 +65,6 @@ class SimpleInference(Serializable):
     # Get reference if it exists and is necessary
     if mode == "forced" or mode == "forceddebug" or mode == "score":
       if self.ref_file == None:
-        raise RuntimeError("When performing {} decoding, must specify reference file".format(mode))
       score_src_corpus = []
       ref_corpus = []
       with open(self.ref_file, "r", encoding="utf-8") as fp:
@@ -138,7 +137,7 @@ class SimpleInference(Serializable):
             output = generator.generate_output(src, forced_trg_ids=ref_ids, search_strategy=self.search_strategy)
             generator.report_item(i)
             # If debugging forced decoding, make sure it matches
-            if ref_scores != None and (abs(output[0].score-ref_scores[i]) / abs(ref_scores[i])) > 1e-5:
+            if ref_scores is not None and (abs(output[0].score - ref_scores[i]) / abs(ref_scores[i])) > 1e-5:
               logger.error(f'Forced decoding score {output[0].score} and loss {ref_scores[i]} do not match at sentence {i}')
             output_txt = output[0].plaintext
           # Printing to trg file

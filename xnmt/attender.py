@@ -143,7 +143,6 @@ class BilinearAttender(Attender, Serializable):
   attention of https://arxiv.org/abs/1508.04025
 
   Args:
-    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     state_dim (int): dimension of state inputs; if None, use exp_global.default_layer_dim
     param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
@@ -151,7 +150,7 @@ class BilinearAttender(Attender, Serializable):
 
   yaml_tag = '!BilinearAttender'
 
-  serializable_init
+  @serializable_init
   def __init__(self,
                input_dim=Ref("exp_global.default_layer_dim"),
                state_dim=Ref("exp_global.default_layer_dim"),

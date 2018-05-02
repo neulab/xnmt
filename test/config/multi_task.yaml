@@ -7,7 +7,7 @@ exp1-multi_task_exp: !Experiment
     default_layer_dim: 64
   train: !SameBatchMultiTaskTrainingRegimen
     trainer: !AdamTrainer {}
-    tasks:
+    tasks: &training_tasks
     - !SimpleTrainingTask # first task is the main task: it will control early stopping, learning rate schedule, model checkpoints, ..
       name: first_task
       run_for_epochs: 6
@@ -58,6 +58,7 @@ exp1-multi_task_exp: !Experiment
         batch_size: 3
       src_file: examples/data/head.ja
       trg_file: examples/data/head.en
+      run_for_epochs: 6
       model: !DefaultTranslator
         _xnmt_id: second_task_model
         src_reader: !PlainTextReader
@@ -98,3 +99,17 @@ exp1-multi_task_exp: !Experiment
 
 exp2-finetune-model: !LoadSerialized
   filename: examples/output/exp1-multi_task_exp.mod
+
+exp3-multi_task_exp-altbatch: !Experiment
+  exp_global: !ExpGlobal
+    default_layer_dim: 64
+  train: !AlternatingBatchMultiTaskTrainingRegimen
+    trainer: !AdamTrainer {}
+    tasks: *training_tasks
+
+exp4-multi_task_exp-serial: !Experiment
+  exp_global: !ExpGlobal
+    default_layer_dim: 64
+  train: !SerialMultiTaskTrainingRegimen
+    trainer: !AdamTrainer {}
+    tasks: *training_tasks

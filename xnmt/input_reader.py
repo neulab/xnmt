@@ -14,15 +14,18 @@ from xnmt.input import SimpleSentenceInput, ArrayInput
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.vocab import Vocab
 
-
-###### Classes that will read in a file and turn it into an input
-
 class InputReader(object):
+  """
+  A base class to read in a file and turn it into an input
+  """
   def read_sents(self, filename, filter_ids=None):
     """
-    :param filename: data file
-    :param filter_ids: only read sentences with these ids (0-indexed)
-    :returns: iterator over sentences from filename
+    Read sentences and return an iterator.
+
+    Args:
+      filename: data file
+      filter_ids: only read sentences with these ids (0-indexed)
+    Returns: iterator over sentences from filename
     """
     if self.vocab is None:
       self.vocab = Vocab()
@@ -30,20 +33,29 @@ class InputReader(object):
 
   def read_sent(self, sentence, filter_ids=None):
     """
-    :param sentence: a single input string
-    :param filter_ids: only read sentences with these ids (0-indexed)
-    :returns: a SentenceInput object for the input sentence
+    Convert a raw sentence into a SentenceInput object.
+
+    Args:
+      sentence: a single input string
+      filter_ids: only read sentences with these ids (0-indexed)
+    Returns: a SentenceInput object for the input sentence
     """
     raise RuntimeError("Input readers must implement the read_sent function")
 
   def count_sents(self, filename):
     """
-    :param filename: data file
-    :returns: number of sentences in the data file
+    Count the number of sentences in a data file.
+
+    Args:
+      filename: data file
+    Returns: number of sentences in the data file
     """
     raise RuntimeError("Input readers must implement the count_sents function")
 
   def freeze(self):
+    """
+    Freeze the data representation, e.g. by freezing the vocab.
+    """
     pass
 
 class BaseTextReader(InputReader):
@@ -56,9 +68,10 @@ class BaseTextReader(InputReader):
 
   def iterate_filtered(self, filename, filter_ids=None):
     """
-    :param filename: data file (text file)
-    :param filter_ids:
-    :returns: iterator over lines as strings (useful for subclasses to implement read_sents)
+    Args:
+      filename: data file (text file)
+      filter_ids:
+    Returns: iterator over lines as strings (useful for subclasses to implement read_sents)
     """
     sent_count = 0
     max_id = None
@@ -75,8 +88,7 @@ class BaseTextReader(InputReader):
 
 class PlainTextReader(BaseTextReader, Serializable):
   """
-  Handles the typical case of reading plain text files,
-  with one sent per line.
+  Handles the typical case of reading plain text files, with one sent per line.
   """
   yaml_tag = '!PlainTextReader'
   @serializable_init
@@ -309,42 +321,6 @@ class NpzReader(InputReader, Serializable):
     npzFile.close()
     return l
 
-class TextToBOWReader(InputReader, Serializable):
-  yaml_tag = u'!TextToBOWReader'
-
-  def __init__(self, vocab=None):
-    self.vocab = vocab
-    if vocab is not None:
-      self.vocab.freeze()
-      self.vocab.set_unk(Vocab.UNK_STR)
-
-  def count_sents(self, filename):
-    with open(self, filename) as fp:
-      return len(fp.keys())
-
-  def count_words(self, trg_words):
-    trg_cnt = 0
-    for x in trg_words:
-      if type(x) == int:
-        trg_cnt += 1 if x != Vocab.ES else 0
-      else:
-        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
-    return trg_cnt
-
-  def read_sents(self, filename, filter_ids=None):
-    if self.vocab is None:
-      self.vocab = Vocab()
-    if filter_ids is not None:
-      logger.warning("filter_ids is not implemented in TextToBOWReader yet!")
-    with open(filename) as fp:
-      for line in fp:
-        line = [self.vocab.convert(word) for word in line.strip().split()]
-        line.append(self.vocab.convert(self.vocab.ES_STR))
-        bow = {}
-        for word in line:
-          bow[word] = bow.get(word, 0) + 1
-        yield SimpleSentenceInput(line, {"bow": bow})
-
 class IDReader(BaseTextReader, Serializable):
   """
   Handles the case where we need to read in a single ID (like retrieval problems).
@@ -405,7 +381,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
       trg_data.append(trg_sent)
 
   # Pack batches
-  if batcher != None:
+  if batcher is not None:
     src_batches, trg_batches = batcher.pack(src_data, trg_data)
   else:
     src_batches, trg_batches = src_data, trg_data

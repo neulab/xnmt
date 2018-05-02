@@ -8,8 +8,7 @@ from xnmt.param_init import ZeroInitializer, GlorotInitializer, ParamInitializer
 class ExpGlobal(Serializable):
   """
   An object that holds global settings that can be referenced by components wherever appropriate.
-  Also sets up the global DyNet parameter collection.
-  
+
   Args:
     model_file: Location to write model file to
     log_file: Location to write log file to
@@ -21,8 +20,9 @@ class ExpGlobal(Serializable):
     save_num_checkpoints: save DyNet parameters for the most recent n checkpoints, useful for model averaging/ensembling
     commandline_args: Holds commandline arguments with which XNMT was launched
     placeholders: these will be used as arguments for a format() call applied to every string in the config.
-                                  For example, ``placeholders: {"PATH":"/some/path"} will cause each occurence of ``"{PATH}"`` in a string
-                                  to be replaced by ``"/some/path"``.
+                  For example, ``placeholders: {"PATH":"/some/path"} will cause each occurence of ``"{PATH}"`` in a
+                  string to be replaced by ``"/some/path"``. As a special variable, ``EXP_DIR`` can be specified to
+                  overwrite the default location for writing models, logs, and other files.
   """
   yaml_tag = '!ExpGlobal'
 
@@ -37,7 +37,7 @@ class ExpGlobal(Serializable):
                bias_init: ParamInitializer = bare(ZeroInitializer),
                save_num_checkpoints: int = 1,
                commandline_args=None,
-               placeholders: Dict[str, str] = {}):
+               placeholders: Dict[str, str] = {}) -> None:
     self.model_file = model_file
     self.log_file = log_file
     self.dropout = dropout
