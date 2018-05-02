@@ -3,7 +3,6 @@ import dynet as dy
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.events import register_xnmt_handler, register_xnmt_event
-from xnmt.reports import Reportable
 
 @serializable_init
 class SegmentComposer(Serializable):

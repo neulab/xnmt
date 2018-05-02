@@ -22,7 +22,6 @@ from xnmt.loss import LossBuilder
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
 import xnmt.plot
-from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable, bare
 from xnmt.search_strategy import BeamSearch
 from collections import namedtuple
