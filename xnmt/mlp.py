@@ -17,7 +17,7 @@ class MLP(Serializable):
     bias_init_hidden (ParamInitializer): how to initialize hidden bias vectors
     param_init_output (ParamInitializer): how to initialize output weight matrices
     bias_init_output (ParamInitializer): how to initialize output bias vectors
-    activation (str): One of ``tanh``, ``relu``, ``sigmoid``, ``elu``, ``selu`` or ``asinh``. Defaults to ``tanh``
+    activation (str): One of ``tanh``, ``relu``, ``sigmoid``, ``elu``, ``selu``, ``asinh`` or ``identity``. Defaults to ``tanh``
     output_projector:
     yaml_path (str):
     vocab_size (int): vocab size or None; if not None and ``yaml_path`` contains 'decoder', this will overwrite ``output_dim``
@@ -70,6 +70,9 @@ class MLP(Serializable):
       self.activation = dy.selu
     elif activation == 'asinh':
       self.activation = dy.asinh
+    elif activation == 'identity':
+      def identity(x): return x
+      self.activation = identity
     else:
       raise ValueError('Unknown activation %s' % activation)
 
