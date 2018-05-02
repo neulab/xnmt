@@ -21,7 +21,7 @@ class EvalTask(object):
   def eval(self):
     raise NotImplementedError("EvalTask.eval needs to be implemented in child classes")
 
-class LossEvalTask(Serializable):
+class LossEvalTask(EvalTask, Serializable):
   '''
   A task that does evaluation of the loss function.
 
@@ -81,7 +81,7 @@ class LossEvalTask(Serializable):
     except KeyError:
       raise RuntimeError("Did you wrap your loss calculation with LossBuilder({'primary_loss': loss_value}) ?")
 
-class AccuracyEvalTask(Serializable):
+class AccuracyEvalTask(EvalTask, Serializable):
   '''
   A task that does evaluation of some measure of accuracy.
 
