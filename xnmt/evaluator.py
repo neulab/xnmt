@@ -54,7 +54,7 @@ class LossScore(EvalScore, Serializable):
     if self.loss_stats is not None and len(self.loss_stats) > 1:
       return "{" + ", ".join("%s: %.5f" % (k, v) for k, v in self.loss_stats.items()) + "}"
     else:
-      return "{self.value():.3f}"
+      return f"{self.value():.3f}"
 
 class BLEUScore(EvalScore, Serializable):
   yaml_tag = "!BLEUScore"
