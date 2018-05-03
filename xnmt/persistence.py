@@ -1273,9 +1273,9 @@ def check_type(obj, desired_type):
     elif issubclass(desired_type, collections.abc.MutableMapping):
       if not isinstance(obj, collections.abc.MutableMapping): return False
       if desired_type.__args__:
-        return (desired_type.__args__[0].__class__.__name__ == "_FowardRef" or all(
+        return (desired_type.__args__[0].__class__.__name__ == "_ForwardRef" or all(
           check_type(key, desired_type.__args__[0]) for key in obj.keys())) and (
-                         desired_type.__args__[1].__class__.__name__ == "_FowardRef" or all(
+                         desired_type.__args__[1].__class__.__name__ == "_ForwardRef" or all(
                    check_type(val, desired_type.__args__[1]) for val in obj.values()))
       else: return True
     elif issubclass(desired_type, collections.abc.Sequence):
