@@ -1,6 +1,5 @@
 from collections import namedtuple
 import math
-from typing import Optional
 
 import dynet as dy
 import numpy as np
@@ -108,7 +107,6 @@ class BeamSearch(Serializable, SearchStrategy):
     max_len: maximum number of tokens to generate.
     len_norm: type of length normalization to apply
     one_best: Whether to output the best hyp only or all completed hyps.
-    boost_eos: Add this to the log prob of the eos token to control output length.
   """
 
   yaml_tag = '!BeamSearch'
@@ -116,12 +114,11 @@ class BeamSearch(Serializable, SearchStrategy):
   
   @serializable_init
   def __init__(self, beam_size: int = 1, max_len: int = 100, len_norm: LengthNormalization = bare(NoNormalization),
-               one_best: bool = True, boost_eos: Optional[float] = None):
+               one_best: bool = True):
     self.beam_size = beam_size
     self.max_len = max_len
     self.len_norm = len_norm
     self.one_best = one_best
-    self.boost_eos = boost_eos
 
   def generate_output(self, translator, initial_state, src_length=None, forced_trg_ids=None):
     # TODO(philip30): can only do single decoding, not batched
@@ -145,8 +142,7 @@ class BeamSearch(Serializable, SearchStrategy):
           continue
         current_output = translator.output_one_step(prev_word, prev_state)
         score = current_output.logsoftmax.npvalue().transpose()
-        if self.boost_eos:
-          score[Vocab.ES] += self.boost_eos
+        self.len_norm.normalize_partial_all(score)
         # Next Words
         if forced_trg_ids is None:
           top_words = np.argpartition(score, max(-len(score),-self.beam_size))[-self.beam_size:]
@@ -154,7 +150,7 @@ class BeamSearch(Serializable, SearchStrategy):
           top_words = [forced_trg_ids[length]]
         # Queue next states
         for cur_word in top_words:
-          new_score = self.len_norm.normalize_partial(hyp.score, score[cur_word], length+1)
+          new_score = self.len_norm.normalize_partial_topk(hyp.score, score[cur_word], length + 1)
           new_set.append(self.Hypothesis(new_score, current_output, hyp, cur_word))
       # Next top hypothesis
       active_hyp = sorted(new_set, key=lambda x: x.score, reverse=True)[:self.beam_size]
