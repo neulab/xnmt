@@ -1,5 +1,6 @@
 from collections import namedtuple
 import math
+from typing import Optional
 
 import dynet as dy
 import numpy as np
@@ -115,7 +116,7 @@ class BeamSearch(Serializable, SearchStrategy):
   
   @serializable_init
   def __init__(self, beam_size: int = 1, max_len: int = 100, len_norm: LengthNormalization = bare(NoNormalization),
-               one_best: bool = True, boost_eos: float = None):
+               one_best: bool = True, boost_eos: Optional[float] = None):
     self.beam_size = beam_size
     self.max_len = max_len
     self.len_norm = len_norm
