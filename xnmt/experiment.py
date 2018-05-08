@@ -3,7 +3,7 @@ from typing import List, Optional
 from xnmt import logger
 from xnmt.exp_global import ExpGlobal
 from xnmt.eval_task import EvalTask
-from xnmt.generator import GeneratorModel
+from xnmt.model_base import GeneratorModel
 from xnmt.param_collection import ParamManager
 from xnmt.preproc_runner import PreprocRunner
 from xnmt.training_regimen import TrainingRegimen

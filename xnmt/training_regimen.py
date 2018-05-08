@@ -4,12 +4,13 @@ from xnmt.settings import settings
 import numpy as np
 import dynet as dy
 
+from xnmt.model_base import TrainableModel
+from xnmt.loss_tracker import TrainLossTracker
+from xnmt.loss_calculator import MLELoss
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 import xnmt.optimizer
 from xnmt.training_task import SimpleTrainingTask
-from xnmt.loss_tracker import TrainLossTracker
-from xnmt.loss_calculator import MLELoss
 
 class TrainingRegimen(object):
   """
@@ -41,7 +42,7 @@ class TrainingRegimen(object):
 class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
   """
   Args:
-    model (GeneratorModel): the model
+    model (TrainableModel): the model
     src_file (str): the source training file
     trg_file (str): the target training file
     dev_every (int): dev checkpoints every n sentences (0 for only after epoch)

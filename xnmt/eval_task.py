@@ -6,7 +6,7 @@ import dynet as dy
 
 from xnmt.batcher import Batcher
 from xnmt.evaluator import Evaluator
-from xnmt.generator import GeneratorModel
+from xnmt.model_base import GeneratorModel
 from xnmt.inference import SimpleInference
 import xnmt.input_reader
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
