@@ -57,12 +57,13 @@ class NormalizerRemovePunct(Normalizer):
     self.remove_inside_word = spec.get("remove_inside_word", False)
   def normalize(self, sent):
     if self.remove_inside_word:
-      return ''.join(ch for ch in sent if ch not in self.exclude).strip()
+      ret = ''.join(ch for ch in sent if ch not in self.exclude)
     else:
       words = []
       for w in sent.split():
         words.append(w.strip(''.join(ch for ch in self.exclude)))
-      return " ".join(words).strip()
+      ret = " ".join(words)
+    return " ".join(ret.split())
 
 ###### Tokenizers
 
