@@ -739,7 +739,7 @@ class LoadSerialized(Serializable):
                  {"path" : ..., "val":...}]
 
                It is possible to specify the path to point to a new key to a dictionary.
-               If ``path`` points to a list, it's possible append to that list by using ``val_append`` instead of
+               If ``path`` points to a list, it's possible append to that list by using ``append_val`` instead of
                ``val``.
   """
   yaml_tag = "!LoadSerialized"
@@ -884,7 +884,7 @@ class YamlPreloader(object):
                                               default=sub_node.get_default()))
 
         for d in getattr(node, "overwrite", []):
-          if "append" in d != "append_val" in d: raise ValueError("must specify exactly one of 'val' or 'val_append'.")
+          if "append" in d != "append_val" in d: raise ValueError("must specify exactly one of 'val' or 'append_val'.")
           if "append_val" in d:
             overwrite_path = Path(d["path"] + ".append")
           else:
