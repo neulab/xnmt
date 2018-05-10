@@ -731,15 +731,16 @@ class LoadSerialized(Serializable):
   Args:
     filename: YAML file name to load from
     path: path inside the YAML file to load from, with ``.`` separators. Empty string denotes root.
-    overwrite: allows overwriting parts of the loaded model with new content. A list of path/key dictionaries, where
+    overwrite: allows overwriting parts of the loaded model with new content. A list of path/val dictionaries, where
                ``path`` is a path string relative to the loaded sub-object following the syntax of :class:`Path`, and
                ``val`` is a Yaml-serializable specifying the new content. E.g.::
 
                 [{"path" : "model.trainer", "val":AdamTrainer()},
                  {"path" : ..., "val":...}]
 
-               It is possible to specify the path to point to a new key to a dictionary. It is also possible to append
-               a new item to a list by setting ``"path":"<path to list>.append"``.
+               It is possible to specify the path to point to a new key to a dictionary.
+               If ``path`` points to a list, it's possible append to that list by using ``val_append`` instead of
+               ``val``.
   """
   yaml_tag = "!LoadSerialized"
 
@@ -883,8 +884,12 @@ class YamlPreloader(object):
                                               default=sub_node.get_default()))
 
         for d in getattr(node, "overwrite", []):
-          overwrite_path = Path(d["path"])
-          set_descendant(loaded_trg, overwrite_path, d["val"])
+          if "append" in d != "append_val" in d: raise ValueError("must specify exactly one of 'val' or 'val_append'.")
+          if "append_val" in d:
+            overwrite_path = Path(d["path"] + ".append")
+          else:
+            overwrite_path = Path(d["path"])
+          set_descendant(loaded_trg, overwrite_path, d.get("val", d["append_val"]))
         if len(path) == 0:
           experiment = loaded_trg
         else:
