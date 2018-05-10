@@ -889,7 +889,7 @@ class YamlPreloader(object):
             overwrite_path = Path(d["path"] + ".append")
           else:
             overwrite_path = Path(d["path"])
-          set_descendant(loaded_trg, overwrite_path, d.get("val", d["append_val"]))
+          set_descendant(loaded_trg, overwrite_path, d.get("val", d.get("append_val")))
         if len(path) == 0:
           experiment = loaded_trg
         else:
