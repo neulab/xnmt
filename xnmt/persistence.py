@@ -830,7 +830,7 @@ class YamlPreloader(object):
 
   @staticmethod
   def _load_referenced_serialized(experiment):
-    for path, node in traverse_tree(experiment):
+    for path, node in traverse_tree(experiment, traversal_order=TraversalOrder.ROOT_LAST):
       if isinstance(node, LoadSerialized):
         try:
           with open(node.filename) as stream:
