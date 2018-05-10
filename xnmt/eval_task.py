@@ -150,22 +150,19 @@ class DecodingEvalTask(EvalTask, Serializable):
     model: generator model to generate hypothesis with
     inference: inference object
     candidate_id_file:
-    desc: human-readable description passed on to resulting score objects
   """
 
   yaml_tag = '!DecodingEvalTask'
 
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: GeneratorModel = Ref("model"),
-               inference: Optional[SimpleInference] = None, candidate_id_file: Optional[str] = None,
-               desc: Optional[Any] = None):
+               inference: Optional[SimpleInference] = None, candidate_id_file: Optional[str] = None):
 
     self.model = model
     self.src_file = src_file
     self.hyp_file = hyp_file
     self.candidate_id_file = candidate_id_file
     self.inference = inference or self.model.inference
-    self.desc = desc
 
   def eval(self):
     self.model.set_train(False)
