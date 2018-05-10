@@ -1,5 +1,3 @@
-# coding: utf-8
-
 from collections.abc import Iterable
 from typing import Optional
 
@@ -46,7 +44,7 @@ class SimpleInference(Serializable):
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, post_process: str = "none", report_path: Optional[str] = None,
                report_type: str = "html", search_strategy: SearchStrategy = bare(BeamSearch), mode: str = "onebest",
-               max_len: Optional[int] = None, batcher: Batcher = Ref("train.batcher", default=None)):
+               max_len: Optional[int] = None, batcher: Optional[Batcher] = Ref("train.batcher", default=None)):
     self.src_file = src_file
     self.trg_file = trg_file
     self.ref_file = ref_file
