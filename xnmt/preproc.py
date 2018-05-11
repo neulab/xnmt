@@ -3,7 +3,7 @@ import sys
 import os.path
 import subprocess
 from collections import defaultdict
-import string
+import unicodedata
 
 import numpy as np
 import warnings
@@ -53,16 +53,18 @@ class NormalizerLower(Normalizer):
 class NormalizerRemovePunct(Normalizer):
   """Remove punctuation from the text."""
   def __init__(self, spec=None):
-    self.exclude = set(string.punctuation) - set(spec.get("allowed_chars", ""))
     self.remove_inside_word = spec.get("remove_inside_word", False)
+    self.exclude = set(chr(i) for i in range(sys.maxunicode) if unicodedata.category(chr(i)).startswith('P')
+                                                              and chr(i) not in set(spec.get("allowed_chars", "")))
   def normalize(self, sent):
     if self.remove_inside_word:
-      return ''.join(ch for ch in sent if ch not in self.exclude)
+      ret = ''.join(ch for ch in sent if ch not in self.exclude)
     else:
       words = []
       for w in sent.split():
         words.append(w.strip(''.join(ch for ch in self.exclude)))
-      return " ".join(words)
+      ret = " ".join(words)
+    return " ".join(ret.split())
 
 ###### Tokenizers
 
@@ -391,7 +393,8 @@ class MelFiltExtractor(Extractor, Serializable):
              Each dictionary contains:
              - wav (str): path to wav file
              - offset (float): start time stamp (optional)
-             - duration (float): stop time stamp (optional)
+             - duration (float
+             ): stop time stamp (optional)
              - speaker: speaker id for normalization (optional; if not given, the filename is used as speaker id)
 
     out_file: a filename ending in ".h5"
