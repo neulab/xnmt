@@ -6,7 +6,7 @@ from xnmt.settings import settings
 import dynet as dy
 
 from xnmt.batcher import Batcher
-from xnmt.generator import GeneratorModel
+from xnmt.model_base import GeneratorModel
 from xnmt import logger
 from xnmt.loss_calculator import MLELoss
 import xnmt.output
