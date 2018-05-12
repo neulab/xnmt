@@ -31,10 +31,11 @@ class SimpleInference(Serializable):
     report_type: report to generate ``file/html``. Can be multiple, separate with comma.
     search_strategy: a search strategy used during decoding.
     mode: type of decoding to perform.
-            ``onebest``: generate one best.
-            ``forced``: perform forced decoding.
-            ``forceddebug``: perform forced decoding, calculate training loss, and make suer the scores are identical
-                             for debugging purposes.
+
+            * ``onebest``: generate one best.
+            * ``forced``: perform forced decoding.
+            * ``forceddebug``: perform forced decoding, calculate training loss, and make suer the scores are identical
+              for debugging purposes.
     batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
   """
   

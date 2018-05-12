@@ -1,5 +1,19 @@
 """
-This module contains classes for computing evaluation metrics and corresponding classes that contain resulting scores.
+This module contains classes to compute evaluation metrics and to hold the resulting scores.
+
+:class:`EvalScore` subclasses represent a computed score, including useful statistics, and can be
+printed with an informative string representation.
+
+:class:`Evaluator` subclasses are used to compute these scores. Currently the following are implemented:
+
+* :class:`LossScore` (created directly by the model)
+* :class:`BLEUEvaluator` and :class:`FastBLEUEvaluator` create :class:`BLEUScore` objects
+* :class:`GLEUEvaluator` creates :class:`GLEUScore` objects
+* :class:`WEREvaluator` creates :class:`WERScore` objects
+* :class:`CEREvaluator` creates :class:`CERScore` objects
+* :class:`ExternalEvaluator` creates :class:`ExternalScore` objects
+* :class:`SequenceAccuracyEvaluator` creates :class:`SequenceAccuracyScore` objects
+
 """
 
 from collections import defaultdict, Counter
@@ -126,8 +140,6 @@ class GLEUScore(EvalScore, Serializable):
   """
   Class to keep a GLEU (Google BLEU) score.
 
-  GLEU scores are described in https://arxiv.org/pdf/1609.08144v2.pdf
-
   Args:
     gleu: actual GLEU score between 0 and 1
     hyp_len: length of hypothesis
@@ -184,7 +196,7 @@ class LevenshteinScore(SentenceLevelEvalScore):
            f"( C/I/D/S: {self.correct}/{self.insertions}/{self.deletions}/{self.substitutions}; " \
            f"hyp_len={self.hyp_len()}, ref_len={self.ref_len()} )"
   @staticmethod
-  def aggregate(scores: Sequence['WERScore'], desc: Any = None):
+  def aggregate(scores: Sequence['LevenshteinScore'], desc: Any = None) -> 'LevenshteinScore':
     return scores[0].__class__(correct=sum(s.correct for s in scores),
                                substitutions=sum(s.substitutions for s in scores),
                                insertions=sum(s.insertions for s in scores),
@@ -204,7 +216,7 @@ class CERScore(LevenshteinScore, Serializable):
   yaml_tag = "!CERScore"
   def metric_name(self): return "CER"
 
-class RecallScore(EvalScore, Serializable):
+class RecallScore(SentenceLevelEvalScore, Serializable):
   """
   Class to keep a recall score.
 
@@ -212,7 +224,7 @@ class RecallScore(EvalScore, Serializable):
     recall: recall score value between 0 and 1
     hyp_len: length of hypothesis
     ref_len: length of reference
-    nbest:
+    nbest: recall computed within n-best of specified n
     desc: human-readable description to include in log outputs
   """
   yaml_tag = "!RecallScore"
@@ -237,6 +249,10 @@ class RecallScore(EvalScore, Serializable):
 
   def metric_name(self):
     return "Recall" + str(self.nbest)
+
+  @staticmethod
+  def aggregate(scores: Sequence['RecallScore'], desc: Any = None) -> 'RecallScore':
+    return RecallScore(recall=np.average(s.recall for s in scores), hyp_len=len(scores), ref_len=len(scores), nbest=scores[0].nbest, desc=desc)
 
 class ExternalScore(EvalScore, Serializable):
   """
@@ -551,7 +567,23 @@ class GLEUEvaluator(Evaluator, Serializable):
   """
   Class for computing GLEU (Google BLEU) Scores.
 
-  GLEU scores are described in https://arxiv.org/pdf/1609.08144v2.pdf
+  GLEU scores are described in https://arxiv.org/pdf/1609.08144v2.pdf as follows:
+
+        "The BLEU score has some undesirable properties when used for single
+        sentences, as it was designed to be a corpus measure. We therefore
+        use a slightly different score for our RL experiments which we call
+        the 'GLEU score'. For the GLEU score, we record all sub-sequences of
+        1, 2, 3 or 4 tokens in output and target sequence (n-grams). We then
+        compute a recall, which is the ratio of the number of matching n-grams
+        to the number of total n-grams in the target (ground truth) sequence,
+        and a precision, which is the ratio of the number of matching n-grams
+        to the number of total n-grams in the generated output sequence. Then
+        GLEU score is simply the minimum of recall and precision. This GLEU
+        score's range is always between 0 (no matches) and 1 (all match) and
+        it is symmetrical when switching output and target. According to
+        our experiments, GLEU score correlates quite well with the BLEU
+        metric on a corpus level but does not have its drawbacks for our per
+        sentence reward objective."
 
   Does not support multiple references.
   """
@@ -724,14 +756,14 @@ class ExternalEvaluator(Evaluator, Serializable):
     external_score = float(out)
     return ExternalScore(external_score, self.higher_better, desc=desc)
 
-class RecallEvaluator(Evaluator,Serializable):
+class RecallEvaluator(SentenceLevelEvaluator,Serializable):
   yaml_tag = "!RecallEvaluator"
   @serializable_init
   def __init__(self, nbest=5):
     self.nbest = nbest
 
   def metric_name(self):
-    return "Recall{}".format(str(self.nbest))
+    return f"Recall{self.nbest}"
 
   def evaluate(self, ref, hyp, desc=None):
     true_positive = 0
@@ -740,6 +772,10 @@ class RecallEvaluator(Evaluator,Serializable):
         true_positive += 1
     score = true_positive / float(len(ref))
     return RecallScore(score, len(hyp), len(ref), nbest=self.nbest, desc=desc)
+
+  def evaluate_one_sent(self, ref:Any, hyp:Any):
+    score = 1.0 if any(ref == idx for idx, _ in hyp[:self.nbest]) else 0.0
+    return RecallScore(score, hyp_len=1, ref_len=1, nbest=self.nbest)
 
 # The below is needed for evaluating retrieval models, but depends on MeanAvgPrecisionScore which seems to have been
 # lost.

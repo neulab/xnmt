@@ -18,10 +18,10 @@ Experiment
 Model
 -----
 
-GeneratorModel
-~~~~~~~~~~~~~~
+Model Base Classes
+~~~~~~~~~~~~~~~~~~
 
-.. automodule:: xnmt.generator
+.. automodule:: xnmt.model_base
    :members:
    :show-inheritance:
 
