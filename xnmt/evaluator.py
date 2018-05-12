@@ -9,10 +9,13 @@ from typing import List, Sequence, Dict, Tuple, Union, Any, Optional
 
 import numpy as np
 
-from xnmt import logger
+from xnmt import logger, levenshtein
 from xnmt.persistence import serializable_init, Serializable
 
 class EvalScore(object):
+  """
+  A template class for scores resulting from using an :class:`Evaluator`.
+  """
   def higher_is_better(self):
     raise NotImplementedError()
   def value(self):
@@ -35,6 +38,14 @@ class EvalScore(object):
       return f"{self.metric_name()} ({desc}): {self.score_str()}"
     else:
       return f"{self.metric_name()}: {self.score_str()}"
+
+class SentenceLevelEvalScore(EvalScore):
+  """
+  A template class for scores that work on a sentence-level.
+  """
+  @staticmethod
+  def aggregate(scores: Sequence['SentenceLevelEvalScore'], desc: Any = None):
+    raise NotImplementedError()
 
 class LossScore(EvalScore, Serializable):
   yaml_tag = "!LossScore"
@@ -102,38 +113,44 @@ class GLEUScore(EvalScore, Serializable):
   def score_str(self):
     return "{:.6f}".format(self.value())
 
-class WERScore(EvalScore, Serializable):
-  yaml_tag = "!WERScore"
+class LevenshteinScore(SentenceLevelEvalScore):
+  @staticmethod
+  def aggregate(scores: Sequence['WERScore'], desc: Any = None):
+    return scores[0].__class__(correct=sum(s.correct for s in scores),
+                               substitutions=sum(s.substitutions for s in scores),
+                               insertions=sum(s.insertions for s in scores),
+                               deletions=sum(s.deletions for s in scores))
 
   @serializable_init
-  def __init__(self, wer, hyp_len, ref_len, desc=None):
-    self.wer = wer
-    self.hyp_len = hyp_len
-    self.ref_len = ref_len
+  def __init__(self, correct, substitutions, insertions, deletions, desc=None):
+    self.correct = correct
+    self.substitutions = substitutions
+    self.insertions = insertions
+    self.deletions = deletions
     self.desc = desc
-    self.serialize_params = {"wer":wer, "hyp_len":hyp_len,"ref_len":ref_len}
+    self.serialize_params = {"correct": correct, "substitutions": substitutions, "insertions": insertions,
+                             "deletions": deletions}
     if desc is not None: self.serialize_params["desc"] = desc
-  def value(self): return self.wer
-  def metric_name(self): return "WER"
+  def value(self): return (self.substitutions + self.insertions + self.deletions) / (self.ref_len())
+  def hyp_len(self):
+    return self.correct + self.substitutions + self.insertions
+  def ref_len(self):
+    return self.correct + self.substitutions + self.deletions
   def higher_is_better(self): return False
   def score_str(self):
-    return f"{self.value()*100.0:.2f}% ( hyp_len={self.hyp_len}, ref_len={self.ref_len} )"
+    return f"{self.value()*100.0:.2f}% " \
+           f"( C/I/D/S: {self.correct}/{self.insertions}/{self.deletions}/{self.substitutions}; " \
+           f"hyp_len={self.hyp_len()}, ref_len={self.ref_len()} )"
 
-class CERScore(WERScore, Serializable):
+class WERScore(LevenshteinScore, Serializable):
+  yaml_tag = "!WERScore"
+  def metric_name(self): return "WER"
+
+class CERScore(LevenshteinScore, Serializable):
   yaml_tag = "!CERScore"
-
-  @serializable_init
-  def __init__(self, cer, hyp_len, ref_len, desc=None):
-    self.cer = cer
-    self.hyp_len = hyp_len
-    self.ref_len = ref_len
-    self.desc = desc
-    self.serialize_params = {"cer":cer, "hyp_len":hyp_len,"ref_len":ref_len}
-    if desc is not None: self.serialize_params["desc"] = desc
   def metric_name(self): return "CER"
-  def value(self): return self.cer
 
-class RecallScore(WERScore, Serializable):
+class RecallScore(EvalScore, Serializable):
   yaml_tag = "!RecallScore"
 
   @serializable_init
@@ -145,6 +162,8 @@ class RecallScore(WERScore, Serializable):
     self.desc = desc
     self.serialize_params = {"recall":recall, "hyp_len":hyp_len,"ref_len":ref_len, "nbest":nbest}
     if desc is not None: self.serialize_params["desc"] = desc
+
+  def higher_is_better(self): return True
 
   def score_str(self):
     return "{:.2f}%".format(self.value() * 100.0)
@@ -189,10 +208,10 @@ class SequenceAccuracyScore(EvalScore, Serializable):
 
 class Evaluator(object):
   """
-  A class to evaluate the quality of output.
+  A template class to evaluate the quality of output.
   """
 
-  def evaluate(self, ref: Sequence, hyp: Sequence, desc: Optional[Any] = None) -> EvalScore:
+  def evaluate(self, ref: Sequence, hyp: Sequence, desc: Any = None) -> EvalScore:
     """
   Calculate the quality of output given a reference.
 
@@ -204,7 +223,7 @@ class Evaluator(object):
   """
     raise NotImplementedError('evaluate must be implemented in Evaluator subclasses')
 
-  def evaluate_multi(self, ref: Sequence[Sequence], hyp: Sequence, desc: Optional[Any] = None) -> EvalScore:
+  def evaluate_multi(self, ref: Sequence[Sequence], hyp: Sequence, desc: Any = None) -> EvalScore:
     """
   Calculate the quality of output given multiple references.
 
@@ -221,6 +240,18 @@ class Evaluator(object):
     metric name
   """
     raise NotImplementedError('metric_name must be implemented in Evaluator subclasses')
+
+class SentenceLevelEvaluator(Evaluator):
+  """
+  A template class for sentence-level evaluators.
+  """
+  def evaluate(self, ref: Sequence, hyp: Sequence, desc: Any) -> SentenceLevelEvalScore:
+    sentence_scores = [self.evaluate_one_sent(ref_i, hyp_i) for (ref_i,hyp_i) in zip(ref,hyp)]
+    return sentence_scores[0].__class__.aggregate(sentence_scores, desc=desc)
+  def evaluate_one_sent(self, ref:Any, hyp:Any) -> SentenceLevelEvalScore:
+    raise NotImplementedError("evaluate_one_sent must be implemented in SentenceLevelEvaluator subclasses")
+
+
 
 class FastBLEUEvaluator(Evaluator, Serializable):
   """
@@ -500,7 +531,7 @@ class GLEUEvaluator(Evaluator, Serializable):
     return GLEUScore(gleu_score, total_ref_len, total_hyp_len, desc=desc)
 
 
-class WEREvaluator(Evaluator, Serializable):
+class WEREvaluator(SentenceLevelEvaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of word error rate.
 
@@ -515,80 +546,27 @@ class WEREvaluator(Evaluator, Serializable):
   @serializable_init
   def __init__(self, case_sensitive: bool = False, cross_lines: bool = False):
     self.case_sensitive = case_sensitive
-    self.cross_lines = cross_lines
+    self.cross_lines = cross_lines # TODO
+    self.aligner = levenshtein.LevenshteinAligner()
 
   def metric_name(self):
     return "Word error rate"
 
-  def evaluate(self, ref, hyp, desc=None):
-    """
-    Calculate the word error rate of output given a references.
-
-    Args:
-      ref: list of list of reference words
-      hyp: list of list of decoded words
-      desc: description to pass on to returned score
-    Return:
-      formatted string (word error rate: (ins+del+sub) / (ref_len), plus more statistics)
-    """
-    if self.cross_lines:
-      ref = [sum(ref, [])]
-      hyp = [sum(hyp, [])]
-    total_dist, total_ref_len, total_hyp_len = 0, 0, 0
-    for ref_sent, hyp_sent in zip(ref, hyp):
-      dist = self.dist_one_pair(ref_sent, hyp_sent)
-      total_dist += dist
-      total_ref_len += len(ref_sent)
-      total_hyp_len += len(hyp_sent)
-    wer_score = float(total_dist) / total_ref_len
-    return WERScore(wer_score, total_hyp_len, total_ref_len, desc=desc)
-
-  def dist_one_pair(self, ref_sent, hyp_sent):
-    """
-    Return:
-      tuple (levenshtein distance, reference length)
-    """
+  def evaluate_one_sent(self, ref: Sequence[str], hyp: Sequence[str]) -> WERScore:
     if not self.case_sensitive:
-      hyp_sent = [w.lower() for w in hyp_sent]
-    if not self.case_sensitive:
-      ref_sent = [w.lower() for w in ref_sent]
-    return -self.seq_sim(ref_sent, hyp_sent)
+      hyp = [w.lower() for w in hyp]
+      ref = [w.lower() for w in ref]
+    _,_,_,alignment = self.aligner.align(ref, hyp)
 
-  # gap penalty:
-  gapPenalty = -1.0
-  gapSymbol = None
+    score = WERScore(correct=len([a for a in alignment if a=='c']),
+                     substitutions=len([a for a in alignment if a == 's']),
+                     insertions=len([a for a in alignment if a == 'i']),
+                     deletions=len([a for a in alignment if a == 'd']))
+    assert score.ref_len() == len(ref)
+    assert score.hyp_len() == len(hyp)
+    return score
 
-  # similarity function:
-  def sim(self, word1, word2):
-    """
-    Args:
-      word1:
-      word2:
-
-    Returns:
-      float
-    """
-    if word1 == word2:
-      return 0
-    else:
-      return -1
-
-  def seq_sim(self, l1, l2):
-    # compute matrix
-    F = [[0] * (len(l2) + 1) for _ in range((len(l1) + 1))]
-    for i in range(len(l1) + 1):
-      F[i][0] = i * self.gapPenalty
-    for j in range(len(l2) + 1):
-      F[0][j] = j * self.gapPenalty
-    for i in range(0, len(l1)):
-      for j in range(0, len(l2)):
-        match = F[i][j] + self.sim(l1[i], l2[j])
-        delete = F[i][j + 1] + self.gapPenalty
-        insert = F[i + 1][j] + self.gapPenalty
-        F[i + 1][j + 1] = max(match, delete, insert)
-    return F[len(l1)][len(l2)]
-
-class CEREvaluator(Evaluator, Serializable):
+class CEREvaluator(SentenceLevelEvaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of character error rate.
 
@@ -603,26 +581,36 @@ class CEREvaluator(Evaluator, Serializable):
 
   @serializable_init
   def __init__(self, case_sensitive=False, cross_lines=False):
-    self.wer_evaluator = WEREvaluator(case_sensitive=case_sensitive, cross_lines=cross_lines)
+    self.case_sensitive = case_sensitive
+    self.cross_lines = cross_lines # TODO
+    self.aligner = levenshtein.LevenshteinAligner()
 
   def metric_name(self):
     return "Character error rate"
 
-  def evaluate(self, ref, hyp, desc=None):
+  def evaluate_one_sent(self, ref: Sequence[str], hyp: Sequence[str]) -> CERScore:
     """
-    Calculate the quality of output given a references.
+    Calculate the quality of output sentence given a reference.
 
     Args:
-      ref: list of list of reference words
-      hyp: list of list of decoded words
-      desc: description to pass on to returned score
+      ref: list of reference words
+      hyp: list of decoded words
     Return:
       character error rate: (ins+del+sub) / (ref_len)
     """
-    ref_char = [list("".join(ref_sent)) for ref_sent in ref]
-    hyp_char = [list("".join(hyp_sent)) for hyp_sent in hyp]
-    wer_obj = self.wer_evaluator.evaluate(ref_char, hyp_char)
-    return CERScore(wer_obj.value(), wer_obj.hyp_len, wer_obj.ref_len, desc=desc)
+    ref_char = list("".join(ref))
+    hyp_char = list("".join(hyp))
+    if not self.case_sensitive:
+      hyp_char = [w.lower() for w in hyp_char]
+      ref_char = [w.lower() for w in ref_char]
+    _,_,_,alignment = self.aligner.align(ref_char, hyp_char)
+    score = CERScore(correct=len([a for a in alignment if a=='c']),
+                     substitutions=len([a for a in alignment if a == 's']),
+                     insertions=len([a for a in alignment if a == 'i']),
+                     deletions=len([a for a in alignment if a == 'd']))
+    assert score.ref_len() == len(ref_char)
+    assert score.hyp_len() == len(hyp_char)
+    return score
 
 class ExternalEvaluator(Evaluator, Serializable):
   """
