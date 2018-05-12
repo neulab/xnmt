@@ -14,8 +14,14 @@ from xnmt.persistence import serializable_init, Serializable
 
 class EvalScore(object):
   """
-  A template class for scores resulting from using an :class:`Evaluator`.
+  A template class for scores as resulting from using an :class:`Evaluator`.
+
+  Args:
+    desc: human-readable description to include in log outputs
   """
+  def __init__(self, desc: Any = None) -> None:
+    self.desc = desc
+
   def higher_is_better(self):
     raise NotImplementedError()
   def value(self):
@@ -41,20 +47,29 @@ class EvalScore(object):
 
 class SentenceLevelEvalScore(EvalScore):
   """
-  A template class for scores that work on a sentence-level.
+  A template class for scores that work on a sentence-level and can be aggregated to corpus-level.
   """
   @staticmethod
   def aggregate(scores: Sequence['SentenceLevelEvalScore'], desc: Any = None):
     raise NotImplementedError()
 
 class LossScore(EvalScore, Serializable):
+  """
+  Score indicating the value of the loss function of a neural network.
+
+  Args:
+    loss: the (primary) loss value
+    loss_stats: info on additional loss values
+    desc: human-readable description to include in log outputs
+  """
+
   yaml_tag = "!LossScore"
 
   @serializable_init
-  def __init__(self, loss, loss_stats=None, desc=None):
+  def __init__(self, loss: float, loss_stats: Dict[str, float] = None, desc: Any = None) -> None:
+    super().__init__(desc=desc)
     self.loss = loss
     self.loss_stats = loss_stats
-    self.desc = desc
     self.serialize_params = {"loss":loss}
     if desc is not None: self.serialize_params["desc"] = desc
     if loss_stats is not None: self.serialize_params["loss_stats"] = desc
@@ -68,11 +83,23 @@ class LossScore(EvalScore, Serializable):
       return f"{self.value():.3f}"
 
 class BLEUScore(EvalScore, Serializable):
+  """
+  Class to keep a BLEU score.
+
+  Args:
+    bleu: actual BLEU score between 0 and 1
+    frac_score_list: list of fractional scores for each n-gram order
+    brevity_penalty_score: brevity penalty that was multiplied to the precision score.
+    hyp_len: length of hypothesis
+    ref_len: length of reference
+    ngram: match n-grams up to this order (usually 4)
+    desc: human-readable description to include in log outputs
+  """
   yaml_tag = "!BLEUScore"
 
   @serializable_init
-  def __init__(self, bleu, frac_score_list=None, brevity_penalty_score=None, hyp_len=None, ref_len=None, ngram=4,
-               desc=None):
+  def __init__(self, bleu: float, frac_score_list: Sequence[float] = None, brevity_penalty_score: float = None,
+               hyp_len: int = None, ref_len: int = None, ngram: int = 4, desc: Any = None) -> None:
     self.bleu = bleu
     self.frac_score_list = frac_score_list
     self.brevity_penalty_score = brevity_penalty_score
@@ -96,10 +123,21 @@ class BLEUScore(EvalScore, Serializable):
              f"ratio={self.hyp_len / self.ref_len:.2f}, hyp_len={self.hyp_len}, ref_len={self.ref_len})"
 
 class GLEUScore(EvalScore, Serializable):
+  """
+  Class to keep a GLEU (Google BLEU) score.
+
+  GLEU scores are described in https://arxiv.org/pdf/1609.08144v2.pdf
+
+  Args:
+    gleu: actual GLEU score between 0 and 1
+    hyp_len: length of hypothesis
+    ref_len: length of reference
+    desc: human-readable description to include in log outputs
+  """
   yaml_tag = "!GLEUScore"
 
   @serializable_init
-  def __init__(self, gleu, hyp_len, ref_len, desc=None):
+  def __init__(self, gleu: float, hyp_len: int, ref_len: int, desc: Any = None) -> None:
     self.gleu = gleu
     self.hyp_len = hyp_len
     self.ref_len = ref_len
@@ -114,15 +152,19 @@ class GLEUScore(EvalScore, Serializable):
     return "{:.6f}".format(self.value())
 
 class LevenshteinScore(SentenceLevelEvalScore):
-  @staticmethod
-  def aggregate(scores: Sequence['WERScore'], desc: Any = None):
-    return scores[0].__class__(correct=sum(s.correct for s in scores),
-                               substitutions=sum(s.substitutions for s in scores),
-                               insertions=sum(s.insertions for s in scores),
-                               deletions=sum(s.deletions for s in scores))
+  """
+  A template class for Levenshtein-based scores.
+
+  Args:
+    correct: number of correct matches
+    substitutions: number of substitution errors
+    insertions: number of insertion errors
+    deletions: number of deletion errors
+    desc: human-readable description to include in log outputs
+  """
 
   @serializable_init
-  def __init__(self, correct, substitutions, insertions, deletions, desc=None):
+  def __init__(self, correct: int, substitutions: int, insertions: int, deletions: int, desc: Any = None) -> None:
     self.correct = correct
     self.substitutions = substitutions
     self.insertions = insertions
@@ -141,20 +183,42 @@ class LevenshteinScore(SentenceLevelEvalScore):
     return f"{self.value()*100.0:.2f}% " \
            f"( C/I/D/S: {self.correct}/{self.insertions}/{self.deletions}/{self.substitutions}; " \
            f"hyp_len={self.hyp_len()}, ref_len={self.ref_len()} )"
+  @staticmethod
+  def aggregate(scores: Sequence['WERScore'], desc: Any = None):
+    return scores[0].__class__(correct=sum(s.correct for s in scores),
+                               substitutions=sum(s.substitutions for s in scores),
+                               insertions=sum(s.insertions for s in scores),
+                               deletions=sum(s.deletions for s in scores))
 
 class WERScore(LevenshteinScore, Serializable):
+  """
+  Class to keep a word error rate.
+  """
   yaml_tag = "!WERScore"
   def metric_name(self): return "WER"
 
 class CERScore(LevenshteinScore, Serializable):
+  """
+  Class to keep a character error rate.
+  """
   yaml_tag = "!CERScore"
   def metric_name(self): return "CER"
 
 class RecallScore(EvalScore, Serializable):
+  """
+  Class to keep a recall score.
+
+  Args:
+    recall: recall score value between 0 and 1
+    hyp_len: length of hypothesis
+    ref_len: length of reference
+    nbest:
+    desc: human-readable description to include in log outputs
+  """
   yaml_tag = "!RecallScore"
 
   @serializable_init
-  def __init__(self, recall, hyp_len, ref_len, nbest=5, desc=None):
+  def __init__(self, recall: float, hyp_len: int, ref_len: int, nbest: int = 5, desc: Any = None) -> None:
     self.recall  = recall
     self.hyp_len = hyp_len
     self.ref_len = ref_len
@@ -175,10 +239,18 @@ class RecallScore(EvalScore, Serializable):
     return "Recall" + str(self.nbest)
 
 class ExternalScore(EvalScore, Serializable):
+  """
+  Class to keep a score computed with an external tool.
+
+  Args:
+    value: score value
+    higher_is_better: whether higher scores or lower scores are favorable
+    desc: human-readable description to include in log outputs
+  """
   yaml_tag = "!ExternalScore"
 
   @serializable_init
-  def __init__(self, value, higher_is_better=True, desc=None):
+  def __init__(self, value: float, higher_is_better: bool = True, desc: Any = None) -> None:
     self.value = value
     self.higher_is_better = higher_is_better
     self.desc = desc
@@ -191,10 +263,17 @@ class ExternalScore(EvalScore, Serializable):
     return "{:.3f}".format(self.value)
 
 class SequenceAccuracyScore(EvalScore, Serializable):
+  """
+  Class to keep a sequence accuracy score.
+
+  Args:
+    accuracy: score value between 0 and 1
+    desc: human-readable description to include in log outputs
+  """
   yaml_tag = "!SequenceAccuracyScore"
 
   @serializable_init
-  def __init__(self, accuracy, desc=None):
+  def __init__(self, accuracy: float, desc: Any = None):
     self.accuracy = accuracy
     self.desc = desc
     self.serialize_params = {"accuracy":accuracy}
@@ -223,7 +302,7 @@ class Evaluator(object):
   """
     raise NotImplementedError('evaluate must be implemented in Evaluator subclasses')
 
-  def evaluate_multi(self, ref: Sequence[Sequence], hyp: Sequence, desc: Any = None) -> EvalScore:
+  def evaluate_multi_ref(self, ref: Sequence[Sequence], hyp: Sequence, desc: Any = None) -> EvalScore:
     """
   Calculate the quality of output given multiple references.
 
@@ -232,7 +311,7 @@ class Evaluator(object):
     hyp: list of hypothesis sentences ( a sentence is a list of tokens )
     desc: optional description that is passed on to score objects
   """
-    raise NotImplementedError(f'evaluate_multi() is not implemented for {type(self)}.')
+    raise NotImplementedError(f'evaluate_multi_ref() is not implemented for {type(self)}.')
 
   def metric_name(self) -> str:
     """
@@ -250,7 +329,16 @@ class SentenceLevelEvaluator(Evaluator):
     return sentence_scores[0].__class__.aggregate(sentence_scores, desc=desc)
   def evaluate_one_sent(self, ref:Any, hyp:Any) -> SentenceLevelEvalScore:
     raise NotImplementedError("evaluate_one_sent must be implemented in SentenceLevelEvaluator subclasses")
-
+  def evaluate_multi_ref(self, ref: Sequence[Sequence], hyp: Sequence, desc: Any = None) -> EvalScore:
+    sentence_scores = []
+    for ref_alternatives_i, hyp_i in zip(ref, hyp):
+      cur_best = None
+      for ref_ij in ref_alternatives_i:
+        cur_score = self.evaluate_one_sent(ref_ij, hyp_i)
+        if cur_best is None or cur_score.better_than(cur_best):
+          cur_best = cur_score
+      sentence_scores.append(cur_best)
+    return sentence_scores[0].__class__.aggregate(sentence_scores, desc=desc)
 
 
 class FastBLEUEvaluator(Evaluator, Serializable):
@@ -319,8 +407,8 @@ class BLEUEvaluator(Evaluator, Serializable):
     """
     return self._eval(ref, hyp, is_multi_ref=False, desc=desc)
 
-  def evaluate_multi(self, ref: Sequence[Sequence[Sequence[str]]], hyp: Sequence[Sequence[str]],
-               desc: Any = None) -> BLEUScore:
+  def evaluate_multi_ref(self, ref: Sequence[Sequence[Sequence[str]]], hyp: Sequence[Sequence[str]],
+                         desc: Any = None) -> BLEUScore:
     """
     Args:
       ref: list of tuples of reference sentences ( a sentence is a list of tokens )
@@ -461,7 +549,9 @@ class BLEUEvaluator(Evaluator, Serializable):
 
 class GLEUEvaluator(Evaluator, Serializable):
   """
-  Class for computing GLEU Scores.
+  Class for computing GLEU (Google BLEU) Scores.
+
+  GLEU scores are described in https://arxiv.org/pdf/1609.08144v2.pdf
 
   Does not support multiple references.
   """
@@ -535,18 +625,13 @@ class WEREvaluator(SentenceLevelEvaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of word error rate.
 
-  Does not support multiple references.
-
   Args:
     case_sensitive: whether scoring should be case-sensitive
-    cross_lines: if True, merge all lines into a single line before scoring
-                 (careful with long files, quadratic time and space complexity!)
   """
   yaml_tag = "!WEREvaluator"
   @serializable_init
-  def __init__(self, case_sensitive: bool = False, cross_lines: bool = False):
+  def __init__(self, case_sensitive: bool = False):
     self.case_sensitive = case_sensitive
-    self.cross_lines = cross_lines # TODO
     self.aligner = levenshtein.LevenshteinAligner()
 
   def metric_name(self):
@@ -570,19 +655,14 @@ class CEREvaluator(SentenceLevelEvaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of character error rate.
 
-  Does not support multiple references.
-
   Args:
     case_sensitive: whether scoring should be case-sensitive
-    cross_lines: if True, merge all lines into a single line before scoring
-                 (careful with long files, quadratic time and space complexity!)
   """
   yaml_tag = "!CEREvaluator"
 
   @serializable_init
-  def __init__(self, case_sensitive=False, cross_lines=False):
+  def __init__(self, case_sensitive=False):
     self.case_sensitive = case_sensitive
-    self.cross_lines = cross_lines # TODO
     self.aligner = levenshtein.LevenshteinAligner()
 
   def metric_name(self):
