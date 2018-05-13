@@ -107,10 +107,11 @@ class AccuracyEvalTask(EvalTask, Serializable):
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: GeneratorModel = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
                inference: Optional[SimpleInference] = None, candidate_id_file: Optional[str] = None,
-               desc: Optional[Any] = None):
+               desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
+    elif not isinstance(eval_metrics, str): eval_metrics = [eval_metrics]
     self.eval_metrics = eval_metrics
     self.src_file = src_file
     self.ref_file = ref_file

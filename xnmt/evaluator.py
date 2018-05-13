@@ -21,10 +21,11 @@ import math
 import subprocess
 from typing import List, Sequence, Dict, Tuple, Union, Any, Optional
 
+import yaml
 import numpy as np
 
 from xnmt import logger, levenshtein
-from xnmt.persistence import serializable_init, Serializable
+from xnmt.persistence import serializable_init, Serializable, save_to_file
 
 class EvalScore(object):
   """
@@ -339,9 +340,17 @@ class Evaluator(object):
 class SentenceLevelEvaluator(Evaluator):
   """
   A template class for sentence-level evaluators.
+
+  Args:
+    write_sentence_scores: path of file to write sentence-level scores to (in YAML format)
   """
+  def __init__(self, write_sentence_scores:Optional[str] = None):
+    self.write_sentence_scores = write_sentence_scores
+
   def evaluate(self, ref: Sequence, hyp: Sequence, desc: Any) -> SentenceLevelEvalScore:
     sentence_scores = [self.evaluate_one_sent(ref_i, hyp_i) for (ref_i,hyp_i) in zip(ref,hyp)]
+    if self.write_sentence_scores:
+      with open(self.write_sentence_scores, "w") as f_out: f_out.write(yaml.dump(sentence_scores))
     return sentence_scores[0].__class__.aggregate(sentence_scores, desc=desc)
   def evaluate_one_sent(self, ref:Any, hyp:Any) -> SentenceLevelEvalScore:
     raise NotImplementedError("evaluate_one_sent must be implemented in SentenceLevelEvaluator subclasses")
@@ -354,8 +363,9 @@ class SentenceLevelEvaluator(Evaluator):
         if cur_best is None or cur_score.better_than(cur_best):
           cur_best = cur_score
       sentence_scores.append(cur_best)
+    if self.write_sentence_scores:
+      with open(self.write_sentence_scores, "w") as f_out: f_out.write(yaml.dump(sentence_scores))
     return sentence_scores[0].__class__.aggregate(sentence_scores, desc=desc)
-
 
 class FastBLEUEvaluator(Evaluator, Serializable):
   """
@@ -659,10 +669,12 @@ class WEREvaluator(SentenceLevelEvaluator, Serializable):
 
   Args:
     case_sensitive: whether scoring should be case-sensitive
+    write_sentence_scores: path of file to write sentence-level scores to (in YAML format)
   """
   yaml_tag = "!WEREvaluator"
   @serializable_init
-  def __init__(self, case_sensitive: bool = False):
+  def __init__(self, case_sensitive: bool = False, write_sentence_scores: Optional[str] = None):
+    super().__init__(write_sentence_scores=write_sentence_scores)
     self.case_sensitive = case_sensitive
     self.aligner = levenshtein.LevenshteinAligner()
 
@@ -689,11 +701,13 @@ class CEREvaluator(SentenceLevelEvaluator, Serializable):
 
   Args:
     case_sensitive: whether scoring should be case-sensitive
+    write_sentence_scores: path of file to write sentence-level scores to (in YAML format)
   """
   yaml_tag = "!CEREvaluator"
 
   @serializable_init
-  def __init__(self, case_sensitive=False):
+  def __init__(self, case_sensitive: bool = False, write_sentence_scores: Optional[str] = None):
+    super().__init__(write_sentence_scores=write_sentence_scores)
     self.case_sensitive = case_sensitive
     self.aligner = levenshtein.LevenshteinAligner()
 
@@ -757,9 +771,17 @@ class ExternalEvaluator(Evaluator, Serializable):
     return ExternalScore(external_score, self.higher_better, desc=desc)
 
 class RecallEvaluator(SentenceLevelEvaluator,Serializable):
+  """
+  Compute recall by counting true positives.
+
+  Args:
+    nbest: compute recall within n-best of specified n
+    write_sentence_scores: path of file to write sentence-level scores to (in YAML format)
+  """
   yaml_tag = "!RecallEvaluator"
   @serializable_init
-  def __init__(self, nbest=5):
+  def __init__(self, nbest: int = 5, write_sentence_scores: Optional[str] = None):
+    super().__init__(write_sentence_scores=write_sentence_scores)
     self.nbest = nbest
 
   def metric_name(self):
