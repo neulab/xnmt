@@ -67,7 +67,7 @@ speech: !Experiment
     - !AccuracyEvalTask
       eval_metrics: cer,wer
       src_file: examples/data/LDC94S13A.h5
-      ref_file: [examples/data/LDC94S13A.words, examples/data/LDC94S13A.words]
+      ref_file: examples/data/LDC94S13A.words
       hyp_file: examples/output/{EXP}.test_hyp
       inference: !SimpleInference
         post_process: join-char
