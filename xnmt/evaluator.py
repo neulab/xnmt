@@ -336,27 +336,35 @@ class ExternalScore(EvalScore, Serializable):
   def score_str(self):
     return "{:.3f}".format(self.value)
 
-class SequenceAccuracyScore(EvalScore, Serializable):
+class SequenceAccuracyScore(SentenceLevelEvalScore, Serializable):
   """
   Class to keep a sequence accuracy score.
 
   Args:
-    accuracy: score value between 0 and 1
+    num_correct: number of correct outputs
+    num_total: number of total outputs
     desc: human-readable description to include in log outputs
   """
   yaml_tag = "!SequenceAccuracyScore"
 
   @serializable_init
-  def __init__(self, accuracy: float, desc: Any = None):
-    self.accuracy = accuracy
+  def __init__(self, num_correct: int, num_total: int, desc: Any = None):
+    self.num_correct = num_correct
+    self.num_total = num_total
     self.desc = desc
-    self.serialize_params = {"accuracy":accuracy}
+    self.serialize_params = {"num_correct":num_correct, "num_total":num_total}
     if desc is not None: self.serialize_params["desc"] = desc
   def higher_is_better(self): return True
-  def value(self): return self.accuracy
+  def value(self): return self.num_correct / self.num_total
   def metric_name(self): return "SequenceAccuracy"
   def score_str(self):
     return f"{self.value()*100.0:.2f}%"
+
+  @staticmethod
+  def aggregate(scores: Sequence['SentenceLevelEvalScore'], desc: Any = None):
+    return SequenceAccuracyScore(num_correct=sum(s.num_correct for s in scores),
+                                 num_total=sum(s.num_total for s in scores),
+                                 desc=desc)
 
 
 class Evaluator(object):
@@ -840,15 +848,18 @@ class RecallEvaluator(SentenceLevelEvaluator,Serializable):
 #     avg = avg/float(len(ref))
 #     return MeanAvgPrecisionScore(avg, len(hyp), len(ref), nbest=self.nbest, desc=self.desc)
 
-class SequenceAccuracyEvaluator(Evaluator, Serializable):
+class SequenceAccuracyEvaluator(SentenceLevelEvaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of sequence accuracy.
 
-  Does not support multiple references.
+  Args:
+    case_sensitive: whether differences in capitalization are to be considered
+    write_sentence_scores: path of file to write sentence-level scores to (in YAML format)
   """
   yaml_tag = "!SequenceAccuracyEvaluator"
   @serializable_init
-  def __init__(self, case_sensitive=False):
+  def __init__(self, case_sensitive=False, write_sentence_scores: Optional[str] = None) -> None:
+    super().__init__(write_sentence_scores=write_sentence_scores)
     self.case_sensitive = case_sensitive
 
   def _compare(self, ref_sent, hyp_sent):
@@ -858,7 +869,7 @@ class SequenceAccuracyEvaluator(Evaluator, Serializable):
       ref_sent = [w.lower() for w in ref_sent]
     return ref_sent == hyp_sent
 
-  def evaluate(self, ref, hyp, desc=None):
+  def evaluate_one_sent(self, ref:Sequence[str], hyp:Sequence[str]):
     """
     Calculate the accuracy of output given a references.
 
@@ -868,6 +879,5 @@ class SequenceAccuracyEvaluator(Evaluator, Serializable):
       desc: description to pass on to returned score
     Return: formatted string
     """
-    correct = sum(self._compare(ref_sent, hyp_sent) for ref_sent, hyp_sent in zip(ref, hyp))
-    accuracy = float(correct) / len(ref)
-    return SequenceAccuracyScore(accuracy, desc=desc)
+    correct = 1 if self._compare(ref, hyp) else 0
+    return SequenceAccuracyScore(num_correct=correct, num_total=1)

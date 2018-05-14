@@ -61,5 +61,17 @@ class TestGLEU(unittest.TestCase):
       0.2903,
       places=3)
 
+class TestSequenceAccuracy(unittest.TestCase):
+  def setUp(self):
+    self.evaluator = evaluator.SequenceAccuracyEvaluator()
+  def test_correct(self):
+    self.assertEqual(self.evaluator.evaluate(["1 2 3".split()], ["1 2 3".split()]).value(), 1.0)
+  def test_incorrect(self):
+    self.assertEqual(self.evaluator.evaluate(["2 3".split()], ["1 2 3".split()]).value(), 0.0)
+  def test_corpus(self):
+    self.assertEqual(self.evaluator.evaluate(["1 2 3".split(), "2 3".split()],
+                                             ["1 2 3".split(), "1 2 3".split()]).value(),
+                     0.5)
+
 if __name__ == '__main__':
   unittest.main()
