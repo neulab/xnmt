@@ -25,7 +25,7 @@ import yaml
 import numpy as np
 
 from xnmt import logger, levenshtein
-from xnmt.persistence import serializable_init, Serializable, save_to_file
+from xnmt.persistence import serializable_init, Serializable
 
 class EvalScore(object):
   """
@@ -180,7 +180,7 @@ class BLEUScore(EvalScore, Serializable):
       return f"{self.bleu}, {'/'.join(self.frac_score_list)} (BP = {self.brevity_penalty_score:.6f}, " \
              f"ratio={self.hyp_len / self.ref_len:.2f}, hyp_len={self.hyp_len}, ref_len={self.ref_len})"
 
-class GLEUScore(EvalScore, Serializable):
+class GLEUScore(SentenceLevelEvalScore, Serializable):
   """
   Class to keep a GLEU (Google BLEU) score.
 
@@ -193,19 +193,33 @@ class GLEUScore(EvalScore, Serializable):
   yaml_tag = "!GLEUScore"
 
   @serializable_init
-  def __init__(self, gleu: float, hyp_len: int, ref_len: int, desc: Any = None) -> None:
-    self.gleu = gleu
+  def __init__(self, corpus_n_match: int, corpus_total: int, hyp_len: int, ref_len: int, desc: Any = None) -> None:
+    self.corpus_n_match = corpus_n_match
+    self.corpus_total = corpus_total
     self.hyp_len = hyp_len
     self.ref_len = ref_len
     self.desc = desc
-    self.serialize_params = {"gleu":gleu, "hyp_len":hyp_len,"ref_len":ref_len}
+    self.serialize_params = {"corpus_n_match": corpus_n_match, "corpus_total": corpus_total, "hyp_len":hyp_len,
+                             "ref_len":ref_len}
     if desc is not None: self.serialize_params["desc"] = desc
 
-  def value(self): return self.gleu
+  def value(self):
+    if self.corpus_total == 0:
+      return 0.0
+    else:
+      return self.corpus_n_match / self.corpus_total
   def metric_name(self): return "GLEU"
   def higher_is_better(self): return True
   def score_str(self):
     return "{:.6f}".format(self.value())
+
+  @staticmethod
+  def aggregate(scores: Sequence['SentenceLevelEvalScore'], desc: Any = None):
+    return GLEUScore(corpus_n_match=sum(s.corpus_n_match for s in scores),
+                     corpus_total=sum(s.corpus_total for s in scores),
+                     hyp_len=sum(s.hyp_len for s in scores),
+                     ref_len=sum(s.ref_len for s in scores),
+                     desc=desc)
 
 class LevenshteinScore(SentenceLevelEvalScore):
   """
@@ -383,7 +397,9 @@ class SentenceLevelEvaluator(Evaluator):
   def __init__(self, write_sentence_scores:Optional[str] = None):
     self.write_sentence_scores = write_sentence_scores
 
-  def evaluate(self, ref: Sequence, hyp: Sequence, desc: Any) -> SentenceLevelEvalScore:
+  def evaluate(self, ref: Sequence, hyp: Sequence, desc: Any = None) -> SentenceLevelEvalScore:
+    assert (len(ref) == len(hyp)), \
+      "Length of reference corpus and candidate corpus must be same"
     sentence_scores = [self.evaluate_one_sent(ref_i, hyp_i) for (ref_i,hyp_i) in zip(ref,hyp)]
     if self.write_sentence_scores:
       with open(self.write_sentence_scores, "w") as f_out: f_out.write(yaml.dump(sentence_scores))
@@ -603,7 +619,7 @@ class BLEUEvaluator(Evaluator, Serializable):
 
     return clipped_ngram_count, candidate_ngram_count
 
-class GLEUEvaluator(Evaluator, Serializable):
+class GLEUEvaluator(SentenceLevelEvaluator, Serializable):
   """
   Class for computing GLEU (Google BLEU) Scores.
 
@@ -625,11 +641,15 @@ class GLEUEvaluator(Evaluator, Serializable):
         metric on a corpus level but does not have its drawbacks for our per
         sentence reward objective."
 
-  Does not support multiple references.
+  Args:
+    min_length: minimum n-gram order to consider
+    max_length: maximum n-gram order to consider
+    write_sentence_scores: path of file to write sentence-level scores to (in YAML format)
   """
   yaml_tag = "!GLEUEvaluator"
   @serializable_init
-  def __init__(self, min_length=1, max_length=4):
+  def __init__(self, min_length: int = 1, max_length: int = 4, write_sentence_scores: Optional[str] = None) -> None:
+    super().__init__(write_sentence_scores=write_sentence_scores)
     self.min = min_length
     self.max = max_length
 
@@ -652,42 +672,24 @@ class GLEUEvaluator(Evaluator, Serializable):
           ngram_count[ngram_tuple] += 1
     return ngram_count
 
-  def evaluate(self, ref, hyp, desc=None):
+  def evaluate_one_sent(self, ref:Sequence[str], hyp:Sequence[str]):
     """
     Args:
-      ref: list of reference sents ( a sent is a list of tokens )
-      hyp: list of hypothesis sents ( a sent is a list of tokens )
-      desc: description to pass on to returned score
+      ref: reference sentence ( a sent is a list of tokens )
+      hyp: hypothesis sentence ( a sent is a list of tokens )
     Return:
-      Formatted string having GLEU Score
+      GLEU score object
     """
-    assert (len(ref) == len(hyp)), \
-      "Length of Reference Corpus and Candidate Corpus should be same"
-    corpus_n_match = 0
-    corpus_total = 0
+    hyp_ngrams = self._extract_all_ngrams(hyp)
+    tot_ngrams_hyp = sum(hyp_ngrams.values())
+    ref_ngrams = self._extract_all_ngrams(ref)
+    tot_ngrams_ref = sum(ref_ngrams.values())
 
-    total_ref_len, total_hyp_len = 0, 0
-    for ref_sent, hyp_sent in zip(ref, hyp):
-      total_hyp_len += len(ref_sent)
-      total_ref_len += len(hyp_sent)
+    overlap_ngrams = ref_ngrams & hyp_ngrams
+    n_match = sum(overlap_ngrams.values())
+    n_total = max(tot_ngrams_hyp, tot_ngrams_ref)
 
-      hyp_ngrams = self._extract_all_ngrams(hyp_sent)
-      tot_ngrams_hyp = sum(hyp_ngrams.values())
-      ref_ngrams = self._extract_all_ngrams(ref_sent)
-      tot_ngrams_ref = sum(ref_ngrams.values())
-
-      overlap_ngrams = ref_ngrams & hyp_ngrams
-      n_match = sum(overlap_ngrams.values())
-      n_total = max(tot_ngrams_hyp, tot_ngrams_ref)
-
-      corpus_n_match += n_match
-      corpus_total += n_total
-
-    if corpus_total == 0:
-      gleu_score = 0.0
-    else:
-      gleu_score = corpus_n_match / corpus_total
-    return GLEUScore(gleu_score, total_ref_len, total_hyp_len, desc=desc)
+    return GLEUScore(n_match, n_total, hyp_len = len(hyp), ref_len = len(ref))
 
 
 class WEREvaluator(SentenceLevelEvaluator, Serializable):
@@ -765,10 +767,14 @@ class ExternalEvaluator(Evaluator, Serializable):
 
   Does not support multiple references.
   The external script should only print a number representing the calculated score.
+
+  Args:
+    path: path to external command line tool.
+    higher_better: whether to interpret higher scores as favorable.
   """
   yaml_tag = "!ExternalEvaluator"
   @serializable_init
-  def __init__(self, path=None, higher_better=True):
+  def __init__(self, path:str=None, higher_better:bool=True):
     self.path = path
     self.higher_better = higher_better
 
@@ -786,7 +792,7 @@ class ExternalEvaluator(Evaluator, Serializable):
     proc = subprocess.Popen([self.path], stdout=subprocess.PIPE, shell=True)
     (out, _) = proc.communicate()
     external_score = float(out)
-    return ExternalScore(external_score, self.higher_better, desc=desc)
+    return ExternalScore(external_score, higher_is_better=self.higher_better, desc=desc)
 
 class RecallEvaluator(SentenceLevelEvaluator,Serializable):
   """
