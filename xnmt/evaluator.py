@@ -37,15 +37,48 @@ class EvalScore(object):
   def __init__(self, desc: Any = None) -> None:
     self.desc = desc
 
-  def higher_is_better(self):
+  def higher_is_better(self) -> bool:
+    """
+    Return ``True`` if higher values are favorable, ``False`` otherwise.
+
+    Returns:
+      Whether higher values are favorable.
+    """
     raise NotImplementedError()
-  def value(self):
+  def value(self) -> float:
+    """
+    Get the numeric value of the evaluated metric.
+
+    Returns:
+      Numeric evaluation score.
+    """
     raise NotImplementedError()
-  def metric_name(self):
+  def metric_name(self) -> str:
+    """
+    Get the metric name.
+
+    Returns:
+      Metric name as string.
+    """
     raise NotImplementedError()
-  def score_str(self):
+  def score_str(self) -> str:
+    """
+    A string representation of the evaluated score, potentially including additional statistics.
+
+    Returns:
+      String representation of score.
+    """
     raise NotImplementedError()
-  def better_than(self, another_score):
+  def better_than(self, another_score: 'EvalScore') -> bool:
+    """
+    Compare score against another score and return ``True`` iff this score is better.
+
+    Args:
+      another_score: score to _compare against.
+
+    Returns:
+      Whether this score is better than ``another_score``.
+    """
     if another_score is None or another_score.value() is None: return True
     elif self.value() is None: return False
     assert type(self) == type(another_score)
@@ -65,7 +98,17 @@ class SentenceLevelEvalScore(EvalScore):
   A template class for scores that work on a sentence-level and can be aggregated to corpus-level.
   """
   @staticmethod
-  def aggregate(scores: Sequence['SentenceLevelEvalScore'], desc: Any = None):
+  def aggregate(scores: Sequence['SentenceLevelEvalScore'], desc: Any = None) -> 'SentenceLevelEvalScore':
+    """
+    Aggregate a sequence of sentence-level scores into a corpus-level score.
+
+    Args:
+      scores: list of sentence-level scores.
+      desc: human-readable description.
+
+    Returns:
+      Score object that is the aggregate of all sentence-level scores.
+    """
     raise NotImplementedError()
 
 class LossScore(EvalScore, Serializable):
@@ -330,13 +373,6 @@ class Evaluator(object):
   """
     raise NotImplementedError(f'evaluate_multi_ref() is not implemented for {type(self)}.')
 
-  def metric_name(self) -> str:
-    """
-  Return:
-    metric name
-  """
-    raise NotImplementedError('metric_name must be implemented in Evaluator subclasses')
-
 class SentenceLevelEvaluator(Evaluator):
   """
   A template class for sentence-level evaluators.
@@ -388,9 +424,6 @@ class FastBLEUEvaluator(Evaluator, Serializable):
     self.reference_corpus = None
     self.candidate_corpus = None
 
-  def metric_name(self):
-    return f"BLEU{self.ngram} score"
-
   def evaluate(self, ref, hyp, desc=None):
     try:
       from xnmt.cython import xnmt_cython
@@ -418,9 +451,6 @@ class BLEUEvaluator(Evaluator, Serializable):
     self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
     self.reference_corpus = None
     self.candidate_corpus = None
-
-  def metric_name(self):
-    return f"BLEU{self.ngram} score"
 
   def evaluate(self, ref: Sequence[Sequence[str]], hyp: Sequence[Sequence[str]], desc: Any = None) -> BLEUScore:
     """
@@ -603,10 +633,7 @@ class GLEUEvaluator(Evaluator, Serializable):
     self.min = min_length
     self.max = max_length
 
-  def metric_name(self):
-    return f"GLEU{self.ngram}"
-
-  def extract_all_ngrams(self, tokens):
+  def _extract_all_ngrams(self, tokens):
     """
     Extracts ngram counts from the input string
 
@@ -644,9 +671,9 @@ class GLEUEvaluator(Evaluator, Serializable):
       total_hyp_len += len(ref_sent)
       total_ref_len += len(hyp_sent)
 
-      hyp_ngrams = self.extract_all_ngrams(hyp_sent)
+      hyp_ngrams = self._extract_all_ngrams(hyp_sent)
       tot_ngrams_hyp = sum(hyp_ngrams.values())
-      ref_ngrams = self.extract_all_ngrams(ref_sent)
+      ref_ngrams = self._extract_all_ngrams(ref_sent)
       tot_ngrams_ref = sum(ref_ngrams.values())
 
       overlap_ngrams = ref_ngrams & hyp_ngrams
@@ -678,9 +705,6 @@ class WEREvaluator(SentenceLevelEvaluator, Serializable):
     self.case_sensitive = case_sensitive
     self.aligner = levenshtein.LevenshteinAligner()
 
-  def metric_name(self):
-    return "Word error rate"
-
   def evaluate_one_sent(self, ref: Sequence[str], hyp: Sequence[str]) -> WERScore:
     if not self.case_sensitive:
       hyp = [w.lower() for w in hyp]
@@ -710,9 +734,6 @@ class CEREvaluator(SentenceLevelEvaluator, Serializable):
     super().__init__(write_sentence_scores=write_sentence_scores)
     self.case_sensitive = case_sensitive
     self.aligner = levenshtein.LevenshteinAligner()
-
-  def metric_name(self):
-    return "Character error rate"
 
   def evaluate_one_sent(self, ref: Sequence[str], hyp: Sequence[str]) -> CERScore:
     """
@@ -751,9 +772,6 @@ class ExternalEvaluator(Evaluator, Serializable):
     self.path = path
     self.higher_better = higher_better
 
-  def metric_name(self):
-    return "External eval script"
-
   def evaluate(self, ref, hyp, desc=None):
     """
     Calculate the quality of output according to an external script.
@@ -784,9 +802,6 @@ class RecallEvaluator(SentenceLevelEvaluator,Serializable):
     super().__init__(write_sentence_scores=write_sentence_scores)
     self.nbest = nbest
 
-  def metric_name(self):
-    return f"Recall{self.nbest}"
-
   def evaluate(self, ref, hyp, desc=None):
     true_positive = 0
     for hyp_i, ref_i in zip(hyp, ref):
@@ -806,9 +821,6 @@ class RecallEvaluator(SentenceLevelEvaluator,Serializable):
 #   def __init__(self, nbest=5, desc=None):
 #     self.nbest = nbest
 #     self.desc = desc
-#
-#   def metric_name(self):
-#     return "MeanAvgPrecision{}".format(str(self.nbest))
 #
 #   def evaluate(self, ref, hyp):
 #     avg = 0
@@ -833,10 +845,7 @@ class SequenceAccuracyEvaluator(Evaluator, Serializable):
   def __init__(self, case_sensitive=False):
     self.case_sensitive = case_sensitive
 
-  def metric_name(self):
-    return "Sequence accuracy"
-
-  def compare(self, ref_sent, hyp_sent):
+  def _compare(self, ref_sent, hyp_sent):
     if not self.case_sensitive:
       hyp_sent = [w.lower() for w in hyp_sent]
     if not self.case_sensitive:
@@ -853,6 +862,6 @@ class SequenceAccuracyEvaluator(Evaluator, Serializable):
       desc: description to pass on to returned score
     Return: formatted string
     """
-    correct = sum(self.compare(ref_sent, hyp_sent) for ref_sent, hyp_sent in zip(ref, hyp))
+    correct = sum(self._compare(ref_sent, hyp_sent) for ref_sent, hyp_sent in zip(ref, hyp))
     accuracy = float(correct) / len(ref)
     return SequenceAccuracyScore(accuracy, desc=desc)
