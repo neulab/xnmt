@@ -317,7 +317,7 @@ class NoopEmbedder(Embedder, Serializable):
       return ExpressionSequence(expr_list=embeddings, mask=sent.mask)
 
 
-class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
+class PretrainedSimpleWordEmbedder(SimpleWordEmbedder, Serializable):
   """
   Simple word embeddings via lookup. Initial pretrained embeddings must be supplied in FastText text format.
   
@@ -335,6 +335,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
 
   yaml_tag = '!PretrainedSimpleWordEmbedder'
 
+  @register_xnmt_handler
   @serializable_init
   def __init__(self,
                filename,
