@@ -40,8 +40,9 @@ class LossEvalTask(EvalTask, Serializable):
 
   @serializable_init
   def __init__(self, src_file: str, ref_file: str, model: GeneratorModel = Ref("model"),
-               batcher: Batcher = Ref("train.batcher", default=None), loss_calculator: LossCalculator = bare(MLELoss),
-               max_src_len: Optional[int] = None, max_trg_len: Optional[int] = None, desc: Any = None):
+               batcher: Optional[Batcher] = Ref("train.batcher", default=None),
+               loss_calculator: LossCalculator = bare(MLELoss), max_src_len: Optional[int] = None,
+               max_trg_len: Optional[int] = None, desc: Any = None):
     self.model = model
     self.loss_calculator = loss_calculator
     self.src_file = src_file
