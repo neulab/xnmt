@@ -843,7 +843,7 @@ class YamlPreloader(object):
 
   @staticmethod
   def _load_referenced_serialized(experiment):
-    for path, node in traverse_tree(experiment, traversal_order=TraversalOrder.ROOT_LAST):
+    for path, node in traverse_tree(experiment):
       if isinstance(node, LoadSerialized):
         try:
           with open(node.filename) as stream:
@@ -860,36 +860,35 @@ class YamlPreloader(object):
             break
 
         found_outside_ref = True
+        self_inserted_ref_ids = set()
         while found_outside_ref:
           found_outside_ref = False
           named_paths = get_named_paths(loaded_root)
           replaced_paths = {}
           for sub_path, sub_node in traverse_tree(loaded_trg, path_to_node=cur_path):
-            if isinstance(sub_node, Ref):
+            if isinstance(sub_node, Ref) and not id(sub_node) in self_inserted_ref_ids:
               referenced_path = sub_node.resolve_path(named_paths)
               if referenced_path.is_relative_path():
                 raise NotImplementedError("Handling of relative paths with LoadSerialized is not yet implemented.")
               if referenced_path in replaced_paths:
-                set_descendant(loaded_trg, sub_path[len(cur_path):],
-                                          Ref(replaced_paths[referenced_path], default=sub_node.get_default()))
+                new_ref = Ref(replaced_paths[referenced_path], default=sub_node.get_default())
+                set_descendant(loaded_trg, sub_path[len(cur_path):], new_ref)
+                self_inserted_ref_ids.add(id(new_ref))
               # if outside node:
               elif not str(referenced_path).startswith(str(cur_path)):
                 found_outside_ref = True
                 referenced_obj = get_descendant(loaded_root, referenced_path)
                 set_descendant(loaded_trg, sub_path[len(cur_path):], referenced_obj)
-                replaced_paths[referenced_path] = sub_path
+                # replaced_paths[referenced_path] = sub_path
+                replaced_paths[referenced_path] = path.add_path(sub_path[len(cur_path):])
               else:
-                set_descendant(loaded_trg, sub_path[len(cur_path):],
-                                          Ref(path.add_path(referenced_path[len(cur_path):]),
-                                              default=sub_node.get_default()))
+                new_ref = Ref(path.add_path(referenced_path[len(cur_path):]), default=sub_node.get_default())
+                set_descendant(loaded_trg, sub_path[len(cur_path):], new_ref)
+                self_inserted_ref_ids.add(id(new_ref))
 
         for d in getattr(node, "overwrite", []):
-          if "append" in d != "append_val" in d: raise ValueError("must specify exactly one of 'val' or 'append_val'.")
-          if "append_val" in d:
-            overwrite_path = Path(d["path"] + ".append")
-          else:
-            overwrite_path = Path(d["path"])
-          set_descendant(loaded_trg, overwrite_path, d.get("val", d.get("append_val")))
+          overwrite_path = Path(d["path"])
+          set_descendant(loaded_trg, overwrite_path, d["val"])
         if len(path) == 0:
           experiment = loaded_trg
         else:
