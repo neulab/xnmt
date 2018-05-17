@@ -299,7 +299,11 @@ class SentenceFiltererLength(object):
         self.overall_min = v
       else:
         direc, idx = k.split('_')
-        idx = idx_map.get(idx, int(idx))
+        idx_tmp = idx_map.get(idx)
+        if idx_tmp is None:
+          idx_tmp = int(idx)
+        idx = idx_tmp
+
         if direc == "max":
           self.each_max[idx] = v
         elif direc == "min":
