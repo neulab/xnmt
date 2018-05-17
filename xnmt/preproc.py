@@ -4,6 +4,7 @@ import os.path
 import subprocess
 from collections import defaultdict
 import unicodedata
+import re
 
 import numpy as np
 import warnings
@@ -269,9 +270,38 @@ class SentenceFilterer(object):
       for my_spec in spec:
         if my_spec["type"] == "length":
           preproc_list.append(SentenceFiltererLength(my_spec))
+        elif my_spec["type"] == "matching-regex":
+          preproc_list.append(SentenceFiltererMatchingRegex(my_spec))
         else:
           raise RuntimeError("Unknown preprocessing type {}".format(my_spec["type"]))
     return preproc_list
+
+class SentenceFiltererMatchingRegex(SentenceFilterer):
+
+  def __init__(self, spec):
+    self.regex = {}
+    idx_map = {"src": 0, "trg": 1}
+    for k, v in spec.items():
+      if k == "type":
+        pass
+      elif k.startswith("regex"):
+        _, idx = k.split("_")
+        idx_tmp = idx_map.get(idx)
+        if idx_tmp is None:
+          idx_tmp = int(idx)
+        idx = idx_tmp
+        self.regex[idx] = v
+
+  def keep(self, sents):
+    """ Keep only sentences that match the regex.
+    """
+    for i, sent in enumerate(sents):
+      if type(sent) == list:
+        sent = " ".join(sent)
+
+      if re.search(self.regex.get(i, ""), sent) is None:
+        return False
+    return True
 
 class SentenceFiltererLength(SentenceFilterer):
   """Filters sentences by length"""
