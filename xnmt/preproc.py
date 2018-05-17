@@ -509,7 +509,7 @@ class SentenceFiltererMatchingRegex(SentenceFilterer):
     return True
 
 class SentenceFiltererLength(SentenceFilterer):
-  """Filters sentences by length"""
+ """Filters sentences by length"""
 
   def __init__(self, spec):
     """Specifies the type of length limitations on the sentences that we'll be getting.
