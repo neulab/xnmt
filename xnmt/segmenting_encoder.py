@@ -33,6 +33,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
                epsilon_greedy=None,     # GeometricSequence
                reinforce_scale=None,    # GeometricSequence
                confidence_penalty=None, # SegmentationConfidencePenalty
+               learn_gold=None,
                print_sample_prob=0.01,
                src_vocab = Ref(Path("model.src_reader.vocab")),
                trg_vocab = Ref(Path("model.trg_reader.vocab")),
@@ -83,6 +84,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     self.length_prior_alpha = length_prior_alpha
     self.lmbd = reinforce_scale
     self.eps = epsilon_greedy
+    self.learn_gold = learn_gold
     self.confidence_penalty = confidence_penalty
     # States of the object
     self.train = False
@@ -168,12 +170,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
   def sample_segmentation(self, encodings, batch_size):
     lmbd = self.lmbd.value() if self.lmbd is not None else 0
     eps = self.eps.value() if self.eps is not None else None
-    segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings] if self.learn_segmentation else None
+    learn_gold = self.learn_gold.value() if self.learn_gold is not None else None
+    segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
     # Flags
     is_presegment_provided = self.src_sent[0].has_annotation("segment")
     is_epsgreedy_triggered = eps is not None and numpy.random.random() <= eps
+    is_not_learn_from_gold = learn_gold is not None and learn_gold == 0
     # Sample based on the criterion
-    if self.learn_segmentation and not self.train:
+    if self.learn_segmentation and not self.train and is_not_learn_from_gold:
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
     elif is_presegment_provided:
       segment_decisions = self.sample_from_prior(encodings, batch_size)
