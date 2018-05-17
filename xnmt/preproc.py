@@ -273,7 +273,7 @@ class SentenceFilterer(object):
           raise RuntimeError("Unknown preprocessing type {}".format(my_spec["type"]))
     return preproc_list
 
-class SentenceFiltererLength(object):
+class SentenceFiltererLength(SentenceFilterer):
   """Filters sentences by length"""
 
   def __init__(self, spec):
