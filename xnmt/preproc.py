@@ -299,10 +299,10 @@ class SentenceFiltererLength(object):
         self.overall_min = v
       else:
         direc, idx = k.split('_')
-        idx = idx_map.get(idx_map, int(idx))
+        idx = idx_map.get(idx, int(idx))
         if direc == "max":
           self.each_max[idx] = v
-        elif direc == "max":
+        elif direc == "min":
           self.each_min[idx] = v
         else:
           raise RuntimeError("Unknown limitation type {} in length-based sentence filterer".format(k))
