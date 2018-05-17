@@ -10,10 +10,15 @@ def avg_subcol(data_files, out_file, subcol_name):
 
   param_index = 0
   while True:
+    is_lookup = False
     try:
       loaded_params = [load_param_col.load_param(df, f"/{subcol_name}/_{param_index}") for df in data_files]
     except RuntimeError:
-      break
+      try:
+        loaded_params = [load_param_col.load_lookup_param(df, f"/{subcol_name}/_{param_index}") for df in data_files]
+        is_lookup = True
+      except RuntimeError:
+        break
     print(f"averaging /{subcol_name}/_{param_index}..")
     arrs = [p.as_array() for p in loaded_params]
 
@@ -23,7 +28,10 @@ def avg_subcol(data_files, out_file, subcol_name):
       else: avg_arr = arr
     avg_arr /= len(arrs)
 
-    save_param_subcol.parameters_from_numpy(avg_arr)
+    if is_lookup:
+      save_param_subcol.lookup_parameters_from_numpy(avg_arr)
+    else:
+      save_param_subcol.parameters_from_numpy(avg_arr)
 
     param_index += 1
 
