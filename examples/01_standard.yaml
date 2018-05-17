@@ -9,6 +9,7 @@ standard: !Experiment # 'standard' is the name given to the experiment
     log_file: '{EXP_DIR}/logs/{EXP}.log'
     default_layer_dim: 512
     dropout: 0.3
+    save_num_checkpoints: 3
   # model architecture
   model: !DefaultTranslator
     src_reader: !PlainTextReader
