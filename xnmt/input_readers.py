@@ -455,11 +455,11 @@ def read_parallel_corpus(src_reader: InputReader, trg_reader: InputReader, src_f
 
     if filter is not None and keep_sent:
       if hasattr(trg_sent, "words"):
-        tmp_trg_sent = [e.replace("__", " ") for e in [trg_reader.vocab[i] for i in trg_sent.words][:-1]]
+        tmp_trg_sent = "".join([e.replace("__", " ") for e in [trg_reader.vocab[i] for i in trg_sent.words][:-1]])
       else:
         tmp_trg_sent = trg_sent
       if hasattr(src_sent, "words"):
-        tmp_src_sent = [e.replace("__", " ") for e in [src_reader.vocab[i] for i in src_sent.words][:-1]]
+        tmp_src_sent = "".join([e.replace("__", " ") for e in [src_reader.vocab[i] for i in src_sent.words][:-1]])
       else:
         tmp_src_sent = src_sent
 

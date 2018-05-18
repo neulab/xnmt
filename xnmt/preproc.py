@@ -472,10 +472,13 @@ class SentenceFilterer(object):
           raise RuntimeError("Unknown preprocessing type {}".format(my_spec["type"]))
     return preproc_list
 
-class SentenceFiltererMatchingRegex(SentenceFilterer):
+class SentenceFiltererMatchingRegex(SentenceFilterer, Serializable):
   """Filters sentences via regular expressions.
   A sentence must match the expression to be kept.
   """
+  yaml_tag= '!SentenceFiltererMatchingRegex'
+
+  @serializable_init
   def __init__(self, spec):
     """Specifies the regular expressions to filter the sentences that we'll be getting.
 
