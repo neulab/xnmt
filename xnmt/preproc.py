@@ -298,9 +298,9 @@ class SentenceFiltererMatchingRegex(SentenceFilterer):
     for i, sent in enumerate(sents):
       if type(sent) == list:
         sent = " ".join(sent)
-
-      if re.search(self.regex.get(i, ""), sent) is None:
-        return False
+      if self.regex.get(i) is not None:
+        if re.search(self.regex[i], sent) is None:
+          return False
     return True
 
 class SentenceFiltererLength(SentenceFilterer):
