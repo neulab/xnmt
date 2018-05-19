@@ -109,10 +109,10 @@ class Batcher(object):
     return False
 
   def add_single_batch(self, src_curr, trg_curr, src_ret, trg_ret):
-    src_id, src_mask = pad(src_curr, pad_token=self.src_pad_token, pad_src_to_multiple=self.pad_src_to_multiple)
+    src_id, src_mask = pad(src_curr, pad_token=self.src_pad_token, pad_to_multiple=self.pad_src_to_multiple)
     src_ret.append(Batch(src_id, src_mask))
     if trg_ret is not None:
-      trg_id, trg_mask = pad(trg_curr, pad_token=self.trg_pad_token, pad_src_to_multiple=self.pad_src_to_multiple)
+      trg_id, trg_mask = pad(trg_curr, pad_token=self.trg_pad_token)
       trg_ret.append(Batch(trg_id, trg_mask))
 
   def pack_by_order(self, src, trg, order):
@@ -227,21 +227,21 @@ def is_batched(data):
   """
   return type(data) == Batch
 
-def pad(batch, pad_token=Vocab.ES, pad_src_to_multiple=1):
+def pad(batch, pad_token=Vocab.ES, pad_to_multiple=1):
   """
   Apply padding to sentences in a batch.
 
   Args:
     batch: batch of sentences
     pad_token: token to pad with
-    pad_src_to_multiple (int): pad source sentences so its length is multiple of this integer.
+    pad_to_multiple (int): pad sentences so their length is a multiple of this integer.
 
   Returns:
     Tuple: list of padded items and a corresponding batched mask.
   """
   max_len = max(len_or_zero(item) for item in batch)
-  if max_len % pad_src_to_multiple != 0:
-    max_len += pad_src_to_multiple - (max_len % pad_src_to_multiple)
+  if max_len % pad_to_multiple != 0:
+    max_len += pad_to_multiple - (max_len % pad_to_multiple)
   min_len = min(len_or_zero(item) for item in batch)
   if min_len == max_len:
     return batch, None
