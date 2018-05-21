@@ -273,7 +273,7 @@ class SentenceFilterer(object):
           raise RuntimeError("Unknown preprocessing type {}".format(my_spec["type"]))
     return preproc_list
 
-class SentenceFiltererLength(object):
+class SentenceFiltererLength(SentenceFilterer):
   """Filters sentences by length"""
 
   def __init__(self, spec):
@@ -299,10 +299,14 @@ class SentenceFiltererLength(object):
         self.overall_min = v
       else:
         direc, idx = k.split('_')
-        idx = idx_map.get(idx_map, int(idx))
+        idx_tmp = idx_map.get(idx)
+        if idx_tmp is None:
+          idx_tmp = int(idx)
+        idx = idx_tmp
+
         if direc == "max":
           self.each_max[idx] = v
-        elif direc == "max":
+        elif direc == "min":
           self.each_min[idx] = v
         else:
           raise RuntimeError("Unknown limitation type {} in length-based sentence filterer".format(k))
