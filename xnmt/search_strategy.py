@@ -1,5 +1,6 @@
 from collections import namedtuple
 import math
+from typing import Optional, Callable
 
 import dynet as dy
 import numpy as np
@@ -21,9 +22,9 @@ from xnmt.vocab import Vocab
 SearchOutput = namedtuple('SearchOutput', ['word_ids', 'attentions', 'score', 'logsoftmaxes', 'state', 'mask'])
 
 class SearchStrategy(object):
-  '''
+  """
   A template class to generate translation from the output probability model. (Non-batched operation)
-  '''
+  """
   def generate_output(self, translator, dec_state,
                       src_length=None, forced_trg_ids=None):
     """
@@ -38,12 +39,12 @@ class SearchStrategy(object):
     raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')
 
 class GreedySearch(Serializable, SearchStrategy):
-  '''
+  """
   Performs greedy search (aka beam search with beam size 1)
   
   Args:
     max_len (int): maximum number of tokens to generate.
-  '''
+  """
 
   yaml_tag = '!GreedySearch'
 
@@ -107,6 +108,8 @@ class BeamSearch(Serializable, SearchStrategy):
     max_len: maximum number of tokens to generate.
     len_norm: type of length normalization to apply
     one_best: Whether to output the best hyp only or all completed hyps.
+    scores_proc: apply an optional operation on all scores prior to choosing the top k.
+                 E.g. use with :class:`xnmt.length_normalization.EosBooster`.
   """
 
   yaml_tag = '!BeamSearch'
@@ -114,11 +117,12 @@ class BeamSearch(Serializable, SearchStrategy):
   
   @serializable_init
   def __init__(self, beam_size: int = 1, max_len: int = 100, len_norm: LengthNormalization = bare(NoNormalization),
-               one_best: bool = True):
+               one_best: bool = True, scores_proc: Optional[Callable[[np.ndarray], None]] = None):
     self.beam_size = beam_size
     self.max_len = max_len
     self.len_norm = len_norm
     self.one_best = one_best
+    self.scores_proc = scores_proc
 
   def generate_output(self, translator, initial_state, src_length=None, forced_trg_ids=None):
     # TODO(philip30): can only do single decoding, not batched
@@ -142,7 +146,8 @@ class BeamSearch(Serializable, SearchStrategy):
           continue
         current_output = translator.output_one_step(prev_word, prev_state)
         score = current_output.logsoftmax.npvalue().transpose()
-        self.len_norm.normalize_partial_all(score)
+        if self.scores_proc:
+          self.scores_proc(score)
         # Next Words
         if forced_trg_ids is None:
           top_words = np.argpartition(score, max(-len(score),-self.beam_size))[-self.beam_size:]
@@ -260,7 +265,7 @@ class SamplingSearch(Serializable, SearchStrategy):
     return SearchOutput(samples, attentions, scores, logsofts, states, masks)
 
 
-class MctsNode:
+class MctsNode(object):
   def __init__(self, parent, prior_dist, word, attention, translator, dec_state):
     self.parent = parent
     self.prior_dist = prior_dist  # log of softmax
@@ -378,9 +383,9 @@ def greedy_choice(logsoftmax):
 
 
 class MctsSearch(Serializable, SearchStrategy):
-  '''
+  """
   Performs search with Monte Carlo Tree Search
-  '''
+  """
   yaml_tag = '!MctsSearch'
 
   @serializable_init

@@ -9,12 +9,12 @@ from xnmt import search_strategy
 from xnmt.vocab import Vocab
 
 class LengthNormalization(object):
-  '''
+  """
   A template class to adjust scores for length normalization during search.
 
   Args:
     boost_eos: Add this to the log prob of the eos token to control output length.
-  '''
+  """
 
   def __init__(self, boost_eos: Optional[float] = None):
     self.boost_eos = boost_eos
@@ -45,23 +45,11 @@ class LengthNormalization(object):
     """
     return score_so_far + score_to_add # default behavior: add up the log probs
 
-  def normalize_partial_all(self, scores:np.ndarray) -> None:
-    """
-    Adjust scores for all words (in-place) before selecting the top-k.
-
-    This default implementation performs boosting of </s> if specified.
-
-    Args:
-      scores: list of scores for each vocabulary entry.
-    """
-    if self.boost_eos:
-      scores[Vocab.ES] += self.boost_eos
-
 
 class NoNormalization(LengthNormalization, Serializable):
-  '''
-  Adding no form of length normalization
-  '''
+  """
+  Adding no form of length normalization.
+  """
   yaml_tag = '!NoNormalization'
 
   @serializable_init
@@ -73,9 +61,9 @@ class NoNormalization(LengthNormalization, Serializable):
     return [hyp.score for hyp in completed_hyps]
 
 class AdditiveNormalization(LengthNormalization, Serializable):
-  '''
+  """
   Adding a fixed word penalty everytime the word is added.
-  '''
+  """
   yaml_tag = '!AdditiveNormalization'
 
   @serializable_init
@@ -95,9 +83,9 @@ class AdditiveNormalization(LengthNormalization, Serializable):
 
 
 class PolynomialNormalization(LengthNormalization, Serializable):
-  '''
+  """
   Dividing by the length (raised to some power)
-  '''
+  """
   yaml_tag = '!PolynomialNormalization'
 
   @serializable_init
@@ -126,11 +114,11 @@ class PolynomialNormalization(LengthNormalization, Serializable):
 
 
 class MultinomialNormalization(LengthNormalization, Serializable):
-  '''
+  """
   The algorithm followed by:
   Tree-to-Sequence Attentional Neural Machine Translation
   https://arxiv.org/pdf/1603.06075.pdf
-  '''
+  """
   yaml_tag = '!MultinomialNormalization'
 
   @serializable_init
@@ -158,12 +146,12 @@ class MultinomialNormalization(LengthNormalization, Serializable):
 
 
 class GaussianNormalization(LengthNormalization, Serializable):
-  '''
+  """
    The Gaussian regularization encourages the inference
    to select sents that have similar lengths as the
    sents in the training set.
    refer: https://arxiv.org/pdf/1509.04942.pdf
-  '''
+  """
   yaml_tag = '!GaussianNormalization'
 
   @serializable_init
@@ -189,3 +177,19 @@ class GaussianNormalization(LengthNormalization, Serializable):
   def normalize_completed(self, completed_hyps: Sequence['search_strategy.BeamSearch.Hypothesis'],
                           src_length: Optional[int] = None) -> Sequence[float]:
     return [hyp.score / self.trg_length_prob(len(hyp.id_list)) for hyp in completed_hyps]
+
+
+class EosBooster(Serializable):
+  """
+  Callable that applies boosting of end-of-sequence token, can be used with :class:`xnmt.search_strategy.BeamSearch`.
+
+  Args:
+    boost_val: value to add to the eos token's log probability. Positive values make sentences shorter, negative values
+               make sentences longer.
+  """
+  yaml_tag = "!EosBooster"
+  @serializable_init
+  def __init__(self, boost_val: float):
+    self.boost_val = boost_val
+  def __call__(self, scores:np.ndarray) -> None:
+    scores[Vocab.ES] += self.boost_val
