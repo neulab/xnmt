@@ -46,10 +46,6 @@ class NoNormalization(LengthNormalization, Serializable):
   """
   yaml_tag = '!NoNormalization'
 
-  @serializable_init
-  def __init__(self, boost_eos: Optional[float] = None):
-    super().__init__(boost_eos=boost_eos)
-
   def normalize_completed(self, completed_hyps: Sequence['search_strategy.BeamSearch.Hypothesis'],
                           src_length: Optional[int] = None) -> Sequence[float]:
     return [hyp.score for hyp in completed_hyps]
@@ -61,8 +57,7 @@ class AdditiveNormalization(LengthNormalization, Serializable):
   yaml_tag = '!AdditiveNormalization'
 
   @serializable_init
-  def __init__(self, penalty: Real = -0.1, apply_during_search: bool = False, boost_eos: Optional[float] = None):
-    super().__init__(boost_eos=boost_eos)
+  def __init__(self, penalty: Real = -0.1, apply_during_search: bool = False):
     self.penalty = penalty
     self.apply_during_search = apply_during_search
 
@@ -83,8 +78,7 @@ class PolynomialNormalization(LengthNormalization, Serializable):
   yaml_tag = '!PolynomialNormalization'
 
   @serializable_init
-  def __init__(self, m: Real = 1, apply_during_search: bool = False, boost_eos: Optional[float] = None):
-    super().__init__(boost_eos=boost_eos)
+  def __init__(self, m: Real = 1, apply_during_search: bool = False):
     self.m = m
     self.apply_during_search = apply_during_search
     self.pows = []
@@ -116,8 +110,7 @@ class MultinomialNormalization(LengthNormalization, Serializable):
   yaml_tag = '!MultinomialNormalization'
 
   @serializable_init
-  def __init__(self, sent_stats, boost_eos: Optional[float] = None):
-    super().__init__(boost_eos=boost_eos)
+  def __init__(self, sent_stats):
     self.stats = sent_stats
 
   def trg_length_prob(self, src_length, trg_length):
@@ -149,8 +142,7 @@ class GaussianNormalization(LengthNormalization, Serializable):
   yaml_tag = '!GaussianNormalization'
 
   @serializable_init
-  def __init__(self, sent_stats, boost_eos: Optional[float] = None):
-    super().__init__(boost_eos=boost_eos)
+  def __init__(self, sent_stats):
     self.stats = sent_stats.trg_stat
     self.num_sent = sent_stats.num_pair
     self.fit_distribution()
