@@ -11,13 +11,7 @@ from xnmt.vocab import Vocab
 class LengthNormalization(object):
   """
   A template class to adjust scores for length normalization during search.
-
-  Args:
-    boost_eos: Add this to the log prob of the eos token to control output length.
   """
-
-  def __init__(self, boost_eos: Optional[float] = None):
-    self.boost_eos = boost_eos
 
   def normalize_completed(self, completed_hyps: Sequence['search_strategy.BeamSearch.Hypothesis'],
                           src_length: Optional[int] = None) -> Sequence[float]:
