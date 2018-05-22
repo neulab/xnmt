@@ -488,7 +488,7 @@ class SentenceFiltererMatchingRegex(SentenceFilterer, Serializable):
       regex_trg: Equivalent to regex_1
     """
     self.regex = {}
-    idx_map = {"src": 0, "trg": 1}
+    idx_map = {"src": 0, "trg": 1, "hyp": 0, "ref": 1}
     for k, v in spec.items():
       if k == "type":
         pass
@@ -527,7 +527,7 @@ class SentenceFiltererLength(SentenceFilterer):
     self.each_min = {}
     self.overall_max = -1
     self.overall_min = -1
-    idx_map = {"src": 0, "trg": 1}
+    idx_map = {"src": 0, "trg": 1, "hyp": 0, "ref": 1}
     for k, v in spec.items():
       if k == "type":
         pass
