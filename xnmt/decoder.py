@@ -210,7 +210,7 @@ class MlpSoftmaxLexiconDecoder(MlpSoftmaxDecoder, Serializable):
     assert self.src_vocab.frozen
     assert self.trg_vocab.frozen
     lexicon = [{} for _ in range(len(self.src_vocab))]
-    with open(self.lexicon_file) as fp:
+    with open(self.lexicon_file, encoding='utf-8') as fp:
       for line in fp:
         try:
           trg, src, prob = line.rstrip().split()
@@ -245,18 +245,13 @@ class MlpSoftmaxLexiconDecoder(MlpSoftmaxDecoder, Serializable):
   def on_start_sent(self, src):
     batch_size = len(src)
     col_size = len(src[0])
-    # Make this faster with dy.sparse_inputTensor?
-    lexicon_prob = np.dstack([np.vstack([self.dense_prob(src[i][j]) for j in range(col_size)]) for i in range(batch_size)])
-    lexicon_prob = np.swapaxes(lexicon_prob, 0, 1)
-    self.lexicon_prob = dy.nobackprop(dy.inputTensor(lexicon_prob, batched=True))
 
-  @functools.lru_cache(maxsize=1024)
-  def dense_prob(self, src_word):
-    ret = np.zeros(len(self.trg_vocab), dtype=float)
-    sparse_prob = self.lexicon[src_word]
-    ret[list(sparse_prob.keys())] = list(sparse_prob.values())
-    return ret
-  
+    idxs = [(x, j, i) for i in range(batch_size) for j in range(col_size) for x in self.lexicon[src[i][j]].keys()]
+    idxs = tuple(map(list, list(zip(*idxs))))
+
+    values = [x for i in range(batch_size) for j in range(col_size) for x in self.lexicon[src[i][j]].values()]
+    self.lexicon_prob = dy.nobackprop(dy.sparse_inputTensor(idxs, values, (len(self.trg_vocab), col_size, batch_size), batched=True))
+    
   def get_scores_logsoftmax(self, mlp_dec_state):
     score = super().get_scores(mlp_dec_state)
     lex_prob = self.lexicon_prob * self.attender.get_last_attention()

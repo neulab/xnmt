@@ -17,6 +17,7 @@ transformer: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    inference: !SimpleInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 30
     batcher: !SentShuffleBatcher

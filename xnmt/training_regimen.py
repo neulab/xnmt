@@ -4,12 +4,13 @@ from xnmt.settings import settings
 import numpy as np
 import dynet as dy
 
+from xnmt.model_base import TrainableModel
+from xnmt.loss_tracker import TrainLossTracker
+from xnmt.loss_calculator import MLELoss
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 import xnmt.optimizer
 from xnmt.training_task import SimpleTrainingTask
-from xnmt.loss_tracker import TrainLossTracker
-from xnmt.loss_calculator import MLELoss
 
 class TrainingRegimen(object):
   """
@@ -41,7 +42,7 @@ class TrainingRegimen(object):
 class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
   """
   Args:
-    model (GeneratorModel): the model
+    model (TrainableModel): the model
     src_file (str): the source training file
     trg_file (str): the target training file
     dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
@@ -260,6 +261,9 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
                commandline_args=Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks)
+    if len(self.task_weights) != len(self.tasks):
+      raise ValueError(f"number of tasks must match number of task weights; "
+                       f"found: {len(self.task_weights)} != {len(self.tasks)}")
     self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
 
   def run_training(self, save_fct, update_weights=True):

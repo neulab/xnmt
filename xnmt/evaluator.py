@@ -5,6 +5,8 @@ This module contains classes for computing evaluation metrics and corresponding 
 from collections import defaultdict, Counter
 import math
 import subprocess
+from typing import List, Sequence, Dict, Tuple, Union, Any, Optional
+
 import numpy as np
 
 from xnmt import logger
@@ -52,13 +54,14 @@ class LossScore(EvalScore, Serializable):
     if self.loss_stats is not None and len(self.loss_stats) > 1:
       return "{" + ", ".join("%s: %.5f" % (k, v) for k, v in self.loss_stats.items()) + "}"
     else:
-      return "{:.3f}".format(self.value())
+      return f"{self.value():.3f}"
 
 class BLEUScore(EvalScore, Serializable):
   yaml_tag = "!BLEUScore"
 
   @serializable_init
-  def __init__(self, bleu, frac_score_list=None, brevity_penalty_score=None, hyp_len=None, ref_len=None, ngram=4, desc=None):
+  def __init__(self, bleu, frac_score_list=None, brevity_penalty_score=None, hyp_len=None, ref_len=None, ngram=4,
+               desc=None):
     self.bleu = bleu
     self.frac_score_list = frac_score_list
     self.brevity_penalty_score = brevity_penalty_score
@@ -67,7 +70,9 @@ class BLEUScore(EvalScore, Serializable):
     self.ngram   = ngram
     self.desc = desc
     self.serialize_params = {"bleu":bleu, "ngram":ngram}
-    self.serialize_params.update({k:getattr(self,k) for k in ["frac_score_list","brevity_penalty_score","hyp_len","ref_len","desc"] if getattr(self,k) is not None})
+    self.serialize_params.update(
+      {k: getattr(self, k) for k in ["frac_score_list", "brevity_penalty_score", "hyp_len", "ref_len", "desc"] if
+       getattr(self, k) is not None})
 
   def value(self): return self.bleu if self.bleu is not None else 0.0
   def metric_name(self): return "BLEU" + str(self.ngram)
@@ -76,7 +81,8 @@ class BLEUScore(EvalScore, Serializable):
     if self.bleu is None:
       return "0"
     else:
-      return f"{self.bleu}, {'/'.join(self.frac_score_list)} (BP = {self.brevity_penalty_score:.6f}, ratio={self.hyp_len / self.ref_len:.2f}, hyp_len={self.hyp_len}, ref_len={self.ref_len})"
+      return f"{self.bleu}, {'/'.join(self.frac_score_list)} (BP = {self.brevity_penalty_score:.6f}, " \
+             f"ratio={self.hyp_len / self.ref_len:.2f}, hyp_len={self.hyp_len}, ref_len={self.ref_len})"
 
 class GLEUScore(EvalScore, Serializable):
   yaml_tag = "!GLEUScore"
@@ -89,7 +95,7 @@ class GLEUScore(EvalScore, Serializable):
     self.desc = desc
     self.serialize_params = {"gleu":gleu, "hyp_len":hyp_len,"ref_len":ref_len}
     if desc is not None: self.serialize_params["desc"] = desc
-    
+
   def value(self): return self.gleu
   def metric_name(self): return "GLEU"
   def higher_is_better(self): return True
@@ -186,38 +192,51 @@ class Evaluator(object):
   A class to evaluate the quality of output.
   """
 
-  def evaluate(self, ref, hyp, desc=None):
+  def evaluate(self, ref: Sequence, hyp: Sequence, desc: Optional[Any] = None) -> EvalScore:
     """
-  Calculate the quality of output given a references.
+  Calculate the quality of output given a reference.
 
   Args:
-    ref: list of reference sents ( a sent is a list of tokens )
-    hyp: list of hypothesis sents ( a sent is a list of tokens )
+    ref: list of reference sents ( a sentence is a list of tokens )
+    hyp: list of hypothesis sents ( a sentence is a list of tokens )
     desc: optional description that is passed on to score objects
+  Returns:
   """
     raise NotImplementedError('evaluate must be implemented in Evaluator subclasses')
 
-  def metric_name(self):
+  def evaluate_multi(self, ref: Sequence[Sequence], hyp: Sequence, desc: Optional[Any] = None) -> EvalScore:
+    """
+  Calculate the quality of output given multiple references.
+
+  Args:
+    ref: list of tuples of reference sentences ( a sentence is a list of tokens )
+    hyp: list of hypothesis sentences ( a sentence is a list of tokens )
+    desc: optional description that is passed on to score objects
+  """
+    raise NotImplementedError(f'evaluate_multi() is not implemented for {type(self)}.')
+
+  def metric_name(self) -> str:
     """
   Return:
-    str:
+    metric name
   """
     raise NotImplementedError('metric_name must be implemented in Evaluator subclasses')
 
-  def evaluate_fast(self, ref, hyp):
-    raise NotImplementedError('evaluate_fast is not implemented for:', self.__class__.__name__)
+class FastBLEUEvaluator(Evaluator, Serializable):
+  """
+  Class for computing BLEU scores using a fast Cython implementation.
 
-class BLEUEvaluator(Evaluator, Serializable):
-  # Class for computing BLEU Scores accroding to
-  # K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
-  yaml_tag = "!BLEUEvaluator"
+  Does not support multiple references.
+  BLEU scores are computed according to K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
+
+  Args:
+    ngram: consider ngrams up to this order (usually 4)
+    smooth:
+  """
+  yaml_tag = "!FastBLEUEvaluator"
 
   @serializable_init
-  def __init__(self, ngram=4, smooth=0):
-    """
-    Args:
-      ngram: default value of 4 is generally used
-    """
+  def __init__(self, ngram: int = 4, smooth = 0):
     self.ngram = ngram
     self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
     self.smooth = smooth
@@ -225,9 +244,9 @@ class BLEUEvaluator(Evaluator, Serializable):
     self.candidate_corpus = None
 
   def metric_name(self):
-    return "BLEU%d score" % (self.ngram)
+    return f"BLEU{self.ngram} score"
 
-  def evaluate_fast(self, ref, hyp, ):
+  def evaluate(self, ref, hyp, desc=None):
     try:
       from xnmt.cython import xnmt_cython
     except:
@@ -236,17 +255,53 @@ class BLEUEvaluator(Evaluator, Serializable):
       raise
     return xnmt_cython.bleu_sentence(self.ngram, self.smooth, ref, hyp)
 
-  # Doc to be added
-  def evaluate(self, ref, hyp, desc=None):
+
+class BLEUEvaluator(Evaluator, Serializable):
+  """
+  Compute BLEU scores against one or several references.
+
+  BLEU scores are computed according to K Papineni et al "BLEU: a method for automatic evaluation of machine translation"
+
+  Args:
+    ngram: consider ngrams up to this order (usually 4)
+  """
+  yaml_tag = "!BLEUEvaluator"
+
+  @serializable_init
+  def __init__(self, ngram: int = 4):
+    self.ngram = ngram
+    self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
+    self.reference_corpus = None
+    self.candidate_corpus = None
+
+  def metric_name(self):
+    return f"BLEU{self.ngram} score"
+
+  def evaluate(self, ref: Sequence[Sequence[str]], hyp: Sequence[Sequence[str]], desc: Any = None) -> BLEUScore:
     """
     Args:
-      ref: list of reference sents ( a sent is a list of tokens )
-      hyp: list of hypothesis sents ( a sent is a list of tokens )
+      ref: reference sentences (single-reference case: sentence is list of strings;
+      hyp: list of hypothesis sentences ( a sentence is a list of tokens )
       desc: description to pass on to returned score
     Return:
-      Formatted string having BLEU Score with different intermediate results such as ngram ratio,
-      sent length, brevity penalty
+      Score, including intermediate results such as ngram ratio, sentence length, brevity penalty
     """
+    return self._eval(ref, hyp, is_multi_ref=False, desc=desc)
+
+  def evaluate_multi(self, ref: Sequence[Sequence[Sequence[str]]], hyp: Sequence[Sequence[str]],
+               desc: Any = None) -> BLEUScore:
+    """
+    Args:
+      ref: list of tuples of reference sentences ( a sentence is a list of tokens )
+      hyp: list of hypothesis sentences ( a sentence is a list of tokens )
+      desc: optional description that is passed on to score objects
+    Return:
+      Score, including intermediate results such as ngram ratio, sentence length, brevity penalty
+    """
+    return self._eval(ref, hyp, is_multi_ref=True, desc=desc)
+
+  def _eval(self, ref: Sequence[Union[Sequence[str], Sequence[Sequence[str]]]], hyp: Sequence[Sequence[str]],
+            is_multi_ref: bool, desc: Any = None) -> BLEUScore:
     self.reference_corpus = ref
     self.candidate_corpus = hyp
 
@@ -261,17 +316,26 @@ class BLEUEvaluator(Evaluator, Serializable):
     word_counter = Counter()
 
     for ref_sent, can_sent in zip(self.reference_corpus, self.candidate_corpus):
-      word_counter['reference'] += len(ref_sent)
       word_counter['candidate'] += len(can_sent)
+      if not is_multi_ref:
+        word_counter['reference'] += len(ref_sent)
 
-      clip_count_dict, full_count_dict = self.modified_precision(ref_sent, can_sent)
+        clip_count_dict, full_count_dict = self._modified_precision(ref_sent, can_sent)
+
+      else:
+        ref_lens = sorted([(len(ref_sent_i), abs(len(ref_sent_i) - len(can_sent))) for ref_sent_i in ref_sent],
+                          key=lambda x: (x[1],x[0]))
+        word_counter['reference'] += ref_lens[0][0]
+        counts = [self._modified_precision(ref_sent_i, can_sent) for ref_sent_i in ref_sent]
+        full_count_dict = counts[0][1]
+        clip_count_dict = defaultdict(Counter)
+        for ngram_type in candidate_ngram_count:
+          for i in range(len(counts)):
+            clip_count_dict[ngram_type] |= counts[i][0][ngram_type]
 
       for ngram_type in full_count_dict:
         if ngram_type in clip_count_dict:
           clipped_ngram_count[ngram_type] += sum(clip_count_dict[ngram_type].values())
-        else:
-          clipped_ngram_count[ngram_type] += 0.  # This line may not be required
-
         candidate_ngram_count[ngram_type] += sum(full_count_dict[ngram_type].values())
 
     # Edge case
@@ -296,14 +360,13 @@ class BLEUEvaluator(Evaluator, Serializable):
     precision_score = math.exp(log_precision_score)
 
     # Brevity Penalty Score
-    brevity_penalty_score = self.brevity_penalty(word_counter['reference'], word_counter['candidate'])
+    brevity_penalty_score = self._brevity_penalty(word_counter['reference'], word_counter['candidate'])
 
     # BLEU Score
     bleu_score = brevity_penalty_score * precision_score
     return BLEUScore(bleu_score, frac_score_list, brevity_penalty_score, word_counter['candidate'], word_counter['reference'], ngram=self.ngram, desc=desc)
 
-  # Doc to be added
-  def brevity_penalty(self, r, c):
+  def _brevity_penalty(self, r: int, c: int) -> float:
     """
     Args:
       r: number of words in reference corpus
@@ -321,8 +384,7 @@ class BLEUEvaluator(Evaluator, Serializable):
       penalty = np.exp(1. - (r / c))
     return penalty
 
-  # Doc to be added
-  def extract_ngrams(self, tokens):
+  def _extract_ngrams(self, tokens: Sequence[str]) -> Dict[int, Counter]:
     """
     Extracts ngram counts from the input string
 
@@ -345,7 +407,8 @@ class BLEUEvaluator(Evaluator, Serializable):
 
     return ngram_count
 
-  def modified_precision(self, reference_sent, candidate_sent):
+  def _modified_precision(self, reference_sent: List[str], candidate_sent: List[str]) \
+          -> Tuple[Dict[int,Counter],Dict[int,Counter]]:
     """
     Computes counts useful in modified precision calculations
 
@@ -357,8 +420,8 @@ class BLEUEvaluator(Evaluator, Serializable):
 
     clipped_ngram_count = defaultdict(Counter)
 
-    reference_ngram_count = self.extract_ngrams(reference_sent)
-    candidate_ngram_count = self.extract_ngrams(candidate_sent)
+    reference_ngram_count = self._extract_ngrams(reference_sent)
+    candidate_ngram_count = self._extract_ngrams(candidate_sent)
 
     for ngram_type in candidate_ngram_count:
       clipped_ngram_count[ngram_type] = candidate_ngram_count[ngram_type] & reference_ngram_count[ngram_type]
@@ -366,12 +429,19 @@ class BLEUEvaluator(Evaluator, Serializable):
     return clipped_ngram_count, candidate_ngram_count
 
 class GLEUEvaluator(Evaluator, Serializable):
-  # Class for computing GLEU Scores
+  """
+  Class for computing GLEU Scores.
+
+  Does not support multiple references.
+  """
   yaml_tag = "!GLEUEvaluator"
   @serializable_init
   def __init__(self, min_length=1, max_length=4):
     self.min = min_length
     self.max = max_length
+
+  def metric_name(self):
+    return f"GLEU{self.ngram}"
 
   def extract_all_ngrams(self, tokens):
     """
@@ -433,6 +503,8 @@ class GLEUEvaluator(Evaluator, Serializable):
 class WEREvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of word error rate.
+
+  Does not support multiple references.
 
   Args:
     case_sensitive: whether scoring should be case-sensitive
@@ -503,7 +575,7 @@ class WEREvaluator(Evaluator, Serializable):
 
   def seq_sim(self, l1, l2):
     # compute matrix
-    F = [[0] * (len(l2) + 1) for i in range((len(l1) + 1))]
+    F = [[0] * (len(l2) + 1) for _ in range((len(l1) + 1))]
     for i in range(len(l1) + 1):
       F[i][0] = i * self.gapPenalty
     for j in range(len(l2) + 1):
@@ -519,6 +591,8 @@ class WEREvaluator(Evaluator, Serializable):
 class CEREvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of character error rate.
+
+  Does not support multiple references.
 
   Args:
     case_sensitive: whether scoring should be case-sensitive
@@ -553,6 +627,8 @@ class CEREvaluator(Evaluator, Serializable):
 class ExternalEvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of the output according to an external evaluation script.
+
+  Does not support multiple references.
   The external script should only print a number representing the calculated score.
   """
   yaml_tag = "!ExternalEvaluator"
@@ -569,8 +645,8 @@ class ExternalEvaluator(Evaluator, Serializable):
     Calculate the quality of output according to an external script.
 
     Args:
-      ref: list of list of reference words
-      hyp: list of list of decoded words
+      ref: (ignored)
+      hyp: (ignored)
       desc: description to pass on to returned score
     Return:
       external eval script score
@@ -623,6 +699,8 @@ class RecallEvaluator(Evaluator,Serializable):
 class SequenceAccuracyEvaluator(Evaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of sequence accuracy.
+
+  Does not support multiple references.
   """
   yaml_tag = "!SequenceAccuracyEvaluator"
   @serializable_init

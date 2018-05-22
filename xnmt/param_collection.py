@@ -45,7 +45,7 @@ class ParamManager(object):
       data_file: a data directory (usually named ``*.data``) containing DyNet parameter collections.
     """
     assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
-    ParamManager.load_paths.append(data_file)
+    if not data_file in ParamManager.load_paths: ParamManager.load_paths.append(data_file)
 
   @staticmethod
   def populate() -> None:
