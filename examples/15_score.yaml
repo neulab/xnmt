@@ -1,0 +1,70 @@
+# Using a trained model to add hypothesis score for an nbest list
+# First, exp1-model trains a model which is saved at examples/output/exp1-model.mod
+# Then, exp2-score loads the exp1-model, and use it to score an nbest list
+# The nbest list example used here is located at examples/data/head.nbest.en
+# exp2-score outputs a new nbest list with hypothesis score.
+# The output file will be in examples/output/exp2-score.test_hyp
+
+exp1-model: !Experiment
+  exp_global: !ExpGlobal
+    model_file: examples/output/{EXP}.mod
+    log_file: examples/output/{EXP}.log
+    default_layer_dim: 64
+    dropout: 0.5
+    weight_noise: 0.1
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    encoder: !BiLSTMSeqTransducer
+      layers: 2
+      input_dim: 64
+    attender: !MlpAttender
+      state_dim: 64
+      hidden_dim: 64
+      input_dim: 64
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 64
+    decoder: !MlpSoftmaxDecoder
+      rnn_layer: !UniLSTMSeqTransducer
+        layers: 1
+      mlp_layer: !MLP
+        hidden_dim: 64
+      input_feeding: True
+      bridge: !CopyBridge {}
+    inference: !SimpleInference {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 2
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.dev_hyp
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp
+
+exp2-score: !LoadSerialized
+  filename: examples/output/exp1-model.mod
+  overwrite:
+  - path: train
+    val: ~
+  - path: model.inference
+    val: !SimpleInference
+      mode: score
+      ref_file: examples/data/head.nbest.en
+      src_file: examples/data/head.ja
+  - path: evaluate.0
+    val: !AccuracyEvalTask
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.nbest.en
+      hyp_file: examples/output/{EXP}.test_hyp

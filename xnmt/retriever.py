@@ -1,15 +1,13 @@
-import logging
-logger = logging.getLogger('xnmt')
-
 import dynet as dy
 import numpy as np
 from lxml import etree
-from simple_settings import settings
+from xnmt.settings import settings
 
+from xnmt import logger
 import xnmt.batcher
 from xnmt.events import handle_xnmt_event
-from xnmt.generator import GeneratorModel
-from xnmt.serialize.serializable import Serializable
+from xnmt.model_base import GeneratorModel, EventTrigger
+from xnmt.persistence import serializable_init, Serializable
 from xnmt.reports import Reportable
 from xnmt.expression_sequence import ExpressionSequence
 
@@ -23,6 +21,7 @@ class StandardRetrievalDatabase(Serializable):
 
   yaml_tag = "!StandardRetrievalDatabase"
 
+  @serializable_init
   def __init__(self, reader, database_file, dev_id_file=None, test_id_file=None):
     self.reader = reader
     self.database_file = database_file
@@ -36,7 +35,7 @@ class StandardRetrievalDatabase(Serializable):
     return xnmt.batcher.mark_as_batch(trg_examples), trg_masks
 
 ##### The actual retriever class
-class Retriever(GeneratorModel):
+class Retriever(GeneratorModel, EventTrigger):
   '''
   A template class implementing a retrieval model.
   '''
@@ -73,7 +72,7 @@ class Retriever(GeneratorModel):
 
   def initialize_generator(self, **kwargs):
     candidates = None
-    if kwargs["candidate_id_file"] != None:
+    if kwargs["candidate_id_file"] is not None:
       with open(kwargs["candidate_id_file"], "r") as f:
         candidates = sorted({int(x):1 for x in f}.keys())
     self.index_database(candidates)
@@ -86,7 +85,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
 
   yaml_tag = '!DotProductRetriever'
 
-
+  @serializable_init
   def __init__(self, src_embedder, src_encoder, trg_embedder, trg_encoder, database, loss_direction="forward"):
     '''Constructor.
 
@@ -107,7 +106,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
   def exprseq_pooling(self, exprseq):
     # Reduce to vector
     exprseq = ExpressionSequence(expr_tensor=exprseq.mask.add_to_tensor_expr(exprseq.as_tensor(),-1e10), mask=exprseq.mask)
-    if exprseq.expr_tensor != None:
+    if exprseq.expr_tensor is not None:
       if len(exprseq.expr_tensor.dim()[0]) > 1:
         return dy.max_dim(exprseq.expr_tensor, d=1)
       else:
@@ -151,7 +150,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
 
   def index_database(self, indices=None):
     # Create the inverted index if necessary
-    if indices == None:
+    if indices is None:
       indices = range(len(self.database.data))
       self.database.inverted_index = None
     else:
@@ -182,7 +181,7 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
     # print("--- scores: {}".format(list(scores[0])))
     kbest = np.argsort(scores, axis=1)[0,-nbest:][::-1]
     # print("--- kbest: {}".format(kbest))
-    ids = kbest if self.database.inverted_index == None else [self.database.inverted_index[x] for x in kbest]
+    ids = kbest if self.database.inverted_index is None else [self.database.inverted_index[x] for x in kbest]
     # In case of reporting
     if self.report_path is not None:
       src_vocab = self.get_html_resource("src_vocab")

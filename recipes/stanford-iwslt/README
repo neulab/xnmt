@@ -2,4 +2,11 @@ This trains a neural machine translation model on the IWSLT English-Vietnamese d
 
 Steps:
 - ./download.sh
-- python -m xnmt.xnmt_run_expteriments --dynet-gpu recipes/stanford-wmt/config.en-vi.yaml
+- xnmt --dynet-gpu ./config.en-vi.yaml
+
+Reference output after the final evaluation:
+
+Experiment                    | Final Scores
+-----------------------------------------------------------------------
+iwslt-experiment              | BLEU4: 0.24962836908499383, 0.584297/0.329941/0.194742/0.118162 (BP = 0.967257, ratio=0.97, hyp_len=33192, ref_len=34297)
+                              | BLEU4: 0.2732730662351511, 0.618037/0.357961/0.219796/0.138445 (BP = 0.954025, ratio=0.96, hyp_len=32168, ref_len=33682)

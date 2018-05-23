@@ -1,6 +1,6 @@
 import unittest
 
-from xnmt.serialize.tree_tools import Path
+from xnmt.persistence import Path
 
 class TestPath(unittest.TestCase):
 
@@ -19,7 +19,7 @@ class TestPath(unittest.TestCase):
     self.assertEqual(str(Path("one.2")), "one.2")
     self.assertEqual(str(Path("")), "")
   def test_set(self):
-    s = set([Path("one.2"), Path("one.1.3"), Path("one.1.3")])
+    s = {Path("one.2"), Path("one.1.3"), Path("one.1.3")}
     self.assertIn(Path("one.2"), s)
     self.assertEqual(len(s), 2)
   def test_append(self):
@@ -72,6 +72,13 @@ class TestPath(unittest.TestCase):
     self.assertEqual(Path("one.2.3")[-1], "3")
     with self.assertRaises(ValueError):
       Path(".one.2.3")[-1]
+  def test_get_item_slice(self):
+    self.assertEqual(str(Path("one")[0:1]), "one")
+    self.assertEqual(str(Path("one.2.3")[1:3]), "2.3")
+    self.assertEqual(str(Path("one.2.3")[0:-1]), "one.2")
+    self.assertEqual(str(Path("one.2.3")[-1:]), "3")
+    with self.assertRaises(ValueError):
+      Path(".one.2.3")[0:1:-1]
   def test_parent(self):
     self.assertEqual(Path("one").parent(), Path(""))
     self.assertEqual(Path("one.two.three").parent(), Path("one.two"))
@@ -88,9 +95,9 @@ class TestPath(unittest.TestCase):
     self.assertNotEqual(Path("one.2"), Path("one.2.3"))
     self.assertNotEqual(Path(""), Path("."))
   def test_ancestors(self):
-    self.assertEqual(Path("").ancestors(), set([Path("")]))
-    self.assertEqual(Path("a").ancestors(), set([Path(""),Path("a")]))
-    self.assertEqual(Path("one.two.three").ancestors(), set([Path(""), Path("one"), Path("one.two"), Path("one.two.three")]))
+    self.assertEqual(Path("").ancestors(), {Path("")})
+    self.assertEqual(Path("a").ancestors(), {Path(""), Path("a")})
+    self.assertEqual(Path("one.two.three").ancestors(), {Path(""), Path("one"), Path("one.two"), Path("one.two.three")})
 
 if __name__ == '__main__':
   unittest.main()

@@ -1,8 +1,8 @@
 import dynet as dy
 
 from xnmt.expression_sequence import ExpressionSequence
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+from xnmt.param_collection import ParamManager
+from xnmt.persistence import Serializable, serializable_init
 from xnmt.transducer import Transducer, SeqTransducer
 
 # This is a file for specialized encoders that implement a particular model
@@ -30,7 +30,10 @@ def padding(src, min_size):
 
 class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!TilburgSpeechSeqTransducer'
-  def __init__(self, filter_height, filter_width, channels, num_filters, stride, rhn_num_hidden_layers, rhn_dim, rhn_microsteps, attention_dim, residual= False, exp_global=Ref(Path("exp_global"))):
+
+  @serializable_init
+  def __init__(self, filter_height, filter_width, channels, num_filters, stride, rhn_num_hidden_layers, rhn_dim,
+               rhn_microsteps, attention_dim, residual= False):
     self.filter_height = filter_height
     self.filter_width = filter_width
     self.channels = channels
@@ -42,7 +45,7 @@ class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
     self.attention_dim = attention_dim
     self.residual = residual
 
-    model = exp_global.dynet_param_collection.param_col
+    model = ParamManager.my_params(self)
     # Convolutional layer
     self.filter_conv = model.add_parameters(dim=(self.filter_height, self.filter_width, self.channels, self.num_filters))
     # Recurrent highway layer
@@ -109,14 +112,16 @@ class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
 #  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
 class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!HarwathSpeechSeqTransducer'
-  def __init__(self, filter_height, filter_width, channels, num_filters, stride, exp_global=Ref(Path("exp_global"))):
+
+  @serializable_init
+  def __init__(self, filter_height, filter_width, channels, num_filters, stride):
     """
     Args:
       num_layers: depth of the RNN
       input_dim: size of the inputs
       hidden_dim: size of the outputs (and intermediate RNN layer representations)
     """
-    model = exp_global.dynet_param_collection.param_col
+    model = ParamManager.my_params(self)
     self.filter_height = filter_height
     self.filter_width = filter_width
     self.channels = channels
@@ -164,14 +169,15 @@ class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
 # This is an image encoder that takes in features and does a linear transform from the following paper
 #  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
 class HarwathImageTransducer(Transducer, Serializable):
-  yaml_tag = '!HarwathImageTransducer'
   """
     Inputs are first put through 2 CNN layers, each with stride (2,2), so dimensionality
     is reduced by 4 in both directions.
     Then, we add a configurable number of bidirectional RNN layers on top.
     """
+  yaml_tag = '!HarwathImageTransducer'
 
-  def __init__(self, in_height, out_height, exp_global=Ref(Path("exp_global"))):
+  @serializable_init
+  def __init__(self, in_height, out_height):
     """
     Args:
       num_layers: depth of the RNN
@@ -179,7 +185,7 @@ class HarwathImageTransducer(Transducer, Serializable):
       hidden_dim: size of the outputs (and intermediate RNN layer representations)
       """
 
-    model = exp_global.dynet_param_collection.param_col
+    model = ParamManager.my_params(self)
     self.in_height = in_height
     self.out_height = out_height
 

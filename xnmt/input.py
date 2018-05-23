@@ -1,7 +1,3 @@
-import logging
-logger = logging.getLogger('xnmt')
-
-import h5py
 import numpy as np
 
 class Input(object):
@@ -114,6 +110,3 @@ class ArrayInput(Input):
 
   def get_array(self):
     return self.nparr
-
-
-

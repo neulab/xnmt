@@ -1,45 +1,126 @@
-import logging
-logger = logging.getLogger('xnmt')
 from itertools import zip_longest
 
 import ast
 
 import numpy as np
-import h5py
 
+import warnings
+with warnings.catch_warnings():
+  warnings.simplefilter("ignore", lineno=36)
+  import h5py
+
+from xnmt import logger
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
-from xnmt.serialize.serializable import Serializable
+from xnmt.persistence import serializable_init, Serializable
 from xnmt.vocab import Vocab
-
-###### Classes that will read in a file and turn it into an input
 
 class InputReader(object):
   """
-  A base class for classes that will read in a file and turn it into an :class:`xnmt.input.Input`.
+  A base class to read in a file and turn it into an input
   """
-  
   def read_sents(self, filename, filter_ids=None):
     """
-    Reads content.
-    
+    Read sentences and return an iterator.
+
     Args:
-      filename (str): data file
-      filter_ids (list of int): only read sentences with these ids (0-indexed)
-    Returns:
-      iterator over sentences from filename
+      filename: data file
+      filter_ids: only read sentences with these ids (0-indexed)
+    Returns: iterator over sentences from filename
     """
-    raise RuntimeError("Input readers must implement the read_sents function")
+    if self.vocab is None:
+      self.vocab = Vocab()
+    return self.iterate_filtered(filename, filter_ids)
+
+  def read_sent(self, sentence, filter_ids=None):
+    """
+    Convert a raw sentence into a SentenceInput object.
+
+    Args:
+      sentence: a single input string
+      filter_ids: only read sentences with these ids (0-indexed)
+    Returns: a SentenceInput object for the input sentence
+    """
+    raise RuntimeError("Input readers must implement the read_sent function")
 
   def count_sents(self, filename):
     """
-    Counts number of sents. Separate from read_sents() because counting is much faster than reading contents for some file types.
-    
+    Count the number of sentences in a data file.
+
     Args:
-      filename (str): data file
-    Returns:
-      number of sentences in the data file
+      filename: data file
+    Returns: number of sentences in the data file
     """
     raise RuntimeError("Input readers must implement the count_sents function")
+
+  def freeze(self):
+    """
+    Freeze the data representation, e.g. by freezing the vocab.
+    """
+    pass
+
+class BaseTextReader(InputReader):
+  def count_sents(self, filename):
+    f = open(filename, encoding='utf-8')
+    try:
+      return sum(1 for _ in f)
+    finally:
+      f.close()
+
+  def iterate_filtered(self, filename, filter_ids=None):
+    """
+    Args:
+      filename: data file (text file)
+      filter_ids:
+    Returns: iterator over lines as strings (useful for subclasses to implement read_sents)
+    """
+    sent_count = 0
+    max_id = None
+    if filter_ids is not None:
+      max_id = max(filter_ids)
+      filter_ids = set(filter_ids)
+    with open(filename, encoding='utf-8') as f:
+      for line in f:
+        if filter_ids is None or sent_count in filter_ids:
+          yield self.read_sent(line)
+        sent_count += 1
+        if max_id is not None and sent_count > max_id:
+          break
+
+class PlainTextReader(BaseTextReader, Serializable):
+  """
+  Handles the typical case of reading plain text files, with one sent per line.
+  """
+  yaml_tag = '!PlainTextReader'
+
+  @serializable_init
+  def __init__(self, vocab=None, include_vocab_reference=False):
+    self.vocab = vocab
+    self.include_vocab_reference = include_vocab_reference
+    if vocab is not None:
+      self.vocab.freeze()
+      self.vocab.set_unk(Vocab.UNK_STR)
+
+  def read_sent(self, sentence, filter_ids=None):
+    vocab_reference = self.vocab if self.include_vocab_reference else None
+    return SimpleSentenceInput([self.vocab.convert(word) for word in sentence.strip().split()] + \
+                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
+
+  def freeze(self):
+    self.vocab.freeze()
+    self.vocab.set_unk(Vocab.UNK_STR)
+    self.save_processed_arg("vocab", self.vocab)
+
+  def count_words(self, trg_words):
+    trg_cnt = 0
+    for x in trg_words:
+      if type(x) == int:
+        trg_cnt += 1 if x != Vocab.ES else 0
+      else:
+        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
+    return trg_cnt
+
+  def vocab_size(self):
+    return len(self.vocab)
 
 class BaseTextReader(InputReader):
   """
@@ -73,47 +154,14 @@ class BaseTextReader(InputReader):
         if max_id is not None and sent_count > max_id:
           break
 
-class PlainTextReader(BaseTextReader, Serializable):
-  """
-  Handles the typical case of reading plain text files,
-  with one sent per line.
-  
-  Args:
-    vocab (Vocab): turns tokens strings into token IDs
-    include_vocab_reference (bool): TODO document me
-  """
-  yaml_tag = '!PlainTextReader'
-  def __init__(self, vocab=None, include_vocab_reference=False):
-    self.vocab = vocab
-    self.include_vocab_reference = include_vocab_reference
-    if vocab is not None:
-      self.vocab.freeze()
-      self.vocab.set_unk(Vocab.UNK_STR)
-
-  def read_sents(self, filename, filter_ids=None):
-    if self.vocab is None:
-      self.vocab = Vocab()
-    vocab_reference = self.vocab if self.include_vocab_reference else None
-    return map(lambda l: SimpleSentenceInput([self.vocab.convert(word) for word in l.strip().split()] + \
-                                             [self.vocab.convert(Vocab.ES_STR)], vocab_reference),
-               self.iterate_filtered(filename, filter_ids))
-
-  def count_words(self, trg_words):
-    trg_cnt = 0
-    for x in trg_words:
-      if type(x) == int:
-        trg_cnt += 1 if x != Vocab.ES else 0
-      else:
-        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
-    return trg_cnt
-
-  def vocab_size(self):
-    return len(self.vocab)
-
 class SegmentationTextReader(PlainTextReader):
   yaml_tag = '!SegmentationTextReader'
   
   # TODO: document me
+
+  @serializable_init
+  def __init__(self, vocab=None, include_vocab_reference=False):
+    super().__init__(vocab=vocab, include_vocab_reference=include_vocab_reference)
 
   def read_sents(self, filename, filter_ids=None):
     if self.vocab is None:
@@ -159,36 +207,40 @@ class H5Reader(InputReader, Serializable):
 
   Each data item will be a 2D matrix representing a sequence of vectors. They can
   be in either order, depending on the value of the "transpose" variable:
-  * sents[sent_id][feat_ind,word_ind] if transpose=False
-  * sents[sent_id][word_ind,feat_ind] if transpose=True
+  * sents[sent_id][feat_ind,timestep] if transpose=False
+  * sents[sent_id][timestep,feat_ind] if transpose=True
 
   Args:
-    transpose (bool):
-    feat_from (int):
-    feat_to (int):
-    feat_skip (int):
-    word_skip (int):
+    transpose (bool): whether inputs are transposed or not.
+    feat_from (int): use feature dimensions in a range, starting at this index (inclusive)
+    feat_to (int): use feature dimensions in a range, ending at this index (exclusive)
+    feat_skip (int): stride over features
+    timestep_skip (int): stride over timesteps
+    timestep_truncate (int): cut off timesteps if sequence is longer than specified value
   """
   yaml_tag = u"!H5Reader"
-
-  def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, word_skip=None):
+  @serializable_init
+  def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, timestep_skip=None,
+               timestep_truncate=None):
     self.transpose = transpose
     self.feat_from = feat_from
     self.feat_to = feat_to
     self.feat_skip = feat_skip
-    self.word_skip = word_skip
+    self.timestep_skip = timestep_skip
+    self.timestep_truncate = timestep_truncate
 
   def read_sents(self, filename, filter_ids=None):
     with h5py.File(filename, "r") as hf:
       h5_keys = sorted(hf.keys(), key=lambda x: int(x))
       if filter_ids is not None:
         h5_keys = [h5_keys[i] for i in filter_ids]
+        h5_keys.sort(key=lambda x: int(x))
       for idx, key in enumerate(h5_keys):
         inp = hf[key][:]
         if self.transpose:
           inp = inp.transpose()
 
-        sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, ::self.word_skip]
+        sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, :self.timestep_truncate:self.timestep_skip]
         if sub_inp.size < inp.size:
           inp = np.empty_like(sub_inp)
           np.copyto(inp, sub_inp)
@@ -220,37 +272,41 @@ class NpzReader(InputReader, Serializable):
   numpy.savez_compressed(), in which case the names will be arr_0, arr_1, etc.
 
   Each numpy file will be a 2D matrix representing a sequence of vectors. They can
-  be in either order, depending on the value of the "transpose" variable:
-  * sents[sent_id][feat_ind,word_ind] if transpose=False
-  * sents[sent_id][word_ind,feat_ind] if transpose=True
+  be in either order, depending on the value of the "transpose" variable.
+  * sents[sent_id][feat_ind,timestep] if transpose=False
+  * sents[sent_id][timestep,feat_ind] if transpose=True
 
   Args:
-    transpose (bool):
-    feat_from (int):
-    feat_to (int):
-    feat_skip (int):
-    word_skip (int):
+    transpose (bool): whether inputs are transposed or not.
+    feat_from (int): use feature dimensions in a range, starting at this index (inclusive)
+    feat_to (int): use feature dimensions in a range, ending at this index (exclusive)
+    feat_skip (int): stride over features
+    timestep_skip (int): stride over timesteps
+    timestep_truncate (int): cut off timesteps if sequence is longer than specified value
   """
   yaml_tag = u"!NpzReader"
-
-  def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, word_skip=None):
+  @serializable_init
+  def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, timestep_skip=None,
+               timestep_truncate=None):
     self.transpose = transpose
     self.feat_from = feat_from
     self.feat_to = feat_to
     self.feat_skip = feat_skip
-    self.word_skip = word_skip
+    self.timestep_skip = timestep_skip
+    self.timestep_truncate = timestep_truncate
 
   def read_sents(self, filename, filter_ids=None):
     npzFile = np.load(filename, mmap_mode=None if filter_ids is None else "r")
     npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[-1]))
     if filter_ids is not None:
       npzKeys = [npzKeys[i] for i in filter_ids]
+      npzKeys.sort(key=lambda x: int(x.split('_')[-1]))
     for idx, key in enumerate(npzKeys):
       inp = npzFile[key]
       if self.transpose:
         inp = inp.transpose()
 
-      sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, ::self.word_skip]
+      sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, :self.timestep_truncate:self.timestep_skip]
       if sub_inp.size < inp.size:
         inp = np.empty_like(sub_inp)
         np.copyto(inp, sub_inp)
@@ -277,6 +333,10 @@ class IDReader(BaseTextReader, Serializable):
   """
   yaml_tag = "!IDReader"
 
+  @serializable_init
+  def __init__(self):
+    pass
+
   def read_sents(self, filename, filter_ids=None):
     return map(lambda l: int(l.strip()), self.iterate_filtered(filename, filter_ids))
 
@@ -298,7 +358,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
     max_trg_len (int): skip pair if trg side is too long
 
   Returns:
-    A tuple of (src_data, trg_data, src_batches, trg_batches) where *_batches = *_data if batcher=None
+    A tuple of (src_data, trg_data, src_batches, trg_batches) where ``*_batches = *_data`` if ``batcher=None``
   '''
   src_data = []
   trg_data = []
@@ -306,6 +366,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
     src_len = src_reader.count_sents(src_file)
     trg_len = trg_reader.count_sents(trg_file)
     if src_len != trg_len: raise RuntimeError(f"training src sentences don't match trg sentences: {src_len} != {trg_len}!")
+    if max_num_sents and max_num_sents < src_len: src_len = trg_len = max_num_sents
     filter_ids = np.random.choice(src_len, sample_sents, replace=False)
   else:
     filter_ids = None
@@ -324,7 +385,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
       trg_data.append(trg_sent)
 
   # Pack batches
-  if batcher != None:
+  if batcher is not None:
     src_batches, trg_batches = batcher.pack(src_data, trg_data)
   else:
     src_batches, trg_batches = src_data, trg_data

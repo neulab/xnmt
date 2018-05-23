@@ -1,15 +1,9 @@
-import logging
-logger = logging.getLogger('xnmt')
+import argparse
 import sys
-import ast
+from typing import Any, Sequence, Union
 
-from xnmt.evaluator import BLEUEvaluator, GLEUEvaluator, WEREvaluator, CEREvaluator, RecallEvaluator, ExternalEvaluator, MeanAvgPrecisionEvaluator, SequenceAccuracyEvaluator
+from xnmt.evaluator import * # import everything so we can parse it with eval()
 from xnmt.inference import NO_DECODING_ATTEMPTED
-
-"""
-Command line usage:
-  python xnmt_evaluate.py <ref> <hyp> <metric>
-"""
 
 def read_data(loc_, post_process=None):
   """Reads the lines in the file specified in loc_ and return the list after inserting the tokens
@@ -23,75 +17,67 @@ def read_data(loc_, post_process=None):
       data.append(t)
   return data
 
-def eval_or_empty_list(x):
-  try:
-    return ast.literal_eval(x)
-  except:
-    return []
+eval_shortcuts = {
+  "bleu": lambda:BLEUEvaluator(),
+  "gleu": lambda:GLEUEvaluator(),
+  "wer": lambda:WEREvaluator(),
+  "cer": lambda:CEREvaluator(),
+  "recall": lambda:RecallEvaluator(),
+  "accuracy": lambda:SequenceAccuracyEvaluator(),
+}
 
-def xnmt_evaluate(ref_file=None, hyp_file=None, evaluator="bleu", desc=None):
+
+def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequence[str]],
+                  evaluators: Sequence[Evaluator], desc: Any = None) -> Sequence[EvalScore]:
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
 
   Args:
-    ref_file (str): path of the reference file
-    hyp_file (str): path of the hypothesis trg file
-    evaluator (str): Evaluation metrics (bleu/wer/cer)
-    desc (str): descriptive string passed on to evaluators
+    ref_file: path of the reference file
+    hyp_file: path of the hypothesis trg file
+    evaluators: Evaluation metrics. Can be a list of evaluator objects, or a shortcut string
+    desc: descriptive string passed on to evaluators
   """
-  args = dict(ref_file=ref_file, hyp_file=hyp_file, evaluator=evaluator)
-  cols = args["evaluator"].split("|")
-  eval_type  = cols[0]
-  eval_param = {} if len(cols) == 1 else {key: value for key, value in [param.split("=") for param in cols[1].split()]}
-
   hyp_postprocess = lambda line: line.split()
   ref_postprocess = lambda line: line.split()
-  if eval_type == "bleu":
-    ngram = int(eval_param.get("ngram", 4))
-    evaluator = BLEUEvaluator(ngram=int(ngram), desc=desc)
-  elif eval_type == "gleu":
-    min_len = int(eval_param.get("min", 1))
-    max_len = int(eval_param.get("max", 4))
-    evaluator = GLEUEvaluator(min_length=min_len, max_length=max_len, desc=desc)
-  elif eval_type == "wer":
-    evaluator = WEREvaluator(desc=desc)
-  elif eval_type == "cer":
-    evaluator = CEREvaluator(desc=desc)
-  elif eval_type == "recall":
-    nbest = int(eval_param.get("nbest", 5))
-    hyp_postprocess = lambda x: eval_or_empty_list(x)
-    ref_postprocess = lambda x: int(x)
-    evaluator = RecallEvaluator(nbest=int(nbest), desc=desc)
-  elif eval_type == "mean_avg_precision":
-    nbest = int(eval_param.get("nbest", 5))
-    hyp_postprocess = lambda x: ast.literal_eval(x)
-    ref_postprocess = lambda x: int(x)
-    evaluator = MeanAvgPrecisionEvaluator(nbest=int(nbest), desc=desc)
-  elif eval_type == 'external':
-    path = eval_param.get("path", None)
-    higher_better = eval_param.get("higher_better", True)
-    if path == None:
-      logger.warning("no path given for external evaluation script.")
-      return None
-    evaluator = ExternalEvaluator(path=path, higher_better=higher_better, desc=desc)
-  elif eval_type == 'accuracy':
-    evaluator = SequenceAccuracyEvaluator(desc=desc)
 
+  is_multi = False
+  if isinstance(ref_file, str):
+    ref_corpus = read_data(ref_file, post_process=ref_postprocess)
   else:
-    raise RuntimeError("Unknown evaluation metric {}".format(eval_type))
-
-  ref_corpus = read_data(args["ref_file"], post_process=ref_postprocess)
-  hyp_corpus = read_data(args["hyp_file"], post_process=hyp_postprocess)
+    if len(ref_file)==1: ref_corpus = read_data(ref_file[0], post_process=ref_postprocess)
+    else:
+      is_multi = True
+      ref_corpora = [read_data(ref_file_i, post_process=ref_postprocess) for ref_file_i in ref_file]
+      ref_corpus = [tuple(ref_corpora[i][j] for i in range(len(ref_file))) for j in range(len(ref_corpora[0]))]
+  hyp_corpus = read_data(hyp_file, post_process=hyp_postprocess)
   len_before = len(hyp_corpus)
   ref_corpus, hyp_corpus = zip(*filter(lambda x: NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
   if len(ref_corpus) < len_before:
-    logger.info("> ignoring %s out of %s test sentences." % (len_before - len(ref_corpus), len_before))
+    logger.info(f"> ignoring {len_before - len(ref_corpus)} out of {len_before} test sentences.")
 
-  eval_score = evaluator.evaluate(ref_corpus, hyp_corpus)
-  return eval_score
+  if is_multi:
+    return [evaluator.evaluate_multi(ref_corpus, hyp_corpus, desc=desc) for evaluator in evaluators]
+  else:
+    return [evaluator.evaluate(ref_corpus, hyp_corpus, desc=desc) for evaluator in evaluators]
+
+def main():
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--metric",
+                      help=f"Scoring metric(s), a string. "
+                           f"Accepted metrics are {', '.join(eval_shortcuts.keys())}."
+                           f"Alternatively, metrics with non-default settings can by used by specifying a Python "
+                           f"Evaluator object to be parsed using eval(). Example: 'WEREvaluator(case_sensitive=True)'",
+                      nargs="+")
+  parser.add_argument("--hyp", help="Path to read hypothesis file from")
+  parser.add_argument("--ref", help="Path to read reference file from", nargs="+")
+  args = parser.parse_args()
+
+  evaluators = args.metric
+  evaluators = [eval_shortcuts[shortcut]() if shortcut in eval_shortcuts else eval(shortcut) for shortcut in evaluators]
+
+  scores = xnmt_evaluate(args.ref, args.hyp, evaluators)
+  for score in scores:
+    print(score)
 
 if __name__ == "__main__":
-
-  args = sys.argv[1:]
-  score = xnmt_evaluate(*args)
-  print(f"{args[2]} Score = {score}")
-
+  sys.exit(main())

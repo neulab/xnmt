@@ -4,7 +4,7 @@
 # It's also possible to run experiments in parallel:
 # by default, experiments are skipped when the corresponding log file already
 # exists, i.e. when the experiment is currently running or has already finnished.
-# That means it's safe to run xnmt.xnmt_run_experiments on the same config file
+# That means it's safe to run ``xnmt my_config.yaml`` on the same config file
 # multiple times.
 #
 # This particular examples runs the same experiment, changing only the amount

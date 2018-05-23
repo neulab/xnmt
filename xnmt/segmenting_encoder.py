@@ -1,10 +1,8 @@
-import logging
-logger = logging.getLogger('xnmt')
 import numpy
 import dynet as dy
 
 from enum import Enum
-from xml.sax.saxutils import escape, unescape
+from xml.sax.saxutils import escape
 from lxml import etree
 from scipy.stats import poisson
 
@@ -12,23 +10,23 @@ import xnmt.linear as linear
 import xnmt.expression_sequence as expression_sequence
 
 from xnmt.batcher import Mask
-from xnmt.serialize.tree_tools import Ref, Path
-from xnmt.events import register_handler, handle_xnmt_event
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable
-from xnmt.transducer import SeqTransducer, FinalTransducerState
+from xnmt.persistence import serializable_init, Serializable
+from xnmt.transducer import SeqTransducer
 from xnmt.loss import LossBuilder
-from xnmt.segmenting_composer import TailWordSegmentTransformer, WordOnlySegmentTransformer
-from xnmt.hyper_parameters import GeometricSequence
+from xnmt.param_collection import ParamManager
 
 EPS = 1e-10
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = '!SegmentingSeqTransducer'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")),
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self,
                ## COMPONENTS
-               embed_encoder=None, segment_composer=None, final_transducer=None,
+               embed_encoder=None, segment_composer=None, final_transducer=None, segment_transform=None, baseline=None,
                ## OPTIONS
                length_prior=3.3,
                length_prior_alpha=None, # GeometricSequence
@@ -46,30 +44,25 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                log_reward         = True,
                debug=False,
                print_sample=False):
-    register_handler(self)
-    model = exp_global.dynet_param_collection.param_col
+    model = ParamManager.my_params(self)
     # Sanity check
     assert embed_encoder is not None
     assert segment_composer is not None
     assert final_transducer is not None
     # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
-    if not hasattr(embed_encoder, "hidden_dim"):
-      embed_encoder_dim = yaml_context.default_layer_dim
-    else:
-      embed_encoder_dim = embed_encoder.hidden_dim
+    embed_encoder_dim = embed_encoder.hidden_dim
     # The Segment transducer produced word embeddings based on sequence of character embeddings
     self.segment_composer = segment_composer
     # The final transducer
     self.final_transducer = final_transducer
     # Decision layer of segmentation
-    self.segment_transform = linear.Linear(input_dim  = embed_encoder_dim,
-                                           output_dim = 3 if learn_delete else 2,
-                                           model=model)
+    self.segment_transform = self.add_serializable_component("segment_transform", segment_transform,
+                                                             lambda: linear.Linear(input_dim=embed_encoder_dim,
+                                                                                   output_dim=3 if learn_delete else 2))
     # The baseline linear regression model
-    self.baseline = linear.Linear(input_dim = embed_encoder_dim,
-                                  output_dim = 1,
-                                  model = model)
+    self.baseline = self.add_serializable_component("baseline", baseline,
+                                                    lambda: linear.Linear(input_dim=embed_encoder_dim, output_dim=1))
     # Flags
     self.use_baseline = use_baseline
     self.learn_segmentation = learn_segmentation
@@ -98,7 +91,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size)
     # Some checks
     assert len(encodings) == len(segment_decisions), \
-           "Encoding={}, segment={}".format(len(encodings), len(segment_decisions))
+      "Encoding={}, segment={}".format(len(encodings), len(segment_decisions))
     # Buffer for output
     buffers = [[] for _ in range(batch_size)]
     outputs = [[] for _ in range(batch_size)]
@@ -115,7 +108,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         # If segment for this particular input
         decision = int(decision)
         if decision == SegmentingAction.DELETE.value or \
-           (enc_mask is not None and enc_mask.np_arr[i][j] == 1):
+                (enc_mask is not None and enc_mask.np_arr[i][j] == 1):
           continue
         # Get the particular encoding for that batch item
         enc_i = dy.pick_batch_elem(encoding, i)
@@ -207,7 +200,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       src = self.src_sent
       mask = [numpy.nonzero(m)[0] for m in encodings.mask.np_arr.transpose()]
       assert len(segment_decisions) == len(mask), \
-             "Len(seg)={}, Len(mask)={}".format(len(segment_decisions), len(mask))
+        "Len(seg)={}, Len(mask)={}".format(len(segment_decisions), len(mask))
       for i in range(len(segment_decisions)):
         if len(mask[i]) != 0:
           segment_decisions[i-1][mask[i]] = 1
@@ -265,7 +258,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   @handle_xnmt_event
   def on_set_train(self, train):
     self.train = train
-#
+  #
   def get_final_states(self):
     if hasattr(self.final_transducer, "get_final_states"):
       return self.final_transducer.get_final_states()
@@ -425,6 +418,7 @@ class SegmentationConfidencePenalty(Serializable):
   '''
   yaml_tag = "!SegmentationConfidencePenalty"
 
+  @serializable_init
   def __init__(self, strength):
     self.strength = strength
     if strength.value() < 0:

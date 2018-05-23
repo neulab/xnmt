@@ -1,17 +1,21 @@
-import logging
-logger = logging.getLogger('xnmt')
 import time
 import sys
 import os.path
 import subprocess
 from collections import defaultdict
+import unicodedata
 
 import numpy as np
-import h5py
+import warnings
+with warnings.catch_warnings():
+  warnings.simplefilter("ignore", lineno=36)
+  import h5py
 import yaml
 
-from xnmt.serialize.serializable import Serializable
+from xnmt import logger
+from xnmt.persistence import serializable_init, Serializable
 from xnmt.speech_features import logfbank, calculate_delta, get_mean_std, normalize
+from xnmt.util import make_parent_dir
 
 ##### Preprocessors
 
@@ -30,10 +34,12 @@ class Normalizer(object):
   def from_spec(spec):
     """Takes a list of normalizer specifications, and returns the appropriate processors."""
     preproc_list = []
-    if spec != None:
+    if spec is not None:
       for my_spec in spec:
         if my_spec["type"] == "lower":
           preproc_list.append(NormalizerLower(my_spec))
+        elif my_spec["type"] == "remove_punct":
+          preproc_list.append(NormalizerRemovePunct(my_spec))
         else:
           raise RuntimeError("Unknown normalizer type {}".format(my_spec["type"]))
     return preproc_list
@@ -44,14 +50,31 @@ class NormalizerLower(Normalizer):
   def normalize(self, sent):
     return sent.lower()
 
+class NormalizerRemovePunct(Normalizer):
+  """Remove punctuation from the text."""
+  def __init__(self, spec=None):
+    self.remove_inside_word = spec.get("remove_inside_word", False)
+    self.exclude = set(chr(i) for i in range(sys.maxunicode) if unicodedata.category(chr(i)).startswith('P')
+                                                              and chr(i) not in set(spec.get("allowed_chars", "")))
+  def normalize(self, sent):
+    if self.remove_inside_word:
+      ret = ''.join(ch for ch in sent if ch not in self.exclude)
+    else:
+      words = []
+      for w in sent.split():
+        words.append(w.strip(''.join(ch for ch in self.exclude)))
+      ret = " ".join(words)
+    return " ".join(ret.split())
+
 ###### Tokenizers
 
-class Tokenizer(Normalizer, Serializable):
+class Tokenizer(Normalizer):
   """
   Pass the text through an internal or external tokenizer.
 
   TODO: only StreamTokenizers are supported by the preproc runner right now.
   """
+
   def tokenize(self, sent):
     raise RuntimeError("Subclasses of Tokenizer must implement tokenize() or tokenize_stream()")
 
@@ -69,7 +92,7 @@ class Tokenizer(Normalizer, Serializable):
     for line in stream:
       yield self.tokenize(line.strip())
 
-class BPETokenizer(Tokenizer):
+class BPETokenizer(Tokenizer, Serializable):
   """
   Class for byte-pair encoding tokenizer.
 
@@ -77,6 +100,7 @@ class BPETokenizer(Tokenizer):
   """
   yaml_tag = '!BPETokenizer'
 
+  @serializable_init
   def __init__(self, vocab_size, train_files):
     """Determine the BPE based on the vocab size and corpora"""
     raise NotImplementedError("BPETokenizer is not implemented")
@@ -85,17 +109,21 @@ class BPETokenizer(Tokenizer):
     """Tokenizes a single sentence according to the determined BPE."""
     raise NotImplementedError("BPETokenizer is not implemented")
 
-class CharacterTokenizer(Tokenizer):
+class CharacterTokenizer(Tokenizer, Serializable):
   """
   Tokenize into characters, with __ indicating blank spaces
   """
   yaml_tag = '!CharacterTokenizer'
 
+  @serializable_init
+  def __init__(self):
+    pass
+
   def tokenize(self, sent):
     """Tokenizes a single sentence into characters."""
     return ' '.join([('__' if x == ' ' else x) for x in sent])
 
-class ExternalTokenizer(Tokenizer):
+class ExternalTokenizer(Tokenizer, Serializable):
   """
   Class for arbitrary external tokenizer that accepts untokenized text to stdin and
   emits tokenized tezt to stdout, with passable parameters.
@@ -106,8 +134,10 @@ class ExternalTokenizer(Tokenizer):
   """
   yaml_tag = '!ExternalTokenizer'
 
-  def __init__(self, path, tokenizer_args={}, arg_separator=' '):
+  @serializable_init
+  def __init__(self, path, tokenizer_args=None, arg_separator=' '):
     """Initialize the wrapper around the external tokenizer. """
+    if tokenizer_args is None: tokenizer_args = {}
     tokenizer_options = []
     if arg_separator != ' ':
       tokenizer_options = [option + arg_separator + str(tokenizer_args[option])
@@ -131,26 +161,37 @@ class ExternalTokenizer(Tokenizer):
     encode_proc = subprocess.Popen(self.tokenizer_command, stdin=subprocess.PIPE
         , stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if isinstance(sent, str):
-      string = sent.encode('utf-8')
-    stdout, stderr = encode_proc.communicate(string)
+      sent = sent.encode('utf-8')
+    stdout, stderr = encode_proc.communicate(sent)
+    if isinstance(stdout, bytes):
+      stdout = stdout.decode('utf-8')
     if stderr:
       if isinstance(stderr, bytes):
         stderr = stderr.decode('utf-8')
       sys.stderr.write(stderr + '\n')
     return stdout
 
-class SentencepieceTokenizer(ExternalTokenizer):
+class SentencepieceTokenizer(Tokenizer, Serializable):
   """
-  A wrapper around an independent installation of the sentencepiece tokenizer
-  with passable parameters.
+  Sentencepiece tokenizer
+  The options supported by the SentencepieceTokenizer are almost exactly those presented in the Sentencepiece `readme <https://github.com/google/sentencepiece/blob/master/README.md>`_, namely:
+
+    - ``model_type``: Either ``unigram`` (default), ``bpe``, ``char`` or ``word``.
+      Please refer to the sentencepiece documentation for more details
+    - ``model_prefix``: The trained bpe model will be saved under ``{model_prefix}.model``/``.vocab``
+    - ``vocab_size``: fixes the vocabulary size
+    - ``hard_vocab_limit``: setting this to ``False`` will make the vocab size a soft limit. 
+      Useful for small datasets. This is ``True`` by default.
   """
+
   yaml_tag = '!SentencepieceTokenizer'
 
+  @serializable_init
   def __init__(self, path, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
-      , output_format='piece', model_type='bpe'
+      , output_format='piece', model_type='bpe', hard_vocab_limit=True
       , encode_extra_options=None, decode_extra_options=None):
     """
-    Initialize the wrapper around sentencepiece and train the tokenizer.
+    This will initialize and train the sentencepiece tokenizer.
 
     If overwrite is set to False, learned model will not be overwritten, even if parameters
     are changed.
@@ -158,42 +199,49 @@ class SentencepieceTokenizer(ExternalTokenizer):
     "File" output for Sentencepiece written to StringIO temporarily before being written to disk.
 
     """
+    # TODO: deprecate the path argument
     self.sentpiece_path = path
     self.model_prefix = model_prefix
     self.output_format = output_format
     self.input_format = output_format
+    self.overwrite = overwrite
     self.encode_extra_options = ['--extra_options='+encode_extra_options] if encode_extra_options else []
     self.decode_extra_options = ['--extra_options='+decode_extra_options] if decode_extra_options else []
 
-    if not os.path.exists(os.path.dirname(model_prefix)):
-      try:
-        os.makedirs(os.path.dirname(model_prefix))
-      except OSError as exc:
-        if exc.errno != os.errno.EEXIST:
-          raise
+    make_parent_dir(model_prefix)
+    self.sentpiece_train_args = ['--input=' + ','.join(train_files),
+                                 '--model_prefix=' + str(model_prefix),
+                                 '--vocab_size=' + str(vocab_size),
+                                 '--hard_vocab_limit=' + str(hard_vocab_limit).lower(),
+                                 '--model_type=' + str(model_type)
+                                ]
 
+    self.sentpiece_processor = None
+
+  def init_sentencepiece(self):
+    import sentencepiece as spm
     if ((not os.path.exists(self.model_prefix + '.model')) or
         (not os.path.exists(self.model_prefix + '.vocab')) or
-        overwrite):
-      sentpiece_train_exec_loc = os.path.join(path, 'spm_train')
-      sentpiece_train_command = [sentpiece_train_exec_loc
-          , '--input=' + ','.join(train_files)
-          , '--model_prefix=' + str(model_prefix)
-          , '--vocab_size=' + str(vocab_size)
-          , '--model_type=' + str(model_type)
-          ]
-      subprocess.call(sentpiece_train_command)
+        self.overwrite):
+      # This calls sentencepiece. It's pretty verbose
+      spm.SentencePieceTrainer.Train(' '.join(self.sentpiece_train_args))
+    
+    self.sentpiece_processor = spm.SentencePieceProcessor()
+    self.sentpiece_processor.Load('%s.model' % self.model_prefix)
 
-    sentpiece_encode_exec_loc = os.path.join(self.sentpiece_path, 'spm_encode')
-    sentpiece_encode_command = [sentpiece_encode_exec_loc
-        , '--model=' + self.model_prefix + '.model'
-        , '--output_format=' + self.output_format
-        ] + self.encode_extra_options
-    self.tokenizer_command = sentpiece_encode_command
+    self.sentpiece_encode = self.sentpiece_processor.EncodeAsPieces if self.output_format == 'piece' else self.sentpiece_processor.EncodeAsIds
+
+  
+  def tokenize(self, sent):
+    """Tokenizes a single sentence into pieces."""
+    if self.sentpiece_processor is None:
+        self.init_sentencepiece()
+    return ' '.join(self.sentpiece_encode(sent))
+
 
 ##### Sentence filterers
 
-class SentenceFilterer():
+class SentenceFilterer(object):
   """Filters sentences that don't match a criterion."""
 
   def __init__(self, spec):
@@ -217,7 +265,7 @@ class SentenceFilterer():
   def from_spec(spec):
     """Takes a list of preprocessor specifications, and returns the appropriate processors."""
     preproc_list = []
-    if spec != None:
+    if spec is not None:
       for my_spec in spec:
         if my_spec["type"] == "length":
           preproc_list.append(SentenceFiltererLength(my_spec))
@@ -225,7 +273,7 @@ class SentenceFilterer():
           raise RuntimeError("Unknown preprocessing type {}".format(my_spec["type"]))
     return preproc_list
 
-class SentenceFiltererLength(object):
+class SentenceFiltererLength(SentenceFilterer):
   """Filters sentences by length"""
 
   def __init__(self, spec):
@@ -251,10 +299,14 @@ class SentenceFiltererLength(object):
         self.overall_min = v
       else:
         direc, idx = k.split('_')
-        idx = idx_map.get(idx_map, int(idx))
+        idx_tmp = idx_map.get(idx)
+        if idx_tmp is None:
+          idx_tmp = int(idx)
+        idx = idx_tmp
+
         if direc == "max":
           self.each_max[idx] = v
-        elif direc == "max":
+        elif direc == "min":
           self.each_min[idx] = v
         else:
           raise RuntimeError("Unknown limitation type {} in length-based sentence filterer".format(k))
@@ -293,7 +345,7 @@ class VocabFilterer(object):
   def from_spec(spec):
     """Takes a list of preprocessor specifications, and returns the appropriate processors."""
     preproc_list = []
-    if spec != None:
+    if spec is not None:
       for my_spec in spec:
         if my_spec["type"] == "freq":
           preproc_list.append(VocabFiltererFreq(my_spec))
@@ -335,6 +387,7 @@ class Extractor(object):
 
 class MelFiltExtractor(Extractor, Serializable):
   yaml_tag = "!MelFiltExtractor"
+  @serializable_init
   def __init__(self, nfilt=40, delta=False):
     self.delta = delta
     self.nfilt = nfilt
@@ -344,8 +397,10 @@ class MelFiltExtractor(Extractor, Serializable):
              Each dictionary contains:
              - wav (str): path to wav file
              - offset (float): start time stamp (optional)
-             - duration (float): stop time stamp (optional)
+             - duration (float
+             ): stop time stamp (optional)
              - speaker: speaker id for normalization (optional; if not given, the filename is used as speaker id)
+
     out_file: a filename ending in ".h5"
     """
     import librosa
@@ -365,6 +420,7 @@ class MelFiltExtractor(Extractor, Serializable):
           y, sr = librosa.load(db_item["wav"], sr=16000, 
                                offset=db_item.get("offset", 0.0), 
                                duration=db_item.get("duration", None))
+          if len(y)==0: raise ValueError(f"encountered an empty or out of bounds segment: {db_item}")
           logmel = logfbank(y, samplerate=sr, nfilt=self.nfilt)
           if self.delta:
             delta = calculate_delta(logmel)

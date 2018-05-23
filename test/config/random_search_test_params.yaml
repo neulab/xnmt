@@ -1,7 +1,6 @@
 # Demonstrates random search over search parameters
 defaults: &defaults !Experiment
   exp_global: !ExpGlobal
-    eval_only: true
     model_file: examples/output/{EXP}.mod
     log_file: examples/output/{EXP}.log
     default_layer_dim: 64
@@ -22,24 +21,20 @@ defaults: &defaults !Experiment
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
     decoder: !MlpSoftmaxDecoder
-      layers: 1
-      mlp_hidden_dim: 64
+      rnn_layer: !UniLSTMSeqTransducer
+        layers: 1
+      mlp_layer: !MLP
+        hidden_dim: 64
       bridge: !CopyBridge {}
     inference: !SimpleInference
-      beam: !RandomParam
-        values: [1,2,3,4,5]
-      len_norm_type: !PolynomialNormalization
-        apply_during_search: true
-        m: !RandomParam
-          values: [0.2,0.5,0.7,1.0,1.3]
-  train: !SimpleTrainingRegimen
-    run_for_epochs: 1
-    src_file: examples/data/head.ja
-    trg_file: examples/data/head.en
-    dev_tasks:
-      - !LossEvalTask
-        src_file: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
-        ref_file: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
+      search_strategy: !BeamSearch
+        beam_size: !RandomParam
+          values: [1,2,3,4,5]
+        len_norm: !PolynomialNormalization
+          apply_during_search: true
+          m: !RandomParam
+            values: [0.2,0.5,0.7,1.0,1.3]
+  train: null
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu,wer

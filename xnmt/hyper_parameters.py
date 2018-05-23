@@ -1,12 +1,12 @@
 
-from xnmt.events import register_handler, handle_xnmt_event
-from xnmt.reports import Reportable
-from xnmt.serialize.serializable import Serializable
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
+from xnmt.persistence import serializable_init, Serializable
 
 class ScalingParam(Serializable):
   ''' initial * scaler(epoch-1) '''
   yaml_tag = "!ScalingParam"
 
+  @serializable_init
   def __init__(self, initial=0.0, scaler=None):
     self.__value = initial
     self.scaler = scaler
@@ -23,6 +23,7 @@ class ScalingParam(Serializable):
 class Scalar(Serializable):
   yaml_tag = "!Scalar"
 
+  @serializable_init
   def __init__(self, initial=0.0):
     self.__value = initial
 
@@ -37,8 +38,9 @@ class GeometricSequence(Serializable):
   yaml_tag = '!GeometricSequence'
 
   # Do not set warmup_counter manually.
+  @register_xnmt_handler
+  @serializable_init
   def __init__(self, initial=0.1, warmup=0, ratio=1, min_value=0.0, max_value=1.0):
-    register_handler(self)
     self.__value = initial
     self.warmup = warmup
     self.ratio = ratio
@@ -66,11 +68,12 @@ class GeometricSequence(Serializable):
 
 class DefinedSequence(Serializable):
   yaml_tag = '!DefinedSequence'
+  @register_xnmt_handler
+  @serializable_init
   def __init__(self, sequence=None):
     assert sequence is not None
     assert type(sequence) == list, "DefinedSequence need to have a list type"
     assert len(sequence) > 0, "Please input non empty list for FixedSequence"
-    register_handler(self)
     self.sequence = sequence
     self.epoch_num = 0
 

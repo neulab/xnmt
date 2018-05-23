@@ -1,12 +1,18 @@
 import dynet as dy
-from xnmt.serialize.serializable import Serializable, bare
-from xnmt.serialize.tree_tools import Ref, Path
+import numpy as np
+import functools
+
 import xnmt.batcher
-from xnmt.events import register_handler, handle_xnmt_event
 import xnmt.linear
 import xnmt.residual
+from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt import logger
 from xnmt.bridge import CopyBridge
-from xnmt.param_init import GlorotInitializer
+from xnmt.lstm import UniLSTMSeqTransducer
+from xnmt.mlp import MLP
+from xnmt.param_collection import ParamManager
+from xnmt.persistence import serializable_init, Serializable, bare, Ref, Path
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
 
 class Decoder(object):
   '''
@@ -21,18 +27,6 @@ class Decoder(object):
   def calc_loss(self, x, ref_action):
     raise NotImplementedError('calc_loss must be implemented in Decoder subclasses')
 
-class RnnDecoder(Decoder):
-  @staticmethod
-  def rnn_from_spec(spec, num_layers, input_dim, hidden_dim, model, residual_to_output):
-    decoder_type = spec.lower()
-    if decoder_type == "lstm":
-      return dy.CompactVanillaLSTMBuilder(num_layers, input_dim, hidden_dim, model)
-    elif decoder_type == "residuallstm":
-      return xnmt.residual.ResidualRNNBuilder(num_layers, input_dim, hidden_dim,
-                                         model, residual_to_output)
-    else:
-      raise RuntimeError("Unknown decoder type {}".format(spec))
-
 class MlpSoftmaxDecoderState(object):
   """A state holding all the information needed for MLPSoftmaxDecoder
   
@@ -44,133 +38,74 @@ class MlpSoftmaxDecoderState(object):
     self.rnn_state = rnn_state
     self.context = context
 
-class MlpSoftmaxDecoder(RnnDecoder, Serializable):
+class MlpSoftmaxDecoder(Decoder, Serializable):
   """
   Standard MLP softmax decoder.
 
   Args:
-    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
-    layers (int): number of LSTM layers
-    input_dim (int): input dimension; if None, use ``exp_global.default_layer_dim``
-    lstm_dim (int): LSTM hidden dimension; if None, use ``exp_global.default_layer_dim``
-    mlp_hidden_dim (int): MLP hidden dimension; if None, use ``exp_global.default_layer_dim``
-    trg_embed_dim (int): dimension of target embeddings; if None, use ``exp_global.default_layer_dim``
-    dropout (float): dropout probability for LSTM; if None, use exp_global.dropout
-    rnn_spec (str): 'lstm' or 'residuallstm'
-    residual_to_output (bool): option passed on if rnn_spec == 'residuallstm'
+    input_dim (int): input dimension
+    trg_embed_dim (int): dimension of target embeddings
     input_feeding (bool): whether to activate input feeding
-    param_init_lstm (ParamInitializer): how to initialize LSTM weight matrices (currently, only :class:`xnmt.param_init.GlorotInitializer` is supported); if None, use ``exp_global.param_init``
-    param_init_context (ParamInitializer): how to initialize context weight matrices; if None, use ``exp_global.param_init``
-    bias_init_context (ParamInitializer): how to initialize context bias vectors; if None, use ``exp_global.bias_init``
-    param_init_output (ParamInitializer): how to initialize output weight matrices; if None, use ``exp_global.param_init``
-    bias_init_output (ParamInitializer): how to initialize output bias vectors; if None, use ``exp_global.bias_init``
+    rnn_layer (UniLSTMSeqTransducer): recurrent layer of the decoder
+    mlp_layer (MLP): final prediction layer of the decoder
     bridge (Bridge): how to initialize decoder state
     label_smoothing (float): label smoothing value (if used, 0.1 is a reasonable value).
                              Label Smoothing is implemented with reference to Section 7 of the paper
                              "Rethinking the Inception Architecture for Computer Vision"
                              (https://arxiv.org/pdf/1512.00567.pdf)
-    vocab_projector (Linear):
-    vocab_size (int): vocab size or None
-    vocab (Vocab): vocab or None
-    trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
   """
-  
+
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
   # For now the default behavior is hard coded.
 
   yaml_tag = '!MlpSoftmaxDecoder'
 
-  def __init__(self, exp_global=Ref(Path("exp_global")), layers=1, input_dim=None, lstm_dim=None,
-               mlp_hidden_dim=None, trg_embed_dim=None, dropout=None,
-               rnn_spec="lstm", residual_to_output=False, input_feeding=True,
-               param_init_lstm=None, param_init_context=None, bias_init_context=None,
-               param_init_output=None, bias_init_output=None,
-               bridge=bare(CopyBridge), label_smoothing=0.0,
-               vocab_projector=None, vocab_size = None, vocab = None,
-               trg_reader = Ref(path=Path("model.trg_reader"), required=False)):
-    register_handler(self)
-    self.param_col = exp_global.dynet_param_collection.param_col
-    # Define dim
-    lstm_dim       = lstm_dim or exp_global.default_layer_dim
-    self.mlp_hidden_dim = mlp_hidden_dim = mlp_hidden_dim or exp_global.default_layer_dim
-    trg_embed_dim  = trg_embed_dim or exp_global.default_layer_dim
-    input_dim      = input_dim or exp_global.default_layer_dim
+  @serializable_init
+  def __init__(self,
+               input_dim=Ref("exp_global.default_layer_dim"),
+               trg_embed_dim=Ref("exp_global.default_layer_dim"),
+               input_feeding=True,
+               rnn_layer=bare(UniLSTMSeqTransducer),
+               mlp_layer=bare(MLP),
+               bridge=bare(CopyBridge),
+               label_smoothing=0.0):
+    self.param_col = ParamManager.my_params(self)
     self.input_dim = input_dim
     self.label_smoothing = label_smoothing
     # Input feeding
     self.input_feeding = input_feeding
-    self.lstm_dim = lstm_dim
-    lstm_input = trg_embed_dim
+    rnn_input_dim = trg_embed_dim
     if input_feeding:
-      lstm_input += input_dim
+      rnn_input_dim += input_dim
+    assert rnn_input_dim == rnn_layer.input_dim, "Wrong input dimension in RNN layer"
     # Bridge
-    self.lstm_layers = layers
     self.bridge = bridge
 
     # LSTM
-    self.fwd_lstm  = RnnDecoder.rnn_from_spec(spec       = rnn_spec,
-                                              num_layers = layers,
-                                              input_dim  = lstm_input,
-                                              hidden_dim = lstm_dim,
-                                              model = self.param_col,
-                                              residual_to_output = residual_to_output)
-    param_init_lstm = param_init_lstm or exp_global.param_init
-    if not isinstance(param_init_lstm, GlorotInitializer): raise NotImplementedError("For the decoder LSTM, only Glorot initialization is currently supported")
-    if getattr(param_init_lstm,"gain",1.0) != 1.0:
-      for l in range(layers):
-        for i in [0,1]:
-          self.fwd_lstm.param_collection().parameters_list()[3*l+i].scale(param_init_lstm.gain)
-      
+    self.rnn_layer = rnn_layer
+
     # MLP
-    self.context_projector = xnmt.linear.Linear(input_dim  = input_dim + lstm_dim,
-                                                output_dim = mlp_hidden_dim,
-                                                model = self.param_col,
-                                                param_init = param_init_context or exp_global.param_init,
-                                                bias_init = bias_init_context or exp_global.bias_init)
-    self.vocab_size = self.choose_vocab_size(vocab_size, vocab, trg_reader)
-    self.vocab_projector = vocab_projector or xnmt.linear.Linear(input_dim = self.mlp_hidden_dim,
-                                                                 output_dim = self.vocab_size,
-                                                                 model = self.param_col,
-                                                                 param_init = param_init_output or exp_global.param_init,
-                                                                 bias_init = bias_init_output or exp_global.bias_init)
-    # Dropout
-    self.dropout = dropout or exp_global.dropout
-
-  def choose_vocab_size(self, vocab_size, vocab, trg_reader):
-    """Choose the vocab size for the embedder basd on the passed arguments
-
-    This is done in order of priority of vocab_size, vocab, model+yaml_path
-
-    Args:
-      vocab_size (int): vocab size or None
-      vocab (Vocab): vocab or None
-      trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
-    
-    Returns:
-      int: chosen vocab size
-    """
-    if vocab_size != None:
-      return vocab_size
-    elif vocab != None:
-      return len(vocab)
-    elif trg_reader == None or trg_reader.vocab == None:
-      raise ValueError("Could not determine trg_embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
-    else:
-      return len(trg_reader.vocab)
+    self.mlp_layer = mlp_layer
 
   def shared_params(self):
-    return [set([Path(".layers"), Path(".bridge.dec_layers")]),
-            set([Path(".lstm_dim"), Path(".bridge.dec_dim")])]
+    return [{".trg_embed_dim", ".rnn_layer.input_dim"},
+            {".input_dim", ".rnn_layer.decoder_input_dim"},
+            {".input_dim", ".mlp_layer.input_dim"},
+            {".input_feeding", ".rnn_layer.decoder_input_feeding"},
+            {".rnn_layer.layers", ".bridge.dec_layers"},
+            {".rnn_layer.hidden_dim", ".bridge.dec_dim"},
+            {".rnn_layer.hidden_dim", ".mlp_layer.decoder_rnn_dim"}]
 
   def initial_state(self, enc_final_states, ss_expr):
     """Get the initial state of the decoder given the encoder final states.
 
     Args:
       enc_final_states: The encoder final states. Usually but not necessarily an :class:`xnmt.expression_sequence.ExpressionSequence`
+      ss_expr: first input
     Returns:
       MlpSoftmaxDecoderState:
     """
-    rnn_state = self.fwd_lstm.initial_state()
+    rnn_state = self.rnn_layer.initial_state()
     rnn_state = rnn_state.set_s(self.bridge.decoder_init(enc_final_states))
     zeros = dy.zeros(self.input_dim) if self.input_feeding else None
     rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]))
@@ -199,8 +134,10 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
     Returns:
       Scores over the vocabulary given this state.
     """
-    h_t = dy.tanh(self.context_projector(dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context])))
-    return self.vocab_projector(h_t)
+    return self.mlp_layer(dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context]))
+
+  def get_scores_logsoftmax(self, mlp_dec_state):
+    return dy.log_softmax(self.get_scores(mlp_dec_state))
 
   def calc_loss(self, mlp_dec_state, ref_action):
     scores = self.get_scores(mlp_dec_state)
@@ -224,7 +161,115 @@ class MlpSoftmaxDecoder(RnnDecoder, Serializable):
       loss = ((1 - self.label_smoothing) * pre_loss) + (self.label_smoothing * ls_loss)
       return loss
 
+class MlpSoftmaxLexiconDecoder(MlpSoftmaxDecoder, Serializable):
+  yaml_tag = '!MlpSoftmaxLexiconDecoder'
+
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self,
+               input_dim=Ref("exp_global.default_layer_dim"),
+               trg_embed_dim=Ref("exp_global.default_layer_dim"),
+               input_feeding=True,
+               rnn_layer=bare(UniLSTMSeqTransducer),
+               mlp_layer=bare(MLP),
+               bridge=bare(CopyBridge),
+               label_smoothing=0.0,
+               lexicon_file=None,
+               src_vocab=Ref(Path("model.src_reader.vocab")),
+               trg_vocab=Ref(Path("model.trg_reader.vocab")),
+               attender=Ref(Path("model.attender")),
+               lexicon_type='bias',
+               lexicon_alpha=0.001,
+               linear_projector=None,
+               param_init_lin=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init_lin=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               ):
+    super().__init__(input_dim, trg_embed_dim, input_feeding, rnn_layer,
+                     mlp_layer, bridge, label_smoothing)
+    assert lexicon_file is not None
+    self.lexicon_file = lexicon_file
+    self.src_vocab = src_vocab
+    self.trg_vocab = trg_vocab
+    self.attender = attender
+    self.lexicon_type = lexicon_type
+    self.lexicon_alpha = lexicon_alpha
+
+    self.linear_projector = self.add_serializable_component("linear_projector", linear_projector,
+                                                             lambda: xnmt.linear.Linear(input_dim=input_dim,
+                                                                                        output_dim=mlp_layer.output_dim))
+
+    if self.lexicon_type == "linear":
+      self.lexicon_method = self.linear
+    elif self.lexicon_type == "bias":
+      self.lexicon_method = self.bias
+    else:
+      raise ValueError("Unrecognized lexicon method:", lexicon_type, "can only choose between [bias, linear]")
+
+  def load_lexicon(self):
+    logger.info("Loading lexicon from file: " + self.lexicon_file)
+    assert self.src_vocab.frozen
+    assert self.trg_vocab.frozen
+    lexicon = [{} for _ in range(len(self.src_vocab))]
+    with open(self.lexicon_file, encoding='utf-8') as fp:
+      for line in fp:
+        try:
+          trg, src, prob = line.rstrip().split()
+        except:
+          logger.warning("Failed to parse 'trg src prob' from:" + line.strip())
+          continue
+        trg_id = self.trg_vocab.convert(trg)
+        src_id = self.src_vocab.convert(src)
+        lexicon[src_id][trg_id] = float(prob)
+    # Setting the rest of the weight to the unknown word
+    for i in range(len(lexicon)):
+      sum_prob = sum(lexicon[i].values())
+      if sum_prob < 1.0:
+        lexicon[i][self.trg_vocab.convert(self.trg_vocab.unk_token)] = 1.0 - sum_prob
+    # Overriding special tokens
+    src_unk_id = self.src_vocab.convert(self.src_vocab.unk_token)
+    trg_unk_id = self.trg_vocab.convert(self.trg_vocab.unk_token)
+    lexicon[self.src_vocab.SS] = {self.trg_vocab.SS: 1.0}
+    lexicon[self.src_vocab.ES] = {self.trg_vocab.ES: 1.0}
+    # TODO(philip30): Note sure if this is intended
+    lexicon[src_unk_id] = {trg_unk_id: 1.0}
+    return lexicon
+
   @handle_xnmt_event
-  def on_set_train(self, val):
-    self.fwd_lstm.set_dropout(self.dropout if val else 0.0)
+  def on_new_epoch(self, training_task, *args, **kwargs):
+    if hasattr(self, "lexicon_prob"):
+      del self.lexicon_prob
+    if not hasattr(self, "lexicon"):
+      self.lexicon = self.load_lexicon()
+
+  @handle_xnmt_event
+  def on_start_sent(self, src):
+    batch_size = len(src)
+    col_size = len(src[0])
+
+    idxs = [(x, j, i) for i in range(batch_size) for j in range(col_size) for x in self.lexicon[src[i][j]].keys()]
+    idxs = tuple(map(list, list(zip(*idxs))))
+
+    values = [x for i in range(batch_size) for j in range(col_size) for x in self.lexicon[src[i][j]].values()]
+    self.lexicon_prob = dy.nobackprop(dy.sparse_inputTensor(idxs, values, (len(self.trg_vocab), col_size, batch_size), batched=True))
+    
+  def get_scores_logsoftmax(self, mlp_dec_state):
+    score = super().get_scores(mlp_dec_state)
+    lex_prob = self.lexicon_prob * self.attender.get_last_attention()
+    # Note that the sum dim is only summing a tensor of 1 size in dim 1.
+    # This is to make sure that the shape of the returned tensor matches the vanilla decoder
+    return dy.sum_dim(self.lexicon_method(mlp_dec_state, score, lex_prob), [1])
+
+  def linear(self, mlp_dec_state, score, lex_prob):
+    coef = dy.logistic(self.linear_projector(mlp_dec_state.rnn_state.output()))
+    return dy.log(dy.cmult(dy.softmax(score), coef) + dy.cmult((1-coef), lex_prob))
+
+  def bias(self, mlp_dec_state, score, lex_prob):
+    return dy.log_softmax(score + dy.log(lex_prob + self.lexicon_alpha))
+
+  def calc_loss(self, mlp_dec_state, ref_action):
+    logsoft = self.get_scores_logsoftmax(mlp_dec_state)
+    if not xnmt.batcher.is_batched(ref_action):
+      return -dy.pick(logsoft, ref_action)
+    else:
+      return -dy.pick_batch(logsoft, ref_action)
 
