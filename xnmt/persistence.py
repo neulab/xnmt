@@ -842,15 +842,16 @@ class YamlPreloader(object):
     return UninitializedYamlObject(root)
 
   @staticmethod
-  def _load_referenced_serialized(experiment):
-    for path, node in traverse_tree(experiment, traversal_order=TraversalOrder.ROOT_LAST):
+  def _load_referenced_serialized(root: Any) -> Any:
+    for path, node in traverse_tree(root, traversal_order=TraversalOrder.ROOT_LAST):
       if isinstance(node, LoadSerialized):
         try:
           with open(node.filename) as stream:
             loaded_root = yaml.load(stream)
         except IOError as e:
           raise RuntimeError(f"Could not read configuration file {node.filename}: {e}")
-        ParamManager.add_load_path(f"{node.filename}.data")
+        if os.path.isdir(f"{node.filename}.data"):
+          ParamManager.add_load_path(f"{node.filename}.data")
         cur_path = Path(getattr(node, "path", ""))
         for _ in range(10):  # follow references
           loaded_trg = get_descendant(loaded_root, cur_path, redirect=True)
@@ -890,13 +891,13 @@ class YamlPreloader(object):
           overwrite_path = Path(d["path"])
           set_descendant(loaded_trg, overwrite_path, d["val"])
         if len(path) == 0:
-          experiment = loaded_trg
+          root = loaded_trg
         else:
-          set_descendant(experiment, path, loaded_trg)
-    return experiment
+          set_descendant(root, path, loaded_trg)
+    return root
 
   @staticmethod
-  def _resolve_kwargs(obj):
+  def _resolve_kwargs(obj: Any) -> None:
     """
     If obj has a kwargs attribute (dictionary), set the dictionary items as attributes
     of the object via setattr (asserting that there are no collisions).
@@ -910,6 +911,8 @@ class YamlPreloader(object):
 
   @staticmethod
   def _instantiate_random_search(experiment):
+    # TODO: this should probably be refactored: pull out of persistence.py and generalize so other things like
+    # grid search and bayesian optimization can be supported
     param_report = {}
     initialized_random_params = {}
     for path, v in traverse_tree(experiment):
@@ -924,7 +927,7 @@ class YamlPreloader(object):
     return param_report
 
   @staticmethod
-  def _resolve_bare_default_args(root):
+  def _resolve_bare_default_args(root: Any) -> None:
     for path, node in traverse_tree(root):
       if isinstance(node, Serializable):
         init_args_defaults = get_init_args_defaults(node)
@@ -940,20 +943,20 @@ class YamlPreloader(object):
               setattr(node, expected_arg, copy.deepcopy(arg_default))
 
   @staticmethod
-  def _format_strings(exp_values, format_dict):
+  def _format_strings(root: Any, format_dict: Dict[str, str]) -> None:
     """
     - replaces strings containing ``{EXP}`` and other supported args
     - also checks if there are default arguments for which no arguments are set and instantiates them with replaced
       ``{EXP}`` if applicable
     """
-    for path, node in traverse_tree(exp_values):
+    for path, node in traverse_tree(root):
       if isinstance(node, str):
         try:
           formatted = node.format(**format_dict)
         except (ValueError, KeyError):  # will occur e.g. if a vocab entry contains a curly bracket
           formatted = node
         if node != formatted:
-          set_descendant(exp_values,
+          set_descendant(root,
                          path,
                          FormatString(formatted, node))
       elif isinstance(node, Serializable):
