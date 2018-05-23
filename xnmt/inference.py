@@ -1,18 +1,19 @@
-# coding: utf-8
-
 from collections.abc import Iterable
+from typing import Optional
 
 from xnmt.settings import settings
 
 import dynet as dy
 
+from xnmt.batcher import Batcher
+from xnmt.model_base import GeneratorModel
 from xnmt import logger
 from xnmt.loss_calculator import MLELoss
 import xnmt.output
 from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
+from xnmt.search_strategy import SearchStrategy, BeamSearch
 from xnmt.util import make_parent_dir
-from xnmt.search_strategy import BeamSearch
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 
@@ -21,24 +22,29 @@ class SimpleInference(Serializable):
   Main class to perform decoding.
   
   Args:
-    src_file (str): path of input src file to be translated
-    trg_file (str): path of file where trg translatons will be written
-    ref_file (str): path of file with reference translations, e.g. for forced decoding
-    max_src_len (int): Remove sentences from data to decode that are longer than this on the source side
-    post_process (str): post-processing of translation outputs: ``none/join-char/join-bpe/join-piece``
-    report_path (str): a path to which decoding reports will be written
-    report_type (str): report to generate ``file/html``. Can be multiple, separate with comma.
-    search_strategy (SearchStrategy): a search strategy used during decoding.
-    mode (str): type of decoding to perform. ``onebest``: generate one best. ``forced``: perform forced decoding. ``forceddebug``: perform forced decoding, calculate training loss, and make suer the scores are identical for debugging purposes.
-    batcher (Batcher):
+    src_file: path of input src file to be translated
+    trg_file: path of file where trg translatons will be written
+    ref_file: path of file with reference translations, e.g. for forced decoding
+    max_src_len: Remove sentences from data to decode that are longer than this on the source side
+    post_process: post-processing of translation outputs: ``none/join-char/join-bpe/join-piece``
+    report_path: a path to which decoding reports will be written
+    report_type: report to generate ``file/html``. Can be multiple, separate with comma.
+    search_strategy: a search strategy used during decoding.
+    mode: type of decoding to perform.
+            ``onebest``: generate one best.
+            ``forced``: perform forced decoding.
+            ``forceddebug``: perform forced decoding, calculate training loss, and make suer the scores are identical
+                             for debugging purposes.
+    batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
   """
   
   yaml_tag = '!SimpleInference'
 
   @serializable_init
-  def __init__(self, src_file=None, trg_file=None, ref_file=None, max_src_len=None,
-                  post_process="none", report_path=None, report_type="html",
-                  search_strategy=bare(BeamSearch), mode="onebest", max_len=None, batcher=Ref("train.batcher", default=None)):
+  def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
+               max_src_len: Optional[int] = None, post_process: str = "none", report_path: Optional[str] = None,
+               report_type: str = "html", search_strategy: SearchStrategy = bare(BeamSearch), mode: str = "onebest",
+               max_len: Optional[int] = None, batcher: Optional[Batcher] = Ref("train.batcher", default=None)):
     self.src_file = src_file
     self.trg_file = trg_file
     self.ref_file = ref_file
@@ -51,44 +57,52 @@ class SimpleInference(Serializable):
     self.search_strategy = search_strategy
     self.max_len = max_len
 
-
-  def __call__(self, generator, src_file=None, trg_file=None, candidate_id_file=None):
+  def __call__(self, generator: GeneratorModel, src_file: str = None, trg_file: str = None,
+               candidate_id_file: str = None):
     """
+    Perform inference.
+
     Args:
-      generator (GeneratorModel): the model to be used
-      src_file (str): path of input src file to be translated
-      trg_file (str): path of file where trg translatons will be written
-      candidate_id_file (str): if we are doing something like retrieval where we select from fixed candidates, sometimes we want to limit our candidates to a certain subset of the full set. this setting allows us to do this.
+      generator: the model to be used
+      src_file: path of input src file to be translated
+      trg_file: path of file where trg translatons will be written
+      candidate_id_file: if we are doing something like retrieval where we select from fixed candidates, sometimes we
+                         want to limit our candidates to a certain subset of the full set. this setting allows us to do
+                         this.
     """
-    args = dict(src_file=src_file or self.src_file, trg_file=trg_file or self.trg_file, ref_file=self.ref_file, max_src_len=self.max_src_len,
-                  post_process=self.post_process, candidate_id_file=candidate_id_file, report_path=self.report_path, report_type=self.report_type, mode=self.mode)
+    # TODO: should be broken into smaller methods
 
-    is_reporting = issubclass(generator.__class__, Reportable) and args["report_path"] is not None
+    src_file = src_file or self.src_file
+    trg_file = trg_file or self.trg_file
+
+    is_reporting = issubclass(generator.__class__, Reportable) and self.report_path is not None
     # Corpus
-    src_corpus = list(generator.src_reader.read_sents(args["src_file"]))
+    src_corpus = list(generator.src_reader.read_sents(src_file))
     # Get reference if it exists and is necessary
-    if args["mode"] == "forced" or args["mode"] == "forceddebug" or args["mode"] == "score":
-      if args["ref_file"] is None:
-        raise RuntimeError("When performing {} decoding, must specify reference file".format(args["mode"]))
+    if self.mode == "forced" or self.mode == "forceddebug" or self.mode == "score":
+      if self.ref_file is None:
+        raise RuntimeError("When performing {} decoding, must specify reference file".format(self.mode))
       score_src_corpus = []
       ref_corpus = []
-      with open(args["ref_file"], "r", encoding="utf-8") as fp:
+      with open(self.ref_file, "r", encoding="utf-8") as fp:
         for line in fp:
-          if args["mode"] == "score":
+          if self.mode == "score":
             nbest = line.split("|||")
             assert len(nbest) > 1, "When performing scoring, ref_file must have nbest format 'index ||| hypothesis'"
             src_index = int(nbest[0].strip())
-            assert src_index < len(src_corpus), "The src_file has only {} instances, nbest file has invalid src_index {}".format(len(src_corpus), src_index)
+            assert src_index < len(src_corpus),\
+              f"The src_file has only {len(src_corpus)} instances, nbest file has invalid src_index {src_index}"
             score_src_corpus.append(src_corpus[src_index])
             trg_input = generator.trg_reader.read_sent(nbest[1].strip())
           else:
             trg_input = generator.trg_reader.read_sent(line)
           ref_corpus.append(trg_input)
-      if args["mode"] == "score":
+      if self.mode == "score":
         src_corpus = score_src_corpus
       else:
         if self.max_len and any(len(s) > self.max_len for s in ref_corpus):
-          logger.warning("Forced decoding with some targets being longer than max_len. Increase max_len to avoid unexpected behavior.")
+          logger.warning("Forced decoding with some targets being longer than max_len. "
+                         "Increase max_len to avoid unexpected behavior.")
     else:
       ref_corpus = None
     # Vocab
@@ -96,7 +110,10 @@ class SimpleInference(Serializable):
     trg_vocab = generator.trg_reader.vocab if hasattr(generator.trg_reader, "vocab") else None
     # Perform initialization
     generator.set_train(False)
-    generator.initialize_generator(**args)
+    generator.initialize_generator(src_file=src_file, trg_file=trg_file, ref_file=self.ref_file,
+                                   max_src_len=self.max_src_len, post_process=self.post_process,
+                                   candidate_id_file=candidate_id_file, report_path=self.report_path,
+                                   report_type=self.report_type, mode=self.mode)
 
     if hasattr(generator, "set_post_processor"):
       generator.set_post_processor(self.get_output_processor())
@@ -111,7 +128,7 @@ class SimpleInference(Serializable):
 
     # If we're debugging, calculate the loss for each target sentence
     ref_scores = None
-    if args["mode"] == 'forceddebug' or args["mode"] == 'score':
+    if self.mode == 'forceddebug' or self.mode == 'score':
       some_batcher = xnmt.batcher.InOrderBatcher(32) # Arbitrary
       if not isinstance(some_batcher, xnmt.batcher.InOrderBatcher):
         raise ValueError(f"forceddebug requires InOrderBatcher, got: {some_batcher}")
@@ -127,11 +144,11 @@ class SimpleInference(Serializable):
       ref_scores = [-x for x in ref_scores]
 
     # Make the parent directory if necessary
-    make_parent_dir(args["trg_file"])
+    make_parent_dir(trg_file)
 
     # Perform generation of output
-    if args["mode"] != 'score':
-      with open(args["trg_file"], 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
+    if self.mode != 'score':
+      with open(trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
         src_ret=[]
         for i, src in enumerate(src_corpus):
           # This is necessary when the batcher does some sort of pre-processing, e.g.
@@ -140,7 +157,7 @@ class SimpleInference(Serializable):
             self.batcher.add_single_batch(src_curr=[src], trg_curr=None, src_ret=src_ret, trg_ret=None)
             src = src_ret.pop()[0]
           # Do the decoding
-          if args["max_src_len"] is not None and len(src) > args["max_src_len"]:
+          if self.max_src_len is not None and len(src) > self.max_src_len:
             output_txt = NO_DECODING_ATTEMPTED
           else:
             dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
@@ -153,8 +170,8 @@ class SimpleInference(Serializable):
           # Printing to trg file
           fp.write(f"{output_txt}\n")
     else:
-      with open(args["trg_file"], 'wt', encoding='utf-8') as fp:
-        with open(args["ref_file"], "r", encoding="utf-8") as nbest_fp:
+      with open(trg_file, 'wt', encoding='utf-8') as fp:
+        with open(self.ref_file, "r", encoding="utf-8") as nbest_fp:
           for nbest, score in zip(nbest_fp, ref_scores):
             fp.write("{} ||| score={}\n".format(nbest.strip(), score))
   

@@ -22,7 +22,7 @@ class EvalTask(object):
   def eval(self):
     raise NotImplementedError("EvalTask.eval() needs to be implemented in child classes")
 
-class LossEvalTask(Serializable):
+class LossEvalTask(EvalTask, Serializable):
   """
   A task that does evaluation of the loss function.
 
@@ -52,7 +52,13 @@ class LossEvalTask(Serializable):
     self.max_trg_len = max_trg_len
     self.desc=desc
 
-  def eval(self):
+  def eval(self) -> tuple:
+    """
+    Perform evaluation task.
+
+    Returns:
+      tuple of score and reference length
+    """
     self.model.set_train(False)
     if self.src_data is None:
       self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
@@ -80,7 +86,7 @@ class LossEvalTask(Serializable):
     except KeyError:
       raise RuntimeError("Did you wrap your loss calculation with LossBuilder({'primary_loss': loss_value}) ?")
 
-class AccuracyEvalTask(Serializable):
+class AccuracyEvalTask(EvalTask, Serializable):
   """
   A task that does evaluation of some measure of accuracy.
 
@@ -133,3 +139,35 @@ class AccuracyEvalTask(Serializable):
       ref_words_cnt += self.model.trg_reader.count_words(ref_sent)
       ref_words_cnt += 0
     return eval_scores, ref_words_cnt
+
+class DecodingEvalTask(EvalTask, Serializable):
+  """
+  A task that does performs decoding without comparing against a reference.
+
+  Args:
+    src_file: path(s) to read source file(s) from
+    hyp_file: path to write hypothesis file to
+    model: generator model to generate hypothesis with
+    inference: inference object
+    candidate_id_file:
+  """
+
+  yaml_tag = '!DecodingEvalTask'
+
+  @serializable_init
+  def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: GeneratorModel = Ref("model"),
+               inference: Optional[SimpleInference] = None, candidate_id_file: Optional[str] = None):
+
+    self.model = model
+    self.src_file = src_file
+    self.hyp_file = hyp_file
+    self.candidate_id_file = candidate_id_file
+    self.inference = inference or self.model.inference
+
+  def eval(self):
+    self.model.set_train(False)
+    self.inference(generator=self.model,
+                   src_file=self.src_file,
+                   trg_file=self.hyp_file,
+                   candidate_id_file=self.candidate_id_file)
+    return None, None

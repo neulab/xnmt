@@ -4,14 +4,14 @@ same YAML file format.
 
 The main objects to be aware of are:
 
-* Serializable: must be subclassed by all components that are specified in a YAML file.
-* Ref: a reference that points somewhere in the object hierarchy, for both convenience and to realize parameter sharing.
-* YamlPreloader: pre-loads YAML contents so that some infrastructure can be set up, but does not initialize components.
-* initialize_if_needed, initialize_object: initialize a preloaded YAML tree, taking care of resolving references etc.
-* save_to_file: saves a YAML file along with registered DyNet parameters
-* LoadSerialized: can be used to load, modify, and re-assemble pretrained models.
-* bare: create uninitialized objects, usually for the purpose of specifying them as default arguments.
-* RandomParam: a special Serializable subclass that realizes random parameter search.
+* :class:`Serializable`: must be subclassed by all components that are specified in a YAML file.
+* :class:`Ref`: a reference that points somewhere in the object hierarchy, for both convenience and to realize parameter sharing.
+* :class:`YamlPreloader`: pre-loads YAML contents so that some infrastructure can be set up, but does not initialize components.
+* :meth:`initialize_if_needed`, :meth:`initialize_object`: initialize a preloaded YAML tree, taking care of resolving references etc.
+* :meth:`save_to_file`: saves a YAML file along with registered DyNet parameters
+* :class:`LoadSerialized`: can be used to load, modify, and re-assemble pretrained models.
+* :meth:`bare`: create uninitialized objects, usually for the purpose of specifying them as default arguments.
+* :class:`RandomParam`: a special Serializable subclass that realizes random parameter search.
 
 """
 
@@ -25,13 +25,12 @@ import os
 import copy
 from functools import lru_cache, wraps
 from collections import OrderedDict
-from typing import List, Set, Callable, TypeVar, Type, Union, Optional, Dict, Sequence
+from typing import List, Set, Callable, TypeVar, Type, Union, Optional, Dict, Sequence, Any
 import inspect, random
 
 import yaml
 
 from xnmt.param_collection import ParamManager
-from xnmt.util import YamlSerializable
 from xnmt import param_collection
 
 def serializable_init(f):
@@ -129,19 +128,20 @@ class Serializable(yaml.YAMLObject):
     """
     return []
 
-  def save_processed_arg(self, key: str, val: YamlSerializable) -> None:
+  def save_processed_arg(self, key: str, val: Any) -> None:
     """
-    Save a new value for an init argument (call from within __init__()).
+    Save a new value for an init argument (call from within ``__init__()``).
 
     Normally, the serialization mechanism makes sure that the same arguments are passed when creating the class
     initially based on a config file, and when loading it from a saved model. This method can be called from inside
-    __init__ to save a new value that will be passed when loading the saved model. This can be useful when one doesn't
-    want to recompute something every time (like a vocab) or when something has been passed via implicit referencing
-    which might yield inconsistent result when loading the model to assemble a new model of different structure.
+    ``__init__()`` to save a new value that will be passed when loading the saved model. This can be useful when one
+    doesn't want to recompute something every time (like a vocab) or when something has been passed via implicit
+    referencing which might yield inconsistent result when loading the model to assemble a new model of different
+    structure.
 
     Args:
-      key: name of property, must match an argument of __init__()
-      val: new value; a Serializable or basic Python type or list or dict of these
+      key: name of property, must match an argument of ``__init__()``
+      val: new value; a :class:`Serializable` or basic Python type or list or dict of these
     """
     if not hasattr(self, "serialize_params"):
       self.serialize_params = {}
@@ -149,15 +149,15 @@ class Serializable(yaml.YAMLObject):
       raise ValueError(f"{key} is not an init argument of {self}")
     self.serialize_params[key] = val
 
-  def add_serializable_component(self, name: str, passed: YamlSerializable,
-                                 create_fct: Callable[[], YamlSerializable]) -> YamlSerializable:
+  def add_serializable_component(self, name: str, passed: Any,
+                                 create_fct: Callable[[], Any]) -> Any:
     """
-    Create a Serializable component, or a container component with several Serializable-s.
+    Create a :class:`Serializable` component, or a container component with several :class:`Serializable`-s.
 
-    Serializable sub-components should always be created using this helper to make sure DyNet parameters are assigned
-    properly and serialization works properly. The components must also be accepted as init arguments, defaulting to
-    None. The helper makes sure that components are only created if None is passed, otherwise the passed component
-    is reused.
+    :class:`Serializable` sub-components should always be created using this helper to make sure DyNet parameters are
+    assigned properly and serialization works properly. The components must also be accepted as init arguments,
+    defaulting to ``None``. The helper makes sure that components are only created if ``None`` is passed, otherwise the
+    passed component is reused.
 
     The idiom for using this for an argument named ``my_comp`` would be::
 
@@ -169,10 +169,10 @@ class Serializable(yaml.YAMLObject):
 
     Args:
       name: name of the object
-      passed: object as passed in the constructor. If None, will be created using create_fct.
-      create_fct: a callable with no arguments that returns a Serializable or a collection of Serializables.
-                  When loading a saved model, this same object will be passed via the 'passed' argument, and create_fct
-                  is not invoked.
+      passed: object as passed in the constructor. If ``None``, will be created using create_fct.
+      create_fct: a callable with no arguments that returns a :class:`Serializable` or a collection of
+                  :class:`Serializable`-s. When loading a saved model, this same object will be passed via the
+                  ``passed`` argument, and ``create_fct`` is not invoked.
 
     Returns:
       reused or newly created object(s).
@@ -199,28 +199,28 @@ class UninitializedYamlObject(object):
     data: uninitialized object
   """
 
-  def __init__(self, data: YamlSerializable) -> None:
+  def __init__(self, data: Any) -> None:
     if isinstance(data, UninitializedYamlObject):
       raise AssertionError
     self.data = data
 
-  def get(self, key: str, default: YamlSerializable):
+  def get(self, key: str, default: Any):
     return self.data.get(key, default)
 
 
 T = TypeVar('T')
-def bare(class_type: Type[T], **kwargs: YamlSerializable) -> T:
+def bare(class_type: Type[T], **kwargs: Any) -> T:
   """
   Create an uninitialized object of arbitrary type.
 
-  This is useful to specify XNMT components as default arguments. __init__() commonly requires DyNet parameters,
+  This is useful to specify XNMT components as default arguments. ``__init__()`` commonly requires DyNet parameters,
   component referencing, etc., which are not yet set up at the time the default arguments are loaded.
   In this case, a bare class can be specified with the desired arguments, and will be properly initialized when passed
   as arguments into a component.
 
   Args:
-    class_type: class type (must be a subclass of Serializable)
-    kwargs: will be passed to class's __init__()
+    class_type: class type (must be a subclass of :class:`Serializable`)
+    kwargs: will be passed to class's ``__init__()``
   Returns:
     uninitialized object
   """
@@ -249,7 +249,7 @@ class Ref(Serializable):
 
   @serializable_init
   def __init__(self, path: Union[None, 'Path', str] = None, name: Optional[str] = None,
-               default: Union[YamlSerializable, None] = NO_DEFAULT) -> None:
+               default: Any = NO_DEFAULT) -> None:
     if name is not None and path is not None:
       raise ValueError(f"Ref cannot be initialized with both a name and a path ({name} / {path})")
     if isinstance(path, str): path = Path(path)
@@ -259,19 +259,19 @@ class Ref(Serializable):
     self.serialize_params = {'name': name} if name else {'path': str(path)}
 
   def get_name(self) -> str:
-    """Return name, or None if this is not a named reference"""
+    """Return name, or ``None`` if this is not a named reference"""
     return getattr(self, "name", None)
 
   def get_path(self) -> 'Path':
-    """Return path, or None if this is a named reference"""
+    """Return path, or ``None`` if this is a named reference"""
     return getattr(self, "path", None)
 
   def is_required(self) -> bool:
-    """Return true iff there exists no default value and it is mandatory that this reference be resolved."""
+    """Return ``True`` iff there exists no default value and it is mandatory that this reference be resolved."""
     return getattr(self, "default", Ref.NO_DEFAULT) == Ref.NO_DEFAULT
 
-  def get_default(self) -> Union[YamlSerializable, None]:
-    """Return default value, or Ref.NO_DEFAULT if no default value is set (i.e., this is a required reference)."""
+  def get_default(self) -> Any:
+    """Return default value, or ``Ref.NO_DEFAULT`` if no default value is set (i.e., this is a required reference)."""
     return getattr(self, "default", None)
 
   def __str__(self):
@@ -305,7 +305,8 @@ class Path(object):
   Paths are immutable: Operations that change the path always return a new Path object.
 
   Args:
-    path_str: path string, with period "." as separator. If prefixed by ".", marks a relative path, otherwise absolute.
+    path_str: path string, with period ``.`` as separator. If prefixed by ``.``, marks a relative path, otherwise
+              absolute.
   """
 
   def __init__(self, path_str: str = "") -> None:
@@ -466,7 +467,7 @@ def name_children(node, include_reserved):
 @name_children.register(Serializable)
 def name_children_serializable(node, include_reserved):
   """
-  Returns the specified arguments in the order they appear in the corresponding __init__()
+  Returns the specified arguments in the order they appear in the corresponding ``__init__()``
   """
   init_args = list(get_init_args_defaults(node).keys())
   if include_reserved: init_args += [n for n in reserved_arg_names if not n in init_args]
@@ -535,13 +536,17 @@ def set_child_serializable(node, name, val):
 
 @set_child.register(list)
 def set_child_list(node, name, val):
+  if name == "append": name = len(node)
   try:
     name = int(name)
   except:
     raise PathError(f"{node} has no child named {name} (integer expected)")
-  if not 0 <= name < len(node):
+  if not 0 <= name < len(node)+1:
     raise PathError(f"{node} has no child named {name} (index error)")
-  node[int(name)] = val
+  if name == len(node):
+    node.append(val)
+  else:
+    node[int(name)] = val
 
 
 @set_child.register(dict)
@@ -685,9 +690,9 @@ class PathError(Exception):
 
 class FormatString(str, yaml.YAMLObject):
   """
-  Used to handle the {EXP} string formatting syntax.
+  Used to handle the ``{EXP}`` string formatting syntax.
   When passed around it will appear like the properly resolved string,
-  but writing it back to YAML will use original version containing {EXP}
+  but writing it back to YAML will use original version containing ``{EXP}``
   """
 
   def __new__(cls, value, *args, **kwargs):
@@ -725,15 +730,22 @@ class LoadSerialized(Serializable):
 
   Args:
     filename: YAML file name to load from
-    path: path inside the YAML file to load from, with "." separators. Empty string denotes root.
-    overwrite: allows overwriting parts of the loaded model with new content. A list of dictionaries with "path" and
-               "val" entries, where "path" is a path string relative to the loaded sub-object, and "val" is a
-               YamlSerializable specifying the new content.
+    path: path inside the YAML file to load from, with ``.`` separators. Empty string denotes root.
+    overwrite: allows overwriting parts of the loaded model with new content. A list of path/val dictionaries, where
+               ``path`` is a path string relative to the loaded sub-object following the syntax of :class:`Path`, and
+               ``val`` is a Yaml-serializable specifying the new content. E.g.::
+
+                [{"path" : "model.trainer", "val":AdamTrainer()},
+                 {"path" : ..., "val":...}]
+
+               It is possible to specify the path to point to a new key to a dictionary.
+               If ``path`` points to a list, it's possible append to that list by using ``append_val`` instead of
+               ``val``.
   """
   yaml_tag = "!LoadSerialized"
 
   @serializable_init
-  def __init__(self, filename: str, path: str = "", overwrite: Optional[List[Dict]] = None):
+  def __init__(self, filename: str, path: str = "", overwrite: Optional[List[Dict[str,Any]]] = None):
     if overwrite is None: overwrite = []
     self.filename = filename
     self.path = path
@@ -744,8 +756,8 @@ class YamlPreloader(object):
   """
   Loads experiments from YAML and performs basic preparation, but does not initialize objects.
 
-  Takes care of extracting individual experiments from a YAML file, replaces !LoadSerialized by corresponding content,
-  resolves kwargs syntax, and implements random search.
+  Takes care of extracting individual experiments from a YAML file, replaces ``!LoadSerialized`` by corresponding
+  content, resolves kwargs syntax, and implements random search.
   """
 
   @staticmethod
@@ -769,7 +781,7 @@ class YamlPreloader(object):
   def preload_experiment_from_file(filename:str, exp_name:str) -> UninitializedYamlObject:
     """Preload experiment from YAML file.
 
-    Preloading takes care of replacing !LoadSerialized, resolving kwargs syntax, and instantiating random search.
+    Preloading takes care of replacing ``!LoadSerialized``, resolving kwargs syntax, and instantiating random search.
 
     Args:
       filename: YAML config file name
@@ -788,11 +800,12 @@ class YamlPreloader(object):
     return YamlPreloader.preload_obj(experiment, exp_name=exp_name, exp_dir=os.path.dirname(filename) or ".")
 
   @staticmethod
-  def preload_obj(root:YamlSerializable, exp_name:str, exp_dir:str) -> UninitializedYamlObject:
+  def preload_obj(root:Any, exp_name:str, exp_dir:str) -> UninitializedYamlObject:
     """Preload a given object.
 
-    Preloading a given object, usually an Experiment or LoadSerialized object as parsed by pyyaml, includesreplacing
-    !LoadSerialized, resolving kwargs syntax, and instantiating random search.
+    Preloading a given object, usually an :class:`xnmt.experiment.Experiment` or :class:`LoadSerialized` object as
+    parsed by pyyaml, includes replacing ``!LoadSerialized``, resolving ``kwargs`` syntax, and instantiating random
+    search.
 
     Args:
       root: object to preload
@@ -847,28 +860,31 @@ class YamlPreloader(object):
             break
 
         found_outside_ref = True
+        self_inserted_ref_ids = set()
         while found_outside_ref:
           found_outside_ref = False
           named_paths = get_named_paths(loaded_root)
           replaced_paths = {}
           for sub_path, sub_node in traverse_tree(loaded_trg, path_to_node=cur_path):
-            if isinstance(sub_node, Ref):
+            if isinstance(sub_node, Ref) and not id(sub_node) in self_inserted_ref_ids:
               referenced_path = sub_node.resolve_path(named_paths)
               if referenced_path.is_relative_path():
                 raise NotImplementedError("Handling of relative paths with LoadSerialized is not yet implemented.")
               if referenced_path in replaced_paths:
-                set_descendant(loaded_trg, sub_path[len(cur_path):],
-                                          Ref(replaced_paths[referenced_path], default=sub_node.get_default()))
+                new_ref = Ref(replaced_paths[referenced_path], default=sub_node.get_default())
+                set_descendant(loaded_trg, sub_path[len(cur_path):], new_ref)
+                self_inserted_ref_ids.add(id(new_ref))
               # if outside node:
               elif not str(referenced_path).startswith(str(cur_path)):
                 found_outside_ref = True
                 referenced_obj = get_descendant(loaded_root, referenced_path)
                 set_descendant(loaded_trg, sub_path[len(cur_path):], referenced_obj)
-                replaced_paths[referenced_path] = sub_path
+                # replaced_paths[referenced_path] = sub_path
+                replaced_paths[referenced_path] = path.add_path(sub_path[len(cur_path):])
               else:
-                set_descendant(loaded_trg, sub_path[len(cur_path):],
-                                          Ref(path.add_path(referenced_path[len(cur_path):]),
-                                              default=sub_node.get_default()))
+                new_ref = Ref(path.add_path(referenced_path[len(cur_path):]), default=sub_node.get_default())
+                set_descendant(loaded_trg, sub_path[len(cur_path):], new_ref)
+                self_inserted_ref_ids.add(id(new_ref))
 
         for d in getattr(node, "overwrite", []):
           overwrite_path = Path(d["path"])
@@ -926,8 +942,9 @@ class YamlPreloader(object):
   @staticmethod
   def _format_strings(exp_values, format_dict):
     """
-    - replaces strings containing {EXP} and other supported args
-    - also checks if there are default arguments for which no arguments are set and instantiates them with replaced {EXP} if applicable
+    - replaces strings containing ``{EXP}`` and other supported args
+    - also checks if there are default arguments for which no arguments are set and instantiates them with replaced
+      ``{EXP}`` if applicable
     """
     for path, node in traverse_tree(exp_values):
       if isinstance(node, str):
@@ -962,7 +979,8 @@ class _YamlDeserializer(object):
     """
     Initialize if obj has not yet been initialized.
 
-    Note: make sure to always create a new _YamlDeserializer before calling this, e.g. using _YamlDeserializer().initialize_object()
+    Note: make sure to always create a new ``_YamlDeserializer`` before calling this, e.g. using
+    ``_YamlDeserializer().initialize_object()``
 
     Args:
       obj (Union[Serializable,UninitializedYamlObject]): object to be potentially serialized
@@ -976,8 +994,10 @@ class _YamlDeserializer(object):
   @staticmethod
   def is_initialized(obj):
     """
-    Returns: True if a serializable object's __init__ has been invoked (either programmatically or through YAML deserialization)
-              False if __init__ has not been invoked, i.e. the object has been produced by the YAML parser but is not ready to use
+    Returns: ``True`` if a serializable object's ``__init__()`` has been invoked (either programmatically or through
+              YAML deserialization).
+              ``False`` if ``__init__()`` has not been invoked, i.e. the object has been produced by the YAML parser but
+              is not ready to use.
     """
     return type(obj) != UninitializedYamlObject
 
@@ -985,12 +1005,14 @@ class _YamlDeserializer(object):
     """
     Initializes a hierarchy of deserialized YAML objects.
 
-    Note: make sure to always create a new _YamlDeserializer before calling this, e.g. using _YamlDeserializer().initialize_object()
+    Note: make sure to always create a new ``_YamlDeserializer`` before calling this, e.g. using
+    ``_YamlDeserializer().initialize_object()``
 
     Args:
-      deserialized_yaml_wrapper: deserialized YAML data inside a UninitializedYamlObject wrapper (classes are resolved and class members set, but __init__() has not been called at this point)
+      deserialized_yaml_wrapper: deserialized YAML data inside a :class:`UninitializedYamlObject` wrapper (classes are
+                                 resolved and class members set, but ``__init__()`` has not been called at this point)
     Returns:
-      the appropriate object, with properly shared parameters and __init__() having been invoked
+      the appropriate object, with properly shared parameters and ``__init__()`` having been invoked
     """
     assert not self.has_been_called
     self.has_been_called = True
@@ -1188,14 +1210,13 @@ def _dump(ser_obj):
   _resolve_serialize_refs(ser_obj)
   return yaml.dump(ser_obj)
 
-def save_to_file(fname: str, mod: YamlSerializable) -> None:
+def save_to_file(fname: str, mod: Any) -> None:
   """
   Save a component hierarchy and corresponding DyNet parameter collection to disk.
 
   Args:
     fname: Filename to save to.
     mod: Component hierarchy.
-    param_collection: global object holding DyNet parameters (usually ParamManager.param_col)
   """
   dirname = os.path.dirname(fname)
   if dirname and not os.path.exists(dirname):
@@ -1205,7 +1226,7 @@ def save_to_file(fname: str, mod: YamlSerializable) -> None:
     param_collection.ParamManager.param_col.save()
 
 
-def initialize_if_needed(root: Union[YamlSerializable, UninitializedYamlObject]) -> YamlSerializable:
+def initialize_if_needed(root: Union[Any, UninitializedYamlObject]) -> Any:
   """
   Initialize if obj has not yet been initialized.
 
@@ -1219,7 +1240,7 @@ def initialize_if_needed(root: Union[YamlSerializable, UninitializedYamlObject])
   """
   return _YamlDeserializer().initialize_if_needed(root)
 
-def initialize_object(root: UninitializedYamlObject) -> YamlSerializable:
+def initialize_object(root: UninitializedYamlObject) -> Any:
   """
   Initialize an uninitialized object.
 

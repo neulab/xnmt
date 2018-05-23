@@ -512,8 +512,9 @@ class EnsembleTranslator(Translator, Serializable, EventTrigger):
 
     # perform checks to verify the models can logically be ensembled
     for i, model in enumerate(self.models):
-      assert self.src_reader.vocab.is_compatible(model.src_reader.vocab), \
-        f"src_reader.vocab is not compatible with model {i}"
+      if hasattr(self.src_reader, "vocab") or hasattr(model.src_reader, "vocab"):
+        assert self.src_reader.vocab.is_compatible(model.src_reader.vocab), \
+          f"src_reader.vocab is not compatible with model {i}"
       assert self.trg_reader.vocab.is_compatible(model.trg_reader.vocab), \
         f"trg_reader.vocab is not compatible with model {i}"
 

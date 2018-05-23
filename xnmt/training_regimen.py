@@ -261,6 +261,9 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
                commandline_args=Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks)
+    if len(self.task_weights) != len(self.tasks):
+      raise ValueError(f"number of tasks must match number of task weights; "
+                       f"found: {len(self.task_weights)} != {len(self.tasks)}")
     self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
 
   def run_training(self, save_fct, update_weights=True):

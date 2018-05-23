@@ -57,6 +57,7 @@ setup(
     'console_scripts': [
       'xnmt = xnmt.xnmt_run_experiments:main',
       'xnmt_evaluate = xnmt.xnmt_evaluate:main',
+      'xnmt_decode = xnmt.xnmt_decode:main',
     ],
   }
 )

@@ -37,7 +37,6 @@ class TestRunningConfig(unittest.TestCase):
   def test_preproc(self):
     run.main(["test/config/preproc.yaml"])
 
-  @unittest.expectedFailure # TODO: these tests need to be fixed
   def test_pretrained_emb(self):
     run.main(["test/config/pretrained_embeddings.yaml"])
 
