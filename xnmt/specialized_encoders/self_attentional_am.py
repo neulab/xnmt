@@ -1,3 +1,4 @@
+from typing import Any, Optional, Union
 import logging
 
 yaml_logger = logging.getLogger('yaml')
@@ -14,46 +15,101 @@ from scipy.stats import entropy
 import numpy as np
 import dynet as dy
 
-from simple_settings import settings
-
-from xnmt.embedder import PositionEmbedder
-from xnmt.expression_sequence import ExpressionSequence
-from xnmt.events import register_handler, handle_xnmt_event
-from xnmt.lstm import BiLSTMSeqTransducer
-from xnmt.nn import LayerNorm, Linear, PositionwiseFeedForward, TimeDistributed, PositionwiseLinear
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
-from xnmt.transducer import SeqTransducer, FinalTransducerState
-from xnmt.serialize.serializable import Serializable
-from xnmt.serialize.tree_tools import Ref, Path
+import xnmt.param_init
+from xnmt import linear, norm, embedder, expression_sequence, events, lstm, param_collection, transducer
+from xnmt.persistence import Serializable, serializable_init, Ref, bare
 
 LOG_ATTENTION = False
 
-class MultiHeadedSelfAttention(object):
-  def __init__(self, head_count, model_dim, model, downsample_factor=1, input_dim=None,
-               ignore_masks=False, plot_attention=None, diag_gauss_mask=False,
-               square_mask_std=True, cross_pos_encoding_type=None,
-               kq_pos_encoding_type=None, kq_pos_encoding_size=40, max_len=1500,
-               param_init=GlorotInitializer(), bias_init=ZeroInitializer(), desc=None):
+
+class SAAMTimeDistributed(object):
+  """
+  A Callable that puts the time-dimension of an input expression into the batch dimension via a reshape.
+  """
+
+  def __call__(self, x: dy.Expression) -> dy.Expression:
     """
-    head_count (int): number of self-att heads
-    model_dim (int): model dimension
-    model (dynet.ParameterCollection): dynet param collection
-    downsample_factor (int): downsampling factor (>=1)
-    input_dim (int): input dimension
-    ignore_masks (bool): don't apply any masking
-    plot_attention (str|None): None or path to directory to write plots to
-    diag_gauss_mask (bool|float): False to disable, otherwise a float denoting the std of the mask
-    square_mask_std (bool): whether to square the std parameter to facilitate training
-    cross_pos_encoding_type (str|None): None 'embedding'
-    kq_pos_encoding_type (str|None): None or 'embedding'
-    kq_pos_encoding_size (int):
-    max_len (int): max sequence length (used to determine positional embedding size)
-    param_init (ParamInitializer): initializer for weight matrices
-    bias_init (ParamInitializer): initializer for bias vectors
+    Move the time-dimension of an input expression into the batch dimension via a reshape.
+
+    Args:
+      x: expression of dimensions ((hidden, timesteps), batch_size)
+
+    Returns:
+      expression of dimensions ((hidden,), timesteps*batch_size)
+    """
+    batch_size = x[0].dim()[1]
+    model_dim = x[0].dim()[0][0]
+    seq_len = len(x)
+    total_words = seq_len * batch_size
+    input_tensor = x.as_tensor()
+    return dy.reshape(input_tensor, (model_dim,), batch_size=total_words)
+
+
+class SAAMPositionwiseFeedForward(Serializable):
+  """
+  Interleaved feed-forward components of the transformer, computed as layer_norm(dropout(linear(relu(linear))) + x).
+
+  Args:
+    input_dim: the size of input for the first-layer of the FFN.
+    hidden_dim: the hidden layer size of the second-layer of the FNN.
+    nonlinearity: non-linearity, a DyNet unary operation (rectify according to the transformer paper)
+    linear_transforms: list with 2 items corresponding to the first and second linear transformations to be used
+                       (pass ``None`` to create automatically)
+    layer_norm: layer norm object to be applied (pass ``None`` to create automatically)
+  """
+  yaml_tag = "!SAAMPositionwiseFeedForward"
+
+  @serializable_init
+  def __init__(self, input_dim: int, hidden_dim: int, nonlinearity: str = "rectify",
+               linear_transforms: Optional[Sequence[linear.Linear]] = None,
+               layer_norm: Optional[norm.LayerNorm] = None) -> None:
+    w_12 = self.add_serializable_component("linear_transforms", linear_transforms,
+                                           lambda: [linear.Linear(input_dim, hidden_dim),
+                                                    linear.Linear(hidden_dim, input_dim)])
+    self.w_1 = w_12[0]
+    self.w_2 = w_12[1]
+    self.layer_norm = self.add_serializable_component("layer_norm", layer_norm, lambda: norm.LayerNorm(input_dim))
+    self.nonlinearity = getattr(dy, nonlinearity)
+
+  def __call__(self, x, p):
+    residual = x
+    output = self.w_2(self.nonlinearity(self.w_1(x)))
+    if p > 0.0:
+      output = dy.dropout(output, p)
+    return self.layer_norm(output + residual)
+
+
+class SAAMMultiHeadedSelfAttention(Serializable):
+  """
+  Args:
+    head_count: number of self-att heads
+    model_dim: model dimension
+    downsample_factor: downsampling factor (>=1)
+    input_dim: input dimension
+    ignore_masks: don't apply any masking
+    plot_attention: None or path to directory to write plots to
+    diag_gauss_mask: False to disable, otherwise a float denoting the std of the mask
+    square_mask_std: whether to square the std parameter to facilitate training
+    cross_pos_encoding_type: None 'embedding'
+    kq_pos_encoding_type: None or 'embedding'
+    kq_pos_encoding_size:
+    max_len: max sequence length (used to determine positional embedding size)
+    param_init: initializer for weight matrices
+    bias_init: initializer for bias vectors
     desc: useful to describe layer if plot_attention is given.
-    """
-    if diag_gauss_mask:
-      register_handler(self)
+  """
+  yaml_tag = "!SAAMMultiHeadedSelfAttention"
+
+  @events.register_xnmt_handler
+  @serializable_init
+  def __init__(self, head_count: int, model_dim: int, downsample_factor: int = 1, input_dim: int = None,
+               ignore_masks: bool = False, plot_attention: Optional[str] = None,
+               diag_gauss_mask: Union[bool, float] = False,
+               square_mask_std: bool = True, cross_pos_encoding_type: Optional[str] = None,
+               kq_pos_encoding_type: Optional[str] = None, kq_pos_encoding_size: int = 40, max_len: int = 1500,
+               param_init: xnmt.param_init.ParamInitializer = xnmt.param_init.GlorotInitializer(),
+               bias_init: xnmt.param_init.ParamInitializer = xnmt.param_init.ZeroInitializer(),
+               desc: Any = None) -> None:
     if input_dim is None: input_dim = model_dim
     self.input_dim = input_dim
     assert model_dim % head_count == 0
@@ -74,41 +130,46 @@ class MultiHeadedSelfAttention(object):
     self.kq_pos_encoding_size = kq_pos_encoding_size
     self.max_len = max_len
 
+    subcol = param_collection.ParamManager.my_params(self)
+
+    # TODO: use self.add_serializable_component
+
     if self.kq_pos_encoding_type is None:
-      self.linear_kvq = Linear(input_dim * downsample_factor,
-                               head_count * self.dim_per_head * 3, model, param_init=param_init, bias_init=bias_init)
+      self.linear_kvq = linear.Linear(input_dim * downsample_factor,
+                                      head_count * self.dim_per_head * 3, param_init=param_init,
+                                      bias_init=bias_init)
     else:
-      self.linear_kq = Linear(input_dim * downsample_factor + self.kq_pos_encoding_size,
-                              head_count * self.dim_per_head * 2, model, param_init=param_init, bias_init=bias_init)
-      self.linear_v = Linear(input_dim * downsample_factor,
-                             head_count * self.dim_per_head, model, param_init=param_init, bias_init=bias_init)
+      self.linear_kq = linear.Linear(input_dim * downsample_factor + self.kq_pos_encoding_size,
+                                     head_count * self.dim_per_head * 2, param_init=param_init,
+                                     bias_init=bias_init)
+      self.linear_v = linear.Linear(input_dim * downsample_factor,
+                                    head_count * self.dim_per_head, param_init=param_init, bias_init=bias_init)
       assert self.kq_pos_encoding_type == "embedding"
-      self.kq_positional_embedder = PositionEmbedder(max_pos=self.max_len,
-                                                     model=model,
-                                                     emb_dim=self.kq_pos_encoding_size,
-                                                     param_init=param_init)
+      self.kq_positional_embedder = embedder.PositionEmbedder(max_pos=self.max_len,
+                                                              emb_dim=self.kq_pos_encoding_size,
+                                                              param_init=param_init)
 
     if self.diag_gauss_mask:
       if self.diag_gauss_mask == "rand":
         rand_init = np.exp((np.random.random(size=(self.head_count,))) * math.log(1000))
-        self.diag_gauss_mask_sigma = model.add_parameters(dim=(1, 1, self.head_count),
+        self.diag_gauss_mask_sigma = subcol.add_parameters(dim=(1, 1, self.head_count),
                                                           init=dy.NumpyInitializer(rand_init))
       else:
-        self.diag_gauss_mask_sigma = model.add_parameters(dim=(1, 1, self.head_count),
+        self.diag_gauss_mask_sigma = subcol.add_parameters(dim=(1, 1, self.head_count),
                                                           init=dy.ConstInitializer(self.diag_gauss_mask))
 
-    self.layer_norm = LayerNorm(model_dim, model)
+    self.layer_norm = norm.LayerNorm(model_dim)
 
-    if model_dim != input_dim * downsample_factor: self.res_shortcut = PositionwiseLinear(input_dim * downsample_factor,
-                                                                                          model_dim, model,
-                                                                                          param_init=param_init,
-                                                                                          bias_init=bias_init)
+    if model_dim != input_dim * downsample_factor: self.res_shortcut = linear.Linear(input_dim * downsample_factor,
+                                                                                     model_dim,
+                                                                                     param_init=param_init,
+                                                                                     bias_init=bias_init)
 
     self.cross_pos_encoding_type = cross_pos_encoding_type
     if cross_pos_encoding_type == "embedding":
-      self.cross_pos_emb_p1 = model.add_parameters(dim=(self.max_len, self.dim_per_head, self.head_count),
+      self.cross_pos_emb_p1 = subcol.add_parameters(dim=(self.max_len, self.dim_per_head, self.head_count),
                                                    init=dy.NormalInitializer(mean=1.0, var=0.001))
-      self.cross_pos_emb_p2 = model.add_parameters(dim=(self.max_len, self.dim_per_head, self.head_count),
+      self.cross_pos_emb_p2 = subcol.add_parameters(dim=(self.max_len, self.dim_per_head, self.head_count),
                                                    init=dy.NormalInitializer(mean=1.0, var=0.001))
     elif cross_pos_encoding_type is not None:
       raise NotImplementedError()
@@ -129,12 +190,12 @@ class MultiHeadedSelfAttention(object):
     out = dy.transpose(out)
     return dy.reshape(out, (seq_len, self.dim_per_head), batch_size=batch_size * self.head_count)
 
-  def __call__(self, x, att_mask, batch_mask, p):
+  def __call__(self, x: dy.Expression, att_mask: np.ndarray, batch_mask: np.ndarray, p: float):
     """
-    x (dynet.Expression): expression of dimensions (input_dim, time) x batch
-    att_mask (numpy.ndarray): numpy array of dimensions (time, time); pre-transposed
-    batch_mask (numpy.ndarray): numpy array of dimensions (batch, time)
-    p (float): dropout prob
+    x: expression of dimensions (input_dim, time) x batch
+    att_mask: numpy array of dimensions (time, time); pre-transposed
+    batch_mask: numpy array of dimensions (batch, time)
+    p: dropout prob
     """
     sent_len = x.dim()[0][1]
     batch_size = x[0].dim()[1]
@@ -142,7 +203,8 @@ class MultiHeadedSelfAttention(object):
     if self.downsample_factor > 1:
       if sent_len % self.downsample_factor != 0:
         raise ValueError(
-          "For 'reshape' downsampling, sequence lengths must be multiples of the downsampling factor. Configure batcher accordingly.")
+          "For 'reshape' downsampling, sequence lengths must be multiples of the downsampling factor. "
+          "Configure batcher accordingly.")
       if batch_mask is not None: batch_mask = batch_mask[:, ::self.downsample_factor]
       sent_len_out = sent_len // self.downsample_factor
       sent_len = sent_len_out
@@ -150,19 +212,19 @@ class MultiHeadedSelfAttention(object):
       if self.downsample_factor > 1 and out_mask is not None:
         out_mask = out_mask.lin_subsampled(reduce_factor=self.downsample_factor)
 
-      x = ExpressionSequence(expr_tensor=dy.reshape(x.as_tensor(), (
-      x.dim()[0][0] * self.downsample_factor, x.dim()[0][1] / self.downsample_factor), batch_size=batch_size),
-                             mask=out_mask)
-      residual = TimeDistributed()(x)
+      x = expression_sequence.ExpressionSequence(expr_tensor=dy.reshape(x.as_tensor(), (
+        x.dim()[0][0] * self.downsample_factor, x.dim()[0][1] / self.downsample_factor), batch_size=batch_size),
+                                                 mask=out_mask)
+      residual = SAAMTimeDistributed()(x)
     else:
-      residual = TimeDistributed()(x)
+      residual = SAAMTimeDistributed()(x)
       sent_len_out = sent_len
     if self.model_dim != self.input_dim * self.downsample_factor:
       residual = self.res_shortcut(residual)
 
     # Concatenate all the words together for doing vectorized affine transform
     if self.kq_pos_encoding_type is None:
-      kvq_lin = self.linear_kvq(TimeDistributed()(x))
+      kvq_lin = self.linear_kvq(SAAMTimeDistributed()(x))
       key_up = self.shape_projection(dy.pick_range(kvq_lin, 0, self.head_count * self.dim_per_head), batch_size)
       value_up = self.shape_projection(
         dy.pick_range(kvq_lin, self.head_count * self.dim_per_head, 2 * self.head_count * self.dim_per_head),
@@ -174,11 +236,12 @@ class MultiHeadedSelfAttention(object):
       assert self.kq_pos_encoding_type == "embedding"
       encoding = self.kq_positional_embedder.embed_sent(sent_len).as_tensor()
       kq_lin = self.linear_kq(
-        TimeDistributed()(ExpressionSequence(expr_tensor=dy.concatenate([x.as_tensor(), encoding]))))
+        SAAMTimeDistributed()(
+          expression_sequence.ExpressionSequence(expr_tensor=dy.concatenate([x.as_tensor(), encoding]))))
       key_up = self.shape_projection(dy.pick_range(kq_lin, 0, self.head_count * self.dim_per_head), batch_size)
       query_up = self.shape_projection(
         dy.pick_range(kq_lin, self.head_count * self.dim_per_head, 2 * self.head_count * self.dim_per_head), batch_size)
-      v_lin = self.linear_v(TimeDistributed()(x))
+      v_lin = self.linear_v(SAAMTimeDistributed()(x))
       value_up = self.shape_projection(v_lin, batch_size)
 
     if self.cross_pos_encoding_type:
@@ -285,43 +348,43 @@ class MultiHeadedSelfAttention(object):
     ret = self.layer_norm(res)
     return ret
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_new_epoch(self, training_task, num_sents):
     yaml_logger.info(
       {"key": "self_att_mask_var: ", "val": [float(x) for x in list(self.diag_gauss_mask_sigma.as_array().flat)],
        "desc": self.desc})
 
 
-class TransformerEncoderLayer(object):
-  def __init__(self, hidden_dim, exp_global, head_count=8, ff_hidden_dim=2048, downsample_factor=1,
+class TransformerEncoderLayer(Serializable):
+  yaml_tag = "!TransformerEncoderLayer"
+  @serializable_init
+  def __init__(self, hidden_dim, head_count=8, ff_hidden_dim=2048, downsample_factor=1,
                input_dim=None, diagonal_mask_width=None, ignore_masks=False,
                plot_attention=None, nonlinearity="rectify", diag_gauss_mask=False,
                square_mask_std=True, cross_pos_encoding_type=None,
                ff_lstm=False, kq_pos_encoding_type=None, kq_pos_encoding_size=40, max_len=1500,
-               param_init=None, bias_init=None, dropout=None, desc=None):
-    model = exp_global.dynet_param_collection.param_col
-    param_init = param_init or exp_global.param_init
-    bias_init = bias_init or exp_global.bias_init
-    self.self_attn = MultiHeadedSelfAttention(head_count, hidden_dim, model, downsample_factor,
-                                              input_dim=input_dim, ignore_masks=ignore_masks,
-                                              plot_attention=plot_attention,
-                                              diag_gauss_mask=diag_gauss_mask, square_mask_std=square_mask_std,
-                                              param_init=param_init,
-                                              bias_init=bias_init,
-                                              cross_pos_encoding_type=cross_pos_encoding_type,
-                                              kq_pos_encoding_type=kq_pos_encoding_type,
-                                              kq_pos_encoding_size=kq_pos_encoding_size,
-                                              max_len=max_len,
-                                              desc=desc)
+               param_init=Ref("exp_global.param_init", default=bare(xnmt.param_init.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(xnmt.param_init.ZeroInitializer)),
+               dropout=None, desc=None):
+    # TODO: use self.add_serializable_component
+    self.self_attn = SAAMMultiHeadedSelfAttention(head_count, hidden_dim, downsample_factor,
+                                                  input_dim=input_dim, ignore_masks=ignore_masks,
+                                                  plot_attention=plot_attention,
+                                                  diag_gauss_mask=diag_gauss_mask, square_mask_std=square_mask_std,
+                                                  param_init=param_init,
+                                                  bias_init=bias_init,
+                                                  cross_pos_encoding_type=cross_pos_encoding_type,
+                                                  kq_pos_encoding_type=kq_pos_encoding_type,
+                                                  kq_pos_encoding_size=kq_pos_encoding_size,
+                                                  max_len=max_len,
+                                                  desc=desc)
     self.ff_lstm = ff_lstm
     if ff_lstm:
-      self.feed_forward = BiLSTMSeqTransducer(exp_global, layers=1, input_dim=hidden_dim,
-                                              hidden_dim=hidden_dim, dropout=dropout,
-                                              param_init=param_init,
-                                              bias_init=bias_init)
+      self.feed_forward = lstm.BiLSTMSeqTransducer(layers=1, input_dim=hidden_dim, hidden_dim=hidden_dim,
+                                                   dropout=dropout, param_init=param_init, bias_init=bias_init)
     else:
-      self.feed_forward = PositionwiseFeedForward(hidden_dim, ff_hidden_dim, model, nonlinearity=nonlinearity,
-                                                  param_init=param_init)
+      self.feed_forward = SAAMPositionwiseFeedForward(hidden_dim, ff_hidden_dim, nonlinearity=nonlinearity,
+                                                      param_init=param_init)
     self.head_count = head_count
     self.downsample_factor = downsample_factor
     self.diagonal_mask_width = diagonal_mask_width
@@ -354,60 +417,60 @@ class TransformerEncoderLayer(object):
       out_mask = out_mask.lin_subsampled(reduce_factor=self.downsample_factor)
     if self.ff_lstm:
       mid_re = dy.reshape(mid, (hidden_dim, seq_len), batch_size=batch_size)
-      out = self.feed_forward(ExpressionSequence(expr_tensor=mid_re, mask=out_mask))
+      out = self.feed_forward(expression_sequence.ExpressionSequence(expr_tensor=mid_re, mask=out_mask))
       out = dy.reshape(out.as_tensor(), (hidden_dim,), batch_size=seq_len * batch_size)
     else:
       out = self.feed_forward(mid, p=self.dropout)
 
     self._recent_output = out
-    return ExpressionSequence(expr_tensor=dy.reshape(out, (out.dim()[0][0], seq_len), batch_size=batch_size),
-                              mask=out_mask)
+    return expression_sequence.ExpressionSequence(
+      expr_tensor=dy.reshape(out, (out.dim()[0][0], seq_len), batch_size=batch_size),
+      mask=out_mask)
 
 
-class TransformerSeqTransducer(SeqTransducer, Serializable):
-  yaml_tag = u'!TransformerSeqTransducer'
-
-  def __init__(self, exp_global=Ref(Path("exp_global")), input_dim=512, layers=1, hidden_dim=512,
-               head_count=8, ff_hidden_dim=2048, dropout=None,
-               downsample_factor=1, diagonal_mask_width=None,
-               ignore_masks=False, plot_attention=None, nonlinearity="rectify",
-               pos_encoding_type=None, pos_encoding_combine="concat",
-               pos_encoding_size=40, max_len=1500,
-               diag_gauss_mask=False, square_mask_std=True,
-               cross_pos_encoding_type=None,
-               ff_lstm=False, kq_pos_encoding_type=None, kq_pos_encoding_size=40,
-               param_init=None, bias_init=None):
-    """
-    exp_global (ExpGlobal):
-    input_dim (int): input dimension
-    layers (int): number of layers
-    hidden_dim (int): hidden dimension
-    downsample_factor (int): downsampling factor (>=1)
-    diagonal_masik_width (int): if given, apply hard masking of this width
-    ignore_masks (bool): if True, don't apply any masking
-    plot_attention (str|None): if given, plot self-attention matrices for each layer
-    nonlinearity (str): nonlinearity to apply in FF module (string that corresponds to a DyNet unary operation)
+class TransformerSeqTransducer(transducer.SeqTransducer, Serializable):
+  """
+  Args:
+    input_dim: input dimension
+    layers: number of layers
+    hidden_dim: hidden dimension
+    head_count:
+    ff_hidden_dim:
+    dropout:
+    downsample_factor: downsampling factor (>=1)
+    diagonal_mask_width: if given, apply hard masking of this width
+    ignore_masks: if True, don't apply any masking
+    plot_attention: if given, plot self-attention matrices for each layer
+    nonlinearity: nonlinearity to apply in FF module (string that corresponds to a DyNet unary operation)
     pos_encoding_type: None, trigonometric, embedding
     pos_encoding_combine: add, concat
-    pos_encoding_size (int): if add, must eqal input_dim, otherwise can be chosen freely
-    max_len (int): needed to initialize pos embeddings
-    diag_gauss_mask (bool): whether to apply a soft Gaussian mask with learnable variance
-    square_mask_std (float): initial standard deviation of soft Gaussian mask
-    cross_pos_encoding_type (str|None): 'embedding' or None
-    ff_lstm (bool): if True, use interleaved LSTMs, otherwise add depth using position-wise feed-forward components
-    kq_pos_encoding_type (str|None): None or 'embedding'
+    pos_encoding_size: if add, must eqal input_dim, otherwise can be chosen freely
+    max_len: needed to initialize pos embeddings
+    diag_gauss_mask: whether to apply a soft Gaussian mask with learnable variance
+    square_mask_std: initial standard deviation of soft Gaussian mask
+    cross_pos_encoding_type: 'embedding' or None
+    ff_lstm: if True, use interleaved LSTMs, otherwise add depth using position-wise feed-forward components
+    kq_pos_encoding_type: None or 'embedding'
     kq_pos_encoding_size (int):
-    param_init (ParamInitializer): initializer for weight matrices
-    bias_init (ParamInitializer): initializer for bias vectors
-    """
-    param_init = param_init or exp_global.param_init
-    bias_init = bias_init or exp_global.bias_init
-    register_handler(self)
-    param_col = exp_global.dynet_param_collection.param_col
+    param_init: initializer for weight matrices
+    bias_init: initializer for bias vectors
+  """
+  yaml_tag = u'!TransformerSeqTransducer'
+
+  @serializable_init
+  @events.register_xnmt_handler
+  def __init__(self, input_dim:int=512, layers:int=1, hidden_dim:int=512, head_count:int=8, ff_hidden_dim:int=2048,
+               dropout:float=Ref("exp_global.dropout", default=0.0), downsample_factor:int=1, diagonal_mask_width:int=None,
+               ignore_masks:bool=False, plot_attention:Optional[str]=None, nonlinearity:str="rectify", pos_encoding_type:Optional[str]=None,
+               pos_encoding_combine:str="concat", pos_encoding_size:int=40, max_len:int=1500, diag_gauss_mask:bool=False,
+               square_mask_std:float=True, cross_pos_encoding_type:Optional[str]=None, ff_lstm:bool=False, kq_pos_encoding_type:Optional[str]=None,
+               kq_pos_encoding_size:int=40,
+               param_init:xnmt.param_init.ParamInitializer=Ref("exp_global.param_init", default=bare(xnmt.param_init.GlorotInitializer)),
+               bias_init:xnmt.param_init.ParamInitializer=Ref("exp_global.bias_init", default=bare(xnmt.param_init.ZeroInitializer))):
     self.input_dim = input_dim = (
-              input_dim + (pos_encoding_size if (pos_encoding_type and pos_encoding_combine == "concat") else 0))
+            input_dim + (pos_encoding_size if (pos_encoding_type and pos_encoding_combine == "concat") else 0))
     self.hidden_dim = hidden_dim
-    self.dropout = dropout or exp_global.dropout
+    self.dropout = dropout
     self.layers = layers
     self.modules = []
     self.pos_encoding_type = pos_encoding_type
@@ -416,15 +479,14 @@ class TransformerSeqTransducer(SeqTransducer, Serializable):
     self.max_len = max_len
     self.position_encoding_block = None
     if self.pos_encoding_type == "embedding":
-      self.positional_embedder = PositionEmbedder(max_pos=self.max_len,
-                                                  exp_global=exp_global,
-                                                  emb_dim=input_dim if self.pos_encoding_combine == "add" else self.pos_encoding_size)
+      self.positional_embedder = embedder.PositionEmbedder(max_pos=self.max_len,
+                                                           emb_dim=input_dim if self.pos_encoding_combine == "add" else self.pos_encoding_size)
     for layer_i in range(layers):
       if plot_attention is not None:
         plot_attention_layer = f"{plot_attention}.layer_{layer_i}"
       else:
         plot_attention_layer = None
-      self.modules.append(TransformerEncoderLayer(hidden_dim, exp_global=exp_global,
+      self.modules.append(TransformerEncoderLayer(hidden_dim,
                                                   downsample_factor=downsample_factor,
                                                   input_dim=input_dim if layer_i == 0 else hidden_dim,
                                                   head_count=head_count, ff_hidden_dim=ff_hidden_dim,
@@ -456,23 +518,23 @@ class TransformerSeqTransducer(SeqTransducer, Serializable):
       encoding = self.positional_embedder.embed_sent(len(sent)).as_tensor()
     if self.pos_encoding_type:
       if self.pos_encoding_combine == "add":
-        sent = ExpressionSequence(expr_tensor=sent.as_tensor() + encoding, mask=sent.mask)
+        sent = expression_sequence.ExpressionSequence(expr_tensor=sent.as_tensor() + encoding, mask=sent.mask)
       else:  # concat
-        sent = ExpressionSequence(expr_tensor=dy.concatenate([sent.as_tensor(), encoding]),
-                                  mask=sent.mask)
+        sent = expression_sequence.ExpressionSequence(expr_tensor=dy.concatenate([sent.as_tensor(), encoding]),
+                                                      mask=sent.mask)
 
     elif self.pos_encoding_type:
       raise ValueError(f"unknown encoding type {self.pos_encoding_type}")
     for module in self.modules:
       enc_sent = module.transduce(sent)
       sent = enc_sent
-    self._final_states = [FinalTransducerState(sent[-1])]
+    self._final_states = [transducer.FinalTransducerState(sent[-1])]
     return sent
 
   def get_final_states(self):
     return self._final_states
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_set_train(self, val):
     for module in self.modules:
       module.set_dropout(self.dropout if val else 0.0)
@@ -488,4 +550,3 @@ class TransformerSeqTransducer(SeqTransducer, Serializable):
     signal = np.concatenate([np.sin(scaled_time), np.cos(scaled_time)], axis=1)
     signal = np.reshape(signal, [1, length, channels])
     self.position_encoding_block = np.transpose(signal, (0, 2, 1))
-

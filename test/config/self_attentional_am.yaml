@@ -34,11 +34,6 @@ speech-self-att: !Experiment
       input_dim: 32
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 32
-    decoder: !MlpSoftmaxDecoder
-      layers: 1
-      input_dim: 32
-      mlp_hidden_dim: 32
-      bridge: !NoBridge {}
   train: !SimpleTrainingRegimen
     src_file: examples/data/LDC94S13A.h5
     trg_file: examples/data/LDC94S13A.char

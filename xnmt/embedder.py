@@ -281,6 +281,8 @@ class PositionEmbedder(Embedder, Serializable):
 
   yaml_tag = '!PositionEmbedder'
 
+  @serializable_init
+  @register_xnmt_handler
   def __init__(self, max_pos, exp_global=Ref(Path("exp_global")), model=None,
                emb_dim=None, param_init=None):
     """
@@ -290,7 +292,6 @@ class PositionEmbedder(Embedder, Serializable):
     emb_dim (int): embedding size
     param_init (ParamInitializer): how to initialize embedding matrix
     """
-    register_handler(self)
     self.max_pos = max_pos
     self.emb_dim = emb_dim or exp_global.default_layer_dim
     param_collection = model or exp_global.dynet_param_collection.param_col
