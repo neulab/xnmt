@@ -33,7 +33,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
                epsilon_greedy=None,     # GeometricSequence
                reinforce_scale=None,    # GeometricSequence
                confidence_penalty=None, # SegmentationConfidencePenalty
-               learn_gold=None,
                print_sample_prob=0.01,
                src_vocab = Ref(Path("model.src_reader.vocab")),
                trg_vocab = Ref(Path("model.trg_reader.vocab")),
@@ -84,7 +83,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     self.length_prior_alpha = length_prior_alpha
     self.lmbd = reinforce_scale
     self.eps = epsilon_greedy
-    self.learn_gold = learn_gold
     self.confidence_penalty = confidence_penalty
     # States of the object
     self.train = False
@@ -131,14 +129,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
         self.print_sample_enc(outputs, self.enc_mask, segment_mask)
     if not self.train:
       # Rewrite segmentation
-      self.segmentation = self.segment_decisions[0] 
+      self.segmentation = self.segment_decisions[0]
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return self.final_transducer(expression_sequence.ExpressionSequence(expr_tensor=self.outputs,
                                                                         mask=segment_mask))
 
 
   @handle_xnmt_event
-  def on_start_sent(self, src=None):
+  def on_start_sent(self, src):
     self.src_sent = src
     self.segment_length_prior = None
     self.segment_decisions = None
@@ -170,14 +168,12 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
   def sample_segmentation(self, encodings, batch_size):
     lmbd = self.lmbd.value() if self.lmbd is not None else 0
     eps = self.eps.value() if self.eps is not None else None
-    learn_gold = self.learn_gold.value() if self.learn_gold is not None else None
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
     # Flags
     is_presegment_provided = self.src_sent[0].has_annotation("segment")
     is_epsgreedy_triggered = eps is not None and numpy.random.random() <= eps
-    is_not_learn_from_gold = learn_gold is not None and learn_gold == 0
     # Sample based on the criterion
-    if self.learn_segmentation and not self.train and is_not_learn_from_gold:
+    if self.learn_segmentation and not self.train:
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
     elif is_presegment_provided:
       segment_decisions = self.sample_from_prior(encodings, batch_size)
@@ -210,22 +206,26 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
   # Sample from prior segmentation
   def sample_from_prior(self, encodings, batch_size):
     #print("sample_from_prior")
+    self.sample_action = SampleAction.GOLD
     return [sent.annotation["segment"] for sent in self.src_sent]
 
   # Sample from poisson prior
   def sample_from_poisson(self, encodings, batch_size):
     assert len(encodings) != 0
+    self.sample_action = SampleAction.LP
     #print("sample_from_poisson")
     randoms = list(filter(lambda x: x > 0, numpy.random.poisson(lam=self.length_prior, size=batch_size*len(encodings))))
     segment_decisions = [[] for _ in range(batch_size)]
     idx = 0
+    if len(randoms) == 0:
+      randoms = [0]
     # Filling up the segmentation matrix based on the poisson distribution
     for decision in segment_decisions:
       current = randoms[idx]
       while current < len(encodings):
         decision.append(current)
-        idx += 1
-        current += randoms[idx]
+        idx = (idx + 1) % len(randoms)
+        current += max(randoms[idx], 1)
     return segment_decisions
 
   # Sample from the softmax
@@ -233,12 +233,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     # Sample from the softmax
     if self.train and self.learn_segmentation or self.sample_during_search:
       #print("sample_from_softmax")
+      self.sample_action = SampleAction.SOFTMAX
       segment_decisions = [log_softmax.tensor_value().categorical_sample_log_prob().as_numpy()[0]
                            for log_softmax in segment_logsoftmaxes]
       if batch_size == 1:
         segment_decisions = [numpy.array([x]) for x in segment_decisions]
     else:
       #print("sample_from_argmax")
+      self.sample_action = SampleAction.ARGMAX
       segment_decisions = [log_softmax.tensor_value().argmax().as_numpy().transpose()
                            for log_softmax in segment_logsoftmaxes]
     ret = numpy.stack(segment_decisions, axis=1)
@@ -421,6 +423,12 @@ class SegmentingAction(Enum):
   """
   READ = 0
   SEGMENT = 1
+
+class SampleAction(Enum):
+  SOFTMAX = 0
+  ARGMAX = 1
+  GOLD = 2
+  LP = 3
 
 class SegmentationConfidencePenalty(Serializable):
   ''' https://arxiv.org/pdf/1701.06548.pdf

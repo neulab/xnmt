@@ -4,7 +4,6 @@ from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.events import register_xnmt_handler, register_xnmt_event
 
-@serializable_init
 class SegmentComposer(Serializable):
   yaml_tag = "!SegmentComposer"
 
@@ -35,10 +34,15 @@ class SegmentTransformer(Serializable):
   def transform(self, encoder, encodings):
     raise RuntimeError("Should call subclass of SegmentTransformer instead")
 
-class TailSegmentTransformer(SegmentTransformer, Serializable):
+class TailSegmentTransformer(Serializable):
   yaml_tag = u"!TailSegmentTransformer"
+  
+  @serializable_init
+  def __init__(self):
+    pass
+
   def transform(self, encoder, encodings):
-    return encoder.get_final_states()[0]._main_expr
+    return encoder.get_final_states()[0].main_expr()
 
 class TailWordSegmentTransformer(SegmentTransformer):
   yaml_tag = "!TailWordSegmentTransformer"
@@ -83,4 +87,11 @@ class AverageSegmentTransformer(SegmentTransformer):
   yaml_tag = "!AverageSegmentTransformer"
   def transform(self, encoder, encodings):
     return dy.average(encodings.as_list())
+
+class SumSegmentTransformer(SegmentTransformer):
+  yaml_tag = "!SumSegmentTransformer"
+  def transform(self, encoder, encodings):
+    result = dy.sum_elems(encodings.as_tensor())
+    print(result.dim())
+    return result
 
