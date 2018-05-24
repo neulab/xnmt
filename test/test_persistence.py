@@ -143,12 +143,6 @@ class TestPreloader(unittest.TestCase):
     self.assertListEqual(YamlPreloader.experiment_names_from_file(f"{self.out_dir}/tmp.yaml"),
                          ["exp1", "exp10", "exp2"])
 
-  def test_preload_experiment_from_file(self):
-    ... # TODO
-
-  def test_preload_obj(self):
-    ... # TODO
-
   def test_load_referenced_serialized_top(self):
     with open(f"{self.out_dir}/tmp1.yaml", "w") as f_out:
       yaml.dump(DummyClass(arg1="v1"), f_out)
