@@ -1,7 +1,10 @@
 import dynet as dy
+import numpy as np
 
+from xnmt.linear import Linear
 from xnmt.param_collection import ParamManager
-from xnmt.persistence import serializable_init, Serializable, Ref
+from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
+from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.events import register_xnmt_handler, register_xnmt_event
 
 class SegmentComposer(Serializable):
@@ -24,74 +27,108 @@ class SegmentComposer(Serializable):
   def transduce(self, inputs):
     return self.transformer.transform(self.encoder, self.encoder(inputs))
 
-class SegmentTransformer(Serializable):
-  yaml_tag = "!SegmentTransformer"
-
-  @serializable_init
-  def __init__(self):
-    pass
-
-  def transform(self, encoder, encodings):
-    raise RuntimeError("Should call subclass of SegmentTransformer instead")
-
 class TailSegmentTransformer(Serializable):
   yaml_tag = u"!TailSegmentTransformer"
-  
   @serializable_init
-  def __init__(self):
-    pass
-
+  def __init__(self): pass
   def transform(self, encoder, encodings):
     return encoder.get_final_states()[0].main_expr()
 
-class TailWordSegmentTransformer(SegmentTransformer):
-  yaml_tag = "!TailWordSegmentTransformer"
-
-
-  def __init__(self, vocab=None, vocab_size=1e6,
-               count_file=None, min_count=1, embed_dim=Ref("exp_global.default_layer_dim")):
-    assert vocab is not None
-    self.vocab = vocab
-    self.lookup = ParamManager.my_params(self).add_lookup_parameters((vocab_size, embed_dim))
-    self.frequent_words = None
-
-    if count_file is not None:
-      print("Reading count reference...")
-      frequent_words = set()
-      with open(count_file, "r") as fp:
-        for line in fp:
-          line = line.strip().split("\t")
-          cnt = int(line[-1])
-          substr = "".join(line[0:-1])
-          if cnt >= min_count:
-            frequent_words.add(substr)
-      self.frequent_words = frequent_words
-
-  def set_word_boundary(self, start, end, src):
-    word = tuple(src[start+1:end+1])
-    if self.frequent_words is not None and word not in self.frequent_words:
-      self.word = self.vocab.convert(self.vocab.UNK_STR)
-    else:
-      self.word = self.vocab.convert(word)
-
-  def transform(self, encoder, encodings):
-    # TODO(philip30): needs to be fixed ?
-    return encoder.get_final_states()[0]._main_expr + self.lookup[self.word]
-
-class WordOnlySegmentTransformer(TailWordSegmentTransformer):
-  yaml_tag = "!WordOnlySegmentTransformer"
-  def transform(self, encoder, encodings, word):
-    return self.lookup[self.get_word(word)]
-
-class AverageSegmentTransformer(SegmentTransformer):
+class AverageSegmentTransformer(Serializable):
   yaml_tag = "!AverageSegmentTransformer"
+  @serializable_init
+  def __init__(self): pass
   def transform(self, encoder, encodings):
     return dy.average(encodings.as_list())
 
-class SumSegmentTransformer(SegmentTransformer):
+class SumSegmentTransformer(Serializable):
   yaml_tag = "!SumSegmentTransformer"
+  @serializable_init
+  def __init__(self): pass
   def transform(self, encoder, encodings):
-    result = dy.sum_elems(encodings.as_tensor())
-    print(result.dim())
-    return result
+    return dy.sum_dim(encodings.as_tensor(), [1])
+
+class MaxSegmentTransformer(Serializable):
+  yaml_tag = "!MaxSegmentTransformer"
+  @serializable_init
+  def __init__(self): pass
+  def transform(self, encoder, encodings):
+    return dy.emax(encodings)
+
+class CharNGramSegmentComposer(Serializable):
+  yaml_tag = "!CharNGramSegmentComposer"
+  
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self,
+               word_vocab=None,
+               word_ngram=None,
+               ngram_size=4,
+               src_vocab=Ref(Path("model.src_reader.vocab")),
+               hidden_dim=Ref("exp_global.default_layer_dim"),
+               vocab_size=None):
+    assert word_vocab is not None or vocab_size is not None, "Can't be both None!"
+    if word_vocab is None:
+      word_vocab = Vocab()
+      dict_entry = vocab_size
+    else:
+      dict_entry = len(word_vocab)
+
+    self.dict_entry = dict_entry
+    self.src_vocab = src_vocab
+    self.word_vocab = word_vocab
+    self.ngram_size = ngram_size
+    self.word_ngram = self.add_serializable_component("word_ngram", word_ngram,
+                                                      lambda: Linear(input_dim=dict_entry,
+                                                                     output_dim=hidden_dim))
+    self.cached_src = None
+
+  @register_xnmt_event
+  def set_word_boundary(self, start, end, src):
+    self.word = tuple(src[start:end+1])
+    if self.cached_src != src:
+      self.cached_src = src
+      self.src_sent = "".join([self.src_vocab[i] for i in src])
+    word_vector = np.zeros(self.dict_entry)
+    for i in range(start, end+1):
+      for j in range(i, min(i+self.ngram_size, end+1)):
+        ngram = self.src_sent[i:j+1]
+        if ngram in self.word_vocab:
+          word_vector[self.word_vocab.convert(ngram)] += 1
+    self.ngram_vocab_vect = dy.inputTensor(word_vector)
+
+  def transduce(self, inputs):
+    return dy.tanh(self.word_ngram(self.ngram_vocab_vect))
+
+class WordEmbeddingSegmentComposer(Serializable):
+  yaml_tag = "!WordEmbeddingSegmentComposer"
+
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self,
+               word_vocab=None,
+               src_vocab=Ref(Path("model.src_reader.vocab")),
+               hidden_dim=Ref("exp_global.default_layer_dim"),
+               vocab_size=None):
+    assert word_vocab is not None or vocab_size is not None, "Can't be both None!"
+    param_collection = ParamManager.my_params(self)
+    if word_vocab is None:
+      word_vocab = Vocab()
+      dict_entry = vocab_size
+    else:
+      dict_entry = len(word_vocab)
+    self.src_vocab = src_vocab
+    self.word_vocab = word_vocab
+    self.embedding = param_collection.add_lookup_parameters((dict_entry, hidden_dim))
+    self.cached_src = None
+
+  @register_xnmt_event
+  def set_word_boundary(self, start, end, src):
+    if self.cached_src != src:
+      self.cached_src = src
+      self.src_sent = "".join([self.src_vocab[i] for i in src])
+    self.word = self.word_vocab.convert(self.src_sent[start:end+1]) # Embedding
+
+  def transduce(self, inputs):
+    return self.embedding[self.word]
 

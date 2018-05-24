@@ -7,6 +7,7 @@ import dynet as dy
 import numpy
 import random
 import math
+from scipy.stats import poisson
 
 from xnmt.attender import MlpAttender
 from xnmt.bridge import CopyBridge
@@ -14,7 +15,7 @@ from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
 import xnmt.events
 import xnmt.batcher
-from xnmt.input_reader import PlainTextReader
+from xnmt.input_reader import PlainTextReader, SegmentationTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculator import MLELoss
 from xnmt.mlp import MLP
@@ -27,7 +28,7 @@ from xnmt.segmenting_encoder import *
 from xnmt.segmenting_composer import *
 from xnmt.constants import EPSILON
 from xnmt.transducer import IdentitySeqTransducer
-from scipy.stats import poisson
+from xnmt.vocab import Vocab
 
 class TestSegmentingEncoder(unittest.TestCase):
   
@@ -69,14 +70,14 @@ class TestSegmentingEncoder(unittest.TestCase):
     )
     self.model.set_train(True)
 
-    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
+    self.layer_dim = layer_dim
+    self.src_data = list(self.model.src_reader.read_sents("examples/data/head-char.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
     my_batcher = xnmt.batcher.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
     dy.renew_cg(immediate_compute=True, check_validity=True)
 
   def inp_emb(self, idx=0):
-    
     self.model.start_sent(self.src[idx])
     embed = self.model.src_embedder.embed_sent(self.src[idx])
     return embed
@@ -157,10 +158,87 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.assertEqual([len(x) for x in results], [8 for _ in range(4)])
 
 
-  def test_average_composer(self):
+  def test_sum_composer(self):
     enc = self.segmenting_encoder
     enc.segment_composer.encoder = IdentitySeqTransducer()
     enc.segment_composer.transformer = SumSegmentTransformer()
+    enc(self.inp_emb(0))
+
+
+class TestPriorSegmentation(unittest.TestCase):
+  def setUp(self):
+    # Seeding
+    numpy.random.seed(2)
+    random.seed(2)
+    layer_dim = 64
+    xnmt.events.clear()
+    ParamManager.init_param_col()
+    self.tail_transformer = TailSegmentTransformer()
+    self.segment_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
+    self.segment_embed_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
+    self.segment_composer = SegmentComposer(encoder=self.segment_encoder_bilstm,
+                                            transformer=self.tail_transformer)
+    self.src_reader = SegmentationTextReader()
+    self.trg_reader = PlainTextReader()
+    self.loss_calculator = MLELoss()
+    self.segmenting_encoder = SegmentingSeqTransducer(
+      embed_encoder = self.segment_embed_encoder_bilstm,
+      segment_composer =  self.segment_composer,
+      final_transducer = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
+      src_vocab = self.src_reader.vocab,
+      trg_vocab = self.trg_reader.vocab,
+    )
+
+    self.model = DefaultTranslator(
+      src_reader=self.src_reader,
+      trg_reader=self.trg_reader,
+      src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      encoder=self.segmenting_encoder,
+      attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
+      trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
+      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                trg_embed_dim=layer_dim,
+                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
+    )
+    self.model.set_train(True)
+
+    self.layer_dim = layer_dim
+    self.src_data = list(self.model.src_reader.read_sents(["examples/data/head-char.ja", "examples/data/head-seg.ja"]))
+    self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
+    my_batcher = xnmt.batcher.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
+    self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
+    dy.renew_cg(immediate_compute=True, check_validity=True)
+
+  def inp_emb(self, idx=0):
+    self.model.start_sent(self.src[idx])
+    embed = self.model.src_embedder.embed_sent(self.src[idx])
+    return embed
+
+  def test_embed_composer(self):
+    enc = self.segmenting_encoder
+    word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    word_vocab.freeze()
+    enc.segment_composer = WordEmbeddingSegmentComposer(
+        word_vocab = word_vocab,
+        src_vocab = self.src_reader.vocab,
+        hidden_dim = self.layer_dim
+    )
+    enc(self.inp_emb(0))
+    last_sent = self.src[0][-1]
+    last_converted_word = self.src_reader.vocab[last_sent[last_sent.original_length-1-1]]
+    assert enc.segment_composer.word == enc.segment_composer.word_vocab.convert(last_converted_word)
+
+  def test_charngram_composer(self):
+    enc = self.segmenting_encoder
+    word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    word_vocab.freeze()
+    enc.segment_composer = CharNGramSegmentComposer(
+        word_vocab = word_vocab,
+        src_vocab = self.src_reader.vocab,
+        hidden_dim = self.layer_dim
+    )
     enc(self.inp_emb(0))
 
 if __name__ == "__main__":
