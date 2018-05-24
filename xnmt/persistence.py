@@ -831,6 +831,8 @@ class YamlPreloader(object):
       if isinstance(node, Serializable):
         YamlPreloader._resolve_kwargs(node)
 
+    YamlPreloader._copy_duplicate_components(root) # sometimes duplicate objects occur with yaml.load()
+
     root = YamlPreloader._load_referenced_serialized(root)
 
     random_search_report = YamlPreloader._instantiate_random_search(root)
@@ -907,6 +909,15 @@ class YamlPreloader(object):
         else:
           _set_descendant(root, path, loaded_trg)
     return root
+
+  @staticmethod
+  def _copy_duplicate_components(root):
+    obj_ids = set()
+    for path, node in _traverse_tree(root, _TraversalOrder.ROOT_LAST):
+      if isinstance(node, (list, dict, Serializable)):
+        if id(node) in obj_ids:
+          _set_descendant(root, path, copy.deepcopy(node))
+        obj_ids.add(id(node))
 
   @staticmethod
   def _resolve_kwargs(obj: Any) -> None:
@@ -1190,6 +1201,7 @@ class _YamlDeserializer(object):
       raise ComponentInitError(f"An error occurred trying to invoke {type(obj).__name__}.__init__()\n"
                                f" The following arguments were passed: {init_params}\n"
                                f" The following arguments were expected: {init_args.keys()}\n"
+                               f" Current path: {path}\n"
                                f" Error message: {e}")
     return initialized_obj
 

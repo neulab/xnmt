@@ -1,9 +1,10 @@
 import unittest
+import copy
 
 import yaml
 
 import xnmt
-from xnmt import util
+from xnmt import util, persistence
 from xnmt.persistence import Path, YamlPreloader, Serializable, serializable_init, bare
 
 class TestPath(unittest.TestCase):
@@ -142,6 +143,7 @@ class TestPreloader(unittest.TestCase):
         f_out)
     self.assertListEqual(YamlPreloader.experiment_names_from_file(f"{self.out_dir}/tmp.yaml"),
                          ["exp1", "exp10", "exp2"])
+
 
   def test_load_referenced_serialized_top(self):
     with open(f"{self.out_dir}/tmp1.yaml", "w") as f_out:
