@@ -277,8 +277,18 @@ class SentenceFilterer(object):
     return preproc_list
 
 class SentenceFiltererMatchingRegex(SentenceFilterer):
+  """Filters sentences via regular expressions.
+  A sentence must match the expression to be kept.
+  """
 
   def __init__(self, spec):
+    """Specifies the regular expressions to filter the sentences that we'll be getting.
+
+    The regular expressions are passed as a dictionary with keys as follows:
+      regex_INT: This will specify the regular expression for a specific language (zero indexed)
+      regex_src: Equivalent to regex_0
+      regex_trg: Equivalent to regex_1
+    """
     self.regex = {}
     idx_map = {"src": 0, "trg": 1}
     for k, v in spec.items():
