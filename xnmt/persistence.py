@@ -39,7 +39,7 @@ def serializable_init(f):
     if "xnmt_subcol_name" in kwargs:
       xnmt_subcol_name = kwargs.pop("xnmt_subcol_name")
     else:
-      xnmt_subcol_name = generate_subcol_name(obj)
+      xnmt_subcol_name = _generate_subcol_name(obj)
     obj.xnmt_subcol_name = xnmt_subcol_name
     serialize_params = dict(kwargs)
     params = inspect.signature(f).parameters
@@ -145,7 +145,7 @@ class Serializable(yaml.YAMLObject):
     """
     if not hasattr(self, "serialize_params"):
       self.serialize_params = {}
-    if key!="xnmt_subcol_name" and key not in get_init_args_defaults(self):
+    if key!="xnmt_subcol_name" and key not in _get_init_args_defaults(self):
       raise ValueError(f"{key} is not an init argument of {self}")
     self.serialize_params[key] = val
 
@@ -420,57 +420,57 @@ class Path(object):
     return ret
 
 
-subcol_rand = random.Random()
+_subcol_rand = random.Random()
 
 
-def generate_subcol_name(subcol_owner):
-  rand_bits = subcol_rand.getrandbits(32)
+def _generate_subcol_name(subcol_owner):
+  rand_bits = _subcol_rand.getrandbits(32)
   rand_hex = "%008x" % rand_bits
   return f"{type(subcol_owner).__name__}.{rand_hex}"
 
 
-reserved_arg_names = ["_xnmt_id", "yaml_path", "serialize_params", "init_params", "kwargs", "self", "xnmt_subcol_name",
+_reserved_arg_names = ["_xnmt_id", "yaml_path", "serialize_params", "init_params", "kwargs", "self", "xnmt_subcol_name",
                       "init_completed"]
 
-def get_init_args_defaults(obj):
+def _get_init_args_defaults(obj):
   return inspect.signature(obj.__init__).parameters
 
 
-def check_serializable_args_valid(node):
+def _check_serializable_args_valid(node):
   base_arg_names = map(lambda x: x[0], inspect.getmembers(yaml.YAMLObject))
   class_param_names = [x[0] for x in inspect.getmembers(node.__class__)]
-  init_args = get_init_args_defaults(node)
+  init_args = _get_init_args_defaults(node)
   items = {key: val for (key, val) in inspect.getmembers(node)}
   for name in items:
     if name in base_arg_names or name in class_param_names: continue
-    if name.startswith("_") or name in reserved_arg_names: continue
+    if name.startswith("_") or name in _reserved_arg_names: continue
     if name not in init_args:
       raise ValueError(
         f"'{name}' is not a accepted argument of {type(node).__name__}.__init__(). Valid are {list(init_args.keys())}")
 
 
 @singledispatch
-def name_serializable_children(node):
-  return name_children(node, include_reserved=False)
+def _name_serializable_children(node):
+  return _name_children(node, include_reserved=False)
 
 
-@name_serializable_children.register(Serializable)
-def name_serializable_children_serializable(node):
+@_name_serializable_children.register(Serializable)
+def _name_serializable_children_serializable(node):
   return getattr(node, "serialize_params", {}).items()
 
 
 @singledispatch
-def name_children(node, include_reserved):
+def _name_children(node, include_reserved):
   return []
 
 
-@name_children.register(Serializable)
-def name_children_serializable(node, include_reserved):
+@_name_children.register(Serializable)
+def _name_children_serializable(node, include_reserved):
   """
   Returns the specified arguments in the order they appear in the corresponding ``__init__()``
   """
-  init_args = list(get_init_args_defaults(node).keys())
-  if include_reserved: init_args += [n for n in reserved_arg_names if not n in init_args]
+  init_args = list(_get_init_args_defaults(node).keys())
+  if include_reserved: init_args += [n for n in _reserved_arg_names if not n in init_args]
   items = {key: val for (key, val) in inspect.getmembers(node)}
   ret = []
   for name in init_args:
@@ -480,27 +480,27 @@ def name_children_serializable(node, include_reserved):
   return ret
 
 
-@name_children.register(dict)
-def name_children_dict(node, include_reserved):
+@_name_children.register(dict)
+def _name_children_dict(node, include_reserved):
   return node.items()
 
 
-@name_children.register(list)
-def name_children_list(node, include_reserved):
+@_name_children.register(list)
+def _name_children_list(node, include_reserved):
   return [(str(n), l) for n, l in enumerate(node)]
 
-@name_children.register(tuple)
-def name_children_list(node, include_reserved):
+@_name_children.register(tuple)
+def _name_children_tuple(node, include_reserved):
   raise ValueError(f"Tuples are not serializable, use a list instead. Found this tuple: {node}.")
 
 @singledispatch
-def get_child(node, name):
+def _get_child(node, name):
   if not hasattr(node, name): raise PathError(f"{node} has no child named {name}")
   return getattr(node, name)
 
 
-@get_child.register(list)
-def get_child_list(node, name):
+@_get_child.register(list)
+def _get_child_list(node, name):
   try:
     name = int(name)
   except:
@@ -510,32 +510,32 @@ def get_child_list(node, name):
   return node[int(name)]
 
 
-@get_child.register(dict)
-def get_child_dict(node, name):
+@_get_child.register(dict)
+def _get_child_dict(node, name):
   if not name in node.keys():
     raise PathError(f"{node} has no child named {name} (key error)")
   return node[name]
 
 
-@get_child.register(Serializable)
-def get_child_serializable(node, name):
+@_get_child.register(Serializable)
+def _get_child_serializable(node, name):
   if not hasattr(node, name):
     raise PathError(f"{node} has no child named {name}")
   return getattr(node, name)
 
 
 @singledispatch
-def set_child(node, name, val):
+def _set_child(node, name, val):
   pass
 
 
-@set_child.register(Serializable)
-def set_child_serializable(node, name, val):
+@_set_child.register(Serializable)
+def _set_child_serializable(node, name, val):
   setattr(node, name, val)
 
 
-@set_child.register(list)
-def set_child_list(node, name, val):
+@_set_child.register(list)
+def _set_child_list(node, name, val):
   if name == "append": name = len(node)
   try:
     name = int(name)
@@ -549,12 +549,12 @@ def set_child_list(node, name, val):
     node[int(name)] = val
 
 
-@set_child.register(dict)
-def set_child_dict(node, name, val):
+@_set_child.register(dict)
+def _set_child_dict(node, name, val):
   node[name] = val
 
 
-def redirect_path_untested(path, root, cur_node=None):
+def _redirect_path_untested(path, root, cur_node=None):
   # note: this might become useful in the future, but is not carefully tested, use with care
   if cur_node is None: cur_node = root
   if len(path) == 0:
@@ -563,15 +563,15 @@ def redirect_path_untested(path, root, cur_node=None):
     return path
   elif isinstance(cur_node, Ref):
     assert not cur_node.get_path().is_relative_path()
-    return redirect_path_untested(cur_node.get_path(), root, get_descendant(root, cur_node.get_path()))
+    return _redirect_path_untested(cur_node.get_path(), root, _get_descendant(root, cur_node.get_path()))
   else:
     try:
-      return path[:1].add_path(redirect_path_untested(path.descend_one(), root, get_child(cur_node, path[0])))
+      return path[:1].add_path(_redirect_path_untested(path.descend_one(), root, _get_child(cur_node, path[0])))
     except PathError:  # child does not exist
       return path
 
 
-def get_descendant(node, path, redirect=False):
+def _get_descendant(node, path, redirect=False):
   if len(path) == 0:
     return node
   elif redirect and isinstance(node, Ref):
@@ -579,56 +579,56 @@ def get_descendant(node, path, redirect=False):
     if isinstance(node_path, str): node_path = Path(node_path)
     return Ref(node_path.add_path(path), default=node.get_default())
   else:
-    return get_descendant(get_child(node, path[0]), path.descend_one(), redirect=redirect)
+    return _get_descendant(_get_child(node, path[0]), path.descend_one(), redirect=redirect)
 
 
-def set_descendant(root, path, val):
+def _set_descendant(root, path, val):
   if len(path) == 0:
     raise ValueError("path was empty")
   elif len(path) == 1:
-    set_child(root, path[0], val)
+    _set_child(root, path[0], val)
   else:
-    set_descendant(get_child(root, path[0]), path.descend_one(), val)
+    _set_descendant(_get_child(root, path[0]), path.descend_one(), val)
 
 
-class TraversalOrder(IntEnum):
+class _TraversalOrder(IntEnum):
   ROOT_FIRST = auto()
   ROOT_LAST = auto()
 
 
-def traverse_tree(node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), include_root=True):
+def _traverse_tree(node, traversal_order=_TraversalOrder.ROOT_FIRST, path_to_node=Path(), include_root=True):
   """
   For each node in the tree, yield a (path, node) tuple
   """
-  if include_root and traversal_order == TraversalOrder.ROOT_FIRST:
+  if include_root and traversal_order == _TraversalOrder.ROOT_FIRST:
     yield path_to_node, node
-  for child_name, child in name_children(node, include_reserved=False):
-    yield from traverse_tree(child, traversal_order, path_to_node.append(child_name))
-  if include_root and traversal_order == TraversalOrder.ROOT_LAST:
+  for child_name, child in _name_children(node, include_reserved=False):
+    yield from _traverse_tree(child, traversal_order, path_to_node.append(child_name))
+  if include_root and traversal_order == _TraversalOrder.ROOT_LAST:
     yield path_to_node, node
 
 
-def traverse_serializable(root, path_to_node=Path()):
+def _traverse_serializable(root, path_to_node=Path()):
   yield path_to_node, root
-  for child_name, child in name_serializable_children(root):
-    yield from traverse_serializable(child, path_to_node.append(child_name))
+  for child_name, child in _name_serializable_children(root):
+    yield from _traverse_serializable(child, path_to_node.append(child_name))
 
 
-def traverse_serializable_breadth_first(root):
-  all_nodes = [(path, node) for (path, node) in traverse_serializable(root)]
+def _traverse_serializable_breadth_first(root):
+  all_nodes = [(path, node) for (path, node) in _traverse_serializable(root)]
   all_nodes = [item[1] for item in sorted(enumerate(all_nodes), key=lambda x: (len(x[1][0]), x[0]))]
   return iter(all_nodes)
 
 
-def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(), named_paths=None,
-                       past_visits=set()):
+def _traverse_tree_deep(root, cur_node, traversal_order=_TraversalOrder.ROOT_FIRST, path_to_node=Path(), named_paths=None,
+                        past_visits=set()):
   """
   Traverse the tree and descend into references. The returned path is that of the resolved reference.
 
   Args:
     root (Serializable):
     cur_node (Serializable):
-    traversal_order (TraversalOrder):
+    traversal_order (_TraversalOrder):
     path_to_node (Path):
     named_paths (dict):
     past_visits (set):
@@ -642,41 +642,41 @@ def traverse_tree_deep(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST
   past_visits = set(past_visits)
   past_visits.add(cur_call_sig)
 
-  if traversal_order == TraversalOrder.ROOT_FIRST:
+  if traversal_order == _TraversalOrder.ROOT_FIRST:
     yield path_to_node, cur_node
   if isinstance(cur_node, Ref):
     resolved_path = cur_node.resolve_path(named_paths)
     try:
-      yield from traverse_tree_deep(root, get_descendant(root, resolved_path), traversal_order, resolved_path,
-                                    named_paths, past_visits=past_visits)
+      yield from _traverse_tree_deep(root, _get_descendant(root, resolved_path), traversal_order, resolved_path,
+                                     named_paths, past_visits=past_visits)
     except PathError:
       pass
   else:
-    for child_name, child in name_children(cur_node, include_reserved=False):
-      yield from traverse_tree_deep(root, child, traversal_order, path_to_node.append(child_name), named_paths,
-                                    past_visits=past_visits)
-  if traversal_order == TraversalOrder.ROOT_LAST:
+    for child_name, child in _name_children(cur_node, include_reserved=False):
+      yield from _traverse_tree_deep(root, child, traversal_order, path_to_node.append(child_name), named_paths,
+                                     past_visits=past_visits)
+  if traversal_order == _TraversalOrder.ROOT_LAST:
     yield path_to_node, cur_node
 
 
-def traverse_tree_deep_once(root, cur_node, traversal_order=TraversalOrder.ROOT_FIRST, path_to_node=Path(),
-                            named_paths={}):
+def _traverse_tree_deep_once(root, cur_node, traversal_order=_TraversalOrder.ROOT_FIRST, path_to_node=Path(),
+                             named_paths={}):
   """
-  Calls traverse_tree_deep, but skips over nodes that have been visited before (can happen because we're descending into
+  Calls _traverse_tree_deep, but skips over nodes that have been visited before (can happen because we're descending into
    references).
   """
   yielded_paths = set()
-  for path, node in traverse_tree_deep(root, cur_node, traversal_order, path_to_node, named_paths):
+  for path, node in _traverse_tree_deep(root, cur_node, traversal_order, path_to_node, named_paths):
     if not (path.ancestors() & yielded_paths):
       yielded_paths.add(path)
       yield (path, node)
 
 
-def get_named_paths(root):
+def _get_named_paths(root):
   d = {}
-  for path, node in traverse_tree(root):
-    if "_xnmt_id" in [name for (name, _) in name_children(node, include_reserved=True)]:
-      xnmt_id = get_child(node, "_xnmt_id")
+  for path, node in _traverse_tree(root):
+    if "_xnmt_id" in [name for (name, _) in _name_children(node, include_reserved=True)]:
+      xnmt_id = _get_child(node, "_xnmt_id")
       if xnmt_id in d:
         raise ValueError(f"_xnmt_id {xnmt_id} was specified multiple times!")
       d[xnmt_id] = path
@@ -756,13 +756,27 @@ class YamlPreloader(object):
   """
   Loads experiments from YAML and performs basic preparation, but does not initialize objects.
 
-  Takes care of extracting individual experiments from a YAML file, replaces ``!LoadSerialized`` by corresponding
-  content, resolves kwargs syntax, and implements random search.
+  Has the following responsibilities:
+
+  * takes care of extracting individual experiments from a YAML file
+  * replaces ``!LoadSerialized`` by loading the corresponding content
+  * resolves kwargs syntax (items from a kwargs dictionary are moved to the owner where they become object attributes)
+  * implements random search (draws proper random values when ``!RandomParam`` is encountered)
+  * finds and replaces placeholder strings such as ``{EXP}``, ``{EXP_DIR}``, ``{GIT_REV}``, and ``{PID}``
+  * copies bare default arguments into the corresponding objects where appropriate.
+
+  Typically, :meth:`initialize_object` would be invoked by passing the result from the ``YamlPreloader``.
   """
 
   @staticmethod
-  def experiment_names_from_file(filename:str) -> Sequence[str]:
-    """Return experiment names as a sorted list."""
+  def experiment_names_from_file(filename:str) -> List[str]:
+    """Return list of experiment names.
+
+    Args:
+      filename: path to YAML file
+    Returns:
+      experiment names occuring in the given file in lexicographic order.
+    """
     try:
       with open(filename) as stream:
         experiments = yaml.load(stream)
@@ -781,8 +795,6 @@ class YamlPreloader(object):
   def preload_experiment_from_file(filename:str, exp_name:str) -> UninitializedYamlObject:
     """Preload experiment from YAML file.
 
-    Preloading takes care of replacing ``!LoadSerialized``, resolving kwargs syntax, and instantiating random search.
-
     Args:
       filename: YAML config file name
       exp_name: experiment name to load
@@ -800,7 +812,7 @@ class YamlPreloader(object):
     return YamlPreloader.preload_obj(experiment, exp_name=exp_name, exp_dir=os.path.dirname(filename) or ".")
 
   @staticmethod
-  def preload_obj(root:Any, exp_name:str, exp_dir:str) -> UninitializedYamlObject:
+  def preload_obj(root: Any, exp_name: str, exp_dir: str) -> UninitializedYamlObject:
     """Preload a given object.
 
     Preloading a given object, usually an :class:`xnmt.experiment.Experiment` or :class:`LoadSerialized` object as
@@ -809,13 +821,13 @@ class YamlPreloader(object):
 
     Args:
       root: object to preload
-      exp_name: experiment name
-      exp_dir: directory of the corresponding config file.
+      exp_name: experiment name, needed to replace ``{EXP}``
+      exp_dir: directory of the corresponding config file, needed to replace ``{EXP_DIR}``
 
     Returns:
       Preloaded but uninitialized object.
     """
-    for _, node in traverse_tree(root):
+    for _, node in _traverse_tree(root):
       if isinstance(node, Serializable):
         YamlPreloader._resolve_kwargs(node)
 
@@ -843,7 +855,7 @@ class YamlPreloader(object):
 
   @staticmethod
   def _load_referenced_serialized(root: Any) -> Any:
-    for path, node in traverse_tree(root, traversal_order=TraversalOrder.ROOT_LAST):
+    for path, node in _traverse_tree(root, traversal_order=_TraversalOrder.ROOT_LAST):
       if isinstance(node, LoadSerialized):
         try:
           with open(node.filename) as stream:
@@ -854,7 +866,7 @@ class YamlPreloader(object):
           ParamManager.add_load_path(f"{node.filename}.data")
         cur_path = Path(getattr(node, "path", ""))
         for _ in range(10):  # follow references
-          loaded_trg = get_descendant(loaded_root, cur_path, redirect=True)
+          loaded_trg = _get_descendant(loaded_root, cur_path, redirect=True)
           if isinstance(loaded_trg, Ref):
             cur_path = loaded_trg.get_path()
           else:
@@ -864,36 +876,36 @@ class YamlPreloader(object):
         self_inserted_ref_ids = set()
         while found_outside_ref:
           found_outside_ref = False
-          named_paths = get_named_paths(loaded_root)
+          named_paths = _get_named_paths(loaded_root)
           replaced_paths = {}
-          for sub_path, sub_node in traverse_tree(loaded_trg, path_to_node=cur_path):
+          for sub_path, sub_node in _traverse_tree(loaded_trg, path_to_node=cur_path):
             if isinstance(sub_node, Ref) and not id(sub_node) in self_inserted_ref_ids:
               referenced_path = sub_node.resolve_path(named_paths)
               if referenced_path.is_relative_path():
                 raise NotImplementedError("Handling of relative paths with LoadSerialized is not yet implemented.")
               if referenced_path in replaced_paths:
                 new_ref = Ref(replaced_paths[referenced_path], default=sub_node.get_default())
-                set_descendant(loaded_trg, sub_path[len(cur_path):], new_ref)
+                _set_descendant(loaded_trg, sub_path[len(cur_path):], new_ref)
                 self_inserted_ref_ids.add(id(new_ref))
               # if outside node:
               elif not str(referenced_path).startswith(str(cur_path)):
                 found_outside_ref = True
-                referenced_obj = get_descendant(loaded_root, referenced_path)
-                set_descendant(loaded_trg, sub_path[len(cur_path):], referenced_obj)
+                referenced_obj = _get_descendant(loaded_root, referenced_path)
+                _set_descendant(loaded_trg, sub_path[len(cur_path):], referenced_obj)
                 # replaced_paths[referenced_path] = sub_path
                 replaced_paths[referenced_path] = path.add_path(sub_path[len(cur_path):])
               else:
                 new_ref = Ref(path.add_path(referenced_path[len(cur_path):]), default=sub_node.get_default())
-                set_descendant(loaded_trg, sub_path[len(cur_path):], new_ref)
+                _set_descendant(loaded_trg, sub_path[len(cur_path):], new_ref)
                 self_inserted_ref_ids.add(id(new_ref))
 
         for d in getattr(node, "overwrite", []):
           overwrite_path = Path(d["path"])
-          set_descendant(loaded_trg, overwrite_path, d["val"])
+          _set_descendant(loaded_trg, overwrite_path, d["val"])
         if len(path) == 0:
           root = loaded_trg
         else:
-          set_descendant(root, path, loaded_trg)
+          _set_descendant(root, path, loaded_trg)
     return root
 
   @staticmethod
@@ -915,24 +927,24 @@ class YamlPreloader(object):
     # grid search and bayesian optimization can be supported
     param_report = {}
     initialized_random_params = {}
-    for path, v in traverse_tree(experiment):
+    for path, v in _traverse_tree(experiment):
       if isinstance(v, RandomParam):
         if hasattr(v, "_xnmt_id") and v._xnmt_id in initialized_random_params:
           v = initialized_random_params[v._xnmt_id]
         v = v.draw_value()
         if hasattr(v, "_xnmt_id"):
           initialized_random_params[v._xnmt_id] = v
-        set_descendant(experiment, path, v)
+        _set_descendant(experiment, path, v)
         param_report[path] = v
     return param_report
 
   @staticmethod
   def _resolve_bare_default_args(root: Any) -> None:
-    for path, node in traverse_tree(root):
+    for path, node in _traverse_tree(root):
       if isinstance(node, Serializable):
-        init_args_defaults = get_init_args_defaults(node)
+        init_args_defaults = _get_init_args_defaults(node)
         for expected_arg in init_args_defaults:
-          if not expected_arg in [x[0] for x in name_children(node, include_reserved=False)]:
+          if not expected_arg in [x[0] for x in _name_children(node, include_reserved=False)]:
             arg_default = init_args_defaults[expected_arg].default
             if isinstance(arg_default, Serializable) and not isinstance(arg_default, Ref):
               if not getattr(arg_default, "_is_bare", False):
@@ -949,20 +961,20 @@ class YamlPreloader(object):
     - also checks if there are default arguments for which no arguments are set and instantiates them with replaced
       ``{EXP}`` if applicable
     """
-    for path, node in traverse_tree(root):
+    for path, node in _traverse_tree(root):
       if isinstance(node, str):
         try:
           formatted = node.format(**format_dict)
         except (ValueError, KeyError):  # will occur e.g. if a vocab entry contains a curly bracket
           formatted = node
         if node != formatted:
-          set_descendant(root,
-                         path,
-                         FormatString(formatted, node))
+          _set_descendant(root,
+                          path,
+                          FormatString(formatted, node))
       elif isinstance(node, Serializable):
-        init_args_defaults = get_init_args_defaults(node)
+        init_args_defaults = _get_init_args_defaults(node)
         for expected_arg in init_args_defaults:
-          if not expected_arg in [x[0] for x in name_children(node, include_reserved=False)]:
+          if not expected_arg in [x[0] for x in _name_children(node, include_reserved=False)]:
             arg_default = init_args_defaults[expected_arg].default
             if isinstance(arg_default, str):
               try:
@@ -1027,7 +1039,7 @@ class _YamlDeserializer(object):
     self.check_args(self.deserialized_yaml)
     # if arguments were not given in the YAML file and are set to a bare(Serializable) by default, copy the bare object into the object hierarchy so it can be used w/ param sharing etc.
     YamlPreloader._resolve_bare_default_args(self.deserialized_yaml)
-    self.named_paths = get_named_paths(self.deserialized_yaml)
+    self.named_paths = _get_named_paths(self.deserialized_yaml)
     # if arguments were not given in the YAML file and are set to a Ref by default, copy this Ref into the object structure so that it can be properly resolved in a subsequent step
     self.resolve_ref_default_args(self.deserialized_yaml)
     # if references point to places that are not specified explicitly in the YAML file, but have given default arguments, substitute those default arguments
@@ -1039,22 +1051,22 @@ class _YamlDeserializer(object):
     return initialized
 
   def check_args(self, root):
-    for _, node in traverse_tree(root):
+    for _, node in _traverse_tree(root):
       if isinstance(node, Serializable):
-        check_serializable_args_valid(node)
+        _check_serializable_args_valid(node)
 
   def resolve_ref_default_args(self, root):
-    for _, node in traverse_tree(root):
+    for _, node in _traverse_tree(root):
       if isinstance(node, Serializable):
-        init_args_defaults = get_init_args_defaults(node)
+        init_args_defaults = _get_init_args_defaults(node)
         for expected_arg in init_args_defaults:
-          if not expected_arg in [x[0] for x in name_children(node, include_reserved=False)]:
+          if not expected_arg in [x[0] for x in _name_children(node, include_reserved=False)]:
             arg_default = copy.deepcopy(init_args_defaults[expected_arg].default)
             if isinstance(arg_default, Ref):
               setattr(node, expected_arg, arg_default)
 
   def create_referenced_default_args(self, root):
-    for path, node in traverse_tree(root):
+    for path, node in _traverse_tree(root):
       if isinstance(node, Ref):
         referenced_path = node.get_path()
         if not referenced_path:
@@ -1063,18 +1075,18 @@ class _YamlDeserializer(object):
         give_up = False
         for ancestor in sorted(referenced_path.ancestors(), key = lambda x: len(x)):
           try:
-            get_descendant(root, ancestor)
+            _get_descendant(root, ancestor)
           except PathError:
             try:
-              ancestor_parent = get_descendant(root, ancestor.parent())
+              ancestor_parent = _get_descendant(root, ancestor.parent())
               if isinstance(ancestor_parent, Serializable):
-                init_args_defaults = get_init_args_defaults(ancestor_parent)
+                init_args_defaults = _get_init_args_defaults(ancestor_parent)
                 if ancestor[-1] in init_args_defaults:
                   referenced_arg_default = init_args_defaults[ancestor[-1]].default
                 else:
                   referenced_arg_default = inspect.Parameter.empty
                 if referenced_arg_default != inspect.Parameter.empty:
-                  set_descendant(root, ancestor, copy.deepcopy(referenced_arg_default))
+                  _set_descendant(root, ancestor, copy.deepcopy(referenced_arg_default))
               else:
                 give_up = True
             except PathError:
@@ -1083,7 +1095,7 @@ class _YamlDeserializer(object):
 
   def share_init_params_top_down(self, root):
     abs_shared_param_sets = []
-    for path, node in traverse_tree(root):
+    for path, node in _traverse_tree(root):
       if isinstance(node, Serializable):
         for shared_param_set in node.shared_params():
           shared_param_set = set(Path(p) if isinstance(p, str) else p for p in shared_param_set)
@@ -1100,10 +1112,10 @@ class _YamlDeserializer(object):
       shared_val_choices = set()
       for shared_param_path in shared_param_set:
         try:
-          new_shared_val = get_descendant(root, shared_param_path)
+          new_shared_val = _get_descendant(root, shared_param_path)
         except PathError:
           continue
-        for _, child_of_shared_param in traverse_tree(new_shared_val, include_root=False):
+        for _, child_of_shared_param in _traverse_tree(new_shared_val, include_root=False):
           if isinstance(child_of_shared_param, Serializable):
             raise ValueError(f"{path} shared params {shared_param_set} contains Serializable sub-object {child_of_shared_param} which is not permitted")
         if not isinstance(new_shared_val, Ref):
@@ -1113,13 +1125,13 @@ class _YamlDeserializer(object):
       elif len(shared_val_choices)==1:
         for shared_param_path in shared_param_set:
           try:
-            if shared_param_path[-1] in get_init_args_defaults(get_descendant(root, shared_param_path.parent())):
-              set_descendant(root, shared_param_path, list(shared_val_choices)[0])
+            if shared_param_path[-1] in _get_init_args_defaults(_get_descendant(root, shared_param_path.parent())):
+              _set_descendant(root, shared_param_path, list(shared_val_choices)[0])
           except PathError:
             pass # can happen when the shared path contained a reference, which we don't follow to avoid unwanted effects
 
   def init_components_bottom_up(self, root):
-    for path, node in traverse_tree_deep_once(root, root, TraversalOrder.ROOT_LAST, named_paths=self.named_paths):
+    for path, node in _traverse_tree_deep_once(root, root, _TraversalOrder.ROOT_LAST, named_paths=self.named_paths):
       if isinstance(node, Serializable):
         if isinstance(node, Ref):
           hits_before = self.init_component.cache_info().hits
@@ -1138,12 +1150,12 @@ class _YamlDeserializer(object):
         if len(path)==0:
           root = initialized_component
         else:
-          set_descendant(root, path, initialized_component)
+          _set_descendant(root, path, initialized_component)
     return root
 
   def check_init_param_types(self, obj, init_params):
     for init_param_name in init_params:
-      param_sig = get_init_args_defaults(obj)
+      param_sig = _get_init_args_defaults(obj)
       if init_param_name in param_sig:
         annotated_type = param_sig[init_param_name].annotation
         if annotated_type != inspect.Parameter.empty:
@@ -1161,11 +1173,11 @@ class _YamlDeserializer(object):
     Returns:
       initialized object; this method is cached, so multiple requests for the same path will return the exact same object
     """
-    obj = get_descendant(self.deserialized_yaml, path)
+    obj = _get_descendant(self.deserialized_yaml, path)
     if not isinstance(obj, Serializable):
       return obj
-    init_params = OrderedDict(name_children(obj, include_reserved=False))
-    init_args = get_init_args_defaults(obj)
+    init_params = OrderedDict(_name_children(obj, include_reserved=False))
+    init_args = _get_init_args_defaults(obj)
     if "yaml_path" in init_args: init_params["yaml_path"] = path
     self.check_init_param_types(obj, init_params)
     try:
@@ -1183,7 +1195,7 @@ class _YamlDeserializer(object):
 
 def _resolve_serialize_refs(root):
   all_serializable = set()
-  for _, node in traverse_serializable(root):
+  for _, node in _traverse_serializable(root):
     if isinstance(node, Serializable):
       all_serializable.add(node)
       if not hasattr(node, "serialize_params"):
@@ -1197,15 +1209,15 @@ def _resolve_serialize_refs(root):
                        f"Serializable.add_serializable_component() for creating serializable sub-components.")
   refs_inserted_at = set()
   refs_inserted_to = set()
-  for path_to, node in traverse_serializable(root):
+  for path_to, node in _traverse_serializable(root):
     if not refs_inserted_at & path_to.ancestors() and not refs_inserted_at & path_to.ancestors():
       if isinstance(node, Serializable):
-        for path_from, matching_node in traverse_serializable(root):
+        for path_from, matching_node in _traverse_serializable(root):
           if not path_from in refs_inserted_to:
             if path_from!=path_to and matching_node is node:
                 ref = Ref(path=path_to)
                 ref.resolved_serialize_params = ref.serialize_params
-                set_descendant(root, path_from.parent().append("resolved_serialize_params").append(path_from[-1]), ref)
+                _set_descendant(root, path_from.parent().append("resolved_serialize_params").append(path_from[-1]), ref)
                 refs_inserted_at.add(path_from)
                 refs_inserted_to.add(path_from)
 
