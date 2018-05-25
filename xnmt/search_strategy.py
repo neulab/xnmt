@@ -6,6 +6,7 @@ import dynet as dy
 import numpy as np
 
 import xnmt.batcher
+from xnmt import logger
 from xnmt.length_normalization import NoNormalization, LengthNormalization
 from xnmt.persistence import Serializable, serializable_init, bare
 from xnmt.vocab import Vocab
@@ -127,6 +128,10 @@ class BeamSearch(Serializable, SearchStrategy):
   def generate_output(self, translator, initial_state, src_length=None, forced_trg_ids=None):
     # TODO(philip30): can only do single decoding, not batched
     assert forced_trg_ids is None or self.beam_size == 1
+    if forced_trg_ids and len(forced_trg_ids) > self.max_len:
+      logger.warning("Forced decoding with a target longer than max_len. "
+                     "Increase max_len to avoid unexpected behavior.")
+
     active_hyp = [self.Hypothesis(0, None, None, None)]
     completed_hyp = []
     for length in range(self.max_len):
