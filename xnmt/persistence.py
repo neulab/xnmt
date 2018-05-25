@@ -751,6 +751,18 @@ class LoadSerialized(Serializable):
     self.path = path
     self.overwrite = overwrite
 
+  @staticmethod
+  def _check_wellformed(load_serialized):
+    _check_serializable_args_valid(load_serialized)
+    if hasattr(load_serialized, "overwrite"):
+      if not isinstance(load_serialized.overwrite, list):
+        raise ValueError(f"LoadSerialized.overwrite must be a list, found: {type(load_serialized.overwrite)}")
+      for item in load_serialized.overwrite:
+        if not isinstance(item, dict):
+          raise ValueError(f"LoadSerialized.overwrite must be a list of dictionaries, found list item: {type(item)}")
+        if item.keys() != {"path", "val"}:
+          raise ValueError(f"Each overwrite item must have 'path', 'val' (and no other) keys. Found: {item.keys()}")
+
 
 class YamlPreloader(object):
   """
@@ -859,6 +871,7 @@ class YamlPreloader(object):
   def _load_referenced_serialized(root: Any) -> Any:
     for path, node in _traverse_tree(root, traversal_order=_TraversalOrder.ROOT_LAST):
       if isinstance(node, LoadSerialized):
+        LoadSerialized._check_wellformed(node)
         try:
           with open(node.filename) as stream:
             loaded_root = yaml.load(stream)
@@ -1198,7 +1211,7 @@ class _YamlDeserializer(object):
         initialized_obj = obj.__class__(**init_params)
       logger.debug(f"initialized {path}: {obj.__class__.__name__}@{id(obj)}({dict(init_params)})"[:1000])
     except TypeError as e:
-      raise ComponentInitError(f"An error occurred trying to invoke {type(obj).__name__}.__init__()\n"
+      raise ComponentInitError(f"An error occurred when calling {type(obj).__name__}.__init__()\n"
                                f" The following arguments were passed: {init_params}\n"
                                f" The following arguments were expected: {init_args.keys()}\n"
                                f" Current path: {path}\n"

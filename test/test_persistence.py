@@ -144,6 +144,29 @@ class TestPreloader(unittest.TestCase):
     self.assertListEqual(YamlPreloader.experiment_names_from_file(f"{self.out_dir}/tmp.yaml"),
                          ["exp1", "exp10", "exp2"])
 
+  def test_inconsistent_loadserialized(self):
+    with open(f"{self.out_dir}/tmp1.yaml", "w") as f_out:
+      yaml.dump(DummyClass(arg1="v1"), f_out)
+    test_obj = yaml.load(f"""
+    a: !LoadSerialized
+      filename: {self.out_dir}/tmp1.yaml
+      bad_arg: 1
+    """)
+    with self.assertRaises(ValueError):
+      YamlPreloader.preload_obj(test_obj, "SOME_EXP_NAME", "SOME_EXP_DIR")
+  def test_inconsistent_loadserialized(self):
+    with open(f"{self.out_dir}/tmp1.yaml", "w") as f_out:
+      yaml.dump(DummyClass(arg1="v1"), f_out)
+    test_obj = yaml.load(f"""
+    a: !LoadSerialized
+      filename: {self.out_dir}/tmp1.yaml
+      overwrite:
+      - path: a
+      - val: b
+    """)
+    with self.assertRaises(ValueError):
+      YamlPreloader.preload_obj(test_obj, "SOME_EXP_NAME", "SOME_EXP_DIR")
+
 
   def test_load_referenced_serialized_top(self):
     with open(f"{self.out_dir}/tmp1.yaml", "w") as f_out:
