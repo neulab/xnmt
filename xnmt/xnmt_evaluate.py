@@ -56,7 +56,7 @@ def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequ
     logger.info(f"> ignoring {len_before - len(ref_corpus)} out of {len_before} test sentences.")
 
   if is_multi:
-    return [evaluator.evaluate_multi(ref_corpus, hyp_corpus, desc=desc) for evaluator in evaluators]
+    return [evaluator.evaluate_multi_ref(ref_corpus, hyp_corpus, desc=desc) for evaluator in evaluators]
   else:
     return [evaluator.evaluate(ref_corpus, hyp_corpus, desc=desc) for evaluator in evaluators]
 
