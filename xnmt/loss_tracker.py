@@ -90,20 +90,9 @@ class TrainLossTracker(object):
 
   def count_trg_words(self, trg_words: Union[input.Input, batcher.Batch]) -> int:
     if isinstance(trg_words, batcher.Batch):
-      if isinstance(trg_words[0], input.SimpleSentenceInput):
-        return sum(self.count_trg_words(batch_elem) for batch_elem in trg_words)
-      else:
-        if trg_words.mask:
-          return np.sum(1.0 - trg_words.mask.np_arr)
-        else:
-          return sum(len(batch_elem) for batch_elem in trg_words)
-    elif isinstance(trg_words, input.SimpleSentenceInput):
-      trg_cnt = 0
-      for x in trg_words:
-        trg_cnt += 1 if x != vocab.Vocab.ES else 0
-      return trg_cnt
+      return sum(inp.len_unpadded() for inp in trg_words)
     else:
-      return len(trg_words)
+      return trg_words.len_unpadded()
 
 class DevLossTracker(object):
 
