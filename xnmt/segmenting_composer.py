@@ -4,8 +4,8 @@ import numpy as np
 from xnmt.linear import Linear
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
-from xnmt.events import register_xnmt_handler, register_xnmt_event
+from xnmt.param_init import GlorotInitializer
+from xnmt.events import register_xnmt_handler, register_xnmt_event, handle_xnmt_event
 
 class SegmentComposer(Serializable):
   yaml_tag = "!SegmentComposer"
@@ -131,4 +131,45 @@ class WordEmbeddingSegmentComposer(Serializable):
 
   def transduce(self, inputs):
     return self.embedding[self.word]
+
+class ConvolutionSegmentComposer(Serializable):
+  yaml_tag = "!ConvolutionSegmentComposer"
+
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self,
+               filter_height,
+               filter_width,
+               channel,
+               num_filter,
+               stride,
+               dropout_rate = 0,
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               hidden_dim=Ref("exp_global.default_layer_dim")):
+    model = ParamManager.my_params(self)
+    self.filter = model.add_parameters(dim=(filter_height, filter_width, channel, num_filter),
+                                       init=param_init.initializer((filter_height, filter_width, channel, num_filter)))
+    self.stride = stride
+    self.filter_width = filter_width
+    self.filter_height = filter_height
+    self.dropout_rate = dropout_rate
+    self.train = False
+
+  @register_xnmt_event
+  def set_word_boundary(self, start, end, src):
+    pass
+
+  @handle_xnmt_event
+  def on_set_train(self, train):
+    self.train = train
+  
+  def transduce(self, encodings):
+    inp = encodings.as_tensor()
+    dim = inp.dim()
+    
+    if self.train:
+      inp = dy.dropout(inp, self.dropout_rate)
+    encodings = dy.rectify(dy.conv2d(inp, dy.parameter(self.filter), stride = self.stride, is_valid=False))
+    pool = dy.max_dim(encodings, d=1)
+    return pool
 

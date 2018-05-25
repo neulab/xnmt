@@ -157,13 +157,29 @@ class TestSegmentingEncoder(unittest.TestCase):
                                       batch_size=4)
     self.assertEqual([len(x) for x in results], [8 for _ in range(4)])
 
-
   def test_sum_composer(self):
     enc = self.segmenting_encoder
     enc.segment_composer.encoder = IdentitySeqTransducer()
     enc.segment_composer.transformer = SumSegmentTransformer()
     enc(self.inp_emb(0))
 
+  def test_avg_composer(self):
+    enc = self.segmenting_encoder
+    enc.segment_composer.encoder = IdentitySeqTransducer()
+    enc.segment_composer.transformer = AverageSegmentTransformer()
+    enc(self.inp_emb(0))
+
+  def test_convolution_composer(self):
+    enc = self.segmenting_encoder
+    enc.segment_composer = ConvolutionSegmentComposer(filter_width=2,
+                                                      filter_height=3,
+                                                      channel=1,
+                                                      num_filter=1,
+                                                      stride=(1,1),
+                                                      dropout_rate = 0.5,
+                                                      hidden_dim=self.layer_dim)
+    self.model.set_train(True)
+    enc(self.inp_emb(0))
 
 class TestPriorSegmentation(unittest.TestCase):
   def setUp(self):
@@ -239,7 +255,7 @@ class TestPriorSegmentation(unittest.TestCase):
         src_vocab = self.src_reader.vocab,
         hidden_dim = self.layer_dim
     )
-    enc(self.inp_emb(0))
+    enc(self.inp_emb(0))  
 
 if __name__ == "__main__":
   unittest.main()
