@@ -845,6 +845,13 @@ class YamlPreloader(object):
 
     YamlPreloader._copy_duplicate_components(root) # sometimes duplicate objects occur with yaml.load()
 
+    placeholders = {"EXP": exp_name,
+                    "PID": os.getpid(),
+                    "EXP_DIR": exp_dir,
+                    "GIT_REV": get_git_revision()}
+
+    YamlPreloader._format_strings(root, placeholders) # do this both before and after resolving !LoadSerialized
+
     root = YamlPreloader._load_referenced_serialized(root)
 
     random_search_report = YamlPreloader._instantiate_random_search(root)
@@ -855,15 +862,7 @@ class YamlPreloader(object):
     # into the object hierarchy so it can be used w/ param sharing etc.
     YamlPreloader._resolve_bare_default_args(root)
 
-    placeholders = {"EXP": exp_name,
-                    "PID": os.getpid(),
-                    "EXP_DIR": exp_dir,
-                    "GIT_REV": get_git_revision}
-    try:
-      placeholders.update(root.exp_global.placeholders)
-    except AttributeError:
-      pass
-    YamlPreloader._format_strings(root, placeholders)
+    YamlPreloader._format_strings(root, placeholders)  # do this both before and after resolving !LoadSerialized
 
     return UninitializedYamlObject(root)
 
@@ -985,6 +984,10 @@ class YamlPreloader(object):
     - also checks if there are default arguments for which no arguments are set and instantiates them with replaced
       ``{EXP}`` if applicable
     """
+    try:
+      format_dict.update(root.exp_global.placeholders)
+    except AttributeError:
+      pass
     for path, node in _traverse_tree(root):
       if isinstance(node, str):
         try:

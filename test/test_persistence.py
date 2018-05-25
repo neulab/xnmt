@@ -167,6 +167,14 @@ class TestPreloader(unittest.TestCase):
     with self.assertRaises(ValueError):
       YamlPreloader.preload_obj(test_obj, "SOME_EXP_NAME", "SOME_EXP_DIR")
 
+  def test_placeholder_loadserialized(self):
+    with open(f"{self.out_dir}/tmp1.yaml", "w") as f_out:
+      yaml.dump(DummyClass(arg1="v1"), f_out)
+    test_obj = yaml.load(f"""
+    a: !LoadSerialized
+      filename: '{{EXP_DIR}}/{{EXP}}.yaml'
+    """)
+    YamlPreloader.preload_obj(test_obj, exp_name = "tmp1", exp_dir=self.out_dir)
 
   def test_load_referenced_serialized_top(self):
     with open(f"{self.out_dir}/tmp1.yaml", "w") as f_out:
