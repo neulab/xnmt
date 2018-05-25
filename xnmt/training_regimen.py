@@ -18,25 +18,33 @@ class TrainingRegimen(object):
   """
   def run_training(self, save_fct, update_weights=True):
     """
-    Runs training steps in a loop until stopping criterion is reached.
+    Run training steps in a loop until stopping criterion is reached.
 
     Args:
       save_fct: function to be invoked to save a model at dev checkpoints
       update_weights (bool): Whether parameters should be updated
     """
     raise NotImplementedError("")
-  def update_weights(self, loss, trainer, dynet_profiling):
+
+  def backward(self, loss: dy.Expression, dynet_profiling: int) -> None:
     """
-    Standardized way to perform backward pass and parameter updates.
+    Perform backward pass to accumulate gradients.
 
     Args:
       loss: Result of self.training_step(...)
-      trainer (XnmtOptimizer): DyNet trainer
-      dynet_profiling (int): if > 0, print the computation graph
+      dynet_profiling: if > 0, print the computation graph
     """
     if dynet_profiling and dynet_profiling > 0:
       dy.print_text_graphviz()
     loss.backward()
+
+  def update(self, trainer: xnmt.optimizer.XnmtOptimizer) -> None:
+    """
+    Update DyNet weights using the given optimizer.
+
+    Args:
+      trainer: DyNet trainer
+    """
     trainer.update()
 
 class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
@@ -122,7 +130,9 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
           self.model.set_train(True)
           loss_builder = self.training_step(src, trg)
           loss = loss_builder.compute()
-          if update_weights: self.update_weights(loss, self.trainer, self.dynet_profiling)
+          if update_weights:
+            self.backward(loss, self.dynet_profiling)
+            self.update(self.trainer)
         self.train_loss_tracker.report(trg, loss_builder.get_loss_stats())
         if self.checkpoint_needed():
           self.checkpoint_and_save(save_fct)
@@ -223,7 +233,8 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
             task_trg_loss_stats[task] = (trg, loss_builder.get_loss_stats())
             task_losses.append(loss_builder.compute())
           if update_weights:
-            self.update_weights(sum(task_losses), self.trainer, self.dynet_profiling)
+            self.backward(sum(task_losses), self.dynet_profiling)
+            self.update(self.trainer)
         for task, (trg, stats) in task_trg_loss_stats.items():
           self.train_loss_trackers[task].report(trg, stats)
         self.checkpoint_and_save(save_fct)
@@ -284,7 +295,8 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
           self.trigger_train_event(True)
           loss_builder = cur_task.training_step(src, trg)
           if update_weights:
-            self.update_weights(loss=loss_builder.compute(), trainer=self.trainer, dynet_profiling=self.dynet_profiling)
+            self.backward(loss=loss_builder.compute(), dynet_profiling=self.dynet_profiling)
+            self.update(trainer=self.trainer)
         cur_train_loss_tracker.report(trg, loss_builder.get_loss_stats())
         self.checkpoint_and_save(cur_task, cur_task_i, save_fct, dev_zero)
         if self.tasks[0].should_stop_training(): break
@@ -336,7 +348,8 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
             loss_builder = cur_task.training_step(src, trg)
             task_loss = loss_builder.compute()
             if update_weights:
-              self.update_weights(task_loss, self.trainer, self.dynet_profiling)
+              self.backward(task_loss, self.dynet_profiling)
+              self.update(self.trainer)
           cur_train_loss_tracker.report(trg, loss_builder.get_loss_stats())
           self.checkpoint_and_save(cur_task, cur_task_id, save_fct, dev_zero)
           if cur_task.should_stop_training(): break
