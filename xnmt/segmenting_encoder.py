@@ -45,15 +45,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
                sample_during_search = False,
                exp_reward           = True,
                exp_logsoftmax       = False,
-               print_sample         = False):
+               print_sample         = False,
+               embed_encoder_dim    = Ref("exp_global.default_layer_dim")):
     model = ParamManager.my_params(self)
     # Sanity check
     assert embed_encoder is not None
     assert segment_composer is not None
     assert final_transducer is not None
-    # The Embed Encoder transduces the embedding vectors to a sequence of vector
     self.embed_encoder = embed_encoder
-    embed_encoder_dim = embed_encoder.hidden_dim
     # The Segment transducer produced word embeddings based on sequence of character embeddings
     self.segment_composer = segment_composer
     # The final transducer

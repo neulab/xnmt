@@ -53,6 +53,7 @@ class TestSegmentingEncoder(unittest.TestCase):
       final_transducer = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       src_vocab = self.src_reader.vocab,
       trg_vocab = self.trg_reader.vocab,
+      embed_encoder_dim = layer_dim,
     )
 
     self.model = DefaultTranslator(
@@ -157,6 +158,12 @@ class TestSegmentingEncoder(unittest.TestCase):
                                       batch_size=4)
     self.assertEqual([len(x) for x in results], [8 for _ in range(4)])
 
+  def test_compose_char(self):
+    enc = self.segmenting_encoder
+    enc.embed_encoder = IdentitySeqTransducer()
+    enc.compose_char = True
+    enc(self.inp_emb(0))
+
   def test_sum_composer(self):
     enc = self.segmenting_encoder
     enc.segment_composer.encoder = IdentitySeqTransducer()
@@ -169,14 +176,17 @@ class TestSegmentingEncoder(unittest.TestCase):
     enc.segment_composer.transformer = AverageSegmentTransformer()
     enc(self.inp_emb(0))
 
+  def test_max_composer(self):
+    enc = self.segmenting_encoder
+    enc.segment_composer.encoder = IdentitySeqTransducer()
+    enc.segment_composer.transformer = MaxSegmentTransformer()
+    enc(self.inp_emb(0))
+
   def test_convolution_composer(self):
     enc = self.segmenting_encoder
-    enc.segment_composer = ConvolutionSegmentComposer(filter_width=2,
-                                                      filter_height=3,
-                                                      channel=1,
-                                                      num_filter=1,
-                                                      stride=(1,1),
-                                                      dropout_rate = 0.5,
+    enc.segment_composer = ConvolutionSegmentComposer(ngram_size=3,
+                                                      dropout=0.5,
+                                                      embed_dim=self.layer_dim,
                                                       hidden_dim=self.layer_dim)
     self.model.set_train(True)
     enc(self.inp_emb(0))
@@ -203,6 +213,7 @@ class TestPriorSegmentation(unittest.TestCase):
       final_transducer = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       src_vocab = self.src_reader.vocab,
       trg_vocab = self.trg_reader.vocab,
+      embed_encoder_dim = layer_dim,
     )
 
     self.model = DefaultTranslator(

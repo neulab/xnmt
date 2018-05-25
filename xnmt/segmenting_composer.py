@@ -53,7 +53,7 @@ class MaxSegmentTransformer(Serializable):
   @serializable_init
   def __init__(self): pass
   def transform(self, encoder, encodings):
-    return dy.emax(encodings)
+    return dy.emax(encodings.as_list())
 
 class CharNGramSegmentComposer(Serializable):
   yaml_tag = "!CharNGramSegmentComposer"
@@ -138,22 +138,18 @@ class ConvolutionSegmentComposer(Serializable):
   @register_xnmt_handler
   @serializable_init
   def __init__(self,
-               filter_height,
-               filter_width,
-               channel,
-               num_filter,
-               stride,
-               dropout_rate = 0,
+               ngram_size,
+               dropout = Ref("exp_global.dropout", default=0.0),
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               embed_dim=Ref("exp_global.default_layer_dim"),
                hidden_dim=Ref("exp_global.default_layer_dim")):
     model = ParamManager.my_params(self)
-    self.filter = model.add_parameters(dim=(filter_height, filter_width, channel, num_filter),
-                                       init=param_init.initializer((filter_height, filter_width, channel, num_filter)))
-    self.stride = stride
-    self.filter_width = filter_width
-    self.filter_height = filter_height
-    self.dropout_rate = dropout_rate
+    dim = (1, ngram_size, embed_dim, hidden_dim)
+    self.filter = model.add_parameters(dim=dim, init=param_init.initializer(dim))
+    self.dropout = dropout
     self.train = False
+    self.ngram_size = ngram_size
+    self.embed_dim = embed_dim
 
   @register_xnmt_event
   def set_word_boundary(self, start, end, src):
@@ -168,8 +164,15 @@ class ConvolutionSegmentComposer(Serializable):
     dim = inp.dim()
     
     if self.train:
-      inp = dy.dropout(inp, self.dropout_rate)
-    encodings = dy.rectify(dy.conv2d(inp, dy.parameter(self.filter), stride = self.stride, is_valid=False))
-    pool = dy.max_dim(encodings, d=1)
-    return pool
+      inp = dy.dropout(inp, self.dropout)
+    
+    # Padding
+    if dim[0][1] < self.ngram_size:
+      pad = dy.zeros((self.embed_dim, self.ngram_size-dim[0][1]))
+      inp = dy.concatenate([inp, pad], d=1)
+      dim = inp.dim()
+
+    inp = dy.reshape(dy.transpose(inp), (1, dim[0][1], dim[0][0]))
+    encodings = dy.rectify(dy.conv2d(inp, dy.parameter(self.filter), stride=(1,1), is_valid=True))
+    return dy.transpose(dy.max_dim(encodings, d=1))
 
