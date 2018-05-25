@@ -1,7 +1,5 @@
 debug-segmenting: !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 16
     dropout: 0.5
   model: !DefaultTranslator
@@ -63,7 +61,7 @@ debug-segmenting: !Experiment
         hidden_dim: 16
       bridge: !CopyBridge {}  
     inference: !SimpleInference
-      report_path: examples/output/{EXP}.report
+      report_path: test/tmp/{EXP}.report
       report_type: html, file
   train: !SimpleTrainingRegimen
     run_for_epochs: 3
@@ -78,4 +76,4 @@ debug-segmenting: !Experiment
       eval_metrics: bleu,wer
       src_file: examples/data/test-char-head5.ja
       ref_file: examples/data/test-head5.en
-      hyp_file: examples/output/{EXP}.test_hyp
+      hyp_file: test/tmp/{EXP}.test_hyp

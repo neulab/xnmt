@@ -19,12 +19,22 @@ development.
 Command line tools
 ------------------
 
-*xnmt* currently ships with two command line interfaces:
+*xnmt* comes with the following command line interfaces:
 
 * ``xnmt`` runs experiments given a configuration file that can specify preprocessing, model training, and evaluation.
-  The corresponding Python file is xnmt/xnmt_run_experiments.py.
+  The corresponding Python file is ``xnmt/xnmt_run_experiments.py``. Typical example call::
+
+    xnmt --dynet-gpu my-training.yaml
+
+* ``xnmt_decode`` decodes a hypothesis using a specified model. The corresponding Python file is
+  ``xnmt/xnmt_decode.py``. Typical example call::
+
+    xnmt_decode --src src.txt --hyp out.txt --mod saved-model.mod
+
 * ``xnmt_evaluate`` computes an evaluation metric given hypothesis and reference files. The corresponding Python file
-  is xnmt/xnmt_evaluate.py.
+  is ``xnmt/xnmt_evaluate.py``. Typical example call::
+
+    xnmt_evaluate --hyp out.txt --ref ref.txt --metric bleu
 
 
 Running the examples
