@@ -1,14 +1,12 @@
 # Using a trained model to add hypothesis score for an nbest list
-# First, exp1-model trains a model which is saved at examples/output/exp1-model.mod
+# First, exp1-model trains a model which is saved at test/tmp/exp1-model.mod
 # Then, exp2-score loads the exp1-model, and use it to score an nbest list
 # The nbest list example used here is located at examples/data/head.nbest.en
 # exp2-score outputs a new nbest list with hypothesis score.
-# The output file will be in examples/output/exp2-score.test_hyp
+# The output file will be in test/tmp/exp2-score.test_hyp
 
 exp1-model: !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 64
     dropout: 0.5
     weight_noise: 0.1
@@ -41,16 +39,16 @@ exp1-model: !Experiment
       eval_metrics: bleu
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/{EXP}.dev_hyp
+      hyp_file: test/tmp/{EXP}.dev_hyp
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/{EXP}.test_hyp
+      hyp_file: test/tmp/{EXP}.test_hyp
 
 exp2-score: !LoadSerialized
-  filename: examples/output/exp1-model.mod
+  filename: test/tmp/exp1-model.mod
   overwrite:
   - path: train
     val: ~
@@ -63,4 +61,4 @@ exp2-score: !LoadSerialized
     val: !AccuracyEvalTask
       src_file: examples/data/head.ja
       ref_file: examples/data/head.nbest.en
-      hyp_file: examples/output/{EXP}.test_hyp
+      hyp_file: test/tmp/{EXP}.test_hyp

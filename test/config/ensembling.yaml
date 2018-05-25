@@ -3,8 +3,6 @@
 
 ensemble1: !Experiment
   exp_global: &globals !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 32
   # Just use default model settings here
   model: !DefaultTranslator
@@ -50,14 +48,14 @@ ensemble3-load: !Experiment
     trg_reader: !Ref {path: model.models.0.trg_reader}
     models:
       - !LoadSerialized
-        filename: 'examples/output/ensemble1.mod'
+        filename: 'test/tmp/ensemble1.mod'
         path: model
       - !LoadSerialized
-        filename: 'examples/output/ensemble2.mod'
+        filename: 'test/tmp/ensemble2.mod'
         path: model
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu,wer
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/{EXP}.test_hyp
+      hyp_file: test/tmp/{EXP}.test_hyp

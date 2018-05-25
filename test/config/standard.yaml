@@ -1,8 +1,6 @@
 # A standard training run, should almost never break
 standard: !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 64
   model: !DefaultTranslator
     src_reader: !PlainTextReader
@@ -20,7 +18,7 @@ standard: !Experiment
         eval_metrics: bleu
         src_file: examples/data/head.ja
         ref_file: examples/data/head.en
-        hyp_file: examples/output/{EXP}.test_hyp
+        hyp_file: test/tmp/{EXP}.test_hyp
       - !LossEvalTask
         src_file: examples/data/head.ja
         ref_file: examples/data/head.en
@@ -29,6 +27,6 @@ standard: !Experiment
       eval_metrics: bleu
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/{EXP}.test_hyp
+      hyp_file: test/tmp/{EXP}.test_hyp
 
       

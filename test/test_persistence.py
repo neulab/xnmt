@@ -130,7 +130,7 @@ class DummyClassForgotBare(Serializable):
 class TestPreloader(unittest.TestCase):
   def setUp(self):
     yaml.add_representer(DummyClass, xnmt.init_representer)
-    self.out_dir = "test/out"
+    self.out_dir = "test/tmp"
     util.make_parent_dir(f"{self.out_dir}/asdf")
 
   def test_experiment_names_from_file(self):
