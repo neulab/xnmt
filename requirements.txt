@@ -7,4 +7,3 @@ cython
 h5py
 asteval
 numpy
-docopt
