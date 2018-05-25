@@ -44,7 +44,7 @@ class SimpleInference(Serializable):
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, post_process: str = "none", report_path: Optional[str] = None,
                report_type: str = "html", search_strategy: SearchStrategy = bare(BeamSearch), mode: str = "onebest",
-               max_len: Optional[int] = None, batcher: Optional[Batcher] = Ref("train.batcher", default=None)):
+               batcher: Optional[Batcher] = Ref("train.batcher", default=None)):
     self.src_file = src_file
     self.trg_file = trg_file
     self.ref_file = ref_file
@@ -55,7 +55,6 @@ class SimpleInference(Serializable):
     self.mode = mode
     self.batcher = batcher
     self.search_strategy = search_strategy
-    self.max_len = max_len
 
   def __call__(self, generator: GeneratorModel, src_file: str = None, trg_file: str = None,
                candidate_id_file: str = None):
@@ -99,10 +98,6 @@ class SimpleInference(Serializable):
           ref_corpus.append(trg_input)
       if self.mode == "score":
         src_corpus = score_src_corpus
-      else:
-        if self.max_len and any(len(s) > self.max_len for s in ref_corpus):
-          logger.warning("Forced decoding with some targets being longer than max_len. "
-                         "Increase max_len to avoid unexpected behavior.")
     else:
       ref_corpus = None
     # Vocab
