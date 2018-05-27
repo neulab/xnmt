@@ -12,7 +12,7 @@ import xnmt.input_reader
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
-from xnmt.loss import LossBuilder, LossScalarBuilder
+from xnmt.loss import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate
 
 class EvalTask(object):
@@ -66,26 +66,26 @@ class LossEvalTask(EvalTask, Serializable):
         xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                         self.src_file, self.ref_file, batcher=self.batcher,
                                         max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
-    loss_val = LossScalarBuilder()
+    loss_val = FactoredLossVal()
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
 
-      loss_builder = LossBuilder()
+      loss_builder = FactoredLossExpr()
       standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
       additional_loss = self.model.calc_additional_loss(standard_loss)
-      loss_builder.add_loss("standard_loss", standard_loss)
-      loss_builder.add_loss("additional_loss", additional_loss)
+      loss_builder.add_factored_loss_expr(standard_loss)
+      loss_builder.add_factored_loss_expr(additional_loss)
 
       ref_words_cnt += self.model.trg_reader.count_words(trg)
-      loss_val += loss_builder.get_loss_stats()
+      loss_val += loss_builder.get_factored_loss_val()
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
 
     try:
       return LossScore(loss_stats[self.model.get_primary_loss()], loss_stats=loss_stats, desc=self.desc), ref_words_cnt
     except KeyError:
-      raise RuntimeError("Did you wrap your loss calculation with LossBuilder({'primary_loss': loss_value}) ?")
+      raise RuntimeError("Did you wrap your loss calculation with FactoredLossExpr({'primary_loss': loss_value}) ?")
 
 class AccuracyEvalTask(EvalTask, Serializable):
   """

@@ -123,7 +123,7 @@ class SimpleTrainingRegimen(SimpleTrainingTask, TrainingRegimen, Serializable):
           loss_builder = self.training_step(src, trg)
           loss = loss_builder.compute()
           if update_weights: self.update_weights(loss, self.trainer, self.dynet_profiling)
-        self.train_loss_tracker.report(trg, loss_builder.get_loss_stats())
+        self.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val())
         if self.checkpoint_needed():
           self.checkpoint_and_save(save_fct)
         if self.should_stop_training(): break
@@ -220,7 +220,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
           self.trigger_train_event(True)
           for task, src, trg in task_src_trg:
             loss_builder = task.training_step(src, trg)
-            task_trg_loss_stats[task] = (trg, loss_builder.get_loss_stats())
+            task_trg_loss_stats[task] = (trg, loss_builder.get_factored_loss_val())
             task_losses.append(loss_builder.compute())
           if update_weights:
             self.update_weights(sum(task_losses), self.trainer, self.dynet_profiling)
@@ -285,7 +285,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
           loss_builder = cur_task.training_step(src, trg)
           if update_weights:
             self.update_weights(loss=loss_builder.compute(), trainer=self.trainer, dynet_profiling=self.dynet_profiling)
-        cur_train_loss_tracker.report(trg, loss_builder.get_loss_stats())
+        cur_train_loss_tracker.report(trg, loss_builder.get_factored_loss_val())
         self.checkpoint_and_save(cur_task, cur_task_i, save_fct, dev_zero)
         if self.tasks[0].should_stop_training(): break
 
@@ -337,7 +337,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
             task_loss = loss_builder.compute()
             if update_weights:
               self.update_weights(task_loss, self.trainer, self.dynet_profiling)
-          cur_train_loss_tracker.report(trg, loss_builder.get_loss_stats())
+          cur_train_loss_tracker.report(trg, loss_builder.get_factored_loss_val())
           self.checkpoint_and_save(cur_task, cur_task_id, save_fct, dev_zero)
           if cur_task.should_stop_training(): break
 

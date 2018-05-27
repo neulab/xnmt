@@ -98,8 +98,8 @@ Multi-layer Perceptron
 Loss
 ----
 
-LossBuilder
-~~~~~~~~~~~
+Loss
+~~~~
 
 .. automodule:: xnmt.loss
    :members:
