@@ -267,6 +267,22 @@ class TestPriorSegmentation(unittest.TestCase):
         hidden_dim = self.layer_dim
     )
     enc(self.inp_emb(0))  
+  
+  def test_add_multiple_segment_composer(self):
+    enc = self.segmenting_encoder
+    word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    word_vocab.freeze()
+    enc.segment_composer = SumMultipleSegmentComposer(
+      segment_composers = [
+        WordEmbeddingSegmentComposer(word_vocab = word_vocab,
+                                     src_vocab = self.src_reader.vocab,
+                                     hidden_dim = self.layer_dim),
+        CharNGramSegmentComposer(word_vocab = word_vocab,
+                                 src_vocab = self.src_reader.vocab,
+                                 hidden_dim = self.layer_dim)
+      ]
+    )
+    enc(self.inp_emb(0))
 
 if __name__ == "__main__":
   unittest.main()

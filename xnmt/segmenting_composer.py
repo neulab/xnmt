@@ -11,13 +11,11 @@ from xnmt.events import register_xnmt_handler, register_xnmt_event, handle_xnmt_
 class SegmentComposer(Serializable):
   yaml_tag = "!SegmentComposer"
 
-  @register_xnmt_handler
   @serializable_init
   def __init__(self, encoder, transformer):
     self.encoder = encoder
     self.transformer = transformer
 
-  @register_xnmt_event
   def set_word_boundary(self, start, end, src):
     pass
 
@@ -59,7 +57,6 @@ class MaxSegmentTransformer(Serializable):
 class CharNGramSegmentComposer(Serializable):
   yaml_tag = "!CharNGramSegmentComposer"
   
-  @register_xnmt_handler
   @serializable_init
   def __init__(self,
                word_vocab=None,
@@ -86,7 +83,6 @@ class CharNGramSegmentComposer(Serializable):
                                                                      output_dim=hidden_dim))
     self.cached_src = None
 
-  @register_xnmt_event
   def set_word_boundary(self, start, end, src):
     self.word = tuple(src[start:end+1])
     if self.cached_src != src:
@@ -112,7 +108,6 @@ class CharNGramSegmentComposer(Serializable):
 class WordEmbeddingSegmentComposer(Serializable):
   yaml_tag = "!WordEmbeddingSegmentComposer"
 
-  @register_xnmt_handler
   @serializable_init
   def __init__(self,
                word_vocab=None,
@@ -133,7 +128,6 @@ class WordEmbeddingSegmentComposer(Serializable):
     self.embedding = param_collection.add_lookup_parameters((dict_entry, hidden_dim))
     self.cached_src = None
 
-  @register_xnmt_event
   def set_word_boundary(self, start, end, src):
     if self.cached_src != src:
       self.cached_src = src
@@ -162,7 +156,6 @@ class ConvolutionSegmentComposer(Serializable):
     self.ngram_size = ngram_size
     self.embed_dim = embed_dim
 
-  @register_xnmt_event
   def set_word_boundary(self, start, end, src):
     pass
 
@@ -186,4 +179,18 @@ class ConvolutionSegmentComposer(Serializable):
     inp = dy.reshape(dy.transpose(inp), (1, dim[0][1], dim[0][0]))
     encodings = dy.rectify(dy.conv2d(inp, dy.parameter(self.filter), stride=(1,1), is_valid=True))
     return dy.transpose(dy.max_dim(encodings, d=1))
+
+class SumMultipleSegmentComposer(Serializable):
+  yaml_tag = "!SumMultipleSegmentComposer"
+  
+  @serializable_init
+  def __init__(self, segment_composers):
+    self.segment_composers = segment_composers
+
+  def set_word_boundary(self, start, end, src):
+    for segment_composer in self.segment_composers:
+      segment_composer.set_word_boundary(start, end, src)
+
+  def transduce(self, inputs):
+    return sum([segment_composer.transduce(inputs) for segment_composer in self.segment_composers])
 
