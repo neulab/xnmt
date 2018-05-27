@@ -1,5 +1,6 @@
 import dynet as dy
 import numpy as np
+from collections import Counter
 
 from xnmt.linear import Linear
 from xnmt.param_collection import ParamManager
@@ -72,7 +73,9 @@ class CharNGramSegmentComposer(Serializable):
       word_vocab = Vocab()
       dict_entry = vocab_size
     else:
-      dict_entry = len(word_vocab)
+      dict_entry = len(word_vocab)+1
+      word_vocab.freeze()
+      word_vocab.set_unk(word_vocab.UNK_STR)
 
     self.dict_entry = dict_entry
     self.src_vocab = src_vocab
@@ -89,13 +92,19 @@ class CharNGramSegmentComposer(Serializable):
     if self.cached_src != src:
       self.cached_src = src
       self.src_sent = "".join([self.src_vocab[i] for i in src])
-    word_vector = np.zeros(self.dict_entry)
+    word_vector = Counter()
     for i in range(start, end+1):
       for j in range(i, min(i+self.ngram_size, end+1)):
         ngram = self.src_sent[i:j+1]
         if ngram in self.word_vocab:
-          word_vector[self.word_vocab.convert(ngram)] += 1
-    self.ngram_vocab_vect = dy.inputTensor(word_vector)
+          word_vector[int(self.word_vocab.convert(ngram))] += 1
+    keys = [x for x in word_vector.keys()]
+    values = [x for x in word_vector.values()]
+    if len(keys) == 0:
+      keys = [self.word_vocab.unk_token]
+      values = [1]
+
+    self.ngram_vocab_vect = dy.sparse_inputTensor([keys], values, (self.dict_entry,))
 
   def transduce(self, inputs):
     return dy.tanh(self.word_ngram(self.ngram_vocab_vect))
@@ -116,7 +125,9 @@ class WordEmbeddingSegmentComposer(Serializable):
       word_vocab = Vocab()
       dict_entry = vocab_size
     else:
-      dict_entry = len(word_vocab)
+      dict_entry = len(word_vocab)+1
+      word_vocab.freeze()
+      word_vocab.set_unk(word_vocab.UNK_STR)
     self.src_vocab = src_vocab
     self.word_vocab = word_vocab
     self.embedding = param_collection.add_lookup_parameters((dict_entry, hidden_dim))
