@@ -33,7 +33,8 @@ class LossEvalTask(EvalTask, Serializable):
     batcher: batcher to use
     loss_calculator: loss calculator
     max_src_len: omit sentences with source length greater than specified number
-    max_trg_len:omit sentences with target length greater than specified number
+    max_trg_len: omit sentences with target length greater than specified number
+    loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
     desc: description to pass on to computed score objects
   """
   yaml_tag = '!LossEvalTask'
@@ -42,7 +43,8 @@ class LossEvalTask(EvalTask, Serializable):
   def __init__(self, src_file: str, ref_file: str, model: GeneratorModel = Ref("model"),
                batcher: Optional[Batcher] = Ref("train.batcher", default=None),
                loss_calculator: LossCalculator = bare(MLELoss), max_src_len: Optional[int] = None,
-               max_trg_len: Optional[int] = None, desc: Any = None):
+               max_trg_len: Optional[int] = None,
+               loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"), desc: Any = None):
     self.model = model
     self.loss_calculator = loss_calculator
     self.src_file = src_file
@@ -51,6 +53,7 @@ class LossEvalTask(EvalTask, Serializable):
     self.src_data = None
     self.max_src_len = max_src_len
     self.max_trg_len = max_trg_len
+    self.loss_comb_method = loss_comb_method
     self.desc=desc
 
   def eval(self) -> tuple:
@@ -78,7 +81,7 @@ class LossEvalTask(EvalTask, Serializable):
       loss_builder.add_factored_loss_expr(additional_loss)
 
       ref_words_cnt += self.model.trg_reader.count_words(trg)
-      loss_val += loss_builder.get_factored_loss_val()
+      loss_val += loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method)
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
 

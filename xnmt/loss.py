@@ -29,14 +29,17 @@ class FactoredLossExpr(object):
       for loss_name, loss in factored_loss_expr.expr_factors.items():
         self.expr_factors[loss_name] += loss
 
-  def compute(self) -> dy.Expression:
+  def compute(self, comb_method: str = "sum") -> dy.Expression:
     """
     Compute loss as DyNet expression by summing over factors and batch elements.
+
+    Args:
+      comb_method: method for combining loss across batch elements ('sum' or 'avg').
 
     Returns:
       Scalar DyNet expression.
     """
-    return self._combine_batches(dy.esum(list(self.expr_factors.values())))
+    return self._combine_batches(dy.esum(list(self.expr_factors.values())), comb_method)
 
   def value(self) -> List[float]:
     """
@@ -50,17 +53,25 @@ class FactoredLossExpr(object):
   def __getitem__(self, loss_name: str) -> dy.Expression:
     return self.expr_factors[loss_name]
 
-  def get_factored_loss_val(self) -> 'FactoredLossVal':
+  def get_factored_loss_val(self, comb_method: str = "sum") -> 'FactoredLossVal':
     """
     Create factored loss values by calling ``.value()`` for each DyNet loss expression and applying batch combination.
+
+    Args:
+      comb_method: method for combining loss across batch elements ('sum' or 'avg').
 
     Returns:
       Factored loss values.
     """
-    return FactoredLossVal({k: self._combine_batches(v).value() for k, v in self.expr_factors.items()})
+    return FactoredLossVal({k: self._combine_batches(v, comb_method).value() for k, v in self.expr_factors.items()})
 
-  def _combine_batches(self, batched_expr):
-    return dy.sum_batches(batched_expr)
+  def _combine_batches(self, batched_expr, comb_method: str = "sum"):
+    if comb_method == "sum":
+      return dy.sum_batches(batched_expr)
+    elif comb_method == "avg":
+      return dy.sum_batches(batched_expr) * (1.0 / batched_expr.dim()[1])
+    else:
+      raise ValueError(f"Unknown batch combination method '{comb_method}', expected 'sum' or 'avg'.'")
 
   def __len__(self):
     return len(self.expr_factors)
