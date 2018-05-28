@@ -211,7 +211,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
 
   @serializable_init
   def __init__(self, tasks: Sequence[training_task.TrainingTask], trainer: optimizer.XnmtOptimizer = None,
-               dev_zero: bool = False, per_task_backward: bool = False,
+               dev_zero: bool = False, per_task_backward: bool = True,
                commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
     self.train_loss_trackers = {task : TrainLossTracker(task) for task in tasks}
@@ -239,6 +239,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
             task_trg_loss_stats[task] = (trg, loss_builder.get_loss_stats())
             if self.per_task_backward:
               self.backward(loss_builder.compute(), self.dynet_profiling)
+              dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
             else:
               task_losses.append(loss_builder.compute())
           if update_weights:
