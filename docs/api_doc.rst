@@ -154,7 +154,7 @@ ParamInitializer
 Inference
 ---------
 
-TranslatorInference
+SequenceInference
 ~~~~~~~~~~~~~~~
 
 .. automodule:: xnmt.inference

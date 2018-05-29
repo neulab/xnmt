@@ -32,7 +32,7 @@ exp1-train-model: !Experiment
         hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !TranslatorInference
+    inference: !SequenceInference
       search_strategy: !BeamSearch
         beam_size: 5
         len_norm: !PolynomialNormalization

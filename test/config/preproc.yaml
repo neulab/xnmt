@@ -72,7 +72,7 @@ standard-preproc: !Experiment
       mlp_layer: !MLP
         hidden_dim: 256
       bridge: !NoBridge {}
-    inference: !TranslatorInference
+    inference: !SequenceInference
       post_process: join-char
   train: !SimpleTrainingRegimen
     run_for_epochs: 2

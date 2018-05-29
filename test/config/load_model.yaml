@@ -28,7 +28,7 @@ exp1-pretrain-model: !Experiment
         hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !TranslatorInference {}
+    inference: !SequenceInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja

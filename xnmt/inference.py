@@ -64,7 +64,7 @@ class ClassifierInference(Inference, Serializable):
         # Printing to trg file
         fp.write(f"{output_txt}\n")
 
-class TranslatorInference(Inference, Serializable):
+class SequenceInference(Inference, Serializable):
   """
   Main class to perform decoding.
   
@@ -87,7 +87,7 @@ class TranslatorInference(Inference, Serializable):
     batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
   """
   
-  yaml_tag = '!TranslatorInference'
+  yaml_tag = '!SequenceInference'
 
   @serializable_init
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
