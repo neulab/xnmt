@@ -22,7 +22,7 @@ exp1-pretrain1: !Experiment
         hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !TranslatorInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.ja
@@ -52,7 +52,7 @@ exp2-pretrain2: !Experiment
         hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !TranslatorInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.ja
@@ -85,7 +85,7 @@ exp3-assemble: !Experiment
         hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !TranslatorInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.en
@@ -122,7 +122,7 @@ exp4-assemble: !Experiment
         hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !TranslatorInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.en

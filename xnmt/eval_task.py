@@ -7,7 +7,7 @@ import dynet as dy
 from xnmt.batcher import Batcher
 from xnmt.evaluator import Evaluator
 from xnmt.model_base import GeneratorModel
-from xnmt.inference import SimpleInference
+from xnmt.inference import TranslatorInference
 import xnmt.input_reader
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.loss_calculator import LossCalculator, MLELoss
@@ -107,7 +107,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: GeneratorModel = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
-               inference: Optional[SimpleInference] = None, candidate_id_file: Optional[str] = None,
+               inference: Optional[TranslatorInference] = None, candidate_id_file: Optional[str] = None,
                desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
@@ -158,7 +158,7 @@ class DecodingEvalTask(EvalTask, Serializable):
 
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: GeneratorModel = Ref("model"),
-               inference: Optional[SimpleInference] = None, candidate_id_file: Optional[str] = None):
+               inference: Optional[TranslatorInference] = None, candidate_id_file: Optional[str] = None):
 
     self.model = model
     self.src_file = src_file

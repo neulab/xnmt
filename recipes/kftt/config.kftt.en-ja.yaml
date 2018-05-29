@@ -42,7 +42,7 @@ kftt.en-ja: !Experiment
           path: model.trg_embedder.emb_dim
         activation: 'relu'
       label_smoothing: 0.1              # Smooth the output labels with the uniform distribution
-    inference: !SimpleInference
+    inference: !TranslatorInference
       search_strategy: !BeamSearch
         beam_size: 5
         len_norm: !PolynomialNormalization

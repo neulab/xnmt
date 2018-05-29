@@ -46,7 +46,7 @@ exp1-multi_task_exp: !Experiment
           bridge: !CopyBridge {}
           mlp_layer: !MLP
             vocab: !Ref {name: trg_vocab}
-        inference: !SimpleInference
+        inference: !TranslatorInference
           batcher: !Ref { path: train.tasks.0.batcher }
       dev_tasks:
         - !AccuracyEvalTask
@@ -85,7 +85,7 @@ exp1-multi_task_exp: !Experiment
           bridge: !CopyBridge {}
           mlp_layer: !MLP
             vocab: !Ref {name: trg_vocab}
-        inference: !SimpleInference
+        inference: !TranslatorInference
           batcher: !Ref { path: train.tasks.1.batcher }
       dev_tasks:
         - !AccuracyEvalTask

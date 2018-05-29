@@ -17,7 +17,27 @@ from xnmt.util import make_parent_dir
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 
-class SimpleInference(Serializable):
+class Inference(object):
+  """
+  A template class for classes that perform inference.
+  """
+
+  def __call__(self, generator: GeneratorModel, src_file: str = None, trg_file: str = None,
+               candidate_id_file: str = None) -> None:
+    """
+    Perform inference by reading inputs from ``src_file`` and writing out the hypotheses to ``trg_file``.
+
+    Args:
+      generator: the model to be used
+      src_file: path of input src file to be translated
+      trg_file: path of file where trg translatons will be written
+      candidate_id_file: if we are doing something like retrieval where we select from fixed candidates, sometimes we
+                         want to limit our candidates to a certain subset of the full set. this setting allows us to do
+                         this.
+    """
+    raise NotImplementedError("to be implemented by subclasses")
+
+class TranslatorInference(Inference, Serializable):
   """
   Main class to perform decoding.
   
@@ -40,7 +60,7 @@ class SimpleInference(Serializable):
     batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
   """
   
-  yaml_tag = '!SimpleInference'
+  yaml_tag = '!TranslatorInference'
 
   @serializable_init
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
@@ -161,7 +181,7 @@ class SimpleInference(Serializable):
     # Get reference if it exists and is necessary
     if self.mode == "forced" or self.mode == "forceddebug" or self.mode == "score":
       if self.ref_file is None:
-        raise RuntimeError("When performing {} decoding, must specify reference file".format(self.mode))
+        raise RuntimeError(f"When performing '{self.mode}' decoding, must specify reference file")
       score_src_corpus = []
       ref_corpus = []
       with open(self.ref_file, "r", encoding="utf-8") as fp:

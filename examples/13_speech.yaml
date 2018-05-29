@@ -61,7 +61,7 @@ speech: !Experiment
         src_file: examples/data/LDC94S13A.h5
         ref_file: examples/data/LDC94S13A.char
         hyp_file: examples/output/{EXP}.dev_hyp
-        inference: !SimpleInference
+        inference: !TranslatorInference
           post_process: join-char
   evaluate:
     - !AccuracyEvalTask
@@ -69,6 +69,6 @@ speech: !Experiment
       src_file: examples/data/LDC94S13A.h5
       ref_file: examples/data/LDC94S13A.words
       hyp_file: examples/output/{EXP}.test_hyp
-      inference: !SimpleInference
+      inference: !TranslatorInference
         post_process: join-char
     

@@ -21,7 +21,7 @@ forced: !Experiment
         layers: 1
         hidden_dim: 64
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !TranslatorInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
@@ -33,13 +33,13 @@ forced: !Experiment
   evaluate:
     - !AccuracyEvalTask &acc_task
       eval_metrics: bleu,wer
-      inference: !SimpleInference {}
+      inference: !TranslatorInference {}
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
       hyp_file: test/tmp/{EXP}.test_hyp
     - !AccuracyEvalTask # TODO: can this inherit settings from acc_task?
       eval_metrics: bleu,wer
-      inference: !SimpleInference
+      inference: !TranslatorInference
         mode: forced
         ref_file: examples/data/head.en
         batcher: !InOrderBatcher { batch_size: 32 }
@@ -48,7 +48,7 @@ forced: !Experiment
       hyp_file: test/tmp/{EXP}.forced_hyp
     - !AccuracyEvalTask
       eval_metrics: bleu,wer
-      inference: !SimpleInference
+      inference: !TranslatorInference
         mode: forceddebug
         ref_file: examples/data/head.en
         batcher: !InOrderBatcher { batch_size: 32 }
