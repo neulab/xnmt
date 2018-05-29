@@ -77,7 +77,7 @@ class LossEvalTask(EvalTask, Serializable):
       loss_builder.add_loss("standard_loss", standard_loss)
       loss_builder.add_loss("additional_loss", additional_loss)
 
-      ref_words_cnt += self.model.trg_reader.count_words(trg)
+      ref_words_cnt += sum([trg_i.len_unpadded() for trg_i in trg])
       loss_val += loss_builder.get_loss_stats()
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
@@ -138,7 +138,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
     ref_words_cnt = 0
     for ref_sent in self.model.trg_reader.read_sents(
             self.ref_file if isinstance(self.ref_file, str) else self.ref_file[0]):
-      ref_words_cnt += self.model.trg_reader.count_words(ref_sent)
+      ref_words_cnt += ref_sent.len_unpadded()
       ref_words_cnt += 0
     return eval_scores, ref_words_cnt
 

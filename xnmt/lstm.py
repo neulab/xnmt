@@ -72,7 +72,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     param_init (ParamInitializer): how to initialize weight matrices
     bias_init (ParamInitializer): how to initialize bias vectors
     yaml_path (str):
-    decoder_input_dim (int): input dimension of the decoder; if ``yaml_path`` contains 'decoder' and ``decoder_input_feeding`` is True, this will be added to ``input_dim``
+    decoder_input_dim (int): input dimension of the decoder; if ``yaml_path`` contains 'mlp' and ``decoder_input_feeding`` is True, this will be added to ``input_dim``
     decoder_input_feeding (bool): whether this transducer is part of an input-feeding decoder; cf. ``decoder_input_dim``
   """
   yaml_tag = '!UniLSTMSeqTransducer'
