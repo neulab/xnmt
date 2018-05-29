@@ -147,7 +147,7 @@ class SimpleInference(Serializable):
                                    candidate_id_file=candidate_id_file, report_path=self.report_path,
                                    report_type=self.report_type, mode=self.mode)
     if hasattr(generator, "set_post_processor"):
-      generator.set_post_processor(self.get_output_processor())
+      generator.set_post_processor(xnmt.output.OutputProcessor.get_output_processor(self.post_process))
     if hasattr(generator, "set_trg_vocab"):
       generator.set_trg_vocab(trg_vocab)
     if hasattr(generator, "set_reporting_src_vocab"):
@@ -182,16 +182,3 @@ class SimpleInference(Serializable):
     else:
       ref_corpus = None
     return ref_corpus, src_corpus
-
-  def get_output_processor(self):
-    spec = self.post_process
-    if spec == "none":
-      return xnmt.output.PlainTextOutputProcessor()
-    elif spec == "join-char":
-      return xnmt.output.JoinedCharTextOutputProcessor()
-    elif spec == "join-bpe":
-      return xnmt.output.JoinedBPETextOutputProcessor()
-    elif spec == "join-piece":
-      return xnmt.output.JoinedPieceTextOutputProcessor()
-    else:
-      raise RuntimeError("Unknown postprocessing argument {}".format(spec))
