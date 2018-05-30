@@ -73,9 +73,6 @@ class TestRunningConfig(unittest.TestCase):
   def test_score(self):
     run.main(["test/config/score.yaml"])
 
-  def test_seq_classifier(self):
-    run.main(["test/config/seq_classifier.yaml"])
-
   def test_speech(self):
     run.main(["test/config/speech.yaml"])
 
