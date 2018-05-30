@@ -14,7 +14,7 @@ class Output(object):
 
 class TextOutput(Output):
   def __init__(self, actions=None, vocab=None, score=None):
-    self.actions = actions or []
+    self.actions = [] if actions is None else actions
     self.vocab = vocab
     self.score = score
     self.filtered_tokens = {Vocab.SS, Vocab.ES}
@@ -22,6 +22,7 @@ class TextOutput(Output):
   def to_string(self):
     map_func = lambda wi: self.vocab[wi] if self.vocab is not None else str
     return map(map_func, filter(lambda wi: wi not in self.filtered_tokens, self.actions))
+
 
 class OutputProcessor(object):
   def process_outputs(self, outputs):
