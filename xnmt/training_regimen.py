@@ -370,7 +370,6 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
             loss_builder = cur_task.training_step(src, trg)
             task_loss = loss_builder.compute()
             if update_weights:
-              self.update_weights(task_loss, self.trainer, self.dynet_profiling)
               self.backward(task_loss, self.dynet_profiling)
               self.update(self.trainer)
           cur_train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
