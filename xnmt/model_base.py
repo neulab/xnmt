@@ -16,7 +16,7 @@ class TrainableModel(object):
     self.trg_reader = trg_reader
 
   def calc_loss(self, src: Union[batcher.Batch, input.Input], trg: Union[batcher.Batch, input.Input],
-                loss_calculator: loss_calculator.LossCalculator) -> loss.LossBuilder:
+                loss_calculator: loss_calculator.LossCalculator) -> loss.FactoredLossExpr:
     '''Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.

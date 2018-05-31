@@ -32,7 +32,7 @@ class TrainLossTracker(object):
   def __init__(self, training_task):
     self.training_task = training_task
 
-    self.epoch_loss = loss.LossScalarBuilder()
+    self.epoch_loss = loss.FactoredLossVal()
     self.epoch_words = 0
     self.last_report_sents_into_epoch = 0
     self.last_report_sents_since_start = 0
@@ -46,7 +46,7 @@ class TrainLossTracker(object):
   @events.handle_xnmt_event
   def on_new_epoch(self, training_task, num_sents):
     if training_task is self.training_task:
-      self.epoch_loss.zero()
+      self.epoch_loss.clear()
       self.epoch_words = 0
       self.last_report_sents_since_start = 0
       self.last_report_words = 0
@@ -70,7 +70,7 @@ class TrainLossTracker(object):
         TrainLossTracker.REPORT_TEMPLATE_SPEED if accum_time else TrainLossTracker.REPORT_TEMPLATE,
         {"key": "train_loss", "data": "train",
          "epoch": fractional_epoch,
-         "loss": self.epoch_loss.sum() / self.epoch_words,
+         "loss": self.epoch_loss.sum_factors() / self.epoch_words,
          "words": self.epoch_words,
          "words_per_sec": (self.epoch_words - self.last_report_words) / (
            accum_time) if accum_time else "-",

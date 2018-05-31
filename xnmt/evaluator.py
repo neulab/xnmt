@@ -251,7 +251,7 @@ class LevenshteinScore(SentenceLevelEvalScore):
   def higher_is_better(self): return False
   def score_str(self):
     return f"{self.value()*100.0:.2f}% " \
-           f"( C/I/D/S: {self.correct}/{self.insertions}/{self.deletions}/{self.substitutions}; " \
+           f"( C/S/I/D: {self.correct}/{self.substitutions}/{self.insertions}/{self.deletions}; " \
            f"hyp_len={self.hyp_len()}, ref_len={self.ref_len()} )"
   @staticmethod
   def aggregate(scores: Sequence['LevenshteinScore'], desc: Any = None) -> 'LevenshteinScore':
