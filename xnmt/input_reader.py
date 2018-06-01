@@ -119,6 +119,25 @@ class PlainTextReader(BaseTextReader, Serializable):
   def vocab_size(self):
     return len(self.vocab)
 
+class CharFromWordTextReader(PlainTextReader, Serializable):
+  yaml_tag = "!CharFromWordTextReader"
+  @serializable_init
+  def __init__(self, vocab=None):
+    super().__init__(vocab)
+  def read_sent(self, sentence, filter_ids=None):
+    chars = []
+    segs = []
+    offset = 0
+    for word in sentence.strip().split():
+      offset += len(word)
+      segs.append(offset-1)
+      chars.extend([c for c in word])
+    segs.append(len(chars))
+    chars.append(VOCAB.ES_STR)
+    sent_input = SimpleSentenceInput(chars)
+    sent_input.annotate("segment", segs)
+    return sent_input
+
 class BaseTextReader(InputReader):
   """
   A base class for text-based :class:`xnmt.input_reader.InputReader` subclasses that implements some helper methods.
