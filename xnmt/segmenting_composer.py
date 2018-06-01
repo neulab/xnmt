@@ -103,7 +103,7 @@ class CharNGramSegmentComposer(Serializable):
     self.ngram_vocab_vect = dy.sparse_inputTensor([keys], values, (self.dict_entry,))
 
   def transduce(self, inputs):
-    return dy.tanh(self.word_ngram(self.ngram_vocab_vect))
+    return dy.rectify(self.word_ngram(self.ngram_vocab_vect))
 
 class WordEmbeddingSegmentComposer(Serializable):
   yaml_tag = "!WordEmbeddingSegmentComposer"
@@ -149,7 +149,7 @@ class ConvolutionSegmentComposer(Serializable):
                embed_dim=Ref("exp_global.default_layer_dim"),
                hidden_dim=Ref("exp_global.default_layer_dim")):
     model = ParamManager.my_params(self)
-    dim = (1, ngram_size, embed_dim, hidden_dim)
+    dim = (embed_dim, ngram_size, 1, hidden_dim)
     self.filter = model.add_parameters(dim=dim, init=param_init.initializer(dim))
     self.dropout = dropout
     self.train = False
@@ -175,8 +175,7 @@ class ConvolutionSegmentComposer(Serializable):
       pad = dy.zeros((self.embed_dim, self.ngram_size-dim[0][1]))
       inp = dy.concatenate([inp, pad], d=1)
       dim = inp.dim()
-
-    inp = dy.reshape(dy.transpose(inp), (1, dim[0][1], dim[0][0]))
+    inp = dy.reshape(inp, (dim[0][0], dim[0][1], 1))
     encodings = dy.rectify(dy.conv2d(inp, dy.parameter(self.filter), stride=(1,1), is_valid=True))
     return dy.transpose(dy.max_dim(encodings, d=1))
 
