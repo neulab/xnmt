@@ -133,8 +133,8 @@ class CharFromWordTextReader(PlainTextReader, Serializable):
       segs.append(offset-1)
       chars.extend([c for c in word])
     segs.append(len(chars))
-    chars.append(VOCAB.ES_STR)
-    sent_input = SimpleSentenceInput(chars)
+    chars.append(Vocab.ES_STR)
+    sent_input = SimpleSentenceInput([self.vocab.convert(c) for c in chars])
     sent_input.annotate("segment", segs)
     return sent_input
 
