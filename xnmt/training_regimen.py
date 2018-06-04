@@ -1,5 +1,5 @@
 import argparse
-from typing import Sequence
+from typing import Sequence, Optional, Union
 from collections import OrderedDict
 
 from xnmt.settings import settings
@@ -8,12 +8,16 @@ import dynet as dy
 
 from xnmt.model_base import TrainableModel
 from xnmt.loss_tracker import TrainLossTracker
-from xnmt.loss_calculator import MLELoss
+from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt import training_task, optimizer, batcher
+from xnmt import training_task, optimizer, batcher, eval_task
 
 class TrainingRegimen(object):
+
+  def __init__(self, update_every: int = 1) -> None:
+    self.update_every = update_every
+    self.num_updates_ignored = 0
   """
   A training regimen is a class that implements a training loop.
   """
@@ -46,52 +50,67 @@ class TrainingRegimen(object):
     Args:
       trainer: DyNet trainer
     """
-    trainer.update()
+    self.num_updates_ignored = getattr(self, "num_updates_ignored", 0) + 1
+    if self.num_updates_ignored == self.update_every:
+      trainer.update()
+      self.num_updates_ignored = 0
+    else:
+      assert 0 < self.num_updates_ignored < self.update_every
 
 class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, Serializable):
   """
   Args:
-    model (TrainableModel): the model
-    src_file (str): the source training file
-    trg_file (str): the target training file
-    dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
-    dev_zero (bool): if True, add a checkpoint before training loop is entered (useful with pretrained models).
-    batcher (Batcher): Type of batcher
-    loss_calculator (LossCalculator): The method for calculating the loss.
-    trainer (XnmtOptimizer): Trainer object, default is SGD with learning rate 0.1
-    run_for_epochs (int):
-    lr_decay (float):
-    lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
-    patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
-    initial_patience (int): if given, allows adjusting patience for the first LR decay
-    dev_tasks (List[EvalTask]): A list of tasks to use during the development stage.
+    model: the model
+    src_file: the source training file
+    trg_file: the target training file
+    dev_every: dev checkpoints every n sentences (0 for only after epoch)
+    dev_zero: if True, add a checkpoint before training loop is entered (useful with pretrained models).
+    batcher: Type of batcher
+    loss_calculator: The method for calculating the loss.
+    trainer: Trainer object, default is SGD with learning rate 0.1
+    run_for_epochs:
+    lr_decay:
+    lr_decay_times:  Early stopping after decaying learning rate a certain number of times
+    patience: apply LR decay after dev scores haven't improved over this many checkpoints
+    initial_patience: if given, allows adjusting patience for the first LR decay
+    dev_tasks: A list of tasks to use during the development stage.
     dev_combinator: A formula to combine together development scores into a single score to
                     choose whether to perform learning rate decay, etc.
                     e.g. 'x[0]-x[1]' would say that the first dev task score minus the
                     second dev task score is our measure of how good we're doing. If not
                     specified, only the score from the first dev task will be used.
-    restart_trainer (bool): Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
-    reload_command (str): Command to change the input data after each epoch.
+    restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying
+                            LR decay (https://arxiv.org/pdf/1706.09733.pdf)
+    reload_command: Command to change the input data after each epoch.
                          --epoch EPOCH_NUM will be appended to the command.
-                         To just reload the data after each epoch set the command to 'true'.
-    name (str): will be prepended to log outputs if given
-    sample_train_sents (int):
-    max_num_train_sents (int):
-    max_src_len (int):
-    max_trg_len (int):
-    loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
-    commandline_args (Namespace):
+                         To just reload the data after each epoch set the command to ``True``.
+    name: will be prepended to log outputs if given
+    sample_train_sents:
+    max_num_train_sents:
+    max_src_len:
+    max_trg_len:
+    loss_comb_method: method for combining loss across batch elements (``sum`` or ``avg``).
+    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
+                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
+                  slower computation).
+    commandline_args:
   """
   yaml_tag = '!SimpleTrainingRegimen'
 
   @serializable_init
-  def __init__(self, model=Ref("model"), src_file=None, trg_file=None, dev_every=0, dev_zero=False,
-               batcher=bare(batcher.SrcBatcher, batch_size=32), loss_calculator=bare(MLELoss), trainer=None,
-               run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1, initial_patience=None, dev_tasks=None,
-               dev_combinator=None, restart_trainer: bool = False, reload_command=None, name="{EXP}",
-               sample_train_sents=None, max_num_train_sents=None, max_src_len=None, max_trg_len=None,
-               loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
-               commandline_args=Ref("exp_global.commandline_args", default=None)):
+  def __init__(self, model: TrainableModel = Ref("model"), src_file: Union[None, str, Sequence[str]] = None,
+               trg_file: Optional[str] = None, dev_every: int = 0, dev_zero: bool = False,
+               batcher: batcher.Batcher = bare(batcher.SrcBatcher, batch_size=32),
+               loss_calculator: LossCalculator = bare(MLELoss),
+               trainer: optimizer.XnmtOptimizer = bare(optimizer.SimpleSGDTrainer, e0=0.1),
+               run_for_epochs: Optional[int] = None, lr_decay: float = 1.0, lr_decay_times: int = 3, patience: int = 1,
+               initial_patience: Optional[int] = None, dev_tasks: Sequence[eval_task.EvalTask] = None,
+               dev_combinator: Optional[str] = None, restart_trainer: bool = False,
+               reload_command: Optional[str] = None, name: str = "{EXP}", sample_train_sents: Optional[int] = None,
+               max_num_train_sents: Optional[int] = None, max_src_len: Optional[int] = None,
+               max_trg_len: Optional[int] = None,
+               loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"), update_every: int = 1,
+               commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)):
 
     super().__init__(model=model,
                      src_file=src_file,
@@ -118,6 +137,7 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
     self.dynet_profiling = getattr(commandline_args, "dynet_profiling", 0) if commandline_args else 0
     self.train_loss_tracker = TrainLossTracker(self)
     self.loss_comb_method = loss_comb_method
+    self.update_every = update_every
 
   def run_training(self, save_fct, update_weights=True):
     """
@@ -159,13 +179,18 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
                 model checkpoints.
     trainer (XnmtOptimizer): Trainer object, default is SGD with learning rate 0.1
     dev_zero (bool): if True, add a checkpoint before training loop is entered (useful with pretrained models).
+    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
+                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
+                  slower computation).
     commandline_args (Namespace):
   """
   def __init__(self,
                tasks,
                trainer=None,
                dev_zero=False,
+               update_every=1,
                commandline_args=Ref("exp_global.commandline_args", default=None)):
+    super().__init__(update_every=update_every)
     self.dynet_profiling = getattr(commandline_args, "dynet_profiling", 0) if commandline_args else 0
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
@@ -208,6 +233,9 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                        tasks. Yields the same results, but ``True`` uses less memory while ``False`` may be
                        faster when using autobatching.
     loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
+    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
+                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
+                  slower computation).
     commandline_args:
   """
   yaml_tag = "!SameBatchMultiTaskTrainingRegimen"
@@ -216,8 +244,10 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   def __init__(self, tasks: Sequence[training_task.TrainingTask], trainer: optimizer.XnmtOptimizer = None,
                dev_zero: bool = False, per_task_backward: bool = True,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
+               update_every: int = 1,
                commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)):
-    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
+    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args,
+                     update_every=update_every)
     self.train_loss_trackers = {task : TrainLossTracker(task) for task in tasks}
     self.per_task_backward = per_task_backward
     self.loss_comb_method = loss_comb_method
@@ -280,6 +310,9 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     trainer (XnmtOptimizer): the trainer is shared across tasks
     dev_zero (bool): if True, add a checkpoint before training loop is entered (useful with pretrained models).
     loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
+    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
+                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
+                  slower computation).
     commandline_args (Namespace):
   """
   yaml_tag = "!AlternatingBatchMultiTaskTrainingRegimen"
@@ -287,8 +320,10 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
   @serializable_init
   def __init__(self, tasks, task_weights=None, trainer=None, dev_zero=False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
+               update_every: int = 1,
                commandline_args=Ref("exp_global.commandline_args", default=None)):
-    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
+    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args,
+                     update_every=update_every)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks)
     if len(self.task_weights) != len(self.tasks):
       raise ValueError(f"number of tasks must match number of task weights; "
@@ -340,6 +375,9 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     trainer (XnmtOptimizer): the trainer is shared across tasks
     dev_zero (bool): if True, add a checkpoint before training loop is entered (useful with pretrained models).
     loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
+    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
+                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
+                  slower computation).
     commandline_args (Namespace):
   """
 
@@ -348,8 +386,10 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   @serializable_init
   def __init__(self, tasks, trainer=None, dev_zero=False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
+               update_every: int = 1,
                commandline_args=Ref("exp_global.commandline_args", default=None)):
-    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
+    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args,
+                     update_every=update_every)
     self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
     self.loss_comb_method = loss_comb_method
 
