@@ -30,7 +30,7 @@ class Translator(model_base.GeneratorModel):
     raise NotImplementedError()
 
   def calc_loss(self, src: Union[batcher.Batch, input.Input], trg: Union[batcher.Batch, input.Input],
-                loss_calculator: loss_calculator.LossCalculator) -> loss.LossBuilder:
+                loss_calculator: loss_calculator.LossCalculator) -> loss.FactoredLossExpr:
     '''Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
@@ -129,8 +129,8 @@ class DefaultTranslator(Translator, Serializable, reports.Reportable, model_base
     ss = batcher.mark_as_batch([vocab.Vocab.SS] * len(src)) if batcher.is_batched(src) else vocab.Vocab.SS
     initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
     # Compose losses
-    model_loss = loss.LossBuilder()
-    model_loss.add_loss("mle", loss_calculator(self, initial_state, src, trg))
+    model_loss = loss.FactoredLossExpr()
+    model_loss.add_factored_loss_expr(loss_calculator(self, initial_state, src, trg))
 
     if self.calc_global_fertility or self.calc_attention_entropy:
       # philip30: I assume that attention_vecs is already masked src wisely.
@@ -430,7 +430,7 @@ class TransformerTranslator(Translator, Serializable, reports.Reportable, model_
     ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
     concat_t_block = (1 - trg_mask.ravel()).reshape(-1) * np.array(ref_list)
     loss = self.decoder.output_and_loss(h_block, concat_t_block)
-    return loss.LossBuilder({"mle": loss})
+    return loss.FactoredLossExpr({"mle": loss})
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None, search_strategy=None):
     self.start_sent(src)
@@ -536,7 +536,7 @@ class EnsembleTranslator(Translator, Serializable, model_base.EventTrigger):
     for model in self.models:
       for loss_name, loss in model.calc_loss(src, trg, loss_calculator).loss_values.items():
         sub_losses[loss_name].append(loss)
-    model_loss = loss.LossBuilder()
+    model_loss = loss.FactoredLossExpr()
     for loss_name, losslist in sub_losses.items():
       # TODO: dy.average(losslist)  _or_  dy.esum(losslist) / len(self.models) ?
       #       -- might not be the same if not all models return all losses

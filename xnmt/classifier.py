@@ -49,7 +49,7 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
       loss_expr = dy.pickneglogsoftmax(scores, trg.value)
     else:
       loss_expr = dy.pickneglogsoftmax_batch(scores, [trg_i.value for trg_i in trg])
-    classifier_loss = loss.LossBuilder({"mle" : loss_expr})
+    classifier_loss = loss.FactoredLossExpr({"mle" : loss_expr})
     return classifier_loss
 
   def generate(self, src, idx):

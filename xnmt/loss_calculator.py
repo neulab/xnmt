@@ -1,7 +1,7 @@
 import dynet as dy
 import numpy as np
 
-from xnmt.loss import LossBuilder
+from xnmt.loss import FactoredLossExpr
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.vocab import Vocab
 from xnmt.constants import INFINITY
@@ -54,7 +54,7 @@ class MLELoss(Serializable, LossCalculator):
       if i < seq_len-1:
         dec_state = translator.decoder.add_input(dec_state, translator.trg_embedder.embed(ref_word))
 
-    return dy.esum(losses)
+    return FactoredLossExpr({"mle": dy.esum(losses)})
 
 class ReinforceLoss(Serializable, LossCalculator):
   yaml_tag = '!ReinforceLoss'
@@ -93,7 +93,7 @@ class ReinforceLoss(Serializable, LossCalculator):
       self.eval_score.append(score)
     self.true_score = dy.inputTensor(self.eval_score, batched=True)
     # Composing losses
-    loss = LossBuilder()
+    loss = FactoredLossExpr()
     if self.use_baseline:
       baseline_loss = []
       losses = []
@@ -168,5 +168,5 @@ class MinRiskLoss(Serializable, LossCalculator):
     #print("----------------------")
     ### End debug
 
-    return LossBuilder({"risk": risk})
+    return FactoredLossExpr({"risk": risk})
 

@@ -14,7 +14,7 @@ from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.transducer import SeqTransducer
-from xnmt.loss import LossBuilder
+from xnmt.loss import FactoredLossExpr
 from xnmt.param_collection import ParamManager
 
 EPS = 1e-10
@@ -289,7 +289,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # Mask
     enc_mask = self.enc_mask.get_active_one_mask().transpose() if self.enc_mask is not None else None
     # Compose the lose
-    ret = LossBuilder()
+    ret = FactoredLossExpr()
     ## Length prior
     alpha = self.length_prior_alpha.value() if self.length_prior_alpha is not None else 0
     if alpha > 0:
