@@ -11,28 +11,9 @@ from xnmt.loss_tracker import TrainLossTracker
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt import training_task, optimizer, batcher, eval_task, util, logger
+from xnmt import training_task, optimizer, batcher, eval_task
 
 class TrainingRegimen(object):
-
-  """
-  Base class for training regimens.
-
-  Args:
-    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
-                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
-                  slower computation).
-    ignore_noisy_updates: keep track of a moving average and a moving standard deviation of the log of the gradient norm
-                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
-                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
-  """
-
-  def __init__(self, update_every: int = 1, ignore_noisy_updates: bool = False) -> None:
-    self.update_every = update_every
-    self.num_updates_ignored = 0
-    self.ignore_noisy_updates = ignore_noisy_updates
-    if ignore_noisy_updates:
-      self.rolling_stats = util.RollingStatistic()
   """
   A training regimen is a class that implements a training loop.
   """
@@ -65,30 +46,7 @@ class TrainingRegimen(object):
     Args:
       trainer: DyNet trainer
     """
-    self.num_updates_ignored = getattr(self, "num_updates_ignored", 0) + 1
-    if self.num_updates_ignored == self.update_every:
-      if not (self.ignore_noisy_updates and self._check_gradients_noisy()):
-        trainer.update()
-      else:
-        logger.info("skipping noisy update")
-      self.num_updates_ignored = 0
-    else:
-      assert 0 < self.num_updates_ignored < self.update_every
-
-  def _check_gradients_noisy(self) -> bool:
-    sq_norm = 0
-    for subcol in ParamManager.param_col.subcols.values():
-      for param in subcol.parameters_list():
-        cur_grads = param.grad_as_array()
-        sq_norm += np.sum(np.square(cur_grads))
-    log_norm = np.log(np.sqrt(sq_norm))
-    self.rolling_stats.update(log_norm)
-    if self.rolling_stats.average is None: # too few statistics
-      return False
-    else:
-      req_min = self.rolling_stats.average - 4*self.rolling_stats.stddev
-      req_max = self.rolling_stats.average + 4*self.rolling_stats.stddev
-      return not (req_min < log_norm < req_max)
+    trainer.update()
 
 class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, Serializable):
   """
@@ -123,12 +81,6 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
     max_src_len:
     max_trg_len:
     loss_comb_method: method for combining loss across batch elements (``sum`` or ``avg``).
-    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
-                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
-                  slower computation).
-    ignore_noisy_updates: keep track of a moving average and a moving standard deviation of the log of the gradient norm
-                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
-                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
     commandline_args:
   """
   yaml_tag = '!SimpleTrainingRegimen'
@@ -145,8 +97,7 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
                reload_command: Optional[str] = None, name: str = "{EXP}", sample_train_sents: Optional[int] = None,
                max_num_train_sents: Optional[int] = None, max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
-               loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"), update_every: int = 1,
-               ignore_noisy_updates: bool = False,
+               loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)):
 
     super().__init__(model=model,
@@ -174,10 +125,6 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
     self.dynet_profiling = getattr(commandline_args, "dynet_profiling", 0) if commandline_args else 0
     self.train_loss_tracker = TrainLossTracker(self)
     self.loss_comb_method = loss_comb_method
-    self.update_every = update_every
-    self.ignore_noisy_updates = ignore_noisy_updates
-    if ignore_noisy_updates:
-      self.rolling_stats = util.RollingStatistic()
 
   def run_training(self, save_fct, update_weights=True):
     """
@@ -219,22 +166,14 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
                 model checkpoints.
     trainer (XnmtOptimizer): Trainer object, default is SGD with learning rate 0.1
     dev_zero (bool): if True, add a checkpoint before training loop is entered (useful with pretrained models).
-    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
-                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
-                  slower computation).
-    ignore_noisy_updates: keep track of a moving average and a moving standard deviation of the log of the gradient norm
-                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
-                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
     commandline_args (Namespace):
   """
   def __init__(self,
                tasks,
                trainer=None,
                dev_zero=False,
-               update_every=1,
-               ignore_noisy_updates: bool = False,
                commandline_args=Ref("exp_global.commandline_args", default=None)):
-    super().__init__(update_every=update_every, ignore_noisy_updates=ignore_noisy_updates)
+    super().__init__()
     self.dynet_profiling = getattr(commandline_args, "dynet_profiling", 0) if commandline_args else 0
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
@@ -277,12 +216,6 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                        tasks. Yields the same results, but ``True`` uses less memory while ``False`` may be
                        faster when using autobatching.
     loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
-    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
-                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
-                  slower computation).
-    ignore_noisy_updates: keep track of a moving average and a moving standard deviation of the log of the gradient norm
-                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
-                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
     commandline_args:
   """
   yaml_tag = "!SameBatchMultiTaskTrainingRegimen"
@@ -291,10 +224,8 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   def __init__(self, tasks: Sequence[training_task.TrainingTask], trainer: optimizer.XnmtOptimizer = None,
                dev_zero: bool = False, per_task_backward: bool = True,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
-               update_every: int = 1, ignore_noisy_updates: bool = False,
                commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)):
-    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args,
-                     update_every=update_every, ignore_noisy_updates=ignore_noisy_updates)
+    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
     self.train_loss_trackers = {task : TrainLossTracker(task) for task in tasks}
     self.per_task_backward = per_task_backward
     self.loss_comb_method = loss_comb_method
@@ -357,12 +288,6 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     trainer (XnmtOptimizer): the trainer is shared across tasks
     dev_zero (bool): if True, add a checkpoint before training loop is entered (useful with pretrained models).
     loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
-    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
-                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
-                  slower computation).
-    ignore_noisy_updates: keep track of a moving average and a moving standard deviation of the log of the gradient norm
-                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
-                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
     commandline_args (Namespace):
   """
   yaml_tag = "!AlternatingBatchMultiTaskTrainingRegimen"
@@ -370,10 +295,8 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
   @serializable_init
   def __init__(self, tasks, task_weights=None, trainer=None, dev_zero=False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
-               update_every: int = 1, ignore_noisy_updates: bool = False,
                commandline_args=Ref("exp_global.commandline_args", default=None)):
-    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args,
-                     update_every=update_every, ignore_noisy_updates=ignore_noisy_updates)
+    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks)
     if len(self.task_weights) != len(self.tasks):
       raise ValueError(f"number of tasks must match number of task weights; "
@@ -425,12 +348,6 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     trainer (XnmtOptimizer): the trainer is shared across tasks
     dev_zero (bool): if True, add a checkpoint before training loop is entered (useful with pretrained models).
     loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
-    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
-                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
-                  slower computation).
-    ignore_noisy_updates: keep track of a moving average and a moving standard deviation of the log of the gradient norm
-                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
-                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
     commandline_args (Namespace):
   """
 
@@ -439,10 +356,8 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   @serializable_init
   def __init__(self, tasks, trainer=None, dev_zero=False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
-               update_every: int = 1, ignore_noisy_updates: bool = False,
                commandline_args=Ref("exp_global.commandline_args", default=None)):
-    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args,
-                     update_every=update_every, ignore_noisy_updates=ignore_noisy_updates)
+    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
     self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
     self.loss_comb_method = loss_comb_method
 
