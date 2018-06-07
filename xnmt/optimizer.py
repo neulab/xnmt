@@ -1,3 +1,5 @@
+from typing import Optional
+
 import dynet as dy
 import numpy as np
 
@@ -16,27 +18,37 @@ class XnmtOptimizer(object):
   A base classe for trainers. Trainers are mostly simple wrappers of DyNet trainers but can add extra functionality.
 
   Args:
+    optimizer: the underlying DyNet optimizer (trainer)
     update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
                   to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
                   slower computation).
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    clip_norm: if given, deactivate elementwise clipping and perform norm clipping instead.
   """
-  def __init__(self, update_every: int = 1, skip_noisy: bool = False) -> None:
+
+  def __init__(self, optimizer: dy.Trainer, update_every: int = 1, skip_noisy: bool = False,
+               clip_norm: Optional[float] = None) -> None:
+    self.optimizer = optimizer
     self.update_every = update_every
     self.num_updates_ignored = 0
     self.skip_noisy = skip_noisy
     if skip_noisy:
       self.rolling_stats = util.RollingStatistic()
+    self.clip_norm = clip_norm
+    if self.clip_norm:
+      self.set_clip_threshold(0)
 
-  def update(self):
+  def update(self) -> None:
     """
     Update the parameters.
     """
     self.num_updates_ignored += 1
     if self.num_updates_ignored == self.update_every:
       if not (self.skip_noisy and self._check_gradients_noisy()):
+        if self.clip_norm:
+          self._do_clip_norm(self.clip_norm)
         self.optimizer.update()
       else:
         logger.info("skipping noisy update")
@@ -102,6 +114,19 @@ class XnmtOptimizer(object):
       req_max = self.rolling_stats.average + 4*self.rolling_stats.stddev
       return not (req_min < log_norm < req_max)
 
+  def _do_clip_norm(self, val:float) -> None:
+    sq_norm = 0
+    for subcol in ParamManager.param_col.subcols.values():
+      for param in subcol.parameters_list():
+        cur_grads = param.grad_as_array()
+        sq_norm += np.sum(np.square(cur_grads))
+    norm = np.sqrt(sq_norm)
+    if norm > val:
+      for subcol in ParamManager.param_col.subcols.values():
+        for param in subcol.parameters_list():
+          param.scale_gradient(val / norm)
+
+
 class SimpleSGDTrainer(XnmtOptimizer, Serializable):
   """
   Stochastic gradient descent trainer
@@ -116,13 +141,15 @@ class SimpleSGDTrainer(XnmtOptimizer, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    clip_norm: if given, deactivate elementwise clipping and perform norm clipping instead.
   """
   yaml_tag = '!SimpleSGDTrainer'
 
   @serializable_init
-  def __init__(self, e0 = 0.1, update_every: int = 1, skip_noisy: bool = False):
-    super().__init__(update_every=update_every, skip_noisy=skip_noisy)
-    self.optimizer = dy.SimpleSGDTrainer(ParamManager.global_collection(), e0)
+  def __init__(self, e0 = 0.1, update_every: int = 1, skip_noisy: bool = False, clip_norm:Optional[float] = None):
+    super().__init__(optimizer=dy.SimpleSGDTrainer(ParamManager.global_collection(), e0),
+                     update_every=update_every, skip_noisy=skip_noisy, clip_norm=clip_norm)
+
 class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   """
   Stochastic gradient descent with momentum
@@ -138,13 +165,15 @@ class MomentumSGDTrainer(XnmtOptimizer, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    clip_norm: if given, deactivate elementwise clipping and perform norm clipping instead.
   """
   yaml_tag = '!MomentumSGDTrainer'
 
   @serializable_init
-  def __init__(self, e0 = 0.01, mom = 0.9, update_every: int = 1, skip_noisy: bool = False):
-    super().__init__(update_every=update_every, skip_noisy=skip_noisy)
-    self.optimizer = dy.MomentumSGDTrainer(ParamManager.global_collection(), e0, mom)
+  def __init__(self, e0=0.01, mom=0.9, update_every: int = 1, skip_noisy: bool = False,
+               clip_norm: Optional[float] = None):
+    super().__init__(optimizer=dy.MomentumSGDTrainer(ParamManager.global_collection(), e0, mom),
+                     update_every=update_every, skip_noisy=skip_noisy, clip_norm=clip_norm)
 
 class AdagradTrainer(XnmtOptimizer, Serializable):
   """
@@ -161,13 +190,15 @@ class AdagradTrainer(XnmtOptimizer, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    clip_norm: if given, deactivate elementwise clipping and perform norm clipping instead.
   """
   yaml_tag = '!AdagradTrainer'
 
   @serializable_init
-  def __init__(self, e0 = 0.1, eps = 1e-20, update_every: int = 1, skip_noisy: bool = False):
-    super().__init__(update_every=update_every, skip_noisy=skip_noisy)
-    self.optimizer = dy.AdagradTrainer(ParamManager.global_collection(), e0, eps=eps)
+  def __init__(self, e0=0.1, eps=1e-20, update_every: int = 1, skip_noisy: bool = False,
+               clip_norm: Optional[float] = None):
+    super().__init__(optimizer=dy.AdagradTrainer(ParamManager.global_collection(), e0, eps=eps),
+                     update_every=update_every, skip_noisy=skip_noisy, clip_norm=clip_norm)
 
 class AdadeltaTrainer(XnmtOptimizer, Serializable):
   """
@@ -184,13 +215,15 @@ class AdadeltaTrainer(XnmtOptimizer, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    clip_norm: if given, deactivate elementwise clipping and perform norm clipping instead.
   """
   yaml_tag = '!AdadeltaTrainer'
 
   @serializable_init
-  def __init__(self, eps = 1e-6, rho = 0.95, update_every: int = 1, skip_noisy: bool = False):
-    super().__init__(update_every=update_every, skip_noisy=skip_noisy)
-    self.optimizer = dy.AdadeltaTrainer(ParamManager.global_collection(), eps, rho)
+  def __init__(self, eps=1e-6, rho=0.95, update_every: int = 1, skip_noisy: bool = False,
+               clip_norm: Optional[float] = None):
+    super().__init__(optimizer=dy.AdadeltaTrainer(ParamManager.global_collection(), eps, rho),
+                     update_every=update_every, skip_noisy=skip_noisy, clip_norm=clip_norm)
 
 class AdamTrainer(XnmtOptimizer, Serializable):
   """
@@ -209,13 +242,15 @@ class AdamTrainer(XnmtOptimizer, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    clip_norm: if given, deactivate elementwise clipping and perform norm clipping instead.
   """
   yaml_tag = '!AdamTrainer'
 
   @serializable_init
-  def __init__(self, alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8, update_every: int = 1, skip_noisy: bool = False):
-    super().__init__(update_every=update_every, skip_noisy=skip_noisy)
-    self.optimizer = dy.AdamTrainer(ParamManager.global_collection(), alpha, beta_1, beta_2, eps)
+  def __init__(self, alpha=0.001, beta_1=0.9, beta_2=0.999, eps=1e-8, update_every: int = 1, skip_noisy: bool = False,
+               clip_norm: Optional[float] = None):
+    super().__init__(optimizer=dy.AdamTrainer(ParamManager.global_collection(), alpha, beta_1, beta_2, eps),
+                     update_every=update_every, skip_noisy=skip_noisy, clip_norm=clip_norm)
 
 class TransformerAdamTrainer(XnmtOptimizer, Serializable):
   """
@@ -235,17 +270,19 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    clip_norm: if given, deactivate elementwise clipping and perform norm clipping instead.
   """
   yaml_tag = '!TransformerAdamTrainer'
 
   @serializable_init
-  def __init__(self, alpha=1.0, dim=512, warmup_steps=4000, beta_1=0.9, beta_2=0.98, eps=1e-9, update_every: int = 1, skip_noisy: bool = False):
-    super().__init__(update_every=update_every, skip_noisy=skip_noisy)
-    self.optimizer = dy.AdamTrainer(ParamManager.global_collection(),
+  def __init__(self, alpha=1.0, dim=512, warmup_steps=4000, beta_1=0.9, beta_2=0.98, eps=1e-9, update_every: int = 1,
+               skip_noisy: bool = False, clip_norm: Optional[float] = None):
+    super().__init__(optimizer=dy.AdamTrainer(ParamManager.global_collection(),
                                     alpha=alpha,
                                     beta_1=beta_1,
                                     beta_2=beta_2,
-                                    eps=eps)
+                                    eps=eps),
+                     update_every=update_every, skip_noisy=skip_noisy, clip_norm=clip_norm)
     self.dim = dim
     self.warmup_steps = warmup_steps
     self.steps = 0
@@ -254,7 +291,7 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
     self.steps += 1
     decay = (self.dim ** (-0.5)) * np.min([self.steps ** (-0.5), self.steps * (self.warmup_steps ** (-1.5))])
     self.optimizer.learning_rate = 1. * decay
-    self.optimizer.update()
+    super().update()
 
     if self.steps % 200 == 0:
       logger.info('> Optimizer Logging')
