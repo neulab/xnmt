@@ -486,27 +486,55 @@ class TransformerSeqTransducer(transducer.SeqTransducer, Serializable):
                square_mask_std:float=True, cross_pos_encoding_type:typing.Optional[str]=None, ff_lstm:bool=False, kq_pos_encoding_type:typing.Optional[str]=None,
                kq_pos_encoding_size:int=40,
                param_init:xnmt.param_init.ParamInitializer=Ref("exp_global.param_init", default=bare(xnmt.param_init.GlorotInitializer)),
-               bias_init:xnmt.param_init.ParamInitializer=Ref("exp_global.bias_init", default=bare(xnmt.param_init.ZeroInitializer))):
+               bias_init:xnmt.param_init.ParamInitializer=Ref("exp_global.bias_init", default=bare(xnmt.param_init.ZeroInitializer)),
+               positional_embedder=None, modules=None):
     self.input_dim = input_dim = (
             input_dim + (pos_encoding_size if (pos_encoding_type and pos_encoding_combine == "concat") else 0))
     self.hidden_dim = hidden_dim
     self.dropout = dropout
     self.layers = layers
-    self.modules = []
     self.pos_encoding_type = pos_encoding_type
     self.pos_encoding_combine = pos_encoding_combine
     self.pos_encoding_size = pos_encoding_size
     self.max_len = max_len
     self.position_encoding_block = None
     if self.pos_encoding_type == "embedding":
-      self.positional_embedder = embedder.PositionEmbedder(max_pos=self.max_len,
-                                                           emb_dim=input_dim if self.pos_encoding_combine == "add" else self.pos_encoding_size)
+      self.positional_embedder = \
+        self.add_serializable_component("positional_embedder",
+                                        positional_embedder,
+                                        lambda: embedder.PositionEmbedder(max_pos=self.max_len,
+                                                                          emb_dim=input_dim if self.pos_encoding_combine == "add" else self.pos_encoding_size))
+
+    self.modules = self.add_serializable_component("modules", modules,
+                                                   lambda: self.make_modules(layers=layers,
+                                                                             plot_attention=plot_attention,
+                                                                             hidden_dim=hidden_dim,
+                                                                             downsample_factor=downsample_factor,
+                                                                             input_dim=input_dim,
+                                                                             head_count=head_count,
+                                                                             ff_hidden_dim=ff_hidden_dim,
+                                                                             diagonal_mask_width=diagonal_mask_width,
+                                                                             ignore_masks=ignore_masks,
+                                                                             nonlinearity=nonlinearity,
+                                                                             diag_gauss_mask=diag_gauss_mask,
+                                                                             square_mask_std=square_mask_std,
+                                                                             cross_pos_encoding_type=cross_pos_encoding_type,
+                                                                             ff_lstm=ff_lstm,
+                                                                             kq_pos_encoding_type=kq_pos_encoding_type,
+                                                                             kq_pos_encoding_size=kq_pos_encoding_size,
+                                                                             dropout=dropout,
+                                                                             param_init=param_init,
+                                                                             bias_init=bias_init))
+
+  def make_modules(self, layers, plot_attention, hidden_dim, downsample_factor, input_dim, head_count, ff_hidden_dim, diagonal_mask_width, ignore_masks, nonlinearity, diag_gauss_mask,
+                   square_mask_std,cross_pos_encoding_type,ff_lstm,kq_pos_encoding_type,kq_pos_encoding_size,dropout,param_init,bias_init):
+    modules = []
     for layer_i in range(layers):
       if plot_attention is not None:
         plot_attention_layer = f"{plot_attention}.layer_{layer_i}"
       else:
         plot_attention_layer = None
-      self.modules.append(TransformerEncoderLayer(hidden_dim,
+      modules.append(TransformerEncoderLayer(hidden_dim,
                                                   downsample_factor=downsample_factor,
                                                   input_dim=input_dim if layer_i == 0 else hidden_dim,
                                                   head_count=head_count, ff_hidden_dim=ff_hidden_dim,
@@ -527,6 +555,7 @@ class TransformerSeqTransducer(transducer.SeqTransducer, Serializable):
                                                   bias_init=bias_init[layer_i] if isinstance(bias_init,
                                                                                              Sequence) else bias_init,
                                                   desc=f"layer_{layer_i}"))
+    return modules
 
   def __call__(self, sent):
     if self.pos_encoding_type == "trigonometric":
