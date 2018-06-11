@@ -109,7 +109,8 @@ class SAAMMultiHeadedSelfAttention(Serializable):
                kq_pos_encoding_type: typing.Optional[str] = None, kq_pos_encoding_size: int = 40, max_len: int = 1500,
                param_init: xnmt.param_init.ParamInitializer = xnmt.param_init.GlorotInitializer(),
                bias_init: xnmt.param_init.ParamInitializer = xnmt.param_init.ZeroInitializer(),
-               linear_kvq = None, kq_positional_embedder = None, desc: typing.Any = None) -> None:
+               linear_kvq = None, kq_positional_embedder = None, layer_norm = None, res_shortcut = None,
+               desc: typing.Any = None) -> None:
     if input_dim is None: input_dim = model_dim
     self.input_dim = input_dim
     assert model_dim % head_count == 0
@@ -165,13 +166,14 @@ class SAAMMultiHeadedSelfAttention(Serializable):
         self.diag_gauss_mask_sigma = subcol.add_parameters(dim=(1, 1, self.head_count),
                                                           init=dy.ConstInitializer(self.diag_gauss_mask))
 
-    self.layer_norm = norm.LayerNorm(model_dim)
+    self.layer_norm = self.add_serializable_component("layer_norm", layer_norm, lambda: norm.LayerNorm(model_dim))
 
-    if model_dim != input_dim * downsample_factor: self.res_shortcut = linear.Linear(input_dim * downsample_factor,
+    if model_dim != input_dim * downsample_factor:
+      self.res_shortcut = self.add_serializable_component("res_shortcut", res_shortcut,
+                                                          lambda: linear.Linear(input_dim * downsample_factor,
                                                                                      model_dim,
                                                                                      param_init=param_init,
-                                                                                     bias_init=bias_init)
-
+                                                                                     bias_init=bias_init))
     self.cross_pos_encoding_type = cross_pos_encoding_type
     if cross_pos_encoding_type == "embedding":
       self.cross_pos_emb_p1 = subcol.add_parameters(dim=(self.max_len, self.dim_per_head, self.head_count),
