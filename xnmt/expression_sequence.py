@@ -7,7 +7,7 @@ class ExpressionSequence(object):
   Internal representation is either a list of expressions or a single tensor or both.
   If necessary, both forms of representation are created from the other on demand.
   """
-  def __init__(self, expr_list=None, expr_tensor=None, mask=None):
+  def __init__(self, expr_list=None, expr_tensor=None, expr_transposed_tensor=None, mask=None):
     """Constructor.
 
     Args:
@@ -20,8 +20,9 @@ class ExpressionSequence(object):
     """
     self.expr_list = expr_list
     self.expr_tensor = expr_tensor
+    self.expr_transposed_tensor = expr_transposed_tensor
     self.mask = mask
-    if not (self.expr_list or self.expr_tensor):
+    if not (self.expr_list or self.expr_tensor or self.expr_transposed_tensor):
       raise ValueError("must provide expr_list or expr_tensor")
     if self.expr_list and self.expr_tensor:
       if len(self.expr_list) != self.expr_tensor.dim()[0][-1]:
@@ -36,6 +37,8 @@ class ExpressionSequence(object):
           raise AssertionError()
     if expr_tensor:
       if not isinstance(expr_tensor,dy.Expression): raise ValueError("expr_tensor must be dynet expression, was:", type(expr_tensor))
+    if expr_transposed_tensor:
+      if not isinstance(expr_transposed_tensor,dy.Expression): raise ValueError("expr_transposed_tensor must be dynet expression, was:", type(expr_transposed_tensor))
 
   def __len__(self):
     """Return length.
@@ -44,7 +47,8 @@ class ExpressionSequence(object):
       length of sequence
     """
     if self.expr_list: return len(self.expr_list)
-    else: return self.expr_tensor.dim()[0][-1]
+    elif self.expr_tensor: return self.expr_tensor.dim()[0][-1]
+    else: return self.expr_transposed_tensor.dim()[0][0]
 
   def __iter__(self):
     """Return iterator.
@@ -65,7 +69,10 @@ class ExpressionSequence(object):
     if self.expr_list: return self.expr_list[key]
     else:
       if key < 0: key += len(self)
-      return dy.pick(self.expr_tensor, key, dim=len(self.expr_tensor.dim()[0])-1)
+      if self.expr_tensor:
+        return dy.pick(self.expr_tensor, key, dim=len(self.expr_tensor.dim()[0])-1)
+      else:
+        return dy.pick(self.expr_transposed_tensor, key, dim=0)
 
   def as_list(self):
     """Get a list.
@@ -90,7 +97,7 @@ class ExpressionSequence(object):
       the whole sequence as a tensor expression where each column is one of the embeddings.
     """
     if self.expr_tensor is None:
-      self.expr_tensor = dy.concatenate_cols(self.expr_list)
+      self.expr_tensor = dy.concatenate_cols(self.expr_list) if self.expr_list else dy.transpose(self.expr_transposed_tensor)
     return self.expr_tensor
 
   def has_tensor(self):
@@ -99,6 +106,22 @@ class ExpressionSequence(object):
       False if as_tensor() will result in creating additional expressions, True otherwise
     """
     return self.expr_tensor is not None
+
+  def as_transposed_tensor(self):
+    """Get a tensor.
+    Returns:
+      the whole sequence as a tensor expression where each row is one of the embeddings.
+    """
+    if self.expr_transposed_tensor is None:
+      self.expr_transposed_tensor = dy.transpose(self.as_tensor())
+    return self.expr_transposed_tensor
+
+  def has_transposed_tensor(self):
+    """
+    Returns:
+      False if as_transposed_tensor() will result in creating additional expressions, True otherwise
+    """
+    return self.expr_transposed_tensor is not None
 
 class LazyNumpyExpressionSequence(ExpressionSequence):
   """
