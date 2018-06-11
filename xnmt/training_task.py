@@ -253,11 +253,11 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     Performs forward pass, backward pass, parameter update for the given minibatch
     """
-    loss_builder = loss.LossBuilder()
+    loss_builder = loss.FactoredLossExpr()
     standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
     additional_loss = self.model.calc_additional_loss(standard_loss)
-    loss_builder.add_loss("standard_loss", standard_loss)
-    loss_builder.add_loss("additional_loss", additional_loss)
+    loss_builder.add_factored_loss_expr(standard_loss)
+    loss_builder.add_factored_loss_expr(additional_loss)
     return loss_builder
 
   def checkpoint_needed(self):
@@ -276,10 +276,13 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     # Perform evaluation
     if self.dev_tasks and len(self.dev_tasks) > 0:
       dev_scores = []
+      dev_word_cnt = None
       with self.dev_loss_tracker.time_tracker:
         logger.info("> Checkpoint")
         for dev_task in self.dev_tasks:
-          dev_score, dev_word_cnt = dev_task.eval()
+          dev_score, tmp_word_cnt = dev_task.eval()
+          if dev_word_cnt is None:
+            dev_word_cnt = tmp_word_cnt
           if type(dev_score) == list:
             dev_scores.extend(dev_score)
           else:

@@ -11,8 +11,6 @@
 
 exp1.pretrain: !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 32
   model: !DefaultTranslator
     src_reader: !PlainTextReader
@@ -51,8 +49,8 @@ exp1.pretrain: !Experiment
       eval_metrics: bleu,wer
       src_file: *dev_src # Copy over the file path from the dev tasks using YAML anchors.
       ref_file: *dev_trg # The same could also be done for more complex objects.
-      hyp_file: examples/output/{EXP}.test_hyp
+      hyp_file: test/tmp/{EXP}.test_hyp
 
 exp2.load: !LoadSerialized
-  filename: examples/output/exp1.pretrain.mod  
+  filename: test/tmp/exp1.pretrain.mod
   

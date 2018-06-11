@@ -12,9 +12,10 @@ sharing of DyNet parameters, etc., one must adhere to the Serializable interface
 Marking classes as serializable
 """""""""""""""""""""""""""""""
 
-Classes are marked as serializable by specifying :class:`xnmt.persistence.Serializable` as super class.
-They must specify a unique yaml_tag class attribute, set to ``!ClassName`` with ClassName replaced by the class
-name. It follows that class names must be unique, even across different XNMT modules.
+Classes are marked as serializable by specifying :class:`xnmt.persistence.Serializable` as super class. They must
+specify a unique yaml_tag class attribute, set to ``!ClassName`` with ClassName replaced by the class name. It follows
+that class names must be unique, even across different XNMT modules.
+(Note: Serializable should be explicitly specified even if another super class already does the same)
 
 Specifying init arguments
 """""""""""""""""""""""""

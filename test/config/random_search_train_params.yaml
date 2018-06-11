@@ -1,8 +1,6 @@
 # Demonstrates random search over model parameters
 defaults: &defaults  !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: !RandomParam
       values: [32,64]
   model: !DefaultTranslator
@@ -41,7 +39,7 @@ defaults: &defaults  !Experiment
       eval_metrics: bleu,wer
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/{EXP}.test_hyp
+      hyp_file: test/tmp/{EXP}.test_hyp
 
 # Here we instantiate 3 experiments, for each the random params are drawn independently
 exp1: *defaults

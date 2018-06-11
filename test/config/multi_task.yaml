@@ -2,8 +2,6 @@
 # some shared parameters.
 exp1-multi_task_exp: !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 64
   train: !SameBatchMultiTaskTrainingRegimen
     trainer: !AdamTrainer {}
@@ -50,7 +48,7 @@ exp1-multi_task_exp: !Experiment
           model: !Ref { name: first_task_model }
           src_file: &first_task_dev_src examples/data/head.ja  # value-sharing between first task dev and final eval
           ref_file: &first_task_dev_trg examples/data/head.en  # value-sharing between first task dev and final eval
-          hyp_file: examples/output/{EXP}.first_dev_hyp
+          hyp_file: test/tmp/{EXP}.first_dev_hyp
           eval_metrics: bleu # tasks can specify different dev_metrics
     - !SimpleTrainingTask
       name: second_task
@@ -87,7 +85,7 @@ exp1-multi_task_exp: !Experiment
           model: !Ref { name: second_task_model }
           src_file: examples/data/head.ja
           ref_file: examples/data/head.en
-          hyp_file: examples/output/{EXP}.second_dev_hyp
+          hyp_file: test/tmp/{EXP}.second_dev_hyp
           eval_metrics: gleu # tasks can specify different dev_metrics
   evaluate:
     - !AccuracyEvalTask
@@ -95,10 +93,10 @@ exp1-multi_task_exp: !Experiment
       eval_metrics: bleu,wer
       src_file: *first_task_dev_src
       ref_file: *first_task_dev_trg
-      hyp_file: examples/output/{EXP}.test_hyp
+      hyp_file: test/tmp/{EXP}.test_hyp
 
 exp2-finetune-model: !LoadSerialized
-  filename: examples/output/exp1-multi_task_exp.mod
+  filename: test/tmp/exp1-multi_task_exp.mod
 
 exp3-multi_task_exp-altbatch: !Experiment
   exp_global: !ExpGlobal

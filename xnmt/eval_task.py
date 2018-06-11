@@ -12,7 +12,7 @@ import xnmt.input_reader
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
-from xnmt.loss import LossBuilder, LossScalarBuilder
+from xnmt.loss import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate
 
 class EvalTask(object):
@@ -33,15 +33,18 @@ class LossEvalTask(EvalTask, Serializable):
     batcher: batcher to use
     loss_calculator: loss calculator
     max_src_len: omit sentences with source length greater than specified number
-    max_trg_len:omit sentences with target length greater than specified number
+    max_trg_len: omit sentences with target length greater than specified number
+    loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
     desc: description to pass on to computed score objects
   """
   yaml_tag = '!LossEvalTask'
 
   @serializable_init
   def __init__(self, src_file: str, ref_file: str, model: GeneratorModel = Ref("model"),
-               batcher: Batcher = Ref("train.batcher", default=None), loss_calculator: LossCalculator = bare(MLELoss),
-               max_src_len: Optional[int] = None, max_trg_len: Optional[int] = None, desc: Any = None):
+               batcher: Optional[Batcher] = Ref("train.batcher", default=None),
+               loss_calculator: LossCalculator = bare(MLELoss), max_src_len: Optional[int] = None,
+               max_trg_len: Optional[int] = None,
+               loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"), desc: Any = None):
     self.model = model
     self.loss_calculator = loss_calculator
     self.src_file = src_file
@@ -50,6 +53,7 @@ class LossEvalTask(EvalTask, Serializable):
     self.src_data = None
     self.max_src_len = max_src_len
     self.max_trg_len = max_trg_len
+    self.loss_comb_method = loss_comb_method
     self.desc=desc
 
   def eval(self) -> tuple:
@@ -65,26 +69,26 @@ class LossEvalTask(EvalTask, Serializable):
         xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                         self.src_file, self.ref_file, batcher=self.batcher,
                                         max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
-    loss_val = LossScalarBuilder()
+    loss_val = FactoredLossVal()
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
 
-      loss_builder = LossBuilder()
+      loss_builder = FactoredLossExpr()
       standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
       additional_loss = self.model.calc_additional_loss(standard_loss)
-      loss_builder.add_loss("standard_loss", standard_loss)
-      loss_builder.add_loss("additional_loss", additional_loss)
+      loss_builder.add_factored_loss_expr(standard_loss)
+      loss_builder.add_factored_loss_expr(additional_loss)
 
       ref_words_cnt += self.model.trg_reader.count_words(trg)
-      loss_val += loss_builder.get_loss_stats()
+      loss_val += loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method)
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
 
     try:
       return LossScore(loss_stats[self.model.get_primary_loss()], loss_stats=loss_stats, desc=self.desc), ref_words_cnt
     except KeyError:
-      raise RuntimeError("Did you wrap your loss calculation with LossBuilder({'primary_loss': loss_value}) ?")
+      raise RuntimeError("Did you wrap your loss calculation with FactoredLossExpr({'primary_loss': loss_value}) ?")
 
 class AccuracyEvalTask(EvalTask, Serializable):
   """
@@ -107,10 +111,11 @@ class AccuracyEvalTask(EvalTask, Serializable):
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: GeneratorModel = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
                inference: Optional[SimpleInference] = None, candidate_id_file: Optional[str] = None,
-               desc: Optional[Any] = None):
+               desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
+    elif not isinstance(eval_metrics, str): eval_metrics = [eval_metrics]
     self.eval_metrics = eval_metrics
     self.src_file = src_file
     self.ref_file = ref_file

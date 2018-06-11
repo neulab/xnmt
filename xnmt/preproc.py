@@ -4,6 +4,7 @@ import os.path
 import subprocess
 from collections import defaultdict
 import unicodedata
+import re
 
 import numpy as np
 import warnings
@@ -269,9 +270,48 @@ class SentenceFilterer(object):
       for my_spec in spec:
         if my_spec["type"] == "length":
           preproc_list.append(SentenceFiltererLength(my_spec))
+        elif my_spec["type"] == "matching-regex":
+          preproc_list.append(SentenceFiltererMatchingRegex(my_spec))
         else:
           raise RuntimeError("Unknown preprocessing type {}".format(my_spec["type"]))
     return preproc_list
+
+class SentenceFiltererMatchingRegex(SentenceFilterer):
+  """Filters sentences via regular expressions.
+  A sentence must match the expression to be kept.
+  """
+
+  def __init__(self, spec):
+    """Specifies the regular expressions to filter the sentences that we'll be getting.
+
+    The regular expressions are passed as a dictionary with keys as follows:
+      regex_INT: This will specify the regular expression for a specific language (zero indexed)
+      regex_src: Equivalent to regex_0
+      regex_trg: Equivalent to regex_1
+    """
+    self.regex = {}
+    idx_map = {"src": 0, "trg": 1}
+    for k, v in spec.items():
+      if k == "type":
+        pass
+      elif k.startswith("regex"):
+        _, idx = k.split("_")
+        idx_tmp = idx_map.get(idx)
+        if idx_tmp is None:
+          idx_tmp = int(idx)
+        idx = idx_tmp
+        self.regex[idx] = v
+
+  def keep(self, sents):
+    """ Keep only sentences that match the regex.
+    """
+    for i, sent in enumerate(sents):
+      if type(sent) == list:
+        sent = " ".join(sent)
+      if self.regex.get(i) is not None:
+        if re.search(self.regex[i], sent) is None:
+          return False
+    return True
 
 class SentenceFiltererLength(SentenceFilterer):
   """Filters sentences by length"""

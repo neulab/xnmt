@@ -330,7 +330,7 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['run_for_epochs'] = 1
     training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(**train_args)
     training_regimen.run_training(save_fct = lambda: None, update_weights=False)
-    self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum() / training_regimen.train_loss_tracker.epoch_words,
+    self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
                            training_regimen.dev_loss_tracker.dev_score.loss, places=5)
 
 class TestOverfitting(unittest.TestCase):
@@ -379,7 +379,7 @@ class TestOverfitting(unittest.TestCase):
     for _ in range(50):
       training_regimen.run_training(save_fct=lambda:None, update_weights=True)
     self.assertAlmostEqual(0.0,
-                           training_regimen.train_loss_tracker.epoch_loss.sum() / training_regimen.train_loss_tracker.epoch_words,
+                           training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
                            places=2)
 
 if __name__ == '__main__':

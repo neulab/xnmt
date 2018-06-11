@@ -18,7 +18,7 @@ from xnmt.model_base import GeneratorModel, EventTrigger
 from xnmt.inference import SimpleInference
 from xnmt.input import Input, SimpleSentenceInput
 import xnmt.length_normalization
-from xnmt.loss import LossBuilder
+from xnmt.loss import FactoredLossExpr
 from xnmt.loss_calculator import LossCalculator
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
@@ -39,7 +39,7 @@ class Translator(GeneratorModel):
   '''
 
   def calc_loss(self, src: Union[Batch, Input], trg: Union[Batch, Input],
-                loss_calculator: LossCalculator) -> LossBuilder:
+                loss_calculator: LossCalculator) -> FactoredLossExpr:
     '''Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
@@ -137,8 +137,8 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
     initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
     # Compose losses
-    model_loss = LossBuilder()
-    model_loss.add_loss("mle", loss_calculator(self, initial_state, src, trg))
+    model_loss = FactoredLossExpr()
+    model_loss.add_factored_loss_expr(loss_calculator(self, initial_state, src, trg))
 
     if self.calc_global_fertility or self.calc_attention_entropy:
       # philip30: I assume that attention_vecs is already masked src wisely.
@@ -438,7 +438,7 @@ class TransformerTranslator(Translator, Serializable, Reportable, EventTrigger):
     ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
     concat_t_block = (1 - trg_mask.ravel()).reshape(-1) * np.array(ref_list)
     loss = self.decoder.output_and_loss(h_block, concat_t_block)
-    return LossBuilder({"mle": loss})
+    return FactoredLossExpr({"mle": loss})
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None, search_strategy=None):
     self.start_sent(src)
@@ -544,7 +544,7 @@ class EnsembleTranslator(Translator, Serializable, EventTrigger):
     for model in self.models:
       for loss_name, loss in model.calc_loss(src, trg, loss_calculator).loss_values.items():
         sub_losses[loss_name].append(loss)
-    model_loss = LossBuilder()
+    model_loss = FactoredLossExpr()
     for loss_name, losslist in sub_losses.items():
       # TODO: dy.average(losslist)  _or_  dy.esum(losslist) / len(self.models) ?
       #       -- might not be the same if not all models return all losses

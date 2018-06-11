@@ -72,6 +72,7 @@ class ParamManager(object):
                   f"  Did not populate {ParamManager.param_col.subcols.keys() - set(populated_subcols)}.\n"
                   f"  (Note: if partial population was not intended, likely the unpopulated component or its owner"
                   f"   does not adhere to the Serializable protocol correctly, see documentation).")
+    logger.info(f"  DyNet param count: {ParamManager.param_col._param_col.parameter_count()}")
 
   @staticmethod
   def my_params(subcol_owner) -> dy.ParameterCollection:
