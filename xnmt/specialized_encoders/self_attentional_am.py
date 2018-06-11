@@ -372,26 +372,39 @@ class TransformerEncoderLayer(Serializable):
                ff_lstm=False, kq_pos_encoding_type=None, kq_pos_encoding_size=40, max_len=1500,
                param_init=Ref("exp_global.param_init", default=bare(xnmt.param_init.GlorotInitializer)),
                bias_init=Ref("exp_global.bias_init", default=bare(xnmt.param_init.ZeroInitializer)),
-               dropout=None, desc=None):
-    # TODO: use self.add_serializable_component
-    self.self_attn = SAAMMultiHeadedSelfAttention(head_count, hidden_dim, downsample_factor,
-                                                  input_dim=input_dim, ignore_masks=ignore_masks,
-                                                  plot_attention=plot_attention,
-                                                  diag_gauss_mask=diag_gauss_mask, square_mask_std=square_mask_std,
-                                                  param_init=param_init,
-                                                  bias_init=bias_init,
-                                                  cross_pos_encoding_type=cross_pos_encoding_type,
-                                                  kq_pos_encoding_type=kq_pos_encoding_type,
-                                                  kq_pos_encoding_size=kq_pos_encoding_size,
-                                                  max_len=max_len,
-                                                  desc=desc)
+               dropout=None, self_attn=None, feed_forward=None, desc=None):
+    self.self_attn = self.add_serializable_component("self_attn",
+                                                     self_attn,
+                                                     lambda: SAAMMultiHeadedSelfAttention(head_count, hidden_dim,
+                                                                                          downsample_factor,
+                                                                                          input_dim=input_dim,
+                                                                                          ignore_masks=ignore_masks,
+                                                                                          plot_attention=plot_attention,
+                                                                                          diag_gauss_mask=diag_gauss_mask,
+                                                                                          square_mask_std=square_mask_std,
+                                                                                          param_init=param_init,
+                                                                                          bias_init=bias_init,
+                                                                                          cross_pos_encoding_type=cross_pos_encoding_type,
+                                                                                          kq_pos_encoding_type=kq_pos_encoding_type,
+                                                                                          kq_pos_encoding_size=kq_pos_encoding_size,
+                                                                                          max_len=max_len,
+                                                                                          desc=desc))
     self.ff_lstm = ff_lstm
     if ff_lstm:
-      self.feed_forward = lstm.BiLSTMSeqTransducer(layers=1, input_dim=hidden_dim, hidden_dim=hidden_dim,
-                                                   dropout=dropout, param_init=param_init, bias_init=bias_init)
+      self.feed_forward = self.add_serializable_component("feed_forward",
+                                                          feed_forward,
+                                                          lambda: lstm.BiLSTMSeqTransducer(layers=1,
+                                                                                           input_dim=hidden_dim,
+                                                                                           hidden_dim=hidden_dim,
+                                                                                           dropout=dropout,
+                                                                                           param_init=param_init,
+                                                                                           bias_init=bias_init))
     else:
-      self.feed_forward = SAAMPositionwiseFeedForward(hidden_dim, ff_hidden_dim, nonlinearity=nonlinearity,
-                                                      param_init=param_init)
+      self.feed_forward = self.add_serializable_component("feed_forward",
+                                                          feed_forward,
+                                                          lambda: SAAMPositionwiseFeedForward(hidden_dim, ff_hidden_dim,
+                                                                                              nonlinearity=nonlinearity,
+                                                                                              param_init=param_init))
     self.head_count = head_count
     self.downsample_factor = downsample_factor
     self.diagonal_mask_width = diagonal_mask_width
