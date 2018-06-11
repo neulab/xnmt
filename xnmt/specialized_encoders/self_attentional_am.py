@@ -1,3 +1,14 @@
+"""
+This module implements self-attentional acoustic models as described in the following paper:
+
+Self-Attentional Acoustic Models
+Matthias Sperber, Jan Niehues, Graham Neubig, Sebastian Stüker, Alex Waibel
+Interspeech 2018
+https://arxiv.org/abs/1803.09519
+
+The main class to be aware of is :class:`SAAMSeqTransducer`.
+"""
+
 import typing
 import logging
 
@@ -9,7 +20,6 @@ import matplotlib
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from sklearn.metrics.pairwise import cosine_similarity
 from scipy.stats import entropy
 
 import numpy as np
@@ -96,6 +106,10 @@ class SAAMMultiHeadedSelfAttention(Serializable):
     max_len: max sequence length (used to determine positional embedding size)
     param_init: initializer for weight matrices
     bias_init: initializer for bias vectors
+    linear_kvq:
+    kq_positional_embedder:
+    layer_norm:
+    res_shortcut:
     desc: useful to describe layer if plot_attention is given.
   """
   yaml_tag = "!SAAMMultiHeadedSelfAttention"
@@ -328,6 +342,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
     #     out = dy.reshape_transpose_reshape(attn_prod, (sent_len_out, self.dim_per_head * self.head_count), (self.model_dim,), pre_batch_size=batch_size, post_batch_size=batch_size*sent_len_out)
 
     if self.plot_attention:
+      from sklearn.metrics.pairwise import cosine_similarity
       assert batch_size == 1
       mats = []
       for i in range(attn.dim()[1]):
@@ -456,9 +471,9 @@ class SAAMSeqTransducer(transducer.SeqTransducer, Serializable):
     input_dim: input dimension
     layers: number of layers
     hidden_dim: hidden dimension
-    head_count:
-    ff_hidden_dim:
-    dropout:
+    head_count: number of self-attention heads
+    ff_hidden_dim: hidden dimension of the interleaved feed-forward layers
+    dropout: dropout probability
     downsample_factor: downsampling factor (>=1)
     diagonal_mask_width: if given, apply hard masking of this width
     ignore_masks: if True, don't apply any masking
@@ -473,9 +488,10 @@ class SAAMSeqTransducer(transducer.SeqTransducer, Serializable):
     cross_pos_encoding_type: 'embedding' or None
     ff_lstm: if True, use interleaved LSTMs, otherwise add depth using position-wise feed-forward components
     kq_pos_encoding_type: None or 'embedding'
-    kq_pos_encoding_size (int):
+    kq_pos_encoding_size (int): size of position embeddings
     param_init: initializer for weight matrices
     bias_init: initializer for bias vectors
+    positional_embedder:
   """
   yaml_tag = u'!SAAMSeqTransducer'
 
