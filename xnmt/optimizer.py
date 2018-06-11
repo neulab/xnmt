@@ -19,18 +19,13 @@ class XnmtOptimizer(object):
 
   Args:
     optimizer: the underlying DyNet optimizer (trainer)
-    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
-                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
-                  slower computation).
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
   """
 
-  def __init__(self, optimizer: dy.Trainer, update_every: int = 1, skip_noisy: bool = False) -> None:
+  def __init__(self, optimizer: dy.Trainer, skip_noisy: bool = False) -> None:
     self.optimizer = optimizer
-    self.update_every = update_every
-    self.num_updates_ignored = 0
     self.skip_noisy = skip_noisy
     if skip_noisy:
       self.rolling_stats = util.RollingStatistic()
@@ -39,15 +34,10 @@ class XnmtOptimizer(object):
     """
     Update the parameters.
     """
-    self.num_updates_ignored += 1
-    if self.num_updates_ignored == self.update_every:
-      if not (self.skip_noisy and self._check_gradients_noisy()):
-        self.optimizer.update()
-      else:
-        logger.info("skipping noisy update")
-      self.num_updates_ignored = 0
+    if not (self.skip_noisy and self._check_gradients_noisy()):
+      self.optimizer.update()
     else:
-      assert 0 < self.num_updates_ignored < self.update_every
+      logger.info("skipping noisy update")
 
   def status(self):
     """
@@ -115,9 +105,6 @@ class SimpleSGDTrainer(XnmtOptimizer, Serializable):
 
   Args:
     e0 (number): Initial learning rate
-    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
-                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
-                  slower computation).
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
@@ -125,9 +112,9 @@ class SimpleSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!SimpleSGDTrainer'
 
   @serializable_init
-  def __init__(self, e0 = 0.1, update_every: int = 1, skip_noisy: bool = False):
+  def __init__(self, e0 = 0.1, skip_noisy: bool = False):
     super().__init__(optimizer=dy.SimpleSGDTrainer(ParamManager.global_collection(), e0),
-                     update_every=update_every, skip_noisy=skip_noisy)
+                     skip_noisy=skip_noisy)
 
 class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   """
@@ -138,9 +125,6 @@ class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   Args:
     e0 (number): Initial learning rate
     mom (number): Momentum
-    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
-                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
-                  slower computation).
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
@@ -148,9 +132,9 @@ class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!MomentumSGDTrainer'
 
   @serializable_init
-  def __init__(self, e0=0.01, mom=0.9, update_every: int = 1, skip_noisy: bool = False):
+  def __init__(self, e0=0.01, mom=0.9, skip_noisy: bool = False):
     super().__init__(optimizer=dy.MomentumSGDTrainer(ParamManager.global_collection(), e0, mom),
-                     update_every=update_every, skip_noisy=skip_noisy)
+                     skip_noisy=skip_noisy)
 
 class AdagradTrainer(XnmtOptimizer, Serializable):
   """
@@ -161,9 +145,6 @@ class AdagradTrainer(XnmtOptimizer, Serializable):
   Args:
     e0 (number): Initial learning rate
     eps (number): Epsilon parameter to prevent numerical instability
-    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
-                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
-                  slower computation).
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
@@ -171,9 +152,9 @@ class AdagradTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!AdagradTrainer'
 
   @serializable_init
-  def __init__(self, e0=0.1, eps=1e-20, update_every: int = 1, skip_noisy: bool = False):
+  def __init__(self, e0=0.1, eps=1e-20, skip_noisy: bool = False):
     super().__init__(optimizer=dy.AdagradTrainer(ParamManager.global_collection(), e0, eps=eps),
-                     update_every=update_every, skip_noisy=skip_noisy)
+                     skip_noisy=skip_noisy)
 
 class AdadeltaTrainer(XnmtOptimizer, Serializable):
   """
@@ -184,9 +165,6 @@ class AdadeltaTrainer(XnmtOptimizer, Serializable):
   Args:
     eps (number): Epsilon parameter to prevent numerical instability
     rho (number): Update parameter for the moving average of updates in the numerator
-    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
-                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
-                  slower computation).
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
@@ -194,9 +172,9 @@ class AdadeltaTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!AdadeltaTrainer'
 
   @serializable_init
-  def __init__(self, eps=1e-6, rho=0.95, update_every: int = 1, skip_noisy: bool = False):
+  def __init__(self, eps=1e-6, rho=0.95, skip_noisy: bool = False):
     super().__init__(optimizer=dy.AdadeltaTrainer(ParamManager.global_collection(), eps, rho),
-                     update_every=update_every, skip_noisy=skip_noisy)
+                     skip_noisy=skip_noisy)
 
 class AdamTrainer(XnmtOptimizer, Serializable):
   """
@@ -209,9 +187,6 @@ class AdamTrainer(XnmtOptimizer, Serializable):
     beta_1 (number): Moving average parameter for the mean
     beta_2 (number): Moving average parameter for the variance
     eps (number): Epsilon parameter to prevent numerical instability
-    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
-                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
-                  slower computation).
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
@@ -221,7 +196,7 @@ class AdamTrainer(XnmtOptimizer, Serializable):
   @serializable_init
   def __init__(self, alpha=0.001, beta_1=0.9, beta_2=0.999, eps=1e-8, update_every: int = 1, skip_noisy: bool = False):
     super().__init__(optimizer=dy.AdamTrainer(ParamManager.global_collection(), alpha, beta_1, beta_2, eps),
-                     update_every=update_every, skip_noisy=skip_noisy)
+                     skip_noisy=skip_noisy)
 
 class TransformerAdamTrainer(XnmtOptimizer, Serializable):
   """
@@ -235,9 +210,6 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
     beta_1 (float):
     beta_2 (float):
     eps (float):
-    update_every: accumulate gradients for n minibatches before updating network parameters (mathematically equivalent
-                  to increasing batch size in case of ``sum`` loss_comb_method, but saves memory at the expense of
-                  slower computation).
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
@@ -245,14 +217,14 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!TransformerAdamTrainer'
 
   @serializable_init
-  def __init__(self, alpha=1.0, dim=512, warmup_steps=4000, beta_1=0.9, beta_2=0.98, eps=1e-9, update_every: int = 1,
+  def __init__(self, alpha=1.0, dim=512, warmup_steps=4000, beta_1=0.9, beta_2=0.98, eps=1e-9,
                skip_noisy: bool = False):
     super().__init__(optimizer=dy.AdamTrainer(ParamManager.global_collection(),
                                     alpha=alpha,
                                     beta_1=beta_1,
                                     beta_2=beta_2,
                                     eps=eps),
-                     update_every=update_every, skip_noisy=skip_noisy)
+                     skip_noisy=skip_noisy)
     self.dim = dim
     self.warmup_steps = warmup_steps
     self.steps = 0

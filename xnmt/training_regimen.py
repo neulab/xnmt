@@ -81,6 +81,7 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
     max_src_len:
     max_trg_len:
     loss_comb_method: method for combining loss across batch elements (``sum`` or ``avg``).
+    update_every: simulate large-batch training by accumulating gradients over several steps before updating parameters
     commandline_args:
   """
   yaml_tag = '!SimpleTrainingRegimen'
@@ -98,6 +99,7 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
                max_num_train_sents: Optional[int] = None, max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
+               update_every: int = 1,
                commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)):
 
     super().__init__(model=model,
@@ -125,6 +127,8 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
     self.dynet_profiling = getattr(commandline_args, "dynet_profiling", 0) if commandline_args else 0
     self.train_loss_tracker = TrainLossTracker(self)
     self.loss_comb_method = loss_comb_method
+    self.update_every = update_every
+    self.num_updates_skipped = 0
 
   def run_training(self, save_fct, update_weights=True):
     """
@@ -153,6 +157,14 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
     if should_save:
       save_fct()
 
+  def update(self, trainer: optimizer.XnmtOptimizer) -> None:
+    self.num_updates_skipped += 1
+    if self.num_updates_skipped == self.update_every:
+      trainer.update()
+      self.num_updates_skipped = 0
+    else:
+      assert 0 < self.num_updates_skipped < self.update_every
+
 
 class MultiTaskTrainingRegimen(TrainingRegimen):
   """
@@ -166,12 +178,14 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
                 model checkpoints.
     trainer (XnmtOptimizer): Trainer object, default is SGD with learning rate 0.1
     dev_zero (bool): if True, add a checkpoint before training loop is entered (useful with pretrained models).
+    update_every: simulate large-batch training by accumulating gradients over several steps before updating parameters
     commandline_args (Namespace):
   """
   def __init__(self,
                tasks,
                trainer=None,
                dev_zero=False,
+               update_every: int = 1,
                commandline_args=Ref("exp_global.commandline_args", default=None)):
     super().__init__()
     self.dynet_profiling = getattr(commandline_args, "dynet_profiling", 0) if commandline_args else 0
@@ -186,6 +200,9 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     for task in tasks:
       task.trainer = trainer
     self.dev_zero = dev_zero
+    self.update_every = update_every
+    self.num_updates_skipped = 0
+
 
   def trigger_train_event(self, value):
     """
@@ -202,6 +219,14 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
         self.train = value
         self.tasks[0].model.set_train(value)
 
+  def update(self, trainer: optimizer.XnmtOptimizer) -> None:
+    self.num_updates_skipped += 1
+    if self.num_updates_skipped == self.update_every:
+      trainer.update()
+      self.num_updates_skipped = 0
+    else:
+      assert 0 < self.num_updates_skipped < self.update_every
+
 class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   """
   Multi-task training where gradients are accumulated and weight updates are thus performed jointly for each task.
@@ -216,6 +241,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                        tasks. Yields the same results, but ``True`` uses less memory while ``False`` may be
                        faster when using autobatching.
     loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
+    update_every: simulate large-batch training by accumulating gradients over several steps before updating parameters
     commandline_args:
   """
   yaml_tag = "!SameBatchMultiTaskTrainingRegimen"
@@ -224,8 +250,10 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   def __init__(self, tasks: Sequence[training_task.TrainingTask], trainer: optimizer.XnmtOptimizer = None,
                dev_zero: bool = False, per_task_backward: bool = True,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
+               update_every: int = 1,
                commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)):
-    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
+    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every,
+                     commandline_args=commandline_args)
     self.train_loss_trackers = {task : TrainLossTracker(task) for task in tasks}
     self.per_task_backward = per_task_backward
     self.loss_comb_method = loss_comb_method
@@ -288,6 +316,8 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     trainer (XnmtOptimizer): the trainer is shared across tasks
     dev_zero (bool): if True, add a checkpoint before training loop is entered (useful with pretrained models).
     loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
+    update_every: Simulate large-batch training by accumulating gradients over several steps before updating parameters;
+                  The behavior here is to draw multiple times from the same task until update is invoked.
     commandline_args (Namespace):
   """
   yaml_tag = "!AlternatingBatchMultiTaskTrainingRegimen"
@@ -295,8 +325,10 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
   @serializable_init
   def __init__(self, tasks, task_weights=None, trainer=None, dev_zero=False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
+               update_every: int = 1,
                commandline_args=Ref("exp_global.commandline_args", default=None)):
-    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
+    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every,
+                     commandline_args=commandline_args)
     self.task_weights = task_weights or [1./len(tasks)] * len(tasks)
     if len(self.task_weights) != len(self.tasks):
       raise ValueError(f"number of tasks must match number of task weights; "
@@ -315,14 +347,16 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
         cur_task_i = np.random.choice(range(len(self.tasks)), p=self.task_weights)
         cur_task = self.tasks[cur_task_i]
         task_gen = task_generators[cur_task]
-        src, trg = next(task_gen)
         if dev_zero[cur_task_i]: self.checkpoint_and_save(cur_task, cur_task_i, save_fct, dev_zero)
         cur_train_loss_tracker = self.train_loss_trackers[cur_task]
         with cur_train_loss_tracker.time_tracker:
-          self.trigger_train_event(True)
-          loss_builder = cur_task.training_step(src, trg)
+          for _ in range(self.update_every):
+            src, trg = next(task_gen)
+            self.trigger_train_event(True)
+            loss_builder = cur_task.training_step(src, trg)
+            if update_weights:
+              self.backward(loss=loss_builder.compute(), dynet_profiling=self.dynet_profiling)
           if update_weights:
-            self.backward(loss=loss_builder.compute(), dynet_profiling=self.dynet_profiling)
             self.update(trainer=self.trainer)
         cur_train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
         self.checkpoint_and_save(cur_task, cur_task_i, save_fct, dev_zero)
@@ -334,6 +368,9 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
       should_save = cur_task.checkpoint(control_learning_schedule=(cur_task_i == 0))
       if should_save:
         save_fct()
+
+  def update(self, trainer: optimizer.XnmtOptimizer) -> None:
+    trainer.update()
 
 
 class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
@@ -348,6 +385,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     trainer (XnmtOptimizer): the trainer is shared across tasks
     dev_zero (bool): if True, add a checkpoint before training loop is entered (useful with pretrained models).
     loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
+    update_every: simulate large-batch training by accumulating gradients over several steps before updating parameters
     commandline_args (Namespace):
   """
 
@@ -356,8 +394,10 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   @serializable_init
   def __init__(self, tasks, trainer=None, dev_zero=False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
+               update_every: int = 1,
                commandline_args=Ref("exp_global.commandline_args", default=None)):
-    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args)
+    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args,
+                     update_every=update_every)
     self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
     self.loss_comb_method = loss_comb_method
 
