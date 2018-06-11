@@ -450,7 +450,7 @@ class TransformerEncoderLayer(Serializable):
       mask=out_mask)
 
 
-class TransformerSeqTransducer(transducer.SeqTransducer, Serializable):
+class SAAMSeqTransducer(transducer.SeqTransducer, Serializable):
   """
   Args:
     input_dim: input dimension
@@ -477,7 +477,7 @@ class TransformerSeqTransducer(transducer.SeqTransducer, Serializable):
     param_init: initializer for weight matrices
     bias_init: initializer for bias vectors
   """
-  yaml_tag = u'!TransformerSeqTransducer'
+  yaml_tag = u'!SAAMSeqTransducer'
 
   @serializable_init
   @events.register_xnmt_handler

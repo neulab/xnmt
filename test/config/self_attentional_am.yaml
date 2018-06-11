@@ -19,7 +19,7 @@ speech-self-att: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     src_embedder: !NoopEmbedder
       emb_dim: 40
-    encoder: !TransformerSeqTransducer
+    encoder: !SAAMSeqTransducer
       layers: 2
       input_dim: 40
       hidden_dim: 32
