@@ -109,7 +109,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
                kq_pos_encoding_type: typing.Optional[str] = None, kq_pos_encoding_size: int = 40, max_len: int = 1500,
                param_init: xnmt.param_init.ParamInitializer = xnmt.param_init.GlorotInitializer(),
                bias_init: xnmt.param_init.ParamInitializer = xnmt.param_init.ZeroInitializer(),
-               desc: typing.Any = None) -> None:
+               linear_kvq = None, kq_positional_embedder = None, desc: typing.Any = None) -> None:
     if input_dim is None: input_dim = model_dim
     self.input_dim = input_dim
     assert model_dim % head_count == 0
@@ -132,22 +132,29 @@ class SAAMMultiHeadedSelfAttention(Serializable):
 
     subcol = param_collection.ParamManager.my_params(self)
 
-    # TODO: use self.add_serializable_component
-
     if self.kq_pos_encoding_type is None:
-      self.linear_kvq = linear.Linear(input_dim * downsample_factor,
-                                      head_count * self.dim_per_head * 3, param_init=param_init,
-                                      bias_init=bias_init)
+      self.linear_kvq = self.add_serializable_component("linear_kvq", linear_kvq,
+                                                        lambda: linear.Linear(input_dim * downsample_factor,
+                                                                              head_count * self.dim_per_head * 3,
+                                                                              param_init=param_init,
+                                                                              bias_init=bias_init))
     else:
-      self.linear_kq = linear.Linear(input_dim * downsample_factor + self.kq_pos_encoding_size,
-                                     head_count * self.dim_per_head * 2, param_init=param_init,
-                                     bias_init=bias_init)
-      self.linear_v = linear.Linear(input_dim * downsample_factor,
-                                    head_count * self.dim_per_head, param_init=param_init, bias_init=bias_init)
+      self.linear_kq, self.linear_v = \
+        self.add_serializable_component("linear_kvq",
+                                        linear_kvq,
+                                        lambda: [
+                                          linear.Linear(input_dim * downsample_factor + self.kq_pos_encoding_size,
+                                                        head_count * self.dim_per_head * 2, param_init=param_init,
+                                                        bias_init=bias_init),
+                                          linear.Linear(input_dim * downsample_factor, head_count * self.dim_per_head,
+                                                        param_init=param_init, bias_init=bias_init)])
       assert self.kq_pos_encoding_type == "embedding"
-      self.kq_positional_embedder = embedder.PositionEmbedder(max_pos=self.max_len,
-                                                              emb_dim=self.kq_pos_encoding_size,
-                                                              param_init=param_init)
+      self.kq_positional_embedder = self.add_serializable_component("kq_positional_embedder",
+                                                                    kq_positional_embedder,
+                                                                    lambda: embedder.PositionEmbedder(
+                                                                      max_pos=self.max_len,
+                                                                      emb_dim=self.kq_pos_encoding_size,
+                                                                      param_init=param_init))
 
     if self.diag_gauss_mask:
       if self.diag_gauss_mask == "rand":
