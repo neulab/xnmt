@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+import typing
 import logging
 
 yaml_logger = logging.getLogger('yaml')
@@ -61,8 +61,8 @@ class SAAMPositionwiseFeedForward(Serializable):
 
   @serializable_init
   def __init__(self, input_dim: int, hidden_dim: int, nonlinearity: str = "rectify",
-               linear_transforms: Optional[Sequence[linear.Linear]] = None,
-               layer_norm: Optional[norm.LayerNorm] = None) -> None:
+               linear_transforms: typing.Optional[typing.Sequence[linear.Linear]] = None,
+               layer_norm: typing.Optional[norm.LayerNorm] = None) -> None:
     w_12 = self.add_serializable_component("linear_transforms", linear_transforms,
                                            lambda: [linear.Linear(input_dim, hidden_dim),
                                                     linear.Linear(hidden_dim, input_dim)])
@@ -103,13 +103,13 @@ class SAAMMultiHeadedSelfAttention(Serializable):
   @events.register_xnmt_handler
   @serializable_init
   def __init__(self, head_count: int, model_dim: int, downsample_factor: int = 1, input_dim: int = None,
-               ignore_masks: bool = False, plot_attention: Optional[str] = None,
-               diag_gauss_mask: Union[bool, float] = False,
-               square_mask_std: bool = True, cross_pos_encoding_type: Optional[str] = None,
-               kq_pos_encoding_type: Optional[str] = None, kq_pos_encoding_size: int = 40, max_len: int = 1500,
+               ignore_masks: bool = False, plot_attention: typing.Optional[str] = None,
+               diag_gauss_mask: typing.Union[bool, float, int] = False,
+               square_mask_std: bool = True, cross_pos_encoding_type: typing.Optional[str] = None,
+               kq_pos_encoding_type: typing.Optional[str] = None, kq_pos_encoding_size: int = 40, max_len: int = 1500,
                param_init: xnmt.param_init.ParamInitializer = xnmt.param_init.GlorotInitializer(),
                bias_init: xnmt.param_init.ParamInitializer = xnmt.param_init.ZeroInitializer(),
-               desc: Any = None) -> None:
+               desc: typing.Any = None) -> None:
     if input_dim is None: input_dim = model_dim
     self.input_dim = input_dim
     assert model_dim % head_count == 0
@@ -461,9 +461,9 @@ class TransformerSeqTransducer(transducer.SeqTransducer, Serializable):
   @events.register_xnmt_handler
   def __init__(self, input_dim:int=512, layers:int=1, hidden_dim:int=512, head_count:int=8, ff_hidden_dim:int=2048,
                dropout:float=Ref("exp_global.dropout", default=0.0), downsample_factor:int=1, diagonal_mask_width:int=None,
-               ignore_masks:bool=False, plot_attention:Optional[str]=None, nonlinearity:str="rectify", pos_encoding_type:Optional[str]=None,
-               pos_encoding_combine:str="concat", pos_encoding_size:int=40, max_len:int=1500, diag_gauss_mask:bool=False,
-               square_mask_std:float=True, cross_pos_encoding_type:Optional[str]=None, ff_lstm:bool=False, kq_pos_encoding_type:Optional[str]=None,
+               ignore_masks:bool=False, plot_attention:typing.Optional[str]=None, nonlinearity:str="rectify", pos_encoding_type:typing.Optional[str]=None,
+               pos_encoding_combine:str="concat", pos_encoding_size:int=40, max_len:int=1500, diag_gauss_mask:typing.Union[bool,float,int]=False,
+               square_mask_std:float=True, cross_pos_encoding_type:typing.Optional[str]=None, ff_lstm:bool=False, kq_pos_encoding_type:typing.Optional[str]=None,
                kq_pos_encoding_size:int=40,
                param_init:xnmt.param_init.ParamInitializer=Ref("exp_global.param_init", default=bare(xnmt.param_init.GlorotInitializer)),
                bias_init:xnmt.param_init.ParamInitializer=Ref("exp_global.bias_init", default=bare(xnmt.param_init.ZeroInitializer))):

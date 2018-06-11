@@ -26,7 +26,7 @@ speech-self-att: !Experiment
       downsample_factor: 2
       ff_hidden_dim: 32
       pos_encoding_type: embedding
-      diag_gauss_mask: 3
+      diag_gauss_mask: 3.0
       ff_lstm: True
     attender: !MlpAttender
       state_dim: 32
