@@ -7,7 +7,7 @@ from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
 from xnmt.linear import Linear
 from xnmt.param_collection import ParamManager
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.param_init import GlorotInitializer, ZeroInitializer, ParamInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
 
 class Embedder(object):
@@ -283,19 +283,17 @@ class PositionEmbedder(Embedder, Serializable):
 
   @serializable_init
   @register_xnmt_handler
-  def __init__(self, max_pos, exp_global=Ref(Path("exp_global")), model=None,
-               emb_dim=None, param_init=None):
+  def __init__(self, max_pos: int, emb_dim: int = Ref("exp_global.default_layer_dim"),
+               param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer))):
     """
-    max_pos (int): largest embedded position
-    exp_global (ExpGlobal): ExpGlobal object to acquire DyNet params and global settings. By default, references the experiment's top level exp_global object.
-    model (dynet.ParameterCollection): dynet param collection; if not given, access via exp_global object
-    emb_dim (int): embedding size
-    param_init (ParamInitializer): how to initialize embedding matrix
+    max_pos: largest embedded position
+    emb_dim: embedding size
+    param_init: how to initialize embedding matrix
     """
     self.max_pos = max_pos
-    self.emb_dim = emb_dim or exp_global.default_layer_dim
-    param_collection = model or exp_global.dynet_param_collection.param_col
-    param_init = param_init or exp_global.param_init
+    self.emb_dim = emb_dim
+    param_collection = ParamManager.my_params(self)
+    param_init = param_init
     dim = (self.emb_dim, max_pos)
     self.embeddings = param_collection.add_parameters(dim, init=param_init.initializer(dim, is_lookup=True))
 
