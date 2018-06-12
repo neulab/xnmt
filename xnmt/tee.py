@@ -75,11 +75,11 @@ def set_out_file(out_file):
   with open(out_file, mode="w") as f_out:
     for line in _preamble_content:
       f_out.write(f"{line}\n")
-  fh = logging.FileHandler(out_file)
+  fh = logging.FileHandler(out_file, encoding="utf-8")
   fh.setLevel(settings.LOG_LEVEL_FILE)
   fh.setFormatter(MainFormatter())
   logger.addHandler(fh)
-  yaml_fh = logging.FileHandler(f"{out_file}.yaml", mode='w')
+  yaml_fh = logging.FileHandler(f"{out_file}.yaml", mode='w', encoding="utf-8")
   yaml_fh.setLevel(logging.DEBUG)
   yaml_fh.setFormatter(YamlFormatter())
   yaml_fh.setLevel(logging.DEBUG)
