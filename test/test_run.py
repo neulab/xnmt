@@ -64,11 +64,14 @@ class TestRunningConfig(unittest.TestCase):
   def test_retrieval(self):
     run.main(["test/config/retrieval.yaml"])
 
+  def test_score(self):
+    run.main(["test/config/score.yaml"])
+
   def test_segmenting(self):
     run.main(["test/config/segmenting.yaml"])
 
-  def test_score(self):
-    run.main(["test/config/score.yaml"])
+  def test_self_attentional_am(self):
+    run.main(["test/config/self_attentional_am.yaml"])
 
   def test_speech(self):
     run.main(["test/config/speech.yaml"])
