@@ -25,7 +25,7 @@ from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.eval_task import LossEvalTask, AccuracyEvalTask
 from xnmt.experiment import Experiment
-from xnmt.inference import SimpleInference
+from xnmt.inference import SequenceInference
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import BiLSTMSeqTransducer, UniLSTMSeqTransducer
 from xnmt.mlp import MLP
@@ -57,7 +57,7 @@ trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
 
 batcher = SrcBatcher(batch_size=64)
 
-inference = SimpleInference(batcher=batcher)
+inference = SequenceInference(batcher=batcher)
 
 layer_dim = 512
 

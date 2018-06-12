@@ -39,6 +39,20 @@ class Input(object):
     """
     raise NotImplementedError("get_padded_sent() must be implemented by Input subclasses")
 
+class IntInput(Input):
+  def __init__(self, value: int) -> None:
+    self.value = value
+  def __len__(self):
+    return 1
+  def len_unpadded(self):
+    return 1
+  def __getitem__(self, item):
+    if item!=0: raise IndexError
+    return self.value
+  def get_padded_sent(self, token: Any, pad_len: int):
+    if pad_len!=0:
+      raise ValueError("Can't pad IntInput")
+
 class SimpleSentenceInput(Input):
   """
   A simple sentence, represented as a list of tokens

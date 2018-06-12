@@ -25,7 +25,7 @@ report: !Experiment
       mlp_layer: !MLP
         hidden_dim: 256
       bridge: !NoBridge {}
-    inference: !SimpleInference {}
+    inference: !SequenceInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     trainer: !AdamTrainer
@@ -42,6 +42,6 @@ report: !Experiment
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.test_hyp
-      inference: !SimpleInference
+      inference: !SequenceInference
         report_path: examples/output/{EXP}.report
         report_type: html, file

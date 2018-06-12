@@ -13,6 +13,9 @@ class TestRunningConfig(unittest.TestCase):
   def test_assemble(self):
     run.main(["test/config/assemble.yaml"])
 
+  def test_classifier(self):
+    run.main(["test/config/classifier.yaml"])
+
   def test_component_sharing(self):
     run.main(["test/config/component_sharing.yaml"])
 

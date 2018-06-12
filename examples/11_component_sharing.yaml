@@ -40,7 +40,7 @@ exp1.pretrain: !Experiment
         #                in which case model.trg_embedder._xnmt_id is not required:
         #                !Ref { path: model.trg_embedder }
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !SequenceInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja

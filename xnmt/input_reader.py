@@ -13,6 +13,7 @@ from xnmt import logger
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.vocab import Vocab
+import xnmt.input
 
 class InputReader(object):
   """
@@ -338,7 +339,7 @@ class IDReader(BaseTextReader, Serializable):
     pass
 
   def read_sents(self, filename, filter_ids=None):
-    return map(lambda l: int(l.strip()), self.iterate_filtered(filename, filter_ids))
+    return [xnmt.input.IntInput(int(l.strip())) for l in self.iterate_filtered(filename, filter_ids)]
 
 ###### A utility function to read a parallel corpus
 def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,

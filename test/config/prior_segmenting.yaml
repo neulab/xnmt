@@ -47,7 +47,7 @@ prior-segmenting: !Experiment
       mlp_layer: !MLP
         hidden_dim: 16
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !SequenceInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file:

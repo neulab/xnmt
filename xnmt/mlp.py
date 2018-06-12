@@ -23,7 +23,7 @@ class MLP(Serializable):
     vocab_size (int): vocab size or None; if not None and ``yaml_path`` contains 'decoder', this will overwrite ``output_dim``
     vocab (Vocab): vocab or None; if not None and ``yaml_path`` contains 'decoder', this will overwrite ``output_dim``
     trg_reader (InputReader): Model's trg_reader, if exists and unambiguous; if not None and ``yaml_path`` contains 'decoder', this will overwrite ``output_dim``
-    decoder_rnn_dim (int): dimension of a decoder RNN that feeds into this MLP; if ``yaml_path`` contains 'decoder', this will be added to ``input_dim``
+    decoder_rnn_dim (int): dimension of a decoder RNN that feeds into this MLP; if ``yaml_path`` contains 'mlp', this will be added to ``input_dim``
   """
   yaml_tag = '!MLP'
 
