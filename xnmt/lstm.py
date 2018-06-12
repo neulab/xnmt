@@ -56,6 +56,12 @@ class UniLSTMState(object):
   def output(self):
     return self._h[-1]
 
+  def __getitem__(self, item):
+    return UniLSTMState(network=self._network,
+                        prev=self._prev,
+                        c=[ci[item] for ci in self._c],
+                        h=[hi[item] for hi in self._h])
+
 
 class UniLSTMSeqTransducer(SeqTransducer, Serializable):
   """

@@ -7,7 +7,7 @@ import xnmt.linear
 import xnmt.residual
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt import logger
-from xnmt.bridge import CopyBridge
+from xnmt.bridge import Bridge, CopyBridge
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.mlp import MLP
 from xnmt.param_collection import ParamManager
@@ -43,16 +43,17 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
   Standard MLP softmax decoder.
 
   Args:
-    input_dim (int): input dimension
-    trg_embed_dim (int): dimension of target embeddings
-    input_feeding (bool): whether to activate input feeding
-    rnn_layer (UniLSTMSeqTransducer): recurrent layer of the decoder
-    mlp_layer (MLP): final prediction layer of the decoder
-    bridge (Bridge): how to initialize decoder state
-    label_smoothing (float): label smoothing value (if used, 0.1 is a reasonable value).
-                             Label Smoothing is implemented with reference to Section 7 of the paper
-                             "Rethinking the Inception Architecture for Computer Vision"
-                             (https://arxiv.org/pdf/1512.00567.pdf)
+    input_dim: input dimension
+    trg_embed_dim: dimension of target embeddings
+    input_feeding: whether to activate input feeding
+    rnn_layer: recurrent layer of the decoder
+    mlp_layer: final prediction layer of the decoder
+    bridge: how to initialize decoder state
+    truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
+    label_smoothing: label smoothing value (if used, 0.1 is a reasonable value).
+                     Label Smoothing is implemented with reference to Section 7 of the paper
+                     "Rethinking the Inception Architecture for Computer Vision"
+                     (https://arxiv.org/pdf/1512.00567.pdf)
   """
 
   # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
@@ -62,15 +63,17 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
 
   @serializable_init
   def __init__(self,
-               input_dim=Ref("exp_global.default_layer_dim"),
-               trg_embed_dim=Ref("exp_global.default_layer_dim"),
-               input_feeding=True,
-               rnn_layer=bare(UniLSTMSeqTransducer),
-               mlp_layer=bare(MLP),
-               bridge=bare(CopyBridge),
-               label_smoothing=0.0):
+               input_dim: int = Ref("exp_global.default_layer_dim"),
+               trg_embed_dim: int = Ref("exp_global.default_layer_dim"),
+               input_feeding: bool = True,
+               rnn_layer: UniLSTMSeqTransducer = bare(UniLSTMSeqTransducer),
+               mlp_layer: MLP = bare(MLP),
+               bridge: Bridge = bare(CopyBridge),
+               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False),
+               label_smoothing: float = 0.0) -> None:
     self.param_col = ParamManager.my_params(self)
     self.input_dim = input_dim
+    self.truncate_dec_batches = truncate_dec_batches
     self.label_smoothing = label_smoothing
     # Input feeding
     self.input_feeding = input_feeding
@@ -123,7 +126,9 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
     inp = trg_embedding
     if self.input_feeding:
       inp = dy.concatenate([inp, mlp_dec_state.context])
-    return MlpSoftmaxDecoderState(rnn_state=mlp_dec_state.rnn_state.add_input(inp),
+    rnn_state = mlp_dec_state.rnn_state
+    if self.truncate_dec_batches: rnn_state, inp = xnmt.batcher.truncate_batches(rnn_state, inp)
+    return MlpSoftmaxDecoderState(rnn_state=rnn_state.add_input(inp),
                                   context=mlp_dec_state.context)
 
   def get_scores(self, mlp_dec_state):
@@ -148,6 +153,7 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
         return dy.pickneglogsoftmax(scores, ref_action)
       # minibatch mode
       else:
+        if self.truncate_dec_batches: scores, ref_action = xnmt.batcher.truncate_batches(scores, ref_action)
         return dy.pickneglogsoftmax_batch(scores, ref_action)
 
     else:
@@ -181,11 +187,12 @@ class MlpSoftmaxLexiconDecoder(MlpSoftmaxDecoder, Serializable):
                lexicon_type='bias',
                lexicon_alpha=0.001,
                linear_projector=None,
+               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False),
                param_init_lin=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init_lin=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
-               ):
+               ) -> None:
     super().__init__(input_dim, trg_embed_dim, input_feeding, rnn_layer,
-                     mlp_layer, bridge, label_smoothing)
+                     mlp_layer, bridge, truncate_dec_batches, label_smoothing)
     assert lexicon_file is not None
     self.lexicon_file = lexicon_file
     self.src_vocab = src_vocab

@@ -2,8 +2,9 @@ import math
 import dynet as dy
 
 from xnmt import logger
+import xnmt.batcher
 from xnmt.param_collection import ParamManager
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.param_init import GlorotInitializer, ZeroInitializer, ParamInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
 class Attender(object):
@@ -39,29 +40,32 @@ class Attender(object):
     return self.attention_vecs[-1]
 
 class MlpAttender(Attender, Serializable):
-  '''
+  """
   Implements the attention model of Bahdanau et. al (2014)
   
   Args:
-    input_dim (int): input dimension
-    state_dim (int): dimension of state inputs
-    hidden_dim (int): hidden MLP dimension
-    param_init (ParamInitializer): how to initialize weight matrices
-    bias_init (ParamInitializer): how to initialize bias vectors
-  '''
+    input_dim: input dimension
+    state_dim: dimension of state inputs
+    hidden_dim: hidden MLP dimension
+    param_init: how to initialize weight matrices
+    bias_init: how to initialize bias vectors
+    truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
+  """
 
   yaml_tag = '!MlpAttender'
 
   @serializable_init
   def __init__(self,
-               input_dim=Ref("exp_global.default_layer_dim"),
-               state_dim=Ref("exp_global.default_layer_dim"),
-               hidden_dim=Ref("exp_global.default_layer_dim"),
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+               input_dim: int = Ref("exp_global.default_layer_dim"),
+               state_dim: int = Ref("exp_global.default_layer_dim"),
+               hidden_dim: int = Ref("exp_global.default_layer_dim"),
+               param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init: ParamInitializer = Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
+    self.truncate_dec_batches = truncate_dec_batches
     param_collection = ParamManager.my_params(self)
     self.pW = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
     self.pV = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
@@ -86,10 +90,15 @@ class MlpAttender(Attender, Serializable):
     V = dy.parameter(self.pV)
     U = dy.parameter(self.pU)
 
-    h = dy.tanh(dy.colwise_add(self.WI, V * state))
+    WI = self.WI
+    curr_sent_mask = self.curr_sent.mask
+    if self.truncate_dec_batches:
+      if curr_sent_mask: state, WI, curr_sent_mask = xnmt.batcher.truncate_batches(state, WI, curr_sent_mask)
+      else: state, WI = xnmt.batcher.truncate_batches(state, WI)
+    h = dy.tanh(dy.colwise_add(WI, V * state))
     scores = dy.transpose(U * h)
-    if self.curr_sent.mask is not None:
-      scores = self.curr_sent.mask.add_to_tensor_expr(scores, multiplicator = -100.0)
+    if curr_sent_mask is not None:
+      scores = curr_sent_mask.add_to_tensor_expr(scores, multiplicator = -100.0)
     normalized = dy.softmax(scores)
     self.attention_vecs.append(normalized)
     return normalized
@@ -97,21 +106,25 @@ class MlpAttender(Attender, Serializable):
   def calc_context(self, state):
     attention = self.calc_attention(state)
     I = self.curr_sent.as_tensor()
+    if self.truncate_dec_batches: I, attention = xnmt.batcher.truncate_batches(I, attention)
     return I * attention
 
 class DotAttender(Attender, Serializable):
-  '''
+  """
   Implements dot product attention of https://arxiv.org/abs/1508.04025
   Also (optionally) perform scaling of https://arxiv.org/abs/1706.03762
   
   Args:
-    scale (bool): whether to perform scaling
-  '''
+    scale: whether to perform scaling
+    truncate_dec_batches: currently unsupported
+  """
 
   yaml_tag = '!DotAttender'
 
   @serializable_init
-  def __init__(self, scale:bool=True):
+  def __init__(self, scale: bool = True,
+               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
+    if truncate_dec_batches: raise NotImplementedError("truncate_dec_batches not yet implemented for DotAttender")
     self.curr_sent = None
     self.scale = scale
     self.attention_vecs = []
@@ -137,7 +150,7 @@ class DotAttender(Attender, Serializable):
     return I * attention
 
 class BilinearAttender(Attender, Serializable):
-  '''
+  """
   Implements a bilinear attention, equivalent to the 'general' linear
   attention of https://arxiv.org/abs/1508.04025
 
@@ -145,15 +158,18 @@ class BilinearAttender(Attender, Serializable):
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
     state_dim (int): dimension of state inputs; if None, use exp_global.default_layer_dim
     param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
-  '''
+    truncate_dec_batches: currently unsupported
+  """
 
   yaml_tag = '!BilinearAttender'
 
   @serializable_init
   def __init__(self,
-               input_dim=Ref("exp_global.default_layer_dim"),
-               state_dim=Ref("exp_global.default_layer_dim"),
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer))):
+               input_dim: int = Ref("exp_global.default_layer_dim"),
+               state_dim: int = Ref("exp_global.default_layer_dim"),
+               param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
+    if truncate_dec_batches: raise NotImplementedError("truncate_dec_batches not yet implemented for BilinearAttender")
     self.input_dim = input_dim
     self.state_dim = state_dim
     param_collection = ParamManager.my_params(self)

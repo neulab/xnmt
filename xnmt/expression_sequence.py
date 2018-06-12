@@ -102,6 +102,8 @@ class ExpressionSequence(object):
 
   def dim(self):
     """
+    Return dimension of the expression sequence
+
     Returns:
       result of self.as_tensor().dim(), without explicitly constructing that tensor
     """

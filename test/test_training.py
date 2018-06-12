@@ -63,7 +63,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
                                    trg=mark_as_batch(trg_sents_trunc),
                                    loss_calculator=MLELoss()).value()
-    self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)
+    self.assertAlmostEqual(single_loss, np.sum(batched_loss), places=4)
 
   def test_loss_model1(self):
     layer_dim = 512
@@ -189,7 +189,7 @@ class TestBatchTraining(unittest.TestCase):
       single_sent[src_min-1] = Vocab.ES
       while len(single_sent)%pad_src_to_multiple != 0:
         single_sent.append(Vocab.ES)
-    trg_sents = self.trg_data[:batch_size]
+    trg_sents = sorted(self.trg_data[:batch_size], key=lambda x: len(x), reverse=True)
     trg_max = max([len(x) for x in trg_sents])
     trg_masks = Mask(np.zeros([batch_size, trg_max]))
     for i in range(batch_size):
@@ -210,7 +210,7 @@ class TestBatchTraining(unittest.TestCase):
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
                                    trg=mark_as_batch(trg_sents_padded, trg_masks),
                                    loss_calculator=MLELoss()).value()
-    self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)
+    self.assertAlmostEqual(single_loss, np.sum(batched_loss), places=4)
 
   def test_loss_model1(self):
     layer_dim = 512
