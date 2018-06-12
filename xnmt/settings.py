@@ -56,6 +56,8 @@ class Unittest(Standard):
   OVERWRITE_LOG = True
   RESOURCE_WARNINGS = True
   LOG_LEVEL_CONSOLE = "WARNING"
+  DEFAULT_MOD_PATH = "test/tmp/{EXP}.mod"
+  DEFAULT_LOG_PATH = "test/tmp/{EXP}.log"
 
 class SettingsAccessor(object):
   def __getattr__(self, item):

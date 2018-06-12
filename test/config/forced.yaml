@@ -1,7 +1,5 @@
 forced: !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 32
   model: !DefaultTranslator
     src_reader: !PlainTextReader
@@ -38,7 +36,7 @@ forced: !Experiment
       inference: !SimpleInference {}
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/{EXP}.test_hyp
+      hyp_file: test/tmp/{EXP}.test_hyp
     - !AccuracyEvalTask # TODO: can this inherit settings from acc_task?
       eval_metrics: bleu,wer
       inference: !SimpleInference
@@ -47,7 +45,7 @@ forced: !Experiment
         batcher: !InOrderBatcher { batch_size: 32 }
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/{EXP}.forced_hyp
+      hyp_file: test/tmp/{EXP}.forced_hyp
     - !AccuracyEvalTask
       eval_metrics: bleu,wer
       inference: !SimpleInference
@@ -56,4 +54,4 @@ forced: !Experiment
         batcher: !InOrderBatcher { batch_size: 32 }
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/{EXP}.forceddebug_hyp
+      hyp_file: test/tmp/{EXP}.forceddebug_hyp

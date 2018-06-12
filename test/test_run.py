@@ -37,7 +37,6 @@ class TestRunningConfig(unittest.TestCase):
   def test_preproc(self):
     run.main(["test/config/preproc.yaml"])
 
-  @unittest.expectedFailure # TODO: these tests need to be fixed
   def test_pretrained_emb(self):
     run.main(["test/config/pretrained_embeddings.yaml"])
 
@@ -65,11 +64,14 @@ class TestRunningConfig(unittest.TestCase):
   def test_retrieval(self):
     run.main(["test/config/retrieval.yaml"])
 
+  def test_score(self):
+    run.main(["test/config/score.yaml"])
+
   def test_segmenting(self):
     run.main(["test/config/segmenting.yaml"])
 
-  def test_score(self):
-    run.main(["test/config/score.yaml"])
+  def test_self_attentional_am(self):
+    run.main(["test/config/self_attentional_am.yaml"])
 
   def test_speech(self):
     run.main(["test/config/speech.yaml"])
@@ -81,12 +83,16 @@ class TestRunningConfig(unittest.TestCase):
   def test_standard(self):
     run.main(["test/config/standard.yaml"])
 
+  @unittest.expectedFailure # TODO: these tests need to be fixed
   def test_transformer(self):
     run.main(["test/config/transformer.yaml"])
 
   @unittest.skipUnless(has_cython(), "requires cython to run")
-  def test_search_strategy(self):
+  def test_search_strategy_reinforce(self):
     run.main(["test/config/reinforce.yaml"])
+
+  @unittest.skipUnless(has_cython(), "requires cython to run")
+  def test_search_strategy_minrisk(self):
     run.main(["test/config/minrisk.yaml"])
 
   def tearDown(self):

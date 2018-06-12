@@ -5,6 +5,7 @@ import yaml
 
 from xnmt.settings import settings
 from xnmt.util import make_parent_dir
+import xnmt.git_rev
 
 STD_OUTPUT_LEVELNO = 35
 
@@ -135,6 +136,7 @@ class Tee(object):
     return self.stdstream.getvalue()
 
 def get_git_revision():
+  if xnmt.git_rev.CUR_GIT_REVISION: return xnmt.git_rev.CUR_GIT_REVISION
   from subprocess import CalledProcessError, check_output
   try:
     command = 'git rev-parse --short HEAD'

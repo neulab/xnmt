@@ -50,4 +50,4 @@ reload: !Experiment
       eval_metrics: cer,wer
       src_file: test/tmp/reload/LDC94S13A.npz
       ref_file: test/tmp/reload/LDC94S13A.char
-      hyp_file: examples/output/{EXP}.test_hyp
+      hyp_file: test/tmp/{EXP}.test_hyp

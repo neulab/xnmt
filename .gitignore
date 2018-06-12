@@ -18,5 +18,9 @@ test/config/logs/
 test/config/models/
 /*.yaml
 examples/preproc/
-/test/config/logs/
-/test/config/models/
+.project
+.pydevproject
+.settings/
+dist/
+docs/_build/
+docs/examples

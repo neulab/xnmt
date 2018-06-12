@@ -73,8 +73,8 @@ las-pyramidal: !Experiment
         inference: !SimpleInference
           max_src_len: 1500
           post_process: join-char
-          max_len: 500
           search_strategy: !BeamSearch
+            max_len: 500
             beam_size: 20
             len_norm: !PolynomialNormalization
               apply_during_search: true
@@ -92,8 +92,8 @@ las-pyramidal: !Experiment
       inference: !SimpleInference
         max_src_len: 1500
         post_process: join-char
-        max_len: 500
         search_strategy: !BeamSearch
+          max_len: 500
           beam_size: 20
           len_norm: !PolynomialNormalization
             apply_during_search: true

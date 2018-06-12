@@ -3,21 +3,23 @@ import numpy as np
 import collections
 import itertools
 import os
+from typing import Union
 
 # Reporting purposes
 from lxml import etree
 from xnmt.settings import settings
 
 from xnmt.attender import MlpAttender
-from xnmt.batcher import mark_as_batch, is_batched
+from xnmt.batcher import Batch, mark_as_batch, is_batched
 from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
-from xnmt.generator import GeneratorModel
+from xnmt.model_base import GeneratorModel, EventTrigger
 from xnmt.inference import SimpleInference
-from xnmt.input import SimpleSentenceInput
+from xnmt.input import Input, SimpleSentenceInput
 import xnmt.length_normalization
-from xnmt.loss import LossBuilder
+from xnmt.loss import FactoredLossExpr
+from xnmt.loss_calculator import LossCalculator
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput
 import xnmt.plot
@@ -36,16 +38,19 @@ class Translator(GeneratorModel):
   loss and generate translations.
   '''
 
-  def calc_loss(self, src, trg, loss_calculator):
+  def calc_loss(self, src: Union[Batch, Input], trg: Union[Batch, Input],
+                loss_calculator: LossCalculator) -> FactoredLossExpr:
     '''Calculate loss based on input-output pairs.
+
+    Losses are accumulated only across unmasked timesteps in each batch element.
     
     Args:
-      src: The source, a sentence (:class:`xnmt.input.Input`) or a batch of sentences (:class:`xnmt.batcher.Batch`).
-      trg: The target, a sentence (:class:`xnmt.input.Input`) or a batch of sentences (:class:`xnmt.batcher.Batch`).
-      loss_calculator (LossCalculator):
+      src: The source, a sentence or a batch of sentences.
+      trg: The target, a sentence or a batch of sentences.
+      loss_calculator: loss calculator.
     
     Returns:
-      xnmt.loss.LossBuilder: A (possibly batched) expression representing the loss. Losses are accumulated only if trg_mask[batch,pos]==0, or no mask is set
+      A (possibly batched) expression representing the loss.
     '''
     raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
 
@@ -76,7 +81,7 @@ class Translator(GeneratorModel):
       output_state = dy.nobackprop(output_state)
     return output_state
 
-class DefaultTranslator(Translator, Serializable, Reportable):
+class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
   '''
   A default translator based on attentional sequence-to-sequence models.
 
@@ -102,8 +107,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
                inference=bare(SimpleInference), search_strategy=bare(BeamSearch),
                calc_global_fertility=False, calc_attention_entropy=False):
-    self.src_reader = src_reader
-    self.trg_reader = trg_reader
+    super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
@@ -133,8 +137,8 @@ class DefaultTranslator(Translator, Serializable, Reportable):
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
     initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
     # Compose losses
-    model_loss = LossBuilder()
-    model_loss.add_loss("mle", loss_calculator(self, initial_state, src, trg))
+    model_loss = FactoredLossExpr()
+    model_loss.add_factored_loss_expr(loss_calculator(self, initial_state, src, trg))
 
     if self.calc_global_fertility or self.calc_attention_entropy:
       # philip30: I assume that attention_vecs is already masked src wisely.
@@ -295,7 +299,7 @@ class DefaultTranslator(Translator, Serializable, Reportable):
         print(str_format.format(*words), file=attn_file)
 
   
-class TransformerTranslator(Translator, Serializable, Reportable):
+class TransformerTranslator(Translator, Serializable, Reportable, EventTrigger):
   '''
   A translator based on the transformer model.
 
@@ -315,10 +319,9 @@ class TransformerTranslator(Translator, Serializable, Reportable):
   @register_xnmt_handler
   @serializable_init
   def __init__(self, src_reader, src_embedder, encoder, trg_reader, trg_embedder, decoder, inference=None, input_dim=512):
-    self.src_reader = src_reader
+    super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
     self.encoder = encoder
-    self.trg_reader = trg_reader
     self.trg_embedder = trg_embedder
     self.decoder = decoder
     self.input_dim = input_dim
@@ -435,7 +438,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
     ref_list = list(itertools.chain.from_iterable(map(lambda x: x.words, trg)))
     concat_t_block = (1 - trg_mask.ravel()).reshape(-1) * np.array(ref_list)
     loss = self.decoder.output_and_loss(h_block, concat_t_block)
-    return LossBuilder({"mle": loss})
+    return FactoredLossExpr({"mle": loss})
 
   def generate(self, src, idx, src_mask=None, forced_trg_ids=None, search_strategy=None):
     self.start_sent(src)
@@ -485,7 +488,7 @@ class TransformerTranslator(Translator, Serializable, Reportable):
 
     return outputs
 
-class EnsembleTranslator(Translator, Serializable):
+class EnsembleTranslator(Translator, Serializable, EventTrigger):
   '''
   A translator that decodes from an ensemble of DefaultTranslator models.
 
@@ -503,15 +506,15 @@ class EnsembleTranslator(Translator, Serializable):
   @register_xnmt_handler
   @serializable_init
   def __init__(self, models, src_reader, trg_reader, inference=bare(SimpleInference)):
+    super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.models = models
-    self.src_reader = src_reader
-    self.trg_reader = trg_reader
     self.inference = inference
 
     # perform checks to verify the models can logically be ensembled
     for i, model in enumerate(self.models):
-      assert self.src_reader.vocab.is_compatible(model.src_reader.vocab), \
-        f"src_reader.vocab is not compatible with model {i}"
+      if hasattr(self.src_reader, "vocab") or hasattr(model.src_reader, "vocab"):
+        assert self.src_reader.vocab.is_compatible(model.src_reader.vocab), \
+          f"src_reader.vocab is not compatible with model {i}"
       assert self.trg_reader.vocab.is_compatible(model.trg_reader.vocab), \
         f"trg_reader.vocab is not compatible with model {i}"
 
@@ -541,7 +544,7 @@ class EnsembleTranslator(Translator, Serializable):
     for model in self.models:
       for loss_name, loss in model.calc_loss(src, trg, loss_calculator).loss_values.items():
         sub_losses[loss_name].append(loss)
-    model_loss = LossBuilder()
+    model_loss = FactoredLossExpr()
     for loss_name, losslist in sub_losses.items():
       # TODO: dy.average(losslist)  _or_  dy.esum(losslist) / len(self.models) ?
       #       -- might not be the same if not all models return all losses

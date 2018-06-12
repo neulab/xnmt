@@ -81,6 +81,8 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
 
+# API doc: sort by order in which elements appear in source code.f
+autodoc_member_order = 'bysource'
 
 # -- Options for HTML output -------------------------------------------------
 

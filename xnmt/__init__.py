@@ -45,7 +45,8 @@ import xnmt.residual
 import xnmt.retriever
 import xnmt.segmenting_composer
 import xnmt.segmenting_encoder
-import xnmt.specialized_encoders
+import xnmt.specialized_encoders.tilburg_harwath
+import xnmt.specialized_encoders.self_attentional_am
 import xnmt.training_regimen
 import xnmt.training_task
 import xnmt.transformer
@@ -53,8 +54,7 @@ import xnmt.translator
 import xnmt.persistence
 
 def init_representer(dumper, obj):
-  if not hasattr(obj, "resolved_serialize_params") and not hasattr(obj, "serialize_params"):
-    raise RuntimeError(f"Serializing object {obj} that does not possess serialize_params, probably because it was created programmatically, is not possible.")
+  assert hasattr(obj, "resolved_serialize_params") or hasattr(obj, "serialize_params")
   if hasattr(obj, "resolved_serialize_params"):
     serialize_params = obj.resolved_serialize_params
   else:
@@ -62,5 +62,15 @@ def init_representer(dumper, obj):
   return dumper.represent_mapping('!' + obj.__class__.__name__, serialize_params)
 
 import yaml
+seen_yaml_tags = set()
 for SerializableChild in xnmt.persistence.Serializable.__subclasses__():
+  assert hasattr(SerializableChild,
+                 "yaml_tag") and SerializableChild.yaml_tag == f"!{SerializableChild.__name__}",\
+    f"missing or misnamed yaml_tag attribute for class {SerializableChild.__name__}"
+  assert SerializableChild.yaml_tag not in seen_yaml_tags, \
+    f"encountered naming conflict: more than one class with yaml_tag='{SerializableChild.yaml_tag}'. " \
+    f"Change to a unique class name."
+  assert getattr(SerializableChild.__init__, "uses_serializable_init",
+                 False), f"{SerializableChild.__name__}.__init__() must be wrapped in @serializable_init."
+  seen_yaml_tags.add(SerializableChild.yaml_tag)
   yaml.add_representer(SerializableChild, init_representer)

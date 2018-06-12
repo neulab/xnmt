@@ -1,8 +1,6 @@
 defaults: !Experiment
   kwargs: &defaults
     exp_global: !ExpGlobal
-      model_file: examples/output/{EXP}.mod
-      log_file: examples/output/{EXP}.log
       default_layer_dim: 64
       dropout: 0.5
       weight_noise: 0.1
@@ -19,7 +17,7 @@ defaults: !Experiment
         eval_metrics: bleu,wer
         src_file: examples/data/head.ja
         ref_file: examples/data/head.en
-        hyp_file: examples/output/{EXP}.test_hyp
+        hyp_file: test/tmp/{EXP}.test_hyp
 
 
 exp1-lstm-encoder: !Experiment

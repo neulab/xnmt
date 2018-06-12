@@ -1,7 +1,5 @@
 retriever: !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 16
     dropout: 0.0
   model: !DotProductRetriever

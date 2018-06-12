@@ -1,7 +1,7 @@
 import dynet as dy
 import numpy as np
 
-from xnmt.loss import LossBuilder
+from xnmt.loss import FactoredLossExpr
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.vocab import Vocab
 from xnmt.constants import INFINITY
@@ -79,9 +79,10 @@ class MLELoss(Serializable, LossCalculator):
         dec_state = translator.decoder.add_input(dec_state, translator.trg_embedder.embed(ref_word))
 
     if self.truncate_dec_batches:
-      return dy.esum([dy.sum_batches(wl) for wl in losses])
+      loss_expr = dy.esum([dy.sum_batches(wl) for wl in losses])
     else:
-      return dy.esum(losses)
+      loss_expr = dy.esum(losses)
+    return FactoredLossExpr({"mle": loss_expr})
 
 class ReinforceLoss(Serializable, LossCalculator):
   yaml_tag = '!ReinforceLoss'
@@ -89,16 +90,17 @@ class ReinforceLoss(Serializable, LossCalculator):
   # TODO: document me
   @serializable_init
   def __init__(self, evaluation_metric=None, sample_length=50, use_baseline=False,
-               inv_eval=True, decoder_hidden_dim=Ref("exp_global.default_layer_dim")):
+               inv_eval=True, decoder_hidden_dim=Ref("exp_global.default_layer_dim"), baseline=None):
     self.use_baseline = use_baseline
     self.inv_eval = inv_eval
     if evaluation_metric is None:
-      self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
+      self.evaluation_metric = xnmt.evaluator.FastBLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
 
     if self.use_baseline:
-      self.baseline = linear.Linear(input_dim=decoder_hidden_dim, output_dim=1)
+      self.baseline = self.add_serializable_component("baseline", baseline,
+                                                      lambda: linear.Linear(input_dim=decoder_hidden_dim, output_dim=1))
 
   def __call__(self, translator, initial_state, src, trg):
     # TODO(philip30): currently only using the best hypothesis / first sample for reinforce loss
@@ -114,12 +116,12 @@ class ReinforceLoss(Serializable, LossCalculator):
       if len(sample_i) == 0:
         score = 0
       else:
-        score = self.evaluation_metric.evaluate_fast(ref_i, sample_i) * \
+        score = self.evaluation_metric.evaluate(ref_i, sample_i) * \
                 (-1 if self.inv_eval else 1)
       self.eval_score.append(score)
     self.true_score = dy.inputTensor(self.eval_score, batched=True)
     # Composing losses
-    loss = LossBuilder()
+    loss = FactoredLossExpr()
     if self.use_baseline:
       baseline_loss = []
       losses = []
@@ -144,7 +146,7 @@ class MinRiskLoss(Serializable, LossCalculator):
     # Samples
     self.alpha = alpha
     if evaluation_metric is None:
-      self.evaluation_metric = xnmt.evaluator.BLEUEvaluator(ngram=4, smooth=1)
+      self.evaluation_metric = xnmt.evaluator.FastBLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
     self.inv_eval = inv_eval
@@ -178,7 +180,7 @@ class MinRiskLoss(Serializable, LossCalculator):
             # Count this sample in
             uniques[j].add(hash_val)
           # Calc evaluation score
-        eval_score[j] = self.evaluation_metric.evaluate_fast(ref_j, hyp_j) * \
+        eval_score[j] = self.evaluation_metric.evaluate(ref_j, hyp_j) * \
                         (-1 if self.inv_eval else 1)
       # Appending the delta and logprob of this sample
       prob = logprob + dy.inputTensor(mask, batched=True)
@@ -194,5 +196,5 @@ class MinRiskLoss(Serializable, LossCalculator):
     #print("----------------------")
     ### End debug
 
-    return LossBuilder({"risk": risk})
+    return FactoredLossExpr({"risk": risk})
 

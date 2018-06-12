@@ -115,6 +115,9 @@ class IdentitySeqTransducer(Transducer, Serializable):
   yaml_tag = '!IdentitySeqTransducer'
 
   @serializable_init
+  def __init__(self):
+    pass
+
   def __call__(self, output):
     if not isinstance(output, ExpressionSequence):
       output = ExpressionSequence(expr_list=output)

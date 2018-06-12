@@ -31,24 +31,35 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
                hidden_dim=Ref("exp_global.default_layer_dim"),
                downsampling_method="concat",
                reduce_factor=2,
-               dropout=Ref("exp_global.dropout", default=0.0)):
+               dropout=Ref("exp_global.dropout", default=0.0),
+               builder_layers=None):
     self.dropout = dropout
     assert layers > 0
     assert hidden_dim % 2 == 0
     assert type(reduce_factor)==int or (type(reduce_factor)==list and len(reduce_factor)==layers-1)
     assert downsampling_method in ["concat", "skip"]
-    self.builder_layers = []
+
     self.downsampling_method = downsampling_method
     self.reduce_factor = reduce_factor
     self.input_dim = input_dim
+    self.hidden_dim = hidden_dim
+    self.builder_layers = self.add_serializable_component("builder_layers", builder_layers,
+                                                          lambda: self.make_builder_layers(input_dim, hidden_dim,
+                                                                                           layers, dropout,
+                                                                                           downsampling_method,
+                                                                                           reduce_factor))
+
+  def make_builder_layers(self, input_dim, hidden_dim, layers, dropout, downsampling_method, reduce_factor):
+    builder_layers = []
     f = UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
     b = UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
-    self.builder_layers.append((f, b))
+    builder_layers.append([f, b])
     for _ in range(layers - 1):
       layer_input_dim = hidden_dim if downsampling_method=="skip" else hidden_dim*reduce_factor
       f = UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
       b = UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
-      self.builder_layers.append((f, b))
+      builder_layers.append([f, b])
+    return builder_layers
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -74,7 +85,6 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
     Args:
       es: an ExpressionSequence
     """
-
     es_list = [es]
 
     for layer_i, (fb, bb) in enumerate(self.builder_layers):

@@ -2,8 +2,6 @@ exp1-pretrain-model: !Experiment
   exp_global: !ExpGlobal
     # The model file contain the whole contents of this experiment in YAML
     # format. Note that {EXP} expressions are left intact when saving.
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 64
     dropout: 0.5
     weight_noise: 0.1
@@ -40,13 +38,13 @@ exp1-pretrain-model: !Experiment
       eval_metrics: bleu
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/{EXP}.dev_hyp
+      hyp_file: test/tmp/{EXP}.dev_hyp
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
-      hyp_file: examples/output/{EXP}.test_hyp
+      hyp_file: test/tmp/{EXP}.test_hyp
 
 exp2-finetune-model: !LoadSerialized
   # This will load the contents of the above experiments that were saved to the
@@ -56,7 +54,7 @@ exp2-finetune-model: !LoadSerialized
   # and except for the things explicitly overwritten in the overwrite: section.
   # It's possible to change any settings as long as these don't change the number
   # or nature of DyNet parameters allocated for the component.
-  filename: examples/output/exp1-pretrain-model.mod
+  filename: test/tmp/exp1-pretrain-model.mod
   path: ''
   overwrite: # list of [path, value] pairs. Value can be scalar or an arbitrary object
   - path: train.trainer

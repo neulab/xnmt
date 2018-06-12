@@ -19,6 +19,7 @@ class ExpGlobal(Serializable):
     bias_init: Default initializer for bias parameters that should be used by supporting components but can be overwritten
     truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
     save_num_checkpoints: save DyNet parameters for the most recent n checkpoints, useful for model averaging/ensembling
+    loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
     commandline_args: Holds commandline arguments with which XNMT was launched
     placeholders: these will be used as arguments for a format() call applied to every string in the config.
                   For example, ``placeholders: {"PATH":"/some/path"} will cause each occurence of ``"{PATH}"`` in a
@@ -38,6 +39,7 @@ class ExpGlobal(Serializable):
                bias_init: ParamInitializer = bare(ZeroInitializer),
                truncate_dec_batches: bool = False,
                save_num_checkpoints: int = 1,
+               loss_comb_method: str = "sum",
                commandline_args=None,
                placeholders: Dict[str, str] = {}) -> None:
     self.model_file = model_file
@@ -50,4 +52,5 @@ class ExpGlobal(Serializable):
     self.truncate_dec_batches = truncate_dec_batches
     self.commandline_args = commandline_args
     self.save_num_checkpoints = save_num_checkpoints
+    self.loss_comb_method = loss_comb_method
     self.placeholders = placeholders

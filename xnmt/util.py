@@ -4,10 +4,8 @@ import time
 
 from xnmt import logger, yaml_logger
 
-YamlSerializable=Union[None,bool,int,float,'Serializable',List['YamlSerializable'],Dict[str,'YamlSerializable']]
-
 def make_parent_dir(filename):
-  if not os.path.exists(os.path.dirname(filename)):
+  if not os.path.exists(os.path.dirname(filename) or "."):
     try:
       os.makedirs(os.path.dirname(filename))
     except OSError as exc: # Guard against race condition

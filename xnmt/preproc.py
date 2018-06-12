@@ -3,7 +3,8 @@ import sys
 import os.path
 import subprocess
 from collections import defaultdict
-import string
+import unicodedata
+import re
 
 import numpy as np
 import warnings
@@ -53,20 +54,22 @@ class NormalizerLower(Normalizer):
 class NormalizerRemovePunct(Normalizer):
   """Remove punctuation from the text."""
   def __init__(self, spec=None):
-    self.exclude = set(string.punctuation) - set(spec.get("allowed_chars", ""))
     self.remove_inside_word = spec.get("remove_inside_word", False)
+    self.exclude = set(chr(i) for i in range(sys.maxunicode) if unicodedata.category(chr(i)).startswith('P')
+                                                              and chr(i) not in set(spec.get("allowed_chars", "")))
   def normalize(self, sent):
     if self.remove_inside_word:
-      return ''.join(ch for ch in sent if ch not in self.exclude)
+      ret = ''.join(ch for ch in sent if ch not in self.exclude)
     else:
       words = []
       for w in sent.split():
         words.append(w.strip(''.join(ch for ch in self.exclude)))
-      return " ".join(words)
+      ret = " ".join(words)
+    return " ".join(ret.split())
 
 ###### Tokenizers
 
-class Tokenizer(Normalizer, Serializable):
+class Tokenizer(Normalizer):
   """
   Pass the text through an internal or external tokenizer.
 
@@ -90,7 +93,7 @@ class Tokenizer(Normalizer, Serializable):
     for line in stream:
       yield self.tokenize(line.strip())
 
-class BPETokenizer(Tokenizer):
+class BPETokenizer(Tokenizer, Serializable):
   """
   Class for byte-pair encoding tokenizer.
 
@@ -107,7 +110,7 @@ class BPETokenizer(Tokenizer):
     """Tokenizes a single sentence according to the determined BPE."""
     raise NotImplementedError("BPETokenizer is not implemented")
 
-class CharacterTokenizer(Tokenizer):
+class CharacterTokenizer(Tokenizer, Serializable):
   """
   Tokenize into characters, with __ indicating blank spaces
   """
@@ -121,7 +124,7 @@ class CharacterTokenizer(Tokenizer):
     """Tokenizes a single sentence into characters."""
     return ' '.join([('__' if x == ' ' else x) for x in sent])
 
-class ExternalTokenizer(Tokenizer):
+class ExternalTokenizer(Tokenizer, Serializable):
   """
   Class for arbitrary external tokenizer that accepts untokenized text to stdin and
   emits tokenized tezt to stdout, with passable parameters.
@@ -169,7 +172,7 @@ class ExternalTokenizer(Tokenizer):
       sys.stderr.write(stderr + '\n')
     return stdout
 
-class SentencepieceTokenizer(Tokenizer):
+class SentencepieceTokenizer(Tokenizer, Serializable):
   """
   Sentencepiece tokenizer
   The options supported by the SentencepieceTokenizer are almost exactly those presented in the Sentencepiece `readme <https://github.com/google/sentencepiece/blob/master/README.md>`_, namely:
@@ -239,7 +242,7 @@ class SentencepieceTokenizer(Tokenizer):
 
 ##### Sentence filterers
 
-class SentenceFilterer():
+class SentenceFilterer(object):
   """Filters sentences that don't match a criterion."""
 
   def __init__(self, spec):
@@ -267,11 +270,50 @@ class SentenceFilterer():
       for my_spec in spec:
         if my_spec["type"] == "length":
           preproc_list.append(SentenceFiltererLength(my_spec))
+        elif my_spec["type"] == "matching-regex":
+          preproc_list.append(SentenceFiltererMatchingRegex(my_spec))
         else:
           raise RuntimeError("Unknown preprocessing type {}".format(my_spec["type"]))
     return preproc_list
 
-class SentenceFiltererLength(object):
+class SentenceFiltererMatchingRegex(SentenceFilterer):
+  """Filters sentences via regular expressions.
+  A sentence must match the expression to be kept.
+  """
+
+  def __init__(self, spec):
+    """Specifies the regular expressions to filter the sentences that we'll be getting.
+
+    The regular expressions are passed as a dictionary with keys as follows:
+      regex_INT: This will specify the regular expression for a specific language (zero indexed)
+      regex_src: Equivalent to regex_0
+      regex_trg: Equivalent to regex_1
+    """
+    self.regex = {}
+    idx_map = {"src": 0, "trg": 1}
+    for k, v in spec.items():
+      if k == "type":
+        pass
+      elif k.startswith("regex"):
+        _, idx = k.split("_")
+        idx_tmp = idx_map.get(idx)
+        if idx_tmp is None:
+          idx_tmp = int(idx)
+        idx = idx_tmp
+        self.regex[idx] = v
+
+  def keep(self, sents):
+    """ Keep only sentences that match the regex.
+    """
+    for i, sent in enumerate(sents):
+      if type(sent) == list:
+        sent = " ".join(sent)
+      if self.regex.get(i) is not None:
+        if re.search(self.regex[i], sent) is None:
+          return False
+    return True
+
+class SentenceFiltererLength(SentenceFilterer):
   """Filters sentences by length"""
 
   def __init__(self, spec):
@@ -297,10 +339,14 @@ class SentenceFiltererLength(object):
         self.overall_min = v
       else:
         direc, idx = k.split('_')
-        idx = idx_map.get(idx_map, int(idx))
+        idx_tmp = idx_map.get(idx)
+        if idx_tmp is None:
+          idx_tmp = int(idx)
+        idx = idx_tmp
+
         if direc == "max":
           self.each_max[idx] = v
-        elif direc == "max":
+        elif direc == "min":
           self.each_min[idx] = v
         else:
           raise RuntimeError("Unknown limitation type {} in length-based sentence filterer".format(k))
@@ -391,7 +437,8 @@ class MelFiltExtractor(Extractor, Serializable):
              Each dictionary contains:
              - wav (str): path to wav file
              - offset (float): start time stamp (optional)
-             - duration (float): stop time stamp (optional)
+             - duration (float
+             ): stop time stamp (optional)
              - speaker: speaker id for normalization (optional; if not given, the filename is used as speaker id)
 
     out_file: a filename ending in ".h5"

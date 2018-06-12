@@ -1,7 +1,4 @@
 standard-preproc: !Experiment
-  exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
   preproc: !PreprocRunner
     overwrite: True
     tasks:
@@ -10,43 +7,43 @@ standard-preproc: !Experiment
       - examples/data/head.ja
       - examples/data/head.en
       out_files:
-      - examples/output/head.tok.ja
-      - examples/output/head.tok.en
+      - test/tmp/head.tok.ja
+      - test/tmp/head.tok.en
       specs:
       - filenum: all
         tokenizers:
         - !CharacterTokenizer {}
     - !PreprocNormalize
       in_files:
-      - examples/output/head.tok.ja
-      - examples/output/head.tok.en
+      - test/tmp/head.tok.ja
+      - test/tmp/head.tok.en
       - examples/data/head.en
       out_files:
-      - examples/output/head.tok.norm.ja
-      - examples/output/head.tok.norm.en
-      - examples/output/head.norm.en
+      - test/tmp/head.tok.norm.ja
+      - test/tmp/head.tok.norm.en
+      - test/tmp/head.norm.en
       specs:
       - filenum: all
         spec:
         - type: lower
     - !PreprocFilter
       in_files:
-      - examples/output/head.tok.norm.ja
-      - examples/output/head.tok.norm.en
+      - test/tmp/head.tok.norm.ja
+      - test/tmp/head.tok.norm.en
       out_files:
-      - examples/output/head.tok.norm.filter.ja
-      - examples/output/head.tok.norm.filter.en
+      - test/tmp/head.tok.norm.filter.ja
+      - test/tmp/head.tok.norm.filter.en
       specs:
       - type: length
         min: 1
         max: 50
     - !PreprocVocab
       in_files:
-      - examples/output/head.tok.norm.ja
-      - examples/output/head.tok.norm.en
+      - test/tmp/head.tok.norm.ja
+      - test/tmp/head.tok.norm.en
       out_files:
-      - examples/output/head.vocab.ja
-      - examples/output/head.vocab.en
+      - test/tmp/head.vocab.ja
+      - test/tmp/head.vocab.en
       specs:
       - filenum: all
         spec:
@@ -55,10 +52,10 @@ standard-preproc: !Experiment
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab
-        vocab_file: examples/output/head.vocab.ja
+        vocab_file: test/tmp/head.vocab.ja
     trg_reader: !PlainTextReader
       vocab: !Vocab
-        vocab_file: examples/output/head.vocab.en
+        vocab_file: test/tmp/head.vocab.en
     src_embedder: !SimpleWordEmbedder
       emb_dim: 256
     encoder: !BiLSTMSeqTransducer
@@ -79,15 +76,15 @@ standard-preproc: !Experiment
       post_process: join-char
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
-    src_file: examples/output/head.tok.norm.filter.ja
-    trg_file: examples/output/head.tok.norm.filter.en
+    src_file: test/tmp/head.tok.norm.filter.ja
+    trg_file: test/tmp/head.tok.norm.filter.en
     dev_tasks:
       - !LossEvalTask
-        src_file: examples/output/head.tok.norm.ja
-        ref_file: examples/output/head.tok.norm.en
+        src_file: test/tmp/head.tok.norm.ja
+        ref_file: test/tmp/head.tok.norm.en
   evaluate:
   - !AccuracyEvalTask
     eval_metrics: bleu
-    src_file: examples/output/head.tok.norm.ja
-    ref_file: examples/output/head.norm.en
-    hyp_file: examples/output/{EXP}.test_hyp
+    src_file: test/tmp/head.tok.norm.ja
+    ref_file: test/tmp/head.norm.en
+    hyp_file: test/tmp/{EXP}.test_hyp
