@@ -25,8 +25,7 @@ class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
                input_dim=Ref("exp_global.default_layer_dim"),
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
-               num_heads=8,
-               yaml_path=None):
+               num_heads=8):
     assert(input_dim % num_heads == 0)
 
     param_collection = ParamManager.my_params(self)
@@ -35,10 +34,8 @@ class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
     self.num_heads = num_heads
     self.head_dim = input_dim // num_heads
 
-    # self.Wq, self.Wk, self.Wv, self.Wo = [param_collection.add_parameters(dim=(input_dim, input_dim), init=param_init) for _ in range(4)]
-    # self.bq, self.bk, self.bv, self.bo = [param_collection.add_parameters(dim=(input_dim), init=bias_init) for _ in range(4)]
-    self.Wq, self.Wk, self.Wv, self.Wo = [param_collection.add_parameters(dim=(input_dim, input_dim)) for _ in range(4)]
-    self.bq, self.bk, self.bv, self.bo = [param_collection.add_parameters(dim=(1, input_dim)) for _ in range(4)]
+    self.Wq, self.Wk, self.Wv, self.Wo = [param_collection.add_parameters(dim=(input_dim, input_dim), init=param_init.initializer((input_dim, input_dim))) for _ in range(4)]
+    self.bq, self.bk, self.bv, self.bo = [param_collection.add_parameters(dim=(1, input_dim), init=bias_init.initializer((1, input_dim,))) for _ in range(4)]
 
   @handle_xnmt_event
   def on_start_sent(self, src):
