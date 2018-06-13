@@ -45,6 +45,7 @@ import xnmt.residual
 import xnmt.retriever
 import xnmt.segmenting_composer
 import xnmt.segmenting_encoder
+import xnmt.self_attention
 import xnmt.specialized_encoders
 import xnmt.training_regimen
 import xnmt.training_task

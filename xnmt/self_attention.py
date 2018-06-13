@@ -7,7 +7,7 @@ from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSeque
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt.transducer import SeqTransducer
+from xnmt.transducer import SeqTransducer, FinalTransducerState
 
 class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
   """
@@ -39,6 +39,13 @@ class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
     # self.bq, self.bk, self.bv, self.bo = [param_collection.add_parameters(dim=(input_dim), init=bias_init) for _ in range(4)]
     self.Wq, self.Wk, self.Wv, self.Wo = [param_collection.add_parameters(dim=(input_dim, input_dim)) for _ in range(4)]
     self.bq, self.bk, self.bv, self.bo = [param_collection.add_parameters(dim=(1, input_dim)) for _ in range(4)]
+
+  @handle_xnmt_event
+  def on_start_sent(self, src):
+    self._final_states = None
+
+  def get_final_states(self):
+    return self._final_states
 
   @handle_xnmt_event
   def on_set_train(self, val):
@@ -73,7 +80,7 @@ class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
     # Do scaled dot product [(length, length) x batch * num_heads], rows are queries, columns are keys
     attn_score = q * dy.transpose(k) / sqrt(self.head_dim)
     if expr_seq.mask != None:
-      mask = dy.inputTensor(expr_seq.mask * -1e10, batched=True)
+      mask = dy.inputTensor(np.repeat(expr_seq.mask.np_arr, self.num_heads, axis=0).transpose(), batched=True) * -1e10
       attn_score = attn_score + mask
     attn_prob = dy.softmax(attn_score, d=1)
     # Reduce using attention and resize to match [(length, model_size) x batch]
@@ -82,6 +89,10 @@ class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
     # o = dy.affine_transform([self.bo, attn_prob * v, self.Wo])
     o = self.bo + o * self.Wo
 
-    return ExpressionSequence(expr_transposed_tensor=o, mask=expr_seq.mask)
+    expr_seq = ExpressionSequence(expr_transposed_tensor=o, mask=expr_seq.mask)
+
+    self._final_states = [FinalTransducerState(expr_seq[-1], None)]
+
+    return expr_seq
 
 
