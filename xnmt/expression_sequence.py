@@ -107,6 +107,7 @@ class ExpressionSequence(object):
     """
     return self.expr_tensor is not None
 
+<<<<<<< HEAD
   def as_transposed_tensor(self):
     """Get a tensor.
     Returns:
@@ -122,6 +123,21 @@ class ExpressionSequence(object):
       False if as_transposed_tensor() will result in creating additional expressions, True otherwise
     """
     return self.expr_transposed_tensor is not None
+=======
+  def dim(self):
+    """
+    Return dimension of the expression sequence
+
+    Returns:
+      result of self.as_tensor().dim(), without explicitly constructing that tensor
+    """
+    if self.has_tensor(): return self.as_tensor().dim()
+    else:
+      if self.tensor_transposed:
+        return tuple([len(self)] + list(self[0].dim()[0])), self[0].dim()[1]
+      else:
+        return tuple(list(self[0].dim()[0]) + [len(self)]), self[0].dim()[1]
+>>>>>>> 9c56b094fb704a9b915f5111dfe168cbdf49c9b4
 
 class LazyNumpyExpressionSequence(ExpressionSequence):
   """
