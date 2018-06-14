@@ -34,8 +34,8 @@ class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
     self.num_heads = num_heads
     self.head_dim = input_dim // num_heads
 
-    self.Wq, self.Wk, self.Wv, self.Wo = [param_collection.add_parameters(dim=(input_dim, input_dim), init=param_init.initializer((input_dim, input_dim))) for _ in range(4)]
-    self.bq, self.bk, self.bv, self.bo = [param_collection.add_parameters(dim=(1, input_dim), init=bias_init.initializer((1, input_dim,))) for _ in range(4)]
+    self.pWq, self.pWk, self.pWv, self.pWo = [param_collection.add_parameters(dim=(input_dim, input_dim), init=param_init.initializer((input_dim, input_dim))) for _ in range(4)]
+    self.pbq, self.pbk, self.pbv, self.pbo = [param_collection.add_parameters(dim=(1, input_dim), init=bias_init.initializer((1, input_dim,))) for _ in range(4)]
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -58,18 +58,21 @@ class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
       expression sequence
     """
 
+    Wq, Wk, Wv, Wo = [dy.parameter(x) for x in (self.pWq, self.pWk, self.pWv, self.pWo)]
+    bq, bk, bv, bo = [dy.parameter(x) for x in (self.pbq, self.pbk, self.pbv, self.pbo)]
+
     # Start with a [(length, model_size) x batch] tensor
     x = expr_seq.as_transposed_tensor()
     x_len = x.dim()[0][0]
     x_batch = x.dim()[1]
     # Get the query key and value vectors
     # TODO: do we need bias broadcasting in DyNet?
-    # q = dy.affine_transform([self.bq, x, self.Wq])
-    # k = dy.affine_transform([self.bk, x, self.Wk])
-    # v = dy.affine_transform([self.bv, x, self.Wv])
-    q = self.bq + x * self.Wq
-    k = self.bk + x * self.Wk
-    v = self.bv + x * self.Wv
+    # q = dy.affine_transform([bq, x, Wq])
+    # k = dy.affine_transform([bk, x, Wk])
+    # v = dy.affine_transform([bv, x, Wv])
+    q = bq + x * Wq
+    k = bk + x * Wk
+    v = bv + x * Wv
     
     # Split to batches [(length, head_dim) x batch * num_heads] tensor
     q, k, v = [dy.reshape(x, (x_len, self.head_dim), batch_size=x_batch * self.num_heads) for x in (q,k,v)]
@@ -83,8 +86,8 @@ class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
     # Reduce using attention and resize to match [(length, model_size) x batch]
     o = dy.reshape(attn_prob * v, (x_len, self.input_dim), batch_size=x_batch)
     # Final transformation
-    # o = dy.affine_transform([self.bo, attn_prob * v, self.Wo])
-    o = self.bo + o * self.Wo
+    # o = dy.affine_transform([bo, attn_prob * v, Wo])
+    o = bo + o * Wo
 
     expr_seq = ExpressionSequence(expr_transposed_tensor=o, mask=expr_seq.mask)
 
