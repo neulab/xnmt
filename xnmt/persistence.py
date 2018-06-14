@@ -1230,7 +1230,6 @@ def _resolve_serialize_refs(root):
       if not hasattr(node, "serialize_params"):
         raise ValueError(f"Cannot serialize node that has no serialize_params attribute: {node}\n"
                          "Did you forget to wrap the __init__() in @serializable_init ?")
-      # node.resolved_serialize_params = node.serialize_params
       xnmt.resolved_serialize_params[id(node)] = node.serialize_params
     elif isinstance(node, collections.abc.MutableMapping):
       xnmt.resolved_serialize_params[id(node)] = dict(node)
@@ -1250,18 +1249,13 @@ def _resolve_serialize_refs(root):
           if not path_from in refs_inserted_to:
             if path_from!=path_to and matching_node is node:
                 ref = Ref(path=path_to)
-                # ref.resolved_serialize_params = ref.serialize_params
                 xnmt.resolved_serialize_params[id(ref)] = ref.serialize_params
-                # _set_descendant(root, path_from.parent().append("resolved_serialize_params").append(path_from[-1]), ref)
                 _set_descendant(xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent()))], Path(path_from[-1]), ref)
                 if isinstance(_get_descendant(root, path_from.parent()), (collections.abc.MutableMapping, collections.abc.Sequence)):
                   assert isinstance(_get_descendant(root, path_from.parent().parent()), Serializable), \
                     "resolving references inside nested lists/dicts is not yet implemented"
                   xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent().parent()))][
                     path_from[-2]] = xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent()))]
-                  # _set_descendant(
-                  #   xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent().parent()))][path_from[-2]],
-                  #   Path(path_from[-1]), ref)
                 refs_inserted_at.add(path_from)
                 refs_inserted_to.add(path_from)
 

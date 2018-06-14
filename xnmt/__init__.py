@@ -56,11 +56,6 @@ import xnmt.persistence
 resolved_serialize_params = {}
 
 def init_representer(dumper, obj):
-  # assert hasattr(obj, "resolved_serialize_params") or hasattr(obj, "serialize_params")
-  # if hasattr(obj, "resolved_serialize_params"):
-  #   serialize_params = obj.resolved_serialize_params
-  # else:
-  #   serialize_params = obj.serialize_params
   if len(resolved_serialize_params)==0:
     serialize_params = obj.serialize_params
   else:
