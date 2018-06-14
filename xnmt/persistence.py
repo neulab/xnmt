@@ -1254,6 +1254,14 @@ def _resolve_serialize_refs(root):
                 xnmt.resolved_serialize_params[id(ref)] = ref.serialize_params
                 # _set_descendant(root, path_from.parent().append("resolved_serialize_params").append(path_from[-1]), ref)
                 _set_descendant(xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent()))], Path(path_from[-1]), ref)
+                if isinstance(_get_descendant(root, path_from.parent()), (collections.abc.MutableMapping, collections.abc.Sequence)):
+                  assert isinstance(_get_descendant(root, path_from.parent().parent()), Serializable), \
+                    "resolving references inside nested lists/dicts is not yet implemented"
+                  xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent().parent()))][
+                    path_from[-2]] = xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent()))]
+                  # _set_descendant(
+                  #   xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent().parent()))][path_from[-2]],
+                  #   Path(path_from[-1]), ref)
                 refs_inserted_at.add(path_from)
                 refs_inserted_to.add(path_from)
 
