@@ -80,7 +80,7 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
     rnn_input_dim = trg_embed_dim
     if input_feeding:
       rnn_input_dim += input_dim
-    assert rnn_input_dim == rnn_layer.input_dim, "Wrong input dimension in RNN layer"
+    assert rnn_input_dim == rnn_layer.input_dim, "Wrong input dimension in RNN layer: {} != {}".format(rnn_input_dim, rnn_layer.input_dim)
     # Bridge
     self.bridge = bridge
 
