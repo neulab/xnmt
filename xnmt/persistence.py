@@ -25,7 +25,8 @@ import os
 import copy
 from functools import lru_cache, wraps
 from collections import OrderedDict
-from typing import List, Set, Callable, TypeVar, Type, Union, Optional, Dict, Sequence, Any
+import collections.abc
+from typing import List, Set, Callable, TypeVar, Type, Union, Optional, Dict, Any
 import inspect, random
 
 import yaml
@@ -34,6 +35,7 @@ from xnmt.tee import get_git_revision
 
 from xnmt.param_collection import ParamManager
 from xnmt import param_collection
+import xnmt
 
 def serializable_init(f):
   @wraps(f)
@@ -1228,8 +1230,13 @@ def _resolve_serialize_refs(root):
       if not hasattr(node, "serialize_params"):
         raise ValueError(f"Cannot serialize node that has no serialize_params attribute: {node}\n"
                          "Did you forget to wrap the __init__() in @serializable_init ?")
-      node.resolved_serialize_params = node.serialize_params
-  if  not ParamManager.param_col.all_subcol_owners <= all_serializable:
+      # node.resolved_serialize_params = node.serialize_params
+      xnmt.resolved_serialize_params[id(node)] = node.serialize_params
+    elif isinstance(node, collections.abc.MutableMapping):
+      xnmt.resolved_serialize_params[id(node)] = dict(node)
+    elif isinstance(node, collections.abc.Sequence):
+      xnmt.resolved_serialize_params[id(node)] = list(node)
+  if not ParamManager.param_col.all_subcol_owners <= all_serializable:
     raise RuntimeError(f"Not all registered DyNet parameter collections written out. "
                        f"Missing: {ParamManager.param_col.all_subcol_owners - all_serializable}.\n"
                        f"This indicates that potentially not all components adhere to the protocol of using "
@@ -1243,14 +1250,19 @@ def _resolve_serialize_refs(root):
           if not path_from in refs_inserted_to:
             if path_from!=path_to and matching_node is node:
                 ref = Ref(path=path_to)
-                ref.resolved_serialize_params = ref.serialize_params
-                _set_descendant(root, path_from.parent().append("resolved_serialize_params").append(path_from[-1]), ref)
+                # ref.resolved_serialize_params = ref.serialize_params
+                xnmt.resolved_serialize_params[id(ref)] = ref.serialize_params
+                # _set_descendant(root, path_from.parent().append("resolved_serialize_params").append(path_from[-1]), ref)
+                _set_descendant(xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent()))], Path(path_from[-1]), ref)
                 refs_inserted_at.add(path_from)
                 refs_inserted_to.add(path_from)
 
 def _dump(ser_obj):
+  assert len(xnmt.resolved_serialize_params)==0
   _resolve_serialize_refs(ser_obj)
-  return yaml.dump(ser_obj)
+  ret = yaml.dump(ser_obj)
+  xnmt.resolved_serialize_params.clear()
+  return ret
 
 def save_to_file(fname: str, mod: Any) -> None:
   """

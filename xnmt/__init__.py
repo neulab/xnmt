@@ -53,12 +53,18 @@ import xnmt.transformer
 import xnmt.translator
 import xnmt.persistence
 
+resolved_serialize_params = {}
+
 def init_representer(dumper, obj):
-  assert hasattr(obj, "resolved_serialize_params") or hasattr(obj, "serialize_params")
-  if hasattr(obj, "resolved_serialize_params"):
-    serialize_params = obj.resolved_serialize_params
-  else:
+  # assert hasattr(obj, "resolved_serialize_params") or hasattr(obj, "serialize_params")
+  # if hasattr(obj, "resolved_serialize_params"):
+  #   serialize_params = obj.resolved_serialize_params
+  # else:
+  #   serialize_params = obj.serialize_params
+  if len(resolved_serialize_params)==0:
     serialize_params = obj.serialize_params
+  else:
+    serialize_params = resolved_serialize_params[id(obj)]
   return dumper.represent_mapping('!' + obj.__class__.__name__, serialize_params)
 
 import yaml
