@@ -30,6 +30,7 @@ import xnmt.evaluator
 import xnmt.exp_global
 import xnmt.experiment
 import xnmt.ff
+import xnmt.fixed_size_att
 import xnmt.hyper_parameters
 import xnmt.inference
 import xnmt.input
