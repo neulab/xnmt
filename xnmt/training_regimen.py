@@ -172,26 +172,26 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
   Mainly initializes tasks, performs sanity-checks, and manages set_train events.
 
   Args:
-    tasks (List[TrainingTask]): list of training tasks.
+    tasks: list of training tasks.
                 The first item takes on the role of the main task, meaning it
                 will control early stopping, learning rate schedule, and
                 model checkpoints.
-    trainer (XnmtOptimizer): Trainer object, default is SGD with learning rate 0.1
-    dev_zero (bool): if True, add a checkpoint before training loop is entered (useful with pretrained models).
+    trainer: Trainer object, default is SGD with learning rate 0.1
+    dev_zero: if True, add a checkpoint before training loop is entered (useful with pretrained models).
     update_every: simulate large-batch training by accumulating gradients over several steps before updating parameters
-    commandline_args (Namespace):
+    commandline_args:
   """
   def __init__(self,
-               tasks,
-               trainer=None,
-               dev_zero=False,
+               tasks: Sequence[training_task.TrainingTask],
+               trainer: optimizer.XnmtOptimizer = bare(optimizer.SimpleSGDTrainer, e0=0.1),
+               dev_zero: bool = False,
                update_every: int = 1,
-               commandline_args=Ref("exp_global.commandline_args", default=None)):
+               commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)):
     super().__init__()
     self.dynet_profiling = getattr(commandline_args, "dynet_profiling", 0) if commandline_args else 0
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
-    self.trainer = trainer or optimizer.SimpleSGDTrainer(e0=0.1)
+    self.trainer = trainer
     for task in tasks[1:]:
       if hasattr(task, "trainer") and task.trainer is not None:
         raise ValueError("Can instantiate only one trainer object. Possibly, multiple training regimens were created when training tasks should have been used.")
@@ -252,10 +252,14 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   yaml_tag = "!SameBatchMultiTaskTrainingRegimen"
 
   @serializable_init
-  def __init__(self, tasks: Sequence[training_task.TrainingTask], trainer: optimizer.XnmtOptimizer = None,
-               dev_zero: bool = False, per_task_backward: bool = True,
+  def __init__(self,
+               tasks: Sequence[training_task.TrainingTask],
+               trainer: optimizer.XnmtOptimizer = bare(optimizer.SimpleSGDTrainer,e0=0.1),
+               dev_zero: bool = False,
+               per_task_backward: bool = True,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
-               update_every: int = 1, n_task_steps: Optional[Sequence[int]] = None,
+               update_every: int = 1,
+               n_task_steps: Optional[Sequence[int]] = None,
                commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every,
                      commandline_args=commandline_args)
@@ -313,26 +317,28 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
 class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   """
   Multi-task training where training steps are performed one after another.
-  The relative weight between tasks are explicitly specified explicitly, and for
-  each step one task is drawn at random accordingly.
-  Compared to JointMultiTaskTrainingRegimen, this class may save memory because models
-  are only loaded individually. It also supports disabling training for some
-  tasks by setting the task weight to 0.
+
+  The relative weight between tasks are explicitly specified explicitly, and for each step one task is drawn at random
+  accordingly.
   The stopping criterion of the first task is used (other tasks' stopping criteria are ignored).
 
   Args:
-    tasks (List[TrainingTask]): training tasks
-    trainer (XnmtOptimizer): the trainer is shared across tasks
-    dev_zero (bool): if True, add a checkpoint before training loop is entered (useful with pretrained models).
+    tasks: training tasks
+    trainer: the trainer is shared across tasks
+    dev_zero: if True, add a checkpoint before training loop is entered (useful with pretrained models).
     loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
     update_every: Simulate large-batch training by accumulating gradients over several steps before updating parameters;
                   The behavior here is to draw multiple times from the same task until update is invoked.
-    commandline_args (Namespace):
+    commandline_args:
   """
   yaml_tag = "!AlternatingBatchMultiTaskTrainingRegimen"
 
   @serializable_init
-  def __init__(self, tasks, task_weights=None, trainer=None, dev_zero=False,
+  def __init__(self,
+               tasks: Sequence[training_task.TrainingTask],
+               task_weights: Optional[Sequence[float]] = None,
+               trainer: optimizer.XnmtOptimizer = bare(optimizer.SimpleSGDTrainer, e0=0.1),
+               dev_zero: bool = False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                update_every: int = 1,
                commandline_args=Ref("exp_global.commandline_args", default=None)):
@@ -390,21 +396,24 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   Useful to realize a pretraining-finetuning strategy.
 
   Args:
-    tasks (List[TrainingTask]): training tasks. The currently active task is treated as main task.
-    trainer (XnmtOptimizer): the trainer is shared across tasks
-    dev_zero (bool): if True, add a checkpoint before training loop is entered (useful with pretrained models).
+    tasks: training tasks. The currently active task is treated as main task.
+    trainer: the trainer is shared across tasks
+    dev_zero: if True, add a checkpoint before training loop is entered (useful with pretrained models).
     loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
     update_every: simulate large-batch training by accumulating gradients over several steps before updating parameters
-    commandline_args (Namespace):
+    commandline_args:
   """
 
   yaml_tag = "!SerialMultiTaskTrainingRegimen"
 
   @serializable_init
-  def __init__(self, tasks, trainer=None, dev_zero=False,
+  def __init__(self,
+               tasks: Sequence[training_task.TrainingTask],
+               trainer: optimizer.XnmtOptimizer = bare(optimizer.SimpleSGDTrainer, e0=0.1),
+               dev_zero: bool = False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                update_every: int = 1,
-               commandline_args=Ref("exp_global.commandline_args", default=None)):
+               commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args,
                      update_every=update_every)
     self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
