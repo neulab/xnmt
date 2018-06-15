@@ -1,4 +1,4 @@
-from typing import Union, Sequence
+from typing import Optional, Sequence, Tuple, Union
 import math
 import random
 import numpy as np
@@ -7,6 +7,7 @@ from xnmt.vocab import Vocab
 from xnmt.persistence import serializable_init, Serializable
 import xnmt.expression_sequence
 from xnmt import lstm
+import xnmt.input
 
 class Batch(list):
   """
@@ -97,12 +98,13 @@ class Batcher(object):
   """
 
   def __init__(self, batch_size, granularity='sent', src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               pad_src_to_multiple=1):
+               pad_src_to_multiple=1, sort_within_by_trg_len=True):
     self.batch_size = batch_size
     self.src_pad_token = src_pad_token
     self.trg_pad_token = trg_pad_token
     self.granularity = granularity
     self.pad_src_to_multiple = pad_src_to_multiple
+    self.sort_within_by_trg_len = sort_within_by_trg_len
 
   def is_random(self):
     """
@@ -111,40 +113,80 @@ class Batcher(object):
     """
     return False
 
-  def add_single_batch(self, src_curr, trg_curr, src_ret, trg_ret, sort_by_trg_len=True):
-    if trg_curr is not None and sort_by_trg_len:
-      src_curr, trg_curr = zip(*sorted(zip(src_curr, trg_curr), key=lambda x: len(x[1]), reverse=True))
-    src_id, src_mask = pad(src_curr, pad_token=self.src_pad_token, pad_to_multiple=self.pad_src_to_multiple)
-    src_ret.append(Batch(src_id, src_mask))
-    if trg_ret is not None:
-      trg_id, trg_mask = pad(trg_curr, pad_token=self.trg_pad_token)
-      trg_ret.append(Batch(trg_id, trg_mask))
+  def create_single_batch(self, src_sents: Sequence[xnmt.input.Input],
+                          trg_sents: Optional[Sequence[xnmt.input.Input]] = None,
+                          sort_by_trg_len: bool = False) -> Union[Batch, Tuple[Batch]]:
+    """
+    Create a single batch, either source-only or source-and-target.
 
-  def pack_by_order(self, src, trg, order):
+    Args:
+      src_sents: list of source-side inputs
+      trg_sents: optional list of target-side inputs
+      sort_by_trg_len: if True (and targets are specified), sort source- and target batches by target length
+
+    Returns:
+      a tuple of batches if targets were given, otherwise a single batch
+    """
+    if trg_sents is not None and sort_by_trg_len:
+      src_sents, trg_sents = zip(*sorted(zip(src_sents, trg_sents), key=lambda x: len(x[1]), reverse=True))
+    src_id, src_mask = pad(src_sents, pad_token=self.src_pad_token, pad_to_multiple=self.pad_src_to_multiple)
+    if trg_sents is None:
+      return Batch(src_id, src_mask)
+    else:
+      trg_id, trg_mask = pad(trg_sents, pad_token=self.trg_pad_token)
+      return Batch(src_id, src_mask), Batch(trg_id, trg_mask)
+
+
+  def _add_single_batch(self, src_curr, trg_curr, src_ret, trg_ret, sort_by_trg_len):
+    if trg_curr:
+      src_batch, trg_batch = self.create_single_batch(src_curr, trg_curr, sort_by_trg_len)
+      trg_ret.append(trg_batch)
+    else:
+      src_batch = self.create_single_batch(src_curr, trg_curr, sort_by_trg_len)
+    src_ret.append(src_batch)
+
+  def _pack_by_order(self, src, trg, order):
     src_ret, src_curr = [], []
     trg_ret, trg_curr = [], []
     if self.granularity == 'sent':
       for x in range(0, len(order), self.batch_size):
-        self.add_single_batch([src[y] for y in order[x:x+self.batch_size]], [trg[y] for y in order[x:x+self.batch_size]], src_ret, trg_ret)
+        self._add_single_batch([src[y] for y in order[x:x + self.batch_size]],
+                               [trg[y] for y in order[x:x+self.batch_size]],
+                               src_ret, trg_ret,
+                               sort_by_trg_len=self.sort_within_by_trg_len)
     elif self.granularity == 'word':
       my_size = 0
       for i in order:
-        my_size += len_or_zero(src[i]) + len_or_zero(trg[i])
+        my_size += _len_or_zero(src[i]) + _len_or_zero(trg[i])
         if my_size > self.batch_size and len(src_curr)>0:
-          self.add_single_batch(src_curr, trg_curr, src_ret, trg_ret)
+          self._add_single_batch(src_curr, trg_curr, src_ret, trg_ret, sort_by_trg_len=self.sort_within_by_trg_len)
           my_size = len(src[i]) + len(trg[i])
           src_curr = []
           trg_curr = []
         src_curr.append(src[i])
         trg_curr.append(trg[i])
-      self.add_single_batch(src_curr, trg_curr, src_ret, trg_ret)
+      self._add_single_batch(src_curr, trg_curr, src_ret, trg_ret, sort_by_trg_len=self.sort_within_by_trg_len)
     else:
       raise RuntimeError("Illegal granularity specification {}".format(self.granularity))
     return src_ret, trg_ret
 
+  def pack(self, src: Sequence[xnmt.input.Input], trg: Sequence[xnmt.input.Input]) \
+          -> Tuple[Sequence[Batch], Sequence[Batch]]:
+    """
+    Create a list of src/trg batches based on provided src/trg inputs.
+
+    Args:
+      src: list of src-side inputs
+      trg: list of trg-side inputs
+
+    Returns:
+      list of batches
+    """
+    raise NotImplementedError("must be implemented by subclasses")
+
 class InOrderBatcher(Batcher, Serializable):
   """
-  A class to create batches in order of the original corpus.
+  A class to create batches in order of the original corpus, both across and within batches.
   
   Args:
     batch_size (int): batch size
@@ -159,11 +201,12 @@ class InOrderBatcher(Batcher, Serializable):
                pad_src_to_multiple=1):
     super(InOrderBatcher, self).__init__(batch_size, src_pad_token=src_pad_token,
                                          trg_pad_token=trg_pad_token,
-                                         pad_src_to_multiple=pad_src_to_multiple)
+                                         pad_src_to_multiple=pad_src_to_multiple,
+                                         sort_within_by_trg_len=False)
 
   def pack(self, src, trg):
     order = list(range(len(src)))
-    return self.pack_by_order(src, trg, order)
+    return self._pack_by_order(src, trg, order)
 
 class ShuffleBatcher(Batcher):
   """
@@ -173,7 +216,7 @@ class ShuffleBatcher(Batcher):
   def pack(self, src, trg):
     order = list(range(len(src)))
     np.random.shuffle(order)
-    return self.pack_by_order(src, trg, order)
+    return self._pack_by_order(src, trg, order)
 
   def is_random(self):
     return True
@@ -198,7 +241,7 @@ class SortBatcher(Batcher):
       order = np.argsort([self.sort_key(x) + random.uniform(-SortBatcher.__tiebreaker_eps, SortBatcher.__tiebreaker_eps) for x in zip(src,trg)])
     else:
       order = np.argsort([self.sort_key(x) for x in zip(src,trg)])
-    return self.pack_by_order(src, trg, order)
+    return self._pack_by_order(src, trg, order)
 
   def is_random(self):
     return self.break_ties_randomly
@@ -244,20 +287,20 @@ def pad(batch, pad_token=Vocab.ES, pad_to_multiple=1):
   Returns:
     Tuple: list of padded items and a corresponding batched mask.
   """
-  max_len = max(len_or_zero(item) for item in batch)
+  max_len = max(_len_or_zero(item) for item in batch)
   if max_len % pad_to_multiple != 0:
     max_len += pad_to_multiple - (max_len % pad_to_multiple)
-  min_len = min(len_or_zero(item) for item in batch)
+  min_len = min(_len_or_zero(item) for item in batch)
   if min_len == max_len:
     return batch, None
   masks = np.zeros([len(batch), max_len])
   for i, v in enumerate(batch):
-    for j in range(len_or_zero(v), max_len):
+    for j in range(_len_or_zero(v), max_len):
       masks[i,j] = 1.0
   padded_items = [item.get_padded_sent(pad_token, max_len - len(item)) for item in batch]
   return padded_items, Mask(masks)
 
-def len_or_zero(val):
+def _len_or_zero(val):
   return len(val) if hasattr(val, '__len__') else 0
 
 class SrcBatcher(SortBatcher, Serializable):
@@ -424,10 +467,10 @@ class WordSrcBatcher(WordSortBatcher, Serializable):
                                          break_ties_randomly=break_ties_randomly,
                                          pad_src_to_multiple=pad_src_to_multiple)
 
-  def pack_by_order(self, src, trg, order):
+  def _pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
       self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
-    return super(WordSrcBatcher, self).pack_by_order(src, trg, order)
+    return super(WordSrcBatcher, self)._pack_by_order(src, trg, order)
 
 class WordTrgBatcher(WordSortBatcher, Serializable):
   """
@@ -452,10 +495,10 @@ class WordTrgBatcher(WordSortBatcher, Serializable):
                                          break_ties_randomly=break_ties_randomly,
                                          pad_src_to_multiple=pad_src_to_multiple)
 
-  def pack_by_order(self, src, trg, order):
+  def _pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
       self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
-    return super(WordTrgBatcher, self).pack_by_order(src, trg, order)
+    return super(WordTrgBatcher, self)._pack_by_order(src, trg, order)
 
 class WordSrcTrgBatcher(WordSortBatcher, Serializable):
   """
@@ -480,10 +523,10 @@ class WordSrcTrgBatcher(WordSortBatcher, Serializable):
                                             break_ties_randomly=break_ties_randomly,
                                             pad_src_to_multiple=pad_src_to_multiple)
 
-  def pack_by_order(self, src, trg, order):
+  def _pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
       self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
-    return super(WordSrcTrgBatcher, self).pack_by_order(src, trg, order)
+    return super(WordSrcTrgBatcher, self)._pack_by_order(src, trg, order)
 
 class WordTrgSrcBatcher(WordSortBatcher, Serializable):
   """
@@ -508,10 +551,10 @@ class WordTrgSrcBatcher(WordSortBatcher, Serializable):
                                             break_ties_randomly=break_ties_randomly,
                                             pad_src_to_multiple=pad_src_to_multiple)
 
-  def pack_by_order(self, src, trg, order):
+  def _pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
       self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
-    return super(WordTrgSrcBatcher, self).pack_by_order(src, trg, order)
+    return super(WordTrgSrcBatcher, self)._pack_by_order(src, trg, order)
 
 def truncate_batches(*xl: Union[dy.Expression, Batch, Mask, lstm.UniLSTMState]) \
         -> Sequence[Union[dy.Expression, Batch, Mask, lstm.UniLSTMState]]:

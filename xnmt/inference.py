@@ -150,8 +150,7 @@ class SimpleInference(Serializable):
           # This is necessary when the batcher does some sort of pre-processing, e.g.
           # when the batcher pads to a particular number of dimensions
           if self.batcher:
-            self.batcher.add_single_batch(src_curr=[src], trg_curr=None, src_ret=src_ret, trg_ret=None)
-            src = src_ret.pop()[0]
+            src = self.batcher.create_single_batch(src_sents=[src])[0]
           # Do the decoding
           if self.max_src_len is not None and len(src) > self.max_src_len:
             output_txt = NO_DECODING_ATTEMPTED
