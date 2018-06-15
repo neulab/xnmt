@@ -230,18 +230,23 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
 class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   """
   Multi-task training where gradients are accumulated and weight updates are thus performed jointly for each task.
-  The relative weight between tasks can be configured by setting each tasks batch size accordingly.
+  The relative weight between tasks can be configured setting the number of steps to accumulate over for each task.
+  Note that the batch size for each task also has an influence on task weighting.
   The stopping criterion of the first task is used (other tasks' stopping criteria are ignored).
   
   Args:
-    tasks: training tasks
-    trainer: the trainer is shared across tasks
-    dev_zero: if True, add a checkpoint before training loop is entered (useful with pretrained models).
-    per_task_backward: if ``True``, call backward() for each task separately and renew computation graph between
+    tasks: Training tasks
+    trainer: The trainer is shared across tasks
+    dev_zero: If ``True``, add a checkpoint before training loop is entered (useful with pretrained models).
+    per_task_backward: If ``True``, call backward() for each task separately and renew computation graph between
                        tasks. Yields the same results, but ``True`` uses less memory while ``False`` may be
                        faster when using autobatching.
-    loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
-    update_every: simulate large-batch training by accumulating gradients over several steps before updating parameters
+    loss_comb_method: Method for combining loss across batch elements ('sum' or 'avg').
+    update_every: Simulate large-batch training by accumulating gradients over several steps before updating parameters.
+                  This is implemented as an outer loop, i.e. we first accumulate gradients from steps for each task,
+                  and then loop according to this parameter so that we collect multiple steps for each task and always
+                  according to the same ratio.
+    n_task_steps: The number steps to accumulate for each task, useful for weighting tasks.
     commandline_args:
   """
   yaml_tag = "!SameBatchMultiTaskTrainingRegimen"
@@ -250,13 +255,16 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   def __init__(self, tasks: Sequence[training_task.TrainingTask], trainer: optimizer.XnmtOptimizer = None,
                dev_zero: bool = False, per_task_backward: bool = True,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
-               update_every: int = 1,
+               update_every: int = 1, n_task_steps: Optional[Sequence[int]] = None,
                commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)):
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every,
                      commandline_args=commandline_args)
     self.train_loss_trackers = {task : TrainLossTracker(task) for task in tasks}
     self.per_task_backward = per_task_backward
     self.loss_comb_method = loss_comb_method
+    self.n_task_steps = n_task_steps or [1] * len(tasks)
+    if len(self.n_task_steps) != len(tasks):
+      raise ValueError(f"number of tasks and steps per task do not match: {len(tasks)} != {len(self.n_task_steps)}")
 
   def run_training(self, save_fct, update_weights=True):
     task_generators = OrderedDict()
@@ -266,9 +274,10 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
       while True:
         task_losses = []
         task_src_trg = []
-        for task, task_gen in task_generators.items():
-          src, trg = next(task_gen)
-          task_src_trg.append((task, src, trg))
+        for (task, task_gen), task_n in zip(task_generators.items(), self.n_task_steps):
+          for _ in range(task_n):
+            src, trg = next(task_gen)
+            task_src_trg.append((task, src, trg))
         if self.dev_zero: # True only in first iteration
           self.checkpoint_and_save(save_fct)
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
