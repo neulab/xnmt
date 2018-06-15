@@ -108,7 +108,7 @@ preproc: !Experiment
       mlp_layer: !MLP
         hidden_dim: 512
       bridge: !NoBridge {}
-    inference: !SequenceInference
+    inference: !SimpleInference
       post_process: join-piece
   train: !SimpleTrainingRegimen
     run_for_epochs: 20

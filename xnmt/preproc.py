@@ -483,10 +483,9 @@ class Extractor(object):
 class MelFiltExtractor(Extractor, Serializable):
   yaml_tag = "!MelFiltExtractor"
   @serializable_init
-  def __init__(self, nfilt=40, delta=False, resume=False):
+  def __init__(self, nfilt=40, delta=False):
     self.delta = delta
     self.nfilt = nfilt
-    self.resume = resume
   def extract_to(self, in_file, out_file):
     """
     in_file: yaml file that contains a list of dictionaries.
@@ -496,14 +495,13 @@ class MelFiltExtractor(Extractor, Serializable):
              - duration (float
              ): stop time stamp (optional)
              - speaker: speaker id for normalization (optional; if not given, the filename is used as speaker id)
-
     out_file: a filename ending in ".h5"
     """
     import librosa
     if not out_file.endswith(".h5"): raise ValueError(f"out_file must end in '.h5', was '{out_file}'")
     start_time = time.time()
     with open(in_file) as in_stream, \
-         h5py.File(out_file, "r+" if self.resume else "w") as hf:
+         h5py.File(out_file, "w") as hf:
       db = yaml.load(in_stream)
       db_by_speaker = defaultdict(list)
       for db_index, db_item in enumerate(db):
@@ -511,17 +509,8 @@ class MelFiltExtractor(Extractor, Serializable):
         db_item["index"] = db_index
         db_by_speaker[speaker_id].append(db_item)
       for speaker_id in db_by_speaker.keys():
-        speaker_already_completed = True
-        for db_item in db_by_speaker[speaker_id]:
-          if str(db_item["index"]) not in hf.keys():
-            speaker_already_completed = False
-            break
-        if self.resume and speaker_already_completed:
-          logger.debug(f"{speaker_id} already done")
-          continue
         data = []
         for db_item in db_by_speaker[speaker_id]:
-          logger.debug(f"processing db_item {db_item}")
           y, sr = librosa.load(db_item["wav"], sr=16000,
                                offset=db_item.get("offset", 0.0),
                                duration=db_item.get("duration", None))
