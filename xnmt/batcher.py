@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Optional, Sequence, Tuple, Union
 import math
 import random
 import numpy as np
@@ -90,15 +90,17 @@ class Batcher(object):
   A template class to convert a list of sentences to several batches of sentences.
 
   Args:
-    batch_size (int): batch size
-    granularity (str): 'sent' or 'word'
+    batch_size: batch size
+    granularity: 'sent' or 'word'
     src_pad_token: token used to pad on source side
     trg_pad_token: token used to pad on target side
-    pad_src_to_multiple (int): pad source sentences so its length is multiple of this integer.
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
+    sort_within_by_trg_len: whether to sort by reverse trg len inside a batch
   """
 
-  def __init__(self, batch_size, granularity='sent', src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               pad_src_to_multiple=1, sort_within_by_trg_len=True):
+  def __init__(self, batch_size: int, granularity: str = 'sent', src_pad_token: Any = Vocab.ES,
+               trg_pad_token: Any = Vocab.ES, pad_src_to_multiple: int = 1,
+               sort_within_by_trg_len: bool = True) -> None:
     self.batch_size = batch_size
     self.src_pad_token = src_pad_token
     self.trg_pad_token = trg_pad_token
@@ -136,8 +138,7 @@ class Batcher(object):
       trg_id, trg_mask = pad(trg_sents, pad_token=self.trg_pad_token)
       return Batch(src_id, src_mask), Batch(trg_id, trg_mask)
 
-
-  def _add_single_batch(self, src_curr, trg_curr, src_ret, trg_ret, sort_by_trg_len):
+  def _add_single_batch(self, src_curr, trg_curr, src_ret, trg_ret, sort_by_trg_len=False):
     if trg_curr:
       src_batch, trg_batch = self.create_single_batch(src_curr, trg_curr, sort_by_trg_len)
       trg_ret.append(trg_batch)
@@ -189,20 +190,20 @@ class InOrderBatcher(Batcher, Serializable):
   A class to create batches in order of the original corpus, both across and within batches.
   
   Args:
-    batch_size (int): batch size
+    batch_size: batch size
     src_pad_token: token used to pad on source side
     trg_pad_token: token used to pad on target side
-    pad_src_to_multiple (int): pad source sentences so its length is multiple of this integer.
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
   yaml_tag = "!InOrderBatcher"
 
   @serializable_init
-  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               pad_src_to_multiple=1):
-    super(InOrderBatcher, self).__init__(batch_size, src_pad_token=src_pad_token,
-                                         trg_pad_token=trg_pad_token,
-                                         pad_src_to_multiple=pad_src_to_multiple,
-                                         sort_within_by_trg_len=False)
+  def __init__(self, batch_size: int, src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES,
+               pad_src_to_multiple: int = 1) -> None:
+    super().__init__(batch_size, src_pad_token=src_pad_token,
+                     trg_pad_token=trg_pad_token,
+                     pad_src_to_multiple=pad_src_to_multiple,
+                     sort_within_by_trg_len=False)
 
   def pack(self, src, trg):
     order = list(range(len(src)))
@@ -211,7 +212,21 @@ class InOrderBatcher(Batcher, Serializable):
 class ShuffleBatcher(Batcher):
   """
   A template class to create batches through randomly shuffling without sorting.
+
+  Sentences inside each batch are sorted by reverse trg length.
+
+  Args:
+    batch_size: batch size
+    granularity: 'sent' or 'word'
+    src_pad_token: token used to pad on source side
+    trg_pad_token: token used to pad on target side
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
+
+  def __init__(self, batch_size: int, granularity: str = 'sent', src_pad_token: Any = Vocab.ES,
+               trg_pad_token: Any = Vocab.ES, pad_src_to_multiple: int = 1) -> None:
+    super(batch_size=batch_size, granularity=granularity, src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+          pad_src_to_multiple=pad_src_to_multiple, sort_within_by_trg_len=True)
 
   def pack(self, src, trg):
     order = list(range(len(src)))
@@ -224,15 +239,25 @@ class ShuffleBatcher(Batcher):
 class SortBatcher(Batcher):
   """
   A template class to create batches through bucketing sentence length.
+
+  Sentences inside each batch are sorted by reverse trg length.
+
+  Args:
+    batch_size: batch size
+    granularity: 'sent' or 'word'
+    src_pad_token: token used to pad on source side
+    trg_pad_token: token used to pad on target side
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
   __tiebreaker_eps = 1.0e-7
 
-  def __init__(self, batch_size, granularity='sent', src_pad_token=Vocab.ES,
-               trg_pad_token=Vocab.ES, sort_key=lambda x: len(x[0]),
-               break_ties_randomly=True, pad_src_to_multiple=1):
-    super(SortBatcher, self).__init__(batch_size, granularity=granularity,
-                                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
-                                      pad_src_to_multiple=pad_src_to_multiple)
+  def __init__(self, batch_size: int, granularity: str = 'sent', src_pad_token: Any = Vocab.ES,
+               trg_pad_token: Any = Vocab.ES, sort_key: Callable = lambda x: len(x[0]),
+               break_ties_randomly=True, pad_src_to_multiple=1) -> None:
+    super().__init__(batch_size, granularity=granularity,
+                     src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                     pad_src_to_multiple=pad_src_to_multiple,
+                     sort_within_by_trg_len=True)
     self.sort_key = sort_key
     self.break_ties_randomly = break_ties_randomly
 
@@ -306,255 +331,287 @@ def _len_or_zero(val):
 class SrcBatcher(SortBatcher, Serializable):
   """
   A batcher that creates fixed-size batches, grouped by src len.
+
+  Sentences inside each batch are sorted by reverse trg length.
   
   Args:
-    batch_size (int): batch size
+    batch_size: batch size
     src_pad_token: token used to pad on source side
     trg_pad_token: token used to pad on target side
-    break_ties_randomly (bool): if True, randomly shuffle sentences of the same src length before creating batches.
-    pad_src_to_multiple (int): pad source sentences so its length is multiple of this integer.
+    break_ties_randomly: if True, randomly shuffle sentences of the same src length before creating batches.
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
   yaml_tag = "!SrcBatcher"
 
   @serializable_init
-  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               break_ties_randomly:bool=True, pad_src_to_multiple=1):
-    super(SrcBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[0]), granularity='sent',
-                                     src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
-                                     break_ties_randomly=break_ties_randomly,
-                                     pad_src_to_multiple=pad_src_to_multiple)
+  def __init__(self, batch_size: int, src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES,
+               break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
+    super().__init__(batch_size, sort_key=lambda x: len(x[0]), granularity='sent',
+                     src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                     break_ties_randomly=break_ties_randomly,
+                     pad_src_to_multiple=pad_src_to_multiple)
 
 class TrgBatcher(SortBatcher, Serializable):
   """
   A batcher that creates fixed-size batches, grouped by trg len.
+
+  Sentences inside each batch are sorted by reverse trg length.
   
   Args:
-    batch_size (int): batch size
+    batch_size: batch size
     src_pad_token: token used to pad on source side
     trg_pad_token: token used to pad on target side
-    break_ties_randomly (bool): if True, randomly shuffle sentences of the same src length before creating batches.
-    pad_src_to_multiple (int): pad source sentences so its length is multiple of this integer.
+    break_ties_randomly: if True, randomly shuffle sentences of the same src length before creating batches.
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
   yaml_tag = "!TrgBatcher"
 
   @serializable_init
-  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               break_ties_randomly:bool=True, pad_src_to_multiple=1):
-    super(TrgBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[1]), granularity='sent',
-                                     src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
-                                     break_ties_randomly=break_ties_randomly,
-                                     pad_src_to_multiple=pad_src_to_multiple)
+  def __init__(self, batch_size: int, src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES,
+               break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
+    super().__init__(batch_size, sort_key=lambda x: len(x[1]), granularity='sent',
+                     src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                     break_ties_randomly=break_ties_randomly,
+                     pad_src_to_multiple=pad_src_to_multiple)
 
 class SrcTrgBatcher(SortBatcher, Serializable):
   """
   A batcher that creates fixed-size batches, grouped by src len, then trg len.
+
+  Sentences inside each batch are sorted by reverse trg length.
   
   Args:
-    batch_size (int): batch size
+    batch_size: batch size
     src_pad_token: token used to pad on source side
     trg_pad_token: token used to pad on target side
-    break_ties_randomly (bool): if True, randomly shuffle sentences of the same src length before creating batches.
-    pad_src_to_multiple (int): pad source sentences so its length is multiple of this integer.
+    break_ties_randomly: if True, randomly shuffle sentences of the same src length before creating batches.
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
   yaml_tag = "!SrcTrgBatcher"
 
   @serializable_init
-  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               break_ties_randomly:bool=True, pad_src_to_multiple=1):
-    super(SrcTrgBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[0])+1.0e-6*len(x[1]),
-                                        granularity='sent',
-                                        src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
-                                        break_ties_randomly=break_ties_randomly,
-                                        pad_src_to_multiple=pad_src_to_multiple)
+  def __init__(self, batch_size: int, src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES,
+               break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
+    super().__init__(batch_size, sort_key=lambda x: len(x[0]) + 1.0e-6 * len(x[1]),
+                     granularity='sent',
+                     src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                     break_ties_randomly=break_ties_randomly,
+                     pad_src_to_multiple=pad_src_to_multiple)
 
 class TrgSrcBatcher(SortBatcher, Serializable):
   """
   A batcher that creates fixed-size batches, grouped by trg len, then src len.
+
+  Sentences inside each batch are sorted by reverse trg length.
   
   Args:
-    batch_size (int): batch size
+    batch_size: batch size
     src_pad_token: token used to pad on source side
     trg_pad_token: token used to pad on target side
-    break_ties_randomly (bool): if True, randomly shuffle sentences of the same src length before creating batches.
-    pad_src_to_multiple (int): pad source sentences so its length is multiple of this integer.
+    break_ties_randomly: if True, randomly shuffle sentences of the same src length before creating batches.
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
   yaml_tag = "!TrgSrcBatcher"
 
   @serializable_init
-  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               break_ties_randomly:bool=True, pad_src_to_multiple=1):
-    super(TrgSrcBatcher, self).__init__(batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]),
-                                        granularity='sent',
-                                        src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
-                                        break_ties_randomly=break_ties_randomly,
-                                        pad_src_to_multiple=pad_src_to_multiple)
+  def __init__(self, batch_size: int, src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES,
+               break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
+    super().__init__(batch_size, sort_key=lambda x: len(x[1]) + 1.0e-6 * len(x[0]),
+                     granularity='sent',
+                     src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                     break_ties_randomly=break_ties_randomly,
+                     pad_src_to_multiple=pad_src_to_multiple)
 
 class SentShuffleBatcher(ShuffleBatcher, Serializable):
   """
-  A batcher that creates fixed-size batches or random order.
+  A batcher that creates fixed-size batches of random order.
+
+  Sentences inside each batch are sorted by reverse trg length.
   
   Args:
-    batch_size (int): batch size
+    batch_size: batch size
     src_pad_token: token used to pad on source side
     trg_pad_token: token used to pad on target side
-    pad_src_to_multiple (int): pad source sentences so its length is multiple of this integer.
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
   yaml_tag = "!SentShuffleBatcher"
 
   @serializable_init
-  def __init__(self, batch_size, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               pad_src_to_multiple=1):
-    super(SentShuffleBatcher, self).__init__(batch_size, granularity='sent', src_pad_token=src_pad_token,
-                                             trg_pad_token=trg_pad_token, pad_src_to_multiple=pad_src_to_multiple)
+  def __init__(self, batch_size: int, src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES,
+               pad_src_to_multiple: int = 1) -> None:
+    super().__init__(batch_size, granularity='sent', src_pad_token=src_pad_token,
+                     trg_pad_token=trg_pad_token, pad_src_to_multiple=pad_src_to_multiple)
 
 class WordShuffleBatcher(ShuffleBatcher, Serializable):
   """
   A batcher that creates fixed-size batches, grouped by src len.
+
+  Sentences inside each batch are sorted by reverse trg length.
   
   Args:
-    words_per_batch (int): number of src+trg words in each batch
+    words_per_batch: number of src+trg words in each batch
     src_pad_token: token used to pad on source side
     trg_pad_token: token used to pad on target side
-    pad_src_to_multiple (int): pad source sentences so its length is multiple of this integer.
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
   yaml_tag = "!WordShuffleBatcher"
 
   @serializable_init
-  def __init__(self, words_per_batch, src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES,
-               pad_src_to_multiple=1):
-    super(WordShuffleBatcher, self).__init__(words_per_batch, granularity='word', src_pad_token=src_pad_token,
-                                             trg_pad_token=trg_pad_token, pad_src_to_multiple=pad_src_to_multiple)
+  def __init__(self, words_per_batch: int, src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES,
+               pad_src_to_multiple: int = 1) -> None:
+    super().__init__(words_per_batch, granularity='word', src_pad_token=src_pad_token,
+                     trg_pad_token=trg_pad_token, pad_src_to_multiple=pad_src_to_multiple)
 
 class WordSortBatcher(SortBatcher):
   """
-  Base class for word sort-based batchers
+  Base class for word sort-based batchers.
+
+  Sentences inside each batch are sorted by reverse trg length.
+
+  Args:
+    words_per_batch: number of src+trg words in each batch
+    avg_batch_size: avg number of sentences in each batch (if words_per_batch not given)
+    sort_key:
+    src_pad_token: token used to pad on source side
+    trg_pad_token: token used to pad on target side
+    break_ties_randomly: if True, randomly shuffle sentences of the same src length before creating batches.
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
-  def __init__(self, words_per_batch, avg_batch_size, sort_key,
-               src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly=True,
-               pad_src_to_multiple=1):
+
+  def __init__(self, words_per_batch: Optional[int], avg_batch_size: Optional[Union[int,float]], sort_key: Callable,
+               src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES, break_ties_randomly: bool = True,
+               pad_src_to_multiple: int = 1) -> None:
     # Sanity checks
     if words_per_batch and avg_batch_size:
       raise ValueError("words_per_batch and avg_batch_size are mutually exclusive.")
     elif words_per_batch is None and avg_batch_size is None:
       raise ValueError("either words_per_batch or avg_batch_size must be specified.")
 
-    super(WordSortBatcher, self).__init__(words_per_batch, sort_key=sort_key, granularity='word',
-                                          src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
-                                          break_ties_randomly=break_ties_randomly,
-                                          pad_src_to_multiple=pad_src_to_multiple)
+    super().__init__(words_per_batch, sort_key=sort_key, granularity='word',
+                     src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                     break_ties_randomly=break_ties_randomly,
+                     pad_src_to_multiple=pad_src_to_multiple)
     self.avg_batch_size = avg_batch_size
 
 class WordSrcBatcher(WordSortBatcher, Serializable):
   """
   A batcher that creates variable-sized batches with given average (src+trg) words per batch, grouped by src len.
-  
+
+  Sentences inside each batch are sorted by reverse trg length.
+
   Args:
-    words_per_batch (int): number of src+trg words in each batch
-    avg_batch_size (number): avg number of sentences in each batch (if words_per_batch not given)
+    words_per_batch: number of src+trg words in each batch
+    avg_batch_size: avg number of sentences in each batch (if words_per_batch not given)
     src_pad_token: token used to pad on source side
     trg_pad_token: token used to pad on target side
-    break_ties_randomly (bool): if True, randomly shuffle sentences of the same src length before creating batches.
-    pad_src_to_multiple (int): pad source sentences so its length is multiple of this integer.
+    break_ties_randomly: if True, randomly shuffle sentences of the same src length before creating batches.
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
   yaml_tag = "!WordSrcBatcher"
 
   @serializable_init
-  def __init__(self, words_per_batch=None, avg_batch_size=None,
-               src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly:bool=True,
-               pad_src_to_multiple=1):
-    super(WordSrcBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[0]),
-                                         src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
-                                         break_ties_randomly=break_ties_randomly,
-                                         pad_src_to_multiple=pad_src_to_multiple)
+  def __init__(self, words_per_batch:Optional[int]=None, avg_batch_size:Optional[Union[int,float]]=None,
+               src_pad_token:Any=Vocab.ES, trg_pad_token:Any=Vocab.ES, break_ties_randomly:bool=True,
+               pad_src_to_multiple:int=1) -> None:
+    super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[0]),
+                     src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                     break_ties_randomly=break_ties_randomly,
+                     pad_src_to_multiple=pad_src_to_multiple)
 
   def _pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
       self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
-    return super(WordSrcBatcher, self)._pack_by_order(src, trg, order)
+    return super()._pack_by_order(src, trg, order)
 
 class WordTrgBatcher(WordSortBatcher, Serializable):
   """
   A batcher that creates variable-sized batches with given average (src+trg) words per batch, grouped by trg len.
-  
+
+  Sentences inside each batch are sorted by reverse trg length.
+
   Args:
-    words_per_batch (int): number of src+trg words in each batch
-    avg_batch_size (number): avg number of sentences in each batch (if words_per_batch not given)
+    words_per_batch: number of src+trg words in each batch
+    avg_batch_size: avg number of sentences in each batch (if words_per_batch not given)
     src_pad_token: token used to pad on source side
     trg_pad_token: token used to pad on target side
-    break_ties_randomly (bool): if True, randomly shuffle sentences of the same src length before creating batches.
-    pad_src_to_multiple (int): pad source sentences so its length is multiple of this integer.
+    break_ties_randomly: if True, randomly shuffle sentences of the same src length before creating batches.
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
   yaml_tag = "!WordTrgBatcher"
 
   @serializable_init
-  def __init__(self, words_per_batch=None, avg_batch_size=None,
-               src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly:bool=True,
-               pad_src_to_multiple=1):
-    super(WordTrgBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[1]),
-                                         src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
-                                         break_ties_randomly=break_ties_randomly,
-                                         pad_src_to_multiple=pad_src_to_multiple)
+  def __init__(self, words_per_batch:Optional[int]=None, avg_batch_size:Optional[Union[int,float]]=None,
+               src_pad_token:Any=Vocab.ES, trg_pad_token:Any=Vocab.ES, break_ties_randomly:bool=True,
+               pad_src_to_multiple:int=1) -> None:
+    super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[1]),
+                     src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                     break_ties_randomly=break_ties_randomly,
+                     pad_src_to_multiple=pad_src_to_multiple)
 
   def _pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
       self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
-    return super(WordTrgBatcher, self)._pack_by_order(src, trg, order)
+    return super()._pack_by_order(src, trg, order)
 
 class WordSrcTrgBatcher(WordSortBatcher, Serializable):
   """
   A batcher that creates variable-sized batches with given average number of src + trg words per batch, grouped by src len, then trg len.
-  
+
+  Sentences inside each batch are sorted by reverse trg length.
+
   Args:
-    words_per_batch (int): number of src+trg words in each batch
-    avg_batch_size (number): avg number of sentences in each batch (if words_per_batch not given)
+    words_per_batch: number of src+trg words in each batch
+    avg_batch_size: avg number of sentences in each batch (if words_per_batch not given)
     src_pad_token: token used to pad on source side
     trg_pad_token: token used to pad on target side
-    break_ties_randomly (bool): if True, randomly shuffle sentences of the same src length before creating batches.
-    pad_src_to_multiple (int): pad source sentences so its length is multiple of this integer.
+    break_ties_randomly: if True, randomly shuffle sentences of the same src length before creating batches.
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
   yaml_tag = "!WordSrcTrgBatcher"
 
   @serializable_init
-  def __init__(self, words_per_batch=None, avg_batch_size=None,
-               src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly:bool=True,
-               pad_src_to_multiple=1):
-    super(WordSrcTrgBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[0])+1.0e-6*len(x[1]),
-                                            src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
-                                            break_ties_randomly=break_ties_randomly,
-                                            pad_src_to_multiple=pad_src_to_multiple)
+  def __init__(self, words_per_batch: Optional[int] = None, avg_batch_size: Optional[Union[int, float]] = None,
+               src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES, break_ties_randomly: bool = True,
+               pad_src_to_multiple: bool = 1) -> None:
+    super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[0]) + 1.0e-6 * len(x[1]),
+                     src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                     break_ties_randomly=break_ties_randomly,
+                     pad_src_to_multiple=pad_src_to_multiple)
 
   def _pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
       self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
-    return super(WordSrcTrgBatcher, self)._pack_by_order(src, trg, order)
+    return super()._pack_by_order(src, trg, order)
 
 class WordTrgSrcBatcher(WordSortBatcher, Serializable):
   """
   A batcher that creates variable-sized batches with given average number of src + trg words per batch, grouped by trg len, then src len.
-  
+
+  Sentences inside each batch are sorted by reverse trg length.
+
   Args:
-    words_per_batch (int): number of src+trg words in each batch
-    avg_batch_size (number): avg number of sentences in each batch (if words_per_batch not given)
+    words_per_batch: number of src+trg words in each batch
+    avg_batch_size: avg number of sentences in each batch (if words_per_batch not given)
     src_pad_token: token used to pad on source side
     trg_pad_token: token used to pad on target side
-    break_ties_randomly (bool): if True, randomly shuffle sentences of the same src length before creating batches.
-    pad_src_to_multiple (int): pad source sentences so its length is multiple of this integer.
+    break_ties_randomly: if True, randomly shuffle sentences of the same src length before creating batches.
+    pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
   yaml_tag = "!WordTrgSrcBatcher"
 
   @serializable_init
-  def __init__(self, words_per_batch=None, avg_batch_size=None,
-               src_pad_token=Vocab.ES, trg_pad_token=Vocab.ES, break_ties_randomly:bool=True,
-               pad_src_to_multiple=1):
-    super(WordTrgSrcBatcher, self).__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[1])+1.0e-6*len(x[0]),
-                                            src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
-                                            break_ties_randomly=break_ties_randomly,
-                                            pad_src_to_multiple=pad_src_to_multiple)
+  def __init__(self, words_per_batch: Optional[int] = None, avg_batch_size: Optional[Union[int, float]] = None,
+               src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES, break_ties_randomly: bool = True,
+               pad_src_to_multiple: int = 1) -> None:
+    super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[1]) + 1.0e-6 * len(x[0]),
+                     src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
+                     break_ties_randomly=break_ties_randomly,
+                     pad_src_to_multiple=pad_src_to_multiple)
 
   def _pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
       self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
-    return super(WordTrgSrcBatcher, self)._pack_by_order(src, trg, order)
+    return super()._pack_by_order(src, trg, order)
 
 def truncate_batches(*xl: Union[dy.Expression, Batch, Mask, lstm.UniLSTMState]) \
         -> Sequence[Union[dy.Expression, Batch, Mask, lstm.UniLSTMState]]:
