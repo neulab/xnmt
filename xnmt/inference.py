@@ -34,7 +34,7 @@ class SimpleInference(Serializable):
 
             * ``onebest``: generate one best.
             * ``forced``: perform forced decoding.
-            * ``forceddebug``: perform forced decoding, calculate training loss, and make suer the scores are identical
+            * ``forceddebug``: perform forced decoding, calculate training loss, and make sure the scores are identical
               for debugging purposes.
     batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
   """
@@ -150,8 +150,7 @@ class SimpleInference(Serializable):
           # This is necessary when the batcher does some sort of pre-processing, e.g.
           # when the batcher pads to a particular number of dimensions
           if self.batcher:
-            self.batcher.add_single_batch(src_curr=[src], trg_curr=None, src_ret=src_ret, trg_ret=None)
-            src = src_ret.pop()[0]
+            src = self.batcher.create_single_batch(src_sents=[src])[0]
           # Do the decoding
           if self.max_src_len is not None and len(src) > self.max_src_len:
             output_txt = NO_DECODING_ATTEMPTED
@@ -161,7 +160,7 @@ class SimpleInference(Serializable):
             output = generator.generate_output(src, i, forced_trg_ids=ref_ids, search_strategy=self.search_strategy)
             # If debugging forced decoding, make sure it matches
             if ref_scores is not None and (abs(output[0].score - ref_scores[i]) / abs(ref_scores[i])) > 1e-5:
-              logger.error(f'Forced decoding score {output[0].score} and loss {ref_scores[i]} do not match at sentence {i}')
+              raise ValueError(f'Forced decoding score {output[0].score} and loss {ref_scores[i]} do not match at sentence {i}')
             output_txt = output[0].plaintext
           # Printing to trg file
           fp.write(f"{output_txt}\n")
