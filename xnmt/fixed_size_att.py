@@ -38,7 +38,7 @@ class FixedSizeAttSeqTransducer(transducer.SeqTransducer, Serializable):
     self.pos_enc_max = pos_enc_max
 
   def __call__(self, x):
-    x_T = dy.transpose(x.as_tensor())
+    x_T = x.as_transposed_tensor()
     scores = x_T * dy.parameter(self.W)
     if x.mask is not None:
       scores = x.mask.add_to_tensor_expr(scores, multiplicator=-100.0, time_first=True)
