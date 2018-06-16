@@ -118,7 +118,10 @@ class CharacterTokenizer(Tokenizer, Serializable):
 
 class UnicodeTokenizer(Tokenizer, Serializable):
   """
-  Reversible, language-agnostic tokenizer based on unicode character categories.
+  Tokenizer that inserts whitespace between words and punctuation.
+
+  This tokenizer is language-agnostic and (optionally) reversible, and is based on unicode character categories.
+  See appendix of https://arxiv.org/pdf/1804.08205
 
   Args:
     use_merge_symbol: whether to prepend a merge-symbol so that the tokenization becomes reversible
