@@ -60,6 +60,12 @@ class InputReader(object):
     """
     pass
 
+  def needs_reload(self):
+    """
+    Overwrite this method if data needs to be reload for each epoch
+    """
+    return False
+
 class BaseTextReader(InputReader):
   def count_sents(self, filename):
     f = open(filename, encoding='utf-8')
@@ -132,9 +138,11 @@ class SubwordSampleTextReader(BaseTextReader, Serializable):
   yaml_tag = '!SubwordSampleTextReader'
 
   @serializable_init
-  def __init__(self, model_file, vocab=None, include_vocab_reference=False):
+  def __init__(self, model_file, l=-1, alpha=0.1, vocab=None, include_vocab_reference=False):
     self.subword_model = spm.SentencePieceProcessor()
     self.subword_model.Load(model_file)
+    self.l = l
+    self.alpha = alpha
     self.vocab = vocab
     self.include_vocab_reference = include_vocab_reference
     if vocab is not None:
@@ -143,7 +151,7 @@ class SubwordSampleTextReader(BaseTextReader, Serializable):
 
   def read_sent(self, sentence, filter_ids=None):
     vocab_reference = self.vocab if self.include_vocab_reference else None
-    words = self.subword_model.SampleEncode(sentence.strip(), -1, 0.1)
+    words = self.subword_model.SampleEncode(sentence.strip(), self.l, self.alpha)
     return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
                                                        [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
 
@@ -164,6 +172,8 @@ class SubwordSampleTextReader(BaseTextReader, Serializable):
   def vocab_size(self):
     return len(self.vocab)
 
+  def needs_reload(self):
+    return True
 
 class SegmentationTextReader(PlainTextReader):
   yaml_tag = '!SegmentationTextReader'
