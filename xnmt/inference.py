@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Optional
+from typing import Optional, Union
 
 from xnmt.settings import settings
 
@@ -37,10 +37,19 @@ class Inference(object):
     raise NotImplementedError("to be implemented by subclasses")
 
 class ClassifierInference(Inference, Serializable):
+  """
+  Inference for classifiers that produce only a single output.
+
+  Args:
+    batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
+    post_process: post-processing of translation outputs
+                  (available string shortcuts:  ``none``,``join-char``,``join-bpe``,``join-piece``)
+  """
   yaml_tag = "!ClassifierInference"
 
   @serializable_init
-  def __init__(self, batcher=Ref("train.batcher", default=None), post_process: str = "none",):
+  def __init__(self, batcher=Ref("train.batcher", default=None),
+               post_process: Union[str, xnmt.output.OutputProcessor] = xnmt.output.PlainTextOutputProcessor) -> None:
     self.batcher = batcher
     self.post_processor = xnmt.output.OutputProcessor.get_output_processor(post_process)
 
@@ -61,7 +70,7 @@ class ClassifierInference(Inference, Serializable):
 
 class AutoRegressiveInference(Inference, Serializable):
   """
-  Main class to perform decoding.
+  Performs inference for auto-regressive models that expand based on their own previous outputs.
 
   Args:
     src_file: path of input src file to be translated
@@ -69,7 +78,8 @@ class AutoRegressiveInference(Inference, Serializable):
     ref_file: path of file with reference translations, e.g. for forced decoding
     max_src_len: Remove sentences from data to decode that are longer than this on the source side
     max_num_sents:
-    post_process: post-processing of translation outputs: ``none/join-char/join-bpe/join-piece``
+    post_process: post-processing of translation outputs
+                  (available string shortcuts:  ``none``,``join-char``,``join-bpe``,``join-piece``)
     report_path: a path to which decoding reports will be written
     report_type: report to generate ``file/html``. Can be multiple, separate with comma.
     search_strategy: a search strategy used during decoding.
@@ -87,7 +97,8 @@ class AutoRegressiveInference(Inference, Serializable):
 
   @serializable_init
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
-               max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None, post_process: str = "none",
+               max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
+               post_process: Union[str, xnmt.output.OutputProcessor] = xnmt.output.PlainTextOutputProcessor,
                report_path: Optional[str] = None, report_type: str = "html",
                search_strategy: SearchStrategy = bare(BeamSearch), mode: str = "onebest",
                batcher: Optional[Batcher] = Ref("train.batcher", default=None)):
