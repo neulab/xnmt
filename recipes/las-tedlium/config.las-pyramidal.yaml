@@ -70,7 +70,7 @@ las-pyramidal: !Experiment
         src_file: &dev_src '{DATA_DIR}/feat/dev.h5'
         ref_file: '{DATA_DIR}/transcript/dev.words'
         hyp_file: '{EXP_DIR}/logs/{EXP}.dev_hyp'
-        inference: !SequenceInference
+        inference: !AutoRegressiveInference
           max_src_len: 1500
           post_process: join-char
           search_strategy: !BeamSearch
@@ -89,7 +89,7 @@ las-pyramidal: !Experiment
       src_file: '{DATA_DIR}/feat/test.h5'
       ref_file: '{DATA_DIR}/transcript/test.words'
       hyp_file: '{EXP_DIR}/logs/{EXP}.test_hyp'
-      inference: !SequenceInference
+      inference: !AutoRegressiveInference
         max_src_len: 1500
         post_process: join-char
         search_strategy: !BeamSearch

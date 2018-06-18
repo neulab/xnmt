@@ -15,7 +15,7 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
     src_embedder (Embedder): A word embedder for the input language
     encoder (Transducer): An encoder to generate encoded inputs
     decoder (MLP): final prediction layer
-    inference (inference.SequenceInference): The default inference method used for this model
+    inference (inference.AutoRegressiveInference): The default inference method used for this model
   """
 
   yaml_tag = '!SeqLabeler'
@@ -28,7 +28,7 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
                src_embedder:embedder.Embedder=bare(embedder.SimpleWordEmbedder),
                encoder:transducer.SeqTransducer=bare(lstm.BiLSTMSeqTransducer),
                decoder:mlp.MLP=bare(mlp.MLP),
-               inference=bare(inference.SequenceInference),
+               inference=bare(inference.AutoRegressiveInference),
                auto_cut_pad:bool=False):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder

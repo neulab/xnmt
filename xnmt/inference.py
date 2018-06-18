@@ -59,7 +59,7 @@ class ClassifierInference(Inference, Serializable):
         output_txt = output[0].plaintext
         fp.write(f"{output_txt}\n")
 
-class SequenceInference(Inference, Serializable):
+class AutoRegressiveInference(Inference, Serializable):
   """
   Main class to perform decoding.
 
@@ -83,7 +83,7 @@ class SequenceInference(Inference, Serializable):
     batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
   """
 
-  yaml_tag = '!SequenceInference'
+  yaml_tag = '!AutoRegressiveInference'
 
   @serializable_init
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,

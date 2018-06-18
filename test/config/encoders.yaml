@@ -48,7 +48,7 @@ exp1-lstm-encoder: !Experiment
           hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
-      inference: !SequenceInference {}
+      inference: !AutoRegressiveInference {}
 exp2-residual-encoder: !Experiment
   kwargs:
     << : *defaults
@@ -75,7 +75,7 @@ exp2-residual-encoder: !Experiment
           hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
-      inference: !SequenceInference {}
+      inference: !AutoRegressiveInference {}
 exp3-pyramidal-encoder: !Experiment
   kwargs:
     << : *defaults
@@ -109,7 +109,7 @@ exp3-pyramidal-encoder: !Experiment
           hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
-      inference: !SequenceInference
+      inference: !AutoRegressiveInference
         batcher: !Ref {name: batcher3}
 exp4-modular-encoder: !Experiment
   kwargs:
@@ -151,6 +151,6 @@ exp4-modular-encoder: !Experiment
           hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
-      inference: !SequenceInference
+      inference: !AutoRegressiveInference
         batcher: !Ref {name: batcher4}
 

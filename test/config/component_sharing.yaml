@@ -24,7 +24,7 @@ exp1.pretrain: !Experiment
       bridge: !CopyBridge {}
       mlp_layer: !MLP
         output_projector: !Ref { name: trg_emb }
-    inference: !SequenceInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja

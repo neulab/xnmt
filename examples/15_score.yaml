@@ -35,7 +35,7 @@ exp1-model: !Experiment
         hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SequenceInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
@@ -59,7 +59,7 @@ exp2-score: !LoadSerialized
   - path: train
     val: ~
   - path: model.inference
-    val: !SequenceInference
+    val: !AutoRegressiveInference
       mode: score
       ref_file: examples/data/head.nbest.en
       src_file: examples/data/head.ja

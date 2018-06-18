@@ -60,7 +60,7 @@ debug-segmenting: !Experiment
       mlp_layer: !MLP
         hidden_dim: 16
       bridge: !CopyBridge {}  
-    inference: !SequenceInference
+    inference: !AutoRegressiveInference
       report_path: test/tmp/{EXP}.report
       report_type: html, file
   train: !SimpleTrainingRegimen
