@@ -24,7 +24,7 @@ defaults: &defaults !Experiment
       mlp_layer: !MLP
         hidden_dim: 64
       bridge: !CopyBridge {}
-    inference: !SimpleInference
+    inference: !SequenceInference
       search_strategy: !BeamSearch
         beam_size: !RandomParam
           values: [1,2,3,4,5]

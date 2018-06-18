@@ -15,7 +15,7 @@ from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 from xnmt.model_base import GeneratorModel, EventTrigger
-from xnmt.inference import SimpleInference
+from xnmt.inference import SequenceInference
 from xnmt.input import Input, SimpleSentenceInput
 import xnmt.length_normalization
 from xnmt.loss import FactoredLossExpr
@@ -93,7 +93,7 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
     attender (Attender): An attention module
     trg_embedder (Embedder): A word embedder for the output language
     decoder (Decoder): A decoder
-    inference (SimpleInference): The default inference strategy used for this model
+    inference (SequenceInference): The default inference strategy used for this model
     calc_global_fertility (bool):
     calc_attention_entropy (bool):
   '''
@@ -105,7 +105,7 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
   def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
-               inference=bare(SimpleInference), search_strategy=bare(BeamSearch),
+               inference=bare(SequenceInference), search_strategy=bare(BeamSearch),
                calc_global_fertility=False, calc_attention_entropy=False):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
@@ -310,7 +310,7 @@ class TransformerTranslator(Translator, Serializable, Reportable, EventTrigger):
     trg_reader (InputReader): A reader for the target side.
     trg_embedder (Embedder): A word embedder for the output language
     decoder (TransformerDecoder): A decoder
-    inference (SimpleInference): The default inference strategy used for this model
+    inference (SequenceInference): The default inference strategy used for this model
     input_dim (int):
   '''
 
@@ -498,14 +498,14 @@ class EnsembleTranslator(Translator, Serializable, EventTrigger):
       identical conversions to) those supplied to this class.
     src_reader (InputReader): A reader for the source side.
     trg_reader (InputReader): A reader for the target side.
-    inference (SimpleInference): The inference strategy used for this ensemble.
+    inference (SequenceInference): The inference strategy used for this ensemble.
   '''
 
   yaml_tag = '!EnsembleTranslator'
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, models, src_reader, trg_reader, inference=bare(SimpleInference)):
+  def __init__(self, models, src_reader, trg_reader, inference=bare(SequenceInference)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.models = models
     self.inference = inference
