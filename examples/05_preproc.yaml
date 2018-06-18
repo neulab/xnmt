@@ -28,17 +28,6 @@ preproc: !Experiment
       - filenum: all
         tokenizers:
         - !UnicodeTokenizer {}
-        # uncomment if you have installed the corresponding third-party tool:
-#        - !SentencepieceTokenizer
-#          # Replace <SENTENCEPIECE_SRC_PATH> with src/ directory of sentencepiece repository
-#          # The spm_* executables should be located at <SENTENCEPIECE_SRC_PATH>
-#          path: <SENTENCEPIECE_SRC_PATH>
-#          train_files:
-#           - '{DATA_IN}/train.ja'
-#           - '{DATA_IN}/train.en'
-#          vocab_size: 8000
-#          model_type: unigram
-#          model_prefix: '{DATA_OUT}/sentpiece'
     - !PreprocNormalize
       in_files:
       - '{DATA_OUT}/train.tok.ja'
