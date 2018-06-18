@@ -37,6 +37,30 @@ class Inference(object):
     """
     raise NotImplementedError("to be implemented by subclasses")
 
+class ClassifierInference(Inference, Serializable):
+  yaml_tag = "!ClassifierInference"
+
+  @serializable_init
+  def __init__(self, batcher=Ref("train.batcher", default=None)):
+    self.batcher = batcher
+
+  def __call__(self, generator, src_file=None, trg_file=None, candidate_id_file=None):
+    src_corpus = list(generator.src_reader.read_sents(src_file))
+    # Perform generation of output
+    with open(trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
+      src_ret = []
+      for i, src in enumerate(src_corpus):
+        # This is necessary when the batcher does some sort of pre-processing, e.g.
+        # when the batcher pads to a particular number of dimensions
+        if self.batcher:
+          src = self.batcher.create_single_batch(src_sents=[src])[0]
+
+        # Do the decoding
+        dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+        output = generator.generate_output(src, i)
+        output_txt = getattr(output[0], "plaintext", output[0].actions)
+        # Printing to trg file
+        fp.write(f"{output_txt}\n")
 
 class SequenceInference(Inference, Serializable):
   """

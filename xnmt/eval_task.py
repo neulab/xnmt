@@ -7,7 +7,7 @@ import dynet as dy
 from xnmt.batcher import Batcher
 from xnmt.evaluator import Evaluator
 from xnmt.model_base import GeneratorModel
-from xnmt.inference import SequenceInference
+from xnmt.inference import Inference
 import xnmt.input_reader
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.loss_calculator import LossCalculator, MLELoss
@@ -80,7 +80,7 @@ class LossEvalTask(EvalTask, Serializable):
       loss_builder.add_factored_loss_expr(standard_loss)
       loss_builder.add_factored_loss_expr(additional_loss)
 
-      ref_words_cnt += self.model.trg_reader.count_words(trg)
+      ref_words_cnt += sum([trg_i.len_unpadded() for trg_i in trg])
       loss_val += loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method)
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
@@ -110,7 +110,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: GeneratorModel = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
-               inference: Optional[SequenceInference] = None, candidate_id_file: Optional[str] = None,
+               inference: Optional[Inference] = None, candidate_id_file: Optional[str] = None,
                desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
@@ -141,7 +141,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
     ref_words_cnt = 0
     for ref_sent in self.model.trg_reader.read_sents(
             self.ref_file if isinstance(self.ref_file, str) else self.ref_file[0]):
-      ref_words_cnt += self.model.trg_reader.count_words(ref_sent)
+      ref_words_cnt += ref_sent.len_unpadded()
       ref_words_cnt += 0
     return eval_scores, ref_words_cnt
 
@@ -161,7 +161,7 @@ class DecodingEvalTask(EvalTask, Serializable):
 
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: GeneratorModel = Ref("model"),
-               inference: Optional[SequenceInference] = None, candidate_id_file: Optional[str] = None):
+               inference: Optional[Inference] = None, candidate_id_file: Optional[str] = None):
 
     self.model = model
     self.src_file = src_file

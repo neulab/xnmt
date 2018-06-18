@@ -13,6 +13,7 @@ from xnmt import logger
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.vocab import Vocab
+import xnmt.input
 
 class InputReader(object):
   """
@@ -109,15 +110,6 @@ class PlainTextReader(BaseTextReader, Serializable):
     self.vocab.freeze()
     self.vocab.set_unk(Vocab.UNK_STR)
     self.save_processed_arg("vocab", self.vocab)
-
-  def count_words(self, trg_words):
-    trg_cnt = 0
-    for x in trg_words:
-      if type(x) == int:
-        trg_cnt += 1 if x != Vocab.ES else 0
-      else:
-        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
-    return trg_cnt
 
   def vocab_size(self):
     return len(self.vocab)
@@ -338,7 +330,7 @@ class IDReader(BaseTextReader, Serializable):
     pass
 
   def read_sents(self, filename, filter_ids=None):
-    return map(lambda l: int(l.strip()), self.iterate_filtered(filename, filter_ids))
+    return [xnmt.input.IntInput(int(l.strip())) for l in self.iterate_filtered(filename, filter_ids)]
 
 ###### A utility function to read a parallel corpus
 def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
