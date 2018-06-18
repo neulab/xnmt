@@ -198,7 +198,6 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
       outputs.append(TextOutput(actions=output_actions,
                                 vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
                                 score=score))
-    self.outputs = outputs
     return outputs
 
   def global_fertility(self, a):

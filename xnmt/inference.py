@@ -21,8 +21,8 @@ class Inference(object):
   A template class for classes that perform inference.
   """
 
-  def __call__(self, generator: GeneratorModel, src_file: str = None, trg_file: str = None,
-               candidate_id_file: str = None) -> None:
+  def perform_inference(self, generator: GeneratorModel, src_file: str = None, trg_file: str = None,
+                        candidate_id_file: str = None) -> None:
     """
     Perform inference by reading inputs from ``src_file`` and writing out the hypotheses to ``trg_file``.
 
@@ -49,11 +49,12 @@ class ClassifierInference(Inference, Serializable):
 
   @serializable_init
   def __init__(self, batcher=Ref("train.batcher", default=None),
-               post_process: Union[str, xnmt.output.OutputProcessor] = xnmt.output.PlainTextOutputProcessor) -> None:
+               post_process: Union[str, xnmt.output.OutputProcessor] = bare(xnmt.output.PlainTextOutputProcessor))\
+          -> None:
     self.batcher = batcher
     self.post_processor = xnmt.output.OutputProcessor.get_output_processor(post_process)
 
-  def __call__(self, generator, src_file=None, trg_file=None, candidate_id_file=None):
+  def perform_inference(self, generator, src_file=None, trg_file=None, candidate_id_file=None):
     src_corpus = list(generator.src_reader.read_sents(src_file))
     with open(trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
       for i, src in enumerate(src_corpus):
@@ -98,7 +99,7 @@ class AutoRegressiveInference(Inference, Serializable):
   @serializable_init
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
-               post_process: Union[str, xnmt.output.OutputProcessor] = xnmt.output.PlainTextOutputProcessor,
+               post_process: Union[str, xnmt.output.OutputProcessor] = bare(xnmt.output.PlainTextOutputProcessor),
                report_path: Optional[str] = None, report_type: str = "html",
                search_strategy: SearchStrategy = bare(BeamSearch), mode: str = "onebest",
                batcher: Optional[Batcher] = Ref("train.batcher", default=None)):
@@ -114,8 +115,8 @@ class AutoRegressiveInference(Inference, Serializable):
     self.batcher = batcher
     self.search_strategy = search_strategy
 
-  def __call__(self, generator: GeneratorModel, src_file: str = None, trg_file: str = None,
-               candidate_id_file: str = None):
+  def perform_inference(self, generator: GeneratorModel, src_file: str = None, trg_file: str = None,
+                        candidate_id_file: str = None):
     """
     Perform inference.
 

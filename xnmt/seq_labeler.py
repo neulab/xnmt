@@ -102,7 +102,6 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
                       vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
                       score=score)]
 
-    self.outputs = outputs
     return outputs
 
   def set_trg_vocab(self, trg_vocab=None):

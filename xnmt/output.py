@@ -56,8 +56,6 @@ class OutputProcessor(object):
       return JoinBPETextOutputProcessor()
     elif spec == "join-piece":
       return JoinPieceTextOutputProcessor()
-    elif not isinstance(spec, OutputProcessor):
-      raise RuntimeError("Unknown postprocessing argument {}".format(spec))
     else:
       return spec
 
@@ -67,7 +65,6 @@ class PlainTextOutputProcessor(OutputProcessor, Serializable):
   with one sent per line.
   """
   yaml_tag = "!PlainTextOutputProcessor"
-  @serializable_init
   def process_outputs(self, outputs):
     for output in outputs:
       output.plaintext = self.words_to_string(output.to_string())

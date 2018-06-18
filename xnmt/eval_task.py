@@ -126,10 +126,10 @@ class AccuracyEvalTask(EvalTask, Serializable):
 
   def eval(self):
     self.model.set_train(False)
-    self.inference(generator = self.model,
-                   src_file = self.src_file,
-                   trg_file = self.hyp_file,
-                   candidate_id_file = self.candidate_id_file)
+    self.inference.perform_inference(generator=self.model,
+                                     src_file=self.src_file,
+                                     trg_file=self.hyp_file,
+                                     candidate_id_file=self.candidate_id_file)
     # TODO: This is not ideal because it requires reading the data
     #       several times. Is there a better way?
 
@@ -171,8 +171,8 @@ class DecodingEvalTask(EvalTask, Serializable):
 
   def eval(self):
     self.model.set_train(False)
-    self.inference(generator=self.model,
-                   src_file=self.src_file,
-                   trg_file=self.hyp_file,
-                   candidate_id_file=self.candidate_id_file)
+    self.inference.perform_inference(generator=self.model,
+                                     src_file=self.src_file,
+                                     trg_file=self.hyp_file,
+                                     candidate_id_file=self.candidate_id_file)
     return None, None
