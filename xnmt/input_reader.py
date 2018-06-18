@@ -130,28 +130,34 @@ class PlainTextReader(BaseTextReader, Serializable):
   def vocab_size(self):
     return len(self.vocab)
 
-class SubwordSampleTextReader(BaseTextReader, Serializable):
+class SentencePieceTextReader(BaseTextReader, Serializable):
   """
-  Handles the sampling for subword regularization.
+  Read in text and segment it with sentencepiece. Optionally perform sampling
+  for subword regularization, only at training time.
   https://arxiv.org/pdf/1804.10959.pdf 
   """
-  yaml_tag = '!SubwordSampleTextReader'
+  yaml_tag = '!SentencePieceTextReader'
 
   @serializable_init
-  def __init__(self, model_file, l=-1, alpha=0.1, vocab=None, include_vocab_reference=False):
+  def __init__(self, model_file, sample=False, l=-1, alpha=0.1, vocab=None, include_vocab_reference=False):
     self.subword_model = spm.SentencePieceProcessor()
     self.subword_model.Load(model_file)
+    self.sample = sample
     self.l = l
     self.alpha = alpha
     self.vocab = vocab
     self.include_vocab_reference = include_vocab_reference
+    self.train = False
     if vocab is not None:
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
 
   def read_sent(self, sentence, filter_ids=None):
     vocab_reference = self.vocab if self.include_vocab_reference else None
-    words = self.subword_model.SampleEncode(sentence.strip(), self.l, self.alpha)
+    if self.sample and self.train:
+      words = self.subword_model.SampleEncode(sentence.strip(), self.l, self.alpha)
+    else:
+      words = self.subword_model.Encode(sentence.strip())
     return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
                                                        [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
 
