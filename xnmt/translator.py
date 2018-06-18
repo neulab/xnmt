@@ -63,9 +63,6 @@ class Translator(GeneratorModel):
     """
     self.trg_vocab = trg_vocab
 
-  def set_post_processor(self, post_processor):
-    self.post_processor = post_processor
-
   def get_primary_loss(self):
     return "mle"
 

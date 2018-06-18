@@ -1,3 +1,5 @@
+from typing import Optional, Sequence
+
 from xnmt.vocab import Vocab
 from xnmt.persistence import Serializable, serializable_init
 
@@ -5,16 +7,29 @@ class Output(object):
   """
   A template class to represent all output.
   """
-  def __init__(self, actions=None):
+
+  def __init__(self, actions: Optional[Sequence[int]] = None) -> None:
     """ Initialize an output with actions. """
     self.actions = actions or []
 
-  def to_string(self):
+  def to_string(self) -> Sequence[str]:
     raise NotImplementedError('All outputs must implement to_string.')
 
+
+class ScalarOutput(Output):
+  def __init__(self, actions: Sequence[int], vocab: Optional[Vocab] = None, score: float = None) -> None:
+    super().__init__(actions=actions)
+    if len(self.actions) > 1: raise ValueError(f"ScalarOutput must have exactly one action, get: {len(self.actions)}")
+    self.vocab = vocab
+    self.score = score
+
+  def to_string(self) -> Sequence[str]:
+    return [self.vocab[self.actions[0]]] if self.vocab else [str(self.actions[0])]
+
+
 class TextOutput(Output):
-  def __init__(self, actions=None, vocab=None, score=None):
-    self.actions = [] if actions is None else actions
+  def __init__(self, actions:Optional[Sequence[int]]=None, vocab:Optional[Vocab]=None, score:float=None):
+    super().__init__(actions=actions)
     self.vocab = vocab
     self.score = score
     self.filtered_tokens = {Vocab.SS, Vocab.ES}
@@ -27,7 +42,8 @@ class TextOutput(Output):
     return ret
 
 class OutputProcessor(object):
-  def process_outputs(self, outputs):
+  # TODO: this should be refactored so that multiple processors can be chained
+  def process_outputs(self, outputs: Sequence[Output]) -> None:
     raise NotImplementedError()
 
   @staticmethod
@@ -44,7 +60,6 @@ class OutputProcessor(object):
       raise RuntimeError("Unknown postprocessing argument {}".format(spec))
     else:
       return spec
-
 
 class PlainTextOutputProcessor(OutputProcessor, Serializable):
   """

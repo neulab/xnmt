@@ -65,9 +65,9 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
       output_actions = np.argmax(logsoftmax)
       score = np.max(logsoftmax)
       # Append output to the outputs
-      outputs.append(output.TextOutput(actions=output_actions,
-                                vocab=None,
-                                score=score))
+      outputs.append(output.ScalarOutput(actions=[output_actions],
+                                         vocab=None,
+                                         score=score))
     return outputs
 
   def get_primary_loss(self):

@@ -7,7 +7,6 @@ import dynet as dy
 
 from xnmt.batcher import Batcher
 from xnmt.model_base import GeneratorModel
-from xnmt import logger
 from xnmt.loss_calculator import MLELoss
 import xnmt.output
 from xnmt.reports import Reportable
@@ -41,25 +40,23 @@ class ClassifierInference(Inference, Serializable):
   yaml_tag = "!ClassifierInference"
 
   @serializable_init
-  def __init__(self, batcher=Ref("train.batcher", default=None)):
+  def __init__(self, batcher=Ref("train.batcher", default=None), post_process: str = "none",):
     self.batcher = batcher
+    self.post_processor = xnmt.output.OutputProcessor.get_output_processor(post_process)
 
   def __call__(self, generator, src_file=None, trg_file=None, candidate_id_file=None):
     src_corpus = list(generator.src_reader.read_sents(src_file))
-    # Perform generation of output
     with open(trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
-      src_ret = []
       for i, src in enumerate(src_corpus):
         # This is necessary when the batcher does some sort of pre-processing, e.g.
         # when the batcher pads to a particular number of dimensions
         if self.batcher:
           src = self.batcher.create_single_batch(src_sents=[src])[0]
 
-        # Do the decoding
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-        output = generator.generate_output(src, i)
-        output_txt = getattr(output[0], "plaintext", output[0].actions)
-        # Printing to trg file
+        output = generator.generate(src, i)
+        self.post_processor.process_outputs(output)
+        output_txt = output[0].plaintext
         fp.write(f"{output_txt}\n")
 
 class SequenceInference(Inference, Serializable):
@@ -99,7 +96,7 @@ class SequenceInference(Inference, Serializable):
     self.ref_file = ref_file
     self.max_src_len = max_src_len
     self.max_num_sents = max_num_sents
-    self.post_process = post_process
+    self.post_processor = xnmt.output.OutputProcessor.get_output_processor(post_process)
     self.report_path = report_path
     self.report_type = report_type
     self.mode = mode
@@ -150,7 +147,6 @@ class SequenceInference(Inference, Serializable):
 
   def _generate_output(self, generator, ref_corpus, ref_scores, src_corpus, trg_file):
     with open(trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
-      src_ret = []
       for i, src in enumerate(src_corpus):
         # This is necessary when the batcher does some sort of pre-processing, e.g.
         # when the batcher pads to a particular number of dimensions
@@ -162,7 +158,8 @@ class SequenceInference(Inference, Serializable):
         else:
           dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
           ref_ids = ref_corpus[i] if ref_corpus is not None else None
-          output = generator.generate_output(src, i, forced_trg_ids=ref_ids, search_strategy=self.search_strategy)
+          output = generator.generate(src, i, forced_trg_ids=ref_ids, search_strategy=self.search_strategy)
+          self.post_processor.process_outputs(output)
           # If debugging forced decoding, make sure it matches
           if ref_scores is not None and (abs(output[0].score - ref_scores[i]) / abs(ref_scores[i])) > 1e-5:
             raise ValueError(
@@ -174,7 +171,7 @@ class SequenceInference(Inference, Serializable):
   def _compute_losses(self, generator, ref_corpus, src_corpus):
     some_batcher = xnmt.batcher.InOrderBatcher(32)  # Arbitrary
     if not isinstance(some_batcher, xnmt.batcher.InOrderBatcher):
-      raise ValueError(f"forceddebug requires InOrderBatcher, got: {some_batcher}")
+      raise ValueError(f"modes 'forceddebug' and 'score' require InOrderBatcher, got: {some_batcher}")
     batched_src, batched_ref = some_batcher.pack(src_corpus, ref_corpus)
     ref_scores = []
     for src, ref in zip(batched_src, batched_ref):
@@ -190,11 +187,8 @@ class SequenceInference(Inference, Serializable):
   def _init_generator(self, candidate_id_file, generator, is_reporting, src_file, src_vocab, trg_file, trg_vocab):
     generator.set_train(False)
     generator.initialize_generator(src_file=src_file, trg_file=trg_file, ref_file=self.ref_file,
-                                   max_src_len=self.max_src_len, post_process=self.post_process,
-                                   candidate_id_file=candidate_id_file, report_path=self.report_path,
-                                   report_type=self.report_type, mode=self.mode)
-    if hasattr(generator, "set_post_processor"):
-      generator.set_post_processor(xnmt.output.OutputProcessor.get_output_processor(self.post_process))
+                                   max_src_len=self.max_src_len, candidate_id_file=candidate_id_file,
+                                   report_path=self.report_path, report_type=self.report_type, mode=self.mode)
     if hasattr(generator, "set_trg_vocab"):
       generator.set_trg_vocab(trg_vocab)
     if hasattr(generator, "set_reporting_src_vocab"):

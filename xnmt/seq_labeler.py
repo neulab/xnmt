@@ -113,6 +113,3 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
       trg_vocab (vocab.Vocab): target vocab, or None to generate word IDs
     """
     self.trg_vocab = trg_vocab
-
-  def set_post_processor(self, post_processor):
-    self.post_processor = post_processor

@@ -49,21 +49,16 @@ class GeneratorModel(TrainableModel):
     """
     pass
 
-  def generate_output(self, *args, **kwargs) -> output.Output:
-    """
-    Generate post-processed outputs.
-    """
-    generation_output = self.generate(*args, **kwargs)
-    if hasattr(self, "post_processor"):
-      self.post_processor.process_outputs(generation_output)
-    return generation_output
-
   def generate(self, *args, **kwargs) -> output.Output:
     """
-    Generate unprocessed outputs.
-    """
-    raise NotImplementedError()
+    Generate outputs.
 
+    Args:
+      to be specified by subclasses (usually at least a src-side input)
+    Returns:
+      output object
+    """
+    raise NotImplementedError("must be implemented by subclasses")
 
 class EventTrigger(object):
   """

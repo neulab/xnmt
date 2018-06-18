@@ -50,8 +50,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
 
   def assert_forced_decoding(self, sent_id):
     dy.renew_cg()
-    outputs = self.model.generate_output(self.src_data[sent_id], sent_id, self.search,
-                                         forced_trg_ids=self.trg_data[sent_id])
+    outputs = self.model.generate(self.src_data[sent_id], sent_id, self.search, forced_trg_ids=self.trg_data[sent_id])
     self.assertItemsEqual(self.trg_data[sent_id], outputs[0].actions)
 
   def test_forced_decoding(self):
@@ -90,8 +89,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
                                       loss_calculator=MLELoss()).value()
     dy.renew_cg()
     self.model.initialize_generator()
-    outputs = self.model.generate_output(self.src_data[0], 0, GreedySearch(),
-                                         forced_trg_ids=self.trg_data[0])
+    outputs = self.model.generate(self.src_data[0], 0, GreedySearch(), forced_trg_ids=self.trg_data[0])
     output_score = outputs[0].score
     self.assertAlmostEqual(-output_score, train_loss, places=5)
 
@@ -123,8 +121,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
   def test_single(self):
     dy.renew_cg()
     self.model.initialize_generator()
-    outputs = self.model.generate_output(self.src_data[0], 0, GreedySearch(), 
-                                         forced_trg_ids=self.trg_data[0])
+    outputs = self.model.generate(self.src_data[0], 0, GreedySearch(), forced_trg_ids=self.trg_data[0])
     output_score = outputs[0].score
 
     dy.renew_cg()
