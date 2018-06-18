@@ -21,8 +21,7 @@ class Inference(object):
   A template class for classes that perform inference.
   """
 
-  def perform_inference(self, generator: GeneratorModel, src_file: str = None, trg_file: str = None,
-                        candidate_id_file: str = None) -> None:
+  def perform_inference(self, generator: GeneratorModel, src_file: str = None, trg_file: str = None) -> None:
     """
     Perform inference by reading inputs from ``src_file`` and writing out the hypotheses to ``trg_file``.
 
@@ -30,9 +29,6 @@ class Inference(object):
       generator: the model to be used
       src_file: path of input src file to be translated
       trg_file: path of file where trg translatons will be written
-      candidate_id_file: if we are doing something like retrieval where we select from fixed candidates, sometimes we
-                         want to limit our candidates to a certain subset of the full set. this setting allows us to do
-                         this.
     """
     raise NotImplementedError("to be implemented by subclasses")
 
@@ -54,7 +50,7 @@ class ClassifierInference(Inference, Serializable):
     self.batcher = batcher
     self.post_processor = xnmt.output.OutputProcessor.get_output_processor(post_process)
 
-  def perform_inference(self, generator, src_file=None, trg_file=None, candidate_id_file=None):
+  def perform_inference(self, generator, src_file=None, trg_file=None):
     src_corpus = list(generator.src_reader.read_sents(src_file))
     with open(trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
       for i, src in enumerate(src_corpus):
@@ -115,8 +111,7 @@ class AutoRegressiveInference(Inference, Serializable):
     self.batcher = batcher
     self.search_strategy = search_strategy
 
-  def perform_inference(self, generator: GeneratorModel, src_file: str = None, trg_file: str = None,
-                        candidate_id_file: str = None):
+  def perform_inference(self, generator: GeneratorModel, src_file: str = None, trg_file: str = None):
     """
     Perform inference.
 
@@ -124,9 +119,6 @@ class AutoRegressiveInference(Inference, Serializable):
       generator: the model to be used
       src_file: path of input src file to be translated
       trg_file: path of file where trg translatons will be written
-      candidate_id_file: if we are doing something like retrieval where we select from fixed candidates, sometimes we
-                         want to limit our candidates to a certain subset of the full set. this setting allows us to do
-                         this.
     """
     src_file = src_file or self.src_file
     trg_file = trg_file or self.trg_file
@@ -138,7 +130,7 @@ class AutoRegressiveInference(Inference, Serializable):
     src_vocab = generator.src_reader.vocab if hasattr(generator.src_reader, "vocab") else None
     trg_vocab = generator.trg_reader.vocab if hasattr(generator.trg_reader, "vocab") else None
 
-    self._init_generator(candidate_id_file, generator, is_reporting, src_file, src_vocab, trg_file, trg_vocab)
+    self._init_generator(generator, is_reporting, src_file, src_vocab, trg_file, trg_vocab)
 
     ref_scores = None
     if self.mode == 'forceddebug' or self.mode == 'score':
@@ -196,11 +188,11 @@ class AutoRegressiveInference(Inference, Serializable):
     ref_scores = [-x for x in ref_scores]
     return ref_scores
 
-  def _init_generator(self, candidate_id_file, generator, is_reporting, src_file, src_vocab, trg_file, trg_vocab):
+  def _init_generator(self, generator, is_reporting, src_file, src_vocab, trg_file, trg_vocab):
     generator.set_train(False)
     generator.initialize_generator(src_file=src_file, trg_file=trg_file, ref_file=self.ref_file,
-                                   max_src_len=self.max_src_len, candidate_id_file=candidate_id_file,
-                                   report_path=self.report_path, report_type=self.report_type, mode=self.mode)
+                                   max_src_len=self.max_src_len, report_path=self.report_path,
+                                   report_type=self.report_type, mode=self.mode)
     if hasattr(generator, "set_trg_vocab"):
       generator.set_trg_vocab(trg_vocab)
     if hasattr(generator, "set_reporting_src_vocab"):

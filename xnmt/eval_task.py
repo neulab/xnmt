@@ -101,7 +101,6 @@ class AccuracyEvalTask(EvalTask, Serializable):
     model: generator model to generate hypothesis with
     eval_metrics: list of evaluation metrics (list of Evaluator objects or string of comma-separated shortcuts)
     inference: inference object
-    candidate_id_file:
     desc: human-readable description passed on to resulting score objects
   """
 
@@ -110,8 +109,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: GeneratorModel = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
-               inference: Optional[Inference] = None, candidate_id_file: Optional[str] = None,
-               desc: Any = None):
+               inference: Optional[Inference] = None, desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
@@ -120,7 +118,6 @@ class AccuracyEvalTask(EvalTask, Serializable):
     self.src_file = src_file
     self.ref_file = ref_file
     self.hyp_file = hyp_file
-    self.candidate_id_file = candidate_id_file
     self.inference = inference or self.model.inference
     self.desc=desc
 
@@ -128,8 +125,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
     self.model.set_train(False)
     self.inference.perform_inference(generator=self.model,
                                      src_file=self.src_file,
-                                     trg_file=self.hyp_file,
-                                     candidate_id_file=self.candidate_id_file)
+                                     trg_file=self.hyp_file)
     # TODO: This is not ideal because it requires reading the data
     #       several times. Is there a better way?
 
@@ -154,25 +150,22 @@ class DecodingEvalTask(EvalTask, Serializable):
     hyp_file: path to write hypothesis file to
     model: generator model to generate hypothesis with
     inference: inference object
-    candidate_id_file:
   """
 
   yaml_tag = '!DecodingEvalTask'
 
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: GeneratorModel = Ref("model"),
-               inference: Optional[Inference] = None, candidate_id_file: Optional[str] = None):
+               inference: Optional[Inference] = None):
 
     self.model = model
     self.src_file = src_file
     self.hyp_file = hyp_file
-    self.candidate_id_file = candidate_id_file
     self.inference = inference or self.model.inference
 
   def eval(self):
     self.model.set_train(False)
     self.inference.perform_inference(generator=self.model,
                                      src_file=self.src_file,
-                                     trg_file=self.hyp_file,
-                                     candidate_id_file=self.candidate_id_file)
+                                     trg_file=self.hyp_file)
     return None, None
