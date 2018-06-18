@@ -139,10 +139,19 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
   yaml_tag = '!SentencePieceTextReader'
 
   @serializable_init
-  def __init__(self, model_file, sample=False, l=-1, alpha=0.1, vocab=None, include_vocab_reference=False):
+  def __init__(self, model_file, sample_train=False, l=-1, alpha=0.1, vocab=None, include_vocab_reference=False):
+    """
+    Args:
+      model_file: The sentence piece model file
+      sample_train: On the training set, sample outputs
+      l: The "l" parameter for subword regularization, how many sentences to sample
+      alpha: The "alpha" parameter for subowrd regularization, how much to smooth the distribution
+      vocab: The vocabulary
+      include_vocab_reference: Whether to include the vocab with the input
+    """
     self.subword_model = spm.SentencePieceProcessor()
     self.subword_model.Load(model_file)
-    self.sample = sample
+    self.sample_train = sample_train
     self.l = l
     self.alpha = alpha
     self.vocab = vocab
@@ -154,10 +163,10 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
 
   def read_sent(self, sentence, filter_ids=None):
     vocab_reference = self.vocab if self.include_vocab_reference else None
-    if self.sample and self.train:
-      words = self.subword_model.SampleEncode(sentence.strip(), self.l, self.alpha)
+    if self.sample_train and self.train:
+      words = self.subword_model.SampleEncodeAsPieces(sentence.strip(), self.l, self.alpha)
     else:
-      words = self.subword_model.Encode(sentence.strip())
+      words = self.subword_model.EncodeAsPieces(sentence.strip())
     return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
                                                        [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
 
