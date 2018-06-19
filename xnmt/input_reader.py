@@ -9,7 +9,7 @@ with warnings.catch_warnings():
   warnings.simplefilter("ignore", lineno=36)
   import h5py
 
-#import sentencepiece as spm
+import sentencepiece as spm
 
 from xnmt import logger
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
