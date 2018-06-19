@@ -11,7 +11,7 @@ from xnmt.loss_tracker import TrainLossTracker
 from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt import training_task, optimizer, batcher, eval_task
+from xnmt import training_task, optimizer, batcher, eval_task, util
 
 class TrainingRegimen(object):
   """
@@ -136,7 +136,7 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
     """
     if self.run_for_epochs > 0:
       for src,trg in self.next_minibatch():
-        try:
+        with util.ReportOnException({"src": src, "trg": trg, "graph": dy.print_text_graphviz}):
           if self.dev_zero:
             self.checkpoint_and_save(save_fct)
             self.dev_zero = False
@@ -152,14 +152,6 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
           if self.checkpoint_needed():
             self.checkpoint_and_save(save_fct)
           if self.should_stop_training(): break
-        except:
-          print("------ Fatal Error During Training! ------")
-          print("*** src ***")
-          print(src)
-          print("*** trg ***")
-          print(trg)
-          dy.print_text_graphviz()
-          raise
 
   def checkpoint_and_save(self, save_fct):
     should_save = self.checkpoint()
