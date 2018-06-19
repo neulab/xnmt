@@ -1,6 +1,7 @@
 from typing import Sequence, Union
 
-from xnmt import batcher, events, input, input_reader, loss, loss_calculator, output, training_task
+from xnmt import batcher, events, input, input_reader, loss, output, training_task
+import xnmt.loss_calculator
 
 class TrainableModel(object):
   """
@@ -16,7 +17,7 @@ class TrainableModel(object):
     self.trg_reader = trg_reader
 
   def calc_loss(self, src: Union[batcher.Batch, input.Input], trg: Union[batcher.Batch, input.Input],
-                loss_calculator: loss_calculator.LossCalculator) -> loss.FactoredLossExpr:
+                loss_calculator: xnmt.loss_calculator.LossCalculator) -> loss.FactoredLossExpr:
     '''Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.

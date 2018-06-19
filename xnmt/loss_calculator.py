@@ -37,7 +37,8 @@ class MLELoss(Serializable, LossCalculator):
   def __init__(self, truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
     self.truncate_dec_batches = truncate_dec_batches
 
-  def select_ref_words(self, sent, index, truncate_masked = False):
+  @staticmethod
+  def _select_ref_words(sent, index, truncate_masked = False):
     if truncate_masked:
       mask = sent.mask if xnmt.batcher.is_batched(sent) else None
       if not xnmt.batcher.is_batched(sent):
@@ -66,7 +67,7 @@ class MLELoss(Serializable, LossCalculator):
         assert len(single_trg) == seq_len # assert consistent length
         assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask.np_arr[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
     for i in range(seq_len):
-      ref_word = self.select_ref_words(trg, i, truncate_masked=self.truncate_dec_batches)
+      ref_word = MLELoss._select_ref_words(trg, i, truncate_masked=self.truncate_dec_batches)
       if self.truncate_dec_batches and xnmt.batcher.is_batched(ref_word):
         dec_state.rnn_state, ref_word = xnmt.batcher.truncate_batches(dec_state.rnn_state, ref_word)
       rnn_output = dec_state.rnn_state.output()
