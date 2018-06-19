@@ -9,6 +9,8 @@ with warnings.catch_warnings():
   warnings.simplefilter("ignore", lineno=36)
   import h5py
 
+import sentencepiece as spm
+
 from xnmt import logger
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
 from xnmt.persistence import serializable_init, Serializable
@@ -58,6 +60,12 @@ class InputReader(object):
     Freeze the data representation, e.g. by freezing the vocab.
     """
     pass
+
+  def needs_reload(self):
+    """
+    Overwrite this method if data needs to be reload for each epoch
+    """
+    return False
 
 class BaseTextReader(InputReader):
   def count_sents(self, filename):
@@ -114,37 +122,50 @@ class PlainTextReader(BaseTextReader, Serializable):
   def vocab_size(self):
     return len(self.vocab)
 
-class BaseTextReader(InputReader):
+class SubwordSampleTextReader(BaseTextReader, Serializable):
   """
-  A base class for text-based :class:`xnmt.input_reader.InputReader` subclasses that implements some helper methods.
+  Handles the sampling for subword regularization.
+  https://arxiv.org/pdf/1804.10959.pdf 
   """
-  def count_sents(self, filename):
-    f = open(filename, encoding='utf-8')
-    try:
-      return sum(1 for _ in f)
-    finally:
-      f.close()
+  yaml_tag = '!SubwordSampleTextReader'
 
-  def iterate_filtered(self, filename, filter_ids=None):
-    """
-    Args:
-      filename (str): data file (text file)
-      filter_ids (list of int):
-    Returns:
-      iterator over lines as strings (useful for subclasses to implement read_sents)
-    """
-    sent_count = 0
-    max_id = None
-    if filter_ids is not None:
-      max_id = max(filter_ids)
-      filter_ids = set(filter_ids)
-    with open(filename, encoding='utf-8') as f:
-      for line in f:
-        if filter_ids is None or sent_count in filter_ids:
-          yield line
-        sent_count += 1
-        if max_id is not None and sent_count > max_id:
-          break
+  @serializable_init
+  def __init__(self, model_file, l=-1, alpha=0.1, vocab=None, include_vocab_reference=False):
+    self.subword_model = spm.SentencePieceProcessor()
+    self.subword_model.Load(model_file)
+    self.l = l
+    self.alpha = alpha
+    self.vocab = vocab
+    self.include_vocab_reference = include_vocab_reference
+    if vocab is not None:
+      self.vocab.freeze()
+      self.vocab.set_unk(Vocab.UNK_STR)
+
+  def read_sent(self, sentence, filter_ids=None):
+    vocab_reference = self.vocab if self.include_vocab_reference else None
+    words = self.subword_model.SampleEncode(sentence.strip(), self.l, self.alpha)
+    return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
+                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
+
+  def freeze(self):
+    self.vocab.freeze()
+    self.vocab.set_unk(Vocab.UNK_STR)
+    self.save_processed_arg("vocab", self.vocab)
+
+  def count_words(self, trg_words):
+    trg_cnt = 0
+    for x in trg_words:
+      if type(x) == int:
+        trg_cnt += 1 if x != Vocab.ES else 0
+      else:
+        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
+    return trg_cnt
+
+  def vocab_size(self):
+    return len(self.vocab)
+
+  def needs_reload(self):
+    return True
 
 class SegmentationTextReader(PlainTextReader):
   yaml_tag = '!SegmentationTextReader'

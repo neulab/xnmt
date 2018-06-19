@@ -37,6 +37,9 @@ class PreprocRunner(Serializable):
 
       task.run_preproc_task(overwrite = overwrite)
 
+class PreprocTask(object):
+  def run_preproc_task(self, overwrite=False):
+    ...
 
 class PreprocExtract(PreprocTask, Serializable):
   yaml_tag = "!PreprocExtract"
@@ -82,7 +85,9 @@ class PreprocNormalize(PreprocTask, Serializable):
     self.out_files = out_files
     self.specs = specs
   def run_preproc_task(self, overwrite=False):
-    normalizers = {my_opts["filenum"]: Normalizer.from_spec(my_opts["spec"]) for my_opts in self.specs}
+    normalizers = {my_opts["filenum"]: [norm
+          for norm in my_opts["normalizers"]]
+          for my_opts in self.specs}
     for i, (in_file, out_file) in enumerate(zip(self.in_files, self.out_files)):
       if overwrite or not os.path.isfile(out_file):
         make_parent_dir(out_file)
@@ -120,6 +125,7 @@ class PreprocFilter(PreprocTask, Serializable):
       if x is not None:
         x.close()
 
+
 class PreprocVocab(PreprocTask, Serializable):
   yaml_tag = "!PreprocVocab"
   @serializable_init
@@ -128,7 +134,9 @@ class PreprocVocab(PreprocTask, Serializable):
     self.out_files = out_files
     self.specs = specs
   def run_preproc_task(self, overwrite=False):
-    filters = {my_opts["filenum"]: VocabFilterer.from_spec(my_opts["spec"]) for my_opts in self.specs}
+    filters = {my_opts["filenum"]: [norm
+          for norm in my_opts["filters"]]
+          for my_opts in self.specs}
     for i, (in_file, out_file) in enumerate(zip(self.in_files, self.out_files)):
       if overwrite or not os.path.isfile(out_file):
         make_parent_dir(out_file)

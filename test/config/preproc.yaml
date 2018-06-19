@@ -24,8 +24,8 @@ standard-preproc: !Experiment
       - test/tmp/head.norm.en
       specs:
       - filenum: all
-        spec:
-        - type: lower
+        normalizers:
+        - !NormalizerLower {}
     - !PreprocFilter
       in_files:
       - test/tmp/head.tok.norm.ja
@@ -46,9 +46,9 @@ standard-preproc: !Experiment
       - test/tmp/head.vocab.en
       specs:
       - filenum: all
-        spec:
-        - type: freq
-          min_freq: 2
+        filters:
+        - !VocabFiltererFreq
+            min_freq: 2
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab

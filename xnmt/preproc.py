@@ -23,40 +23,32 @@ from xnmt.util import make_parent_dir
 class Normalizer(object):
   """A type of normalization to perform to a file. It is initialized first, then expanded."""
 
-  def __init__(self, spec=None):
-    """Initialize the normalizer from a specification."""
-    pass
-
   def normalize(self, sent):
     """Takes a plain text string and converts it into another plain text string after preprocessing."""
     raise RuntimeError("Subclasses of Normalizer must implement the normalize() function")
 
-  @staticmethod
-  def from_spec(spec):
-    """Takes a list of normalizer specifications, and returns the appropriate processors."""
-    preproc_list = []
-    if spec is not None:
-      for my_spec in spec:
-        if my_spec["type"] == "lower":
-          preproc_list.append(NormalizerLower(my_spec))
-        elif my_spec["type"] == "remove_punct":
-          preproc_list.append(NormalizerRemovePunct(my_spec))
-        else:
-          raise RuntimeError("Unknown normalizer type {}".format(my_spec["type"]))
-    return preproc_list
-
-class NormalizerLower(Normalizer):
+class NormalizerLower(Normalizer, Serializable):
   """Lowercase the text."""
+
+  yaml_tag = "!NormalizerLower"
 
   def normalize(self, sent):
     return sent.lower()
 
-class NormalizerRemovePunct(Normalizer):
-  """Remove punctuation from the text."""
-  def __init__(self, spec=None):
-    self.remove_inside_word = spec.get("remove_inside_word", False)
+class NormalizerRemovePunct(Normalizer, Serializable):
+  """Remove punctuation from the text.
+
+  Args:
+    remove_inside_word: If ``False``, only remove punctuation appearing adjacent to white space.
+    allowed_chars: Specify punctuation that is allowed and should not be removed.
+  """
+  yaml_tag = "!NormalizerRemovePunct"
+
+  @serializable_init
+  def __init__(self, remove_inside_word:bool=False, allowed_chars:str="") -> None:
+    self.remove_inside_word = remove_inside_word
     self.exclude = set(chr(i) for i in range(sys.maxunicode) if unicodedata.category(chr(i)).startswith('P')
-                                                              and chr(i) not in set(spec.get("allowed_chars", "")))
+                                                              and chr(i) not in set(allowed_chars))
   def normalize(self, sent):
     if self.remove_inside_word:
       ret = ''.join(ch for ch in sent if ch not in self.exclude)
@@ -123,6 +115,71 @@ class CharacterTokenizer(Tokenizer, Serializable):
   def tokenize(self, sent):
     """Tokenizes a single sentence into characters."""
     return ' '.join([('__' if x == ' ' else x) for x in sent])
+
+class UnicodeTokenizer(Tokenizer, Serializable):
+  """
+  Tokenizer that inserts whitespace between words and punctuation.
+
+  This tokenizer is language-agnostic and (optionally) reversible, and is based on unicode character categories.
+  See appendix of https://arxiv.org/pdf/1804.08205
+
+  Args:
+    use_merge_symbol: whether to prepend a merge-symbol so that the tokenization becomes reversible
+    merge_symbol: the merge symbol to use
+    reverse: whether to reverse tokenization (assumes use_merge_symbol=True was used in forward direction)
+  """
+  yaml_tag = '!UnicodeTokenizer'
+
+  @serializable_init
+  def __init__(self, use_merge_symbol: bool = True, merge_symbol: str = '↹', reverse: bool = False):
+    self.merge_symbol = merge_symbol if use_merge_symbol else ''
+    self.reverse = reverse
+
+  def tokenize(self, sent: str) -> str:
+    """Tokenizes a single sentence.
+
+    Args:
+      sent: input sentence
+    Returns:
+      output sentence
+    """
+    str_list = []
+    if not self.reverse:
+      for i in range(len(sent)):
+        c = sent[i]
+        c_p = sent[i - 1] if i > 0 else c
+        c_n = sent[i + 1] if i < len(sent) - 1 else c
+
+        if not UnicodeTokenizer._is_weird(c):
+          str_list.append(c)
+        else:
+          if not c_p.isspace():
+            str_list.append(' ' + self.merge_symbol)
+            str_list.append(c)
+          if not c_n.isspace() and not UnicodeTokenizer._is_weird(c_n):
+            str_list.append(self.merge_symbol + ' ')
+    else: # self.reverse==True
+      i = 0
+      while i < len(sent):
+        c = sent[i]
+        c_n = sent[i + 1] if i < len(sent) - 1 else c
+        c_nn = sent[i + 2] if i < len(sent) - 2 else c
+
+        if c + c_n == ' ' + self.merge_symbol and UnicodeTokenizer._is_weird(c_nn):
+          i += 2
+        elif UnicodeTokenizer._is_weird(c) and c_n + c_nn == self.merge_symbol + ' ':
+          str_list.append(c)
+          i += 3
+        else:
+          str_list.append(c)
+          i += 1
+    return ''.join(str_list)
+
+  @staticmethod
+  def _is_weird(c):
+    return not (unicodedata.category(c)[0] == 'L'
+                or unicodedata.category(c)[0] == 'N'
+                or c.isspace())
 
 class ExternalTokenizer(Tokenizer, Serializable):
   """
@@ -280,7 +337,6 @@ class SentenceFiltererMatchingRegex(SentenceFilterer):
   """Filters sentences via regular expressions.
   A sentence must match the expression to be kept.
   """
-
   def __init__(self, spec):
     """Specifies the regular expressions to filter the sentences that we'll be getting.
 
@@ -395,22 +451,24 @@ class VocabFilterer(object):
           raise RuntimeError("Unknown VocabFilterer type {}".format(my_spec["type"]))
     return preproc_list
 
-class VocabFiltererFreq(VocabFilterer):
+class VocabFiltererFreq(VocabFilterer, Serializable):
   """Filter the vocabulary, removing words below a particular minimum frequency"""
-
-  def __init__(self, spec):
+  yaml_tag = "!VocabFiltererFreq"
+  @serializable_init
+  def __init__(self, min_freq):
     """Specification contains a single value min_freq"""
-    self.min_freq = spec["min_freq"]
+    self.min_freq = min_freq
 
   def filter(self, vocab):
     return {k: v for k, v in vocab.items() if v >= self.min_freq}
 
-class VocabFiltererRank(VocabFilterer):
+class VocabFiltererRank(VocabFilterer, Serializable):
   """Filter the vocabulary, removing words above a particular frequency rank"""
-
-  def __init__(self, spec):
+  yaml_tag = "!VocabFiltererRank"
+  @serializable_init
+  def __init__(self, max_rank):
     """Specification contains a single value max_rank"""
-    self.max_rank = spec["max_rank"]
+    self.max_rank = max_rank
 
   def filter(self, vocab):
     if len(vocab) <= self.max_rank:
@@ -440,7 +498,6 @@ class MelFiltExtractor(Extractor, Serializable):
              - duration (float
              ): stop time stamp (optional)
              - speaker: speaker id for normalization (optional; if not given, the filename is used as speaker id)
-
     out_file: a filename ending in ".h5"
     """
     import librosa
@@ -457,8 +514,8 @@ class MelFiltExtractor(Extractor, Serializable):
       for speaker_id in db_by_speaker.keys():
         data = []
         for db_item in db_by_speaker[speaker_id]:
-          y, sr = librosa.load(db_item["wav"], sr=16000, 
-                               offset=db_item.get("offset", 0.0), 
+          y, sr = librosa.load(db_item["wav"], sr=16000,
+                               offset=db_item.get("offset", 0.0),
                                duration=db_item.get("duration", None))
           if len(y)==0: raise ValueError(f"encountered an empty or out of bounds segment: {db_item}")
           logmel = logfbank(y, samplerate=sr, nfilt=self.nfilt)
