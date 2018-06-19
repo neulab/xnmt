@@ -48,7 +48,7 @@ exp1-multi_task: !Experiment
             layers: 1
             hidden_dim: 64
           bridge: !CopyBridge {}
-          mlp_layer: !MLP
+          mlp_layer: !AttentionalOutputMLP
             vocab: !Ref {name: trg_vocab}
       dev_tasks:
         - !AccuracyEvalTask
@@ -82,7 +82,7 @@ exp1-multi_task: !Experiment
           vocab: !Ref {name: trg_vocab}
         decoder: !MlpSoftmaxDecoder
           bridge: !CopyBridge {}
-          mlp_layer: !MLP
+          mlp_layer: !AttentionalOutputMLP
             vocab: !Ref {name: trg_vocab}
       dev_tasks:
         - !AccuracyEvalTask

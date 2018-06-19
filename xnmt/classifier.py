@@ -29,7 +29,7 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
                src_embedder: embedder.Embedder = bare(embedder.SimpleWordEmbedder),
                encoder: transducer.Transducer = bare(lstm.BiLSTMSeqTransducer),
                inference=bare(xnmt.inference.IndependentOutputInference),
-               mlp: mlp.MLP = bare(mlp.MLP)):
+               mlp: mlp.MLP = bare(mlp.OutputMLP)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
     self.encoder = encoder
@@ -38,7 +38,7 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
 
   def shared_params(self):
     return [{".src_embedder.emb_dim", ".encoder.input_dim"},
-            {".encoder.hidden_dim", ".mlp_layer.input_dim"}]
+            {".encoder.hidden_dim", ".mlp.input_dim"}]
 
   def calc_loss(self, src, trg, loss_calculator):
     self.start_sent(src)

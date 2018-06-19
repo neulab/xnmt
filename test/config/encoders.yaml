@@ -44,7 +44,7 @@ exp1-lstm-encoder: !Experiment
       decoder: !MlpSoftmaxDecoder
         rnn_layer: !UniLSTMSeqTransducer
           layers: 1
-        mlp_layer: !MLP
+        mlp_layer: !AttentionalOutputMLP
           hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
@@ -71,7 +71,7 @@ exp2-residual-encoder: !Experiment
       decoder: !MlpSoftmaxDecoder
         rnn_layer: !UniLSTMSeqTransducer
           layers: 2
-        mlp_layer: !MLP
+        mlp_layer: !AttentionalOutputMLP
           hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
@@ -105,7 +105,7 @@ exp3-pyramidal-encoder: !Experiment
       decoder: !MlpSoftmaxDecoder
         rnn_layer: !UniLSTMSeqTransducer
           layers: 2
-        mlp_layer: !MLP
+        mlp_layer: !AttentionalOutputMLP
           hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
@@ -147,7 +147,7 @@ exp4-modular-encoder: !Experiment
       decoder: !MlpSoftmaxDecoder
         rnn_layer: !UniLSTMSeqTransducer
           layers: 3
-        mlp_layer: !MLP
+        mlp_layer: !AttentionalOutputMLP
           hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}

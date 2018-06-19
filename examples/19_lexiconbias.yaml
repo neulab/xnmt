@@ -23,7 +23,7 @@ lexbias: !Experiment # 'standard' is the name given to the experiment
     decoder: !MlpSoftmaxLexiconDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         hidden_dim: 512
       bridge: !CopyBridge {}
       lexicon_file: examples/data/head-ja_given_en.lex

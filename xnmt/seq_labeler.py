@@ -27,14 +27,14 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
                trg_reader:input_reader.InputReader,
                src_embedder:embedder.Embedder=bare(embedder.SimpleWordEmbedder),
                encoder:transducer.SeqTransducer=bare(lstm.BiLSTMSeqTransducer),
-               decoder:mlp.MLP=bare(mlp.MLP),
+               mlp:mlp.MLP=bare(mlp.OutputMLP),
                inference:inference.Inference=bare(inference.IndependentOutputInference),
                auto_cut_pad:bool=False):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
-    self.decoder = decoder
+    self.mlp = mlp
     self.inference = inference
     self.auto_cut_pad = auto_cut_pad
 
@@ -67,7 +67,7 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
         raise ValueError(f"src/trg length do not match: {seq_len} != {len(trg[0])}")
     encodings_tensor = encodings.as_tensor()
     encoding_reshaped = dy.reshape(encodings_tensor, (hidden_dim,), batch_size=batch_size*seq_len)
-    outputs = self.decoder(encoding_reshaped)
+    outputs = self.mlp(encoding_reshaped)
     masked_outputs = dy.cmult(outputs, dy.inputTensor(1.0 - encodings.mask.np_arr.reshape((seq_len * batch_size,)),
                                                       batched=True))
     ref_action = np.asarray([sent.words for sent in trg]).reshape((seq_len * batch_size,))
@@ -91,7 +91,7 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
     encodings_tensor = encodings.as_tensor()
     ((hidden_dim, seq_len), batch_size) = encodings_tensor.dim()
     encoding_reshaped = dy.reshape(encodings_tensor, (hidden_dim,), batch_size=batch_size*seq_len)
-    outputs = self.decoder(encoding_reshaped)
+    outputs = self.mlp(encoding_reshaped)
     loss_expr_perstep = dy.log_softmax(outputs)
     scores = loss_expr_perstep.npvalue() # vocab_size x seq_len
     output_actions = [np.argmax(scores[:,j]) for j in range(seq_len)]

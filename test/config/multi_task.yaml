@@ -41,7 +41,7 @@ exp1-multi_task_exp: !Experiment
             layers: 1
             hidden_dim: 64
           bridge: !CopyBridge {}
-          mlp_layer: !MLP
+          mlp_layer: !AttentionalOutputMLP
             vocab: !Ref {name: trg_vocab}
       dev_tasks:
         - !AccuracyEvalTask
@@ -78,7 +78,7 @@ exp1-multi_task_exp: !Experiment
           rnn_layer: !UniLSTMSeqTransducer
             layers: 1
           bridge: !CopyBridge {}
-          mlp_layer: !MLP
+          mlp_layer: !AttentionalOutputMLP
             vocab: !Ref {name: trg_vocab}
       dev_tasks:
         - !AccuracyEvalTask

@@ -11,7 +11,7 @@ import xnmt.events
 from xnmt.input_reader import PlainTextReader
 from xnmt.loss_calculator import AutoRegressiveMLELoss
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.mlp import MLP
+from xnmt.mlp import AttentionalOutputMLP
 from xnmt.param_collection import ParamManager
 from xnmt.translator import DefaultTranslator
 from xnmt.search_strategy import GreedySearch
@@ -37,7 +37,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
                                 rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)
@@ -73,7 +73,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
                                 rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)
@@ -109,7 +109,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
                                 rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)

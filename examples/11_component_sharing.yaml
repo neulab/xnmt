@@ -34,7 +34,7 @@ exp1.pretrain: !Experiment
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         output_projector: !Ref { name: trg_emb }
         #                alternatively, the same could be achieved like this,
         #                in which case model.trg_embedder._xnmt_id is not required:

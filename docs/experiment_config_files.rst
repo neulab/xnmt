@@ -85,7 +85,7 @@ This specifies the model architecture. An typical example looks like this
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         hidden_dim: 512
       bridge: !CopyBridge {}
 

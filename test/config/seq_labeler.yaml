@@ -9,11 +9,10 @@ seq-labeler: !Experiment
       emb_dim: 512
     encoder: !BiLSTMSeqTransducer
       layers: 1
-    decoder: !MLP
+    mlp: !OutputMLP
       hidden_dim: 512
       activation: 'tanh'
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-      decoder_rnn_dim: 0
     auto_cut_pad: true
   # training parameters
   train: !SimpleTrainingRegimen

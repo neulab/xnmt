@@ -22,7 +22,7 @@ report: !Experiment
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         hidden_dim: 256
       bridge: !NoBridge {}
     inference: !AutoRegressiveInference {}

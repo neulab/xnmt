@@ -9,7 +9,7 @@ from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt import logger
 from xnmt.bridge import Bridge, CopyBridge
 from xnmt.lstm import UniLSTMSeqTransducer
-from xnmt.mlp import MLP
+from xnmt.mlp import MLP, AttentionalOutputMLP
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref, Path
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
@@ -69,7 +69,7 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
                trg_embed_dim: int = Ref("exp_global.default_layer_dim"),
                input_feeding: bool = True,
                rnn_layer: UniLSTMSeqTransducer = bare(UniLSTMSeqTransducer),
-               mlp_layer: MLP = bare(MLP),
+               mlp_layer: MLP = bare(AttentionalOutputMLP),
                bridge: Bridge = bare(CopyBridge),
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False),
                label_smoothing: float = 0.0) -> None:
@@ -179,7 +179,7 @@ class MlpSoftmaxLexiconDecoder(MlpSoftmaxDecoder, Serializable):
                trg_embed_dim=Ref("exp_global.default_layer_dim"),
                input_feeding=True,
                rnn_layer=bare(UniLSTMSeqTransducer),
-               mlp_layer=bare(MLP),
+               mlp_layer=bare(AttentionalOutputMLP),
                bridge=bare(CopyBridge),
                label_smoothing=0.0,
                lexicon_file=None,

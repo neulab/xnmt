@@ -35,7 +35,7 @@ kftt.en-ja: !Experiment
       bridge: !LinearBridge {}          # Initialize the first state of the decoder with an affine transform of the last state of the encoder
       rnn_layer: !UniLSTMSeqTransducer  # Just your standard LSTM decoder
         layers: 2                       # With 2 layers
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         output_projector: !Ref
           path: model.trg_embedder      # Tie the softmax output to the target word embeddings
         hidden_dim: !Ref
