@@ -149,11 +149,11 @@ class GaussianNormalization(LengthNormalization, Serializable):
 
   def fit_distribution(self):
     y = np.zeros(self.num_sent)
-    iter = 0
+    curr_iter = 0
     for key in self.stats:
-      iter_end = self.stats[key].num_sents + iter
-      y[iter:iter_end] = key
-      iter = iter_end
+      iter_end = self.stats[key].num_sents + curr_iter
+      y[curr_iter:iter_end] = key
+      curr_iter = iter_end
     mu, std = norm.fit(y)
     self.distr = norm(mu, std)
 

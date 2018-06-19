@@ -26,7 +26,7 @@ class Vocab(Serializable):
     assert i2w is None or vocab_file is None
     if vocab_file:
       i2w = Vocab.i2w_from_vocab_file(vocab_file, sentencepiece_vocab)
-    if (i2w is not None):
+    if i2w is not None:
       self.i2w = i2w
       self.w2i = {word: word_id for (word_id, word) in enumerate(self.i2w)}
       self.frozen = True

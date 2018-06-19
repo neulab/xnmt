@@ -257,7 +257,7 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
     body = etree.SubElement(html, 'body')
     report = etree.SubElement(body, 'h1')
     if idx is not None:
-      title.text = report.text = 'Translation Report for Sentence %d' % (idx)
+      title.text = report.text = f'Translation Report for Sentence {idx}'
     else:
       title.text = report.text = 'Translation Report'
     main_content = etree.SubElement(body, 'div', name='main_content')
@@ -300,7 +300,7 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
         if i == 0:
           words = trg + [""]
         else:
-          words = ["%.4f" % (f) for f in attn[i-1]] + [src[i-1]]
+          words = [f"{f:.4f}" for f in attn[i-1]] + [src[i-1]]
         str_format = ""
         for length in col_length:
           str_format += "{:%ds}" % (length+2)

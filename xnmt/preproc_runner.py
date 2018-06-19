@@ -37,10 +37,6 @@ class PreprocRunner(Serializable):
 
       task.run_preproc_task(overwrite = overwrite)
 
-class PreprocTask(object):
-  def run_preproc_task(self, overwrite=False):
-    ...
-
 class PreprocExtract(PreprocTask, Serializable):
   yaml_tag = "!PreprocExtract"
   @serializable_init

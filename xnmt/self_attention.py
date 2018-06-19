@@ -79,7 +79,7 @@ class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
 
     # Do scaled dot product [(length, length) x batch * num_heads], rows are queries, columns are keys
     attn_score = q * dy.transpose(k) / sqrt(self.head_dim)
-    if expr_seq.mask != None:
+    if expr_seq.mask is not None:
       mask = dy.inputTensor(np.repeat(expr_seq.mask.np_arr, self.num_heads, axis=0).transpose(), batched=True) * -1e10
       attn_score = attn_score + mask
     attn_prob = dy.softmax(attn_score, d=1)

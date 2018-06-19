@@ -664,11 +664,13 @@ def _traverse_tree_deep(root, cur_node, traversal_order=_TraversalOrder.ROOT_FIR
 
 
 def _traverse_tree_deep_once(root, cur_node, traversal_order=_TraversalOrder.ROOT_FIRST, path_to_node=Path(),
-                             named_paths={}):
+                             named_paths=None):
   """
   Calls _traverse_tree_deep, but skips over nodes that have been visited before (can happen because we're descending into
    references).
   """
+  if named_paths is None:
+    named_paths = {}
   yielded_paths = set()
   for path, node in _traverse_tree_deep(root, cur_node, traversal_order, path_to_node, named_paths):
     if not (path.ancestors() & yielded_paths):
@@ -1347,7 +1349,6 @@ def check_type(obj, desired_type):
     elif desired_type.__class__.__name__ == "_Union":
       return any(
         subtype.__class__.__name__ == "_ForwardRef" or check_type(obj, subtype) for subtype in desired_type.__args__)
-      collections.abc.Dict
     elif issubclass(desired_type, collections.abc.MutableMapping):
       if not isinstance(obj, collections.abc.MutableMapping): return False
       if desired_type.__args__:

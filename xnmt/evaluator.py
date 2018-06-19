@@ -876,7 +876,6 @@ class SequenceAccuracyEvaluator(SentenceLevelEvaluator, Serializable):
     Args:
       ref: list of list of reference words
       hyp: list of list of decoded words
-      desc: description to pass on to returned score
     Return: formatted string
     """
     correct = 1 if self._compare(ref, hyp) else 0
