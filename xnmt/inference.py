@@ -32,16 +32,18 @@ class Inference(object):
     """
     raise NotImplementedError("to be implemented by subclasses")
 
-class ClassifierInference(Inference, Serializable):
+class IndependentOutputInference(Inference, Serializable):
   """
-  Inference for classifiers that produce only a single output.
+  Inference when outputs are produced independently, including for classifiers that produce only a single output.
+
+  Assumes that generator.generate takes arguments src, idx
 
   Args:
     batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
     post_process: post-processing of translation outputs
                   (available string shortcuts:  ``none``,``join-char``,``join-bpe``,``join-piece``)
   """
-  yaml_tag = "!ClassifierInference"
+  yaml_tag = "!IndependentOutputInference"
 
   @serializable_init
   def __init__(self, batcher=Ref("train.batcher", default=None),
@@ -68,6 +70,8 @@ class ClassifierInference(Inference, Serializable):
 class AutoRegressiveInference(Inference, Serializable):
   """
   Performs inference for auto-regressive models that expand based on their own previous outputs.
+
+  Assumes that generator.generate takes arguments src, idx, search_strategy, forced_trg_ids
 
   Args:
     src_file: path of input src file to be translated

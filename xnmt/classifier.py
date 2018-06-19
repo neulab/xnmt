@@ -16,7 +16,7 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
     trg_reader: A reader for the target side.
     src_embedder: A word embedder for the input language
     encoder: An encoder to generate encoded inputs
-    inference:
+    inference: how to perform inference
     mlp: final prediction MLP layer
   """
 
@@ -28,7 +28,7 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
                trg_reader: input_reader.InputReader,
                src_embedder: embedder.Embedder = bare(embedder.SimpleWordEmbedder),
                encoder: transducer.Transducer = bare(lstm.BiLSTMSeqTransducer),
-               inference=bare(xnmt.inference.ClassifierInference),
+               inference=bare(xnmt.inference.IndependentOutputInference),
                mlp: mlp.MLP = bare(mlp.MLP)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
