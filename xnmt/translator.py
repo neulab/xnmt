@@ -3,7 +3,7 @@ import numpy as np
 import collections
 import itertools
 import os
-from typing import Union
+from typing import Any, Tuple, Union
 
 # Reporting purposes
 from lxml import etree
@@ -11,7 +11,7 @@ from xnmt.settings import settings
 
 from xnmt.attender import MlpAttender
 from xnmt.batcher import Batch, mark_as_batch, is_batched
-from xnmt.decoder import MlpSoftmaxDecoder
+from xnmt.decoder import MlpSoftmaxDecoder, MlpSoftmaxDecoderState
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 from xnmt.model_base import GeneratorModel, EventTrigger
@@ -33,14 +33,14 @@ from xnmt.constants import EPSILON
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
 class Translator(GeneratorModel):
-  '''
+  """
   A template class implementing an end-to-end translator that can calculate a
   loss and generate translations.
-  '''
+  """
 
   def calc_loss(self, src: Union[Batch, Input], trg: Union[Batch, Input],
                 loss_calculator: LossCalculator) -> FactoredLossExpr:
-    '''Calculate loss based on input-output pairs.
+    """Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
     
@@ -51,8 +51,13 @@ class Translator(GeneratorModel):
     
     Returns:
       A (possibly batched) expression representing the loss.
-    '''
-    raise NotImplementedError('calc_loss must be implemented for Translator subclasses')
+    """
+    raise NotImplementedError('must be implemented by subclasses')
+
+  def calc_loss_one_step(self, dec_state:MlpSoftmaxDecoderState, ref_word:Batch, input_word:Batch) \
+          -> Tuple[MlpSoftmaxDecoderState,dy.Expression]:
+    raise NotImplementedError("must be implemented by subclasses")
+
 
   def set_trg_vocab(self, trg_vocab=None):
     """
@@ -63,10 +68,10 @@ class Translator(GeneratorModel):
     """
     self.trg_vocab = trg_vocab
 
-  def get_primary_loss(self):
+  def get_primary_loss(self) -> str:
     return "mle"
 
-  def output_one_step(self):
+  def output_one_step(self, current_word: Any, current_state: MlpSoftmaxDecoderState) -> TranslatorOutput:
     raise NotImplementedError()
 
   def get_nobp_state(self, state):
@@ -135,7 +140,7 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
     initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
     # Compose losses
     model_loss = FactoredLossExpr()
-    model_loss.add_factored_loss_expr(loss_calculator(self, initial_state, src, trg))
+    model_loss.add_factored_loss_expr(loss_calculator.calc_loss(self, initial_state, src, trg))
 
     if self.calc_global_fertility or self.calc_attention_entropy:
       # philip30: I assume that attention_vecs is already masked src wisely.
@@ -151,6 +156,15 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
       model_loss.add_loss("H(attn)", self.attention_entropy(masked_attn))
 
     return model_loss
+
+  def calc_loss_one_step(self, dec_state:MlpSoftmaxDecoderState, ref_word:Batch, input_word:Batch) \
+          -> Tuple[MlpSoftmaxDecoderState,dy.Expression]:
+    if input_word:
+      dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(input_word))
+    rnn_output = dec_state.rnn_state.output()
+    dec_state.context = self.attender.calc_context(rnn_output)
+    word_loss = self.decoder.calc_loss(dec_state, ref_word)
+    return dec_state, word_loss
 
   def generate(self, src, idx, search_strategy, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
@@ -198,6 +212,20 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
                                 score=score))
     return outputs
 
+  def output_one_step(self, current_word: Any, current_state: MlpSoftmaxDecoderState) -> TranslatorOutput:
+    if current_word is not None:
+      if type(current_word) == int:
+        current_word = [current_word]
+      if type(current_word) == list or type(current_word) == np.ndarray:
+        current_word = xnmt.batcher.mark_as_batch(current_word)
+      current_word_embed = self.trg_embedder.embed(current_word)
+      next_state = self.decoder.add_input(current_state, current_word_embed)
+    else:
+      next_state = current_state
+    next_state.context = self.attender.calc_context(next_state.rnn_state.output())
+    next_logsoftmax = self.decoder.get_scores_logsoftmax(next_state)
+    return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
+
   def global_fertility(self, a):
     return dy.sum_elems(dy.square(1 - dy.esum(a)))
 
@@ -212,25 +240,11 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
   def set_reporting_src_vocab(self, src_vocab):
     """
     Sets source vocab for reporting purposes.
-    
+
     Args:
       src_vocab (Vocab):
     """
     self.reporting_src_vocab = src_vocab
-
-  def output_one_step(self, current_word, current_state):
-    if current_word is not None:
-      if type(current_word) == int:
-        current_word = [current_word]
-      if type(current_word) == list or type(current_word) == np.ndarray:
-        current_word = xnmt.batcher.mark_as_batch(current_word)
-      current_word_embed = self.trg_embedder.embed(current_word)
-      next_state = self.decoder.add_input(current_state, current_word_embed)
-    else:
-      next_state = current_state
-    next_state.context = self.attender.calc_context(next_state.rnn_state.output())
-    next_logsoftmax = self.decoder.get_scores_logsoftmax(next_state)
-    return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
 
   @register_xnmt_event_assign
   def html_report(self, context=None):

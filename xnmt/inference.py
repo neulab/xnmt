@@ -7,7 +7,7 @@ import dynet as dy
 
 from xnmt.batcher import Batcher
 from xnmt.model_base import GeneratorModel
-from xnmt.loss_calculator import MLELoss
+from xnmt.loss_calculator import AutoRegressiveMLELoss
 import xnmt.output
 from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
@@ -185,7 +185,7 @@ class AutoRegressiveInference(Inference, Serializable):
     ref_scores = []
     for src, ref in zip(batched_src, batched_ref):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-      loss_expr = generator.calc_loss(src, ref, loss_calculator=MLELoss())
+      loss_expr = generator.calc_loss(src, ref, loss_calculator=AutoRegressiveMLELoss())
       if isinstance(loss_expr.value(), Iterable):
         ref_scores.extend(loss_expr.value())
       else:

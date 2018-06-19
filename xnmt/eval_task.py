@@ -10,7 +10,7 @@ from xnmt.model_base import GeneratorModel
 from xnmt.inference import Inference
 import xnmt.input_reader
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.loss_calculator import LossCalculator, MLELoss
+from xnmt.loss_calculator import LossCalculator, AutoRegressiveMLELoss
 from xnmt.evaluator import LossScore
 from xnmt.loss import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate
@@ -42,7 +42,7 @@ class LossEvalTask(EvalTask, Serializable):
   @serializable_init
   def __init__(self, src_file: str, ref_file: str, model: GeneratorModel = Ref("model"),
                batcher: Optional[Batcher] = Ref("train.batcher", default=None),
-               loss_calculator: LossCalculator = bare(MLELoss), max_src_len: Optional[int] = None,
+               loss_calculator: LossCalculator = bare(AutoRegressiveMLELoss), max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"), desc: Any = None):
     self.model = model
