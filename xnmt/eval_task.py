@@ -14,6 +14,7 @@ from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
 from xnmt.loss import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate
+from xnmt import util
 
 class EvalTask(object):
   """
