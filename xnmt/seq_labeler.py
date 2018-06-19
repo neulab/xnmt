@@ -79,11 +79,9 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
 
     return model_loss
 
-  def generate(self, src, idx, search_strategy, src_mask=None, forced_trg_ids=None):
+  def generate(self, src, idx, search_strategy, forced_trg_ids=None):
     if not batcher.is_batched(src):
       src = batcher.mark_as_batch([src])
-    else:
-      assert src_mask is not None
     assert len(src) == 1, "batch size > 1 not properly tested"
 
     self.start_sent(src)

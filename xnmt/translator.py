@@ -152,11 +152,9 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
 
     return model_loss
 
-  def generate(self, src, idx, search_strategy, src_mask=None, forced_trg_ids=None):
+  def generate(self, src, idx, search_strategy, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
-    else:
-      assert src_mask is not None
     # Generating outputs
     outputs = []
     for sents in src:
@@ -436,12 +434,10 @@ class TransformerTranslator(Translator, Serializable, Reportable, EventTrigger):
     loss = self.decoder.output_and_loss(h_block, concat_t_block)
     return FactoredLossExpr({"mle": loss})
 
-  def generate(self, src, idx, src_mask=None, forced_trg_ids=None, search_strategy=None):
+  def generate(self, src, idx, forced_trg_ids=None, search_strategy=None):
     self.start_sent(src)
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
-    else:
-      assert src_mask is not None
     outputs = []
 
     trg = SimpleSentenceInput([0])
@@ -547,8 +543,8 @@ class EnsembleTranslator(Translator, Serializable, EventTrigger):
       model_loss.add_loss(loss_name, dy.average(losslist))
     return model_loss
 
-  def generate(self, src, idx, search_strategy, src_mask=None, forced_trg_ids=None):
-    return self._proxy.generate(src, idx, search_strategy, src_mask=src_mask, forced_trg_ids=forced_trg_ids)
+  def generate(self, src, idx, search_strategy, forced_trg_ids=None):
+    return self._proxy.generate(src, idx, search_strategy, forced_trg_ids=forced_trg_ids)
 
 class EnsembleListDelegate(object):
   '''

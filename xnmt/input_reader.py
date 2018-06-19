@@ -1,6 +1,6 @@
 from itertools import zip_longest
-
 import ast
+from typing import Sequence, Iterator
 
 import numpy as np
 
@@ -9,7 +9,7 @@ with warnings.catch_warnings():
   warnings.simplefilter("ignore", lineno=36)
   import h5py
 
-import sentencepiece as spm
+#import sentencepiece as spm
 
 from xnmt import logger
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
@@ -21,7 +21,7 @@ class InputReader(object):
   """
   A base class to read in a file and turn it into an input
   """
-  def read_sents(self, filename, filter_ids=None):
+  def read_sents(self, filename: str, filter_ids: Sequence[int] = None) -> Iterator[xnmt.input.Input]:
     """
     Read sentences and return an iterator.
 
@@ -34,18 +34,7 @@ class InputReader(object):
       self.vocab = Vocab()
     return self.iterate_filtered(filename, filter_ids)
 
-  def read_sent(self, sentence, filter_ids=None):
-    """
-    Convert a raw sentence into a SentenceInput object.
-
-    Args:
-      sentence: a single input string
-      filter_ids: only read sentences with these ids (0-indexed)
-    Returns: a SentenceInput object for the input sentence
-    """
-    raise RuntimeError("Input readers must implement the read_sent function")
-
-  def count_sents(self, filename):
+  def count_sents(self, filename: str) -> int:
     """
     Count the number of sentences in a data file.
 
@@ -55,19 +44,30 @@ class InputReader(object):
     """
     raise RuntimeError("Input readers must implement the count_sents function")
 
-  def freeze(self):
+  def freeze(self) -> None:
     """
     Freeze the data representation, e.g. by freezing the vocab.
     """
     pass
 
-  def needs_reload(self):
+  def needs_reload(self) -> bool:
     """
     Overwrite this method if data needs to be reload for each epoch
     """
     return False
 
 class BaseTextReader(InputReader):
+
+  def read_sent(self, line: str) -> xnmt.input.Input:
+    """
+    Convert a raw text line into an input object.
+
+    Args:
+      line: a single input string
+    Returns: a SentenceInput object for the input sentence
+    """
+    raise RuntimeError("Input readers must implement the read_sent function")
+
   def count_sents(self, filename):
     f = open(filename, encoding='utf-8')
     try:
@@ -109,9 +109,9 @@ class PlainTextReader(BaseTextReader, Serializable):
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
 
-  def read_sent(self, sentence, filter_ids=None):
+  def read_sent(self, line):
     vocab_reference = self.vocab if self.include_vocab_reference else None
-    return SimpleSentenceInput([self.vocab.convert(word) for word in sentence.strip().split()] + \
+    return SimpleSentenceInput([self.vocab.convert(word) for word in line.strip().split()] + \
                                                        [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
 
   def freeze(self):
@@ -141,9 +141,9 @@ class SubwordSampleTextReader(BaseTextReader, Serializable):
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
 
-  def read_sent(self, sentence, filter_ids=None):
+  def read_sent(self, line):
     vocab_reference = self.vocab if self.include_vocab_reference else None
-    words = self.subword_model.SampleEncode(sentence.strip(), self.l, self.alpha)
+    words = self.subword_model.SampleEncode(line.strip(), self.l, self.alpha)
     return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
                                                        [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
 
@@ -350,8 +350,11 @@ class IDReader(BaseTextReader, Serializable):
   def __init__(self):
     pass
 
+  def read_sent(self, line):
+    return xnmt.input.IntInput(int(line.strip()))
+
   def read_sents(self, filename, filter_ids=None):
-    return [xnmt.input.IntInput(int(l.strip())) for l in self.iterate_filtered(filename, filter_ids)]
+    return [l for l in self.iterate_filtered(filename, filter_ids)]
 
 ###### A utility function to read a parallel corpus
 def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
