@@ -1,16 +1,16 @@
 from xnmt.persistence import serializable_init, Serializable
 
 class Vocab(Serializable):
-  '''
+  """
   Converts between strings and integer ids.
-  
+
   Configured via either i2w or vocab_file (mutually exclusive).
-  
+
   Args:
     i2w (list of string): list of words, including <s> and </s>
     vocab_file (str): file containing one word per line, and not containing <s>, </s>, <unk>
     sentencepiece_vocab (bool): Set to ``True`` if ``vocab_file`` is the output of the sentencepiece tokenizer. Defaults to ``False``.
-  '''
+  """
 
   yaml_tag = "!Vocab"
 

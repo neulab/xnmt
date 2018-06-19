@@ -18,7 +18,7 @@ class TrainableModel(object):
 
   def calc_loss(self, src: Union[batcher.Batch, input.Input], trg: Union[batcher.Batch, input.Input],
                 loss_calculator: xnmt.loss_calculator.LossCalculator) -> loss.FactoredLossExpr:
-    '''Calculate loss based on input-output pairs.
+    """Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
 
@@ -29,7 +29,7 @@ class TrainableModel(object):
 
     Returns:
       A (possibly batched) expression representing the loss.
-    '''
+    """
 
   def get_primary_loss(self) -> str:
     """

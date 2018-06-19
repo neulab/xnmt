@@ -1,7 +1,7 @@
 class SentenceStats(object):
-  '''
+  """
   to Populate the src and trg sents statistics.
-  '''
+  """
 
   def __init__(self):
       self.src_stat = {}

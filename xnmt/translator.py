@@ -84,7 +84,7 @@ class Translator(GeneratorModel):
     return output_state
 
 class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
-  '''
+  """
   A default translator based on attentional sequence-to-sequence models.
 
   Args:
@@ -98,7 +98,7 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
     inference (AutoRegressiveInference): The default inference strategy used for this model
     calc_global_fertility (bool):
     calc_attention_entropy (bool):
-  '''
+  """
 
   yaml_tag = '!DefaultTranslator'
 
@@ -308,7 +308,7 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
 
   
 class TransformerTranslator(Translator, Serializable, Reportable, EventTrigger):
-  '''
+  """
   A translator based on the transformer model.
 
   Args:
@@ -320,7 +320,7 @@ class TransformerTranslator(Translator, Serializable, Reportable, EventTrigger):
     decoder (TransformerDecoder): A decoder
     inference (AutoRegressiveInference): The default inference strategy used for this model
     input_dim (int):
-  '''
+  """
 
   yaml_tag = '!TransformerTranslator'
 
@@ -495,7 +495,7 @@ class TransformerTranslator(Translator, Serializable, Reportable, EventTrigger):
     return outputs
 
 class EnsembleTranslator(Translator, Serializable, EventTrigger):
-  '''
+  """
   A translator that decodes from an ensemble of DefaultTranslator models.
 
   Args:
@@ -505,7 +505,7 @@ class EnsembleTranslator(Translator, Serializable, EventTrigger):
     src_reader (InputReader): A reader for the source side.
     trg_reader (InputReader): A reader for the target side.
     inference (AutoRegressiveInference): The inference strategy used for this ensemble.
-  '''
+  """
 
   yaml_tag = '!EnsembleTranslator'
 
@@ -561,7 +561,7 @@ class EnsembleTranslator(Translator, Serializable, EventTrigger):
     return self._proxy.generate(src, idx, search_strategy, forced_trg_ids=forced_trg_ids)
 
 class EnsembleListDelegate(object):
-  '''
+  """
   Auxiliary object to wrap a list of objects for ensembling.
 
   This class can wrap a list of objects that exist in parallel and do not need
@@ -573,7 +573,7 @@ class EnsembleListDelegate(object):
   - When EnsembleListDelegate objects are supplied as arguments, they are
     "unwrapped" so the i-th object receives the i-th element of the
     EnsembleListDelegate argument.
-  '''
+  """
 
   def __init__(self, objects):
     assert isinstance(objects, (tuple, list))
@@ -633,14 +633,14 @@ class EnsembleListDelegate(object):
 
 
 class EnsembleDecoder(EnsembleListDelegate):
-  '''
+  """
   Auxiliary object to wrap a list of decoders for ensembling.
 
   This behaves like an EnsembleListDelegate, except that it overrides
   get_scores() to combine the individual decoder's scores.
 
   Currently only supports averaging.
-  '''
+  """
   def get_scores_logsoftmax(self, mlp_dec_states):
     scores = [obj.get_scores_logsoftmax(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
     return dy.average(scores)

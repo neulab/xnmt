@@ -359,7 +359,7 @@ class IDReader(BaseTextReader, Serializable):
 ###### A utility function to read a parallel corpus
 def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
                          batcher=None, sample_sents=None, max_num_sents=None, max_src_len=None, max_trg_len=None):
-  '''
+  """
   A utility function to read a parallel corpus.
 
   Args:
@@ -375,7 +375,7 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
 
   Returns:
     A tuple of (src_data, trg_data, src_batches, trg_batches) where ``*_batches = *_data`` if ``batcher=None``
-  '''
+  """
   src_data = []
   trg_data = []
   if sample_sents:

@@ -10,10 +10,10 @@ from xnmt.transducer import Transducer, SeqTransducer
 #  (for more flexibility), but for ease of implementation it is no problem to perform an initial implementation here.
 
 def padding(src, min_size):
-  ''' do padding for the sequence input along the time step (for example speech), so that so that the output of convolutional layer has the same size(time) of the input.
+  """ do padding for the sequence input along the time step (for example speech), so that so that the output of convolutional layer has the same size(time) of the input.
 
       note that for padding image(two dimensional padding), please refer to dyne.conv2d(..., is_valid = False)
-  '''
+  """
   # pad before put into convolutional layer
   src_dim = src.dim()
   if src_dim[0][1] >= min_size:
