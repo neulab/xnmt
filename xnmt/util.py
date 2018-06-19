@@ -72,4 +72,4 @@ class ReportOnException(object):
         if callable(val):
           val()
         else:
-          logger.error(val)
+          logger.error(str(val))
