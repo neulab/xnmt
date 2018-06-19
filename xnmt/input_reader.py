@@ -14,6 +14,7 @@ import sentencepiece as spm
 from xnmt import logger
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
 from xnmt.persistence import serializable_init, Serializable
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.vocab import Vocab
 
 class InputReader(object):
@@ -138,6 +139,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
   """
   yaml_tag = '!SentencePieceTextReader'
 
+  @register_xnmt_handler
   @serializable_init
   def __init__(self, model_file, sample_train=False, l=-1, alpha=0.1, vocab=None, include_vocab_reference=False):
     """
@@ -145,7 +147,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
       model_file: The sentence piece model file
       sample_train: On the training set, sample outputs
       l: The "l" parameter for subword regularization, how many sentences to sample
-      alpha: The "alpha" parameter for subowrd regularization, how much to smooth the distribution
+      alpha: The "alpha" parameter for subword regularization, how much to smooth the distribution
       vocab: The vocabulary
       include_vocab_reference: Whether to include the vocab with the input
     """
@@ -160,6 +162,10 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
     if vocab is not None:
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
+
+  @handle_xnmt_event
+  def on_set_train(self, val):
+    self.train = val
 
   def read_sent(self, sentence, filter_ids=None):
     vocab_reference = self.vocab if self.include_vocab_reference else None

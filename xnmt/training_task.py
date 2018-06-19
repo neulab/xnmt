@@ -217,7 +217,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         self._augment_data_next_epoch()
     if self.training_state.epoch_num==0 or self.sample_train_sents or \
       self.model.src_reader.needs_reload() or self.model.trg_reader.needs_reload():
-      self.model.src_reader.train = self.model.trg_reader.train = True
+      self.model.set_train(True)
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
         input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                                self.src_file, self.trg_file,
