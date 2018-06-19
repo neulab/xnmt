@@ -51,6 +51,7 @@ class IndependentOutputInference(Inference, Serializable):
           -> None:
     self.batcher = batcher
     self.post_processor = xnmt.output.OutputProcessor.get_output_processor(post_process)
+    # TODO: may implement some features from auto regressive inference: max_src_len, max_num_sents, forced decoding
 
   def perform_inference(self, generator, src_file=None, trg_file=None):
     src_corpus = list(generator.src_reader.read_sents(src_file))

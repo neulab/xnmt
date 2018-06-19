@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Sequence, Union
 
 from xnmt import batcher, events, input, input_reader, loss, loss_calculator, output, training_task
 
@@ -49,14 +49,14 @@ class GeneratorModel(TrainableModel):
     """
     pass
 
-  def generate(self, *args, **kwargs) -> output.Output:
+  def generate(self, *args, **kwargs) -> Sequence[output.Output]:
     """
     Generate outputs.
 
     Args:
       to be specified by subclasses (usually at least a src-side input)
     Returns:
-      output object
+      output objects
     """
     raise NotImplementedError("must be implemented by subclasses")
 

@@ -52,7 +52,8 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
     classifier_loss = loss.FactoredLossExpr({"mle" : loss_expr})
     return classifier_loss
 
-  def generate(self, src, idx):
+  def generate(self, src, idx, forced_trg_ids=None):
+    if forced_trg_ids is not None: raise NotImplementedError()
     if not batcher.is_batched(src):
       src = batcher.mark_as_batch([src])
     outputs = []

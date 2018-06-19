@@ -15,7 +15,7 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
     src_embedder (Embedder): A word embedder for the input language
     encoder (Transducer): An encoder to generate encoded inputs
     decoder (MLP): final prediction layer
-    inference (inference.AutoRegressiveInference): The default inference method used for this model
+    inference (inference.IndependentOutputInference): The inference method used for this model
   """
 
   yaml_tag = '!SeqLabeler'
@@ -28,7 +28,7 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
                src_embedder:embedder.Embedder=bare(embedder.SimpleWordEmbedder),
                encoder:transducer.SeqTransducer=bare(lstm.BiLSTMSeqTransducer),
                decoder:mlp.MLP=bare(mlp.MLP),
-               inference=bare(inference.AutoRegressiveInference),
+               inference:inference.Inference=bare(inference.IndependentOutputInference),
                auto_cut_pad:bool=False):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
@@ -79,7 +79,8 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
 
     return model_loss
 
-  def generate(self, src, idx, search_strategy, forced_trg_ids=None):
+  def generate(self, src, idx, forced_trg_ids=None):
+    if forced_trg_ids is not None: raise NotImplementedError()
     if not batcher.is_batched(src):
       src = batcher.mark_as_batch([src])
     assert len(src) == 1, "batch size > 1 not properly tested"
