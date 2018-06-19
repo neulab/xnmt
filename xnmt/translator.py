@@ -3,7 +3,7 @@ import numpy as np
 import collections
 import itertools
 import os
-from typing import Any, Tuple, Union
+from typing import Any, Sequence, Tuple, Union
 
 # Reporting purposes
 from lxml import etree
@@ -21,7 +21,7 @@ import xnmt.length_normalization
 from xnmt.loss import FactoredLossExpr
 from xnmt.loss_calculator import LossCalculator
 from xnmt.lstm import BiLSTMSeqTransducer
-from xnmt.output import TextOutput
+from xnmt.output import TextOutput, Output
 import xnmt.plot
 from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable, bare
@@ -32,30 +32,29 @@ from xnmt.constants import EPSILON
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
-class Translator(GeneratorModel):
+class AutoRegressiveTranslator(GeneratorModel):
   """
-  A template class implementing an end-to-end translator that can calculate a
-  loss and generate translations.
+  A template class for auto-regressive translators.
+
+  The core methods are calc_loss / calc_loss_one_step and generate / generate_one_step.
+  The former are used during training, the latter for inference.
+  During training, a loss calculator is used to calculate sequence loss by repeatedly calling the loss for one step.
+  Similarly during inference, a search strategy is used to generate an output sequence by repeatedly calling
+  generate_one_step.
   """
 
   def calc_loss(self, src: Union[Batch, Input], trg: Union[Batch, Input],
                 loss_calculator: LossCalculator) -> FactoredLossExpr:
-    """Calculate loss based on input-output pairs.
-
-    Losses are accumulated only across unmasked timesteps in each batch element.
-    
-    Args:
-      src: The source, a sentence or a batch of sentences.
-      trg: The target, a sentence or a batch of sentences.
-      loss_calculator: loss calculator.
-    
-    Returns:
-      A (possibly batched) expression representing the loss.
-    """
     raise NotImplementedError('must be implemented by subclasses')
 
   def calc_loss_one_step(self, dec_state:MlpSoftmaxDecoderState, ref_word:Batch, input_word:Batch) \
           -> Tuple[MlpSoftmaxDecoderState,dy.Expression]:
+    raise NotImplementedError("must be implemented by subclasses")
+
+  def generate(self, src, idx, search_strategy, forced_trg_ids=None) -> Sequence[Output]:
+    raise NotImplementedError("must be implemented by subclasses")
+
+  def generate_one_step(self, current_word: Any, current_state: MlpSoftmaxDecoderState) -> TranslatorOutput:
     raise NotImplementedError("must be implemented by subclasses")
 
 
@@ -71,9 +70,6 @@ class Translator(GeneratorModel):
   def get_primary_loss(self) -> str:
     return "mle"
 
-  def output_one_step(self, current_word: Any, current_state: MlpSoftmaxDecoderState) -> TranslatorOutput:
-    raise NotImplementedError()
-
   def get_nobp_state(self, state):
     output_state = state.rnn_state.output()
     if type(output_state) == EnsembleListDelegate:
@@ -83,7 +79,7 @@ class Translator(GeneratorModel):
       output_state = dy.nobackprop(output_state)
     return output_state
 
-class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
+class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, EventTrigger):
   """
   A default translator based on attentional sequence-to-sequence models.
 
@@ -212,7 +208,7 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
                                 score=score))
     return outputs
 
-  def output_one_step(self, current_word: Any, current_state: MlpSoftmaxDecoderState) -> TranslatorOutput:
+  def generate_one_step(self, current_word: Any, current_state: MlpSoftmaxDecoderState) -> TranslatorOutput:
     if current_word is not None:
       if type(current_word) == int:
         current_word = [current_word]
@@ -307,7 +303,7 @@ class DefaultTranslator(Translator, Serializable, Reportable, EventTrigger):
         print(str_format.format(*words), file=attn_file)
 
   
-class TransformerTranslator(Translator, Serializable, Reportable, EventTrigger):
+class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, EventTrigger):
   """
   A translator based on the transformer model.
 
@@ -462,7 +458,7 @@ class TransformerTranslator(Translator, Serializable, Reportable, EventTrigger):
     output_actions = []
     score = 0.
 
-    # TODO Fix this with output_one_step and use the appropriate search_strategy
+    # TODO Fix this with generate_one_step and use the appropriate search_strategy
     self.max_len = 100 # This is a temporary hack
     for _ in range(self.max_len):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
@@ -494,7 +490,7 @@ class TransformerTranslator(Translator, Serializable, Reportable, EventTrigger):
 
     return outputs
 
-class EnsembleTranslator(Translator, Serializable, EventTrigger):
+class EnsembleTranslator(AutoRegressiveTranslator, Serializable, EventTrigger):
   """
   A translator that decodes from an ensemble of DefaultTranslator models.
 

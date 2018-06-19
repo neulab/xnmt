@@ -67,7 +67,7 @@ class GreedySearch(Serializable, SearchStrategy):
     current_state = initial_state
     for length in range(self.max_len):
       prev_word = word_ids[length-1] if length > 0 else None
-      current_output = translator.output_one_step(prev_word, current_state)
+      current_output = translator.generate_one_step(prev_word, current_state)
       current_state = current_output.state
       if forced_trg_ids is None:
         word_id = np.argmax(current_output.logsoftmax.npvalue(), axis=0)
@@ -149,7 +149,7 @@ class BeamSearch(Serializable, SearchStrategy):
         if prev_word == Vocab.ES:
           completed_hyp.append(hyp)
           continue
-        current_output = translator.output_one_step(prev_word, prev_state)
+        current_output = translator.generate_one_step(prev_word, prev_state)
         score = current_output.logsoftmax.npvalue().transpose()
         if self.scores_proc:
           self.scores_proc(score)
@@ -236,7 +236,7 @@ class SamplingSearch(Serializable, SearchStrategy):
     masks = []
     # Sample to the max length
     for length in range(self.max_len):
-      translator_output = translator.output_one_step(current_words, current_state)
+      translator_output = translator.generate_one_step(current_words, current_state)
       if forced_trg_ids is None:
         sample = translator_output.logsoftmax.tensor_value().categorical_sample_log_prob().as_numpy()
         if len(sample.shape) == 2:
@@ -317,7 +317,7 @@ class MctsNode(object):
     if move in self.children:
       return self.children[move].expand()
     else:
-      output = self.translator.output_one_step(move, self.dec_state)
+      output = self.translator.generate_one_step(move, self.dec_state)
       prior_dist = output.logsoftmax.npvalue()
       attention = output.attention
 
@@ -343,7 +343,7 @@ class MctsNode(object):
       return prefix, scores
 
     while True:
-      output = self.translator.output_one_step(prev_word, dec_state)
+      output = self.translator.generate_one_step(prev_word, dec_state)
       logsoftmax = output.logsoftmax.npvalue()
       attention = output.attention
       best_id = sample_func(logsoftmax)
@@ -402,7 +402,7 @@ class MctsSearch(Serializable, SearchStrategy):
     assert forced_trg_ids is None
     orig_dec_state = dec_state
 
-    output = translator.output_one_step(None, dec_state)
+    output = translator.generate_one_step(None, dec_state)
     dec_state = output.state
     assert dec_state == orig_dec_state
     logsoftmax = output.logsoftmax.npvalue()

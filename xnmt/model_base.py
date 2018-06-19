@@ -47,6 +47,8 @@ class GeneratorModel(TrainableModel):
   def initialize_generator(self, **kwargs):
     """
     Initialize generator.
+
+    The exact arguments are left to be specifiec by implementing classes.
     """
     pass
 
@@ -54,8 +56,7 @@ class GeneratorModel(TrainableModel):
     """
     Generate outputs.
 
-    Args:
-      to be specified by subclasses (usually at least a src-side input)
+    Arguments to be specified by subclasses (usually at least a src-side input)
     Returns:
       output objects
     """
