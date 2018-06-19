@@ -67,7 +67,7 @@ class ReportOnException(object):
   def __exit__(self, et, ev, traceback):
     if et is not None: # exception occurred
       logger.error("------ Fatal Error During Training! ------")
-      for key, val in self.args:
+      for key, val in self.args.items():
         logger.error(f"*** {key} ***")
         if callable(val):
           val()
