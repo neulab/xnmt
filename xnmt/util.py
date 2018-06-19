@@ -68,8 +68,8 @@ class ReportOnException(object):
     if et is not None: # exception occurred
       logger.error("------ Fatal Error During Training! ------")
       for key, val in self.args:
-        print(f"*** {key} ***")
+        logger.error(f"*** {key} ***")
         if callable(val):
           val()
         else:
-          print(val)
+          logger.error(val)
