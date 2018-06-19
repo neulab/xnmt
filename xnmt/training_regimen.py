@@ -136,10 +136,10 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
     """
     if self.run_for_epochs > 0:
       for src,trg in self.next_minibatch():
+        if self.dev_zero:
+          self.checkpoint_and_save(save_fct)
+          self.dev_zero = False
         with util.ReportOnException({"src": src, "trg": trg, "graph": dy.print_text_graphviz}):
-          if self.dev_zero:
-            self.checkpoint_and_save(save_fct)
-            self.dev_zero = False
           dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
           with self.train_loss_tracker.time_tracker:
             self.model.set_train(True)
@@ -149,9 +149,9 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
               self.backward(loss, self.dynet_profiling)
               self.update(self.trainer)
           self.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
-          if self.checkpoint_needed():
-            self.checkpoint_and_save(save_fct)
-          if self.should_stop_training(): break
+        if self.checkpoint_needed():
+          self.checkpoint_and_save(save_fct)
+        if self.should_stop_training(): break
 
   def checkpoint_and_save(self, save_fct):
     should_save = self.checkpoint()
