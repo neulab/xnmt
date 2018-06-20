@@ -126,14 +126,17 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
     self.report_path = kwargs.get("report_path", None)
     self.report_type = kwargs.get("report_type", None)
 
-  def calc_loss(self, src, trg, loss_calculator):
+  def _encode_src(self, src):
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder(embeddings)
     self.attender.init_sent(encodings)
-    # Initialize the hidden state from the encoder
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
     initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
+    return initial_state
+
+  def calc_loss(self, src, trg, loss_calculator):
+    initial_state = self._encode_src(src)
     # Compose losses
     model_loss = FactoredLossExpr()
     model_loss.add_factored_loss_expr(loss_calculator.calc_loss(self, initial_state, src, trg))
@@ -168,12 +171,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
     # Generating outputs
     outputs = []
     for sents in src:
-      self.start_sent(src)
-      embeddings = self.src_embedder.embed_sent(src)
-      encodings = self.encoder(embeddings)
-      self.attender.init_sent(encodings)
-      ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
-      initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
+      initial_state = self._encode_src(src)
       search_outputs = search_strategy.generate_output(self, initial_state,
                                                        src_length=[len(sents)],
                                                        forced_trg_ids=forced_trg_ids)

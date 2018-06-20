@@ -40,11 +40,15 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
     return [{".src_embedder.emb_dim", ".encoder.input_dim"},
             {".encoder.hidden_dim", ".mlp.input_dim"}]
 
-  def calc_loss(self, src, trg, loss_calculator):
+  def _encode_src(self, src):
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     self.encoder(embeddings)
     scores = self.mlp(self.encoder.get_final_states()[-1].main_expr())
+    return scores
+
+  def calc_loss(self, src, trg, loss_calculator):
+    scores = self._encode_src(src)
     if not batcher.is_batched(trg):
       loss_expr = dy.pickneglogsoftmax(scores, trg.value)
     else:
@@ -58,10 +62,7 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
       src = batcher.mark_as_batch([src])
     outputs = []
     for sents in src:
-      self.start_sent(sents)
-      embeddings = self.src_embedder.embed_sent(sents)
-      self.encoder(embeddings)
-      scores = self.mlp(self.encoder.get_final_states()[-1].main_expr())
+      scores = self._encode_src(sents)
       logsoftmax = dy.log_softmax(scores).npvalue()
       output_actions = np.argmax(logsoftmax)
       score = np.max(logsoftmax)

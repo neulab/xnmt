@@ -44,12 +44,21 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
   def get_primary_loss(self):
     return "mle"
 
-  def calc_loss(self, src, trg, loss_calculator):
-    assert batcher.is_batched(src) and batcher.is_batched(trg)
+  def _encode_src(self, src):
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder(embeddings)
+    encodings_tensor = encodings.as_tensor()
     ((hidden_dim, seq_len), batch_size) = encodings.dim()
+    encoding_reshaped = dy.reshape(encodings_tensor, (hidden_dim,), batch_size=batch_size * seq_len)
+    outputs = self.mlp(encoding_reshaped)
+    return batch_size, encodings, outputs, seq_len
+
+  def calc_loss(self, src, trg, loss_calculator):
+    assert batcher.is_batched(src) and batcher.is_batched(trg)
+    batch_size, encodings, outputs, seq_len = self._encode_src(src)
+    masked_outputs = dy.cmult(outputs, dy.inputTensor(1.0 - encodings.mask.np_arr.reshape((seq_len * batch_size,)),
+                                                      batched=True))
     if len(trg[0]) != seq_len:
       if self.auto_cut_pad:
         old_mask = trg.mask
@@ -65,11 +74,6 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
             trg.mask = np.pad(old_mask.np_arr, pad_width=((0,0), (0,pad_len)), mode="constant", constant_values=1)
       else:
         raise ValueError(f"src/trg length do not match: {seq_len} != {len(trg[0])}")
-    encodings_tensor = encodings.as_tensor()
-    encoding_reshaped = dy.reshape(encodings_tensor, (hidden_dim,), batch_size=batch_size*seq_len)
-    outputs = self.mlp(encoding_reshaped)
-    masked_outputs = dy.cmult(outputs, dy.inputTensor(1.0 - encodings.mask.np_arr.reshape((seq_len * batch_size,)),
-                                                      batched=True))
     ref_action = np.asarray([sent.words for sent in trg]).reshape((seq_len * batch_size,))
     loss_expr_perstep = dy.pickneglogsoftmax_batch(masked_outputs, ref_action)
     loss_expr = dy.sum_elems(dy.reshape(loss_expr_perstep, (seq_len,), batch_size=batch_size))
@@ -85,13 +89,7 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
       src = batcher.mark_as_batch([src])
     assert len(src) == 1, "batch size > 1 not properly tested"
 
-    self.start_sent(src)
-    embeddings = self.src_embedder.embed_sent(src)
-    encodings = self.encoder(embeddings)
-    encodings_tensor = encodings.as_tensor()
-    ((hidden_dim, seq_len), batch_size) = encodings_tensor.dim()
-    encoding_reshaped = dy.reshape(encodings_tensor, (hidden_dim,), batch_size=batch_size*seq_len)
-    outputs = self.mlp(encoding_reshaped)
+    batch_size, encodings, outputs, seq_len = self._encode_src(src)
     loss_expr_perstep = dy.log_softmax(outputs)
     scores = loss_expr_perstep.npvalue() # vocab_size x seq_len
     output_actions = [np.argmax(scores[:,j]) for j in range(seq_len)]
