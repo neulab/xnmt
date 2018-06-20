@@ -161,7 +161,6 @@ class Batcher(object):
         max_src = max(_len_or_zero(src[i]), max_src)
         max_trg = max(_len_or_zero(trg[i]), max_trg)
         if (max_src+max_trg)*(len(src_curr)+1) > self.batch_size and len(src_curr)>0:
-          print("Batching!")
           self._add_single_batch(src_curr, trg_curr, src_ret, trg_ret, sort_by_trg_len=self.sort_within_by_trg_len)
           max_src = _len_or_zero(src[i])
           max_trg = _len_or_zero(trg[i])
