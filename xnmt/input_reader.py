@@ -14,6 +14,7 @@ import sentencepiece as spm
 from xnmt import logger
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
 from xnmt.persistence import serializable_init, Serializable
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.vocab import Vocab
 import xnmt.input
 
@@ -122,28 +123,48 @@ class PlainTextReader(BaseTextReader, Serializable):
   def vocab_size(self):
     return len(self.vocab)
 
-class SubwordSampleTextReader(BaseTextReader, Serializable):
+class SentencePieceTextReader(BaseTextReader, Serializable):
   """
-  Handles the sampling for subword regularization.
+  Read in text and segment it with sentencepiece. Optionally perform sampling
+  for subword regularization, only at training time.
   https://arxiv.org/pdf/1804.10959.pdf 
   """
-  yaml_tag = '!SubwordSampleTextReader'
+  yaml_tag = '!SentencePieceTextReader'
 
+  @register_xnmt_handler
   @serializable_init
-  def __init__(self, model_file, l=-1, alpha=0.1, vocab=None, include_vocab_reference=False):
+  def __init__(self, model_file, sample_train=False, l=-1, alpha=0.1, vocab=None, include_vocab_reference=False):
+    """
+    Args:
+      model_file: The sentence piece model file
+      sample_train: On the training set, sample outputs
+      l: The "l" parameter for subword regularization, how many sentences to sample
+      alpha: The "alpha" parameter for subword regularization, how much to smooth the distribution
+      vocab: The vocabulary
+      include_vocab_reference: Whether to include the vocab with the input
+    """
     self.subword_model = spm.SentencePieceProcessor()
     self.subword_model.Load(model_file)
+    self.sample_train = sample_train
     self.l = l
     self.alpha = alpha
     self.vocab = vocab
     self.include_vocab_reference = include_vocab_reference
+    self.train = False
     if vocab is not None:
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
 
-  def read_sent(self, line):
+  @handle_xnmt_event
+  def on_set_train(self, val):
+    self.train = val
+
+  def read_sent(self, sentence):
     vocab_reference = self.vocab if self.include_vocab_reference else None
-    words = self.subword_model.SampleEncode(line.strip(), self.l, self.alpha)
+    if self.sample_train and self.train:
+      words = self.subword_model.SampleEncodeAsPieces(sentence.strip(), self.l, self.alpha)
+    else:
+      words = self.subword_model.EncodeAsPieces(sentence.strip())
     return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
                                                        [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
 

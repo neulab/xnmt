@@ -11,7 +11,7 @@ from xnmt.loss_tracker import TrainLossTracker
 from xnmt.loss_calculator import LossCalculator, AutoRegressiveMLELoss
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt import training_task, optimizer, batcher, eval_task
+from xnmt import training_task, optimizer, batcher, eval_task, util
 
 class TrainingRegimen(object):
   """
@@ -139,15 +139,16 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
         if self.dev_zero:
           self.checkpoint_and_save(save_fct)
           self.dev_zero = False
-        dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-        with self.train_loss_tracker.time_tracker:
-          self.model.set_train(True)
-          loss_builder = self.training_step(src, trg)
-          loss = loss_builder.compute()
-          if update_weights:
-            self.backward(loss, self.dynet_profiling)
-            self.update(self.trainer)
-        self.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
+        with util.ReportOnException({"src": src, "trg": trg, "graph": dy.print_text_graphviz}):
+          dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+          with self.train_loss_tracker.time_tracker:
+            self.model.set_train(True)
+            loss_builder = self.training_step(src, trg)
+            loss = loss_builder.compute()
+            if update_weights:
+              self.backward(loss, self.dynet_profiling)
+              self.update(self.trainer)
+          self.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
         if self.checkpoint_needed():
           self.checkpoint_and_save(save_fct)
         if self.should_stop_training(): break

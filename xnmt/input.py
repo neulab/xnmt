@@ -85,6 +85,9 @@ class SimpleSentenceInput(Input):
     self.words = words
     self.vocab = vocab
 
+  def __repr__(self):
+    return '{}'.format(self.words)
+
   def __len__(self):
     return len(self.words)
 
