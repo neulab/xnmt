@@ -52,3 +52,24 @@ class RollingStatistic(object):
       self.stddev = math.sqrt(self.variance)
     else:
       assert len(self.vals) < self.N
+
+class ReportOnException(object):
+  """
+  Context manager that prints debug information when an exception occurs.
+
+  Args:
+    args: a dictionary containing debug info. Callable items are called, other items are passed to logger.error()
+  """
+  def __init__(self, args: dict):
+    self.args = args
+  def __enter__(self):
+    return self
+  def __exit__(self, et, ev, traceback):
+    if et is not None: # exception occurred
+      logger.error("------ Fatal Error During Training! ------")
+      for key, val in self.args.items():
+        logger.error(f"*** {key} ***")
+        if callable(val):
+          val()
+        else:
+          logger.error(str(val))

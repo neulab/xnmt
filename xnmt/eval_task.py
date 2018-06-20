@@ -14,6 +14,7 @@ from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
 from xnmt.loss import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate
+from xnmt import util
 
 class EvalTask(object):
   """
@@ -72,16 +73,17 @@ class LossEvalTask(EvalTask, Serializable):
     loss_val = FactoredLossVal()
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
-      dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+      with util.ReportOnException({"src": src, "trg": trg, "graph": dy.print_text_graphviz}):
+        dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
 
-      loss_builder = FactoredLossExpr()
-      standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-      additional_loss = self.model.calc_additional_loss(standard_loss)
-      loss_builder.add_factored_loss_expr(standard_loss)
-      loss_builder.add_factored_loss_expr(additional_loss)
+        loss_builder = FactoredLossExpr()
+        standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
+        additional_loss = self.model.calc_additional_loss(standard_loss)
+        loss_builder.add_factored_loss_expr(standard_loss)
+        loss_builder.add_factored_loss_expr(additional_loss)
 
-      ref_words_cnt += self.model.trg_reader.count_words(trg)
-      loss_val += loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method)
+        ref_words_cnt += self.model.trg_reader.count_words(trg)
+        loss_val += loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method)
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
 

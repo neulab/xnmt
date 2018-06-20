@@ -156,16 +156,19 @@ class Batcher(object):
                                src_ret, trg_ret,
                                sort_by_trg_len=self.sort_within_by_trg_len)
     elif self.granularity == 'word':
-      my_size = 0
+      max_src, max_trg = 0, 0
       for i in order:
-        my_size += _len_or_zero(src[i]) + _len_or_zero(trg[i])
-        if my_size > self.batch_size and len(src_curr)>0:
+        max_src = max(_len_or_zero(src[i]), max_src)
+        max_trg = max(_len_or_zero(trg[i]), max_trg)
+        if (max_src+max_trg)*(len(src_curr)+1) > self.batch_size and len(src_curr)>0:
           self._add_single_batch(src_curr, trg_curr, src_ret, trg_ret, sort_by_trg_len=self.sort_within_by_trg_len)
-          my_size = len(src[i]) + len(trg[i])
-          src_curr = []
-          trg_curr = []
-        src_curr.append(src[i])
-        trg_curr.append(trg[i])
+          max_src = _len_or_zero(src[i])
+          max_trg = _len_or_zero(trg[i])
+          src_curr = [src[i]]
+          trg_curr = [trg[i]]
+        else:
+          src_curr.append(src[i])
+          trg_curr.append(trg[i])
       self._add_single_batch(src_curr, trg_curr, src_ret, trg_ret, sort_by_trg_len=self.sort_within_by_trg_len)
     else:
       raise RuntimeError("Illegal granularity specification {}".format(self.granularity))
