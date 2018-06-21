@@ -15,6 +15,23 @@ NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 class Inference(object):
   """
   A template class for classes that perform inference.
+
+  Args:
+    src_file: path of input src file to be translated
+    trg_file: path of file where trg translatons will be written
+    ref_file: path of file with reference translations, e.g. for forced decoding
+    max_src_len: Remove sentences from data to decode that are longer than this on the source side
+    max_num_sents:
+    post_process: post-processing of translation outputs
+                  (available string shortcuts:  ``none``,``join-char``,``join-bpe``,``join-piece``)
+    mode: type of decoding to perform.
+
+            * ``onebest``: generate one best.
+            * ``forced``: perform forced decoding.
+            * ``forceddebug``: perform forced decoding, calculate training loss, and make sure the scores are identical
+              for debugging purposes.
+            * ``score``: output scores, useful for rescoring
+    batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
   """
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
@@ -176,17 +193,33 @@ class IndependentOutputInference(Inference, Serializable):
   Assumes that generator.generate() takes arguments src, idx
 
   Args:
-    batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
+  Args:
+    src_file: path of input src file to be translated
+    trg_file: path of file where trg translatons will be written
+    ref_file: path of file with reference translations, e.g. for forced decoding
+    max_src_len: Remove sentences from data to decode that are longer than this on the source side
+    max_num_sents:
     post_process: post-processing of translation outputs
                   (available string shortcuts:  ``none``,``join-char``,``join-bpe``,``join-piece``)
+    mode: type of decoding to perform.
+
+            * ``onebest``: generate one best.
+            * ``forced``: perform forced decoding.
+            * ``forceddebug``: perform forced decoding, calculate training loss, and make sure the scores are identical
+              for debugging purposes.
+            * ``score``: output scores, useful for rescoring
+    batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
   """
   yaml_tag = "!IndependentOutputInference"
 
   @serializable_init
-  def __init__(self, batcher=Ref("train.batcher", default=None),
-               post_process: Union[str, output.OutputProcessor] = bare(output.PlainTextOutputProcessor))\
-          -> None:
-    super().__init__(batcher=batcher, post_process=post_process)
+  def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
+               max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
+               post_process: Union[str, output.OutputProcessor] = bare(output.PlainTextOutputProcessor),
+               mode: str = "onebest",
+               batcher: Optional[xnmt.batcher.Batcher] = Ref("train.batcher", default=None)):
+    super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
+                     max_num_sents=max_num_sents, post_process=post_process, mode=mode, batcher=batcher)
 
   def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids,
                    post_processor: output.OutputProcessor) -> List[output.Output]:
