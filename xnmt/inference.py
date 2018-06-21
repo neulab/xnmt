@@ -22,8 +22,6 @@ class Inference(object):
     ref_file: path of file with reference translations, e.g. for forced decoding
     max_src_len: Remove sentences from data to decode that are longer than this on the source side
     max_num_sents:
-    post_process: post-processing of translation outputs
-                  (available string shortcuts:  ``none``,``join-char``,``join-bpe``,``join-piece``)
     mode: type of decoding to perform.
 
             * ``onebest``: generate one best.
@@ -35,7 +33,6 @@ class Inference(object):
   """
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
-               post_process: Union[str, output.OutputProcessor] = bare(output.PlainTextOutputProcessor),
                mode: str = "onebest",
                batcher: Optional[xnmt.batcher.Batcher] = Ref("train.batcher", default=None)):
     self.src_file = src_file
@@ -43,12 +40,10 @@ class Inference(object):
     self.ref_file = ref_file
     self.max_src_len = max_src_len
     self.max_num_sents = max_num_sents
-    self.post_processor = output.OutputProcessor.get_output_processor(post_process)
     self.mode = mode
     self.batcher = batcher
 
-  def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids,
-                   post_processor: output.OutputProcessor) -> List[output.Output]:
+  def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids) -> List[output.Output]:
     # TODO: src should probably a batch of inputs for consistency with return values being a batch of outputs
     raise NotImplementedError("must be implemented by subclasses")
 
@@ -84,12 +79,11 @@ class Inference(object):
 
     if self.mode != 'score':
       self._generate_output(generator=generator, forced_ref_corpus=ref_corpus, assert_scores=ref_scores,
-                            src_corpus=src_corpus, trg_file=trg_file, post_processor=self.post_processor,
-                            batcher=self.batcher, max_src_len=self.max_src_len)
+                            src_corpus=src_corpus, trg_file=trg_file, batcher=self.batcher,
+                            max_src_len=self.max_src_len)
 
   def _generate_output(self, generator: model_base.GeneratorModel, src_corpus: Sequence[xnmt.input.Input],
-                       trg_file: str, post_processor: output.OutputProcessor,
-                       batcher: Optional[xnmt.batcher.Batcher] = None, max_src_len: Optional[int] = None,
+                       trg_file: str, batcher: Optional[xnmt.batcher.Batcher] = None, max_src_len: Optional[int] = None,
                        forced_ref_corpus: Optional[Sequence[xnmt.input.Input]] = None,
                        assert_scores: Optional[Sequence[float]] = None) -> None:
     """
@@ -99,7 +93,6 @@ class Inference(object):
       generator: generator model to use
       src_corpus: src-side inputs to generate outputs for
       trg_file: file to write outputs to
-      post_processor: how to convert outputs to readable strings
       batcher: necessary with some cases of input pre-processing such as padding or truncation
       max_src_len: if given, skip inputs that are too long
       forced_ref_corpus: if given, perform forced decoding with the given trg-side inputs
@@ -114,12 +107,12 @@ class Inference(object):
         else:
           ref_ids = forced_ref_corpus[i] if forced_ref_corpus is not None else None
           dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-          output = self.generate_one(generator, src, i, ref_ids, post_processor)
+          outputs = self.generate_one(generator, src, i, ref_ids)
           # If debugging forced decoding, make sure it matches
-          if assert_scores is not None and (abs(output[0].score - assert_scores[i]) / abs(assert_scores[i])) > 1e-5:
+          if assert_scores is not None and (abs(outputs[0].score - assert_scores[i]) / abs(assert_scores[i])) > 1e-5:
             raise ValueError(
-              f'Forced decoding score {output[0].score} and loss {assert_scores[i]} do not match at sentence {i}')
-          output_txt = output[0].plaintext
+              f'Forced decoding score {outputs[0].score} and loss {assert_scores[i]} do not match at sentence {i}')
+          output_txt = outputs[0].plaintext
         # Printing to trg file
         fp.write(f"{output_txt}\n")
 
@@ -219,35 +212,19 @@ class IndependentOutputInference(Inference, Serializable):
                mode: str = "onebest",
                batcher: Optional[xnmt.batcher.Batcher] = Ref("train.batcher", default=None)):
     super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
-                     max_num_sents=max_num_sents, post_process=post_process, mode=mode, batcher=batcher)
+                     max_num_sents=max_num_sents, mode=mode, batcher=batcher)
+    self.post_processor = output.OutputProcessor.get_output_processor(post_process)
 
-  def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids,
-                   post_processor: output.OutputProcessor) -> List[output.Output]:
-    output = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids)
-    post_processor.process_outputs(output)
-    return output
+  def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids)\
+          -> List[output.Output]:
+    outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids)
+    self.post_processor.process_outputs(outputs)
+    return outputs
 
   def compute_losses_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input,
                          ref: xnmt.input.Input) -> loss.FactoredLossExpr:
     loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calculator.AutoRegressiveMLELoss())
     return loss_expr
-
-
-
-  # def perform_inference(self, generator, src_file=None, trg_file=None):
-  #   src_corpus = list(generator.src_reader.read_sents(src_file))
-  #   with open(trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
-  #     for i, src in enumerate(src_corpus):
-  #       # This is necessary when the batcher does some sort of pre-processing, e.g.
-  #       # when the batcher pads to a particular number of dimensions
-  #       if self.batcher:
-  #         src = self.batcher.create_single_batch(src_sents=[src])[0]
-  #
-  #       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-  #       output = generator.generate(src, i)
-  #       self.post_processor.process_outputs(output)
-  #       output_txt = output[0].plaintext
-  #       fp.write(f"{output_txt}\n")
 
 class AutoRegressiveInference(Inference, Serializable):
   """
@@ -287,17 +264,18 @@ class AutoRegressiveInference(Inference, Serializable):
                mode: str = "onebest",
                batcher: Optional[xnmt.batcher.Batcher] = Ref("train.batcher", default=None)):
     super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
-                     max_num_sents=max_num_sents, post_process=post_process, mode=mode, batcher=batcher)
+                     max_num_sents=max_num_sents, mode=mode, batcher=batcher)
 
+    self.post_processor = output.OutputProcessor.get_output_processor(post_process)
     self.report_path = report_path
     self.report_type = report_type
     self.search_strategy = search_strategy
 
-  def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids,
-                   post_processor: output.OutputProcessor) -> List[output.Output]:
-    output = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids, search_strategy=self.search_strategy)
-    post_processor.process_outputs(output)
-    return output
+  def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids)\
+          -> List[output.Output]:
+    outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids, search_strategy=self.search_strategy)
+    self.post_processor.process_outputs(outputs)
+    return outputs
 
   def compute_losses_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input,
                          ref: xnmt.input.Input) -> loss.FactoredLossExpr:
