@@ -57,17 +57,19 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
     return classifier_loss
 
   def generate(self, src, idx, forced_trg_ids=None):
-    if forced_trg_ids is not None: raise NotImplementedError()
     if not batcher.is_batched(src):
       src = batcher.mark_as_batch([src])
     outputs = []
     for sents in src:
       scores = self._encode_src(sents)
       logsoftmax = dy.log_softmax(scores).npvalue()
-      output_actions = np.argmax(logsoftmax)
-      score = np.max(logsoftmax)
+      if forced_trg_ids:
+        output_action = forced_trg_ids[0]
+      else:
+        output_action = np.argmax(logsoftmax)
+      score = logsoftmax[output_action]
       # Append output to the outputs
-      outputs.append(output.ScalarOutput(actions=[output_actions],
+      outputs.append(output.ScalarOutput(actions=[output_action],
                                          vocab=None,
                                          score=score))
     return outputs
