@@ -76,7 +76,10 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
         raise ValueError(f"src/trg length do not match: {seq_len} != {len(trg[0])}")
     ref_action = np.asarray([sent.words for sent in trg]).reshape((seq_len * batch_size,))
     loss_expr_perstep = dy.pickneglogsoftmax_batch(masked_outputs, ref_action)
-    loss_expr = dy.sum_elems(dy.reshape(loss_expr_perstep, (seq_len,), batch_size=batch_size))
+    loss_expr_perstep = dy.reshape(loss_expr_perstep, (seq_len,), batch_size=batch_size)
+    if trg.mask:
+      loss_expr_perstep = dy.cmult(loss_expr_perstep, dy.inputTensor(1.0-trg.mask.np_arr.T, batched=True))
+    loss_expr = dy.sum_elems(loss_expr_perstep)
 
     model_loss = loss.FactoredLossExpr()
     model_loss.add_loss("mle", loss_expr)
@@ -84,7 +87,6 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
     return model_loss
 
   def generate(self, src, idx, forced_trg_ids=None):
-    if forced_trg_ids is not None: raise NotImplementedError()
     if not batcher.is_batched(src):
       src = batcher.mark_as_batch([src])
     assert len(src) == 1, "batch size > 1 not properly tested"
@@ -92,8 +94,12 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
     batch_size, encodings, outputs, seq_len = self._encode_src(src)
     loss_expr_perstep = dy.log_softmax(outputs)
     scores = loss_expr_perstep.npvalue() # vocab_size x seq_len
-    output_actions = [np.argmax(scores[:,j]) for j in range(seq_len)]
-    score = np.sum([np.max(scores[:,j]) for j in range(seq_len)])
+
+    if forced_trg_ids:
+      output_actions = forced_trg_ids
+    else:
+      output_actions = [np.argmax(scores[:, j]) for j in range(seq_len)]
+    score = np.sum([scores[output_actions[j], j] for j in range(seq_len)])
 
     outputs = [output.TextOutput(actions=output_actions,
                       vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
