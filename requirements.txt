@@ -7,4 +7,3 @@ cython
 h5py
 asteval
 numpy
-sentencepiece>=0.0.6
