@@ -9,8 +9,6 @@ with warnings.catch_warnings():
   warnings.simplefilter("ignore", lineno=36)
   import h5py
 
-import sentencepiece as spm
-
 from xnmt import logger
 from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
 from xnmt.persistence import serializable_init, Serializable
@@ -143,6 +141,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
       vocab: The vocabulary
       include_vocab_reference: Whether to include the vocab with the input
     """
+    import sentencepiece as spm
     self.subword_model = spm.SentencePieceProcessor()
     self.subword_model.Load(model_file)
     self.sample_train = sample_train
