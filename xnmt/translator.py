@@ -10,7 +10,7 @@ from lxml import etree
 from xnmt.settings import settings
 
 from xnmt.attender import MlpAttender
-from xnmt.batcher import Batch, mark_as_batch, is_batched
+from xnmt.batcher import Batch, mark_as_batch, is_batched, Mask
 from xnmt.decoder import MlpSoftmaxDecoder, MlpSoftmaxDecoderState
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
@@ -174,7 +174,10 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
     outputs = []
     cur_forced_trg = None
     for sent_i, sent in enumerate(src):
-      initial_state = self._encode_src(mark_as_batch([sent]))
+      sent_mask = None
+      if src.mask: sent_mask = Mask(np_arr=src.mask.np_arr[sent_i:sent_i+1])
+      sent_batch = mark_as_batch([sent], mask=sent_mask)
+      initial_state = self._encode_src(sent_batch)
       if forced_trg_ids: cur_forced_trg = forced_trg_ids[sent_i]
       search_outputs = search_strategy.generate_output(self, initial_state,
                                                        src_length=[len(sent)],
