@@ -62,15 +62,14 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
       if forced_trg_ids:
         forced_trg_ids = batcher.mark_as_batch([forced_trg_ids])
     outputs = []
-    for sent_i, sent in enumerate(src):
-      scores = self._encode_src(sent)
-      logsoftmax = dy.log_softmax(scores).npvalue()
-      if forced_trg_ids:
-        output_action = forced_trg_ids[sent_i]
-      else:
-        output_action = np.argmax(logsoftmax)
-      score = logsoftmax[output_action]
-      # Append output to the outputs
+    scores = self._encode_src(src)
+    logsoftmax = dy.log_softmax(scores).npvalue()
+    if forced_trg_ids:
+      output_action = forced_trg_ids
+    else:
+      output_action = np.argmax(logsoftmax, axis=0)
+    for batch_i in range(len(src)):
+      score = logsoftmax[:, batch_i][output_action[batch_i]]
       outputs.append(output.ScalarOutput(actions=[output_action],
                                          vocab=None,
                                          score=score))
