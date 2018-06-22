@@ -71,7 +71,7 @@ class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
     self.attention.append((model.add_parameters((attention_dim, rhn_dim)),
                            model.add_parameters(attention_dim, )))
 
-  def __call__(self, src):
+  def transduce(self, src):
     src = src.as_tensor()
     # convolutional layer
     src = padding(src, src.dim()[0][0], src.dim()[0][1], self.filter_width, self.stride, src.dim()[1])
@@ -137,7 +137,7 @@ class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
     self.filters3 = model.add_parameters(dim=(self.filter_height[2], self.filter_width[2], self.channels[2], self.num_filters[2]),
                                          init=normalInit)
 
-  def __call__(self, src):
+  def transduce(self, src):
     src = src.as_tensor()
 
     src_height = src.dim()[0][0]
@@ -193,7 +193,7 @@ class HarwathImageTransducer(Transducer, Serializable):
     self.pW = model.add_parameters(dim = (self.out_height, self.in_height), init=normalInit)
     self.pb = model.add_parameters(dim = self.out_height)
 
-  def __call__(self, src):
+  def transduce(self, src):
     src = src.as_tensor()
 
     src_height = src.dim()[0][0]

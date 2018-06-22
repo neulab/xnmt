@@ -48,7 +48,7 @@ class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
   def on_set_train(self, val):
     self.train = val
 
-  def __call__(self, expr_seq):
+  def transduce(self, expr_seq):
     """
     transduce the sequence
 

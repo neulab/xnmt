@@ -129,7 +129,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
   def _encode_src(self, src):
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
-    encodings = self.encoder(embeddings)
+    encodings = self.encoder.transduce(embeddings)
     self.attender.init_sent(encodings)
     ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
     initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
@@ -428,7 +428,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
     yy_mask = self.make_attention_mask(trg_mask, trg_mask)
     yy_mask *= self.make_history_mask(trg_mask)
 
-    z_blocks = self.encoder(src_embeddings, xx_mask)
+    z_blocks = self.encoder.transduce(src_embeddings, xx_mask)
     h_block = self.decoder(trg_embeddings, z_blocks, xy_mask, yy_mask)
 
     if infer_prediction:

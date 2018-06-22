@@ -44,7 +44,7 @@ class TestEncoder(unittest.TestCase):
     src = self.src_data[0]
     self.start_sent(src)
     embeddings = model.src_embedder.embed_sent(src)
-    encodings = model.encoder(embeddings)
+    encodings = model.encoder.transduce(embeddings)
     self.assertEqual(len(embeddings), len(encodings))
 
   def test_bi_lstm_encoder_len(self):
@@ -119,7 +119,7 @@ class TestEncoder(unittest.TestCase):
       src = self.src_data[sent_i].get_padded_sent(Vocab.ES, 4 - (len(self.src_data[sent_i]) % 4))
       self.start_sent(src)
       embeddings = model.src_embedder.embed_sent(src)
-      encodings = model.encoder(embeddings)
+      encodings = model.encoder.transduce(embeddings)
       self.assertEqual(int(math.ceil(len(embeddings) / float(4))), len(encodings))
 
   def test_py_lstm_mask(self):
@@ -148,7 +148,7 @@ class TestEncoder(unittest.TestCase):
       src = train_src[sent_i]
       self.start_sent(src)
       embeddings = model.src_embedder.embed_sent(src)
-      encodings = model.encoder(embeddings)
+      encodings = model.encoder.transduce(embeddings)
       if train_src[sent_i].mask is None:
         assert encodings.mask is None
       else:

@@ -47,7 +47,7 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
   def _encode_src(self, src):
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
-    encodings = self.encoder(embeddings)
+    encodings = self.encoder.transduce(embeddings)
     encodings_tensor = encodings.as_tensor()
     ((hidden_dim, seq_len), batch_size) = encodings.dim()
     encoding_reshaped = dy.reshape(encodings_tensor, (hidden_dim,), batch_size=batch_size * seq_len)

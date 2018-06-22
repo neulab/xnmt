@@ -43,7 +43,7 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
   def _encode_src(self, src):
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
-    self.encoder(embeddings)
+    self.encoder.transduce(embeddings)
     scores = self.mlp(self.encoder.get_final_states()[-1].main_expr())
     return scores
 
