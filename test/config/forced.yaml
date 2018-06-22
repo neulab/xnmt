@@ -42,7 +42,7 @@ forced: !Experiment
       inference: !AutoRegressiveInference
         mode: forced
         ref_file: examples/data/head.en
-        batcher: !InOrderBatcher { batch_size: 32 }
+        batcher: !InOrderBatcher { batch_size: 1 }
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
       hyp_file: test/tmp/{EXP}.forced_hyp
@@ -51,7 +51,7 @@ forced: !Experiment
       inference: !AutoRegressiveInference
         mode: forceddebug
         ref_file: examples/data/head.en
-        batcher: !InOrderBatcher { batch_size: 32 }
+        batcher: !InOrderBatcher { batch_size: 1 }
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
       hyp_file: test/tmp/{EXP}.forceddebug_hyp

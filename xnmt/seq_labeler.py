@@ -89,6 +89,8 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
   def generate(self, src, idx, forced_trg_ids=None):
     if not batcher.is_batched(src):
       src = batcher.mark_as_batch([src])
+      if forced_trg_ids:
+        forced_trg_ids = batcher.mark_as_batch([forced_trg_ids])
     assert len(src) == 1, "batch size > 1 not properly tested"
 
     batch_size, encodings, outputs, seq_len = self._encode_src(src)

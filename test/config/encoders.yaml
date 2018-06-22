@@ -110,7 +110,9 @@ exp3-pyramidal-encoder: !Experiment
         input_feeding: True
         bridge: !CopyBridge {}
       inference: !AutoRegressiveInference
-        batcher: !Ref {name: batcher3}
+        batcher: !InOrderBatcher
+          batch_size: 5
+          pad_src_to_multiple: 4
 exp4-modular-encoder: !Experiment
   kwargs:
     << : *defaults
@@ -152,5 +154,7 @@ exp4-modular-encoder: !Experiment
         input_feeding: True
         bridge: !CopyBridge {}
       inference: !AutoRegressiveInference
-        batcher: !Ref {name: batcher4}
+        batcher: !InOrderBatcher
+          batch_size: 5
+          pad_src_to_multiple: 4
 

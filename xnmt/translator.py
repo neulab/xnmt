@@ -168,13 +168,17 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
   def generate(self, src, idx, search_strategy, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
+      if forced_trg_ids:
+        forced_trg_ids = xnmt.batcher.mark_as_batch([forced_trg_ids])
     # Generating outputs
     outputs = []
-    for sents in src:
-      initial_state = self._encode_src(src)
+    cur_forced_trg = None
+    for sent_i, sent in enumerate(src):
+      initial_state = self._encode_src(mark_as_batch([sent]))
+      if forced_trg_ids: cur_forced_trg = forced_trg_ids[sent_i]
       search_outputs = search_strategy.generate_output(self, initial_state,
-                                                       src_length=[len(sents)],
-                                                       forced_trg_ids=forced_trg_ids)
+                                                       src_length=[len(sent)],
+                                                       forced_trg_ids=cur_forced_trg)
       best_output = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)[0]
       output_actions = [x for x in best_output.word_ids[0]]
       attentions = [x for x in best_output.attentions[0]]
@@ -182,9 +186,9 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
       # In case of reporting
       if self.report_path is not None:
         if self.reporting_src_vocab:
-          src_words = [self.reporting_src_vocab[w] for w in sents]
+          src_words = [self.reporting_src_vocab[w] for w in sent]
         else:
-          src_words = ['' for w in sents]
+          src_words = ['' for w in sent]
         trg_words = [self.trg_vocab[w] for w in output_actions]
         # Attentions
         attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)

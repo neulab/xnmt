@@ -34,7 +34,7 @@ class Inference(object):
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
                mode: str = "onebest",
-               batcher: Optional[xnmt.batcher.Batcher] = Ref("train.batcher", default=None)):
+               batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1)):
     self.src_file = src_file
     self.trg_file = trg_file
     self.ref_file = ref_file
@@ -99,28 +99,33 @@ class Inference(object):
       assert_scores: if given, raise exception if the scores for generated outputs don't match the given scores
     """
     with open(trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
-      for i, src in enumerate(src_corpus):
-        if batcher:
-          src = batcher.create_single_batch(src_sents=[src])[0]
-        if max_src_len is not None and len(src) > max_src_len:
-          output_txt = NO_DECODING_ATTEMPTED
+      if forced_ref_corpus:
+        src_batches, ref_batches = batcher.pack(src_corpus, forced_ref_corpus)
+      else:
+        src_batches = batcher.pack(src_corpus, None)
+      cur_sent_i = 0
+      ref_batch = None
+      for batch_i, src_batch in enumerate(src_batches):
+        if max_src_len is not None and len(src_batch[0]) > max_src_len:
+          output_txt = "\n".join([NO_DECODING_ATTEMPTED] * len(src_batch))
+          fp.write(f"{output_txt}\n")
         else:
-          ref_ids = forced_ref_corpus[i] if forced_ref_corpus is not None else None
+          if forced_ref_corpus: ref_batch = ref_batches[batch_i]
           dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-          outputs = self.generate_one(generator, src, i, ref_ids)
+          outputs = self.generate_one(generator, src_batch, range(cur_sent_i,len(src_batch)), ref_batch)
           # If debugging forced decoding, make sure it matches
-          if assert_scores is not None and (abs(outputs[0].score - assert_scores[i]) / abs(assert_scores[i])) > 1e-5:
-            raise ValueError(
-              f'Forced decoding score {outputs[0].score} and loss {assert_scores[i]} do not match at sentence {i}')
-          output_txt = outputs[0].plaintext
-        # Printing to trg file
-        fp.write(f"{output_txt}\n")
+          for i in range(len(src_batch)):
+            if assert_scores is not None:
+              if (abs(outputs[i].score - assert_scores[cur_sent_i + i]) / abs(assert_scores[cur_sent_i + i])) > 1e-5:
+                raise ValueError(
+                  f'Forced decoding score {outputs[0].score} and loss {assert_scores[cur_sent_i + i]} do not match at '
+                  f'sentence {cur_sent_i + i}')
+            output_txt = outputs[i].plaintext
+            fp.write(f"{output_txt}\n")
+        cur_sent_i += len(src_batch)
 
   def _compute_losses(self, generator, ref_corpus, src_corpus) -> List[float]:
-    some_batcher = xnmt.batcher.InOrderBatcher(32)  # Arbitrary
-    if not isinstance(some_batcher, xnmt.batcher.InOrderBatcher):
-      raise ValueError(f"modes 'forceddebug' and 'score' require InOrderBatcher, got: {some_batcher}")
-    batched_src, batched_ref = some_batcher.pack(src_corpus, ref_corpus)
+    batched_src, batched_ref = self.batcher.pack(src_corpus, ref_corpus)
     ref_scores = []
     for src, ref in zip(batched_src, batched_ref):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
@@ -210,7 +215,7 @@ class IndependentOutputInference(Inference, Serializable):
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
                post_process: Union[str, output.OutputProcessor] = bare(output.PlainTextOutputProcessor),
                mode: str = "onebest",
-               batcher: Optional[xnmt.batcher.Batcher] = Ref("train.batcher", default=None)):
+               batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1)):
     super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
                      max_num_sents=max_num_sents, mode=mode, batcher=batcher)
     self.post_processor = output.OutputProcessor.get_output_processor(post_process)
@@ -262,7 +267,7 @@ class AutoRegressiveInference(Inference, Serializable):
                report_path: Optional[str] = None, report_type: str = "html",
                search_strategy: search_strategy.SearchStrategy = bare(search_strategy.BeamSearch),
                mode: str = "onebest",
-               batcher: Optional[xnmt.batcher.Batcher] = Ref("train.batcher", default=None)):
+               batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1)):
     super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
                      max_num_sents=max_num_sents, mode=mode, batcher=batcher)
 
