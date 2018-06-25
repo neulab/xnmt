@@ -24,10 +24,10 @@ reload: !Experiment
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         hidden_dim: 64
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     batcher: !SrcBatcher
       batch_size: 32

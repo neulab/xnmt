@@ -18,16 +18,16 @@ class Transducer(object):
   - __init__(...), should be used to configure the transducer. If possible, configuration
   should be transparent to a user and not require understanding of implementation
   details. If the transducer uses DyNet parameters, these must be initialized here.
-  - __call__(...), will perform the actual transduction and return the result
+  - transduce(...), will perform the actual transduction and return the result
   """
-  def __call__(self, *args, **kwargs):
+  def transduce(self, *args, **kwargs):
     """
     May take any parameters.
     
     Returns:
       result of transduction
     """
-    raise NotImplementedError("subclasses must implement __call__()")
+    raise NotImplementedError("must be implemented by subclasses")
 
 class SeqTransducer(Transducer):
   """
@@ -35,18 +35,18 @@ class SeqTransducer(Transducer):
   Whenever dealing with sequences, :class:`xnmt.expression_sequence.ExpressionSequence` are preferred because they are more
   powerful and flexible than plain DyNet expressions.
   """
-  def __call__(self, *args, **kwargs):
+  def transduce(self, *args, **kwargs) -> ExpressionSequence:
     """
     Parameters should be :class:`xnmt.expression_sequence.ExpressionSequence` objects wherever appropriate
 
     Returns:
-      result of transduction, an :class:`xnmt.expression_sequence.ExpressionSequence` object
+      result of transduction, an expression sequence
     """
-    raise NotImplementedError("subclasses must implement __call__()")
+    raise NotImplementedError("must be implemented by subclasses")
 
   def get_final_states(self):
     """Returns:
-         A list of FinalTransducerState objects corresponding to a fixed-dimension representation of the input, after having invoked __call__()
+         A list of FinalTransducerState objects corresponding to a fixed-dimension representation of the input, after having invoked transduce()
     """
     return []
 
@@ -79,7 +79,7 @@ class FinalTransducerState(object):
 class ModularSeqTransducer(SeqTransducer, Serializable):
   """
   A sequence transducer that stacks several :class:`xnmt.transducer.SeqTransducer` objects, all of which must
-  accept exactly one argument (an :class:`xnmt.expression_sequence.ExpressionSequence`) in their __call__ method.
+  accept exactly one argument (an :class:`xnmt.expression_sequence.ExpressionSequence`) in their transduce method.
   
   Args:
     input_dim (int): input dimension (not required)
@@ -95,9 +95,9 @@ class ModularSeqTransducer(SeqTransducer, Serializable):
   def shared_params(self):
     return [{".input_dim", ".modules.0.input_dim"}]
 
-  def __call__(self, es):
+  def transduce(self, es):
     for module in self.modules:
-      es = module(es)
+      es = module.transduce(es)
     return es
 
   def get_final_states(self):
@@ -118,7 +118,7 @@ class IdentitySeqTransducer(Transducer, Serializable):
   def __init__(self):
     pass
 
-  def __call__(self, output):
+  def transduce(self, output):
     if not isinstance(output, ExpressionSequence):
       output = ExpressionSequence(expr_list=output)
     return output

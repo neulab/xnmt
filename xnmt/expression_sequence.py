@@ -132,10 +132,7 @@ class ExpressionSequence(object):
     """
     if self.has_tensor(): return self.as_tensor().dim()
     else:
-      if self.tensor_transposed:
-        return tuple([len(self)] + list(self[0].dim()[0])), self[0].dim()[1]
-      else:
-        return tuple(list(self[0].dim()[0]) + [len(self)]), self[0].dim()[1]
+      return tuple(list(self[0].dim()[0]) + [len(self)]), self[0].dim()[1]
 
 class LazyNumpyExpressionSequence(ExpressionSequence):
   """

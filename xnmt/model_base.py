@@ -1,6 +1,8 @@
-from typing import Union
+from typing import Sequence, Union
 
-from xnmt import batcher, events, input, input_reader, loss, loss_calculator, output, training_task
+from xnmt import batcher, events, input, input_reader, loss, output, training_task
+import xnmt.loss_calculator
+import xnmt.input
 
 class TrainableModel(object):
   """
@@ -15,9 +17,9 @@ class TrainableModel(object):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
 
-  def calc_loss(self, src: Union[batcher.Batch, input.Input], trg: Union[batcher.Batch, input.Input],
-                loss_calculator: loss_calculator.LossCalculator) -> loss.FactoredLossExpr:
-    '''Calculate loss based on input-output pairs.
+  def calc_loss(self, src: Union[batcher.Batch, xnmt.input.Input], trg: Union[batcher.Batch, xnmt.input.Input],
+                loss_calculator: xnmt.loss_calculator.LossCalculator) -> loss.FactoredLossExpr:
+    """Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
 
@@ -28,7 +30,7 @@ class TrainableModel(object):
 
     Returns:
       A (possibly batched) expression representing the loss.
-    '''
+    """
 
   def get_primary_loss(self) -> str:
     """
@@ -46,24 +48,24 @@ class GeneratorModel(TrainableModel):
   def initialize_generator(self, **kwargs):
     """
     Initialize generator.
+
+    The exact arguments are left to be specifiec by implementing classes.
     """
     pass
 
-  def generate_output(self, *args, **kwargs) -> output.Output:
+  def generate(self, src: batcher.Batch, idx: Sequence[int], *args, **kwargs) -> Sequence[output.Output]:
     """
-    Generate post-processed outputs.
-    """
-    generation_output = self.generate(*args, **kwargs)
-    if hasattr(self, "post_processor"):
-      self.post_processor.process_outputs(generation_output)
-    return generation_output
+    Generate outputs.
 
-  def generate(self, *args, **kwargs) -> output.Output:
+    Args:
+      src: batch of source-side inputs (:class:``xnmt.input.Input``)
+      idx: list of integers specifying the place of the input sentences in the test corpus
+      *args:
+      **kwargs: Further arguments to be specified by subclasses
+    Returns:
+      output objects
     """
-    Generate unprocessed outputs.
-    """
-    raise NotImplementedError()
-
+    raise NotImplementedError("must be implemented by subclasses")
 
 class EventTrigger(object):
   """
@@ -91,7 +93,7 @@ class EventTrigger(object):
     pass
 
   @events.register_xnmt_event
-  def start_sent(self, src: Union[input.Input, batcher.Batch]) -> None:
+  def start_sent(self, src: Union[xnmt.input.Input, batcher.Batch]) -> None:
     """
     Trigger event indicating the start of a new sentence (or batch of sentences).
 

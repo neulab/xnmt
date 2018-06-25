@@ -43,15 +43,15 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
     normalInit=dy.NormalInitializer(0, 0.1)
 
     self.pConv1 = model.add_parameters(dim = (self.input_dim,self.window_receptor,1,self.internal_dim),init=normalInit)
-    self.pBias1 = model.add_parameters(dim = (self.internal_dim))
+    self.pBias1 = model.add_parameters(dim = (self.internal_dim,))
     self.builder_layers = []
     for _ in range(num_layers):
         conv = model.add_parameters(dim = (self.internal_dim,1,1,self.internal_dim),init=normalInit)
-        bias = model.add_parameters(dim = (self.internal_dim))
+        bias = model.add_parameters(dim = (self.internal_dim,))
         self.builder_layers.append((conv,bias))
 
     self.last_conv = model.add_parameters(dim = (self.internal_dim,1,1,self.output_dim),init=normalInit)
-    self.last_bias = model.add_parameters(dim = (self.output_dim))
+    self.last_bias = model.add_parameters(dim = (self.output_dim,))
 
   def whoami(self): return "ConvConnectedEncoder"
 
@@ -62,7 +62,6 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
     src = embed_sent.as_tensor()
 
     sent_len = src.dim()[0][1]
-    src_width = 1
     batch_size = src.dim()[1]
     pad_size = (self.window_receptor-1)/2 #TODO adapt it also for even window size
 

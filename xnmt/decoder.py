@@ -1,6 +1,6 @@
+from typing import Any
+
 import dynet as dy
-import numpy as np
-import functools
 
 import xnmt.batcher
 import xnmt.linear
@@ -9,23 +9,25 @@ from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt import logger
 from xnmt.bridge import Bridge, CopyBridge
 from xnmt.lstm import UniLSTMSeqTransducer
-from xnmt.mlp import MLP
+from xnmt.mlp import MLP, AttentionalOutputMLP
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref, Path
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 
 class Decoder(object):
-  '''
+  """
   A template class to convert a prefix of previously generated words and
   a context vector into a probability distribution over possible next words.
-  '''
-
-  '''
-  Document me
-  '''
+  """
 
   def calc_loss(self, x, ref_action):
-    raise NotImplementedError('calc_loss must be implemented in Decoder subclasses')
+    raise NotImplementedError('must be implemented by subclasses')
+  def get_scores_logsoftmax(self, get_scores_logsoftmax):
+    raise NotImplementedError('must be implemented by subclasses')
+  def add_input(self, mlp_dec_state, trg_embedding):
+    raise NotImplementedError('must be implemented by subclasses')
+  def initial_state(self, enc_final_states, ss_expr):
+    raise NotImplementedError('must be implemented by subclasses')
 
 class MlpSoftmaxDecoderState(object):
   """A state holding all the information needed for MLPSoftmaxDecoder
@@ -67,7 +69,7 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
                trg_embed_dim: int = Ref("exp_global.default_layer_dim"),
                input_feeding: bool = True,
                rnn_layer: UniLSTMSeqTransducer = bare(UniLSTMSeqTransducer),
-               mlp_layer: MLP = bare(MLP),
+               mlp_layer: MLP = bare(AttentionalOutputMLP),
                bridge: Bridge = bare(CopyBridge),
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False),
                label_smoothing: float = 0.0) -> None:
@@ -99,14 +101,14 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
             {".rnn_layer.hidden_dim", ".bridge.dec_dim"},
             {".rnn_layer.hidden_dim", ".mlp_layer.decoder_rnn_dim"}]
 
-  def initial_state(self, enc_final_states, ss_expr):
+  def initial_state(self, enc_final_states: Any, ss_expr: dy.Expression) -> MlpSoftmaxDecoderState:
     """Get the initial state of the decoder given the encoder final states.
 
     Args:
       enc_final_states: The encoder final states. Usually but not necessarily an :class:`xnmt.expression_sequence.ExpressionSequence`
       ss_expr: first input
     Returns:
-      MlpSoftmaxDecoderState:
+      initial decoder state
     """
     rnn_state = self.rnn_layer.initial_state()
     rnn_state = rnn_state.set_s(self.bridge.decoder_init(enc_final_states))
@@ -114,14 +116,14 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
     rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]))
     return MlpSoftmaxDecoderState(rnn_state=rnn_state, context=zeros)
 
-  def add_input(self, mlp_dec_state, trg_embedding):
+  def add_input(self, mlp_dec_state: MlpSoftmaxDecoderState, trg_embedding: dy.Expression) -> MlpSoftmaxDecoderState:
     """Add an input and update the state.
     
     Args:
-      mlp_dec_state (MlpSoftmaxDecoderState): An object containing the current state.
+      mlp_dec_state: An object containing the current state.
       trg_embedding: The embedding of the word to input.
     Returns:
-      The update MLP decoder state.
+      The updated MLP decoder state.
     """
     inp = trg_embedding
     if self.input_feeding:
@@ -131,11 +133,11 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
     return MlpSoftmaxDecoderState(rnn_state=rnn_state.add_input(inp),
                                   context=mlp_dec_state.context)
 
-  def get_scores(self, mlp_dec_state):
+  def get_scores(self, mlp_dec_state: MlpSoftmaxDecoderState) -> dy.Expression:
     """Get scores given a current state.
 
     Args:
-      mlp_dec_state: An :class:`xnmt.decoder.MlpSoftmaxDecoderState` object.
+      mlp_dec_state: Decoder state with last RNN output and optional context vector.
     Returns:
       Scores over the vocabulary given this state.
     """
@@ -177,7 +179,7 @@ class MlpSoftmaxLexiconDecoder(MlpSoftmaxDecoder, Serializable):
                trg_embed_dim=Ref("exp_global.default_layer_dim"),
                input_feeding=True,
                rnn_layer=bare(UniLSTMSeqTransducer),
-               mlp_layer=bare(MLP),
+               mlp_layer=bare(AttentionalOutputMLP),
                bridge=bare(CopyBridge),
                label_smoothing=0.0,
                lexicon_file=None,

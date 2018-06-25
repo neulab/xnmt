@@ -154,8 +154,8 @@ ParamInitializer
 Inference
 ---------
 
-SimpleInference
-~~~~~~~~~~~~~~~
+AutoRegressiveInference
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: xnmt.inference
    :members:

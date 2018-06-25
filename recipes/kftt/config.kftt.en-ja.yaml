@@ -35,14 +35,14 @@ kftt.en-ja: !Experiment
       bridge: !LinearBridge {}          # Initialize the first state of the decoder with an affine transform of the last state of the encoder
       rnn_layer: !UniLSTMSeqTransducer  # Just your standard LSTM decoder
         layers: 2                       # With 2 layers
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         output_projector: !Ref
           path: model.trg_embedder      # Tie the softmax output to the target word embeddings
         hidden_dim: !Ref
           path: model.trg_embedder.emb_dim
         activation: 'relu'
       label_smoothing: 0.1              # Smooth the output labels with the uniform distribution
-    inference: !SimpleInference
+    inference: !AutoRegressiveInference
       search_strategy: !BeamSearch
         beam_size: 5
         len_norm: !PolynomialNormalization

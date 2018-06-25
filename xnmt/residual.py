@@ -75,7 +75,7 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
   def on_start_sent(self, src):
     self._final_states = None
 
-  def __call__(self, sent):
+  def transduce(self, sent):
     output = self.builder.transduce(sent)
     if not isinstance(output, ExpressionSequence):
       output = ExpressionSequence(expr_list=output)
@@ -165,17 +165,17 @@ class ResidualRNNBuilder(Serializable):
     see also add_inputs(xs), including for explanation of differences between
     add_inputs and this function.
     """
-    es = self.builder_layers[0](es)
+    es = self.builder_layers[0].transduce(es)
     self._final_states = [self.builder_layers[0].get_final_states()[0]]
 
     if len(self.builder_layers) == 1:
       return es
 
     for l in self.builder_layers[1:]:
-      es = ExpressionSequence(expr_list=self._sum_lists(l(es), es))
+      es = ExpressionSequence(expr_list=self._sum_lists(l.transduce(es), es))
       self._final_states.append(FinalTransducerState(es[-1], l.get_final_states()[0].cell_expr()))
 
-    last_output = self.builder_layers[-1](es)
+    last_output = self.builder_layers[-1].transduce(es)
 
     if self.add_to_output:
       self._final_states.append(FinalTransducerState(last_output[-1], self.builder_layers[-1].get_final_states()[0].cell_expr()))
@@ -233,8 +233,8 @@ class ResidualBiRNNBuilder(Serializable):
     return PseudoState(self, self.transduce(es))
 
   def transduce(self, es):
-    forward_e = self.forward_layer(es)
-    backward_e = self.backward_layer(ReversedExpressionSequence(es))
+    forward_e = self.forward_layer.transduce(es)
+    backward_e = self.backward_layer.transduce(ReversedExpressionSequence(es))
     self._final_states = [FinalTransducerState(dy.concatenate([self.forward_layer.get_final_states()[0].main_expr(),
                                                             self.backward_layer.get_final_states()[0].main_expr()]),
                                             dy.concatenate([self.forward_layer.get_final_states()[0].cell_expr(),

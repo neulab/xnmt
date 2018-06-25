@@ -23,7 +23,7 @@ class SegmentComposer(Serializable, Reportable):
     pass
 
   def transduce(self, inputs, word=None):
-    return self.transformer.transform(self.encoder, self.encoder(inputs), word)
+    return self.transformer.transform(self.encoder, self.encoder.transduce(inputs), word)
 
 class SegmentTransformer(Serializable):
   yaml_tag = "!SegmentTransformer"

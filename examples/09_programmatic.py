@@ -25,10 +25,10 @@ from xnmt.decoder import MlpSoftmaxDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.eval_task import LossEvalTask, AccuracyEvalTask
 from xnmt.experiment import Experiment
-from xnmt.inference import SimpleInference
+from xnmt.inference import AutoRegressiveInference
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import BiLSTMSeqTransducer, UniLSTMSeqTransducer
-from xnmt.mlp import MLP
+from xnmt.mlp import AttentionalOutputMLP
 from xnmt.optimizer import AdamTrainer
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import save_to_file
@@ -57,7 +57,7 @@ trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
 
 batcher = SrcBatcher(batch_size=64)
 
-inference = SimpleInference(batcher=batcher)
+inference = AutoRegressiveInference(batcher=batcher)
 
 layer_dim = 512
 
@@ -71,7 +71,7 @@ model = DefaultTranslator(
   trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=len(trg_vocab)),
   decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                             rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="decoder"),
-                            mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, yaml_path="decoder", vocab_size=len(trg_vocab)),
+                            mlp_layer=AttentionalOutputMLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=len(trg_vocab)),
                             trg_embed_dim=layer_dim,
                             bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
   inference=inference

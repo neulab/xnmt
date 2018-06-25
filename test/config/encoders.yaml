@@ -44,11 +44,11 @@ exp1-lstm-encoder: !Experiment
       decoder: !MlpSoftmaxDecoder
         rnn_layer: !UniLSTMSeqTransducer
           layers: 1
-        mlp_layer: !MLP
+        mlp_layer: !AttentionalOutputMLP
           hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
-      inference: !SimpleInference {}
+      inference: !AutoRegressiveInference {}
 exp2-residual-encoder: !Experiment
   kwargs:
     << : *defaults
@@ -71,11 +71,11 @@ exp2-residual-encoder: !Experiment
       decoder: !MlpSoftmaxDecoder
         rnn_layer: !UniLSTMSeqTransducer
           layers: 2
-        mlp_layer: !MLP
+        mlp_layer: !AttentionalOutputMLP
           hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
-      inference: !SimpleInference {}
+      inference: !AutoRegressiveInference {}
 exp3-pyramidal-encoder: !Experiment
   kwargs:
     << : *defaults
@@ -105,12 +105,14 @@ exp3-pyramidal-encoder: !Experiment
       decoder: !MlpSoftmaxDecoder
         rnn_layer: !UniLSTMSeqTransducer
           layers: 2
-        mlp_layer: !MLP
+        mlp_layer: !AttentionalOutputMLP
           hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
-      inference: !SimpleInference
-        batcher: !Ref {name: batcher3}
+      inference: !AutoRegressiveInference
+        batcher: !InOrderBatcher
+          batch_size: 5
+          pad_src_to_multiple: 4
 exp4-modular-encoder: !Experiment
   kwargs:
     << : *defaults
@@ -147,10 +149,12 @@ exp4-modular-encoder: !Experiment
       decoder: !MlpSoftmaxDecoder
         rnn_layer: !UniLSTMSeqTransducer
           layers: 3
-        mlp_layer: !MLP
+        mlp_layer: !AttentionalOutputMLP
           hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
-      inference: !SimpleInference
-        batcher: !Ref {name: batcher4}
+      inference: !AutoRegressiveInference
+        batcher: !InOrderBatcher
+          batch_size: 5
+          pad_src_to_multiple: 4
 

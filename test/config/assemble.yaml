@@ -18,11 +18,11 @@ exp1-pretrain1: !Experiment
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.ja
@@ -48,11 +48,11 @@ exp2-pretrain2: !Experiment
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.ja
@@ -81,11 +81,11 @@ exp3-assemble: !Experiment
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.en
@@ -118,11 +118,11 @@ exp4-assemble: !Experiment
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.en

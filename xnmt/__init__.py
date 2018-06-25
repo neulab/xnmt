@@ -22,6 +22,7 @@ dyparams.from_args()
 # using the !Classname YAML syntax
 import xnmt.attender
 import xnmt.batcher
+import xnmt.classifier
 import xnmt.conv
 import xnmt.decoder
 import xnmt.embedder
@@ -47,6 +48,7 @@ import xnmt.retriever
 import xnmt.segmenting_composer
 import xnmt.segmenting_encoder
 import xnmt.self_attention
+import xnmt.seq_labeler
 import xnmt.specialized_encoders.tilburg_harwath
 import xnmt.specialized_encoders.self_attentional_am
 import xnmt.training_regimen

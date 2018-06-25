@@ -31,11 +31,11 @@ exp1-model: !Experiment
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
@@ -59,7 +59,7 @@ exp2-score: !LoadSerialized
   - path: train
     val: ~
   - path: model.inference
-    val: !SimpleInference
+    val: !AutoRegressiveInference
       mode: score
       ref_file: examples/data/head.nbest.en
       src_file: examples/data/head.ja

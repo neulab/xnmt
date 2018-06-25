@@ -28,11 +28,11 @@ exp1-train-model: !Experiment
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference
+    inference: !AutoRegressiveInference
       search_strategy: !BeamSearch
         beam_size: 5
         len_norm: !PolynomialNormalization

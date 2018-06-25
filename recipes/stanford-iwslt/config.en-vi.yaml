@@ -17,7 +17,7 @@ iwslt-experiment: !Experiment
       emb_dim: 128
     decoder: !MlpSoftmaxDecoder
       bridge: !CopyBridge {}
-    inference: !SimpleInference
+    inference: !AutoRegressiveInference
       search_strategy: !BeamSearch
         beam_size: 5
   train: !SimpleTrainingRegimen

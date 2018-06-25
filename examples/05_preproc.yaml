@@ -94,10 +94,10 @@ preproc: !Experiment
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         hidden_dim: 512
       bridge: !NoBridge {}
-    inference: !SimpleInference
+    inference: !AutoRegressiveInference
       post_process: join-piece
   train: !SimpleTrainingRegimen
     run_for_epochs: 20

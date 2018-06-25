@@ -454,10 +454,10 @@ class TransformerEncoderLayer(Serializable):
       out_mask = out_mask.lin_subsampled(reduce_factor=self.downsample_factor)
     if self.ff_lstm:
       mid_re = dy.reshape(mid, (hidden_dim, seq_len), batch_size=batch_size)
-      out = self.feed_forward(expression_sequence.ExpressionSequence(expr_tensor=mid_re, mask=out_mask))
+      out = self.feed_forward.transduce(expression_sequence.ExpressionSequence(expr_tensor=mid_re, mask=out_mask))
       out = dy.reshape(out.as_tensor(), (hidden_dim,), batch_size=seq_len * batch_size)
     else:
-      out = self.feed_forward(mid, p=self.dropout)
+      out = self.feed_forward.transduce(mid, p=self.dropout)
 
     self._recent_output = out
     return expression_sequence.ExpressionSequence(
@@ -575,7 +575,7 @@ class SAAMSeqTransducer(transducer.SeqTransducer, Serializable):
                                                   desc=f"layer_{layer_i}"))
     return modules
 
-  def __call__(self, sent):
+  def transduce(self, sent):
     if self.pos_encoding_type == "trigonometric":
       if self.position_encoding_block is None or self.position_encoding_block.shape[2] < len(sent):
         self.initialize_position_encoding(int(len(sent) * 1.2),

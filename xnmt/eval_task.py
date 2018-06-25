@@ -7,10 +7,10 @@ import dynet as dy
 from xnmt.batcher import Batcher
 from xnmt.evaluator import Evaluator
 from xnmt.model_base import GeneratorModel
-from xnmt.inference import SimpleInference
+from xnmt.inference import Inference
 import xnmt.input_reader
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.loss_calculator import LossCalculator, MLELoss
+from xnmt.loss_calculator import LossCalculator, AutoRegressiveMLELoss
 from xnmt.evaluator import LossScore
 from xnmt.loss import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate
@@ -43,7 +43,7 @@ class LossEvalTask(EvalTask, Serializable):
   @serializable_init
   def __init__(self, src_file: str, ref_file: str, model: GeneratorModel = Ref("model"),
                batcher: Optional[Batcher] = Ref("train.batcher", default=None),
-               loss_calculator: LossCalculator = bare(MLELoss), max_src_len: Optional[int] = None,
+               loss_calculator: LossCalculator = bare(AutoRegressiveMLELoss), max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"), desc: Any = None):
     self.model = model
@@ -82,7 +82,7 @@ class LossEvalTask(EvalTask, Serializable):
         loss_builder.add_factored_loss_expr(standard_loss)
         loss_builder.add_factored_loss_expr(additional_loss)
 
-        ref_words_cnt += self.model.trg_reader.count_words(trg)
+        ref_words_cnt += sum([trg_i.len_unpadded() for trg_i in trg])
         loss_val += loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method)
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
@@ -103,7 +103,6 @@ class AccuracyEvalTask(EvalTask, Serializable):
     model: generator model to generate hypothesis with
     eval_metrics: list of evaluation metrics (list of Evaluator objects or string of comma-separated shortcuts)
     inference: inference object
-    candidate_id_file:
     desc: human-readable description passed on to resulting score objects
   """
 
@@ -112,8 +111,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: GeneratorModel = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
-               inference: Optional[SimpleInference] = None, candidate_id_file: Optional[str] = None,
-               desc: Any = None):
+               inference: Optional[Inference] = None, desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
@@ -122,16 +120,14 @@ class AccuracyEvalTask(EvalTask, Serializable):
     self.src_file = src_file
     self.ref_file = ref_file
     self.hyp_file = hyp_file
-    self.candidate_id_file = candidate_id_file
     self.inference = inference or self.model.inference
     self.desc=desc
 
   def eval(self):
     self.model.set_train(False)
-    self.inference(generator = self.model,
-                   src_file = self.src_file,
-                   trg_file = self.hyp_file,
-                   candidate_id_file = self.candidate_id_file)
+    self.inference.perform_inference(generator=self.model,
+                                     src_file=self.src_file,
+                                     trg_file=self.hyp_file)
     # TODO: This is not ideal because it requires reading the data
     #       several times. Is there a better way?
 
@@ -143,7 +139,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
     ref_words_cnt = 0
     for ref_sent in self.model.trg_reader.read_sents(
             self.ref_file if isinstance(self.ref_file, str) else self.ref_file[0]):
-      ref_words_cnt += self.model.trg_reader.count_words(ref_sent)
+      ref_words_cnt += ref_sent.len_unpadded()
       ref_words_cnt += 0
     return eval_scores, ref_words_cnt
 
@@ -156,25 +152,22 @@ class DecodingEvalTask(EvalTask, Serializable):
     hyp_file: path to write hypothesis file to
     model: generator model to generate hypothesis with
     inference: inference object
-    candidate_id_file:
   """
 
   yaml_tag = '!DecodingEvalTask'
 
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: GeneratorModel = Ref("model"),
-               inference: Optional[SimpleInference] = None, candidate_id_file: Optional[str] = None):
+               inference: Optional[Inference] = None):
 
     self.model = model
     self.src_file = src_file
     self.hyp_file = hyp_file
-    self.candidate_id_file = candidate_id_file
     self.inference = inference or self.model.inference
 
   def eval(self):
     self.model.set_train(False)
-    self.inference(generator=self.model,
-                   src_file=self.src_file,
-                   trg_file=self.hyp_file,
-                   candidate_id_file=self.candidate_id_file)
+    self.inference.perform_inference(generator=self.model,
+                                     src_file=self.src_file,
+                                     trg_file=self.hyp_file)
     return None, None

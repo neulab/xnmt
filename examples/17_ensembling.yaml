@@ -37,7 +37,7 @@ exp2-single: !Experiment
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         hidden_dim: 64
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         hidden_dim: 64
         output_projector: !Ref {name: dense_embed}
   train: *train

@@ -44,7 +44,7 @@ class FixedSizeAttSeqTransducer(transducer.SeqTransducer, Serializable):
           self.pos_enc[s, k] = (1.0 - k / self.output_len) * (
                   1.0 - s / self.pos_enc_max) + k / self.output_len * s / self.pos_enc_max
 
-  def __call__(self, x):
+  def transduce(self, x):
     x_T = x.as_transposed_tensor()
     scores = x_T * dy.parameter(self.W)
     if x.mask is not None:

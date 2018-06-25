@@ -22,9 +22,9 @@ exp1.pretrain: !Experiment
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
       bridge: !CopyBridge {}
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         output_projector: !Ref { name: trg_emb }
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja

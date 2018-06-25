@@ -10,7 +10,7 @@ from xnmt.pyramidal import PyramidalLSTMSeqTransducer
 from xnmt.translator import DefaultTranslator
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.mlp import MLP
+from xnmt.mlp import AttentionalOutputMLP
 from xnmt.residual import ResidualLSTMSeqTransducer
 from xnmt.attender import MlpAttender
 from xnmt.bridge import CopyBridge
@@ -44,7 +44,7 @@ class TestEncoder(unittest.TestCase):
     src = self.src_data[0]
     self.start_sent(src)
     embeddings = model.src_embedder.embed_sent(src)
-    encodings = model.encoder(embeddings)
+    encodings = model.encoder.transduce(embeddings)
     self.assertEqual(len(embeddings), len(encodings))
 
   def test_bi_lstm_encoder_len(self):
@@ -59,7 +59,7 @@ class TestEncoder(unittest.TestCase):
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
                                 rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.assert_in_out_len_equal(model)
@@ -76,7 +76,7 @@ class TestEncoder(unittest.TestCase):
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
                                 rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.assert_in_out_len_equal(model)
@@ -93,7 +93,7 @@ class TestEncoder(unittest.TestCase):
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
                                 rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.assert_in_out_len_equal(model)
@@ -110,7 +110,7 @@ class TestEncoder(unittest.TestCase):
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
                                 rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.set_train(True)
@@ -119,7 +119,7 @@ class TestEncoder(unittest.TestCase):
       src = self.src_data[sent_i].get_padded_sent(Vocab.ES, 4 - (len(self.src_data[sent_i]) % 4))
       self.start_sent(src)
       embeddings = model.src_embedder.embed_sent(src)
-      encodings = model.encoder(embeddings)
+      encodings = model.encoder.transduce(embeddings)
       self.assertEqual(int(math.ceil(len(embeddings) / float(4))), len(encodings))
 
   def test_py_lstm_mask(self):
@@ -134,7 +134,7 @@ class TestEncoder(unittest.TestCase):
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
                                 rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
 
@@ -148,7 +148,7 @@ class TestEncoder(unittest.TestCase):
       src = train_src[sent_i]
       self.start_sent(src)
       embeddings = model.src_embedder.embed_sent(src)
-      encodings = model.encoder(embeddings)
+      encodings = model.encoder.transduce(embeddings)
       if train_src[sent_i].mask is None:
         assert encodings.mask is None
       else:
@@ -166,7 +166,7 @@ class TestEncoder(unittest.TestCase):
       decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
                                 rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.assert_in_out_len_equal(model)

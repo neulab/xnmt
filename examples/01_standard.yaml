@@ -28,7 +28,7 @@ standard: !Experiment # 'standard' is the name given to the experiment
     decoder: !MlpSoftmaxDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
+      mlp_layer: !AttentionalOutputMLP
         hidden_dim: 512
         activation: 'tanh'
       bridge: !CopyBridge {}

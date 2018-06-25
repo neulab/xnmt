@@ -42,8 +42,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                learn_segmentation = True,
                compose_char       = False,
                log_reward         = True,
+               vocab = None,
                debug=False,
                print_sample=False):
+    self.vocab = vocab
     model = ParamManager.my_params(self)
     # Sanity check
     assert embed_encoder is not None
@@ -83,10 +85,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # States of the object
     self.train = False
 
-  def __call__(self, embed_sent):
+  def transduce(self, embed_sent):
     batch_size = embed_sent[0].dim()[1]
     # Softmax + segment decision
-    encodings = self.embed_encoder(embed_sent)
+    encodings = self.embed_encoder.transduce(embed_sent)
     enc_mask = encodings.mask
     segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size)
     # Some checks
@@ -117,7 +119,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if decision == SegmentingAction.SEGMENT.value:
           # Special case for TailWordSegmentTransformer only
           words = None
-          vocab = self.src_sent[i].vocab
+          vocab = self.vocab
           words = self.src_sent[i].words[last_segment[i]+1:j+1]
           if vocab is not None:
             words = "".join(w for w in [vocab[c] for c in words if c != vocab.unk_token])
@@ -149,7 +151,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       self.set_report_resource("segmentation", self.segment_decisions)
       self.set_report_input(segment_decisions)
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
-    return self.final_transducer(expression_sequence.ExpressionSequence(expr_tensor=outputs, mask=masks))
+    return self.final_transducer.transduce(expression_sequence.ExpressionSequence(expr_tensor=outputs, mask=masks))
 
   @handle_xnmt_event
   def on_start_sent(self, src=None):
@@ -413,9 +415,9 @@ class SegmentingAction(Enum):
   DELETE = 2
 
 class SegmentationConfidencePenalty(Serializable):
-  ''' https://arxiv.org/pdf/1701.06548.pdf
+  """ https://arxiv.org/pdf/1701.06548.pdf
       strength: the beta value
-  '''
+  """
   yaml_tag = "!SegmentationConfidencePenalty"
 
   @serializable_init

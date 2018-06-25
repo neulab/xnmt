@@ -12,8 +12,8 @@ from xnmt.eval_task import LossEvalTask
 import xnmt.events
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculator import MLELoss
-from xnmt.mlp import MLP
+from xnmt.loss_calculator import AutoRegressiveMLELoss
+from xnmt.mlp import AttentionalOutputMLP
 from xnmt.optimizer import AdamTrainer
 from xnmt.param_collection import ParamManager
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
@@ -55,14 +55,14 @@ class TestTruncatedBatchTraining(unittest.TestCase):
       dy.renew_cg()
       train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
                                    trg=trg_sents_trunc[sent_id],
-                                   loss_calculator=MLELoss()).value()
+                                   loss_calculator=AutoRegressiveMLELoss()).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
                                    trg=mark_as_batch(trg_sents_trunc),
-                                   loss_calculator=MLELoss()).value()
+                                   loss_calculator=AutoRegressiveMLELoss()).value()
     self.assertAlmostEqual(single_loss, np.sum(batched_loss), places=4)
 
   def test_loss_model1(self):
@@ -80,11 +80,10 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                                                hidden_dim=layer_dim,
                                                                decoder_input_dim=layer_dim,
                                                                yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim,
-                                              hidden_dim=layer_dim,
-                                              decoder_rnn_dim=layer_dim,
-                                              vocab_size=100,
-                                              yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim,
+                                                               hidden_dim=layer_dim,
+                                                               decoder_rnn_dim=layer_dim,
+                                                               vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
@@ -105,11 +104,10 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                                                hidden_dim=layer_dim,
                                                                decoder_input_dim=layer_dim,
                                                                yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim,
-                                              hidden_dim=layer_dim,
-                                              decoder_rnn_dim=layer_dim,
-                                              vocab_size=100,
-                                              yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim,
+                                                               hidden_dim=layer_dim,
+                                                               decoder_rnn_dim=layer_dim,
+                                                               vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
@@ -130,11 +128,10 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                                                hidden_dim=layer_dim,
                                                                decoder_input_dim=layer_dim,
                                                                yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim,
-                                              hidden_dim=layer_dim,
-                                              decoder_rnn_dim=layer_dim,
-                                              vocab_size=100,
-                                              yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim,
+                                                               hidden_dim=layer_dim,
+                                                               decoder_rnn_dim=layer_dim,
+                                                               vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
@@ -155,11 +152,10 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                                                hidden_dim=layer_dim,
                                                                decoder_input_dim=layer_dim,
                                                                yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim,
-                                              hidden_dim=layer_dim,
-                                              decoder_rnn_dim=layer_dim,
-                                              vocab_size=100,
-                                              yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim,
+                                                               hidden_dim=layer_dim,
+                                                               decoder_rnn_dim=layer_dim,
+                                                               vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
@@ -202,14 +198,14 @@ class TestBatchTraining(unittest.TestCase):
       dy.renew_cg()
       train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
                                    trg=trg_sents[sent_id],
-                                   loss_calculator=MLELoss()).value()
+                                   loss_calculator=AutoRegressiveMLELoss()).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
                                    trg=mark_as_batch(trg_sents_padded, trg_masks),
-                                   loss_calculator=MLELoss()).value()
+                                   loss_calculator=AutoRegressiveMLELoss()).value()
     self.assertAlmostEqual(single_loss, np.sum(batched_loss), places=4)
 
   def test_loss_model1(self):
@@ -227,11 +223,10 @@ class TestBatchTraining(unittest.TestCase):
                                                                hidden_dim=layer_dim,
                                                                decoder_input_dim=layer_dim,
                                                                yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim,
-                                              hidden_dim=layer_dim,
-                                              decoder_rnn_dim=layer_dim,
-                                              vocab_size=100,
-                                              yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim,
+                                                               hidden_dim=layer_dim,
+                                                               decoder_rnn_dim=layer_dim,
+                                                               vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
@@ -252,11 +247,10 @@ class TestBatchTraining(unittest.TestCase):
                                                                hidden_dim=layer_dim,
                                                                decoder_input_dim=layer_dim,
                                                                yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim,
-                                              hidden_dim=layer_dim,
-                                              decoder_rnn_dim=layer_dim,
-                                              vocab_size=100,
-                                              yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim,
+                                                               hidden_dim=layer_dim,
+                                                               decoder_rnn_dim=layer_dim,
+                                                               vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
@@ -277,11 +271,10 @@ class TestBatchTraining(unittest.TestCase):
                                                                hidden_dim=layer_dim,
                                                                decoder_input_dim=layer_dim,
                                                                yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim,
-                                              hidden_dim=layer_dim,
-                                              decoder_rnn_dim=layer_dim,
-                                              vocab_size=100,
-                                              yaml_path="model.decoder.rnn_layer"),
+                                mlp_layer=AttentionalOutputMLP(input_dim=layer_dim,
+                                                               hidden_dim=layer_dim,
+                                                               decoder_rnn_dim=layer_dim,
+                                                               vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
@@ -300,7 +293,7 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args = {}
     train_args['src_file'] = "examples/data/head.ja"
     train_args['trg_file'] = "examples/data/head.en"
-    train_args['loss_calculator'] = MLELoss()
+    train_args['loss_calculator'] = AutoRegressiveMLELoss()
     train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(),
                                             trg_reader=PlainTextReader(),
                                             src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
@@ -314,11 +307,11 @@ class TestTrainDevLoss(unittest.TestCase):
                                                                                                      hidden_dim=layer_dim,
                                                                                                      decoder_input_dim=layer_dim,
                                                                                                      yaml_path="model.decoder.rnn_layer"),
-                                                                      mlp_layer=MLP(input_dim=layer_dim,
-                                                                                    hidden_dim=layer_dim,
-                                                                                    decoder_rnn_dim=layer_dim,
-                                                                                    vocab_size=100,
-                                                                                    yaml_path="model.decoder.rnn_layer"),
+                                                                      mlp_layer=AttentionalOutputMLP(
+                                                                        input_dim=layer_dim,
+                                                                        hidden_dim=layer_dim,
+                                                                        decoder_rnn_dim=layer_dim,
+                                                                        vocab_size=100),
                                                                       bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
@@ -345,7 +338,7 @@ class TestOverfitting(unittest.TestCase):
     train_args = {}
     train_args['src_file'] = "examples/data/head.ja"
     train_args['trg_file'] = "examples/data/head.en"
-    train_args['loss_calculator'] = MLELoss()
+    train_args['loss_calculator'] = AutoRegressiveMLELoss()
     train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(),
                                             trg_reader=PlainTextReader(),
                                             src_embedder=SimpleWordEmbedder(vocab_size=100, emb_dim=layer_dim),
@@ -361,11 +354,11 @@ class TestOverfitting(unittest.TestCase):
                                                                                                      hidden_dim=layer_dim,
                                                                                                      decoder_input_dim=layer_dim,
                                                                                                      yaml_path="model.decoder.rnn_layer"),
-                                                                      mlp_layer=MLP(input_dim=layer_dim,
-                                                                                    hidden_dim=layer_dim,
-                                                                                    decoder_rnn_dim=layer_dim,
-                                                                                    vocab_size=100,
-                                                                                    yaml_path="model.decoder.rnn_layer"),
+                                                                      mlp_layer=AttentionalOutputMLP(
+                                                                        input_dim=layer_dim,
+                                                                        hidden_dim=layer_dim,
+                                                                        decoder_rnn_dim=layer_dim,
+                                                                        vocab_size=100),
                                                                       bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
