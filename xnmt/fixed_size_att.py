@@ -1,10 +1,11 @@
-from typing import Optional
+from typing import Optional, List
 
 import numpy as np
 import dynet as dy
 
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
-from xnmt import expression_sequence, param_collection, transducer
+from xnmt.expression_sequence import ExpressionSequence
+from xnmt import param_collection, transducer
 import xnmt.param_init
 
 
@@ -44,7 +45,10 @@ class FixedSizeAttSeqTransducer(transducer.SeqTransducer, Serializable):
           self.pos_enc[s, k] = (1.0 - k / self.output_len) * (
                   1.0 - s / self.pos_enc_max) + k / self.output_len * s / self.pos_enc_max
 
-  def transduce(self, x):
+  def get_final_states(self) -> List[transducer.FinalTransducerState]:
+    raise NotImplementedError('FixedSizeAttSeqTransducer.get_final_states() not implemented')
+
+  def transduce(self, x: ExpressionSequence) -> ExpressionSequence:
     x_T = x.as_transposed_tensor()
     scores = x_T * dy.parameter(self.W)
     if x.mask is not None:

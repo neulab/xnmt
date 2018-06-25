@@ -26,7 +26,8 @@ import numpy as np
 import dynet as dy
 
 import xnmt.param_init
-from xnmt import linear, norm, embedder, expression_sequence, events, lstm, param_collection, transducer
+from xnmt import linear, norm, embedder, events, lstm, param_collection, transducer
+from xnmt.expression_sequence import ExpressionSequence
 from xnmt.persistence import Serializable, serializable_init, Ref, bare
 
 LOG_ATTENTION = False
@@ -235,7 +236,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
       if self.downsample_factor > 1 and out_mask is not None:
         out_mask = out_mask.lin_subsampled(reduce_factor=self.downsample_factor)
 
-      x = expression_sequence.ExpressionSequence(expr_tensor=dy.reshape(x.as_tensor(), (
+      x = ExpressionSequence(expr_tensor=dy.reshape(x.as_tensor(), (
         x.dim()[0][0] * self.downsample_factor, x.dim()[0][1] / self.downsample_factor), batch_size=batch_size),
                                                  mask=out_mask)
       residual = SAAMTimeDistributed()(x)
@@ -260,7 +261,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
       encoding = self.kq_positional_embedder.embed_sent(sent_len).as_tensor()
       kq_lin = self.linear_kq(
         SAAMTimeDistributed()(
-          expression_sequence.ExpressionSequence(expr_tensor=dy.concatenate([x.as_tensor(), encoding]))))
+          ExpressionSequence(expr_tensor=dy.concatenate([x.as_tensor(), encoding]))))
       key_up = self.shape_projection(dy.pick_range(kq_lin, 0, self.head_count * self.dim_per_head), batch_size)
       query_up = self.shape_projection(
         dy.pick_range(kq_lin, self.head_count * self.dim_per_head, 2 * self.head_count * self.dim_per_head), batch_size)
@@ -430,7 +431,7 @@ class TransformerEncoderLayer(Serializable):
   def set_dropout(self, dropout):
     self.dropout = dropout
 
-  def transduce(self, x):
+  def transduce(self, x: ExpressionSequence) -> ExpressionSequence:
     seq_len = len(x)
     batch_size = x[0].dim()[1]
 
@@ -454,13 +455,13 @@ class TransformerEncoderLayer(Serializable):
       out_mask = out_mask.lin_subsampled(reduce_factor=self.downsample_factor)
     if self.ff_lstm:
       mid_re = dy.reshape(mid, (hidden_dim, seq_len), batch_size=batch_size)
-      out = self.feed_forward.transduce(expression_sequence.ExpressionSequence(expr_tensor=mid_re, mask=out_mask))
+      out = self.feed_forward.transduce(ExpressionSequence(expr_tensor=mid_re, mask=out_mask))
       out = dy.reshape(out.as_tensor(), (hidden_dim,), batch_size=seq_len * batch_size)
     else:
       out = self.feed_forward.transduce(mid, p=self.dropout)
 
     self._recent_output = out
-    return expression_sequence.ExpressionSequence(
+    return ExpressionSequence(
       expr_tensor=dy.reshape(out, (out.dim()[0][0], seq_len), batch_size=batch_size),
       mask=out_mask)
 
@@ -575,7 +576,7 @@ class SAAMSeqTransducer(transducer.SeqTransducer, Serializable):
                                                   desc=f"layer_{layer_i}"))
     return modules
 
-  def transduce(self, sent):
+  def transduce(self, sent: ExpressionSequence) -> ExpressionSequence:
     if self.pos_encoding_type == "trigonometric":
       if self.position_encoding_block is None or self.position_encoding_block.shape[2] < len(sent):
         self.initialize_position_encoding(int(len(sent) * 1.2),
@@ -585,9 +586,9 @@ class SAAMSeqTransducer(transducer.SeqTransducer, Serializable):
       encoding = self.positional_embedder.embed_sent(len(sent)).as_tensor()
     if self.pos_encoding_type:
       if self.pos_encoding_combine == "add":
-        sent = expression_sequence.ExpressionSequence(expr_tensor=sent.as_tensor() + encoding, mask=sent.mask)
+        sent = ExpressionSequence(expr_tensor=sent.as_tensor() + encoding, mask=sent.mask)
       else:  # concat
-        sent = expression_sequence.ExpressionSequence(expr_tensor=dy.concatenate([sent.as_tensor(), encoding]),
+        sent = ExpressionSequence(expr_tensor=dy.concatenate([sent.as_tensor(), encoding]),
                                                       mask=sent.mask)
 
     elif self.pos_encoding_type:

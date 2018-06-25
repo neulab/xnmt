@@ -1,4 +1,5 @@
 import dynet as dy
+from typing import List
 
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
@@ -65,7 +66,7 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
   def on_start_sent(self, src):
     self._final_states = None
 
-  def get_final_states(self):
+  def get_final_states(self) -> List[FinalTransducerState]:
     return self._final_states
 
   def _reduce_factor_for_layer(self, layer_i):
@@ -76,7 +77,7 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
     else:
       return self.reduce_factor[layer_i]
 
-  def transduce(self, es):
+  def transduce(self, es: ExpressionSequence) -> ExpressionSequence:
     """
     returns the list of output Expressions obtained by adding the given inputs
     to the current state, one by one, to both the forward and backward RNNs,

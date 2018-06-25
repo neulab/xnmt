@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import List
 
 import numpy as np
 import dynet as dy
@@ -133,7 +134,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     self.dropout_mask_x = None
     self.dropout_mask_h = None
 
-  def get_final_states(self):
+  def get_final_states(self) -> List[FinalTransducerState]:
     return self._final_states
 
   def initial_state(self):
@@ -177,7 +178,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
 
     return new_c, new_h
 
-  def transduce(self, expr_seq):
+  def transduce(self, expr_seq: ExpressionSequence) -> ExpressionSequence:
     """
     transduce the sequence, applying masks if given (masked timesteps simply copy previous h / c)
 
@@ -275,10 +276,10 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
   def on_start_sent(self, src):
     self._final_states = None
 
-  def get_final_states(self):
+  def get_final_states(self) -> List[FinalTransducerState]:
     return self._final_states
 
-  def transduce(self, es):
+  def transduce(self, es: ExpressionSequence) -> ExpressionSequence:
     mask = es.mask
     # first layer
     forward_es = self.forward_layers[0].transduce(es)
@@ -336,7 +337,7 @@ class CustomLSTMSeqTransducer(SeqTransducer, Serializable):
     self.p_Wh = model.add_parameters(dim=(hidden_dim*4, hidden_dim), init=param_init.initializer((hidden_dim*4, hidden_dim)))
     self.p_b  = model.add_parameters(dim=(hidden_dim*4,), init=bias_init.initializer((hidden_dim*4,)))
 
-  def transduce(self, xs):
+  def transduce(self, xs: ExpressionSequence) -> ExpressionSequence:
     Wx = dy.parameter(self.p_Wx)
     Wh = dy.parameter(self.p_Wh)
     b = dy.parameter(self.p_b)

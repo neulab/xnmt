@@ -1,4 +1,5 @@
 import dynet as dy
+from typing import List
 
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.param_collection import ParamManager
@@ -55,10 +56,10 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
 
   def whoami(self): return "ConvConnectedEncoder"
 
-  def get_final_states(self):
+  def get_final_states(self) -> List[FinalTransducerState]:
     return self._final_states
 
-  def transduce(self, embed_sent):
+  def transduce(self, embed_sent: ExpressionSequence) -> ExpressionSequence:
     src = embed_sent.as_tensor()
 
     sent_len = src.dim()[0][1]
