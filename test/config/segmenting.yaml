@@ -57,8 +57,6 @@ debug-segmenting: !Experiment
     decoder: !AutoRegressiveDecoder
       rnn: !UniLSTMSeqTransducer
         layers: 1
-      transform: !NonLinear
-        output_dim: 16
       bridge: !CopyBridge {}  
     inference: !AutoRegressiveInference
       report_path: test/tmp/{EXP}.report

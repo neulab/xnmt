@@ -1146,13 +1146,16 @@ class _YamlDeserializer(object):
       for shared_param_path in shared_param_set:
         try:
           new_shared_val = _get_descendant(root, shared_param_path)
+          # print('found {} = {}'.format(shared_param_path, new_shared_val))
         except PathError:
+          # print('found not {}'.format(shared_param_path))
           continue
         for _, child_of_shared_param in _traverse_tree(new_shared_val, include_root=False):
           if isinstance(child_of_shared_param, Serializable):
             raise ValueError(f"{path} shared params {shared_param_set} contains Serializable sub-object {child_of_shared_param} which is not permitted")
         if not isinstance(new_shared_val, Ref):
           shared_val_choices.add(new_shared_val)
+      # print('shared set {} == {}'.format(shared_param_set, shared_val_choices))
       if len(shared_val_choices)>1:
         logger.warning(f"inconsistent shared params at {path} for {shared_param_set}: {shared_val_choices}; Ignoring these shared parameters.")
       elif len(shared_val_choices)==1:

@@ -44,8 +44,6 @@ exp1-lstm-encoder: !Experiment
       decoder: !AutoRegressiveDecoder
         rnn: !UniLSTMSeqTransducer
           layers: 1
-        transform: !NonLinear
-          output_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
       inference: !AutoRegressiveInference {}
@@ -71,9 +69,6 @@ exp2-residual-encoder: !Experiment
       decoder: !AutoRegressiveDecoder
         rnn: !UniLSTMSeqTransducer
           layers: 2
-        transform: !NonLinear
-          output_dim: 64
-        input_feeding: True
         bridge: !CopyBridge {}
       inference: !AutoRegressiveInference {}
 exp3-pyramidal-encoder: !Experiment
@@ -105,8 +100,6 @@ exp3-pyramidal-encoder: !Experiment
       decoder: !AutoRegressiveDecoder
         rnn: !UniLSTMSeqTransducer
           layers: 2
-        transform: !NonLinear
-          output_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
       inference: !AutoRegressiveInference
@@ -149,8 +142,6 @@ exp4-modular-encoder: !Experiment
       decoder: !AutoRegressiveDecoder
         rnn: !UniLSTMSeqTransducer
           layers: 3
-        transform: !NonLinear
-          output_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
       inference: !AutoRegressiveInference

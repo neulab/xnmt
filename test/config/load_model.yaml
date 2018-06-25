@@ -25,9 +25,6 @@ exp1-pretrain-model: !Experiment
     decoder: !AutoRegressiveDecoder
       rnn: !UniLSTMSeqTransducer
         layers: 1
-      transform: !NonLinear
-        output_dim: 64
-      input_feeding: True
       bridge: !CopyBridge {}
     inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen

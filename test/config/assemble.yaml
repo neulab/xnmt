@@ -21,8 +21,6 @@ exp1-pretrain1: !Experiment
       rnn: !UniLSTMSeqTransducer
         layers: 1
         hidden_dim: 64
-      transform: !NonLinear
-        output_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
     inference: !AutoRegressiveInference {}
@@ -53,8 +51,6 @@ exp2-pretrain2: !Experiment
     decoder: !AutoRegressiveDecoder
       rnn: !UniLSTMSeqTransducer
         layers: 1
-      transform: !NonLinear
-        output_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
     inference: !AutoRegressiveInference {}
@@ -86,8 +82,6 @@ exp3-assemble: !Experiment
     decoder: !AutoRegressiveDecoder
       rnn: !UniLSTMSeqTransducer
         layers: 1
-      transform: !NonLinear
-        output_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
     inference: !AutoRegressiveInference {}
@@ -123,8 +117,6 @@ exp4-assemble: !Experiment
     decoder: !AutoRegressiveDecoder
       rnn: !UniLSTMSeqTransducer
         layers: 1
-      transform: !NonLinear
-        output_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
     inference: !AutoRegressiveInference {}

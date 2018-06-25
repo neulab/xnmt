@@ -11,7 +11,7 @@ from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref, Path
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.transform import Linear, NonLinear, Transform
+from xnmt.transform import Linear, AuxNonLinear, NonLinear, Transform
 from xnmt.scorer import Scorer, Softmax
 
 class Decoder(object):
@@ -72,7 +72,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
                input_feeding: bool = True,
                bridge: Bridge = bare(CopyBridge),
                rnn: UniLSTMSeqTransducer = bare(UniLSTMSeqTransducer),
-               transform: Transform = bare(NonLinear),
+               transform: Transform = bare(AuxNonLinear),
                scorer: Scorer = bare(Softmax),
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
     self.param_col = ParamManager.my_params(self)

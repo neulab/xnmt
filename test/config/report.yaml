@@ -21,8 +21,6 @@ report: !Experiment
     decoder: !AutoRegressiveDecoder
       rnn: !UniLSTMSeqTransducer
         layers: 1
-      transform: !NonLinear
-        output_dim: 256
       bridge: !NoBridge {}
     inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen

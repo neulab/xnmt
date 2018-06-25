@@ -24,9 +24,6 @@ exp1.pretrain: !Experiment
       rnn: !UniLSTMSeqTransducer
         layers: 1
       bridge: !CopyBridge {}
-      # TODO: This seems unnecessary, but https://github.com/neulab/xnmt/issues/441
-      transform: !NonLinear
-        aux_input_dim: 32
       scorer: !Softmax
         output_projector: !Ref { name: trg_emb }
     inference: !AutoRegressiveInference {}

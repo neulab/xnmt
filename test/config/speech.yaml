@@ -30,8 +30,6 @@ speech: !Experiment
     decoder: !AutoRegressiveDecoder
       rnn: !UniLSTMSeqTransducer
         layers: 1
-      transform: !NonLinear
-        output_dim: 64
       bridge: !CopyBridge {}
     src_reader: !H5Reader
       transpose: True

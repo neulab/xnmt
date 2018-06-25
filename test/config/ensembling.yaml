@@ -11,10 +11,6 @@ ensemble1: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     trg_reader: &trg_reader !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-    decoder: !AutoRegressiveDecoder
-      # TODO: This seems unnecessary, but https://github.com/neulab/xnmt/issues/441
-      transform: !NonLinear
-        aux_input_dim: 32
   train: &train !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
@@ -40,7 +36,7 @@ ensemble2: !Experiment
     decoder: !AutoRegressiveDecoder
       rnn: !UniLSTMSeqTransducer
         hidden_dim: 64
-      transform: !NonLinear
+      transform: !AuxNonLinear
         output_dim: 64
       scorer: !Softmax
         output_projector: !Ref {name: dense_embed}

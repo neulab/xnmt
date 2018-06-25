@@ -9,9 +9,6 @@ seq-labeler: !Experiment
       emb_dim: 512
     encoder: !BiLSTMSeqTransducer
       layers: 1
-    transform: !NonLinear
-      output_dim: 512
-      activation: 'tanh'
     scorer: !Softmax
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     auto_cut_pad: true

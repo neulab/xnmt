@@ -44,6 +44,7 @@ class Linear(Transform, Serializable):
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     self.bias = bias
+    self.input_dim = input_dim
     self.output_dim = output_dim
 
     model = ParamManager.my_params(self)
@@ -66,9 +67,6 @@ class NonLinear(Transform, Serializable):
   Args:
     input_dim (int): input dimension
     output_dim (int): hidden dimension
-    aux_input_dim (int): auxiliary input dimension.
-                         The actual input dimension is aux_input_dim + input_dim. This is useful
-                         for when you want to do something like input feeding.
     bias (bool): whether to add a bias
     activation: One of ``tanh``, ``relu``, ``sigmoid``, ``elu``, ``selu``, ``asinh`` or ``identity``.
     param_init (ParamInitializer): how to initialize weight matrices
@@ -77,19 +75,17 @@ class NonLinear(Transform, Serializable):
 
   yaml_tag = "!NonLinear"
 
-  # TODO can we come up with a more elegant way to handle things than aux_input_dim?
   @serializable_init
   def __init__(self,
                input_dim: int = Ref("exp_global.default_layer_dim"),
                output_dim: int = Ref("exp_global.default_layer_dim"),
-               aux_input_dim: int = 0,
                bias: bool = True,
                activation: str = 'tanh',
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     self.bias = bias
     self.output_dim = output_dim
-    self.input_dim = input_dim + aux_input_dim
+    self.input_dim = input_dim
     if activation == 'tanh':
       self.activation = dy.tanh
     elif activation == 'relu':
@@ -121,3 +117,44 @@ class NonLinear(Transform, Serializable):
       return self.activation(dy.affine_transform([b1, W1, input_expr]))
     else:
       return self.activation(W1 * input_expr)
+
+# TODO: can we come up with a more elegant way to handle things that doesn't require this?
+#       currently this is necessary because of this: https://github.com/neulab/xnmt/issues/441#issuecomment-400051066
+class AuxNonLinear(NonLinear, Serializable):
+  """
+  NonLinear with an additional auxiliary input.
+  
+  Args:
+    input_dim (int): input dimension
+    output_dim (int): hidden dimension
+    aux_input_dim (int): auxiliary input dimension.
+                         The actual input dimension is aux_input_dim + input_dim. This is useful
+                         for when you want to do something like input feeding.
+    bias (bool): whether to add a bias
+    activation: One of ``tanh``, ``relu``, ``sigmoid``, ``elu``, ``selu``, ``asinh`` or ``identity``.
+    param_init (ParamInitializer): how to initialize weight matrices
+    bias_init (ParamInitializer): how to initialize bias vectors
+  """
+
+  yaml_tag = "!AuxNonLinear"
+
+  @serializable_init
+  def __init__(self,
+               input_dim: int = Ref("exp_global.default_layer_dim"),
+               output_dim: int = Ref("exp_global.default_layer_dim"),
+               aux_input_dim: int = Ref("exp_global.default_layer_dim"),
+               bias: bool = True,
+               activation: str = 'tanh',
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+    original_input_dim = input_dim
+    input_dim += aux_input_dim
+    super().__init__(
+      input_dim=input_dim,
+      output_dim=output_dim,
+      bias=bias,
+      activation=activation,
+      param_init=param_init,
+      bias_init=bias_init
+    )
+    self.save_processed_arg("input_dim", original_input_dim)

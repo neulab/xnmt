@@ -69,8 +69,6 @@ standard-preproc: !Experiment
     decoder: !AutoRegressiveDecoder
       rnn: !UniLSTMSeqTransducer
         layers: 1
-      transform: !NonLinear
-        output_dim: 256
       bridge: !NoBridge {}
     inference: !AutoRegressiveInference
       post_process: join-char
