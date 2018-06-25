@@ -155,7 +155,7 @@ Inference
 ---------
 
 AutoRegressiveInference
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: xnmt.inference
    :members:
