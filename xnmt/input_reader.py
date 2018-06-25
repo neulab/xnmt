@@ -100,15 +100,13 @@ class PlainTextReader(BaseTextReader, Serializable):
 
   Args:
     vocab:
-    include_vocab_reference:
     read_sent_len: if set, read the length of each sentence instead of the sentence itself. EOS is not counted.
   """
   yaml_tag = '!PlainTextReader'
 
   @serializable_init
-  def __init__(self, vocab: Vocab = None, include_vocab_reference: bool = False, read_sent_len: bool = False):
+  def __init__(self, vocab: Vocab = None, read_sent_len: bool = False):
     self.vocab = vocab
-    self.include_vocab_reference = include_vocab_reference
     self.read_sent_len = read_sent_len
     if vocab is not None:
       self.vocab.freeze()
@@ -118,9 +116,8 @@ class PlainTextReader(BaseTextReader, Serializable):
     if self.read_sent_len:
       return IntInput(len(line.strip().split()))
     else:
-      vocab_reference = self.vocab if self.include_vocab_reference else None
       return SimpleSentenceInput([self.vocab.convert(word) for word in line.strip().split()] + \
-                                                         [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
+                                                         [self.vocab.convert(Vocab.ES_STR)])
 
   def freeze(self):
     self.vocab.freeze()
@@ -140,7 +137,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, model_file, sample_train=False, l=-1, alpha=0.1, vocab=None, include_vocab_reference=False):
+  def __init__(self, model_file, sample_train=False, l=-1, alpha=0.1, vocab=None):
     """
     Args:
       model_file: The sentence piece model file
@@ -148,7 +145,6 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
       l: The "l" parameter for subword regularization, how many sentences to sample
       alpha: The "alpha" parameter for subword regularization, how much to smooth the distribution
       vocab: The vocabulary
-      include_vocab_reference: Whether to include the vocab with the input
     """
     import sentencepiece as spm
     self.subword_model = spm.SentencePieceProcessor()
@@ -157,7 +153,6 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
     self.l = l
     self.alpha = alpha
     self.vocab = vocab
-    self.include_vocab_reference = include_vocab_reference
     self.train = False
     if vocab is not None:
       self.vocab.freeze()
@@ -168,13 +163,12 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
     self.train = val
 
   def read_sent(self, sentence):
-    vocab_reference = self.vocab if self.include_vocab_reference else None
     if self.sample_train and self.train:
       words = self.subword_model.SampleEncodeAsPieces(sentence.strip(), self.l, self.alpha)
     else:
       words = self.subword_model.EncodeAsPieces(sentence.strip())
     return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
-                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
+                                                       [self.vocab.convert(Vocab.ES_STR)])
 
   def freeze(self):
     self.vocab.freeze()
@@ -202,8 +196,8 @@ class SegmentationTextReader(PlainTextReader):
   # TODO: document me
 
   @serializable_init
-  def __init__(self, vocab=None, include_vocab_reference=False):
-    super().__init__(vocab=vocab, include_vocab_reference=include_vocab_reference)
+  def __init__(self, vocab=None):
+    super().__init__(vocab=vocab)
 
   def read_sents(self, filename, filter_ids=None):
     if self.vocab is None:
