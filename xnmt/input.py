@@ -10,7 +10,7 @@ class Input(object):
   A template class to represent a single input of any type.
   """
 
-  def __len__(self):
+  def __len__(self) -> int:
     """
     Return length of input, included padded tokens.
 
@@ -18,7 +18,7 @@ class Input(object):
     """
     raise NotImplementedError("__len__() must be implemented by Input subclasses")
 
-  def len_unpadded(self):
+  def len_unpadded(self) -> int:
     """
     Return length of input prior to applying any padding.
 
@@ -26,7 +26,7 @@ class Input(object):
 
     """
 
-  def __getitem__(self):
+  def __getitem__(self) -> Any:
     raise NotImplementedError("__getitem__() must be implemented by Input subclasses")
 
   def get_padded_sent(self, token: Any, pad_len: int) -> 'Input':
@@ -56,20 +56,36 @@ class Input(object):
 class IntInput(Input):
   def __init__(self, value: int) -> None:
     self.value = value
-
-  def __len__(self):
+  def __len__(self) -> int:
     return 1
-
-  def len_unpadded(self):
+  def len_unpadded(self) -> int:
     return 1
-
-  def __getitem__(self, item):
+  def __getitem__(self, item) -> int:
     if item != 0: raise IndexError
     return self.value
-
-  def get_padded_sent(self, token: Any, pad_len: int):
+  def get_padded_sent(self, token: Any, pad_len: int) -> 'IntInput':
     if pad_len != 0:
       raise ValueError("Can't pad IntInput")
+    return self
+  def get_truncated_sent(self, trunc_len: int) -> 'IntInput':
+    if trunc_len != 0:
+      raise ValueError("Can't truncate IntInput")
+    return self
+
+
+class CompoundInput(Input):
+  def __init__(self, inputs: Sequence[Input]) -> None:
+    self.inputs = inputs
+  def __len__(self) -> int:
+    return sum(len(inp) for inp in self.inputs)
+  def len_unpadded(self) -> int:
+    return sum(inp.len_unpadded() for inp in self.inputs)
+  def __getitem__(self, key):
+    raise ValueError("not supported with CompoundInput, must be called on one of the sub-inputs instead.")
+  def get_padded_sent(self, token, pad_len):
+    raise ValueError("not supported with CompoundInput, must be called on one of the sub-inputs instead.")
+  def get_truncated_sent(self, trunc_len):
+    raise ValueError("not supported with CompoundInput, must be called on one of the sub-inputs instead.")
 
 
 class SimpleSentenceInput(Input):
@@ -77,7 +93,7 @@ class SimpleSentenceInput(Input):
   A simple sentence, represented as a list of tokens
 
   Args:
-    words (List[int]): list of integer word ids
+    words: list of integer word ids
   """
 
   def __init__(self, words: Sequence[int]):

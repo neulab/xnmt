@@ -1,6 +1,6 @@
 from itertools import zip_longest
 import ast
-from typing import Sequence, Iterator
+from typing import Sequence, Iterator, Union
 
 import numpy as np
 
@@ -10,7 +10,7 @@ with warnings.catch_warnings():
   import h5py
 
 from xnmt import logger
-from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput, IntInput
+from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput, IntInput, CompoundInput
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.vocab import Vocab
@@ -126,6 +126,37 @@ class PlainTextReader(BaseTextReader, Serializable):
 
   def vocab_size(self):
     return len(self.vocab)
+
+class CompoundReader(InputReader, Serializable):
+  """
+  A compound reader reads inputs using several input readers at the same time.
+
+  The resulting inputs will be of type :class:`CompoundInput`, which holds the results from the different readers
+  as a tuple. Inputs can be read from different locations (if input file name is a sequence of filenames) or all from
+  the same location (if it is a string). The latter can be used to read the same inputs using several input different
+  readers which might capture different aspects of the input data.
+
+  Args:
+    readers: the input readers to use
+  """
+  yaml_tag = "!CompoundReader"
+  @serializable_init
+  def __init__(self, readers:Sequence[InputReader]) -> None:
+    if len(readers) < 2: raise ValueError("need at least two readers")
+    self.readers = readers
+  def read_sents(self, filename: Union[str,Sequence[str]], filter_ids: Sequence[int] = None) \
+          -> Iterator[xnmt.input.Input]:
+    if isinstance(filename, str): filename = [filename] * len(self.readers)
+    for curr in zip([reader.read_sents(filename=cur_filename, filter_ids=filter_ids) for reader, cur_filename in
+                     zip(self.readers, filename)]):
+      return CompoundInput(curr)
+  def count_sents(self, filename: str) -> int:
+    return self.readers[0].count_sents(filename)
+  def freeze(self) -> None:
+    for reader in self.readers: reader.freeze()
+  def needs_reload(self) -> bool:
+    return any(reader.needs_reload() for reader in self.readers)
+
 
 class SentencePieceTextReader(BaseTextReader, Serializable):
   """
