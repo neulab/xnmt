@@ -10,7 +10,7 @@ with warnings.catch_warnings():
   import h5py
 
 from xnmt import logger
-from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput
+from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput, IntInput
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.vocab import Vocab
@@ -97,21 +97,30 @@ class BaseTextReader(InputReader):
 class PlainTextReader(BaseTextReader, Serializable):
   """
   Handles the typical case of reading plain text files, with one sent per line.
+
+  Args:
+    vocab:
+    include_vocab_reference:
+    read_sent_len: if set, read the length of each sentence instead of the sentence itself. EOS is not counted.
   """
   yaml_tag = '!PlainTextReader'
 
   @serializable_init
-  def __init__(self, vocab=None, include_vocab_reference=False):
+  def __init__(self, vocab: Vocab = None, include_vocab_reference: bool = False, read_sent_len: bool = False):
     self.vocab = vocab
     self.include_vocab_reference = include_vocab_reference
+    self.read_sent_len = read_sent_len
     if vocab is not None:
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
 
   def read_sent(self, line):
-    vocab_reference = self.vocab if self.include_vocab_reference else None
-    return SimpleSentenceInput([self.vocab.convert(word) for word in line.strip().split()] + \
-                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
+    if self.read_sent_len:
+      return IntInput(len(line.strip().split()))
+    else:
+      vocab_reference = self.vocab if self.include_vocab_reference else None
+      return SimpleSentenceInput([self.vocab.convert(word) for word in line.strip().split()] + \
+                                                         [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
 
   def freeze(self):
     self.vocab.freeze()
