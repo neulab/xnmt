@@ -147,9 +147,13 @@ class CompoundReader(InputReader, Serializable):
   def read_sents(self, filename: Union[str,Sequence[str]], filter_ids: Sequence[int] = None) \
           -> Iterator[xnmt.input.Input]:
     if isinstance(filename, str): filename = [filename] * len(self.readers)
-    for curr in zip([reader.read_sents(filename=cur_filename, filter_ids=filter_ids) for reader, cur_filename in
-                     zip(self.readers, filename)]):
-      return CompoundInput(curr)
+    generators = [reader.read_sents(filename=cur_filename, filter_ids=filter_ids) for (reader, cur_filename) in
+                     zip(self.readers, filename)]
+    while True:
+      try:
+        yield CompoundInput(tuple([next(gen) for gen in generators]))
+      except StopIteration:
+        return
   def count_sents(self, filename: str) -> int:
     return self.readers[0].count_sents(filename)
   def freeze(self) -> None:
