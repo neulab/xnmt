@@ -89,7 +89,6 @@ class NonLinear(Transform, Serializable):
                bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     self.bias = bias
     self.output_dim = output_dim
-    print('input_dim {}, aux_input_dim {}'.format(input_dim, aux_input_dim))
     self.input_dim = input_dim + aux_input_dim
     if activation == 'tanh':
       self.activation = dy.tanh

@@ -59,6 +59,9 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
   def calc_loss(self, src, trg, loss_calculator):
     assert batcher.is_batched(src) and batcher.is_batched(trg)
     batch_size, encodings, outputs, seq_len = self._encode_src(src)
+    # TODO: neubig -- what is going on here is not immediately obvious to me.
+    #       why is it necessary to do all this masking before calculating the loss? It seems like it's
+    #       enough to just mask the loss values before summing them together?
     raise NotImplementedError('seq_labeler. calc_loss is not finished transitioning to the new softmax paradigm yet')
 
     masked_outputs = dy.cmult(outputs, dy.inputTensor(1.0 - encodings.mask.np_arr.reshape((seq_len * batch_size,)),

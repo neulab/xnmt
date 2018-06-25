@@ -9,6 +9,10 @@ standard: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     search_strategy: !BeamSearch
       beam_size: 5
+    decoder: !AutoRegressiveDecoder
+      # TODO: This seems unnecessary, but https://github.com/neulab/xnmt/issues/441
+      transform: !NonLinear
+        aux_input_dim: 64
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
