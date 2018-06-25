@@ -155,7 +155,7 @@ class CompoundReader(InputReader, Serializable):
       except StopIteration:
         return
   def count_sents(self, filename: str) -> int:
-    return self.readers[0].count_sents(filename)
+    return self.readers[0].count_sents(filename if isinstance(filename,str) else filename[0])
   def freeze(self) -> None:
     for reader in self.readers: reader.freeze()
   def needs_reload(self) -> bool:
