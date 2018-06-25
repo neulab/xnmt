@@ -37,7 +37,6 @@ import xnmt.inference
 import xnmt.input
 import xnmt.input_reader
 import xnmt.lstm
-import xnmt.mlp
 import xnmt.exp_global
 import xnmt.optimizer
 import xnmt.param_init
@@ -45,6 +44,7 @@ import xnmt.preproc_runner
 import xnmt.pyramidal
 import xnmt.residual
 import xnmt.retriever
+import xnmt.scorer
 import xnmt.segmenting_composer
 import xnmt.segmenting_encoder
 import xnmt.self_attention

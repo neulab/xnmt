@@ -1,9 +1,9 @@
 import dynet as dy
 
-import xnmt.linear
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
+from xnmt.transform import Linear
 
 class Bridge(object):
   """
@@ -91,10 +91,10 @@ class LinearBridge(Bridge, Serializable):
     self.dec_dim = dec_dim
     self.projector = self.add_serializable_component("projector",
                                                      projector,
-                                                     lambda: xnmt.linear.Linear(input_dim=self.enc_dim,
-                                                                                output_dim=self.dec_dim,
-                                                                                param_init=param_init,
-                                                                                bias_init=bias_init))
+                                                     lambda: Linear(input_dim=self.enc_dim,
+                                                                    output_dim=self.dec_dim,
+                                                                    param_init=param_init,
+                                                                    bias_init=bias_init))
   def decoder_init(self, enc_final_states):
     if self.dec_layers > len(enc_final_states):
       raise RuntimeError(

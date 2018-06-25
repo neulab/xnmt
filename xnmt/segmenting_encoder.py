@@ -7,7 +7,7 @@ from xml.sax.saxutils import escape
 from lxml import etree
 from scipy.stats import poisson
 
-import xnmt.linear as linear
+from xnmt.transform import Linear
 from xnmt.expression_sequence import ExpressionSequence 
 
 from xnmt.batcher import Mask
@@ -60,11 +60,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.final_transducer = final_transducer
     # Decision layer of segmentation
     self.segment_transform = self.add_serializable_component("segment_transform", segment_transform,
-                                                             lambda: linear.Linear(input_dim=embed_encoder_dim,
+                                                             lambda: Linear(input_dim=embed_encoder_dim,
                                                                                    output_dim=3 if learn_delete else 2))
     # The baseline linear regression model
     self.baseline = self.add_serializable_component("baseline", baseline,
-                                                    lambda: linear.Linear(input_dim=embed_encoder_dim, output_dim=1))
+                                                    lambda: Linear(input_dim=embed_encoder_dim, output_dim=1))
     # Flags
     self.use_baseline = use_baseline
     self.learn_segmentation = learn_segmentation

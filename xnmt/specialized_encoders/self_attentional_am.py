@@ -26,7 +26,7 @@ import numpy as np
 import dynet as dy
 
 import xnmt.param_init
-from xnmt import linear, norm, embedder, events, lstm, param_collection, transducer
+from xnmt import transform, norm, embedder, events, lstm, param_collection, transducer
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.persistence import Serializable, serializable_init, Ref, bare
 
@@ -72,11 +72,11 @@ class SAAMPositionwiseFeedForward(Serializable):
 
   @serializable_init
   def __init__(self, input_dim: int, hidden_dim: int, nonlinearity: str = "rectify",
-               linear_transforms: typing.Optional[typing.Sequence[linear.Linear]] = None,
+               linear_transforms: typing.Optional[typing.Sequence[transform.Linear]] = None,
                layer_norm: typing.Optional[norm.LayerNorm] = None) -> None:
     w_12 = self.add_serializable_component("linear_transforms", linear_transforms,
-                                           lambda: [linear.Linear(input_dim, hidden_dim),
-                                                    linear.Linear(hidden_dim, input_dim)])
+                                           lambda: [transform.Linear(input_dim, hidden_dim),
+                                                    transform.Linear(hidden_dim, input_dim)])
     self.w_1 = w_12[0]
     self.w_2 = w_12[1]
     self.layer_norm = self.add_serializable_component("layer_norm", layer_norm, lambda: norm.LayerNorm(input_dim))
@@ -150,7 +150,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
 
     if self.kq_pos_encoding_type is None:
       self.linear_kvq = self.add_serializable_component("linear_kvq", linear_kvq,
-                                                        lambda: linear.Linear(input_dim * downsample_factor,
+                                                        lambda: transform.Linear(input_dim * downsample_factor,
                                                                               head_count * self.dim_per_head * 3,
                                                                               param_init=param_init,
                                                                               bias_init=bias_init))
@@ -159,10 +159,10 @@ class SAAMMultiHeadedSelfAttention(Serializable):
         self.add_serializable_component("linear_kvq",
                                         linear_kvq,
                                         lambda: [
-                                          linear.Linear(input_dim * downsample_factor + self.kq_pos_encoding_size,
+                                          transform.Linear(input_dim * downsample_factor + self.kq_pos_encoding_size,
                                                         head_count * self.dim_per_head * 2, param_init=param_init,
                                                         bias_init=bias_init),
-                                          linear.Linear(input_dim * downsample_factor, head_count * self.dim_per_head,
+                                          transform.Linear(input_dim * downsample_factor, head_count * self.dim_per_head,
                                                         param_init=param_init, bias_init=bias_init)])
       assert self.kq_pos_encoding_type == "embedding"
       self.kq_positional_embedder = self.add_serializable_component("kq_positional_embedder",
@@ -185,7 +185,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
 
     if model_dim != input_dim * downsample_factor:
       self.res_shortcut = self.add_serializable_component("res_shortcut", res_shortcut,
-                                                          lambda: linear.Linear(input_dim * downsample_factor,
+                                                          lambda: transform.Linear(input_dim * downsample_factor,
                                                                                      model_dim,
                                                                                      param_init=param_init,
                                                                                      bias_init=bias_init))

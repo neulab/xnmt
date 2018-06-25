@@ -1,8 +1,8 @@
 import dynet as dy
 import numpy as np
 
-from xnmt import attender, batcher, embedder, events, inference, input_reader, loss, lstm,  mlp, model_base, output, \
-  reports, transducer, vocab
+from xnmt import attender, batcher, embedder, events, inference, input_reader, loss, lstm, model_base, output, \
+  reports, scorer, transducer, transform, vocab
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, model_base.EventTrigger):
@@ -27,14 +27,16 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
                trg_reader:input_reader.InputReader,
                src_embedder:embedder.Embedder=bare(embedder.SimpleWordEmbedder),
                encoder:transducer.SeqTransducer=bare(lstm.BiLSTMSeqTransducer),
-               mlp:mlp.MLP=bare(mlp.OutputMLP),
+               transform:transform.Transform=bare(transform.NonLinear),
+               scorer:scorer.Scorer=bare(scorer.Softmax),
                inference:inference.Inference=bare(inference.IndependentOutputInference),
                auto_cut_pad:bool=False):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
-    self.mlp = mlp
+    self.transform = transform
+    self.scorer = scorer
     self.inference = inference
     self.auto_cut_pad = auto_cut_pad
 
@@ -51,12 +53,14 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
     encodings_tensor = encodings.as_tensor()
     ((hidden_dim, seq_len), batch_size) = encodings.dim()
     encoding_reshaped = dy.reshape(encodings_tensor, (hidden_dim,), batch_size=batch_size * seq_len)
-    outputs = self.mlp(encoding_reshaped)
+    outputs = self.transform(encoding_reshaped)
     return batch_size, encodings, outputs, seq_len
 
   def calc_loss(self, src, trg, loss_calculator):
     assert batcher.is_batched(src) and batcher.is_batched(trg)
     batch_size, encodings, outputs, seq_len = self._encode_src(src)
+    raise NotImplementedError('seq_labeler. calc_loss is not finished transitioning to the new softmax paradigm yet')
+
     masked_outputs = dy.cmult(outputs, dy.inputTensor(1.0 - encodings.mask.np_arr.reshape((seq_len * batch_size,)),
                                                       batched=True))
     if len(trg[0]) != seq_len:
@@ -86,7 +90,7 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
 
     return model_loss
 
-  def generate(self, src, idx, forced_trg_ids=None):
+  def generate(self, src, idx, forced_trg_ids=None, normalize_scores = False):
     if not batcher.is_batched(src):
       src = batcher.mark_as_batch([src])
       if forced_trg_ids:
@@ -94,8 +98,8 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
     assert len(src) == 1, "batch size > 1 not properly tested"
 
     batch_size, encodings, outputs, seq_len = self._encode_src(src)
-    loss_expr_perstep = dy.log_softmax(outputs)
-    scores = loss_expr_perstep.npvalue() # vocab_size x seq_len
+    score_expr = self.scorer.calc_log_softmax(outputs) if normalize_scores else self.scorer.calc_scores(outputs)
+    scores = score_expr.npvalue() # vocab_size x seq_len
 
     if forced_trg_ids:
       output_actions = forced_trg_ids

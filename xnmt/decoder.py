@@ -3,16 +3,16 @@ from typing import Any
 import dynet as dy
 
 import xnmt.batcher
-import xnmt.linear
 import xnmt.residual
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt import logger
 from xnmt.bridge import Bridge, CopyBridge
 from xnmt.lstm import UniLSTMSeqTransducer
-from xnmt.mlp import MLP, AttentionalOutputMLP
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref, Path
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
+from xnmt.transform import Linear, NonLinear, Transform
+from xnmt.scorer import Scorer, Softmax
 
 class Decoder(object):
   """
@@ -22,15 +22,19 @@ class Decoder(object):
 
   def calc_loss(self, x, ref_action):
     raise NotImplementedError('must be implemented by subclasses')
-  def get_scores_logsoftmax(self, get_scores_logsoftmax):
+  def calc_score(self, calc_scores_logsoftmax):
+    raise NotImplementedError('must be implemented by subclasses')
+  def calc_prob(self, calc_scores_logsoftmax):
+    raise NotImplementedError('must be implemented by subclasses')
+  def calc_log_prob(self, calc_scores_logsoftmax):
     raise NotImplementedError('must be implemented by subclasses')
   def add_input(self, mlp_dec_state, trg_embedding):
     raise NotImplementedError('must be implemented by subclasses')
   def initial_state(self, enc_final_states, ss_expr):
     raise NotImplementedError('must be implemented by subclasses')
 
-class MlpSoftmaxDecoderState(object):
-  """A state holding all the information needed for MLPSoftmaxDecoder
+class AutoRegressiveDecoderState(object):
+  """A state holding all the information needed for AutoRegressiveDecoder
   
   Args:
     rnn_state: a DyNet RNN state
@@ -40,17 +44,18 @@ class MlpSoftmaxDecoderState(object):
     self.rnn_state = rnn_state
     self.context = context
 
-class MlpSoftmaxDecoder(Decoder, Serializable):
+class AutoRegressiveDecoder(Decoder, Serializable):
   """
-  Standard MLP softmax decoder.
+  Standard autoregressive-decoder.
 
   Args:
     input_dim: input dimension
     trg_embed_dim: dimension of target embeddings
     input_feeding: whether to activate input feeding
-    rnn_layer: recurrent layer of the decoder
-    mlp_layer: final prediction layer of the decoder
     bridge: how to initialize decoder state
+    rnn: recurrent decoder
+    transform: a layer of transformation between rnn and output scorer
+    scorer: the method of scoring the output (usually softmax)
     truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
     label_smoothing: label smoothing value (if used, 0.1 is a reasonable value).
                      Label Smoothing is implemented with reference to Section 7 of the paper
@@ -58,50 +63,42 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
                      (https://arxiv.org/pdf/1512.00567.pdf)
   """
 
-  # TODO: This should probably take a softmax object, which can be normal or class-factored, etc.
-  # For now the default behavior is hard coded.
-
-  yaml_tag = '!MlpSoftmaxDecoder'
+  yaml_tag = '!AutoRegressiveDecoder'
 
   @serializable_init
   def __init__(self,
-               input_dim: int = Ref("exp_global.default_layer_dim"),
-               trg_embed_dim: int = Ref("exp_global.default_layer_dim"),
+               input_dim: int = Ref("exp_global.default_dim"),
+               trg_embed_dim: int = Ref("exp_global.default_dim"),
                input_feeding: bool = True,
-               rnn_layer: UniLSTMSeqTransducer = bare(UniLSTMSeqTransducer),
-               mlp_layer: MLP = bare(AttentionalOutputMLP),
                bridge: Bridge = bare(CopyBridge),
-               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False),
-               label_smoothing: float = 0.0) -> None:
+               rnn: UniLSTMSeqTransducer = bare(UniLSTMSeqTransducer),
+               transform: Transform = bare(NonLinear),
+               scorer: Scorer = bare(Softmax),
+               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
     self.param_col = ParamManager.my_params(self)
     self.input_dim = input_dim
     self.truncate_dec_batches = truncate_dec_batches
-    self.label_smoothing = label_smoothing
+    self.bridge = bridge
+    self.rnn = rnn
+    self.transform = transform
+    self.scorer = scorer
     # Input feeding
     self.input_feeding = input_feeding
     rnn_input_dim = trg_embed_dim
     if input_feeding:
       rnn_input_dim += input_dim
-    assert rnn_input_dim == rnn_layer.input_dim, "Wrong input dimension in RNN layer: {} != {}".format(rnn_input_dim, rnn_layer.input_dim)
-    # Bridge
-    self.bridge = bridge
-
-    # LSTM
-    self.rnn_layer = rnn_layer
-
-    # MLP
-    self.mlp_layer = mlp_layer
+    assert rnn_input_dim == rnn.input_dim, "Wrong input dimension in RNN layer: {} != {}".format(rnn_input_dim, rnn.input_dim)
 
   def shared_params(self):
-    return [{".trg_embed_dim", ".rnn_layer.input_dim"},
-            {".input_dim", ".rnn_layer.decoder_input_dim"},
-            {".input_dim", ".mlp_layer.input_dim"},
-            {".input_feeding", ".rnn_layer.decoder_input_feeding"},
-            {".rnn_layer.layers", ".bridge.dec_layers"},
-            {".rnn_layer.hidden_dim", ".bridge.dec_dim"},
-            {".rnn_layer.hidden_dim", ".mlp_layer.decoder_rnn_dim"}]
+    return [{".trg_embed_dim", ".rnn.input_dim"},
+            {".input_dim", ".rnn.decoder_input_dim"},
+            {".input_dim", ".mlp.input_dim"},
+            {".input_feeding", ".rnn.decoder_input_feeding"},
+            {".rnn.layers", ".bridge.decs"},
+            {".rnn.hidden_dim", ".bridge.dec_dim"},
+            {".rnn.hidden_dim", ".mlp.decoder_rnn_dim"}]
 
-  def initial_state(self, enc_final_states: Any, ss_expr: dy.Expression) -> MlpSoftmaxDecoderState:
+  def initial_state(self, enc_final_states: Any, ss_expr: dy.Expression) -> AutoRegressiveDecoderState:
     """Get the initial state of the decoder given the encoder final states.
 
     Args:
@@ -110,13 +107,13 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
     Returns:
       initial decoder state
     """
-    rnn_state = self.rnn_layer.initial_state()
+    rnn_state = self.rnn.initial_state()
     rnn_state = rnn_state.set_s(self.bridge.decoder_init(enc_final_states))
     zeros = dy.zeros(self.input_dim) if self.input_feeding else None
     rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]))
-    return MlpSoftmaxDecoderState(rnn_state=rnn_state, context=zeros)
+    return AutoRegressiveDecoderState(rnn_state=rnn_state, context=zeros)
 
-  def add_input(self, mlp_dec_state: MlpSoftmaxDecoderState, trg_embedding: dy.Expression) -> MlpSoftmaxDecoderState:
+  def add_input(self, mlp_dec_state: AutoRegressiveDecoderState, trg_embedding: dy.Expression) -> AutoRegressiveDecoderState:
     """Add an input and update the state.
     
     Args:
@@ -130,10 +127,14 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
       inp = dy.concatenate([inp, mlp_dec_state.context])
     rnn_state = mlp_dec_state.rnn_state
     if self.truncate_dec_batches: rnn_state, inp = xnmt.batcher.truncate_batches(rnn_state, inp)
-    return MlpSoftmaxDecoderState(rnn_state=rnn_state.add_input(inp),
+    return AutoRegressiveDecoderState(rnn_state=rnn_state.add_input(inp),
                                   context=mlp_dec_state.context)
 
-  def get_scores(self, mlp_dec_state: MlpSoftmaxDecoderState) -> dy.Expression:
+  def _calc_transform(self, mlp_dec_state: AutoRegressiveDecoderState) -> dy.Expression:
+    h = dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context])
+    return self.transform(h)
+
+  def calc_scores(self, mlp_dec_state: AutoRegressiveDecoderState) -> dy.Expression:
     """Get scores given a current state.
 
     Args:
@@ -141,144 +142,125 @@ class MlpSoftmaxDecoder(Decoder, Serializable):
     Returns:
       Scores over the vocabulary given this state.
     """
-    return self.mlp_layer(dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context]))
+    return self.scorer.calc_scores(self._calc_transform(mlp_dec_state))
 
-  def get_scores_logsoftmax(self, mlp_dec_state):
-    return dy.log_softmax(self.get_scores(mlp_dec_state))
-
-  def calc_loss(self, mlp_dec_state, ref_action):
-    scores = self.get_scores(mlp_dec_state)
-
-    if self.label_smoothing == 0.0:
-      # single mode
-      if not xnmt.batcher.is_batched(ref_action):
-        return dy.pickneglogsoftmax(scores, ref_action)
-      # minibatch mode
-      else:
-        if self.truncate_dec_batches: scores, ref_action = xnmt.batcher.truncate_batches(scores, ref_action)
-        return dy.pickneglogsoftmax_batch(scores, ref_action)
-
-    else:
-      log_prob = dy.log_softmax(scores)
-      if not xnmt.batcher.is_batched(ref_action):
-        pre_loss = -dy.pick(log_prob, ref_action)
-      else:
-        pre_loss = -dy.pick_batch(log_prob, ref_action)
-
-      ls_loss = -dy.mean_elems(log_prob)
-      loss = ((1 - self.label_smoothing) * pre_loss) + (self.label_smoothing * ls_loss)
-      return loss
-
-class MlpSoftmaxLexiconDecoder(MlpSoftmaxDecoder, Serializable):
-  yaml_tag = '!MlpSoftmaxLexiconDecoder'
-
-  @register_xnmt_handler
-  @serializable_init
-  def __init__(self,
-               input_dim=Ref("exp_global.default_layer_dim"),
-               trg_embed_dim=Ref("exp_global.default_layer_dim"),
-               input_feeding=True,
-               rnn_layer=bare(UniLSTMSeqTransducer),
-               mlp_layer=bare(AttentionalOutputMLP),
-               bridge=bare(CopyBridge),
-               label_smoothing=0.0,
-               lexicon_file=None,
-               src_vocab=Ref(Path("model.src_reader.vocab")),
-               trg_vocab=Ref(Path("model.trg_reader.vocab")),
-               attender=Ref(Path("model.attender")),
-               lexicon_type='bias',
-               lexicon_alpha=0.001,
-               linear_projector=None,
-               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False),
-               param_init_lin=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init_lin=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
-               ) -> None:
-    super().__init__(input_dim, trg_embed_dim, input_feeding, rnn_layer,
-                     mlp_layer, bridge, truncate_dec_batches, label_smoothing)
-    assert lexicon_file is not None
-    self.lexicon_file = lexicon_file
-    self.src_vocab = src_vocab
-    self.trg_vocab = trg_vocab
-    self.attender = attender
-    self.lexicon_type = lexicon_type
-    self.lexicon_alpha = lexicon_alpha
-
-    self.linear_projector = self.add_serializable_component("linear_projector", linear_projector,
-                                                             lambda: xnmt.linear.Linear(input_dim=input_dim,
-                                                                                        output_dim=mlp_layer.output_dim))
-
-    if self.lexicon_type == "linear":
-      self.lexicon_method = self.linear
-    elif self.lexicon_type == "bias":
-      self.lexicon_method = self.bias
-    else:
-      raise ValueError("Unrecognized lexicon method:", lexicon_type, "can only choose between [bias, linear]")
-
-  def load_lexicon(self):
-    logger.info("Loading lexicon from file: " + self.lexicon_file)
-    assert self.src_vocab.frozen
-    assert self.trg_vocab.frozen
-    lexicon = [{} for _ in range(len(self.src_vocab))]
-    with open(self.lexicon_file, encoding='utf-8') as fp:
-      for line in fp:
-        try:
-          trg, src, prob = line.rstrip().split()
-        except:
-          logger.warning("Failed to parse 'trg src prob' from:" + line.strip())
-          continue
-        trg_id = self.trg_vocab.convert(trg)
-        src_id = self.src_vocab.convert(src)
-        lexicon[src_id][trg_id] = float(prob)
-    # Setting the rest of the weight to the unknown word
-    for i in range(len(lexicon)):
-      sum_prob = sum(lexicon[i].values())
-      if sum_prob < 1.0:
-        lexicon[i][self.trg_vocab.convert(self.trg_vocab.unk_token)] = 1.0 - sum_prob
-    # Overriding special tokens
-    src_unk_id = self.src_vocab.convert(self.src_vocab.unk_token)
-    trg_unk_id = self.trg_vocab.convert(self.trg_vocab.unk_token)
-    lexicon[self.src_vocab.SS] = {self.trg_vocab.SS: 1.0}
-    lexicon[self.src_vocab.ES] = {self.trg_vocab.ES: 1.0}
-    # TODO(philip30): Note sure if this is intended
-    lexicon[src_unk_id] = {trg_unk_id: 1.0}
-    return lexicon
-
-  @handle_xnmt_event
-  def on_new_epoch(self, training_task, *args, **kwargs):
-    if hasattr(self, "lexicon_prob"):
-      del self.lexicon_prob
-    if not hasattr(self, "lexicon"):
-      self.lexicon = self.load_lexicon()
-
-  @handle_xnmt_event
-  def on_start_sent(self, src):
-    batch_size = len(src)
-    col_size = len(src[0])
-
-    idxs = [(x, j, i) for i in range(batch_size) for j in range(col_size) for x in self.lexicon[src[i][j]].keys()]
-    idxs = tuple(map(list, list(zip(*idxs))))
-
-    values = [x for i in range(batch_size) for j in range(col_size) for x in self.lexicon[src[i][j]].values()]
-    self.lexicon_prob = dy.nobackprop(dy.sparse_inputTensor(idxs, values, (len(self.trg_vocab), col_size, batch_size), batched=True))
-    
-  def get_scores_logsoftmax(self, mlp_dec_state):
-    score = super().get_scores(mlp_dec_state)
-    lex_prob = self.lexicon_prob * self.attender.get_last_attention()
-    # Note that the sum dim is only summing a tensor of 1 size in dim 1.
-    # This is to make sure that the shape of the returned tensor matches the vanilla decoder
-    return dy.sum_dim(self.lexicon_method(mlp_dec_state, score, lex_prob), [1])
-
-  def linear(self, mlp_dec_state, score, lex_prob):
-    coef = dy.logistic(self.linear_projector(mlp_dec_state.rnn_state.output()))
-    return dy.log(dy.cmult(dy.softmax(score), coef) + dy.cmult((1-coef), lex_prob))
-
-  def bias(self, mlp_dec_state, score, lex_prob):
-    return dy.log_softmax(score + dy.log(lex_prob + self.lexicon_alpha))
+  def calc_log_probs(self, mlp_dec_state):
+    return self.scorer.calc_log_probs(self._calc_transform(mlp_dec_state))
 
   def calc_loss(self, mlp_dec_state, ref_action):
-    logsoft = self.get_scores_logsoftmax(mlp_dec_state)
-    if not xnmt.batcher.is_batched(ref_action):
-      return -dy.pick(logsoft, ref_action)
-    else:
-      return -dy.pick_batch(logsoft, ref_action)
+    return self.scorer.calc_loss(self._calc_transform(mlp_dec_state), ref_action)
+
+# TODO: This should be factored to simply use Softmax
+# class AutoRegressiveLexiconDecoder(AutoRegressiveDecoder, Serializable):
+#   yaml_tag = '!AutoRegressiveLexiconDecoder'
+# 
+#   @register_xnmt_handler
+#   @serializable_init
+#   def __init__(self,
+#                input_dim=Ref("exp_global.default_dim"),
+#                trg_embed_dim=Ref("exp_global.default_dim"),
+#                input_feeding=True,
+#                rnn=bare(UniLSTMSeqTransducer),
+#                mlp=bare(AttentionalOutputMLP),
+#                bridge=bare(CopyBridge),
+#                label_smoothing=0.0,
+#                lexicon_file=None,
+#                src_vocab=Ref(Path("model.src_reader.vocab")),
+#                trg_vocab=Ref(Path("model.trg_reader.vocab")),
+#                attender=Ref(Path("model.attender")),
+#                lexicon_type='bias',
+#                lexicon_alpha=0.001,
+#                linear_projector=None,
+#                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False),
+#                param_init_lin=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+#                bias_init_lin=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+#                ) -> None:
+#     super().__init__(input_dim, trg_embed_dim, input_feeding, rnn,
+#                      mlp, bridge, truncate_dec_batches, label_smoothing)
+#     assert lexicon_file is not None
+#     self.lexicon_file = lexicon_file
+#     self.src_vocab = src_vocab
+#     self.trg_vocab = trg_vocab
+#     self.attender = attender
+#     self.lexicon_type = lexicon_type
+#     self.lexicon_alpha = lexicon_alpha
+# 
+#     self.linear_projector = self.add_serializable_component("linear_projector", linear_projector,
+#                                                              lambda: xnmt.linear.Linear(input_dim=input_dim,
+#                                                                                         output_dim=mlp.output_dim))
+# 
+#     if self.lexicon_type == "linear":
+#       self.lexicon_method = self.linear
+#     elif self.lexicon_type == "bias":
+#       self.lexicon_method = self.bias
+#     else:
+#       raise ValueError("Unrecognized lexicon method:", lexicon_type, "can only choose between [bias, linear]")
+# 
+#   def load_lexicon(self):
+#     logger.info("Loading lexicon from file: " + self.lexicon_file)
+#     assert self.src_vocab.frozen
+#     assert self.trg_vocab.frozen
+#     lexicon = [{} for _ in range(len(self.src_vocab))]
+#     with open(self.lexicon_file, encoding='utf-8') as fp:
+#       for line in fp:
+#         try:
+#           trg, src, prob = line.rstrip().split()
+#         except:
+#           logger.warning("Failed to parse 'trg src prob' from:" + line.strip())
+#           continue
+#         trg_id = self.trg_vocab.convert(trg)
+#         src_id = self.src_vocab.convert(src)
+#         lexicon[src_id][trg_id] = float(prob)
+#     # Setting the rest of the weight to the unknown word
+#     for i in range(len(lexicon)):
+#       sum_prob = sum(lexicon[i].values())
+#       if sum_prob < 1.0:
+#         lexicon[i][self.trg_vocab.convert(self.trg_vocab.unk_token)] = 1.0 - sum_prob
+#     # Overriding special tokens
+#     src_unk_id = self.src_vocab.convert(self.src_vocab.unk_token)
+#     trg_unk_id = self.trg_vocab.convert(self.trg_vocab.unk_token)
+#     lexicon[self.src_vocab.SS] = {self.trg_vocab.SS: 1.0}
+#     lexicon[self.src_vocab.ES] = {self.trg_vocab.ES: 1.0}
+#     # TODO(philip30): Note sure if this is intended
+#     lexicon[src_unk_id] = {trg_unk_id: 1.0}
+#     return lexicon
+# 
+#   @handle_xnmt_event
+#   def on_new_epoch(self, training_task, *args, **kwargs):
+#     if hasattr(self, "lexicon_prob"):
+#       del self.lexicon_prob
+#     if not hasattr(self, "lexicon"):
+#       self.lexicon = self.load_lexicon()
+# 
+#   @handle_xnmt_event
+#   def on_start_sent(self, src):
+#     batch_size = len(src)
+#     col_size = len(src[0])
+# 
+#     idxs = [(x, j, i) for i in range(batch_size) for j in range(col_size) for x in self.lexicon[src[i][j]].keys()]
+#     idxs = tuple(map(list, list(zip(*idxs))))
+# 
+#     values = [x for i in range(batch_size) for j in range(col_size) for x in self.lexicon[src[i][j]].values()]
+#     self.lexicon_prob = dy.nobackprop(dy.sparse_inputTensor(idxs, values, (len(self.trg_vocab), col_size, batch_size), batched=True))
+#     
+#   def calc_scores_logsoftmax(self, mlp_dec_state):
+#     score = super().calc_scores(mlp_dec_state)
+#     lex_prob = self.lexicon_prob * self.attender.get_last_attention()
+#     # Note that the sum dim is only summing a tensor of 1 size in dim 1.
+#     # This is to make sure that the shape of the returned tensor matches the vanilla decoder
+#     return dy.sum_dim(self.lexicon_method(mlp_dec_state, score, lex_prob), [1])
+# 
+#   def linear(self, mlp_dec_state, score, lex_prob):
+#     coef = dy.logistic(self.linear_projector(mlp_dec_state.rnn_state.output()))
+#     return dy.log(dy.cmult(dy.softmax(score), coef) + dy.cmult((1-coef), lex_prob))
+# 
+#   def bias(self, mlp_dec_state, score, lex_prob):
+#     return dy.log_softmax(score + dy.log(lex_prob + self.lexicon_alpha))
+# 
+#   def calc_loss(self, mlp_dec_state, ref_action):
+#     logsoft = self.calc_scores_logsoftmax(mlp_dec_state)
+#     if not xnmt.batcher.is_batched(ref_action):
+#       return -dy.pick(logsoft, ref_action)
+#     else:
+#       return -dy.pick_batch(logsoft, ref_action)
 
