@@ -68,8 +68,7 @@ class NonLinear(Transform, Serializable):
     output_dim (int): hidden dimension
     aux_input_dim (int): auxiliary input dimension.
                          The actual input dimension is aux_input_dim + input_dim. This is useful
-                         for when you want to do something like input feeding. (It might be better
-                         to come up with a more elegant way to do this, but this will work for now)
+                         for when you want to do something like input feeding.
     bias (bool): whether to add a bias
     activation: One of ``tanh``, ``relu``, ``sigmoid``, ``elu``, ``selu``, ``asinh`` or ``identity``.
     param_init (ParamInitializer): how to initialize weight matrices
@@ -78,6 +77,7 @@ class NonLinear(Transform, Serializable):
 
   yaml_tag = "!NonLinear"
 
+  # TODO can we come up with a more elegant way to handle things than aux_input_dim?
   @serializable_init
   def __init__(self,
                input_dim: int = Ref("exp_global.default_layer_dim"),
@@ -89,6 +89,7 @@ class NonLinear(Transform, Serializable):
                bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     self.bias = bias
     self.output_dim = output_dim
+    print('input_dim {}, aux_input_dim {}'.format(input_dim, aux_input_dim))
     self.input_dim = input_dim + aux_input_dim
     if activation == 'tanh':
       self.activation = dy.tanh

@@ -1,6 +1,7 @@
 exp1.pretrain: !Experiment
   exp_global: !ExpGlobal
     default_layer_dim: 32
+    model_file: "test/tmp/{EXP}.mod"
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
@@ -14,7 +15,8 @@ exp1.pretrain: !Experiment
         _xnmt_id: shared_enc
         layers: 1
       - !Ref { name: shared_enc }
-    attender: !MlpAttender {}
+    attender: !MlpAttender
+      input_dim: 32
     trg_embedder: !DenseWordEmbedder
       _xnmt_id: trg_emb
       emb_dim: 32
@@ -22,7 +24,10 @@ exp1.pretrain: !Experiment
       rnn: !UniLSTMSeqTransducer
         layers: 1
       bridge: !CopyBridge {}
+      # TODO: This seems unnecessary, but https://github.com/neulab/xnmt/issues/441
       transform: !NonLinear
+        aux_input_dim: 32
+      scorer: !Softmax
         output_projector: !Ref { name: trg_emb }
     inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen

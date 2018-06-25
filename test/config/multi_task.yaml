@@ -3,6 +3,7 @@
 exp1-multi_task_exp: !Experiment
   exp_global: !ExpGlobal
     default_layer_dim: 64
+    model_file: 'test/tmp/{EXP}.mod'
   train: !SameBatchMultiTaskTrainingRegimen
     trainer: !AdamTrainer {}
     tasks: &training_tasks
@@ -78,7 +79,7 @@ exp1-multi_task_exp: !Experiment
           rnn: !UniLSTMSeqTransducer
             layers: 1
           bridge: !CopyBridge {}
-          transform: !Softmax
+          scorer: !Softmax
             vocab: !Ref {name: trg_vocab}
       dev_tasks:
         - !AccuracyEvalTask

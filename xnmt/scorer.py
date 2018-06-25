@@ -63,7 +63,7 @@ class Scorer(object):
       return len(vocab)
     elif trg_reader is None or trg_reader.vocab is None:
       raise ValueError(
-        "Could not determine MLP's output size. "
+        "Could not determine scorer's's output size. "
         "Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
     else:
       return len(trg_reader.vocab)
@@ -83,7 +83,7 @@ class Softmax(Scorer, Serializable):
 
   @serializable_init
   def __init__(self,
-               input_dim: int = Ref("exp_global.default_dim"),
+               input_dim: int = Ref("exp_global.default_layer_dim"),               
                vocab_size: Optional[int] = None,
                vocab: Optional[vocab.Vocab] = None,
                trg_reader: Optional[input_reader.InputReader] = Ref("model.trg_reader", default=None),

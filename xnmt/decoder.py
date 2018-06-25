@@ -67,8 +67,8 @@ class AutoRegressiveDecoder(Decoder, Serializable):
 
   @serializable_init
   def __init__(self,
-               input_dim: int = Ref("exp_global.default_dim"),
-               trg_embed_dim: int = Ref("exp_global.default_dim"),
+               input_dim: int = Ref("exp_global.default_layer_dim"),
+               trg_embed_dim: int = Ref("exp_global.default_layer_dim"),
                input_feeding: bool = True,
                bridge: Bridge = bare(CopyBridge),
                rnn: UniLSTMSeqTransducer = bare(UniLSTMSeqTransducer),

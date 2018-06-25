@@ -4,12 +4,17 @@
 ensemble1: !Experiment
   exp_global: &globals !ExpGlobal
     default_layer_dim: 32
+    model_file: 'test/tmp/{EXP}.mod'
   # Just use default model settings here
   model: !DefaultTranslator
     src_reader: &src_reader !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     trg_reader: &trg_reader !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    decoder: !AutoRegressiveDecoder
+      # TODO: This seems unnecessary, but https://github.com/neulab/xnmt/issues/441
+      transform: !NonLinear
+        aux_input_dim: 32
   train: &train !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
@@ -37,6 +42,7 @@ ensemble2: !Experiment
         hidden_dim: 64
       transform: !NonLinear
         output_dim: 64
+      scorer: !Softmax
         output_projector: !Ref {name: dense_embed}
   train: *train
 
