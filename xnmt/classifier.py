@@ -40,7 +40,8 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
 
   def shared_params(self):
     return [{".src_embedder.emb_dim", ".encoder.input_dim"},
-            {".encoder.hidden_dim", ".mlp.input_dim"}]
+            {".encoder.hidden_dim", ".transform.input_dim"},
+            {".transform.output_dim", ".scorer.input_dim"}]
 
   def _encode_src(self, src):
     self.start_sent(src)
@@ -51,7 +52,7 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
 
   def calc_loss(self, src, trg, loss_calculator):
     h = self._encode_src(src)
-    ids = trg.value if batcher.is_batched(trg) else [trg_i.value for trg_i in trg]
+    ids = trg.value if not batcher.is_batched(trg) else batcher.Batch([trg_i.value for trg_i in trg])
     loss_expr = self.scorer.calc_loss(h, ids)
     classifier_loss = loss.FactoredLossExpr({"mle" : loss_expr})
     return classifier_loss
@@ -68,6 +69,7 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
       output_action = forced_trg_ids
     else:
       output_action = np.argmax(np_scores, axis=0)
+    outputs = []
     for batch_i in range(len(src)):
       score = np_scores[:, batch_i][output_action[batch_i]]
       outputs.append(output.ScalarOutput(actions=[output_action],

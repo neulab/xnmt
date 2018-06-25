@@ -119,7 +119,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
   def shared_params(self):
     return [{".src_embedder.emb_dim", ".encoder.input_dim"},
             {".encoder.hidden_dim", ".attender.input_dim", ".decoder.input_dim"},
-            {".attender.state_dim", ".decoder.rnn_layer.hidden_dim"},
+            {".attender.state_dim", ".decoder.rnn.hidden_dim"},
             {".trg_embedder.emb_dim", ".decoder.trg_embed_dim"}]
 
   def initialize_generator(self, **kwargs):

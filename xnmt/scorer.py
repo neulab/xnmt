@@ -1,10 +1,11 @@
 import dynet as dy
-from typing import List, Union
+from typing import List, Union, Optional
 
 from xnmt.param_init import ParamInitializer, GlorotInitializer, ZeroInitializer
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
 from xnmt.transform import Linear
+from xnmt import batcher, vocab, input_reader
 
 class Scorer(object):
   """
@@ -42,6 +43,31 @@ class Scorer(object):
     """
     raise NotImplementedError('calc_loss must be implemented by subclasses of Scorer')
 
+  def _choose_vocab_size(self, vocab_size: Optional[int], vocab: Optional[vocab.Vocab],
+                         trg_reader: Optional[input_reader.InputReader]) -> int:
+    """Choose the vocab size for the embedder based on the passed arguments.
+
+    This is done in order of priority of vocab_size, vocab, model
+
+    Args:
+      vocab_size: vocab size or None
+      vocab: vocab or None
+      trg_reader: Model's trg_reader, if exists and unambiguous.
+
+    Returns:
+      chosen vocab size
+    """
+    if vocab_size is not None:
+      return vocab_size
+    elif vocab is not None:
+      return len(vocab)
+    elif trg_reader is None or trg_reader.vocab is None:
+      raise ValueError(
+        "Could not determine MLP's output size. "
+        "Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
+    else:
+      return len(trg_reader.vocab)
+
 class Softmax(Scorer, Serializable):
   """
   A class that does an affine transform from the input to the vocabulary size,
@@ -58,19 +84,21 @@ class Softmax(Scorer, Serializable):
   @serializable_init
   def __init__(self,
                input_dim: int = Ref("exp_global.default_dim"),
-               vocab_size: int = None,
+               vocab_size: Optional[int] = None,
+               vocab: Optional[vocab.Vocab] = None,
+               trg_reader: Optional[input_reader.InputReader] = Ref("model.trg_reader", default=None),
                label_smoothing: float = 0.0,
                param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init: ParamInitializer = Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
                output_projector: Linear = None) -> None:
     self.param_col = ParamManager.my_params(self)
     self.input_dim = input_dim
-    self.vocab_size = vocab_size
+    self.output_dim = self._choose_vocab_size(vocab_size, vocab, trg_reader)
     self.label_smoothing = label_smoothing
 
     self.output_projector = self.add_serializable_component("output_projector", output_projector,
                                                             lambda: output_projector or Linear(
-                                                              input_dim=self.input_dim, output_dim=self.vocab_size,
+                                                              input_dim=self.input_dim, output_dim=self.output_dim,
                                                               param_init=param_init, bias_init=bias_init))
   
   def calc_scores(self, x: dy.Expression) -> dy.Expression:
@@ -82,15 +110,14 @@ class Softmax(Scorer, Serializable):
 
     if self.label_smoothing == 0.0:
       # single mode
-      if not xnmt.batcher.is_batched(y):
+      if not batcher.is_batched(y):
         loss = dy.pickneglogsoftmax(scores, y)
       # minibatch mode
       else:
-        if self.truncate_dec_batches: scores, y = xnmt.batcher.truncate_batches(scores, y)
         loss = dy.pickneglogsoftmax_batch(scores, y)
     else:
       log_prob = dy.log_softmax(scores)
-      if not xnmt.batcher.is_batched(y):
+      if not batcher.is_batched(y):
         pre_loss = -dy.pick(log_prob, y)
       else:
         pre_loss = -dy.pick_batch(log_prob, y)

@@ -32,11 +32,11 @@ ensemble2: !Experiment
     trg_embedder: !DenseWordEmbedder
       _xnmt_id: dense_embed
       emb_dim: 64
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         hidden_dim: 64
-      mlp_layer: !AttentionalOutputMLP
-        hidden_dim: 64
+      transform: !NonLinear
+        output_dim: 64
         output_projector: !Ref {name: dense_embed}
   train: *train
 

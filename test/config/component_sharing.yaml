@@ -18,11 +18,11 @@ exp1.pretrain: !Experiment
     trg_embedder: !DenseWordEmbedder
       _xnmt_id: trg_emb
       emb_dim: 32
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
       bridge: !CopyBridge {}
-      mlp_layer: !AttentionalOutputMLP
+      transform: !NonLinear
         output_projector: !Ref { name: trg_emb }
     inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen

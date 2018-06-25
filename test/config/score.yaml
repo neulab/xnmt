@@ -26,7 +26,7 @@ exp1-model: !Experiment
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-    decoder: !MlpSoftmaxDecoder
+    decoder: !AutoRegressiveDecoder
       input_feeding: True
       bridge: !CopyBridge {}
     inference: !AutoRegressiveInference {}

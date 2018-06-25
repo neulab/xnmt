@@ -38,7 +38,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
       decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
                                 rnn=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn"),
-                                transform=NonLinear(input_dim=layer_dim, output_dim=layer_dim),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
@@ -73,7 +73,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
       decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
                                 rnn=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn"),
-                                transform=NonLinear(input_dim=layer_dim, output_dim=layer_dim),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
@@ -109,7 +109,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
       decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
                                 rnn=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn"),
-                                transform=NonLinear(input_dim=layer_dim, output_dim=layer_dim),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
@@ -149,7 +149,7 @@ class TestGreedyVsBeam(unittest.TestCase):
       decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
                                 rnn=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn"),
-                                transform=NonLinear(input_dim=layer_dim, output_dim=layer_dim),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )

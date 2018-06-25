@@ -66,6 +66,10 @@ class NonLinear(Transform, Serializable):
   Args:
     input_dim (int): input dimension
     output_dim (int): hidden dimension
+    aux_input_dim (int): auxiliary input dimension.
+                         The actual input dimension is aux_input_dim + input_dim. This is useful
+                         for when you want to do something like input feeding. (It might be better
+                         to come up with a more elegant way to do this, but this will work for now)
     bias (bool): whether to add a bias
     activation: One of ``tanh``, ``relu``, ``sigmoid``, ``elu``, ``selu``, ``asinh`` or ``identity``.
     param_init (ParamInitializer): how to initialize weight matrices
@@ -75,12 +79,17 @@ class NonLinear(Transform, Serializable):
   yaml_tag = "!NonLinear"
 
   @serializable_init
-  def __init__(self, input_dim, output_dim, bias=True, activation: str = 'tanh',
+  def __init__(self,
+               input_dim: int = Ref("exp_global.default_layer_dim"),
+               output_dim: int = Ref("exp_global.default_layer_dim"),
+               aux_input_dim: int = 0,
+               bias: bool = True,
+               activation: str = 'tanh',
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     self.bias = bias
     self.output_dim = output_dim
-
+    self.input_dim = input_dim + aux_input_dim
     if activation == 'tanh':
       self.activation = dy.tanh
     elif activation == 'relu':
@@ -101,9 +110,9 @@ class NonLinear(Transform, Serializable):
       raise ValueError('Unknown activation %s' % activation)
 
     model = ParamManager.my_params(self)
-    self.W1 = model.add_parameters((output_dim, input_dim), init=param_init.initializer((output_dim, input_dim)))
+    self.W1 = model.add_parameters((self.output_dim, self.input_dim), init=param_init.initializer((self.output_dim, self.input_dim)))
     if self.bias:
-      self.b1 = model.add_parameters((output_dim,), init=bias_init.initializer((output_dim,)))
+      self.b1 = model.add_parameters((self.output_dim,), init=bias_init.initializer((self.output_dim,)))
 
   def __call__(self, input_expr: dy.Expression) -> dy.Expression:
     W1 = dy.parameter(self.W1)

@@ -92,11 +92,12 @@ class AutoRegressiveDecoder(Decoder, Serializable):
   def shared_params(self):
     return [{".trg_embed_dim", ".rnn.input_dim"},
             {".input_dim", ".rnn.decoder_input_dim"},
-            {".input_dim", ".mlp.input_dim"},
+            {".input_dim", ".transform.input_dim"},
             {".input_feeding", ".rnn.decoder_input_feeding"},
-            {".rnn.layers", ".bridge.decs"},
+            {".rnn.layers", ".bridge.dec_layers"},
             {".rnn.hidden_dim", ".bridge.dec_dim"},
-            {".rnn.hidden_dim", ".mlp.decoder_rnn_dim"}]
+            {".rnn.hidden_dim", ".transform.aux_input_dim"},
+            {".transform.output_dim", ".scorer.input_dim"}]
 
   def initial_state(self, enc_final_states: Any, ss_expr: dy.Expression) -> AutoRegressiveDecoderState:
     """Get the initial state of the decoder given the encoder final states.
