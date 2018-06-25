@@ -44,8 +44,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                learn_segmentation = True,
                compose_char       = False,
                log_reward         = True,
+               vocab = None,
                debug=False,
                print_sample=False):
+    self.vocab = vocab
     model = ParamManager.my_params(self)
     # Sanity check
     assert embed_encoder is not None
@@ -119,7 +121,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if decision == SegmentingAction.SEGMENT.value:
           # Special case for TailWordSegmentTransformer only
           words = None
-          vocab = self.src_sent[i].vocab
+          vocab = self.vocab
           words = self.src_sent[i].words[last_segment[i]+1:j+1]
           if vocab is not None:
             words = "".join(w for w in [vocab[c] for c in words if c != vocab.unk_token])

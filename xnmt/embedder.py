@@ -100,7 +100,7 @@ class Embedder(object):
     elif vocab is not None:
       return len(vocab)
     elif "src_embedder" in yaml_path:
-      if src_reader is None or src_reader.vocab is None:
+      if src_reader is None or getattr(src_reader,"vocab",None) is None:
         raise ValueError("Could not determine src_embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of src_reader ahead of time.")
       return len(src_reader.vocab)
     elif "trg_embedder" in yaml_path or "output_projector" in yaml_path:

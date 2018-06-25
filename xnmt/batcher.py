@@ -131,12 +131,12 @@ class Batcher(object):
     """
     if trg_sents is not None and sort_by_trg_len:
       src_sents, trg_sents = zip(*sorted(zip(src_sents, trg_sents), key=lambda x: len(x[1]), reverse=True))
-    src_id, src_mask = pad(src_sents, pad_token=self.src_pad_token, pad_to_multiple=self.pad_src_to_multiple)
+    src_batch = pad(src_sents, pad_token=self.src_pad_token, pad_to_multiple=self.pad_src_to_multiple)
     if trg_sents is None:
-      return Batch(src_id, src_mask)
+      return src_batch
     else:
-      trg_id, trg_mask = pad(trg_sents, pad_token=self.trg_pad_token)
-      return Batch(src_id, src_mask), Batch(trg_id, trg_mask)
+      trg_batch = pad(trg_sents, pad_token=self.trg_pad_token)
+      return src_batch, trg_batch
 
   def _add_single_batch(self, src_curr, trg_curr, src_ret, trg_ret, sort_by_trg_len=False):
     if trg_curr:
@@ -335,7 +335,7 @@ def is_batched(data):
   """
   return type(data) == Batch
 
-def pad(batch, pad_token=Vocab.ES, pad_to_multiple=1):
+def pad(batch, pad_token=Vocab.ES, pad_to_multiple=1) -> Batch:
   """
   Apply padding to sentences in a batch.
 
@@ -345,20 +345,26 @@ def pad(batch, pad_token=Vocab.ES, pad_to_multiple=1):
     pad_to_multiple (int): pad sentences so their length is a multiple of this integer.
 
   Returns:
-    Tuple: list of padded items and a corresponding batched mask.
+    batch containing padded items and a corresponding batch mask.
   """
+  if isinstance(list(batch)[0], xnmt.input.CompoundInput):
+    ret = []
+    for compound_i in range(len(batch[0].inputs)):
+      ret.append(
+        pad(tuple(inp.inputs[compound_i] for inp in batch), pad_token=pad_token, pad_to_multiple=pad_to_multiple))
+    return tuple(ret)
   max_len = max(_len_or_zero(item) for item in batch)
   if max_len % pad_to_multiple != 0:
     max_len += pad_to_multiple - (max_len % pad_to_multiple)
   min_len = min(_len_or_zero(item) for item in batch)
   if min_len == max_len:
-    return batch, None
+    return Batch(batch, mask=None)
   masks = np.zeros([len(batch), max_len])
   for i, v in enumerate(batch):
     for j in range(_len_or_zero(v), max_len):
       masks[i,j] = 1.0
   padded_items = [item.get_padded_sent(pad_token, max_len - len(item)) for item in batch]
-  return padded_items, Mask(masks)
+  return Batch(padded_items, mask=Mask(masks))
 
 def _len_or_zero(val):
   return len(val) if hasattr(val, '__len__') else 0
