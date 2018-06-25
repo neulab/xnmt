@@ -78,12 +78,10 @@ class SimpleSentenceInput(Input):
 
   Args:
     words (List[int]): list of integer word ids
-    vocab (Vocab):
   """
 
-  def __init__(self, words: Sequence[int], vocab: vocab.Vocab = None):
+  def __init__(self, words: Sequence[int]):
     self.words = words
-    self.vocab = vocab
 
   def __repr__(self):
     return '{}'.format(self.words)
@@ -111,21 +109,21 @@ class SimpleSentenceInput(Input):
       return self
     new_words = list(self.words)
     new_words.extend([token] * pad_len)
-    return self.__class__(new_words, self.vocab)
+    return self.__class__(new_words)
 
   def get_truncated_sent(self, trunc_len: int) -> 'Input':
     if trunc_len == 0:
       return self
     new_words = self.words[:-trunc_len]
-    return self.__class__(new_words, self.vocab)
+    return self.__class__(new_words)
 
   def __str__(self):
     return " ".join(map(str, self.words))
 
 
 class AnnotatedSentenceInput(SimpleSentenceInput):
-  def __init__(self, words, vocab=None):
-    super(AnnotatedSentenceInput, self).__init__(words, vocab)
+  def __init__(self, words):
+    super(AnnotatedSentenceInput, self).__init__(words)
     self.annotation = {}
 
   def annotate(self, key, value):
