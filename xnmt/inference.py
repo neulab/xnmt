@@ -191,21 +191,21 @@ class IndependentOutputInference(Inference, Serializable):
   Assumes that generator.generate() takes arguments src, idx
 
   Args:
-  Args:
     src_file: path of input src file to be translated
     trg_file: path of file where trg translatons will be written
     ref_file: path of file with reference translations, e.g. for forced decoding
     max_src_len: Remove sentences from data to decode that are longer than this on the source side
     max_num_sents:
-    post_process: post-processing of translation outputs
-                  (available string shortcuts:  ``none``,``join-char``,``join-bpe``,``join-piece``)
+    post_process: post-processing of translation outputs (available string shortcuts:  ``none``, ``join-char``,
+                  ``join-bpe``, ``join-piece``)
     mode: type of decoding to perform.
 
-            * ``onebest``: generate one best.
-            * ``forced``: perform forced decoding.
-            * ``forceddebug``: perform forced decoding, calculate training loss, and make sure the scores are identical
-              for debugging purposes.
-            * ``score``: output scores, useful for rescoring
+          * ``onebest``: generate one best.
+          * ``forced``: perform forced decoding.
+          * ``forceddebug``: perform forced decoding, calculate training loss, and make sure the scores are identical
+            for debugging purposes.
+          * ``score``: output scores, useful for rescoring
+
     batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
   """
   yaml_tag = "!IndependentOutputInference"

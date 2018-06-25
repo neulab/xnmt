@@ -165,7 +165,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
     word_loss = self.decoder.calc_loss(dec_state, ref_word)
     return dec_state, word_loss
 
-  def generate(self, src, idx, search_strategy, forced_trg_ids=None):
+  def generate(self, src: Batch, idx: Sequence[int], search_strategy, forced_trg_ids=None):
     if not xnmt.batcher.is_batched(src):
       src = xnmt.batcher.mark_as_batch([src])
       if forced_trg_ids:

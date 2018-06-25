@@ -92,8 +92,8 @@ class OutputMLP(MLP, Serializable):
     output_projector: output layer linear subcomponent (created automatically)
     vocab_size: if not ``None`', this will be used as output dimension
     vocab: if not ``None`` and ``vocab_size`` was not specified, this will be used as output dimension
-    trg_reader: Model's trg_reader, if exists and unambiguous; if not None and ``vocab_size``/``vocab`` were not
-          specified, this will be used as output dimension
+    trg_reader: Model's trg_reader, if exists and unambiguous; if not None and ``vocab_size`` / ``vocab`` were not
+                specified, this will be used as output dimension
   """
   yaml_tag = '!OutputMLP'
 
@@ -111,7 +111,7 @@ class OutputMLP(MLP, Serializable):
                output_projector=None,
                vocab_size: Optional[int] = None,
                vocab: Optional[vocab.Vocab] = None,
-               trg_reader: Optional[input_reader.InputReader] = Ref("model.trg_reader", default=None)):
+               trg_reader: Optional[input_reader.InputReader] = Ref("model.trg_reader", default=None)) -> None:
     output_dim = self._choose_vocab_size(vocab_size, vocab, trg_reader)
     self.save_processed_arg("vocab_size", output_dim)
     super().__init__(input_dim=input_dim, hidden_dim=hidden_dim, output_dim=output_dim,
@@ -165,9 +165,9 @@ class AttentionalOutputMLP(OutputMLP, Serializable):
     output_projector: output layer linear subcomponent (created automatically)
     vocab_size: if not ``None`', this will be used as output dimension
     vocab: if not ``None`` and ``vocab_size`` was not specified, this will be used as output dimension
-    trg_reader: Model's trg_reader, if exists and unambiguous; if not None and ``vocab_size``/``vocab`` were not
-          specified, this will be used as output dimension
-    decoder_rnn_dim (int): dimension of a decoder RNN that feeds into this MLP; this will be added to ``input_dim``
+    trg_reader: Model's trg_reader, if exists and unambiguous; if not None and ``vocab_size`` / ``vocab`` were not
+                specified, this will be used as output dimension
+    decoder_rnn_dim: dimension of a decoder RNN that feeds into this MLP; this will be added to ``input_dim``
   """
   yaml_tag = '!AttentionalOutputMLP'
 
@@ -186,7 +186,7 @@ class AttentionalOutputMLP(OutputMLP, Serializable):
                vocab_size: Optional[int] = None,
                vocab: Optional[vocab.Vocab] = None,
                trg_reader: Optional[input_reader.InputReader] = Ref("model.trg_reader", default=None),
-               decoder_rnn_dim: int = Ref("exp_global.default_layer_dim", default=0)):
+               decoder_rnn_dim: int = Ref("exp_global.default_layer_dim", default=0)) -> None:
     original_input_dim = input_dim
     input_dim += decoder_rnn_dim
     super().__init__(input_dim=input_dim, hidden_dim=hidden_dim, param_init_hidden=param_init_hidden,
