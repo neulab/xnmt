@@ -63,6 +63,11 @@ speech: !Experiment
         hyp_file: examples/output/{EXP}.dev_hyp
         inference: !AutoRegressiveInference
           post_process: join-char
+          batcher: !InOrderBatcher
+            _xnmt_id: inference_batcher
+            pad_src_to_multiple: 4
+            batch_size: 1
+            src_pad_token: ~
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: cer,wer
@@ -71,4 +76,6 @@ speech: !Experiment
       hyp_file: examples/output/{EXP}.test_hyp
       inference: !AutoRegressiveInference
         post_process: join-char
-    
+        report_path: examples/output/{EXP}.report
+        report_type: html, file
+        batcher: !Ref { name: inference_batcher }

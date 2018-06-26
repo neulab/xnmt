@@ -112,7 +112,7 @@ class Inference(object):
         else:
           if forced_ref_corpus: ref_batch = ref_batches[batch_i]
           dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-          outputs = self.generate_one(generator, src_batch, range(cur_sent_i,len(src_batch)), ref_batch)
+          outputs = self.generate_one(generator, src_batch, range(cur_sent_i,cur_sent_i+len(src_batch)), ref_batch)
           # If debugging forced decoding, make sure it matches
           for i in range(len(src_batch)):
             if assert_scores is not None:

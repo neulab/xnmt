@@ -170,6 +170,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
       src = xnmt.batcher.mark_as_batch([src])
       if forced_trg_ids:
         forced_trg_ids = xnmt.batcher.mark_as_batch([forced_trg_ids])
+    assert len(src) == len(idx), f"src: {len(src)}, idx: {len(idx)}"
     # Generating outputs
     outputs = []
     cur_forced_trg = None
@@ -203,9 +204,9 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
         else:
           src_inp = src_words
         # Other Resources
-        self.set_report_input(idx, src_inp, trg_words, attentions)
+        self.set_report_input(idx[sent_i], src_inp, trg_words, attentions)
         self.set_report_resource("src_words", src_words)
-        self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
+        self.set_report_path('{}.{}'.format(self.report_path, str(idx[sent_i])))
         self.generate_report(self.report_type)
       # Append output to the outputs
       outputs.append(TextOutput(actions=output_actions,
