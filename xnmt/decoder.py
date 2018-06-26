@@ -121,7 +121,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
       mlp_dec_state: An object containing the current state.
       trg_embedding: The embedding of the word to input.
     Returns:
-      The updated MLP decoder state.
+      The updated decoder state.
     """
     inp = trg_embedding
     if self.input_feeding:

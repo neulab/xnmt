@@ -14,8 +14,8 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
     trg_reader: A reader for the target side.
     src_embedder: A word embedder for the input language
     encoder: An encoder to generate encoded inputs
-    transform: transformation layer before output
-    scorer: output scorer
+    transform: A transform to be applied before making predictions
+    scorer: The class to actually make predictions
     inference: The inference method used for this model
     auto_cut_pad: If ``True``, cut or pad target sequences so the match the length of the encoded inputs.
                   If ``False``, an error is thrown if there is a length mismatch.

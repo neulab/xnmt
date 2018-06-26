@@ -18,12 +18,18 @@ class Scorer(object):
     Calculate the score of each discrete decision, where the higher
     the score is the better the model thinks a decision is. These
     often correspond to unnormalized log probabilities.
+
+    Args:
+      x: The vector used to make the prediction
     """
     raise NotImplementedError('calc_score must be implemented by subclasses of Scorer')
 
   def calc_probs(self, x: dy.Expression) -> dy.Expression:
     """
     Calculate the normalized probability of a decision.
+
+    Args:
+      x: The vector used to make the prediction
     """
     raise NotImplementedError('calc_prob must be implemented by subclasses of Scorer')
 
@@ -34,12 +40,18 @@ class Scorer(object):
     log(calc_prob()) == calc_log_prob()
 
     Both functions exist because it might help save memory.
+
+    Args:
+      x: The vector used to make the prediction
     """
     raise NotImplementedError('calc_log_prob must be implemented by subclasses of Scorer')
 
   def calc_loss(self, x: dy.Expression, y: Union[int, List[int]]) -> dy.Expression:
     """
     Calculate the loss incurred by making a particular decision.
+
+    Args:
+      x: The vector used to make the prediction
     """
     raise NotImplementedError('calc_loss must be implemented by subclasses of Scorer')
 
@@ -77,6 +89,16 @@ class Softmax(Scorer, Serializable):
   class can be sub-classed by any other class that has an alternative method
   for calculating un-normalized log probabilities by simply overloading the
   calc_scores() function.
+
+  Args:
+    input_dim: Size of the input vector
+    vocab_size: Size of the vocab to predict
+    vocab: A vocab object from which the vocab size can be derived automatically
+    trg_reader: An input reader for the target, which can be used to derive the vocab size
+    label_smoothing: Whether to apply label smoothing (a value of 0.1 is good if so)
+    param_init: How to initialize the parameters
+    bias_init: How to initialize the bias
+    output_projector: The projection to be used before the output
   """
 
   yaml_tag = '!Softmax'
