@@ -10,12 +10,15 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
   A default translator based on attentional sequence-to-sequence models.
 
   Args:
-    src_reader (InputReader): A reader for the source side.
-    trg_reader (InputReader): A reader for the target side.
-    src_embedder (Embedder): A word embedder for the input language
-    encoder (Transducer): An encoder to generate encoded inputs
-    decoder (MLP): final prediction layer
-    inference (inference.IndependentOutputInference): The inference method used for this model
+    src_reader: A reader for the source side.
+    trg_reader: A reader for the target side.
+    src_embedder: A word embedder for the input language
+    encoder: An encoder to generate encoded inputs
+    transform: transformation layer before output
+    scorer: output scorer
+    inference: The inference method used for this model
+    auto_cut_pad: If ``True``, cut or pad target sequences so the match the length of the encoded inputs.
+                  If ``False``, an error is thrown if there is a length mismatch.
   """
 
   yaml_tag = '!SeqLabeler'
@@ -59,30 +62,15 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
   def calc_loss(self, src, trg, loss_calculator):
     assert batcher.is_batched(src) and batcher.is_batched(trg)
     batch_size, encodings, outputs, seq_len = self._encode_src(src)
-    # TODO: neubig -- what is going on here is not immediately obvious to me.
-    #       why is it necessary to do all this masking before calculating the loss? It seems like it's
-    #       enough to just mask the loss values before summing them together?
-    raise NotImplementedError('seq_labeler. calc_loss is not finished transitioning to the new softmax paradigm yet')
 
-    masked_outputs = dy.cmult(outputs, dy.inputTensor(1.0 - encodings.mask.np_arr.reshape((seq_len * batch_size,)),
-                                                      batched=True))
     if len(trg[0]) != seq_len:
       if self.auto_cut_pad:
-        old_mask = trg.mask
-        if len(trg[0]) > seq_len:
-          trunc_len = len(trg[0])-seq_len
-          trg = batcher.mark_as_batch([trg_sent.get_truncated_sent(trunc_len=trunc_len) for trg_sent in trg])
-          if old_mask:
-            trg.mask = batcher.Mask(np_arr=old_mask.np_arr[:,:-trunc_len])
-        else:
-          pad_len = seq_len-len(trg[0])
-          trg = batcher.mark_as_batch([trg_sent.get_padded_sent(token=vocab.Vocab.ES, pad_len=pad_len) for trg_sent in trg])
-          if old_mask:
-            trg.mask = np.pad(old_mask.np_arr, pad_width=((0,0), (0,pad_len)), mode="constant", constant_values=1)
+        trg = self._cut_or_pad_targets(seq_len, trg)
       else:
         raise ValueError(f"src/trg length do not match: {seq_len} != {len(trg[0])}")
+
     ref_action = np.asarray([sent.words for sent in trg]).reshape((seq_len * batch_size,))
-    loss_expr_perstep = dy.pickneglogsoftmax_batch(masked_outputs, ref_action)
+    loss_expr_perstep = dy.pickneglogsoftmax_batch(outputs, ref_action)
     loss_expr_perstep = dy.reshape(loss_expr_perstep, (seq_len,), batch_size=batch_size)
     if trg.mask:
       loss_expr_perstep = dy.cmult(loss_expr_perstep, dy.inputTensor(1.0-trg.mask.np_arr.T, batched=True))
@@ -92,6 +80,20 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
     model_loss.add_loss("mle", loss_expr)
 
     return model_loss
+
+  def _cut_or_pad_targets(self, seq_len, trg):
+    old_mask = trg.mask
+    if len(trg[0]) > seq_len:
+      trunc_len = len(trg[0]) - seq_len
+      trg = batcher.mark_as_batch([trg_sent.get_truncated_sent(trunc_len=trunc_len) for trg_sent in trg])
+      if old_mask:
+        trg.mask = batcher.Mask(np_arr=old_mask.np_arr[:, :-trunc_len])
+    else:
+      pad_len = seq_len - len(trg[0])
+      trg = batcher.mark_as_batch([trg_sent.get_padded_sent(token=vocab.Vocab.ES, pad_len=pad_len) for trg_sent in trg])
+      if old_mask:
+        trg.mask = np.pad(old_mask.np_arr, pad_width=((0, 0), (0, pad_len)), mode="constant", constant_values=1)
+    return trg
 
   def generate(self, src, idx, forced_trg_ids=None, normalize_scores = False):
     if not batcher.is_batched(src):
