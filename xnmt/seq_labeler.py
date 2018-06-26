@@ -14,7 +14,8 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
     trg_reader (InputReader): A reader for the target side.
     src_embedder (Embedder): A word embedder for the input language
     encoder (Transducer): An encoder to generate encoded inputs
-    decoder (MLP): final prediction layer
+    transform (Transform): A transform to be applied before making predictions
+    scorer (Scorer): The class to actually make predictions
     inference (inference.IndependentOutputInference): The inference method used for this model
   """
 
