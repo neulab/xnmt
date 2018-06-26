@@ -42,6 +42,8 @@ def serializable_init(f):
   def wrapper(obj, *args, **kwargs):
     if "xnmt_subcol_name" in kwargs:
       xnmt_subcol_name = kwargs.pop("xnmt_subcol_name")
+    elif hasattr(obj, "xnmt_subcol_name"): # happens when calling wrapped super() constructors
+      xnmt_subcol_name = obj.xnmt_subcol_name
     else:
       xnmt_subcol_name = _generate_subcol_name(obj)
     obj.xnmt_subcol_name = xnmt_subcol_name
