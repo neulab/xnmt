@@ -62,7 +62,7 @@ exp2-finetune-minrisk: !LoadSerialized
   - path: model.search_strategy
     val: !SamplingSearch
       sample_size: 10
-      max_length: 50
+      max_len: 50
   - path: train.run_for_epochs
     val: 1
 

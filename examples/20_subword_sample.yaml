@@ -39,7 +39,7 @@ subword_sample: !Experiment
         output_dim: 512
         activation: 'tanh'
       bridge: !CopyBridge {}
-    inference: !SimpleInference
+    inference: !AutoRegressiveInference
       post_process: join-piece
   # training parameters
   train: !SimpleTrainingRegimen

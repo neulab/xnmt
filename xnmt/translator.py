@@ -550,7 +550,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable, EventTrigger):
   def calc_loss(self, src, trg, loss_calculator):
     sub_losses = collections.defaultdict(list)
     for model in self.models:
-      for loss_name, loss in model.calc_loss(src, trg, loss_calculator).loss_values.items():
+      for loss_name, loss in model.calc_loss(src, trg, loss_calculator).expr_factors.items():
         sub_losses[loss_name].append(loss)
     model_loss = FactoredLossExpr()
     for loss_name, losslist in sub_losses.items():

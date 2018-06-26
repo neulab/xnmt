@@ -8,7 +8,6 @@ exp1-pretrain-model: !Experiment
     default_layer_dim: 64
     dropout: 0.3
     weight_noise: 0.1
-    model_file: 'examples/output/{EXP}.mod'
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}

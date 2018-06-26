@@ -76,6 +76,4 @@ speech: !Experiment
       hyp_file: examples/output/{EXP}.test_hyp
       inference: !AutoRegressiveInference
         post_process: join-char
-        report_path: examples/output/{EXP}.report
-        report_type: html, file
         batcher: !Ref { name: inference_batcher }
