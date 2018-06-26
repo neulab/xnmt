@@ -1,9 +1,9 @@
-# Simple example for multi-task training. Here, we have 2 identical tasks with
-# some shared parameters.
+# note: run as ``xnmt --settings=unittest <config>.yaml``
+
+# Simple example for multi-task training. Here, we have 2 identical tasks with some shared parameters.
 exp1-multi_task_exp: !Experiment
   exp_global: !ExpGlobal
     default_layer_dim: 64
-    model_file: 'test/tmp/{EXP}.mod'
   train: !SameBatchMultiTaskTrainingRegimen
     trainer: !AdamTrainer {}
     tasks: &training_tasks

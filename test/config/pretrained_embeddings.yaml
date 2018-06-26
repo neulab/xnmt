@@ -1,4 +1,4 @@
-# An example for how to use pretrained embeddings (TODO: broken)
+# An example for how to use pretrained embeddings
 pretrained_emb: !Experiment
   model: !DefaultTranslator
     src_reader: !PlainTextReader

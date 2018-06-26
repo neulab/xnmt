@@ -1,8 +1,6 @@
+# note: run as ``xnmt --settings=unittest <config>.yaml``
 exp1-pretrain-model: !Experiment
   exp_global: !ExpGlobal
-    # The model file contain the whole contents of this experiment in YAML
-    # format. Note that {EXP} expressions are left intact when saving.
-    model_file: 'test/tmp/{EXP}.mod'
     default_layer_dim: 64
     dropout: 0.5
     weight_noise: 0.1

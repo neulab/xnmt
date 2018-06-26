@@ -1,10 +1,7 @@
-# Define two experiments with different models (that share the same target
-# vocab), then load them and combine them to an ensemble
-
+# note: run as ``xnmt --settings=unittest <config>.yaml``
 ensemble1: !Experiment
   exp_global: &globals !ExpGlobal
     default_layer_dim: 32
-    model_file: 'test/tmp/{EXP}.mod'
   # Just use default model settings here
   model: !DefaultTranslator
     src_reader: &src_reader !PlainTextReader

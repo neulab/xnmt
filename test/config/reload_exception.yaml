@@ -1,7 +1,5 @@
+# note: run as ``xnmt --settings=unittest <config>.yaml``
 reload: !Experiment
-  exp_global: !ExpGlobal
-    model_file: test/tmp/output/{EXP}.mod
-    log_file: test/tmp/output/{EXP}.log
   model: !DefaultTranslator
     src_reader: !NpzReader
       transpose: True
