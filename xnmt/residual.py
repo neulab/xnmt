@@ -1,4 +1,5 @@
 import dynet as dy
+from typing import List
 
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
@@ -75,7 +76,7 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
   def on_start_sent(self, src):
     self._final_states = None
 
-  def transduce(self, sent):
+  def transduce(self, sent: ExpressionSequence) -> ExpressionSequence:
     output = self.builder.transduce(sent)
     if not isinstance(output, ExpressionSequence):
       output = ExpressionSequence(expr_list=output)
@@ -85,7 +86,7 @@ class ResidualLSTMSeqTransducer(SeqTransducer, Serializable):
   def initial_state(self):
     return self.builder.initial_state()
 
-  def get_final_states(self):
+  def get_final_states(self) -> List[FinalTransducerState]:
     assert self._final_states is not None, "ResidualLSTMSeqTransducer.__call__() must be invoked before ResidualLSTMSeqTransducer.get_final_states()"
     return self._final_states
 

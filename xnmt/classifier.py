@@ -27,7 +27,7 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
                src_reader: input_reader.InputReader,
                trg_reader: input_reader.InputReader,
                src_embedder: embedder.Embedder = bare(embedder.SimpleWordEmbedder),
-               encoder: transducer.Transducer = bare(lstm.BiLSTMSeqTransducer),
+               encoder: transducer.SeqTransducer = bare(lstm.BiLSTMSeqTransducer),
                inference=bare(xnmt.inference.IndependentOutputInference),
                mlp: mlp.MLP = bare(mlp.OutputMLP)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)

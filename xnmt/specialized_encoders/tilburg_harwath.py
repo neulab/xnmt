@@ -3,7 +3,7 @@ import dynet as dy
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import Serializable, serializable_init
-from xnmt.transducer import Transducer, SeqTransducer
+from xnmt.transducer import SeqTransducer
 
 # This is a file for specialized encoders that implement a particular model
 # Ideally, these will eventually be refactored to use standard components and the ModularSeqTransducer framework,
@@ -71,7 +71,7 @@ class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
     self.attention.append((model.add_parameters((attention_dim, rhn_dim)),
                            model.add_parameters(attention_dim, )))
 
-  def transduce(self, src):
+  def transduce(self, src: ExpressionSequence) -> ExpressionSequence:
     src = src.as_tensor()
     # convolutional layer
     src = padding(src, src.dim()[0][0], src.dim()[0][1], self.filter_width, self.stride, src.dim()[1])
@@ -137,7 +137,7 @@ class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
     self.filters3 = model.add_parameters(dim=(self.filter_height[2], self.filter_width[2], self.channels[2], self.num_filters[2]),
                                          init=normalInit)
 
-  def transduce(self, src):
+  def transduce(self, src: ExpressionSequence) -> ExpressionSequence:
     src = src.as_tensor()
 
     src_height = src.dim()[0][0]
@@ -168,7 +168,7 @@ class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
 
 # This is an image encoder that takes in features and does a linear transform from the following paper
 #  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
-class HarwathImageTransducer(Transducer, Serializable):
+class HarwathImageTransducer(SeqTransducer, Serializable):
   """
     Inputs are first put through 2 CNN layers, each with stride (2,2), so dimensionality
     is reduced by 4 in both directions.
@@ -193,7 +193,7 @@ class HarwathImageTransducer(Transducer, Serializable):
     self.pW = model.add_parameters(dim = (self.out_height, self.in_height), init=normalInit)
     self.pb = model.add_parameters(dim = self.out_height)
 
-  def transduce(self, src):
+  def transduce(self, src: ExpressionSequence) -> ExpressionSequence:
     src = src.as_tensor()
 
     src_height = src.dim()[0][0]
