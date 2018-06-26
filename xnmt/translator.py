@@ -21,7 +21,7 @@ import xnmt.length_normalization
 from xnmt.loss import FactoredLossExpr
 from xnmt.loss_calculator import LossCalculator
 from xnmt.lstm import BiLSTMSeqTransducer
-from xnmt.output import TextOutput, Output
+from xnmt.output import TextOutput, Output, NbestOutput
 import xnmt.plot
 from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable, bare
@@ -182,10 +182,22 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
       search_outputs = search_strategy.generate_output(self, initial_state,
                                                        src_length=[len(sent)],
                                                        forced_trg_ids=cur_forced_trg)
-      best_output = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)[0]
-      output_actions = [x for x in best_output.word_ids[0]]
-      attentions = [x for x in best_output.attentions[0]]
-      score = best_output.score[0]
+      sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
+      assert len(sorted_outputs) >= 1
+      for curr_output in sorted_outputs:
+        output_actions = [x for x in curr_output.word_ids[0]]
+        attentions = [x for x in curr_output.attentions[0]]
+        score = curr_output.score[0]
+        if len(sorted_outputs) == 1:
+          outputs.append(TextOutput(actions=output_actions,
+                                    vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
+                                    score=score))
+        else:
+          outputs.append(NbestOutput(TextOutput(actions=output_actions,
+                                                vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
+                                                score=score),
+                                     nbest_id=idx[sent_i]))
+
       # In case of reporting
       if self.report_path is not None:
         if self.reporting_src_vocab:
@@ -207,10 +219,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
         self.set_report_resource("src_words", src_words)
         self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
         self.generate_report(self.report_type)
-      # Append output to the outputs
-      outputs.append(TextOutput(actions=output_actions,
-                                vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
-                                score=score))
     return outputs
 
   def generate_one_step(self, current_word: Any, current_state: MlpSoftmaxDecoderState) -> TranslatorOutput:

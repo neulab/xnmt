@@ -112,15 +112,16 @@ class Inference(object):
         else:
           if forced_ref_corpus: ref_batch = ref_batches[batch_i]
           dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-          outputs = self.generate_one(generator, src_batch, range(cur_sent_i,len(src_batch)), ref_batch)
-          # If debugging forced decoding, make sure it matches
-          for i in range(len(src_batch)):
+          outputs = self.generate_one(generator, src_batch, range(cur_sent_i,cur_sent_i+len(src_batch)), ref_batch)
+          for i in range(len(outputs)):
             if assert_scores is not None:
+              # If debugging forced decoding, make sure it matches
+              assert len(src_batch) == len(outputs), "debug forced decoding not supported with nbest inference"
               if (abs(outputs[i].score - assert_scores[cur_sent_i + i]) / abs(assert_scores[cur_sent_i + i])) > 1e-5:
                 raise ValueError(
                   f'Forced decoding score {outputs[0].score} and loss {assert_scores[cur_sent_i + i]} do not match at '
                   f'sentence {cur_sent_i + i}')
-            output_txt = self.post_processor.process_output(outputs[i])
+            output_txt = outputs[i].apply_post_processor(self.post_processor)
             fp.write(f"{output_txt}\n")
         cur_sent_i += len(src_batch)
 

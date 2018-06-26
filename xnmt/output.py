@@ -35,6 +35,9 @@ class Output(object):
     """
     raise NotImplementedError('must be implemented by subclasses')
 
+  def apply_post_processor(self, output_processor: 'OutputProcessor') -> str:
+    return output_processor.process_output(self.readable_actions())
+
   def __str__(self):
     return " ".join(self.readable_actions())
 
@@ -91,14 +94,40 @@ class TextOutput(Output):
         ret.append(self.vocab[action] if self.vocab else str(action))
     return ret
 
+class NbestOutput(Output):
+  """
+  Output in the context of an nbest list.
+
+  Args:
+    base_output: The base output object
+    nbest_id: The sentence id in the nbest list
+    print_score: If True, print nbest_id, score, content separated by ``|||```. If False, drop the score.
+  """
+  def __init__(self, base_output: Output, nbest_id: int, print_score: bool = False) -> None:
+    super().__init__(actions=base_output.actions, score=base_output.score)
+    self.base_output = base_output
+    self.nbest_id = nbest_id
+    self.print_score = print_score
+  def readable_actions(self) -> Sequence[str]:
+    return self.base_output.readable_actions()
+  def __str__(self):
+    return self._make_nbest_entry(" ".join(self.readable_actions()))
+  def _make_nbest_entry(self, content_str: str) -> str:
+    entries = [str(self.nbest_id), content_str]
+    if self.print_score:
+      entries.insert(1, str(self.base_output.score))
+    return " ||| ".join(entries)
+  def apply_post_processor(self, output_processor: 'OutputProcessor') -> str:
+    return self._make_nbest_entry(output_processor.process_output(self.readable_actions()))
+
 class OutputProcessor(object):
   # TODO: this should be refactored so that multiple processors can be chained
-  def process_output(self, output: Output) -> str:
+  def process_output(self, output_actions: Sequence) -> str:
     """
-    Produce a string-representation of an Output object.
+    Produce a string-representation of an output.
 
     Args:
-      output: object holding output actions
+      output_actions: readable output actions
 
     Returns:
       string representation
@@ -123,8 +152,8 @@ class PlainTextOutputProcessor(OutputProcessor, Serializable):
   Handles the typical case of writing plain text, with one sentence per line.
   """
   yaml_tag = "!PlainTextOutputProcessor"
-  def process_output(self, output):
-    return " ".join(output.readable_actions())
+  def process_output(self, output_actions):
+    return " ".join(output_actions)
 
 class JoinCharTextOutputProcessor(PlainTextOutputProcessor, Serializable):
   """
@@ -137,9 +166,8 @@ class JoinCharTextOutputProcessor(PlainTextOutputProcessor, Serializable):
   def __init__(self, space_token="__"):
     self.space_token = space_token
 
-  def process_output(self, output):
-    word_list = output.readable_actions()
-    return "".join(" " if s==self.space_token else s for s in  word_list)
+  def process_output(self, output_actions):
+    return "".join(" " if s==self.space_token else s for s in  output_actions)
 
 class JoinBPETextOutputProcessor(PlainTextOutputProcessor, Serializable):
   """
@@ -152,9 +180,8 @@ class JoinBPETextOutputProcessor(PlainTextOutputProcessor, Serializable):
   def __init__(self, merge_indicator="@@"):
     self.merge_indicator_with_space = merge_indicator + " "
 
-  def process_output(self, output):
-    word_list = output.readable_actions()
-    return " ".join(word_list).replace(self.merge_indicator_with_space, "")
+  def process_output(self, output_actions):
+    return " ".join(output_actions).replace(self.merge_indicator_with_space, "")
 
 class JoinPieceTextOutputProcessor(PlainTextOutputProcessor, Serializable):
   """
@@ -167,6 +194,5 @@ class JoinPieceTextOutputProcessor(PlainTextOutputProcessor, Serializable):
   def __init__(self, space_token="\u2581"):
     self.space_token = space_token
 
-  def process_output(self, output):
-    word_list = output.readable_actions()
-    return "".join(word_list).replace(self.space_token, " ").strip()
+  def process_output(self, output_actions):
+    return "".join(output_actions).replace(self.space_token, " ").strip()
