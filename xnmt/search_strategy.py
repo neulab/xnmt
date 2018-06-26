@@ -31,7 +31,7 @@ class SearchStrategy(object):
     """
     Args:
       translator (Translator): a translator
-      dec_state (MlpSoftmaxDecoderState): initial decoder state
+      dec_state (AutoRegressiveDecoderState): initial decoder state
       src_length (int): length of src sequence, required for some types of length normalization
       forced_trg_ids (List[int]): list of word ids, if given will force to generate this is the target sequence
     Returns:

@@ -41,11 +41,9 @@ prior-segmenting: !Experiment
       input_dim: 16
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 16
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !AttentionalOutputMLP
-        hidden_dim: 16
       bridge: !CopyBridge {}
     inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen

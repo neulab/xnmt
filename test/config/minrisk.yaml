@@ -1,7 +1,6 @@
+# note: run as ``xnmt --settings=unittest <config>.yaml``
 minrisk: !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 64
   model: !DefaultTranslator
     src_reader: !PlainTextReader

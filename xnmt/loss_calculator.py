@@ -5,8 +5,8 @@ from xnmt.loss import FactoredLossExpr
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.vocab import Vocab
 from xnmt.constants import INFINITY
+from xnmt.transform import Linear
 import xnmt.evaluator
-import xnmt.linear as linear
 import xnmt.batcher
 
 class LossCalculator(object):
@@ -99,7 +99,7 @@ class ReinforceLoss(Serializable, LossCalculator):
 
     if self.use_baseline:
       self.baseline = self.add_serializable_component("baseline", baseline,
-                                                      lambda: linear.Linear(input_dim=decoder_hidden_dim, output_dim=1))
+                                                      lambda: Linear(input_dim=decoder_hidden_dim, output_dim=1))
 
   def calc_loss(self, translator, initial_state, src, trg):
     # TODO(philip30): currently only using the best hypothesis / first sample for reinforce loss

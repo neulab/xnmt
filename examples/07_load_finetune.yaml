@@ -8,6 +8,7 @@ exp1-pretrain-model: !Experiment
     default_layer_dim: 64
     dropout: 0.3
     weight_noise: 0.1
+    model_file: 'examples/output/{EXP}.mod'
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
@@ -24,11 +25,11 @@ exp1-pretrain-model: !Experiment
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !AttentionalOutputMLP
-        hidden_dim: 64
+      transform: !AuxNonLinear
+        output_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
     inference: !AutoRegressiveInference {}

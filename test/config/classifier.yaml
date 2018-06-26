@@ -8,9 +8,7 @@ classifier: !Experiment
       emb_dim: 512
     encoder: !BiLSTMSeqTransducer
       layers: 1
-    mlp: !OutputMLP
-      hidden_dim: 512
-      activation: 'tanh'
+    scorer: !Softmax
       vocab_size: 10
   train: !SimpleTrainingRegimen
     batcher: !SrcBatcher

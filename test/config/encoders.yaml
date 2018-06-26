@@ -41,11 +41,9 @@ exp1-lstm-encoder: !Experiment
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
         word_dropout: 0.3
-      decoder: !MlpSoftmaxDecoder
-        rnn_layer: !UniLSTMSeqTransducer
+      decoder: !AutoRegressiveDecoder
+        rnn: !UniLSTMSeqTransducer
           layers: 1
-        mlp_layer: !AttentionalOutputMLP
-          hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
       inference: !AutoRegressiveInference {}
@@ -68,12 +66,9 @@ exp2-residual-encoder: !Experiment
         input_dim: 64
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
-      decoder: !MlpSoftmaxDecoder
-        rnn_layer: !UniLSTMSeqTransducer
+      decoder: !AutoRegressiveDecoder
+        rnn: !UniLSTMSeqTransducer
           layers: 2
-        mlp_layer: !AttentionalOutputMLP
-          hidden_dim: 64
-        input_feeding: True
         bridge: !CopyBridge {}
       inference: !AutoRegressiveInference {}
 exp3-pyramidal-encoder: !Experiment
@@ -102,11 +97,9 @@ exp3-pyramidal-encoder: !Experiment
         input_dim: 64
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
-      decoder: !MlpSoftmaxDecoder
-        rnn_layer: !UniLSTMSeqTransducer
+      decoder: !AutoRegressiveDecoder
+        rnn: !UniLSTMSeqTransducer
           layers: 2
-        mlp_layer: !AttentionalOutputMLP
-          hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
       inference: !AutoRegressiveInference
@@ -146,11 +139,9 @@ exp4-modular-encoder: !Experiment
         input_dim: 64
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
-      decoder: !MlpSoftmaxDecoder
-        rnn_layer: !UniLSTMSeqTransducer
+      decoder: !AutoRegressiveDecoder
+        rnn: !UniLSTMSeqTransducer
           layers: 3
-        mlp_layer: !AttentionalOutputMLP
-          hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
       inference: !AutoRegressiveInference

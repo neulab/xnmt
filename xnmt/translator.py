@@ -11,7 +11,7 @@ from xnmt.settings import settings
 
 from xnmt.attender import MlpAttender
 from xnmt.batcher import Batch, mark_as_batch, is_batched, Mask
-from xnmt.decoder import MlpSoftmaxDecoder, MlpSoftmaxDecoderState
+from xnmt.decoder import AutoRegressiveDecoder, AutoRegressiveDecoderState
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 from xnmt.model_base import GeneratorModel, EventTrigger
@@ -47,14 +47,14 @@ class AutoRegressiveTranslator(GeneratorModel):
                 loss_calculator: LossCalculator) -> FactoredLossExpr:
     raise NotImplementedError('must be implemented by subclasses')
 
-  def calc_loss_one_step(self, dec_state:MlpSoftmaxDecoderState, ref_word:Batch, input_word:Batch) \
-          -> Tuple[MlpSoftmaxDecoderState,dy.Expression]:
+  def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:Batch, input_word:Batch) \
+          -> Tuple[AutoRegressiveDecoderState,dy.Expression]:
     raise NotImplementedError("must be implemented by subclasses")
 
   def generate(self, src, idx, search_strategy, forced_trg_ids=None) -> Sequence[Output]:
     raise NotImplementedError("must be implemented by subclasses")
 
-  def generate_one_step(self, current_word: Any, current_state: MlpSoftmaxDecoderState) -> TranslatorOutput:
+  def generate_one_step(self, current_word: Any, current_state: AutoRegressiveDecoderState) -> TranslatorOutput:
     raise NotImplementedError("must be implemented by subclasses")
 
 
@@ -102,7 +102,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
   @serializable_init
   def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
-               trg_embedder=bare(SimpleWordEmbedder), decoder=bare(MlpSoftmaxDecoder),
+               trg_embedder=bare(SimpleWordEmbedder), decoder=bare(AutoRegressiveDecoder),
                inference=bare(AutoRegressiveInference), search_strategy=bare(BeamSearch),
                calc_global_fertility=False, calc_attention_entropy=False):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
@@ -119,7 +119,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
   def shared_params(self):
     return [{".src_embedder.emb_dim", ".encoder.input_dim"},
             {".encoder.hidden_dim", ".attender.input_dim", ".decoder.input_dim"},
-            {".attender.state_dim", ".decoder.rnn_layer.hidden_dim"},
+            {".attender.state_dim", ".decoder.rnn.hidden_dim"},
             {".trg_embedder.emb_dim", ".decoder.trg_embed_dim"}]
 
   def initialize_generator(self, **kwargs):
@@ -156,8 +156,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
 
     return model_loss
 
-  def calc_loss_one_step(self, dec_state:MlpSoftmaxDecoderState, ref_word:Batch, input_word:Batch) \
-          -> Tuple[MlpSoftmaxDecoderState,dy.Expression]:
+  def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:Batch, input_word:Batch) \
+          -> Tuple[AutoRegressiveDecoderState,dy.Expression]:
     if input_word:
       dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(input_word))
     rnn_output = dec_state.rnn_state.output()
@@ -214,7 +214,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
                                 score=score))
     return outputs
 
-  def generate_one_step(self, current_word: Any, current_state: MlpSoftmaxDecoderState) -> TranslatorOutput:
+  def generate_one_step(self, current_word: Any, current_state: AutoRegressiveDecoderState) -> TranslatorOutput:
     if current_word is not None:
       if type(current_word) == int:
         current_word = [current_word]
@@ -225,7 +225,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
     else:
       next_state = current_state
     next_state.context = self.attender.calc_context(next_state.rnn_state.output())
-    next_logsoftmax = self.decoder.get_scores_logsoftmax(next_state)
+    next_logsoftmax = self.decoder.calc_log_probs(next_state)
     return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
 
   def global_fertility(self, a):
@@ -643,7 +643,7 @@ class EnsembleDecoder(EnsembleListDelegate):
 
   Currently only supports averaging.
   """
-  def get_scores_logsoftmax(self, mlp_dec_states):
-    scores = [obj.get_scores_logsoftmax(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
+  def calc_log_probs(self, mlp_dec_states):
+    scores = [obj.calc_log_probs(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
     return dy.average(scores)
 
