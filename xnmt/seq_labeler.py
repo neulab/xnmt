@@ -70,7 +70,8 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
         raise ValueError(f"src/trg length do not match: {seq_len} != {len(trg[0])}")
 
     ref_action = np.asarray([sent.words for sent in trg]).reshape((seq_len * batch_size,))
-    loss_expr_perstep = dy.pickneglogsoftmax_batch(outputs, ref_action)
+    loss_expr_perstep = self.scorer.calc_loss(outputs, batcher.mark_as_batch(ref_action))
+    # loss_expr_perstep = dy.pickneglogsoftmax_batch(outputs, ref_action)
     loss_expr_perstep = dy.reshape(loss_expr_perstep, (seq_len,), batch_size=batch_size)
     if trg.mask:
       loss_expr_perstep = dy.cmult(loss_expr_perstep, dy.inputTensor(1.0-trg.mask.np_arr.T, batched=True))
