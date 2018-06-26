@@ -489,7 +489,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
 
     # Append output to the outputs
     if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
-      outputs.append(TextOutput(output_actions, self.trg_vocab))
+      outputs.append(TextOutput(actions=output_actions, vocab=self.trg_vocab))
     else:
       outputs.append((output_actions, score))
 

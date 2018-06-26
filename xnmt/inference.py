@@ -120,7 +120,7 @@ class Inference(object):
                 raise ValueError(
                   f'Forced decoding score {outputs[0].score} and loss {assert_scores[cur_sent_i + i]} do not match at '
                   f'sentence {cur_sent_i + i}')
-            output_txt = outputs[i].plaintext
+            output_txt = self.post_processor.process_output(outputs[i])
             fp.write(f"{output_txt}\n")
         cur_sent_i += len(src_batch)
 
@@ -223,7 +223,6 @@ class IndependentOutputInference(Inference, Serializable):
   def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids)\
           -> List[output.Output]:
     outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids)
-    self.post_processor.process_outputs(outputs)
     return outputs
 
   def compute_losses_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input,
@@ -279,7 +278,6 @@ class AutoRegressiveInference(Inference, Serializable):
   def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids)\
           -> List[output.Output]:
     outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids, search_strategy=self.search_strategy)
-    self.post_processor.process_outputs(outputs)
     return outputs
 
   def compute_losses_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input,
