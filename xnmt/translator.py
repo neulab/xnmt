@@ -25,7 +25,7 @@ from xnmt.output import TextOutput, Output
 import xnmt.plot
 from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable, bare
-from xnmt.search_strategy import BeamSearch
+from xnmt.search_strategy import BeamSearch, SearchStrategy
 from collections import namedtuple
 from xnmt.vocab import Vocab
 from xnmt.constants import EPSILON
@@ -165,11 +165,11 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
     word_loss = self.decoder.calc_loss(dec_state, ref_word)
     return dec_state, word_loss
 
-  def generate(self, src: Batch, idx: Sequence[int], search_strategy, forced_trg_ids=None):
-    if not xnmt.batcher.is_batched(src):
-      src = xnmt.batcher.mark_as_batch([src])
-      if forced_trg_ids:
-        forced_trg_ids = xnmt.batcher.mark_as_batch([forced_trg_ids])
+  def generate(self, src: Batch, idx: Sequence[int], search_strategy: SearchStrategy, forced_trg_ids: Batch=None):
+    # if not xnmt.batcher.is_batched(src):
+    #   src = xnmt.batcher.mark_as_batch([src])
+    #   if forced_trg_ids:
+    #     forced_trg_ids = xnmt.batcher.mark_as_batch([forced_trg_ids])
     assert len(src) == len(idx), f"src: {len(src)}, idx: {len(idx)}"
     # Generating outputs
     outputs = []
