@@ -94,6 +94,7 @@ class TextOutput(Output):
         ret.append(self.vocab[action] if self.vocab else str(action))
     return ret
 
+
 class NbestOutput(Output):
   """
   Output in the context of an nbest list.
