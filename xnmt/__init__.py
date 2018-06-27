@@ -60,7 +60,8 @@ import xnmt.persistence
 resolved_serialize_params = {}
 
 def init_representer(dumper, obj):
-  if len(resolved_serialize_params)==0:
+  if id(obj) not in resolved_serialize_params:
+  # if len(resolved_serialize_params)==0:
     serialize_params = obj.serialize_params
   else:
     serialize_params = resolved_serialize_params[id(obj)]
