@@ -133,6 +133,12 @@ class SimpleSentenceInput(Input):
     new_words = self.words[:-trunc_len]
     return self.__class__(new_words)
 
+  def get_truncated_sent(self, trunc_len: int) -> 'Input':
+    if trunc_len == 0:
+      return self
+    new_words = self.words[:-trunc_len]
+    return self.__class__(new_words, self.vocab)
+
   def __str__(self):
     return " ".join(map(str, self.words))
 
