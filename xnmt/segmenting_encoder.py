@@ -1,24 +1,26 @@
 import numpy
 import dynet as dy
+from typing import List
 
 from enum import Enum
 from xml.sax.saxutils import escape
 from lxml import etree
 from scipy.stats import poisson
 
-import xnmt.linear as linear
-import xnmt.expression_sequence as expression_sequence
+from xnmt.transform import Linear
+from xnmt.expression_sequence import ExpressionSequence 
 
 from xnmt.batcher import Mask
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable
-from xnmt.transducer import SeqTransducer
+from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import FactoredLossExpr
 from xnmt.param_collection import ParamManager
 
 EPS = 1e-10
 
+# Commented out "reportable"
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = '!SegmentingSeqTransducer'
 
@@ -58,11 +60,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.final_transducer = final_transducer
     # Decision layer of segmentation
     self.segment_transform = self.add_serializable_component("segment_transform", segment_transform,
-                                                             lambda: linear.Linear(input_dim=embed_encoder_dim,
+                                                             lambda: Linear(input_dim=embed_encoder_dim,
                                                                                    output_dim=3 if learn_delete else 2))
     # The baseline linear regression model
     self.baseline = self.add_serializable_component("baseline", baseline,
-                                                    lambda: linear.Linear(input_dim=embed_encoder_dim, output_dim=1))
+                                                    lambda: Linear(input_dim=embed_encoder_dim, output_dim=1))
     # Flags
     self.use_baseline = use_baseline
     self.learn_segmentation = learn_segmentation
@@ -83,10 +85,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # States of the object
     self.train = False
 
-  def __call__(self, embed_sent):
+  def transduce(self, embed_sent: ExpressionSequence) -> ExpressionSequence:
     batch_size = embed_sent[0].dim()[1]
     # Softmax + segment decision
-    encodings = self.embed_encoder(embed_sent)
+    encodings = self.embed_encoder.transduce(embed_sent)
     enc_mask = encodings.mask
     segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size)
     # Some checks
@@ -124,7 +126,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           else:
             words = tuple(words)
           # Reducing the [expression] -> expression
-          expr_seq = expression_sequence.ExpressionSequence(expr_list=buffers[i])
+          expr_seq = ExpressionSequence(expr_list=buffers[i])
           transduce_output = self.segment_composer.transduce(expr_seq, words)
           outputs[i].append(transduce_output)
           buffers[i] = []
@@ -149,7 +151,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       self.set_report_resource("segmentation", self.segment_decisions)
       self.set_report_input(segment_decisions)
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
-    return self.final_transducer(expression_sequence.ExpressionSequence(expr_tensor=outputs, mask=masks))
+    return self.final_transducer.transduce(ExpressionSequence(expr_tensor=outputs, mask=masks))
 
   @handle_xnmt_event
   def on_start_sent(self, src=None):
@@ -259,7 +261,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def on_set_train(self, train):
     self.train = train
   #
-  def get_final_states(self):
+  def get_final_states(self) -> List[FinalTransducerState]:
     if hasattr(self.final_transducer, "get_final_states"):
       return self.final_transducer.get_final_states()
     else:
@@ -413,9 +415,9 @@ class SegmentingAction(Enum):
   DELETE = 2
 
 class SegmentationConfidencePenalty(Serializable):
-  ''' https://arxiv.org/pdf/1701.06548.pdf
+  """ https://arxiv.org/pdf/1701.06548.pdf
       strength: the beta value
-  '''
+  """
   yaml_tag = "!SegmentationConfidencePenalty"
 
   @serializable_init

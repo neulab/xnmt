@@ -26,7 +26,8 @@ import numpy as np
 import dynet as dy
 
 import xnmt.param_init
-from xnmt import linear, norm, embedder, expression_sequence, events, lstm, param_collection, transducer
+from xnmt import transform, norm, embedder, events, lstm, param_collection, transducer
+from xnmt.expression_sequence import ExpressionSequence
 from xnmt.persistence import Serializable, serializable_init, Ref, bare
 
 LOG_ATTENTION = False
@@ -71,11 +72,11 @@ class SAAMPositionwiseFeedForward(Serializable):
 
   @serializable_init
   def __init__(self, input_dim: int, hidden_dim: int, nonlinearity: str = "rectify",
-               linear_transforms: typing.Optional[typing.Sequence[linear.Linear]] = None,
+               linear_transforms: typing.Optional[typing.Sequence[transform.Linear]] = None,
                layer_norm: typing.Optional[norm.LayerNorm] = None) -> None:
     w_12 = self.add_serializable_component("linear_transforms", linear_transforms,
-                                           lambda: [linear.Linear(input_dim, hidden_dim),
-                                                    linear.Linear(hidden_dim, input_dim)])
+                                           lambda: [transform.Linear(input_dim, hidden_dim),
+                                                    transform.Linear(hidden_dim, input_dim)])
     self.w_1 = w_12[0]
     self.w_2 = w_12[1]
     self.layer_norm = self.add_serializable_component("layer_norm", layer_norm, lambda: norm.LayerNorm(input_dim))
@@ -149,7 +150,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
 
     if self.kq_pos_encoding_type is None:
       self.linear_kvq = self.add_serializable_component("linear_kvq", linear_kvq,
-                                                        lambda: linear.Linear(input_dim * downsample_factor,
+                                                        lambda: transform.Linear(input_dim * downsample_factor,
                                                                               head_count * self.dim_per_head * 3,
                                                                               param_init=param_init,
                                                                               bias_init=bias_init))
@@ -158,10 +159,10 @@ class SAAMMultiHeadedSelfAttention(Serializable):
         self.add_serializable_component("linear_kvq",
                                         linear_kvq,
                                         lambda: [
-                                          linear.Linear(input_dim * downsample_factor + self.kq_pos_encoding_size,
+                                          transform.Linear(input_dim * downsample_factor + self.kq_pos_encoding_size,
                                                         head_count * self.dim_per_head * 2, param_init=param_init,
                                                         bias_init=bias_init),
-                                          linear.Linear(input_dim * downsample_factor, head_count * self.dim_per_head,
+                                          transform.Linear(input_dim * downsample_factor, head_count * self.dim_per_head,
                                                         param_init=param_init, bias_init=bias_init)])
       assert self.kq_pos_encoding_type == "embedding"
       self.kq_positional_embedder = self.add_serializable_component("kq_positional_embedder",
@@ -184,7 +185,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
 
     if model_dim != input_dim * downsample_factor:
       self.res_shortcut = self.add_serializable_component("res_shortcut", res_shortcut,
-                                                          lambda: linear.Linear(input_dim * downsample_factor,
+                                                          lambda: transform.Linear(input_dim * downsample_factor,
                                                                                      model_dim,
                                                                                      param_init=param_init,
                                                                                      bias_init=bias_init))
@@ -235,7 +236,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
       if self.downsample_factor > 1 and out_mask is not None:
         out_mask = out_mask.lin_subsampled(reduce_factor=self.downsample_factor)
 
-      x = expression_sequence.ExpressionSequence(expr_tensor=dy.reshape(x.as_tensor(), (
+      x = ExpressionSequence(expr_tensor=dy.reshape(x.as_tensor(), (
         x.dim()[0][0] * self.downsample_factor, x.dim()[0][1] / self.downsample_factor), batch_size=batch_size),
                                                  mask=out_mask)
       residual = SAAMTimeDistributed()(x)
@@ -260,7 +261,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
       encoding = self.kq_positional_embedder.embed_sent(sent_len).as_tensor()
       kq_lin = self.linear_kq(
         SAAMTimeDistributed()(
-          expression_sequence.ExpressionSequence(expr_tensor=dy.concatenate([x.as_tensor(), encoding]))))
+          ExpressionSequence(expr_tensor=dy.concatenate([x.as_tensor(), encoding]))))
       key_up = self.shape_projection(dy.pick_range(kq_lin, 0, self.head_count * self.dim_per_head), batch_size)
       query_up = self.shape_projection(
         dy.pick_range(kq_lin, self.head_count * self.dim_per_head, 2 * self.head_count * self.dim_per_head), batch_size)
@@ -430,7 +431,7 @@ class TransformerEncoderLayer(Serializable):
   def set_dropout(self, dropout):
     self.dropout = dropout
 
-  def transduce(self, x):
+  def transduce(self, x: ExpressionSequence) -> ExpressionSequence:
     seq_len = len(x)
     batch_size = x[0].dim()[1]
 
@@ -454,13 +455,13 @@ class TransformerEncoderLayer(Serializable):
       out_mask = out_mask.lin_subsampled(reduce_factor=self.downsample_factor)
     if self.ff_lstm:
       mid_re = dy.reshape(mid, (hidden_dim, seq_len), batch_size=batch_size)
-      out = self.feed_forward(expression_sequence.ExpressionSequence(expr_tensor=mid_re, mask=out_mask))
+      out = self.feed_forward.transduce(ExpressionSequence(expr_tensor=mid_re, mask=out_mask))
       out = dy.reshape(out.as_tensor(), (hidden_dim,), batch_size=seq_len * batch_size)
     else:
-      out = self.feed_forward(mid, p=self.dropout)
+      out = self.feed_forward.transduce(mid, p=self.dropout)
 
     self._recent_output = out
-    return expression_sequence.ExpressionSequence(
+    return ExpressionSequence(
       expr_tensor=dy.reshape(out, (out.dim()[0][0], seq_len), batch_size=batch_size),
       mask=out_mask)
 
@@ -575,7 +576,7 @@ class SAAMSeqTransducer(transducer.SeqTransducer, Serializable):
                                                   desc=f"layer_{layer_i}"))
     return modules
 
-  def __call__(self, sent):
+  def transduce(self, sent: ExpressionSequence) -> ExpressionSequence:
     if self.pos_encoding_type == "trigonometric":
       if self.position_encoding_block is None or self.position_encoding_block.shape[2] < len(sent):
         self.initialize_position_encoding(int(len(sent) * 1.2),
@@ -585,9 +586,9 @@ class SAAMSeqTransducer(transducer.SeqTransducer, Serializable):
       encoding = self.positional_embedder.embed_sent(len(sent)).as_tensor()
     if self.pos_encoding_type:
       if self.pos_encoding_combine == "add":
-        sent = expression_sequence.ExpressionSequence(expr_tensor=sent.as_tensor() + encoding, mask=sent.mask)
+        sent = ExpressionSequence(expr_tensor=sent.as_tensor() + encoding, mask=sent.mask)
       else:  # concat
-        sent = expression_sequence.ExpressionSequence(expr_tensor=dy.concatenate([sent.as_tensor(), encoding]),
+        sent = ExpressionSequence(expr_tensor=dy.concatenate([sent.as_tensor(), encoding]),
                                                       mask=sent.mask)
 
     elif self.pos_encoding_type:

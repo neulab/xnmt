@@ -1,10 +1,4 @@
-# Using a trained model to add hypothesis score for an nbest list
-# First, exp1-model trains a model which is saved at test/tmp/exp1-model.mod
-# Then, exp2-score loads the exp1-model, and use it to score an nbest list
-# The nbest list example used here is located at examples/data/head.nbest.en
-# exp2-score outputs a new nbest list with hypothesis score.
-# The output file will be in test/tmp/exp2-score.test_hyp
-
+# note: run as ``xnmt --settings=unittest <config>.yaml``
 exp1-model: !Experiment
   exp_global: !ExpGlobal
     default_layer_dim: 64
@@ -26,10 +20,10 @@ exp1-model: !Experiment
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-    decoder: !MlpSoftmaxDecoder
+    decoder: !AutoRegressiveDecoder
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
@@ -53,7 +47,7 @@ exp2-score: !LoadSerialized
   - path: train
     val: ~
   - path: model.inference
-    val: !SimpleInference
+    val: !AutoRegressiveInference
       mode: score
       ref_file: examples/data/head.nbest.en
       src_file: examples/data/head.ja

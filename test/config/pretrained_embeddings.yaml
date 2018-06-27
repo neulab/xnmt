@@ -1,4 +1,4 @@
-# An example for how to use pretrained embeddings (TODO: broken)
+# An example for how to use pretrained embeddings
 pretrained_emb: !Experiment
   model: !DefaultTranslator
     src_reader: !PlainTextReader
@@ -18,7 +18,7 @@ pretrained_emb: !Experiment
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 512
   train: !SimpleTrainingRegimen
-    run_for_epochs: 20
+    run_for_epochs: 2
     restart_trainer: True
     trainer: !AdamTrainer
       alpha: 0.0002

@@ -31,18 +31,19 @@ kftt.en-ja: !Experiment
     attender: !MlpAttender {}
     trg_embedder: !DenseWordEmbedder    # Represent target words as a 40000x256 matrix
       emb_dim: 512
-    decoder: !MlpSoftmaxDecoder
+    decoder: !AutoRegressiveDecoder
       bridge: !LinearBridge {}          # Initialize the first state of the decoder with an affine transform of the last state of the encoder
       rnn_layer: !UniLSTMSeqTransducer  # Just your standard LSTM decoder
         layers: 2                       # With 2 layers
-      mlp_layer: !MLP
-        output_projector: !Ref
-          path: model.trg_embedder      # Tie the softmax output to the target word embeddings
-        hidden_dim: !Ref
+      transform: !AuxNonLinear
+        output_dim: !Ref
           path: model.trg_embedder.emb_dim
         activation: 'relu'
+      scorer: !Softmax
+        output_projector: !Ref
+          path: model.trg_embedder      # Tie the softmax output to the target word embeddings
       label_smoothing: 0.1              # Smooth the output labels with the uniform distribution
-    inference: !SimpleInference
+    inference: !AutoRegressiveInference
       search_strategy: !BeamSearch
         beam_size: 5
         len_norm: !PolynomialNormalization

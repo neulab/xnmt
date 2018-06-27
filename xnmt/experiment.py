@@ -10,12 +10,12 @@ from xnmt.training_regimen import TrainingRegimen
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class Experiment(Serializable):
-  '''
+  """
   A default experiment that performs preprocessing, training, and evaluation.
 
   The initializer calls ParamManager.populate(), meaning that model construction should be finalized at this point.
   __call__() runs the individual steps.
-  
+
   Args:
     exp_global: global experiment settings
     preproc: carry out preprocessing if specified
@@ -23,7 +23,7 @@ class Experiment(Serializable):
     train: The training regimen defines the training loop.
     evaluate: list of tasks to evaluate the model after training finishes.
     random_search_report: When random search is used, this holds the settings that were randomly drawn for documentary purposes.
-  '''
+  """
 
   yaml_tag = '!Experiment'
 

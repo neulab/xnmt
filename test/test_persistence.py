@@ -154,7 +154,7 @@ class TestPreloader(unittest.TestCase):
     """)
     with self.assertRaises(ValueError):
       YamlPreloader.preload_obj(test_obj, "SOME_EXP_NAME", "SOME_EXP_DIR")
-  def test_inconsistent_loadserialized(self):
+  def test_inconsistent_loadserialized2(self):
     with open(f"{self.out_dir}/tmp1.yaml", "w") as f_out:
       yaml.dump(DummyClass(arg1="v1"), f_out)
     test_obj = yaml.load(f"""

@@ -4,6 +4,7 @@ __pycache__
 *.pyc
 *.so
 .idea
+.mypy_cache
 examples/output
 examples/logs
 examples/models

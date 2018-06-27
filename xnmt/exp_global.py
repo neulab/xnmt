@@ -40,7 +40,7 @@ class ExpGlobal(Serializable):
                truncate_dec_batches: bool = False,
                save_num_checkpoints: int = 1,
                loss_comb_method: str = "sum",
-               commandline_args=None,
+               commandline_args: dict = {},
                placeholders: Dict[str, str] = {}) -> None:
     self.model_file = model_file
     self.log_file = log_file

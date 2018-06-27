@@ -4,15 +4,17 @@ import dynet_config
 import dynet as dy
 
 from xnmt.attender import MlpAttender
+import xnmt.batcher
 from xnmt.bridge import CopyBridge
-from xnmt.decoder import MlpSoftmaxDecoder
+from xnmt.decoder import AutoRegressiveDecoder
 from xnmt.embedder import SimpleWordEmbedder
 import xnmt.events
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculator import MLELoss
-from xnmt.mlp import MLP
+from xnmt.loss_calculator import AutoRegressiveMLELoss
 from xnmt.param_collection import ParamManager
+from xnmt.transform import NonLinear
+from xnmt.scorer import Softmax
 from xnmt.translator import DefaultTranslator
 from xnmt.search_strategy import BeamSearch, GreedySearch
 
@@ -34,10 +36,11 @@ class TestForcedDecodingOutputs(unittest.TestCase):
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+      decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                rnn=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn"),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
+                                scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)
@@ -48,8 +51,8 @@ class TestForcedDecodingOutputs(unittest.TestCase):
 
   def assert_forced_decoding(self, sent_id):
     dy.renew_cg()
-    outputs = self.model.generate_output(self.src_data[sent_id], sent_id, BeamSearch(),
-                                         forced_trg_ids=self.trg_data[sent_id])
+    outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[sent_id]]), [sent_id], BeamSearch(),
+                                  forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[sent_id]]))
     self.assertItemsEqual(self.trg_data[sent_id], outputs[0].actions)
 
   def test_forced_decoding(self):
@@ -69,10 +72,11 @@ class TestForcedDecodingLoss(unittest.TestCase):
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+      decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                rnn=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn"),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
+                                scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)
@@ -85,11 +89,11 @@ class TestForcedDecodingLoss(unittest.TestCase):
     dy.renew_cg()
     train_loss = self.model.calc_loss(src=self.src_data[0],
                                       trg=self.trg_data[0],
-                                      loss_calculator=MLELoss()).value()
+                                      loss_calculator=AutoRegressiveMLELoss()).value()
     dy.renew_cg()
     self.model.initialize_generator()
-    outputs = self.model.generate_output(self.src_data[0], 0, BeamSearch(beam_size=1),
-                                         forced_trg_ids=self.trg_data[0])
+    outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], BeamSearch(beam_size=1),
+                                  forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
     self.assertAlmostEqual(-outputs[0].score, train_loss, places=4)
 
 class TestFreeDecodingLoss(unittest.TestCase):
@@ -105,10 +109,11 @@ class TestFreeDecodingLoss(unittest.TestCase):
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+      decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                rnn=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn"),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
+                                scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)
@@ -120,12 +125,12 @@ class TestFreeDecodingLoss(unittest.TestCase):
   def test_single(self):
     dy.renew_cg()
     self.model.initialize_generator(beam=1)
-    outputs = self.model.generate_output(self.src_data[0], 0, BeamSearch(),
-                                         forced_trg_ids=self.trg_data[0])
+    outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], BeamSearch(),
+                                         forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
     dy.renew_cg()
     train_loss = self.model.calc_loss(src=self.src_data[0],
                                       trg=outputs[0].actions,
-                                      loss_calculator=MLELoss()).value()
+                                      loss_calculator=AutoRegressiveMLELoss()).value()
 
     self.assertAlmostEqual(-outputs[0].score, train_loss, places=4)
 
@@ -144,10 +149,11 @@ class TestGreedyVsBeam(unittest.TestCase):
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+      decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
+                                rnn=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn"),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
+                                scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)
@@ -158,14 +164,14 @@ class TestGreedyVsBeam(unittest.TestCase):
   def test_greedy_vs_beam(self):
     dy.renew_cg()
     self.model.initialize_generator()
-    outputs = self.model.generate_output(self.src_data[0], 0, BeamSearch(beam_size=1),
-                                         forced_trg_ids=self.trg_data[0])
+    outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], BeamSearch(beam_size=1),
+                                         forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
     output_score1 = outputs[0].score
 
     dy.renew_cg()
     self.model.initialize_generator()
-    outputs = self.model.generate_output(self.src_data[0], 0, GreedySearch(),
-                                         forced_trg_ids=self.trg_data[0])
+    outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], GreedySearch(),
+                                  forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
     output_score2 = outputs[0].score
 
     self.assertAlmostEqual(output_score1, output_score2)

@@ -83,17 +83,31 @@ Bridge
    :members:
    :show-inheritance:
 
-Linear
-~~~~~~
-.. automodule:: xnmt.linear
+Transform
+~~~~~~~~~
+.. automodule:: xnmt.transform
    :members:
    :show-inheritance:
 
-Multi-layer Perceptron
-~~~~~~~~~~~~~~~~~~~~~~
-.. automodule:: xnmt.mlp
+Scorer
+~~~~~~
+.. automodule:: xnmt.scorer
    :members:
    :show-inheritance:
+
+SequenceLabeler
+~~~~~~~~~~~~~~~
+.. automodule:: xnmt.seq_labeler
+   :members:
+   :show-inheritance:
+
+Classifier
+~~~~~~~~~~
+.. automodule:: xnmt.classifier
+   :members:
+   :show-inheritance:
+
+
 
 Loss
 ----
@@ -154,8 +168,8 @@ ParamInitializer
 Inference
 ---------
 
-SimpleInference
-~~~~~~~~~~~~~~~
+AutoRegressiveInference
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: xnmt.inference
    :members:

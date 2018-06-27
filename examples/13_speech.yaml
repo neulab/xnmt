@@ -33,11 +33,11 @@ speech: !Experiment
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
-        hidden_dim: 64
+      transform: !AuxNonLinear
+        output_dim: 64
       bridge: !CopyBridge {}
     src_reader: !H5Reader
       transpose: True
@@ -61,14 +61,19 @@ speech: !Experiment
         src_file: examples/data/LDC94S13A.h5
         ref_file: examples/data/LDC94S13A.char
         hyp_file: examples/output/{EXP}.dev_hyp
-        inference: !SimpleInference
+        inference: !AutoRegressiveInference
           post_process: join-char
+          batcher: !InOrderBatcher
+            _xnmt_id: inference_batcher
+            pad_src_to_multiple: 4
+            batch_size: 1
+            src_pad_token: ~
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: cer,wer
       src_file: examples/data/LDC94S13A.h5
       ref_file: examples/data/LDC94S13A.words
       hyp_file: examples/output/{EXP}.test_hyp
-      inference: !SimpleInference
+      inference: !AutoRegressiveInference
         post_process: join-char
-    
+        batcher: !Ref { name: inference_batcher }

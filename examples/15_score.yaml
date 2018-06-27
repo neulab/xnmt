@@ -28,14 +28,14 @@ exp1-model: !Experiment
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
-        hidden_dim: 64
+      transform: !AuxNonLinear
+        output_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
@@ -59,7 +59,7 @@ exp2-score: !LoadSerialized
   - path: train
     val: ~
   - path: model.inference
-    val: !SimpleInference
+    val: !AutoRegressiveInference
       mode: score
       ref_file: examples/data/head.nbest.en
       src_file: examples/data/head.ja

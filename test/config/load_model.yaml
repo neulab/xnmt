@@ -1,7 +1,6 @@
+# note: run as ``xnmt --settings=unittest <config>.yaml``
 exp1-pretrain-model: !Experiment
   exp_global: !ExpGlobal
-    # The model file contain the whole contents of this experiment in YAML
-    # format. Note that {EXP} expressions are left intact when saving.
     default_layer_dim: 64
     dropout: 0.5
     weight_noise: 0.1
@@ -21,14 +20,11 @@ exp1-pretrain-model: !Experiment
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
-        hidden_dim: 64
-      input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja

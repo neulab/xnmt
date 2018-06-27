@@ -1,5 +1,6 @@
-# Simple example for multi-task training. Here, we have 2 identical tasks with
-# some shared parameters.
+# note: run as ``xnmt --settings=unittest <config>.yaml``
+
+# Simple example for multi-task training. Here, we have 2 identical tasks with some shared parameters.
 exp1-multi_task_exp: !Experiment
   exp_global: !ExpGlobal
     default_layer_dim: 64
@@ -36,12 +37,12 @@ exp1-multi_task_exp: !Experiment
         trg_embedder: !SimpleWordEmbedder
           emb_dim: 64
           vocab: !Ref {name: trg_vocab}
-        decoder: !MlpSoftmaxDecoder
-          rnn_layer: !UniLSTMSeqTransducer
+        decoder: !AutoRegressiveDecoder
+          rnn: !UniLSTMSeqTransducer
             layers: 1
             hidden_dim: 64
           bridge: !CopyBridge {}
-          mlp_layer: !MLP
+          scorer: !Softmax
             vocab: !Ref {name: trg_vocab}
       dev_tasks:
         - !AccuracyEvalTask
@@ -74,11 +75,11 @@ exp1-multi_task_exp: !Experiment
         trg_embedder: !SimpleWordEmbedder
           emb_dim: 64
           vocab: !Ref {name: trg_vocab}
-        decoder: !MlpSoftmaxDecoder
-          rnn_layer: !UniLSTMSeqTransducer
+        decoder: !AutoRegressiveDecoder
+          rnn: !UniLSTMSeqTransducer
             layers: 1
           bridge: !CopyBridge {}
-          mlp_layer: !MLP
+          scorer: !Softmax
             vocab: !Ref {name: trg_vocab}
       dev_tasks:
         - !AccuracyEvalTask

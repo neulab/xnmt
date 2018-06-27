@@ -18,13 +18,11 @@ reload: !Experiment
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
-        hidden_dim: 64
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     batcher: !SrcBatcher
       batch_size: 32

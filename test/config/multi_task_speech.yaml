@@ -1,5 +1,4 @@
-# Simple example for multi-task training. Here, we have 2 identical tasks with
-# some shared parameters.
+# note: run as ``xnmt --settings=unittest <config>.yaml``
 exp1-multi_task_exp: !Experiment
   exp_global: !ExpGlobal
     default_layer_dim: 64
@@ -39,15 +38,19 @@ exp1-multi_task_exp: !Experiment
         trg_embedder: !SimpleWordEmbedder
           emb_dim: 64
           vocab: !Ref {name: trg_vocab}
-        decoder: !MlpSoftmaxDecoder
-          rnn_layer: !UniLSTMSeqTransducer
+        decoder: !AutoRegressiveDecoder
+          rnn: !UniLSTMSeqTransducer
             layers: 1
             hidden_dim: 64
           bridge: !CopyBridge {}
-          mlp_layer: !MLP
+          scorer: !Softmax
             vocab: !Ref {name: trg_vocab}
-        inference: !SimpleInference
-          batcher: !Ref { path: train.tasks.0.batcher }
+        inference: !AutoRegressiveInference
+          batcher: !InOrderBatcher
+            _xnmt_id: inference_batcher
+            src_pad_token: ~
+            pad_src_to_multiple: 4
+            batch_size: 1
       dev_tasks:
         - !AccuracyEvalTask
           model: !Ref { name: first_task_model }
@@ -79,14 +82,14 @@ exp1-multi_task_exp: !Experiment
         trg_embedder: !SimpleWordEmbedder
           emb_dim: 64
           vocab: !Ref {name: trg_vocab}
-        decoder: !MlpSoftmaxDecoder
-          rnn_layer: !UniLSTMSeqTransducer
+        decoder: !AutoRegressiveDecoder
+          rnn: !UniLSTMSeqTransducer
             layers: 1
           bridge: !CopyBridge {}
-          mlp_layer: !MLP
+          scorer: !Softmax
             vocab: !Ref {name: trg_vocab}
-        inference: !SimpleInference
-          batcher: !Ref { path: train.tasks.1.batcher }
+        inference: !AutoRegressiveInference
+          batcher: !Ref { name: inference_batcher }
       dev_tasks:
         - !AccuracyEvalTask
           model: !Ref { name: second_task_model }
@@ -101,6 +104,8 @@ exp1-multi_task_exp: !Experiment
       src_file: *first_task_dev_src
       ref_file: *first_task_dev_trg
       hyp_file: test/tmp/{EXP}.test_hyp
+      inference: !AutoRegressiveInference
+        batcher: !Ref { name: inference_batcher }
 
 exp2-finetune-model: !LoadSerialized
   filename: test/tmp/exp1-multi_task_exp.mod

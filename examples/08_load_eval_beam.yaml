@@ -25,14 +25,14 @@ exp1-train-model: !Experiment
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
-        hidden_dim: 64
+      transform: !AuxNonLinear
+        output_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference
+    inference: !AutoRegressiveInference
       search_strategy: !BeamSearch
         beam_size: 5
         len_norm: !PolynomialNormalization
@@ -56,7 +56,7 @@ exp1-train-model: !Experiment
       hyp_file: examples/output/{EXP}.test_hyp
 
 exp2-eval-model: !LoadSerialized
-  filename: examples/output/exp1-pretrain-model.mod
+  filename: examples/output/exp1-train-model.mod
   overwrite: # list of [path, value] pairs. Value can be scalar or an arbitrary object
   - path: train # skip the training loop
     val: null

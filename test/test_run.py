@@ -13,6 +13,9 @@ class TestRunningConfig(unittest.TestCase):
   def test_assemble(self):
     run.main(["test/config/assemble.yaml"])
 
+  def test_classifier(self):
+    run.main(["test/config/classifier.yaml"])
+
   def test_component_sharing(self):
     run.main(["test/config/component_sharing.yaml"])
 
@@ -72,6 +75,9 @@ class TestRunningConfig(unittest.TestCase):
 
   def test_self_attentional_am(self):
     run.main(["test/config/self_attentional_am.yaml"])
+
+  def test_seq_labeler(self):
+    run.main(["test/config/seq_labeler.yaml"])
 
   def test_speech(self):
     run.main(["test/config/speech.yaml"])
