@@ -87,6 +87,7 @@ def serializable_init(f):
     if ParamManager.initialized and xnmt_subcol_name in ParamManager.param_col.subcols:
       serialize_params["xnmt_subcol_name"] = xnmt_subcol_name
     serialize_params.update(getattr(obj, "serialize_params", {}))
+    if "yaml_path" in serialize_params: del serialize_params["yaml_path"]
     obj.serialize_params = serialize_params
     obj.init_completed = True
 
