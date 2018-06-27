@@ -100,7 +100,7 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
                max_trg_len: Optional[int] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                update_every: int = 1,
-               commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)) -> None:
+               commandline_args: dict = Ref("exp_global.commandline_args", default={})) -> None:
 
     super().__init__(model=model,
                      src_file=src_file,
@@ -124,7 +124,7 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
                      max_trg_len=max_trg_len)
     self.dev_zero = dev_zero
     self.trainer = trainer or optimizer.SimpleSGDTrainer(e0=0.1)
-    self.dynet_profiling = getattr(commandline_args, "dynet_profiling", 0) if commandline_args else 0
+    self.dynet_profiling = commandline_args.get("dynet_profiling", 0) if commandline_args else 0
     self.train_loss_tracker = TrainLossTracker(self)
     self.loss_comb_method = loss_comb_method
     self.update_every = update_every
@@ -187,9 +187,9 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
                trainer: optimizer.XnmtOptimizer = bare(optimizer.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
                update_every: int = 1,
-               commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)) -> None:
+               commandline_args: dict = Ref("exp_global.commandline_args", default=None)) -> None:
     super().__init__()
-    self.dynet_profiling = getattr(commandline_args, "dynet_profiling", 0) if commandline_args else 0
+    self.dynet_profiling = commandline_args.get("dynet_profiling", 0) if commandline_args else 0
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
     self.trainer = trainer
@@ -261,7 +261,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                update_every: int = 1,
                n_task_steps: Optional[Sequence[int]] = None,
-               commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)) -> None:
+               commandline_args: dict = Ref("exp_global.commandline_args", default=None)) -> None:
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every,
                      commandline_args=commandline_args)
     self.train_loss_trackers = {task : TrainLossTracker(task) for task in tasks}
@@ -417,7 +417,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                dev_zero: bool = False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                update_every: int = 1,
-               commandline_args: argparse.Namespace = Ref("exp_global.commandline_args", default=None)) -> None:
+               commandline_args: dict = Ref("exp_global.commandline_args", default=None)) -> None:
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args,
                      update_every=update_every)
     self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
