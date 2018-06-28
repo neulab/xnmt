@@ -177,9 +177,7 @@ class UnicodeTokenizer(Tokenizer, Serializable):
 
   @staticmethod
   def _is_weird(c):
-    return not (unicodedata.category(c)[0] == 'L'
-                or unicodedata.category(c)[0] == 'N'
-                or c.isspace())
+    return not (unicodedata.category(c)[0] in 'LMN' or c.isspace())
 
 class ExternalTokenizer(Tokenizer, Serializable):
   """
