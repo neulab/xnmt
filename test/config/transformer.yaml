@@ -20,7 +20,7 @@ standard: !Experiment
       layers: 1
       input_dim: 64
     input_dim: 64
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     restart_trainer: False

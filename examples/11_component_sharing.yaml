@@ -17,6 +17,7 @@
 exp1.pretrain: !Experiment
   exp_global: !ExpGlobal
     default_layer_dim: 32
+    model_file: 'examples/output/{EXP}.mod'
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
@@ -31,16 +32,16 @@ exp1.pretrain: !Experiment
     trg_embedder: !DenseWordEmbedder
       _xnmt_id: trg_emb # this id must be unique and is needed to create a reference-by-name below.
       emb_dim: 32
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
+      scorer: !Softmax
         output_projector: !Ref { name: trg_emb }
         #                alternatively, the same could be achieved like this,
         #                in which case model.trg_embedder._xnmt_id is not required:
         #                !Ref { path: model.trg_embedder }
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja

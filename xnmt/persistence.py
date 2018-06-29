@@ -42,6 +42,8 @@ def serializable_init(f):
   def wrapper(obj, *args, **kwargs):
     if "xnmt_subcol_name" in kwargs:
       xnmt_subcol_name = kwargs.pop("xnmt_subcol_name")
+    elif hasattr(obj, "xnmt_subcol_name"): # happens when calling wrapped super() constructors
+      xnmt_subcol_name = obj.xnmt_subcol_name
     else:
       xnmt_subcol_name = _generate_subcol_name(obj)
     obj.xnmt_subcol_name = xnmt_subcol_name
@@ -85,6 +87,7 @@ def serializable_init(f):
     if ParamManager.initialized and xnmt_subcol_name in ParamManager.param_col.subcols:
       serialize_params["xnmt_subcol_name"] = xnmt_subcol_name
     serialize_params.update(getattr(obj, "serialize_params", {}))
+    if "yaml_path" in serialize_params: del serialize_params["yaml_path"]
     obj.serialize_params = serialize_params
     obj.init_completed = True
 
@@ -664,11 +667,13 @@ def _traverse_tree_deep(root, cur_node, traversal_order=_TraversalOrder.ROOT_FIR
 
 
 def _traverse_tree_deep_once(root, cur_node, traversal_order=_TraversalOrder.ROOT_FIRST, path_to_node=Path(),
-                             named_paths={}):
+                             named_paths=None):
   """
   Calls _traverse_tree_deep, but skips over nodes that have been visited before (can happen because we're descending into
    references).
   """
+  if named_paths is None:
+    named_paths = {}
   yielded_paths = set()
   for path, node in _traverse_tree_deep(root, cur_node, traversal_order, path_to_node, named_paths):
     if not (path.ancestors() & yielded_paths):
@@ -1144,13 +1149,16 @@ class _YamlDeserializer(object):
       for shared_param_path in shared_param_set:
         try:
           new_shared_val = _get_descendant(root, shared_param_path)
+          # print('found {} = {}'.format(shared_param_path, new_shared_val))
         except PathError:
+          # print('found not {}'.format(shared_param_path))
           continue
         for _, child_of_shared_param in _traverse_tree(new_shared_val, include_root=False):
           if isinstance(child_of_shared_param, Serializable):
             raise ValueError(f"{path} shared params {shared_param_set} contains Serializable sub-object {child_of_shared_param} which is not permitted")
         if not isinstance(new_shared_val, Ref):
           shared_val_choices.add(new_shared_val)
+      # print('shared set {} == {}'.format(shared_param_set, shared_val_choices))
       if len(shared_val_choices)>1:
         logger.warning(f"inconsistent shared params at {path} for {shared_param_set}: {shared_val_choices}; Ignoring these shared parameters.")
       elif len(shared_val_choices)==1:
@@ -1347,7 +1355,6 @@ def check_type(obj, desired_type):
     elif desired_type.__class__.__name__ == "_Union":
       return any(
         subtype.__class__.__name__ == "_ForwardRef" or check_type(obj, subtype) for subtype in desired_type.__args__)
-      collections.abc.Dict
     elif issubclass(desired_type, collections.abc.MutableMapping):
       if not isinstance(obj, collections.abc.MutableMapping): return False
       if desired_type.__args__:

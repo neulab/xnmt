@@ -1,9 +1,10 @@
 import numpy as np
 import dynet as dy
 from math import sqrt
+from typing import List
 
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
+from xnmt.expression_sequence import ExpressionSequence
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
@@ -41,14 +42,14 @@ class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
   def on_start_sent(self, src):
     self._final_states = None
 
-  def get_final_states(self):
+  def get_final_states(self) -> List[FinalTransducerState]:
     return self._final_states
 
   @handle_xnmt_event
   def on_set_train(self, val):
     self.train = val
 
-  def __call__(self, expr_seq):
+  def transduce(self, expr_seq: ExpressionSequence) -> ExpressionSequence:
     """
     transduce the sequence
 
@@ -79,7 +80,7 @@ class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
 
     # Do scaled dot product [(length, length) x batch * num_heads], rows are queries, columns are keys
     attn_score = q * dy.transpose(k) / sqrt(self.head_dim)
-    if expr_seq.mask != None:
+    if expr_seq.mask is not None:
       mask = dy.inputTensor(np.repeat(expr_seq.mask.np_arr, self.num_heads, axis=0).transpose(), batched=True) * -1e10
       attn_score = attn_score + mask
     attn_prob = dy.softmax(attn_score, d=1)

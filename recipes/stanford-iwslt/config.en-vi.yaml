@@ -15,9 +15,9 @@ iwslt-experiment: !Experiment
     attender: !MlpAttender {}
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 128
-    decoder: !MlpSoftmaxDecoder
+    decoder: !AutoRegressiveDecoder
       bridge: !CopyBridge {}
-    inference: !SimpleInference
+    inference: !AutoRegressiveInference
       search_strategy: !BeamSearch
         beam_size: 5
   train: !SimpleTrainingRegimen

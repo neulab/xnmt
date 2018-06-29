@@ -96,7 +96,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
   @serializable_init
   def __init__(self, model, src_file=None, trg_file=None, dev_every=0,
-               batcher=bare(batcher.SrcBatcher, batch_size=32), loss_calculator=bare(loss_calculator.MLELoss),
+               batcher=bare(batcher.SrcBatcher, batch_size=32), loss_calculator=bare(loss_calculator.AutoRegressiveMLELoss),
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
                initial_patience=None, dev_tasks=None, dev_combinator=None, restart_trainer=False,
                reload_command=None, name=None, sample_train_sents: Optional[int] = None,

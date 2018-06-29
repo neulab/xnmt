@@ -3,17 +3,17 @@ import dynet as dy
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import Serializable, serializable_init
-from xnmt.transducer import Transducer, SeqTransducer
+from xnmt.transducer import SeqTransducer
 
 # This is a file for specialized encoders that implement a particular model
 # Ideally, these will eventually be refactored to use standard components and the ModularSeqTransducer framework,
 #  (for more flexibility), but for ease of implementation it is no problem to perform an initial implementation here.
 
 def padding(src, min_size):
-  ''' do padding for the sequence input along the time step (for example speech), so that so that the output of convolutional layer has the same size(time) of the input.
+  """ do padding for the sequence input along the time step (for example speech), so that so that the output of convolutional layer has the same size(time) of the input.
 
       note that for padding image(two dimensional padding), please refer to dyne.conv2d(..., is_valid = False)
-  '''
+  """
   # pad before put into convolutional layer
   src_dim = src.dim()
   if src_dim[0][1] >= min_size:
@@ -71,7 +71,7 @@ class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
     self.attention.append((model.add_parameters((attention_dim, rhn_dim)),
                            model.add_parameters(attention_dim, )))
 
-  def __call__(self, src):
+  def transduce(self, src: ExpressionSequence) -> ExpressionSequence:
     src = src.as_tensor()
     # convolutional layer
     src = padding(src, src.dim()[0][0], src.dim()[0][1], self.filter_width, self.stride, src.dim()[1])
@@ -137,7 +137,7 @@ class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
     self.filters3 = model.add_parameters(dim=(self.filter_height[2], self.filter_width[2], self.channels[2], self.num_filters[2]),
                                          init=normalInit)
 
-  def __call__(self, src):
+  def transduce(self, src: ExpressionSequence) -> ExpressionSequence:
     src = src.as_tensor()
 
     src_height = src.dim()[0][0]
@@ -168,7 +168,7 @@ class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
 
 # This is an image encoder that takes in features and does a linear transform from the following paper
 #  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
-class HarwathImageTransducer(Transducer, Serializable):
+class HarwathImageTransducer(SeqTransducer, Serializable):
   """
     Inputs are first put through 2 CNN layers, each with stride (2,2), so dimensionality
     is reduced by 4 in both directions.
@@ -193,7 +193,7 @@ class HarwathImageTransducer(Transducer, Serializable):
     self.pW = model.add_parameters(dim = (self.out_height, self.in_height), init=normalInit)
     self.pb = model.add_parameters(dim = self.out_height)
 
-  def __call__(self, src):
+  def transduce(self, src: ExpressionSequence) -> ExpressionSequence:
     src = src.as_tensor()
 
     src_height = src.dim()[0][0]

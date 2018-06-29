@@ -19,16 +19,17 @@ import random
 import numpy as np
 
 from xnmt.attender import MlpAttender
-from xnmt.batcher import SrcBatcher
+from xnmt.batcher import SrcBatcher, InOrderBatcher
 from xnmt.bridge import CopyBridge
-from xnmt.decoder import MlpSoftmaxDecoder
+from xnmt.decoder import AutoRegressiveDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.eval_task import LossEvalTask, AccuracyEvalTask
 from xnmt.experiment import Experiment
-from xnmt.inference import SimpleInference
+from xnmt.inference import AutoRegressiveInference
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import BiLSTMSeqTransducer, UniLSTMSeqTransducer
-from xnmt.mlp import MLP
+from xnmt.transform import AuxNonLinear
+from xnmt.scorer import Softmax
 from xnmt.optimizer import AdamTrainer
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import save_to_file
@@ -57,7 +58,7 @@ trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
 
 batcher = SrcBatcher(batch_size=64)
 
-inference = SimpleInference(batcher=batcher)
+inference = AutoRegressiveInference(batcher=InOrderBatcher(batch_size=1))
 
 layer_dim = 512
 
@@ -69,11 +70,14 @@ model = DefaultTranslator(
   encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, layers=1),
   attender=MlpAttender(hidden_dim=layer_dim, state_dim=layer_dim, input_dim=layer_dim),
   trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=len(trg_vocab)),
-  decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
-                            rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="decoder"),
-                            mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, yaml_path="decoder", vocab_size=len(trg_vocab)),
-                            trg_embed_dim=layer_dim,
-                            bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
+  decoder=AutoRegressiveDecoder(input_dim=layer_dim,
+                                rnn=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim,
+                                                         decoder_input_dim=layer_dim, yaml_path="decoder"),
+                                transform=AuxNonLinear(input_dim=layer_dim, output_dim=layer_dim,
+                                                       aux_input_dim=layer_dim),
+                                scorer=Softmax(vocab_size=len(trg_vocab), input_dim=layer_dim),
+                                trg_embed_dim=layer_dim,
+                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
   inference=inference
 )
 

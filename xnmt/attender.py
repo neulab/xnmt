@@ -8,9 +8,9 @@ from xnmt.param_init import GlorotInitializer, ZeroInitializer, ParamInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
 class Attender(object):
-  '''
+  """
   A template class for functions implementing attention.
-  '''
+  """
 
   def init_sent(self, sent):
     """Args:

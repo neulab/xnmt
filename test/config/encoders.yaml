@@ -41,14 +41,12 @@ exp1-lstm-encoder: !Experiment
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
         word_dropout: 0.3
-      decoder: !MlpSoftmaxDecoder
-        rnn_layer: !UniLSTMSeqTransducer
+      decoder: !AutoRegressiveDecoder
+        rnn: !UniLSTMSeqTransducer
           layers: 1
-        mlp_layer: !MLP
-          hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
-      inference: !SimpleInference {}
+      inference: !AutoRegressiveInference {}
 exp2-residual-encoder: !Experiment
   kwargs:
     << : *defaults
@@ -68,14 +66,11 @@ exp2-residual-encoder: !Experiment
         input_dim: 64
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
-      decoder: !MlpSoftmaxDecoder
-        rnn_layer: !UniLSTMSeqTransducer
+      decoder: !AutoRegressiveDecoder
+        rnn: !UniLSTMSeqTransducer
           layers: 2
-        mlp_layer: !MLP
-          hidden_dim: 64
-        input_feeding: True
         bridge: !CopyBridge {}
-      inference: !SimpleInference {}
+      inference: !AutoRegressiveInference {}
 exp3-pyramidal-encoder: !Experiment
   kwargs:
     << : *defaults
@@ -102,15 +97,15 @@ exp3-pyramidal-encoder: !Experiment
         input_dim: 64
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
-      decoder: !MlpSoftmaxDecoder
-        rnn_layer: !UniLSTMSeqTransducer
+      decoder: !AutoRegressiveDecoder
+        rnn: !UniLSTMSeqTransducer
           layers: 2
-        mlp_layer: !MLP
-          hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
-      inference: !SimpleInference
-        batcher: !Ref {name: batcher3}
+      inference: !AutoRegressiveInference
+        batcher: !InOrderBatcher
+          batch_size: 5
+          pad_src_to_multiple: 4
 exp4-modular-encoder: !Experiment
   kwargs:
     << : *defaults
@@ -144,13 +139,13 @@ exp4-modular-encoder: !Experiment
         input_dim: 64
       trg_embedder: !SimpleWordEmbedder
         emb_dim: 64
-      decoder: !MlpSoftmaxDecoder
-        rnn_layer: !UniLSTMSeqTransducer
+      decoder: !AutoRegressiveDecoder
+        rnn: !UniLSTMSeqTransducer
           layers: 3
-        mlp_layer: !MLP
-          hidden_dim: 64
         input_feeding: True
         bridge: !CopyBridge {}
-      inference: !SimpleInference
-        batcher: !Ref {name: batcher4}
+      inference: !AutoRegressiveInference
+        batcher: !InOrderBatcher
+          batch_size: 5
+          pad_src_to_multiple: 4
 

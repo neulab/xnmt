@@ -34,13 +34,14 @@ las-pyramidal: !Experiment
       emb_dim: 64
       word_dropout: 0.1
       fix_norm: 1
-    decoder: !MlpSoftmaxDecoder
+    decoder: !AutoRegressiveDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
         hidden_dim: 512
       input_feeding: True
       bridge: !CopyBridge {}
-      label_smoothing: 0.1
+      scorer: !Softmax
+        label_smoothing: 0.1
     src_reader: !H5Reader
       transpose: true
     trg_reader: !PlainTextReader
@@ -70,7 +71,7 @@ las-pyramidal: !Experiment
         src_file: &dev_src '{DATA_DIR}/feat/dev.h5'
         ref_file: '{DATA_DIR}/transcript/dev.words'
         hyp_file: '{EXP_DIR}/logs/{EXP}.dev_hyp'
-        inference: !SimpleInference
+        inference: !AutoRegressiveInference
           max_src_len: 1500
           post_process: join-char
           search_strategy: !BeamSearch
@@ -89,7 +90,7 @@ las-pyramidal: !Experiment
       src_file: '{DATA_DIR}/feat/test.h5'
       ref_file: '{DATA_DIR}/transcript/test.words'
       hyp_file: '{EXP_DIR}/logs/{EXP}.test_hyp'
-      inference: !SimpleInference
+      inference: !AutoRegressiveInference
         max_src_len: 1500
         post_process: join-char
         search_strategy: !BeamSearch

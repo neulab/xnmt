@@ -146,13 +146,31 @@ class Batcher(object):
       src_batch = self.create_single_batch(src_curr, trg_curr, sort_by_trg_len)
     src_ret.append(src_batch)
 
-  def _pack_by_order(self, src, trg, order):
+  def _pack_by_order(self, src: Sequence[xnmt.input.Input], trg: Optional[Sequence[xnmt.input.Input]],
+                     order: Sequence[int]) -> Tuple[Sequence[Batch], Sequence[Batch]]:
+    """
+    Pack batches by given order.
+
+    Trg is optional for the case of self.granularity == 'sent'
+
+    Args:
+      src: src-side inputs
+      trg: trg-side inputs
+      order: order of inputs
+
+    Returns:
+      If trg is given: tuple of src / trg batches; Otherwise: only src batches
+    """
     src_ret, src_curr = [], []
     trg_ret, trg_curr = [], []
     if self.granularity == 'sent':
       for x in range(0, len(order), self.batch_size):
-        self._add_single_batch([src[y] for y in order[x:x + self.batch_size]],
-                               [trg[y] for y in order[x:x+self.batch_size]],
+        src_selected = [src[y] for y in order[x:x + self.batch_size]]
+        if trg:
+          trg_selected = [trg[y] for y in order[x:x + self.batch_size]]
+        else: trg_selected = None
+        self._add_single_batch(src_selected,
+                               trg_selected,
                                src_ret, trg_ret,
                                sort_by_trg_len=self.sort_within_by_trg_len)
     elif self.granularity == 'word':
@@ -160,7 +178,7 @@ class Batcher(object):
       for i in order:
         max_src = max(_len_or_zero(src[i]), max_src)
         max_trg = max(_len_or_zero(trg[i]), max_trg)
-        if (max_src+max_trg)*(len(src_curr)+1) > self.batch_size and len(src_curr)>0:
+        if (max_src + max_trg) * (len(src_curr) + 1) > self.batch_size and len(src_curr) > 0:
           self._add_single_batch(src_curr, trg_curr, src_ret, trg_ret, sort_by_trg_len=self.sort_within_by_trg_len)
           max_src = _len_or_zero(src[i])
           max_trg = _len_or_zero(trg[i])
@@ -172,7 +190,10 @@ class Batcher(object):
       self._add_single_batch(src_curr, trg_curr, src_ret, trg_ret, sort_by_trg_len=self.sort_within_by_trg_len)
     else:
       raise RuntimeError("Illegal granularity specification {}".format(self.granularity))
-    return src_ret, trg_ret
+    if trg:
+      return src_ret, trg_ret
+    else:
+      return src_ret
 
   def pack(self, src: Sequence[xnmt.input.Input], trg: Sequence[xnmt.input.Input]) \
           -> Tuple[Sequence[Batch], Sequence[Batch]]:
@@ -184,7 +205,7 @@ class Batcher(object):
       trg: list of trg-side inputs
 
     Returns:
-      list of batches
+      tuple of lists of src and trg batches
     """
     raise NotImplementedError("must be implemented by subclasses")
 
@@ -208,7 +229,18 @@ class InOrderBatcher(Batcher, Serializable):
                      pad_src_to_multiple=pad_src_to_multiple,
                      sort_within_by_trg_len=False)
 
-  def pack(self, src, trg):
+  def pack(self, src: Sequence[xnmt.input.Input], trg: Optional[Sequence[xnmt.input.Input]]) \
+          -> Tuple[Sequence[Batch], Sequence[Batch]]:
+    """
+    Pack batches. Unlike other batches, the trg sentences are optional.
+
+    Args:
+      src: list of src-side inputs
+      trg: optional list of trg-side inputs
+
+    Returns:
+      src batches if trg was not given; tuple of src batches and trg batches if trg was given
+    """
     order = list(range(len(src)))
     return self._pack_by_order(src, trg, order)
 

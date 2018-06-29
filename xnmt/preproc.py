@@ -177,9 +177,7 @@ class UnicodeTokenizer(Tokenizer, Serializable):
 
   @staticmethod
   def _is_weird(c):
-    return not (unicodedata.category(c)[0] == 'L'
-                or unicodedata.category(c)[0] == 'N'
-                or c.isspace())
+    return not (unicodedata.category(c)[0] in 'LMN' or c.isspace())
 
 class ExternalTokenizer(Tokenizer, Serializable):
   """
@@ -491,14 +489,14 @@ class MelFiltExtractor(Extractor, Serializable):
     self.nfilt = nfilt
   def extract_to(self, in_file, out_file):
     """
-    in_file: yaml file that contains a list of dictionaries.
-             Each dictionary contains:
-             - wav (str): path to wav file
-             - offset (float): start time stamp (optional)
-             - duration (float
-             ): stop time stamp (optional)
-             - speaker: speaker id for normalization (optional; if not given, the filename is used as speaker id)
-    out_file: a filename ending in ".h5"
+    Args:
+      in_file: yaml file that contains a list of dictionaries.
+               Each dictionary contains:
+               - wav (str): path to wav file
+               - offset (float): start time stamp (optional)
+               - duration (float): stop time stamp (optional)
+               - speaker: speaker id for normalization (optional; if not given, the filename is used as speaker id)
+      out_file: a filename ending in ".h5"
     """
     import librosa
     if not out_file.endswith(".h5"): raise ValueError(f"out_file must end in '.h5', was '{out_file}'")

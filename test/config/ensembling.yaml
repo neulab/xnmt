@@ -1,6 +1,4 @@
-# Define two experiments with different models (that share the same target
-# vocab), then load them and combine them to an ensemble
-
+# note: run as ``xnmt --settings=unittest <config>.yaml``
 ensemble1: !Experiment
   exp_global: &globals !ExpGlobal
     default_layer_dim: 32
@@ -32,11 +30,12 @@ ensemble2: !Experiment
     trg_embedder: !DenseWordEmbedder
       _xnmt_id: dense_embed
       emb_dim: 64
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         hidden_dim: 64
-      mlp_layer: !MLP
-        hidden_dim: 64
+      transform: !AuxNonLinear
+        output_dim: 64
+      scorer: !Softmax
         output_projector: !Ref {name: dense_embed}
   train: *train
 

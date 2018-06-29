@@ -22,6 +22,7 @@ dyparams.from_args()
 # using the !Classname YAML syntax
 import xnmt.attender
 import xnmt.batcher
+import xnmt.classifier
 import xnmt.conv
 import xnmt.decoder
 import xnmt.embedder
@@ -36,7 +37,6 @@ import xnmt.inference
 import xnmt.input
 import xnmt.input_reader
 import xnmt.lstm
-import xnmt.mlp
 import xnmt.exp_global
 import xnmt.optimizer
 import xnmt.param_init
@@ -44,9 +44,11 @@ import xnmt.preproc_runner
 import xnmt.pyramidal
 import xnmt.residual
 import xnmt.retriever
+import xnmt.scorer
 import xnmt.segmenting_composer
 import xnmt.segmenting_encoder
 import xnmt.self_attention
+import xnmt.seq_labeler
 import xnmt.specialized_encoders.tilburg_harwath
 import xnmt.specialized_encoders.self_attentional_am
 import xnmt.training_regimen
@@ -58,7 +60,8 @@ import xnmt.persistence
 resolved_serialize_params = {}
 
 def init_representer(dumper, obj):
-  if len(resolved_serialize_params)==0:
+  if id(obj) not in resolved_serialize_params:
+  # if len(resolved_serialize_params)==0:
     serialize_params = obj.serialize_params
   else:
     serialize_params = resolved_serialize_params[id(obj)]
