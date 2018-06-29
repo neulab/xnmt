@@ -1,6 +1,7 @@
 from itertools import zip_longest
 import ast
 from typing import Sequence, Iterator
+import mmap
 
 import numpy as np
 
@@ -57,6 +58,9 @@ class InputReader(object):
 
 class BaseTextReader(InputReader):
 
+  def __init__(self):
+    self.line_counts = {}
+
   def read_sent(self, line: str) -> xnmt.input.Input:
     """
     Convert a raw text line into an input object.
@@ -68,11 +72,19 @@ class BaseTextReader(InputReader):
     raise RuntimeError("Input readers must implement the read_sent function")
 
   def count_sents(self, filename):
-    f = open(filename, encoding='utf-8')
-    try:
-      return sum(1 for _ in f)
-    finally:
-      f.close()
+    if filename in self.line_counts:
+      return self.line_counts[filename]
+    f = open(filename, 'r+b')
+    mm = mmap.mmap(f.fileno(), 0)
+    pos = -1
+    newlines = 0
+    while True:
+      pos = mm.find(b'\n', pos+1)
+      if pos == -1:
+        break
+      newlines += 1
+    self.line_counts[filename] = newlines
+    return newlines
 
   def iterate_filtered(self, filename, filter_ids=None):
     """
@@ -102,6 +114,7 @@ class PlainTextReader(BaseTextReader, Serializable):
 
   @serializable_init
   def __init__(self, vocab=None, include_vocab_reference=False):
+    self.super().__init__()
     self.vocab = vocab
     self.include_vocab_reference = include_vocab_reference
     if vocab is not None:
@@ -141,6 +154,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
       vocab: The vocabulary
       include_vocab_reference: Whether to include the vocab with the input
     """
+    self.super().__init__()
     import sentencepiece as spm
     self.subword_model = spm.SentencePieceProcessor()
     self.subword_model.Load(model_file)
@@ -368,7 +382,7 @@ class IDReader(BaseTextReader, Serializable):
 
   @serializable_init
   def __init__(self):
-    pass
+    self.super().__init__()
 
   def read_sent(self, line):
     return xnmt.input.IntInput(int(line.strip()))
@@ -399,12 +413,14 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
   src_data = []
   trg_data = []
   if sample_sents:
+    logger.info(f"Starting to read {sample_sents} parallel sentences of {src_file} and {trg_file}")
     src_len = src_reader.count_sents(src_file)
     trg_len = trg_reader.count_sents(trg_file)
     if src_len != trg_len: raise RuntimeError(f"training src sentences don't match trg sentences: {src_len} != {trg_len}!")
     if max_num_sents and max_num_sents < src_len: src_len = trg_len = max_num_sents
     filter_ids = np.random.choice(src_len, sample_sents, replace=False)
   else:
+    logger.info(f"Starting to read {src_file} and {trg_file}")
     filter_ids = None
     src_len, trg_len = 0, 0
   src_train_iterator = src_reader.read_sents(src_file, filter_ids)
@@ -420,10 +436,14 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
       src_data.append(src_sent)
       trg_data.append(trg_sent)
 
+  logger.info(f"Done reading {src_file} and {trg_file}. Packing into batches.")
+
   # Pack batches
   if batcher is not None:
     src_batches, trg_batches = batcher.pack(src_data, trg_data)
   else:
     src_batches, trg_batches = src_data, trg_data
+
+  logger.info(f"Done packing batches.")
 
   return src_data, trg_data, src_batches, trg_batches
