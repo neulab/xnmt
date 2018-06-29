@@ -1,4 +1,5 @@
 from itertools import zip_longest
+from functools import lru_cache
 import ast
 from typing import Sequence, Iterator
 
@@ -57,9 +58,6 @@ class InputReader(object):
 
 class BaseTextReader(InputReader):
 
-  def __init__(self):
-    self.line_counts = {}
-
   def read_sent(self, line: str) -> xnmt.input.Input:
     """
     Convert a raw text line into an input object.
@@ -70,14 +68,12 @@ class BaseTextReader(InputReader):
     """
     raise RuntimeError("Input readers must implement the read_sent function")
 
+  @lru_cache(maxsize=128)
   def count_sents(self, filename):
-    if filename in self.line_counts:
-      return self.line_counts[filename]
     newlines = 0
     f = open(filename, 'r+b')
     for line in f:
       newlines += 1
-    self.line_counts[filename] = newlines
     return newlines
 
   def iterate_filtered(self, filename, filter_ids=None):
@@ -108,7 +104,6 @@ class PlainTextReader(BaseTextReader, Serializable):
 
   @serializable_init
   def __init__(self, vocab=None, include_vocab_reference=False):
-    super().__init__()
     self.vocab = vocab
     self.include_vocab_reference = include_vocab_reference
     if vocab is not None:
@@ -148,7 +143,6 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
       vocab: The vocabulary
       include_vocab_reference: Whether to include the vocab with the input
     """
-    super().__init__()
     import sentencepiece as spm
     self.subword_model = spm.SentencePieceProcessor()
     self.subword_model.Load(model_file)
@@ -376,7 +370,7 @@ class IDReader(BaseTextReader, Serializable):
 
   @serializable_init
   def __init__(self):
-    super().__init__()
+    pass
 
   def read_sent(self, line):
     return xnmt.input.IntInput(int(line.strip()))
