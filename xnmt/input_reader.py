@@ -1,7 +1,6 @@
 from itertools import zip_longest
 import ast
 from typing import Sequence, Iterator
-import mmap
 
 import numpy as np
 
@@ -74,14 +73,9 @@ class BaseTextReader(InputReader):
   def count_sents(self, filename):
     if filename in self.line_counts:
       return self.line_counts[filename]
-    f = open(filename, 'r+b')
-    mm = mmap.mmap(f.fileno(), 0)
-    pos = -1
     newlines = 0
-    while True:
-      pos = mm.find(b'\n', pos+1)
-      if pos == -1:
-        break
+    f = open(filename, 'r+b')
+    for line in f:
       newlines += 1
     self.line_counts[filename] = newlines
     return newlines
