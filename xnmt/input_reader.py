@@ -202,6 +202,7 @@ class RamlTextReader(BaseTextReader, Serializable):
   """
   yaml_tag = '!RamlTextReader'
 
+  @register_xnmt_handler
   @serializable_init
   def __init__(self, tau=1., vocab=None, include_vocab_reference=False):
     self.tau = tau
@@ -211,8 +212,15 @@ class RamlTextReader(BaseTextReader, Serializable):
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
 
+  @handle_xnmt_event
+  def on_set_train(self, val):
+    self.train = val
+
   def read_sent(self, sentence, filter_ids=None):
     vocab_reference = self.vocab if self.include_vocab_reference else None
+    if not self.train:
+     return SimpleSentenceInput([self.vocab.convert(word) for word in sentence.strip().split()] + \
+                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
     word_ids = np.array([self.vocab.convert(word) for word in sentence.strip().split()])
     length = len(word_ids)
     logits = np.arange(length) * (-1) * self.tau
