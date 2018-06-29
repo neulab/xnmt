@@ -114,7 +114,7 @@ class PlainTextReader(BaseTextReader, Serializable):
 
   @serializable_init
   def __init__(self, vocab=None, include_vocab_reference=False):
-    self.super().__init__()
+    super().__init__()
     self.vocab = vocab
     self.include_vocab_reference = include_vocab_reference
     if vocab is not None:
@@ -154,7 +154,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
       vocab: The vocabulary
       include_vocab_reference: Whether to include the vocab with the input
     """
-    self.super().__init__()
+    super().__init__()
     import sentencepiece as spm
     self.subword_model = spm.SentencePieceProcessor()
     self.subword_model.Load(model_file)
@@ -382,7 +382,7 @@ class IDReader(BaseTextReader, Serializable):
 
   @serializable_init
   def __init__(self):
-    self.super().__init__()
+    super().__init__()
 
   def read_sent(self, line):
     return xnmt.input.IntInput(int(line.strip()))
