@@ -35,8 +35,6 @@ speech: !Experiment
       transpose: True
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-    inference: !AutoRegressiveInference
-      report_path: test/tmp/report/
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     batcher: !SrcBatcher
@@ -57,7 +55,6 @@ speech: !Experiment
         hyp_file: test/tmp/{EXP}.dev_hyp
         inference: !AutoRegressiveInference
           post_process: join-char
-          report_path: test/tmp/report.{EXP}
           batcher: !InOrderBatcher
             _xnmt_id: inference_batcher
             pad_src_to_multiple: 4

@@ -146,10 +146,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
       if self.use_baseline:
         self.bs = [self.baseline(dy.nobackprop(enc)) for enc in encodings]
-    if not self.train:
+    # if not self.train:
       # Rewrite segmentation
-      self.set_report_resource("segmentation", self.segment_decisions)
-      self.set_report_input(segment_decisions)
+      # self.set_report_resource("segmentation", self.segment_decisions)
+      # self.set_report_input(segment_decisions)
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return self.final_transducer.transduce(ExpressionSequence(expr_tensor=outputs, mask=masks))
 

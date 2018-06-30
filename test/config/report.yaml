@@ -40,5 +40,4 @@ report: !Experiment
       ref_file: examples/data/head.en
       hyp_file: test/tmp/{EXP}.test_hyp
       inference: !AutoRegressiveInference
-        report_path: test/tmp/{EXP}.report
-        report_type: html, file
+        reporter: !AttentionHtmlReporter { report_path: 'examples/output/{EXP}.report' }
