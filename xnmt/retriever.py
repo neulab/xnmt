@@ -200,11 +200,11 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
     else:
       raise RuntimeError("Illegal return_type to retrieve: {}".format(return_type))
 
-  @handle_xnmt_event
-  def on_html_report(self, context=None):
-    logger.warning("Unimplemented html report for retriever!")
-    idx, src_words, scores, kbest = self.html_input
-    html = etree.Element('html')
-    # TODO(philip30): Write the logic of retriever html here
-    return html
+  # @handle_xnmt_event
+  # def on_html_report(self, context=None):
+  #   logger.warning("Unimplemented html report for retriever!")
+  #   idx, src_words, scores, kbest = self.html_input
+  #   html = etree.Element('html')
+  #   # TODO(philip30): Write the logic of retriever html here
+  #   return html
 
