@@ -20,7 +20,7 @@ class Inference(object):
     trg_file: path of file where trg translatons will be written
     ref_file: path of file with reference translations, e.g. for forced decoding
     max_src_len: Remove sentences from data to decode that are longer than this on the source side
-    max_num_sents:
+    max_num_sents: Decode only the first n sentences.
     mode: type of decoding to perform.
 
             * ``onebest``: generate one best.
@@ -127,6 +127,7 @@ class Inference(object):
             output_txt = outputs[i].apply_post_processor(self.post_processor)
             fp.write(f"{output_txt}\n")
         cur_sent_i += len(src_batch)
+        if self.max_num_sents and cur_sent_i >= self.max_num_sents: break
 
   def _create_report(self):
     assert self.reporter is not None
@@ -206,7 +207,7 @@ class IndependentOutputInference(Inference, Serializable):
     trg_file: path of file where trg translatons will be written
     ref_file: path of file with reference translations, e.g. for forced decoding
     max_src_len: Remove sentences from data to decode that are longer than this on the source side
-    max_num_sents:
+    max_num_sents: Decode only the first n sentences.
     post_process: post-processing of translation outputs (available string shortcuts:  ``none``, ``join-char``,
                   ``join-bpe``, ``join-piece``)
     mode: type of decoding to perform.
@@ -253,7 +254,7 @@ class AutoRegressiveInference(Inference, Serializable):
     trg_file: path of file where trg translatons will be written
     ref_file: path of file with reference translations, e.g. for forced decoding
     max_src_len: Remove sentences from data to decode that are longer than this on the source side
-    max_num_sents:
+    max_num_sents: Decode only the first n sentences.
     post_process: post-processing of translation outputs
                   (available string shortcuts:  ``none``,``join-char``,``join-bpe``,``join-piece``)
     search_strategy: a search strategy used during decoding.
