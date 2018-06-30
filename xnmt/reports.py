@@ -43,6 +43,8 @@ class Reportable(object):
       assert len(context) == len(self._sent_info_list)
     else:
       context = []
+      if not hasattr(self, "_sent_info_list"):
+        raise ValueError("Nothing to report. Make sure to enable compute_report.")
       for _ in range(len(self._sent_info_list)): context.append({})
     for context_i, sent_i in zip(context, self._sent_info_list):
       context_i.update(sent_i)
