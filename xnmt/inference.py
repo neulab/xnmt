@@ -133,8 +133,10 @@ class Inference(object):
     assert self.reporter is not None
     if not isinstance(self.reporter, collections.abc.Iterable):
       self.reporter = [self.reporter]
-    for reporter in self.reporter:
-      reporter.gather_and_create_reports()
+    report_inputs = self.reporter[0].get_report_input(context={})
+    for report_input in report_inputs:
+      for reporter in self.reporter:
+        reporter.create_report(**report_input)
 
   def _compute_losses(self, generator, ref_corpus, src_corpus) -> List[float]:
     batched_src, batched_ref = self.batcher.pack(src_corpus, ref_corpus)

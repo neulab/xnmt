@@ -191,7 +191,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
         score = curr_output.score[0]
         if len(sorted_outputs) == 1:
           current_outputs.append(TextOutput(actions=output_actions,
-                                            vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
+                                            vocab=getattr(self.trg_reader, "vocab", None),
                                             score=score))
         else:
           current_outputs.append(NbestOutput(TextOutput(actions=output_actions,
@@ -216,6 +216,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
                                   "attentions": attentions,
                                   "src": sent,
                                   "src_vocab": getattr(self.src_reader, "vocab", None),
+                                  "trg_vocab": getattr(self.trg_reader, "vocab", None),
                                   "output": current_outputs[0]})
         # self.set_report_input(idx[sent_i], src_inp, trg_words, attentions)
         # self.set_report_resource("src_words", src_words)
