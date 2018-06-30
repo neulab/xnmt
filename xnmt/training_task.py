@@ -303,7 +303,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         is_best = False
         if self.dev_combinator is not None:
           x = [y.value() for y in dev_scores]
-          aevala = Interpreter()
+          aevala = Interpreter(symtable={'x': x})
           my_score = aevala(self.dev_combinator)
           logger.info('  combined dev scores according to {}: {}'.format(self.dev_combinator, my_score))
           if self.training_state.best_dev_score is None or my_score > self.training_state.best_dev_score:
