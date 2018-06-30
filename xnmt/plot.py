@@ -4,6 +4,8 @@ matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
 
+from xnmt import util
+
 def plot_attention(src_words, trg_words, attention_matrix, file_name=None):
   """This takes in source and target words and an attention matrix (in numpy format)
   and prints a visualization of this to a file.
@@ -31,6 +33,7 @@ def plot_attention(src_words, trg_words, attention_matrix, file_name=None):
   plt.colorbar()
 
   if file_name is not None:
+    util.make_parent_dir(file_name)
     plt.savefig(file_name, dpi=100)
   else:
     plt.show()

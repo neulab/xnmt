@@ -6,17 +6,20 @@ import numpy as np
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 import xnmt.plot
 from xnmt.persistence import Serializable, serializable_init
-from xnmt import vocab
+from xnmt import vocab, util
 import xnmt.output
+from xnmt.settings import settings
 
 class Reportable(object):
   """
   Base class for classes that contribute information to a report.
 
   Doing so requires the implementing class to do the following:
+
   - specify Reportable as base class
   - call this super class's __init__(), or do @register_xnmt_handler manually
-  - call self.add_sent_for_report() for each sentence
+  - call self.add_sent_for_report(d) for each sentence, where d is a dictionary containing info to pass on to the
+    reporter
   """
 
   @register_xnmt_handler
@@ -59,7 +62,7 @@ class Reporter(object):
     """
     Create the report.
 
-    The reporter should specify the arguments it needs explicitly, and should **kwargs in addition to handle extra
+    The reporter should specify the arguments it needs explicitly, and should specify kwargs in addition to handle extra
     (unused) arguments without crashing.
 
     Args:
@@ -81,7 +84,7 @@ class AttentionHtmlReporter(Reporter, Serializable):
   yaml_tag = "!AttentionHtmlReporter"
 
   @serializable_init
-  def __init__(self, report_path: str):
+  def __init__(self, report_path: str = settings.DEFAULT_REPORT_PREFIX):
     self.report_path = report_path
     self.html_tree = etree.Element('html')
     head = etree.SubElement(self.html_tree, 'head')
@@ -90,7 +93,7 @@ class AttentionHtmlReporter(Reporter, Serializable):
     self.html_body = etree.SubElement(self.html_tree, 'body')
 
   def create_report(self, idx: int, src: xnmt.input.SimpleSentenceInput, src_vocab: vocab.Vocab,
-                    trg_vocab: vocab.Vocab, output: xnmt.output.Output, attentions:np.ndarray, ** kwargs):
+                    trg_vocab: vocab.Vocab, output: xnmt.output.Output, attentions:np.ndarray, **kwargs):
     """
     Create report.
 
@@ -129,5 +132,7 @@ class AttentionHtmlReporter(Reporter, Serializable):
     xnmt.plot.plot_attention(src_str.split(), trg_str.split(), attentions, file_name = attention_file)
 
     html_str = etree.tostring(self.html_tree, encoding='unicode', pretty_print=True)
-    with open(self.report_path + '.html', 'w', encoding='utf-8') as f:
+    html_file_name = self.report_path + '.html'
+    util.make_parent_dir(html_file_name)
+    with open(html_file_name, 'w', encoding='utf-8') as f:
       f.write(html_str)
