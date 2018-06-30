@@ -1,14 +1,10 @@
 import dynet as dy
 import numpy as np
-from lxml import etree
 from xnmt.settings import settings
 
-from xnmt import logger
 import xnmt.batcher
-from xnmt.events import handle_xnmt_event
 from xnmt.model_base import GeneratorModel, EventTrigger
 from xnmt.persistence import serializable_init, Serializable
-from xnmt.reports import Reportable
 from xnmt.expression_sequence import ExpressionSequence
 
 ##### A class for retrieval databases
@@ -64,7 +60,7 @@ class Retriever(GeneratorModel, EventTrigger):
 
     Args:
       src: The source.
-      i: Id of the input (for reporting)
+      i: Id of the input
     Returns:
       The ID of the example that most closely matches in the database.
     """
@@ -76,9 +72,8 @@ class Retriever(GeneratorModel, EventTrigger):
       with open(kwargs["candidate_id_file"], "r") as f:
         candidates = sorted({int(x):1 for x in f}.keys())
     self.index_database(candidates)
-    self.report_path = kwargs["report_path"]
 
-class DotProductRetriever(Retriever, Serializable, Reportable):
+class DotProductRetriever(Retriever, Serializable):
   """
   A retriever trains using max-margin methods.
   """
@@ -183,13 +178,6 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
     kbest = np.argsort(scores, axis=1)[0,-nbest:][::-1]
     # print("--- kbest: {}".format(kbest))
     ids = kbest if self.database.inverted_index is None else [self.database.inverted_index[x] for x in kbest]
-    # In case of reporting
-    if self.report_path is not None:
-      src_vocab = self.get_html_resource("src_vocab")
-      src_words = [src_vocab[w] for w in src]
-      self.set_html_resource("source", src_words)
-      self.set_html_input(idx, src_words, scores, kbest)
-      self.set_html_path('{}.{}'.format(self.report_path, str(idx)))
 
     if return_type == "idxscore":
       return [(i,scores[0,x]) for i, x in zip(ids, kbest)]
@@ -199,12 +187,4 @@ class DotProductRetriever(Retriever, Serializable, Reportable):
       return [scores[0,x] for x in kbest]
     else:
       raise RuntimeError("Illegal return_type to retrieve: {}".format(return_type))
-
-  # @handle_xnmt_event
-  # def on_html_report(self, context=None):
-  #   logger.warning("Unimplemented html report for retriever!")
-  #   idx, src_words, scores, kbest = self.html_input
-  #   html = etree.Element('html')
-  #   # TODO(philip30): Write the logic of retriever html here
-  #   return html
 

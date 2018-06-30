@@ -200,28 +200,13 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
                                      nbest_id=idx[sent_i]))
       outputs += current_outputs
       if self.compute_report:
-        # TODO: report source vocab somewhere
-
-        # Attentions
         attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
-        # # Segmentation
-        # segment = self.get_report_resource("segmentation")
-        # if segment is not None:
-        #   segment = [int(x[0]) for x in segment]
-        #   src_inp = [x[0] for x in self.encoder.apply_segmentation(src_words, segment)]
-        # else:
-        #   src_inp = src_words
-        # Other Resources
         self.add_sent_for_report({"idx": idx[sent_i],
                                   "attentions": attentions,
                                   "src": sent,
                                   "src_vocab": getattr(self.src_reader, "vocab", None),
                                   "trg_vocab": getattr(self.trg_reader, "vocab", None),
                                   "output": current_outputs[0]})
-        # self.set_report_input(idx[sent_i], src_inp, trg_words, attentions)
-        # self.set_report_resource("src_words", src_words)
-        # self.set_report_path('{}.{}'.format(self.report_path, str(idx[sent_i])))
-        # self.generate_report(self.report_type)
     return outputs
 
   def generate_one_step(self, current_word: Any, current_state: AutoRegressiveDecoderState) -> TranslatorOutput:
@@ -249,40 +234,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
 
     return -dy.sum_elems(dy.esum(entropy))
 
-  # def set_reporting_src_vocab(self, src_vocab):
-  #   """
-  #   Sets source vocab for reporting purposes.
-  #
-  #   Args:
-  #     src_vocab (Vocab):
-  #   """
-  #   self.reporting_src_vocab = src_vocab
 
-  # @register_xnmt_event_assign
-  # def html_report(self, context=None):
-  #   assert(context is None)
-
-
-  # @handle_xnmt_event
-  # def on_file_report(self):
-  #   idx, src, trg, attn = self.get_report_input()
-  #   assert attn.shape == (len(src), len(trg))
-  #   col_length = []
-  #   for word in trg:
-  #     col_length.append(max(len(word), 6))
-  #   col_length.append(max(len(x) for x in src))
-  #   with open(self.get_report_path() + ".attention.txt", encoding='utf-8', mode='w') as attn_file:
-  #     for i in range(len(src)+1):
-  #       if i == 0:
-  #         words = trg + [""]
-  #       else:
-  #         words = [f"{f:.4f}" for f in attn[i-1]] + [src[i-1]]
-  #       str_format = ""
-  #       for length in col_length:
-  #         str_format += "{:%ds}" % (length+2)
-  #       print(str_format.format(*words), file=attn_file)
-
-  
 class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, EventTrigger):
   """
   A translator based on the transformer model.
@@ -314,18 +266,8 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
     self.max_input_len = 500
     self.initialize_position_encoding(self.max_input_len, input_dim)  # TODO: parametrize this
 
-  def initialize_generator(self, **kwargs):
-    self.report_path = kwargs.get("report_path", None)
-    self.report_type = kwargs.get("report_type", None)
-
   def initialize_training_strategy(self, training_strategy):
     self.loss_calculator = training_strategy
-
-  # def set_reporting_src_vocab(self, src_vocab):
-  #   """
-  #   Sets source vocab for reporting purposes.
-  #   """
-  #   self.reporting_src_vocab = src_vocab
 
   def make_attention_mask(self, source_block, target_block):
     mask = (target_block[:, None, :] <= 0) * (source_block[:, :, None] <= 0)
@@ -452,15 +394,15 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
       if not xnmt.batcher.is_batched(trg):
         trg = xnmt.batcher.mark_as_batch([trg])
 
-    # In case of reporting
-    sents = src[0]
-    if self.report_path is not None:
-      src_words = [self.reporting_src_vocab[w] for w in sents]
-      trg_words = [self.trg_vocab[w] for w in output_actions]
-      self.set_report_input(idx, src_words, trg_words)
-      self.set_report_resource("src_words", src_words)
-      self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
-      self.generate_report(self.report_type)
+    # # In case of reporting
+    # sents = src[0]
+    # if self.report_path is not None:
+    #   src_words = [self.reporting_src_vocab[w] for w in sents]
+    #   trg_words = [self.trg_vocab[w] for w in output_actions]
+    #   self.set_report_input(idx, src_words, trg_words)
+    #   self.set_report_resource("src_words", src_words)
+    #   self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
+    #   self.generate_report(self.report_type)
 
     # Append output to the outputs
     if hasattr(self, "trg_vocab") and self.trg_vocab is not None:

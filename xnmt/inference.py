@@ -5,10 +5,9 @@ from xnmt.settings import settings
 
 import dynet as dy
 
-import xnmt.input
 import xnmt.batcher
-from xnmt import loss, loss_calculator, model_base, output, reports, search_strategy, vocab, util
-from xnmt.persistence import serializable_init, Serializable, Ref, bare
+from xnmt import loss, loss_calculator, model_base, output, reports, search_strategy, util
+from xnmt.persistence import serializable_init, Serializable, bare
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 
@@ -70,7 +69,7 @@ class Inference(object):
 
     ref_corpus, src_corpus = self._read_corpus(generator, src_file, mode=self.mode, ref_file=self.ref_file)
 
-    self._init_generator(generator)
+    generator.set_train(False)
 
     ref_scores = None
     if self.mode == 'score':
@@ -151,8 +150,6 @@ class Inference(object):
     ref_scores = [-x for x in ref_scores]
     return ref_scores
 
-  def _init_generator(self, generator: model_base.GeneratorModel) -> None:
-    generator.set_train(False)
 
   @staticmethod
   def _write_rescored_output(ref_scores: Sequence[float], ref_file: str, trg_file: str) -> None:
@@ -259,8 +256,6 @@ class AutoRegressiveInference(Inference, Serializable):
     max_num_sents:
     post_process: post-processing of translation outputs
                   (available string shortcuts:  ``none``,``join-char``,``join-bpe``,``join-piece``)
-    report_path: a path to which decoding reports will be written
-    report_type: report to generate ``file/html``. Can be multiple, separate with comma.
     search_strategy: a search strategy used during decoding.
     mode: type of decoding to perform.
 
@@ -278,7 +273,6 @@ class AutoRegressiveInference(Inference, Serializable):
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
                post_process: Union[str, output.OutputProcessor] = bare(output.PlainTextOutputProcessor),
-               report_path: Optional[str] = None, report_type: str = "html",
                search_strategy: search_strategy.SearchStrategy = bare(search_strategy.BeamSearch),
                mode: str = "onebest",
                batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1),
@@ -287,8 +281,6 @@ class AutoRegressiveInference(Inference, Serializable):
                      max_num_sents=max_num_sents, mode=mode, batcher=batcher, reporter=reporter)
 
     self.post_processor = output.OutputProcessor.get_output_processor(post_process)
-    self.report_path = report_path
-    self.report_type = report_type
     self.search_strategy = search_strategy
 
   def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids)\
@@ -300,21 +292,3 @@ class AutoRegressiveInference(Inference, Serializable):
                          ref: xnmt.input.Input) -> loss.FactoredLossExpr:
     loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calculator.AutoRegressiveMLELoss())
     return loss_expr
-
-  def _init_generator(self, generator: model_base.GeneratorModel) -> None:
-    generator.set_train(False)
-
-    # is_reporting = issubclass(generator.__class__, reports.Reportable) and self.report_path is not None
-    # src_vocab = generator.src_reader.vocab if hasattr(generator.src_reader, "vocab") else None
-    # trg_vocab = generator.trg_reader.vocab if hasattr(generator.trg_reader, "vocab") else None
-    #
-    # generator.initialize_generator(report_path=self.report_path,
-    #                                report_type=self.report_type)
-    # if hasattr(generator, "set_trg_vocab"):
-    #   generator.set_trg_vocab(trg_vocab)
-    # if hasattr(generator, "set_reporting_src_vocab"):
-    #   generator.set_reporting_src_vocab(src_vocab)
-    # if is_reporting:
-    #   generator.set_report_resource("src_vocab", src_vocab)
-    #   generator.set_report_resource("trg_vocab", trg_vocab)
-
