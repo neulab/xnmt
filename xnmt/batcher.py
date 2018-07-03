@@ -14,6 +14,9 @@ from xnmt import lstm
 import xnmt.input
 
 class Batch(ABC):
+  """
+  An abstract base class for minibatches of things.
+  """
   @abstractmethod
   def batch_size(self) -> int:
     raise NotImplementedError()
