@@ -3,7 +3,7 @@ import numpy as np
 import collections
 import itertools
 import os
-from typing import Any, Sequence, Tuple, Union
+from typing import Any, Optional, Sequence, Tuple, Union
 
 # Reporting purposes
 from lxml import etree
@@ -14,8 +14,8 @@ from xnmt.batcher import Batch, mark_as_batch, is_batched, Mask
 from xnmt.decoder import AutoRegressiveDecoder, AutoRegressiveDecoderState
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
-from xnmt.model_base import GeneratorModel, EventTrigger
-from xnmt.inference import AutoRegressiveInference
+from xnmt import model_base
+import xnmt.inference
 from xnmt.input import Input, SimpleSentenceInput
 import xnmt.length_normalization
 from xnmt.loss import FactoredLossExpr
@@ -32,7 +32,7 @@ from xnmt.constants import EPSILON
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
-class AutoRegressiveTranslator(GeneratorModel):
+class AutoRegressiveTranslator(model_base.GeneratorModel):
   """
   A template class for auto-regressive translators.
 
@@ -79,7 +79,7 @@ class AutoRegressiveTranslator(GeneratorModel):
       output_state = dy.nobackprop(output_state)
     return output_state
 
-class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, EventTrigger):
+class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, model_base.EventTrigger):
   """
   A default translator based on attentional sequence-to-sequence models.
 
@@ -103,7 +103,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
   def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(AutoRegressiveDecoder),
-               inference=bare(AutoRegressiveInference), search_strategy=bare(BeamSearch),
+               inference=bare(xnmt.inference.AutoRegressiveInference), search_strategy=bare(BeamSearch),
                calc_global_fertility=False, calc_attention_entropy=False):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
@@ -131,7 +131,10 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
     embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder.transduce(embeddings)
     self.attender.init_sent(encodings)
-    ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
+    if is_batched(src):
+      ss = mark_as_batch([Vocab.SS] * src.batch_size())
+    else:
+      ss = Vocab.SS
     initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
     return initial_state
 
@@ -156,9 +159,9 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
 
     return model_loss
 
-  def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:Batch, input_word:Batch) \
+  def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:Batch, input_word:Optional[Batch]) \
           -> Tuple[AutoRegressiveDecoderState,dy.Expression]:
-    if input_word:
+    if input_word is not None:
       dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(input_word))
     rnn_output = dec_state.rnn_state.output()
     dec_state.context = self.attender.calc_context(rnn_output)
@@ -170,7 +173,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
     #   src = xnmt.batcher.mark_as_batch([src])
     #   if forced_trg_ids:
     #     forced_trg_ids = xnmt.batcher.mark_as_batch([forced_trg_ids])
-    assert len(src) == len(idx), f"src: {len(src)}, idx: {len(idx)}"
+    assert src.batch_size() == len(idx), f"src: {src.batch_size()}, idx: {len(idx)}"
     # Generating outputs
     outputs = []
     cur_forced_trg = None
@@ -179,9 +182,9 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
       if src.mask: sent_mask = Mask(np_arr=src.mask.np_arr[sent_i:sent_i+1])
       sent_batch = mark_as_batch([sent], mask=sent_mask)
       initial_state = self._encode_src(sent_batch)
-      if forced_trg_ids: cur_forced_trg = forced_trg_ids[sent_i]
+      if forced_trg_ids is  not None: cur_forced_trg = forced_trg_ids[sent_i]
       search_outputs = search_strategy.generate_output(self, initial_state,
-                                                       src_length=[len(sent)],
+                                                       src_length=[sent.sent_len()],
                                                        forced_trg_ids=cur_forced_trg)
       sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
       assert len(sorted_outputs) >= 1
@@ -317,7 +320,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
         print(str_format.format(*words), file=attn_file)
 
   
-class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, EventTrigger):
+class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, model_base.EventTrigger):
   """
   A translator based on the transformer model.
 
@@ -504,7 +507,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
 
     return outputs
 
-class EnsembleTranslator(AutoRegressiveTranslator, Serializable, EventTrigger):
+class EnsembleTranslator(AutoRegressiveTranslator, Serializable, model_base.EventTrigger):
   """
   A translator that decodes from an ensemble of DefaultTranslator models.
 
@@ -521,7 +524,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable, EventTrigger):
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, models, src_reader, trg_reader, inference=bare(AutoRegressiveInference)):
+  def __init__(self, models, src_reader, trg_reader, inference=bare(xnmt.inference.AutoRegressiveInference)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.models = models
     self.inference = inference

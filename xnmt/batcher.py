@@ -1,15 +1,26 @@
+import warnings
 from typing import Any, Callable, Optional, Sequence, Tuple, Union
 import math
 import random
+from abc import ABC, abstractmethod
+
 import numpy as np
 import dynet as dy
+
 from xnmt.vocab import Vocab
 from xnmt.persistence import serializable_init, Serializable
 import xnmt.expression_sequence
 from xnmt import lstm
 import xnmt.input
 
-class Batch(list):
+class Batch(ABC):
+  @abstractmethod
+  def batch_size(self) -> int:
+    raise NotImplementedError()
+  def sent_len(self) -> int:
+    raise NotImplementedError()
+
+class ListBatch(list, Batch):
   """
   A class containing a minibatch of things.
 
@@ -18,12 +29,39 @@ class Batch(list):
   Should be treated as an immutable object.
   
   Args:
-    batch_list (list): list of things
-    mask (Mask): optional mask when  batch contains items of unequal size
+    batch_elements: list of things
+    mask: optional mask when  batch contains items of unequal size
   """
-  def __init__(self, batch_list, mask=None):
-    super(Batch, self).__init__(batch_list)
+  def __init__(self, batch_elements: list, mask: 'Mask'=None) -> None:
+    assert len(batch_elements)>0
+    super().__init__(batch_elements)
     self.mask = mask
+  def batch_size(self) -> int: return super().__len__()
+  def sent_len(self) -> int: return self[0].sent_len()
+  def __len__(self):
+    warnings.warn("use of ListBatch.__len__() is discouraged, use ListBatch.batch_size() "
+                  "[or ListBatch.sent_len()] instead.", DeprecationWarning)
+
+
+class CompoundBatch(Batch):
+  """
+  A compound batch contains several parallel batches.
+
+  Args:
+    *batch_elements: one or several batches
+  """
+
+  def __init__(self, *batch_elements: Batch):
+    assert len(batch_elements) > 0
+    self.batches = batch_elements
+
+  def batch_size(self):
+    return self.batches[0].batch_size()
+
+  def sent_len(self):
+    return sum(b.sent_len() for b in self.batches)
+
+
 
 class Mask(object):
   """
@@ -35,7 +73,7 @@ class Mask(object):
   Args:
     np_arr: numpy array
   """
-  def __init__(self, np_arr):
+  def __init__(self, np_arr: np.ndarray):
     self.np_arr = np_arr
 
   def __len__(self):
@@ -130,7 +168,7 @@ class Batcher(object):
       a tuple of batches if targets were given, otherwise a single batch
     """
     if trg_sents is not None and sort_by_trg_len:
-      src_sents, trg_sents = zip(*sorted(zip(src_sents, trg_sents), key=lambda x: len(x[1]), reverse=True))
+      src_sents, trg_sents = zip(*sorted(zip(src_sents, trg_sents), key=lambda x: x[1].sent_len(), reverse=True))
     src_batch = pad(src_sents, pad_token=self.src_pad_token, pad_to_multiple=self.pad_src_to_multiple)
     if trg_sents is None:
       return src_batch
@@ -287,7 +325,7 @@ class SortBatcher(Batcher):
   __tiebreaker_eps = 1.0e-7
 
   def __init__(self, batch_size: int, granularity: str = 'sent', src_pad_token: Any = Vocab.ES,
-               trg_pad_token: Any = Vocab.ES, sort_key: Callable = lambda x: len(x[0]),
+               trg_pad_token: Any = Vocab.ES, sort_key: Callable = lambda x: x[0].sent_len(),
                break_ties_randomly=True, pad_src_to_multiple=1) -> None:
     super().__init__(batch_size, granularity=granularity,
                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
@@ -317,10 +355,10 @@ def mark_as_batch(data, mask=None):
 
   Returns: a batch of things
   """
-  if type(data) == Batch and mask is None:
+  if isinstance(data, Batch) and mask is None:
     ret = data
   else:
-    ret = Batch(data, mask)
+    ret = ListBatch(data, mask)
   return ret
 
 def is_batched(data):
@@ -333,9 +371,9 @@ def is_batched(data):
   Returns:
     True iff data is batched.
   """
-  return type(data) == Batch
+  return isinstance(data, Batch)
 
-def pad(batch, pad_token=Vocab.ES, pad_to_multiple=1) -> Batch:
+def pad(batch: Sequence, pad_token=Vocab.ES, pad_to_multiple=1) -> Batch:
   """
   Apply padding to sentences in a batch.
 
@@ -352,22 +390,22 @@ def pad(batch, pad_token=Vocab.ES, pad_to_multiple=1) -> Batch:
     for compound_i in range(len(batch[0].inputs)):
       ret.append(
         pad(tuple(inp.inputs[compound_i] for inp in batch), pad_token=pad_token, pad_to_multiple=pad_to_multiple))
-    return tuple(ret)
+    return CompoundBatch(*ret)
   max_len = max(_len_or_zero(item) for item in batch)
   if max_len % pad_to_multiple != 0:
     max_len += pad_to_multiple - (max_len % pad_to_multiple)
   min_len = min(_len_or_zero(item) for item in batch)
   if min_len == max_len:
-    return Batch(batch, mask=None)
+    return ListBatch(batch, mask=None)
   masks = np.zeros([len(batch), max_len])
   for i, v in enumerate(batch):
     for j in range(_len_or_zero(v), max_len):
       masks[i,j] = 1.0
-  padded_items = [item.get_padded_sent(pad_token, max_len - len(item)) for item in batch]
-  return Batch(padded_items, mask=Mask(masks))
+  padded_items = [item.get_padded_sent(pad_token, max_len - item.sent_len()) for item in batch]
+  return ListBatch(padded_items, mask=Mask(masks))
 
 def _len_or_zero(val):
-  return len(val) if hasattr(val, '__len__') else 0
+  return val.sent_len() if hasattr(val, 'sent_len') else len(val) if hasattr(val, '__len__') else 0
 
 class SrcBatcher(SortBatcher, Serializable):
   """
@@ -387,7 +425,7 @@ class SrcBatcher(SortBatcher, Serializable):
   @serializable_init
   def __init__(self, batch_size: int, src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES,
                break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
-    super().__init__(batch_size, sort_key=lambda x: len(x[0]), granularity='sent',
+    super().__init__(batch_size, sort_key=lambda x: x[0].sent_len(), granularity='sent',
                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                      break_ties_randomly=break_ties_randomly,
                      pad_src_to_multiple=pad_src_to_multiple)
@@ -410,7 +448,7 @@ class TrgBatcher(SortBatcher, Serializable):
   @serializable_init
   def __init__(self, batch_size: int, src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES,
                break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
-    super().__init__(batch_size, sort_key=lambda x: len(x[1]), granularity='sent',
+    super().__init__(batch_size, sort_key=lambda x: x[1].sent_len(), granularity='sent',
                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                      break_ties_randomly=break_ties_randomly,
                      pad_src_to_multiple=pad_src_to_multiple)
@@ -433,7 +471,7 @@ class SrcTrgBatcher(SortBatcher, Serializable):
   @serializable_init
   def __init__(self, batch_size: int, src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES,
                break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
-    super().__init__(batch_size, sort_key=lambda x: len(x[0]) + 1.0e-6 * len(x[1]),
+    super().__init__(batch_size, sort_key=lambda x: x[0].sent_len() + 1.0e-6 * len(x[1]),
                      granularity='sent',
                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                      break_ties_randomly=break_ties_randomly,
@@ -457,7 +495,7 @@ class TrgSrcBatcher(SortBatcher, Serializable):
   @serializable_init
   def __init__(self, batch_size: int, src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES,
                break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
-    super().__init__(batch_size, sort_key=lambda x: len(x[1]) + 1.0e-6 * len(x[0]),
+    super().__init__(batch_size, sort_key=lambda x: x[1].sent_len() + 1.0e-6 * len(x[0]),
                      granularity='sent',
                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                      break_ties_randomly=break_ties_randomly,
@@ -554,7 +592,7 @@ class WordSrcBatcher(WordSortBatcher, Serializable):
   def __init__(self, words_per_batch:Optional[int]=None, avg_batch_size:Optional[Union[int,float]]=None,
                src_pad_token:Any=Vocab.ES, trg_pad_token:Any=Vocab.ES, break_ties_randomly:bool=True,
                pad_src_to_multiple:int=1) -> None:
-    super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[0]),
+    super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: x[0].sent_len(),
                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                      break_ties_randomly=break_ties_randomly,
                      pad_src_to_multiple=pad_src_to_multiple)
@@ -584,7 +622,7 @@ class WordTrgBatcher(WordSortBatcher, Serializable):
   def __init__(self, words_per_batch:Optional[int]=None, avg_batch_size:Optional[Union[int,float]]=None,
                src_pad_token:Any=Vocab.ES, trg_pad_token:Any=Vocab.ES, break_ties_randomly:bool=True,
                pad_src_to_multiple:int=1) -> None:
-    super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[1]),
+    super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: x[1].sent_len(),
                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                      break_ties_randomly=break_ties_randomly,
                      pad_src_to_multiple=pad_src_to_multiple)
@@ -614,7 +652,7 @@ class WordSrcTrgBatcher(WordSortBatcher, Serializable):
   def __init__(self, words_per_batch: Optional[int] = None, avg_batch_size: Optional[Union[int, float]] = None,
                src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES, break_ties_randomly: bool = True,
                pad_src_to_multiple: bool = 1) -> None:
-    super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[0]) + 1.0e-6 * len(x[1]),
+    super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: x[0].sent_len() + 1.0e-6 * x[1].sent_len(),
                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                      break_ties_randomly=break_ties_randomly,
                      pad_src_to_multiple=pad_src_to_multiple)
@@ -644,7 +682,7 @@ class WordTrgSrcBatcher(WordSortBatcher, Serializable):
   def __init__(self, words_per_batch: Optional[int] = None, avg_batch_size: Optional[Union[int, float]] = None,
                src_pad_token: Any = Vocab.ES, trg_pad_token: Any = Vocab.ES, break_ties_randomly: bool = True,
                pad_src_to_multiple: int = 1) -> None:
-    super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: len(x[1]) + 1.0e-6 * len(x[0]),
+    super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: x[1].sent_len() + 1.0e-6 * x[0].sent_len(),
                      src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
                      break_ties_randomly=break_ties_randomly,
                      pad_src_to_multiple=pad_src_to_multiple)

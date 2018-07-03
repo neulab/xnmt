@@ -112,12 +112,12 @@ class PlainTextReader(BaseTextReader, Serializable):
     if vocab is not None:
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
+
+  def read_sent(self, line):
     if self.vocab:
       self.convert_fct = self.vocab.convert
     else:
       self.convert_fct = int
-
-  def read_sent(self, line):
     if self.read_sent_len:
       return IntInput(len(line.strip().split()))
     else:
@@ -141,13 +141,15 @@ class CompoundReader(InputReader, Serializable):
   readers which might capture different aspects of the input data.
 
   Args:
-    readers: the input readers to use
+    readers: list of input readers to use
+    vocab: not used by this reader, but some parent components may require access to the vocab.
   """
   yaml_tag = "!CompoundReader"
   @serializable_init
-  def __init__(self, readers:Sequence[InputReader]) -> None:
+  def __init__(self, readers:Sequence[InputReader], vocab: Optional[Vocab] = None) -> None:
     if len(readers) < 2: raise ValueError("need at least two readers")
     self.readers = readers
+    if vocab: self.vocab = vocab
   def read_sents(self, filename: Union[str,Sequence[str]], filter_ids: Sequence[int] = None) \
           -> Iterator[xnmt.input.Input]:
     if isinstance(filename, str): filename = [filename] * len(self.readers)
@@ -456,8 +458,8 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
       raise RuntimeError(f"training src sentences don't match trg sentences: {src_len or src_reader.count_sents(src_file)} != {trg_len or trg_reader.count_sents(trg_file)}!")
     if max_num_sents and (max_num_sents <= len(src_data)):
       break
-    src_len_ok = max_src_len is None or len(src_sent) <= max_src_len
-    trg_len_ok = max_trg_len is None or len(trg_sent) <= max_trg_len
+    src_len_ok = max_src_len is None or src_sent.sent_len() <= max_src_len
+    trg_len_ok = max_trg_len is None or trg_sent.sent_len() <= max_trg_len
     if src_len_ok and trg_len_ok:
       src_data.append(src_sent)
       trg_data.append(trg_sent)

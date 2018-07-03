@@ -106,8 +106,8 @@ class Inference(object):
       cur_sent_i = 0
       ref_batch = None
       for batch_i, src_batch in enumerate(src_batches):
-        batch_size = len(src_batch) if xnmt.batcher.is_batched(src_batch) else len(src_batch[0])
-        src_len = len(src_batch[0]) if xnmt.batcher.is_batched(src_batch) else sum(len(src_batch[i][0]) for i in range(len(src_batch)))
+        batch_size = src_batch.batch_size()
+        src_len = src_batch.sent_len()
         if max_src_len is not None and src_len > max_src_len:
           output_txt = "\n".join([NO_DECODING_ATTEMPTED] * batch_size)
           fp.write(f"{output_txt}\n")

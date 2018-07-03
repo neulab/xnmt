@@ -1,4 +1,5 @@
 from typing import Any, Sequence
+import warnings
 
 import numpy as np
 
@@ -11,12 +12,15 @@ class Input(object):
   """
 
   def __len__(self) -> int:
+    warnings.warn("use of Input.__len__() is discouraged, use Input.sent_len() instead.", DeprecationWarning)
+    return self.sent_len()
+  def sent_len(self) -> int:
     """
     Return length of input, included padded tokens.
 
     Returns: length
     """
-    raise NotImplementedError("__len__() must be implemented by Input subclasses")
+    raise NotImplementedError("must be implemented by Input subclasses")
 
   def len_unpadded(self) -> int:
     """
@@ -56,7 +60,7 @@ class Input(object):
 class IntInput(Input):
   def __init__(self, value: int) -> None:
     self.value = value
-  def __len__(self) -> int:
+  def sent_len(self) -> int:
     return 1
   def len_unpadded(self) -> int:
     return 1
@@ -76,8 +80,8 @@ class IntInput(Input):
 class CompoundInput(Input):
   def __init__(self, inputs: Sequence[Input]) -> None:
     self.inputs = inputs
-  def __len__(self) -> int:
-    return sum(len(inp) for inp in self.inputs)
+  def sent_len(self) -> int:
+    return sum(inp.sent_len() for inp in self.inputs)
   def len_unpadded(self) -> int:
     return sum(inp.len_unpadded() for inp in self.inputs)
   def __getitem__(self, key):
@@ -102,7 +106,7 @@ class SimpleSentenceInput(Input):
   def __repr__(self):
     return '{}'.format(self.words)
 
-  def __len__(self):
+  def sent_len(self):
     return len(self.words)
 
   def len_unpadded(self):
@@ -169,7 +173,7 @@ class ArrayInput(Input):
     self.nparr = nparr
     self.padded_len = padded_len
 
-  def __len__(self):
+  def sent_len(self):
     return self.nparr.shape[1] if len(self.nparr.shape) >= 2 else 1
 
   def len_unpadded(self):

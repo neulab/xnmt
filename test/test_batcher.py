@@ -42,10 +42,10 @@ class TestBatcher(unittest.TestCase):
     trg_sents = [xnmt.input.SimpleSentenceInput([0] * ((i+3)%6 + 1)) for i in range(1,7)]
     my_batcher = xnmt.batcher.SrcBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
     _, trg = my_batcher.pack(src_sents, trg_sents)
-    l0 = len(trg[0][0])
+    l0 = trg[0].sent_len()
     for _ in range(10):
       _, trg = my_batcher.pack(src_sents, trg_sents)
-      l = len(trg[0][0])
+      l = trg[0].sent_len()
       self.assertTrue(l==l0)
 
   def test_batch_random_ties(self):
@@ -53,10 +53,10 @@ class TestBatcher(unittest.TestCase):
     trg_sents = [xnmt.input.SimpleSentenceInput([0] * ((i+3)%6 + 1)) for i in range(1,7)]
     my_batcher = xnmt.batcher.SrcBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
     _, trg = my_batcher.pack(src_sents, trg_sents)
-    l0 = len(trg[0][0])
+    l0 = trg[0].sent_len()
     for _ in range(10):
       _, trg = my_batcher.pack(src_sents, trg_sents)
-      l = len(trg[0][0])
+      l = trg[0].sent_len()
       if l!=l0: return
     self.assertTrue(False)
 
