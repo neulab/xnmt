@@ -3,6 +3,7 @@ speech: !Experiment
     save_num_checkpoints: 2
     default_layer_dim: 32
     dropout: 0.4
+    compute_report: True
   preproc: !PreprocRunner
     overwrite: False
     tasks:
@@ -36,7 +37,7 @@ speech: !Experiment
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
   train: !SimpleTrainingRegimen
-    run_for_epochs: 1
+    run_for_epochs: 0
     batcher: !SrcBatcher
       pad_src_to_multiple: 4
       batch_size: 3
@@ -69,3 +70,4 @@ speech: !Experiment
       inference: !AutoRegressiveInference
         post_process: join-char
         batcher: !Ref { name: inference_batcher }
+        reporter: !AttentionHtmlReporter {}

@@ -93,7 +93,7 @@ class AttentionHtmlReporter(Reporter, Serializable):
     title.text = 'Translation Report'
     self.html_body = etree.SubElement(self.html_tree, 'body')
 
-  def create_report(self, idx: int, src: xnmt.input.SimpleSentenceInput, src_vocab: vocab.Vocab,
+  def create_report(self, idx: int, src: xnmt.input.Input, src_vocab: vocab.Vocab,
                     trg_vocab: vocab.Vocab, output: xnmt.output.Output, attentions:np.ndarray, **kwargs):
     """
     Create report.
@@ -107,7 +107,13 @@ class AttentionHtmlReporter(Reporter, Serializable):
       attentions: attention matrices
       **kwargs: arguments to be ignored
     """
-    src_str = " ".join([src_vocab.i2w[src_token] for src_token in src])
+    src_is_speech = isinstance(src, xnmt.input.ArrayInput)
+    if src_is_speech:
+      src_str = ""
+      src_feat_file = f"{self.report_path}.src_feat.{idx}.png"
+      xnmt.plot.plot_speech_features(src.get_array(), file_name=src_feat_file)
+    else:
+      src_str = " ".join([src_vocab.i2w[src_token] for src_token in src])
     trg_str = " ".join(output.readable_actions())
     report_div = etree.SubElement(self.html_body, 'div')
     report = etree.SubElement(report_div, 'h1')
@@ -127,7 +133,15 @@ class AttentionHtmlReporter(Reporter, Serializable):
     att_text.text = "Attention:"
     etree.SubElement(attention, 'br')
     attention_file = f"{self.report_path}.attention.{idx}.png"
-    att_img = etree.SubElement(attention, 'img')
+    table = etree.SubElement(attention, 'table')
+    table_tr = etree.SubElement(table, 'tr')
+    table_td1 = etree.SubElement(table_tr, 'td')
+    table_td2 = etree.SubElement(table_tr, 'td')
+    if src_is_speech:
+      att_img = etree.SubElement(table_td1, 'img')
+      att_img.attrib['src'] = os.path.basename(src_feat_file)
+      att_img.attrib['alt'] = 'speech features'
+    att_img = etree.SubElement(table_td2, 'img')
     att_img.attrib['src'] = os.path.basename(attention_file)
     att_img.attrib['alt'] = 'attention matrix'
     xnmt.plot.plot_attention(src_str.split(), trg_str.split(), attentions, file_name = attention_file)
