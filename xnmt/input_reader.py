@@ -1,6 +1,6 @@
 from itertools import zip_longest
 import ast
-from typing import Sequence, Iterator, Union
+from typing import Iterator, Optional, Sequence, Union
 
 import numpy as np
 
@@ -99,25 +99,29 @@ class PlainTextReader(BaseTextReader, Serializable):
   Handles the typical case of reading plain text files, with one sent per line.
 
   Args:
-    vocab:
+    vocab: Vocabulary to convert string tokens to integer ids. If not given, plain text will be assumed to contain
+           space-separated integer ids.
     read_sent_len: if set, read the length of each sentence instead of the sentence itself. EOS is not counted.
   """
   yaml_tag = '!PlainTextReader'
 
   @serializable_init
-  def __init__(self, vocab: Vocab = None, read_sent_len: bool = False):
+  def __init__(self, vocab: Optional[Vocab] = None, read_sent_len: bool = False):
     self.vocab = vocab
     self.read_sent_len = read_sent_len
     if vocab is not None:
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
+    if self.vocab:
+      self.convert_fct = self.vocab.convert
+    else:
+      self.convert_fct = int
 
   def read_sent(self, line):
     if self.read_sent_len:
       return IntInput(len(line.strip().split()))
     else:
-      return SimpleSentenceInput([self.vocab.convert(word) for word in line.strip().split()] + \
-                                                         [self.vocab.convert(Vocab.ES_STR)])
+      return SimpleSentenceInput([self.convert_fct(word) for word in line.strip().split()] + [Vocab.ES])
 
   def freeze(self):
     self.vocab.freeze()
