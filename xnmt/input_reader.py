@@ -16,6 +16,7 @@ from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.vocab import Vocab
 import xnmt.input
+import xnmt.batcher
 
 class InputReader(object):
   """
@@ -379,8 +380,8 @@ class IDReader(BaseTextReader, Serializable):
     return [l for l in self.iterate_filtered(filename, filter_ids)]
 
 ###### A utility function to read a parallel corpus
-def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
-                         batcher=None, sample_sents=None, max_num_sents=None, max_src_len=None, max_trg_len=None):
+def read_parallel_corpus(src_reader: InputReader, trg_reader: InputReader, src_file: str, trg_file: str,
+                         batcher: xnmt.batcher.Batcher=None, sample_sents=None, max_num_sents=None, max_src_len=None, max_trg_len=None):
   """
   A utility function to read a parallel corpus.
 

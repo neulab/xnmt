@@ -7,7 +7,7 @@ from xnmt.persistence import serializable_init, Serializable, bare
 
 class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, model_base.EventTrigger):
   """
-  A default translator based on attentional sequence-to-sequence models.
+  A simple sequence labeler based on an encoder and an output softmax layer.
 
   Args:
     src_reader: A reader for the source side.

@@ -6,7 +6,7 @@ import dynet as dy
 
 from xnmt.batcher import Batcher
 from xnmt.evaluator import Evaluator
-from xnmt.model_base import GeneratorModel
+from xnmt.model_base import GeneratorModel, TrainableModel
 from xnmt.inference import Inference
 import xnmt.input_reader
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
@@ -41,7 +41,7 @@ class LossEvalTask(EvalTask, Serializable):
   yaml_tag = '!LossEvalTask'
 
   @serializable_init
-  def __init__(self, src_file: str, ref_file: str, model: GeneratorModel = Ref("model"),
+  def __init__(self, src_file: str, ref_file: Optional[str] = None, model: TrainableModel = Ref("model"),
                batcher: Optional[Batcher] = Ref("train.batcher", default=None),
                loss_calculator: LossCalculator = bare(AutoRegressiveMLELoss), max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
@@ -67,9 +67,13 @@ class LossEvalTask(EvalTask, Serializable):
     self.model.set_train(False)
     if self.src_data is None:
       self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
-        xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
-                                        self.src_file, self.ref_file, batcher=self.batcher,
-                                        max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
+        xnmt.input_reader.read_parallel_corpus(src_reader=self.model.src_reader,
+                                               trg_reader=self.model.trg_reader,
+                                               src_file=self.src_file,
+                                               trg_file=self.ref_file,
+                                               batcher=self.batcher,
+                                               max_src_len=self.max_src_len,
+                                               max_trg_len=self.max_trg_len)
     loss_val = FactoredLossVal()
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
