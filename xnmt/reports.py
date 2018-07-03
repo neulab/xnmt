@@ -2,6 +2,7 @@ import os
 from lxml import etree
 from typing import Any, Dict
 import numpy as np
+from xml.sax.saxutils import escape
 
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 import xnmt.plot
@@ -136,3 +137,60 @@ class AttentionHtmlReporter(Reporter, Serializable):
     util.make_parent_dir(html_file_name)
     with open(html_file_name, 'w', encoding='utf-8') as f:
       f.write(html_str)
+
+class SegmentingHtmlReporter(Reporter, Serializable):
+  """
+  A reporter to be used with the segmenting encoder (TODO: untested)
+  """
+  yaml_tag = "!SegmentingHtmlReporter"
+
+  @serializable_init
+  def __init__(self, report_path: str = settings.DEFAULT_REPORT_PREFIX):
+    self.report_path = report_path
+    self.html_tree = etree.Element('html')
+    head = etree.SubElement(self.html_tree, 'head')
+    title = etree.SubElement(head, 'title')
+    title.text = 'Translation Report'
+    self.html_body = etree.SubElement(self.html_tree, 'body')
+
+  def create_report(self, segmentation, src, src_vocab, **kwargs):
+    src_str = " ".join([src_vocab.i2w[src_token] for src_token in src])
+    report_div = etree.SubElement(self.html_body, 'div')
+    report = etree.SubElement(report_div, 'h1')
+    report.text = f'Translation Report for Sentence {idx}'
+    main_content = etree.SubElement(report_div, 'div', name='main_content')
+
+    segment_decision = segmentation
+    segment_decision = [int(x[0]) for x in segment_decision]
+    src_words = [escape(x) for x in src_str.split()]
+    # construct the sub element from string
+    segmented = self.apply_segmentation(src_words, segment_decision)
+    segmented = [(x if not delete else ("<font color='red'><del>" + x + "</del></font>")) for x, delete in segmented]
+    if len(segmented) > 0:
+      segment_html = "<p>Segmentation: " + ", ".join(segmented) + "</p>"
+      main_content.insert(2, etree.fromstring(segment_html))
+
+    html_str = etree.tostring(self.html_tree, encoding='unicode', pretty_print=True)
+    html_file_name = self.report_path + '.html'
+    util.make_parent_dir(html_file_name)
+    with open(html_file_name, 'w', encoding='utf-8') as f:
+      f.write(html_str)
+
+  def apply_segmentation(self, words, segmentation):
+    assert(len(words) == len(segmentation))
+    segmented = []
+    temp = ""
+    for decision, word in zip(segmentation, words):
+      if decision == 0: #SegmentingAction.READ.value:
+        temp += word
+      elif decision == 1: #SegmentingAction.SEGMENT.value:
+        temp += word
+        segmented.append((temp, False))
+        temp = ""
+      else: # Case: DELETE
+        if temp: segmented.append((temp, False))
+        segmented.append((word, True))
+        temp = ""
+    if temp: segmented.append((temp, False))
+    return segmented
+

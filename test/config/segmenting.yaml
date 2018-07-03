@@ -59,7 +59,7 @@ debug-segmenting: !Experiment
         layers: 1
       bridge: !CopyBridge {}  
   train: !SimpleTrainingRegimen
-    run_for_epochs: 3
+    run_for_epochs: 1
     src_file: examples/data/head-char.ja
     trg_file: examples/data/head.en
     dev_tasks:

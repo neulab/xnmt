@@ -146,8 +146,9 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       self.segment_length_prior = dy.inputTensor(length_prior, batched=True)
       if self.use_baseline:
         self.bs = [self.baseline(dy.nobackprop(enc)) for enc in encodings]
-    # if not self.train:
+    if not self.train:
       # Rewrite segmentation
+      self.add_sent_for_report({"segmentation": self.segment_decisions})
       # self.set_report_resource("segmentation", self.segment_decisions)
       # self.set_report_input(segment_decisions)
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
@@ -334,6 +335,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # Total Loss
     return ret
 
+  # NOTE: below is to be replaced by reports.SegmentingHtmlReport
+
   # @handle_xnmt_event
   # def on_html_report(self, context):
   #   segment_decision = self.get_report_input()[0]
@@ -372,24 +375,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   #       for logsoftmax, decision in zip(logsoftmaxes, segment_decision):
   #         logprob += logsoftmax[decision]
   #       print(logprob, file=segmentation_file)
-
-  def apply_segmentation(self, words, segmentation):
-    assert(len(words) == len(segmentation))
-    segmented = []
-    temp = ""
-    for decision, word in zip(segmentation, words):
-      if decision == SegmentingAction.READ.value:
-        temp += word
-      elif decision == SegmentingAction.SEGMENT.value:
-        temp += word
-        segmented.append((temp, False))
-        temp = ""
-      else: # Case: DELETE
-        if temp: segmented.append((temp, False))
-        segmented.append((word, True))
-        temp = ""
-    if temp: segmented.append((temp, False))
-    return segmented
 
   #### DEBUG
   # TODO: this should use logger.debug() instead of print()
