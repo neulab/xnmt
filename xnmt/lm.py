@@ -39,7 +39,8 @@ class LanguageModel(model_base.TrainableModel, model_base.EventTrigger, Serializ
     return "mle"
 
   def calc_loss(self, src, trg, loss_calculator):
-    assert batcher.is_batched(src)
+    if not batcher.is_batched(src):
+      src = batcher.Batch([src])
 
     src_inputs = batcher.Batch([s[:-1] for s in src], mask=batcher.Mask(src.mask.np_arr[:,:-1]) if src.mask else None)
     src_targets = batcher.Batch([s[1:] for s in src], mask=batcher.Mask(src.mask.np_arr[:,1:]) if src.mask else None)
