@@ -129,7 +129,7 @@ class Inference(object):
     batched_src, batched_ref = self.batcher.pack(src_corpus, ref_corpus)
     ref_scores = []
     for sent_count, (src, ref) in enumerate(zip(batched_src, batched_ref)):
-      if sent_count >= max_num_sents: break
+      if max_num_sents and sent_count >= max_num_sents: break
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       loss_expr = self.compute_losses_one(generator, src, ref)
       if isinstance(loss_expr.value(), Iterable):
