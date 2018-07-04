@@ -1,6 +1,21 @@
+"""
+Reports gather inputs, outputs, intermediate computations in a nicely formatted way for convenient manual inspection.
+
+To support reporting, the models providing the data to be reported must subclass ``Reportable`` and call
+self.add_sent_for_report(d) with key/value pairs containing the data to be reported at the appropriate times.
+If this causes a computation overhead, the boolean ``compute_report`` field should used and extra computations skipped
+unless this field is ``True``.
+
+Next, a reporter needs to be specified that supports reports based on the previously created key/value pairs.
+Reporters are assigned to inference classes, so it's possible to report only at the final test decoding, or specify
+a special reporting inference object that only looks at a handful of sentences, etc.
+
+Note that currently reporting is only supported at test-time, not at training time.
+"""
+
 import os
 from lxml import etree
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 import numpy as np
 from xml.sax.saxutils import escape
 
@@ -71,10 +86,54 @@ class Reporter(object):
     """
     raise NotImplementedError("must be implemented by subclasses")
   @register_xnmt_event_assign
-  def get_report_input(self, context={}):
+  def get_report_input(self, context={}) -> dict:
     return context
 
-class AttentionHtmlReporter(Reporter, Serializable):
+class HtmlReporter(Reporter):
+  """
+  A base class for reporters that produce HTML outputs that takes care of some common functionality.
+
+  Args:
+    report_path: Prefix for path to write HTML and image files to (i.e. directory + filename-prefix)
+  """
+  def __init__(self, report_path: str = settings.DEFAULT_REPORT_PREFIX) -> None:
+    self.report_path = report_path
+    self.html_tree = etree.Element('html')
+    head = etree.SubElement(self.html_tree, 'head')
+    title = etree.SubElement(head, 'title')
+    title.text = 'Translation Report'
+    self.html_body = etree.SubElement(self.html_tree, 'body')
+
+  def start_sent(self, idx: int) :
+    report_div = etree.SubElement(self.html_body, 'div')
+    report = etree.SubElement(report_div, 'h1')
+    report.text = f'Translation Report for Sentence {idx}'
+    main_content = etree.SubElement(report_div, 'div', name='main_content')
+    return main_content
+
+  def write_html_tree(self) -> None:
+    html_str = etree.tostring(self.html_tree, encoding='unicode', pretty_print=True)
+    html_file_name = self.report_path + '.html'
+    util.make_parent_dir(html_file_name)
+    with open(html_file_name, 'w', encoding='utf-8') as f:
+      f.write(html_str)
+
+  def add_sent_src_trg(self, main_content, output, src, src_vocab) -> Tuple[str,str]:
+    src_is_speech = isinstance(src, xnmt.input.ArrayInput)
+    if src_is_speech:
+      src_str = ""
+    else:
+      src_str = " ".join([src_vocab.i2w[src_token] for src_token in src])
+    trg_str = " ".join(output.readable_actions())
+    captions = ["Source Words", "Target Words"]
+    inputs = [src_str, trg_str]
+    for caption, sent in zip(captions, inputs):
+      p = etree.SubElement(main_content, 'p')
+      p.text = f"{caption}: {sent}"
+    return src_str, trg_str
+
+
+class AttentionHtmlReporter(HtmlReporter, Serializable):
   """
   Reporter that writes attention matrices to HTML.
 
@@ -86,15 +145,10 @@ class AttentionHtmlReporter(Reporter, Serializable):
 
   @serializable_init
   def __init__(self, report_path: str = settings.DEFAULT_REPORT_PREFIX):
-    self.report_path = report_path
-    self.html_tree = etree.Element('html')
-    head = etree.SubElement(self.html_tree, 'head')
-    title = etree.SubElement(head, 'title')
-    title.text = 'Translation Report'
-    self.html_body = etree.SubElement(self.html_tree, 'body')
+    super().__init__(report_path=report_path)
 
   def create_report(self, idx: int, src: xnmt.input.Input, src_vocab: vocab.Vocab,
-                    trg_vocab: vocab.Vocab, output: xnmt.output.Output, attentions:np.ndarray, **kwargs):
+                    trg_vocab: vocab.Vocab, output: xnmt.output.Output, attentions:np.ndarray, **kwargs) -> None:
     """
     Create report.
 
@@ -107,27 +161,16 @@ class AttentionHtmlReporter(Reporter, Serializable):
       attentions: attention matrices
       **kwargs: arguments to be ignored
     """
+    main_content = self.start_sent(idx)
+    src_str, trg_str = self.add_sent_src_trg(main_content, output, src, src_vocab)
+    self.add_atts(attentions, main_content, src, src_str, trg_str, idx)
+    self.write_html_tree()
+
+  def add_atts(self, attentions, main_content, src, src_str, trg_str, idx):
     src_is_speech = isinstance(src, xnmt.input.ArrayInput)
     if src_is_speech:
-      src_str = ""
       src_feat_file = f"{self.report_path}.src_feat.{idx}.png"
       xnmt.plot.plot_speech_features(src.get_array(), file_name=src_feat_file)
-    else:
-      src_str = " ".join([src_vocab.i2w[src_token] for src_token in src])
-    trg_str = " ".join(output.readable_actions())
-    report_div = etree.SubElement(self.html_body, 'div')
-    report = etree.SubElement(report_div, 'h1')
-    report.text = f'Translation Report for Sentence {idx}'
-    main_content = etree.SubElement(report_div, 'div', name='main_content')
-
-    # Generating main content
-    captions = ["Source Words", "Target Words"]
-    inputs = [src_str, trg_str]
-    for caption, sent in zip(captions, inputs):
-      p = etree.SubElement(main_content, 'p')
-      p.text = f"{caption}: {sent}"
-
-    # Generating attention
     attention = etree.SubElement(main_content, 'p')
     att_text = etree.SubElement(attention, 'b')
     att_text.text = "Attention:"
@@ -144,15 +187,10 @@ class AttentionHtmlReporter(Reporter, Serializable):
     att_img = etree.SubElement(table_td2, 'img')
     att_img.attrib['src'] = os.path.basename(attention_file)
     att_img.attrib['alt'] = 'attention matrix'
-    xnmt.plot.plot_attention(src_str.split(), trg_str.split(), attentions, file_name = attention_file)
+    xnmt.plot.plot_attention(src_str.split(), trg_str.split(), attentions, file_name=attention_file)
 
-    html_str = etree.tostring(self.html_tree, encoding='unicode', pretty_print=True)
-    html_file_name = self.report_path + '.html'
-    util.make_parent_dir(html_file_name)
-    with open(html_file_name, 'w', encoding='utf-8') as f:
-      f.write(html_str)
 
-class SegmentingHtmlReporter(Reporter, Serializable):
+class SegmentingHtmlReporter(HtmlReporter, Serializable):
   """
   A reporter to be used with the segmenting encoder (TODO: untested)
   """
@@ -160,19 +198,11 @@ class SegmentingHtmlReporter(Reporter, Serializable):
 
   @serializable_init
   def __init__(self, report_path: str = settings.DEFAULT_REPORT_PREFIX):
-    self.report_path = report_path
-    self.html_tree = etree.Element('html')
-    head = etree.SubElement(self.html_tree, 'head')
-    title = etree.SubElement(head, 'title')
-    title.text = 'Translation Report'
-    self.html_body = etree.SubElement(self.html_tree, 'body')
+    super().__init__(report_path=report_path)
 
-  def create_report(self, segmentation, src, src_vocab, **kwargs):
-    src_str = " ".join([src_vocab.i2w[src_token] for src_token in src])
-    report_div = etree.SubElement(self.html_body, 'div')
-    report = etree.SubElement(report_div, 'h1')
-    report.text = f'Translation Report for Sentence {idx}'
-    main_content = etree.SubElement(report_div, 'div', name='main_content')
+  def create_report(self, segmentation, src, src_vocab, idx, output, **kwargs):
+    main_content = self.start_sent(idx)
+    src_str, trg_str = self.add_sent_src_trg(main_content, output, src, src_vocab)
 
     segment_decision = segmentation
     segment_decision = [int(x[0]) for x in segment_decision]
@@ -184,11 +214,7 @@ class SegmentingHtmlReporter(Reporter, Serializable):
       segment_html = "<p>Segmentation: " + ", ".join(segmented) + "</p>"
       main_content.insert(2, etree.fromstring(segment_html))
 
-    html_str = etree.tostring(self.html_tree, encoding='unicode', pretty_print=True)
-    html_file_name = self.report_path + '.html'
-    util.make_parent_dir(html_file_name)
-    with open(html_file_name, 'w', encoding='utf-8') as f:
-      f.write(html_str)
+    self.write_html_tree()
 
   def apply_segmentation(self, words, segmentation):
     assert(len(words) == len(segmentation))
