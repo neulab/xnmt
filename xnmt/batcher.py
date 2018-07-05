@@ -64,6 +64,9 @@ class CompoundBatch(Batch):
   def sent_len(self):
     return sum(b.sent_len() for b in self.batches)
 
+  def __iter__(self):
+    for i in self.batch_size():
+      yield xnmt.input.CompoundInput([b[i] for b in self.batches])
 
 
 class Mask(object):
