@@ -127,7 +127,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     self.report_type = kwargs.get("report_type", None)
 
   def _encode_src(self, src):
-    self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder.transduce(embeddings)
     self.attender.init_sent(encodings)
@@ -139,6 +138,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     return initial_state
 
   def calc_loss(self, src, trg, loss_calculator):
+    self.start_sent(src)
     initial_state = self._encode_src(src)
     # Compose losses
     model_loss = FactoredLossExpr()
@@ -169,60 +169,60 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     return dec_state, word_loss
 
   def generate(self, src: Batch, idx: Sequence[int], search_strategy: SearchStrategy, forced_trg_ids: Batch=None):
-    # if not xnmt.batcher.is_batched(src):
-    #   src = xnmt.batcher.mark_as_batch([src])
-    #   if forced_trg_ids:
-    #     forced_trg_ids = xnmt.batcher.mark_as_batch([forced_trg_ids])
+    if src.batch_size()!=1:
+      raise NotImplementedError("batched decoding not implemented for DefaultTranslator. "
+                                "Specify inference batcher with batch size 1.")
     assert src.batch_size() == len(idx), f"src: {src.batch_size()}, idx: {len(idx)}"
     # Generating outputs
+    self.start_sent(src)
     outputs = []
     cur_forced_trg = None
-    for sent_i, sent in enumerate(src):
-      sent_mask = None
-      if src.mask: sent_mask = Mask(np_arr=src.mask.np_arr[sent_i:sent_i+1])
-      sent_batch = mark_as_batch([sent], mask=sent_mask)
-      initial_state = self._encode_src(sent_batch)
-      if forced_trg_ids is  not None: cur_forced_trg = forced_trg_ids[sent_i]
-      search_outputs = search_strategy.generate_output(self, initial_state,
-                                                       src_length=[sent.sent_len()],
-                                                       forced_trg_ids=cur_forced_trg)
-      sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
-      assert len(sorted_outputs) >= 1
-      for curr_output in sorted_outputs:
-        output_actions = [x for x in curr_output.word_ids[0]]
-        attentions = [x for x in curr_output.attentions[0]]
-        score = curr_output.score[0]
-        if len(sorted_outputs) == 1:
-          outputs.append(TextOutput(actions=output_actions,
-                                    vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
-                                    score=score))
-        else:
-          outputs.append(NbestOutput(TextOutput(actions=output_actions,
-                                                vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
-                                                score=score),
-                                     nbest_id=idx[sent_i]))
+    sent = src[0]
+    sent_mask = None
+    if src.mask: sent_mask = Mask(np_arr=src.mask.np_arr[0:1])
+    sent_batch = mark_as_batch([sent], mask=sent_mask)
+    initial_state = self._encode_src(sent_batch)
+    if forced_trg_ids is  not None: cur_forced_trg = forced_trg_ids[0]
+    search_outputs = search_strategy.generate_output(self, initial_state,
+                                                     src_length=[sent.sent_len()],
+                                                     forced_trg_ids=cur_forced_trg)
+    sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
+    assert len(sorted_outputs) >= 1
+    for curr_output in sorted_outputs:
+      output_actions = [x for x in curr_output.word_ids[0]]
+      attentions = [x for x in curr_output.attentions[0]]
+      score = curr_output.score[0]
+      if len(sorted_outputs) == 1:
+        outputs.append(TextOutput(actions=output_actions,
+                                  vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
+                                  score=score))
+      else:
+        outputs.append(NbestOutput(TextOutput(actions=output_actions,
+                                              vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
+                                              score=score),
+                                   nbest_id=idx[0]))
 
-      # In case of reporting
-      if self.report_path is not None:
-        if self.reporting_src_vocab:
-          src_words = [self.reporting_src_vocab[w] for w in sent]
-        else:
-          src_words = ['' for w in sent]
-        trg_words = [self.trg_vocab[w] for w in output_actions]
-        # Attentions
-        attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
-        # Segmentation
-        segment = self.get_report_resource("segmentation")
-        if segment is not None:
-          segment = [int(x[0]) for x in segment]
-          src_inp = [x[0] for x in self.encoder.apply_segmentation(src_words, segment)]
-        else:
-          src_inp = src_words
-        # Other Resources
-        self.set_report_input(idx[sent_i], src_inp, trg_words, attentions)
-        self.set_report_resource("src_words", src_words)
-        self.set_report_path('{}.{}'.format(self.report_path, str(idx[sent_i])))
-        self.generate_report(self.report_type)
+    # In case of reporting
+    if self.report_path is not None:
+      if self.reporting_src_vocab:
+        src_words = [self.reporting_src_vocab[w] for w in sent]
+      else:
+        src_words = ['' for w in sent]
+      trg_words = [self.trg_vocab[w] for w in output_actions]
+      # Attentions
+      attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
+      # Segmentation
+      segment = self.get_report_resource("segmentation")
+      if segment is not None:
+        segment = [int(x[0]) for x in segment]
+        src_inp = [x[0] for x in self.encoder.apply_segmentation(src_words, segment)]
+      else:
+        src_inp = src_words
+      # Other Resources
+      self.set_report_input(idx[0], src_inp, trg_words, attentions)
+      self.set_report_resource("src_words", src_words)
+      self.set_report_path('{}.{}'.format(self.report_path, str(idx[0])))
+      self.generate_report(self.report_type)
     return outputs
 
   def generate_one_step(self, current_word: Any, current_state: AutoRegressiveDecoderState) -> TranslatorOutput:
