@@ -44,6 +44,11 @@ class ListBatch(list, Batch):
   def __len__(self):
     warnings.warn("use of ListBatch.__len__() is discouraged, use ListBatch.batch_size() "
                   "[or ListBatch.sent_len()] instead.", DeprecationWarning)
+  def __getitem__(self, key):
+    ret = super().__getitem__(key)
+    if isinstance(key, slice):
+      ret = ListBatch(ret)
+    return ret
 
 
 class CompoundBatch(Batch):
@@ -67,6 +72,14 @@ class CompoundBatch(Batch):
   def __iter__(self):
     for i in self.batch_size():
       yield xnmt.input.CompoundInput([b[i] for b in self.batches])
+
+  def __getitem__(self, key):
+    if isinstance(key, int):
+      return xnmt.input.CompoundInput([b[key] for b in self.batches])
+    else:
+      assert isinstance(key, slice)
+      sel_batches = [b[key] for b in self.batches]
+      return CompoundBatch(sel_batches)
 
 
 class Mask(object):
