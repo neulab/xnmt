@@ -189,6 +189,63 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
   def needs_reload(self):
     return True
 
+class RamlTextReader(BaseTextReader, Serializable):
+  """
+  Handles the RAML sampling.
+  """
+  yaml_tag = '!RamlTextReader'
+
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self, tau=1., vocab=None, include_vocab_reference=False):
+    self.tau = tau
+    self.vocab = vocab
+    self.include_vocab_reference = include_vocab_reference
+    if vocab is not None:
+      self.vocab.freeze()
+      self.vocab.set_unk(Vocab.UNK_STR)
+
+  @handle_xnmt_event
+  def on_set_train(self, val):
+    self.train = val
+
+  def read_sent(self, sentence, filter_ids=None):
+    vocab_reference = self.vocab if self.include_vocab_reference else None
+    if not self.train:
+     return SimpleSentenceInput([self.vocab.convert(word) for word in sentence.strip().split()] + \
+                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
+    word_ids = np.array([self.vocab.convert(word) for word in sentence.strip().split()])
+    length = len(word_ids)
+    logits = np.arange(length) * (-1) * self.tau
+    logits = np.exp(logits - np.max(logits))
+    probs = logits / np.sum(logits)
+    num_words = np.random.choice(length, p=probs)
+    corrupt_pos = np.random.binomial(1, p=num_words/length, size=(length,))
+    num_words_to_sample = np.sum(corrupt_pos)
+    sampled_words = np.random.choice(np.arange(2, len(self.vocab)), size=(num_words_to_sample,))
+    word_ids[np.where(corrupt_pos==1)[0].tolist()] = sampled_words
+    return SimpleSentenceInput(word_ids.tolist() + [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
+
+  def freeze(self):
+    self.vocab.freeze()
+    self.vocab.set_unk(Vocab.UNK_STR)
+    self.save_processed_arg("vocab", self.vocab)
+
+  def count_words(self, trg_words):
+    trg_cnt = 0
+    for x in trg_words:
+      if type(x) == int:
+        trg_cnt += 1 if x != Vocab.ES else 0
+      else:
+        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
+    return trg_cnt
+
+  def vocab_size(self):
+    return len(self.vocab)
+
+  def needs_reload(self):
+    return True
+
 class SegmentationTextReader(PlainTextReader):
   yaml_tag = '!SegmentationTextReader'
   
