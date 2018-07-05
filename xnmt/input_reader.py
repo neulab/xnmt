@@ -2,6 +2,7 @@ from itertools import zip_longest
 from functools import lru_cache
 import ast
 from typing import Sequence, Iterator
+import random
 
 import numpy as np
 
@@ -169,6 +170,79 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
     return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
                                                        [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
 
+  def freeze(self):
+    self.vocab.freeze()
+    self.vocab.set_unk(Vocab.UNK_STR)
+    self.save_processed_arg("vocab", self.vocab)
+
+  def count_words(self, trg_words):
+    trg_cnt = 0
+    for x in trg_words:
+      if type(x) == int:
+        trg_cnt += 1 if x != Vocab.ES else 0
+      else:
+        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
+    return trg_cnt
+
+  def vocab_size(self):
+    return len(self.vocab)
+
+  def needs_reload(self):
+    return True
+
+class LexAugTextReader(BaseTextReader, Serializable):
+  """
+  Read in text and segment it with sentencepiece. Optionally perform sampling
+  for subword regularization, only at training time.
+  https://arxiv.org/pdf/1804.10959.pdf 
+  """
+  yaml_tag = '!LexAugTextReader'
+
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self, model_file, vocab, lex_file=None, include_vocab_reference=False):
+    """
+    Args:
+      model_file: The sentence piece model file
+      sample_train: On the training set, sample outputs
+      l: The "l" parameter for subword regularization, how many sentences to sample
+      alpha: The "alpha" parameter for subword regularization, how much to smooth the distribution
+      vocab: The vocabulary
+      include_vocab_reference: Whether to include the vocab with the input
+    """
+    import sentencepiece as spm
+    self.subword_model = spm.SentencePieceProcessor()
+    self.subword_model.Load(model_file)
+    self.vocab = vocab
+    self.include_vocab_reference = include_vocab_reference
+    self.train = False
+    if vocab is not None:
+      self.vocab.freeze()
+      self.vocab.set_unk(Vocab.UNK_STR)
+    if lex_file:
+      lex = {}
+      with open(lex_file, 'r', encoding='utf-8') as myfile:
+        for line in myfile:
+          toks = line.split(' ||| ')
+          lex[toks[0].strip()] = toks[1].strip()
+      self.lex = lex
+    else:
+      self.lex = None
+
+  @handle_xnmt_event
+  def on_set_train(self, val):
+    self.train = val
+
+  def read_sent(self, sentence):
+    #words = self.subword_model.EncodeAsPieces(sentence.strip())
+    return sentence.split()
+
+  def encode(self, sentence):
+    vocab_reference = self.vocab if self.include_vocab_reference else None
+    words = self.subword_model.EncodeAsPieces(sentence.strip())
+    return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
+                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
+  
   def freeze(self):
     self.vocab.freeze()
     self.vocab.set_unk(Vocab.UNK_STR)
@@ -478,6 +552,22 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
     src_len_ok = max_src_len is None or len(src_sent) <= max_src_len
     trg_len_ok = max_trg_len is None or len(trg_sent) <= max_trg_len
     if src_len_ok and trg_len_ok:
+      if isinstance(src_reader, LexAugTextReader):
+        if src_reader.lex:
+          lex = src_reader.lex
+        else:
+          lex = trg_reader.lex
+        assert isinstance(trg_reader, LexAugTextReader)
+        for i, src_w in enumerate(src_sent):
+          if src_w in lex:
+            lex_t = lex[src_w]
+            for j, trg_w in enumerate(trg_sent):
+              if lex_t == trg_w:
+                rep_s = random.choice(list(lex.keys()))
+                src_sent[i] = rep_s 
+                trg_sent[j] = lex[rep_s]
+        src_sent = src_reader.encode(" ".join(src_sent))
+        trg_sent = trg_reader.encode(" ".join(trg_sent))
       src_data.append(src_sent)
       trg_data.append(trg_sent)
 
