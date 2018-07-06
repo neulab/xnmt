@@ -1,4 +1,4 @@
-import argparse
+import contextlib
 from typing import Sequence, Optional, Union
 from collections import OrderedDict
 
@@ -287,16 +287,22 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
           self.checkpoint_and_save(save_fct)
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
         task_trg_loss_stats = {}
-        with self.train_loss_trackers[self.tasks[0]].time_tracker:
+        with contextlib.ExitStack() as stack: #use exit stack to control whether to use global or per-task time tracking
+          if not self.per_task_backward:
+            stack.enter_context(self.train_loss_trackers[self.tasks[0]].time_tracker)
+        # with self.train_loss_trackers[self.tasks[0]].time_tracker:
           self.trigger_train_event(True)
           for task, src, trg in task_src_trg:
-            loss_builder = task.training_step(src, trg)
-            task_trg_loss_stats[task] = (trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
-            if self.per_task_backward:
-              self.backward(loss_builder.compute(), self.dynet_profiling)
-              dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-            else:
-              task_losses.append(loss_builder.compute())
+            with contextlib.ExitStack() as stack2:
+              if self.per_task_backward:
+                stack2.enter_context(self.train_loss_trackers[task].time_tracker)
+              loss_builder = task.training_step(src, trg)
+              task_trg_loss_stats[task] = (trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
+              if self.per_task_backward:
+                self.backward(loss_builder.compute(), self.dynet_profiling)
+                dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+              else:
+                task_losses.append(loss_builder.compute())
           if update_weights:
             if not self.per_task_backward:
               self.backward(sum(task_losses), self.dynet_profiling)
