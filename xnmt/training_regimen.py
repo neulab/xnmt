@@ -288,7 +288,6 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
         with contextlib.ExitStack() as stack: #use exit stack to control whether to use global or per-task time tracking
           if not self.per_task_backward:
             stack.enter_context(self.train_loss_trackers[self.tasks[0]].time_tracker)
-        # with self.train_loss_trackers[self.tasks[0]].time_tracker:
           self.trigger_train_event(True)
           for task, src, trg in task_src_trg:
             with contextlib.ExitStack() as stack2:
