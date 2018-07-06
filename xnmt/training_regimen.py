@@ -17,13 +17,12 @@ class TrainingRegimen(object):
   """
   A training regimen is a class that implements a training loop.
   """
-  def run_training(self, save_fct, update_weights=True):
+  def run_training(self, save_fct):
     """
     Run training steps in a loop until stopping criterion is reached.
 
     Args:
       save_fct: function to be invoked to save a model at dev checkpoints
-      update_weights (bool): Whether parameters should be updated
     """
     raise NotImplementedError("")
 
@@ -130,7 +129,7 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
     self.update_every = update_every
     self.num_updates_skipped = 0
 
-  def run_training(self, save_fct, update_weights=True):
+  def run_training(self, save_fct):
     """
     Main training loop (overwrites TrainingRegimen.run_training())
     """
@@ -145,9 +144,8 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
             self.model.set_train(True)
             loss_builder = self.training_step(src, trg)
             loss = loss_builder.compute()
-            if update_weights:
-              self.backward(loss, self.dynet_profiling)
-              self.update(self.trainer)
+            self.backward(loss, self.dynet_profiling)
+            self.update(self.trainer)
           self.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
         if self.checkpoint_needed():
           self.checkpoint_and_save(save_fct)
@@ -271,7 +269,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     if len(self.n_task_steps) != len(tasks):
       raise ValueError(f"number of tasks and steps per task do not match: {len(tasks)} != {len(self.n_task_steps)}")
 
-  def run_training(self, save_fct, update_weights=True):
+  def run_training(self, save_fct):
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -303,10 +301,9 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                 dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
               else:
                 task_losses.append(loss_builder.compute())
-          if update_weights:
-            if not self.per_task_backward:
-              self.backward(sum(task_losses), self.dynet_profiling)
-            self.update(self.trainer)
+          if not self.per_task_backward:
+            self.backward(sum(task_losses), self.dynet_profiling)
+          self.update(self.trainer)
         for task, (trg, stats) in task_trg_loss_stats.items():
           self.train_loss_trackers[task].report(trg, stats)
         self.checkpoint_and_save(save_fct)
@@ -366,7 +363,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
     self.loss_comb_method = loss_comb_method
 
-  def run_training(self, save_fct, update_weights=True):
+  def run_training(self, save_fct):
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -384,10 +381,8 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
             src, trg = next(task_gen)
             self.trigger_train_event(True)
             loss_builder = cur_task.training_step(src, trg)
-            if update_weights:
-              self.backward(loss=loss_builder.compute(), dynet_profiling=self.dynet_profiling)
-          if update_weights:
-            self.update(trainer=self.trainer)
+            self.backward(loss=loss_builder.compute(), dynet_profiling=self.dynet_profiling)
+          self.update(trainer=self.trainer)
         cur_train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
         self.checkpoint_and_save(cur_task, cur_task_i, save_fct, dev_zero)
         if self.tasks[0].should_stop_training(): break
@@ -429,7 +424,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
     self.loss_comb_method = loss_comb_method
 
-  def run_training(self, save_fct, update_weights=True):
+  def run_training(self, save_fct):
     dev_zero = {i:self.dev_zero for i in range(len(self.tasks))}
     for cur_task_id in range(len(self.tasks)):
       self.train = None
@@ -445,9 +440,8 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
             self.trigger_train_event(True)
             loss_builder = cur_task.training_step(src, trg)
             task_loss = loss_builder.compute()
-            if update_weights:
-              self.backward(task_loss, self.dynet_profiling)
-              self.update(self.trainer)
+            self.backward(task_loss, self.dynet_profiling)
+            self.update(self.trainer)
           cur_train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
           self.checkpoint_and_save(cur_task, cur_task_id, save_fct, dev_zero)
           if cur_task.should_stop_training(): break

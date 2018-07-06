@@ -77,10 +77,10 @@ class XnmtOptimizer(object):
 
   @property
   def learning_rate(self):
-      return self.optimizer.learning_rate
+    return self.optimizer.learning_rate
   @learning_rate.setter
   def learning_rate(self, value):
-      self.optimizer.learning_rate = value
+    self.optimizer.learning_rate = value
 
   def _check_gradients_noisy(self) -> bool:
     sq_norm = 0
@@ -238,3 +238,37 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
     if self.steps % 200 == 0:
       logger.info('> Optimizer Logging')
       logger.info('  Steps=%d, learning_rate=%.2e' % (self.steps, self.optimizer.learning_rate))
+
+
+
+class DummyTrainer(XnmtOptimizer, Serializable):
+  """
+  A dummy trainer that does not perform any parameter updates.
+  """
+  yaml_tag = "!DummyTrainer"
+
+  @serializable_init
+  def __init__(self):
+    pass
+
+  def update(self) -> None:
+    pass
+
+  def status(self):
+    return "n/a"
+
+  def set_clip_threshold(self, thr):
+    pass
+
+  def get_clip_threshold(self):
+    pass
+
+  def restart(self):
+    pass
+
+  @property
+  def learning_rate(self):
+    return 1.0
+  @learning_rate.setter
+  def learning_rate(self, value):
+    pass
