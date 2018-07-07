@@ -5,6 +5,7 @@ import yaml
 
 from xnmt.settings import settings
 from xnmt.util import make_parent_dir
+import xnmt.git_rev
 
 STD_OUTPUT_LEVELNO = 35
 
@@ -74,11 +75,11 @@ def set_out_file(out_file):
   with open(out_file, mode="w") as f_out:
     for line in _preamble_content:
       f_out.write(f"{line}\n")
-  fh = logging.FileHandler(out_file)
+  fh = logging.FileHandler(out_file, encoding="utf-8")
   fh.setLevel(settings.LOG_LEVEL_FILE)
   fh.setFormatter(MainFormatter())
   logger.addHandler(fh)
-  yaml_fh = logging.FileHandler(f"{out_file}.yaml", mode='w')
+  yaml_fh = logging.FileHandler(f"{out_file}.yaml", mode='w', encoding="utf-8")
   yaml_fh.setLevel(logging.DEBUG)
   yaml_fh.setFormatter(YamlFormatter())
   yaml_fh.setLevel(logging.DEBUG)
@@ -135,6 +136,7 @@ class Tee(object):
     return self.stdstream.getvalue()
 
 def get_git_revision():
+  if xnmt.git_rev.CUR_GIT_REVISION: return xnmt.git_rev.CUR_GIT_REVISION
   from subprocess import CalledProcessError, check_output
   try:
     command = 'git rev-parse --short HEAD'

@@ -1,4 +1,5 @@
 import dynet as dy
+from typing import List
 
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.persistence import Serializable, serializable_init
@@ -25,10 +26,10 @@ class FullyConnectedSeqTransducer(SeqTransducer, Serializable):
     self.pW = model.add_parameters(dim = (self.out_height, self.in_height), init=normalInit)
     self.pb = model.add_parameters(dim = self.out_height)
 
-  def get_final_states(self):
+  def get_final_states(self) -> List[FinalTransducerState]:
     return self._final_states
 
-  def transduce(self, embed_sent):
+  def transduce(self, embed_sent: ExpressionSequence) -> ExpressionSequence:
     src = embed_sent.as_tensor()
 
     W = dy.parameter(self.pW)

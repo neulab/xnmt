@@ -131,7 +131,7 @@ def logpowspec(frames, NFFT, norm=1):
   :param norm: If norm=1, the log power spectrum is normalised so that the max value (across all frames) is 0.
   :returns: If frames is an NxD matrix, output will be Nx(NFFT/2+1). Each row will be the log power spectrum of the corresponding frame.
   """
-  ps = powspec(frames, NFFT);
+  ps = powspec(frames, NFFT)
   ps[ps <= 1e-30] = 1e-30
   lps = 10 * numpy.log10(ps)
   if norm:

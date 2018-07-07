@@ -30,7 +30,6 @@ loaded_experiment = initialize_if_needed(uninitialized_experiment)
 # if we were to continue training, we would need to set a save model file like this:
 # ParamManager.param_col.model_file = model_file
 ParamManager.populate()
-exp_global = loaded_experiment.exp_global
 
 # run experiment
 loaded_experiment(save_fct=lambda: save_to_file(model_file, loaded_experiment))

@@ -4,14 +4,7 @@ import random
 import numpy as np
 from typing import Optional
 
-from xnmt import logger
-from xnmt.batcher import SrcBatcher
-from xnmt.events import register_xnmt_event
-import xnmt.input_reader
-from xnmt.loss import LossBuilder
-from xnmt.loss_tracker import DevLossTracker
-from xnmt.loss_calculator import MLELoss
-from xnmt.param_collection import ParamManager
+from xnmt import batcher, events, model_base, input_reader, logger, loss, loss_tracker, loss_calculator, param_collection
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class TrainingTask(object):
@@ -72,7 +65,7 @@ class TrainingTask(object):
 class SimpleTrainingTask(TrainingTask, Serializable):
   """
   Args:
-    model: a generator.GeneratorModel object
+    model (model_base.TrainableModel): a trainable model
     src_file: The file for the source data.
     trg_file: The file for the target data.
     dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
@@ -103,7 +96,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
   @serializable_init
   def __init__(self, model, src_file=None, trg_file=None, dev_every=0,
-               batcher=bare(SrcBatcher, batch_size=32), loss_calculator=bare(MLELoss),
+               batcher=bare(batcher.SrcBatcher, batch_size=32), loss_calculator=bare(loss_calculator.AutoRegressiveMLELoss),
                run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
                initial_patience=None, dev_tasks=None, dev_combinator=None, restart_trainer=False,
                reload_command=None, name=None, sample_train_sents: Optional[int] = None,
@@ -137,7 +130,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.max_trg_len = max_trg_len
 
     self.batcher = batcher
-    self.dev_loss_tracker = DevLossTracker(self, dev_every, name)
+    self.dev_loss_tracker = loss_tracker.DevLossTracker(self, dev_every, name)
     self.name = name
 
   def _augment_data_initial(self):
@@ -166,19 +159,21 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     if retcode is not None:
       if self.training_state.epoch_num > 0:
         logger.info('using reloaded data')
-      # reload the data
+      # reload the data 
+      self.model.src_reader.train = self.model.trg_reader.train = True
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
-          xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
+          input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                           self.src_file, self.trg_file,
                                           batcher=self.batcher, sample_sents=self.sample_train_sents,
                                           max_num_sents=self.max_num_train_sents,
                                           max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
+      self.model.src_reader.train = self.model.trg_reader.train = False
       # restart data generation
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.training_state.epoch_num, shell=True)
     else:
       logger.info('new data set is not ready yet, using data from last epoch.')
 
-  @register_xnmt_event
+  @events.register_xnmt_event
   def new_epoch(self, training_task, num_sents):
     """
     New epoch event.
@@ -220,13 +215,16 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         self._augment_data_initial()
       else:
         self._augment_data_next_epoch()
-    if self.training_state.epoch_num==0 or self.sample_train_sents:
+    if self.training_state.epoch_num==0 or self.sample_train_sents or \
+      self.model.src_reader.needs_reload() or self.model.trg_reader.needs_reload():
+      self.model.set_train(True)
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
-        xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
+        input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
                                                self.src_file, self.trg_file,
                                                batcher=self.batcher, sample_sents=self.sample_train_sents,
                                                max_num_sents=self.max_num_train_sents,
                                                max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
+      self.model.src_reader.train = self.model.trg_reader.train = False
     self.training_state.epoch_seed = random.randint(1,2147483647)
     random.seed(self.training_state.epoch_seed)
     np.random.seed(self.training_state.epoch_seed)
@@ -260,11 +258,17 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     Performs forward pass, backward pass, parameter update for the given minibatch
     """
-    loss_builder = LossBuilder()
+    loss_builder = loss.FactoredLossExpr()
     standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
+<<<<<<< HEAD
     additional_loss = self.model.calc_additional_loss(src, trg, standard_loss)
     loss_builder.add_loss("standard_loss", standard_loss)
     loss_builder.add_loss("additional_loss", additional_loss)
+=======
+    additional_loss = self.model.calc_additional_loss(standard_loss)
+    loss_builder.add_factored_loss_expr(standard_loss)
+    loss_builder.add_factored_loss_expr(additional_loss)
+>>>>>>> master
     return loss_builder
 
   def checkpoint_needed(self):
@@ -283,10 +287,13 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     # Perform evaluation
     if self.dev_tasks and len(self.dev_tasks) > 0:
       dev_scores = []
+      dev_word_cnt = None
       with self.dev_loss_tracker.time_tracker:
         logger.info("> Checkpoint")
         for dev_task in self.dev_tasks:
-          dev_score, dev_word_cnt = dev_task.eval()
+          dev_score, tmp_word_cnt = dev_task.eval()
+          if dev_word_cnt is None:
+            dev_word_cnt = tmp_word_cnt
           if type(dev_score) == list:
             dev_scores.extend(dev_score)
           else:
@@ -302,7 +309,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         is_best = False
         if self.dev_combinator is not None:
           x = [y.value() for y in dev_scores]
-          aevala = Interpreter()
+          aevala = Interpreter(symtable={'x': x})
           my_score = aevala(self.dev_combinator)
           logger.info('  combined dev scores according to {}: {}'.format(self.dev_combinator, my_score))
           if self.training_state.best_dev_score is None or my_score > self.training_state.best_dev_score:
@@ -340,7 +347,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                 if self.restart_trainer:
                   logger.info('  restarting trainer and reverting learned weights to best checkpoint..')
                   self.trainer.restart()
-                  ParamManager.param_col.revert_to_best_model()
+                  param_collection.ParamManager.param_col.revert_to_best_model()
       else: # case of not controling learning schedule
         needs_saving = False
     else: # case of no dev tasks

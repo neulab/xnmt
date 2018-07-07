@@ -5,9 +5,9 @@ from xnmt import logger
 import xnmt.batcher
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.expression_sequence import ExpressionSequence, LazyNumpyExpressionSequence
-from xnmt.linear import Linear
+from xnmt.transform import Linear
 from xnmt.param_collection import ParamManager
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.param_init import GlorotInitializer, ZeroInitializer, ParamInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
 
 class Embedder(object):
@@ -277,6 +277,31 @@ class SimpleWordEmbedder(Embedder, Serializable):
       ret = dy.noise(ret, self.weight_noise)
     return ret
 
+class PositionEmbedder(Embedder, Serializable):
+
+  yaml_tag = '!PositionEmbedder'
+
+  @serializable_init
+  @register_xnmt_handler
+  def __init__(self, max_pos: int, emb_dim: int = Ref("exp_global.default_layer_dim"),
+               param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer))):
+    """
+    max_pos: largest embedded position
+    emb_dim: embedding size
+    param_init: how to initialize embedding matrix
+    """
+    self.max_pos = max_pos
+    self.emb_dim = emb_dim
+    param_collection = ParamManager.my_params(self)
+    param_init = param_init
+    dim = (self.emb_dim, max_pos)
+    self.embeddings = param_collection.add_parameters(dim, init=param_init.initializer(dim, is_lookup=True))
+
+  def embed(self, word): raise NotImplementedError("Position-embedding for individual words not implemented yet.")
+  def embed_sent(self, sent_len):
+    embeddings = dy.strided_select(dy.parameter(self.embeddings), [1,1], [0,0], [self.emb_dim, sent_len])
+    return ExpressionSequence(expr_tensor=embeddings, mask=None)
+
 class NoopEmbedder(Embedder, Serializable):
   """
   This embedder performs no lookups but only passes through the inputs.
@@ -317,7 +342,7 @@ class NoopEmbedder(Embedder, Serializable):
       return ExpressionSequence(expr_list=embeddings, mask=sent.mask)
 
 
-class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
+class PretrainedSimpleWordEmbedder(SimpleWordEmbedder, Serializable):
   """
   Simple word embeddings via lookup. Initial pretrained embeddings must be supplied in FastText text format.
 
@@ -335,6 +360,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder):
 
   yaml_tag = '!PretrainedSimpleWordEmbedder'
 
+  @register_xnmt_handler
   @serializable_init
   def __init__(self,
                filename,

@@ -18,10 +18,10 @@ Experiment
 Model
 -----
 
-GeneratorModel
-~~~~~~~~~~~~~~
+Model Base Classes
+~~~~~~~~~~~~~~~~~~
 
-.. automodule:: xnmt.generator
+.. automodule:: xnmt.model_base
    :members:
    :show-inheritance:
 
@@ -83,23 +83,37 @@ Bridge
    :members:
    :show-inheritance:
 
-Linear
-~~~~~~
-.. automodule:: xnmt.linear
+Transform
+~~~~~~~~~
+.. automodule:: xnmt.transform
    :members:
    :show-inheritance:
 
-Multi-layer Perceptron
-~~~~~~~~~~~~~~~~~~~~~~
-.. automodule:: xnmt.mlp
+Scorer
+~~~~~~
+.. automodule:: xnmt.scorer
    :members:
    :show-inheritance:
+
+SequenceLabeler
+~~~~~~~~~~~~~~~
+.. automodule:: xnmt.seq_labeler
+   :members:
+   :show-inheritance:
+
+Classifier
+~~~~~~~~~~
+.. automodule:: xnmt.classifier
+   :members:
+   :show-inheritance:
+
+
 
 Loss
 ----
 
-LossBuilder
-~~~~~~~~~~~
+Loss
+~~~~
 
 .. automodule:: xnmt.loss
    :members:
@@ -154,8 +168,8 @@ ParamInitializer
 Inference
 ---------
 
-SimpleInference
-~~~~~~~~~~~~~~~
+AutoRegressiveInference
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: xnmt.inference
    :members:
@@ -178,8 +192,8 @@ LengthNormalization
 Evaluation
 ----------
 
-EvalTaks
-~~~~~~~~
+EvalTasks
+~~~~~~~~~
 .. automodule:: xnmt.eval_task
    :members:
    :show-inheritance:

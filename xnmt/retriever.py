@@ -6,7 +6,7 @@ from xnmt.settings import settings
 from xnmt import logger
 import xnmt.batcher
 from xnmt.events import handle_xnmt_event
-from xnmt.generator import GeneratorModel
+from xnmt.model_base import GeneratorModel, EventTrigger
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.expression_sequence import ExpressionSequence
 
@@ -34,39 +34,39 @@ class StandardRetrievalDatabase(Serializable):
     return xnmt.batcher.mark_as_batch(trg_examples), trg_masks
 
 ##### The actual retriever class
-class Retriever(GeneratorModel):
-  '''
+class Retriever(GeneratorModel, EventTrigger):
+  """
   A template class implementing a retrieval model.
-  '''
+  """
 
   def calc_loss(self, src, db_idx):
-    '''Calculate loss based on a database index.
+    """Calculate loss based on a database index.
 
     Args:
       src: The source input.
       db_idx: The correct index in the database to be retrieved.
     Returns:
       An expression representing the loss.
-    '''
+    """
     raise NotImplementedError('calc_loss must be implemented for Retriever subclasses')
 
   def index_database(self, indices=None):
-    '''A function that can be called before actually performing retrieval.
+    """A function that can be called before actually performing retrieval.
 
     This will perform any necessary pre-processing to make retrieval more efficient.
     If the model is updated, assume that the indexing result is stale and no longer applicable.
-    '''
+    """
     pass
 
   def generate(self, src, i):
-    '''Perform retrieval, trying to get the sentence that most closely matches in the database.
+    """Perform retrieval, trying to get the sentence that most closely matches in the database.
 
     Args:
       src: The source.
       i: Id of the input (for reporting)
     Returns:
       The ID of the example that most closely matches in the database.
-    '''
+    """
     raise NotImplementedError('generate must be implemented for Retriever subclasses')
 
   def initialize_generator(self, **kwargs):
@@ -77,16 +77,16 @@ class Retriever(GeneratorModel):
     self.index_database(candidates)
     self.report_path = kwargs["report_path"]
 
-class DotProductRetriever(Retriever, Serializable):
-  '''
+class DotProductRetriever(Retriever, Serializable, Reportable):
+  """
   A retriever trains using max-margin methods.
-  '''
+  """
 
   yaml_tag = '!DotProductRetriever'
 
   @serializable_init
   def __init__(self, src_embedder, src_encoder, trg_embedder, trg_encoder, database, loss_direction="forward"):
-    '''Constructor.
+    """Constructor.
 
     Args:
       src_embedder: A word embedder for the source language
@@ -94,7 +94,7 @@ class DotProductRetriever(Retriever, Serializable):
       trg_embedder: A word embedder for the target language
       trg_encoder: An encoder for the target language
       database: A database of things to retrieve
-    '''
+    """
     self.src_embedder = src_embedder
     self.src_encoder = src_encoder
     self.trg_embedder = trg_embedder
@@ -172,7 +172,8 @@ class DotProductRetriever(Retriever, Serializable):
     encodings = self.exprseq_pooling(self.trg_encoder.transduce(embeddings))
     return encodings
 
-  def generate(self, src, idx, return_type="idxscore", nbest=10):
+  def generate(self, src, idx, return_type="idxscore", nbest=10, forced_trg_ids=None):
+    if forced_trg_ids is not None: raise NotImplementedError()
     src_embedding = self.src_embedder.embed_sent(src)
     self.src_encoder.set_input(src)
     src_encoding = dy.transpose(self.exprseq_pooling(self.src_encoder.transduce(src_embedding))).npvalue()

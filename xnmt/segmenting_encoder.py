@@ -1,23 +1,26 @@
 import numpy
 import dynet as dy
+from typing import List
 
 from enum import Enum
 from xml.sax.saxutils import escape
 from lxml import etree
 from scipy.stats import poisson
 
-import xnmt.linear as linear
-import xnmt.expression_sequence as expression_sequence
+from xnmt.transform import Linear
+from xnmt.expression_sequence import ExpressionSequence
+
 from xnmt import logger
 from xnmt.vocab import Vocab
 from xnmt.batcher import Mask
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.persistence import serializable_init, Serializable
-from xnmt.transducer import SeqTransducer
-from xnmt.loss import LossBuilder
+from xnmt.transducer import SeqTransducer, FinalTransducerState
+from xnmt.loss import FactoredLossExpr
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import Ref, bare, Path
 from xnmt.constants import EPSILON
+
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!SegmentingSeqTransducer'
@@ -59,11 +62,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     self.final_transducer = final_transducer
     # Decision layer of segmentation
     self.segment_transform = self.add_serializable_component("segment_transform", segment_transform,
-                                                             lambda: linear.Linear(input_dim=embed_encoder_dim,
+                                                             lambda: Linear(input_dim=embed_encoder_dim,
                                                                                    output_dim=3 if learn_delete else 2))
     # The baseline linear regression model
     self.baseline = self.add_serializable_component("baseline", baseline,
-                                                    lambda: linear.Linear(input_dim=embed_encoder_dim, output_dim=1))
+                                                    lambda: Linear(input_dim=embed_encoder_dim, output_dim=1))
     self.src_vocab = src_vocab
     # Flags
     self.use_baseline = use_baseline
@@ -88,10 +91,12 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     if learn_delete:
       raise NotImplementedError("Learn delete is not supported yet.")
 
-  def __call__(self, embed_sent):
+  def transduce(self, embed_sent: ExpressionSequence) -> ExpressionSequence:
     batch_size = embed_sent[0].dim()[1]
     # Softmax + segment decision
-    encodings = self.embed_encoder(embed_sent)
+
+    encodings = self.embed_encoder.transduce(embed_sent)
+    enc_mask = encodings.mask
     segment_decisions, segment_logsoftmaxes = self.sample_segmentation(encodings, batch_size)
     # Length prior
     if self.length_prior_alpha is not None and self.length_prior_alpha.value() > 0:
@@ -130,9 +135,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
       # Rewrite segmentation
       self.segmentation = self.segment_decisions[0]
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
-    return self.final_transducer(expression_sequence.ExpressionSequence(expr_tensor=self.outputs,
-                                                                        mask=segment_mask))
-
+    return self.final_transducer.transduce(ExpressionSequence(expr_tensor=self.outputs, mask=segment_mask))
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -250,7 +253,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
   def on_set_train(self, train):
     self.train = train
   #
-  def get_final_states(self):
+  def get_final_states(self) -> List[FinalTransducerState]:
     if hasattr(self.final_transducer, "get_final_states"):
       return self.final_transducer.get_final_states()
     else:
@@ -284,7 +287,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     actual = len(self.segment_logsoftmaxes), len(src)
     assert enc_mask.shape == actual,\
         "expected %s != actual %s" % (str(enc_mask.shape), str(actual))
-    ret = LossBuilder()
+    ret = FactoredLossExpr()
     # 2. Length prior
     alpha = self.length_prior_alpha.value() if self.length_prior_alpha is not None else 0
     if alpha > 0:
@@ -430,9 +433,9 @@ class SampleAction(Enum):
   LP = 3
 
 class SegmentationConfidencePenalty(Serializable):
-  ''' https://arxiv.org/pdf/1701.06548.pdf
+  """ https://arxiv.org/pdf/1701.06548.pdf
       strength: the beta value
-  '''
+  """
   yaml_tag = "!SegmentationConfidencePenalty"
 
   @serializable_init

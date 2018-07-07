@@ -82,11 +82,11 @@ This specifies the model architecture. An typical example looks like this
       input_dim: 512
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 512
-    decoder: !MlpSoftmaxDecoder
+    decoder: !AutoRegressiveDecoder
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
-        hidden_dim: 512
+      transform: !NonLinear
+        output_dim: 512
       bridge: !CopyBridge {}
 
 The top level entry is typically DefaultTranslator, which implements a standard

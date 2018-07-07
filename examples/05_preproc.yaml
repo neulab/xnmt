@@ -4,13 +4,8 @@ preproc: !Experiment
   exp_global: !ExpGlobal
     # define some named strings that can be used throughout the experiment config:
     placeholders:
-      # Specify <SENTENCEPIECE_SRC_PATH> with src/ directory of sentencepiece repository
-      # The spm_* executables should be located at <SENTENCEPIECE_SRC_PATH>
-      SENTENCEPIECE_SRC_PATH: ''
-
       DATA_IN: examples/data/
       DATA_OUT: examples/preproc/
-
   preproc: !PreprocRunner
     overwrite: False
     tasks:
@@ -32,16 +27,7 @@ preproc: !Experiment
       specs:
       - filenum: all
         tokenizers:
-        - !SentencepieceTokenizer
-          # Replace <SENTENCEPIECE_SRC_PATH> with src/ directory of sentencepiece repository
-          # The spm_* executables should be located at <SENTENCEPIECE_SRC_PATH>
-          path: <SENTENCEPIECE_SRC_PATH>
-          train_files:
-           - '{DATA_IN}/train.ja'
-           - '{DATA_IN}/train.en'
-          vocab_size: 8000
-          model_type: unigram
-          model_prefix: '{DATA_OUT}/sentpiece'
+        - !UnicodeTokenizer {}
     - !PreprocNormalize
       in_files:
       - '{DATA_OUT}/train.tok.ja'
@@ -63,8 +49,8 @@ preproc: !Experiment
       - '{DATA_OUT}/test.norm.en'
       specs:
       - filenum: all
-        spec:
-        - type: lower
+        normalizers:
+        - !NormalizerLower {}
     - !PreprocFilter
       in_files:
       - '{DATA_OUT}/train.tok.norm.ja'
@@ -85,9 +71,9 @@ preproc: !Experiment
       - '{DATA_OUT}/train.vocab.en'
       specs:
       - filenum: all
-        spec:
-        - type: freq
-          min_freq: 2
+        filters:
+        - !VocabFiltererFreq
+            min_freq: 2
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab
@@ -105,13 +91,13 @@ preproc: !Experiment
       input_dim: 512
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 512
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
-        hidden_dim: 512
+      transform: !AuxNonLinear
+        output_dim: 512
       bridge: !NoBridge {}
-    inference: !SimpleInference
+    inference: !AutoRegressiveInference
       post_process: join-piece
   train: !SimpleTrainingRegimen
     run_for_epochs: 20

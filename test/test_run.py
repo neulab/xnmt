@@ -13,6 +13,9 @@ class TestRunningConfig(unittest.TestCase):
   def test_assemble(self):
     run.main(["test/config/assemble.yaml"])
 
+  def test_classifier(self):
+    run.main(["test/config/classifier.yaml"])
+
   def test_component_sharing(self):
     run.main(["test/config/component_sharing.yaml"])
 
@@ -37,7 +40,6 @@ class TestRunningConfig(unittest.TestCase):
   def test_preproc(self):
     run.main(["test/config/preproc.yaml"])
 
-  @unittest.expectedFailure # TODO: these tests need to be fixed
   def test_pretrained_emb(self):
     run.main(["test/config/pretrained_embeddings.yaml"])
 
@@ -65,11 +67,17 @@ class TestRunningConfig(unittest.TestCase):
   def test_retrieval(self):
     run.main(["test/config/retrieval.yaml"])
 
+  def test_score(self):
+    run.main(["test/config/score.yaml"])
+
   def test_segmenting(self):
     run.main(["test/config/segmenting.yaml"])
 
-  def test_score(self):
-    run.main(["test/config/score.yaml"])
+  def test_self_attentional_am(self):
+    run.main(["test/config/self_attentional_am.yaml"])
+
+  def test_seq_labeler(self):
+    run.main(["test/config/seq_labeler.yaml"])
 
   def test_speech(self):
     run.main(["test/config/speech.yaml"])

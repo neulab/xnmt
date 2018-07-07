@@ -1,19 +1,7 @@
-# This illustrates component and parameter sharing.
-# There are 2 ways to achieve this:
-# - YAML's anchor system where '&' denotes a named anchor, '*' denotes a reference to an anchor.
-#   This essentially copies values or subcomponents from one place to another.
-#   It can be combined with the << operator that allows copying parts of a dictionary, but overwriting other parts.
-# - XNMT's !Ref object creates a reference, meaning both places will point to the exact same Python object,
-#   and that DyNet parameters will be shared.
-#   References can be made by path or by name, as illustrated below. The name refers to a _xnmt_id that can
-#   be set in any component and must be unique.
-#   Note that references do not work across experiments (e.g. we cannot refer to exp2.load from within exp1.pretrain)
-
 exp1.pretrain: !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 32
+    model_file: "test/tmp/{EXP}.mod"
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
@@ -21,38 +9,39 @@ exp1.pretrain: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 32
-    encoder: !BiLSTMSeqTransducer
-      layers: 1
-    attender: !MlpAttender {}
-    # reference-sharing between softmax projection and target embedder. This means both layers share DyNet parameters!
+    encoder: !ModularSeqTransducer
+      modules:
+      - !BiLSTMSeqTransducer
+        _xnmt_id: shared_enc
+        layers: 1
+      - !Ref { name: shared_enc }
+    attender: !MlpAttender
+      input_dim: 32
     trg_embedder: !DenseWordEmbedder
-      _xnmt_id: trg_emb # this id must be unique and is needed to create a reference-by-name below.
+      _xnmt_id: trg_emb
       emb_dim: 32
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
       bridge: !CopyBridge {}
-      mlp_layer: !MLP
+      scorer: !Softmax
         output_projector: !Ref { name: trg_emb }
-        #                alternatively, the same could be achieved like this,
-        #                in which case model.trg_embedder._xnmt_id is not required:
-        #                !Ref { path: model.trg_embedder }
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en
     dev_tasks:
       - !LossEvalTask
-        src_file: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
-        ref_file: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
+        src_file: &dev_src examples/data/head.ja
+        ref_file: &dev_trg examples/data/head.en
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu,wer
-      src_file: *dev_src # Copy over the file path from the dev tasks using YAML anchors.
-      ref_file: *dev_trg # The same could also be done for more complex objects.
-      hyp_file: examples/output/{EXP}.test_hyp
+      src_file: *dev_src
+      ref_file: *dev_trg
+      hyp_file: test/tmp/{EXP}.test_hyp
 
 exp2.load: !LoadSerialized
-  filename: examples/output/exp1.pretrain.mod  
+  filename: test/tmp/exp1.pretrain.mod
   

@@ -1,7 +1,5 @@
+# note: run as ``xnmt --settings=unittest <config>.yaml``
 exp1-pretrain1: !Experiment
-  exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
@@ -18,14 +16,13 @@ exp1-pretrain1: !Experiment
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
         hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.ja
@@ -33,8 +30,7 @@ exp1-pretrain1: !Experiment
 
 exp2-pretrain2: !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
+    model_file: 'test/tmp/{EXP}.mod'
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
@@ -51,14 +47,12 @@ exp2-pretrain2: !Experiment
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
-        hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.ja
@@ -66,16 +60,13 @@ exp2-pretrain2: !Experiment
 
 
 exp3-assemble: !Experiment
-  exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     src_embedder: !LoadSerialized
-      filename: examples/output/exp1-pretrain1.mod
+      filename: test/tmp/exp1-pretrain1.mod
       path: 'model.trg_embedder'
     encoder: !BiLSTMSeqTransducer
       layers: 2
@@ -85,16 +76,14 @@ exp3-assemble: !Experiment
       hidden_dim: 64
       input_dim: 64
     trg_embedder: !LoadSerialized
-      filename: examples/output/exp2-pretrain2.mod
+      filename: test/tmp/exp2-pretrain2.mod
       path: 'model.src_embedder'
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
-        hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.en
@@ -103,9 +92,6 @@ exp3-assemble: !Experiment
 
 
 exp4-assemble: !Experiment
-  exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
@@ -116,10 +102,10 @@ exp4-assemble: !Experiment
     encoder: !ModularSeqTransducer
       modules:
       - !LoadSerialized
-        filename: examples/output/exp1-pretrain1.mod
+        filename: test/tmp/exp1-pretrain1.mod
         path: model.encoder
       - !LoadSerialized
-        filename: examples/output/exp2-pretrain2.mod
+        filename: test/tmp/exp2-pretrain2.mod
         path: model.encoder
     attender: !MlpAttender
       state_dim: 64
@@ -127,14 +113,12 @@ exp4-assemble: !Experiment
       input_dim: 64
     trg_embedder: !SimpleWordEmbedder
       emb_dim: 64
-    decoder: !MlpSoftmaxDecoder
-      rnn_layer: !UniLSTMSeqTransducer
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
         layers: 1
-      mlp_layer: !MLP
-        hidden_dim: 64
       input_feeding: True
       bridge: !CopyBridge {}
-    inference: !SimpleInference {}
+    inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.en

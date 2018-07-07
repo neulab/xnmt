@@ -19,6 +19,7 @@ It is coded in Python based on `DyNet <http://github.com/clab/dynet>`_.
    api_doc
    programming_style
    writing_xnmt_classes
+   save_file_format
 
 
 Indices and tables

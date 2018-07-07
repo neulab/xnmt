@@ -1,6 +1,6 @@
 import numpy as np
 import dynet as dy
-from xnmt.linear import Linear
+from xnmt.transform import Linear
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.param_init import LeCunUniformInitializer

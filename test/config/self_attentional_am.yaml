@@ -1,0 +1,47 @@
+# note: run as ``xnmt --settings=unittest <config>.yaml``
+speech-self-att: !Experiment
+  exp_global: !ExpGlobal
+    dropout: 0.2
+  preproc: !PreprocRunner
+    overwrite: False
+    tasks:
+    - !PreprocExtract
+      in_files:
+      - examples/data/LDC94S13A.yaml
+      out_files:
+      - examples/data/LDC94S13A.h5
+      specs: !MelFiltExtractor {}
+  model: !DefaultTranslator
+    src_reader: !H5Reader
+      transpose: True
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !NoopEmbedder
+      emb_dim: 40
+    encoder: !SAAMSeqTransducer
+      layers: 2
+      input_dim: 40
+      hidden_dim: 32
+      downsample_factor: 2
+      ff_hidden_dim: 32
+      pos_encoding_type: embedding
+      diag_gauss_mask: 3.0
+      ff_lstm: True
+    attender: !MlpAttender
+      state_dim: 32
+      hidden_dim: 32
+      input_dim: 32
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 32
+  train: !SimpleTrainingRegimen
+    src_file: examples/data/LDC94S13A.h5
+    trg_file: examples/data/LDC94S13A.char
+    run_for_epochs: 1
+    batcher: !SrcBatcher
+      batch_size: 3
+      pad_src_to_multiple: 4
+      src_pad_token: ~
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/LDC94S13A.h5
+        ref_file: examples/data/LDC94S13A.char

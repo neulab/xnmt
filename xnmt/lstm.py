@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import List
 
 import numpy as np
 import dynet as dy
@@ -56,6 +57,12 @@ class UniLSTMState(object):
 
   def output(self):
     return self._h[-1]
+
+  def __getitem__(self, item):
+    return UniLSTMState(network=self._network,
+                        prev=self._prev,
+                        c=[ci[item] for ci in self._c],
+                        h=[hi[item] for hi in self._h])
 
 
 class UniLSTMSeqTransducer(SeqTransducer, Serializable):
@@ -128,7 +135,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     self.dropout_mask_x = None
     self.dropout_mask_h = None
 
-  def get_final_states(self):
+  def get_final_states(self) -> List[FinalTransducerState]:
     return self._final_states
 
   def initial_state(self):
@@ -172,7 +179,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
 
     return new_c, new_h
 
-  def __call__(self, expr_seq):
+  def transduce(self, expr_seq: ExpressionSequence) -> ExpressionSequence:
     """
     transduce the sequence, applying masks if given (masked timesteps simply copy previous h / c)
 
@@ -270,18 +277,20 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
   def on_start_sent(self, src):
     self._final_states = None
 
-  def get_final_states(self):
+  def get_final_states(self) -> List[FinalTransducerState]:
     return self._final_states
 
-  def __call__(self, es):
+  def transduce(self, es: ExpressionSequence) -> ExpressionSequence:
     mask = es.mask
     # first layer
-    forward_es = self.forward_layers[0](es)
-    rev_backward_es = self.backward_layers[0](ReversedExpressionSequence(es))
+    forward_es = self.forward_layers[0].transduce(es)
+    rev_backward_es = self.backward_layers[0].transduce(ReversedExpressionSequence(es))
 
     for layer_i in range(1, len(self.forward_layers)):
-      new_forward_es = self.forward_layers[layer_i]([forward_es, ReversedExpressionSequence(rev_backward_es)])
-      rev_backward_es = ExpressionSequence(self.backward_layers[layer_i]([ReversedExpressionSequence(forward_es), rev_backward_es]).as_list(), mask=mask)
+      new_forward_es = self.forward_layers[layer_i].transduce([forward_es, ReversedExpressionSequence(rev_backward_es)])
+      rev_backward_es = ExpressionSequence(
+        self.backward_layers[layer_i].transduce([ReversedExpressionSequence(forward_es), rev_backward_es]).as_list(),
+        mask=mask)
       forward_es = new_forward_es
 
     self._final_states = [FinalTransducerState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
@@ -329,7 +338,7 @@ class CustomLSTMSeqTransducer(SeqTransducer, Serializable):
     self.p_Wh = model.add_parameters(dim=(hidden_dim*4, hidden_dim), init=param_init.initializer((hidden_dim*4, hidden_dim)))
     self.p_b  = model.add_parameters(dim=(hidden_dim*4,), init=bias_init.initializer((hidden_dim*4,)))
 
-  def __call__(self, xs):
+  def transduce(self, xs: ExpressionSequence) -> ExpressionSequence:
     Wx = dy.parameter(self.p_Wx)
     Wh = dy.parameter(self.p_Wh)
     b = dy.parameter(self.p_b)

@@ -42,12 +42,12 @@ def modify_audio(npz_original, npz_new, char_original, char_new, num_epoch, brea
 
 
 def select_and_clear_current_version_dir(basedir):
-  '''
+  """
   Switch which is the current directory and remove all contents of that directory.
 
   Return:
     the name of the new current directory
-  '''
+  """
   version_dir_1 = os.path.join(basedir, 'version-1-augmentation')
   version_dir_2 = os.path.join(basedir, 'version-2-augmentation')
   current_2_flag = os.path.join(basedir, 'current_2_flag')

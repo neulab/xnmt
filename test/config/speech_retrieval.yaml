@@ -1,8 +1,6 @@
 # TODO: broken, needs to be fixed
 speech-retrieval: !Experiment
   exp_global: !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 512
     dropout: 0.1
   model: !DotProductRetriever

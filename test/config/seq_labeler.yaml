@@ -1,0 +1,34 @@
+seq-labeler: !Experiment
+  # model architecture
+  model: !SeqLabeler
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 512
+    encoder: !BiLSTMSeqTransducer
+      layers: 1
+    scorer: !Softmax
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    auto_cut_pad: true
+  # training parameters
+  train: !SimpleTrainingRegimen
+    batcher: !SrcBatcher
+      batch_size: 32
+    trainer: !AdamTrainer
+      alpha: 0.001
+    run_for_epochs: 2
+    src_file: examples/data/head.en
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.en
+        ref_file: examples/data/head.en
+  # final evaluation
+  evaluate:
+  - !AccuracyEvalTask
+    eval_metrics: bleu
+    src_file: examples/data/head.en
+    ref_file: examples/data/head.en
+    hyp_file: examples/output/{EXP}.test_hyp

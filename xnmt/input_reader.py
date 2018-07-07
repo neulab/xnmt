@@ -1,6 +1,7 @@
 from itertools import zip_longest
-
+from functools import lru_cache
 import ast
+from typing import Sequence, Iterator
 
 import numpy as np
 
@@ -12,13 +13,15 @@ with warnings.catch_warnings():
 from xnmt import logger
 from xnmt.input import SimpleSentenceInput, ArrayInput
 from xnmt.persistence import serializable_init, Serializable
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.vocab import Vocab
+import xnmt.input
 
 class InputReader(object):
   """
   A base class to read in a file and turn it into an input
   """
-  def read_sents(self, filename, filter_ids=None):
+  def read_sents(self, filename: str, filter_ids: Sequence[int] = None) -> Iterator[xnmt.input.Input]:
     """
     Read sentences and return an iterator.
 
@@ -31,18 +34,7 @@ class InputReader(object):
       self.vocab = Vocab()
     return self.iterate_filtered(filename, filter_ids)
 
-  def read_sent(self, sentence, filter_ids=None):
-    """
-    Convert a raw sentence into a SentenceInput object.
-
-    Args:
-      sentence: a single input string
-      filter_ids: only read sentences with these ids (0-indexed)
-    Returns: a SentenceInput object for the input sentence
-    """
-    raise RuntimeError("Input readers must implement the read_sent function")
-
-  def count_sents(self, filename):
+  def count_sents(self, filename: str) -> int:
     """
     Count the number of sentences in a data file.
 
@@ -52,19 +44,37 @@ class InputReader(object):
     """
     raise RuntimeError("Input readers must implement the count_sents function")
 
-  def freeze(self):
+  def freeze(self) -> None:
     """
     Freeze the data representation, e.g. by freezing the vocab.
     """
     pass
 
+  def needs_reload(self) -> bool:
+    """
+    Overwrite this method if data needs to be reload for each epoch
+    """
+    return False
+
 class BaseTextReader(InputReader):
+
+  def read_sent(self, line: str) -> xnmt.input.Input:
+    """
+    Convert a raw text line into an input object.
+
+    Args:
+      line: a single input string
+    Returns: a SentenceInput object for the input sentence
+    """
+    raise RuntimeError("Input readers must implement the read_sent function")
+
+  @lru_cache(maxsize=128)
   def count_sents(self, filename):
-    f = open(filename, encoding='utf-8')
-    try:
-      return sum(1 for _ in f)
-    finally:
-      f.close()
+    newlines = 0
+    f = open(filename, 'r+b')
+    for line in f:
+      newlines += 1
+    return newlines
 
   def iterate_filtered(self, filename, filter_ids=None):
     """
@@ -100,6 +110,57 @@ class PlainTextReader(BaseTextReader, Serializable):
 
   def read_sent(self, sentence, filter_ids=None):
     return SimpleSentenceInput([self.vocab.convert(word) for word in sentence.strip().split()] + \
+                                                       [self.vocab.convert(Vocab.ES_STR)])
+  def freeze(self):
+    self.vocab.freeze()
+    self.vocab.set_unk(Vocab.UNK_STR)
+    self.save_processed_arg("vocab", self.vocab)
+
+  def vocab_size(self):
+    return len(self.vocab)
+
+class SentencePieceTextReader(BaseTextReader, Serializable):
+  """
+  Read in text and segment it with sentencepiece. Optionally perform sampling
+  for subword regularization, only at training time.
+  https://arxiv.org/pdf/1804.10959.pdf 
+  """
+  yaml_tag = '!SentencePieceTextReader'
+
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self, model_file, sample_train=False, l=-1, alpha=0.1, vocab=None):
+    """
+    Args:
+      model_file: The sentence piece model file
+      sample_train: On the training set, sample outputs
+      l: The "l" parameter for subword regularization, how many sentences to sample
+      alpha: The "alpha" parameter for subword regularization, how much to smooth the distribution
+      vocab: The vocabulary
+    """
+    import sentencepiece as spm
+    self.subword_model = spm.SentencePieceProcessor()
+    self.subword_model.Load(model_file)
+    self.sample_train = sample_train
+    self.l = l
+    self.alpha = alpha
+    self.vocab = vocab
+    self.train = False
+    if vocab is not None:
+      self.vocab.freeze()
+      self.vocab.set_unk(Vocab.UNK_STR)
+
+  @handle_xnmt_event
+  def on_set_train(self, val):
+    self.train = val
+
+  def read_sent(self, sentence):
+    vocab_reference = self.vocab if self.include_vocab_reference else None
+    if self.sample_train and self.train:
+      words = self.subword_model.SampleEncodeAsPieces(sentence.strip(), self.l, self.alpha)
+    else:
+      words = self.subword_model.EncodeAsPieces(sentence.strip())
+    return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
                                                        [self.vocab.convert(Vocab.ES_STR)])
 
   def freeze(self):
@@ -169,49 +230,9 @@ class BaseTextReader(InputReader):
         sent_count += 1
         if max_id is not None and sent_count > max_id:
           break
-
-class SegmentationTextReader(PlainTextReader):
-  yaml_tag = '!SegmentationTextReader'
-
-  # TODO: document me
-
-  @serializable_init
-  def __init__(self, vocab=None):
-    super().__init__(vocab=vocab)
-
-  def read_sents(self, filename, filter_ids=None):
-    if self.vocab is None:
-      self.vocab = Vocab()
-    def convert(line, segmentation):
-      line = line.strip().split() + [Vocab.ES_STR]
-      ret = SimpleSentenceInput([self.vocab.convert(w) for w in line])
-      ret.annotate("segment", list(map(int, segmentation.strip().split())))
-      return ret
-
-    if type(filename) != list:
-      try:
-        filename = ast.literal_eval(filename)
-      except:
-        logger.debug("Reading %s with a PlainTextReader instead..." % filename)
-        return super(SegmentationTextReader, self).read_sents(filename)
-
-    max_id = None
-    if filter_ids is not None:
-      max_id = max(filter_ids)
-      filter_ids = set(filter_ids)
-    data = []
-    with open(filename[0], encoding='utf-8') as char_inp,\
-         open(filename[1], encoding='utf-8') as seg_inp:
-      for sent_count, (char_line, seg_line) in enumerate(zip(char_inp, seg_inp)):
-        if filter_ids is None or sent_count in filter_ids:
-          data.append(convert(char_line, seg_line))
-        if max_id is not None and sent_count > max_id:
-          break
-    return data
-
-  def count_sents(self, filename):
-    return super(SegmentationTextReader, self).count_sents(filename[0])
-
+  
+  def needs_reload(self):
+    return True
 
 class H5Reader(InputReader, Serializable):
   """
@@ -352,13 +373,16 @@ class IDReader(BaseTextReader, Serializable):
   def __init__(self):
     pass
 
+  def read_sent(self, line):
+    return xnmt.input.IntInput(int(line.strip()))
+
   def read_sents(self, filename, filter_ids=None):
-    return map(lambda l: int(l.strip()), self.iterate_filtered(filename, filter_ids))
+    return [l for l in self.iterate_filtered(filename, filter_ids)]
 
 ###### A utility function to read a parallel corpus
 def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
                          batcher=None, sample_sents=None, max_num_sents=None, max_src_len=None, max_trg_len=None):
-  '''
+  """
   A utility function to read a parallel corpus.
 
   Args:
@@ -374,16 +398,18 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
 
   Returns:
     A tuple of (src_data, trg_data, src_batches, trg_batches) where ``*_batches = *_data`` if ``batcher=None``
-  '''
+  """
   src_data = []
   trg_data = []
   if sample_sents:
+    logger.info(f"Starting to read {sample_sents} parallel sentences of {src_file} and {trg_file}")
     src_len = src_reader.count_sents(src_file)
     trg_len = trg_reader.count_sents(trg_file)
     if src_len != trg_len: raise RuntimeError(f"training src sentences don't match trg sentences: {src_len} != {trg_len}!")
     if max_num_sents and max_num_sents < src_len: src_len = trg_len = max_num_sents
     filter_ids = np.random.choice(src_len, sample_sents, replace=False)
   else:
+    logger.info(f"Starting to read {src_file} and {trg_file}")
     filter_ids = None
     src_len, trg_len = 0, 0
   src_train_iterator = src_reader.read_sents(src_file, filter_ids)
@@ -399,10 +425,14 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
       src_data.append(src_sent)
       trg_data.append(trg_sent)
 
+  logger.info(f"Done reading {src_file} and {trg_file}. Packing into batches.")
+
   # Pack batches
   if batcher is not None:
     src_batches, trg_batches = batcher.pack(src_data, trg_data)
   else:
     src_batches, trg_batches = src_data, trg_data
+
+  logger.info(f"Done packing batches.")
 
   return src_data, trg_data, src_batches, trg_batches

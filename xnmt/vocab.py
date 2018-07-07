@@ -1,7 +1,7 @@
 from xnmt.persistence import serializable_init, Serializable
 
 class Vocab(Serializable):
-  '''
+  """
   Converts between strings and integer ids.
 
   Configured via either i2w or vocab_file (mutually exclusive).
@@ -10,7 +10,7 @@ class Vocab(Serializable):
     i2w (list of string): list of words, including <s> and </s>
     vocab_file (str): file containing one word per line, and not containing <s>, </s>, <unk>
     sentencepiece_vocab (bool): Set to ``True`` if ``vocab_file`` is the output of the sentencepiece tokenizer. Defaults to ``False``.
-  '''
+  """
 
   yaml_tag = "!Vocab"
 
@@ -26,7 +26,7 @@ class Vocab(Serializable):
     assert i2w is None or vocab_file is None
     if vocab_file:
       i2w = Vocab.i2w_from_vocab_file(vocab_file, sentencepiece_vocab)
-    if (i2w is not None):
+    if i2w is not None:
       self.i2w = i2w
       self.w2i = {word: word_id for (word_id, word) in enumerate(self.i2w)}
       self.frozen = True

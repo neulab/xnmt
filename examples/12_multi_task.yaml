@@ -11,12 +11,13 @@ exp1-multi_task: !Experiment
     default_layer_dim: 64
   train: !SameBatchMultiTaskTrainingRegimen
     trainer: !AdamTrainer {}
+    n_task_steps: [2,1]
     tasks:
     - !SimpleTrainingTask # first task is the main task: it will control early stopping, learning rate schedule, model checkpoints, ..
       name: first_task
       run_for_epochs: 6
       batcher: !SrcBatcher
-        batch_size: 6 # batch size is twice as big as for task 2, which will give task 1 more impact during training
+        batch_size: 6
       src_file: examples/data/head.ja
       trg_file: examples/data/head.en
       model: !DefaultTranslator
@@ -42,12 +43,12 @@ exp1-multi_task: !Experiment
         trg_embedder: !SimpleWordEmbedder
           emb_dim: 64
           vocab: !Ref {name: trg_vocab}
-        decoder: !MlpSoftmaxDecoder
-          rnn_layer: !UniLSTMSeqTransducer
+        decoder: !AutoRegressiveDecoder
+          rnn: !UniLSTMSeqTransducer
             layers: 1
             hidden_dim: 64
           bridge: !CopyBridge {}
-          mlp_layer: !MLP
+          scorer: !Softmax
             vocab: !Ref {name: trg_vocab}
       dev_tasks:
         - !AccuracyEvalTask
@@ -59,7 +60,7 @@ exp1-multi_task: !Experiment
     - !SimpleTrainingTask
       name: second_task
       batcher: !SrcBatcher
-        batch_size: 3
+        batch_size: 6
       src_file: examples/data/head.ja
       trg_file: examples/data/head.en
       model: !DefaultTranslator
@@ -79,9 +80,9 @@ exp1-multi_task: !Experiment
         trg_embedder: !SimpleWordEmbedder
           emb_dim: 64
           vocab: !Ref {name: trg_vocab}
-        decoder: !MlpSoftmaxDecoder
+        decoder: !AutoRegressiveDecoder
           bridge: !CopyBridge {}
-          mlp_layer: !MLP
+          scorer: !Softmax
             vocab: !Ref {name: trg_vocab}
       dev_tasks:
         - !AccuracyEvalTask

@@ -6,19 +6,20 @@ import numpy as np
 from xnmt.attender import MlpAttender, DotAttender
 from xnmt.batcher import mark_as_batch, Mask, SrcBatcher
 from xnmt.bridge import CopyBridge
-from xnmt.decoder import MlpSoftmaxDecoder
+from xnmt.decoder import AutoRegressiveDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.eval_task import LossEvalTask
 import xnmt.events
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculator import MLELoss
-from xnmt.mlp import MLP
+from xnmt.loss_calculator import AutoRegressiveMLELoss
 from xnmt.optimizer import AdamTrainer
 from xnmt.param_collection import ParamManager
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
 import xnmt.training_regimen
+from xnmt.transform import NonLinear
 from xnmt.translator import DefaultTranslator
+from xnmt.scorer import Softmax
 from xnmt.vocab import Vocab
 
 class TestTruncatedBatchTraining(unittest.TestCase):
@@ -55,15 +56,15 @@ class TestTruncatedBatchTraining(unittest.TestCase):
       dy.renew_cg()
       train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
                                    trg=trg_sents_trunc[sent_id],
-                                   loss_calculator=MLELoss()).value()
+                                   loss_calculator=AutoRegressiveMLELoss()).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
                                    trg=mark_as_batch(trg_sents_trunc),
-                                   loss_calculator=MLELoss()).value()
-    self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)
+                                   loss_calculator=AutoRegressiveMLELoss()).value()
+    self.assertAlmostEqual(single_loss, np.sum(batched_loss), places=4)
 
   def test_loss_model1(self):
     layer_dim = 512
@@ -74,17 +75,14 @@ class TestTruncatedBatchTraining(unittest.TestCase):
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+      decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
                                                                hidden_dim=layer_dim,
                                                                decoder_input_dim=layer_dim,
-                                                               yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim,
-                                              hidden_dim=layer_dim,
-                                              decoder_rnn_dim=layer_dim,
-                                              vocab_size=100,
-                                              yaml_path="model.decoder.rnn_layer"),
+                                                               yaml_path="model.decoder.rnn"),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
+                                scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
@@ -99,17 +97,14 @@ class TestTruncatedBatchTraining(unittest.TestCase):
       encoder=PyramidalLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, layers=3),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+      decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
                                                                hidden_dim=layer_dim,
                                                                decoder_input_dim=layer_dim,
-                                                               yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim,
-                                              hidden_dim=layer_dim,
-                                              decoder_rnn_dim=layer_dim,
-                                              vocab_size=100,
-                                              yaml_path="model.decoder.rnn_layer"),
+                                                               yaml_path="model.decoder.rnn"),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
+                                scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
@@ -124,17 +119,14 @@ class TestTruncatedBatchTraining(unittest.TestCase):
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, layers=3),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+      decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
                                                                hidden_dim=layer_dim,
                                                                decoder_input_dim=layer_dim,
-                                                               yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim,
-                                              hidden_dim=layer_dim,
-                                              decoder_rnn_dim=layer_dim,
-                                              vocab_size=100,
-                                              yaml_path="model.decoder.rnn_layer"),
+                                                               yaml_path="model.decoder.rnn"),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
+                                scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
@@ -149,17 +141,14 @@ class TestTruncatedBatchTraining(unittest.TestCase):
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=DotAttender(),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+      decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
                                                                hidden_dim=layer_dim,
                                                                decoder_input_dim=layer_dim,
-                                                               yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim,
-                                              hidden_dim=layer_dim,
-                                              decoder_rnn_dim=layer_dim,
-                                              vocab_size=100,
-                                              yaml_path="model.decoder.rnn_layer"),
+                                                               yaml_path="model.decoder.rnn"),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
+                                scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
@@ -189,7 +178,7 @@ class TestBatchTraining(unittest.TestCase):
       single_sent[src_min-1] = Vocab.ES
       while len(single_sent)%pad_src_to_multiple != 0:
         single_sent.append(Vocab.ES)
-    trg_sents = self.trg_data[:batch_size]
+    trg_sents = sorted(self.trg_data[:batch_size], key=lambda x: len(x), reverse=True)
     trg_max = max([len(x) for x in trg_sents])
     trg_masks = Mask(np.zeros([batch_size, trg_max]))
     for i in range(batch_size):
@@ -202,15 +191,15 @@ class TestBatchTraining(unittest.TestCase):
       dy.renew_cg()
       train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
                                    trg=trg_sents[sent_id],
-                                   loss_calculator=MLELoss()).value()
+                                   loss_calculator=AutoRegressiveMLELoss()).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
     batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
                                    trg=mark_as_batch(trg_sents_padded, trg_masks),
-                                   loss_calculator=MLELoss()).value()
-    self.assertAlmostEqual(single_loss, sum(batched_loss), places=4)
+                                   loss_calculator=AutoRegressiveMLELoss()).value()
+    self.assertAlmostEqual(single_loss, np.sum(batched_loss), places=4)
 
   def test_loss_model1(self):
     layer_dim = 512
@@ -221,17 +210,14 @@ class TestBatchTraining(unittest.TestCase):
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+      decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
                                                                hidden_dim=layer_dim,
                                                                decoder_input_dim=layer_dim,
-                                                               yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim,
-                                              hidden_dim=layer_dim,
-                                              decoder_rnn_dim=layer_dim,
-                                              vocab_size=100,
-                                              yaml_path="model.decoder.rnn_layer"),
+                                                               yaml_path="model.decoder.rnn"),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
+                                scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
@@ -246,17 +232,14 @@ class TestBatchTraining(unittest.TestCase):
       encoder=PyramidalLSTMSeqTransducer(layers=3, input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+      decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
                                                                hidden_dim=layer_dim,
                                                                decoder_input_dim=layer_dim,
-                                                               yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim,
-                                              hidden_dim=layer_dim,
-                                              decoder_rnn_dim=layer_dim,
-                                              vocab_size=100,
-                                              yaml_path="model.decoder.rnn_layer"),
+                                                               yaml_path="model.decoder.rnn"),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
+                                scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
@@ -271,17 +254,14 @@ class TestBatchTraining(unittest.TestCase):
       encoder=BiLSTMSeqTransducer(layers=3, input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+      decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                 trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
                                                                hidden_dim=layer_dim,
                                                                decoder_input_dim=layer_dim,
-                                                               yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim,
-                                              hidden_dim=layer_dim,
-                                              decoder_rnn_dim=layer_dim,
-                                              vocab_size=100,
-                                              yaml_path="model.decoder.rnn_layer"),
+                                                               yaml_path="model.decoder.rnn"),
+                                transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
+                                scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     model.set_train(False)
@@ -300,7 +280,7 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args = {}
     train_args['src_file'] = "examples/data/head.ja"
     train_args['trg_file'] = "examples/data/head.en"
-    train_args['loss_calculator'] = MLELoss()
+    train_args['loss_calculator'] = AutoRegressiveMLELoss()
     train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(),
                                             trg_reader=PlainTextReader(),
                                             src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
@@ -308,17 +288,14 @@ class TestTrainDevLoss(unittest.TestCase):
                                             attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim,
                                                                  hidden_dim=layer_dim),
                                             trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-                                            decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                            decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                                                       trg_embed_dim=layer_dim,
-                                                                      rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                                                      rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
                                                                                                      hidden_dim=layer_dim,
                                                                                                      decoder_input_dim=layer_dim,
-                                                                                                     yaml_path="model.decoder.rnn_layer"),
-                                                                      mlp_layer=MLP(input_dim=layer_dim,
-                                                                                    hidden_dim=layer_dim,
-                                                                                    decoder_rnn_dim=layer_dim,
-                                                                                    vocab_size=100,
-                                                                                    yaml_path="model.decoder.rnn_layer"),
+                                                                                                     yaml_path="model.decoder.rnn"),
+                                                                      transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
+                                                                      scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                                                       bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
@@ -330,7 +307,7 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['run_for_epochs'] = 1
     training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(**train_args)
     training_regimen.run_training(save_fct = lambda: None, update_weights=False)
-    self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum() / training_regimen.train_loss_tracker.epoch_words,
+    self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
                            training_regimen.dev_loss_tracker.dev_score.loss, places=5)
 
 class TestOverfitting(unittest.TestCase):
@@ -345,7 +322,7 @@ class TestOverfitting(unittest.TestCase):
     train_args = {}
     train_args['src_file'] = "examples/data/head.ja"
     train_args['trg_file'] = "examples/data/head.en"
-    train_args['loss_calculator'] = MLELoss()
+    train_args['loss_calculator'] = AutoRegressiveMLELoss()
     train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(),
                                             trg_reader=PlainTextReader(),
                                             src_embedder=SimpleWordEmbedder(vocab_size=100, emb_dim=layer_dim),
@@ -355,17 +332,14 @@ class TestOverfitting(unittest.TestCase):
                                                                  state_dim=layer_dim,
                                                                  hidden_dim=layer_dim),
                                             trg_embedder=SimpleWordEmbedder(vocab_size=100, emb_dim=layer_dim),
-                                            decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
+                                            decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                                                       trg_embed_dim=layer_dim,
-                                                                      rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                                                      rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
                                                                                                      hidden_dim=layer_dim,
                                                                                                      decoder_input_dim=layer_dim,
-                                                                                                     yaml_path="model.decoder.rnn_layer"),
-                                                                      mlp_layer=MLP(input_dim=layer_dim,
-                                                                                    hidden_dim=layer_dim,
-                                                                                    decoder_rnn_dim=layer_dim,
-                                                                                    vocab_size=100,
-                                                                                    yaml_path="model.decoder.rnn_layer"),
+                                                                                                     yaml_path="model.decoder.rnn"),
+                                                                      transform=NonLinear(input_dim=layer_dim*2, output_dim=layer_dim),
+                                                                      scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                                                       bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
@@ -379,7 +353,7 @@ class TestOverfitting(unittest.TestCase):
     for _ in range(50):
       training_regimen.run_training(save_fct=lambda:None, update_weights=True)
     self.assertAlmostEqual(0.0,
-                           training_regimen.train_loss_tracker.epoch_loss.sum() / training_regimen.train_loss_tracker.epoch_words,
+                           training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
                            places=2)
 
 if __name__ == '__main__':

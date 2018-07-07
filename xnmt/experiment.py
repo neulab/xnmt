@@ -3,19 +3,19 @@ from typing import List, Optional
 from xnmt import logger
 from xnmt.exp_global import ExpGlobal
 from xnmt.eval_task import EvalTask
-from xnmt.generator import GeneratorModel
+from xnmt.model_base import GeneratorModel
 from xnmt.param_collection import ParamManager
 from xnmt.preproc_runner import PreprocRunner
 from xnmt.training_regimen import TrainingRegimen
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class Experiment(Serializable):
-  '''
+  """
   A default experiment that performs preprocessing, training, and evaluation.
 
   The initializer calls ParamManager.populate(), meaning that model construction should be finalized at this point.
   __call__() runs the individual steps.
-  
+
   Args:
     exp_global: global experiment settings
     preproc: carry out preprocessing if specified
@@ -23,7 +23,7 @@ class Experiment(Serializable):
     train: The training regimen defines the training loop.
     evaluate: list of tasks to evaluate the model after training finishes.
     random_search_report: When random search is used, this holds the settings that were randomly drawn for documentary purposes.
-  '''
+  """
 
   yaml_tag = '!Experiment'
 

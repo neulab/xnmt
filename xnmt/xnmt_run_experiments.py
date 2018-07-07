@@ -92,7 +92,7 @@ def main(overwrite_args=None):
 
       model_file = glob_args.model_file
 
-      uninitialized_exp_args.data.exp_global.commandline_args = args
+      uninitialized_exp_args.data.exp_global.commandline_args = vars(args)
 
       # Create the model
       experiment = initialize_if_needed(uninitialized_exp_args)
