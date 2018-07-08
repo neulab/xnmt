@@ -260,15 +260,9 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     loss_builder = loss.FactoredLossExpr()
     standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-<<<<<<< HEAD
     additional_loss = self.model.calc_additional_loss(src, trg, standard_loss)
-    loss_builder.add_loss("standard_loss", standard_loss)
-    loss_builder.add_loss("additional_loss", additional_loss)
-=======
-    additional_loss = self.model.calc_additional_loss(standard_loss)
     loss_builder.add_factored_loss_expr(standard_loss)
     loss_builder.add_factored_loss_expr(additional_loss)
->>>>>>> master
     return loss_builder
 
   def checkpoint_needed(self):

@@ -9,6 +9,7 @@ from xnmt.events import handle_xnmt_event
 from xnmt.model_base import GeneratorModel, EventTrigger
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.expression_sequence import ExpressionSequence
+from xnmt.reports import Reportable
 
 ##### A class for retrieval databases
 # This file contains databases used for retrieval.

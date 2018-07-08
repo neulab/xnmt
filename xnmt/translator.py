@@ -14,16 +14,11 @@ from xnmt.batcher import Batch, mark_as_batch, is_batched, Mask
 from xnmt.decoder import AutoRegressiveDecoder, AutoRegressiveDecoderState
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
-<<<<<<< HEAD
-from xnmt.generator import GeneratorModel
-from xnmt.hyper_parameters import multiply_weight
-from xnmt.inference import SimpleInference
 from xnmt.input import SimpleSentenceInput
-=======
 from xnmt.model_base import GeneratorModel, EventTrigger
 from xnmt.inference import AutoRegressiveInference
+from xnmt.hyper_parameters import multiply_weight
 from xnmt.input import Input, SimpleSentenceInput
->>>>>>> master
 import xnmt.length_normalization
 from xnmt.loss import FactoredLossExpr
 from xnmt.loss_calculator import LossCalculator
@@ -36,6 +31,7 @@ from collections import namedtuple
 from xnmt.vocab import Vocab
 from xnmt.persistence import Ref, Path
 from xnmt.constants import EPSILON
+from xnmt.reports import Reportable
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
@@ -98,7 +94,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
     trg_embedder (Embedder): A word embedder for the output language
     decoder (Decoder): A decoder
     inference (AutoRegressiveInference): The default inference strategy used for this model
-    calc_global_fertility (bool):
+    global_fertility (float): A parameter for global fertility weight. 0 for no computation.
   """
 
   yaml_tag = '!DefaultTranslator'
@@ -109,17 +105,14 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
                encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
                trg_embedder=bare(SimpleWordEmbedder), decoder=bare(AutoRegressiveDecoder),
                inference=bare(AutoRegressiveInference), search_strategy=bare(BeamSearch),
-               calc_global_fertility=False):
+               global_fertility=0):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
-    self.calc_global_fertility = calc_global_fertility
-    self.calc_length_difference = calc_length_difference
-    self.global_fertility_weight = global_fertility_weight
-    self.length_difference_weight = length_difference_weight
+    self.global_fertility = global_fertility
     self.inference = inference
     self.search_strategy = search_strategy
 
@@ -149,19 +142,15 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
     model_loss = FactoredLossExpr()
     model_loss.add_factored_loss_expr(loss_calculator.calc_loss(self, initial_state, src, trg))
 
-    if self.calc_global_fertility:
+    if self.global_fertility != 0:
       # philip30: I assume that attention_vecs is already masked src wisely.
       # Now applying the mask to the target
       masked_attn = self.attender.attention_vecs
       if trg.mask is not None:
         trg_mask = trg.mask.get_active_one_mask().transpose()
         masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
+      model_loss.add_loss("fertility", self._global_fertility(masked_attn))
 
-    if self.calc_global_fertility:
-      model_loss.add_loss("fertility", self.global_fertility(masked_attn))
-
-    if self.calc_length_difference:
-      model_loss.add_loss("length_difference", self.length_difference(encodings, trg))
     return model_loss
 
   def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:Batch, input_word:Batch) \
@@ -243,10 +232,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
     next_logsoftmax = self.decoder.calc_log_probs(next_state)
     return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
 
-  def global_fertility(self, a):
-    return multiply_weight(dy.sum_elems(dy.square(1 - dy.esum(a))), self.global_fertility_weight)
-
-    return -dy.sum_elems(dy.esum(entropy))
+  def _global_fertility(self, a):
+    return multiply_weight(dy.sum_elems(dy.square(1 - dy.esum(a))), self.global_fertility)
 
   def set_reporting_src_vocab(self, src_vocab):
     """

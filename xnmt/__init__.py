@@ -18,8 +18,6 @@ dyparams = _dynet.DynetParams()
 dyparams.from_args()
 
 
-import xnmt.linear
-
 # all Serializable objects must be imported here in order to be parsable
 # using the !Classname YAML syntax
 import xnmt.attender

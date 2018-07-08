@@ -75,11 +75,18 @@ class AutoRegressiveDecoder(Decoder, Serializable):
                transform: Transform = bare(AuxNonLinear),
                scorer: Scorer = bare(Softmax),
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
-    assert rnn_input_dim == rnn_layer.input_dim, "Wrong input dimension in RNN layer"
+    self.param_col = ParamManager.my_params(self)
+    self.input_dim = input_dim
+    self.truncate_dec_batches = truncate_dec_batches
     self.bridge = bridge
-    self.rnn_layer = rnn_layer
-    self.mlp_layer = mlp_layer
-    self.loss_scaler = loss_scaler
+    self.rnn = rnn
+    self.transform = transform
+    self.scorer = scorer
+    # Input feeding
+    self.input_feeding = input_feeding
+    rnn_input_dim = trg_embed_dim
+    if input_feeding:
+      rnn_input_dim += input_dim
     assert rnn_input_dim == rnn.input_dim, "Wrong input dimension in RNN layer: {} != {}".format(rnn_input_dim, rnn.input_dim)
 
   def shared_params(self):
@@ -122,7 +129,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     rnn_state = mlp_dec_state.rnn_state
     if self.truncate_dec_batches: rnn_state, inp = xnmt.batcher.truncate_batches(rnn_state, inp)
     return AutoRegressiveDecoderState(rnn_state=rnn_state.add_input(inp),
-                                  context=mlp_dec_state.context)
+                                      context=mlp_dec_state.context)
 
   def _calc_transform(self, mlp_dec_state: AutoRegressiveDecoderState) -> dy.Expression:
     h = dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context])

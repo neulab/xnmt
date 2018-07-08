@@ -11,21 +11,22 @@ from scipy.stats import poisson
 
 from xnmt.attender import MlpAttender
 from xnmt.bridge import CopyBridge
-from xnmt.decoder import MlpSoftmaxDecoder
+from xnmt.decoder import AutoRegressiveDecoder
 from xnmt.embedder import SimpleWordEmbedder
 import xnmt.events
 import xnmt.batcher
-from xnmt.input_reader import PlainTextReader, SegmentationTextReader
+from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculator import MLELoss
-from xnmt.mlp import MLP
+from xnmt.loss_calculator import AutoRegressiveMLELoss
 from xnmt.param_collection import ParamManager
 from xnmt.translator import DefaultTranslator
-from xnmt.loss_calculator import MLELoss
+from xnmt.loss_calculator import AutoRegressiveMLELoss
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.hyper_parameters import *
 from xnmt.segmenting_encoder import *
 from xnmt.segmenting_composer import *
+from xnmt.transform import AuxNonLinear
+from xnmt.scorer import Softmax
 from xnmt.constants import EPSILON
 from xnmt.transducer import IdentitySeqTransducer
 from xnmt.vocab import Vocab
@@ -46,7 +47,7 @@ class TestSegmentingEncoder(unittest.TestCase):
                                             transformer=self.tail_transformer)
     self.src_reader = PlainTextReader()
     self.trg_reader = PlainTextReader()
-    self.loss_calculator = MLELoss()
+    self.loss_calculator = AutoRegressiveMLELoss()
     self.segmenting_encoder = SegmentingSeqTransducer(
       embed_encoder = self.segment_embed_encoder_bilstm,
       segment_composer =  self.segment_composer,
@@ -63,16 +64,20 @@ class TestSegmentingEncoder(unittest.TestCase):
       encoder=self.segmenting_encoder,
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
-                                trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
-                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
+      decoder=AutoRegressiveDecoder(input_dim=layer_dim,
+                                    rnn=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim,
+                                                             decoder_input_dim=layer_dim, yaml_path="decoder"),
+                                    transform=AuxNonLinear(input_dim=layer_dim, output_dim=layer_dim,
+                                                           aux_input_dim=layer_dim),
+                                    scorer=Softmax(vocab_size=100, input_dim=layer_dim),
+                                    trg_embed_dim=layer_dim,
+                                    bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
+
     )
     self.model.set_train(True)
 
     self.layer_dim = layer_dim
-    self.src_data = list(self.model.src_reader.read_sents("examples/data/head-char.ja"))
+    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
     my_batcher = xnmt.batcher.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
@@ -204,9 +209,9 @@ class TestPriorSegmentation(unittest.TestCase):
     self.segment_embed_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
     self.segment_composer = SegmentComposer(encoder=self.segment_encoder_bilstm,
                                             transformer=self.tail_transformer)
-    self.src_reader = SegmentationTextReader()
+    self.src_reader = CharFromWordTextReader()
     self.trg_reader = PlainTextReader()
-    self.loss_calculator = MLELoss()
+    self.loss_calculator = AutoRegressiveMLELoss()
     self.segmenting_encoder = SegmentingSeqTransducer(
       embed_encoder = self.segment_embed_encoder_bilstm,
       segment_composer =  self.segment_composer,
@@ -223,16 +228,19 @@ class TestPriorSegmentation(unittest.TestCase):
       encoder=self.segmenting_encoder,
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
       trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=MlpSoftmaxDecoder(input_dim=layer_dim,
-                                trg_embed_dim=layer_dim,
-                                rnn_layer=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, decoder_input_dim=layer_dim, yaml_path="model.decoder.rnn_layer"),
-                                mlp_layer=MLP(input_dim=layer_dim, hidden_dim=layer_dim, decoder_rnn_dim=layer_dim, vocab_size=100, yaml_path="model.decoder.rnn_layer"),
-                                bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
+      decoder=AutoRegressiveDecoder(input_dim=layer_dim,
+                                    rnn=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim,
+                                                             decoder_input_dim=layer_dim, yaml_path="decoder"),
+                                    transform=AuxNonLinear(input_dim=layer_dim, output_dim=layer_dim,
+                                                           aux_input_dim=layer_dim),
+                                    scorer=Softmax(vocab_size=100, input_dim=layer_dim),
+                                    trg_embed_dim=layer_dim,
+                                    bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(True)
 
     self.layer_dim = layer_dim
-    self.src_data = list(self.model.src_reader.read_sents(["examples/data/head-char.ja", "examples/data/head-seg.ja"]))
+    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
     my_batcher = xnmt.batcher.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)

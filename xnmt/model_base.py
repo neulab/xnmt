@@ -103,7 +103,9 @@ class EventTrigger(object):
     pass
 
   @events.register_xnmt_event_sum
-  def calc_additional_loss(self, reward):
+  def calc_additional_loss(self, src: Union[xnmt.input.Input, batcher.Batch],
+                                 trg: Union[xnmt.input.Input, batcher.Batch],
+                                 reward) -> loss.FactoredLossExpr:
     """
     Trigger event for calculating additional loss (e.g. reinforce loss) based on the reward
 

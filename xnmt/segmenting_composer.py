@@ -2,7 +2,7 @@ import dynet as dy
 import numpy as np
 from collections import Counter
 
-from xnmt.linear import Linear
+from xnmt.transform import Linear
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
 from xnmt.param_init import GlorotInitializer

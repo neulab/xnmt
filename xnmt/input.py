@@ -78,7 +78,6 @@ class SimpleSentenceInput(Input):
 
   Args:
     words (List[int]): list of integer word ids
-    Annotation (Dict): annotation for the sentence
   """
   def __init__(self, words: Sequence[int]):
       self.words = words
@@ -109,7 +108,7 @@ class SimpleSentenceInput(Input):
       return self
     new_words = list(self.words)
     new_words.extend([token] * pad_len)
-    return self.__class__(new_words, self.annotation)
+    return self.__class__(new_words)
 
   def get_truncated_sent(self, trunc_len: int) -> 'Input':
     if trunc_len == 0:
