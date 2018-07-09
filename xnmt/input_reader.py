@@ -166,6 +166,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
       words = self.subword_model.SampleEncodeAsPieces(sentence.strip(), self.l, self.alpha)
     else:
       words = self.subword_model.EncodeAsPieces(sentence.strip())
+    words = [w.decode('utf-8') for w in words]
     return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
                                                        [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
 
