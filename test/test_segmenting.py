@@ -23,8 +23,8 @@ from xnmt.translator import DefaultTranslator
 from xnmt.loss_calculator import AutoRegressiveMLELoss
 from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.hyper_parameters import *
-from xnmt.segmenting_encoder import *
-from xnmt.segmenting_composer import *
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
 from xnmt.transform import AuxNonLinear
 from xnmt.scorer import Softmax
 from xnmt.constants import EPSILON
