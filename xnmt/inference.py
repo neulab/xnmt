@@ -20,7 +20,7 @@ class Inference(object):
     trg_file: path of file where trg translatons will be written
     ref_file: path of file with reference translations, e.g. for forced decoding
     max_src_len: Remove sentences from data to decode that are longer than this on the source side
-    max_num_sents: Decode only the first n sentences.
+    max_num_sents: Stop decoding after the first n sentences.
     mode: type of decoding to perform.
 
             * ``onebest``: generate one best.
@@ -73,11 +73,11 @@ class Inference(object):
 
     ref_scores = None
     if self.mode == 'score':
-      ref_scores = self._compute_losses(generator, ref_corpus, src_corpus)
+      ref_scores = self._compute_losses(generator, ref_corpus, src_corpus, self.max_num_sents)
       self._write_rescored_output(ref_scores, self.ref_file, trg_file)
 
     if self.mode == 'forceddebug':
-      ref_scores = self._compute_losses(generator, ref_corpus, src_corpus)
+      ref_scores = self._compute_losses(generator, ref_corpus, src_corpus, self.max_num_sents)
 
     if self.mode != 'score':
       self._generate_output(generator=generator, forced_ref_corpus=ref_corpus, assert_scores=ref_scores,
@@ -138,10 +138,11 @@ class Inference(object):
       for reporter in self.reporter:
         reporter.create_report(**report_input)
 
-  def _compute_losses(self, generator, ref_corpus, src_corpus) -> List[float]:
+  def _compute_losses(self, generator, ref_corpus, src_corpus, max_num_sents) -> List[float]:
     batched_src, batched_ref = self.batcher.pack(src_corpus, ref_corpus)
     ref_scores = []
-    for src, ref in zip(batched_src, batched_ref):
+    for sent_count, (src, ref) in enumerate(zip(batched_src, batched_ref)):
+      if max_num_sents and sent_count >= max_num_sents: break
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       loss_expr = self.compute_losses_one(generator, src, ref)
       if isinstance(loss_expr.value(), collections.abc.Iterable):
@@ -207,7 +208,7 @@ class IndependentOutputInference(Inference, Serializable):
     trg_file: path of file where trg translatons will be written
     ref_file: path of file with reference translations, e.g. for forced decoding
     max_src_len: Remove sentences from data to decode that are longer than this on the source side
-    max_num_sents: Decode only the first n sentences.
+    max_num_sents: Stop decoding after the first n sentences.
     post_process: post-processing of translation outputs (available string shortcuts:  ``none``, ``join-char``,
                   ``join-bpe``, ``join-piece``)
     mode: type of decoding to perform.
@@ -254,7 +255,7 @@ class AutoRegressiveInference(Inference, Serializable):
     trg_file: path of file where trg translatons will be written
     ref_file: path of file with reference translations, e.g. for forced decoding
     max_src_len: Remove sentences from data to decode that are longer than this on the source side
-    max_num_sents: Decode only the first n sentences.
+    max_num_sents: Stop decoding after the first n sentences.
     post_process: post-processing of translation outputs
                   (available string shortcuts:  ``none``,``join-char``,``join-bpe``,``join-piece``)
     search_strategy: a search strategy used during decoding.

@@ -34,7 +34,7 @@ import yaml
 from xnmt.tee import get_git_revision
 
 from xnmt.param_collection import ParamManager
-from xnmt import param_collection
+from xnmt import param_collection, util
 import xnmt
 
 def serializable_init(f):
@@ -1216,18 +1216,19 @@ class _YamlDeserializer(object):
     init_args = _get_init_args_defaults(obj)
     if "yaml_path" in init_args: init_params["yaml_path"] = path
     self.check_init_param_types(obj, init_params)
-    try:
-      if hasattr(obj, "xnmt_subcol_name"):
-        initialized_obj = obj.__class__(**init_params, xnmt_subcol_name=obj.xnmt_subcol_name)
-      else:
-        initialized_obj = obj.__class__(**init_params)
-      logger.debug(f"initialized {path}: {obj.__class__.__name__}@{id(obj)}({dict(init_params)})"[:1000])
-    except TypeError as e:
-      raise ComponentInitError(f"An error occurred when calling {type(obj).__name__}.__init__()\n"
-                               f" The following arguments were passed: {init_params}\n"
-                               f" The following arguments were expected: {init_args.keys()}\n"
-                               f" Current path: {path}\n"
-                               f" Error message: {e}")
+    with util.ReportOnException({"yaml_path":path}):
+      try:
+        if hasattr(obj, "xnmt_subcol_name"):
+          initialized_obj = obj.__class__(**init_params, xnmt_subcol_name=obj.xnmt_subcol_name)
+        else:
+          initialized_obj = obj.__class__(**init_params)
+        logger.debug(f"initialized {path}: {obj.__class__.__name__}@{id(obj)}({dict(init_params)})"[:1000])
+      except TypeError as e:
+        raise ComponentInitError(f"An error occurred when calling {type(obj).__name__}.__init__()\n"
+                                 f" The following arguments were passed: {init_params}\n"
+                                 f" The following arguments were expected: {init_args.keys()}\n"
+                                 f" Current path: {path}\n"
+                                 f" Error message: {e}")
     return initialized_obj
 
 def _resolve_serialize_refs(root):

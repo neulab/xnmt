@@ -1,4 +1,5 @@
 from itertools import zip_longest
+from functools import lru_cache
 import ast
 from typing import Sequence, Iterator
 
@@ -67,12 +68,13 @@ class BaseTextReader(InputReader):
     """
     raise RuntimeError("Input readers must implement the read_sent function")
 
+  @lru_cache(maxsize=128)
   def count_sents(self, filename):
-    f = open(filename, encoding='utf-8')
-    try:
-      return sum(1 for _ in f)
-    finally:
-      f.close()
+    newlines = 0
+    f = open(filename, 'r+b')
+    for line in f:
+      newlines += 1
+    return newlines
 
   def iterate_filtered(self, filename, filter_ids=None):
     """
@@ -164,6 +166,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
       words = self.subword_model.SampleEncodeAsPieces(sentence.strip(), self.l, self.alpha)
     else:
       words = self.subword_model.EncodeAsPieces(sentence.strip())
+    words = [w.decode('utf-8') for w in words]
     return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
                                                        [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
 
@@ -399,12 +402,14 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
   src_data = []
   trg_data = []
   if sample_sents:
+    logger.info(f"Starting to read {sample_sents} parallel sentences of {src_file} and {trg_file}")
     src_len = src_reader.count_sents(src_file)
     trg_len = trg_reader.count_sents(trg_file)
     if src_len != trg_len: raise RuntimeError(f"training src sentences don't match trg sentences: {src_len} != {trg_len}!")
     if max_num_sents and max_num_sents < src_len: src_len = trg_len = max_num_sents
     filter_ids = np.random.choice(src_len, sample_sents, replace=False)
   else:
+    logger.info(f"Starting to read {src_file} and {trg_file}")
     filter_ids = None
     src_len, trg_len = 0, 0
   src_train_iterator = src_reader.read_sents(src_file, filter_ids)
@@ -420,10 +425,14 @@ def read_parallel_corpus(src_reader, trg_reader, src_file, trg_file,
       src_data.append(src_sent)
       trg_data.append(trg_sent)
 
+  logger.info(f"Done reading {src_file} and {trg_file}. Packing into batches.")
+
   # Pack batches
   if batcher is not None:
     src_batches, trg_batches = batcher.pack(src_data, trg_data)
   else:
     src_batches, trg_batches = src_data, trg_data
+
+  logger.info(f"Done packing batches.")
 
   return src_data, trg_data, src_batches, trg_batches
