@@ -1,6 +1,8 @@
 from typing import Any, Sequence
 
 import numpy as np
+import functools
+import copy
 from xnmt.vocab import Vocab
 
 from xnmt import vocab
@@ -87,7 +89,8 @@ class SimpleSentenceInput(Input):
 
   def __len__(self):
     return len(self.words)
-
+  
+  @functools.lru_cache(maxsize=1)
   def len_unpadded(self):
     return sum(x != vocab.Vocab.ES for x in self.words)
 
@@ -106,9 +109,10 @@ class SimpleSentenceInput(Input):
     """
     if pad_len == 0:
       return self
-    new_words = list(self.words)
-    new_words.extend([token] * pad_len)
-    return self.__class__(new_words)
+    # Copy is used to copy all possible annotations
+    new_sent = copy.deepcopy(self)
+    new_sent.words.extend([token] * pad_len)
+    return new_sent
 
   def get_truncated_sent(self, trunc_len: int) -> 'Input':
     if trunc_len == 0:

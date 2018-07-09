@@ -24,7 +24,7 @@ class SegmentComposer(Serializable):
     return self.encoder.hidden_dim
 
   def transduce(self, inputs):
-    return self.transformer.transform(self.encoder, self.encoder(inputs))
+    return self.transformer.transform(self.encoder, self.encoder.transduce(inputs))
 
 class TailSegmentTransformer(Serializable):
   yaml_tag = u"!TailSegmentTransformer"
@@ -136,11 +136,13 @@ class WordEmbeddingSegmentComposer(Serializable):
   def set_word_boundary(self, start, end, src):
     if self.cached_src != src:
       self.cached_src = src
-      self.src_sent = "".join([self.src_vocab[i] for i in src])
-    self.word = self.word_vocab.convert(self.src_sent[start:end+1]) # Embedding
+      self.src_sent = tuple([self.src_vocab[i] for i in src])
+
+    self.word = " ".join(self.src_sent[start:end+1])
+    self.word_id = self.word_vocab.convert(self.word) # Embedding
 
   def transduce(self, inputs):
-    return self.embedding[self.word]
+    return self.embedding[self.word_id]
 
 class ConvolutionSegmentComposer(Serializable):
   yaml_tag = "!ConvolutionSegmentComposer"

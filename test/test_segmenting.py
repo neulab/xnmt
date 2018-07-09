@@ -15,7 +15,7 @@ from xnmt.decoder import AutoRegressiveDecoder
 from xnmt.embedder import SimpleWordEmbedder
 import xnmt.events
 import xnmt.batcher
-from xnmt.input_reader import PlainTextReader
+from xnmt.input_reader import PlainTextReader, CharFromWordTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculator import AutoRegressiveMLELoss
 from xnmt.param_collection import ParamManager
@@ -109,7 +109,7 @@ class TestSegmentingEncoder(unittest.TestCase):
       enc_mask = self.extract_mask(res_embed.mask, i, len(self.src[batch_idx][i]))
       loss_res_mask = enc.enc_mask[i] # mask used to calculate additional loss
       # expected
-      exp_length = self.src[batch_idx][i].original_length/length_prior
+      exp_length = self.src[batch_idx][i].len_unpadded()/length_prior
       exp_lp = math.log(poisson.pmf(len(seg_dec), exp_length))
       exp_flag_enc = len(res_mask) - numpy.count_nonzero(res_mask)
       exp_loss_res_mask = numpy.count_nonzero(1-enc_mask) - 1
@@ -127,7 +127,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     # Test For every items in the batch
     for batch_idx in range(len(self.src)):
       res_embed = self.inp_emb(batch_idx)
-      res_enc = enc(res_embed)
+      res_enc = enc.transduce(res_embed)
       for i in range(len(self.src[batch_idx])):
         single_loss_test(batch_idx, i, res_embed, res_enc)
 
@@ -136,11 +136,11 @@ class TestSegmentingEncoder(unittest.TestCase):
     emb = self.inp_emb(0)
     # Sample from softmax during training
     self.model.set_train(True)
-    enc(emb)
+    enc.transduce(emb)
     self.assertEqual(enc.sample_action, SampleAction.SOFTMAX)
     # Argmax during Testing
     self.model.set_train(False)
-    enc(emb)
+    enc.transduce(emb)
     self.assertEqual(enc.sample_action, SampleAction.ARGMAX)
   
   def test_eps_greedy(self):
@@ -148,10 +148,10 @@ class TestSegmentingEncoder(unittest.TestCase):
     enc.eps = DefinedSequence([1.0])
     emb = self.inp_emb(0)
     self.model.set_train(True)
-    enc(emb)
+    enc.transduce(emb)
     self.assertEqual(enc.sample_action, SampleAction.LP)
     self.model.set_train(False)
-    enc(emb)
+    enc.transduce(emb)
     self.assertEqual(enc.sample_action, SampleAction.ARGMAX)
 
   def test_sample_from_poisson(self):
@@ -167,25 +167,25 @@ class TestSegmentingEncoder(unittest.TestCase):
     enc = self.segmenting_encoder
     enc.embed_encoder = IdentitySeqTransducer()
     enc.compose_char = True
-    enc(self.inp_emb(0))
+    enc.transduce(self.inp_emb(0))
 
   def test_sum_composer(self):
     enc = self.segmenting_encoder
     enc.segment_composer.encoder = IdentitySeqTransducer()
     enc.segment_composer.transformer = SumSegmentTransformer()
-    enc(self.inp_emb(0))
+    enc.transduce(self.inp_emb(0))
 
   def test_avg_composer(self):
     enc = self.segmenting_encoder
     enc.segment_composer.encoder = IdentitySeqTransducer()
     enc.segment_composer.transformer = AverageSegmentTransformer()
-    enc(self.inp_emb(0))
+    enc.transduce(self.inp_emb(0))
 
   def test_max_composer(self):
     enc = self.segmenting_encoder
     enc.segment_composer.encoder = IdentitySeqTransducer()
     enc.segment_composer.transformer = MaxSegmentTransformer()
-    enc(self.inp_emb(0))
+    enc.transduce(self.inp_emb(0))
 
   def test_convolution_composer(self):
     enc = self.segmenting_encoder
@@ -194,7 +194,7 @@ class TestSegmentingEncoder(unittest.TestCase):
                                                       embed_dim=self.layer_dim,
                                                       hidden_dim=self.layer_dim)
     self.model.set_train(True)
-    enc(self.inp_emb(0))
+    enc.transduce(self.inp_emb(0))
 
 class TestPriorSegmentation(unittest.TestCase):
   def setUp(self):
@@ -260,10 +260,10 @@ class TestPriorSegmentation(unittest.TestCase):
         src_vocab = self.src_reader.vocab,
         hidden_dim = self.layer_dim
     )
-    enc(self.inp_emb(0))
+    enc.transduce(self.inp_emb(0))
     last_sent = self.src[0][-1]
-    last_converted_word = self.src_reader.vocab[last_sent[last_sent.original_length-1-1]]
-    assert enc.segment_composer.word == enc.segment_composer.word_vocab.convert(last_converted_word)
+    last_converted_word = self.src_reader.vocab[last_sent[last_sent.len_unpadded()]]
+    assert enc.segment_composer.word == last_converted_word
 
   def test_charngram_composer(self):
     enc = self.segmenting_encoder
@@ -274,7 +274,7 @@ class TestPriorSegmentation(unittest.TestCase):
         src_vocab = self.src_reader.vocab,
         hidden_dim = self.layer_dim
     )
-    enc(self.inp_emb(0))  
+    enc.transduce(self.inp_emb(0))  
   
   def test_add_multiple_segment_composer(self):
     enc = self.segmenting_encoder
@@ -290,7 +290,7 @@ class TestPriorSegmentation(unittest.TestCase):
                                  hidden_dim = self.layer_dim)
       ]
     )
-    enc(self.inp_emb(0))
+    enc.transduce(self.inp_emb(0))
 
 if __name__ == "__main__":
   unittest.main()

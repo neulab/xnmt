@@ -113,7 +113,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
       lower_bound = 0
       for upper_bound in sorted(decision):
         expr_tensor = dy.pick_range(sequence, lower_bound, upper_bound+1, 1)
-        expr_seq = expression_sequence.ExpressionSequence(expr_tensor=expr_tensor)
+        expr_seq = ExpressionSequence(expr_tensor=expr_tensor)
         self.segment_composer.set_word_boundary(lower_bound, upper_bound, src_sent)
         composed = self.segment_composer.transduce(expr_seq)
         outputs[i].append(composed)
@@ -145,9 +145,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     self.segment_logsoftmaxes = None
     self.bs = None
 
-    # Note we want to use the original length of the input
-    # Refactor it better?
-    self.src_length = [src.original_length for src in self.src_sent]
+    self.src_length = [src.len_unpadded() for src in self.src_sent]
     self.expected_length = [src_len / self.length_prior for src_len in self.src_length]
 
   def pad(self, outputs):
@@ -172,13 +170,13 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     eps = self.eps.value() if self.eps is not None else None
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
     # Flags
-    is_presegment_provided = self.src_sent[0].has_annotation("segment")
+    is_presegment_provided = hasattr(self.src_sent[0], "segment")
     is_epsgreedy_triggered = eps is not None and numpy.random.random() <= eps
     # Sample based on the criterion
     if self.learn_segmentation and not self.train:
       segment_decisions = self.sample_from_softmax(encodings, batch_size, segment_logsoftmaxes)
     elif is_presegment_provided:
-      segment_decisions = self.sample_from_prior(encodings, batch_size)
+      segment_decisions = self.sample_from_gold(encodings, batch_size)
     elif is_epsgreedy_triggered:
       segment_decisions = self.sample_from_poisson(encodings, batch_size)
     else:
@@ -206,10 +204,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     return ret, segment_logsoftmaxes
 
   # Sample from prior segmentation
-  def sample_from_prior(self, encodings, batch_size):
-    #print("sample_from_prior")
+  def sample_from_gold(self, encodings, batch_size):
+    #print("sample_from_gold")
     self.sample_action = SampleAction.GOLD
-    return [sent.annotation["segment"] for sent in self.src_sent]
+    return [sent.segment for sent in self.src_sent]
 
   # Sample from poisson prior
   def sample_from_poisson(self, encodings, batch_size):
