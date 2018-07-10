@@ -10,7 +10,7 @@ from xnmt.decoder import AutoRegressiveDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.eval_task import LossEvalTask
 import xnmt.events
-from xnmt.input_reader import PlainTextReader
+from xnmt.input_reader import PlainTextReader, SimpleSentenceInput
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculator import AutoRegressiveMLELoss
 from xnmt.optimizer import AdamTrainer
@@ -40,16 +40,19 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     """
     batch_size=5
     src_sents = self.src_data[:batch_size]
-    src_min = min([len(x) for x in src_sents])
+    src_min = min([x.sent_len() for x in src_sents])
     src_sents_trunc = [s[:src_min] for s in src_sents]
     for single_sent in src_sents_trunc:
       single_sent[src_min-1] = Vocab.ES
       while len(single_sent)%pad_src_to_multiple != 0:
         single_sent.append(Vocab.ES)
     trg_sents = self.trg_data[:batch_size]
-    trg_min = min([len(x) for x in trg_sents])
+    trg_min = min([x.sent_len() for x in trg_sents])
     trg_sents_trunc = [s[:trg_min] for s in trg_sents]
     for single_sent in trg_sents_trunc: single_sent[trg_min-1] = Vocab.ES
+
+    src_sents_trunc = [SimpleSentenceInput(s) for s in src_sents_trunc]
+    trg_sents_trunc = [SimpleSentenceInput(s) for s in trg_sents_trunc]
 
     single_loss = 0.0
     for sent_id in range(batch_size):
@@ -172,19 +175,22 @@ class TestBatchTraining(unittest.TestCase):
     """
     batch_size = 5
     src_sents = self.src_data[:batch_size]
-    src_min = min([len(x) for x in src_sents])
+    src_min = min([x.sent_len() for x in src_sents])
     src_sents_trunc = [s[:src_min] for s in src_sents]
     for single_sent in src_sents_trunc:
       single_sent[src_min-1] = Vocab.ES
       while len(single_sent)%pad_src_to_multiple != 0:
         single_sent.append(Vocab.ES)
-    trg_sents = sorted(self.trg_data[:batch_size], key=lambda x: len(x), reverse=True)
-    trg_max = max([len(x) for x in trg_sents])
+    trg_sents = sorted(self.trg_data[:batch_size], key=lambda x: x.sent_len(), reverse=True)
+    trg_max = max([x.sent_len() for x in trg_sents])
     trg_masks = Mask(np.zeros([batch_size, trg_max]))
     for i in range(batch_size):
-      for j in range(len(trg_sents[i]), trg_max):
+      for j in range(trg_sents[i].sent_len(), trg_max):
         trg_masks.np_arr[i,j] = 1.0
-    trg_sents_padded = [[w for w in s] + [Vocab.ES]*(trg_max-len(s)) for s in trg_sents]
+    trg_sents_padded = [[w for w in s] + [Vocab.ES]*(trg_max-s.sent_len()) for s in trg_sents]
+
+    src_sents_trunc = [SimpleSentenceInput(s) for s in src_sents_trunc]
+    trg_sents_padded = [SimpleSentenceInput(s) for s in trg_sents_padded]
 
     single_loss = 0.0
     for sent_id in range(batch_size):

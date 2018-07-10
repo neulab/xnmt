@@ -106,24 +106,26 @@ class Inference(object):
       cur_sent_i = 0
       ref_batch = None
       for batch_i, src_batch in enumerate(src_batches):
-        if max_src_len is not None and len(src_batch[0]) > max_src_len:
-          output_txt = "\n".join([NO_DECODING_ATTEMPTED] * len(src_batch))
+        batch_size = src_batch.batch_size()
+        src_len = src_batch.sent_len()
+        if max_src_len is not None and src_len > max_src_len:
+          output_txt = "\n".join([NO_DECODING_ATTEMPTED] * batch_size)
           fp.write(f"{output_txt}\n")
         else:
           if forced_ref_corpus: ref_batch = ref_batches[batch_i]
           dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-          outputs = self.generate_one(generator, src_batch, range(cur_sent_i,cur_sent_i+len(src_batch)), ref_batch)
+          outputs = self.generate_one(generator, src_batch, range(cur_sent_i,cur_sent_i+batch_size), ref_batch)
           for i in range(len(outputs)):
             if assert_scores is not None:
               # If debugging forced decoding, make sure it matches
-              assert len(src_batch) == len(outputs), "debug forced decoding not supported with nbest inference"
+              assert batch_size == len(outputs), "debug forced decoding not supported with nbest inference"
               if (abs(outputs[i].score - assert_scores[cur_sent_i + i]) / abs(assert_scores[cur_sent_i + i])) > 1e-5:
                 raise ValueError(
                   f'Forced decoding score {outputs[0].score} and loss {assert_scores[cur_sent_i + i]} do not match at '
                   f'sentence {cur_sent_i + i}')
             output_txt = outputs[i].apply_post_processor(self.post_processor)
             fp.write(f"{output_txt}\n")
-        cur_sent_i += len(src_batch)
+        cur_sent_i += batch_size
 
   def _compute_losses(self, generator, ref_corpus, src_corpus, max_num_sents) -> List[float]:
     batched_src, batched_ref = self.batcher.pack(src_corpus, ref_corpus)
