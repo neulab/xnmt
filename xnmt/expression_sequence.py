@@ -12,7 +12,8 @@ class ExpressionSequence(object):
   If necessary, both forms of representation are created from the other on demand.
   """
   def __init__(self, expr_list: Optional[Sequence[dy.Expression]] = None, expr_tensor: Optional[dy.Expression] = None,
-               expr_transposed_tensor: Optional[dy.Expression] = None, mask: Optional[xnmt.batcher.Mask] = None) ->None:
+               expr_transposed_tensor: Optional[dy.Expression] = None, mask: Optional['xnmt.batcher.Mask'] = None) \
+          -> None:
     """Constructor.
 
     Args:
