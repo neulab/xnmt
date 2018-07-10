@@ -1,3 +1,5 @@
+from typing import Optional, Sequence
+
 import dynet as dy
 import numpy as np
 
@@ -9,13 +11,14 @@ class ExpressionSequence(object):
   Internal representation is either a list of expressions or a single tensor or both.
   If necessary, both forms of representation are created from the other on demand.
   """
-  def __init__(self, expr_list=None, expr_tensor=None, expr_transposed_tensor=None, mask=None):
+  def __init__(self, expr_list: Optional[Sequence[dy.Expression]] = None, expr_tensor: Optional[dy.Expression] = None,
+               expr_transposed_tensor: Optional[dy.Expression] = None, mask: Optional[xnmt.batcher.Mask] = None) ->None:
     """Constructor.
 
     Args:
       expr_list: a python list of expressions
       expr_tensor: a tensor where last dimension are the sequence items
-      mask: a numpy array consisting of whether things should be masked or not
+      mask: an optional mask object indicating what positions in a batched tensor should be masked
     Raises:
       valueError: raises an exception if neither expr_list nor expr_tensor are given,
                   or if both have inconsistent length
