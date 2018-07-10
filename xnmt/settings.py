@@ -3,23 +3,23 @@ Global settings that control the overall behavior of XNMT.
 
 Currently, settings control the following:
 
-* OVERWRITE_LOG: whether logs should be overwritten (not overwriting helps when copy-pasting config files and forgetting to change the output location)
-* IMMEDIATE_COMPUTE: whether to execute DyNet in eager mode
-* CHECK_VALIDITY: configure DyNet to perform numerical checks
-* RESOURCE_WARNINGS: whether to show resource warnings
-* LOG_LEVEL_CONSOLE: verbosity of console output (DEBUG|INFO|WARNING|ERROR|CRITICAL)
-* LOG_LEVEL_FILE: verbosity of file output (DEBUG|INFO|WARNING|ERROR|CRITICAL)
-* DEFAULT_MOD_PATH: default location to write models to
-* DEFAULT_LOG_PATH: default location to write out logs
+* ``OVERWRITE_LOG``: whether logs should be overwritten (not overwriting helps when copy-pasting config files and forgetting to change the output location)
+* ``IMMEDIATE_COMPUTE``: whether to execute DyNet in eager mode
+* ``CHECK_VALIDITY``: configure DyNet to perform numerical checks
+* ``RESOURCE_WARNINGS``: whether to show resource warnings
+* ``LOG_LEVEL_CONSOLE``: verbosity of console output (``DEBUG`` | ``INFO`` | ``WARNING`` | ``ERROR`` | ``CRITICAL``)
+* ``LOG_LEVEL_FILE``: verbosity of file output (``DEBUG`` | ``INFO`` | ``WARNING`` | ``ERROR`` | ``CRITICAL``)
+* ``DEFAULT_MOD_PATH``: default location to write models to
+* ``DEFAULT_LOG_PATH``: default location to write out logs
 
-There are several predefined configurations (Standard, Debug, Unittest), with Standard being used by default.
-Settings are specified from the command line using --settings={standard|debug|unittest} and should not be changed
-during execution.
+There are several predefined configurations (``Standard``, ``Debug``, ``Unittest``), with ``Standard`` being used by
+default. Settings are specified from the command line using ``--settings={standard|debug|unittest}`` and should not be
+changed during execution.
 
 It is possible to control individual settings by setting an environment variable of the same name, e.g. like this:
-OVERWRITE_LOG=1 python -m xnmt.xnmt_run_experiments my_config.yaml
+``OVERWRITE_LOG=1 python -m xnmt.xnmt_run_experiments my_config.yaml``
 
-To specify a custom configuration, subclass settings.Standard accordinly and add an alias to settings._aliases.
+To specify a custom configuration, subclass ``settings.Standard`` accordinly and add an alias to ``settings._aliases``.
 """
 
 import sys
