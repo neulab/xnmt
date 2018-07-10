@@ -13,7 +13,7 @@ import xnmt.events
 from xnmt.input_reader import PlainTextReader, SimpleSentenceInput
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculator import AutoRegressiveMLELoss
-from xnmt.optimizer import AdamTrainer
+from xnmt.optimizer import AdamTrainer, DummyTrainer
 from xnmt.param_collection import ParamManager
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
 import xnmt.training_regimen
@@ -308,11 +308,11 @@ class TestTrainDevLoss(unittest.TestCase):
                                             src_file="examples/data/head.ja",
                                             ref_file="examples/data/head.en",
                                             batcher=batcher)]
-    train_args['trainer'] = None
+    train_args['trainer'] = DummyTrainer()
     train_args['batcher'] = batcher
     train_args['run_for_epochs'] = 1
     training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(**train_args)
-    training_regimen.run_training(save_fct = lambda: None, update_weights=False)
+    training_regimen.run_training(save_fct = lambda: None)
     self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
                            training_regimen.dev_loss_tracker.dev_score.loss, places=5)
 
@@ -357,7 +357,7 @@ class TestOverfitting(unittest.TestCase):
     train_args['batcher'] = batcher
     training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(**train_args)
     for _ in range(50):
-      training_regimen.run_training(save_fct=lambda:None, update_weights=True)
+      training_regimen.run_training(save_fct=lambda:None)
     self.assertAlmostEqual(0.0,
                            training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
                            places=2)
