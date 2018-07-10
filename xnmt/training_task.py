@@ -2,7 +2,7 @@ from subprocess import Popen
 from asteval import Interpreter
 import random
 import numpy as np
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 
 from xnmt import batcher, eval_task, events, model_base, input_reader, logger, loss, loss_tracker, loss_calculator,\
   param_collection
@@ -101,7 +101,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
   @serializable_init
   def __init__(self,
                model: 'model_base.SupervisedModel',
-               src_file: str = None,
+               src_file: Union[str, Sequence[str]] = None,
                trg_file: str = None,
                dev_every: int = 0,
                batcher: batcher.Batcher = bare(batcher.SrcBatcher, batch_size=32),
