@@ -61,7 +61,7 @@ class Experiment(Serializable):
       logger.info("> Performing final evaluation")
       eval_scores = []
       for evaluator in evaluate_args:
-        eval_score, _ = evaluator.eval()
+        eval_score = evaluator.eval()
         if type(eval_score) == list:
           eval_scores.extend(eval_score)
         else:

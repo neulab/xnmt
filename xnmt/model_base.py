@@ -1,8 +1,9 @@
-from typing import Sequence, Union
+from typing import Optional, Sequence, Union
 
 from xnmt import batcher, events, input_reader, loss, output, training_task
 import xnmt.loss_calculator
 import xnmt.input
+from xnmt.persistence import Serializable, serializable_init
 
 class TrainableModel(object):
   """
@@ -43,7 +44,15 @@ class TrainableModel(object):
 class GeneratorModel(object):
   """
   A template class for models that can perform inference to generate some kind of output.
+
+  Args:
+    src_reader: source input reader
+    trg_reader: an optional target input reader, needed in some cases such as n-best scoring
   """
+  def __init__(self, src_reader: input_reader.InputReader, trg_reader: Optional[input_reader.InputReader] = None) \
+          -> None:
+    self.src_reader = src_reader
+    self.trg_reader = trg_reader
 
   def generate(self, src: batcher.Batch, idx: Sequence[int], *args, **kwargs) -> Sequence[output.Output]:
     """
@@ -103,3 +112,17 @@ class EventTrigger(object):
       reward: The default is log likelihood (-1 * calc_loss).
     """
     return None
+
+class CascadeGenerator(GeneratorModel, EventTrigger, Serializable):
+  """
+  A cascade that chains several generator models.
+  """
+  yaml_tag = '!CascadeGenerator'
+
+  @serializable_init
+  def __init__(self, generators):
+    super().__init__(src_reader = generators[0].src_reader, trg_reader = generators[-1].trg_reader)
+    self.generators = generators
+
+  def generate(self, *args, **kwargs):
+    raise ValueError("cannot call CascadeGenerator.generate() directly; access the sub-generators instead.")

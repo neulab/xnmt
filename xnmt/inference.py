@@ -45,8 +45,8 @@ class Inference(object):
     self.batcher = batcher
     self.reporter = reporter
 
-  def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids) -> List[output.Output]:
-    # TODO: src should probably a batch of inputs for consistency with return values being a batch of outputs
+  def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.batcher.Batch, src_i: int, forced_ref_ids) \
+          -> List[output.Output]:
     raise NotImplementedError("must be implemented by subclasses")
 
   def compute_losses_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input,
@@ -236,7 +236,7 @@ class IndependentOutputInference(Inference, Serializable):
                      max_num_sents=max_num_sents, mode=mode, batcher=batcher, reporter=reporter)
     self.post_processor = output.OutputProcessor.get_output_processor(post_process)
 
-  def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids)\
+  def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.batcher.Batch, src_i: int, forced_ref_ids)\
           -> List[output.Output]:
     outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids)
     return outputs
@@ -287,7 +287,7 @@ class AutoRegressiveInference(Inference, Serializable):
     self.post_processor = output.OutputProcessor.get_output_processor(post_process)
     self.search_strategy = search_strategy
 
-  def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids)\
+  def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.batcher.Batch, src_i: int, forced_ref_ids)\
           -> List[output.Output]:
     outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids, search_strategy=self.search_strategy)
     return outputs
@@ -296,3 +296,24 @@ class AutoRegressiveInference(Inference, Serializable):
                          ref: xnmt.input.Input) -> loss.FactoredLossExpr:
     loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calculator.AutoRegressiveMLELoss())
     return loss_expr
+
+class CascadeInference(Inference, Serializable):
+  yaml_tag = "!CascadeInference"
+  @serializable_init
+  def __init__(self, steps: Sequence[Inference]):
+    self.steps = steps
+
+  def perform_inference(self, generator: model_base.GeneratorModel, src_file: str = None, trg_file: str = None):
+    assert isinstance(generator, model_base.CascadeGenerator)
+    assert len(generator.generators) == len(self.steps)
+    src_files = [src_file] + [f"{trg_file}.tmp.{i}" for i in range(len(self.steps)-1)]
+    trg_files = src_files[1:] + [trg_file]
+    for step_i, step in enumerate(self.steps):
+      step.perform_inference(generator=generator.generators[step_i],
+                             src_file=src_files[step_i],
+                             trg_file=trg_files[step_i])
+
+  def compute_losses_one(self, *args, **kwargs):
+    raise ValueError("cannot call CascadedInference.compute_losses_one() directly, use the sub-inference objects")
+  def generate_one(self, *args, **kwargs):
+    raise ValueError("cannot call CascadedInference.generate_one() directly, use the sub-inference objects")

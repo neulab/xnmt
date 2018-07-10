@@ -57,12 +57,12 @@ class LossEvalTask(EvalTask, Serializable):
     self.loss_comb_method = loss_comb_method
     self.desc=desc
 
-  def eval(self) -> tuple:
+  def eval(self) -> 'EvalScore':
     """
     Perform evaluation task.
 
     Returns:
-      tuple of score and reference length
+      Evaluated score
     """
     self.model.set_train(False)
     if self.src_data is None:
@@ -88,7 +88,10 @@ class LossEvalTask(EvalTask, Serializable):
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
 
     try:
-      return LossScore(loss_stats[self.model.get_primary_loss()], loss_stats=loss_stats, desc=self.desc), ref_words_cnt
+      return LossScore(loss_stats[self.model.get_primary_loss()],
+                       loss_stats=loss_stats,
+                       num_ref_words = ref_words_cnt,
+                       desc=self.desc)
     except KeyError:
       raise RuntimeError("Did you wrap your loss calculation with FactoredLossExpr({'primary_loss': loss_value}) ?")
 
@@ -135,13 +138,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
     eval_scores = xnmt.xnmt_evaluate.xnmt_evaluate(hyp_file=self.hyp_file, ref_file=self.ref_file, desc=self.desc,
                                                    evaluators=self.eval_metrics)
 
-    # Calculate the reference file size
-    ref_words_cnt = 0
-    for ref_sent in self.model.trg_reader.read_sents(
-            self.ref_file if isinstance(self.ref_file, str) else self.ref_file[0]):
-      ref_words_cnt += ref_sent.len_unpadded()
-      ref_words_cnt += 0
-    return eval_scores, ref_words_cnt
+    return eval_scores
 
 class DecodingEvalTask(EvalTask, Serializable):
   """
@@ -170,4 +167,4 @@ class DecodingEvalTask(EvalTask, Serializable):
     self.inference.perform_inference(generator=self.model,
                                      src_file=self.src_file,
                                      trg_file=self.hyp_file)
-    return None, None
+    return None

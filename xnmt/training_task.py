@@ -281,18 +281,15 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     # Perform evaluation
     if self.dev_tasks and len(self.dev_tasks) > 0:
       dev_scores = []
-      dev_word_cnt = None
       with self.dev_loss_tracker.time_tracker:
         logger.info("> Checkpoint")
         for dev_task in self.dev_tasks:
-          dev_score, tmp_word_cnt = dev_task.eval()
-          if dev_word_cnt is None:
-            dev_word_cnt = tmp_word_cnt
+          dev_score = dev_task.eval()
           if type(dev_score) == list:
             dev_scores.extend(dev_score)
           else:
             dev_scores.append(dev_score)
-        self.dev_loss_tracker.set_dev_score(dev_word_cnt, dev_scores[0])
+        self.dev_loss_tracker.set_dev_score(dev_scores[0])
         for dev_score in dev_scores[1:]:
           self.dev_loss_tracker.add_aux_score(dev_score)
       self.dev_loss_tracker.report()

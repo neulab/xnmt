@@ -37,7 +37,7 @@ import xnmt.inference
 import xnmt.input
 import xnmt.input_reader
 import xnmt.lstm
-import xnmt.exp_global
+import xnmt.model_base
 import xnmt.optimizer
 import xnmt.param_init
 import xnmt.preproc_runner
