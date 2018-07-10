@@ -139,7 +139,7 @@ class LossScore(EvalScore, Serializable):
   def higher_is_better(self): return False
   def score_str(self):
     if self.loss_stats is not None and len(self.loss_stats) > 1:
-      return "{" + ", ".join(f"{k}: {v:.5f}" for k, v in self.loss_stats.items()) + f"}} (ref_len={num_ref_words})"
+      return "{" + ", ".join(f"{k}: {v:.5f}" for k, v in self.loss_stats.items()) + f"}} (ref_len={self.num_ref_words})"
     else:
       return f"{self.value():.3f} (ref_len={self.num_ref_words})"
 

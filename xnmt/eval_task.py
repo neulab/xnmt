@@ -6,8 +6,8 @@ import dynet as dy
 
 from xnmt.batcher import Batcher
 from xnmt.evaluator import Evaluator
-from xnmt.model_base import GeneratorModel
-from xnmt.inference import Inference
+from xnmt import model_base
+import xnmt.inference
 import xnmt.input_reader
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.loss_calculator import LossCalculator, AutoRegressiveMLELoss
@@ -41,7 +41,7 @@ class LossEvalTask(EvalTask, Serializable):
   yaml_tag = '!LossEvalTask'
 
   @serializable_init
-  def __init__(self, src_file: str, ref_file: str, model: GeneratorModel = Ref("model"),
+  def __init__(self, src_file: str, ref_file: str, model: 'model_base.GeneratorModel' = Ref("model"),
                batcher: Optional[Batcher] = Ref("train.batcher", default=None),
                loss_calculator: LossCalculator = bare(AutoRegressiveMLELoss), max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
@@ -113,8 +113,8 @@ class AccuracyEvalTask(EvalTask, Serializable):
 
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
-               model: GeneratorModel = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
-               inference: Optional[Inference] = None, desc: Any = None):
+               model: 'model_base.GeneratorModel' = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
+               inference: Optional[xnmt.inference.Inference] = None, desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
@@ -154,8 +154,8 @@ class DecodingEvalTask(EvalTask, Serializable):
   yaml_tag = '!DecodingEvalTask'
 
   @serializable_init
-  def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: GeneratorModel = Ref("model"),
-               inference: Optional[Inference] = None):
+  def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: 'model_base.GeneratorModel' = Ref("model"),
+               inference: Optional[xnmt.inference.Inference] = None):
 
     self.model = model
     self.src_file = src_file

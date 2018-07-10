@@ -5,7 +5,7 @@ from xnmt import batcher, embedder, input_reader, loss, lstm, model_base, output
 from xnmt.persistence import serializable_init, Serializable, bare
 import xnmt.inference
 
-class SequenceClassifier(model_base.TrainableModel, model_base.GeneratorModel, Serializable, model_base.EventTrigger):
+class SequenceClassifier(model_base.SupervisedModel, model_base.GeneratorModel, Serializable, model_base.EventTrigger):
   """
   A sequence classifier.
 

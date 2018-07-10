@@ -2,9 +2,10 @@ from subprocess import Popen
 from asteval import Interpreter
 import random
 import numpy as np
-from typing import Optional
+from typing import Optional, Sequence
 
-from xnmt import batcher, events, model_base, input_reader, logger, loss, loss_tracker, loss_calculator, param_collection
+from xnmt import batcher, eval_task, events, model_base, input_reader, logger, loss, loss_tracker, loss_calculator,\
+  param_collection
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class TrainingTask(object):
@@ -12,8 +13,11 @@ class TrainingTask(object):
   Base class for a training task. Training tasks can perform training steps
   and keep track of the training state, but may not implement the actual training
   loop.
+
+  Args:
+    model: The model to train
   """
-  def __init__(self, model):
+  def __init__(self, model: 'model_base.TrainableModel'):
     self.model = model
 
   def load_data(self):
@@ -65,17 +69,17 @@ class TrainingTask(object):
 class SimpleTrainingTask(TrainingTask, Serializable):
   """
   Args:
-    model (model_base.TrainableModel): a trainable model
+    model: a trainable supervised model
     src_file: The file for the source data.
     trg_file: The file for the target data.
-    dev_every (int): dev checkpoints every n sentences (0 for only after epoch)
+    dev_every: dev checkpoints every n sentences (0 for only after epoch)
     batcher: Type of batcher
     loss_calculator:
-    run_for_epochs (int): number of epochs (None for unlimited epochs)
-    lr_decay (float):
-    lr_decay_times (int):  Early stopping after decaying learning rate a certain number of times
-    patience (int): apply LR decay after dev scores haven't improved over this many checkpoints
-    initial_patience (int): if given, allows adjusting patience for the first LR decay
+    run_for_epochs: number of epochs (None for unlimited epochs)
+    lr_decay: decay learning rate by multiplying by this factor
+    lr_decay_times:  Early stopping after decaying learning rate a certain number of times
+    patience: apply LR decay after dev scores haven't improved over this many checkpoints
+    initial_patience: if given, allows adjusting patience for the first LR decay
     dev_tasks: A list of tasks to run on the development set
     dev_combinator: A formula to combine together development scores into a single score to
                     choose whether to perform learning rate decay, etc.
@@ -87,20 +91,31 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                          --epoch EPOCH_NUM will be appended to the command.
                          To just reload the data after each epoch set the command to 'true'.
     sample_train_sents: If given, load a random subset of training sentences before each epoch. Useful when training data does not fit in memory.
-    max_num_train_sents:
-    max_src_len:
-    max_trg_len:
+    max_num_train_sents: Train only on the first n sentences
+    max_src_len: Discard training sentences with source-side longer than this
+    max_trg_len: Discard training sentences with target-side longer than this
     name: will be prepended to log outputs if given
   """
   yaml_tag = '!SimpleTrainingTask'
 
   @serializable_init
-  def __init__(self, model, src_file=None, trg_file=None, dev_every=0,
-               batcher=bare(batcher.SrcBatcher, batch_size=32), loss_calculator=bare(loss_calculator.AutoRegressiveMLELoss),
-               run_for_epochs=None, lr_decay=1.0, lr_decay_times=3, patience=1,
-               initial_patience=None, dev_tasks=None, dev_combinator=None, restart_trainer=False,
-               reload_command=None, name=None, sample_train_sents: Optional[int] = None,
-               max_num_train_sents=None, max_src_len=None, max_trg_len=None):
+  def __init__(self,
+               model: 'model_base.SupervisedModel',
+               src_file: str = None,
+               trg_file: str = None,
+               dev_every: int = 0,
+               batcher: batcher.Batcher = bare(batcher.SrcBatcher, batch_size=32),
+               loss_calculator: loss_calculator.LossCalculator = bare(loss_calculator.AutoRegressiveMLELoss),
+               run_for_epochs: Optional[int] = None,
+               lr_decay: float = 1.0, lr_decay_times: int = 3,
+               patience: int = 1, initial_patience: Optional[int] = None,
+               dev_tasks: Sequence[eval_task.EvalTask] = None, dev_combinator=None,
+               restart_trainer: bool = False,
+               reload_command: Optional[str] = None,
+               name: Optional[str] = None,
+               sample_train_sents: Optional[int] = None,
+               max_num_train_sents: Optional[int] = None, max_src_len: Optional[int] = None,
+               max_trg_len: Optional[int] = None):
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks

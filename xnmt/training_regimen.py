@@ -6,7 +6,7 @@ from xnmt.settings import settings
 import numpy as np
 import dynet as dy
 
-from xnmt.model_base import TrainableModel
+from xnmt.model_base import SupervisedModel
 from xnmt.loss_tracker import TrainLossTracker
 from xnmt.loss_calculator import LossCalculator, AutoRegressiveMLELoss
 from xnmt.param_collection import ParamManager
@@ -86,7 +86,7 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
   yaml_tag = '!SimpleTrainingRegimen'
 
   @serializable_init
-  def __init__(self, model: TrainableModel = Ref("model"), src_file: Union[None, str, Sequence[str]] = None,
+  def __init__(self, model: SupervisedModel = Ref("model"), src_file: Union[None, str, Sequence[str]] = None,
                trg_file: Optional[str] = None, dev_every: int = 0, dev_zero: bool = False,
                batcher: batcher.Batcher = bare(batcher.SrcBatcher, batch_size=32),
                loss_calculator: LossCalculator = bare(AutoRegressiveMLELoss),

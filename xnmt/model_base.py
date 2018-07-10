@@ -7,7 +7,56 @@ from xnmt.persistence import Serializable, serializable_init
 
 class TrainableModel(object):
   """
-  A template class for a basic trainable model, implementing a loss function based on inputs and outputs.
+  A template class for a basic trainable model, implementing a loss function.
+  """
+
+  def calc_loss(self, *args, **kwargs) -> loss.FactoredLossExpr:
+    """Calculate loss based on input-output pairs.
+
+    Losses are accumulated only across unmasked timesteps in each batch element.
+
+    Arguments are to be defined by subclasses
+
+    Returns:
+      A (possibly batched) expression representing the loss.
+    """
+
+  def get_primary_loss(self) -> str:
+    """
+    Returns:
+      Identifier for primary loss.
+    """
+    raise NotImplementedError("Pick a key for primary loss that is used for dev_loss calculation")
+
+class UnsupervisedModel(object):
+  """
+  A template class for an unsupervised trainable model, implementing a loss function based on inputs only.
+
+  Args:
+    src_reader: source reader
+  """
+
+  def __init__(self, src_reader: input_reader.InputReader):
+    self.src_reader = src_reader
+
+  def calc_loss(self, src: Union[batcher.Batch, xnmt.input.Input]) -> loss.FactoredLossExpr:
+    """Calculate loss based on input sentences.
+
+    Losses are accumulated only across unmasked timesteps in each batch element.
+
+    Args:
+      src: The source, a sentence or a batch of sentences.
+      trg: The target, a sentence or a batch of sentences.
+      loss_calculator: loss calculator.
+
+    Returns:
+      A (possibly batched) expression representing the loss.
+    """
+
+
+class SupervisedModel(object):
+  """
+  A template class for a supervised trainable model, implementing a loss function based on inputs and outputs.
 
   Args:
     src_reader: source reader
@@ -32,13 +81,6 @@ class TrainableModel(object):
     Returns:
       A (possibly batched) expression representing the loss.
     """
-
-  def get_primary_loss(self) -> str:
-    """
-    Returns:
-      Identifier for primary loss.
-    """
-    raise NotImplementedError("Pick a key for primary loss that is used for dev_loss calculation")
 
 
 class GeneratorModel(object):
@@ -116,11 +158,17 @@ class EventTrigger(object):
 class CascadeGenerator(GeneratorModel, EventTrigger, Serializable):
   """
   A cascade that chains several generator models.
+
+  This generator does not support calling ``generate()`` directly. Instead, it's sub-generators should be accessed
+  and used to generate outputs one by one.
+
+  Args:
+    generators: list of generators
   """
   yaml_tag = '!CascadeGenerator'
 
   @serializable_init
-  def __init__(self, generators):
+  def __init__(self, generators: Sequence[GeneratorModel]) -> None:
     super().__init__(src_reader = generators[0].src_reader, trg_reader = generators[-1].trg_reader)
     self.generators = generators
 
