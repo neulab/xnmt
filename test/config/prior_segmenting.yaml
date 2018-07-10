@@ -4,12 +4,15 @@ prior-segmenting: !Experiment
     dropout: 0.5
   model: !DefaultTranslator
     src_reader: !SegmentationTextReader
-      vocab: !Vocab {vocab_file: examples/data/head-char.ja.vocab}
+      vocab: !Vocab
+        vocab_file: examples/data/head-char.ja.vocab
+        _xnmt_id: src_vocab
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 16
     encoder: !SegmentingSeqTransducer
+      vocab: !Ref { name: src_vocab }
       debug: True
       embed_encoder: !BiLSTMSeqTransducer
         input_dim: 16

@@ -2,20 +2,17 @@ import dynet as dy
 import numpy as np
 import collections
 import itertools
-from typing import Any, Sequence, Tuple, Union
 from collections import namedtuple
+from typing import Any, Optional, Sequence, Tuple, Union
 
-# Reporting purposes
-from lxml import etree
 from xnmt.settings import settings
-
 from xnmt.attender import Attender, MlpAttender
 from xnmt.batcher import Batch, mark_as_batch, is_batched, Mask
 from xnmt.decoder import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
 from xnmt.embedder import Embedder, SimpleWordEmbedder
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
-from xnmt.model_base import GeneratorModel, EventTrigger
-from xnmt.inference import AutoRegressiveInference
+from xnmt import model_base
+import xnmt.inference
 from xnmt.input import Input, SimpleSentenceInput
 from xnmt import input_reader
 import xnmt.length_normalization
@@ -33,7 +30,7 @@ from xnmt.constants import EPSILON
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
-class AutoRegressiveTranslator(GeneratorModel):
+class AutoRegressiveTranslator(model_base.GeneratorModel):
   """
   A template class for auto-regressive translators.
 
@@ -80,7 +77,7 @@ class AutoRegressiveTranslator(GeneratorModel):
       output_state = dy.nobackprop(output_state)
     return output_state
 
-class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, EventTrigger):
+class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, model_base.EventTrigger):
   """
   A default translator based on attentional sequence-to-sequence models.
 
@@ -102,15 +99,19 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, src_reader: input_reader.InputReader, trg_reader: input_reader.InputReader,
+  def __init__(self,
+               src_reader: input_reader.InputReader,
+               trg_reader: input_reader.InputReader,
                src_embedder: Embedder=bare(SimpleWordEmbedder),
                encoder: transducer.SeqTransducer=bare(BiLSTMSeqTransducer),
                attender: Attender=bare(MlpAttender),
-               trg_embedder: Embedder=bare(SimpleWordEmbedder), decoder: Decoder=bare(AutoRegressiveDecoder),
-               inference: AutoRegressiveInference=bare(AutoRegressiveInference),
+               trg_embedder: Embedder=bare(SimpleWordEmbedder),
+               decoder: Decoder=bare(AutoRegressiveDecoder),
+               inference: xnmt.inference.AutoRegressiveInference=bare(xnmt.inference.AutoRegressiveInference),
                search_strategy:SearchStrategy=bare(BeamSearch),
                compute_report:bool = Ref("exp_global.compute_report", default=False),
-               calc_global_fertility:bool=False, calc_attention_entropy:bool=False):
+               calc_global_fertility:bool=False,
+               calc_attention_entropy:bool=False):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
     self.encoder = encoder
@@ -130,15 +131,18 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
             {".trg_embedder.emb_dim", ".decoder.trg_embed_dim"}]
 
   def _encode_src(self, src):
-    self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder.transduce(embeddings)
     self.attender.init_sent(encodings)
-    ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
+    if is_batched(src):
+      ss = mark_as_batch([Vocab.SS] * src.batch_size())
+    else:
+      ss = Vocab.SS
     initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
     return initial_state
 
   def calc_loss(self, src, trg, loss_calculator):
+    self.start_sent(src)
     initial_state = self._encode_src(src)
     # Compose losses
     model_loss = FactoredLossExpr()
@@ -159,9 +163,9 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
 
     return model_loss
 
-  def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:Batch, input_word:Batch) \
+  def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:Batch, input_word:Optional[Batch]) \
           -> Tuple[AutoRegressiveDecoderState,dy.Expression]:
-    if input_word:
+    if input_word is not None:
       dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(input_word))
     rnn_output = dec_state.rnn_state.output()
     dec_state.context = self.attender.calc_context(rnn_output)
@@ -169,44 +173,47 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
     return dec_state, word_loss
 
   def generate(self, src: Batch, idx: Sequence[int], search_strategy: SearchStrategy, forced_trg_ids: Batch=None):
-    assert len(src) == len(idx), f"src: {len(src)}, idx: {len(idx)}"
+    if src.batch_size()!=1:
+      raise NotImplementedError("batched decoding not implemented for DefaultTranslator. "
+                                "Specify inference batcher with batch size 1.")
+    assert src.batch_size() == len(idx), f"src: {src.batch_size()}, idx: {len(idx)}"
     # Generating outputs
+    self.start_sent(src)
     outputs = []
     cur_forced_trg = None
-    for sent_i, sent in enumerate(src):
-      sent_mask = None
-      if src.mask: sent_mask = Mask(np_arr=src.mask.np_arr[sent_i:sent_i+1])
-      sent_batch = mark_as_batch([sent], mask=sent_mask)
-      initial_state = self._encode_src(sent_batch)
-      if forced_trg_ids: cur_forced_trg = forced_trg_ids[sent_i]
-      search_outputs = search_strategy.generate_output(self, initial_state,
-                                                       src_length=[len(sent)],
-                                                       forced_trg_ids=cur_forced_trg)
-      sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
-      assert len(sorted_outputs) >= 1
-      current_outputs = []
-      for curr_output in sorted_outputs:
-        output_actions = [x for x in curr_output.word_ids[0]]
-        attentions = [x for x in curr_output.attentions[0]]
-        score = curr_output.score[0]
-        if len(sorted_outputs) == 1:
-          current_outputs.append(TextOutput(actions=output_actions,
-                                            vocab=getattr(self.trg_reader, "vocab", None),
-                                            score=score))
-        else:
-          current_outputs.append(NbestOutput(TextOutput(actions=output_actions,
-                                                        vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
-                                                        score=score),
-                                     nbest_id=idx[sent_i]))
-      outputs += current_outputs
-      if self.compute_report:
-        attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
-        self.add_sent_for_report({"idx": idx[sent_i],
-                                  "attentions": attentions,
-                                  "src": sent,
-                                  "src_vocab": getattr(self.src_reader, "vocab", None),
-                                  "trg_vocab": getattr(self.trg_reader, "vocab", None),
-                                  "output": current_outputs[0]})
+    sent = src[0]
+    sent_mask = None
+    if src.mask: sent_mask = Mask(np_arr=src.mask.np_arr[0:1])
+    sent_batch = mark_as_batch([sent], mask=sent_mask)
+    initial_state = self._encode_src(sent_batch)
+    if forced_trg_ids is  not None: cur_forced_trg = forced_trg_ids[0]
+    search_outputs = search_strategy.generate_output(self, initial_state,
+                                                     src_length=[sent.sent_len()],
+                                                     forced_trg_ids=cur_forced_trg)
+    sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
+    assert len(sorted_outputs) >= 1
+    for curr_output in sorted_outputs:
+      output_actions = [x for x in curr_output.word_ids[0]]
+      attentions = [x for x in curr_output.attentions[0]]
+      score = curr_output.score[0]
+      if len(sorted_outputs) == 1:
+        outputs.append(TextOutput(actions=output_actions,
+                                  vocab=getattr(self.trg_reader, "vocab", None),
+                                  score=score))
+      else:
+        outputs.append(NbestOutput(TextOutput(actions=output_actions,
+                                              vocab=getattr(self.trg_reader, "vocab", None),
+                                              score=score),
+                                   nbest_id=idx[0]))
+    if self.compute_report:
+      attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
+      self.add_sent_for_report({"idx": idx[0],
+                                "attentions": attentions,
+                                "src": sent,
+                                "src_vocab": getattr(self.src_reader, "vocab", None),
+                                "trg_vocab": getattr(self.trg_reader, "vocab", None),
+                                "output": outputs[0]})
+
     return outputs
 
   def generate_one_step(self, current_word: Any, current_state: AutoRegressiveDecoderState) -> TranslatorOutput:
@@ -235,7 +242,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
     return -dy.sum_elems(dy.esum(entropy))
 
 
-class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, EventTrigger):
+class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, model_base.EventTrigger):
   """
   A translator based on the transformer model.
 
@@ -412,7 +419,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
 
     return outputs
 
-class EnsembleTranslator(AutoRegressiveTranslator, Serializable, EventTrigger):
+class EnsembleTranslator(AutoRegressiveTranslator, Serializable, model_base.EventTrigger):
   """
   A translator that decodes from an ensemble of DefaultTranslator models.
 
@@ -429,7 +436,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable, EventTrigger):
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, models, src_reader, trg_reader, inference=bare(AutoRegressiveInference)):
+  def __init__(self, models, src_reader, trg_reader, inference=bare(xnmt.inference.AutoRegressiveInference)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.models = models
     self.inference = inference

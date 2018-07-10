@@ -44,8 +44,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                learn_segmentation = True,
                compose_char       = False,
                log_reward         = True,
+               vocab = None,
                debug=False,
                print_sample=False):
+    self.vocab = vocab
     model = ParamManager.my_params(self)
     # Sanity check
     assert embed_encoder is not None
@@ -119,7 +121,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if decision == SegmentingAction.SEGMENT.value:
           # Special case for TailWordSegmentTransformer only
           words = None
-          vocab = self.src_sent[i].vocab
+          vocab = self.vocab
           words = self.src_sent[i].words[last_segment[i]+1:j+1]
           if vocab is not None:
             words = "".join(w for w in [vocab[c] for c in words if c != vocab.unk_token])
@@ -184,7 +186,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     eps = self.eps.value() if self.eps is not None else None
     segment_logsoftmaxes = [dy.log_softmax(self.segment_transform(fb)) for fb in encodings]
     # Flags
-    is_presegment_provided = len(self.src_sent) != 0 and hasattr(self.src_sent[0], "annotation")
+    is_presegment_provided = self.src_sent.sent_len() != 0 and hasattr(self.src_sent[0], "annotation")
     is_warmup = lmbd == 0 or self.is_segmentation_warmup()
     is_epsgreedy_triggered = eps is not None and numpy.random.random() <= eps
     # Sample based on the criterion
@@ -288,7 +290,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     reward = dy.nobackprop(reward)
 
     # Make sure that reward is not scalar, but rather based on the each batch item
-    assert reward.dim()[1] == len(self.src_sent)
+    assert reward.dim()[1] == self.src_sent.batch_size()
     # Mask
     enc_mask = self.enc_mask.get_active_one_mask().transpose() if self.enc_mask is not None else None
     # Compose the lose
