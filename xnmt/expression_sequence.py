@@ -19,6 +19,7 @@ class ExpressionSequence(object):
     Args:
       expr_list: a python list of expressions
       expr_tensor: a tensor where last dimension are the sequence items
+      expr_transposed_tensor: a tensor in transposed form (first dimension are sequence items)
       mask: an optional mask object indicating what positions in a batched tensor should be masked
     Raises:
       valueError: raises an exception if neither expr_list nor expr_tensor are given,

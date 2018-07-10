@@ -28,7 +28,7 @@ class TrainableModel(object):
     """
     raise NotImplementedError("Pick a key for primary loss that is used for dev_loss calculation")
 
-class UnsupervisedModel(object):
+class UnsupervisedModel(TrainableModel):
   """
   A template class for an unsupervised trainable model, implementing a loss function based on inputs only.
 
@@ -54,7 +54,7 @@ class UnsupervisedModel(object):
     """
 
 
-class SupervisedModel(object):
+class SupervisedModel(TrainableModel):
   """
   A template class for a supervised trainable model, implementing a loss function based on inputs and outputs.
 
