@@ -30,7 +30,7 @@ from xnmt.constants import EPSILON
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
-class AutoRegressiveTranslator(model_base.GeneratorModel):
+class AutoRegressiveTranslator(model_base.TrainableModel, model_base.GeneratorModel):
   """
   A template class for auto-regressive translators.
 

@@ -40,9 +40,9 @@ class TrainableModel(object):
     raise NotImplementedError("Pick a key for primary loss that is used for dev_loss calculation")
 
 
-class GeneratorModel(TrainableModel):
+class GeneratorModel(object):
   """
-  A template class for trainable models that can perform inference to generate some kind of output.
+  A template class for models that can perform inference to generate some kind of output.
   """
 
   def generate(self, src: batcher.Batch, idx: Sequence[int], *args, **kwargs) -> Sequence[output.Output]:
