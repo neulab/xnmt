@@ -40,10 +40,10 @@ class LanguageModel(model_base.TrainableModel, model_base.EventTrigger, Serializ
 
   def calc_loss(self, src, trg, loss_calculator):
     if not batcher.is_batched(src):
-      src = batcher.Batch([src])
+      src = batcher.ListBatch([src])
 
-    src_inputs = batcher.Batch([s[:-1] for s in src], mask=batcher.Mask(src.mask.np_arr[:,:-1]) if src.mask else None)
-    src_targets = batcher.Batch([s[1:] for s in src], mask=batcher.Mask(src.mask.np_arr[:,1:]) if src.mask else None)
+    src_inputs = batcher.ListBatch([s[:-1] for s in src], mask=batcher.Mask(src.mask.np_arr[:,:-1]) if src.mask else None)
+    src_targets = batcher.ListBatch([s[1:] for s in src], mask=batcher.Mask(src.mask.np_arr[:,1:]) if src.mask else None)
 
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src_inputs)
