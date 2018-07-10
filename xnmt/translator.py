@@ -2,21 +2,19 @@ import dynet as dy
 import numpy as np
 import collections
 import itertools
-import os
+from collections import namedtuple
 from typing import Any, Optional, Sequence, Tuple, Union
 
-# Reporting purposes
-from lxml import etree
 from xnmt.settings import settings
-
-from xnmt.attender import MlpAttender
+from xnmt.attender import Attender, MlpAttender
 from xnmt.batcher import Batch, mark_as_batch, is_batched, Mask
-from xnmt.decoder import AutoRegressiveDecoder, AutoRegressiveDecoderState
-from xnmt.embedder import SimpleWordEmbedder
+from xnmt.decoder import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
+from xnmt.embedder import Embedder, SimpleWordEmbedder
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 from xnmt import model_base
 import xnmt.inference
 from xnmt.input import Input, SimpleSentenceInput
+from xnmt import input_reader
 import xnmt.length_normalization
 from xnmt.loss import FactoredLossExpr
 from xnmt.loss_calculator import LossCalculator
@@ -24,9 +22,9 @@ from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput, Output, NbestOutput
 import xnmt.plot
 from xnmt.reports import Reportable
-from xnmt.persistence import serializable_init, Serializable, bare
+from xnmt.persistence import serializable_init, Serializable, bare, Ref
 from xnmt.search_strategy import BeamSearch, SearchStrategy
-from collections import namedtuple
+from xnmt import transducer
 from xnmt.vocab import Vocab
 from xnmt.constants import EPSILON
 
@@ -84,27 +82,36 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
   A default translator based on attentional sequence-to-sequence models.
 
   Args:
-    src_reader (InputReader): A reader for the source side.
-    trg_reader (InputReader): A reader for the target side.
-    src_embedder (Embedder): A word embedder for the input language
-    encoder (Transducer): An encoder to generate encoded inputs
-    attender (Attender): An attention module
-    trg_embedder (Embedder): A word embedder for the output language
-    decoder (Decoder): A decoder
-    inference (AutoRegressiveInference): The default inference strategy used for this model
-    calc_global_fertility (bool):
-    calc_attention_entropy (bool):
+    src_reader: A reader for the source side.
+    trg_reader: A reader for the target side.
+    src_embedder: A word embedder for the input language
+    encoder: An encoder to generate encoded inputs
+    attender: An attention module
+    trg_embedder: A word embedder for the output language
+    decoder: A decoder
+    inference: The default inference strategy used for this model
+    search_strategy:
+    calc_global_fertility:
+    calc_attention_entropy:
   """
 
   yaml_tag = '!DefaultTranslator'
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, src_reader, trg_reader, src_embedder=bare(SimpleWordEmbedder),
-               encoder=bare(BiLSTMSeqTransducer), attender=bare(MlpAttender),
-               trg_embedder=bare(SimpleWordEmbedder), decoder=bare(AutoRegressiveDecoder),
-               inference=bare(xnmt.inference.AutoRegressiveInference), search_strategy=bare(BeamSearch),
-               calc_global_fertility=False, calc_attention_entropy=False):
+  def __init__(self,
+               src_reader: input_reader.InputReader,
+               trg_reader: input_reader.InputReader,
+               src_embedder: Embedder=bare(SimpleWordEmbedder),
+               encoder: transducer.SeqTransducer=bare(BiLSTMSeqTransducer),
+               attender: Attender=bare(MlpAttender),
+               trg_embedder: Embedder=bare(SimpleWordEmbedder),
+               decoder: Decoder=bare(AutoRegressiveDecoder),
+               inference: xnmt.inference.AutoRegressiveInference=bare(xnmt.inference.AutoRegressiveInference),
+               search_strategy:SearchStrategy=bare(BeamSearch),
+               compute_report:bool = Ref("exp_global.compute_report", default=False),
+               calc_global_fertility:bool=False,
+               calc_attention_entropy:bool=False):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
     self.encoder = encoder
@@ -115,16 +122,13 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     self.calc_attention_entropy = calc_attention_entropy
     self.inference = inference
     self.search_strategy = search_strategy
+    self.compute_report = compute_report
 
   def shared_params(self):
     return [{".src_embedder.emb_dim", ".encoder.input_dim"},
             {".encoder.hidden_dim", ".attender.input_dim", ".decoder.input_dim"},
             {".attender.state_dim", ".decoder.rnn.hidden_dim"},
             {".trg_embedder.emb_dim", ".decoder.trg_embed_dim"}]
-
-  def initialize_generator(self, **kwargs):
-    self.report_path = kwargs.get("report_path", None)
-    self.report_type = kwargs.get("report_type", None)
 
   def _encode_src(self, src):
     embeddings = self.src_embedder.embed_sent(src)
@@ -194,35 +198,22 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
       score = curr_output.score[0]
       if len(sorted_outputs) == 1:
         outputs.append(TextOutput(actions=output_actions,
-                                  vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
+                                  vocab=getattr(self.trg_reader, "vocab", None),
                                   score=score))
       else:
         outputs.append(NbestOutput(TextOutput(actions=output_actions,
-                                              vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
+                                              vocab=getattr(self.trg_reader, "vocab", None),
                                               score=score),
                                    nbest_id=idx[0]))
-
-    # In case of reporting
-    if self.report_path is not None:
-      if self.reporting_src_vocab:
-        src_words = [self.reporting_src_vocab[w] for w in sent]
-      else:
-        src_words = ['' for w in sent]
-      trg_words = [self.trg_vocab[w] for w in output_actions]
-      # Attentions
+    if self.compute_report:
       attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
-      # Segmentation
-      segment = self.get_report_resource("segmentation")
-      if segment is not None:
-        segment = [int(x[0]) for x in segment]
-        src_inp = [x[0] for x in self.encoder.apply_segmentation(src_words, segment)]
-      else:
-        src_inp = src_words
-      # Other Resources
-      self.set_report_input(idx[0], src_inp, trg_words, attentions)
-      self.set_report_resource("src_words", src_words)
-      self.set_report_path('{}.{}'.format(self.report_path, str(idx[0])))
-      self.generate_report(self.report_type)
+      self.add_sent_for_report({"idx": idx[0],
+                                "attentions": attentions,
+                                "src": sent,
+                                "src_vocab": getattr(self.src_reader, "vocab", None),
+                                "trg_vocab": getattr(self.trg_reader, "vocab", None),
+                                "output": outputs[0]})
+
     return outputs
 
   def generate_one_step(self, current_word: Any, current_state: AutoRegressiveDecoderState) -> TranslatorOutput:
@@ -250,76 +241,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
 
     return -dy.sum_elems(dy.esum(entropy))
 
-  def set_reporting_src_vocab(self, src_vocab):
-    """
-    Sets source vocab for reporting purposes.
 
-    Args:
-      src_vocab (Vocab):
-    """
-    self.reporting_src_vocab = src_vocab
-
-  @register_xnmt_event_assign
-  def html_report(self, context=None):
-    assert(context is None)
-    idx, src, trg, att = self.get_report_input()
-    path_to_report = self.get_report_path()
-    html = etree.Element('html')
-    head = etree.SubElement(html, 'head')
-    title = etree.SubElement(head, 'title')
-    body = etree.SubElement(html, 'body')
-    report = etree.SubElement(body, 'h1')
-    if idx is not None:
-      title.text = report.text = f'Translation Report for Sentence {idx}'
-    else:
-      title.text = report.text = 'Translation Report'
-    main_content = etree.SubElement(body, 'div', name='main_content')
-
-    # Generating main content
-    captions = ["Source Words", "Target Words"]
-    inputs = [src, trg]
-    for caption, inp in zip(captions, inputs):
-      if inp is None: continue
-      sent = ' '.join(inp)
-      p = etree.SubElement(main_content, 'p')
-      p.text = f"{caption}: {sent}"
-
-    # Generating attention
-    if not any([src is None, trg is None, att is None]):
-      attention = etree.SubElement(main_content, 'p')
-      att_text = etree.SubElement(attention, 'b')
-      att_text.text = "Attention:"
-      etree.SubElement(attention, 'br')
-      attention_file = f"{path_to_report}.attention.png"
-      att_img = etree.SubElement(attention, 'img')
-      att_img_src = f"{path_to_report}.attention.png"
-      att_img.attrib['src'] = os.path.basename(att_img_src)
-      att_img.attrib['alt'] = 'attention matrix'
-      xnmt.plot.plot_attention(src, trg, att, file_name = attention_file)
-
-    # return the parent context to be used as child context
-    return html
-
-  @handle_xnmt_event
-  def on_file_report(self):
-    idx, src, trg, attn = self.get_report_input()
-    assert attn.shape == (len(src), len(trg))
-    col_length = []
-    for word in trg:
-      col_length.append(max(len(word), 6))
-    col_length.append(max(len(x) for x in src))
-    with open(self.get_report_path() + ".attention.txt", encoding='utf-8', mode='w') as attn_file:
-      for i in range(len(src)+1):
-        if i == 0:
-          words = trg + [""]
-        else:
-          words = [f"{f:.4f}" for f in attn[i-1]] + [src[i-1]]
-        str_format = ""
-        for length in col_length:
-          str_format += "{:%ds}" % (length+2)
-        print(str_format.format(*words), file=attn_file)
-
-  
 class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, model_base.EventTrigger):
   """
   A translator based on the transformer model.
@@ -351,18 +273,8 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
     self.max_input_len = 500
     self.initialize_position_encoding(self.max_input_len, input_dim)  # TODO: parametrize this
 
-  def initialize_generator(self, **kwargs):
-    self.report_path = kwargs.get("report_path", None)
-    self.report_type = kwargs.get("report_type", None)
-
   def initialize_training_strategy(self, training_strategy):
     self.loss_calculator = training_strategy
-
-  def set_reporting_src_vocab(self, src_vocab):
-    """
-    Sets source vocab for reporting purposes.
-    """
-    self.reporting_src_vocab = src_vocab
 
   def make_attention_mask(self, source_block, target_block):
     mask = (target_block[:, None, :] <= 0) * (source_block[:, :, None] <= 0)
@@ -489,15 +401,15 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
       if not xnmt.batcher.is_batched(trg):
         trg = xnmt.batcher.mark_as_batch([trg])
 
-    # In case of reporting
-    sents = src[0]
-    if self.report_path is not None:
-      src_words = [self.reporting_src_vocab[w] for w in sents]
-      trg_words = [self.trg_vocab[w] for w in output_actions]
-      self.set_report_input(idx, src_words, trg_words)
-      self.set_report_resource("src_words", src_words)
-      self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
-      self.generate_report(self.report_type)
+    # # In case of reporting
+    # sents = src[0]
+    # if self.report_path is not None:
+    #   src_words = [self.reporting_src_vocab[w] for w in sents]
+    #   trg_words = [self.trg_vocab[w] for w in output_actions]
+    #   self.set_report_input(idx, src_words, trg_words)
+    #   self.set_report_resource("src_words", src_words)
+    #   self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
+    #   self.generate_report(self.report_type)
 
     # Append output to the outputs
     if hasattr(self, "trg_vocab") and self.trg_vocab is not None:

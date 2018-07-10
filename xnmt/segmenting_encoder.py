@@ -150,8 +150,9 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         self.bs = [self.baseline(dy.nobackprop(enc)) for enc in encodings]
     if not self.train:
       # Rewrite segmentation
-      self.set_report_resource("segmentation", self.segment_decisions)
-      self.set_report_input(segment_decisions)
+      self.add_sent_for_report({"segmentation": self.segment_decisions})
+      # self.set_report_resource("segmentation", self.segment_decisions)
+      # self.set_report_input(segment_decisions)
     # Return the encoded batch by the size of [(encode,segment)] * batch_size
     return self.final_transducer.transduce(ExpressionSequence(expr_tensor=outputs, mask=masks))
 
@@ -336,62 +337,46 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     # Total Loss
     return ret
 
-  @handle_xnmt_event
-  def on_html_report(self, context):
-    segment_decision = self.get_report_input()[0]
-    segment_decision = [int(x[0]) for x in segment_decision]
-    src_words = [escape(x) for x in self.get_report_resource("src_words")]
-    main_content = context.xpath("//body/div[@name='main_content']")[0]
-    # construct the sub element from string
-    segmented = self.apply_segmentation(src_words, segment_decision)
-    segmented = [(x if not delete else ("<font color='red'><del>" + x + "</del></font>")) for x, delete in segmented]
-    if len(segmented) > 0:
-      segment_html = "<p>Segmentation: " + ", ".join(segmented) + "</p>"
-      main_content.insert(2, etree.fromstring(segment_html))
+  # NOTE: below is to be replaced by reports.SegmentingHtmlReport
 
-    return context
+  # @handle_xnmt_event
+  # def on_html_report(self, context):
+  #   segment_decision = self.get_report_input()[0]
+  #   segment_decision = [int(x[0]) for x in segment_decision]
+  #   src_words = [escape(x) for x in self.get_report_resource("src_words")]
+  #   main_content = context.xpath("//body/div[@name='main_content']")[0]
+  #   # construct the sub element from string
+  #   segmented = self.apply_segmentation(src_words, segment_decision)
+  #   segmented = [(x if not delete else ("<font color='red'><del>" + x + "</del></font>")) for x, delete in segmented]
+  #   if len(segmented) > 0:
+  #     segment_html = "<p>Segmentation: " + ", ".join(segmented) + "</p>"
+  #     main_content.insert(2, etree.fromstring(segment_html))
+  #
+  #   return context
 
-  @handle_xnmt_event
-  def on_file_report(self):
-    segment_decision = self.get_report_input()[0]
-    segment_decision = [int(x[0]) for x in segment_decision]
-    src_words = self.get_report_resource("src_words")
-    segmented = self.apply_segmentation(src_words, segment_decision)
-    segmented = [x for x, delete in segmented]
-    logsoftmaxes = [x.npvalue() for x in self.segment_logsoftmaxes]
-
-    with open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
-      if len(segmented) > 0:
-        print(" ".join(segmented), file=segmentation_file)
-
-    if self.learn_segmentation:
-      with open(self.get_report_path() + ".segdecision", encoding='utf-8', mode='w') as segmentation_file:
-        for softmax in logsoftmaxes:
-          print(" ".join(["%.5f" % f for f in numpy.exp(softmax)]), file=segmentation_file)
-
-      with open(self.get_report_path() + ".segprob", encoding='utf-8', mode='w') as segmentation_file:
-        logprob = 0
-        for logsoftmax, decision in zip(logsoftmaxes, segment_decision):
-          logprob += logsoftmax[decision]
-        print(logprob, file=segmentation_file)
-
-  def apply_segmentation(self, words, segmentation):
-    assert(len(words) == len(segmentation))
-    segmented = []
-    temp = ""
-    for decision, word in zip(segmentation, words):
-      if decision == SegmentingAction.READ.value:
-        temp += word
-      elif decision == SegmentingAction.SEGMENT.value:
-        temp += word
-        segmented.append((temp, False))
-        temp = ""
-      else: # Case: DELETE
-        if temp: segmented.append((temp, False))
-        segmented.append((word, True))
-        temp = ""
-    if temp: segmented.append((temp, False))
-    return segmented
+  # @handle_xnmt_event
+  # def on_file_report(self):
+  #   segment_decision = self.get_report_input()[0]
+  #   segment_decision = [int(x[0]) for x in segment_decision]
+  #   src_words = self.get_report_resource("src_words")
+  #   segmented = self.apply_segmentation(src_words, segment_decision)
+  #   segmented = [x for x, delete in segmented]
+  #   logsoftmaxes = [x.npvalue() for x in self.segment_logsoftmaxes]
+  #
+  #   with open(self.get_report_path() + ".segment", encoding='utf-8', mode='w') as segmentation_file:
+  #     if len(segmented) > 0:
+  #       print(" ".join(segmented), file=segmentation_file)
+  #
+  #   if self.learn_segmentation:
+  #     with open(self.get_report_path() + ".segdecision", encoding='utf-8', mode='w') as segmentation_file:
+  #       for softmax in logsoftmaxes:
+  #         print(" ".join(["%.5f" % f for f in numpy.exp(softmax)]), file=segmentation_file)
+  #
+  #     with open(self.get_report_path() + ".segprob", encoding='utf-8', mode='w') as segmentation_file:
+  #       logprob = 0
+  #       for logsoftmax, decision in zip(logsoftmaxes, segment_decision):
+  #         logprob += logsoftmax[decision]
+  #       print(logprob, file=segmentation_file)
 
   #### DEBUG
   # TODO: this should use logger.debug() instead of print()

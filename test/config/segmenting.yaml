@@ -61,11 +61,8 @@ debug-segmenting: !Experiment
       rnn: !UniLSTMSeqTransducer
         layers: 1
       bridge: !CopyBridge {}  
-    inference: !AutoRegressiveInference
-      report_path: test/tmp/{EXP}.report
-      report_type: html, file
   train: !SimpleTrainingRegimen
-    run_for_epochs: 3
+    run_for_epochs: 1
     src_file: examples/data/head-char.ja
     trg_file: examples/data/head.en
     dev_tasks:

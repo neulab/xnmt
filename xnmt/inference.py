@@ -1,14 +1,13 @@
-from collections.abc import Iterable
+import collections.abc
 from typing import List, Optional, Tuple, Sequence, Union
 
 from xnmt.settings import settings
 
 import dynet as dy
 
-import xnmt.input
 import xnmt.batcher
-from xnmt import loss, loss_calculator, model_base, output, reports, search_strategy, vocab, util
-from xnmt.persistence import serializable_init, Serializable, Ref, bare
+from xnmt import loss, loss_calculator, model_base, output, reports, search_strategy, util
+from xnmt.persistence import serializable_init, Serializable, bare
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 
@@ -30,11 +29,13 @@ class Inference(object):
               for debugging purposes.
             * ``score``: output scores, useful for rescoring
     batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
+    reporter: a reporter to create reports for each decoded sentence
   """
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
                mode: str = "onebest",
-               batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1)):
+               batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1),
+               reporter: Union[None, reports.Reporter, Sequence[reports.Reporter]] = None):
     self.src_file = src_file
     self.trg_file = trg_file
     self.ref_file = ref_file
@@ -42,6 +43,7 @@ class Inference(object):
     self.max_num_sents = max_num_sents
     self.mode = mode
     self.batcher = batcher
+    self.reporter = reporter
 
   def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids) -> List[output.Output]:
     # TODO: src should probably a batch of inputs for consistency with return values being a batch of outputs
@@ -67,7 +69,7 @@ class Inference(object):
 
     ref_corpus, src_corpus = self._read_corpus(generator, src_file, mode=self.mode, ref_file=self.ref_file)
 
-    self._init_generator(generator)
+    generator.set_train(False)
 
     ref_scores = None
     if self.mode == 'score':
@@ -115,6 +117,7 @@ class Inference(object):
           if forced_ref_corpus: ref_batch = ref_batches[batch_i]
           dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
           outputs = self.generate_one(generator, src_batch, range(cur_sent_i,cur_sent_i+batch_size), ref_batch)
+          if self.reporter: self._create_report()
           for i in range(len(outputs)):
             if assert_scores is not None:
               # If debugging forced decoding, make sure it matches
@@ -126,6 +129,16 @@ class Inference(object):
             output_txt = outputs[i].apply_post_processor(self.post_processor)
             fp.write(f"{output_txt}\n")
         cur_sent_i += batch_size
+        if self.max_num_sents and cur_sent_i >= self.max_num_sents: break
+
+  def _create_report(self):
+    assert self.reporter is not None
+    if not isinstance(self.reporter, collections.abc.Iterable):
+      self.reporter = [self.reporter]
+    report_inputs = self.reporter[0].get_report_input(context={})
+    for report_input in report_inputs:
+      for reporter in self.reporter:
+        reporter.create_report(**report_input)
 
   def _compute_losses(self, generator, ref_corpus, src_corpus, max_num_sents) -> List[float]:
     batched_src, batched_ref = self.batcher.pack(src_corpus, ref_corpus)
@@ -134,15 +147,13 @@ class Inference(object):
       if max_num_sents and sent_count >= max_num_sents: break
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
       loss_expr = self.compute_losses_one(generator, src, ref)
-      if isinstance(loss_expr.value(), Iterable):
+      if isinstance(loss_expr.value(), collections.abc.Iterable):
         ref_scores.extend(loss_expr.value())
       else:
         ref_scores.append(loss_expr.value())
     ref_scores = [-x for x in ref_scores]
     return ref_scores
 
-  def _init_generator(self, generator: model_base.GeneratorModel) -> None:
-    generator.set_train(False)
 
   @staticmethod
   def _write_rescored_output(ref_scores: Sequence[float], ref_file: str, trg_file: str) -> None:
@@ -219,9 +230,10 @@ class IndependentOutputInference(Inference, Serializable):
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
                post_process: Union[str, output.OutputProcessor] = bare(output.PlainTextOutputProcessor),
                mode: str = "onebest",
-               batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1)):
+               batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1),
+               reporter: Union[None, reports.Reporter, Sequence[reports.Reporter]] = None):
     super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
-                     max_num_sents=max_num_sents, mode=mode, batcher=batcher)
+                     max_num_sents=max_num_sents, mode=mode, batcher=batcher, reporter=reporter)
     self.post_processor = output.OutputProcessor.get_output_processor(post_process)
 
   def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids)\
@@ -248,8 +260,6 @@ class AutoRegressiveInference(Inference, Serializable):
     max_num_sents: Stop decoding after the first n sentences.
     post_process: post-processing of translation outputs
                   (available string shortcuts:  ``none``,``join-char``,``join-bpe``,``join-piece``)
-    report_path: a path to which decoding reports will be written
-    report_type: report to generate ``file/html``. Can be multiple, separate with comma.
     search_strategy: a search strategy used during decoding.
     mode: type of decoding to perform.
 
@@ -267,16 +277,14 @@ class AutoRegressiveInference(Inference, Serializable):
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
                post_process: Union[str, output.OutputProcessor] = bare(output.PlainTextOutputProcessor),
-               report_path: Optional[str] = None, report_type: str = "html",
                search_strategy: search_strategy.SearchStrategy = bare(search_strategy.BeamSearch),
                mode: str = "onebest",
-               batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1)):
+               batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1),
+               reporter: Union[None, reports.Reporter, Sequence[reports.Reporter]] = None):
     super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
-                     max_num_sents=max_num_sents, mode=mode, batcher=batcher)
+                     max_num_sents=max_num_sents, mode=mode, batcher=batcher, reporter=reporter)
 
     self.post_processor = output.OutputProcessor.get_output_processor(post_process)
-    self.report_path = report_path
-    self.report_type = report_type
     self.search_strategy = search_strategy
 
   def generate_one(self, generator: model_base.GeneratorModel, src: xnmt.input.Input, src_i: int, forced_ref_ids)\
@@ -288,21 +296,3 @@ class AutoRegressiveInference(Inference, Serializable):
                          ref: xnmt.input.Input) -> loss.FactoredLossExpr:
     loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calculator.AutoRegressiveMLELoss())
     return loss_expr
-
-  def _init_generator(self, generator: model_base.GeneratorModel) -> None:
-    generator.set_train(False)
-
-    is_reporting = issubclass(generator.__class__, reports.Reportable) and self.report_path is not None
-    src_vocab = generator.src_reader.vocab if hasattr(generator.src_reader, "vocab") else None
-    trg_vocab = generator.trg_reader.vocab if hasattr(generator.trg_reader, "vocab") else None
-
-    generator.initialize_generator(report_path=self.report_path,
-                                   report_type=self.report_type)
-    if hasattr(generator, "set_trg_vocab"):
-      generator.set_trg_vocab(trg_vocab)
-    if hasattr(generator, "set_reporting_src_vocab"):
-      generator.set_reporting_src_vocab(src_vocab)
-    if is_reporting:
-      generator.set_report_resource("src_vocab", src_vocab)
-      generator.set_report_resource("trg_vocab", trg_vocab)
-
