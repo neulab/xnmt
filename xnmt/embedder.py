@@ -45,8 +45,8 @@ class Embedder(object):
     # minibatch mode
     else:
       embeddings = []
-      seq_len = len(sent[0])
-      for single_sent in sent: assert len(single_sent)==seq_len
+      seq_len = sent.sent_len()
+      for single_sent in sent: assert single_sent.sent_len()==seq_len
       for word_i in range(seq_len):
         batch = xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])
         embeddings.append(self.embed(batch))
@@ -100,7 +100,7 @@ class Embedder(object):
     elif vocab is not None:
       return len(vocab)
     elif "src_embedder" in yaml_path:
-      if src_reader is None or src_reader.vocab is None:
+      if src_reader is None or getattr(src_reader,"vocab",None) is None:
         raise ValueError("Could not determine src_embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of src_reader ahead of time.")
       return len(src_reader.vocab)
     elif "trg_embedder" in yaml_path or "output_projector" in yaml_path:
@@ -163,7 +163,7 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
 
   def embed(self, x):
     if self.train and self.word_dropout > 0.0 and self.word_id_mask is None:
-      batch_size = len(x) if xnmt.batcher.is_batched(x) else 1
+      batch_size = x.batch_size() if xnmt.batcher.is_batched(x) else 1
       self.word_id_mask = [set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False)) for _ in range(batch_size)]
     emb_e = dy.parameter(self.embeddings)
     # single mode
@@ -183,8 +183,8 @@ class DenseWordEmbedder(Embedder, Linear, Serializable):
         ret = dy.cdiv(ret, dy.l2_norm(ret))
         if self.fix_norm != 1:
           ret *= self.fix_norm
-      if self.train and self.word_id_mask and any(x[i] in self.word_id_mask[i] for i in range(len(x))):
-        dropout_mask = dy.inputTensor(np.transpose([[0.0]*self.emb_dim if x[i] in self.word_id_mask[i] else [1.0]*self.emb_dim for i in range(len(x))]), batched=True)
+      if self.train and self.word_id_mask and any(x[i] in self.word_id_mask[i] for i in range(x.batch_size())):
+        dropout_mask = dy.inputTensor(np.transpose([[0.0]*self.emb_dim if x[i] in self.word_id_mask[i] else [1.0]*self.emb_dim for i in range(x.batch_size())]), batched=True)
         ret = dy.cmult(ret, dropout_mask)
     if self.train and self.weight_noise > 0.0:
       ret = dy.noise(ret, self.weight_noise)
@@ -251,7 +251,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
 
   def embed(self, x):
     if self.train and self.word_dropout > 0.0 and self.word_id_mask is None:
-      batch_size = len(x) if xnmt.batcher.is_batched(x) else 1
+      batch_size = x.batch_size() if xnmt.batcher.is_batched(x) else 1
       self.word_id_mask = [set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False)) for _ in range(batch_size)]
     # single mode
     if not xnmt.batcher.is_batched(x):
@@ -270,8 +270,8 @@ class SimpleWordEmbedder(Embedder, Serializable):
         ret = dy.cdiv(ret, dy.l2_norm(ret))
         if self.fix_norm != 1:
           ret *= self.fix_norm
-      if self.train and self.word_id_mask and any(x[i] in self.word_id_mask[i] for i in range(len(x))):
-        dropout_mask = dy.inputTensor(np.transpose([[0.0]*self.emb_dim if x[i] in self.word_id_mask[i] else [1.0]*self.emb_dim for i in range(len(x))]), batched=True)
+      if self.train and self.word_id_mask and any(x[i] in self.word_id_mask[i] for i in range(x.batch_size())):
+        dropout_mask = dy.inputTensor(np.transpose([[0.0]*self.emb_dim if x[i] in self.word_id_mask[i] else [1.0]*self.emb_dim for i in range(x.batch_size())]), batched=True)
         ret = dy.cmult(ret, dropout_mask)
     if self.train and self.weight_noise > 0.0:
       ret = dy.noise(ret, self.weight_noise)
@@ -330,14 +330,14 @@ class NoopEmbedder(Embedder, Serializable):
         return LazyNumpyExpressionSequence(lazy_data=sent.get_array())
       else:
         return LazyNumpyExpressionSequence(lazy_data=xnmt.batcher.mark_as_batch(
-                                           map(lambda s: s.get_array(), sent)),
+                                           [s for s in sent]),
                                            mask=sent.mask)
     else:
       if not batched:
         embeddings = [self.embed(word) for word in sent]
       else:
         embeddings = []
-        for word_i in range(len(first_sent)):
+        for word_i in range(sent.sent_len()):
           embeddings.append(self.embed(xnmt.batcher.mark_as_batch([single_sent[word_i] for single_sent in sent])))
       return ExpressionSequence(expr_list=embeddings, mask=sent.mask)
 

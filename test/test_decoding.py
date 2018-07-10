@@ -55,7 +55,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
     dy.renew_cg()
     outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[sent_id]]), [sent_id], self.search,
                                   forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[sent_id]]))
-    self.assertItemsEqual(self.trg_data[sent_id], outputs[0].actions)
+    self.assertItemsEqual(self.trg_data[sent_id].words, outputs[0].actions)
 
   def test_forced_decoding(self):
     for i in range(1):
@@ -134,7 +134,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
 
     dy.renew_cg()
     train_loss = self.model.calc_loss(src=self.src_data[0],
-                                      trg=outputs[0].actions,
+                                      trg=outputs[0],
                                       loss_calculator=AutoRegressiveMLELoss()).value()
 
     self.assertAlmostEqual(-output_score, train_loss, places=5)
