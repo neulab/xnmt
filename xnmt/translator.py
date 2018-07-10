@@ -17,7 +17,6 @@ from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_
 from xnmt.input import SimpleSentenceInput
 from xnmt.model_base import GeneratorModel, EventTrigger
 from xnmt.inference import AutoRegressiveInference
-from xnmt.hyper_parameters import multiply_weight
 from xnmt.input import Input, SimpleSentenceInput
 import xnmt.length_normalization
 from xnmt.loss import FactoredLossExpr
@@ -130,28 +129,43 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
   def _encode_src(self, src):
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
+    # We assume that the encoder can generate multiple possible encodings
     encodings = self.encoder.transduce(embeddings)
-    self.attender.init_sent(encodings)
-    ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
-    initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
-    return initial_state
+    # Most cases, it falls here where the encoder just generate 1 encodings
+    if type(encodings) != list:
+      encodings = [encodings]
+      final_states = [self.encoder.get_final_states()]
+    else:
+      final_states = self.encoder.get_final_states()
+    initial_states = []
+    for encoding, final_state in zip(encodings, final_states):
+      self.attender.init_sent(encoding)
+      ss = mark_as_batch([Vocab.SS] * len(src)) if is_batched(src) else Vocab.SS
+      initial_states.append(self.decoder.initial_state(final_state, self.trg_embedder.embed(ss)))
+    return initial_states
 
   def calc_loss(self, src, trg, loss_calculator):
-    initial_state = self._encode_src(src)
-    # Compose losses
-    model_loss = FactoredLossExpr()
-    model_loss.add_factored_loss_expr(loss_calculator.calc_loss(self, initial_state, src, trg))
-
-    if self.global_fertility != 0:
-      # philip30: I assume that attention_vecs is already masked src wisely.
-      # Now applying the mask to the target
-      masked_attn = self.attender.attention_vecs
-      if trg.mask is not None:
-        trg_mask = trg.mask.get_active_one_mask().transpose()
-        masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
-      model_loss.add_loss("fertility", self._global_fertility(masked_attn))
-
-    return model_loss
+    initial_states = self._encode_src(src)
+    
+    # Calculate losses from multiple initial states
+    losses = []
+    for initial_state in initial_states:
+      model_loss = FactoredLossExpr()
+      model_loss.add_factored_loss_expr(loss_calculator.calc_loss(self, initial_state, src, trg))
+  
+      if self.global_fertility != 0:
+        masked_attn = self.attender.attention_vecs
+        if trg.mask is not None:
+          trg_mask = trg.mask.get_active_one_mask().transpose()
+          masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
+        model_loss.add_loss("fertility", self._global_fertility(masked_attn))
+      losses.append(model_loss)
+    try:
+      total_loss = FactoredLossExpr()
+      list(total_loss.add_factored_loss_expr(x) for x in losses)
+      return total_loss
+    finally:
+      self.losses = losses
 
   def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:Batch, input_word:Batch) \
           -> Tuple[AutoRegressiveDecoderState,dy.Expression]:
@@ -175,7 +189,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
       sent_mask = None
       if src.mask: sent_mask = Mask(np_arr=src.mask.np_arr[sent_i:sent_i+1])
       sent_batch = mark_as_batch([sent], mask=sent_mask)
-      initial_state = self._encode_src(sent_batch)
+      # TODO(philip30): possibly we can implement MBR by doing decoding on this multiple samples
+      initial_state = self._encode_src(sent_batch)[0]
       if forced_trg_ids: cur_forced_trg = forced_trg_ids[sent_i]
       search_outputs = search_strategy.generate_output(self, initial_state,
                                                        src_length=[len(sent)],
@@ -233,7 +248,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
     return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
 
   def _global_fertility(self, a):
-    return multiply_weight(dy.sum_elems(dy.square(1 - dy.esum(a))), self.global_fertility)
+    return self.global_fertility * dy.sum_elems(dy.square(1 - dy.esum(a)))
 
   def set_reporting_src_vocab(self, src_vocab):
     """

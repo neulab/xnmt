@@ -1,4 +1,4 @@
-from typing import Sequence, Union
+from typing import Sequence, Union, List
 
 from xnmt import batcher, events, input, input_reader, loss, output, training_task
 import xnmt.loss_calculator

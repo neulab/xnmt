@@ -55,7 +55,7 @@ import xnmt.training_task
 import xnmt.transformer
 import xnmt.translator
 import xnmt.persistence
-import xnmt.loss_scaler
+import xnmt.rl
 
 resolved_serialize_params = {}
 
