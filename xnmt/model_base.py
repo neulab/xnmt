@@ -1,6 +1,6 @@
 from typing import Sequence, Union
 
-from xnmt import batcher, events, input, input_reader, loss, output, training_task
+from xnmt import batcher, events, input_reader, loss, output, training_task
 import xnmt.loss_calculator
 import xnmt.input
 
@@ -44,14 +44,6 @@ class GeneratorModel(TrainableModel):
   """
   A template class for trainable models that can perform inference to generate some kind of output.
   """
-
-  def initialize_generator(self, **kwargs):
-    """
-    Initialize generator.
-
-    The exact arguments are left to be specifiec by implementing classes.
-    """
-    pass
 
   def generate(self, src: batcher.Batch, idx: Sequence[int], *args, **kwargs) -> Sequence[output.Output]:
     """

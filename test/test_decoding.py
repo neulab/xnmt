@@ -44,7 +44,6 @@ class TestForcedDecodingOutputs(unittest.TestCase):
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)
-    self.model.initialize_generator()
 
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
@@ -82,7 +81,6 @@ class TestForcedDecodingLoss(unittest.TestCase):
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)
-    self.model.initialize_generator()
 
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
@@ -93,7 +91,6 @@ class TestForcedDecodingLoss(unittest.TestCase):
                                       trg=self.trg_data[0],
                                       loss_calculator=AutoRegressiveMLELoss()).value()
     dy.renew_cg()
-    self.model.initialize_generator()
     outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], GreedySearch(),
                                   forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
     output_score = outputs[0].score
@@ -120,14 +117,12 @@ class TestFreeDecodingLoss(unittest.TestCase):
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)
-    self.model.initialize_generator()
 
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
 
   def test_single(self):
     dy.renew_cg()
-    self.model.initialize_generator()
     outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], GreedySearch(),
                                   forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
     output_score = outputs[0].score
