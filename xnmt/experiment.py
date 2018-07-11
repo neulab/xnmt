@@ -51,7 +51,7 @@ class Experiment(Serializable):
     eval_scores = ["Not evaluated"]
     if self.train:
       logger.info("> Training")
-      save_fct() # save initial model
+      # save_fct() # save initial model
       self.train.run_training(save_fct = save_fct)
       logger.info('reverting learned weights to best checkpoint..')
       ParamManager.param_col.revert_to_best_model()

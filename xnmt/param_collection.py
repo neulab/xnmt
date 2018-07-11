@@ -145,7 +145,8 @@ class ParamCollection(object):
   def add_subcollection(self, subcol_owner, subcol_name):
     assert subcol_owner not in self.all_subcol_owners
     self.all_subcol_owners.add(subcol_owner)
-    assert subcol_name not in self.subcols
+    if subcol_name in self.subcols:
+      raise RuntimeError(f'Duplicate subcol_name {subcol_name} found when loading')
     new_subcol = self._param_col.add_subcollection(subcol_name)
     self.subcols[subcol_name] = new_subcol
     return new_subcol

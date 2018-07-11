@@ -112,8 +112,9 @@ class PlainTextReader(BaseTextReader, Serializable):
 
   def read_sent(self, line):
     vocab_reference = self.vocab if self.include_vocab_reference else None
-    return SimpleSentenceInput([self.vocab.convert(word) for word in line.strip().split()] + \
-                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
+    words = line.strip().split()
+    ids = [self.vocab.convert(word) for word in words] + [self.vocab.convert(Vocab.ES_STR)]
+    return SimpleSentenceInput(ids, vocab_reference)
 
   def freeze(self):
     self.vocab.freeze()

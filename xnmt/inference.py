@@ -7,7 +7,7 @@ import dynet as dy
 
 import xnmt.input
 import xnmt.batcher
-from xnmt import loss, loss_calculator, model_base, output, reports, search_strategy, vocab, util
+from xnmt import logger, loss, loss_calculator, model_base, output, reports, search_strategy, vocab, util
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
@@ -64,6 +64,8 @@ class Inference(object):
     src_file = src_file or self.src_file
     trg_file = trg_file or self.trg_file
     util.make_parent_dir(trg_file)
+
+    logger.info(f'Performing inference on {src_file}')
 
     ref_corpus, src_corpus = self._read_corpus(generator, src_file, mode=self.mode, ref_file=self.ref_file)
 
