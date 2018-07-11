@@ -50,5 +50,5 @@ class GoldInputPrior(Prior, Serializable):
     self.src = src
 
   def sample(self, batch_size, size):
-    return [getattr(self.src[i], self.attr_name) for i in range(len(batch_size))]
+    return [getattr(self.src[i], self.attr_name) for i in range(batch_size)]
 

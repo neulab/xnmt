@@ -54,7 +54,7 @@ class PolicyGradient(Serializable):
     if predefined_actions is not None:
       # Use defined action value
       self.sampling_action = self.SamplingAction.PREDEFINED
-      actions = predefined_actions
+      actions.extend(predefined_actions)
     else:
       # sample from policy
       for k in range(self.sample):

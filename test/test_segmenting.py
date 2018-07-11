@@ -35,6 +35,7 @@ from xnmt.rl.policy_gradient import PolicyGradient
 from xnmt.rl.eps_greedy import EpsilonGreedy
 from xnmt.rl.confidence_penalty import ConfidencePenalty
 from xnmt.priors import PoissonPrior
+from xnmt.test.utils import has_cython
 
 class TestSegmentingEncoder(unittest.TestCase):
   
@@ -73,6 +74,7 @@ class TestSegmentingEncoder(unittest.TestCase):
       segment_composer =  self.segment_composer,
       final_transducer = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       policy_learning = self.policy_gradient,
+      eps_greedy = self.eps_greedy,
     )
 
     self.model = DefaultTranslator(
@@ -99,11 +101,6 @@ class TestSegmentingEncoder(unittest.TestCase):
     my_batcher = xnmt.batcher.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
     dy.renew_cg(immediate_compute=True, check_validity=True)
-
-  def inp_emb(self, idx=0):
-    self.model.start_sent(self.src[idx])
-    embed = self.model.src_embedder.embed_sent(self.src[idx])
-    return embed
 
   def test_reinforce_loss(self):
     self.model.global_fertility = 1.0
@@ -132,19 +129,58 @@ class TestSegmentingEncoder(unittest.TestCase):
     # Ensure we are sampling from the policy learning
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.POLICY)
 
+  def calc_loss_single_batch(self):
+    loss = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
+    reinforce_loss = self.model.calc_additional_loss(self.trg[0], self.model, loss)
+    return loss, reinforce_loss
+
   def test_gold_input(self):
     self.model.encoder.policy_learning = None
-    loss = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
+    self.model.encoder.eps_greedy = None
+    self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.GOLD)
+
+  @unittest.skipUnless(has_cython(), "requires cython to run")
+  def test_sample_input(self):
+    self.model.encoder.eps_greedy.eps_prob= 1.0
+    self.calc_loss_single_batch()
+    self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.POLICY_SAMPLE)
+    self.assertEqual(self.model.encoder.policy_learning.sampling_action, PolicyGradient.SamplingAction.PREDEFINED)
 
   def test_global_fertility(self):
     # Test Global fertility weight
     self.model.global_fertility = 1.0
     self.segmenting_encoder.policy_learning = None
-    loss1 = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
-    self.model.global_fertility = 0.5
-    loss2 = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
-    numpy.testing.assert_almost_equal(loss1["fertility"].npvalue()/2, loss2["fertility"].npvalue())
+    loss1, _ = self.calc_loss_single_batch()
+    self.assertTrue("fertility" in loss1.expr_factors)
+  
+  def test_policy_train_test(self):
+    self.model.set_train(True)
+    self.calc_loss_single_batch()
+    self.assertEqual(self.model.encoder.policy_learning.sampling_action, PolicyGradient.SamplingAction.POLICY_CLP)
+    self.model.set_train(False)
+    self.calc_loss_single_batch()
+    self.assertEqual(self.model.encoder.policy_learning.sampling_action, PolicyGradient.SamplingAction.POLICY_AMAX)
+
+  def test_no_policy_train_test(self):
+    self.model.encoder.policy_learning = None
+    self.model.set_train(True)
+    self.calc_loss_single_batch()
+    self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.PURE_SAMPLE)
+    self.model.set_train(False)
+    self.calc_loss_single_batch()
+    self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.PURE_SAMPLE)
+
+  def test_sample_during_search(self):
+    self.model.set_train(False)
+    self.model.encoder.sample_during_search = True
+    self.calc_loss_single_batch()
+    self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.POLICY)
+
+  def test_policy_gold(self):
+    self.model.encoder.eps_greedy.prior = GoldInputPrior("segment")
+    self.model.encoder.eps_greedy.eps_prob = 1.0
+    self.calc_loss_single_batch()
 
 class TestComposing(unittest.TestCase):
   def setUp(self):

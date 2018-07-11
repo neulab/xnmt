@@ -11,6 +11,7 @@ from xnmt.expression_sequence import ExpressionSequence
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import FactoredLossExpr
+from xnmt.priors import GoldInputPrior
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!SegmentingSeqTransducer'
@@ -111,7 +112,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
       predefined_actions = None
       if self.eps_greedy and self.eps_greedy.is_triggered():
         self.segmenting_action = self.SegmentingAction.POLICY_SAMPLE
-        predefined_actions = self.sparse_to_dense(self.sample_from_prior())
+        predefined_actions = self.sparse_to_dense(self.sample_from_prior(), len(encodings))
       else:
         self.segmenting_action = self.SegmentingAction.POLICY
       actions = self.sample_from_policy(encodings, batch_size, predefined_actions)
@@ -120,6 +121,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
   def sample_from_policy(self, encodings, batch_size, predefined_actions=None):
     from_argmax = not self.train and not self.sample_during_search
     sample_size = 1 if from_argmax else self.policy_learning.sample
+    sample_size = sample_size if predefined_actions is None else len(predefined_actions[0])
     actions = [[[] for _ in range(batch_size)] for _ in range(sample_size)]
     mask = encodings.mask.np_arr if encodings.mask else None
     # Callback to ensure all samples are ended with </s> being segmented
@@ -151,28 +153,41 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     prior = self.eps_greedy.get_prior()
     batch_size = self.src_sent.batch_size()
     length_size = self.src_sent.sent_len()
-    sample = prior.get_sample(batch_size, length_size)
-
-    if issubclass(prior, GoldInputPrior):
+    samples = prior.sample(batch_size, length_size)
+    if issubclass(prior.__class__, GoldInputPrior):
       # Exception when the action is taken directly from the input
-      actions = sample
+      actions = samples
     else:
-      actions = [[] for _ in range(batch_size)]
-      idx = 0
-      for action, src_sent in zip(actions, self.src_sent):
-        current = sample[idx]
+      actions = []
+      for src_sent, sample in zip(self.src_sent, samples):
+        current, action = 0, []
         src_len = src_sent.len_unpadded()
-        while current < src_len:
+        for j in range(len(sample)):
+          current += sample[j]
+          if current >= src_len:
+            break
           action.append(current)
-          idx = (idx + 1) % len(randoms)
-          current += max(sample[idx], 1)
         if action[-1] != src_len:
           action.append(src_len)
+        actions.append(action)
     # Return only 1 sample for each batc
     return [actions]
 
-  def sparse_to_dense(actions):
-    pass
+  def sparse_to_dense(self, actions, length):
+    try:
+      from xnmt.cython import xnmt_cython
+    except:
+      logger.error("BLEU evaluate fast requires xnmt cython installation step."
+                   "please check the documentation.")
+      raise RuntimeError()
+    dense_actions = []
+    for sample_actions in actions:
+      batch_dense = []
+      for batch_action in sample_actions:
+        batch_dense.append(xnmt_cython.dense_from_sparse(batch_action, length))
+      dense_actions.append(batch_dense)
+    arr = np.array(dense_actions) # (sample, batch, length)
+    return np.rollaxis(arr, 2)
 
   def pad(self, outputs):
     # Padding
