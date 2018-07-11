@@ -111,7 +111,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     rnn_state = self.rnn.initial_state()
     rnn_state = rnn_state.set_s(self.bridge.decoder_init(enc_final_states))
     zeros = dy.zeros(self.input_dim) if self.input_feeding else None
-    rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]))
+    rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]) if self.input_feeding else ss_expr)
     return AutoRegressiveDecoderState(rnn_state=rnn_state, context=zeros)
 
   def add_input(self, mlp_dec_state: AutoRegressiveDecoderState, trg_embedding: dy.Expression) -> AutoRegressiveDecoderState:

@@ -1,4 +1,5 @@
 from typing import Any, Sequence
+import warnings
 
 import numpy as np
 import functools
@@ -12,16 +13,19 @@ class Input(object):
   """
   A template class to represent a single input of any type.
   """
-
-  def __len__(self):
+  def __len__(self) -> int:
+    warnings.warn("use of Input.__len__() is discouraged, use Input.sent_len() instead.", DeprecationWarning)
+    return self.sent_len()
+  
+  def sent_len(self) -> int:
     """
     Return length of input, included padded tokens.
 
     Returns: length
     """
-    raise NotImplementedError("__len__() must be implemented by Input subclasses")
+    raise NotImplementedError("must be implemented by Input subclasses")
 
-  def len_unpadded(self):
+  def len_unpadded(self) -> int:
     """
     Return length of input prior to applying any padding.
 
@@ -29,7 +33,7 @@ class Input(object):
 
     """
 
-  def __getitem__(self):
+  def __getitem__(self) -> Any:
     raise NotImplementedError("__getitem__() must be implemented by Input subclasses")
 
   def get_padded_sent(self, token: Any, pad_len: int) -> 'Input':
@@ -59,35 +63,52 @@ class Input(object):
 class IntInput(Input):
   def __init__(self, value: int) -> None:
     self.value = value
-
-  def __len__(self):
+  def sent_len(self) -> int:
     return 1
-
-  def len_unpadded(self):
+  def len_unpadded(self) -> int:
     return 1
-
-  def __getitem__(self, item):
+  def __getitem__(self, item) -> int:
     if item != 0: raise IndexError
     return self.value
-
-  def get_padded_sent(self, token: Any, pad_len: int):
+  def get_padded_sent(self, token: Any, pad_len: int) -> 'IntInput':
     if pad_len != 0:
       raise ValueError("Can't pad IntInput")
+    return self
+  def get_truncated_sent(self, trunc_len: int) -> 'IntInput':
+    if trunc_len != 0:
+      raise ValueError("Can't truncate IntInput")
+    return self
+
+
+class CompoundInput(Input):
+  def __init__(self, inputs: Sequence[Input]) -> None:
+    self.inputs = inputs
+  def sent_len(self) -> int:
+    return sum(inp.sent_len() for inp in self.inputs)
+  def len_unpadded(self) -> int:
+    return sum(inp.len_unpadded() for inp in self.inputs)
+  def __getitem__(self, key):
+    raise ValueError("not supported with CompoundInput, must be called on one of the sub-inputs instead.")
+  def get_padded_sent(self, token, pad_len):
+    raise ValueError("not supported with CompoundInput, must be called on one of the sub-inputs instead.")
+  def get_truncated_sent(self, trunc_len):
+    raise ValueError("not supported with CompoundInput, must be called on one of the sub-inputs instead.")
 
 class SimpleSentenceInput(Input):
   """
   A simple sentence, represented as a list of tokens
 
   Args:
-    words (List[int]): list of integer word ids
+    words: list of integer word ids
   """
+
   def __init__(self, words: Sequence[int]):
-      self.words = words
+    self.words = words
 
   def __repr__(self):
     return '{}'.format(self.words)
 
-  def __len__(self):
+  def sent_len(self):
     return len(self.words)
   
   @functools.lru_cache(maxsize=1)
@@ -117,8 +138,9 @@ class SimpleSentenceInput(Input):
   def get_truncated_sent(self, trunc_len: int) -> 'Input':
     if trunc_len == 0:
       return self
-    new_words = self.words[:-trunc_len]
-    return self.__class__(new_words)
+    new_sent = copy.deepcopy(self)
+    new_sent.words = self.words[:-trunc_len]
+    return new_sent
 
   def __str__(self):
     return " ".join(map(str, self.words))
@@ -135,7 +157,7 @@ class ArrayInput(Input):
     self.nparr = nparr
     self.padded_len = padded_len
 
-  def __len__(self):
+  def sent_len(self):
     return self.nparr.shape[1] if len(self.nparr.shape) >= 2 else 1
 
   def len_unpadded(self):

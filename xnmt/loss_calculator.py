@@ -1,3 +1,5 @@
+from typing import Union
+
 import dynet as dy
 import numpy as np
 
@@ -37,14 +39,17 @@ class AutoRegressiveMLELoss(Serializable, LossCalculator):
   def __init__(self, truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
     self.truncate_dec_batches = truncate_dec_batches
 
-  def calc_loss(self, translator, initial_state, src, trg):
+  def calc_loss(self, translator: 'translator.AutoRegressiveTranslator',
+                initial_state: 'translator.AutoRegressiveDecoderState',
+                src: Union[xnmt.input.Input, 'batcher.Batch'],
+                trg: Union[xnmt.input.Input, 'batcher.Batch']):
     dec_state = initial_state
     trg_mask = trg.mask if xnmt.batcher.is_batched(trg) else None
     losses = []
-    seq_len = len(trg[0]) if xnmt.batcher.is_batched(src) else len(trg)
+    seq_len = trg.sent_len()
     if xnmt.batcher.is_batched(src):
       for j, single_trg in enumerate(trg):
-        assert len(single_trg) == seq_len # assert consistent length
+        assert single_trg.sent_len() == seq_len # assert consistent length
         assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask.np_arr[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
     input_word = None
     for i in range(seq_len):
@@ -152,7 +157,7 @@ class MinRiskLoss(Serializable, LossCalculator):
     self.unique_sample = unique_sample
 
   def calc_loss(self, translator, initial_state, src, trg):
-    batch_size = len(trg)
+    batch_size = trg.batch_size()
     uniques = [set() for _ in range(batch_size)]
     deltas = []
     probs = []

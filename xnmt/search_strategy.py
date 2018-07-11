@@ -128,7 +128,7 @@ class BeamSearch(Serializable, SearchStrategy):
   def generate_output(self, translator, initial_state, src_length=None, forced_trg_ids=None):
     # TODO(philip30): can only do single decoding, not batched
     assert forced_trg_ids is None or self.beam_size == 1
-    if forced_trg_ids and len(forced_trg_ids) > self.max_len:
+    if forced_trg_ids is not None and forced_trg_ids.sent_len() > self.max_len:
       logger.warning("Forced decoding with a target longer than max_len. "
                      "Increase max_len to avoid unexpected behavior.")
 
@@ -243,7 +243,7 @@ class SamplingSearch(Serializable, SearchStrategy):
         if len(sample.shape) == 2:
           sample = sample[0]
       else:
-        sample = [forced_trg[length] if len(forced_trg) > length else Vocab.ES for forced_trg in forced_trg_ids]
+        sample = [forced_trg[length] if forced_trg.sent_len() > length else Vocab.ES for forced_trg in forced_trg_ids]
       logsoft = dy.pick_batch(translator_output.logsoftmax, sample)
       if done is not None:
         sample = [sample[i] if not done[i] else Vocab.ES for i in range(len(done))]

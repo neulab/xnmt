@@ -69,7 +69,7 @@ class Vocab(Serializable):
         vocab.append(word)
     return vocab
 
-  def convert(self, w):
+  def convert(self, w: str) -> int:
     if w not in self.w2i:
       if self.frozen:
         assert self.unk_token is not None, 'Attempt to convert an OOV in a frozen vocabulary with no UNK token set'
@@ -78,13 +78,10 @@ class Vocab(Serializable):
       self.i2w.append(w)
     return self.w2i[w]
 
-  def __contains__(self, elem):
-    return elem in self.w2i
-
-  def __getitem__(self, i):
+  def __getitem__(self, i: int) -> str:
     return self.i2w[i]
 
-  def __len__(self):
+  def __len__(self) -> int:
     return len(self.i2w)
 
   def is_compatible(self, other):

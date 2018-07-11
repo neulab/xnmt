@@ -52,7 +52,7 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
 
   def calc_loss(self, src, trg, loss_calculator):
     h = self._encode_src(src)
-    ids = trg.value if not batcher.is_batched(trg) else batcher.Batch([trg_i.value for trg_i in trg])
+    ids = trg.value if not batcher.is_batched(trg) else batcher.ListBatch([trg_i.value for trg_i in trg])
     loss_expr = self.scorer.calc_loss(h, ids)
     classifier_loss = loss.FactoredLossExpr({"mle" : loss_expr})
     return classifier_loss
@@ -70,7 +70,7 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
     else:
       output_action = np.argmax(np_scores, axis=0)
     outputs = []
-    for batch_i in range(len(src)):
+    for batch_i in range(src.batch_size()):
       score = np_scores[:, batch_i][output_action[batch_i]]
       outputs.append(output.ScalarOutput(actions=[output_action],
                                          vocab=None,

@@ -37,6 +37,7 @@ class Standard(object):
   LOG_LEVEL_FILE = "DEBUG"
   DEFAULT_MOD_PATH = "{EXP_DIR}/models/{EXP}.mod"
   DEFAULT_LOG_PATH = "{EXP_DIR}/logs/{EXP}.log"
+  DEFAULT_REPORT_PREFIX = "{EXP_DIR}/reports/{EXP}"
 
 class Debug(Standard):
   """
@@ -58,6 +59,7 @@ class Unittest(Standard):
   LOG_LEVEL_CONSOLE = "WARNING"
   DEFAULT_MOD_PATH = "test/tmp/{EXP}.mod"
   DEFAULT_LOG_PATH = "test/tmp/{EXP}.log"
+  DEFAULT_REPORT_PREFIX = "test/tmp/{EXP}.report"
 
 class SettingsAccessor(object):
   def __getattr__(self, item):
