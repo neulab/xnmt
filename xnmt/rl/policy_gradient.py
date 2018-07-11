@@ -8,6 +8,7 @@ from xnmt.persistence import Ref, bare, Path, Serializable, serializable_init
 from xnmt.rl.eps_greedy import EpsilonGreedy
 from xnmt.constants import EPSILON
 from xnmt.loss import FactoredLossExpr
+from xnmt.enum import Enum
 
 class PolicyGradient(Serializable):
   yaml_tag = '!PolicyGradient'
@@ -32,7 +33,8 @@ class PolicyGradient(Serializable):
     self.actions = []
     self.baseline_input = None
     self.valid_pos = src_sent.mask.get_valid_position() if src_sent.mask else None 
- 
+    self.sampling_action = self.SamplingAction.NONE
+
   def sample_from_policy(self, policy, argmax=False):
     batch_size = policy.dim()[1]
     if argmax:
@@ -41,13 +43,17 @@ class PolicyGradient(Serializable):
       action = policy.tensor_value().categorical_sample_log_prob().as_numpy()[0]
     if batch_size == 1:
       action = [action]
-    return action
+    try:
+      return action
+    finally:
+      self.sampling_action = self.SamplingAction.POLICY_CLP if not argmax else self.SamplingAction.POLICY_AMAX
 
   def sample_action(self, state, argmax=False, sample_pp=None, predefined_actions=None):
     policy = dy.log_softmax(self.policy_network(state))
     actions = []
     if predefined_actions is not None:
       # Use defined action value
+      self.sampling_action = self.SamplingAction.PREDEFINED
       actions = predefined_actions
     else:
       # sample from policy
@@ -94,10 +100,10 @@ class PolicyGradient(Serializable):
     ## Calculate baseline   
     if self.baseline is not None:
       pred_reward, baseline_loss = self.calc_baseline_loss(rewards)
-      loss.add_loss("seg_baseline", baseline_loss)
+      loss.add_loss("rl_baseline", baseline_loss)
     ## Calculate Confidence Penalty
     if self.confidence_penalty:
-      loss.add_loss("seg_confpen", self.confidence_penalty.calc_loss(self.policy_lls))
+      loss.add_loss("rl_confpen", self.confidence_penalty.calc_loss(self.policy_lls))
     ## Calculate Reinforce Loss
     reinf_loss = []
     # Loop through all action in one sequence
@@ -112,29 +118,12 @@ class PolicyGradient(Serializable):
           ll = dy.pick_batch_elems(ll, self.valid_pos[i])
           reward = dy.pick_batch_elems(reward, self.valid_pos[i])
         reinf_loss.append(dy.sum_batches(ll*reward))
-    loss.add_loss("seg_reinf", self.weight * dy.esum(reinf_loss))
+    loss.add_loss("rl_reinf", self.weight * -dy.esum(reinf_loss))
     ## the composed losses
     return loss
-    
-  def get_num_sample(self):
-    return self.sample
-
-#  # Sample from poisson prior
-#  def sample_from_poisson(self, encodings, batch_size):
-#    assert len(encodings) != 0
-#    randoms = list(filter(lambda x: x > 0, )))
-#    segment_decisions = [[] for _ in range(batch_size)]
-#    idx = 0
-#    if len(randoms) == 0:
-#      randoms = [0]
-#    # Filling up the segmentation matrix based on the poisson distribution
-#    for decision in segment_decisions:
-#      current = randoms[idx]
-#      while current < len(encodings):
-#        decision.append(current)
-#        idx = (idx + 1) % len(randoms)
-#        current += max(randoms[idx], 1)
-#    try:
-#      return segment_decisions
-#    finally:
-#      self.sample_action = SampleAction.LP
+  
+  class SamplingAction(Enum):
+    POLICY_CLP = 0
+    POLICY_AMAX = 1
+    PREDEFINED = 2
+    NONE = 3

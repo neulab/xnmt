@@ -105,15 +105,30 @@ class TestSegmentingEncoder(unittest.TestCase):
     embed = self.model.src_embedder.embed_sent(self.src[idx])
     return embed
 
-  def extract_mask(self, mask, i, col_size):
-    if mask is None:
-      return numpy.zeros(col_size)
-    else:
-      return mask.np_arr[i]
-
   def test_reinforce_loss(self):
+    self.model.global_fertility = 1.0
     loss = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
     reinforce_loss = self.model.calc_additional_loss(self.trg[0], self.model, loss)
+    pl = self.model.encoder.policy_learning
+    # Ensure correct length
+    src = self.src[0]
+    mask = src.mask.np_arr
+    outputs = self.segmenting_encoder.compose_output
+    actions = self.segmenting_encoder.segment_actions
+    # Ensure sample == outputs
+    self.assertEqual(len(outputs), pl.sample)
+    self.assertEqual(len(actions), pl.sample)
+    for sample_action in actions:
+      for i, sample_item in enumerate(sample_action):
+        # The last segmentation is 1
+        self.assertEqual(sample_item[-1], src[i].len_unpadded())
+        # Assert that all flagged actions are </s>
+        list(self.assertEqual(pl.actions[j][0][i], 1) for j in range(len(mask[i])) if mask[i][j] == 1)
+    self.assertTrue("mle" in loss.expr_factors)
+    self.assertTrue("fertility" in loss.expr_factors)
+    self.assertTrue("rl_reinf" in reinforce_loss.expr_factors)
+    self.assertTrue("rl_baseline" in reinforce_loss.expr_factors)
+    self.assertTrue("rl_confpen" in reinforce_loss.expr_factors)
 
   def test_global_fertility(self):
     # Test Global fertility weight

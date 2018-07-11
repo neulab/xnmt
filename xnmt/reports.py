@@ -233,4 +233,38 @@ class SegmentingHtmlReporter(HtmlReporter, Serializable):
         temp = ""
     if temp: segmented.append((temp, False))
     return segmented
+#  @handle_xnmt_event
+#  def on_html_report(self, context):
+#    segment_decision = self.segmentation
+#    src_words = [escape(self.src_vocab[x]) for x in self.src_sent[0].words]
+#    main_content = context.xpath("//body/div[@name='main_content']")[0]
+#    # construct the sub element from string
+#    segmented = self.apply_segmentation(src_words, segment_decision)
+#    if len(segmented) > 0:
+#      segment_html = "<p>Segmentation: " + ", ".join(segmented) + "</p>"
+#      main_content.insert(2, etree.fromstring(segment_html))
+#
+#    return context
+#
+#  @handle_xnmt_event
+#  def on_file_report(self, report_path):
+#    segment_decision = self.segmentation
+#    src_words = [self.src_vocab[x] for x in self.src_sent[0].words]
+#    segmented = self.apply_segmentation(src_words, segment_decision)
+#
+#    if self.learn_segmentation and self.segment_logsoftmaxes:
+#      logsoftmaxes = [x.npvalue() for x in self.segment_logsoftmaxes]
+#      with open(report_path + ".segdecision", encoding='utf-8', mode='w') as segmentation_file:
+#        for softmax in logsoftmaxes:
+#          print(" ".join(["%.5f" % f for f in np.exp(softmax)]), file=segmentation_file)
+#
+#  @handle_xnmt_event
+#  def on_line_report(self, output_dict):
+#    logsoft = self.segment_logsoftmaxes
+#    if logsoft is None:
+#      return
+#    decision = lambda i: [(1 if i in dec_set else 0) for dec_set in self.segment_decisions]
+#    segmentation_prob = [dy.pick_batch(logsoft[i], decision(i)) for i in range(len(logsoft))]
+#    segmentation_prob = dy.pick_batch_elem(dy.esum(segmentation_prob), 0)
+#    output_dict["07segenc"] = segmentation_prob.scalar_value()
 

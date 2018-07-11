@@ -60,82 +60,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     finally:
       self.compose_output = outputs
       self.segment_actions = actions
-
       if self.policy_learning:
         self.policy_learning.set_baseline_input(embed_encode)
-
-  @handle_xnmt_event
-  def on_start_sent(self, src):
-    self.src_sent = src
-    self.final_states = []
-
-  @handle_xnmt_event
-  def on_set_train(self, train):
-    self.train = train
-
-  def pad(self, outputs):
-    # Padding
-    max_col = max(len(xs) for xs in outputs)
-    P0 = dy.vecInput(outputs[0][0].dim()[0][0])
-    masks = np.zeros((len(outputs), max_col), dtype=int)
-    modified = False
-    ret = []
-    for xs, mask in zip(outputs, masks):
-      deficit = max_col - len(xs)
-      if deficit > 0:
-        xs.extend([P0 for _ in range(deficit)])
-        mask[-deficit:] = 1
-        modified = True
-      ret.append(dy.concatenate_cols(xs))
-    mask = Mask(masks) if modified else None
-    return ret, mask
-
-  def sample_from_policy(self, encodings, batch_size, predefined_actions=None):
-    from_argmax = not self.train and not self.sample_during_search
-    sample_size = 1 if from_argmax else self.policy_learning.get_num_sample()
-    actions = [[[] for _ in range(batch_size)] for _ in range(sample_size)]
-    mask = encodings.mask.np_arr if encodings.mask else None
-    # Callback to ensure all samples are ended with </s> being segmented
-    def ensure_end_segment(sample, position):
-      for i in range(len(sample)):
-        last_eos = self.src_sent[i].len_unpadded()
-        if position >= last_eos:
-          sample[i] = 1
-      return sample
-    # Loop through all items in the sequence
-    for position, encoding in enumerate(encodings):
-      # Sample from softmax if we have no predefined action
-      predefined = predefined_actions[position] if predefined_actions is not None else None
-      action = self.policy_learning.sample_action(encoding,
-                                                  argmax=from_argmax,
-                                                  sample_pp=lambda x: ensure_end_segment(x, position),
-                                                  predefined_actions=predefined)
-      # Appending the "1" position if it has valid flags
-      for i, sample in enumerate(action):
-        for j in np.nonzero(sample)[0]:
-          if mask is None or mask[j][position] == 0:
-            actions[i][j].append(position)
-    try:
-      return actions
-    finally:
-      self.sample_action = SampleAction.ARGMAX if from_argmax else SampleAction.SOFTMAX
-    
-  def sample_segmentation(self, encodings, batch_size):
-    if self.policy_learning is None:
-      actions = self.sample_from_gold()
-    else:
-      actions = self.sample_from_policy(encodings, batch_size)
-    return actions 
-
-  # Sample from prior segmentation
-  def sample_from_gold(self):
-    try:
-      return [[sent.segment for sent in self.src_sent]]
-    finally:
-      self.sample_action = SampleAction.GOLD
-
-  def get_final_states(self) -> List[List[FinalTransducerState]]:
-    return self.final_states
 
   @handle_xnmt_event
   def on_calc_additional_loss(self, trg, generator, generator_loss):
@@ -160,44 +86,103 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     ### Calculate losses    
     return self.policy_learning.calc_loss(rewards)
 
-#  @handle_xnmt_event
-#  def on_html_report(self, context):
-#    segment_decision = self.segmentation
-#    src_words = [escape(self.src_vocab[x]) for x in self.src_sent[0].words]
-#    main_content = context.xpath("//body/div[@name='main_content']")[0]
-#    # construct the sub element from string
-#    segmented = self.apply_segmentation(src_words, segment_decision)
-#    if len(segmented) > 0:
-#      segment_html = "<p>Segmentation: " + ", ".join(segmented) + "</p>"
-#      main_content.insert(2, etree.fromstring(segment_html))
-#
-#    return context
-#
-#  @handle_xnmt_event
-#  def on_file_report(self, report_path):
-#    segment_decision = self.segmentation
-#    src_words = [self.src_vocab[x] for x in self.src_sent[0].words]
-#    segmented = self.apply_segmentation(src_words, segment_decision)
-#
-#    if self.learn_segmentation and self.segment_logsoftmaxes:
-#      logsoftmaxes = [x.npvalue() for x in self.segment_logsoftmaxes]
-#      with open(report_path + ".segdecision", encoding='utf-8', mode='w') as segmentation_file:
-#        for softmax in logsoftmaxes:
-#          print(" ".join(["%.5f" % f for f in np.exp(softmax)]), file=segmentation_file)
-#
-#  @handle_xnmt_event
-#  def on_line_report(self, output_dict):
-#    logsoft = self.segment_logsoftmaxes
-#    if logsoft is None:
-#      return
-#    decision = lambda i: [(1 if i in dec_set else 0) for dec_set in self.segment_decisions]
-#    segmentation_prob = [dy.pick_batch(logsoft[i], decision(i)) for i in range(len(logsoft))]
-#    segmentation_prob = dy.pick_batch_elem(dy.esum(segmentation_prob), 0)
-#    output_dict["07segenc"] = segmentation_prob.scalar_value()
+  @handle_xnmt_event
+  def on_start_sent(self, src):
+    self.src_sent = src
+    self.final_states = []
+    self.segmenting_action = self.SegmentingAction.NONE
 
-class SampleAction(Enum):
-  SOFTMAX = 0
-  ARGMAX = 1
-  GOLD = 2
-  LP = 3
+  @handle_xnmt_event
+  def on_set_train(self, train):
+    self.train = train
+  
+  def get_final_states(self) -> List[List[FinalTransducerState]]:
+    return self.final_states
+  
+  def sample_segmentation(self, encodings, batch_size):
+    if self.policy_learning is None:
+      self.segmenting_action = self.SegmentingAction.GOLD
+      actions = self.sample_from_gold()
+    else:
+      self.segmenting_action = self.SegmentingAction.POLICY
+      predefined_actions = None
+      if self.eps_greedy and self.eps_greedy.is_triggered():
+        predefined_actions = self.sample_from_prior()
+      actions = self.sample_from_policy(encodings, batch_size, predefined_actions)
+    return actions 
+
+  def sample_from_policy(self, encodings, batch_size, predefined_actions=None):
+    from_argmax = not self.train and not self.sample_during_search
+    sample_size = 1 if from_argmax else self.policy_learning.sample
+    actions = [[[] for _ in range(batch_size)] for _ in range(sample_size)]
+    mask = encodings.mask.np_arr if encodings.mask else None
+    # Callback to ensure all samples are ended with </s> being segmented
+    def ensure_end_segment(sample, position):
+      for i in range(len(sample)):
+        last_eos = self.src_sent[i].len_unpadded()
+        if position >= last_eos:
+          sample[i] = 1
+      return sample
+    # Loop through all items in the sequence
+    for position, encoding in enumerate(encodings):
+      # Sample from softmax if we have no predefined action
+      predefined = predefined_actions[position] if predefined_actions is not None else None
+      action = self.policy_learning.sample_action(encoding,
+                                                  argmax=from_argmax,
+                                                  sample_pp=lambda x: ensure_end_segment(x, position),
+                                                  predefined_actions=predefined)
+      # Appending the "1" position if it has valid flags
+      for i, sample in enumerate(action):
+        for j in np.nonzero(sample)[0]:
+          if mask is None or mask[j][position] == 0:
+            actions[i][j].append(position)
+    return actions
+ 
+  # Sample from prior segmentation
+  def sample_from_gold(self):
+    return [[sent.segment for sent in self.src_sent]]
+
+  def sample_from_prior(self):
+    raise NotImplementedError()
+#  # Sample from poisson prior
+#  def sample_from_poisson(self, encodings, batch_size):
+#    assert len(encodings) != 0
+#    randoms = list(filter(lambda x: x > 0, )))
+#    segment_decisions = [[] for _ in range(batch_size)]
+#    idx = 0
+#    if len(randoms) == 0:
+#      randoms = [0]
+#    # Filling up the segmentation matrix based on the poisson distribution
+#    for decision in segment_decisions:
+#      current = randoms[idx]
+#      while current < len(encodings):
+#        decision.append(current)
+#        idx = (idx + 1) % len(randoms)
+#        current += max(randoms[idx], 1)
+#    try:
+#      return segment_decisions
+#    finally:
+#      self.sample_action = SampleAction.LP
+
+  def pad(self, outputs):
+    # Padding
+    max_col = max(len(xs) for xs in outputs)
+    P0 = dy.vecInput(outputs[0][0].dim()[0][0])
+    masks = np.zeros((len(outputs), max_col), dtype=int)
+    modified = False
+    ret = []
+    for xs, mask in zip(outputs, masks):
+      deficit = max_col - len(xs)
+      if deficit > 0:
+        xs.extend([P0 for _ in range(deficit)])
+        mask[-deficit:] = 1
+        modified = True
+      ret.append(dy.concatenate_cols(xs))
+    mask = Mask(masks) if modified else None
+    return ret, mask
+  
+  class SegmentingAction(Enum):
+    GOLD = 0
+    POLICY = 1
+    NONE = 2
 

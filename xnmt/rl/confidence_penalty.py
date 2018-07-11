@@ -12,7 +12,7 @@ class ConfidencePenalty(Serializable):
   yaml_tag = "!ConfidencePenalty"
 
   """
-  strength: the beta value
+  weight: the beta value
   """
   @serializable_init
   @register_xnmt_handler
