@@ -129,6 +129,13 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.assertTrue("rl_reinf" in reinforce_loss.expr_factors)
     self.assertTrue("rl_baseline" in reinforce_loss.expr_factors)
     self.assertTrue("rl_confpen" in reinforce_loss.expr_factors)
+    # Ensure we are sampling from the policy learning
+    self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.POLICY)
+
+  def test_gold_input(self):
+    self.model.encoder.policy_learning = None
+    loss = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
+    self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.GOLD)
 
   def test_global_fertility(self):
     # Test Global fertility weight

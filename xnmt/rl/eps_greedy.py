@@ -13,5 +13,5 @@ class EpsilonGreedy(Serializable):
     self.prior = prior
       
   def is_triggered(self): return np.random.random() <= self.eps_prob
-  def get_random_func(self): return self.prior
+  def get_prior(self): return self.prior
 

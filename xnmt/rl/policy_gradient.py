@@ -2,13 +2,13 @@
 import numpy as np
 import dynet as dy
 
+from enum import Enum
 from xnmt.events import handle_xnmt_event, register_xnmt_handler
 from xnmt.transform import Linear
 from xnmt.persistence import Ref, bare, Path, Serializable, serializable_init
 from xnmt.rl.eps_greedy import EpsilonGreedy
 from xnmt.constants import EPSILON
 from xnmt.loss import FactoredLossExpr
-from xnmt.enum import Enum
 
 class PolicyGradient(Serializable):
   yaml_tag = '!PolicyGradient'
@@ -75,12 +75,12 @@ class PolicyGradient(Serializable):
     self.baseline_input = baseline_input
 
   def calc_baseline_loss(self, rewards):
-    avg_rewards = dy.average(rewards)
+    avg_rewards = dy.average(rewards) # Taking average of the rewards accross multiple samples
     pred_rewards = []
     loss = []
     for i, enc in enumerate(self.baseline_input):
       pred_reward = self.baseline(dy.nobackprop(enc))
-      pred_rewards.append(pred_reward)
+      pred_rewards.append(dy.nobackprop(pred_reward))
       if self.valid_pos is not None:
         pred_reward = dy.pick_batch_elems(pred_reward, self.valid_pos[i])
         avg_reward = dy.pick_batch_elems(avg_rewards, self.valid_pos[i])
@@ -127,3 +127,4 @@ class PolicyGradient(Serializable):
     POLICY_AMAX = 1
     PREDEFINED = 2
     NONE = 3
+

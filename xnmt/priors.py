@@ -10,7 +10,7 @@ class Prior(object):
   def log_ll(self, event): raise NotImplementedError()
   def sample(self, size): raise NotImplementedError()
 
-class PoissonPrior(Serializable):
+class PoissonPrior(Prior, Serializable):
   yaml_tag = '!PoissonPrior'
   @serializable_init
   def __init__(self, mu=3.3):
@@ -22,7 +22,7 @@ class PoissonPrior(Serializable):
   def sample(self, batch_size, size):
     return np.random.poisson(lam=self.mu, size=(batch_size, size))
 
-class UniformPrior(Serializable):
+class UniformPrior(Prior, Serializable):
   yaml_tag = '!UniformPrior'
   @serializable_init
   def __init__(self, low=0, high=1):
@@ -34,7 +34,7 @@ class UniformPrior(Serializable):
   def sample(self, batch_size, size):
     return np.random.uniform(0, self.x_diff, size=(batch_size, size))
 
-class GoldInputPrior(Serializable):
+class GoldInputPrior(Prior, Serializable):
   yaml_tag = '!GoldInputPrior'
 
   @serializable_init

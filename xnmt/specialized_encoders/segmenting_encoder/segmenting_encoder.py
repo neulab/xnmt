@@ -100,14 +100,20 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     return self.final_states
   
   def sample_segmentation(self, encodings, batch_size):
-    if self.policy_learning is None:
-      self.segmenting_action = self.SegmentingAction.GOLD
-      actions = self.sample_from_gold()
-    else:
-      self.segmenting_action = self.SegmentingAction.POLICY
+    if self.policy_learning is None: # Not Learning any policy
+      if self.eps_greedy is not None:
+        self.segmenting_action = self.SegmentingAction.PURE_SAMPLE
+        actions = self.sample_from_prior()
+      else:
+        self.segmenting_action = self.SegmentingAction.GOLD
+        actions = self.sample_from_gold()
+    else: # Learning policy, with defined action or not
       predefined_actions = None
       if self.eps_greedy and self.eps_greedy.is_triggered():
-        predefined_actions = self.sample_from_prior()
+        self.segmenting_action = self.SegmentingAction.POLICY_SAMPLE
+        predefined_actions = self.sparse_to_dense(self.sample_from_prior())
+      else:
+        self.segmenting_action = self.SegmentingAction.POLICY
       actions = self.sample_from_policy(encodings, batch_size, predefined_actions)
     return actions 
 
@@ -138,31 +144,35 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
             actions[i][j].append(position)
     return actions
  
-  # Sample from prior segmentation
   def sample_from_gold(self):
     return [[sent.segment for sent in self.src_sent]]
 
   def sample_from_prior(self):
-    raise NotImplementedError()
-#  # Sample from poisson prior
-#  def sample_from_poisson(self, encodings, batch_size):
-#    assert len(encodings) != 0
-#    randoms = list(filter(lambda x: x > 0, )))
-#    segment_decisions = [[] for _ in range(batch_size)]
-#    idx = 0
-#    if len(randoms) == 0:
-#      randoms = [0]
-#    # Filling up the segmentation matrix based on the poisson distribution
-#    for decision in segment_decisions:
-#      current = randoms[idx]
-#      while current < len(encodings):
-#        decision.append(current)
-#        idx = (idx + 1) % len(randoms)
-#        current += max(randoms[idx], 1)
-#    try:
-#      return segment_decisions
-#    finally:
-#      self.sample_action = SampleAction.LP
+    prior = self.eps_greedy.get_prior()
+    batch_size = self.src_sent.batch_size()
+    length_size = self.src_sent.sent_len()
+    sample = prior.get_sample(batch_size, length_size)
+
+    if issubclass(prior, GoldInputPrior):
+      # Exception when the action is taken directly from the input
+      actions = sample
+    else:
+      actions = [[] for _ in range(batch_size)]
+      idx = 0
+      for action, src_sent in zip(actions, self.src_sent):
+        current = sample[idx]
+        src_len = src_sent.len_unpadded()
+        while current < src_len:
+          action.append(current)
+          idx = (idx + 1) % len(randoms)
+          current += max(sample[idx], 1)
+        if action[-1] != src_len:
+          action.append(src_len)
+    # Return only 1 sample for each batc
+    return [actions]
+
+  def sparse_to_dense(actions):
+    pass
 
   def pad(self, outputs):
     # Padding
@@ -184,5 +194,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
   class SegmentingAction(Enum):
     GOLD = 0
     POLICY = 1
+    POLICY_SAMPLE = 2
+    PURE_SAMPLE = 3
     NONE = 2
 
