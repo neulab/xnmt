@@ -260,7 +260,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     loss_builder = loss.FactoredLossExpr()
     standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-    additional_loss = self.model.calc_additional_loss(src, trg, standard_loss)
+    additional_loss = self.model.calc_additional_loss(trg, self.model, standard_loss)
     loss_builder.add_factored_loss_expr(standard_loss)
     loss_builder.add_factored_loss_expr(additional_loss)
     return loss_builder

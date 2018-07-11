@@ -146,7 +146,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, Even
 
   def calc_loss(self, src, trg, loss_calculator):
     initial_states = self._encode_src(src)
-    
     # Calculate losses from multiple initial states
     losses = []
     for initial_state in initial_states:

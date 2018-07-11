@@ -8,6 +8,7 @@ from xnmt.persistence import serializable_init, Serializable
 import xnmt.expression_sequence
 from xnmt import lstm
 import xnmt.input
+from functools import lru_cache
 
 class Batch(list):
   """
@@ -82,8 +83,12 @@ class Mask(object):
       mask_exp = dy.inputTensor(self.np_arr[:,timestep:timestep+1].transpose(), batched=True)
     return dy.cmult(expr, mask_exp)
 
-  def get_active_one_mask(self):
-    return 1 - self.np_arr
+  @lru_cache(maxsize=1)
+  def get_valid_position(self, transpose=True):
+    np_arr = self.np_arr
+    if transpose: np_arr = np_arr.transpose()
+    x = [np.nonzero(1-arr)[0] for arr in np_arr]
+    return x
 
 class Batcher(object):
   """

@@ -103,13 +103,16 @@ class EventTrigger(object):
     pass
 
   @events.register_xnmt_event_sum
-  def calc_additional_loss(self, src: Union[xnmt.input.Input, batcher.Batch],
-                                 trg: Union[xnmt.input.Input, batcher.Batch],
-                                 reward) -> loss.FactoredLossExpr:
+  def calc_additional_loss(self,
+                           trg: Union[xnmt.input.Input, batcher.Batch],
+                           parent_model: TrainableModel,
+                           parent_model_loss: loss.FactoredLossExpr) -> loss.FactoredLossExpr:
     """
     Trigger event for calculating additional loss (e.g. reinforce loss) based on the reward
 
     Args:
-      reward: The default is log likelihood (-1 * calc_loss).
+      trg: Reference sentence
+      parent_model: The reference to the parent model who called the addcitional_loss
+      parent_model_loss: The loss from the parent_model.calc_loss()
     """
     return None

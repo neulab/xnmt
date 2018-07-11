@@ -25,6 +25,7 @@ from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.hyper_parameters import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
+from xnmt.specialized_encoders.segmenting_encoder.length_prior import LengthPrior
 from xnmt.transform import AuxNonLinear, Linear
 from xnmt.scorer import Softmax
 from xnmt.constants import EPSILON
@@ -32,6 +33,7 @@ from xnmt.transducer import IdentitySeqTransducer
 from xnmt.vocab import Vocab
 from xnmt.rl.policy_gradient import PolicyGradient
 from xnmt.rl.eps_greedy import EpsilonGreedy
+from xnmt.rl.confidence_penalty import ConfidencePenalty
 from xnmt.priors import PoissonPrior
 
 class TestSegmentingEncoder(unittest.TestCase):
@@ -48,16 +50,29 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.segment_embed_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
     self.segment_composer = SegmentComposer(encoder=self.segment_encoder_bilstm,
                                             transformer=self.tail_transformer)
-    self.src_reader = PlainTextReader()
+    self.src_reader = CharFromWordTextReader()
     self.trg_reader = PlainTextReader()
     self.loss_calculator = AutoRegressiveMLELoss()
+
+
+    baseline = Linear(input_dim=layer_dim, output_dim=1)
+    policy_network = Linear(input_dim=layer_dim, output_dim=2)
+    self.poisson_prior = PoissonPrior(mu=3.3)
+    self.eps_greedy = EpsilonGreedy(eps_prob=0.0, prior=self.poisson_prior)
+    self.conf_penalty = ConfidencePenalty()
+    self.policy_gradient = PolicyGradient(baseline=baseline,
+                                          policy_network=policy_network,
+                                          z_normalization=True,
+                                          conf_penalty=self.conf_penalty,
+                                          sample=5)
+
+    
+    self.length_prior = LengthPrior(prior=self.poisson_prior, weight=1)
     self.segmenting_encoder = SegmentingSeqTransducer(
       embed_encoder = self.segment_embed_encoder_bilstm,
       segment_composer =  self.segment_composer,
       final_transducer = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
-      src_vocab = self.src_reader.vocab,
-      trg_vocab = self.trg_reader.vocab,
-      embed_encoder_dim = layer_dim,
+      policy_learning = self.policy_gradient,
     )
 
     self.model = DefaultTranslator(
@@ -75,7 +90,6 @@ class TestSegmentingEncoder(unittest.TestCase):
                                     scorer=Softmax(vocab_size=100, input_dim=layer_dim),
                                     trg_embed_dim=layer_dim,
                                     bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
-
     )
     self.model.set_train(True)
 
@@ -134,6 +148,10 @@ class TestSegmentingEncoder(unittest.TestCase):
       for i in range(len(self.src[batch_idx])):
         single_loss_test(batch_idx, i, res_embed, res_enc)
 
+  def test_reinforce_loss(self):
+    loss = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
+    reinforce_loss = self.model.calc_additional_loss(self.trg[0], self.model, loss)
+
   def test_sample_softmax(self):
     enc = self.segmenting_encoder
     emb = self.inp_emb(0)
@@ -157,49 +175,16 @@ class TestSegmentingEncoder(unittest.TestCase):
     enc.transduce(emb)
     self.assertEqual(enc.sample_action, SampleAction.ARGMAX)
 
-  def test_sample_from_poisson(self):
-    enc = self.segmenting_encoder
-    emb = self.inp_emb(0)
-    enc.length_prior = 0.1
-    enc.length_prior_alpha = DefinedSequence([1.0])
-    results = enc.sample_from_poisson(encodings=[0 for _ in range(8)],
-                                      batch_size=4)
-    self.assertEqual([len(x) for x in results], [8 for _ in range(4)])
+  def test_global_fertility(self):
+    # Test Global fertility weight
+    self.model.global_fertility = 1.0
+    self.segmenting_encoder.policy_learning = None
+    loss1 = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
+    self.model.global_fertility = 0.5
+    loss2 = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
+    numpy.testing.assert_almost_equal(loss1["fertility"].npvalue()/2, loss2["fertility"].npvalue())
 
-  def test_compose_char(self):
-    enc = self.segmenting_encoder
-    enc.embed_encoder = IdentitySeqTransducer()
-    enc.compose_char = True
-    enc.transduce(self.inp_emb(0))
-
-  def test_sum_composer(self):
-    enc = self.segmenting_encoder
-    enc.segment_composer.encoder = IdentitySeqTransducer()
-    enc.segment_composer.transformer = SumSegmentTransformer()
-    enc.transduce(self.inp_emb(0))
-
-  def test_avg_composer(self):
-    enc = self.segmenting_encoder
-    enc.segment_composer.encoder = IdentitySeqTransducer()
-    enc.segment_composer.transformer = AverageSegmentTransformer()
-    enc.transduce(self.inp_emb(0))
-
-  def test_max_composer(self):
-    enc = self.segmenting_encoder
-    enc.segment_composer.encoder = IdentitySeqTransducer()
-    enc.segment_composer.transformer = MaxSegmentTransformer()
-    enc.transduce(self.inp_emb(0))
-
-  def test_convolution_composer(self):
-    enc = self.segmenting_encoder
-    enc.segment_composer = ConvolutionSegmentComposer(ngram_size=3,
-                                                      dropout=0.5,
-                                                      embed_dim=self.layer_dim,
-                                                      hidden_dim=self.layer_dim)
-    self.model.set_train(True)
-    enc.transduce(self.inp_emb(0))
-
-class TestPriorSegmentation(unittest.TestCase):
+class TestComposing(unittest.TestCase):
   def setUp(self):
     # Seeding
     numpy.random.seed(2)
@@ -219,9 +204,6 @@ class TestPriorSegmentation(unittest.TestCase):
       embed_encoder = self.segment_embed_encoder_bilstm,
       segment_composer =  self.segment_composer,
       final_transducer = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
-      src_vocab = self.src_reader.vocab,
-      trg_vocab = self.trg_reader.vocab,
-      embed_encoder_dim = layer_dim,
     )
 
     self.model = DefaultTranslator(
@@ -295,80 +277,32 @@ class TestPriorSegmentation(unittest.TestCase):
     )
     enc.transduce(self.inp_emb(0))
 
-class TestSegmentingEncoderTraining(unittest.TestCase):
-  def setUp(self):
-    # Seeding
-    numpy.random.seed(2)
-    random.seed(2)
-    layer_dim = 64
-    xnmt.events.clear()
-    ParamManager.init_param_col()
-    self.tail_transformer = TailSegmentTransformer()
-    self.segment_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
-    self.segment_embed_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
-    self.segment_composer = SegmentComposer(encoder=self.segment_encoder_bilstm,
-                                            transformer=self.tail_transformer)
-    self.src_reader = CharFromWordTextReader()
-    self.trg_reader = PlainTextReader()
-    self.loss_calculator = AutoRegressiveMLELoss()
+  def test_sum_composer(self):
+    enc = self.segmenting_encoder
+    enc.segment_composer.encoder = IdentitySeqTransducer()
+    enc.segment_composer.transformer = SumSegmentTransformer()
+    enc.transduce(self.inp_emb(0))
 
+  def test_avg_composer(self):
+    enc = self.segmenting_encoder
+    enc.segment_composer.encoder = IdentitySeqTransducer()
+    enc.segment_composer.transformer = AverageSegmentTransformer()
+    enc.transduce(self.inp_emb(0))
 
-    baseline = Linear(input_dim=layer_dim, output_dim=layer_dim)
-    policy_network = Linear(input_dim=layer_dim, output_dim=2)
-    
-    self.policy_gradient = PolicyGradient(baseline=baseline,
-                                          policy_network=policy_network,
-                                          z_normalization=True,
-                                          sample=2)
+  def test_max_composer(self):
+    enc = self.segmenting_encoder
+    enc.segment_composer.encoder = IdentitySeqTransducer()
+    enc.segment_composer.transformer = MaxSegmentTransformer()
+    enc.transduce(self.inp_emb(0))
 
-    self.poisson_prior = PoissonPrior(mu=3.3)
-    self.length_prior = LengthPrior(prior=self.poisson_prior, weight=1)
-    self.eps_greedy = EpsilonGreedy(eps_prob=0.0, prior=self.poisson_prior)
-
-    self.segmenting_encoder = SegmentingSeqTransducer(
-      embed_encoder = self.segment_embed_encoder_bilstm,
-      segment_composer =  self.segment_composer,
-      final_transducer = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
-      src_vocab = self.src_reader.vocab,
-      trg_vocab = self.trg_reader.vocab,
-      embed_encoder_dim = layer_dim,
-      policy_learning = self.policy_gradient,
-      eps_greedy = self.eps_greedy,
-    )
-
-    self.model = DefaultTranslator(
-      src_reader=self.src_reader,
-      trg_reader=self.trg_reader,
-      src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      encoder=self.segmenting_encoder,
-      attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
-      trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-      decoder=AutoRegressiveDecoder(input_dim=layer_dim,
-                                    rnn=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim,
-                                                             decoder_input_dim=layer_dim, yaml_path="decoder"),
-                                    transform=AuxNonLinear(input_dim=layer_dim, output_dim=layer_dim,
-                                                           aux_input_dim=layer_dim),
-                                    scorer=Softmax(vocab_size=100, input_dim=layer_dim),
-                                    trg_embed_dim=layer_dim,
-                                    bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
-    )
+  def test_convolution_composer(self):
+    enc = self.segmenting_encoder
+    enc.segment_composer = ConvolutionSegmentComposer(ngram_size=3,
+                                                      dropout=0.5,
+                                                      embed_dim=self.layer_dim,
+                                                      hidden_dim=self.layer_dim)
     self.model.set_train(True)
-
-    self.layer_dim = layer_dim
-    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
-    self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
-    my_batcher = xnmt.batcher.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
-    self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
-    dy.renew_cg(immediate_compute=True, check_validity=True)
-
-  def test_global_fertility(self):
-    # Test Global fertility weight
-    self.model.global_fertility = 1.0
-    self.segmenting_encoder.policy_learning = None
-    loss1 = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
-    self.model.global_fertility = 0.5
-    loss2 = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
-    numpy.testing.assert_almost_equal(loss1["fertility"].npvalue()/2, loss2["fertility"].npvalue())
+    enc.transduce(self.inp_emb(0))
 
 if __name__ == "__main__":
   unittest.main()
