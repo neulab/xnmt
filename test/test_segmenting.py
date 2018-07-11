@@ -111,69 +111,9 @@ class TestSegmentingEncoder(unittest.TestCase):
     else:
       return mask.np_arr[i]
 
-  def test_calc_loss(self):
-    enc = self.segmenting_encoder
-    enc.length_prior = 3.3
-    enc.length_prior_alpha = DefinedSequence([1.0])
-    
-    # Outputs, priors
-    def single_loss_test(batch_idx, i, res_embed, res_enc):
-      seg_dec = enc.segment_decisions[i]
-      length_prior = enc.length_prior
-      # mask from the actual encoding
-      res_mask = self.extract_mask(res_enc.mask, i, len(seg_dec))
-      # mask from the encoding of tokens
-      enc_mask = self.extract_mask(res_embed.mask, i, len(self.src[batch_idx][i]))
-      loss_res_mask = enc.enc_mask[i] # mask used to calculate additional loss
-      # expected
-      exp_length = self.src[batch_idx][i].len_unpadded()/length_prior
-      exp_lp = math.log(poisson.pmf(len(seg_dec), exp_length))
-      exp_flag_enc = len(res_mask) - numpy.count_nonzero(res_mask)
-      exp_loss_res_mask = numpy.count_nonzero(1-enc_mask) - 1
-      # actual
-      act_length = enc.expected_length[i]
-      act_lp = dy.pick_batch_elem(enc.segment_length_prior, i).value()
-      act_flag_enc = len(seg_dec)
-      act_loss_res_mask = numpy.count_nonzero(loss_res_mask)
-      # Assertions
-      self.assertAlmostEqual(exp_length, act_length)
-      self.assertAlmostEqual(exp_lp, act_lp, places=6)
-      self.assertEqual(exp_flag_enc, act_flag_enc)
-      self.assertEqual(exp_loss_res_mask, exp_loss_res_mask)
-
-    # Test For every items in the batch
-    for batch_idx in range(len(self.src)):
-      res_embed = self.inp_emb(batch_idx)
-      res_enc = enc.transduce(res_embed)
-      for i in range(len(self.src[batch_idx])):
-        single_loss_test(batch_idx, i, res_embed, res_enc)
-
   def test_reinforce_loss(self):
     loss = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
     reinforce_loss = self.model.calc_additional_loss(self.trg[0], self.model, loss)
-
-  def test_sample_softmax(self):
-    enc = self.segmenting_encoder
-    emb = self.inp_emb(0)
-    # Sample from softmax during training
-    self.model.set_train(True)
-    enc.transduce(emb)
-    self.assertEqual(enc.sample_action, SampleAction.SOFTMAX)
-    # Argmax during Testing
-    self.model.set_train(False)
-    enc.transduce(emb)
-    self.assertEqual(enc.sample_action, SampleAction.ARGMAX)
-  
-  def test_eps_greedy(self):
-    enc = self.segmenting_encoder
-    enc.eps = DefinedSequence([1.0])
-    emb = self.inp_emb(0)
-    self.model.set_train(True)
-    enc.transduce(emb)
-    self.assertEqual(enc.sample_action, SampleAction.LP)
-    self.model.set_train(False)
-    enc.transduce(emb)
-    self.assertEqual(enc.sample_action, SampleAction.ARGMAX)
 
   def test_global_fertility(self):
     # Test Global fertility weight

@@ -158,7 +158,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
       if self.global_fertility != 0:
         masked_attn = self.attender.attention_vecs
         if trg.mask is not None:
-          trg_mask = trg.mask.get_active_one_mask().transpose()
+          trg_mask = 1-(trg.mask.np_arr.transpose())
           masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
         model_loss.add_loss("fertility", self._global_fertility(masked_attn))
       losses.append(model_loss)

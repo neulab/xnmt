@@ -59,6 +59,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
       return enc_outputs
     finally:
       self.compose_output = outputs
+      self.segment_actions = actions
+
       if self.policy_learning:
         self.policy_learning.set_baseline_input(embed_encode)
 
@@ -192,22 +194,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
 #    segmentation_prob = [dy.pick_batch(logsoft[i], decision(i)) for i in range(len(logsoft))]
 #    segmentation_prob = dy.pick_batch_elem(dy.esum(segmentation_prob), 0)
 #    output_dict["07segenc"] = segmentation_prob.scalar_value()
-
-  def apply_segmentation(self, words, segmentation):
-    segmented = []
-    lower_bound = 0
-    for j in sorted(segmentation):
-      upper_bound = j+1
-      segmented.append("".join(words[lower_bound:upper_bound]))
-      lower_bound = upper_bound
-    return segmented
-
-class SegmentingAction(Enum):
-  """
-  The enumeration of possible action.
-  """
-  READ = 0
-  SEGMENT = 1
 
 class SampleAction(Enum):
   SOFTMAX = 0
