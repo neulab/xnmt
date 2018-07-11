@@ -98,7 +98,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
 
   @register_xnmt_handler
   @serializable_init
-
   def __init__(self,
                src_reader: input_reader.InputReader,
                trg_reader: input_reader.InputReader,
