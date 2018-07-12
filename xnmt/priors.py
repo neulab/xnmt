@@ -17,7 +17,7 @@ class PoissonPrior(Prior, Serializable):
     self.mu = mu
 
   def log_ll(self, event):
-    return poisson.pmf(event, self.mu)
+    return math.log(poisson.pmf(event, self.mu))
 
   def sample(self, batch_size, size):
     return np.random.poisson(lam=self.mu, size=(batch_size, size))

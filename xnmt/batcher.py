@@ -45,6 +45,7 @@ class ListBatch(list, Batch):
   def __len__(self):
     warnings.warn("use of ListBatch.__len__() is discouraged, use ListBatch.batch_size() "
                   "[or ListBatch.sent_len()] instead.", DeprecationWarning)
+    return self.batch_size()
   def __getitem__(self, key):
     ret = super().__getitem__(key)
     if isinstance(key, slice):

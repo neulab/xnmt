@@ -50,6 +50,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
           outputs[j][i].append(composed)
           lower_bound = upper_bound+1
     try:
+      seg_size_unpadded = [[len(outputs[i][j]) for j in range(batch_size)] for i in range(sample_size)]
       enc_outputs = []
       for batched_sampled_sentence in outputs:
         sampled_sentence, segment_mask = self.pad(batched_sampled_sentence)
@@ -59,6 +60,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
         enc_outputs.append(sent_context)
       return enc_outputs
     finally:
+      self.seg_size_unpadded = seg_size_unpadded
       self.compose_output = outputs
       self.segment_actions = actions
       if self.policy_learning:
@@ -73,7 +75,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     rewards = []
     trg_counts = dy.inputTensor([t.len_unpadded() for t in trg], batched=True)
     # Iterate through all samples
-    for loss, actions in zip(generator.losses, self.compose_output):
+    for i, (loss, actions) in enumerate(zip(generator.losses, self.compose_output)):
       reward = FactoredLossExpr()
       # Adding all reward from the translator
       for key, value in loss.get_nobackprop_loss().items():
@@ -82,7 +84,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
         else:
           reward.add_loss('key', value)
       if self.length_prior is not None:
-        reward.add_loss('seg_lp', self.length_prior.log_ll(sample_action))
+        reward.add_loss('seg_lp', self.length_prior.log_ll(self.seg_size_unpadded[i]))
       rewards.append(dy.esum(list(reward.expr_factors.values())))
     ### Calculate losses    
     return self.policy_learning.calc_loss(rewards)

@@ -25,7 +25,7 @@ from xnmt.search_strategy import BeamSearch, GreedySearch
 from xnmt.hyper_parameters import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
-from xnmt.specialized_encoders.segmenting_encoder.length_prior import LengthPrior
+from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLengthPrior
 from xnmt.transform import AuxNonLinear, Linear
 from xnmt.scorer import Softmax
 from xnmt.constants import EPSILON
@@ -68,13 +68,14 @@ class TestSegmentingEncoder(unittest.TestCase):
                                           sample=5)
 
     
-    self.length_prior = LengthPrior(prior=self.poisson_prior, weight=1)
+    self.length_prior = PoissonLengthPrior(lmbd=3.3, weight=1)
     self.segmenting_encoder = SegmentingSeqTransducer(
       embed_encoder = self.segment_embed_encoder_bilstm,
       segment_composer =  self.segment_composer,
       final_transducer = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       policy_learning = self.policy_gradient,
       eps_greedy = self.eps_greedy,
+      length_prior = self.length_prior,
     )
 
     self.model = DefaultTranslator(
