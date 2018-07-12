@@ -251,41 +251,6 @@ class CharFromWordTextReader(PlainTextReader, Serializable):
     sent_input.segment = segs
     return sent_input
 
-class BaseTextReader(InputReader):
-  """
-  A base class for text-based :class:`xnmt.input_reader.InputReader` subclasses that implements some helper methods.
-  """
-  def count_sents(self, filename):
-    f = open(filename, encoding='utf-8')
-    try:
-      return sum(1 for _ in f)
-    finally:
-      f.close()
-
-  def iterate_filtered(self, filename, filter_ids=None):
-    """
-    Args:
-      filename (str): data file (text file)
-      filter_ids (list of int):
-    Returns:
-      iterator over lines as strings (useful for subclasses to implement read_sents)
-    """
-    sent_count = 0
-    max_id = None
-    if filter_ids is not None:
-      max_id = max(filter_ids)
-      filter_ids = set(filter_ids)
-    with open(filename, encoding='utf-8') as f:
-      for line in f:
-        if filter_ids is None or sent_count in filter_ids:
-          yield line
-        sent_count += 1
-        if max_id is not None and sent_count > max_id:
-          break
-  
-  def needs_reload(self):
-    return True
-
 class H5Reader(InputReader, Serializable):
   """
   Handles the case where sents are sequences of continuous-space vectors.
