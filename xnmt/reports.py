@@ -89,6 +89,61 @@ class Reporter(object):
   def get_report_input(self, context={}) -> dict:
     return context
 
+class CharCutReporter(Reporter, Serializable):
+  """
+  Reporter that uses the CharCut tool for nicely displayed difference highlighting between outputs and references.
+
+  The stand-alone tool can be found at https://github.com/alardill/CharCut
+
+  Args:
+    match_size: min match size in characters (set < 3 e.g. for Japanese or Chinese)
+    alt_norm: alternative normalization scheme: use only the candidate's length for normalization
+  """
+  yaml_tag = "!CharCutReporter"
+  @serializable_init
+  @register_xnmt_handler
+  def __init__(self, match_size: int = 3, alt_norm: bool = False, report_path: str = settings.DEFAULT_REPORT_PREFIX) \
+          -> None:
+    self.match_size = match_size
+    self.alt_norm = alt_norm
+    self.report_path = report_path
+    self.hyp_sents, self.ref_sents, self.src_sents = [], [], []
+
+  def create_report(self, src: xnmt.input.Input, src_vocab: vocab.Vocab, trg_vocab: vocab.Vocab,
+                    output: xnmt.output.Output, reference: Optional[str] = None, **kwargs) -> None:
+    trg_str = " ".join(output.readable_actions())
+    src_is_speech = isinstance(src, xnmt.input.ArrayInput)
+    if not src_is_speech:
+      src_str = " ".join([src_vocab.i2w[src_token] for src_token in src])
+      self.src_sents.append(src_str)
+    self.hyp_sents.append(trg_str)
+    self.ref_sents.append(reference)
+
+  @handle_xnmt_event
+  def on_end_inference(self):
+    class ArgClass(object):
+      def __init__(self, **kwargs):
+        for key in kwargs: setattr(self, key, kwargs[key])
+    if self.hyp_sents:
+      hyp_filename = f"{self.report_path}.charcut.tmp_c"
+      ref_filename = f"{self.report_path}.charcut.tmp_r"
+      src_filename = f"{self.report_path}.charcut.tmp_s"
+      html_filename = f"{self.report_path}.charcut.html"
+      util.make_parent_dir(hyp_filename)
+      with open(hyp_filename, "w") as fout:
+        fout.write("\n".join(self.hyp_sents))
+      with open(ref_filename, "w") as fout:
+        fout.write("\n".join(self.ref_sents))
+      if self.src_sents:
+        with open(src_filename, "w") as fout:
+          fout.write("\n".join(self.src_sents))
+      import xnmt.thirdparty.charcut_py3.charcut as charcut
+      args = ArgClass(cand=hyp_filename, ref=ref_filename, html_output_file=html_filename, match_size=self.match_size,
+                      alt_norm=self.alt_norm, src=src_filename if self.src_sents else None)
+      aligned_segs = charcut.load_input_files(args)
+      charcut.run_on(aligned_segs, args)
+      self.hyp_sents, self.ref_sents, self.src_sents = [], [], []
+
 class HtmlReporter(Reporter):
   """
   A base class for reporters that produce HTML outputs that takes care of some common functionality.

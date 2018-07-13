@@ -85,6 +85,7 @@ class Inference(reports.Reportable):
       self._generate_output(generator=generator, forced_ref_corpus=ref_corpus, assert_scores=ref_scores,
                             src_corpus=src_corpus, trg_file=trg_file, batcher=self.batcher,
                             max_src_len=self.max_src_len, ref_file_to_report=ref_file_to_report)
+    self.end_inference()
 
   def _generate_output(self,
                        generator: model_base.GeneratorModel,
@@ -143,6 +144,10 @@ class Inference(reports.Reportable):
         cur_sent_i += batch_size
         if self.max_num_sents and cur_sent_i >= self.max_num_sents: break
       if ref_file_to_report: ref_file.close()
+
+  @events.register_xnmt_event
+  def end_inference(self):
+    pass
 
   def _create_report(self):
     assert self.reporter is not None
