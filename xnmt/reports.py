@@ -99,6 +99,8 @@ class HtmlReporter(Reporter):
   def __init__(self, report_path: str = settings.DEFAULT_REPORT_PREFIX) -> None:
     self.report_path = report_path
     self.html_tree = etree.Element('html')
+    meta = etree.SubElement(self.html_tree, 'meta')
+    meta.attrib['charset'] = 'UTF-8'
     head = etree.SubElement(self.html_tree, 'head')
     title = etree.SubElement(head, 'title')
     title.text = 'Translation Report'
