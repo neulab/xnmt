@@ -58,12 +58,12 @@ class Reportable(object):
 
   @handle_xnmt_event
   def on_get_report_input(self, context={}):
+    if not hasattr(self, "_sent_info_list"):
+      return context
     if len(context)>0:
       assert len(context) == len(self._sent_info_list)
     else:
       context = []
-      if not hasattr(self, "_sent_info_list"):
-        return context
       for _ in range(len(self._sent_info_list)): context.append({})
     for context_i, sent_i in zip(context, self._sent_info_list):
       context_i.update(sent_i)
