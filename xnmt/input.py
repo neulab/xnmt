@@ -113,6 +113,9 @@ class SimpleSentenceInput(Input):
     return sum(x != vocab.Vocab.ES for x in self.words)
 
   def __getitem__(self, key):
+    ret = self.words[key]
+    if isinstance(ret, list): # support for slicing
+      return SimpleSentenceInput(ret)
     return self.words[key]
 
   def get_padded_sent(self, token, pad_len):
@@ -141,7 +144,7 @@ class SimpleSentenceInput(Input):
     if trunc_len == 0:
       return self
     new_words = self.words[:-trunc_len]
-    return self.__class__(new_words, self.vocab)
+    return self.__class__(new_words)
 
   def __str__(self):
     return " ".join(map(str, self.words))
