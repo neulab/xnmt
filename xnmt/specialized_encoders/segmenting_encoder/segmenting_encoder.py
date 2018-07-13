@@ -73,8 +73,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   def transduce(self, embed_sent: ExpressionSequence) -> List[ExpressionSequence]:
     batch_size = embed_sent[0].dim()[1]
-    embed_encode = self.embed_encoder.transduce(embed_sent)
-    actions = self.sample_segmentation(embed_encode, batch_size)
+    actions = self.sample_segmentation(embed_sent, batch_size)
     sample_size = len(actions)
     embeddings = dy.concatenate(embed_sent.expr_list, d=1)
     outputs = [[[] for _ in range(batch_size)] for _ in range(sample_size)]
@@ -143,7 +142,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def get_final_states(self) -> List[List[FinalTransducerState]]:
     return self.final_states
   
-  def sample_segmentation(self, encodings, batch_size):
+  def sample_segmentation(self, embed_sent, batch_size):
+    
     if self.policy_learning is None: # Not Learning any policy
       if self.eps_greedy is not None:
         self.segmenting_action = self.SegmentingAction.PURE_SAMPLE
@@ -153,12 +153,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         actions = self.sample_from_gold()
     else: # Learning policy, with defined action or not
       predefined_actions = None
+      seq_len = len(embed_sent)
       if self.eps_greedy and self.eps_greedy.is_triggered():
         self.segmenting_action = self.SegmentingAction.POLICY_SAMPLE
-        predefined_actions = self.sparse_to_dense(self.sample_from_prior(), len(encodings))
+        predefined_actions = self.sparse_to_dense(self.sample_from_prior(), seq_len)
       else:
         self.segmenting_action = self.SegmentingAction.POLICY
-      actions = self.sample_from_policy(encodings, batch_size, predefined_actions)
+      embed_encode = self.embed_encoder.transduce(embed_sent)
+      actions = self.sample_from_policy(embed_encode, batch_size, predefined_actions)
     return actions 
 
   def sample_from_policy(self, encodings, batch_size, predefined_actions=None):
