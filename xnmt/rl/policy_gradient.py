@@ -119,12 +119,15 @@ class PolicyGradient(Serializable):
       if self.baseline is not None:
         rewards = [reward-pred_reward[i] for reward in rewards]
       # Main Reinforce calculation
+      sample_loss = []
       for action, reward in zip(action_sample, rewards):
         ll = dy.pick_batch(policy, action)
         if self.valid_pos is not None:
           ll = dy.pick_batch_elems(ll, self.valid_pos[i])
           reward = dy.pick_batch_elems(reward, self.valid_pos[i])
-        reinf_loss.append(dy.sum_batches(ll*reward))
+        sample_loss.append(dy.sum_batches(ll*reward))
+      # Take the average of the losses accross multiple samples
+      reinf_loss.append(dy.esum(sample_loss) / len(sample_loss))
     loss.add_loss("rl_reinf", self.weight * -dy.esum(reinf_loss))
     ## the composed losses
     return loss
