@@ -1,6 +1,8 @@
 import os
 import time
 import math
+import unicodedata
+import string
 
 import numpy as np
 
@@ -13,6 +15,19 @@ def make_parent_dir(filename):
     except OSError as exc: # Guard against race condition
       if exc.errno != os.errno.EEXIST:
         raise
+
+
+_valid_filename_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+
+def valid_filename(filename, whitelist=_valid_filename_chars, replace=' '):
+  # from https://gist.github.com/wassname/1393c4a57cfcbf03641dbc31886123b8
+  # replace spaces
+  for r in replace:
+    filename = filename.replace(r, '_')
+  # keep only valid ascii chars
+  cleaned_filename = unicodedata.normalize('NFKD', filename).encode('ASCII', 'ignore').decode()
+  # keep only whitelisted chars
+  return ''.join(c for c in cleaned_filename if c in whitelist)
 
 def format_time(seconds):
   return "{}-{}".format(int(seconds) // 86400,

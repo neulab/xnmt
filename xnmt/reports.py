@@ -168,16 +168,16 @@ class AttentionHtmlReporter(HtmlReporter, Serializable):
     self.add_atts(attentions, main_content, src, src_str, trg_str, idx)
     self.write_html_tree()
 
-  def add_atts(self, attentions, main_content, src, src_str, trg_str, idx):
+  def add_atts(self, attentions, main_content, src, src_str, trg_str, idx, desc="Attentions"):
     src_is_speech = isinstance(src, xnmt.input.ArrayInput)
     if src_is_speech:
       src_feat_file = f"{self.report_path}.src_feat.{idx}.png"
       xnmt.plot.plot_speech_features(src.get_array(), file_name=src_feat_file)
     attention = etree.SubElement(main_content, 'p')
     att_text = etree.SubElement(attention, 'b')
-    att_text.text = "Attention:"
+    att_text.text = f"{desc}:"
     etree.SubElement(attention, 'br')
-    attention_file = f"{self.report_path}.attention.{idx}.png"
+    attention_file = f"{self.report_path}.{util.valid_filename(desc)}.{idx}.png"
     table = etree.SubElement(attention, 'table')
     table_tr = etree.SubElement(table, 'tr')
     table_td1 = etree.SubElement(table_tr, 'td')
