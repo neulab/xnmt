@@ -90,7 +90,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           outputs[j][i].append(composed)
           lower_bound = upper_bound+1
     try:
-      seg_size_unpadded = [[len(outputs[i][j]) for j in range(batch_size)] for i in range(sample_size)]
+      if self.length_prior:
+        seg_size_unpadded = [[len(outputs[i][j]) for j in range(batch_size)] for i in range(sample_size)]
       enc_outputs = []
       for batched_sampled_sentence in outputs:
         sampled_sentence, segment_mask = self.pad(batched_sampled_sentence)
@@ -100,7 +101,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         enc_outputs.append(sent_context)
       return enc_outputs
     finally:
-      self.seg_size_unpadded = seg_size_unpadded
+      if self.length_prior:
+        self.seg_size_unpadded = seg_size_unpadded
       self.compose_output = outputs
       self.segment_actions = actions
       if not self.train and self.compute_report:
