@@ -57,15 +57,24 @@ class MaxSegmentTransformer(Serializable):
     return dy.emax(encodings.as_list())
 
 class CharNGramSegmentComposer(Serializable):
+  """
+  CHARAGRAM composition function
+
+  Args:
+    word_vocab: Count of ngrams as vocabulary. Made by running script/vocab/count-charngram.py on the source corpus.
+    ngram_size: The limit of ngram window.
+  """
+
+
   yaml_tag = "!CharNGramSegmentComposer"
   
   @serializable_init
   def __init__(self,
                word_vocab=None,
-               word_ngram=None,
                ngram_size=4,
                src_vocab=Ref(Path("model.src_reader.vocab")),
                hidden_dim=Ref("exp_global.default_layer_dim"),
+               word_ngram=None,
                vocab_size=None):
     assert word_vocab is not None or vocab_size is not None, "Can't be both None!"
     if word_vocab is None:
