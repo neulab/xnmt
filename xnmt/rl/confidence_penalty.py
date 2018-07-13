@@ -1,6 +1,3 @@
-""" 
-  https://arxiv.org/pdf/1701.06548.pdf 
-"""
 
 import dynet as dy
 
@@ -8,12 +5,16 @@ from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 
 class ConfidencePenalty(Serializable):
+  """ 
+  The confidence penalty.
+  part of: https://arxiv.org/pdf/1701.06548.pdf 
   
+  Calculate the -entropy for the given (batched policy).
+  Entropy is used as an additional loss so that it will penalize a too confident network.
+  """
+ 
   yaml_tag = "!ConfidencePenalty"
 
-  """
-  weight: the beta value
-  """
   @serializable_init
   @register_xnmt_handler
   def __init__(self, weight=1.0):
@@ -32,5 +33,5 @@ class ConfidencePenalty(Serializable):
         ll = dy.pick_batch_elems(ll, self.valid_pos[i])
       loss = dy.sum_batches(dy.sum_elems(dy.cmult(dy.exp(ll), ll)))
       neg_entropy.append(dy.sum_batches(loss))
-    return -1 * self.weight * dy.esum(neg_entropy)
+    return self.weight * dy.esum(neg_entropy)
 

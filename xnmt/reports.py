@@ -192,7 +192,8 @@ class AttentionHtmlReporter(HtmlReporter, Serializable):
 
 class SegmentationReporter(Reporter, Serializable):
   """
-  A reporter to be used with the segmenting encoder (TODO: untested)
+  A reporter to be used with the segmenting encoder.
+
   """
   yaml_tag = "!SegmentationReporter"
 

@@ -8,20 +8,53 @@ from xnmt import logger
 from xnmt.batcher import Mask
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.expression_sequence import ExpressionSequence
-from xnmt.persistence import serializable_init, Serializable, Ref
+from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import FactoredLossExpr
 from xnmt.priors import GoldInputPrior
 from xnmt.reports import Reportable
+from xnmt.lstm import BiLSTMSeqTransducer
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_transducer import SegmentComposer
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
+  """
+  A transducer that perform composition on smaller units (characters) into bigger units (words).
+  This transducer will predict/use the segmentation discrete actions to compose the inputs.
+
+  The composition function is defined by segment_composer. Please see segmenting_composer.py
+  The final transducer is used to transduce the composed sequence. Usually it is a variant of RNN.
+
+  ** USAGE
+  This transducer is able to sample from several distribution.
+
+  To segment from some predefined segmentations, please read the word corpus with CharFromWordTextReader.
+  To learn the segmentation, please define the policy_learning. Please see rl/policy_learning.py
+  To partly defined some segmentation using priors or gold input and learn from it, use the EpsilonGreedy with the proper priors. Please see priors.py.
+  To sample from the policy instead doing argmax when doing inference please turn on the sample_during_search
+  
+  ** LEARNING
+  By default it will use the policy gradient function to learn the network. The reward is composed by:
+
+  REWARD = -sum(GENERATOR_LOSS) / len(TRG_SEQUENCE)
+
+  Additional reward can be added by specifying the length prior. Please see length_prior.py
+
+  ** REPORTING
+
+  You can produce the predicted segmentation by using the SegmentationReporter in your inference configuration.
+  This will produce one segmentation per line in {REPORT_PATH}.segment
+
+  """
   yaml_tag = '!SegmentingSeqTransducer'
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, embed_encoder=None, segment_composer=None,
-                     final_transducer=None, policy_learning=None,
-                     length_prior=None, eps_greedy=None,
+  def __init__(self, embed_encoder=bare(IdentitySeqTransducer),
+                     segment_composer=bare(SegmentComposer),
+                     final_transducer=bare(BiLSTMSeqTransducer),
+                     policy_learning=None,
+                     length_prior=None,
+                     eps_greedy=None,
                      sample_during_search=False,
                      compute_report=Ref("exp_global.compute_report", default=False)):
     self.embed_encoder = self.add_serializable_component("embed_encoder", embed_encoder, lambda: embed_encoder)
@@ -71,8 +104,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       self.seg_size_unpadded = seg_size_unpadded
       self.compose_output = outputs
       self.segment_actions = actions
-      if self.policy_learning:
-        self.policy_learning.set_baseline_input(embed_encode)
       if not self.train and self.compute_report:
         self.add_sent_for_report({"segment_actions": actions})
 

@@ -7,12 +7,14 @@ from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
 from xnmt.param_init import GlorotInitializer
 from xnmt.events import register_xnmt_handler, register_xnmt_event, handle_xnmt_event
+from xnmt.lstm import BiLSTMSeqTransducer
 
 class SegmentComposer(Serializable):
   yaml_tag = "!SegmentComposer"
 
   @serializable_init
-  def __init__(self, encoder, transformer):
+  def __init__(self, encoder=bare(BiLSTMSeqTransducer),
+                     transformer=bare(TailSegmentTransformer)):
     self.encoder = encoder
     self.transformer = transformer
 
@@ -115,8 +117,7 @@ class WordEmbeddingSegmentComposer(Serializable):
                word_vocab=None,
                src_vocab=Ref(Path("model.src_reader.vocab")),
                hidden_dim=Ref("exp_global.default_layer_dim"),
-               vocab_size=None):
-    assert word_vocab is not None or vocab_size is not None, "Can't be both None!"
+               vocab_size=25000):
     param_collection = ParamManager.my_params(self)
     if word_vocab is None:
       word_vocab = Vocab()

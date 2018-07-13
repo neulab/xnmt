@@ -2,12 +2,18 @@
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.persistence import serializable_init, Serializable
 
-"""
-Scalar class for hyper parameter that support 1 value serialization
-"""
 class Scalar(Serializable):
-  yaml_tag = "!Scalar"
+  """
+  Scalar class for hyper parameter that support 1 value serialization.
+  This class is actually a base class and does not have any different with simple python float/int.
+  
+  Args:
+    initial: The value being hold by the scalar.
+    update: Is the epoch number. 
+  """
 
+  yaml_tag = "!Scalar"
+  
   @serializable_init
   @register_xnmt_handler
   def __init__(self, initial=0.0, update=0):
@@ -40,11 +46,23 @@ class Scalar(Serializable):
   def __truediv__(a, b): return a.value / b
   def __floordiv__(a, b): return a.value // b
 
-"""
-Class that represents a fixed defined sequence from config files.
-If update has been made more than the length of the sequence, the last element of the sequence will be returned instead
-"""
 class DefinedSequence(Scalar):
+  """
+  Class that represents a fixed defined sequence from config files.
+  If update has been made more than the length of the sequence, the last element of the sequence will be returned instead
+  
+  x = DefinedSequence([0.1, 0.5, 1])
+  
+  # Epoch 1: 0+x = 0.1
+  # Epoch 2: 0+x = 0.5
+  # Epoch 3: 0+x = 1
+  
+  Args:
+    sequence: A list of numbers
+    initial: The current value or the value.
+    update: The epoch number
+  """
+  
   yaml_tag = "!DefinedSequence"
 
   @serializable_init
