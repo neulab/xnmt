@@ -145,7 +145,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     return self.final_states
   
   def sample_segmentation(self, embed_sent, batch_size):
-    
     if self.policy_learning is None: # Not Learning any policy
       if self.eps_greedy is not None:
         self.segmenting_action = self.SegmentingAction.PURE_SAMPLE
@@ -258,5 +257,5 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     POLICY = 1
     POLICY_SAMPLE = 2
     PURE_SAMPLE = 3
-    NONE = 2
+    NONE = 100
 

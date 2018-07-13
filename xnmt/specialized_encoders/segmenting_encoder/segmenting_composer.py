@@ -148,7 +148,7 @@ class WordEmbeddingSegmentComposer(Serializable):
       self.cached_src = src
       self.src_sent = tuple([self.src_vocab[i] for i in src])
 
-    self.word = " ".join(self.src_sent[start:end+1])
+    self.word = "".join(self.src_sent[start:end+1])
     self.word_id = self.word_vocab.convert(self.word) # Embedding
 
   def transduce(self, inputs):
