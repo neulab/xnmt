@@ -9,6 +9,13 @@ from xnmt.param_init import GlorotInitializer
 from xnmt.events import register_xnmt_handler, register_xnmt_event, handle_xnmt_event
 from xnmt.lstm import BiLSTMSeqTransducer
 
+class TailSegmentTransformer(Serializable):
+  yaml_tag = u"!TailSegmentTransformer"
+  @serializable_init
+  def __init__(self): pass
+  def transform(self, encoder, encodings):
+    return encoder.get_final_states()[0].main_expr()
+
 class SegmentComposer(Serializable):
   yaml_tag = "!SegmentComposer"
 
@@ -27,13 +34,6 @@ class SegmentComposer(Serializable):
 
   def transduce(self, inputs):
     return self.transformer.transform(self.encoder, self.encoder.transduce(inputs))
-
-class TailSegmentTransformer(Serializable):
-  yaml_tag = u"!TailSegmentTransformer"
-  @serializable_init
-  def __init__(self): pass
-  def transform(self, encoder, encodings):
-    return encoder.get_final_states()[0].main_expr()
 
 class AverageSegmentTransformer(Serializable):
   yaml_tag = "!AverageSegmentTransformer"

@@ -62,7 +62,9 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.poisson_prior = PoissonPrior(mu=3.3)
     self.eps_greedy = EpsilonGreedy(eps_prob=0.0, prior=self.poisson_prior)
     self.conf_penalty = ConfidencePenalty()
-    self.policy_gradient = PolicyGradient(baseline=baseline,
+    self.policy_gradient = PolicyGradient(input_dim=layer_dim,
+                                          output_dim=2,
+                                          baseline=baseline,
                                           policy_network=policy_network,
                                           z_normalization=True,
                                           conf_penalty=self.conf_penalty,
