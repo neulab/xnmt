@@ -177,7 +177,7 @@ class AttentionHtmlReporter(HtmlReporter, Serializable):
     att_text = etree.SubElement(attention, 'b')
     att_text.text = f"{desc}:"
     etree.SubElement(attention, 'br')
-    attention_file = f"{self.report_path}.{util.valid_filename(desc)}.{idx}.png"
+    attention_file = f"{self.report_path}.{util.valid_filename(desc).lower()}.{idx}.png"
     table = etree.SubElement(attention, 'table')
     table_tr = etree.SubElement(table, 'tr')
     table_td1 = etree.SubElement(table_tr, 'td')
