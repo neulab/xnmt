@@ -36,6 +36,7 @@ from xnmt.rl.eps_greedy import EpsilonGreedy
 from xnmt.rl.confidence_penalty import ConfidencePenalty
 from xnmt.priors import PoissonPrior
 from xnmt.test.utils import has_cython
+from xnmt.reports import SegmentationReporter
 
 class TestSegmentingEncoder(unittest.TestCase):
   

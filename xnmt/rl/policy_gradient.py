@@ -9,6 +9,7 @@ from xnmt.persistence import Ref, bare, Path, Serializable, serializable_init
 from xnmt.rl.eps_greedy import EpsilonGreedy
 from xnmt.constants import EPSILON
 from xnmt.loss import FactoredLossExpr
+from xnmt.param_init import GlorotInitializer, ZeroInitializer
 
 class PolicyGradient(Serializable):
   yaml_tag = '!PolicyGradient'
@@ -19,14 +20,32 @@ class PolicyGradient(Serializable):
                      z_normalization=True,
                      conf_penalty=None,
                      sample=1,
-                     weight=1.0):
-    self.policy_network = self.add_serializable_component("policy_network", policy_network, lambda: policy_network)
+                     weight=1.0,
+                     use_baseline=True,
+                     input_dim=Ref("exp_global.default_layer_dim"),
+                     param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+                     bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+    self.input_dim = input_dim
+    self.policy_network = self.add_serializable_component("policy_network",
+                                                           policy_network,
+                                                           lambda: Linear(input_dim=self.input_dim, output_dim=2,
+                                                                          param_init=param_init, bias_init=bias_init))
+    if use_baseline:
+      self.baseline = self.add_serializable_component("baseline", baseline,
+                                                      lambda: Linear(input_dim=self.input_dim, output_dim=1,
+                                                                     param_init=param_init, bias_init=bias_init))
+    else:
+      self.baseline = None
+
     self.confidence_penalty = self.add_serializable_component("conf_penalty", conf_penalty, lambda: conf_penalty) if conf_penalty is not None else None
-    self.baseline = self.add_serializable_component("baseline", baseline, lambda: baseline) if baseline is not None else None
     self.z_normalization = z_normalization
     self.sample = sample
     self.weight = weight
-  
+
+  def shared_params(self):
+    return [{".input_dim", ".policy_network.input_dim"},
+            {".input_dim", ".baseline.input_dim"}]
+
   @handle_xnmt_event
   def on_start_sent(self, src_sent):
     self.policy_lls = []

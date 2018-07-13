@@ -11,7 +11,6 @@ from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
-
 class UniLSTMState(object):
   """
   State object for UniLSTMSeqTransducer.

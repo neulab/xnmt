@@ -107,8 +107,8 @@ class PlainTextReader(BaseTextReader, Serializable):
     read_sent_len: if set, read the length of each sentence instead of the sentence itself. EOS is not counted.
   """
   yaml_tag = '!PlainTextReader'
+ 
   @serializable_init
-
   def __init__(self, vocab: Optional[Vocab] = None, read_sent_len: bool = False):
     self.vocab = vocab
     self.read_sent_len = read_sent_len

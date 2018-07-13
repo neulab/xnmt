@@ -8,12 +8,13 @@ from xnmt import logger
 from xnmt.batcher import Mask
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.expression_sequence import ExpressionSequence
-from xnmt.persistence import serializable_init, Serializable
+from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.loss import FactoredLossExpr
 from xnmt.priors import GoldInputPrior
+from xnmt.reports import Reportable
 
-class SegmentingSeqTransducer(SeqTransducer, Serializable):
+class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   yaml_tag = '!SegmentingSeqTransducer'
 
   @register_xnmt_handler
@@ -21,7 +22,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
   def __init__(self, embed_encoder=None, segment_composer=None,
                      final_transducer=None, policy_learning=None,
                      length_prior=None, eps_greedy=None,
-                     sample_during_search=False):
+                     sample_during_search=False,
+                     compute_report=Ref("exp_global.compute_report", default=False)):
     self.embed_encoder = self.add_serializable_component("embed_encoder", embed_encoder, lambda: embed_encoder)
     self.segment_composer = self.add_serializable_component("segment_composer", segment_composer, lambda: segment_composer)
     self.final_transducer = self.add_serializable_component("final_transducer", final_transducer, lambda: final_transducer)
@@ -29,6 +31,12 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     self.length_prior = self.add_serializable_component("length_prior", length_prior, lambda: length_prior) if length_prior is not None else None
     self.eps_greedy = self.add_serializable_component("eps_greedy", eps_greedy, lambda: eps_greedy) if eps_greedy is not None else None
     self.sample_during_search = sample_during_search
+    self.compute_report = compute_report
+
+  def shared_params(self):
+    return [{".embed_encoder.hidden_dim",".policy_learning.policy_network.input_dim"},
+            {".embed_encoder.hidden_dim",".policy_learning.baseline.input_dim"},
+            {".segment_composer.hidden_dim", ".final_transducer.input_dim"}]
 
   def transduce(self, embed_sent: ExpressionSequence) -> List[ExpressionSequence]:
     batch_size = embed_sent[0].dim()[1]
@@ -65,6 +73,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
       self.segment_actions = actions
       if self.policy_learning:
         self.policy_learning.set_baseline_input(embed_encode)
+      if not self.train and self.compute_report:
+        self.add_sent_for_report({"segment_actions": actions})
 
   @handle_xnmt_event
   def on_calc_additional_loss(self, trg, generator, generator_loss):
@@ -78,11 +88,11 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable):
     for i, (loss, actions) in enumerate(zip(generator.losses, self.compose_output)):
       reward = FactoredLossExpr()
       # Adding all reward from the translator
-      for key, value in loss.get_nobackprop_loss().items():
-        if key == 'mle':
-          reward.add_loss('mle', dy.cdiv(value, trg_counts))
+      for loss_key, loss_value in loss.get_nobackprop_loss().items():
+        if loss_key == 'mle':
+          reward.add_loss('mle', dy.cdiv(-loss_value, trg_counts))
         else:
-          reward.add_loss('key', value)
+          reward.add_loss(loss_key, -loss_value)
       if self.length_prior is not None:
         reward.add_loss('seg_lp', self.length_prior.log_ll(self.seg_size_unpadded[i]))
       rewards.append(dy.esum(list(reward.expr_factors.values())))
