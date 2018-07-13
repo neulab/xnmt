@@ -4,7 +4,7 @@ from xnmt.settings import settings
 
 import dynet as dy
 
-from xnmt.batcher import Batcher, SrcBatcher
+from xnmt.batcher import Batcher
 from xnmt.evaluator import Evaluator
 from xnmt.model_base import GeneratorModel, TrainableModel
 from xnmt.inference import Inference
@@ -131,7 +131,8 @@ class AccuracyEvalTask(EvalTask, Serializable):
     self.model.set_train(False)
     self.inference.perform_inference(generator=self.model,
                                      src_file=self.src_file,
-                                     trg_file=self.hyp_file)
+                                     trg_file=self.hyp_file,
+                                     ref_file_to_report=self.ref_file)
     # TODO: This is not ideal because it requires reading the data
     #       several times. Is there a better way?
 

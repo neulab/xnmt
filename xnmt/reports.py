@@ -15,7 +15,7 @@ Note that currently reporting is only supported at test-time, not at training ti
 
 import os
 from lxml import etree
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 import numpy as np
 from xml.sax.saxutils import escape
 
@@ -63,7 +63,7 @@ class Reportable(object):
     else:
       context = []
       if not hasattr(self, "_sent_info_list"):
-        raise ValueError("Nothing to report. Make sure to enable compute_report.")
+        return context
       for _ in range(len(self._sent_info_list)): context.append({})
     for context_i, sent_i in zip(context, self._sent_info_list):
       context_i.update(sent_i)
@@ -120,7 +120,7 @@ class HtmlReporter(Reporter):
     with open(html_file_name, 'w', encoding='utf-8') as f:
       f.write(html_str)
 
-  def add_sent_src_trg(self, main_content, output, src, src_vocab) -> Tuple[str,str]:
+  def add_sent_in_out(self, main_content, output, src, src_vocab, reference: Optional[str]=None) -> Tuple[str, str]:
     src_is_speech = isinstance(src, xnmt.input.ArrayInput)
     if src_is_speech:
       src_str = ""
@@ -129,9 +129,15 @@ class HtmlReporter(Reporter):
     trg_str = " ".join(output.readable_actions())
     captions = ["Source Words", "Target Words"]
     inputs = [src_str, trg_str]
+    if reference:
+      captions.append("Reference Words")
+      inputs.append(reference)
     for caption, sent in zip(captions, inputs):
       p = etree.SubElement(main_content, 'p')
-      p.text = f"{caption}: {sent}"
+      b = etree.SubElement(p, 'b')
+      c = etree.SubElement(p, 'span')
+      b.text = f"{caption}: "
+      c.text = sent
     return src_str, trg_str
 
 
@@ -150,7 +156,8 @@ class AttentionHtmlReporter(HtmlReporter, Serializable):
     super().__init__(report_path=report_path)
 
   def create_report(self, idx: int, src: xnmt.input.Input, src_vocab: vocab.Vocab,
-                    trg_vocab: vocab.Vocab, output: xnmt.output.Output, attentions:np.ndarray, **kwargs) -> None:
+                    trg_vocab: vocab.Vocab, output: xnmt.output.Output, attentions: np.ndarray,
+                    reference: Optional[str] = None, **kwargs) -> None:
     """
     Create report.
 
@@ -164,7 +171,7 @@ class AttentionHtmlReporter(HtmlReporter, Serializable):
       **kwargs: arguments to be ignored
     """
     main_content = self.start_sent(idx)
-    src_str, trg_str = self.add_sent_src_trg(main_content, output, src, src_vocab)
+    src_str, trg_str = self.add_sent_in_out(main_content, output, src, src_vocab, reference)
     self.add_atts(attentions, main_content, src, src_str, trg_str, idx)
     self.write_html_tree()
 
@@ -204,7 +211,7 @@ class SegmentingHtmlReporter(HtmlReporter, Serializable):
 
   def create_report(self, segmentation, src, src_vocab, idx, output, **kwargs):
     main_content = self.start_sent(idx)
-    src_str, trg_str = self.add_sent_src_trg(main_content, output, src, src_vocab)
+    src_str, trg_str = self.add_sent_in_out(main_content, output, src, src_vocab)
 
     segment_decision = segmentation
     segment_decision = [int(x[0]) for x in segment_decision]
