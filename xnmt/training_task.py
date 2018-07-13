@@ -162,11 +162,15 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       # reload the data 
       self.model.src_reader.train = self.model.trg_reader.train = True
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
-          input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
-                                          self.src_file, self.trg_file,
-                                          batcher=self.batcher, sample_sents=self.sample_train_sents,
-                                          max_num_sents=self.max_num_train_sents,
-                                          max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
+          input_reader.read_parallel_corpus(src_reader=self.model.src_reader,
+                                            trg_reader=self.model.trg_reader,
+                                            src_file=self.src_file,
+                                            trg_file=self.trg_file,
+                                            batcher=self.batcher,
+                                            sample_sents=self.sample_train_sents,
+                                            max_num_sents=self.max_num_train_sents,
+                                            max_src_len=self.max_src_len,
+                                            max_trg_len=self.max_trg_len)
       self.model.src_reader.train = self.model.trg_reader.train = False
       # restart data generation
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.training_state.epoch_num, shell=True)
@@ -219,11 +223,11 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       self.model.src_reader.needs_reload() or self.model.trg_reader.needs_reload():
       self.model.set_train(True)
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
-        input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
-                                               self.src_file, self.trg_file,
-                                               batcher=self.batcher, sample_sents=self.sample_train_sents,
-                                               max_num_sents=self.max_num_train_sents,
-                                               max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
+        input_reader.read_parallel_corpus(src_reader=self.model.src_reader, trg_reader=self.model.trg_reader,
+                                          src_file=self.src_file, trg_file=self.trg_file,
+                                          batcher=self.batcher, sample_sents=self.sample_train_sents,
+                                          max_num_sents=self.max_num_train_sents,
+                                          max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
       self.model.src_reader.train = self.model.trg_reader.train = False
     self.training_state.epoch_seed = random.randint(1,2147483647)
     random.seed(self.training_state.epoch_seed)
