@@ -34,10 +34,16 @@ class XnmtOptimizer(object):
     """
     Update the parameters.
     """
-    if not (self.skip_noisy and self._check_gradients_noisy()):
-      self.optimizer.update()
-    else:
-      logger.info("skipping noisy update")
+    try:
+      if not (self.skip_noisy and self._check_gradients_noisy()):
+        self.optimizer.update()
+      else:
+        logger.info("skipping noisy update")
+    except RuntimeError:
+      logger.warning("Failed to perform update. Skipping example and clearing gradients.")
+      for subcol in ParamManager.param_col.subcols.values():
+        for param in subcol.parameters_list():
+          param.scale_gradient(0)
 
   def status(self):
     """
