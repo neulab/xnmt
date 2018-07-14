@@ -127,22 +127,13 @@ class CharCutReporter(Reporter, Serializable):
       def __init__(self, **kwargs):
         for key in kwargs: setattr(self, key, kwargs[key])
     if self.hyp_sents:
-      hyp_filename = f"{self.report_path}/tmp/charcut.tmp_c"
-      ref_filename = f"{self.report_path}/tmp/charcut.tmp_r"
-      src_filename = f"{self.report_path}/tmp/charcut.tmp_s"
       html_filename = f"{self.report_path}/charcut.html"
-      util.make_parent_dir(hyp_filename)
-      with open(hyp_filename, "w") as fout:
-        fout.write("\n".join(self.hyp_sents))
-      with open(ref_filename, "w") as fout:
-        fout.write("\n".join(self.ref_sents))
-      if self.src_sents:
-        with open(src_filename, "w") as fout:
-          fout.write("\n".join(self.src_sents))
+      util.make_parent_dir(html_filename)
       import xnmt.thirdparty.charcut_py3.charcut as charcut
-      args = ArgClass(cand=hyp_filename, ref=ref_filename, html_output_file=html_filename, match_size=self.match_size,
-                      alt_norm=self.alt_norm, src=src_filename if self.src_sents else None)
-      aligned_segs = charcut.load_input_files(args)
+      args = ArgClass(html_output_file=html_filename, match_size=self.match_size, alt_norm=self.alt_norm)
+      aligned_segs = charcut.load_input_segs(cand_segs=self.hyp_sents,
+                                             ref_segs=self.ref_sents,
+                                             src_segs=self.src_sents)
       charcut.run_on(aligned_segs, args)
       self.hyp_sents, self.ref_sents, self.src_sents = [], [], []
 

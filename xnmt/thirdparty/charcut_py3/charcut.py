@@ -72,7 +72,7 @@ def read_gz8(filename):
         return [line for line in f]
 
 
-def load_input_files(args):
+def load_input_segs(cand_segs, ref_segs, src_segs=None):
     """
     Load input files specified in the CL arguments into memory.
 
@@ -81,10 +81,8 @@ def load_input_files(args):
     "origin" is always None (present for compatibility with other modules handling sdlxliff files).
     "src_segment" is None if the source file was not passed on the CL.
     """
-    cand_segs = read_gz8(args.cand)
-    ref_segs = read_gz8(args.ref)
     # src file is optional
-    src_segs = read_gz8(args.src) if args.src else [None] * len(cand_segs)
+    src_segs = src_segs or [None] * len(cand_segs)
     assert len(src_segs) == len(cand_segs) == len(ref_segs)
     return [(i, None, src.strip() if src else src, cand.strip(), ref.strip())
             for i, (src, cand, ref)
@@ -520,7 +518,7 @@ def html_dump(out_file, aligned_segs, styled_ops, seg_scores, doc_cost, doc_div)
     """
     Do highlighting on all segments and output them as a HTML file.
 
-    aligned_segs are the input segments as returned by load_input_files().
+    aligned_segs are the input segments as returned by load_input_segs().
     styled_ops are the decorated operations as returned by compare_segments().
     seg_scores are the pairs (cost, div) as returned by score_all().
     """
@@ -609,7 +607,7 @@ def run_on(aligned_segs, args):
     """
     Main function.
 
-    aligned_seg and args are as returned by load_input_files() and parse_args().
+    aligned_seg and args are as returned by load_input_segs() and parse_args().
     This way this function can be reused by other modules using different arguments
     or input means.
 
@@ -643,5 +641,5 @@ def run_on(aligned_segs, args):
 
 if __name__ == '__main__':
     args = parse_args()
-    aligned_segs = load_input_files(args)
+    aligned_segs = load_input_segs(args)
     run_on(aligned_segs, args)
