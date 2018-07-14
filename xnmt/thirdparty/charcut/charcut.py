@@ -620,8 +620,6 @@ def run_on(aligned_segs, args):
     doc_cost = sum(cost for cost, _ in seg_scores)
     doc_div = sum(div for _, div in seg_scores)
 
-    print(format_score(doc_cost, doc_div))
-
     if getattr(args, 'plain_output_file', None):
         with open(args.plain_output_file, 'w') as plain_file:
             for pair in seg_scores:

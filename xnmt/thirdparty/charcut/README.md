@@ -1,3 +1,7 @@
+# CharCut in XNMT
+
+This package contains a modified version of CharCut: https://github.com/alardill/CharCut
+
 # CharCut
 Character-based MT evaluation and difference highlighting
 

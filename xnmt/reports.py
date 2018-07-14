@@ -129,7 +129,7 @@ class CharCutReporter(Reporter, Serializable):
     if self.hyp_sents:
       html_filename = f"{self.report_path}/charcut.html"
       util.make_parent_dir(html_filename)
-      import xnmt.thirdparty.charcut_py3.charcut as charcut
+      import xnmt.thirdparty.charcut.charcut as charcut
       args = ArgClass(html_output_file=html_filename, match_size=self.match_size, alt_norm=self.alt_norm)
       aligned_segs = charcut.load_input_segs(cand_segs=self.hyp_sents,
                                              ref_segs=self.ref_sents,
