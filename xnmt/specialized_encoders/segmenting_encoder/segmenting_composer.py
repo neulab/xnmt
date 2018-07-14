@@ -132,11 +132,9 @@ class WordEmbeddingSegmentComposer(Serializable):
       word_vocab = Vocab()
       dict_entry = vocab_size
     else:
-      dict_entry = len(word_vocab)
       word_vocab.freeze()
-      if word_vocab.UNK_STR not in word_vocab.w2i:
-        dict_entry += 1
       word_vocab.set_unk(word_vocab.UNK_STR)
+      dict_entry = len(word_vocab)
 
     self.src_vocab = src_vocab
     self.word_vocab = word_vocab
@@ -146,7 +144,7 @@ class WordEmbeddingSegmentComposer(Serializable):
   def set_word_boundary(self, start, end, src):
     if self.cached_src != src:
       self.cached_src = src
-      self.src_sent = tuple([self.src_vocab[i] for i in src])
+      self.src_sent = [self.src_vocab[i] for i in src]
 
     self.word = "".join(self.src_sent[start:end+1])
     self.word_id = self.word_vocab.convert(self.word) # Embedding

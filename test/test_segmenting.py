@@ -250,6 +250,8 @@ class TestComposing(unittest.TestCase):
     enc.transduce(self.inp_emb(0))
     last_sent = self.src[0][-1]
     last_converted_word = self.src_reader.vocab[last_sent[last_sent.len_unpadded()]]
+  
+
     assert enc.segment_composer.word == last_converted_word
 
   def test_charngram_composer(self):
