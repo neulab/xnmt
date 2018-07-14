@@ -78,7 +78,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     embeddings = dy.concatenate(embed_sent.expr_list, d=1)
     embeddings.value()
     outputs = [[[] for _ in range(batch_size)] for _ in range(sample_size)]
-    expr_list = []
     for i in range(batch_size):
       sequence = dy.pick_batch_elem(embeddings, i)
       # For each sampled segmentations
@@ -90,10 +89,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           self.segment_composer.set_word_boundary(lower_bound, upper_bound, self.src_sent[i])
           composed = self.segment_composer.transduce(char_sequence)
           outputs[j][i].append(composed)
-          expr_list.append(composed)
           lower_bound = upper_bound+1
-    # Invoke computation for this part
-    dy.forward(expr_list)
     # Padding + return
     try:
       if self.length_prior:

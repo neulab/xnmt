@@ -1,6 +1,7 @@
 import dynet as dy
 import numpy as np
 from collections import Counter
+from functools import lru_cache
 
 from xnmt.transform import Linear
 from xnmt.param_collection import ParamManager
@@ -94,19 +95,10 @@ class CharNGramSegmentComposer(Serializable):
     self.word_ngram = self.add_serializable_component("word_ngram", word_ngram,
                                                       lambda: Linear(input_dim=dict_entry,
                                                                      output_dim=hidden_dim))
-    self.cached_src = None
 
   def set_word_boundary(self, start, end, src):
-    self.word = tuple(src[start:end+1])
-    if self.cached_src != src:
-      self.cached_src = src
-      self.src_sent = "".join([self.src_vocab[i] for i in src])
-    word_vector = Counter()
-    for i in range(start, end+1):
-      for j in range(i, min(i+self.ngram_size, end+1)):
-        ngram = self.src_sent[i:j+1]
-        if ngram in self.word_vocab:
-          word_vector[int(self.word_vocab.convert(ngram))] += 1
+    word = tuple(src[start:end+1])
+    word_vector = self.to_word_vector(word)
     keys = [x for x in word_vector.keys()]
     values = [x for x in word_vector.values()]
     if len(keys) == 0:
@@ -114,6 +106,15 @@ class CharNGramSegmentComposer(Serializable):
       values = [1]
 
     self.ngram_vocab_vect = dy.sparse_inputTensor([keys], values, (self.dict_entry,))
+
+  @lru_cache(maxsize=32000)
+  def to_word_vector(self, word):
+    word_vector = Counter()
+    for i in range(len(word)):
+      for j in range(i, min(i+self.ngram_size, len(word))):
+        ngram = "".join([self.src_vocab[x] for x in word[i:j+1]])
+        word_vector[int(self.word_vocab.convert(ngram))] += 1
+    return word_vector
 
   def transduce(self, inputs):
     return dy.rectify(self.word_ngram(self.ngram_vocab_vect))
