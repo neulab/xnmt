@@ -133,9 +133,6 @@ class AccuracyEvalTask(EvalTask, Serializable):
                                      src_file=self.src_file,
                                      trg_file=self.hyp_file,
                                      ref_file_to_report=self.ref_file)
-    # TODO: This is not ideal because it requires reading the data
-    #       several times. Is there a better way?
-
     # Evaluate
     eval_scores = xnmt.xnmt_evaluate.xnmt_evaluate(hyp_file=self.hyp_file, ref_file=self.ref_file, desc=self.desc,
                                                    evaluators=self.eval_metrics)
