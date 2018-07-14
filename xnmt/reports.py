@@ -98,11 +98,12 @@ class CharCutReporter(Reporter, Serializable):
   Args:
     match_size: min match size in characters (set < 3 e.g. for Japanese or Chinese)
     alt_norm: alternative normalization scheme: use only the candidate's length for normalization
+    report_path: Path to write HTML files to
   """
   yaml_tag = "!CharCutReporter"
   @serializable_init
   @register_xnmt_handler
-  def __init__(self, match_size: int = 3, alt_norm: bool = False, report_path: str = settings.DEFAULT_REPORT_PREFIX) \
+  def __init__(self, match_size: int = 3, alt_norm: bool = False, report_path: str = settings.DEFAULT_REPORT_PATH) \
           -> None:
     self.match_size = match_size
     self.alt_norm = alt_norm
@@ -126,10 +127,10 @@ class CharCutReporter(Reporter, Serializable):
       def __init__(self, **kwargs):
         for key in kwargs: setattr(self, key, kwargs[key])
     if self.hyp_sents:
-      hyp_filename = f"{self.report_path}.charcut.tmp_c"
-      ref_filename = f"{self.report_path}.charcut.tmp_r"
-      src_filename = f"{self.report_path}.charcut.tmp_s"
-      html_filename = f"{self.report_path}.charcut.html"
+      hyp_filename = f"{self.report_path}/tmp/charcut.tmp_c"
+      ref_filename = f"{self.report_path}/tmp/charcut.tmp_r"
+      src_filename = f"{self.report_path}/tmp/charcut.tmp_s"
+      html_filename = f"{self.report_path}/charcut.html"
       util.make_parent_dir(hyp_filename)
       with open(hyp_filename, "w") as fout:
         fout.write("\n".join(self.hyp_sents))
@@ -150,9 +151,9 @@ class HtmlReporter(Reporter):
   A base class for reporters that produce HTML outputs that takes care of some common functionality.
 
   Args:
-    report_path: Prefix for path to write HTML and image files to (i.e. directory + filename-prefix)
+    report_path: Path to write HTML and image files to
   """
-  def __init__(self, report_path: str = settings.DEFAULT_REPORT_PREFIX) -> None:
+  def __init__(self, report_path: str = settings.DEFAULT_REPORT_PATH) -> None:
     self.report_path = report_path
     self.html_tree = etree.Element('html')
     meta = etree.SubElement(self.html_tree, 'meta')
@@ -171,7 +172,7 @@ class HtmlReporter(Reporter):
 
   def write_html_tree(self) -> None:
     html_str = etree.tostring(self.html_tree, encoding='unicode', pretty_print=True)
-    html_file_name = self.report_path + '.html'
+    html_file_name = f"{self.report_path}/attentions.html"
     util.make_parent_dir(html_file_name)
     with open(html_file_name, 'w', encoding='utf-8') as f:
       f.write(html_str)
@@ -207,13 +208,13 @@ class AttentionHtmlReporter(HtmlReporter, Serializable):
   Reporter that writes attention matrices to HTML.
 
   Args:
-    report_path: Prefix for path to write HTML and image files to (i.e. directory + filename-prefix)
+    report_path: Path to write HTML and image files to
   """
 
   yaml_tag = "!AttentionHtmlReporter"
 
   @serializable_init
-  def __init__(self, report_path: str = settings.DEFAULT_REPORT_PREFIX):
+  def __init__(self, report_path: str = settings.DEFAULT_REPORT_PATH):
     super().__init__(report_path=report_path)
 
   def create_report(self, idx: int, src: xnmt.input.Input, src_vocab: vocab.Vocab,
@@ -239,23 +240,23 @@ class AttentionHtmlReporter(HtmlReporter, Serializable):
   def add_atts(self, attentions, main_content, src, src_str, trg_str, idx, desc="Attentions"):
     src_is_speech = isinstance(src, xnmt.input.ArrayInput)
     if src_is_speech:
-      src_feat_file = f"{self.report_path}.src_feat.{idx}.png"
+      src_feat_file = f"{self.report_path}/img/src_feat.{idx}.png"
       xnmt.plot.plot_speech_features(src.get_array(), file_name=src_feat_file)
     attention = etree.SubElement(main_content, 'p')
     att_text = etree.SubElement(attention, 'b')
     att_text.text = f"{desc}:"
     etree.SubElement(attention, 'br')
-    attention_file = f"{self.report_path}.{util.valid_filename(desc).lower()}.{idx}.png"
+    attention_file = f"{self.report_path}/img/{util.valid_filename(desc).lower()}.{idx}.png"
     table = etree.SubElement(attention, 'table')
     table_tr = etree.SubElement(table, 'tr')
     table_td1 = etree.SubElement(table_tr, 'td')
     table_td2 = etree.SubElement(table_tr, 'td')
     if src_is_speech:
       att_img = etree.SubElement(table_td1, 'img')
-      att_img.attrib['src'] = os.path.basename(src_feat_file)
+      att_img.attrib['src'] = "img/" + os.path.basename(src_feat_file)
       att_img.attrib['alt'] = 'speech features'
     att_img = etree.SubElement(table_td2, 'img')
-    att_img.attrib['src'] = os.path.basename(attention_file)
+    att_img.attrib['src'] = "img/" + os.path.basename(attention_file)
     att_img.attrib['alt'] = 'attention matrix'
     xnmt.plot.plot_attention(src_str.split(), trg_str.split(), attentions, file_name=attention_file)
 
@@ -267,7 +268,7 @@ class SegmentingHtmlReporter(HtmlReporter, Serializable):
   yaml_tag = "!SegmentingHtmlReporter"
 
   @serializable_init
-  def __init__(self, report_path: str = settings.DEFAULT_REPORT_PREFIX):
+  def __init__(self, report_path: str = settings.DEFAULT_REPORT_PATH):
     super().__init__(report_path=report_path)
 
   def create_report(self, segmentation, src, src_vocab, idx, output, output_proc: xnmt.output.OutputProcessor,
