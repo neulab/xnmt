@@ -176,15 +176,20 @@ class HtmlReporter(Reporter):
     with open(html_file_name, 'w', encoding='utf-8') as f:
       f.write(html_str)
 
-  def add_sent_in_out(self, main_content, output, src, src_vocab, reference: Optional[str]=None) -> Tuple[str, str]:
+  def add_sent_in_out(self, main_content, output, output_proc: xnmt.output.OutputProcessor, src, src_vocab,
+                      reference: Optional[str]=None) -> Tuple[str, str]:
     src_is_speech = isinstance(src, xnmt.input.ArrayInput)
     if src_is_speech:
       src_str = ""
     else:
       src_str = " ".join([src_vocab.i2w[src_token] for src_token in src])
-    trg_str = " ".join(output.readable_actions())
-    captions = ["Source Words", "Target Words"]
-    inputs = [src_str, trg_str]
+    trg_str = output.apply_post_processor(output_proc)
+    captions, inputs = [], []
+    if not src_is_speech:
+      captions.append("Source Words")
+      inputs.append(src_str)
+    captions.append("Output Words")
+    inputs.append(trg_str)
     if reference:
       captions.append("Reference Words")
       inputs.append(reference)
@@ -212,8 +217,8 @@ class AttentionHtmlReporter(HtmlReporter, Serializable):
     super().__init__(report_path=report_path)
 
   def create_report(self, idx: int, src: xnmt.input.Input, src_vocab: vocab.Vocab,
-                    trg_vocab: vocab.Vocab, output: xnmt.output.Output, attentions: np.ndarray,
-                    reference: Optional[str] = None, **kwargs) -> None:
+                    trg_vocab: vocab.Vocab, output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
+                    attentions: np.ndarray, reference: Optional[str] = None, **kwargs) -> None:
     """
     Create report.
 
@@ -227,7 +232,7 @@ class AttentionHtmlReporter(HtmlReporter, Serializable):
       **kwargs: arguments to be ignored
     """
     main_content = self.start_sent(idx)
-    src_str, trg_str = self.add_sent_in_out(main_content, output, src, src_vocab, reference)
+    src_str, trg_str = self.add_sent_in_out(main_content, output, output_proc, src, src_vocab, reference)
     self.add_atts(attentions, main_content, src, src_str, trg_str, idx)
     self.write_html_tree()
 
@@ -265,9 +270,10 @@ class SegmentingHtmlReporter(HtmlReporter, Serializable):
   def __init__(self, report_path: str = settings.DEFAULT_REPORT_PREFIX):
     super().__init__(report_path=report_path)
 
-  def create_report(self, segmentation, src, src_vocab, idx, output, **kwargs):
+  def create_report(self, segmentation, src, src_vocab, idx, output, output_proc: xnmt.output.OutputProcessor,
+                    **kwargs):
     main_content = self.start_sent(idx)
-    src_str, trg_str = self.add_sent_in_out(main_content, output, src, src_vocab)
+    src_str, trg_str = self.add_sent_in_out(main_content, output, output_proc, src, src_vocab)
 
     segment_decision = segmentation
     segment_decision = [int(x[0]) for x in segment_decision]
