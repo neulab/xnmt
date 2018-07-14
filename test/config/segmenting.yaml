@@ -4,7 +4,9 @@ debug-segmenting: !Experiment
     dropout: 0.5
   model: !DefaultTranslator
     src_reader: !SegmentationTextReader
-      vocab: !Vocab {vocab_file: examples/data/head-char.ja.vocab}
+      vocab: !Vocab
+        _xnmt_id: src_vocab
+        vocab_file: examples/data/head-char.ja.vocab
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     calc_global_fertility: True
@@ -12,6 +14,7 @@ debug-segmenting: !Experiment
     src_embedder: !SimpleWordEmbedder
       emb_dim: 16
     encoder: !SegmentingSeqTransducer
+      vocab: !Ref { name: src_vocab }
       # Components
       embed_encoder: !BiLSTMSeqTransducer
         input_dim: 16
@@ -58,11 +61,8 @@ debug-segmenting: !Experiment
       rnn: !UniLSTMSeqTransducer
         layers: 1
       bridge: !CopyBridge {}  
-    inference: !AutoRegressiveInference
-      report_path: test/tmp/{EXP}.report
-      report_type: html, file
   train: !SimpleTrainingRegimen
-    run_for_epochs: 3
+    run_for_epochs: 1
     src_file: examples/data/head-char.ja
     trg_file: examples/data/head.en
     dev_tasks:

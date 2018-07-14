@@ -1,4 +1,6 @@
 import dynet as dy
+import numpy as np
+
 import xnmt.batcher
 
 class ExpressionSequence(object):
@@ -152,8 +154,8 @@ class LazyNumpyExpressionSequence(ExpressionSequence):
       return super(LazyNumpyExpressionSequence, self).__len__()
     else:
       if xnmt.batcher.is_batched(self.lazy_data):
-        return self.lazy_data[0].shape[1]
-      else: return self.lazy_data.shape[1]
+        return self.lazy_data[0].get_array().shape[1]
+      else: return self.lazy_data.get_array().shape[1]
   def __iter__(self):
     if not (self.expr_list or self.expr_tensor):
       self.expr_list = [self[i] for i in range(len(self))]
@@ -163,12 +165,16 @@ class LazyNumpyExpressionSequence(ExpressionSequence):
       return super(LazyNumpyExpressionSequence, self).__getitem__(key)
     else:
       if xnmt.batcher.is_batched(self.lazy_data):
-        return dy.inputTensor([self.lazy_data[batch][:,key] for batch in range(len(self.lazy_data))], batched=True)
+        return dy.inputTensor(
+          [self.lazy_data[batch].get_array()[:, key] for batch in range(self.lazy_data.batch_size())], batched=True)
       else:
-        return dy.inputTensor(self.lazy_data[:,key], batched=False)
+        return dy.inputTensor(self.lazy_data.get_array()[:,key], batched=False)
   def as_tensor(self):
     if not (self.expr_list or self.expr_tensor):
-      self.expr_tensor = dy.inputTensor(self.lazy_data, batched=xnmt.batcher.is_batched(self.lazy_data))
+      if not xnmt.batcher.is_batched(self.lazy_data):
+        raise NotImplementedError()
+      array = np.concatenate([d.get_array().reshape(d.get_array().shape + (1,)) for d in self.lazy_data], axis=2)
+      self.expr_tensor = dy.inputTensor(array, batched=xnmt.batcher.is_batched(self.lazy_data))
     return super(LazyNumpyExpressionSequence, self).as_tensor()
 
 class ReversedExpressionSequence(ExpressionSequence):

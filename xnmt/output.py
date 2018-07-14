@@ -41,6 +41,13 @@ class Output(object):
   def __str__(self):
     return " ".join(self.readable_actions())
 
+  # for partial compatibility with input objects:
+  def sent_len(self):
+    return len(self.actions)
+  def __iter__(self):
+    return iter(self.actions)
+  def __getitem__(self, index):
+    return self.actions[index]
 
 
 class ScalarOutput(Output):

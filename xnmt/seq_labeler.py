@@ -7,7 +7,7 @@ from xnmt.persistence import serializable_init, Serializable, bare
 
 class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, model_base.EventTrigger):
   """
-  A default translator based on attentional sequence-to-sequence models.
+  A simple sequence labeler based on an encoder and an output softmax layer.
 
   Args:
     src_reader: A reader for the source side.
@@ -63,7 +63,7 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
     assert batcher.is_batched(src) and batcher.is_batched(trg)
     batch_size, encodings, outputs, seq_len = self._encode_src(src)
 
-    if len(trg[0]) != seq_len:
+    if trg.sent_len() != seq_len:
       if self.auto_cut_pad:
         trg = self._cut_or_pad_targets(seq_len, trg)
       else:
@@ -101,7 +101,7 @@ class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, mo
       src = batcher.mark_as_batch([src])
       if forced_trg_ids:
         forced_trg_ids = batcher.mark_as_batch([forced_trg_ids])
-    assert len(src) == 1, "batch size > 1 not properly tested"
+    assert src.batch_size() == 1, "batch size > 1 not properly tested"
 
     batch_size, encodings, outputs, seq_len = self._encode_src(src)
     score_expr = self.scorer.calc_log_softmax(outputs) if normalize_scores else self.scorer.calc_scores(outputs)

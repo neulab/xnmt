@@ -3,7 +3,7 @@ from typing import List, Optional
 from xnmt import logger
 from xnmt.exp_global import ExpGlobal
 from xnmt.eval_task import EvalTask
-from xnmt.model_base import GeneratorModel
+from xnmt.model_base import TrainableModel
 from xnmt.param_collection import ParamManager, RevertingUnsavedModelException
 from xnmt.preproc_runner import PreprocRunner
 from xnmt.training_regimen import TrainingRegimen
@@ -31,7 +31,7 @@ class Experiment(Serializable):
   def __init__(self,
                exp_global:Optional[ExpGlobal] = bare(ExpGlobal),
                preproc:Optional[PreprocRunner] = None,
-               model:Optional[GeneratorModel] = None,
+               model:Optional[TrainableModel] = None,
                train:Optional[TrainingRegimen] = None,
                evaluate:Optional[List[EvalTask]] = None,
                random_search_report:Optional[dict] = None) -> None:
