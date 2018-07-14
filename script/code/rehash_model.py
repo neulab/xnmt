@@ -2,9 +2,10 @@
 
 """Usage: rehash_model.py MOD_IN MOD_OUT
 
-Takes a trained model file with multiple saved checkpoints and converts these
-checkpoints into standalone models.  This allows the different checkpoints to be
-used, e.g., as parts of a model ensemble.
+Takes a trained model and re-creates the unique hash of all of its components.
+This is useful when, for example, you want to ensemble models that have
+identical component names, such as two models that were adapted from the
+same original model.
 
 This script will:
 - Analyze MOD_IN to find all saved model components
