@@ -4,7 +4,7 @@ from xnmt import logger
 from xnmt.exp_global import ExpGlobal
 from xnmt.eval_task import EvalTask
 from xnmt.model_base import GeneratorModel
-from xnmt.param_collection import ParamManager
+from xnmt.param_collection import ParamManager, RevertingUnsavedModelException
 from xnmt.preproc_runner import PreprocRunner
 from xnmt.training_regimen import TrainingRegimen
 from xnmt.persistence import serializable_init, Serializable, bare
@@ -51,10 +51,12 @@ class Experiment(Serializable):
     eval_scores = ["Not evaluated"]
     if self.train:
       logger.info("> Training")
-      # save_fct() # save initial model
       self.train.run_training(save_fct = save_fct)
       logger.info('reverting learned weights to best checkpoint..')
-      ParamManager.param_col.revert_to_best_model()
+      try:
+        ParamManager.param_col.revert_to_best_model()
+      except RevertingUnsavedModelException:
+        pass
 
     evaluate_args = self.evaluate
     if evaluate_args:

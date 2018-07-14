@@ -166,7 +166,7 @@ class ParamCollection(object):
 
   def revert_to_best_model(self):
     if not self._is_saved:
-      raise ValueError("revert_to_best_model() is illegal because this model has never been saved.")
+      raise RevertingUnsavedModelException("revert_to_best_model() is illegal because this model has never been saved.")
     for subcol_name, subcol in self.subcols.items():
       subcol.populate(os.path.join(self._data_files[0], subcol_name))
 
@@ -193,3 +193,5 @@ class ParamCollection(object):
     for i in range(len(self._data_files)-1)[::-1]:
       if os.path.exists(self._data_files[i]):
         os.rename(self._data_files[i], self._data_files[i+1])
+
+class RevertingUnsavedModelException(Exception): pass
