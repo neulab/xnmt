@@ -110,8 +110,9 @@ class CharCutReporter(Reporter, Serializable):
     self.hyp_sents, self.ref_sents, self.src_sents = [], [], []
 
   def create_report(self, src: xnmt.input.Input, src_vocab: vocab.Vocab, trg_vocab: vocab.Vocab,
-                    output: xnmt.output.Output, reference: Optional[str] = None, **kwargs) -> None:
-    trg_str = " ".join(output.readable_actions())
+                    output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
+                    reference: Optional[str] = None, **kwargs) -> None:
+    trg_str = output.apply_post_processor(output_proc)
     src_is_speech = isinstance(src, xnmt.input.ArrayInput)
     if not src_is_speech:
       src_str = " ".join([src_vocab.i2w[src_token] for src_token in src])

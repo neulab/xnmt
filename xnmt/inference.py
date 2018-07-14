@@ -121,7 +121,7 @@ class Inference(reports.Reportable):
         if ref_file_to_report:
           for _ in range(batch_size):
             ref_sent = ref_file.readline().strip()
-          self.add_sent_for_report({"reference": ref_sent})
+          self.add_sent_for_report({"reference": ref_sent, "output_proc": self.post_processor})
         src_len = src_batch.sent_len()
         if max_src_len is not None and src_len > max_src_len:
           output_txt = "\n".join([NO_DECODING_ATTEMPTED] * batch_size)
