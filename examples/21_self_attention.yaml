@@ -42,14 +42,15 @@ self_attention: !Experiment
         child: !ModularSeqTransducer
           input_dim: 512
           modules:
-          - !FullyConnectedSeqTransducer
-            in_height: 512
-            out_height: 512
-            nonlinearity: relu
-          - !FullyConnectedSeqTransducer
-            in_height: 512
-            out_height: 512
-            nonlinearity: linear
+          - !TransformSeqTransducer
+            transform: !NonLinear
+              input_dim: 512
+              output_dim: 512
+              activation: relu
+          - !TransformSeqTransducer
+            transform: !Linear
+              input_dim: 512
+              output_dim: 512
         layer_norm: True
       - !ResidualSeqTransducer
         input_dim: 512
@@ -61,14 +62,15 @@ self_attention: !Experiment
         child: !ModularSeqTransducer
           input_dim: 512
           modules:
-          - !FullyConnectedSeqTransducer
-            in_height: 512
-            out_height: 512
-            nonlinearity: relu
-          - !FullyConnectedSeqTransducer
-            in_height: 512
-            out_height: 512
-            nonlinearity: linear
+          - !TransformSeqTransducer
+            transform: !NonLinear
+              input_dim: 512
+              output_dim: 512
+              activation: relu
+          - !TransformSeqTransducer
+            transform: !Linear
+              input_dim: 512
+              output_dim: 512
         layer_norm: True
     # encoder: !BiLSTMSeqTransducer
     #   layers: 1

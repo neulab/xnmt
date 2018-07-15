@@ -1,7 +1,10 @@
 import dynet as dy
+from typing import List
 
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.expression_sequence import ExpressionSequence
+from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 
 class Transform(object):
@@ -158,3 +161,24 @@ class AuxNonLinear(NonLinear, Serializable):
       bias_init=bias_init
     )
     self.save_processed_arg("input_dim", original_input_dim)
+
+
+class TransformSeqTransducer(SeqTransducer, Serializable):
+  yaml_tag = '!TransformSeqTransducer'
+
+  @serializable_init
+  def __init__(self, transform: Transform):
+    """
+    Args:
+      transform: the Transform to apply to the sequence
+    """
+    self.transform = transform
+
+  def get_final_states(self) -> List[FinalTransducerState]:
+    return self._final_states
+
+  def transduce(self, src: ExpressionSequence) -> ExpressionSequence:
+    output = self.transform(src.as_tensor())
+    output_seq = ExpressionSequence(expr_tensor=output)
+    self._final_states = [FinalTransducerState(output_seq[-1])]
+    return output_seq
