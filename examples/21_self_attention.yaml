@@ -32,6 +32,9 @@ self_attention: !Experiment
       emb_dim: 512
     encoder: !ModularSeqTransducer
       modules:
+      - !PositionalSeqTransducer
+        input_dim: 512
+        max_pos: 100
       - !ResidualSeqTransducer
         input_dim: 512
         child: !MultiHeadAttentionSeqTransducer
@@ -64,8 +67,6 @@ self_attention: !Experiment
           - !TransformSeqTransducer
             transform: !Linear {}
         layer_norm: True
-    # encoder: !BiLSTMSeqTransducer
-    #   layers: 1
     attender: !MlpAttender
       hidden_dim: 512
       state_dim: 512
