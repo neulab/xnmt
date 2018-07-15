@@ -26,7 +26,7 @@ import numpy as np
 import dynet as dy
 
 import xnmt.param_init
-from xnmt import transform, norm, embedder, events, lstm, param_collection, transducer
+from xnmt import transform, norm, embedder, events, lstm, param_collection, positional, transducer
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.persistence import Serializable, serializable_init, Ref, bare
 
@@ -167,7 +167,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
       assert self.kq_pos_encoding_type == "embedding"
       self.kq_positional_embedder = self.add_serializable_component("kq_positional_embedder",
                                                                     kq_positional_embedder,
-                                                                    lambda: embedder.PositionEmbedder(
+                                                                    lambda: positional.PositionEmbedder(
                                                                       max_pos=self.max_len,
                                                                       emb_dim=self.kq_pos_encoding_size,
                                                                       param_init=param_init))
@@ -521,7 +521,7 @@ class SAAMSeqTransducer(transducer.SeqTransducer, Serializable):
       self.positional_embedder = \
         self.add_serializable_component("positional_embedder",
                                         positional_embedder,
-                                        lambda: embedder.PositionEmbedder(max_pos=self.max_len,
+                                        lambda: positional.PositionEmbedder(max_pos=self.max_len,
                                                                           emb_dim=input_dim if self.pos_encoding_combine == "add" else self.pos_encoding_size))
 
     self.modules = self.add_serializable_component("modules", modules,
