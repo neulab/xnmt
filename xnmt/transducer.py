@@ -26,7 +26,10 @@ class FinalTransducerState(object):
          dy.Expression: cell state; if not given, it is inferred as inverse tanh of main expression
     """
     if self._cell_expr is None:
-      self._cell_expr = 0.5 * dy.log( dy.cdiv(1.+self._main_expr, 1.-self._main_expr) )
+      # TODO: This taking of the tanh inverse is disabled, because it can cause NaNs
+      #       Instead just copy
+      # self._cell_expr = 0.5 * dy.log( dy.cdiv(1.+self._main_expr, 1.-self._main_expr) )
+      self._cell_expr = self._main_expr
     return self._cell_expr
 
 class SeqTransducer(object):
