@@ -43,7 +43,10 @@ class Linear(Transform, Serializable):
   yaml_tag = "!Linear"
 
   @serializable_init
-  def __init__(self, input_dim, output_dim, bias=True,
+  def __init__(self,
+               input_dim: int = Ref("exp_global.default_layer_dim"),
+               output_dim: int = Ref("exp_global.default_layer_dim"),
+               bias=True,
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     self.bias = bias
