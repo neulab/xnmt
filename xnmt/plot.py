@@ -49,9 +49,9 @@ def plot_speech_features(feature_matrix, file_name=None, vertical = True):
       where rows correspond to source words, and columns correspond to target words
     file_name: the name of the file to which we write the attention
   """
-  fig, ax = plt.subplots(figsize=(1.5, 8.0))
+  plt.subplots(figsize=(1.0, 8.0))
   if vertical: feature_matrix = feature_matrix.T
-  plt.pcolor(feature_matrix, cmap=plt.cm.magma, vmin=0, vmax=1)
+  plt.pcolor(feature_matrix, cmap=plt.cm.coolwarm, vmin=0, vmax=1)
   plt.axis('off')
   if file_name is not None:
     util.make_parent_dir(file_name)
