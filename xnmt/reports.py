@@ -273,8 +273,8 @@ class AttentionReporter(HtmlReporter, Serializable):
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, report_path: str = settings.DEFAULT_REPORT_PATH):
-    super().__init__(report_name="attention", report_path=report_path)
+  def __init__(self, report_name: str = "attention", report_path: str = settings.DEFAULT_REPORT_PATH):
+    super().__init__(report_name=report_name, report_path=report_path)
 
   def create_report(self, idx: int, src: xnmt.input.Input, src_vocab: vocab.Vocab,
                     trg_vocab: vocab.Vocab, output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
