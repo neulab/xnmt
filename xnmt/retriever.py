@@ -3,7 +3,7 @@ import numpy as np
 from xnmt.settings import settings
 
 import xnmt.batcher
-from xnmt.model_base import GeneratorModel, EventTrigger
+from xnmt.model_base import ConditionedModel, GeneratorModel, EventTrigger
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.expression_sequence import ExpressionSequence
 from xnmt.reports import Reportable
@@ -32,7 +32,7 @@ class StandardRetrievalDatabase(Serializable):
     return xnmt.batcher.mark_as_batch(trg_examples), trg_masks
 
 ##### The actual retriever class
-class Retriever(GeneratorModel, EventTrigger):
+class Retriever(ConditionedModel, GeneratorModel, EventTrigger):
   """
   A template class implementing a retrieval model.
   """

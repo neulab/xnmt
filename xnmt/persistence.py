@@ -1349,6 +1349,7 @@ def check_type(obj, desired_type):
         return True
     return False
   except TypeError:
+    if type(desired_type) == str: return True # don't support forward type references
     if desired_type.__class__.__name__ == "_Any":
       return True
     elif desired_type == type(None):

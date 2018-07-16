@@ -145,7 +145,8 @@ class ParamCollection(object):
   def add_subcollection(self, subcol_owner, subcol_name):
     assert subcol_owner not in self.all_subcol_owners
     self.all_subcol_owners.add(subcol_owner)
-    assert subcol_name not in self.subcols
+    if subcol_name in self.subcols:
+      raise RuntimeError(f'Duplicate subcol_name {subcol_name} found when loading')
     new_subcol = self._param_col.add_subcollection(subcol_name)
     self.subcols[subcol_name] = new_subcol
     return new_subcol
@@ -165,7 +166,7 @@ class ParamCollection(object):
 
   def revert_to_best_model(self):
     if not self._is_saved:
-      raise ValueError("revert_to_best_model() is illegal because this model has never been saved.")
+      raise RevertingUnsavedModelException("revert_to_best_model() is illegal because this model has never been saved.")
     for subcol_name, subcol in self.subcols.items():
       subcol.populate(os.path.join(self._data_files[0], subcol_name))
 
@@ -192,3 +193,5 @@ class ParamCollection(object):
     for i in range(len(self._data_files)-1)[::-1]:
       if os.path.exists(self._data_files[i]):
         os.rename(self._data_files[i], self._data_files[i+1])
+
+class RevertingUnsavedModelException(Exception): pass

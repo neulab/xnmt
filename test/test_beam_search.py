@@ -44,7 +44,6 @@ class TestForcedDecodingOutputs(unittest.TestCase):
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)
-    self.model.initialize_generator(beam=1)
 
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
@@ -80,7 +79,6 @@ class TestForcedDecodingLoss(unittest.TestCase):
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)
-    self.model.initialize_generator(beam=1)
 
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
@@ -91,7 +89,6 @@ class TestForcedDecodingLoss(unittest.TestCase):
                                       trg=self.trg_data[0],
                                       loss_calculator=AutoRegressiveMLELoss()).value()
     dy.renew_cg()
-    self.model.initialize_generator()
     outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], BeamSearch(beam_size=1),
                                   forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
     self.assertAlmostEqual(-outputs[0].score, train_loss, places=4)
@@ -117,14 +114,12 @@ class TestFreeDecodingLoss(unittest.TestCase):
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     self.model.set_train(False)
-    self.model.initialize_generator(beam=1)
 
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
 
   def test_single(self):
     dy.renew_cg()
-    self.model.initialize_generator(beam=1)
     outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], BeamSearch(),
                                          forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
     dy.renew_cg()
@@ -163,13 +158,11 @@ class TestGreedyVsBeam(unittest.TestCase):
 
   def test_greedy_vs_beam(self):
     dy.renew_cg()
-    self.model.initialize_generator()
     outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], BeamSearch(beam_size=1),
                                          forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
     output_score1 = outputs[0].score
 
     dy.renew_cg()
-    self.model.initialize_generator()
     outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], GreedySearch(),
                                   forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
     output_score2 = outputs[0].score

@@ -10,7 +10,7 @@ from xnmt.attender import Attender, MlpAttender
 from xnmt.batcher import Batch, mark_as_batch, is_batched, Mask
 from xnmt.decoder import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
 from xnmt.embedder import Embedder, SimpleWordEmbedder
-from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
+from xnmt.events import register_xnmt_handler
 from xnmt import model_base
 import xnmt.inference
 from xnmt.input import Input, SimpleSentenceInput
@@ -32,7 +32,7 @@ from xnmt.compound_expr import CompoundSeqExpression
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
-class AutoRegressiveTranslator(model_base.GeneratorModel):
+class AutoRegressiveTranslator(model_base.ConditionedModel, model_base.GeneratorModel):
   """
   A template class for auto-regressive translators.
 
@@ -457,9 +457,6 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable, model_base.Even
 
   def set_trg_vocab(self, trg_vocab=None):
     self._proxy.set_trg_vocab(trg_vocab=trg_vocab)
-
-  def initialize_generator(self, **kwargs):
-    self._proxy.initialize_generator(**kwargs)
 
   def calc_loss(self, src, trg, loss_calculator):
     sub_losses = collections.defaultdict(list)

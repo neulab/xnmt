@@ -118,16 +118,19 @@ class LossScore(EvalScore, Serializable):
   Args:
     loss: the (primary) loss value
     loss_stats: info on additional loss values
+    num_ref_words: number of reference tokens
     desc: human-readable description to include in log outputs
   """
 
   yaml_tag = "!LossScore"
 
   @serializable_init
-  def __init__(self, loss: float, loss_stats: Dict[str, float] = None, desc: Any = None) -> None:
+  def __init__(self, loss: float, loss_stats: Dict[str, float] = None, num_ref_words: Optional[int] = None,
+               desc: Any = None) -> None:
     super().__init__(desc=desc)
     self.loss = loss
     self.loss_stats = loss_stats
+    self.num_ref_words = num_ref_words
     self.serialize_params = {"loss":loss}
     if desc is not None: self.serialize_params["desc"] = desc
     if loss_stats is not None: self.serialize_params["loss_stats"] = desc
@@ -136,9 +139,9 @@ class LossScore(EvalScore, Serializable):
   def higher_is_better(self): return False
   def score_str(self):
     if self.loss_stats is not None and len(self.loss_stats) > 1:
-      return "{" + ", ".join("%s: %.5f" % (k, v) for k, v in self.loss_stats.items()) + "}"
+      return "{" + ", ".join(f"{k}: {v:.5f}" for k, v in self.loss_stats.items()) + f"}} (ref_len={self.num_ref_words})"
     else:
-      return f"{self.value():.3f}"
+      return f"{self.value():.3f} (ref_len={self.num_ref_words})"
 
 class BLEUScore(EvalScore, Serializable):
   """
