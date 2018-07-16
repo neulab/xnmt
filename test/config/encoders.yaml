@@ -47,6 +47,7 @@ exp1-lstm-encoder: !Experiment
         input_feeding: True
         bridge: !CopyBridge {}
       inference: !AutoRegressiveInference {}
+
 exp2-residual-encoder: !Experiment
   kwargs:
     << : *defaults
@@ -57,9 +58,14 @@ exp2-residual-encoder: !Experiment
         vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
       src_embedder: !SimpleWordEmbedder
         emb_dim: 64
-      encoder: !ResidualLSTMSeqTransducer
-        layers: 2
+      encoder: !ModularSeqTransducer
         input_dim: 64
+        modules:
+        - !ResidualSeqTransducer
+          child: !BiLSTMSeqTransducer
+            input_dim: 64
+        - !BiLSTMSeqTransducer
+          input_dim: 64
       attender: !MlpAttender
         state_dim: 64
         hidden_dim: 64
