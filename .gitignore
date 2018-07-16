@@ -8,6 +8,7 @@ __pycache__
 examples/output
 examples/logs
 examples/models
+examples/reports
 doc/build
 xnmt.egg-info
 build/
