@@ -1,13 +1,13 @@
 """
-Reports gather inputs, outputs, intermediate computations in a nicely formatted way for convenient manual inspection.
+Reports gather inputs, outputs, and intermediate computations in a nicely formatted way for convenient manual inspection.
 
 To support reporting, the models providing the data to be reported must subclass ``Reportable`` and call
-self.add_sent_for_report(d) with key/value pairs containing the data to be reported at the appropriate times.
-If this causes a computation overhead, the boolean ``compute_report`` field should used and extra computations skipped
-unless this field is ``True``.
+``self.add_sent_for_report(d)`` with key/value pairs containing the data to be reported at the appropriate times.
+If this causes a computational overhead, the boolean ``compute_report`` field should queried and extra computations
+skipped if this field is ``False``.
 
-Next, a reporter needs to be specified that supports reports based on the previously created key/value pairs.
-Reporters are assigned to inference classes, so it's possible to report only at the final test decoding, or specify
+Next, a ``Reporter`` needs to be specified that supports reports based on the previously created key/value pairs.
+Reporters are passed to inference classes, so it's possible e.g. to report only at the final test decoding, or specify
 a special reporting inference object that only looks at a handful of sentences, etc.
 
 Note that currently reporting is only supported at test-time, not at training time.
@@ -30,11 +30,11 @@ class Reportable(object):
   """
   Base class for classes that contribute information to a report.
 
-  Doing so requires the implementing class to do the following:
+  Making an arbitrary class reportable requires to do the following:
 
-  - specify Reportable as base class
-  - call this super class's __init__(), or do @register_xnmt_handler manually
-  - call self.add_sent_for_report(d) for each sentence, where d is a dictionary containing info to pass on to the
+  - specify ``Reportable`` as base class
+  - call this super class's ``__init__()``, or do ``@register_xnmt_handler`` manually
+  - call ``self.add_sent_for_report(d)`` for each sentence, where d is a dictionary containing info to pass on to the
     reporter
   """
 
@@ -50,7 +50,7 @@ class Reportable(object):
 
     Args:
       sent_info: A dictionary of key/value pairs. The keys must match (be a subset of) the arguments in the reporter's
-                 create_report() method, and the values must be of the corresponding types.
+                 ``create_report()`` method, and the values must be of the corresponding types.
     """
     if not hasattr(self, "_sent_info_list"):
       self._sent_info_list = []
@@ -78,8 +78,8 @@ class Reporter(object):
     """
     Create the report.
 
-    The reporter should specify the arguments it needs explicitly, and should specify kwargs in addition to handle extra
-    (unused) arguments without crashing.
+    The reporter should specify the arguments it needs explicitly, and should specify ``kwargs`` in addition to handle
+    extra (unused) arguments without crashing.
 
     Args:
       **kwargs: additional arguments
