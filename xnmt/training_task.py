@@ -100,7 +100,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
   @serializable_init
   def __init__(self,
-               model: 'model_base.SupervisedModel',
+               model: 'model_base.ConditionedModel',
                src_file: Union[str, Sequence[str]] = None,
                trg_file: str = None,
                dev_every: int = 0,

@@ -28,35 +28,33 @@ class TrainableModel(object):
     """
     raise NotImplementedError("Pick a key for primary loss that is used for dev_loss calculation")
 
-class UnsupervisedModel(TrainableModel):
+class UnconditionedModel(TrainableModel):
   """
-  A template class for an unsupervised trainable model, implementing a loss function based on inputs only.
+  A template class for trainable model that computes target losses without conditioning on other inputs.
 
   Args:
-    src_reader: source reader
+    trg_reader: target reader
   """
 
-  def __init__(self, src_reader: input_reader.InputReader):
-    self.src_reader = src_reader
+  def __init__(self, trg_reader: input_reader.InputReader):
+    self.trg_reader = trg_reader
 
-  def calc_loss(self, src: Union[batcher.Batch, xnmt.input.Input]) -> loss.FactoredLossExpr:
-    """Calculate loss based on input sentences.
+  def calc_loss(self, trg: Union[batcher.Batch, xnmt.input.Input]) -> loss.FactoredLossExpr:
+    """Calculate loss based on target inputs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
 
     Args:
-      src: The source, a sentence or a batch of sentences.
       trg: The target, a sentence or a batch of sentences.
-      loss_calculator: loss calculator.
 
     Returns:
       A (possibly batched) expression representing the loss.
     """
 
 
-class SupervisedModel(TrainableModel):
+class ConditionedModel(TrainableModel):
   """
-  A template class for a supervised trainable model, implementing a loss function based on inputs and outputs.
+  A template class for a trainable model that computes target losses conditioned on a source input.
 
   Args:
     src_reader: source reader
