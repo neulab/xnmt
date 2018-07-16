@@ -30,7 +30,6 @@ import xnmt.eval_task
 import xnmt.evaluator
 import xnmt.exp_global
 import xnmt.experiment
-import xnmt.ff
 import xnmt.fixed_size_att
 import xnmt.hyper_parameters
 import xnmt.inference
@@ -41,6 +40,7 @@ import xnmt.lstm
 import xnmt.model_base
 import xnmt.optimizer
 import xnmt.param_init
+import xnmt.positional
 import xnmt.preproc_runner
 import xnmt.pyramidal
 import xnmt.residual
