@@ -239,9 +239,10 @@ class HtmlReporter(Reporter):
                       reference: Optional[str]=None) -> Tuple[str, str]:
     src_is_speech = isinstance(src, xnmt.input.ArrayInput)
     if src_is_speech:
-      src_str = ""
+      src_tokens = []
     else:
-      src_str = " ".join([src_vocab.i2w[src_token] for src_token in src])
+      src_tokens = [src_vocab.i2w[src_token] for src_token in src]
+    src_str = " ".join(src_tokens)
     trg_str = output.apply_post_processor(output_proc)
     captions, inputs = [], []
     if not src_is_speech:
@@ -258,7 +259,8 @@ class HtmlReporter(Reporter):
       c = etree.SubElement(p, 'span')
       b.text = f"{caption}: "
       c.text = sent
-    return src_str, trg_str
+    trg_tokens = output.readable_actions()
+    return src_tokens, trg_tokens
 
 
 class AttentionReporter(HtmlReporter, Serializable):
@@ -292,14 +294,14 @@ class AttentionReporter(HtmlReporter, Serializable):
       **kwargs: arguments to be ignored
     """
     main_content = self.start_sent(idx)
-    src_str, trg_str = self.add_sent_in_out(main_content, output, output_proc, src, src_vocab, reference)
-    self.add_atts(attentions, main_content, src, src_str, trg_str, idx)
+    src_tokens, trg_tokens = self.add_sent_in_out(main_content, output, output_proc, src, src_vocab, reference)
+    self.add_atts(attentions, main_content, src, src_tokens, trg_tokens, idx)
 
   @handle_xnmt_event
   def on_end_inference(self):
     self.write_html_tree()
 
-  def add_atts(self, attentions, main_content, src, src_str, trg_str, idx, desc="Attentions"):
+  def add_atts(self, attentions, main_content, src, src_tokens, trg_tokens, idx, desc="Attentions"):
     src_is_speech = isinstance(src, xnmt.input.ArrayInput)
     if src_is_speech:
       src_feat_file = f"{self.report_path}/img/attention.src_feat.{idx}.png"
@@ -320,7 +322,7 @@ class AttentionReporter(HtmlReporter, Serializable):
     att_img = etree.SubElement(table_td2, 'img')
     att_img.attrib['src'] = "img/" + os.path.basename(attention_file)
     att_img.attrib['alt'] = 'attention matrix'
-    xnmt.plot.plot_attention(src_str.split(), trg_str.split(), attentions, file_name=attention_file)
+    xnmt.plot.plot_attention(src_tokens, trg_tokens, attentions, file_name=attention_file)
 
 
 class SegmentingHtmlReporter(HtmlReporter, Serializable):
