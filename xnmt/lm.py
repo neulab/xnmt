@@ -4,7 +4,7 @@ import numpy as np
 from xnmt import batcher, embedder, events, input_reader, loss, lstm, model_base, scorer, transducer, transform
 from xnmt.persistence import serializable_init, Serializable, bare
 
-class LanguageModel(model_base.TrainableModel, model_base.EventTrigger, Serializable):
+class LanguageModel(model_base.ConditionedModel, model_base.EventTrigger, Serializable):
   """
   A simple unidirectional language model predicting the next token.
 
