@@ -207,9 +207,11 @@ class HtmlReporter(Reporter):
   A base class for reporters that produce HTML outputs that takes care of some common functionality.
 
   Args:
+    report_name: prefix for report files
     report_path: Path to write HTML and image files to
   """
-  def __init__(self, report_path: str = settings.DEFAULT_REPORT_PATH) -> None:
+  def __init__(self, report_name: str, report_path: str = settings.DEFAULT_REPORT_PATH) -> None:
+    self.report_name = report_name
     self.report_path = report_path
     self.html_tree = etree.Element('html')
     meta = etree.SubElement(self.html_tree, 'meta')
@@ -228,7 +230,7 @@ class HtmlReporter(Reporter):
 
   def write_html_tree(self) -> None:
     html_str = etree.tostring(self.html_tree, encoding='unicode', pretty_print=True)
-    html_file_name = f"{self.report_path}/attentions.html"
+    html_file_name = f"{self.report_path}/{self.report_name}.html"
     util.make_parent_dir(html_file_name)
     with open(html_file_name, 'w', encoding='utf-8') as f:
       f.write(html_str)
@@ -269,9 +271,10 @@ class AttentionReporter(HtmlReporter, Serializable):
 
   yaml_tag = "!AttentionReporter"
 
+  @register_xnmt_handler
   @serializable_init
   def __init__(self, report_path: str = settings.DEFAULT_REPORT_PATH):
-    super().__init__(report_path=report_path)
+    super().__init__(report_name="attention", report_path=report_path)
 
   def create_report(self, idx: int, src: xnmt.input.Input, src_vocab: vocab.Vocab,
                     trg_vocab: vocab.Vocab, output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
@@ -291,18 +294,21 @@ class AttentionReporter(HtmlReporter, Serializable):
     main_content = self.start_sent(idx)
     src_str, trg_str = self.add_sent_in_out(main_content, output, output_proc, src, src_vocab, reference)
     self.add_atts(attentions, main_content, src, src_str, trg_str, idx)
+
+  @handle_xnmt_event
+  def on_end_inference(self):
     self.write_html_tree()
 
   def add_atts(self, attentions, main_content, src, src_str, trg_str, idx, desc="Attentions"):
     src_is_speech = isinstance(src, xnmt.input.ArrayInput)
     if src_is_speech:
-      src_feat_file = f"{self.report_path}/img/src_feat.{idx}.png"
+      src_feat_file = f"{self.report_path}/img/attention.src_feat.{idx}.png"
       xnmt.plot.plot_speech_features(src.get_array(), file_name=src_feat_file)
     attention = etree.SubElement(main_content, 'p')
     att_text = etree.SubElement(attention, 'b')
     att_text.text = f"{desc}:"
     etree.SubElement(attention, 'br')
-    attention_file = f"{self.report_path}/img/{util.valid_filename(desc).lower()}.{idx}.png"
+    attention_file = f"{self.report_path}/img/attention.{util.valid_filename(desc).lower()}.{idx}.png"
     table = etree.SubElement(attention, 'table')
     table_tr = etree.SubElement(table, 'tr')
     table_td1 = etree.SubElement(table_tr, 'td')
