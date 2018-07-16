@@ -17,6 +17,7 @@ def plot_attention(src_words, trg_words, attention_matrix, file_name=None):
       where rows correspond to source words, and columns correspond to target words
     file_name: the name of the file to which we write the attention
   """
+  if len(''.join(src_words))>50 or len(''.join(trg_words))>50: matplotlib.rc('font', size=7)
   fig, ax = plt.subplots(figsize=(8.0, 8.0))
   # put the major ticks at the middle of each cell
   ax.set_xticks(np.arange(attention_matrix.shape[1]) + 0.5, minor=False)
