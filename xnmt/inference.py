@@ -65,7 +65,6 @@ class Inference(object):
       src_file: path of input src file to be translated
       trg_file: path of file where trg translatons will be written
     """
-    self.start_inference()
     src_file = src_file or self.src_file
     trg_file = trg_file or self.trg_file
     util.make_parent_dir(trg_file)
@@ -135,10 +134,6 @@ class Inference(object):
         cur_sent_i += batch_size
         if self.max_num_sents and cur_sent_i >= self.max_num_sents: break
 
-  @register_xnmt_event
-  def start_inference(self):
-    pass
-  
   @register_xnmt_event
   def end_inference(self):
     pass

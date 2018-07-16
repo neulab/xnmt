@@ -15,6 +15,7 @@ from xnmt.priors import GoldInputPrior
 from xnmt.reports import Reportable
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SegmentComposer
+from xnmt.compound_expr import CompoundSeqExpression
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   """
@@ -101,7 +102,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         sent_context = self.final_transducer.transduce(expr_seq)
         self.final_states.append(self.final_transducer.get_final_states())
         enc_outputs.append(sent_context)
-      return enc_outputs
+      return CompoundSeqExpression(enc_outputs)
     finally:
       if self.length_prior:
         self.seg_size_unpadded = seg_size_unpadded

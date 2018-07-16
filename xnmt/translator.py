@@ -28,6 +28,7 @@ from xnmt.vocab import Vocab
 from xnmt.persistence import Ref, Path
 from xnmt.constants import EPSILON
 from xnmt.reports import Reportable
+from xnmt.compound_expr import CompoundSeqExpression
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
@@ -133,8 +134,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     # We assume that the encoder can generate multiple possible encodings
     encodings = self.encoder.transduce(embeddings)
     # Most cases, it falls here where the encoder just generate 1 encodings
-    if type(encodings) != list:
-      encodings = [encodings]
+    if type(encodings) != CompoundSeqExpression:
+      encodings = CompoundSeqExpression([encodings])
       final_states = [self.encoder.get_final_states()]
     else:
       final_states = self.encoder.get_final_states()
@@ -143,7 +144,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
       self.attender.init_sent(encoding)
       ss = mark_as_batch([Vocab.SS] * src.batch_size()) if is_batched(src) else Vocab.SS
       initial_states.append(self.decoder.initial_state(final_state, self.trg_embedder.embed(ss)))
-    return initial_states
+    return CompoundSeqExpression(initial_states)
 
   def calc_loss(self, src, trg, loss_calculator):
     self.start_sent(src)

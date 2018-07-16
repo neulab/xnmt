@@ -203,21 +203,21 @@ class SegmentationReporter(Reporter, Serializable):
                compute_report=Ref("exp_global.compute_report", default=False)):
     self.report_path = report_path
     self.compute_report = compute_report
+    self.report_fp = None
 
   def create_report(self, segment_actions, src_vocab, src, **kwargs):
-    actions = segment_actions[0][0]
-    src = [src_vocab[x] for x in src]
-    words = []
-    start = 0
-    for end in actions:
-      words.append("".join(src[start:end+1]))
-      start = end+1
-    print(" ".join(words), file=self.report_fp)
-
-  @handle_xnmt_event
-  def on_start_inference(self):
     if self.compute_report:
-      self.report_fp = open(self.report_path + ".segment", "w")
+      if self.report_fp is None:
+        self.report_fp = open(self.report_path + ".segment", "w")
+
+      actions = segment_actions[0][0]
+      src = [src_vocab[x] for x in src]
+      words = []
+      start = 0
+      for end in actions:
+        words.append("".join(str(src[start:end+1])))
+        start = end+1
+      print(" ".join(words), file=self.report_fp)
 
   @handle_xnmt_event
   def on_end_inference(self):

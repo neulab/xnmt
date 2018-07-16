@@ -1,7 +1,7 @@
 import unittest
 
-import dynet_config
-dynet_config.set(random_seed=3)
+#import dynet_config
+#dynet_config.set(random_seed=3)
 
 import dynet as dy
 import numpy

@@ -57,6 +57,7 @@ import xnmt.transformer
 import xnmt.translator
 import xnmt.persistence
 import xnmt.rl
+import xnmt.compound_expr
 
 resolved_serialize_params = {}
 
