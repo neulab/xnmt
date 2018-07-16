@@ -89,7 +89,7 @@ class Reporter(object):
   def get_report_input(self, context={}) -> dict:
     return context
 
-class CharCutReporter(Reporter, Serializable):
+class ReferenceDiffReporter(Reporter, Serializable):
   """
   Reporter that uses the CharCut tool for nicely displayed difference highlighting between outputs and references.
 
@@ -100,7 +100,7 @@ class CharCutReporter(Reporter, Serializable):
     alt_norm: alternative normalization scheme: use only the candidate's length for normalization
     report_path: Path to write HTML files to
   """
-  yaml_tag = "!CharCutReporter"
+  yaml_tag = "!ReferenceDiffReporter"
   @serializable_init
   @register_xnmt_handler
   def __init__(self, match_size: int = 3, alt_norm: bool = False, report_path: str = settings.DEFAULT_REPORT_PATH) \
@@ -194,7 +194,7 @@ class HtmlReporter(Reporter):
     return src_str, trg_str
 
 
-class AttentionHtmlReporter(HtmlReporter, Serializable):
+class AttentionReporter(HtmlReporter, Serializable):
   """
   Reporter that writes attention matrices to HTML.
 
@@ -202,7 +202,7 @@ class AttentionHtmlReporter(HtmlReporter, Serializable):
     report_path: Path to write HTML and image files to
   """
 
-  yaml_tag = "!AttentionHtmlReporter"
+  yaml_tag = "!AttentionReporter"
 
   @serializable_init
   def __init__(self, report_path: str = settings.DEFAULT_REPORT_PATH):

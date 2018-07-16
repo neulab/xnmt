@@ -30,6 +30,6 @@ report: !Experiment
       hyp_file: examples/output/{EXP}.test_hyp
       inference: !AutoRegressiveInference
         reporter:
-        - !AttentionHtmlReporter {} # plot attentions
-        - !CharCutReporter {} # difference highlighting
+        - !AttentionReporter {} # plot attentions
+        - !ReferenceDiffReporter {} # difference highlighting
 
