@@ -1,3 +1,4 @@
 librosa
 sentencepiece>=0.0.6
 docopt
+nltk

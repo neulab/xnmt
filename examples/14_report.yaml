@@ -32,4 +32,5 @@ report: !Experiment
         reporter:
         - !AttentionReporter {} # plot attentions
         - !ReferenceDiffReporter {} # difference highlighting
+        - !CompareMtReporter {} # analyze MT outputs
 

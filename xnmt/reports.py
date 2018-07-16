@@ -111,8 +111,8 @@ class ReferenceDiffReporter(Reporter, Serializable):
     self.hyp_sents, self.ref_sents, self.src_sents = [], [], []
 
   def create_report(self, src: xnmt.input.Input, src_vocab: vocab.Vocab, trg_vocab: vocab.Vocab,
-                    output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
-                    reference: Optional[str] = None, **kwargs) -> None:
+                    output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor, reference: str = None,
+                    **kwargs) -> None:
     trg_str = output.apply_post_processor(output_proc)
     src_is_speech = isinstance(src, xnmt.input.ArrayInput)
     if not src_is_speech:
@@ -123,19 +123,84 @@ class ReferenceDiffReporter(Reporter, Serializable):
 
   @handle_xnmt_event
   def on_end_inference(self):
-    class ArgClass(object):
-      def __init__(self, **kwargs):
-        for key in kwargs: setattr(self, key, kwargs[key])
     if self.hyp_sents:
       html_filename = f"{self.report_path}/charcut.html"
       util.make_parent_dir(html_filename)
       import xnmt.thirdparty.charcut.charcut as charcut
-      args = ArgClass(html_output_file=html_filename, match_size=self.match_size, alt_norm=self.alt_norm)
+      args = util.ArgClass(html_output_file=html_filename, match_size=self.match_size, alt_norm=self.alt_norm)
       aligned_segs = charcut.load_input_segs(cand_segs=self.hyp_sents,
                                              ref_segs=self.ref_sents,
                                              src_segs=self.src_sents)
       charcut.run_on(aligned_segs, args)
       self.hyp_sents, self.ref_sents, self.src_sents = [], [], []
+
+class CompareMtReporter(Reporter, Serializable):
+  """
+  Reporter that uses the compare-mt.py script to analyze and compare MT results.
+
+  The stand-alone tool can be found at https://github.com/neubig/util-scripts
+
+  Args:
+    out2_file: A path to another system output. Add only if you want to compare outputs from two systems.
+    train_file: A link to the training corpus target file
+    train_counts: A link to the training word frequency counts as a tab-separated "word\\tfreq" file
+    alpha: A smoothing coefficient to control how much the model focuses on low- and high-frequency events.
+           1.0 should be fine most of the time.
+    ngram: Maximum length of n-grams.
+    sent_size: How many sentences to print.
+    ngram_size: How many n-grams to print.
+
+    report_path: Path to write report files to
+  """
+  yaml_tag = "!CompareMtReporter"
+  @serializable_init
+  @register_xnmt_handler
+  def __init__(self, out2_file: Optional[str] = None, train_file: Optional[str] = None,
+               train_counts: Optional[str] = None, alpha: float = 1.0, ngram: int = 4, ngram_size: int = 50,
+               sent_size: int = 10, report_path: str = settings.DEFAULT_REPORT_PATH) -> None:
+    self.out2_file = out2_file
+    self.train_file = train_file
+    self.train_counts = train_counts
+    self.alpha = alpha
+    self.ngram = ngram
+    self.ngram_size = ngram_size
+    self.sent_size = sent_size
+    self.report_path = report_path
+    self.hyp_sents, self.ref_sents = [], []
+
+  def create_report(self, trg_vocab: vocab.Vocab, output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
+                    reference: str, **kwargs) -> None:
+    trg_str = output.apply_post_processor(output_proc)
+    self.hyp_sents.append(trg_str)
+    self.ref_sents.append(reference)
+
+  @handle_xnmt_event
+  def on_end_inference(self):
+    if self.hyp_sents:
+      ref_filename = f"{self.report_path}/tmp/compare-mt.ref"
+      out_filename = f"{self.report_path}/tmp/compare-mt.out"
+      util.make_parent_dir(out_filename)
+      with open(ref_filename, "w") as fout:
+        for l in self.ref_sents: fout.write(f"{l.strip()}\n")
+      with open(out_filename, "w") as fout:
+        for l in self.hyp_sents: fout.write(f"{l.strip()}\n")
+      import xnmt.thirdparty.comparemt.compare_mt as compare_mt
+      args = util.ArgClass(ref_file = ref_filename,
+                           out_file = out_filename,
+                           out2_file = self.out2_file,
+                           train_file = self.train_file,
+                           train_counts = self.train_counts,
+                           alpha = self.alpha,
+                           ngram = self.ngram,
+                           ngram_size = self.ngram_size,
+                           sent_size = self.sent_size)
+      out_lines = compare_mt.main(args)
+      report_filename = f"{self.report_path}/compare-mt.txt"
+      util.make_parent_dir(report_filename)
+      with open(report_filename, "w") as fout:
+        for l in out_lines: fout.write(f"{l}\n")
+      self.hyp_sents, self.ref_sents, self.src_sents = [], [], []
+
 
 class HtmlReporter(Reporter):
   """

@@ -88,3 +88,7 @@ class ReportOnException(object):
           val()
         else:
           logger.error(str(val))
+
+class ArgClass(object):
+  def __init__(self, **kwargs):
+    for key in kwargs: setattr(self, key, kwargs[key])
