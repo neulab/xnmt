@@ -4,7 +4,7 @@ from xnmt.settings import settings
 
 import dynet as dy
 
-from xnmt.batcher import Batcher
+from xnmt.batcher import Batcher, SrcBatcher
 from xnmt.evaluator import Evaluator
 from xnmt import model_base
 import xnmt.inference
@@ -41,8 +41,8 @@ class LossEvalTask(EvalTask, Serializable):
   yaml_tag = '!LossEvalTask'
 
   @serializable_init
-  def __init__(self, src_file: str, ref_file: str, model: 'model_base.GeneratorModel' = Ref("model"),
-               batcher: Optional[Batcher] = Ref("train.batcher", default=None),
+  def __init__(self, src_file: str, ref_file: Optional[str] = None, model: 'model_base.GeneratorModel' = Ref("model"),
+               batcher: Batcher = Ref("train.batcher", default=bare(xnmt.batcher.SrcBatcher, batch_size=32)),
                loss_calculator: LossCalculator = bare(AutoRegressiveMLELoss), max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"), desc: Any = None):
@@ -67,9 +67,13 @@ class LossEvalTask(EvalTask, Serializable):
     self.model.set_train(False)
     if self.src_data is None:
       self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
-        xnmt.input_reader.read_parallel_corpus(self.model.src_reader, self.model.trg_reader,
-                                        self.src_file, self.ref_file, batcher=self.batcher,
-                                        max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
+        xnmt.input_reader.read_parallel_corpus(src_reader=self.model.src_reader,
+                                               trg_reader=self.model.trg_reader,
+                                               src_file=self.src_file,
+                                               trg_file=self.ref_file,
+                                               batcher=self.batcher,
+                                               max_src_len=self.max_src_len,
+                                               max_trg_len=self.max_trg_len)
     loss_val = FactoredLossVal()
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):

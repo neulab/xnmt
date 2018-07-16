@@ -28,6 +28,9 @@ class TestRunningConfig(unittest.TestCase):
   def test_forced(self):
     run.main(["test/config/forced.yaml"])
 
+  def test_lm(self):
+    run.main(["test/config/lm.yaml"])
+
   def test_load_model(self):
     run.main(["test/config/load_model.yaml"])
 

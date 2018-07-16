@@ -41,14 +41,14 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     batch_size=5
     src_sents = self.src_data[:batch_size]
     src_min = min([x.sent_len() for x in src_sents])
-    src_sents_trunc = [s[:src_min] for s in src_sents]
+    src_sents_trunc = [s.words[:src_min] for s in src_sents]
     for single_sent in src_sents_trunc:
       single_sent[src_min-1] = Vocab.ES
       while len(single_sent)%pad_src_to_multiple != 0:
         single_sent.append(Vocab.ES)
     trg_sents = self.trg_data[:batch_size]
     trg_min = min([x.sent_len() for x in trg_sents])
-    trg_sents_trunc = [s[:trg_min] for s in trg_sents]
+    trg_sents_trunc = [s.words[:trg_min] for s in trg_sents]
     for single_sent in trg_sents_trunc: single_sent[trg_min-1] = Vocab.ES
 
     src_sents_trunc = [SimpleSentenceInput(s) for s in src_sents_trunc]
@@ -176,7 +176,7 @@ class TestBatchTraining(unittest.TestCase):
     batch_size = 5
     src_sents = self.src_data[:batch_size]
     src_min = min([x.sent_len() for x in src_sents])
-    src_sents_trunc = [s[:src_min] for s in src_sents]
+    src_sents_trunc = [s.words[:src_min] for s in src_sents]
     for single_sent in src_sents_trunc:
       single_sent[src_min-1] = Vocab.ES
       while len(single_sent)%pad_src_to_multiple != 0:
