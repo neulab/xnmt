@@ -138,7 +138,7 @@ def iter_common_substrings(seq1, seq2, start_pos1, start_pos2, min_match_size, a
                 todo.append((ok_pos1, ok_pos2, offset+1))
 
 
-WORD_RE = re.compile('(\W)', re.UNICODE)
+WORD_RE = re.compile(r'(\W)', re.UNICODE)
 
 def word_split(seq):
     """
@@ -178,7 +178,7 @@ def start_pos(words):
         pos += len(elt)
 
 
-CHAR_RE = re.compile('(\w+)', re.UNICODE)
+CHAR_RE = re.compile(r'(\w+)', re.UNICODE)
 
 def char_split(seq, sep_sign):
     """
