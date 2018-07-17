@@ -86,7 +86,7 @@ class CompoundBatch(Batch):
 
 class Mask(object):
   """
-  A mask specifies padded parts in a sequence or batch of sequences.
+  An immutable mask specifies padded parts in a sequence or batch of sequences.
 
   Masks are represented as numpy array of dimensions batchsize x seq_len, with parts
   belonging to the sequence set to 0, and parts that should be masked set to 1
@@ -96,6 +96,7 @@ class Mask(object):
   """
   def __init__(self, np_arr: np.ndarray):
     self.np_arr = np_arr
+    self.np_arr.flags.writeable = False
 
   def __len__(self):
     return self.np_arr.shape[1]
