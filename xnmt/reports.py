@@ -14,9 +14,10 @@ Note that currently reporting is only supported at test-time, not at training ti
 """
 
 import os
-import numpy as np
+import math
 from lxml import etree
 from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
 
 import xnmt.plot
@@ -304,9 +305,13 @@ class AttentionReporter(HtmlReporter, Serializable):
 
   def add_atts(self, attentions, main_content, src, src_tokens, trg_tokens, idx, desc="Attentions"):
     src_is_speech = isinstance(src, xnmt.input.ArrayInput)
+    size_x = math.log(len(trg_tokens)+1) * 3
     if src_is_speech:
+      size_y = math.log(src.sent_len()+1)
       src_feat_file = f"{self.report_path}/img/attention.src_feat.{idx}.png"
-      xnmt.plot.plot_speech_features(src.get_array(), file_name=src_feat_file)
+      xnmt.plot.plot_speech_features(src.get_array(), file_name=src_feat_file, length=size_y)
+    else:
+      size_y = math.log(len(src_tokens)+1) * 3
     attention = etree.SubElement(main_content, 'p')
     att_text = etree.SubElement(attention, 'b')
     att_text.text = f"{desc}:"
@@ -323,7 +328,7 @@ class AttentionReporter(HtmlReporter, Serializable):
     att_img = etree.SubElement(table_td2, 'img')
     att_img.attrib['src'] = "img/" + os.path.basename(attention_file)
     att_img.attrib['alt'] = 'attention matrix'
-    xnmt.plot.plot_attention(src_tokens, trg_tokens, attentions, file_name=attention_file)
+    xnmt.plot.plot_attention(src_tokens, trg_tokens, attentions, file_name=attention_file, size_x=size_x, size_y=size_y)
 
 
 class SegmentationReporter(Reporter, Serializable):
