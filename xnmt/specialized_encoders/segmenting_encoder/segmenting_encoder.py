@@ -11,7 +11,7 @@ from xnmt.expression_sequence import ExpressionSequence
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.transducer import SeqTransducer, FinalTransducerState, IdentitySeqTransducer
 from xnmt.loss import FactoredLossExpr
-from xnmt.priors import GoldInputPrior
+from xnmt.specialized_encoders.segmenting_encoder.priors import GoldInputPrior
 from xnmt.reports import Reportable
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SegmentComposer

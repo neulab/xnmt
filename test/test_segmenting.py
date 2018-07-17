@@ -26,6 +26,7 @@ from xnmt.hyper_parameters import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
 from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLengthPrior
+from xnmt.specialized_encoders.segmenting_encoder.priors import PoissonPrior, GoldInputPrior
 from xnmt.transform import AuxNonLinear, Linear
 from xnmt.scorer import Softmax
 from xnmt.constants import EPSILON
@@ -34,7 +35,6 @@ from xnmt.vocab import Vocab
 from xnmt.rl.policy_gradient import PolicyGradient
 from xnmt.rl.eps_greedy import EpsilonGreedy
 from xnmt.rl.confidence_penalty import ConfidencePenalty
-from xnmt.priors import PoissonPrior
 from xnmt.test.utils import has_cython
 from xnmt.reports import SegmentationReporter
 
