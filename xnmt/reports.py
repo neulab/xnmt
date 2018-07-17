@@ -329,18 +329,23 @@ class AttentionReporter(HtmlReporter, Serializable):
 class SegmentationReporter(Reporter, Serializable):
   """
   A reporter to be used with the segmenting encoder.
+
+  Args:
+    report_path: Path to write text files to
   """
   yaml_tag = "!SegmentationReporter"
 
   @serializable_init
   @register_xnmt_handler
-  def __init__(self, report_path: str=settings.DEFAULT_REPORT_PREFIX):
+  def __init__(self, report_path: str=settings.DEFAULT_REPORT_PATH):
     self.report_path = report_path
     self.report_fp = None
 
   def create_report(self, segment_actions, src_vocab, src, **kwargs):
     if self.report_fp is None:
-      self.report_fp = open(self.report_path + ".segment", "w")
+      report_path = self.report_path + "/segment.txt"
+      util.make_parent_dir(report_path)
+      self.report_fp = open(report_path, "w")
 
     actions = segment_actions[0][0]
     src = [src_vocab[x] for x in src]
