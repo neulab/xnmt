@@ -1,7 +1,10 @@
 import dynet as dy
+from typing import List
 
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.expression_sequence import ExpressionSequence
+from xnmt.transducer import SeqTransducer, FinalTransducerState
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 
 class Transform(object):
@@ -40,7 +43,10 @@ class Linear(Transform, Serializable):
   yaml_tag = "!Linear"
 
   @serializable_init
-  def __init__(self, input_dim, output_dim, bias=True,
+  def __init__(self,
+               input_dim: int = Ref("exp_global.default_layer_dim"),
+               output_dim: int = Ref("exp_global.default_layer_dim"),
+               bias=True,
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     self.bias = bias
@@ -158,3 +164,51 @@ class AuxNonLinear(NonLinear, Serializable):
       bias_init=bias_init
     )
     self.save_processed_arg("input_dim", original_input_dim)
+
+class MLP(Transform, Serializable):
+  """
+  A multi-layer perceptron. Defined as one or more NonLinear transforms of equal hidden
+  dimension and type, then a Linear transform to the output dimension.
+  """
+  yaml_tag = "!MLP"
+
+  @serializable_init
+  def __init__(self,
+               input_dim: int = Ref("exp_global.default_layer_dim"),
+               hidden_dim: int = Ref("exp_global.default_layer_dim"),
+               output_dim: int = Ref("exp_global.default_layer_dim"),
+               bias: bool = True,
+               activation: str = 'tanh',
+               hidden_layers: int = 1,
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+    self.layers = []
+    if hidden_layers > 0:
+      self.layers = [NonLinear(input_dim=input_dim, output_dim=hidden_dim, bias=bias, activation=activation, param_init=param_init, bias_init=bias_init)]
+      self.layers += [NonLinear(input_dim=hidden_dim, output_dim=hidden_dim, bias=bias, activation=activation, param_init=param_init, bias_init=bias_init) for _ in range(1,hidden_layers)]
+    self.layers += [Linear(input_dim=hidden_dim, output_dim=output_dim, bias=bias, param_init=param_init, bias_init=bias_init)]
+
+  def __call__(self, expr: dy.Expression) -> dy.Expression:
+    for layer in self.layers:
+      expr = layer(expr)
+    return expr
+
+class TransformSeqTransducer(SeqTransducer, Serializable):
+  yaml_tag = '!TransformSeqTransducer'
+
+  @serializable_init
+  def __init__(self, transform: Transform):
+    """
+    Args:
+      transform: the Transform to apply to the sequence
+    """
+    self.transform = transform
+
+  def get_final_states(self) -> List[FinalTransducerState]:
+    return self._final_states
+
+  def transduce(self, src: ExpressionSequence) -> ExpressionSequence:
+    output = self.transform(src.as_tensor())
+    output_seq = ExpressionSequence(expr_tensor=output)
+    self._final_states = [FinalTransducerState(output_seq[-1])]
+    return output_seq

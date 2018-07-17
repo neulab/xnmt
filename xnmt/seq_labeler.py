@@ -5,7 +5,8 @@ from xnmt import attender, batcher, embedder, events, inference, input_reader, l
   reports, scorer, transducer, transform, vocab
 from xnmt.persistence import serializable_init, Serializable, bare
 
-class SeqLabeler(model_base.GeneratorModel, Serializable, reports.Reportable, model_base.EventTrigger):
+class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Serializable, reports.Reportable,
+                 model_base.EventTrigger):
   """
   A simple sequence labeler based on an encoder and an output softmax layer.
 

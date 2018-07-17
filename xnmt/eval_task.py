@@ -6,8 +6,8 @@ import dynet as dy
 
 from xnmt.batcher import Batcher, SrcBatcher
 from xnmt.evaluator import Evaluator
-from xnmt.model_base import GeneratorModel, TrainableModel
-from xnmt.inference import Inference
+from xnmt import model_base
+import xnmt.inference
 import xnmt.input_reader
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.loss_calculator import LossCalculator, AutoRegressiveMLELoss
@@ -41,7 +41,7 @@ class LossEvalTask(EvalTask, Serializable):
   yaml_tag = '!LossEvalTask'
 
   @serializable_init
-  def __init__(self, src_file: str, ref_file: Optional[str] = None, model: TrainableModel = Ref("model"),
+  def __init__(self, src_file: str, ref_file: Optional[str] = None, model: 'model_base.GeneratorModel' = Ref("model"),
                batcher: Batcher = Ref("train.batcher", default=bare(xnmt.batcher.SrcBatcher, batch_size=32)),
                loss_calculator: LossCalculator = bare(AutoRegressiveMLELoss), max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
@@ -57,12 +57,12 @@ class LossEvalTask(EvalTask, Serializable):
     self.loss_comb_method = loss_comb_method
     self.desc=desc
 
-  def eval(self) -> tuple:
+  def eval(self) -> 'EvalScore':
     """
     Perform evaluation task.
 
     Returns:
-      tuple of score and reference length
+      Evaluated score
     """
     self.model.set_train(False)
     if self.src_data is None:
@@ -82,7 +82,7 @@ class LossEvalTask(EvalTask, Serializable):
 
         loss_builder = FactoredLossExpr()
         standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-        additional_loss = self.model.calc_additional_loss(standard_loss)
+        additional_loss = self.model.calc_additional_loss(trg, self.model, standard_loss)
         loss_builder.add_factored_loss_expr(standard_loss)
         loss_builder.add_factored_loss_expr(additional_loss)
 
@@ -92,7 +92,10 @@ class LossEvalTask(EvalTask, Serializable):
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
 
     try:
-      return LossScore(loss_stats[self.model.get_primary_loss()], loss_stats=loss_stats, desc=self.desc), ref_words_cnt
+      return LossScore(loss_stats[self.model.get_primary_loss()],
+                       loss_stats=loss_stats,
+                       num_ref_words = ref_words_cnt,
+                       desc=self.desc)
     except KeyError:
       raise RuntimeError("Did you wrap your loss calculation with FactoredLossExpr({'primary_loss': loss_value}) ?")
 
@@ -114,8 +117,8 @@ class AccuracyEvalTask(EvalTask, Serializable):
 
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
-               model: GeneratorModel = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
-               inference: Optional[Inference] = None, desc: Any = None):
+               model: 'model_base.GeneratorModel' = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
+               inference: Optional[xnmt.inference.Inference] = None, desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
@@ -139,13 +142,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
     eval_scores = xnmt.xnmt_evaluate.xnmt_evaluate(hyp_file=self.hyp_file, ref_file=self.ref_file, desc=self.desc,
                                                    evaluators=self.eval_metrics)
 
-    # Calculate the reference file size
-    ref_words_cnt = 0
-    for ref_sent in self.model.trg_reader.read_sents(
-            self.ref_file if isinstance(self.ref_file, str) else self.ref_file[0]):
-      ref_words_cnt += ref_sent.len_unpadded()
-      ref_words_cnt += 0
-    return eval_scores, ref_words_cnt
+    return eval_scores
 
 class DecodingEvalTask(EvalTask, Serializable):
   """
@@ -161,8 +158,8 @@ class DecodingEvalTask(EvalTask, Serializable):
   yaml_tag = '!DecodingEvalTask'
 
   @serializable_init
-  def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: GeneratorModel = Ref("model"),
-               inference: Optional[Inference] = None):
+  def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: 'model_base.GeneratorModel' = Ref("model"),
+               inference: Optional[xnmt.inference.Inference] = None):
 
     self.model = model
     self.src_file = src_file
@@ -174,4 +171,4 @@ class DecodingEvalTask(EvalTask, Serializable):
     self.inference.perform_inference(generator=self.model,
                                      src_file=self.src_file,
                                      trg_file=self.hyp_file)
-    return None, None
+    return None

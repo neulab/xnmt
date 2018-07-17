@@ -10,7 +10,7 @@ from xnmt.attender import Attender, MlpAttender
 from xnmt.batcher import Batch, mark_as_batch, is_batched, Mask
 from xnmt.decoder import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
 from xnmt.embedder import Embedder, SimpleWordEmbedder
-from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
+from xnmt.events import register_xnmt_handler
 from xnmt import model_base
 import xnmt.inference
 from xnmt.input import Input, SimpleSentenceInput
@@ -21,16 +21,18 @@ from xnmt.loss_calculator import LossCalculator
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput, Output, NbestOutput
 import xnmt.plot
-from xnmt.reports import Reportable
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 from xnmt.search_strategy import BeamSearch, SearchStrategy
 from xnmt import transducer
 from xnmt.vocab import Vocab
+from xnmt.persistence import Ref, Path
 from xnmt.constants import EPSILON
+from xnmt.reports import Reportable
+from xnmt.compound_expr import CompoundSeqExpression
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
-class AutoRegressiveTranslator(model_base.GeneratorModel):
+class AutoRegressiveTranslator(model_base.ConditionedModel, model_base.GeneratorModel):
   """
   A template class for auto-regressive translators.
 
@@ -54,7 +56,6 @@ class AutoRegressiveTranslator(model_base.GeneratorModel):
 
   def generate_one_step(self, current_word: Any, current_state: AutoRegressiveDecoderState) -> TranslatorOutput:
     raise NotImplementedError("must be implemented by subclasses")
-
 
   def set_trg_vocab(self, trg_vocab=None):
     """
@@ -90,9 +91,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     trg_embedder: A word embedder for the output language
     decoder: A decoder
     inference: The default inference strategy used for this model
+    global_fertility: A parameter for global fertility weight. 0 for no computation.
     search_strategy:
-    calc_global_fertility:
-    calc_attention_entropy:
   """
 
   yaml_tag = '!DefaultTranslator'
@@ -110,16 +110,14 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
                inference: xnmt.inference.AutoRegressiveInference=bare(xnmt.inference.AutoRegressiveInference),
                search_strategy:SearchStrategy=bare(BeamSearch),
                compute_report:bool = Ref("exp_global.compute_report", default=False),
-               calc_global_fertility:bool=False,
-               calc_attention_entropy:bool=False):
+               global_fertility:int=0):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
-    self.calc_global_fertility = calc_global_fertility
-    self.calc_attention_entropy = calc_attention_entropy
+    self.global_fertility = global_fertility
     self.inference = inference
     self.search_strategy = search_strategy
     self.compute_report = compute_report
@@ -130,38 +128,46 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
             {".attender.state_dim", ".decoder.rnn.hidden_dim"},
             {".trg_embedder.emb_dim", ".decoder.trg_embed_dim"}]
 
+
   def _encode_src(self, src):
     embeddings = self.src_embedder.embed_sent(src)
+    # We assume that the encoder can generate multiple possible encodings
     encodings = self.encoder.transduce(embeddings)
-    self.attender.init_sent(encodings)
-    if is_batched(src):
-      ss = mark_as_batch([Vocab.SS] * src.batch_size())
+    # Most cases, it falls here where the encoder just generate 1 encodings
+    if type(encodings) != CompoundSeqExpression:
+      encodings = CompoundSeqExpression([encodings])
+      final_states = [self.encoder.get_final_states()]
     else:
-      ss = Vocab.SS
-    initial_state = self.decoder.initial_state(self.encoder.get_final_states(), self.trg_embedder.embed(ss))
-    return initial_state
+      final_states = self.encoder.get_final_states()
+    initial_states = []
+    for encoding, final_state in zip(encodings, final_states):
+      self.attender.init_sent(encoding)
+      ss = mark_as_batch([Vocab.SS] * src.batch_size()) if is_batched(src) else Vocab.SS
+      initial_states.append(self.decoder.initial_state(final_state, self.trg_embedder.embed(ss)))
+    return CompoundSeqExpression(initial_states)
 
   def calc_loss(self, src, trg, loss_calculator):
     self.start_sent(src)
-    initial_state = self._encode_src(src)
-    # Compose losses
-    model_loss = FactoredLossExpr()
-    model_loss.add_factored_loss_expr(loss_calculator.calc_loss(self, initial_state, src, trg))
-
-    if self.calc_global_fertility or self.calc_attention_entropy:
-      # philip30: I assume that attention_vecs is already masked src wisely.
-      # Now applying the mask to the target
-      masked_attn = self.attender.attention_vecs
-      if trg.mask is not None:
-        trg_mask = trg.mask.get_active_one_mask().transpose()
-        masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
-
-    if self.calc_global_fertility:
-      model_loss.add_loss("fertility", self.global_fertility(masked_attn))
-    if self.calc_attention_entropy:
-      model_loss.add_loss("H(attn)", self.attention_entropy(masked_attn))
-
-    return model_loss
+    initial_states = self._encode_src(src)
+    # Calculate losses from multiple initial states
+    losses = []
+    for initial_state in initial_states:
+      model_loss = FactoredLossExpr()
+      model_loss.add_factored_loss_expr(loss_calculator.calc_loss(self, initial_state, src, trg))
+  
+      if self.global_fertility != 0:
+        masked_attn = self.attender.attention_vecs
+        if trg.mask is not None:
+          trg_mask = 1-(trg.mask.np_arr.transpose())
+          masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
+        model_loss.add_loss("fertility", self._global_fertility(masked_attn))
+      losses.append(model_loss)
+    try:
+      total_loss = FactoredLossExpr()
+      list(total_loss.add_factored_loss_expr(x) for x in losses)
+      return total_loss
+    finally:
+      self.losses = losses
 
   def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:Batch, input_word:Optional[Batch]) \
           -> Tuple[AutoRegressiveDecoderState,dy.Expression]:
@@ -185,7 +191,9 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     sent_mask = None
     if src.mask: sent_mask = Mask(np_arr=src.mask.np_arr[0:1])
     sent_batch = mark_as_batch([sent], mask=sent_mask)
-    initial_state = self._encode_src(sent_batch)
+    # TODO MBR can be implemented here. It takes only the first result from the encoder
+    # To further implement MBR, we need to handle the generation considering multiple encoder output.
+    initial_state = self._encode_src(sent_batch)[0]
     if forced_trg_ids is  not None: cur_forced_trg = forced_trg_ids[0]
     search_outputs = search_strategy.generate_output(self, initial_state,
                                                      src_length=[sent.sent_len()],
@@ -230,16 +238,9 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     next_logsoftmax = self.decoder.calc_log_probs(next_state)
     return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
 
-  def global_fertility(self, a):
-    return dy.sum_elems(dy.square(1 - dy.esum(a)))
+  def _global_fertility(self, a):
+    return self.global_fertility * dy.sum_elems(dy.square(1 - dy.esum(a)))
 
-  def attention_entropy(self, a):
-    entropy = []
-    for a_i in a:
-      a_i += EPSILON
-      entropy.append(dy.cmult(a_i, dy.log(a_i)))
-
-    return -dy.sum_elems(dy.esum(entropy))
 
 
 class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, model_base.EventTrigger):
@@ -401,16 +402,6 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
       if not xnmt.batcher.is_batched(trg):
         trg = xnmt.batcher.mark_as_batch([trg])
 
-    # # In case of reporting
-    # sents = src[0]
-    # if self.report_path is not None:
-    #   src_words = [self.reporting_src_vocab[w] for w in sents]
-    #   trg_words = [self.trg_vocab[w] for w in output_actions]
-    #   self.set_report_input(idx, src_words, trg_words)
-    #   self.set_report_resource("src_words", src_words)
-    #   self.set_report_path('{}.{}'.format(self.report_path, str(idx)))
-    #   self.generate_report(self.report_type)
-
     # Append output to the outputs
     if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
       outputs.append(TextOutput(actions=output_actions, vocab=self.trg_vocab))
@@ -466,9 +457,6 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable, model_base.Even
 
   def set_trg_vocab(self, trg_vocab=None):
     self._proxy.set_trg_vocab(trg_vocab=trg_vocab)
-
-  def initialize_generator(self, **kwargs):
-    self._proxy.initialize_generator(**kwargs)
 
   def calc_loss(self, src, trg, loss_calculator):
     sub_losses = collections.defaultdict(list)

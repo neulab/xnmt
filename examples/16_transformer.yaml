@@ -23,7 +23,7 @@ transformer: !Experiment
     batcher: !SentShuffleBatcher
       batch_size: 100
     restart_trainer: False
-    trainer: !TransformerAdamTrainer
+    trainer: !NoamTrainer
       alpha: 1.0
       warmup_steps: 4000
     lr_decay: 1.0

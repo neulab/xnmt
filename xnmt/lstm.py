@@ -306,7 +306,7 @@ class CustomLSTMSeqTransducer(SeqTransducer, Serializable):
   It is more memory-hungry than the compact LSTM, but can be extended more easily.
   It currently does not support dropout or multiple layers and is mostly meant as a
   starting point for LSTM extensions.
-  
+
   Args:
     layers (int): number of layers
     input_dim (int): input dimension; if None, use exp_global.default_layer_dim
@@ -314,7 +314,7 @@ class CustomLSTMSeqTransducer(SeqTransducer, Serializable):
     param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
                 specifying how to initialize weight matrices. If a list is given, each entry denotes one layer.
                 If None, use ``exp_global.param_init``
-    bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects 
+    bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
                specifying how to initialize bias vectors. If a list is given, each entry denotes one layer.
                If None, use ``exp_global.param_init``
   """

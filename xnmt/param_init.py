@@ -26,7 +26,7 @@ class ParamInitializer(object):
 class NormalInitializer(ParamInitializer, Serializable):
   """
   Wraps DyNet's NormalInitializer: http://dynet.readthedocs.io/en/latest/python_ref.html#dynet.NormalInitializer
-  
+
   Initialize the parameters with a gaussian distribution.
 
   Args:
@@ -41,11 +41,11 @@ class NormalInitializer(ParamInitializer, Serializable):
     self.var = var
   def initializer(self, dim, is_lookup=False, num_shared=1):
     return dy.NormalInitializer(mean=self.mean, var=self.var)
-  
+
 class UniformInitializer(ParamInitializer, Serializable):
   """
   Wraps DyNet's UniformInitializer: http://dynet.readthedocs.io/en/latest/python_ref.html#dynet.UniformInitializer
-  
+
   Initialize the parameters with a uniform distribution.
   Args:
     scale (float): Parameters are sampled from :math:`\\mathcal U([-\\texttt{scale},\\texttt{scale}])`
@@ -57,13 +57,13 @@ class UniformInitializer(ParamInitializer, Serializable):
     self.scale = scale
   def initializer(self, dim, is_lookup=False, num_shared=1):
     return dy.UniformInitializer(scale=self.scale)
-  
+
 class ConstInitializer(ParamInitializer, Serializable):
   """
   Wraps DyNet's ConstInitializer: http://dynet.readthedocs.io/en/latest/python_ref.html#dynet.ConstInitializer
-  
+
   Initialize the parameters with a constant value.
-  
+
   Args:
     c (float): Value to initialize the parameters
   """
@@ -74,7 +74,7 @@ class ConstInitializer(ParamInitializer, Serializable):
     self.c = c
   def initializer(self, dim, is_lookup=False, num_shared=1):
     return dy.ConstInitializer(c=self.c)
-  
+
 class GlorotInitializer(ParamInitializer, Serializable):
   """
   Wraps DyNet's GlorotInitializer: http://dynet.readthedocs.io/en/latest/python_ref.html#dynet.GlorotInitializer
@@ -89,12 +89,12 @@ class GlorotInitializer(ParamInitializer, Serializable):
     * :math:`\\text{ReLU}` : 0.5
     * :math:`\\text{sigmoid}` : 4.0
     * Any smooth function :math:`f` : :math:`\\frac{1}{f'(0)}`
-    
+
   In addition to the DyNet class, this also supports the case where one parameter object stores several matrices (as is popular for computing LSTM gates, for instance).
-    
-    *Note:* This is also known as **Xavier initialization** 
-  
-  Args: 
+
+    *Note:* This is also known as **Xavier initialization**
+
+  Args:
     gain (float): Gain (Depends on the activation function)
   """
   yaml_tag = "!GlorotInitializer"
@@ -125,9 +125,9 @@ class GlorotInitializer(ParamInitializer, Serializable):
 class FromFileInitializer(ParamInitializer, Serializable):
   """
   Wraps DyNet's FromFileInitializer: http://dynet.readthedocs.io/en/latest/python_ref.html#dynet.FromFileInitializer
-  
+
   Initialize parameter from file.
-  
+
   Args:
     fname (str): File name
   """
@@ -138,15 +138,15 @@ class FromFileInitializer(ParamInitializer, Serializable):
     self.fname = fname
   def initializer(self, dim, is_lookup=False, num_shared=1):
     return dy.FromFileInitializer(fname=self.fname)
-  
+
 class NumpyInitializer(ParamInitializer, Serializable):
   """
   Wraps DyNet's NumpyInitializer: http://dynet.readthedocs.io/en/latest/python_ref.html#dynet.NumpyInitializer
-  
+
   Initialize from numpy array
-  
+
   Alternatively, use ``ParameterCollection.parameters_from_numpy()``
-  
+
   Args:
     array (np.ndarray): Numpy array
   """
@@ -178,7 +178,7 @@ class LeCunUniformInitializer(ParamInitializer, Serializable):
   """
   Reference: LeCun 98, Efficient Backprop
   http://yann.lecun.com/exdb/publis/pdf/lecun-98b.pdf
-  
+
   Args:
     scale (float): scale
   """

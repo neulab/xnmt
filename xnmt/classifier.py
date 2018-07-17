@@ -5,11 +5,11 @@ from xnmt import batcher, embedder, input_reader, loss, lstm, model_base, output
 from xnmt.persistence import serializable_init, Serializable, bare
 import xnmt.inference
 
-class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.EventTrigger):
+class SequenceClassifier(model_base.ConditionedModel, model_base.GeneratorModel, Serializable, model_base.EventTrigger):
   """
   A sequence classifier.
 
-  Runs embeddings through an encoder, feeds the average over all encoder outputs to a MLP softmax output layer.
+  Runs embeddings through an encoder, feeds the average over all encoder outputs to a transform and scoring layer.
 
   Args:
     src_reader: A reader for the source side.
@@ -17,7 +17,8 @@ class SequenceClassifier(model_base.GeneratorModel, Serializable, model_base.Eve
     src_embedder: A word embedder for the input language
     encoder: An encoder to generate encoded inputs
     inference: how to perform inference
-    mlp: final prediction MLP layer
+    transform: A transform performed before the scoring function
+    scorer: A scoring function over the multiple choices
   """
 
   yaml_tag = '!SequenceClassifier'

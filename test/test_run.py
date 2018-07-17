@@ -46,9 +46,6 @@ class TestRunningConfig(unittest.TestCase):
   def test_pretrained_emb(self):
     run.main(["test/config/pretrained_embeddings.yaml"])
 
-  def test_prior_segmenting(self):
-    run.main(["test/config/prior_segmenting.yaml"])
-
   def test_random_search_test_params(self):
     run.main(["test/config/random_search_test_params.yaml"])
 
@@ -57,6 +54,9 @@ class TestRunningConfig(unittest.TestCase):
 
   def test_reload(self):
     run.main(["test/config/reload.yaml"])
+
+  def test_segmenting(self):
+    run.main(["test/config/seg_report.yaml"])
 
   def test_reload_exception(self):
     with self.assertRaises(ValueError) as context:
@@ -72,9 +72,6 @@ class TestRunningConfig(unittest.TestCase):
 
   def test_score(self):
     run.main(["test/config/score.yaml"])
-
-  def test_segmenting(self):
-    run.main(["test/config/segmenting.yaml"])
 
   def test_self_attentional_am(self):
     run.main(["test/config/self_attentional_am.yaml"])
