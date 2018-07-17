@@ -165,12 +165,12 @@ class AuxNonLinear(NonLinear, Serializable):
     )
     self.save_processed_arg("input_dim", original_input_dim)
 
-class MultiLayerPerceptron(Transform, Serializable):
+class MLP(Transform, Serializable):
   """
   A multi-layer perceptron. Defined as one or more NonLinear transforms of equal hidden
   dimension and type, then a Linear transform to the output dimension.
   """
-  yaml_tag = "!MultiLayerPerceptron"
+  yaml_tag = "!MLP"
 
   @serializable_init
   def __init__(self,

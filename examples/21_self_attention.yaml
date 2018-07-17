@@ -48,7 +48,7 @@ self_attention: !Experiment
             - !ResidualSeqTransducer
               input_dim: 512
               child: !TransformSeqTransducer
-                transform: !MultiLayerPerceptron
+                transform: !MLP
                   activation: relu
               layer_norm: True
     attender: !MlpAttender
