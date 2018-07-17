@@ -12,6 +12,7 @@ from xnmt.persistence import serializable_init, Serializable
 import xnmt.expression_sequence
 from xnmt import lstm
 import xnmt.input
+from functools import lru_cache
 
 class Batch(ABC):
   """
@@ -30,7 +31,7 @@ class ListBatch(list, Batch):
   This class behaves like a Python list, but adds semantics that the contents form a (mini)batch of things.
   An optional mask can be specified to indicate padded parts of the inputs.
   Should be treated as an immutable object.
-  
+ 
   Args:
     batch_elements: list of things
     mask: optional mask when  batch contains items of unequal size
@@ -44,6 +45,7 @@ class ListBatch(list, Batch):
   def __len__(self):
     warnings.warn("use of ListBatch.__len__() is discouraged, use ListBatch.batch_size() "
                   "[or ListBatch.sent_len()] instead.", DeprecationWarning)
+    return self.batch_size()
   def __getitem__(self, key):
     ret = super().__getitem__(key)
     if isinstance(key, slice):
@@ -84,16 +86,17 @@ class CompoundBatch(Batch):
 
 class Mask(object):
   """
-  A mask specifies padded parts in a sequence or batch of sequences.
+  An immutable mask specifies padded parts in a sequence or batch of sequences.
 
   Masks are represented as numpy array of dimensions batchsize x seq_len, with parts
   belonging to the sequence set to 0, and parts that should be masked set to 1
-  
+
   Args:
     np_arr: numpy array
   """
   def __init__(self, np_arr: np.ndarray):
     self.np_arr = np_arr
+    self.np_arr.flags.writeable = False
 
   def __len__(self):
     return self.np_arr.shape[1]
@@ -139,8 +142,12 @@ class Mask(object):
       mask_exp = dy.inputTensor(self.np_arr[:,timestep:timestep+1].transpose(), batched=True)
     return dy.cmult(expr, mask_exp)
 
-  def get_active_one_mask(self):
-    return 1 - self.np_arr
+  @lru_cache(maxsize=1)
+  def get_valid_position(self, transpose=True):
+    np_arr = self.np_arr
+    if transpose: np_arr = np_arr.transpose()
+    x = [np.nonzero(1-arr)[0] for arr in np_arr]
+    return x
 
 class Batcher(object):
   """
@@ -522,6 +529,7 @@ class TrgSrcBatcher(SortBatcher, Serializable):
 
 class SentShuffleBatcher(ShuffleBatcher, Serializable):
   """
+
   A batcher that creates fixed-size batches of random order.
 
   Sentences inside each batch are sorted by reverse trg length.

@@ -34,10 +34,16 @@ class XnmtOptimizer(object):
     """
     Update the parameters.
     """
-    if not (self.skip_noisy and self._check_gradients_noisy()):
-      self.optimizer.update()
-    else:
-      logger.info("skipping noisy update")
+    try:
+      if not (self.skip_noisy and self._check_gradients_noisy()):
+        self.optimizer.update()
+      else:
+        logger.info("skipping noisy update")
+    except RuntimeError:
+      logger.warning("Failed to perform update. Skipping example and clearing gradients.")
+      for subcol in ParamManager.param_col.subcols.values():
+        for param in subcol.parameters_list():
+          param.scale_gradient(0)
 
   def status(self):
     """
@@ -198,7 +204,7 @@ class AdamTrainer(XnmtOptimizer, Serializable):
     super().__init__(optimizer=dy.AdamTrainer(ParamManager.global_collection(), alpha, beta_1, beta_2, eps),
                      skip_noisy=skip_noisy)
 
-class TransformerAdamTrainer(XnmtOptimizer, Serializable):
+class NoamTrainer(XnmtOptimizer, Serializable):
   """
   Proposed in the paper "Attention is all you need" (https://papers.nips.cc/paper/7181-attention-is-all-you-need.pdf) [Page 7, Eq. 3]
   In this the learning rate of Adam Optimizer is increased for the first warmup steps followed by a gradual decay
@@ -214,7 +220,7 @@ class TransformerAdamTrainer(XnmtOptimizer, Serializable):
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
   """
-  yaml_tag = '!TransformerAdamTrainer'
+  yaml_tag = '!NoamTrainer'
 
   @serializable_init
   def __init__(self, alpha=1.0, dim=512, warmup_steps=4000, beta_1=0.9, beta_2=0.98, eps=1e-9,

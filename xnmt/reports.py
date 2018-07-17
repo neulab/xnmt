@@ -1,40 +1,41 @@
 """
-Reports gather inputs, outputs, intermediate computations in a nicely formatted way for convenient manual inspection.
+Reports gather inputs, outputs, and intermediate computations in a nicely formatted way for convenient manual inspection.
 
 To support reporting, the models providing the data to be reported must subclass ``Reportable`` and call
-self.add_sent_for_report(d) with key/value pairs containing the data to be reported at the appropriate times.
-If this causes a computation overhead, the boolean ``compute_report`` field should used and extra computations skipped
-unless this field is ``True``.
+``self.add_sent_for_report(d)`` with key/value pairs containing the data to be reported at the appropriate times.
+If this causes a computational overhead, the boolean ``compute_report`` field should queried and extra computations
+skipped if this field is ``False``.
 
-Next, a reporter needs to be specified that supports reports based on the previously created key/value pairs.
-Reporters are assigned to inference classes, so it's possible to report only at the final test decoding, or specify
+Next, a ``Reporter`` needs to be specified that supports reports based on the previously created key/value pairs.
+Reporters are passed to inference classes, so it's possible e.g. to report only at the final test decoding, or specify
 a special reporting inference object that only looks at a handful of sentences, etc.
 
 Note that currently reporting is only supported at test-time, not at training time.
 """
 
 import os
+import numpy as np
 from lxml import etree
 from typing import Any, Dict, Optional, Tuple
 import numpy as np
-from xml.sax.saxutils import escape
 
-from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 import xnmt.plot
-from xnmt.persistence import Serializable, serializable_init
-from xnmt import vocab, util
 import xnmt.output
+
+from xnmt import vocab, util
+from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
+from xnmt.persistence import Serializable, serializable_init, Ref
 from xnmt.settings import settings
 
 class Reportable(object):
   """
   Base class for classes that contribute information to a report.
 
-  Doing so requires the implementing class to do the following:
+  Making an arbitrary class reportable requires to do the following:
 
-  - specify Reportable as base class
-  - call this super class's __init__(), or do @register_xnmt_handler manually
-  - call self.add_sent_for_report(d) for each sentence, where d is a dictionary containing info to pass on to the
+  - specify ``Reportable`` as base class
+  - call this super class's ``__init__()``, or do ``@register_xnmt_handler`` manually
+  - call ``self.add_sent_for_report(d)`` for each sentence, where d is a dictionary containing info to pass on to the
     reporter
   """
 
@@ -50,7 +51,7 @@ class Reportable(object):
 
     Args:
       sent_info: A dictionary of key/value pairs. The keys must match (be a subset of) the arguments in the reporter's
-                 create_report() method, and the values must be of the corresponding types.
+                 ``create_report()`` method, and the values must be of the corresponding types.
     """
     if not hasattr(self, "_sent_info_list"):
       self._sent_info_list = []
@@ -78,8 +79,8 @@ class Reporter(object):
     """
     Create the report.
 
-    The reporter should specify the arguments it needs explicitly, and should specify kwargs in addition to handle extra
-    (unused) arguments without crashing.
+    The reporter should specify the arguments it needs explicitly, and should specify ``kwargs`` in addition to handle
+    extra (unused) arguments without crashing.
 
     Args:
       **kwargs: additional arguments
@@ -325,48 +326,33 @@ class AttentionReporter(HtmlReporter, Serializable):
     xnmt.plot.plot_attention(src_tokens, trg_tokens, attentions, file_name=attention_file)
 
 
-class SegmentingHtmlReporter(HtmlReporter, Serializable):
+class SegmentationReporter(Reporter, Serializable):
   """
-  A reporter to be used with the segmenting encoder (TODO: untested)
+  A reporter to be used with the segmenting encoder.
   """
-  yaml_tag = "!SegmentingHtmlReporter"
+  yaml_tag = "!SegmentationReporter"
 
   @serializable_init
-  def __init__(self, report_path: str = settings.DEFAULT_REPORT_PATH):
-    super().__init__(report_path=report_path)
+  @register_xnmt_handler
+  def __init__(self, report_path: str=settings.DEFAULT_REPORT_PREFIX):
+    self.report_path = report_path
+    self.report_fp = None
 
-  def create_report(self, segmentation, src, src_vocab, idx, output, output_proc: xnmt.output.OutputProcessor,
-                    **kwargs):
-    main_content = self.start_sent(idx)
-    src_str, trg_str = self.add_sent_in_out(main_content, output, output_proc, src, src_vocab)
+  def create_report(self, segment_actions, src_vocab, src, **kwargs):
+    if self.report_fp is None:
+      self.report_fp = open(self.report_path + ".segment", "w")
 
-    segment_decision = segmentation
-    segment_decision = [int(x[0]) for x in segment_decision]
-    src_words = [escape(x) for x in src_str.split()]
-    # construct the sub element from string
-    segmented = self.apply_segmentation(src_words, segment_decision)
-    segmented = [(x if not delete else ("<font color='red'><del>" + x + "</del></font>")) for x, delete in segmented]
-    if len(segmented) > 0:
-      segment_html = "<p>Segmentation: " + ", ".join(segmented) + "</p>"
-      main_content.insert(2, etree.fromstring(segment_html))
+    actions = segment_actions[0][0]
+    src = [src_vocab[x] for x in src]
+    words = []
+    start = 0
+    for end in actions:
+      words.append("".join(str(src[start:end+1])))
+      start = end+1
+    print(" ".join(words), file=self.report_fp)
 
-    self.write_html_tree()
-
-  def apply_segmentation(self, words, segmentation):
-    assert(len(words) == len(segmentation))
-    segmented = []
-    temp = ""
-    for decision, word in zip(segmentation, words):
-      if decision == 0: #SegmentingAction.READ.value:
-        temp += word
-      elif decision == 1: #SegmentingAction.SEGMENT.value:
-        temp += word
-        segmented.append((temp, False))
-        temp = ""
-      else: # Case: DELETE
-        if temp: segmented.append((temp, False))
-        segmented.append((word, True))
-        temp = ""
-    if temp: segmented.append((temp, False))
-    return segmented
+  @handle_xnmt_event
+  def on_end_inference(self):
+    if hasattr(self, "report_fp") and self.report_fp:
+      self.report_fp.close()
 

@@ -2,6 +2,9 @@ from typing import Any, Sequence
 import warnings
 
 import numpy as np
+import functools
+import copy
+from xnmt.vocab import Vocab
 
 from xnmt import vocab
 
@@ -10,10 +13,10 @@ class Input(object):
   """
   A template class to represent a single input of any type.
   """
-
   def __len__(self) -> int:
     warnings.warn("use of Input.__len__() is discouraged, use Input.sent_len() instead.", DeprecationWarning)
     return self.sent_len()
+  
   def sent_len(self) -> int:
     """
     Return length of input, included padded tokens.
@@ -91,7 +94,6 @@ class CompoundInput(Input):
   def get_truncated_sent(self, trunc_len):
     raise ValueError("not supported with CompoundInput, must be called on one of the sub-inputs instead.")
 
-
 class SimpleSentenceInput(Input):
   """
   A simple sentence, represented as a list of tokens
@@ -108,7 +110,8 @@ class SimpleSentenceInput(Input):
 
   def sent_len(self):
     return len(self.words)
-
+  
+  @functools.lru_cache(maxsize=1)
   def len_unpadded(self):
     return sum(x != vocab.Vocab.ES for x in self.words)
 
@@ -130,39 +133,21 @@ class SimpleSentenceInput(Input):
     """
     if pad_len == 0:
       return self
-    new_words = list(self.words)
-    new_words.extend([token] * pad_len)
-    return self.__class__(new_words)
+    # Copy is used to copy all possible annotations
+    new_sent = copy.deepcopy(self)
+    new_sent.words.extend([token] * pad_len)
+    return new_sent
 
   def get_truncated_sent(self, trunc_len: int) -> 'Input':
     if trunc_len == 0:
       return self
-    new_words = self.words[:-trunc_len]
-    return self.__class__(new_words)
+    new_sent = copy.deepcopy(self)
+    new_sent.words = self.words[:-trunc_len]
+    return new_sent
 
-  def get_truncated_sent(self, trunc_len: int) -> 'Input':
-    if trunc_len == 0:
-      return self
-    new_words = self.words[:-trunc_len]
-    return self.__class__(new_words)
 
   def __str__(self):
     return " ".join(map(str, self.words))
-
-
-class AnnotatedSentenceInput(SimpleSentenceInput):
-  def __init__(self, words):
-    super(AnnotatedSentenceInput, self).__init__(words)
-    self.annotation = {}
-
-  def annotate(self, key, value):
-    self.annotation[key] = value
-
-  def get_padded_sent(self, token, pad_len):
-    sent = super(AnnotatedSentenceInput, self).get_padded_sent(token, pad_len)
-    sent.annotation = self.annotation
-    return sent
-
 
 class ArrayInput(Input):
   """
@@ -208,3 +193,4 @@ class ArrayInput(Input):
 
   def get_array(self):
     return self.nparr
+

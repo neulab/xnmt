@@ -73,13 +73,12 @@ class FactoredLossExpr(object):
     else:
       raise ValueError(f"Unknown batch combination method '{comb_method}', expected 'sum' or 'avg'.'")
 
+  def get_nobackprop_loss(self):
+    return {k: dy.nobackprop(v) for k, v in self.expr_factors.items()}
+
   def __len__(self):
     return len(self.expr_factors)
 
-  def __repr__(self):
-    loss_str = ", ".join(
-      [f"{loss_name} {dy.sum_batches(loss_value).value()}" for loss_name, loss_value in self.expr_factors.items()])
-    return f"{{Loss Builder: {loss_str}}}"
 
 class FactoredLossVal(object):
   

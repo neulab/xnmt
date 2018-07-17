@@ -105,7 +105,7 @@ class Vocab(Serializable):
   def set_unk(self, w):
     """
     Sets the unknown word token. Can only be invoked after calling freeze().
-    
+
     Args:
       w (str): unknown word token
     """

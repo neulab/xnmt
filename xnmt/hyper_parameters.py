@@ -2,91 +2,74 @@
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.persistence import serializable_init, Serializable
 
-class ScalingParam(Serializable):
-  """ initial * scaler(epoch-1) """
-  yaml_tag = "!ScalingParam"
-
-  @serializable_init
-  def __init__(self, initial=0.0, scaler=None):
-    self.__value = initial
-    self.scaler = scaler
-
-  def value(self):
-    value = self.__value
-    if self.scaler is not None:
-      value *= self.scaler.value()
-    return value
-
-  def __repr__(self):
-    return str(self.value())
-
 class Scalar(Serializable):
+  """
+  Scalar class for hyper parameter that support 1 value serialization.
+  This class is actually a base class and does not have any different with simple python float/int.
+  
+  Args:
+    initial: The value being hold by the scalar.
+    update: Is the epoch number. 
+  """
+
   yaml_tag = "!Scalar"
-
+  
   @serializable_init
-  def __init__(self, initial=0.0):
-    self.__value = initial
-
-  def value(self):
-    return self.__value
-
-  def __repr__(self):
-    return str(self.value())
-
-class GeometricSequence(Serializable):
-  """ initial^(epoch) """
-  yaml_tag = '!GeometricSequence'
-
-  # Do not set warmup_counter manually.
   @register_xnmt_handler
-  @serializable_init
-  def __init__(self, initial=0.1, warmup=0, ratio=1, min_value=0.0, max_value=1.0):
-    self.__value = initial
-    self.warmup = warmup
-    self.ratio = ratio
-    self.min_value = min_value
-    self.max_value = max_value
-    self.epoch_num = 0
-
-  def value(self):
-    if self.epoch_num >= self.warmup:
-      return self.__value
-    else:
-      return 0.0
+  def __init__(self, initial=0.0, update=0):
+    self.value = initial
+    self.update = update
 
   @handle_xnmt_event
-  def on_new_epoch(self, training_task, *args, **kwargs):
-    self.epoch_num = training_task.training_state.epoch_num
-    if self.epoch_num > self.warmup:
-      value = self.__value * self.ratio
-      value = max(self.min_value, value)
-      value = min(self.max_value, value)
-      self.__value = value
+  def on_new_epoch(self, *args, **kwargs):
+    self.value = self.update_value()
+    self.update += 1
+    self.save_processed_arg("initial", self.value)
+    self.save_processed_arg("update", self.update)
+ 
+  def update_value(self):
+    return self.value
 
-  def __repr__(self):
-    return repr(self.value())
+  # Operators
+  def __lt__(a, b): return a.value < b
+  def __le__(a, b): return a.value <= b
+  def __eq__(a, b): return a.value == b
+  def __ne__(a, b): return a.value != b
+  def __ge__(a, b): return a.value >= b
+  def __gt__(a, b): return a.value > b
+  def __add__(a, b): return a.value + b
+  def __sub__(a, b): return a.value - b
+  def __mul__(a, b): return a.value * b
+  def __neg__(a): return -a.value
+  def __pos__(a): return +a.value
+  def __pow__(a, b): return a.value ** b
+  def __truediv__(a, b): return a.value / b
+  def __floordiv__(a, b): return a.value // b
 
-class DefinedSequence(Serializable):
-  yaml_tag = '!DefinedSequence'
-  @register_xnmt_handler
+class DefinedSequence(Scalar):
+  """
+  Class that represents a fixed defined sequence from config files.
+  If update has been made more than the length of the sequence, the last element of the sequence will be returned instead
+  
+  x = DefinedSequence([0.1, 0.5, 1])
+  
+  # Epoch 1: 0+x = 0.1
+  # Epoch 2: 0+x = 0.5
+  # Epoch 3: 0+x = 1
+  
+  Args:
+    sequence: A list of numbers
+    initial: The current value or the value.
+    update: The epoch number
+  """
+  
+  yaml_tag = "!DefinedSequence"
+
   @serializable_init
-  def __init__(self, sequence=None):
-    assert sequence is not None
-    assert type(sequence) == list, "DefinedSequence need to have a list type"
-    assert len(sequence) > 0, "Please input non empty list for FixedSequence"
+  def __init__(self, sequence=None, initial=0.0, update=0):
+    super().__init__(initial, update)
     self.sequence = sequence
-    self.epoch_num = 0
 
-  @handle_xnmt_event
-  def on_new_epoch(self, training_task, *args, **kwargs):
-    self.epoch_num = training_task.training_state.epoch_num
-
-  def __repr__(self):
-    return repr(self.value())
-
-  def value(self):
-    if self.epoch_num >= len(self.sequence):
-      return self.sequence[-1]
-    else:
-      return self.sequence[self.epoch_num]
+  def update_value(self):
+    return self.sequence[min(len(self.sequence)-1, self.update)]
 
