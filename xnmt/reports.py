@@ -18,6 +18,10 @@ import math
 from lxml import etree
 from typing import Any, Dict, Optional, Tuple
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 import numpy as np
 
 import xnmt.plot
@@ -307,9 +311,8 @@ class AttentionReporter(HtmlReporter, Serializable):
     src_is_speech = isinstance(src, xnmt.input.ArrayInput)
     size_x = math.log(len(trg_tokens)+1) * 3
     if src_is_speech:
+      src_tokens = src.get_array()
       size_y = math.log(src.sent_len()+1)
-      src_feat_file = f"{self.report_path}/img/attention.src_feat.{idx}.png"
-      xnmt.plot.plot_speech_features(src.get_array(), file_name=src_feat_file, length=size_y)
     else:
       size_y = math.log(len(src_tokens)+1) * 3
     attention = etree.SubElement(main_content, 'p')
@@ -317,18 +320,11 @@ class AttentionReporter(HtmlReporter, Serializable):
     att_text.text = f"{desc}:"
     etree.SubElement(attention, 'br')
     attention_file = f"{self.report_path}/img/attention.{util.valid_filename(desc).lower()}.{idx}.png"
-    table = etree.SubElement(attention, 'table')
-    table_tr = etree.SubElement(table, 'tr')
-    table_td1 = etree.SubElement(table_tr, 'td')
-    table_td2 = etree.SubElement(table_tr, 'td')
-    if src_is_speech:
-      att_img = etree.SubElement(table_td1, 'img')
-      att_img.attrib['src'] = "img/" + os.path.basename(src_feat_file)
-      att_img.attrib['alt'] = 'speech features'
-    att_img = etree.SubElement(table_td2, 'img')
+    att_img = etree.SubElement(attention, 'img')
     att_img.attrib['src'] = "img/" + os.path.basename(attention_file)
     att_img.attrib['alt'] = 'attention matrix'
-    xnmt.plot.plot_attention(src_tokens, trg_tokens, attentions, file_name=attention_file, size_x=size_x, size_y=size_y)
+    xnmt.plot.plot_attention(src_words=src_tokens, trg_words=trg_tokens, attention_matrix=attentions,
+                             file_name=attention_file, size_x=size_x, size_y=size_y)
 
 
 class SegmentationReporter(Reporter, Serializable):
