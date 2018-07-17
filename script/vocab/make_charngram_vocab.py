@@ -5,20 +5,20 @@ By: Philip Arthur
 
 Script to generate CHARAGRAM vocabulary.
 For example if we have 2 words corpus: ["ab", "deac"]
-Then it wil produce the count of the ngram.
+Then it wil produce the char n gram vocabulary.
 
-a 2
-b 1
-c 1
-d 1
-e 1
-ab 1
-de 1
-ea 1
-ac 1
-dea 1
-eac 1
-deac 1
+a
+b
+c
+d
+e
+ab
+de
+ea
+ac
+dea
+eac
+deac
 
 This is useful to be used in CharNGramSegmentComposer.
 
