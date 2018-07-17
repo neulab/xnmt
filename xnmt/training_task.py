@@ -174,7 +174,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     if retcode is not None:
       if self.training_state.epoch_num > 0:
         logger.info('using reloaded data')
-      # reload the data   
+      # reload the data 
       self.model.src_reader.train = self.model.trg_reader.train = True
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
           input_reader.read_parallel_corpus(src_reader=self.model.src_reader,
@@ -279,7 +279,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     loss_builder = loss.FactoredLossExpr()
     standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-    additional_loss = self.model.calc_additional_loss(standard_loss)
+    additional_loss = self.model.calc_additional_loss(trg, self.model, standard_loss)
     loss_builder.add_factored_loss_expr(standard_loss)
     loss_builder.add_factored_loss_expr(additional_loss)
     return loss_builder

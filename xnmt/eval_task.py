@@ -82,7 +82,7 @@ class LossEvalTask(EvalTask, Serializable):
 
         loss_builder = FactoredLossExpr()
         standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-        additional_loss = self.model.calc_additional_loss(standard_loss)
+        additional_loss = self.model.calc_additional_loss(trg, self.model, standard_loss)
         loss_builder.add_factored_loss_expr(standard_loss)
         loss_builder.add_factored_loss_expr(additional_loss)
 

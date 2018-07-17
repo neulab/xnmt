@@ -116,7 +116,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
 
   def add_input(self, mlp_dec_state: AutoRegressiveDecoderState, trg_embedding: dy.Expression) -> AutoRegressiveDecoderState:
     """Add an input and update the state.
-    
+
     Args:
       mlp_dec_state: An object containing the current state.
       trg_embedding: The embedding of the word to input.
@@ -129,7 +129,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     rnn_state = mlp_dec_state.rnn_state
     if self.truncate_dec_batches: rnn_state, inp = xnmt.batcher.truncate_batches(rnn_state, inp)
     return AutoRegressiveDecoderState(rnn_state=rnn_state.add_input(inp),
-                                  context=mlp_dec_state.context)
+                                      context=mlp_dec_state.context)
 
   def _calc_transform(self, mlp_dec_state: AutoRegressiveDecoderState) -> dy.Expression:
     h = dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context])

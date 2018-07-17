@@ -14,16 +14,16 @@ Note that currently reporting is only supported at test-time, not at training ti
 """
 
 import os
+import numpy as np
 from lxml import etree
 from typing import Any, Dict, Tuple
-import numpy as np
-from xml.sax.saxutils import escape
 
-from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 import xnmt.plot
-from xnmt.persistence import Serializable, serializable_init
-from xnmt import vocab, util
 import xnmt.output
+
+from xnmt import vocab, util
+from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
+from xnmt.persistence import Serializable, serializable_init, Ref
 from xnmt.settings import settings
 
 class Reportable(object):
@@ -190,47 +190,37 @@ class AttentionHtmlReporter(HtmlReporter, Serializable):
     xnmt.plot.plot_attention(src_str.split(), trg_str.split(), attentions, file_name=attention_file)
 
 
-class SegmentingHtmlReporter(HtmlReporter, Serializable):
+class SegmentationReporter(Reporter, Serializable):
   """
-  A reporter to be used with the segmenting encoder (TODO: untested)
+  A reporter to be used with the segmenting encoder.
+
   """
-  yaml_tag = "!SegmentingHtmlReporter"
+  yaml_tag = "!SegmentationReporter"
 
   @serializable_init
-  def __init__(self, report_path: str = settings.DEFAULT_REPORT_PREFIX):
-    super().__init__(report_path=report_path)
+  @register_xnmt_handler
+  def __init__(self, report_path: str=settings.DEFAULT_REPORT_PREFIX,
+               compute_report=Ref("exp_global.compute_report", default=False)):
+    self.report_path = report_path
+    self.compute_report = compute_report
+    self.report_fp = None
 
-  def create_report(self, segmentation, src, src_vocab, idx, output, **kwargs):
-    main_content = self.start_sent(idx)
-    src_str, trg_str = self.add_sent_src_trg(main_content, output, src, src_vocab)
+  def create_report(self, segment_actions, src_vocab, src, **kwargs):
+    if self.compute_report:
+      if self.report_fp is None:
+        self.report_fp = open(self.report_path + ".segment", "w")
 
-    segment_decision = segmentation
-    segment_decision = [int(x[0]) for x in segment_decision]
-    src_words = [escape(x) for x in src_str.split()]
-    # construct the sub element from string
-    segmented = self.apply_segmentation(src_words, segment_decision)
-    segmented = [(x if not delete else ("<font color='red'><del>" + x + "</del></font>")) for x, delete in segmented]
-    if len(segmented) > 0:
-      segment_html = "<p>Segmentation: " + ", ".join(segmented) + "</p>"
-      main_content.insert(2, etree.fromstring(segment_html))
+      actions = segment_actions[0][0]
+      src = [src_vocab[x] for x in src]
+      words = []
+      start = 0
+      for end in actions:
+        words.append("".join(str(src[start:end+1])))
+        start = end+1
+      print(" ".join(words), file=self.report_fp)
 
-    self.write_html_tree()
-
-  def apply_segmentation(self, words, segmentation):
-    assert(len(words) == len(segmentation))
-    segmented = []
-    temp = ""
-    for decision, word in zip(segmentation, words):
-      if decision == 0: #SegmentingAction.READ.value:
-        temp += word
-      elif decision == 1: #SegmentingAction.SEGMENT.value:
-        temp += word
-        segmented.append((temp, False))
-        temp = ""
-      else: # Case: DELETE
-        if temp: segmented.append((temp, False))
-        segmented.append((word, True))
-        temp = ""
-    if temp: segmented.append((temp, False))
-    return segmented
+  @handle_xnmt_event
+  def on_end_inference(self):
+    if hasattr(self, "report_fp") and self.report_fp:
+      self.report_fp.close()
 

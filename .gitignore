@@ -17,6 +17,7 @@ xnmt/cython/*.so
 test/tmp
 test/config/logs/
 test/config/models/
+test/config/reports/
 /*.yaml
 examples/preproc/
 .project

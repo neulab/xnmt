@@ -23,7 +23,7 @@ class Embedder(object):
     Args:
       word: This will generally be an integer word ID, but could also be something like a string. It could
             also be batched, in which case the input will be a :class:`xnmt.batcher.Batch` of integers or other things.
-    
+
     Returns:
       A DyNet Expression corresponding to the embedding of the word(s), possibly batched using :class:`xnmt.batcher.Batch`.
     """
@@ -35,7 +35,7 @@ class Embedder(object):
     Args:
       sent: This will generally be a list of word IDs, but could also be a list of strings or some other format.
             It could also be batched, in which case it will be a (possibly masked) :class:`xnmt.batcher.Batch` object
-    
+
     Returns:
       xnmt.expression_sequence.ExpressionSequence: An expression sequence representing vectors of each word in the input.
     """
@@ -57,13 +57,13 @@ class Embedder(object):
     """Choose the vocab for the embedder basd on the passed arguments
 
     This is done in order of priority of vocab, model+yaml_path
-    
+
     Args:
       vocab (Vocab): If None, try to obtain from ``src_reader`` or ``trg_reader``, depending on the ``yaml_path``
       yaml_path (Path): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
       src_reader (InputReader): Model's src_reader, if exists and unambiguous.
       trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
-    
+
     Returns:
       xnmt.vocab.Vocab: chosen vocab
     """
@@ -91,7 +91,7 @@ class Embedder(object):
       yaml_path (Path): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
       src_reader (InputReader): Model's src_reader, if exists and unambiguous.
       trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
-    
+
     Returns:
       int: chosen vocab size
     """
@@ -113,7 +113,7 @@ class Embedder(object):
 class DenseWordEmbedder(Embedder, Linear, Serializable):
   """
   Word embeddings via full matrix.
-  
+
   Args:
     emb_dim (int): embedding dimension
     weight_noise (float): apply Gaussian noise with given standard deviation to embeddings
@@ -282,7 +282,7 @@ class NoopEmbedder(Embedder, Serializable):
   This embedder performs no lookups but only passes through the inputs.
 
   Normally, the input is an Input object, which is converted to an expression.
-  
+
   Args:
     emb_dim (int): Size of the inputs (not required)
   """
@@ -320,7 +320,7 @@ class NoopEmbedder(Embedder, Serializable):
 class PretrainedSimpleWordEmbedder(SimpleWordEmbedder, Serializable):
   """
   Simple word embeddings via lookup. Initial pretrained embeddings must be supplied in FastText text format.
-  
+
   Args:
     filename (str): Filename for the pretrained embeddings
     emb_dim (int): embedding dimension; if None, use exp_global.default_layer_dim

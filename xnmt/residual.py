@@ -12,7 +12,7 @@ class ResidualSeqTransducer(SeqTransducer, Serializable):
   """
   A sequence transducer that wraps a :class:`xnmt.transducer.SeqTransducer` in an additive residual
   connection, and optionally performs some variety of normalization.
-  
+
   Args:
     child (:class:`xnmt.transducer.SeqTransducer`): the child transducer to wrap
     layer_norm (bool): whether to perform layer normalization
@@ -42,3 +42,4 @@ class ResidualSeqTransducer(SeqTransducer, Serializable):
   def get_final_states(self) -> List[FinalTransducerState]:
     # TODO: is this OK to do?
     return self.child.get_final_states()
+

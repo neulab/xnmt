@@ -28,13 +28,11 @@ class PreprocRunner(Serializable):
   def __init__(self, tasks:Optional[List[PreprocTask]]=None, overwrite:bool=False):
     if tasks is None: tasks = []
     logger.info("> Preprocessing")
-    
-    for task in tasks:
 
+    for task in tasks:
       # Sanity check
       if len(task.in_files) != len(task.out_files):
         raise RuntimeError("Length of in_files and out_files in preprocessor must be identical")
-
       task.run_preproc_task(overwrite = overwrite)
 
 class PreprocExtract(PreprocTask, Serializable):

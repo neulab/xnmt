@@ -6,6 +6,7 @@ from xnmt.settings import settings
 import dynet as dy
 
 import xnmt.batcher
+from xnmt.events import register_xnmt_event, register_xnmt_handler
 from xnmt import logger, loss, loss_calculator, model_base, output, reports, search_strategy, util
 from xnmt.persistence import serializable_init, Serializable, bare
 
@@ -31,6 +32,7 @@ class Inference(object):
     batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
     reporter: a reporter to create reports for each decoded sentence
   """
+  @register_xnmt_handler
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
                mode: str = "onebest",
@@ -85,6 +87,7 @@ class Inference(object):
       self._generate_output(generator=generator, forced_ref_corpus=ref_corpus, assert_scores=ref_scores,
                             src_corpus=src_corpus, trg_file=trg_file, batcher=self.batcher,
                             max_src_len=self.max_src_len)
+    self.end_inference()
 
   def _generate_output(self, generator: 'model_base.GeneratorModel', src_corpus: Sequence[xnmt.input.Input],
                        trg_file: str, batcher: Optional[xnmt.batcher.Batcher] = None, max_src_len: Optional[int] = None,
@@ -132,6 +135,10 @@ class Inference(object):
             fp.write(f"{output_txt}\n")
         cur_sent_i += batch_size
         if self.max_num_sents and cur_sent_i >= self.max_num_sents: break
+
+  @register_xnmt_event
+  def end_inference(self):
+    pass
 
   def _create_report(self):
     assert self.reporter is not None

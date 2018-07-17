@@ -9,7 +9,7 @@ class FinalTransducerState(object):
   Represents the final encoder state; Currently handles a main (hidden) state and a cell
   state. If cell state is not provided, it is created as tanh^{-1}(hidden state).
   Could in the future be extended to handle dimensions other than h and c.
-  
+
   Args:
     main_expr: expression for hidden state
     cell_expr: expression for cell state, if exists

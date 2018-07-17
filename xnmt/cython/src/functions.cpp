@@ -84,4 +84,13 @@ double evaluate_bleu_sentence(const vector<int>& ref, const vector<int>& hyp,
   return exp(log_precision / ngram + log_bp);
 }
 
+vector<int> binary_dense_from_sparse(const std::vector<int>& sparse_batch, int length) {
+  vector<int> ret(length);
+  for (int i : sparse_batch) {
+    ret[i] = 1;
+  }
+  return ret;
+}
+
+
 }  // namespace xnmt

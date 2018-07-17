@@ -183,10 +183,11 @@ class TestBatchTraining(unittest.TestCase):
         single_sent.append(Vocab.ES)
     trg_sents = sorted(self.trg_data[:batch_size], key=lambda x: x.sent_len(), reverse=True)
     trg_max = max([x.sent_len() for x in trg_sents])
-    trg_masks = Mask(np.zeros([batch_size, trg_max]))
+    np_arr = np.zeros([batch_size, trg_max])
     for i in range(batch_size):
       for j in range(trg_sents[i].sent_len(), trg_max):
-        trg_masks.np_arr[i,j] = 1.0
+        np_arr[i,j] = 1.0
+    trg_masks = Mask(np_arr)
     trg_sents_padded = [[w for w in s] + [Vocab.ES]*(trg_max-s.sent_len()) for s in trg_sents]
 
     src_sents_trunc = [SimpleSentenceInput(s) for s in src_sents_trunc]

@@ -42,7 +42,7 @@ class SearchStrategy(object):
 class GreedySearch(Serializable, SearchStrategy):
   """
   Performs greedy search (aka beam search with beam size 1)
-  
+
   Args:
     max_len (int): maximum number of tokens to generate.
   """
@@ -103,7 +103,7 @@ class GreedySearch(Serializable, SearchStrategy):
 class BeamSearch(Serializable, SearchStrategy):
   """
   Performs beam search.
-  
+
   Args:
     beam_size: number of beams
     max_len: maximum number of tokens to generate.
@@ -192,7 +192,8 @@ class BeamSearch(Serializable, SearchStrategy):
         #states.append(translator.get_nobp_state(current.output.state))
         current = current.parent
       results.append(SearchOutput([list(reversed(word_ids))], [list(reversed(attentions))],
-                                  [score], list(reversed(logsoftmaxes)), list(reversed(states)), None))
+                                  [score], list(reversed(logsoftmaxes)),
+                                  list(reversed(states)), None))
     return results
 
 class SamplingSearch(Serializable, SearchStrategy):

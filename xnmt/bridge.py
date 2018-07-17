@@ -45,7 +45,7 @@ class CopyBridge(Bridge, Serializable):
   Requires that:
   - encoder / decoder dimensions match for every layer
   - num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
-  
+
   Args:
     dec_layers (int): number of decoder layers to initialize
     dec_dim (int): hidden dimension of decoder states
@@ -68,7 +68,7 @@ class LinearBridge(Bridge, Serializable):
   """
   This bridge does a linear transform of final states from the encoder to the decoder initial states.
   Requires that  num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
-  
+
   Args:
     dec_layers (int): number of decoder layers to initialize
     enc_dim (int): hidden dimension of encoder states

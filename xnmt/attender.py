@@ -20,7 +20,7 @@ class Attender(object):
 
   def calc_attention(self, state):
     """ Compute attention weights.
-    
+
     Args:
       state (dy.Expression): the current decoder state, aka query, for which to compute the weights.
     """
@@ -28,7 +28,7 @@ class Attender(object):
 
   def calc_context(self, state):
     """ Compute weighted sum.
-    
+
     Args:
       state (dy.Expression): the current decoder state, aka query, for which to compute the weighted sum.
     """
@@ -42,7 +42,7 @@ class Attender(object):
 class MlpAttender(Attender, Serializable):
   """
   Implements the attention model of Bahdanau et. al (2014)
-  
+
   Args:
     input_dim: input dimension
     state_dim: dimension of state inputs
@@ -53,6 +53,7 @@ class MlpAttender(Attender, Serializable):
   """
 
   yaml_tag = '!MlpAttender'
+
 
   @serializable_init
   def __init__(self,
@@ -113,7 +114,7 @@ class DotAttender(Attender, Serializable):
   """
   Implements dot product attention of https://arxiv.org/abs/1508.04025
   Also (optionally) perform scaling of https://arxiv.org/abs/1706.03762
-  
+
   Args:
     scale: whether to perform scaling
     truncate_dec_batches: currently unsupported

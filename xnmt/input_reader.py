@@ -11,7 +11,8 @@ with warnings.catch_warnings():
   import h5py
 
 from xnmt import logger
-from xnmt.input import SimpleSentenceInput, AnnotatedSentenceInput, ArrayInput, IntInput, CompoundInput
+
+from xnmt.input import SimpleSentenceInput, ArrayInput, IntInput, CompoundInput
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.vocab import Vocab
@@ -107,7 +108,7 @@ class PlainTextReader(BaseTextReader, Serializable):
     read_sent_len: if set, read the length of each sentence instead of the sentence itself. EOS is not counted.
   """
   yaml_tag = '!PlainTextReader'
-
+ 
   @serializable_init
   def __init__(self, vocab: Optional[Vocab] = None, read_sent_len: bool = False):
     self.vocab = vocab
@@ -232,51 +233,24 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
   def vocab_size(self):
     return len(self.vocab)
 
-  def needs_reload(self):
-    return True
-
-class SegmentationTextReader(PlainTextReader):
-  yaml_tag = '!SegmentationTextReader'
-  
-  # TODO: document me
-
+class CharFromWordTextReader(PlainTextReader, Serializable):
+  yaml_tag = "!CharFromWordTextReader"
   @serializable_init
   def __init__(self, vocab=None):
-    super().__init__(vocab=vocab)
-
-  def read_sents(self, filename, filter_ids=None):
-    if self.vocab is None:
-      self.vocab = Vocab()
-    def convert(line, segmentation):
-      line = line.strip().split()
-      ret = AnnotatedSentenceInput(list(map(self.vocab.convert, line)) + [self.vocab.convert(Vocab.ES_STR)])
-      ret.annotate("segment", list(map(int, segmentation.strip().split())))
-      return ret
-
-    if type(filename) != list:
-      try:
-        filename = ast.literal_eval(filename)
-      except:
-        logger.debug("Reading %s with a PlainTextReader instead..." % filename)
-        return super(SegmentationTextReader, self).read_sents(filename)
-
-    max_id = None
-    if filter_ids is not None:
-      max_id = max(filter_ids)
-      filter_ids = set(filter_ids)
-    data = []
-    with open(filename[0], encoding='utf-8') as char_inp,\
-         open(filename[1], encoding='utf-8') as seg_inp:
-      for sent_count, (char_line, seg_line) in enumerate(zip(char_inp, seg_inp)):
-        if filter_ids is None or sent_count in filter_ids:
-          data.append(convert(char_line, seg_line))
-        if max_id is not None and sent_count > max_id:
-          break
-    return data
-
-  def count_sents(self, filename):
-    return super(SegmentationTextReader, self).count_sents(filename[0])
-
+    super().__init__(vocab)
+  def read_sent(self, sentence, filter_ids=None):
+    chars = []
+    segs = []
+    offset = 0
+    for word in sentence.strip().split():
+      offset += len(word)
+      segs.append(offset-1)
+      chars.extend([c for c in word])
+    segs.append(len(chars))
+    chars.append(Vocab.ES_STR)
+    sent_input = SimpleSentenceInput([self.vocab.convert(c) for c in chars])
+    sent_input.segment = segs
+    return sent_input
 
 class H5Reader(InputReader, Serializable):
   """
@@ -405,11 +379,10 @@ class NpzReader(InputReader, Serializable):
     npzFile.close()
     return l
 
-
 class IDReader(BaseTextReader, Serializable):
   """
   Handles the case where we need to read in a single ID (like retrieval problems).
-  
+
   Files must be text files containing a single integer per line.
   """
   yaml_tag = "!IDReader"

@@ -46,17 +46,18 @@ import xnmt.pyramidal
 import xnmt.residual
 import xnmt.retriever
 import xnmt.scorer
-import xnmt.segmenting_composer
-import xnmt.segmenting_encoder
 import xnmt.self_attention
 import xnmt.seq_labeler
 import xnmt.specialized_encoders.tilburg_harwath
 import xnmt.specialized_encoders.self_attentional_am
+import xnmt.specialized_encoders.segmenting_encoder
 import xnmt.training_regimen
 import xnmt.training_task
 import xnmt.transformer
 import xnmt.translator
 import xnmt.persistence
+import xnmt.rl
+import xnmt.compound_expr
 
 resolved_serialize_params = {}
 

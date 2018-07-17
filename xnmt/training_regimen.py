@@ -134,7 +134,7 @@ class SimpleTrainingRegimen(training_task.SimpleTrainingTask, TrainingRegimen, S
     Main training loop (overwrites TrainingRegimen.run_training())
     """
     if self.run_for_epochs > 0:
-      for src,trg in self.next_minibatch():
+      for src, trg in self.next_minibatch():
         if self.dev_zero:
           self.checkpoint_and_save(save_fct)
           self.dev_zero = False
@@ -232,7 +232,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   The relative weight between tasks can be configured setting the number of steps to accumulate over for each task.
   Note that the batch size for each task also has an influence on task weighting.
   The stopping criterion of the first task is used (other tasks' stopping criteria are ignored).
-  
+
   Args:
     tasks: Training tasks
     trainer: The trainer is shared across tasks

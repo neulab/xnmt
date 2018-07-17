@@ -6,6 +6,7 @@ import xnmt.batcher
 from xnmt.model_base import ConditionedModel, GeneratorModel, EventTrigger
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.expression_sequence import ExpressionSequence
+from xnmt.reports import Reportable
 
 ##### A class for retrieval databases
 # This file contains databases used for retrieval.
