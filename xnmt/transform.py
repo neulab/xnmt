@@ -165,6 +165,33 @@ class AuxNonLinear(NonLinear, Serializable):
     )
     self.save_processed_arg("input_dim", original_input_dim)
 
+class MultiLayerPerceptron(Transform, Serializable):
+  """
+  A multi-layer perceptron. Defined as one or more NonLinear transforms of equal hidden
+  dimension and type, then a Linear transform to the output dimension.
+  """
+  yaml_tag = "!MultiLayerPerceptron"
+
+  @serializable_init
+  def __init__(self,
+               input_dim: int = Ref("exp_global.default_layer_dim"),
+               hidden_dim: int = Ref("exp_global.default_layer_dim"),
+               output_dim: int = Ref("exp_global.default_layer_dim"),
+               bias: bool = True,
+               activation: str = 'tanh',
+               hidden_layers: int = 1,
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+    self.layers = []
+    if hidden_layers > 0:
+      self.layers = [NonLinear(input_dim=input_dim, output_dim=hidden_dim, bias=bias, activation=activation, param_init=param_init, bias_init=bias_init)]
+      self.layers += [NonLinear(input_dim=hidden_dim, output_dim=hidden_dim, bias=bias, activation=activation, param_init=param_init, bias_init=bias_init) for _ in range(1,hidden_layers)]
+    self.layers += [Linear(input_dim=hidden_dim, output_dim=output_dim, bias=bias, param_init=param_init, bias_init=bias_init)]
+
+  def __call__(self, expr: dy.Expression) -> dy.Expression:
+    for layer in self.layers:
+      expr = layer(expr)
+    return expr
 
 class TransformSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!TransformSeqTransducer'
