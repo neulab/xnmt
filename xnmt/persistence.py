@@ -6,6 +6,7 @@ The main objects to be aware of are:
 
 * :class:`Serializable`: must be subclassed by all components that are specified in a YAML file.
 * :class:`Ref`: a reference that points somewhere in the object hierarchy, for both convenience and to realize parameter sharing.
+* :class:`Repeat`: a syntax for creating a list components with same configuration but without parameter sharing.
 * :class:`YamlPreloader`: pre-loads YAML contents so that some infrastructure can be set up, but does not initialize components.
 * :meth:`initialize_if_needed`, :meth:`initialize_object`: initialize a preloaded YAML tree, taking care of resolving references etc.
 * :meth:`save_to_file`: saves a YAML file along with registered DyNet parameters
@@ -304,7 +305,6 @@ class Ref(Serializable):
     else:
       raise ValueError(f"Could not resolve path of reference {self}")
 
-
 class Path(object):
   """
   A relative or absolute path in the component hierarchy.
@@ -425,6 +425,21 @@ class Path(object):
       a = a.parent()
       ret.add(a)
     return ret
+
+class Repeat(Serializable):
+  """
+  A special object that is replaced by a list of components with identical configuration but not with shared params.
+
+  This can be specified anywhere in the config hierarchy where normally a list is expected.
+  A common use case is a multi-layer neural architecture, where layer configurations are repeated many times.
+  It is replaced in the preloader and cannot be instantiated directly.
+  """
+  yaml_tag = "!Repeat"
+  @serializable_init
+  def __init__(self, times: int, content: Any):
+    self.times = times
+    self.content = content
+    raise ValueError("Repeat cannot be instantiated")
 
 
 _subcol_rand = random.Random()
@@ -861,11 +876,13 @@ class YamlPreloader(object):
 
     YamlPreloader._format_strings(root, placeholders) # do this both before and after resolving !LoadSerialized
 
-    root = YamlPreloader._load_referenced_serialized(root)
+    root = YamlPreloader._load_serialized(root)
 
     random_search_report = YamlPreloader._instantiate_random_search(root)
     if random_search_report:
       setattr(root, 'random_search_report', random_search_report)
+
+    YamlPreloader._resolve_repeat(root)
 
     # if arguments were not given in the YAML file and are set to a bare(Serializable) by default, copy the bare object
     # into the object hierarchy so it can be used w/ param sharing etc.
@@ -876,7 +893,7 @@ class YamlPreloader(object):
     return UninitializedYamlObject(root)
 
   @staticmethod
-  def _load_referenced_serialized(root: Any) -> Any:
+  def _load_serialized(root: Any) -> Any:
     for path, node in _traverse_tree(root, traversal_order=_TraversalOrder.ROOT_LAST):
       if isinstance(node, LoadSerialized):
         LoadSerialized._check_wellformed(node)
@@ -969,6 +986,18 @@ class YamlPreloader(object):
         _set_descendant(experiment, path, v)
         param_report[path] = v
     return param_report
+
+  @staticmethod
+  def _resolve_repeat(root):
+    for path, node in _traverse_tree(root, traversal_order=_TraversalOrder.ROOT_LAST):
+      if isinstance(node, Repeat):
+        expanded = []
+        for _ in range(node.times):
+          expanded.append(copy.deepcopy(node.content))
+        if len(path) == 0:
+          root = expanded
+        else:
+          _set_descendant(root, path, expanded)
 
   @staticmethod
   def _resolve_bare_default_args(root: Any) -> None:
