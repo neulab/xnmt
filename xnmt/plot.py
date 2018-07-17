@@ -1,3 +1,4 @@
+from unidecode import unidecode
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -18,10 +19,13 @@ def plot_attention(src_words, trg_words, attention_matrix, file_name, size_x = 8
     size_x: width of the main plot
     size_y: height of the plot
   """
+  trg_words = [unidecode(w) for w in trg_words]
   src_is_speech = isinstance(src_words, np.ndarray)
   max_len = len(''.join(trg_words))
-  if not src_is_speech: max_len = max(max_len, len(''.join(src_words)))
-  if max_len>100: matplotlib.rc('font', size=4)
+  if not src_is_speech:
+    max_len = max(max_len, len(''.join(src_words)))
+    src_words = [unidecode(w) for w in src_words]
+  if max_len>150: matplotlib.rc('font', size=5)
   elif max_len>50: matplotlib.rc('font', size=7)
   fig, axs = plt.subplots(nrows=1, ncols=2 if src_is_speech else 1,
                           figsize=(size_x+(1.0 if src_is_speech else 0.0), size_y),
@@ -48,7 +52,7 @@ def plot_attention(src_words, trg_words, attention_matrix, file_name, size_x = 8
     fig.tight_layout()
 
   util.make_parent_dir(file_name)
-  plt.savefig(file_name, dpi=100)
+  plt.savefig(file_name, dpi=100 if max_len <= 150 else 150)
   plt.close()
 
 
