@@ -35,38 +35,22 @@ self_attention: !Experiment
       - !PositionalSeqTransducer
         input_dim: 512
         max_pos: 100
-      - !ResidualSeqTransducer
-        input_dim: 512
-        child: !MultiHeadAttentionSeqTransducer
-          num_heads: 8
-        layer_norm: True
-      - !ResidualSeqTransducer
-        input_dim: 512
-        child: !ModularSeqTransducer
-          input_dim: 512
-          modules:
-          - !TransformSeqTransducer
-            transform: !NonLinear
-              activation: relu
-          - !TransformSeqTransducer
-            transform: !Linear {}
-        layer_norm: True
-      - !ResidualSeqTransducer
-        input_dim: 512
-        child: !MultiHeadAttentionSeqTransducer
-          num_heads: 8
-        layer_norm: True
-      - !ResidualSeqTransducer
-        input_dim: 512
-        child: !ModularSeqTransducer
-          input_dim: 512
-          modules:
-          - !TransformSeqTransducer
-            transform: !NonLinear
-              activation: relu
-          - !TransformSeqTransducer
-            transform: !Linear {}
-        layer_norm: True
+      - !ModularSeqTransducer
+        modules: !Repeat
+          times: 2
+          content: !ModularSeqTransducer
+            modules:
+            - !ResidualSeqTransducer
+              input_dim: 512
+              child: !MultiHeadAttentionSeqTransducer
+                num_heads: 8
+              layer_norm: True
+            - !ResidualSeqTransducer
+              input_dim: 512
+              child: !TransformSeqTransducer
+                transform: !MLP
+                  activation: relu
+              layer_norm: True
     attender: !MlpAttender
       hidden_dim: 512
       state_dim: 512
