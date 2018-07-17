@@ -16,20 +16,20 @@ Note that currently reporting is only supported at test-time, not at training ti
 import os
 import math
 from lxml import etree
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
 import numpy as np
 
 import xnmt.plot
 import xnmt.output
+import xnmt.input
 
 from xnmt import vocab, util
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
-from xnmt.persistence import Serializable, serializable_init, Ref
+from xnmt.persistence import Serializable, serializable_init
 from xnmt.settings import settings
 
 class Reportable(object):
@@ -301,18 +301,35 @@ class AttentionReporter(HtmlReporter, Serializable):
     """
     main_content = self.start_sent(idx)
     src_tokens, trg_tokens = self.add_sent_in_out(main_content, output, output_proc, src, src_vocab, reference)
-    self.add_atts(attentions, main_content, src, src_tokens, trg_tokens, idx)
+    self.add_atts(attentions, main_content, src.get_array() if isinstance(src, xnmt.input.ArrayInput) else src_tokens,
+                  trg_tokens, idx)
 
   @handle_xnmt_event
   def on_end_inference(self):
     self.write_html_tree()
 
-  def add_atts(self, attentions, main_content, src, src_tokens, trg_tokens, idx, desc="Attentions"):
-    src_is_speech = isinstance(src, xnmt.input.ArrayInput)
+  def add_atts(self,
+               attentions: np.ndarray,
+               main_content,
+               src_tokens: Union[Sequence[str], np.ndarray],
+               trg_tokens: Sequence[str],
+               idx: int,
+               desc: str = "Attentions") -> None:
+    """
+    Add attention matrix to HTML code.
+
+    Args:
+      attentions: numpy array of dimensions (src_len x trg_len)
+      main_content: parent HTML tag
+      src_tokens: list of strings (case of src text) or numpy array of dims (nfeat x speech_len) (case of src speech)
+      trg_tokens: list of string tokens
+      idx: sentence no
+      desc: readable description
+    """
+    src_is_speech = isinstance(src_tokens, np.ndarray)
     size_x = math.log(len(trg_tokens)+1) * 3
     if src_is_speech:
-      src_tokens = src.get_array()
-      size_y = math.log(src.sent_len()+1)
+      size_y = math.log(src_tokens.shape[1]+1)
     else:
       size_y = math.log(len(src_tokens)+1) * 3
     attention = etree.SubElement(main_content, 'p')
