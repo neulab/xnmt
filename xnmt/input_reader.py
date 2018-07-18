@@ -252,6 +252,29 @@ class CharFromWordTextReader(PlainTextReader, Serializable):
     sent_input.segment = segs
     return sent_input
 
+class TrigramFromWordTextReader(PlainTextReader, Serializable):
+  yaml_tag = "!TrigramFromWordTextReader"
+  @serializable_init
+  def __init__(self, vocab=None):
+    super().__init__(vocab)
+  def read_sent(self, sent, filter_ids=None):
+    trigrams = []
+    segs = []
+    offset = 0
+    for word in sent.strip().split():
+      word = "^" + word + "$"
+      this_trigram = []
+      for i in range(len(word)-2):
+        this_trigram.append(word[i:i+3])
+      trigrams.extend(this_trigram)
+      offset += len(this_trigram)
+      segs.append(offset)
+    segs.append(len(trigrams))
+    trigrams.append(Vocab.ES_STR)
+    sent_input = SimpleSentenceInput([self.vocab.convert(c) for c in trigrams])
+    sent_input.segment = segs
+    return sent_input
+
 class H5Reader(InputReader, Serializable):
   """
   Handles the case where sents are sequences of continuous-space vectors.
