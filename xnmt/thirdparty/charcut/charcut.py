@@ -475,7 +475,7 @@ def ops2html(styled_ops, seg_id):
               '{slice}</span>'.format(**locals())
 
 
-def segs2html(segs, ops, score_pair, mt_label="MT:", ref_label="Ref:"):
+def segs2html(segs, ops, score_pair, mt_label="MT:", ref_label="Ref:", use_id_col=True):
     """Do highlighting on a single segment pair."""
     seg_id, origin, src, cand, ref = segs
     styled_cand, styled_ref = ops
@@ -488,9 +488,11 @@ def segs2html(segs, ops, score_pair, mt_label="MT:", ref_label="Ref:"):
        </tr>'''.format(src) if src else ''
     cand_str = ''.join(ops2html(styled_cand, seg_id))
     ref_str = ''.join(ops2html(styled_ref, seg_id))
+    id_row = ""
+    if use_id_col: id_row = '<td class="mainrow">{origin_str}{seg_id}</td>'.format(**locals())
     return '''
 <tr>
-  <td class="mainrow">{origin_str}{seg_id}</td>
+  {id_row}
   <td class="mainrow score">
     <span class="detail">{cost:.0f}/{div:.0f}=</span><br/>{score:.0%}
   </td>
