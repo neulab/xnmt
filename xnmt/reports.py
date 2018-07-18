@@ -220,13 +220,13 @@ class HtmlReporter(Reporter):
     self.report_path = report_path
     self.html_contents = ["<html><meta charset='UTF-8' /><head><title>Translation Report</title></head><body>"]
 
-  def start_sent(self, idx: int):
+  def add_sent_heading(self, idx: int):
     self.html_contents.append(f"<h1>Translation Report for Sentence {idx}</h1>")
 
   def finish_html_doc(self):
     self.html_contents.append("</body></html>")
 
-  def write_html_tree(self) -> None:
+  def write_html(self) -> None:
     html_str = "\n".join(self.html_contents)
     soup = bs(html_str, "lxml")
     pretty_html = soup.prettify()
@@ -235,30 +235,27 @@ class HtmlReporter(Reporter):
     with open(html_file_name, 'w', encoding='utf-8') as f:
       f.write(pretty_html)
 
-  def add_sent_in_out(self, output, output_proc: xnmt.output.OutputProcessor, src, src_vocab,
-                      reference: Optional[str]=None) -> Tuple[str, str]:
+  def get_tokens(self, output, src, src_vocab) -> Tuple[str, str]:
     src_is_speech = isinstance(src, xnmt.input.ArrayInput)
     if src_is_speech:
       src_tokens = []
     else:
       src_tokens = [src_vocab.i2w[src_token] for src_token in src]
-    src_str = " ".join(src_tokens)
-    trg_str = output.apply_post_processor(output_proc)
-    captions, inputs = [], []
-    if not src_is_speech:
-      captions.append("Source Words")
-      inputs.append(src_str)
-    captions.append("Output Words")
-    inputs.append(trg_str)
-    if reference:
-      captions.append("Reference Words")
-      inputs.append(reference)
-    html_ret = ""
-    for caption, sent in zip(captions, inputs):
-      html_ret += f"<p><b>{caption}:</b>{sent}</p>"
-    self.html_contents.append(html_ret)
     trg_tokens = output.readable_actions()
     return src_tokens, trg_tokens
+
+  def get_strings(self, src_tokens, output, output_proc: xnmt.output.OutputProcessor):
+    trg_str = output.apply_post_processor(output_proc)
+    src_str = " ".join(src_tokens)
+    return src_str, trg_str
+
+  def add_sent_fields(self, fields):
+    html_ret = ""
+    for key, val in fields.items():
+      if val:
+        html_ret += f"<p><b>{key}:</b>{val}</p>"
+    if html_ret:
+      self.html_contents.append(html_ret)
 
 
 class AttentionReporter(HtmlReporter, Serializable):
@@ -289,17 +286,20 @@ class AttentionReporter(HtmlReporter, Serializable):
       trg_vocab: source-side vocabulary
       output: generated output
       attentions: attention matrices
+      reference: reference string
       **kwargs: arguments to be ignored
     """
-    self.start_sent(idx)
-    src_tokens, trg_tokens = self.add_sent_in_out(output, output_proc, src, src_vocab, reference)
+    self.add_sent_heading(idx)
+    src_tokens, trg_tokens = self.get_tokens(output, src, src_vocab)
+    src_str, trg_str = self.get_strings(src_tokens=src_tokens, output=output, output_proc=output_proc)
+    self.add_sent_fields({"Source Words" : src_str, "Output Words": trg_str, "Reference Words": reference})
     self.add_atts(attentions, src.get_array() if isinstance(src, xnmt.input.ArrayInput) else src_tokens,
                   trg_tokens, idx)
 
   @handle_xnmt_event
   def on_end_inference(self):
     self.finish_html_doc()
-    self.write_html_tree()
+    self.write_html()
 
   def add_atts(self,
                attentions: np.ndarray,
