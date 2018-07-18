@@ -126,7 +126,7 @@ class ConvolutionComposer(Composer, Serializable):
       inp = dy.concatenate([inp, pad], d=1)
       dim = inp.dim()
     inp = dy.reshape(inp, (1, dim[0][1], dim[0][0]))
-    encodings = dy.rectify(dy.conv2d_bias(inp, dy.parameter(self.filter), self.bias, stride=(1, 1), is_valid=True))
+    encodings = dy.rectify(dy.conv2d_bias(inp, dy.parameter(self.filter), dy.parameter(self.bias), stride=(1, 1), is_valid=True))
     return dy.max_dim(dy.max_dim(encodings, d=1), d=0)
 
 class LookupComposer(Composer, Serializable):
