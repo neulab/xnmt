@@ -47,11 +47,8 @@ class TestSegmentingEncoder(unittest.TestCase):
     layer_dim = 64
     xnmt.events.clear()
     ParamManager.init_param_col()
-    self.tail_transformer = TailSegmentTransformer()
     self.segment_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
-    self.segment_embed_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
-    self.segment_composer = SegmentComposer(encoder=self.segment_encoder_bilstm,
-                                            transformer=self.tail_transformer)
+    self.segment_composer = SumComposer()
     self.src_reader = CharFromWordTextReader()
     self.trg_reader = PlainTextReader()
     self.loss_calculator = AutoRegressiveMLELoss()
@@ -69,11 +66,9 @@ class TestSegmentingEncoder(unittest.TestCase):
                                           z_normalization=True,
                                           conf_penalty=self.conf_penalty,
                                           sample=5)
-
-    
     self.length_prior = PoissonLengthPrior(lmbd=3.3, weight=1)
     self.segmenting_encoder = SegmentingSeqTransducer(
-      embed_encoder = self.segment_embed_encoder_bilstm,
+      embed_encoder = self.segment_encoder_bilstm,
       segment_composer =  self.segment_composer,
       final_transducer = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       policy_learning = self.policy_gradient,
@@ -194,16 +189,11 @@ class TestComposing(unittest.TestCase):
     layer_dim = 64
     xnmt.events.clear()
     ParamManager.init_param_col()
-    self.tail_transformer = TailSegmentTransformer()
-    self.segment_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
-    self.segment_embed_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
-    self.segment_composer = SegmentComposer(encoder=self.segment_encoder_bilstm,
-                                            transformer=self.tail_transformer)
+    self.segment_composer = SumComposer()
     self.src_reader = CharFromWordTextReader()
     self.trg_reader = PlainTextReader()
     self.loss_calculator = AutoRegressiveMLELoss()
     self.segmenting_encoder = SegmentingSeqTransducer(
-      embed_encoder = self.segment_embed_encoder_bilstm,
       segment_composer =  self.segment_composer,
       final_transducer = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
     )
@@ -238,43 +228,38 @@ class TestComposing(unittest.TestCase):
     embed = self.model.src_embedder.embed_sent(self.src[idx])
     return embed
 
-  def test_embed_composer(self):
+  def test_lookup_composer(self):
     enc = self.segmenting_encoder
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
     word_vocab.freeze()
-    enc.segment_composer = WordEmbeddingSegmentComposer(
+    enc.segment_composer = LookupComposer(
         word_vocab = word_vocab,
         src_vocab = self.src_reader.vocab,
         hidden_dim = self.layer_dim
     )
     enc.transduce(self.inp_emb(0))
-    last_sent = self.src[0][-1]
-    last_converted_word = self.src_reader.vocab[last_sent[last_sent.len_unpadded()]]
-  
-
-    assert enc.segment_composer.word == last_converted_word
 
   def test_charngram_composer(self):
     enc = self.segmenting_encoder
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
     word_vocab.freeze()
-    enc.segment_composer = CharNGramSegmentComposer(
+    enc.segment_composer = CharNGramComposer(
         word_vocab = word_vocab,
         src_vocab = self.src_reader.vocab,
         hidden_dim = self.layer_dim
     )
-    enc.transduce(self.inp_emb(0))  
-  
+    enc.transduce(self.inp_emb(0))
+
   def test_add_multiple_segment_composer(self):
     enc = self.segmenting_encoder
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
     word_vocab.freeze()
-    enc.segment_composer = SumMultipleSegmentComposer(
-      segment_composers = [
-        WordEmbeddingSegmentComposer(word_vocab = word_vocab,
+    enc.segment_composer = SumMultipleComposer(
+      composers = [
+        LookupComposer(word_vocab = word_vocab,
                                      src_vocab = self.src_reader.vocab,
                                      hidden_dim = self.layer_dim),
-        CharNGramSegmentComposer(word_vocab = word_vocab,
+        CharNGramComposer(word_vocab = word_vocab,
                                  src_vocab = self.src_reader.vocab,
                                  hidden_dim = self.layer_dim)
       ]
@@ -283,28 +268,36 @@ class TestComposing(unittest.TestCase):
 
   def test_sum_composer(self):
     enc = self.segmenting_encoder
-    enc.segment_composer.encoder = IdentitySeqTransducer()
-    enc.segment_composer.transformer = SumSegmentTransformer()
+    enc.segment_composer = SumComposer()
     enc.transduce(self.inp_emb(0))
 
   def test_avg_composer(self):
     enc = self.segmenting_encoder
-    enc.segment_composer.encoder = IdentitySeqTransducer()
-    enc.segment_composer.transformer = AverageSegmentTransformer()
+    enc.segment_composer = AverageComposer()
     enc.transduce(self.inp_emb(0))
 
   def test_max_composer(self):
     enc = self.segmenting_encoder
-    enc.segment_composer.encoder = IdentitySeqTransducer()
-    enc.segment_composer.transformer = MaxSegmentTransformer()
+    enc.segment_composer = MaxComposer()
     enc.transduce(self.inp_emb(0))
 
   def test_convolution_composer(self):
     enc = self.segmenting_encoder
-    enc.segment_composer = ConvolutionSegmentComposer(ngram_size=3,
-                                                      dropout=0.5,
-                                                      embed_dim=self.layer_dim,
-                                                      hidden_dim=self.layer_dim)
+    enc.segment_composer = ConvolutionComposer(ngram_size=1,
+                                               embed_dim=self.layer_dim,
+                                               hidden_dim=self.layer_dim)
+    self.model.set_train(True)
+    enc.transduce(self.inp_emb(0))
+    enc.segment_composer = ConvolutionComposer(ngram_size=3,
+                                               embed_dim=self.layer_dim,
+                                               hidden_dim=self.layer_dim)
+    self.model.set_train(True)
+    enc.transduce(self.inp_emb(0))
+
+  def test_transducer_composer(self):
+    enc = self.segmenting_encoder
+    enc.segment_composer = SeqTransducerComposer(seq_transducer=BiLSTMSeqTransducer(input_dim=self.layer_dim,
+                                                                                    hidden_dim=self.layer_dim))
     self.model.set_train(True)
     enc.transduce(self.inp_emb(0))
 

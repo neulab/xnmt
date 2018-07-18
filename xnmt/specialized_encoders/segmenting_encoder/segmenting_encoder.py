@@ -14,7 +14,7 @@ from xnmt.loss import FactoredLossExpr
 from xnmt.specialized_encoders.segmenting_encoder.priors import GoldInputPrior
 from xnmt.reports import Reportable
 from xnmt.lstm import BiLSTMSeqTransducer
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SegmentComposer
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer
 from xnmt.compound_expr import CompoundSeqExpression
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
@@ -51,7 +51,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   @register_xnmt_handler
   @serializable_init
   def __init__(self, embed_encoder=bare(IdentitySeqTransducer),
-                     segment_composer=bare(SegmentComposer),
+                     segment_composer=bare(SeqTransducerComposer),
                      final_transducer=bare(BiLSTMSeqTransducer),
                      policy_learning=None,
                      length_prior=None,
@@ -78,19 +78,22 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     sample_size = len(actions)
     embeddings = dy.concatenate(embed_sent.expr_list, d=1)
     embeddings.value()
-    outputs = [[[] for _ in range(batch_size)] for _ in range(sample_size)]
+    #
+    composed_words = []
     for i in range(batch_size):
       sequence = dy.pick_batch_elem(embeddings, i)
       # For each sampled segmentations
       for j, sample in enumerate(actions):
         lower_bound = 0
         # Read every 'segment' decision
-        for upper_bound in sample[i]:
-          char_sequence = ExpressionSequence(expr_tensor=dy.pick_range(sequence, lower_bound, upper_bound+1, 1))
-          self.segment_composer.set_word_boundary(lower_bound, upper_bound, self.src_sent[i])
-          composed = self.segment_composer.transduce(char_sequence)
-          outputs[j][i].append(composed)
+        for k, upper_bound in enumerate(sample[i]):
+          char_sequence = dy.pick_range(sequence, lower_bound, upper_bound+1, 1)
+          composed_words.append((dy.pick_range(sequence, lower_bound, upper_bound+1, 1), j, i, k, lower_bound, upper_bound+1))
+          #self.segment_composer.set_word_boundary(lower_bound, upper_bound, self.src_sent[i])
+          #composed = self.segment_composer.transduce(char_sequence)
+          #outputs[j][i].append(composed)
           lower_bound = upper_bound+1
+    outputs = self.segment_composer.compose(composed_words, sample_size, batch_size)
     # Padding + return
     try:
       if self.length_prior:
