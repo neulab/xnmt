@@ -475,7 +475,7 @@ def ops2html(styled_ops, seg_id):
               '{slice}</span>'.format(**locals())
 
 
-def segs2html(segs, ops, score_pair):
+def segs2html(segs, ops, score_pair, mt_label="MT:", ref_label="Ref:"):
     """Do highlighting on a single segment pair."""
     seg_id, origin, src, cand, ref = segs
     styled_cand, styled_ref = ops
@@ -498,13 +498,13 @@ def segs2html(segs, ops, score_pair):
     <table>
       {src_str}
       <tr>
-        <td class="seghead midrow">MT:</td>
+        <td class="seghead midrow">{mt_label}</td>
         <td class="midrow trg">
           {cand_str}
         </td>
       </tr>
       <tr>
-        <td class="seghead">Ref:</td><td class="trg">
+        <td class="seghead">{ref_label}</td><td class="trg">
           {ref_str}
         </td>
       </tr>

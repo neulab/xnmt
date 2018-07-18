@@ -297,7 +297,7 @@ class HtmlReporter(Reporter):
     if html_ret:
       self.html_contents.append(html_ret)
 
-  def add_charcut_diff(self, trg_str, reference, match_size=3, alt_norm=False):
+  def add_charcut_diff(self, trg_str, reference, match_size=3, alt_norm=False, mt_label="MT:", ref_label="Ref:"):
     aligned_segs = charcut.load_input_segs(cand_segs=[trg_str],
                                            ref_segs=[reference])
     styled_ops = [charcut.compare_segments(cand, ref, match_size)
@@ -307,7 +307,8 @@ class HtmlReporter(Reporter):
     # doc_cost = sum(cost for cost, _ in seg_scores)
     # doc_div = sum(div for _, div in seg_scores)
 
-    self.html_contents.append(charcut.segs2html(aligned_segs[0], styled_ops[0], seg_scores[0]))
+    self.html_contents.append(charcut.segs2html(aligned_segs[0], styled_ops[0], seg_scores[0], mt_label=mt_label,
+                                                ref_label=ref_label))
 
 
 class AttentionReporter(HtmlReporter, Serializable):
