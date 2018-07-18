@@ -15,7 +15,7 @@ Note that currently reporting is only supported at test-time, not at training ti
 
 import os
 import math
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 from bs4 import BeautifulSoup as bs
 
@@ -235,14 +235,17 @@ class HtmlReporter(Reporter):
     with open(html_file_name, 'w', encoding='utf-8') as f:
       f.write(pretty_html)
 
-  def get_tokens(self, output, src, src_vocab) -> Tuple[str, str]:
-    src_is_speech = isinstance(src, xnmt.input.ArrayInput)
-    if src_is_speech:
-      src_tokens = []
+  def get_tokens(self, output=None, inp=None, inp_vocab=None) -> List[str]:
+    assert output is None or (inp is None and inp_vocab is None)
+    if output:
+      return output.readable_actions()
     else:
-      src_tokens = [src_vocab.i2w[src_token] for src_token in src]
-    trg_tokens = output.readable_actions()
-    return src_tokens, trg_tokens
+      src_is_speech = isinstance(inp, xnmt.input.ArrayInput)
+      if src_is_speech:
+        src_tokens = []
+      else:
+        src_tokens = [inp_vocab.i2w[src_token] for src_token in inp]
+      return src_tokens
 
   def get_strings(self, src_tokens, output, output_proc: xnmt.output.OutputProcessor):
     trg_str = output.apply_post_processor(output_proc)
@@ -290,7 +293,8 @@ class AttentionReporter(HtmlReporter, Serializable):
       **kwargs: arguments to be ignored
     """
     self.add_sent_heading(idx)
-    src_tokens, trg_tokens = self.get_tokens(output, src, src_vocab)
+    src_tokens = self.get_tokens(inp=src, inp_vocab=src_vocab)
+    trg_tokens = self.get_tokens(output=output)
     src_str, trg_str = self.get_strings(src_tokens=src_tokens, output=output, output_proc=output_proc)
     self.add_fields_if_set({"Source Words" : src_str, "Output Words": trg_str, "Reference Words": reference})
     self.add_atts(attentions, src.get_array() if isinstance(src, xnmt.input.ArrayInput) else src_tokens,
