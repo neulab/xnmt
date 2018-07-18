@@ -15,18 +15,17 @@ Note that currently reporting is only supported at test-time, not at training ti
 
 import os
 import math
-from lxml import etree
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
+
+from bs4 import BeautifulSoup as bs
 
 import matplotlib
 matplotlib.use('Agg')
-
 import numpy as np
 
 import xnmt.plot
 import xnmt.output
 import xnmt.input
-
 from xnmt import vocab, util
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 from xnmt.persistence import Serializable, serializable_init
@@ -219,29 +218,24 @@ class HtmlReporter(Reporter):
   def __init__(self, report_name: str, report_path: str = settings.DEFAULT_REPORT_PATH) -> None:
     self.report_name = report_name
     self.report_path = report_path
-    self.html_tree = etree.Element('html')
-    meta = etree.SubElement(self.html_tree, 'meta')
-    meta.attrib['charset'] = 'UTF-8'
-    head = etree.SubElement(self.html_tree, 'head')
-    title = etree.SubElement(head, 'title')
-    title.text = 'Translation Report'
-    self.html_body = etree.SubElement(self.html_tree, 'body')
+    self.html_contents = ["<html><meta charset='UTF-8' /><head><title>Translation Report</title></head><body>"]
 
-  def start_sent(self, idx: int) :
-    report_div = etree.SubElement(self.html_body, 'div')
-    report = etree.SubElement(report_div, 'h1')
-    report.text = f'Translation Report for Sentence {idx}'
-    main_content = etree.SubElement(report_div, 'div', name='main_content')
-    return main_content
+  def start_sent(self, idx: int):
+    self.html_contents.append(f"<h1>Translation Report for Sentence {idx}</h1>")
+
+  def finish_html_doc(self):
+    self.html_contents.append("</body></html>")
 
   def write_html_tree(self) -> None:
-    html_str = etree.tostring(self.html_tree, encoding='unicode', pretty_print=True)
+    html_str = "\n".join(self.html_contents)
+    soup = bs(html_str, "lxml")
+    pretty_html = soup.prettify()
     html_file_name = f"{self.report_path}/{self.report_name}.html"
     util.make_parent_dir(html_file_name)
     with open(html_file_name, 'w', encoding='utf-8') as f:
-      f.write(html_str)
+      f.write(pretty_html)
 
-  def add_sent_in_out(self, main_content, output, output_proc: xnmt.output.OutputProcessor, src, src_vocab,
+  def add_sent_in_out(self, output, output_proc: xnmt.output.OutputProcessor, src, src_vocab,
                       reference: Optional[str]=None) -> Tuple[str, str]:
     src_is_speech = isinstance(src, xnmt.input.ArrayInput)
     if src_is_speech:
@@ -259,12 +253,10 @@ class HtmlReporter(Reporter):
     if reference:
       captions.append("Reference Words")
       inputs.append(reference)
+    html_ret = ""
     for caption, sent in zip(captions, inputs):
-      p = etree.SubElement(main_content, 'p')
-      b = etree.SubElement(p, 'b')
-      c = etree.SubElement(p, 'span')
-      b.text = f"{caption}: "
-      c.text = sent
+      html_ret += f"<p><b>{caption}:</b>{sent}</p>"
+    self.html_contents.append(html_ret)
     trg_tokens = output.readable_actions()
     return src_tokens, trg_tokens
 
@@ -299,18 +291,18 @@ class AttentionReporter(HtmlReporter, Serializable):
       attentions: attention matrices
       **kwargs: arguments to be ignored
     """
-    main_content = self.start_sent(idx)
-    src_tokens, trg_tokens = self.add_sent_in_out(main_content, output, output_proc, src, src_vocab, reference)
-    self.add_atts(attentions, main_content, src.get_array() if isinstance(src, xnmt.input.ArrayInput) else src_tokens,
+    self.start_sent(idx)
+    src_tokens, trg_tokens = self.add_sent_in_out(output, output_proc, src, src_vocab, reference)
+    self.add_atts(attentions, src.get_array() if isinstance(src, xnmt.input.ArrayInput) else src_tokens,
                   trg_tokens, idx)
 
   @handle_xnmt_event
   def on_end_inference(self):
+    self.finish_html_doc()
     self.write_html_tree()
 
   def add_atts(self,
                attentions: np.ndarray,
-               main_content,
                src_tokens: Union[Sequence[str], np.ndarray],
                trg_tokens: Sequence[str],
                idx: int,
@@ -320,7 +312,6 @@ class AttentionReporter(HtmlReporter, Serializable):
 
     Args:
       attentions: numpy array of dimensions (src_len x trg_len)
-      main_content: parent HTML tag
       src_tokens: list of strings (case of src text) or numpy array of dims (nfeat x speech_len) (case of src speech)
       trg_tokens: list of string tokens
       idx: sentence no
@@ -332,16 +323,11 @@ class AttentionReporter(HtmlReporter, Serializable):
       size_y = math.log(src_tokens.shape[1]+1)
     else:
       size_y = math.log(len(src_tokens)+1) * 3
-    attention = etree.SubElement(main_content, 'p')
-    att_text = etree.SubElement(attention, 'b')
-    att_text.text = f"{desc}:"
-    etree.SubElement(attention, 'br')
     attention_file = f"{self.report_path}/img/attention.{util.valid_filename(desc).lower()}.{idx}.png"
-    att_img = etree.SubElement(attention, 'img')
-    att_img.attrib['src'] = "img/" + os.path.basename(attention_file)
-    att_img.attrib['alt'] = 'attention matrix'
+    html_att = f'<p><b>{desc}:</b><br /><img src="img/{os.path.basename(attention_file)}" alt="attention matrix" /></p>'
     xnmt.plot.plot_attention(src_words=src_tokens, trg_words=trg_tokens, attention_matrix=attentions,
                              file_name=attention_file, size_x=size_x, size_y=size_y)
+    self.html_contents.append(html_att)
 
 
 class SegmentationReporter(Reporter, Serializable):
