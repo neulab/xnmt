@@ -9,3 +9,4 @@ asteval
 numpy
 Unidecode>=1.0.22
 beautifulsoup4
+nltk
