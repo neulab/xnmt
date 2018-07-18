@@ -30,6 +30,7 @@ from xnmt import vocab, util
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 from xnmt.persistence import Serializable, serializable_init
 from xnmt.settings import settings
+import xnmt.thirdparty.charcut.charcut as charcut
 
 class Reportable(object):
   """
@@ -131,7 +132,6 @@ class ReferenceDiffReporter(Reporter, Serializable):
     if self.hyp_sents:
       html_filename = f"{self.report_path}/charcut.html"
       util.make_parent_dir(html_filename)
-      import xnmt.thirdparty.charcut.charcut as charcut
       args = util.ArgClass(html_output_file=html_filename, match_size=self.match_size, alt_norm=self.alt_norm)
       aligned_segs = charcut.load_input_segs(cand_segs=self.hyp_sents,
                                              ref_segs=self.ref_sents,
@@ -219,9 +219,46 @@ class HtmlReporter(Reporter):
     self.report_name = report_name
     self.report_path = report_path
     self.html_contents = ["<html><meta charset='UTF-8' /><head><title>Translation Report</title></head><body>"]
+    self.html_contents.append("""
+      <style>
+        body {font-family: sans-serif; font-size: 11pt;}
+        table, td, th {border-spacing: 0;}
+        th {padding: 10px;}
+        td {padding: 5px;}
+        th {border-top: solid black 2px; font-weight: normal;}
+        .tophead {border-bottom: solid black 1px;}
+        .src {font-style: oblique;}
+        .trg {font-family: Consolas, monospace;}
+        .del {font-weight: bold; color: #f00000;}
+        .ins {font-weight: bold; color: #0040ff;}
+        .shift {font-weight: bold;}
+        .match {}
+        .mainrow {border-top: solid black 1px; padding: 1em;}
+        .midrow {border-bottom: dotted gray 1px;}
+        .seghead {color: gray; text-align: right;}
+        .score {font-family: Consolas, monospace; text-align: right; font-size: large;}
+        .detail {font-size: xx-small; color: gray;}
+      </style>
+      <script>
+        function enter(cls) {
+          var elts = document.getElementsByClassName(cls);
+          for (var i=0; i<elts.length; i++)
+            elts[i].style.backgroundColor = "yellow";
+        }
+        function leave(cls) {
+          var elts = document.getElementsByClassName(cls);
+          for (var i=0; i<elts.length; i++)
+            elts[i].style.backgroundColor = "transparent";
+        }
+      </script>
+   """)
 
   def add_sent_heading(self, idx: int):
     self.html_contents.append(f"<h1>Translation Report for Sentence {idx}</h1>")
+    self.html_contents.append("<table>")
+
+  def finish_sent(self):
+    self.html_contents.append("</table>")
 
   def finish_html_doc(self):
     self.html_contents.append("</body></html>")
@@ -256,9 +293,21 @@ class HtmlReporter(Reporter):
     html_ret = ""
     for key, val in fields.items():
       if val:
-        html_ret += f"<p><b>{key}:</b>{val}</p>"
+        html_ret += f"<tr><td></td><td class='seghead'>{key}:</td><td>{val}</td></tr>"
     if html_ret:
       self.html_contents.append(html_ret)
+
+  def add_charcut_diff(self, trg_str, reference, match_size=3, alt_norm=False):
+    aligned_segs = charcut.load_input_segs(cand_segs=[trg_str],
+                                           ref_segs=[reference])
+    styled_ops = [charcut.compare_segments(cand, ref, match_size)
+                  for seg_id, _, _, cand, ref in aligned_segs]
+
+    seg_scores = list(charcut.score_all(aligned_segs, styled_ops, alt_norm))
+    # doc_cost = sum(cost for cost, _ in seg_scores)
+    # doc_div = sum(div for _, div in seg_scores)
+
+    self.html_contents.append(charcut.segs2html(aligned_segs[0], styled_ops[0], seg_scores[0]))
 
 
 class AttentionReporter(HtmlReporter, Serializable):
@@ -296,9 +345,11 @@ class AttentionReporter(HtmlReporter, Serializable):
     src_tokens = self.get_tokens(inp=src, inp_vocab=src_vocab)
     trg_tokens = self.get_tokens(output=output)
     src_str, trg_str = self.get_strings(src_tokens=src_tokens, output=output, output_proc=output_proc)
-    self.add_fields_if_set({"Source Words" : src_str, "Output Words": trg_str, "Reference Words": reference})
+    self.add_charcut_diff(trg_str, reference)
+    self.add_fields_if_set({"Src" : src_str})
     self.add_atts(attentions, src.get_array() if isinstance(src, xnmt.input.ArrayInput) else src_tokens,
                   trg_tokens, idx)
+    self.finish_sent()
 
   @handle_xnmt_event
   def on_end_inference(self):
@@ -328,7 +379,8 @@ class AttentionReporter(HtmlReporter, Serializable):
     else:
       size_y = math.log(len(src_tokens)+1) * 3
     attention_file = f"{self.report_path}/img/attention.{util.valid_filename(desc).lower()}.{idx}.png"
-    html_att = f'<p><b>{desc}:</b><br /><img src="img/{os.path.basename(attention_file)}" alt="attention matrix" /></p>'
+    html_att = f'<tr><td></td><td class="seghead">{desc}:</td><td></td></tr>' \
+               f'<tr><td colspan="3" align="left"><img src="img/{os.path.basename(attention_file)}" alt="attention matrix" /></td></tr>'
     xnmt.plot.plot_attention(src_words=src_tokens, trg_words=trg_tokens, attention_matrix=attentions,
                              file_name=attention_file, size_x=size_x, size_y=size_y)
     self.html_contents.append(html_att)
