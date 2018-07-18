@@ -13,7 +13,7 @@ seg_lookup: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     # It reads in characters and produce word embeddings
     encoder: !SegmentingSeqTransducer
-      segment_composer: !WordEmbeddingSegmentComposer
+      segment_composer: !LookupComposer
         word_vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
       final_transducer: !BiLSTMSeqTransducer {}
   train: !SimpleTrainingRegimen
@@ -38,9 +38,7 @@ seg_sum: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     encoder: !SegmentingSeqTransducer
       ### Pay attention to this part
-      segment_composer: !SegmentComposer
-        encoder: !IdentitySeqTransducer {}
-        transformer: !SumSegmentTransformer {}
+      segment_composer: !SumComposer {}
       ###
       final_transducer: !BiLSTMSeqTransducer {}
   train: !SimpleTrainingRegimen
@@ -65,9 +63,8 @@ seg_bilstm: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     encoder: !SegmentingSeqTransducer
       ### Pay attention to this part
-      segment_composer: !SegmentComposer
-        encoder: !BiLSTMSeqTransducer {}
-        transformer: !TailSegmentTransformer {}
+      segment_composer: !SeqTransducerComposer
+        seq_transducer: !BiLSTMSeqTransducer {}
       ###
       final_transducer: !BiLSTMSeqTransducer {}
   train: !SimpleTrainingRegimen
@@ -92,7 +89,7 @@ seg_charagram: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     encoder: !SegmentingSeqTransducer
       ### Pay attention to this part
-      segment_composer: !CharNGramSegmentComposer
+      segment_composer: !CharNGramComposer
         ngram_size: 4
         word_vocab: !Vocab {vocab_file: examples/data/head.ngramcount.ja}
       ###
@@ -119,11 +116,11 @@ seg_lookup_charagram: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     encoder: !SegmentingSeqTransducer
       ### Pay attention to this part
-      segment_composer: !SumMultipleSegmentComposer
-        segment_composers: 
-        - !WordEmbeddingSegmentComposer
+      segment_composer: !SumMultipleComposer
+        composers: 
+        - !LookupComposer
           word_vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
-        - !CharNGramSegmentComposer
+        - !CharNGramComposer
           ngram_size: 4
           word_vocab: !Vocab {vocab_file: examples/data/head.ngramcount.ja}
       ###
