@@ -249,7 +249,7 @@ class HtmlReporter(Reporter):
     src_str = " ".join(src_tokens)
     return src_str, trg_str
 
-  def add_sent_fields(self, fields):
+  def add_fields_if_set(self, fields):
     html_ret = ""
     for key, val in fields.items():
       if val:
@@ -292,7 +292,7 @@ class AttentionReporter(HtmlReporter, Serializable):
     self.add_sent_heading(idx)
     src_tokens, trg_tokens = self.get_tokens(output, src, src_vocab)
     src_str, trg_str = self.get_strings(src_tokens=src_tokens, output=output, output_proc=output_proc)
-    self.add_sent_fields({"Source Words" : src_str, "Output Words": trg_str, "Reference Words": reference})
+    self.add_fields_if_set({"Source Words" : src_str, "Output Words": trg_str, "Reference Words": reference})
     self.add_atts(attentions, src.get_array() if isinstance(src, xnmt.input.ArrayInput) else src_tokens,
                   trg_tokens, idx)
 
