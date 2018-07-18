@@ -315,6 +315,5 @@ class TestTrigramReader(unittest.TestCase):
   def test_no_die(self):
     self.assertTrue(True)
 
-
 if __name__ == "__main__":
   unittest.main()

@@ -268,7 +268,7 @@ class TrigramFromWordTextReader(PlainTextReader, Serializable):
         this_trigram.append(word[i:i+3])
       trigrams.extend(this_trigram)
       offset += len(this_trigram)
-      segs.append(offset)
+      segs.append(offset-1)
     segs.append(len(trigrams))
     trigrams.append(Vocab.ES_STR)
     sent_input = SimpleSentenceInput([self.vocab.convert(c) for c in trigrams])
