@@ -52,8 +52,8 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.segment_embed_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
     self.segment_composer = SegmentComposer(encoder=self.segment_encoder_bilstm,
                                             transformer=self.tail_transformer)
-    self.src_reader = CharFromWordTextReader()
-    self.trg_reader = PlainTextReader()
+    self.src_reader = CharFromWordTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.charvocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
     self.loss_calculator = AutoRegressiveMLELoss()
 
 
@@ -199,8 +199,8 @@ class TestComposing(unittest.TestCase):
     self.segment_embed_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
     self.segment_composer = SegmentComposer(encoder=self.segment_encoder_bilstm,
                                             transformer=self.tail_transformer)
-    self.src_reader = CharFromWordTextReader()
-    self.trg_reader = PlainTextReader()
+    self.src_reader = CharFromWordTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.charvocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
     self.loss_calculator = AutoRegressiveMLELoss()
     self.segmenting_encoder = SegmentingSeqTransducer(
       embed_encoder = self.segment_embed_encoder_bilstm,
