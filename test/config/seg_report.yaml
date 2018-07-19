@@ -8,9 +8,8 @@ report: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     encoder: !SegmentingSeqTransducer
       embed_encoder: !BiLSTMSeqTransducer {}
-      segment_composer: !SegmentComposer
-        encoder: !BiLSTMSeqTransducer {}
-        transformer: !TailSegmentTransformer {}
+      segment_composer: !SeqTransducerComposer
+        seq_transducer: !BiLSTMSeqTransducer {}
       final_transducer: !BiLSTMSeqTransducer {}
       policy_learning: !PolicyGradient 
         z_normalization: True

@@ -1,7 +1,7 @@
 .. _sec-programming-style:
 
-Programming Style
-=================
+Programming Conventions
+=======================
 
 Philosphy
 ---------
@@ -17,25 +17,46 @@ the following is the order of priority (of course getting all is great!):
 3. Accuracy and Effectiveness of the Models
 4. Efficiency
 
-Coding Conventions
-------------------
+Style
+-----
 
-There are also a minimal of coding style conventions:
+There are some minimal coding style conventions:
 
-- Follow Python 3 conventions, Python 2 is not supported.
 - Functions should be snake_case, classes should be UpperCamelCase.
 - Indentation should be two whitespace characters.
-- Docstrings should be made according to the Google style guide, see http://sphinxcontrib-napoleon.readthedocs.io/en/latest/
+- In variable names, common words should be abbreviated as:
 
-A collection of unit tests exists to make sure things don't break.
+  - source -> src
+  - target -> trg
+  - sentence -> sent
+  - hypothesis -> hyp
+  - reference -> ref
 
-In variable names, common words should be abbreviated as:
 
-- source -> src
-- target -> trg
-- sentence -> sent
-- hypothesis -> hyp
-- reference -> ref
+Documentation
+-------------
+
+- Docstrings should be made according to the `Google style guide <http://sphinxcontrib-napoleon.readthedocs.io/en/latest/>`_.
+- Types should be annotated consistently, see `corresponding Python docs <https://docs.python.org/3/library/typing.html>`_.
+- Ideally, documentation should be added at module-level (giving a summary of the most relevant contents of the module),
+  the class level (including arguments for ``__init__()``), and method level. Documentation for methods/classes etc.
+  that do not need to be accessed from outside may be omitted and these should ideally marked as private by adding a
+  single underscore as prefix.
+- Note: some of these conventions are currently not followed consistently; PRs welcome!
+
+Testing
+-------
+
+A collection of unit tests exists to make sure things don't break. When writing new code:
+
+- The minimum recommendation is to add a config file to ``test/config`` and add a corresponding entry to
+  ``test/test_run.py`` which will ensure that future commits will not cause this to crash. This "crash test config"
+  should run as fast as possible.
+- Even better would be correctness tests, several examples for which can be found in the test package.
+
+
+Logging
+-------
 
 For printing output in a consistent and controllable way, a few conventions 
 should be followed (see _official documentation: https://docs.python.org/3/howto/logging.html#when-to-use-logging for more details):
