@@ -474,9 +474,11 @@ def ops2html(styled_ops, seg_id):
               'onmouseenter="enter(\'{substr_id}\')" onmouseleave="leave(\'{substr_id}\')">' \
               '{slice}</span>'.format(**locals())
 
-
+seg_counter = 0
 def segs2html(segs, ops, score_pair, mt_label="MT:", ref_label="Ref:", use_id_col=True):
     """Do highlighting on a single segment pair."""
+    global seg_counter
+    seg_counter += 1
     seg_id, origin, src, cand, ref = segs
     styled_cand, styled_ref = ops
     cost, div = score_pair
@@ -486,8 +488,8 @@ def segs2html(segs, ops, score_pair, mt_label="MT:", ref_label="Ref:", use_id_co
         <td class="seghead midrow">Src:</td>
         <td class="midrow src">{}</td>
        </tr>'''.format(src) if src else ''
-    cand_str = ''.join(ops2html(styled_cand, seg_id))
-    ref_str = ''.join(ops2html(styled_ref, seg_id))
+    cand_str = ''.join(ops2html(styled_cand, seg_counter))
+    ref_str = ''.join(ops2html(styled_ref, seg_counter))
     id_row = ""
     if use_id_col: id_row = '<td class="mainrow">{origin_str}{seg_id}</td>'.format(**locals())
     return '''
