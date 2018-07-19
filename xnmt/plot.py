@@ -27,6 +27,7 @@ def plot_attention(src_words, trg_words, attention_matrix, file_name, size_x = 8
     src_words = [unidecode(w) for w in src_words]
   if max_len>150: matplotlib.rc('font', size=5)
   elif max_len>50: matplotlib.rc('font', size=7)
+  dpi = 100 if max_len <= 150 else 150
   fig, axs = plt.subplots(nrows=1, ncols=2 if src_is_speech else 1,
                           figsize=(size_x+(1.0 if src_is_speech else 0.0), size_y),
                           gridspec_kw = {'width_ratios':[1, size_x]} if src_is_speech else None)
@@ -48,15 +49,15 @@ def plot_attention(src_words, trg_words, attention_matrix, file_name, size_x = 8
 
   if src_is_speech:
     ax = axs[0]
-    plot_speech_features(feature_matrix=src_words, ax=ax)
+    plot_speech_features(feature_matrix=src_words, ax=ax, dpi=dpi)
     fig.tight_layout()
 
   util.make_parent_dir(file_name)
-  plt.savefig(file_name, dpi=100 if max_len <= 150 else 150)
+  plt.savefig(file_name, dpi=dpi)
   plt.close()
 
 
-def plot_speech_features(feature_matrix, file_name=None, vertical = True, ax=None, length = 8.0):
+def plot_speech_features(feature_matrix, file_name=None, vertical = True, ax=None, length = 8.0, dpi=100):
   """Plot speech feature matrix.
 
   Args:
@@ -78,6 +79,6 @@ def plot_speech_features(feature_matrix, file_name=None, vertical = True, ax=Non
     plt.axis('off')
   if file_name is not None:
     util.make_parent_dir(file_name)
-    plt.savefig(file_name, dpi=100)
+    plt.savefig(file_name, dpi=dpi)
     plt.close()
 
