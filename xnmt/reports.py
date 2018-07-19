@@ -374,11 +374,11 @@ class AttentionReporter(HtmlReporter, Serializable):
       desc: readable description
     """
     src_is_speech = isinstance(src_tokens, np.ndarray)
-    size_x = math.log(len(trg_tokens)+1) * 3
+    size_x = math.log(len(trg_tokens)+2) * 3
     if src_is_speech:
-      size_y = math.log(src_tokens.shape[1]+1)
+      size_y = math.log(src_tokens.shape[1]+2)
     else:
-      size_y = math.log(len(src_tokens)+1) * 3
+      size_y = math.log(len(src_tokens)+2) * 3
     attention_file = f"{self.report_path}/img/attention.{util.valid_filename(desc).lower()}.{idx}.png"
     html_att = f'<tr><td class="seghead">{desc}:</td><td></td></tr>' \
                f'<tr><td colspan="2" align="left"><img src="img/{os.path.basename(attention_file)}" alt="attention matrix" /></td></tr>'
