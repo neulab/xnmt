@@ -17,6 +17,7 @@ from xnmt.transform import NonLinear
 from xnmt.scorer import Softmax
 from xnmt.translator import DefaultTranslator
 from xnmt.search_strategy import BeamSearch, GreedySearch
+from xnmt.vocab import Vocab
 
 class TestForcedDecodingOutputs(unittest.TestCase):
 
@@ -29,9 +30,11 @@ class TestForcedDecodingOutputs(unittest.TestCase):
     layer_dim = 512
     xnmt.events.clear()
     ParamManager.init_param_col()
+    src_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
     self.model = DefaultTranslator(
-      src_reader=PlainTextReader(),
-      trg_reader=PlainTextReader(),
+      src_reader=PlainTextReader(vocab=src_vocab),
+      trg_reader=PlainTextReader(vocab=trg_vocab),
       src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
@@ -64,9 +67,11 @@ class TestForcedDecodingLoss(unittest.TestCase):
     layer_dim = 512
     xnmt.events.clear()
     ParamManager.init_param_col()
+    src_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
     self.model = DefaultTranslator(
-      src_reader=PlainTextReader(),
-      trg_reader=PlainTextReader(),
+      src_reader=PlainTextReader(vocab=src_vocab),
+      trg_reader=PlainTextReader(vocab=trg_vocab),
       src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
@@ -99,9 +104,11 @@ class TestFreeDecodingLoss(unittest.TestCase):
     layer_dim = 512
     xnmt.events.clear()
     ParamManager.init_param_col()
+    src_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
     self.model = DefaultTranslator(
-      src_reader=PlainTextReader(),
-      trg_reader=PlainTextReader(),
+      src_reader=PlainTextReader(vocab=src_vocab),
+      trg_reader=PlainTextReader(vocab=trg_vocab),
       src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
@@ -137,9 +144,11 @@ class TestGreedyVsBeam(unittest.TestCase):
     layer_dim = 512
     xnmt.events.clear()
     ParamManager.init_param_col()
+    src_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
     self.model = DefaultTranslator(
-      src_reader=PlainTextReader(),
-      trg_reader=PlainTextReader(),
+      src_reader=PlainTextReader(vocab=src_vocab),
+      trg_reader=PlainTextReader(vocab=trg_vocab),
       src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),

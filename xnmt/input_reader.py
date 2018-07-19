@@ -32,8 +32,6 @@ class InputReader(object):
       filter_ids: only read sentences with these ids (0-indexed)
     Returns: iterator over sentences from filename
     """
-    if self.vocab is None:
-      self.vocab = Vocab()
     return self.iterate_filtered(filename, filter_ids)
 
   def count_sents(self, filename: str) -> int:
@@ -45,12 +43,6 @@ class InputReader(object):
     Returns: number of sentences in the data file
     """
     raise RuntimeError("Input readers must implement the count_sents function")
-
-  def freeze(self) -> None:
-    """
-    Freeze the data representation, e.g. by freezing the vocab.
-    """
-    pass
 
   def needs_reload(self) -> bool:
     """
@@ -98,6 +90,12 @@ class BaseTextReader(InputReader):
         if max_id is not None and sent_count > max_id:
           break
 
+def convert_int(x):
+  try:
+    return int(x)
+  except ValueError:
+    raise ValueError(f"Expecting integer tokens because no vocab was set. Got: '{x}'")
+
 class PlainTextReader(BaseTextReader, Serializable):
   """
   Handles the typical case of reading plain text files, with one sent per line.
@@ -113,24 +111,16 @@ class PlainTextReader(BaseTextReader, Serializable):
   def __init__(self, vocab: Optional[Vocab] = None, read_sent_len: bool = False):
     self.vocab = vocab
     self.read_sent_len = read_sent_len
-    if vocab is not None:
-      self.vocab.freeze()
-      self.vocab.set_unk(Vocab.UNK_STR)
 
   def read_sent(self, line):
     if self.vocab:
       self.convert_fct = self.vocab.convert
     else:
-      self.convert_fct = int
+      self.convert_fct = convert_int
     if self.read_sent_len:
       return IntInput(len(line.strip().split()))
     else:
       return SimpleSentenceInput([self.convert_fct(word) for word in line.strip().split()] + [Vocab.ES])
-
-  def freeze(self):
-    self.vocab.freeze()
-    self.vocab.set_unk(Vocab.UNK_STR)
-    self.save_processed_arg("vocab", self.vocab)
 
   def vocab_size(self):
     return len(self.vocab)
@@ -166,8 +156,6 @@ class CompoundReader(InputReader, Serializable):
         return
   def count_sents(self, filename: str) -> int:
     return self.readers[0].count_sents(filename if isinstance(filename,str) else filename[0])
-  def freeze(self) -> None:
-    for reader in self.readers: reader.freeze()
   def needs_reload(self) -> bool:
     return any(reader.needs_reload() for reader in self.readers)
 
@@ -199,9 +187,6 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
     self.alpha = alpha
     self.vocab = vocab
     self.train = False
-    if vocab is not None:
-      self.vocab.freeze()
-      self.vocab.set_unk(Vocab.UNK_STR)
 
   @handle_xnmt_event
   def on_set_train(self, val):
@@ -215,11 +200,6 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
     words = [w.decode('utf-8') for w in words]
     return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
                                                        [self.vocab.convert(Vocab.ES_STR)])
-
-  def freeze(self):
-    self.vocab.freeze()
-    self.vocab.set_unk(Vocab.UNK_STR)
-    self.save_processed_arg("vocab", self.vocab)
 
   def count_words(self, trg_words):
     trg_cnt = 0

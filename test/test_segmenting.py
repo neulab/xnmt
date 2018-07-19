@@ -241,7 +241,6 @@ class TestComposing(unittest.TestCase):
   def test_embed_composer(self):
     enc = self.segmenting_encoder
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
-    word_vocab.freeze()
     enc.segment_composer = WordEmbeddingSegmentComposer(
         word_vocab = word_vocab,
         src_vocab = self.src_reader.vocab,
@@ -257,7 +256,6 @@ class TestComposing(unittest.TestCase):
   def test_charngram_composer(self):
     enc = self.segmenting_encoder
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
-    word_vocab.freeze()
     enc.segment_composer = CharNGramSegmentComposer(
         word_vocab = word_vocab,
         src_vocab = self.src_reader.vocab,
@@ -268,7 +266,6 @@ class TestComposing(unittest.TestCase):
   def test_add_multiple_segment_composer(self):
     enc = self.segmenting_encoder
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
-    word_vocab.freeze()
     enc.segment_composer = SumMultipleSegmentComposer(
       segment_composers = [
         WordEmbeddingSegmentComposer(word_vocab = word_vocab,

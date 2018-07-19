@@ -83,10 +83,8 @@ class CharNGramSegmentComposer(Serializable):
       dict_entry = vocab_size
     else:
       dict_entry = len(word_vocab)
-      word_vocab.freeze()
       if word_vocab.UNK_STR not in word_vocab.w2i:
         dict_entry += 1
-      word_vocab.set_unk(word_vocab.UNK_STR)
 
     self.dict_entry = dict_entry
     self.src_vocab = src_vocab
@@ -133,8 +131,6 @@ class WordEmbeddingSegmentComposer(Serializable):
       word_vocab = Vocab()
       dict_entry = vocab_size
     else:
-      word_vocab.freeze()
-      word_vocab.set_unk(word_vocab.UNK_STR)
       dict_entry = len(word_vocab)
 
     self.src_vocab = src_vocab
