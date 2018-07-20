@@ -7,18 +7,18 @@ import numpy as np
 from xnmt.vocab import Vocab
 from xnmt.output import OutputProcessor
 
-# TODO: add score: to each sentence, or a special class?
-
 class Sentence(object):
   """
   A template class to represent a single data example of any type, used for both model input and output.
 
   Args:
     idx: running sentence number (unique among sentences loaded from the same file, but not across files)
+    score: a score given to this sentence by a model
   """
 
-  def __init__(self, idx: int) -> None:
+  def __init__(self, idx: int, score: Optional[float] = None) -> None:
     self.idx = idx
+    self.score = score
 
   def sent_len(self) -> int:
     """
@@ -63,11 +63,12 @@ class ReadableSentence(Sentence):
 
   Args:
     idx: running sentence number (unique among sentences loaded from the same file, but not across files)
-    output_procs: output processors to be applied when calling sent_str()
+    score: a score given to this sentence by a model
+    post_procs: output post processors to be applied when calling sent_str()
   """
-  def __init__(self, idx: int, output_procs: Sequence[OutputProcessor] = []) -> None:
-    super().__init__(idx=idx)
-    self.output_procs = output_procs
+  def __init__(self, idx: int, score: float = None, post_procs: Sequence[OutputProcessor] = []) -> None:
+    super().__init__(idx=idx, score=score)
+    self.post_procs = post_procs
 
   def str_tokens(self, **kwargs) -> List[str]:
     """
@@ -79,17 +80,23 @@ class ReadableSentence(Sentence):
     Returns: list of tokens.
     """
     raise NotImplementedError("must be implemented by subclasses")
-  def sent_str(self, **kwargs) -> str:
+  def sent_str(self, custom_post_procs=None, **kwargs) -> str:
     """
     Return a single string containing the readable version of the sentence.
 
     Args:
+      custom_post_procs: if not None, overwrite the sentence's default post processors
       **kwargs: should accept arbitrary keyword args
 
     Returns: readable string
     """
     out_str = " ".join(self.str_tokens(**kwargs))
-    # TODO: apply output processors
+    pps = self.post_procs
+    if custom_post_procs is not None:
+      pps = custom_post_procs
+    for pp in pps:
+      out_str = pp.process(out_str)
+      # TODO: change output processor interface accordingly
     return out_str
 
 class ScalarSentence(ReadableSentence):
@@ -99,10 +106,13 @@ class ScalarSentence(ReadableSentence):
   This is useful for classification-style problems.
 
   Args:
-     value: scalar value
-     vocab: optional vocab to give different scalar values a string representation.
+    idx: running sentence number (unique among sentences loaded from the same file, but not across files)
+    value: scalar value
+    vocab: optional vocab to give different scalar values a string representation.
+    score: a score given to this sentence by a model
   """
-  def __init__(self, value: int, vocab: Optional[Vocab] = None) -> None:
+  def __init__(self, idx: int, value: int, vocab: Optional[Vocab] = None, score: Optional[float] = None) -> None:
+    super().__init__(idx=idx, score=score)
     self.value = value
     self.vocab = vocab
   def sent_len(self) -> int:
@@ -126,9 +136,11 @@ class CompoundSentence(Sentence):
   A compound sentence contains several sentence objects that present different 'views' on the same data examples.
 
   Args:
+    idx: running sentence number (unique among sentences loaded from the same file, but not across files)
     sents: a list of sentences
   """
-  def __init__(self, sents: Sequence[Sentence]) -> None:
+  def __init__(self, idx: int, sents: Sequence[Sentence]) -> None:
+    super().__init__(idx=idx)
     self.sents = sents
   def sent_len(self) -> int:
     return sum(sent.sent_len() for sent in self.sents)
@@ -145,12 +157,17 @@ class SimpleSentence(ReadableSentence):
   A simple sentence, represented as a list of tokens
 
   Args:
+    idx: running sentence number (unique among sentences loaded from the same file, but not across files)
     words: list of integer word ids
     vocab: optionally vocab mapping word ids to strings
+    score: a score given to this sentence by a model
+    post_procs: output post processors to be applied when calling sent_str()
   """
   PAD_TOKEN = Vocab.ES
 
-  def __init__(self, words: Sequence[int], vocab: Optional[Vocab] = None):
+  def __init__(self, idx: int, words: Sequence[int], vocab: Optional[Vocab] = None, score: Optional[float] = None,
+               post_procs: Sequence[OutputProcessor] = []) -> None:
+    super().__init__(idx=idx, score=score, post_procs=post_procs)
     self.words = words
     self.vocab = vocab
 
@@ -181,6 +198,7 @@ class SimpleSentence(ReadableSentence):
     new_sent.words.extend([SimpleSentence.PAD_TOKEN] * pad_len)
     return new_sent
 
+  # TODO: how to handle padded tokens below?
   def create_truncated_sent(self, trunc_len: int) -> 'SimpleSentence':
     if trunc_len == 0:
       return self
@@ -202,10 +220,14 @@ class ArraySentence(Sentence):
   A sentence based on a numpy array containing a continuous-space vector for each token.
 
   Args:
+    idx: running sentence number (unique among sentences loaded from the same file, but not across files)
     nparr: numpy array of dimension num_tokens x token_size
+    padded_len: how many padded tokens are contained in the given nparr
+    score: a score given to this sentence by a model
   """
 
-  def __init__(self, nparr: np.ndarray, padded_len: int = 0) -> None:
+  def __init__(self, idx: int, nparr: np.ndarray, padded_len: int = 0, score: Optional[float] = None) -> None:
+    super().__init__(idx=idx, score=score)
     self.nparr = nparr
     self.padded_len = padded_len
 
@@ -236,6 +258,25 @@ class ArraySentence(Sentence):
   def get_array(self):
     return self.nparr
 
-class NbestSentence(Sentence):
-  ...
-  # TODO
+class NbestSentence(SimpleSentence):
+  """
+  Output in the context of an nbest list.
+
+  Args:
+    base_sent: The base sent object
+    nbest_id: The sentence id in the nbest list
+    print_score: If True, print nbest_id, score, content separated by ``|||```. If False, drop the score.
+  """
+  def __init__(self, base_sent: SimpleSentence, nbest_id: int, print_score: bool = False) -> None:
+    super().__init__(words=base_sent.words, vocab=base_sent.vocab, score=base_sent.score)
+    self.base_output = base_sent
+    self.nbest_id = nbest_id
+    self.print_score = print_score
+  def sent_str(self, custom_post_procs=None, **kwargs) -> str:
+    content_str = super().sent_str(custom_post_procs=custom_post_procs, **kwargs)
+    return self._make_nbest_entry(content_str=content_str)
+  def _make_nbest_entry(self, content_str: str) -> str:
+    entries = [str(self.nbest_id), content_str]
+    if self.print_score:
+      entries.insert(1, str(self.base_output.score))
+    return " ||| ".join(entries)
