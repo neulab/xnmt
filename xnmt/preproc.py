@@ -15,7 +15,7 @@ import yaml
 
 from xnmt import logger
 from xnmt.persistence import serializable_init, Serializable
-from thirdparty.speech_features import logfbank, calculate_delta, get_mean_std, normalize
+from xnmt.thirdparty.speech_features import logfbank, calculate_delta, get_mean_std, normalize
 from xnmt.util import make_parent_dir
 
 ##### Preprocessors
