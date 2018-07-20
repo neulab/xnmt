@@ -64,11 +64,11 @@ class ReadableSentence(Sentence):
   Args:
     idx: running sentence number (unique among sentences loaded from the same file, but not across files)
     score: a score given to this sentence by a model
-    post_procs: output post processors to be applied when calling sent_str()
+    output_procs: output processors to be applied when calling sent_str()
   """
-  def __init__(self, idx: int, score: float = None, post_procs: Sequence[OutputProcessor] = []) -> None:
+  def __init__(self, idx: int, score: float = None, output_procs: Sequence[OutputProcessor] = []) -> None:
     super().__init__(idx=idx, score=score)
-    self.post_procs = post_procs
+    self.output_procs = output_procs
 
   def str_tokens(self, **kwargs) -> List[str]:
     """
@@ -80,20 +80,20 @@ class ReadableSentence(Sentence):
     Returns: list of tokens.
     """
     raise NotImplementedError("must be implemented by subclasses")
-  def sent_str(self, custom_post_procs=None, **kwargs) -> str:
+  def sent_str(self, custom_output_procs=None, **kwargs) -> str:
     """
     Return a single string containing the readable version of the sentence.
 
     Args:
-      custom_post_procs: if not None, overwrite the sentence's default post processors
+      custom_output_procs: if not None, overwrite the sentence's default output processors
       **kwargs: should accept arbitrary keyword args
 
     Returns: readable string
     """
     out_str = " ".join(self.str_tokens(**kwargs))
-    pps = self.post_procs
-    if custom_post_procs is not None:
-      pps = custom_post_procs
+    pps = self.output_procs
+    if custom_output_procs is not None:
+      pps = custom_output_procs
     for pp in pps:
       out_str = pp.process(out_str)
       # TODO: change output processor interface accordingly
@@ -161,13 +161,13 @@ class SimpleSentence(ReadableSentence):
     words: list of integer word ids
     vocab: optionally vocab mapping word ids to strings
     score: a score given to this sentence by a model
-    post_procs: output post processors to be applied when calling sent_str()
+    output_procs: output processors to be applied when calling sent_str()
   """
   PAD_TOKEN = Vocab.ES
 
   def __init__(self, idx: int, words: Sequence[int], vocab: Optional[Vocab] = None, score: Optional[float] = None,
-               post_procs: Sequence[OutputProcessor] = []) -> None:
-    super().__init__(idx=idx, score=score, post_procs=post_procs)
+               output_procs: Sequence[OutputProcessor] = []) -> None:
+    super().__init__(idx=idx, score=score, output_procs=output_procs)
     self.words = words
     self.vocab = vocab
 
@@ -272,8 +272,8 @@ class NbestSentence(SimpleSentence):
     self.base_output = base_sent
     self.nbest_id = nbest_id
     self.print_score = print_score
-  def sent_str(self, custom_post_procs=None, **kwargs) -> str:
-    content_str = super().sent_str(custom_post_procs=custom_post_procs, **kwargs)
+  def sent_str(self, custom_output_procs=None, **kwargs) -> str:
+    content_str = super().sent_str(custom_output_procs=custom_output_procs, **kwargs)
     return self._make_nbest_entry(content_str=content_str)
   def _make_nbest_entry(self, content_str: str) -> str:
     entries = [str(self.nbest_id), content_str]
