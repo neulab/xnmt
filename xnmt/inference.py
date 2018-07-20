@@ -338,7 +338,8 @@ class CascadeInference(Inference, Serializable):
   def __init__(self, steps: Sequence[Inference]) -> None:
     self.steps = steps
 
-  def perform_inference(self, generator: 'model_base.CascadeGenerator', src_file: str = None, trg_file: str = None):
+  def perform_inference(self, generator: 'model_base.CascadeGenerator', src_file: str = None, trg_file: str = None,
+                        ref_file_to_report = None):
     assert isinstance(generator, model_base.CascadeGenerator)
     assert len(generator.generators) == len(self.steps)
     src_files = [src_file] + [f"{trg_file}.tmp.{i}" for i in range(len(self.steps)-1)]
