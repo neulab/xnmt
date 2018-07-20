@@ -198,7 +198,6 @@ class SimpleSentence(ReadableSentence):
     new_sent.words.extend([SimpleSentence.PAD_TOKEN] * pad_len)
     return new_sent
 
-  # TODO: how to handle padded tokens below?
   def create_truncated_sent(self, trunc_len: int) -> 'SimpleSentence':
     if trunc_len == 0:
       return self
@@ -206,11 +205,12 @@ class SimpleSentence(ReadableSentence):
     new_sent.words = self.words[:-trunc_len]
     return new_sent
 
-  def str_tokens(self, exclude_ss_es=True, exclude_unk=False, **kwargs) -> List[str]:
+  def str_tokens(self, exclude_ss_es=True, exclude_unk=False, exclude_padded=True, **kwargs) -> List[str]:
     exclude_set = set()
     if exclude_ss_es:
       exclude_set.add(Vocab.SS, Vocab.ES)
     if exclude_unk: exclude_set.add(self.vocab.unk_token)
+    # TODO: exclude padded if requested (i.e., all </s> tags except for the first)
     ret_toks =  [w for w in self.words if w not in exclude_set]
     if self.vocab: return [self.vocab[w] for w in ret_toks]
     else: return [str(w) for w in ret_toks]
