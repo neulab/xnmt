@@ -129,41 +129,36 @@ from xnmt.persistence import Serializable, serializable_init
 #     return self._make_nbest_entry(output_processor.process_output(self.readable_actions()))
 
 class OutputProcessor(object):
-  # TODO: this should be refactored so that multiple processors can be chained
-  def process_output(self, output_actions: Sequence) -> str:
+  def process(self, s: str) -> str:
     """
     Produce a string-representation of an output.
 
     Args:
-      output_actions: readable output actions
+      s: string to be processed
 
     Returns:
-      string representation
+      post-processed string
     """
     raise NotImplementedError("must be implemented by subclasses")
 
   @staticmethod
   def get_output_processor(spec):
-    if spec == "none":
-      return PlainTextOutputProcessor()
-    elif spec == "join-char":
-      return JoinCharTextOutputProcessor()
-    elif spec == "join-bpe":
-      return JoinBPETextOutputProcessor()
-    elif spec == "join-piece":
-      return JoinPieceTextOutputProcessor()
+    if isinstance(spec, str):
+      procs = []
+      for spec_item in spec.split(","):
+        if spec_item == "none":
+          continue
+        elif spec_item == "join-char":
+          procs.append(JoinCharTextOutputProcessor())
+        elif spec == "join-bpe":
+          procs.append(JoinBpeTextOutputProcessor())
+        elif spec == "join-piece":
+          procs.append(JoinPieceTextOutputProcessor())
+      return procs
     else:
       return spec
 
-class PlainTextOutputProcessor(OutputProcessor, Serializable):
-  """
-  Handles the typical case of writing plain text, with one sentence per line.
-  """
-  yaml_tag = "!PlainTextOutputProcessor"
-  def process_output(self, output_actions):
-    return " ".join(output_actions)
-
-class JoinCharTextOutputProcessor(PlainTextOutputProcessor, Serializable):
+class JoinCharTextOutputProcessor(OutputProcessor, Serializable):
   """
   Assumes a single-character vocabulary and joins them to form words.
 
@@ -174,10 +169,10 @@ class JoinCharTextOutputProcessor(PlainTextOutputProcessor, Serializable):
   def __init__(self, space_token="__"):
     self.space_token = space_token
 
-  def process_output(self, output_actions):
-    return "".join(" " if s==self.space_token else s for s in  output_actions)
+  def process(self, s: str) -> str:
+    return s.replace(" ", "").replace(self.space_token, " ")
 
-class JoinBPETextOutputProcessor(PlainTextOutputProcessor, Serializable):
+class JoinBpeTextOutputProcessor(OutputProcessor, Serializable):
   """
   Assumes a bpe-based vocabulary and outputs the merged words.
 
@@ -188,10 +183,10 @@ class JoinBPETextOutputProcessor(PlainTextOutputProcessor, Serializable):
   def __init__(self, merge_indicator="@@"):
     self.merge_indicator_with_space = merge_indicator + " "
 
-  def process_output(self, output_actions):
-    return " ".join(output_actions).replace(self.merge_indicator_with_space, "")
+  def process(self, s: str) -> str:
+    return s.replace(self.merge_indicator_with_space, "")
 
-class JoinPieceTextOutputProcessor(PlainTextOutputProcessor, Serializable):
+class JoinPieceTextOutputProcessor(OutputProcessor, Serializable):
   """
   Assumes a sentence-piece vocabulary and joins them to form words.
 
@@ -202,5 +197,5 @@ class JoinPieceTextOutputProcessor(PlainTextOutputProcessor, Serializable):
   def __init__(self, space_token="\u2581"):
     self.space_token = space_token
 
-  def process_output(self, output_actions):
-    return "".join(output_actions).replace(self.space_token, " ").strip()
+  def process(self, s: str) -> str:
+    return s.replace(self.space_token, " ").strip()

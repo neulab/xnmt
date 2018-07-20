@@ -13,6 +13,7 @@ with warnings.catch_warnings():
 from xnmt import logger
 
 from xnmt.input import SimpleSentenceInput, ArrayInput, IntInput, CompoundInput
+from xnmt.sent import SimpleSentence, CompoundSentence
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.vocab import Vocab
@@ -93,7 +94,7 @@ class BaseTextReader(InputReader):
     with open(filename, encoding='utf-8') as f:
       for line in f:
         if filter_ids is None or sent_count in filter_ids:
-          yield self.read_sent(line)
+          yield self.read_sent(line, idx=sent_count)
         sent_count += 1
         if max_id is not None and sent_count > max_id:
           break
@@ -110,22 +111,26 @@ class PlainTextReader(BaseTextReader, Serializable):
   yaml_tag = '!PlainTextReader'
  
   @serializable_init
-  def __init__(self, vocab: Optional[Vocab] = None, read_sent_len: bool = False):
+  def __init__(self, vocab: Optional[Vocab] = None, read_sent_len: bool = False, output_procs = []):
     self.vocab = vocab
     self.read_sent_len = read_sent_len
+    self.output_procs = output_procs
     if vocab is not None:
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
 
-  def read_sent(self, line):
+  def read_sent(self, line, idx):
     if self.vocab:
-      self.convert_fct = self.vocab.convert
+      convert_fct = self.vocab.convert
     else:
-      self.convert_fct = int
+      convert_fct = int
     if self.read_sent_len:
       return IntInput(len(line.strip().split()))
     else:
-      return SimpleSentenceInput([self.convert_fct(word) for word in line.strip().split()] + [Vocab.ES])
+      return SimpleSentence(idx=idx,
+                            words=[convert_fct(word) for word in line.strip().split()] + [Vocab.ES],
+                            vocab=self.vocab,
+                            output_procs=self.output_procs)
 
   def freeze(self):
     self.vocab.freeze()
@@ -161,7 +166,8 @@ class CompoundReader(InputReader, Serializable):
                      zip(self.readers, filename)]
     while True:
       try:
-        yield CompoundInput(tuple([next(gen) for gen in generators]))
+        sub_sents = tuple([next(gen) for gen in generators])
+        yield CompoundSentence(idx=sub_sents[0].idx, sents=sub_sents)
       except StopIteration:
         return
   def count_sents(self, filename: str) -> int:
