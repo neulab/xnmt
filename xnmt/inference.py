@@ -95,7 +95,7 @@ class Inference(reports.Reportable):
                        trg_file: str, batcher: Optional[xnmt.batcher.Batcher] = None, max_src_len: Optional[int] = None,
                        forced_ref_corpus: Optional[Sequence[xnmt.input.Input]] = None,
                        assert_scores: Optional[Sequence[float]] = None,
-                       ref_file_to_report: Optional[str] = None) -> None:
+                       ref_file_to_report: Union[None,str,Sequence[str]] = None) -> None:
     """
     Generate outputs and write them to file.
 
@@ -116,12 +116,15 @@ class Inference(reports.Reportable):
         src_batches = batcher.pack(src_corpus, None)
       cur_sent_i = 0
       ref_batch = None
-      if ref_file_to_report: ref_file = open(ref_file_to_report)
+      if ref_file_to_report:
+        if isinstance(ref_file_to_report, str): ref_file_to_report = []
+        ref_files = [open(r) for r in ref_file_to_report]
       for batch_i, src_batch in enumerate(src_batches):
         batch_size = src_batch.batch_size()
         if ref_file_to_report:
           for _ in range(batch_size):
-            ref_sent = ref_file.readline().strip()
+            ref_sent = zip(r.readline().strip() for r in ref_files)
+            if len(ref_sent)==1: ref_sent = ref_sent[0]
           self.add_sent_for_report({"reference": ref_sent, "output_proc": self.post_processor})
         src_len = src_batch.sent_len()
         if max_src_len is not None and src_len > max_src_len:
@@ -144,7 +147,9 @@ class Inference(reports.Reportable):
             fp.write(f"{output_txt}\n")
         cur_sent_i += batch_size
         if self.max_num_sents and cur_sent_i >= self.max_num_sents: break
-      if ref_file_to_report: ref_file.close()
+      if ref_file_to_report:
+        for r in ref_files:
+          r.close()
 
   @events.register_xnmt_event
   def end_inference(self):
