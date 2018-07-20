@@ -5,11 +5,20 @@ import copy
 import numpy as np
 
 from xnmt.vocab import Vocab
+from xnmt.output import OutputProcessor
+
+# TODO: add score: to each sentence, or a special class?
 
 class Sentence(object):
   """
   A template class to represent a single data example of any type, used for both model input and output.
+
+  Args:
+    idx: running sentence number (unique among sentences loaded from the same file, but not across files)
   """
+
+  def __init__(self, idx: int) -> None:
+    self.idx = idx
 
   def sent_len(self) -> int:
     """
@@ -51,23 +60,37 @@ class Sentence(object):
 class ReadableSentence(Sentence):
   """
   A base class for sentences based on readable strings.
+
+  Args:
+    idx: running sentence number (unique among sentences loaded from the same file, but not across files)
+    output_procs: output processors to be applied when calling sent_str()
   """
-  def str_tokens(self) -> List[str]:
+  def __init__(self, idx: int, output_procs: Sequence[OutputProcessor] = []) -> None:
+    super().__init__(idx=idx)
+    self.output_procs = output_procs
+
+  def str_tokens(self, **kwargs) -> List[str]:
     """
     Return list of readable string tokens.
+
+    Args:
+      **kwargs: should accept arbitrary keyword args
 
     Returns: list of tokens.
     """
     raise NotImplementedError("must be implemented by subclasses")
-  def sent_str(self) -> str:
+  def sent_str(self, **kwargs) -> str:
     """
     Return a single string containing the readable version of the sentence.
 
+    Args:
+      **kwargs: should accept arbitrary keyword args
+
     Returns: readable string
     """
-    raise NotImplementedError("must be implemented by subclasses")
-
-  # TODO: support output processors
+    out_str = " ".join(self.str_tokens(**kwargs))
+    # TODO: apply output processors
+    return out_str
 
 class ScalarSentence(ReadableSentence):
   """
@@ -94,11 +117,9 @@ class ScalarSentence(ReadableSentence):
     if trunc_len != 0:
       raise ValueError("ScalarSentence cannot be truncated")
     return self
-  def sent_str(self) -> str:
-    if self.vocab: return self.vocab[self.value]
-    else: return str(self.value)
-  def str_tokens(self) -> List[str]:
-    return [self.sent_str()]
+  def str_tokens(self, **kwargs) -> List[str]:
+    if self.vocab: return [self.vocab[self.value]]
+    else: return [str(self.value)]
 
 class CompoundSentence(Sentence):
   """
@@ -167,12 +188,14 @@ class SimpleSentence(ReadableSentence):
     new_sent.words = self.words[:-trunc_len]
     return new_sent
 
-  def str_tokens(self) -> List[str]:
-    if self.vocab: return [self.vocab[w] for w in self.words]
-    else: return [str(w) for w in self.words]
-
-  def sent_str(self):
-    return " ".join(self.str_tokens())
+  def str_tokens(self, exclude_ss_es=True, exclude_unk=False, **kwargs) -> List[str]:
+    exclude_set = set()
+    if exclude_ss_es:
+      exclude_set.add(Vocab.SS, Vocab.ES)
+    if exclude_unk: exclude_set.add(self.vocab.unk_token)
+    ret_toks =  [w for w in self.words if w not in exclude_set]
+    if self.vocab: return [self.vocab[w] for w in ret_toks]
+    else: return [str(w) for w in ret_toks]
 
 class ArraySentence(Sentence):
   """
@@ -212,3 +235,7 @@ class ArraySentence(Sentence):
 
   def get_array(self):
     return self.nparr
+
+class NbestSentence(Sentence):
+  ...
+  # TODO
