@@ -117,14 +117,13 @@ class Inference(reports.Reportable):
       cur_sent_i = 0
       ref_batch = None
       if ref_file_to_report:
-        if isinstance(ref_file_to_report, str): ref_file_to_report = []
-        ref_files = [open(r) for r in ref_file_to_report]
+        if isinstance(ref_file_to_report, list): ref_file_to_report = ref_file_to_report[0]
+        ref_file = open(ref_file_to_report)
       for batch_i, src_batch in enumerate(src_batches):
         batch_size = src_batch.batch_size()
         if ref_file_to_report:
           for _ in range(batch_size):
-            ref_sent = zip(r.readline().strip() for r in ref_files)
-            if len(ref_sent)==1: ref_sent = ref_sent[0]
+            ref_sent = ref_file.readline().strip()
           self.add_sent_for_report({"reference": ref_sent, "output_proc": self.post_processor})
         src_len = src_batch.sent_len()
         if max_src_len is not None and src_len > max_src_len:
@@ -148,8 +147,7 @@ class Inference(reports.Reportable):
         cur_sent_i += batch_size
         if self.max_num_sents and cur_sent_i >= self.max_num_sents: break
       if ref_file_to_report:
-        for r in ref_files:
-          r.close()
+        ref_file.close()
 
   @events.register_xnmt_event
   def end_inference(self):
@@ -347,7 +345,8 @@ class CascadeInference(Inference, Serializable):
     for step_i, step in enumerate(self.steps):
       step.perform_inference(generator=generator.generators[step_i],
                              src_file=src_files[step_i],
-                             trg_file=trg_files[step_i])
+                             trg_file=trg_files[step_i],
+                             ref_file_to_report=ref_file_to_report)
 
   def compute_losses_one(self, *args, **kwargs):
     raise ValueError("cannot call CascadedInference.compute_losses_one() directly, use the sub-inference objects")
