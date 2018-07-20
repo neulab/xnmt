@@ -265,7 +265,7 @@ class NbestSentence(SimpleSentence):
   Args:
     base_sent: The base sent object
     nbest_id: The sentence id in the nbest list
-    print_score: If True, print nbest_id, score, content separated by ``|||```. If False, drop the score.
+    print_score: If True, print nbest_id, score, content separated by ``|||``. If False, drop the score.
   """
   def __init__(self, base_sent: SimpleSentence, nbest_id: int, print_score: bool = False) -> None:
     super().__init__(words=base_sent.words, vocab=base_sent.vocab, score=base_sent.score)
