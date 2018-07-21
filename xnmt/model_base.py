@@ -1,6 +1,6 @@
 from typing import Optional, Sequence, Union
 
-from xnmt import batcher, events, input_reader, loss, output, training_task
+from xnmt import batcher, events, input_reader, loss, sent, training_task
 import xnmt.loss_calculator
 import xnmt.input
 from xnmt.persistence import Serializable, serializable_init
@@ -94,7 +94,7 @@ class GeneratorModel(object):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
 
-  def generate(self, src: batcher.Batch, idx: Sequence[int], *args, **kwargs) -> Sequence[output.Output]:
+  def generate(self, src: batcher.Batch, idx: Sequence[int], *args, **kwargs) -> Sequence[sent.Sentence]:
     """
     Generate outputs.
 

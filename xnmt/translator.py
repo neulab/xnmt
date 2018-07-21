@@ -13,20 +13,18 @@ from xnmt.embedder import Embedder, SimpleWordEmbedder
 from xnmt.events import register_xnmt_handler
 from xnmt import model_base
 import xnmt.inference
-from xnmt.input import Input, SimpleSentenceInput
 from xnmt import input_reader
 import xnmt.length_normalization
 from xnmt.loss import FactoredLossExpr
 from xnmt.loss_calculator import LossCalculator
 from xnmt.lstm import BiLSTMSeqTransducer
-from xnmt.output import TextOutput, Output, NbestOutput
 import xnmt.plot
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 from xnmt.search_strategy import BeamSearch, SearchStrategy
 from xnmt import transducer
 from xnmt.vocab import Vocab
-from xnmt.persistence import Ref, Path
-from xnmt.constants import EPSILON
+from xnmt.persistence import Ref
+from xnmt import sent
 from xnmt.reports import Reportable
 from xnmt.compound_expr import CompoundSeqExpression
 
@@ -43,7 +41,7 @@ class AutoRegressiveTranslator(model_base.ConditionedModel, model_base.Generator
   generate_one_step.
   """
 
-  def calc_loss(self, src: Union[Batch, Input], trg: Union[Batch, Input],
+  def calc_loss(self, src: Union[Batch, sent.Sentence], trg: Union[Batch, sent.Sentence],
                 loss_calculator: LossCalculator) -> FactoredLossExpr:
     raise NotImplementedError('must be implemented by subclasses')
 
@@ -51,7 +49,7 @@ class AutoRegressiveTranslator(model_base.ConditionedModel, model_base.Generator
           -> Tuple[AutoRegressiveDecoderState,dy.Expression]:
     raise NotImplementedError("must be implemented by subclasses")
 
-  def generate(self, src, idx, search_strategy, forced_trg_ids=None) -> Sequence[Output]:
+  def generate(self, src, idx, search_strategy, forced_trg_ids=None) -> Sequence[sent.Sentence]:
     raise NotImplementedError("must be implemented by subclasses")
 
   def generate_one_step(self, current_word: Any, current_state: AutoRegressiveDecoderState) -> TranslatorOutput:
@@ -204,15 +202,14 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
       output_actions = [x for x in curr_output.word_ids[0]]
       attentions = [x for x in curr_output.attentions[0]]
       score = curr_output.score[0]
+      out_sent = sent.SimpleSentence(idx=idx[0],
+                                     words=output_actions,
+                                     vocab=getattr(self.trg_reader, "vocab", None),
+                                     score=score)
       if len(sorted_outputs) == 1:
-        outputs.append(TextOutput(actions=output_actions,
-                                  vocab=getattr(self.trg_reader, "vocab", None),
-                                  score=score))
+        outputs.append(out_sent)
       else:
-        outputs.append(NbestOutput(TextOutput(actions=output_actions,
-                                              vocab=getattr(self.trg_reader, "vocab", None),
-                                              score=score),
-                                   nbest_id=idx[0]))
+        outputs.append(sent.NbestSentence(base_sent=out_sent, nbest_id=idx[0]))
     if self.compute_report:
       attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
       self.add_sent_for_report({"idx": idx[0],

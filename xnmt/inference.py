@@ -7,7 +7,7 @@ import dynet as dy
 
 import xnmt.batcher
 from xnmt.events import register_xnmt_event, register_xnmt_handler
-from xnmt import logger, loss, loss_calculator, model_base, output, reports, search_strategy, util
+from xnmt import logger, loss, loss_calculator, model_base, output, reports, search_strategy, sent, util
 from xnmt.persistence import serializable_init, Serializable, bare
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
@@ -48,7 +48,7 @@ class Inference(object):
     self.reporter = reporter
 
   def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batcher.Batch, src_i: int, forced_ref_ids) \
-          -> List[output.Output]:
+          -> List[sent.Sentence]:
     raise NotImplementedError("must be implemented by subclasses")
 
   def compute_losses_one(self, generator: 'model_base.GeneratorModel', src: xnmt.input.Input,
@@ -246,7 +246,7 @@ class IndependentOutputInference(Inference, Serializable):
     self.post_processor = output.OutputProcessor.get_output_processor(post_process)
 
   def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batcher.Batch, src_i: int, forced_ref_ids)\
-          -> List[output.Output]:
+          -> List[sent.Sentence]:
     outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids)
     return outputs
 
@@ -297,7 +297,7 @@ class AutoRegressiveInference(Inference, Serializable):
     self.search_strategy = search_strategy
 
   def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batcher.Batch, src_i: int, forced_ref_ids)\
-          -> List[output.Output]:
+          -> List[sent.Sentence]:
     outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids, search_strategy=self.search_strategy)
     return outputs
 

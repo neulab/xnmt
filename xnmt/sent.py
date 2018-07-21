@@ -139,17 +139,21 @@ class CompoundSentence(Sentence):
     idx: running sentence number (unique among sentences loaded from the same file, but not across files)
     sents: a list of sentences
   """
-  def __init__(self, idx: int, sents: Sequence[Sentence]) -> None:
-    super().__init__(idx=idx)
+  def __init__(self, sents: Sequence[Sentence]) -> None:
+    super().__init__(idx=sents[0].idx)
+    self.idx = sents[0].idx
+    for s in sents[1:]:
+      if s.idx != self.idx:
+        raise ValueError("CompoundSentence must contain sentences of consistent idx.")
     self.sents = sents
   def sent_len(self) -> int:
     return sum(sent.sent_len() for sent in self.sents)
   def len_unpadded(self) -> int:
     return sum(sent.len_unpadded() for sent in self.sents)
   def create_padded_sent(self, pad_len):
-    raise ValueError("not supported with CompoundInput, must be called on one of the sub-inputs instead.")
+    raise ValueError("not supported with CompoundSentence, must be called on one of the sub-inputs instead.")
   def create_truncated_sent(self, trunc_len):
-    raise ValueError("not supported with CompoundInput, must be called on one of the sub-inputs instead.")
+    raise ValueError("not supported with CompoundSentence, must be called on one of the sub-inputs instead.")
 
 
 class SimpleSentence(ReadableSentence):

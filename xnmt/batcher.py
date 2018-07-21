@@ -13,6 +13,7 @@ import xnmt.expression_sequence
 from xnmt import lstm
 import xnmt.input
 from functools import lru_cache
+from xnmt import sent
 
 class Batch(ABC):
   """
@@ -73,11 +74,11 @@ class CompoundBatch(Batch):
 
   def __iter__(self):
     for i in self.batch_size():
-      yield xnmt.input.CompoundInput([b[i] for b in self.batches])
+      yield sent.CompoundSentence(sents=[b[i] for b in self.batches])
 
   def __getitem__(self, key):
     if isinstance(key, int):
-      return xnmt.input.CompoundInput([b[key] for b in self.batches])
+      return sent.CompoundSentence(sents=[b[key] for b in self.batches])
     else:
       assert isinstance(key, slice)
       sel_batches = [b[key] for b in self.batches]
@@ -411,7 +412,7 @@ def pad(batch: Sequence, pad_token=Vocab.ES, pad_to_multiple=1) -> Batch:
   Returns:
     batch containing padded items and a corresponding batch mask.
   """
-  if isinstance(list(batch)[0], xnmt.input.CompoundInput):
+  if isinstance(list(batch)[0], sent.CompoundSentence):
     ret = []
     for compound_i in range(len(batch[0].inputs)):
       ret.append(
