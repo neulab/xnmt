@@ -16,15 +16,15 @@ from xnmt.sent import SimpleSentence, CompoundSentence, ArraySentence, ScalarSen
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.vocab import Vocab
-import xnmt.input
 import xnmt.batcher
 import xnmt.output as output
+from xnmt import sent
 
 class InputReader(object):
   """
   A base class to read in a file and turn it into an input
   """
-  def read_sents(self, filename: str, filter_ids: Sequence[int] = None) -> Iterator[xnmt.input.Input]:
+  def read_sents(self, filename: str, filter_ids: Sequence[int] = None) -> Iterator[sent.Sentence]:
     """
     Read sentences and return an iterator.
 
@@ -61,7 +61,7 @@ class InputReader(object):
 
 class BaseTextReader(InputReader):
 
-  def read_sent(self, line: str) -> xnmt.input.Input:
+  def read_sent(self, line: str) -> sent.Sentence:
     """
     Convert a raw text line into an input object.
 
@@ -160,8 +160,7 @@ class CompoundReader(InputReader, Serializable):
     if len(readers) < 2: raise ValueError("need at least two readers")
     self.readers = readers
     if vocab: self.vocab = vocab
-  def read_sents(self, filename: Union[str,Sequence[str]], filter_ids: Sequence[int] = None) \
-          -> Iterator[xnmt.input.Input]:
+  def read_sents(self, filename: Union[str,Sequence[str]], filter_ids: Sequence[int] = None) -> Iterator[sent.Sentence]:
     if isinstance(filename, str): filename = [filename] * len(self.readers)
     generators = [reader.read_sents(filename=cur_filename, filter_ids=filter_ids) for (reader, cur_filename) in
                      zip(self.readers, filename)]
@@ -254,7 +253,7 @@ class CharTextReader(PlainTextReader, Serializable):
   Args:
     space_token: Token to represent spaces. If ``None``, explicitly store boundary indices instead.
   """
-  yaml_tag = "!CharFromWordTextReader"
+  yaml_tag = "!CharTextReader"
   @serializable_init
   def __init__(self, vocab=None, space_token="__", output_procs = [output.JoinCharTextOutputProcessor]):
     super().__init__(vocab=vocab, output_procs=output_procs)

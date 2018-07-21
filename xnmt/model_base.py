@@ -39,7 +39,7 @@ class UnconditionedModel(TrainableModel):
   def __init__(self, trg_reader: input_reader.InputReader):
     self.trg_reader = trg_reader
 
-  def calc_loss(self, trg: Union[batcher.Batch, xnmt.input.Input]) -> loss.FactoredLossExpr:
+  def calc_loss(self, trg: Union[batcher.Batch, sent.Sentence]) -> loss.FactoredLossExpr:
     """Calculate loss based on target inputs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
@@ -65,7 +65,7 @@ class ConditionedModel(TrainableModel):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
 
-  def calc_loss(self, src: Union[batcher.Batch, xnmt.input.Input], trg: Union[batcher.Batch, xnmt.input.Input],
+  def calc_loss(self, src: Union[batcher.Batch, sent.Sentence], trg: Union[batcher.Batch, sent.Sentence],
                 loss_calculator: xnmt.loss_calculator.LossCalculator) -> loss.FactoredLossExpr:
     """Calculate loss based on input-output pairs.
 
@@ -94,12 +94,12 @@ class GeneratorModel(object):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
 
-  def generate(self, src: batcher.Batch, idx: Sequence[int], *args, **kwargs) -> Sequence[sent.Sentence]:
+  def generate(self, src: batcher.Batch, idx: Sequence[int], *args, **kwargs) -> Sequence[sent.ReadableSentence]:
     """
     Generate outputs.
 
     Args:
-      src: batch of source-side inputs (:class:``xnmt.input.Input``)
+      src: batch of source-side inputs
       idx: list of integers specifying the place of the input sentences in the test corpus
       *args:
       **kwargs: Further arguments to be specified by subclasses
@@ -134,7 +134,7 @@ class EventTrigger(object):
     pass
 
   @events.register_xnmt_event
-  def start_sent(self, src: Union[xnmt.input.Input, batcher.Batch]) -> None:
+  def start_sent(self, src: Union[sent.Sentence, batcher.Batch]) -> None:
     """
     Trigger event indicating the start of a new sentence (or batch of sentences).
 
@@ -145,7 +145,7 @@ class EventTrigger(object):
 
   @events.register_xnmt_event_sum
   def calc_additional_loss(self,
-                           trg: Union[xnmt.input.Input, batcher.Batch],
+                           trg: Union[sent.Sentence, batcher.Batch],
                            parent_model: TrainableModel,
                            parent_model_loss: loss.FactoredLossExpr) -> loss.FactoredLossExpr:
     """

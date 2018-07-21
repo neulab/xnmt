@@ -185,16 +185,16 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     self.start_sent(src)
     outputs = []
     cur_forced_trg = None
-    sent = src[0]
+    src_sent = src[0]
     sent_mask = None
     if src.mask: sent_mask = Mask(np_arr=src.mask.np_arr[0:1])
-    sent_batch = mark_as_batch([sent], mask=sent_mask)
+    sent_batch = mark_as_batch([src_sent], mask=sent_mask)
     # TODO MBR can be implemented here. It takes only the first result from the encoder
     # To further implement MBR, we need to handle the generation considering multiple encoder output.
     initial_state = self._encode_src(sent_batch)[0]
     if forced_trg_ids is  not None: cur_forced_trg = forced_trg_ids[0]
     search_outputs = search_strategy.generate_output(self, initial_state,
-                                                     src_length=[sent.sent_len()],
+                                                     src_length=[src_sent.sent_len()],
                                                      forced_trg_ids=cur_forced_trg)
     sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
     assert len(sorted_outputs) >= 1
@@ -214,7 +214,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
       attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
       self.add_sent_for_report({"idx": idx[0],
                                 "attentions": attentions,
-                                "src": sent,
+                                "src": src_sent,
                                 "src_vocab": getattr(self.src_reader, "vocab", None),
                                 "trg_vocab": getattr(self.trg_reader, "vocab", None),
                                 "output": outputs[0]})

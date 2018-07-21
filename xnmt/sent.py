@@ -212,7 +212,8 @@ class SimpleSentence(ReadableSentence):
   def str_tokens(self, exclude_ss_es=True, exclude_unk=False, exclude_padded=True, **kwargs) -> List[str]:
     exclude_set = set()
     if exclude_ss_es:
-      exclude_set.add(Vocab.SS, Vocab.ES)
+      exclude_set.add(Vocab.SS)
+      exclude_set.add(Vocab.ES)
     if exclude_unk: exclude_set.add(self.vocab.unk_token)
     # TODO: exclude padded if requested (i.e., all </s> tags except for the first)
     ret_toks =  [w for w in self.words if w not in exclude_set]

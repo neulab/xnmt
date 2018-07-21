@@ -10,6 +10,7 @@ from xnmt.constants import INFINITY
 from xnmt.transform import Linear
 import xnmt.evaluator
 import xnmt.batcher
+from xnmt import sent
 
 class LossCalculator(object):
   """
@@ -41,8 +42,8 @@ class AutoRegressiveMLELoss(Serializable, LossCalculator):
 
   def calc_loss(self, translator: 'translator.AutoRegressiveTranslator',
                 initial_state: 'translator.AutoRegressiveDecoderState',
-                src: Union[xnmt.input.Input, 'batcher.Batch'],
-                trg: Union[xnmt.input.Input, 'batcher.Batch']):
+                src: Union[sent.Sentence, 'batcher.Batch'],
+                trg: Union[sent.Sentence, 'batcher.Batch']):
     dec_state = initial_state
     trg_mask = trg.mask if xnmt.batcher.is_batched(trg) else None
     losses = []

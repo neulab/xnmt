@@ -178,7 +178,7 @@ class JoinBpeTextOutputProcessor(OutputProcessor, Serializable):
 
   Per default, the '@' postfix indicates subwords that should be merged
   """
-  yaml_tag = "!JoinBPETextOutputProcessor"
+  yaml_tag = "!JoinBpeTextOutputProcessor"
   @serializable_init
   def __init__(self, merge_indicator="@@"):
     self.merge_indicator_with_space = merge_indicator + " "

@@ -48,11 +48,11 @@ class Inference(object):
     self.reporter = reporter
 
   def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batcher.Batch, src_i: int, forced_ref_ids) \
-          -> List[sent.Sentence]:
+          -> List[sent.ReadableSentence]:
     raise NotImplementedError("must be implemented by subclasses")
 
-  def compute_losses_one(self, generator: 'model_base.GeneratorModel', src: xnmt.input.Input,
-                         ref: xnmt.input.Input) -> loss.FactoredLossExpr:
+  def compute_losses_one(self, generator: 'model_base.GeneratorModel', src: sent.Sentence,
+                         ref: sent.Sentence) -> loss.FactoredLossExpr:
     raise NotImplementedError("must be implemented by subclasses")
 
 
@@ -89,9 +89,9 @@ class Inference(object):
                             max_src_len=self.max_src_len)
     self.end_inference()
 
-  def _generate_output(self, generator: 'model_base.GeneratorModel', src_corpus: Sequence[xnmt.input.Input],
+  def _generate_output(self, generator: 'model_base.GeneratorModel', src_corpus: Sequence[sent.Sentence],
                        trg_file: str, batcher: Optional[xnmt.batcher.Batcher] = None, max_src_len: Optional[int] = None,
-                       forced_ref_corpus: Optional[Sequence[xnmt.input.Input]] = None,
+                       forced_ref_corpus: Optional[Sequence[sent.Sentence]] = None,
                        assert_scores: Optional[Sequence[float]] = None) -> None:
     """
     Generate outputs and write them to file.
@@ -131,7 +131,7 @@ class Inference(object):
                 raise ValueError(
                   f'Forced decoding score {outputs[0].score} and loss {assert_scores[cur_sent_i + i]} do not match at '
                   f'sentence {cur_sent_i + i}')
-            output_txt = outputs[i].apply_post_processor(self.post_processor)
+            output_txt = outputs[i].sent_str(custom_output_procs=self.post_procs)
             fp.write(f"{output_txt}\n")
         cur_sent_i += batch_size
         if self.max_num_sents and cur_sent_i >= self.max_num_sents: break
@@ -237,21 +237,21 @@ class IndependentOutputInference(Inference, Serializable):
   @serializable_init
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
-               post_process: Union[str, output.OutputProcessor] = bare(output.PlainTextOutputProcessor),
+               post_processor: Union[None, str, Sequence[output.OutputProcessor]] = None,
                mode: str = "onebest",
                batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1),
                reporter: Union[None, reports.Reporter, Sequence[reports.Reporter]] = None):
     super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
                      max_num_sents=max_num_sents, mode=mode, batcher=batcher, reporter=reporter)
-    self.post_processor = output.OutputProcessor.get_output_processor(post_process)
+    self.post_procs = output.OutputProcessor.get_output_processor(post_processor)
 
   def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batcher.Batch, src_i: int, forced_ref_ids)\
           -> List[sent.Sentence]:
     outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids)
     return outputs
 
-  def compute_losses_one(self, generator: 'model_base.GeneratorModel', src: xnmt.input.Input,
-                         ref: xnmt.input.Input) -> loss.FactoredLossExpr:
+  def compute_losses_one(self, generator: 'model_base.GeneratorModel', src: sent.Sentence,
+                         ref: sent.Sentence) -> loss.FactoredLossExpr:
     loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calculator.AutoRegressiveMLELoss())
     return loss_expr
 
@@ -285,7 +285,7 @@ class AutoRegressiveInference(Inference, Serializable):
   @serializable_init
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
-               post_process: Union[str, output.OutputProcessor] = bare(output.PlainTextOutputProcessor),
+               post_processor: Union[str, Sequence[output.OutputProcessor]] = [],
                search_strategy: search_strategy.SearchStrategy = bare(search_strategy.BeamSearch),
                mode: str = "onebest",
                batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1),
@@ -293,7 +293,7 @@ class AutoRegressiveInference(Inference, Serializable):
     super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
                      max_num_sents=max_num_sents, mode=mode, batcher=batcher, reporter=reporter)
 
-    self.post_processor = output.OutputProcessor.get_output_processor(post_process)
+    self.post_procs = output.OutputProcessor.get_output_processor(post_processor)
     self.search_strategy = search_strategy
 
   def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batcher.Batch, src_i: int, forced_ref_ids)\
@@ -301,8 +301,8 @@ class AutoRegressiveInference(Inference, Serializable):
     outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids, search_strategy=self.search_strategy)
     return outputs
 
-  def compute_losses_one(self, generator: 'model_base.GeneratorModel', src: xnmt.input.Input,
-                         ref: xnmt.input.Input) -> loss.FactoredLossExpr:
+  def compute_losses_one(self, generator: 'model_base.GeneratorModel', src: sent.Sentence,
+                         ref: sent.Sentence) -> loss.FactoredLossExpr:
     loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calculator.AutoRegressiveMLELoss())
     return loss_expr
 

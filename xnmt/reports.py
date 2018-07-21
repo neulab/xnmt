@@ -147,8 +147,8 @@ class AttentionHtmlReporter(HtmlReporter, Serializable):
   def __init__(self, report_path: str = settings.DEFAULT_REPORT_PREFIX):
     super().__init__(report_path=report_path)
 
-  def create_report(self, idx: int, src: xnmt.input.Input, src_vocab: vocab.Vocab,
-                    trg_vocab: vocab.Vocab, output: xnmt.output.Output, attentions:np.ndarray, **kwargs) -> None:
+  def create_report(self, idx: int, src: 'xnmt.input.Input', src_vocab: vocab.Vocab,
+                    trg_vocab: vocab.Vocab, output: 'xnmt.output.Output', attentions:np.ndarray, **kwargs) -> None:
     """
     Create report.
 
