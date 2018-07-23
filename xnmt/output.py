@@ -37,6 +37,15 @@ class OutputProcessor(object):
     else:
       return spec
 
+class PlainTextOutputProcessor(OutputProcessor, Serializable):
+  """
+  This output processor does nothing and exists only for backward compatibility.
+  # TODO: remove eventually.
+  """
+  yaml_tag = "!PlainTextOutputProcessor"
+  def process(self, s: str) -> str:
+    return s
+
 class JoinCharTextOutputProcessor(OutputProcessor, Serializable):
   """
   Assumes a single-character vocabulary and joins them to form words.
