@@ -166,13 +166,13 @@ class SimpleSentence(ReadableSentence):
     vocab: optionally vocab mapping word ids to strings
     score: a score given to this sentence by a model
     output_procs: output processors to be applied when calling sent_str()
+    pad_token: special token used for padding
   """
-  PAD_TOKEN = Vocab.ES
-
   def __init__(self, words: Sequence[int], idx: Optional[int] = None, vocab: Optional[Vocab] = None,
-               score: Optional[float] = None,
-               output_procs: Sequence[OutputProcessor] = []) -> None:
+               score: Optional[float] = None, output_procs: Sequence[OutputProcessor] = [], pad_token: int = Vocab.ES)\
+          -> None:
     super().__init__(idx=idx, score=score, output_procs=output_procs)
+    self.pad_token = pad_token
     self.words = words
     self.vocab = vocab
 
@@ -193,14 +193,14 @@ class SimpleSentence(ReadableSentence):
 
   @functools.lru_cache(maxsize=1)
   def len_unpadded(self):
-    return sum(x != Vocab.ES for x in self.words)
+    return sum(x != self.pad_token for x in self.words)
 
   def create_padded_sent(self, pad_len: int) -> 'SimpleSentence':
     if pad_len == 0:
       return self
     # Copy is used to copy all possible annotations
     new_sent = copy.deepcopy(self)
-    new_sent.words.extend([SimpleSentence.PAD_TOKEN] * pad_len)
+    new_sent.words.extend([self.pad_token] * pad_len)
     return new_sent
 
   def create_truncated_sent(self, trunc_len: int) -> 'SimpleSentence':
