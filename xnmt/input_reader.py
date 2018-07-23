@@ -280,9 +280,10 @@ class H5Reader(InputReader, Serializable):
     with h5py.File(filename, "r") as hf:
       h5_keys = sorted(hf.keys(), key=lambda x: int(x))
       if filter_ids is not None:
+        filter_ids = sorted(filter_ids)
         h5_keys = [h5_keys[i] for i in filter_ids]
         h5_keys.sort(key=lambda x: int(x))
-      for idx, key in enumerate(h5_keys):
+      for sent_no, key in enumerate(h5_keys):
         inp = hf[key][:]
         if self.transpose:
           inp = inp.transpose()
@@ -294,9 +295,9 @@ class H5Reader(InputReader, Serializable):
         else:
           inp = sub_inp
 
-        if idx % 1000 == 999:
-          logger.info(f"Read {idx+1} lines ({float(idx+1)/len(h5_keys)*100:.2f}%) of {filename} at {key}")
-        yield ArraySentence(idx=idx, nparr=inp)
+        if sent_no % 1000 == 999:
+          logger.info(f"Read {sent_no+1} lines ({float(sent_no+1)/len(h5_keys)*100:.2f}%) of {filename} at {key}")
+        yield ArraySentence(idx=filter_ids[sent_no] if filter_ids else sent_no, nparr=inp)
 
   def count_sents(self, filename):
     with h5py.File(filename, "r") as hf:
@@ -346,9 +347,10 @@ class NpzReader(InputReader, Serializable):
     npzFile = np.load(filename, mmap_mode=None if filter_ids is None else "r")
     npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[-1]))
     if filter_ids is not None:
+      filter_ids = sorted(filter_ids)
       npzKeys = [npzKeys[i] for i in filter_ids]
       npzKeys.sort(key=lambda x: int(x.split('_')[-1]))
-    for idx, key in enumerate(npzKeys):
+    for sent_no, key in enumerate(npzKeys):
       inp = npzFile[key]
       if self.transpose:
         inp = inp.transpose()
@@ -360,9 +362,9 @@ class NpzReader(InputReader, Serializable):
       else:
         inp = sub_inp
 
-      if idx % 1000 == 999:
-        logger.info(f"Read {idx+1} lines ({float(idx+1)/len(npzKeys)*100:.2f}%) of {filename} at {key}")
-      yield ArraySentence(idx=idx, nparr=inp)
+      if sent_no % 1000 == 999:
+        logger.info(f"Read {sent_no+1} lines ({float(sent_no+1)/len(npzKeys)*100:.2f}%) of {filename} at {key}")
+      yield ArraySentence(idx=filter_ids[sent_no] if filter_ids else sent_no, nparr=inp)
     npzFile.close()
 
   def count_sents(self, filename):
