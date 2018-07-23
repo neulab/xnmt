@@ -281,7 +281,7 @@ class NoopEmbedder(Embedder, Serializable):
   """
   This embedder performs no lookups but only passes through the inputs.
 
-  Normally, the input is an Input object, which is converted to an expression.
+  Normally, the input is a Sentence object, which is converted to an expression.
 
   Args:
     emb_dim (int): Size of the inputs (not required)

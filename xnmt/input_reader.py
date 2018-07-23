@@ -145,7 +145,7 @@ class CompoundReader(InputReader, Serializable):
   """
   A compound reader reads inputs using several input readers at the same time.
 
-  The resulting inputs will be of type :class:`CompoundInput`, which holds the results from the different readers
+  The resulting inputs will be of type :class:`CompoundSentence`, which holds the results from the different readers
   as a tuple. Inputs can be read from different locations (if input file name is a sequence of filenames) or all from
   the same location (if it is a string). The latter can be used to read the same inputs using several input different
   readers which might capture different aspects of the input data.

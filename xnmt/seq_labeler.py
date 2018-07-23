@@ -92,7 +92,7 @@ class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Seriali
         trg.mask = batcher.Mask(np_arr=old_mask.np_arr[:, :-trunc_len])
     else:
       pad_len = seq_len - len(trg[0])
-      trg = batcher.mark_as_batch([trg_sent.get_padded_sent(token=vocab.Vocab.ES, pad_len=pad_len) for trg_sent in trg])
+      trg = batcher.mark_as_batch([trg_sent.create_padded_sent(pad_len=pad_len) for trg_sent in trg])
       if old_mask:
         trg.mask = np.pad(old_mask.np_arr, pad_width=((0, 0), (0, pad_len)), mode="constant", constant_values=1)
     return trg
