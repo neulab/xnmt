@@ -244,7 +244,7 @@ class IndependentOutputInference(Inference, Serializable):
                reporter: Union[None, reports.Reporter, Sequence[reports.Reporter]] = None):
     super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
                      max_num_sents=max_num_sents, mode=mode, batcher=batcher, reporter=reporter)
-    self.post_processor = output.OutputProcessor.get_output_processor(post_process)
+    self.post_processor = output.OutputProcessor.get_output_processor(post_process) or None
 
   def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batcher.Batch, src_i: int, forced_ref_ids)\
           -> List[sent.Sentence]:
@@ -294,7 +294,7 @@ class AutoRegressiveInference(Inference, Serializable):
     super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
                      max_num_sents=max_num_sents, mode=mode, batcher=batcher, reporter=reporter)
 
-    self.post_processor = output.OutputProcessor.get_output_processor(post_process)
+    self.post_processor = output.OutputProcessor.get_output_processor(post_process) or None
     self.search_strategy = search_strategy
 
   def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batcher.Batch, src_i: int, forced_ref_ids)\

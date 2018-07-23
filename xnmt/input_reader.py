@@ -107,15 +107,15 @@ class PlainTextReader(BaseTextReader, Serializable):
     vocab: Vocabulary to convert string tokens to integer ids. If not given, plain text will be assumed to contain
            space-separated integer ids.
     read_sent_len: if set, read the length of each sentence instead of the sentence itself. EOS is not counted.
-    output_procs: output processors to revert the created sentences back to a readable string
+    output_proc: output processors to revert the created sentences back to a readable string
   """
   yaml_tag = '!PlainTextReader'
  
   @serializable_init
-  def __init__(self, vocab: Optional[Vocab] = None, read_sent_len: bool = False, output_procs = []):
+  def __init__(self, vocab: Optional[Vocab] = None, read_sent_len: bool = False, output_proc = []):
     self.vocab = vocab
     self.read_sent_len = read_sent_len
-    self.output_procs = output_procs
+    self.output_procs = output.OutputProcessor.get_output_processor(output_proc)
     if vocab is not None:
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)
@@ -189,7 +189,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
   @register_xnmt_handler
   @serializable_init
   def __init__(self, model_file, sample_train=False, l=-1, alpha=0.1, vocab=None,
-               output_procs=[output.JoinPieceTextOutputProcessor]):
+               output_proc=[output.JoinPieceTextOutputProcessor]):
     """
     Args:
       model_file: The sentence piece model file
@@ -197,7 +197,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
       l: The "l" parameter for subword regularization, how many sentences to sample
       alpha: The "alpha" parameter for subword regularization, how much to smooth the distribution
       vocab: The vocabulary
-      output_procs: output processors to revert the created sentences back to a readable string
+      output_proc: output processors to revert the created sentences back to a readable string
     """
     import sentencepiece as spm
     self.subword_model = spm.SentencePieceProcessor()
@@ -207,7 +207,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
     self.alpha = alpha
     self.vocab = vocab
     self.train = False
-    self.output_procs = output_procs
+    self.output_procs = output.OutputProcessor.get_output_processor(output_proc)
     if vocab is not None:
       self.vocab.freeze()
       self.vocab.set_unk(Vocab.UNK_STR)

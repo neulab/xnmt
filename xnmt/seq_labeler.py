@@ -116,6 +116,7 @@ class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Seriali
 
     outputs = [sent.SimpleSentence(words=output_actions, idx=src[0].idx,
                                    vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
+                                   output_procs=self.trg_reader.output_procs,
                                    score=score)]
 
     return outputs

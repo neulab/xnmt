@@ -205,6 +205,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
       out_sent = sent.SimpleSentence(idx=idx[0],
                                      words=output_actions,
                                      vocab=getattr(self.trg_reader, "vocab", None),
+                                     output_procs=self.trg_reader.output_procs,
                                      score=score)
       if len(sorted_outputs) == 1:
         outputs.append(out_sent)
