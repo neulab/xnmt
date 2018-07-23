@@ -56,7 +56,6 @@ las-pyramidal: !Experiment
     batcher: !WordSrcBatcher
       avg_batch_size: 24
       pad_src_to_multiple: 8
-      src_pad_token: ~
     trainer: !AdamTrainer
       alpha: 0.001
     lr_decay: 0.5

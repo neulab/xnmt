@@ -13,7 +13,8 @@ from xnmt.decoder import AutoRegressiveDecoder
 from xnmt.embedder import SimpleWordEmbedder
 import xnmt.events
 import xnmt.batcher
-from xnmt.input_reader import PlainTextReader, CharFromWordTextReader
+from xnmt.input_reader import PlainTextReader
+from specialized_encoders.segmenting_encoder.reader import CharFromWordTextReader
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.translator import DefaultTranslator
 from xnmt.loss_calculator import AutoRegressiveMLELoss
@@ -89,7 +90,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.layer_dim = layer_dim
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
-    my_batcher = xnmt.batcher.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
+    my_batcher = xnmt.batcher.TrgBatcher(batch_size=3)
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
     dy.renew_cg(immediate_compute=True, check_validity=True)
 
@@ -212,7 +213,7 @@ class TestComposing(unittest.TestCase):
     self.layer_dim = layer_dim
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
-    my_batcher = xnmt.batcher.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
+    my_batcher = xnmt.batcher.TrgBatcher(batch_size=3)
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
     dy.renew_cg(immediate_compute=True, check_validity=True)
 

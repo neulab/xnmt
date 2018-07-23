@@ -3,6 +3,7 @@ import time
 import math
 import unicodedata
 import string
+import functools
 
 import numpy as np
 
@@ -97,3 +98,8 @@ class ArgClass(object):
   """
   def __init__(self, **kwargs):
     for key in kwargs: setattr(self, key, kwargs[key])
+
+@functools.lru_cache()
+def cached_file_lines(file_name):
+  return open(file_name).readlines()
+

@@ -1,8 +1,8 @@
 import dynet as dy
 import numpy as np
 
-from xnmt import attender, batcher, embedder, events, inference, input_reader, loss, lstm, model_base, output, \
-  reports, scorer, transducer, transform, vocab
+from xnmt import attender, batcher, embedder, events, inference, input_reader, loss, lstm, model_base, reports, \
+  scorer, sent, transducer, transform, vocab
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Serializable, reports.Reportable,
@@ -70,7 +70,7 @@ class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Seriali
       else:
         raise ValueError(f"src/trg length do not match: {seq_len} != {len(trg[0])}")
 
-    ref_action = np.asarray([sent.words for sent in trg]).reshape((seq_len * batch_size,))
+    ref_action = np.asarray([trg_sent.words for trg_sent in trg]).reshape((seq_len * batch_size,))
     loss_expr_perstep = self.scorer.calc_loss(outputs, batcher.mark_as_batch(ref_action))
     # loss_expr_perstep = dy.pickneglogsoftmax_batch(outputs, ref_action)
     loss_expr_perstep = dy.reshape(loss_expr_perstep, (seq_len,), batch_size=batch_size)
@@ -114,9 +114,9 @@ class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Seriali
       output_actions = [np.argmax(scores[:, j]) for j in range(seq_len)]
     score = np.sum([scores[output_actions[j], j] for j in range(seq_len)])
 
-    outputs = [output.TextOutput(actions=output_actions,
-                      vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
-                      score=score)]
+    outputs = [sent.SimpleSentence(words=output_actions, idx=src[0].idx,
+                                   vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
+                                   score=score)]
 
     return outputs
 

@@ -212,11 +212,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
         outputs.append(sent.NbestSentence(base_sent=out_sent, nbest_id=idx[0]))
     if self.compute_report:
       attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
-      self.add_sent_for_report({"idx": idx[0],
-                                "attentions": attentions,
+      self.report_sent_info({"attentions": attentions,
                                 "src": src_sent,
-                                "src_vocab": getattr(self.src_reader, "vocab", None),
-                                "trg_vocab": getattr(self.trg_reader, "vocab", None),
                                 "output": outputs[0]})
 
     return outputs
@@ -377,7 +374,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
       src = xnmt.batcher.mark_as_batch([src])
     outputs = []
 
-    trg = SimpleSentenceInput([0])
+    trg = sent.SimpleSentence([0])
 
     if not xnmt.batcher.is_batched(trg):
       trg = xnmt.batcher.mark_as_batch([trg])
@@ -395,13 +392,13 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
         output_actions.append(ys)
         break
       output_actions.append(ys)
-      trg = SimpleSentenceInput(output_actions + [0])
+      trg = sent.SimpleSentence(words=output_actions + [0])
       if not xnmt.batcher.is_batched(trg):
         trg = xnmt.batcher.mark_as_batch([trg])
 
     # Append output to the outputs
     if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
-      outputs.append(TextOutput(actions=output_actions, vocab=self.trg_vocab))
+      outputs.append(sent.SimpleSentence(words=output_actions, vocab=self.trg_vocab))
     else:
       outputs.append((output_actions, score))
 

@@ -41,7 +41,6 @@ speech: !Experiment
     batcher: !SrcBatcher
       pad_src_to_multiple: 4
       batch_size: 3
-      src_pad_token: ~
     trainer: !AdamTrainer {}
     src_file: examples/data/LDC94S13A.h5
     trg_file: examples/data/LDC94S13A.char
@@ -60,7 +59,6 @@ speech: !Experiment
             _xnmt_id: inference_batcher
             pad_src_to_multiple: 4
             batch_size: 1
-            src_pad_token: ~
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: cer,wer

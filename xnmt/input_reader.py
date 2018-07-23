@@ -61,7 +61,7 @@ class InputReader(object):
 
 class BaseTextReader(InputReader):
 
-  def read_sent(self, line: str) -> sent.Sentence:
+  def read_sent(self, line: str, idx: int) -> sent.Sentence:
     """
     Convert a raw text line into an input object.
 
@@ -94,7 +94,7 @@ class BaseTextReader(InputReader):
     with open(filename, encoding='utf-8') as f:
       for line in f:
         if filter_ids is None or sent_count in filter_ids:
-          yield self.read_sent(line, idx=sent_count)
+          yield self.read_sent(line=line, idx=sent_count)
         sent_count += 1
         if max_id is not None and sent_count > max_id:
           break
@@ -167,7 +167,7 @@ class CompoundReader(InputReader, Serializable):
     while True:
       try:
         sub_sents = tuple([next(gen) for gen in generators])
-        yield CompoundSentence(idx=sub_sents[0].idx, sents=sub_sents)
+        yield CompoundSentence(sents=sub_sents)
       except StopIteration:
         return
   def count_sents(self, filename: str) -> int:
@@ -216,11 +216,11 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
   def on_set_train(self, val):
     self.train = val
 
-  def read_sent(self, sentence, idx):
+  def read_sent(self, line, idx):
     if self.sample_train and self.train:
-      words = self.subword_model.SampleEncodeAsPieces(sentence.strip(), self.l, self.alpha)
+      words = self.subword_model.SampleEncodeAsPieces(line.strip(), self.l, self.alpha)
     else:
-      words = self.subword_model.EncodeAsPieces(sentence.strip())
+      words = self.subword_model.EncodeAsPieces(line.strip())
     words = [w.decode('utf-8') for w in words]
     return SimpleSentence(idx = idx,
                           words = [self.vocab.convert(word) for word in words] + [self.vocab.convert(Vocab.ES_STR)],
@@ -243,41 +243,6 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
 
   def vocab_size(self):
     return len(self.vocab)
-
-class CharTextReader(PlainTextReader, Serializable):
-  """
-  Read in text as characters.
-
-  Word boundaries (spaces) are either represented by a special token, or by keeping track of boundary indices.
-
-  Args:
-    space_token: Token to represent spaces. If ``None``, explicitly store boundary indices instead.
-  """
-  yaml_tag = "!CharTextReader"
-  @serializable_init
-  def __init__(self, vocab=None, space_token="__", output_procs = [output.JoinCharTextOutputProcessor]):
-    super().__init__(vocab=vocab, output_procs=output_procs)
-    if space_token == "": raise ValueError("The empty string is not supported as space_token.")
-    self.space_token = space_token
-  def read_sent(self, sentence, idx):
-    chars = []
-    segs = []
-    offset = 0
-    for word in sentence.strip().split():
-      offset += len(word)
-      segs.append(offset-1)
-      chars.extend([c for c in word])
-      if self.space_token:
-        chars.append(self.space_token)
-    segs.append(len(chars))
-    chars.append(Vocab.ES_STR)
-    sent_input = SimpleSentence(idx=idx,
-                                words=[self.vocab.convert(c) for c in chars],
-                                vocab=self.vocab,
-                                output_procs=self.output_procs)
-    if not self.space_token:
-      sent_input.segment = segs
-    return sent_input
 
 class H5Reader(InputReader, Serializable):
   """
