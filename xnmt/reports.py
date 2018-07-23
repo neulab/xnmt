@@ -145,6 +145,15 @@ class ReferenceDiffReporter(Reporter, Serializable):
     self.hyp_sents, self.ref_sents, self.src_sents = [], [], []
 
   def create_report(self, src: sent.Sentence, output: sent.ReadableSentence, ref_file: str = None, **kwargs) -> None:
+    """
+    Create report.
+
+    Args:
+      src: source-side input
+      output: generated output
+      ref_file: path to reference file
+      **kwargs: arguments to be ignored
+    """
     reference = util.cached_file_lines(ref_file)[output.idx]
     trg_str = output.sent_str()
     if isinstance(src, sent.ReadableSentence):
@@ -200,6 +209,14 @@ class CompareMtReporter(Reporter, Serializable):
     self.hyp_sents, self.ref_sents = [], []
 
   def create_report(self, output: sent.ReadableSentence, ref_file: str, **kwargs) -> None:
+    """
+    Create report.
+
+    Args:
+      output: generated output
+      ref_file: path to reference file
+      **kwargs: arguments to be ignored
+    """
     reference = util.cached_file_lines(ref_file)[output.idx]
     trg_str = output.sent_str()
     self.hyp_sents.append(trg_str)
