@@ -6,13 +6,12 @@ from xnmt.settings import settings
 import dynet as dy
 
 import xnmt.batcher
-from xnmt.events import register_xnmt_event, register_xnmt_handler
-from xnmt import logger, loss, loss_calculator, model_base, output, reports, search_strategy, sent, util
+from xnmt import events, logger, loss, loss_calculator, model_base, output, reports, search_strategy, sent, util
 from xnmt.persistence import serializable_init, Serializable, bare
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 
-class Inference(object):
+class Inference(reports.Reportable):
   """
   A template class for classes that perform inference.
 
@@ -32,7 +31,7 @@ class Inference(object):
     batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
     reporter: a reporter to create reports for each decoded sentence
   """
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
                mode: str = "onebest",
@@ -56,7 +55,8 @@ class Inference(object):
     raise NotImplementedError("must be implemented by subclasses")
 
 
-  def perform_inference(self, generator: 'model_base.GeneratorModel', src_file: str = None, trg_file: str = None):
+  def perform_inference(self, generator: 'model_base.GeneratorModel', src_file: str = None, trg_file: str = None,
+                        ref_file_to_report=None):
     """
     Perform inference.
 
@@ -86,13 +86,15 @@ class Inference(object):
     if self.mode != 'score':
       self._generate_output(generator=generator, forced_ref_corpus=ref_corpus, assert_scores=ref_scores,
                             src_corpus=src_corpus, trg_file=trg_file, batcher=self.batcher,
-                            max_src_len=self.max_src_len)
+                            max_src_len=self.max_src_len, ref_file_to_report=ref_file_to_report)
     self.end_inference()
+
 
   def _generate_output(self, generator: 'model_base.GeneratorModel', src_corpus: Sequence[sent.Sentence],
                        trg_file: str, batcher: Optional[xnmt.batcher.Batcher] = None, max_src_len: Optional[int] = None,
                        forced_ref_corpus: Optional[Sequence[sent.Sentence]] = None,
-                       assert_scores: Optional[Sequence[float]] = None) -> None:
+                       assert_scores: Optional[Sequence[float]] = None,
+                       ref_file_to_report: Union[None,str,Sequence[str]] = None) -> None:
     """
     Generate outputs and write them to file.
 
@@ -104,6 +106,7 @@ class Inference(object):
       max_src_len: if given, skip inputs that are too long
       forced_ref_corpus: if given, perform forced decoding with the given trg-side inputs
       assert_scores: if given, raise exception if the scores for generated outputs don't match the given scores
+      ref_file_to_report: if given, report reference file line by line so that the reference can be included in a report
     """
     with open(trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
       if forced_ref_corpus:
@@ -112,8 +115,15 @@ class Inference(object):
         src_batches = batcher.pack(src_corpus, None)
       cur_sent_i = 0
       ref_batch = None
+      if ref_file_to_report:
+        if isinstance(ref_file_to_report, list): ref_file_to_report = ref_file_to_report[0]
+        ref_file = open(ref_file_to_report)
       for batch_i, src_batch in enumerate(src_batches):
         batch_size = src_batch.batch_size()
+        if ref_file_to_report:
+          for _ in range(batch_size):
+            ref_sent = ref_file.readline().strip()
+          self.add_sent_for_report({"reference": ref_sent, "output_proc": self.post_processor})
         src_len = src_batch.sent_len()
         if max_src_len is not None and src_len > max_src_len:
           output_txt = "\n".join([NO_DECODING_ATTEMPTED] * batch_size)
@@ -131,12 +141,14 @@ class Inference(object):
                 raise ValueError(
                   f'Forced decoding score {outputs[0].score} and loss {assert_scores[cur_sent_i + i]} do not match at '
                   f'sentence {cur_sent_i + i}')
-            output_txt = outputs[i].sent_str(custom_output_procs=self.post_procs)
+            output_txt = outputs[i].sent_str(custom_output_procs=self.post_processor)
             fp.write(f"{output_txt}\n")
         cur_sent_i += batch_size
         if self.max_num_sents and cur_sent_i >= self.max_num_sents: break
+      if ref_file_to_report:
+        ref_file.close()
 
-  @register_xnmt_event
+  @events.register_xnmt_event
   def end_inference(self):
     pass
 
@@ -237,13 +249,13 @@ class IndependentOutputInference(Inference, Serializable):
   @serializable_init
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
-               post_processor: Union[None, str, Sequence[output.OutputProcessor]] = None,
+               post_process: Union[None, str, Sequence[output.OutputProcessor]] = None,
                mode: str = "onebest",
                batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1),
                reporter: Union[None, reports.Reporter, Sequence[reports.Reporter]] = None):
     super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
                      max_num_sents=max_num_sents, mode=mode, batcher=batcher, reporter=reporter)
-    self.post_procs = output.OutputProcessor.get_output_processor(post_processor)
+    self.post_processor = output.OutputProcessor.get_output_processor(post_process)
 
   def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batcher.Batch, src_i: int, forced_ref_ids)\
           -> List[sent.Sentence]:
@@ -285,7 +297,7 @@ class AutoRegressiveInference(Inference, Serializable):
   @serializable_init
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
-               post_processor: Union[str, Sequence[output.OutputProcessor]] = [],
+               post_process: Union[str, Sequence[output.OutputProcessor]] = [],
                search_strategy: search_strategy.SearchStrategy = bare(search_strategy.BeamSearch),
                mode: str = "onebest",
                batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1),
@@ -293,7 +305,7 @@ class AutoRegressiveInference(Inference, Serializable):
     super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
                      max_num_sents=max_num_sents, mode=mode, batcher=batcher, reporter=reporter)
 
-    self.post_procs = output.OutputProcessor.get_output_processor(post_processor)
+    self.post_processor = output.OutputProcessor.get_output_processor(post_process)
     self.search_strategy = search_strategy
 
   def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batcher.Batch, src_i: int, forced_ref_ids)\
@@ -323,7 +335,8 @@ class CascadeInference(Inference, Serializable):
   def __init__(self, steps: Sequence[Inference]) -> None:
     self.steps = steps
 
-  def perform_inference(self, generator: 'model_base.CascadeGenerator', src_file: str = None, trg_file: str = None):
+  def perform_inference(self, generator: 'model_base.CascadeGenerator', src_file: str = None, trg_file: str = None,
+                        ref_file_to_report = None):
     assert isinstance(generator, model_base.CascadeGenerator)
     assert len(generator.generators) == len(self.steps)
     src_files = [src_file] + [f"{trg_file}.tmp.{i}" for i in range(len(self.steps)-1)]
@@ -331,7 +344,8 @@ class CascadeInference(Inference, Serializable):
     for step_i, step in enumerate(self.steps):
       step.perform_inference(generator=generator.generators[step_i],
                              src_file=src_files[step_i],
-                             trg_file=trg_files[step_i])
+                             trg_file=trg_files[step_i],
+                             ref_file_to_report=ref_file_to_report)
 
   def compute_losses_one(self, *args, **kwargs):
     raise ValueError("cannot call CascadedInference.compute_losses_one() directly, use the sub-inference objects")

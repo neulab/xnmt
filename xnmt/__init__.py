@@ -33,7 +33,6 @@ import xnmt.experiment
 import xnmt.fixed_size_att
 import xnmt.hyper_parameters
 import xnmt.inference
-import xnmt.input
 import xnmt.input_reader
 import xnmt.lm
 import xnmt.lstm
@@ -43,6 +42,7 @@ import xnmt.param_init
 import xnmt.positional
 import xnmt.preproc_runner
 import xnmt.pyramidal
+import xnmt.reports
 import xnmt.residual
 import xnmt.retriever
 import xnmt.scorer

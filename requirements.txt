@@ -1,4 +1,4 @@
-PyYAML==3.12   
+PyYAML==3.12 # higher versions incompatible with XNMT
 scipy>=0.19.0    
 lxml    
 dynet    
@@ -7,3 +7,6 @@ cython
 h5py
 asteval
 numpy
+Unidecode>=1.0.22
+beautifulsoup4
+nltk

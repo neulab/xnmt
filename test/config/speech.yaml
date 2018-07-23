@@ -70,4 +70,4 @@ speech: !Experiment
       inference: !AutoRegressiveInference
         post_process: join-char
         batcher: !Ref { name: inference_batcher }
-        reporter: !AttentionHtmlReporter {}
+        reporter: !AttentionReporter {}

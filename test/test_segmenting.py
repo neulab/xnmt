@@ -6,8 +6,6 @@ import unittest
 import dynet as dy
 import numpy
 import random
-import math
-from scipy.stats import poisson
 
 from xnmt.attender import MlpAttender
 from xnmt.bridge import CopyBridge
@@ -16,27 +14,21 @@ from xnmt.embedder import SimpleWordEmbedder
 import xnmt.events
 import xnmt.batcher
 from xnmt.input_reader import PlainTextReader, CharFromWordTextReader
-from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculator import AutoRegressiveMLELoss
-from xnmt.param_collection import ParamManager
+from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.translator import DefaultTranslator
 from xnmt.loss_calculator import AutoRegressiveMLELoss
-from xnmt.search_strategy import BeamSearch, GreedySearch
-from xnmt.hyper_parameters import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
 from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLengthPrior
 from xnmt.specialized_encoders.segmenting_encoder.priors import PoissonPrior, GoldInputPrior
 from xnmt.transform import AuxNonLinear, Linear
 from xnmt.scorer import Softmax
-from xnmt.constants import EPSILON
 from xnmt.transducer import IdentitySeqTransducer
 from xnmt.vocab import Vocab
 from xnmt.rl.policy_gradient import PolicyGradient
 from xnmt.rl.eps_greedy import EpsilonGreedy
 from xnmt.rl.confidence_penalty import ConfidencePenalty
 from xnmt.test.utils import has_cython
-from xnmt.reports import SegmentationReporter
 
 class TestSegmentingEncoder(unittest.TestCase):
   
@@ -176,6 +168,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.POLICY)
 
+  @unittest.skipUnless(has_cython(), "requires cython to run")
   def test_policy_gold(self):
     self.model.encoder.eps_greedy.prior = GoldInputPrior("segment")
     self.model.encoder.eps_greedy.eps_prob = 1.0

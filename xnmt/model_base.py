@@ -2,7 +2,6 @@ from typing import Optional, Sequence, Union
 
 from xnmt import batcher, events, input_reader, loss, sent, training_task
 import xnmt.loss_calculator
-import xnmt.input
 from xnmt.persistence import Serializable, serializable_init
 
 class TrainableModel(object):
