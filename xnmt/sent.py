@@ -12,11 +12,11 @@ class Sentence(object):
   A template class to represent a single data example of any type, used for both model input and output.
 
   Args:
-    idx: running sentence number (unique among sentences loaded from the same file, but not across files)
+    idx: running sentence number (0-based; unique among sentences loaded from the same file, but not across files)
     score: a score given to this sentence by a model
   """
 
-  def __init__(self, idx: int, score: Optional[float] = None) -> None:
+  def __init__(self, idx: Optional[int] = None, score: Optional[float] = None) -> None:
     self.idx = idx
     self.score = score
 
@@ -62,7 +62,7 @@ class ReadableSentence(Sentence):
   A base class for sentences based on readable strings.
 
   Args:
-    idx: running sentence number (unique among sentences loaded from the same file, but not across files)
+    idx: running sentence number (0-based; unique among sentences loaded from the same file, but not across files)
     score: a score given to this sentence by a model
     output_procs: output processors to be applied when calling sent_str()
   """
@@ -106,12 +106,13 @@ class ScalarSentence(ReadableSentence):
   This is useful for classification-style problems.
 
   Args:
-    idx: running sentence number (unique among sentences loaded from the same file, but not across files)
     value: scalar value
+    idx: running sentence number (0-based; unique among sentences loaded from the same file, but not across files)
     vocab: optional vocab to give different scalar values a string representation.
     score: a score given to this sentence by a model
   """
-  def __init__(self, idx: int, value: int, vocab: Optional[Vocab] = None, score: Optional[float] = None) -> None:
+  def __init__(self, value: int, idx: Optional[int] = None, vocab: Optional[Vocab] = None,
+               score: Optional[float] = None) -> None:
     super().__init__(idx=idx, score=score)
     self.value = value
     self.vocab = vocab
@@ -136,7 +137,6 @@ class CompoundSentence(Sentence):
   A compound sentence contains several sentence objects that present different 'views' on the same data examples.
 
   Args:
-    idx: running sentence number (unique among sentences loaded from the same file, but not across files)
     sents: a list of sentences
   """
   def __init__(self, sents: Sequence[Sentence]) -> None:
@@ -161,15 +161,16 @@ class SimpleSentence(ReadableSentence):
   A simple sentence, represented as a list of tokens
 
   Args:
-    idx: running sentence number (unique among sentences loaded from the same file, but not across files)
     words: list of integer word ids
+    idx: running sentence number (0-based; unique among sentences loaded from the same file, but not across files)
     vocab: optionally vocab mapping word ids to strings
     score: a score given to this sentence by a model
     output_procs: output processors to be applied when calling sent_str()
   """
   PAD_TOKEN = Vocab.ES
 
-  def __init__(self, idx: int, words: Sequence[int], vocab: Optional[Vocab] = None, score: Optional[float] = None,
+  def __init__(self, words: Sequence[int], idx: Optional[int] = None, vocab: Optional[Vocab] = None,
+               score: Optional[float] = None,
                output_procs: Sequence[OutputProcessor] = []) -> None:
     super().__init__(idx=idx, score=score, output_procs=output_procs)
     self.words = words
@@ -184,7 +185,7 @@ class SimpleSentence(ReadableSentence):
   def __getitem__(self, key):
     ret = self.words[key]
     if isinstance(ret, list):  # support for slicing
-      return SimpleSentence(ret, vocab=self.vocab)
+      return SimpleSentence(idx=self.idx, words=ret, vocab=self.vocab)
     return self.words[key]
 
   def sent_len(self):
@@ -225,13 +226,14 @@ class ArraySentence(Sentence):
   A sentence based on a numpy array containing a continuous-space vector for each token.
 
   Args:
-    idx: running sentence number (unique among sentences loaded from the same file, but not across files)
+    idx: running sentence number (0-based; unique among sentences loaded from the same file, but not across files)
     nparr: numpy array of dimension num_tokens x token_size
     padded_len: how many padded tokens are contained in the given nparr
     score: a score given to this sentence by a model
   """
 
-  def __init__(self, idx: int, nparr: np.ndarray, padded_len: int = 0, score: Optional[float] = None) -> None:
+  def __init__(self, nparr: np.ndarray, idx: Optional[int] = None, padded_len: int = 0,
+               score: Optional[float] = None) -> None:
     super().__init__(idx=idx, score=score)
     self.nparr = nparr
     self.padded_len = padded_len
