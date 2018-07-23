@@ -1,13 +1,22 @@
-class SentenceStats(object):
+from xnmt.persistence import serializable_init, Serializable
+
+class SentenceStats(Serializable):
   """
   to Populate the src and trg sents statistics.
   """
+  yaml_tag = '!SentenceStats'
 
-  def __init__(self):
+  @serializable_init
+  def __init__(self, src_file, trg_file):
       self.src_stat = {}
       self.trg_stat = {}
       self.max_pairs = 1000000
       self.num_pair = 0
+      training_corpus_src = open(src_file, 'r').readlines()
+      training_corpus_trg = open(trg_file, 'r').readlines()
+      training_corpus_src = [i.split() for i in training_corpus_src]
+      training_corpus_trg = [i.split() for i in training_corpus_trg]
+      self.populate_statistics(training_corpus_src, training_corpus_trg)
 
   class SourceLengthStat:
       def __init__(self):
