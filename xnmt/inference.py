@@ -238,7 +238,7 @@ class IndependentOutputInference(Inference, Serializable):
   @serializable_init
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
-               post_process: Union[None, str, Sequence[output.OutputProcessor]] = None,
+               post_process: Union[None, str, output.OutputProcessor, Sequence[output.OutputProcessor]] = None,
                mode: str = "onebest",
                batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1),
                reporter: Union[None, reports.Reporter, Sequence[reports.Reporter]] = None):
@@ -286,7 +286,7 @@ class AutoRegressiveInference(Inference, Serializable):
   @serializable_init
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
-               post_process: Union[str, Sequence[output.OutputProcessor]] = [],
+               post_process: Union[str, output.OutputProcessor, Sequence[output.OutputProcessor]] = [],
                search_strategy: search_strategy.SearchStrategy = bare(search_strategy.BeamSearch),
                mode: str = "onebest",
                batcher: xnmt.batcher.InOrderBatcher = bare(xnmt.batcher.InOrderBatcher, batch_size=1),

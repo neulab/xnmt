@@ -1,4 +1,4 @@
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Union
 import functools
 import copy
 
@@ -66,7 +66,8 @@ class ReadableSentence(Sentence):
     score: a score given to this sentence by a model
     output_procs: output processors to be applied when calling sent_str()
   """
-  def __init__(self, idx: int, score: float = None, output_procs: Sequence[OutputProcessor] = []) -> None:
+  def __init__(self, idx: int, score: float = None,
+               output_procs: Union[OutputProcessor, Sequence[OutputProcessor]] = []) -> None:
     super().__init__(idx=idx, score=score)
     self.output_procs = output_procs
 
@@ -94,6 +95,7 @@ class ReadableSentence(Sentence):
     pps = self.output_procs
     if custom_output_procs is not None:
       pps = custom_output_procs
+    if isinstance(pps, OutputProcessor): pps = [pps]
     for pp in pps:
       out_str = pp.process(out_str)
       # TODO: change output processor interface accordingly
@@ -169,8 +171,8 @@ class SimpleSentence(ReadableSentence):
     pad_token: special token used for padding
   """
   def __init__(self, words: Sequence[int], idx: Optional[int] = None, vocab: Optional[Vocab] = None,
-               score: Optional[float] = None, output_procs: Sequence[OutputProcessor] = [], pad_token: int = Vocab.ES)\
-          -> None:
+               score: Optional[float] = None, output_procs: Union[OutputProcessor, Sequence[OutputProcessor]] = [],
+               pad_token: int = Vocab.ES) -> None:
     super().__init__(idx=idx, score=score, output_procs=output_procs)
     self.pad_token = pad_token
     self.words = words
