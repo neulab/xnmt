@@ -101,5 +101,7 @@ class ArgClass(object):
 
 @functools.lru_cache()
 def cached_file_lines(file_name):
-  return open(file_name).readlines()
+  with open(file_name) as f:
+    ret = f.readlines()
+  return ret
 
