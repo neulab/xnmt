@@ -574,7 +574,7 @@ class WordSrcBatcher(WordSortBatcher, Serializable):
 
   def _pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
-      self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
+      self.batch_size = (sum([s.sent_len() for s in src]) + sum([s.sent_len() for s in trg])) / len(src) * self.avg_batch_size
     return super()._pack_by_order(src, trg, order)
 
 class WordTrgBatcher(WordSortBatcher, Serializable):
@@ -600,7 +600,7 @@ class WordTrgBatcher(WordSortBatcher, Serializable):
 
   def _pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
-      self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
+      self.batch_size = (sum([s.sent_len() for s in src]) + sum([s.sent_len() for s in trg])) / len(src) * self.avg_batch_size
     return super()._pack_by_order(src, trg, order)
 
 class WordSrcTrgBatcher(WordSortBatcher, Serializable):
@@ -626,7 +626,7 @@ class WordSrcTrgBatcher(WordSortBatcher, Serializable):
 
   def _pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
-      self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
+      self.batch_size = (sum([s.sent_len() for s in src]) + sum([s.sent_len() for s in trg])) / len(src) * self.avg_batch_size
     return super()._pack_by_order(src, trg, order)
 
 class WordTrgSrcBatcher(WordSortBatcher, Serializable):
@@ -652,7 +652,7 @@ class WordTrgSrcBatcher(WordSortBatcher, Serializable):
 
   def _pack_by_order(self, src, trg, order):
     if self.avg_batch_size:
-      self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
+      self.batch_size = (sum([s.sent_len() for s in src]) + sum([s.sent_len() for s in trg])) / len(src) * self.avg_batch_size
     return super()._pack_by_order(src, trg, order)
 
 def truncate_batches(*xl: Union[dy.Expression, Batch, Mask, lstm.UniLSTMState]) \
