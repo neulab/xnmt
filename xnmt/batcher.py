@@ -394,9 +394,9 @@ def pad(batch: Sequence, pad_to_multiple=1) -> Batch:
   """
   if isinstance(list(batch)[0], sent.CompoundSentence):
     ret = []
-    for compound_i in range(len(batch[0].inputs)):
+    for compound_i in range(len(batch[0].sents)):
       ret.append(
-        pad(tuple(inp.inputs[compound_i] for inp in batch), pad_to_multiple=pad_to_multiple))
+        pad(tuple(inp.sents[compound_i] for inp in batch), pad_to_multiple=pad_to_multiple))
     return CompoundBatch(*ret)
   max_len = max(_len_or_zero(item) for item in batch)
   if max_len % pad_to_multiple != 0:
