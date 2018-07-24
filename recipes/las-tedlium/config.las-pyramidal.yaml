@@ -47,6 +47,7 @@ las-pyramidal: !Experiment
     trg_reader: !PlainTextReader
       vocab: !Vocab
         vocab_file: '{EXP_DIR}/vocab.char'
+      output_proc: join-char
   train: !SimpleTrainingRegimen
     src_file: '{DATA_DIR}/feat/train.h5'
     trg_file: '{DATA_DIR}/transcript/train.char'
@@ -56,7 +57,6 @@ las-pyramidal: !Experiment
     batcher: !WordSrcBatcher
       avg_batch_size: 24
       pad_src_to_multiple: 8
-      src_pad_token: ~
     trainer: !AdamTrainer
       alpha: 0.001
     lr_decay: 0.5

@@ -10,7 +10,7 @@ from xnmt.decoder import AutoRegressiveDecoder
 from xnmt.embedder import SimpleWordEmbedder
 from xnmt.eval_task import LossEvalTask
 import xnmt.events
-from xnmt.input_reader import PlainTextReader, SimpleSentenceInput
+from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculator import AutoRegressiveMLELoss
 from xnmt.optimizer import AdamTrainer, DummyTrainer
@@ -21,6 +21,7 @@ from xnmt.transform import NonLinear
 from xnmt.translator import DefaultTranslator
 from xnmt.scorer import Softmax
 from xnmt.vocab import Vocab
+from xnmt import sent
 
 class TestTruncatedBatchTraining(unittest.TestCase):
 
@@ -51,8 +52,8 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     trg_sents_trunc = [s.words[:trg_min] for s in trg_sents]
     for single_sent in trg_sents_trunc: single_sent[trg_min-1] = Vocab.ES
 
-    src_sents_trunc = [SimpleSentenceInput(s) for s in src_sents_trunc]
-    trg_sents_trunc = [SimpleSentenceInput(s) for s in trg_sents_trunc]
+    src_sents_trunc = [sent.SimpleSentence(words=s) for s in src_sents_trunc]
+    trg_sents_trunc = [sent.SimpleSentence(words=s) for s in trg_sents_trunc]
 
     single_loss = 0.0
     for sent_id in range(batch_size):
@@ -190,8 +191,8 @@ class TestBatchTraining(unittest.TestCase):
     trg_masks = Mask(np_arr)
     trg_sents_padded = [[w for w in s] + [Vocab.ES]*(trg_max-s.sent_len()) for s in trg_sents]
 
-    src_sents_trunc = [SimpleSentenceInput(s) for s in src_sents_trunc]
-    trg_sents_padded = [SimpleSentenceInput(s) for s in trg_sents_padded]
+    src_sents_trunc = [sent.SimpleSentence(words=s) for s in src_sents_trunc]
+    trg_sents_padded = [sent.SimpleSentence(words=s) for s in trg_sents_padded]
 
     single_loss = 0.0
     for sent_id in range(batch_size):

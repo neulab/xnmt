@@ -112,7 +112,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       self.compose_output = outputs
       self.segment_actions = actions
       if not self.train and self.compute_report:
-        self.add_sent_for_report({"segment_actions": actions})
+        self.report_sent_info({"segment_actions": actions})
 
   @handle_xnmt_event
   def on_calc_additional_loss(self, trg, generator, generator_loss):

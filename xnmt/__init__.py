@@ -33,7 +33,6 @@ import xnmt.experiment
 import xnmt.fixed_size_att
 import xnmt.hyper_parameters
 import xnmt.inference
-import xnmt.input
 import xnmt.input_reader
 import xnmt.lm
 import xnmt.lstm
@@ -49,9 +48,10 @@ import xnmt.retriever
 import xnmt.scorer
 import xnmt.self_attention
 import xnmt.seq_labeler
-import xnmt.specialized_encoders.tilburg_harwath
-import xnmt.specialized_encoders.self_attentional_am
 import xnmt.specialized_encoders.segmenting_encoder
+import xnmt.specialized_encoders.segmenting_encoder.reader
+import xnmt.specialized_encoders.self_attentional_am
+import xnmt.specialized_encoders.tilburg_harwath
 import xnmt.training_regimen
 import xnmt.training_task
 import xnmt.transformer
