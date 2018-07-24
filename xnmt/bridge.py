@@ -1,22 +1,22 @@
+from typing import List, Sequence
+
 import dynet as dy
 
-from xnmt.param_collection import ParamManager
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.param_init import ParamInitializer, GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.transform import Linear
+from xnmt import transducer
 
 class Bridge(object):
   """
   Responsible for initializing the decoder LSTM, based on the final encoder state
   """
-  def decoder_init(self, dec_layers, dec_dim, enc_final_states):
+  def decoder_init(self, enc_final_states: Sequence[transducer.FinalTransducerState]) -> List[dy.Expression]:
     """
     Args:
-      dec_layers (int): number of decoder layers
-      dec_dim (int): dimension of decoder layers
-      enc_final_states (List[FinalTransducerState]): list of final states for each encoder layer
+      enc_final_states: list of final states for each encoder layer
     Returns:
-      list of dy.Expression: list of initial hidden and cell expressions for each layer. List indices 0..n-1 hold hidden states, n..2n-1 hold cell states.
+      list of initial hidden and cell expressions for each layer. List indices 0..n-1 hold hidden states, n..2n-1 hold cell states.
     """
     raise NotImplementedError("decoder_init() must be implemented by Bridge subclasses")
 
@@ -25,13 +25,13 @@ class NoBridge(Bridge, Serializable):
   This bridge initializes the decoder with zero vectors, disregarding the encoder final states.
 
   Args:
-    dec_layers (int): number of decoder layers to initialize
-    dec_dim (int): hidden dimension of decoder states
+    dec_layers: number of decoder layers to initialize
+    dec_dim: hidden dimension of decoder states
   """
   yaml_tag = '!NoBridge'
 
   @serializable_init
-  def __init__(self, dec_layers = 1, dec_dim = Ref("exp_global.default_layer_dim")):
+  def __init__(self, dec_layers: int = 1, dec_dim: int = Ref("exp_global.default_layer_dim")) -> None:
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim
   def decoder_init(self, enc_final_states):
@@ -47,13 +47,13 @@ class CopyBridge(Bridge, Serializable):
   - num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
 
   Args:
-    dec_layers (int): number of decoder layers to initialize
-    dec_dim (int): hidden dimension of decoder states
+    dec_layers: number of decoder layers to initialize
+    dec_dim: hidden dimension of decoder states
   """
   yaml_tag = '!CopyBridge'
 
   @serializable_init
-  def __init__(self, dec_layers = 1, dec_dim = Ref("exp_global.default_layer_dim")):
+  def __init__(self, dec_layers: int = 1, dec_dim: int = Ref("exp_global.default_layer_dim")) -> None:
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim
   def decoder_init(self, enc_final_states):
@@ -70,21 +70,22 @@ class LinearBridge(Bridge, Serializable):
   Requires that  num encoder layers >= num decoder layers (if unequal, we disregard final states at the encoder bottom)
 
   Args:
-    dec_layers (int): number of decoder layers to initialize
-    enc_dim (int): hidden dimension of encoder states
-    dec_dim (int): hidden dimension of decoder states
-    param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
-    bias_init (ParamInitializer): how to initialize bias vectors; if None, use ``exp_global.bias_init``
+    dec_layers: number of decoder layers to initialize
+    enc_dim: hidden dimension of encoder states
+    dec_dim: hidden dimension of decoder states
+    param_init: how to initialize weight matrices; if None, use ``exp_global.param_init``
+    bias_init: how to initialize bias vectors; if None, use ``exp_global.bias_init``
+    projector: linear projection (created automatically)
   """
   yaml_tag = '!LinearBridge'
 
   @serializable_init
   def __init__(self,
-               dec_layers = 1,
-               enc_dim = Ref("exp_global.default_layer_dim"),
-               dec_dim = Ref("exp_global.default_layer_dim"),
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               dec_layers: int = 1,
+               enc_dim: int = Ref("exp_global.default_layer_dim"),
+               dec_dim: int = Ref("exp_global.default_layer_dim"),
+               param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init: ParamInitializer = Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
                projector=None):
     self.dec_layers = dec_layers
     self.enc_dim = enc_dim
