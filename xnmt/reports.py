@@ -16,6 +16,7 @@ Note that currently reporting is only supported at test-time, not at training ti
 import os
 import math
 from typing import Any, Dict, Optional, Sequence, Union
+from collections import defaultdict
 
 from bs4 import BeautifulSoup as bs
 
@@ -451,24 +452,88 @@ class SegmentationReporter(Reporter, Serializable):
 
 class SubwordConsistencyReporter(Reporter, Serializable):
   """
-  A reporter that gives statistics on subword consistency: were invalid words created, OOVs recovered, etc.
+  A reporter that gives statistics on subword consistency: recovered OOVs, fantasized new words, etc.
 
   Args:
+    train_trg_file: path to word-tokenized training target file
     report_path: Path of directory to write text files to
   """
   yaml_tag = "!SubwordConsistencyReporter"
 
   @serializable_init
   @register_xnmt_handler
-  def __init__(self, train_trg_file=Ref("train.trg_file"), report_path: str=settings.DEFAULT_REPORT_PATH):
+  def __init__(self, train_trg_file, report_path: str=settings.DEFAULT_REPORT_PATH):
     self.report_path = report_path
     self.report_fp = None
+    self.train_trg_file = train_trg_file
+    self.out_sents, self.ref_lines = [], []
 
-  def create_report(self, output, ref_file, **kwargs):
-    ...
+  def create_report(self, output: sent.ReadableSentence, ref_file: str, **kwargs):
+    self.output_vocab = output.vocab
+    reference = util.cached_file_lines(ref_file)[output.idx]
+    self.ref_lines.append(reference)
+    self.out_sents.append(output)
 
   @handle_xnmt_event
   def on_end_inference(self):
+    train_words = set()
+    with open(self.train_trg_file) as f_train:
+      for line in f_train:
+        for word in line.strip().split():
+          train_words.add(word)
+    ref_words = set()
+    ref_words_oov = defaultdict(int)
+    ref_words_total = 0
+    ref_oovs_unmatched = defaultdict(int)
+    for ref_line, trg_sent in zip(self.ref_lines, self.out_sents):
+      for word in ref_line.strip().split():
+        ref_words.add(word)
+        ref_words_total += 1
+        if word not in train_words:
+          ref_words_oov[word] += 1
+          if word not in trg_sent.sent_str().split():
+            ref_oovs_unmatched[word] += 1
+    if ref_words_total == 0: raise ValueError("Found empty reference")
+    hyp_words = set()
+    hyp_words_oov = defaultdict(int)
+    hyp_words_total = 0
+    hyp_oovs_matched = defaultdict(int)
+    hyp_oovs_unmatched = defaultdict(int)
+    for trg_sent, ref_line in zip(self.out_sents, self.ref_lines):
+      for word in trg_sent.sent_str().split():
+        hyp_words.add(word)
+        hyp_words_total += 1
+        if word not in train_words:
+          hyp_words_oov[word] += 1
+          ref_line_words = ref_line.strip().split()
+          if word in ref_line_words:
+            hyp_oovs_matched[word] += 1
+          else:
+            hyp_oovs_unmatched[word] += 1
+    if hyp_words_total == 0: raise ValueError("Found empty hypothesis")
+    sorted_hyp_oovs_matched = sorted(hyp_oovs_matched.items(), key=lambda x: x[1], reverse=True)
+    sorted_hyp_oovs_unmatched = sorted(hyp_oovs_unmatched.items(), key=lambda x: x[1], reverse=True)
+    sorted_ref_oovs_unmatched = sorted(ref_oovs_unmatched.items(), key=lambda x: x[1], reverse=True)
+    num_oovs_ref = sum(ref_words_oov.values())
+    num_oovs_hyp = sum(hyp_words_oov.values())
+    num_oovs_hyp_matched = sum(hyp_oovs_matched.values())
+    hyp_oov_prec = f"{num_oovs_hyp_matched/num_oovs_hyp*100}%" if num_oovs_hyp>0 else "n/a"
+    hyp_oov_rec = f"{num_oovs_hyp_matched/num_oovs_ref*100}%" if num_oovs_ref>0 else "n/a"
     with open(os.path.join(self.report_path, "subword-consistency.txt"), "w") as fout:
-      fout.write("Subword Consistency Report\n--------------------")
+      fout.write(f"Subword Consistency Report\n--------------------------\n")
+      fout.write(f"Size of subword vocab:                      {len(self.output_vocab)}\n")
+      fout.write(f"Unique words in training corpus:            {len(train_words)}\n")
+      fout.write(f"Unique words in test reference:             {len(ref_words)}\n")
+      fout.write(f"Unique words in test hypothesis:            {len(hyp_words)}\n")
+      fout.write(f"OOVs in test reference:                     {num_oovs_ref} ({num_oovs_ref/ref_words_total*100}%)\n")
+      fout.write(f"OOVs in test hypothesis:                    {num_oovs_hyp} ({num_oovs_hyp/hyp_words_total*100}%)\n")
+      fout.write(f"Hypothesis OOVs precision (sentence-match): {hyp_oov_prec}\n")
+      fout.write(f"Hypothesis OOVs recall (sentence-match):    {hyp_oov_rec}\n")
+      fout.write(f"\n\nListing:\n")
+      fout.write(f"OOVs recovered: \n")
+      fout.write("\n".join([f"{item[0]} ({item[1]})" for item in sorted_hyp_oovs_matched]))
+      fout.write(f"\n\nOOVs not recovered: \n")
+      fout.write("\n".join([f"{item[0]} ({item[1]})" for item in sorted_ref_oovs_unmatched]))
+      fout.write(f"\n\nfantasized words: \n")
+      fout.write("\n".join([f"{item[0]} ({item[1]})" for item in sorted_hyp_oovs_unmatched]))
 
