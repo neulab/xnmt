@@ -187,7 +187,8 @@ class SimpleSentence(ReadableSentence):
   def __getitem__(self, key):
     ret = self.words[key]
     if isinstance(ret, list):  # support for slicing
-      return SimpleSentence(idx=self.idx, words=ret, vocab=self.vocab)
+      return SimpleSentence(words=ret, idx=self.idx, vocab=self.vocab, score=self.score, output_procs=self.output_procs,
+                            pad_token=self.pad_token)
     return self.words[key]
 
   def sent_len(self):
@@ -256,13 +257,13 @@ class ArraySentence(Sentence):
       return self
     new_nparr = np.append(self.nparr, np.broadcast_to(np.reshape(self.nparr[:, -1], (self.nparr.shape[0], 1)),
                                                       (self.nparr.shape[0], pad_len)), axis=1)
-    return ArraySentence(new_nparr, padded_len=self.padded_len + pad_len)
+    return ArraySentence(new_nparr, idx=self.idx, score=self.score, padded_len=self.padded_len + pad_len)
 
   def create_truncated_sent(self, trunc_len: int) -> 'ArraySentence':
     if trunc_len == 0:
       return self
     new_nparr = np.asarray(self.nparr[:-trunc_len])
-    return ArraySentence(new_nparr, padded_len=max(0,self.padded_len - trunc_len))
+    return ArraySentence(new_nparr, idx=self.idx, score=self.score, padded_len=max(0,self.padded_len - trunc_len))
 
   def get_array(self):
     return self.nparr
