@@ -343,6 +343,8 @@ class AttentionReporter(HtmlReporter, Serializable):
   Reporter that writes attention matrices to HTML.
 
   Args:
+    max_num_sents: create attention report for only the first n sentences
+    report_name: prefix for output files
     report_path: Path of directory to write HTML and image files to
   """
 
@@ -350,8 +352,11 @@ class AttentionReporter(HtmlReporter, Serializable):
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, report_name: str = "attention", report_path: str = settings.DEFAULT_REPORT_PATH):
+  def __init__(self, max_num_sents: Optional[int] = 100, report_name: str = "attention",
+               report_path: str = settings.DEFAULT_REPORT_PATH):
     super().__init__(report_name=report_name, report_path=report_path)
+    self.max_num_sents = max_num_sents
+    self.cur_sent_no = 0
 
   def create_report(self, src: sent.Sentence, output: sent.ReadableSentence, attentions: np.ndarray,
                     ref_file: Optional[str], **kwargs) -> None:
@@ -366,6 +371,8 @@ class AttentionReporter(HtmlReporter, Serializable):
       ref_file: path to reference file
       **kwargs: arguments to be ignored
     """
+    self.cur_sent_no += 1
+    if self.max_num_sents and self.cur_sent_no > self.max_num_sents: return
     reference = util.cached_file_lines(ref_file)[output.idx]
     idx = src.idx
     self.add_sent_heading(idx)
@@ -383,6 +390,7 @@ class AttentionReporter(HtmlReporter, Serializable):
   def on_end_inference(self):
     self.finish_html_doc()
     self.write_html()
+    self.cur_sent_no = 0
 
   def add_atts(self,
                attentions: np.ndarray,
