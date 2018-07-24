@@ -26,9 +26,9 @@ import numpy as np
 
 import xnmt.plot
 import xnmt.output
-from xnmt import sent, util
+from xnmt import sent, util, output
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
-from xnmt.persistence import Serializable, serializable_init, Ref
+from xnmt.persistence import Serializable, serializable_init
 from xnmt.settings import settings
 import xnmt.thirdparty.charcut.charcut as charcut
 
@@ -462,11 +462,13 @@ class SubwordConsistencyReporter(Reporter, Serializable):
 
   @serializable_init
   @register_xnmt_handler
-  def __init__(self, train_trg_file, report_path: str=settings.DEFAULT_REPORT_PATH):
+  def __init__(self, train_trg_file, report_path: str=settings.DEFAULT_REPORT_PATH,
+               post_process: Union[None, str, output.OutputProcessor, Sequence[output.OutputProcessor]] = None):
     self.report_path = report_path
     self.report_fp = None
     self.train_trg_file = train_trg_file
     self.out_sents, self.ref_lines = [], []
+    self.post_processor = output.OutputProcessor.get_output_processor(post_process) or None
 
   def create_report(self, output: sent.ReadableSentence, ref_file: str, **kwargs):
     self.output_vocab = output.vocab
@@ -491,7 +493,7 @@ class SubwordConsistencyReporter(Reporter, Serializable):
         ref_words_total += 1
         if word not in train_words:
           ref_words_oov[word] += 1
-          if word not in trg_sent.sent_str().split():
+          if word not in trg_sent.sent_str(custom_output_procs=self.post_processor).split():
             ref_oovs_unmatched[word] += 1
     if ref_words_total == 0: raise ValueError("Found empty reference")
     hyp_words = set()
@@ -500,7 +502,7 @@ class SubwordConsistencyReporter(Reporter, Serializable):
     hyp_oovs_matched = defaultdict(int)
     hyp_oovs_unmatched = defaultdict(int)
     for trg_sent, ref_line in zip(self.out_sents, self.ref_lines):
-      for word in trg_sent.sent_str().split():
+      for word in trg_sent.sent_str(custom_output_procs=self.post_processor).split():
         hyp_words.add(word)
         hyp_words_total += 1
         if word not in train_words:
