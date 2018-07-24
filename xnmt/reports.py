@@ -28,7 +28,7 @@ import xnmt.output
 import xnmt.input
 from xnmt import vocab, util
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
-from xnmt.persistence import Serializable, serializable_init
+from xnmt.persistence import Serializable, serializable_init, Ref
 from xnmt.settings import settings
 import xnmt.thirdparty.charcut.charcut as charcut
 
@@ -104,7 +104,7 @@ class ReferenceDiffReporter(Reporter, Serializable):
   Args:
     match_size: min match size in characters (set < 3 e.g. for Japanese or Chinese)
     alt_norm: alternative normalization scheme: use only the candidate's length for normalization
-    report_path: Path to write HTML files to
+    report_path: Path of directory to write HTML files to
   """
   yaml_tag = "!ReferenceDiffReporter"
   @serializable_init
@@ -130,7 +130,7 @@ class ReferenceDiffReporter(Reporter, Serializable):
   @handle_xnmt_event
   def on_end_inference(self):
     if self.hyp_sents:
-      html_filename = f"{self.report_path}/charcut.html"
+      html_filename = os.path.join(self.report_path, "charcut.html")
       util.make_parent_dir(html_filename)
       args = util.ArgClass(html_output_file=html_filename, match_size=self.match_size, alt_norm=self.alt_norm)
       aligned_segs = charcut.load_input_segs(cand_segs=self.hyp_sents,
@@ -155,7 +155,7 @@ class CompareMtReporter(Reporter, Serializable):
     sent_size: How many sentences to print.
     ngram_size: How many n-grams to print.
 
-    report_path: Path to write report files to
+    report_path: Path of directory to write report files to
   """
   yaml_tag = "!CompareMtReporter"
   @serializable_init
@@ -182,8 +182,8 @@ class CompareMtReporter(Reporter, Serializable):
   @handle_xnmt_event
   def on_end_inference(self):
     if self.hyp_sents:
-      ref_filename = f"{self.report_path}/tmp/compare-mt.ref"
-      out_filename = f"{self.report_path}/tmp/compare-mt.out"
+      ref_filename = os.path.join(self.report_path, "tmp", "compare-mt.ref")
+      out_filename = os.path.join(self.report_path, "tmp", "compare-mt.out")
       util.make_parent_dir(out_filename)
       with open(ref_filename, "w") as fout:
         for l in self.ref_sents: fout.write(f"{l.strip()}\n")
@@ -200,7 +200,7 @@ class CompareMtReporter(Reporter, Serializable):
                            ngram_size = self.ngram_size,
                            sent_size = self.sent_size)
       out_lines = compare_mt.main(args)
-      report_filename = f"{self.report_path}/compare-mt.txt"
+      report_filename = os.path.join(self.report_path, "compare-mt.txt")
       util.make_parent_dir(report_filename)
       with open(report_filename, "w") as fout:
         for l in out_lines: fout.write(f"{l}\n")
@@ -213,7 +213,7 @@ class HtmlReporter(Reporter):
 
   Args:
     report_name: prefix for report files
-    report_path: Path to write HTML and image files to
+    report_path: Path of directory to write HTML and image files to
   """
   def __init__(self, report_name: str, report_path: str = settings.DEFAULT_REPORT_PATH) -> None:
     self.report_name = report_name
@@ -267,7 +267,7 @@ class HtmlReporter(Reporter):
     html_str = "\n".join(self.html_contents)
     soup = bs(html_str, "lxml")
     pretty_html = soup.prettify()
-    html_file_name = f"{self.report_path}/{self.report_name}.html"
+    html_file_name = os.path.join(self.report_path, f"{self.report_name}.html")
     util.make_parent_dir(html_file_name)
     with open(html_file_name, 'w', encoding='utf-8') as f:
       f.write(pretty_html)
@@ -316,7 +316,7 @@ class AttentionReporter(HtmlReporter, Serializable):
   Reporter that writes attention matrices to HTML.
 
   Args:
-    report_path: Path to write HTML and image files to
+    report_path: Path of directory to write HTML and image files to
   """
 
   yaml_tag = "!AttentionReporter"
@@ -379,7 +379,7 @@ class AttentionReporter(HtmlReporter, Serializable):
       size_y = math.log(src_tokens.shape[1]+2)
     else:
       size_y = math.log(len(src_tokens)+2) * 3
-    attention_file = f"{self.report_path}/img/attention.{util.valid_filename(desc).lower()}.{idx}.png"
+    attention_file = os.path.join(self.report_path, "img", f"attention.{util.valid_filename(desc).lower()}.{idx}.png")
     html_att = f'<tr><td class="seghead">{desc}:</td><td></td></tr>' \
                f'<tr><td colspan="2" align="left"><img src="img/{os.path.basename(attention_file)}" alt="attention matrix" /></td></tr>'
     xnmt.plot.plot_attention(src_words=src_tokens, trg_words=trg_tokens, attention_matrix=attentions,
@@ -392,7 +392,7 @@ class SegmentationReporter(Reporter, Serializable):
   A reporter to be used with the segmenting encoder.
 
   Args:
-    report_path: Path to write text files to
+    report_path: Path of directory to write text files to
   """
   yaml_tag = "!SegmentationReporter"
 
@@ -404,7 +404,7 @@ class SegmentationReporter(Reporter, Serializable):
 
   def create_report(self, segment_actions, src_vocab, src, **kwargs):
     if self.report_fp is None:
-      report_path = self.report_path + "/segment.txt"
+      report_path = os.path.join(self.report_path, "segment.txt")
       util.make_parent_dir(report_path)
       self.report_fp = open(report_path, "w")
 
@@ -421,4 +421,28 @@ class SegmentationReporter(Reporter, Serializable):
   def on_end_inference(self):
     if hasattr(self, "report_fp") and self.report_fp:
       self.report_fp.close()
+
+
+class SubwordConsistencyReporter(Reporter, Serializable):
+  """
+  A reporter that gives statistics on subword consistency: were invalid words created, OOVs recovered, etc.
+
+  Args:
+    report_path: Path of directory to write text files to
+  """
+  yaml_tag = "!SubwordConsistencyReporter"
+
+  @serializable_init
+  @register_xnmt_handler
+  def __init__(self, train_trg_file=Ref("train.trg_file"), report_path: str=settings.DEFAULT_REPORT_PATH):
+    self.report_path = report_path
+    self.report_fp = None
+
+  def create_report(self, output, ref_file, **kwargs):
+    ...
+
+  @handle_xnmt_event
+  def on_end_inference(self):
+    with open(os.path.join(self.report_path, "subword-consistency.txt"), "w") as fout:
+      fout.write("Subword Consistency Report\n--------------------")
 
