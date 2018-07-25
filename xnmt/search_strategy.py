@@ -272,20 +272,30 @@ class SamplingSearch(Serializable, SearchStrategy):
 
 
 class MctsNode(object):
-  def __init__(self, parent, prior_dist, word, attention, translator, dec_state):
+  Hypothesis = namedtuple('Hypothesis', ['score', 'output', 'parent', 'word'])
+
+  def __init__(self, searcher, parent, path_score, prior_dist, word, attention, translator, dec_state, len_norm):
+    self.searcher = searcher
     self.parent = parent
+    self.path_score = path_score
     self.prior_dist = prior_dist  # log of softmax
     self.word = word
     self.attention = attention
 
     self.translator = translator
     self.dec_state = dec_state
+    self.len_norm = len_norm
 
     self.tries = 0
     self.avg_value = 0.0
+    self.expanded_children_prob = 0.0
     self.children = {}
+    self.best_apriori_child_prob = max(prior_dist)
 
-    # If the child is unvisited, set its avg_value to
+    self.best_rollout = None
+    self.best_rollout_score = None
+
+    # TODO: If the child is unvisited, set its avg_value to
     # parent value - reduction where reduction = c * sqrt(sum of scores of all visited children)
     # where c is 0.25 in leela
     self.reduction = 0.0
@@ -296,18 +306,25 @@ class MctsNode(object):
 
   def compute_priority(self, move):
     if move not in self.children:
-      child_val = self.prior_dist[move] + self.avg_value - self.reduction
+      #child_val = self.prior_dist[move] + self.avg_value - self.reduction
+      assert self.expanded_children_prob >= 0.0 and self.expanded_children_prob <= 1.0
+      child_lag = (self.best_apriori_child_prob - self.prior_dist[move])
+      fpu_reduction = self.searcher.c_fpu * math.sqrt(self.expanded_children_prob)
+      child_val = self.avg_value - child_lag # - fpu_reduction
+      #child_val = 0
       child_tries = 0
     else:
-      child_val = self.prior_dist[move] + self.children[move].avg_value
+      child_val = self.children[move].avg_value #+ self.prior_dist[move]
       child_tries = self.children[move].tries
 
-    K = 5.0
-    exp_term = math.sqrt(1.0 * self.tries + 1.0) / (child_tries + 1)
+    K = self.searcher.c_puct
     # TODO: This exp could be done before the prior is passed into the MctsNode
     # so it's done as a big batch
-    exp_term *= K * math.exp(self.prior_dist[move])
+    p = math.exp(self.prior_dist[move])
+    assert p >= 0.0 and p <= 1.0
+    exp_term = K * p * math.sqrt(1.0 * self.tries) / (child_tries + 1)
     total_value = child_val + exp_term
+    #print('Priority of %d is %f' % (move, total_value))
     return total_value
 
   def expand(self):
@@ -318,7 +335,7 @@ class MctsNode(object):
     if move in self.children:
       return self.children[move].expand()
     else:
-      output = self.translator.generate_one_step(move, self.dec_state)
+      output = self.translator.output_one_step(move, self.dec_state)
       prior_dist = output.logsoftmax.npvalue()
       attention = output.attention
 
@@ -328,44 +345,90 @@ class MctsNode(object):
         path.append(node.word)
         node = node.parent
       path = ' '.join(str(word) for word in reversed(path))
-      print('Creating new node:', path, '+', move)
-      new_node = MctsNode(self, prior_dist, move, attention,
-                          self.translator, output.state)
+      #print('Creating new node:', path, '+', move)
+      path_score = self.path_score + self.prior_dist[move]
+      new_node = MctsNode(self.searcher, self, path_score, prior_dist, move, attention,
+                          self.translator, output.state, self.len_norm)
       self.children[move] = new_node
+      assert self.expanded_children_prob >= 0.0 and self.expanded_children_prob <= 1.0
+      self.expanded_children_prob += math.exp(self.prior_dist[move])
+      if self.expanded_children_prob > 1.0:
+        assert self.expanded_children_prob < 1.01
+        self.expanded_children_prob = 1.0
+      assert self.expanded_children_prob >= 0.0 and self.expanded_children_prob <= 1.0
       return new_node
 
-  def rollout(self, sample_func, max_len):
+  def rollout(self, sample_func, max_len, src_length):
     prefix = []
     scores = []
     prev_word = None
     dec_state = self.dec_state
 
+    n = self
+    path = []
+    while n.word != None:
+      path.append(n.word)
+      n = n.parent
+    path = path[::-1]
+
     if self.word == Vocab.ES:
-      return prefix, scores
+      final_hyp = self.Hypothesis(self.path_score + sum(scores), prefix, None, None)
+      normalized_scores = self.len_norm.normalize_completed([final_hyp], src_length)
+      normalized_score = normalized_scores[0]
+      #if sample_func != greedy_choice:
+        #print('Terminal reached scoring', self.path_score, '+', sum(scores), 'which normalizes to', normalized_score, 'from', ' '.join(map(str, path)))
+      return prefix, normalized_score 
+
+    # XXX: This is a very ugly hack. The attender class stores previous attention
+    # vectors as expressions within itself. We want to checkpoint the CG, do the
+    # rollout, then revert the CG to its state before the rollout to save RAM.
+    # Unfortunately, doing so would leave some dangling pointers in the
+    # attender class, so we need to tidy those up too.
+    n_before = len(self.translator.attender.attention_vecs)
+    c_before = self.dec_state.context
+    dy.cg_checkpoint()
 
     while True:
-      output = self.translator.generate_one_step(prev_word, dec_state)
+      output = self.translator.output_one_step(prev_word, dec_state)
       logsoftmax = output.logsoftmax.npvalue()
       attention = output.attention
       best_id = sample_func(logsoftmax)
-      print("Rolling out node with word=", best_id, 'score=', logsoftmax[best_id])
+      #print("Rolling out node with word=", best_id, 'score=', logsoftmax[best_id])
 
       prefix.append(best_id)
       scores.append(logsoftmax[best_id])
 
       if best_id == Vocab.ES or len(prefix) >= max_len:
         break
-      prev_word = best_id
+      prev_word = best_id 
       dec_state = output.state
-    return prefix, scores
 
-  def backup(self, result):
-    print('Backing up', result)
+    # XXX: See above note about tidying up pointers in the attender class.
+    dy.cg_revert()
+    assert len(self.translator.attender.attention_vecs) >= n_before
+    self.translator.attender.attention_vecs = self.translator.attender.attention_vecs[:n_before]
+    self.dec_state.context = c_before
+
+    final_hyp = self.Hypothesis(self.path_score + sum(scores), prefix, None, None)
+    normalized_scores = self.len_norm.normalize_completed([final_hyp], src_length)
+    normalized_score = normalized_scores[0]
+
+    #if sample_func != greedy_choice:
+    #  print('Rollout returned', self.path_score, '+', sum(scores), 'which normalizes to', normalized_score, 'from', ' '.join(map(str, path)), '+', ' '.join(map(str, prefix)))
+    return prefix, normalized_score
+
+  def backup(self, result, words):
+    #print('Backing up', result)
     self.avg_value = self.avg_value * (self.tries / (self.tries + 1)) + result / (self.tries + 1)
     self.tries += 1
+
+    if self.best_rollout_score is None or result > self.best_rollout_score:
+      self.best_rollout = words
+      self.best_rollout_score = result
+
     if self.parent is not None:
-      my_prob = self.parent.prior_dist[self.word]
-      self.parent.backup(result + my_prob)
+      #my_prob = self.parent.prior_dist[self.word]
+      self.parent.backup(result, [self.word] + words)
 
   def collect(self, words, attentions):
     if self.word is not None:
@@ -388,6 +451,26 @@ def greedy_choice(logsoftmax):
   return np.argmax(logsoftmax)
 
 
+def load_system(filename):
+  desc = LoadSerialized(
+    filename=filename,
+    overwrite=[
+      {'path': 'train', 'val': None}
+    ]
+  )
+  exp_dir = os.path.dirname(filename)
+  #exp_name = os.path.basename(filename)
+  exp_name = 'exp.rev'
+  preloaded_exp = YamlPreloader.preload_obj(desc, exp_dir=exp_dir, exp_name=exp_name)
+  #  desc, exp_dir=exp_dir, exp_name=exp_name)
+  exp = initialize_if_needed(preloaded_exp)
+  ParamManager.populate()
+  return exp.model
+
+def word_id_to_string(translator, word):
+  word_str = '%s (%d)' % (translator.trg_vocab[word], word) if word is not None else '[None]'
+  return word_str
+
 class MctsSearch(Serializable, SearchStrategy):
   """
   Performs search with Monte Carlo Tree Search
@@ -395,30 +478,65 @@ class MctsSearch(Serializable, SearchStrategy):
   yaml_tag = '!MctsSearch'
 
   @serializable_init
-  def __init__(self, visits=200, max_len=100):
+  def __init__(self, visits=200, max_len=100, len_norm=bare(NoNormalization), other_system=None, c_puct=5.0, c_fpu=0.0, other_weight=0.0, best=False):
     self.max_len = max_len
     self.visits = visits
+    self.len_norm = len_norm
+    self.other_system = load_system(other_system) if other_system is not None else None
+    self.c_puct = c_puct
+    self.c_fpu = c_fpu
+    self.other_weight = other_weight
+    self.best = best
 
-  def generate_output(self, translator, dec_state, src_length=None, forced_trg_ids=None):
+  def generate_output(self, translator, dec_state, src, src_length=None, forced_trg_ids=None):
     assert forced_trg_ids is None
     orig_dec_state = dec_state
 
-    output = translator.generate_one_step(None, dec_state)
+    output = translator.output_one_step(None, dec_state)
     dec_state = output.state
     assert dec_state == orig_dec_state
     logsoftmax = output.logsoftmax.npvalue()
-    root_node = MctsNode(None, logsoftmax, None, None, translator, dec_state)
+    root_node = MctsNode(self, None, 0.0, logsoftmax, None, None, translator, dec_state, self.len_norm)
     for i in range(self.visits):
-      terminal = root_node.expand()
-      words, scores = terminal.rollout(random_choice, self.max_len)
-      terminal.backup(sum(scores))
-      print()
+      terminal = root_node.expand() if i > 0 else root_node
+      words, score = terminal.rollout(random_choice, self.max_len, src_length)
 
-    print('Final stats:')
-    for word in root_node.children:
-      print (word, root_node.compute_priority(word), root_node.prior_dist[word] + root_node.children[word].avg_value, root_node.children[word].tries)
-    print()
+      if self.other_system:
+        prefix = []
+        n = terminal
+        while n.word != None:
+          prefix.append(n.word)
+          n = n.parent
+        prefix = list(reversed(prefix))
+        loss_calculator = MLELoss()
+        reverse_score = -self.other_system.calc_loss(prefix + words, src[0].words, loss_calculator).get_factored_loss_val().sum_factors()
+        score += self.other_weight * reverse_score
 
+      terminal.backup(score, words)
+      #print()
+
+    #print('Final stats:')
+    #for word in root_node.children:
+    #  print (word, root_node.compute_priority(word), root_node.prior_dist[word] + root_node.children[word].avg_value, root_node.children[word].tries)
+    #print()
+
+    if self.best:
+      output = self.extract_best_output(root_node)
+    else:
+      output = self.extract_output(root_node, src_length)
+    #self.dump_tree(root_node)
+    #print('==========')
+    #sys.stdout.flush()
+    return output
+
+  def extract_best_output(self, root_node):
+    words = root_node.best_rollout
+    node = root_node
+    #print('Best output:', words)
+    words = np.expand_dims(words, axis=0)
+    return [SearchOutput(words, [[] for _ in words], [0.0 for _ in words], None, None, None)]
+
+  def extract_output(self, root_node, src_length):
     scores = []
     logsoftmaxes = []
     word_ids = []
@@ -443,5 +561,19 @@ class MctsSearch(Serializable, SearchStrategy):
 
       node = node.children[best_word]
 
-    word_ids = np.expand_dims(word_ids, axis=0)
+    suffix, suffix_scores = node.rollout(greedy_choice, self.max_len, src_length)
+
+    # TODO: Get attentions, scores, logsoftmaxes, states, and masks from rollout
+    word_ids = np.expand_dims(word_ids + suffix, axis=0)
     return [SearchOutput(word_ids, attentions, scores, logsoftmaxes, states, masks)]
+
+  def dump_tree(self, node, indents=0):
+    parent_prior = node.parent.prior_dist[node.word] if node.parent is not None else 1.0
+    word_str = word_id_to_string(node.translator, node.word)
+    #best_rollout_str = ' '.join([word_id_to_string(node.translator, word) for word in node.best_rollout]) if node.best_rollout is not None else '[None]'
+    best_rollout_str = ' '.join(map(str, node.best_rollout)) if node.best_rollout is not None else '[None]'
+    print('  ' * indents, word_str, node.tries, 'ps=%f' % node.path_score,
+          'pr=%f' % parent_prior, 'q=%f' % node.avg_value, best_rollout_str, node.best_rollout_score)
+    for child in sorted(node.children.values(), key=lambda child: child.tries, reverse=True):
+      self.dump_tree(child, indents + 1)
+
