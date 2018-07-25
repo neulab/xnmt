@@ -1,6 +1,5 @@
 import sys, os
 import logging
-from typing import Optional
 
 import yaml
 
