@@ -1,5 +1,6 @@
 import sys, os
 import logging
+from typing import Optional
 
 import yaml
 
@@ -38,6 +39,8 @@ logging.addLevelName(STD_OUTPUT_LEVELNO, "STD_OUTPUT")
 
 logger = logging.getLogger('xnmt')
 logger.setLevel(min(logging._checkLevel(settings.LOG_LEVEL_CONSOLE), logging._checkLevel(settings.LOG_LEVEL_FILE)))
+logger_file = logging.getLogger('xnmt_file')
+logger_file.setLevel(min(logging._checkLevel(settings.LOG_LEVEL_CONSOLE), logging._checkLevel(settings.LOG_LEVEL_FILE)))
 
 ch_out = logging.StreamHandler(sys_std_out)
 ch_out.setLevel(settings.LOG_LEVEL_CONSOLE)
@@ -79,6 +82,7 @@ def set_out_file(out_file):
   fh.setLevel(settings.LOG_LEVEL_FILE)
   fh.setFormatter(MainFormatter())
   logger.addHandler(fh)
+  logger_file.addHandler(fh)
   yaml_fh = logging.FileHandler(f"{out_file}.yaml", mode='w', encoding="utf-8")
   yaml_fh.setLevel(logging.DEBUG)
   yaml_fh.setFormatter(YamlFormatter())
@@ -97,6 +101,9 @@ def unset_out_file():
     if isinstance(hdlr, logging.FileHandler):
       hdlr.close()
       yaml_logger.removeHandler(hdlr)
+  for hdlr in list(logger_file.handlers):
+    hdlr.close()
+    logger_file.removeHandler(hdlr)
 
 class Tee(object):
   def __init__(self, indent=0, error=False):
