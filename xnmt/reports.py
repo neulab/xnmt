@@ -525,16 +525,16 @@ class SubwordConsistencyReporter(Reporter, Serializable):
     num_oovs_ref = sum(ref_words_oov.values())
     num_oovs_hyp = sum(hyp_words_oov.values())
     num_oovs_hyp_matched = sum(hyp_oovs_matched.values())
-    hyp_oov_prec = f"{num_oovs_hyp_matched/num_oovs_hyp*100}%" if num_oovs_hyp>0 else "n/a"
-    hyp_oov_rec = f"{num_oovs_hyp_matched/num_oovs_ref*100}%" if num_oovs_ref>0 else "n/a"
+    hyp_oov_prec = f"{num_oovs_hyp_matched/num_oovs_hyp*100:.2f}%" if num_oovs_hyp>0 else "n/a"
+    hyp_oov_rec = f"{num_oovs_hyp_matched/num_oovs_ref*100:.2f}%" if num_oovs_ref>0 else "n/a"
     with open(os.path.join(self.report_path, "subword-consistency.txt"), "w") as fout:
       fout.write(f"Subword Consistency Report\n--------------------------\n")
       fout.write(f"Size of subword vocab:                      {len(self.output_vocab)}\n")
-      fout.write(f"Unique words in training corpus:            {len(train_words)}\n")
-      fout.write(f"Unique words in test reference:             {len(ref_words)}\n")
-      fout.write(f"Unique words in test hypothesis:            {len(hyp_words)}\n")
-      fout.write(f"OOVs in test reference:                     {num_oovs_ref} ({num_oovs_ref/ref_words_total*100}%)\n")
-      fout.write(f"OOVs in test hypothesis:                    {num_oovs_hyp} ({num_oovs_hyp/hyp_words_total*100}%)\n")
+      fout.write(f"Word types in training corpus:              {len(train_words)}\n")
+      fout.write(f"Word types in test reference:               {len(ref_words)}\n")
+      fout.write(f"Word types in test hypothesis:              {len(hyp_words)}\n")
+      fout.write(f"OOV words in test reference:                {num_oovs_ref} ({num_oovs_ref/ref_words_total*100:.2f}%)\n")
+      fout.write(f"OOV words in test hypothesis:               {num_oovs_hyp} ({num_oovs_hyp/hyp_words_total*100:.2f}%)\n")
       fout.write(f"Hypothesis OOVs precision (sentence-match): {hyp_oov_prec}\n")
       fout.write(f"Hypothesis OOVs recall (sentence-match):    {hyp_oov_rec}\n")
       fout.write(f"\n\nListing:\n")
