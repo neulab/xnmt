@@ -42,9 +42,9 @@ speech: !Experiment
     src_reader: !H5Reader
       transpose: True
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+      vocab: !Vocab {vocab_file: examples/data/char.vocab}
   train: !SimpleTrainingRegimen
-    run_for_epochs: 2
+    run_for_epochs: 1
     batcher: !SrcBatcher
       pad_src_to_multiple: 4
       batch_size: 3

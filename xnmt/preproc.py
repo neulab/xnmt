@@ -15,7 +15,7 @@ import yaml
 
 from xnmt import logger
 from xnmt.persistence import serializable_init, Serializable
-from xnmt.speech_features import logfbank, calculate_delta, get_mean_std, normalize
+from xnmt.thirdparty.speech_features import logfbank, calculate_delta, get_mean_std, normalize
 from xnmt.util import make_parent_dir
 
 ##### Preprocessors
@@ -243,7 +243,7 @@ class SentencepieceTokenizer(Tokenizer, Serializable):
   yaml_tag = '!SentencepieceTokenizer'
 
   @serializable_init
-  def __init__(self, path, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
+  def __init__(self, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
       , output_format='piece', model_type='bpe', hard_vocab_limit=True
       , encode_extra_options=None, decode_extra_options=None):
     """
@@ -255,8 +255,6 @@ class SentencepieceTokenizer(Tokenizer, Serializable):
     "File" output for Sentencepiece written to StringIO temporarily before being written to disk.
 
     """
-    # TODO: deprecate the path argument
-    self.sentpiece_path = path
     self.model_prefix = model_prefix
     self.output_format = output_format
     self.input_format = output_format

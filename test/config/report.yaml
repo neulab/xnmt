@@ -17,4 +17,7 @@ report: !Experiment
       ref_file: examples/data/head.en
       hyp_file: test/tmp/{EXP}.test_hyp
       inference: !AutoRegressiveInference
-        reporter: !AttentionHtmlReporter {}
+        reporter:
+        - !AttentionReporter {}
+        - !ReferenceDiffReporter {}
+        - !CompareMtReporter {}

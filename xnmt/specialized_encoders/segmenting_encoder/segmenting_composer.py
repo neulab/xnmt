@@ -11,59 +11,30 @@ from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt.events import register_xnmt_handler, register_xnmt_event, handle_xnmt_event
 from xnmt.lstm import BiLSTMSeqTransducer
 
-class Composer(object):
+class SingleComposer(object):
   @register_xnmt_handler
   def __init__(self):
     pass
 
   def compose(self, composed_words, sample_size, batch_size):
-    batches = []
-    batch_maps = []
-    batch_words = []
-    seq_len = np.zeros((sample_size, batch_size), dtype=int)
-    composed_words = sorted(composed_words, key=lambda x: x[5]-x[4])
+    outputs = [[[] for j in range(batch_size)] for i in range(sample_size)]
     # Batching expression
-    now_length = -1
     for expr_list, sample_num, batch_num, position, start, end in composed_words:
-      length = end-start
-      if length != now_length:
-        now_length = length
-        now_map = {}
-        now_batch = []
-        now_words = []
-        now_idx = 0
-        batches.append(now_batch)
-        batch_maps.append(now_map)
-        batch_words.append(now_words)
-      now_batch.append(expr_list)
-      now_words.append(self.src_sent[batch_num][start:end])
-      now_map[now_idx] = (sample_num, batch_num, position)
-      seq_len[sample_num,batch_num] += 1
-      now_idx += 1
-    # Composing
-    outputs = [[[None for _ in range(seq_len[i,j])] for j in range(batch_size)] for i in range(sample_size)]
-    expr_list = []
-    for batch, batch_map, batch_word in zip(batches, batch_maps, batch_words):
-      self.set_words(batch_word)
-      results = self.transduce(dy.concatenate_to_batch(batch))
-      results.value()
-      for idx, (sample_num, batch_num, position) in batch_map.items():
-        expr_list.append(dy.pick_batch_elem(results, idx))
-        outputs[sample_num][batch_num][position] = expr_list[-1]
-    dy.forward(expr_list)
+      self.set_word(self.src_sent[batch_num][start:end])
+      outputs[sample_num][batch_num].append(self.transduce(expr_list))
     return outputs
 
   @handle_xnmt_event
   def on_start_sent(self, src):
     self.src_sent = src
 
-  def set_words(self, words):
+  def set_word(self, word):
     pass
 
   def transduce(self, embeds):
     raise NotImplementedError()
 
-class SumComposer(Composer, Serializable):
+class SumComposer(SingleComposer, Serializable):
   yaml_tag = "!SumComposer"
   @serializable_init
   def __init__(self):
@@ -72,7 +43,7 @@ class SumComposer(Composer, Serializable):
   def transduce(self, embeds):
     return dy.sum_dim(embeds, [1])
 
-class AverageComposer(Composer, Serializable):
+class AverageComposer(SingleComposer, Serializable):
   yaml_tag = "!AverageComposer"
   @serializable_init
   def __init__(self):
@@ -81,31 +52,27 @@ class AverageComposer(Composer, Serializable):
   def transduce(self, embeds):
     return dy.mean_dim(embeds, [1], False)
 
-class MaxComposer(Composer, Serializable):
+class MaxComposer(SingleComposer, Serializable):
   yaml_tag = "!MaxComposer"
   @serializable_init
   def __init__(self):
     super().__init__()
 
   def transduce(self, embeds):
-    return dy.max_dim(embeds, 1)
+    return dy.max_dim(embeds, d=1)
 
-class SeqTransducerComposer(Composer, Serializable):
+class SeqTransducerComposer(SingleComposer, Serializable):
   yaml_tag = "!SeqTransducerComposer"
   @serializable_init
   def __init__(self, seq_transducer=bare(BiLSTMSeqTransducer)):
     super().__init__()
     self.seq_transducer = seq_transducer
 
-  def transduce(self, embeds):
-    expr_seq = []
-    seq_len = embeds.dim()[0][1]
-    for i in range(seq_len):
-      expr_seq.append(dy.max_dim(dy.select_cols(embeds, [i]), 1))
-    encodings = self.seq_transducer.transduce(ExpressionSequence(expr_seq))
+  def transduce(self, embed):
+    encodings = self.seq_transducer.transduce(ExpressionSequence(expr_tensor=embed))
     return self.seq_transducer.get_final_states()[-1].main_expr()
 
-class ConvolutionComposer(Composer, Serializable):
+class ConvolutionComposer(SingleComposer, Serializable):
   yaml_tag = "!ConvolutionComposer"
   @register_xnmt_handler
   @serializable_init
@@ -129,11 +96,11 @@ class ConvolutionComposer(Composer, Serializable):
       pad = dy.zeros((self.embed_dim, self.ngram_size-dim[0][1]))
       inp = dy.concatenate([inp, pad], d=1)
       dim = inp.dim()
-    inp = dy.reshape(inp, (1, dim[0][1], dim[0][0]), batch_size=dim[1])
+    inp = dy.reshape(inp, (1, dim[0][1], dim[0][0]))
     encodings = dy.rectify(dy.conv2d_bias(inp, dy.parameter(self.filter), dy.parameter(self.bias), stride=(1, 1), is_valid=True))
     return dy.max_dim(dy.max_dim(encodings, d=1), d=0)
 
-class LookupComposer(Composer, Serializable):
+class LookupComposer(SingleComposer, Serializable):
   yaml_tag = '!LookupComposer'
   @serializable_init
   def __init__(self,
@@ -153,13 +120,16 @@ class LookupComposer(Composer, Serializable):
     self.embedding = param_collection.add_lookup_parameters((dict_entry, hidden_dim))
 
   def transduce(self, inputs):
-    word_ids = [self.word_vocab.convert(w) for w in self.words]
-    return dy.lookup_batch(self.embedding, word_ids)
+    return dy.lookup(self.embedding, self.word_id)
 
-  def set_words(self, words):
-    self.words = ["".join([self.src_vocab[c] for c in word_ids]) for word_ids in words]
+  def set_word(self, word):
+    self.word_id = self.to_word_id(word)
 
-class CharNGramComposer(Composer, Serializable):
+  @lru_cache(maxsize=32000)
+  def to_word_id(self, word):
+    return self.word_vocab.convert("".join([self.src_vocab[c] for c in word]))
+
+class CharNGramComposer(SingleComposer, Serializable):
   """
   CHARAGRAM composition function
 
@@ -194,6 +164,7 @@ class CharNGramComposer(Composer, Serializable):
 
   @lru_cache(maxsize=32000)
   def to_word_vector(self, word):
+    word = "".join([self.src_vocab[c] for c in word])
     word_vector = Counter()
     for i in range(len(word)):
       for j in range(i, min(i+self.ngram_size, len(word))):
@@ -205,24 +176,15 @@ class CharNGramComposer(Composer, Serializable):
     return word_vector
 
   def transduce(self, inputs):
-    batch_size = len(self.words)
-    word_vects = []
-    keys = []
-    values = []
-    for i, word in enumerate(self.words):
-      word_vects.append(self.to_word_vector(word))
-    idxs = [(x, i) for i in range(batch_size) for x in word_vects[i].keys()]
-    idxs = tuple(map(list, list(zip(*idxs))))
-
-    values = [x for i in range(batch_size) for x in word_vects[i].values()]
-    ngram_vocab_vect = dy.sparse_inputTensor(idxs, values, (self.dict_entry, len(self.words )), batched=True)
-
+    keys = list(self.word_vect.keys())
+    values = list(self.word_vect.values())
+    ngram_vocab_vect = dy.sparse_inputTensor([keys], values, (self.dict_entry,))
     return dy.rectify(self.word_ngram(ngram_vocab_vect))
 
-  def set_words(self, words):
-    self.words = ["".join([self.src_vocab[c] for c in word_ids]) for word_ids in words]
+  def set_word(self, word):
+    self.word_vect = self.to_word_vector(word)
 
-class SumMultipleComposer(Composer, Serializable):
+class SumMultipleComposer(SingleComposer, Serializable):
   yaml_tag = "!SumMultipleComposer"
 
   @serializable_init
@@ -230,10 +192,10 @@ class SumMultipleComposer(Composer, Serializable):
     super().__init__()
     self.composers = composers
 
-  def set_words(self, words):
+  def set_word(self, word):
     for composer in self.composers:
-      composer.set_words(words)
+      composer.set_word(word)
 
-  def transduce(self, inputs):
-    return sum([composer.transduce(inputs) for composer in self.composers])
+  def transduce(self, embeds):
+    return sum([composer.transduce(embeds) for composer in self.composers])
 

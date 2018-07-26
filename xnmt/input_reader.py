@@ -216,8 +216,8 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
 class CharFromWordTextReader(PlainTextReader, Serializable):
   yaml_tag = "!CharFromWordTextReader"
   @serializable_init
-  def __init__(self, vocab:Vocab):
-    super().__init__(vocab)
+  def __init__(self, vocab:Vocab=None, read_sent_len:bool=False):
+    super().__init__(vocab, read_sent_len)
   def read_sent(self, sentence, filter_ids=None):
     chars = []
     segs = []
