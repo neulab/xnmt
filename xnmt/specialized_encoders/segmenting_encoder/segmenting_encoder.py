@@ -89,9 +89,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         for k, upper_bound in enumerate(sample[i]):
           char_sequence = dy.pick_range(sequence, lower_bound, upper_bound+1, 1)
           composed_words.append((dy.pick_range(sequence, lower_bound, upper_bound+1, 1), j, i, k, lower_bound, upper_bound+1))
-          #self.segment_composer.set_word_boundary(lower_bound, upper_bound, self.src_sent[i])
-          #composed = self.segment_composer.transduce(char_sequence)
-          #outputs[j][i].append(composed)
           lower_bound = upper_bound+1
     outputs = self.segment_composer.compose(composed_words, sample_size, batch_size)
     # Padding + return
