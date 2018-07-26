@@ -13,6 +13,7 @@ from xnmt.decoder import AutoRegressiveDecoder
 from xnmt.embedder import SimpleWordEmbedder
 import xnmt.events
 import xnmt.batcher
+
 from xnmt.input_reader import PlainTextReader, CharFromWordTextReader
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.translator import DefaultTranslator
