@@ -301,19 +301,5 @@ class TestComposing(unittest.TestCase):
     self.model.set_train(True)
     enc.transduce(self.inp_emb(0))
 
-class TestTrigramReader(unittest.TestCase):
-  def setUp(self):
-    src_vocab = Vocab(vocab_file="examples/data/head.ja.3vocab")
-    self.src_reader = TrigramFromWordTextReader(src_vocab)
-    self.trg_reader = PlainTextReader()
-    self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
-    self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
-    my_batcher = xnmt.batcher.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
-    self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
-    dy.renew_cg(immediate_compute=True, check_validity=True)
-
-  def test_no_die(self):
-    self.assertTrue(True)
-
 if __name__ == "__main__":
   unittest.main()
