@@ -6,8 +6,7 @@ from typing import Optional
 import dynet as dy
 import numpy as np
 
-import batcher
-from param_collection import ParamManager
+from xnmt import batcher
 
 from xnmt import param_collection
 from xnmt.persistence import Serializable, serializable_init
@@ -57,7 +56,7 @@ class BatchNorm(Serializable):
   def __init__(self, hidden_dim: int, num_dim: int, time_first: bool = True,
                population_running_mean: Optional[np.ndarray] = None,
                population_running_std: Optional[np.ndarray] = None) -> None:
-    model = ParamManager.my_params(self)
+    model = param_collection.ParamManager.my_params(self)
     self.hidden_dim = hidden_dim
     self.num_dim = num_dim
     self.time_first = time_first
