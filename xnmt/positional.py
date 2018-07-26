@@ -1,13 +1,13 @@
 import dynet as dy
 from typing import List
 
-from xnmt.embedder import Embedder
-from xnmt.expression_sequence import ExpressionSequence
+from xnmt.embed import Embedder
+from xnmt.expr_seq import ExpressionSequence
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import ParamInitializer, GlorotInitializer, ZeroInitializer
 from xnmt.persistence import Serializable
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt.transducer import SeqTransducer, FinalTransducerState
+from xnmt.transduce import SeqTransducer, FinalTransducerState
 
 class PositionEmbedder(Embedder, Serializable):
 

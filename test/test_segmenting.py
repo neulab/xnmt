@@ -7,24 +7,24 @@ import dynet as dy
 import numpy
 import random
 
-from xnmt.attender import MlpAttender
-from xnmt.bridge import CopyBridge
-from xnmt.decoder import AutoRegressiveDecoder
-from xnmt.embedder import SimpleWordEmbedder
+from xnmt.attention import MlpAttender
+from xnmt.bridges import CopyBridge
+from xnmt.decode import AutoRegressiveDecoder
+from xnmt.embed import SimpleWordEmbedder
 import xnmt.events
-import xnmt.batcher
+import xnmt.batching
 
 from xnmt.input_reader import PlainTextReader, CharFromWordTextReader
 from xnmt.lstm import UniLSTMSeqTransducer
-from xnmt.translator import DefaultTranslator
+from xnmt.translators import DefaultTranslator
 from xnmt.loss_calculator import AutoRegressiveMLELoss
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
 from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLengthPrior
 from xnmt.specialized_encoders.segmenting_encoder.priors import PoissonPrior, GoldInputPrior
-from xnmt.transform import AuxNonLinear, Linear
-from xnmt.scorer import Softmax
-from xnmt.transducer import IdentitySeqTransducer
+from xnmt.transforms import AuxNonLinear, Linear
+from xnmt.scorers import Softmax
+from xnmt.transduce import IdentitySeqTransducer
 from xnmt.vocab import Vocab
 from xnmt.rl.policy_gradient import PolicyGradient
 from xnmt.rl.eps_greedy import EpsilonGreedy
@@ -90,7 +90,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.layer_dim = layer_dim
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
-    my_batcher = xnmt.batcher.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
+    my_batcher = xnmt.batching.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
     dy.renew_cg(immediate_compute=True, check_validity=True)
 
@@ -213,7 +213,7 @@ class TestComposing(unittest.TestCase):
     self.layer_dim = layer_dim
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
-    my_batcher = xnmt.batcher.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
+    my_batcher = xnmt.batching.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
     dy.renew_cg(immediate_compute=True, check_validity=True)
 

@@ -4,7 +4,7 @@ import random
 import numpy as np
 from typing import Optional, Sequence, Union
 
-from xnmt import batcher, eval_task, events, model_base, input_reader, logger, loss, loss_tracker, loss_calculator,\
+from xnmt import batching, eval_tasks, events, model_base, input_reader, logger, losses, loss_tracker, loss_calculator,\
   param_collection
 from xnmt.persistence import serializable_init, Serializable, bare
 
@@ -104,12 +104,12 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                src_file: Union[str, Sequence[str]] = None,
                trg_file: str = None,
                dev_every: int = 0,
-               batcher: batcher.Batcher = bare(batcher.SrcBatcher, batch_size=32),
+               batcher: batching.Batcher = bare(batching.SrcBatcher, batch_size=32),
                loss_calculator: loss_calculator.LossCalculator = bare(loss_calculator.AutoRegressiveMLELoss),
                run_for_epochs: Optional[int] = None,
                lr_decay: float = 1.0, lr_decay_times: int = 3,
                patience: int = 1, initial_patience: Optional[int] = None,
-               dev_tasks: Sequence[eval_task.EvalTask] = None, dev_combinator=None,
+               dev_tasks: Sequence[eval_tasks.EvalTask] = None, dev_combinator=None,
                restart_trainer: bool = False,
                reload_command: Optional[str] = None,
                name: Optional[str] = None,
@@ -277,7 +277,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     Performs forward pass, backward pass, parameter update for the given minibatch
     """
-    loss_builder = loss.FactoredLossExpr()
+    loss_builder = losses.FactoredLossExpr()
     standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
     additional_loss = self.model.calc_additional_loss(trg, self.model, standard_loss)
     loss_builder.add_factored_loss_expr(standard_loss)

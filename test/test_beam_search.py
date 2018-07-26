@@ -3,20 +3,20 @@ import unittest
 import dynet_config
 import dynet as dy
 
-from xnmt.attender import MlpAttender
-import xnmt.batcher
-from xnmt.bridge import CopyBridge
-from xnmt.decoder import AutoRegressiveDecoder
-from xnmt.embedder import SimpleWordEmbedder
+from xnmt.attention import MlpAttender
+import xnmt.batching
+from xnmt.bridges import CopyBridge
+from xnmt.decode import AutoRegressiveDecoder
+from xnmt.embed import SimpleWordEmbedder
 import xnmt.events
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculator import AutoRegressiveMLELoss
 from xnmt.param_collection import ParamManager
-from xnmt.transform import NonLinear
-from xnmt.scorer import Softmax
-from xnmt.translator import DefaultTranslator
-from xnmt.search_strategy import BeamSearch, GreedySearch
+from xnmt.transforms import NonLinear
+from xnmt.scorers import Softmax
+from xnmt.translators import DefaultTranslator
+from xnmt.searching import BeamSearch, GreedySearch
 
 class TestForcedDecodingOutputs(unittest.TestCase):
 
@@ -50,8 +50,8 @@ class TestForcedDecodingOutputs(unittest.TestCase):
 
   def assert_forced_decoding(self, sent_id):
     dy.renew_cg()
-    outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[sent_id]]), [sent_id], BeamSearch(),
-                                  forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[sent_id]]))
+    outputs = self.model.generate(xnmt.batching.mark_as_batch([self.src_data[sent_id]]), [sent_id], BeamSearch(),
+                                  forced_trg_ids=xnmt.batching.mark_as_batch([self.trg_data[sent_id]]))
     self.assertItemsEqual(self.trg_data[sent_id].words, outputs[0].actions)
 
   def test_forced_decoding(self):
@@ -89,8 +89,8 @@ class TestForcedDecodingLoss(unittest.TestCase):
                                       trg=self.trg_data[0],
                                       loss_calculator=AutoRegressiveMLELoss()).value()
     dy.renew_cg()
-    outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], BeamSearch(beam_size=1),
-                                  forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
+    outputs = self.model.generate(xnmt.batching.mark_as_batch([self.src_data[0]]), [0], BeamSearch(beam_size=1),
+                                  forced_trg_ids=xnmt.batching.mark_as_batch([self.trg_data[0]]))
     self.assertAlmostEqual(-outputs[0].score, train_loss, places=4)
 
 class TestFreeDecodingLoss(unittest.TestCase):
@@ -120,8 +120,8 @@ class TestFreeDecodingLoss(unittest.TestCase):
 
   def test_single(self):
     dy.renew_cg()
-    outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], BeamSearch(),
-                                         forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
+    outputs = self.model.generate(xnmt.batching.mark_as_batch([self.src_data[0]]), [0], BeamSearch(),
+                                  forced_trg_ids=xnmt.batching.mark_as_batch([self.trg_data[0]]))
     dy.renew_cg()
     train_loss = self.model.calc_loss(src=self.src_data[0],
                                       trg=outputs[0],
@@ -158,13 +158,13 @@ class TestGreedyVsBeam(unittest.TestCase):
 
   def test_greedy_vs_beam(self):
     dy.renew_cg()
-    outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], BeamSearch(beam_size=1),
-                                         forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
+    outputs = self.model.generate(xnmt.batching.mark_as_batch([self.src_data[0]]), [0], BeamSearch(beam_size=1),
+                                  forced_trg_ids=xnmt.batching.mark_as_batch([self.trg_data[0]]))
     output_score1 = outputs[0].score
 
     dy.renew_cg()
-    outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], GreedySearch(),
-                                  forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
+    outputs = self.model.generate(xnmt.batching.mark_as_batch([self.src_data[0]]), [0], GreedySearch(),
+                                  forced_trg_ids=xnmt.batching.mark_as_batch([self.trg_data[0]]))
     output_score2 = outputs[0].score
 
     self.assertAlmostEqual(output_score1, output_score2)

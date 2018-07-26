@@ -4,7 +4,7 @@ import numpy as np
 from itertools import islice
 
 from xnmt.input_reader import PlainTextReader
-from xnmt.embedder import PretrainedSimpleWordEmbedder
+from xnmt.embed import PretrainedSimpleWordEmbedder
 from xnmt.param_collection import ParamManager
 import xnmt.events
 

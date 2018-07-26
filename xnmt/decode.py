@@ -2,17 +2,17 @@ from typing import Any
 
 import dynet as dy
 
-import xnmt.batcher
+import xnmt.batching
 import xnmt.residual
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
 from xnmt import logger
-from xnmt.bridge import Bridge, CopyBridge
+from xnmt.bridges import Bridge, CopyBridge
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref, Path
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.transform import Linear, AuxNonLinear, NonLinear, Transform
-from xnmt.scorer import Scorer, Softmax
+from xnmt.transforms import Linear, AuxNonLinear, NonLinear, Transform
+from xnmt.scorers import Scorer, Softmax
 
 class Decoder(object):
   """
@@ -127,7 +127,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     if self.input_feeding:
       inp = dy.concatenate([inp, mlp_dec_state.context])
     rnn_state = mlp_dec_state.rnn_state
-    if self.truncate_dec_batches: rnn_state, inp = xnmt.batcher.truncate_batches(rnn_state, inp)
+    if self.truncate_dec_batches: rnn_state, inp = xnmt.batching.truncate_batches(rnn_state, inp)
     return AutoRegressiveDecoderState(rnn_state=rnn_state.add_input(inp),
                                       context=mlp_dec_state.context)
 

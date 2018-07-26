@@ -4,12 +4,12 @@ import numpy as np
 import dynet as dy
 
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
-from xnmt.expression_sequence import ExpressionSequence
-from xnmt import param_collection, transducer
+from xnmt.expr_seq import ExpressionSequence
+from xnmt import param_collection, transduce
 import xnmt.param_init
 
 
-class FixedSizeAttSeqTransducer(transducer.SeqTransducer, Serializable):
+class FixedSizeAttSeqTransducer(transduce.SeqTransducer, Serializable):
   """
   A fixed-size attention-based representation of a sequence.
 
@@ -45,7 +45,7 @@ class FixedSizeAttSeqTransducer(transducer.SeqTransducer, Serializable):
           self.pos_enc[s, k] = (1.0 - k / self.output_len) * (
                   1.0 - s / self.pos_enc_max) + k / self.output_len * s / self.pos_enc_max
 
-  def get_final_states(self) -> List[transducer.FinalTransducerState]:
+  def get_final_states(self) -> List[transduce.FinalTransducerState]:
     raise NotImplementedError('FixedSizeAttSeqTransducer.get_final_states() not implemented')
 
   def transduce(self, x: ExpressionSequence) -> ExpressionSequence:

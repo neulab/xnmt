@@ -2,7 +2,7 @@ from typing import List
 import dynet as dy
 
 from xnmt.persistence import serializable_init, Serializable
-from xnmt.expression_sequence import ExpressionSequence
+from xnmt.expr_seq import ExpressionSequence
 
 class FinalTransducerState(object):
   """
@@ -65,7 +65,7 @@ class ModularSeqTransducer(SeqTransducer, Serializable):
   
   Args:
     input_dim (int): input dimension (not required)
-    modules (list of :class:`xnmt.transducer.SeqTransducer`): list of SeqTransducer modules
+    modules (list of :class:`xnmt.transduce.SeqTransducer`): list of SeqTransducer modules
   """
 
   yaml_tag = '!ModularSeqTransducer'

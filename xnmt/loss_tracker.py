@@ -3,7 +3,7 @@ import time
 
 import numpy as np
 
-from xnmt import batcher, input, loss, vocab, events, util
+from xnmt import batching, input, losses, vocab, events, util
 
 class AccumTimeTracker(object):
   def __init__(self):
@@ -32,7 +32,7 @@ class TrainLossTracker(object):
   def __init__(self, training_task):
     self.training_task = training_task
 
-    self.epoch_loss = loss.FactoredLossVal()
+    self.epoch_loss = losses.FactoredLossVal()
     self.epoch_words = 0
     self.last_report_sents_into_epoch = 0
     self.last_report_sents_since_start = 0
@@ -88,8 +88,8 @@ class TrainLossTracker(object):
       self.last_report_words = self.epoch_words
       self.last_report_sents_since_start = self.training_task.training_state.sents_since_start
 
-  def count_trg_words(self, trg_words: Union[input.Input, batcher.Batch]) -> int:
-    if isinstance(trg_words, batcher.Batch):
+  def count_trg_words(self, trg_words: Union[input.Input, batching.Batch]) -> int:
+    if isinstance(trg_words, batching.Batch):
       return sum(inp.len_unpadded() for inp in trg_words)
     else:
       return trg_words.len_unpadded()

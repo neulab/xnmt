@@ -4,15 +4,15 @@ from xnmt.settings import settings
 
 import dynet as dy
 
-from xnmt.batcher import Batcher
-from xnmt.evaluator import Evaluator
+from xnmt.batching import Batcher
+from xnmt.eval_metrics import Evaluator
 from xnmt import model_base
-import xnmt.inference
+import xnmt.infer
 import xnmt.input_reader
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.loss_calculator import LossCalculator, AutoRegressiveMLELoss
-from xnmt.evaluator import LossScore
-from xnmt.loss import FactoredLossExpr, FactoredLossVal
+from xnmt.eval_metrics import LossScore
+from xnmt.losses import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate
 from xnmt import util
 
@@ -42,7 +42,7 @@ class LossEvalTask(EvalTask, Serializable):
 
   @serializable_init
   def __init__(self, src_file: str, ref_file: Optional[str] = None, model: 'model_base.GeneratorModel' = Ref("model"),
-               batcher: Batcher = Ref("train.batcher", default=bare(xnmt.batcher.SrcBatcher, batch_size=32)),
+               batcher: Batcher = Ref("train.batcher", default=bare(xnmt.batching.SrcBatcher, batch_size=32)),
                loss_calculator: LossCalculator = bare(AutoRegressiveMLELoss), max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"), desc: Any = None):
@@ -118,7 +118,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: 'model_base.GeneratorModel' = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
-               inference: Optional[xnmt.inference.Inference] = None, desc: Any = None):
+               inference: Optional[xnmt.infer.Inference] = None, desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
@@ -157,7 +157,7 @@ class DecodingEvalTask(EvalTask, Serializable):
 
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: 'model_base.GeneratorModel' = Ref("model"),
-               inference: Optional[xnmt.inference.Inference] = None):
+               inference: Optional[xnmt.infer.Inference] = None):
 
     self.model = model
     self.src_file = src_file

@@ -1,7 +1,7 @@
 import math
 import unittest
 
-import xnmt.evaluator as evaluator
+import xnmt.eval_metrics as evaluator
 import xnmt.events
 from xnmt.test.utils import has_cython
 from xnmt.vocab import Vocab

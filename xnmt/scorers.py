@@ -4,8 +4,8 @@ from typing import List, Union, Optional
 from xnmt.param_init import ParamInitializer, GlorotInitializer, ZeroInitializer
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
-from xnmt.transform import Linear
-from xnmt import batcher, vocab, input_reader
+from xnmt.transforms import Linear
+from xnmt import batching, vocab, input_reader
 
 class Scorer(object):
   """
@@ -132,14 +132,14 @@ class Softmax(Scorer, Serializable):
 
     if self.label_smoothing == 0.0:
       # single mode
-      if not batcher.is_batched(y):
+      if not batching.is_batched(y):
         loss = dy.pickneglogsoftmax(scores, y)
       # minibatch mode
       else:
         loss = dy.pickneglogsoftmax_batch(scores, y)
     else:
       log_prob = dy.log_softmax(scores)
-      if not batcher.is_batched(y):
+      if not batching.is_batched(y):
         pre_loss = -dy.pick(log_prob, y)
       else:
         pre_loss = -dy.pick_batch(log_prob, y)

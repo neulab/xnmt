@@ -2,8 +2,8 @@ import argparse
 import sys
 from typing import Any, Sequence, Union
 
-from xnmt.evaluator import * # import everything so we can parse it with eval()
-from xnmt.inference import NO_DECODING_ATTEMPTED
+from xnmt.eval_metrics import * # import everything so we can parse it with eval()
+from xnmt.infer import NO_DECODING_ATTEMPTED
 
 def read_data(loc_, post_process=None):
   """Reads the lines in the file specified in loc_ and return the list after inserting the tokens

@@ -3,8 +3,8 @@ from typing import List
 
 from xnmt.param_collection import ParamManager
 from xnmt.param_init import GlorotInitializer, ZeroInitializer
-from xnmt.expression_sequence import ExpressionSequence
-from xnmt.transducer import SeqTransducer, FinalTransducerState
+from xnmt.expr_seq import ExpressionSequence
+from xnmt.transduce import SeqTransducer, FinalTransducerState
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 
 class Transform(object):

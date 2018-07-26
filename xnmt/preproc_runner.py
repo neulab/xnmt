@@ -2,7 +2,7 @@ import os.path
 from typing import List, Optional
 
 from xnmt import logger
-from xnmt.preproc import Normalizer, SentenceFilterer, VocabFilterer
+from xnmt.preprocess import Normalizer, SentenceFilterer, VocabFilterer
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.util import make_parent_dir
 

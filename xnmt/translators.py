@@ -6,29 +6,28 @@ from collections import namedtuple
 from typing import Any, Optional, Sequence, Tuple, Union
 
 from xnmt.settings import settings
-from xnmt.attender import Attender, MlpAttender
-from xnmt.batcher import Batch, mark_as_batch, is_batched, Mask
-from xnmt.decoder import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
-from xnmt.embedder import Embedder, SimpleWordEmbedder
+from xnmt.attention import Attender, MlpAttender
+from xnmt.batching import Batch, mark_as_batch, is_batched, Mask
+from xnmt.decode import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
+from xnmt.embed import Embedder, SimpleWordEmbedder
 from xnmt.events import register_xnmt_handler
 from xnmt import model_base
-import xnmt.inference
+import xnmt.infer
 from xnmt.input import Input, SimpleSentenceInput
 from xnmt import input_reader
 import xnmt.length_normalization
-from xnmt.loss import FactoredLossExpr
+from xnmt.losses import FactoredLossExpr
 from xnmt.loss_calculator import LossCalculator
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput, Output, NbestOutput
 import xnmt.plot
-from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt.search_strategy import BeamSearch, SearchStrategy
-from xnmt import transducer
+from xnmt.persistence import serializable_init, Serializable, bare
+from xnmt.searching import BeamSearch, SearchStrategy
+from xnmt import transduce
 from xnmt.vocab import Vocab
-from xnmt.persistence import Ref, Path
-from xnmt.constants import EPSILON
+from xnmt.persistence import Ref
 from xnmt.reports import Reportable
-from xnmt.compound_expr import CompoundSeqExpression
+from expr_seq import CompoundSeqExpression
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
@@ -103,11 +102,11 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
                src_reader: input_reader.InputReader,
                trg_reader: input_reader.InputReader,
                src_embedder: Embedder=bare(SimpleWordEmbedder),
-               encoder: transducer.SeqTransducer=bare(BiLSTMSeqTransducer),
+               encoder: transduce.SeqTransducer=bare(BiLSTMSeqTransducer),
                attender: Attender=bare(MlpAttender),
                trg_embedder: Embedder=bare(SimpleWordEmbedder),
                decoder: Decoder=bare(AutoRegressiveDecoder),
-               inference: xnmt.inference.AutoRegressiveInference=bare(xnmt.inference.AutoRegressiveInference),
+               inference: xnmt.infer.AutoRegressiveInference=bare(xnmt.infer.AutoRegressiveInference),
                search_strategy:SearchStrategy=bare(BeamSearch),
                compute_report:bool = Ref("exp_global.compute_report", default=False),
                global_fertility:int=0):
@@ -229,7 +228,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
       if type(current_word) == int:
         current_word = [current_word]
       if type(current_word) == list or type(current_word) == np.ndarray:
-        current_word = xnmt.batcher.mark_as_batch(current_word)
+        current_word = xnmt.batching.mark_as_batch(current_word)
       current_word_embed = self.trg_embedder.embed(current_word)
       next_state = self.decoder.add_input(current_state, current_word_embed)
     else:
@@ -329,10 +328,10 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
 
   def calc_loss(self, src, trg, loss_cal=None, infer_prediction=False):
     self.start_sent(src)
-    if not xnmt.batcher.is_batched(src):
-      src = xnmt.batcher.mark_as_batch([src])
-    if not xnmt.batcher.is_batched(trg):
-      trg = xnmt.batcher.mark_as_batch([trg])
+    if not xnmt.batching.is_batched(src):
+      src = xnmt.batching.mark_as_batch([src])
+    if not xnmt.batching.is_batched(trg):
+      trg = xnmt.batching.mark_as_batch([trg])
     src_words = np.array([[Vocab.SS] + x.words for x in src])
     batch_size, src_len = src_words.shape
 
@@ -376,14 +375,14 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
 
   def generate(self, src, idx, forced_trg_ids=None, search_strategy=None):
     self.start_sent(src)
-    if not xnmt.batcher.is_batched(src):
-      src = xnmt.batcher.mark_as_batch([src])
+    if not xnmt.batching.is_batched(src):
+      src = xnmt.batching.mark_as_batch([src])
     outputs = []
 
     trg = SimpleSentenceInput([0])
 
-    if not xnmt.batcher.is_batched(trg):
-      trg = xnmt.batcher.mark_as_batch([trg])
+    if not xnmt.batching.is_batched(trg):
+      trg = xnmt.batching.mark_as_batch([trg])
 
     output_actions = []
     score = 0.
@@ -399,8 +398,8 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
         break
       output_actions.append(ys)
       trg = SimpleSentenceInput(output_actions + [0])
-      if not xnmt.batcher.is_batched(trg):
-        trg = xnmt.batcher.mark_as_batch([trg])
+      if not xnmt.batching.is_batched(trg):
+        trg = xnmt.batching.mark_as_batch([trg])
 
     # Append output to the outputs
     if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
@@ -427,7 +426,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable, model_base.Even
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, models, src_reader, trg_reader, inference=bare(xnmt.inference.AutoRegressiveInference)):
+  def __init__(self, models, src_reader, trg_reader, inference=bare(xnmt.infer.AutoRegressiveInference)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.models = models
     self.inference = inference

@@ -20,25 +20,24 @@ dyparams.from_args()
 
 # all Serializable objects must be imported here in order to be parsable
 # using the !Classname YAML syntax
-import xnmt.attender
-import xnmt.batcher
-import xnmt.classifier
+import xnmt.attention
+import xnmt.batching
+import xnmt.classify
 import xnmt.conv
-import xnmt.decoder
-import xnmt.embedder
-import xnmt.eval_task
-import xnmt.evaluator
-import xnmt.exp_global
-import xnmt.experiment
+import xnmt.decode
+import xnmt.embed
+import xnmt.eval_tasks
+import xnmt.eval_metrics
+import xnmt.experiments
 import xnmt.fixed_size_att
 import xnmt.hyper_parameters
-import xnmt.inference
+import xnmt.infer
 import xnmt.input
 import xnmt.input_reader
 import xnmt.lm
 import xnmt.lstm
 import xnmt.model_base
-import xnmt.optimizer
+import xnmt.optimize
 import xnmt.param_init
 import xnmt.positional
 import xnmt.preproc_runner
@@ -46,19 +45,18 @@ import xnmt.pyramidal
 import xnmt.reports
 import xnmt.residual
 import xnmt.retriever
-import xnmt.scorer
+import xnmt.scorers
 import xnmt.self_attention
 import xnmt.seq_labeler
 import xnmt.specialized_encoders.tilburg_harwath
 import xnmt.specialized_encoders.self_attentional_am
 import xnmt.specialized_encoders.segmenting_encoder
-import xnmt.training_regimen
-import xnmt.training_task
+import xnmt.training_regimens
+import xnmt.training_tasks
 import xnmt.transformer
-import xnmt.translator
+import xnmt.translators
 import xnmt.persistence
 import xnmt.rl
-import xnmt.compound_expr
 
 resolved_serialize_params = {}
 

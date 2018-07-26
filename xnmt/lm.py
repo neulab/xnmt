@@ -1,7 +1,7 @@
 import dynet as dy
 import numpy as np
 
-from xnmt import batcher, embedder, events, input_reader, loss, lstm, model_base, scorer, transducer, transform
+from xnmt import batching, embed, events, input_reader, losses, lstm, model_base, scorers, transduce, transforms
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class LanguageModel(model_base.ConditionedModel, model_base.EventTrigger, Serializable):
@@ -22,10 +22,10 @@ class LanguageModel(model_base.ConditionedModel, model_base.EventTrigger, Serial
   @serializable_init
   def __init__(self,
                src_reader:input_reader.InputReader,
-               src_embedder:embedder.Embedder=bare(embedder.SimpleWordEmbedder),
-               rnn:transducer.SeqTransducer=bare(lstm.UniLSTMSeqTransducer),
-               transform:transform.Transform=bare(transform.NonLinear),
-               scorer:scorer.Scorer=bare(scorer.Softmax)):
+               src_embedder:embed.Embedder=bare(embed.SimpleWordEmbedder),
+               rnn:transduce.SeqTransducer=bare(lstm.UniLSTMSeqTransducer),
+               transform:transforms.Transform=bare(transforms.NonLinear),
+               scorer:scorers.Scorer=bare(scorers.Softmax)):
     super().__init__(src_reader=src_reader, trg_reader=src_reader)
     self.src_embedder = src_embedder
     self.rnn = rnn
@@ -39,11 +39,11 @@ class LanguageModel(model_base.ConditionedModel, model_base.EventTrigger, Serial
     return "mle"
 
   def calc_loss(self, src, trg, loss_calculator):
-    if not batcher.is_batched(src):
-      src = batcher.ListBatch([src])
+    if not batching.is_batched(src):
+      src = batching.ListBatch([src])
 
-    src_inputs = batcher.ListBatch([s[:-1] for s in src], mask=batcher.Mask(src.mask.np_arr[:,:-1]) if src.mask else None)
-    src_targets = batcher.ListBatch([s[1:] for s in src], mask=batcher.Mask(src.mask.np_arr[:,1:]) if src.mask else None)
+    src_inputs = batching.ListBatch([s[:-1] for s in src], mask=batching.Mask(src.mask.np_arr[:, :-1]) if src.mask else None)
+    src_targets = batching.ListBatch([s[1:] for s in src], mask=batching.Mask(src.mask.np_arr[:, 1:]) if src.mask else None)
 
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src_inputs)
@@ -54,13 +54,13 @@ class LanguageModel(model_base.ConditionedModel, model_base.EventTrigger, Serial
     outputs = self.transform(encoding_reshaped)
 
     ref_action = np.asarray([sent.words for sent in src_targets]).reshape((seq_len * batch_size,))
-    loss_expr_perstep = self.scorer.calc_loss(outputs, batcher.mark_as_batch(ref_action))
+    loss_expr_perstep = self.scorer.calc_loss(outputs, batching.mark_as_batch(ref_action))
     loss_expr_perstep = dy.reshape(loss_expr_perstep, (seq_len,), batch_size=batch_size)
     if src_targets.mask:
       loss_expr_perstep = dy.cmult(loss_expr_perstep, dy.inputTensor(1.0-src_targets.mask.np_arr.T, batched=True))
     loss_expr = dy.sum_elems(loss_expr_perstep)
 
-    model_loss = loss.FactoredLossExpr()
+    model_loss = losses.FactoredLossExpr()
     model_loss.add_loss("mle", loss_expr)
 
     return model_loss

@@ -3,23 +3,23 @@ import unittest
 import dynet as dy
 import numpy as np
 
-from xnmt.attender import MlpAttender, DotAttender
-from xnmt.batcher import mark_as_batch, Mask, SrcBatcher
-from xnmt.bridge import CopyBridge
-from xnmt.decoder import AutoRegressiveDecoder
-from xnmt.embedder import SimpleWordEmbedder
-from xnmt.eval_task import LossEvalTask
+from xnmt.attention import MlpAttender, DotAttender
+from xnmt.batching import mark_as_batch, Mask, SrcBatcher
+from xnmt.bridges import CopyBridge
+from xnmt.decode import AutoRegressiveDecoder
+from xnmt.embed import SimpleWordEmbedder
+from xnmt.eval_tasks import LossEvalTask
 import xnmt.events
 from xnmt.input_reader import PlainTextReader, SimpleSentenceInput
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculator import AutoRegressiveMLELoss
-from xnmt.optimizer import AdamTrainer, DummyTrainer
+from xnmt.optimize import AdamTrainer, DummyTrainer
 from xnmt.param_collection import ParamManager
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
-import xnmt.training_regimen
-from xnmt.transform import NonLinear
-from xnmt.translator import DefaultTranslator
-from xnmt.scorer import Softmax
+import xnmt.training_regimens
+from xnmt.transforms import NonLinear
+from xnmt.translators import DefaultTranslator
+from xnmt.scorers import Softmax
 from xnmt.vocab import Vocab
 
 class TestTruncatedBatchTraining(unittest.TestCase):
@@ -312,7 +312,7 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['trainer'] = DummyTrainer()
     train_args['batcher'] = batcher
     train_args['run_for_epochs'] = 1
-    training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(**train_args)
+    training_regimen = xnmt.training_regimens.SimpleTrainingRegimen(**train_args)
     training_regimen.run_training(save_fct = lambda: None)
     self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
                            training_regimen.dev_loss_tracker.dev_score.loss, places=5)
@@ -356,7 +356,7 @@ class TestOverfitting(unittest.TestCase):
     train_args['run_for_epochs'] = 1
     train_args['trainer'] = AdamTrainer(alpha=0.1)
     train_args['batcher'] = batcher
-    training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(**train_args)
+    training_regimen = xnmt.training_regimens.SimpleTrainingRegimen(**train_args)
     for _ in range(50):
       training_regimen.run_training(save_fct=lambda:None)
     self.assertAlmostEqual(0.0,

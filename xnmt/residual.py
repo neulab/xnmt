@@ -2,10 +2,10 @@ import dynet as dy
 from typing import List
 
 from xnmt.lstm import UniLSTMSeqTransducer
-from xnmt.expression_sequence import ExpressionSequence, ReversedExpressionSequence
+from xnmt.expr_seq import ExpressionSequence, ReversedExpressionSequence
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.transducer import SeqTransducer, FinalTransducerState
+from xnmt.transduce import SeqTransducer, FinalTransducerState
 from xnmt.param_collection import ParamManager
 
 class ResidualSeqTransducer(SeqTransducer, Serializable):
@@ -14,7 +14,7 @@ class ResidualSeqTransducer(SeqTransducer, Serializable):
   connection, and optionally performs some variety of normalization.
 
   Args:
-    child (:class:`xnmt.transducer.SeqTransducer`): the child transducer to wrap
+    child (:class:`xnmt.transduce.SeqTransducer`): the child transducer to wrap
     layer_norm (bool): whether to perform layer normalization
   """
 

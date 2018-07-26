@@ -3,8 +3,8 @@ import numpy as np
 from collections import Counter
 from functools import lru_cache
 
-from xnmt.expression_sequence import ExpressionSequence
-from xnmt.transform import Linear
+from xnmt.expr_seq import ExpressionSequence
+from xnmt.transforms import Linear
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
 from xnmt.param_init import GlorotInitializer, ZeroInitializer

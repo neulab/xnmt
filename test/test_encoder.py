@@ -5,18 +5,18 @@ import numpy as np
 import dynet_config
 import dynet as dy
 
-from xnmt.attender import MlpAttender
-from xnmt.bridge import CopyBridge
-from xnmt.decoder import AutoRegressiveDecoder
-from xnmt.embedder import SimpleWordEmbedder
+from xnmt.attention import MlpAttender
+from xnmt.bridges import CopyBridge
+from xnmt.decode import AutoRegressiveDecoder
+from xnmt.embed import SimpleWordEmbedder
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.param_collection import ParamManager
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
-from xnmt.scorer import Softmax
+from xnmt.scorers import Softmax
 from xnmt.self_attention import MultiHeadAttentionSeqTransducer
-from xnmt.transform import NonLinear
-from xnmt.translator import DefaultTranslator
+from xnmt.transforms import NonLinear
+from xnmt.translators import DefaultTranslator
 from xnmt.vocab import Vocab
 import xnmt.events
 
@@ -144,7 +144,7 @@ class TestEncoder(unittest.TestCase):
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
 
-    batcher = xnmt.batcher.TrgBatcher(batch_size=3)
+    batcher = xnmt.batching.TrgBatcher(batch_size=3)
     train_src, _ = \
       batcher.pack(self.src_data, self.trg_data)
 

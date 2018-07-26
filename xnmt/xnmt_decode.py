@@ -1,6 +1,6 @@
 import argparse, os, sys
 
-from xnmt import eval_task
+from xnmt import eval_tasks
 from xnmt import param_collection
 from xnmt import persistence
 
@@ -25,7 +25,7 @@ def main():
   inference = model.inference
   param_collection.ParamManager.populate()
 
-  decoding_task = eval_task.DecodingEvalTask(args.src, args.hyp, model, inference)
+  decoding_task = eval_tasks.DecodingEvalTask(args.src, args.hyp, model, inference)
   decoding_task.eval()
 
 if __name__ == "__main__":
