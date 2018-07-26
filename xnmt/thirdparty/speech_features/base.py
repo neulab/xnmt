@@ -2,7 +2,7 @@
 # Author: James Lyons 2012
 from __future__ import division
 import numpy
-from xnmt.speech_features import sigproc
+from xnmt.thirdparty.speech_features import sigproc
 from scipy.fftpack import dct
 
 
@@ -54,8 +54,8 @@ def fbank(signal,samplerate=16000,winlen=0.025,winstep=0.01,
       second return value is the energy in each frame (total energy, unwindowed)
   """
   highfreq= highfreq or samplerate/2
-  frames,raw_frames = sigproc.framesig(signal, winlen*samplerate, winstep*samplerate, dither, preemph, remove_dc_offset, wintype)
-  pspec = sigproc.powspec(frames,nfft) # nearly the same until this part
+  frames,raw_frames = sigproc.framesig(signal, winlen * samplerate, winstep * samplerate, dither, preemph, remove_dc_offset, wintype)
+  pspec = sigproc.powspec(frames, nfft) # nearly the same until this part
   energy = numpy.sum(raw_frames**2,1) # this stores the raw energy in each frame
   energy = numpy.where(energy == 0,numpy.finfo(float).eps,energy) # if energy is zero, we get problems with log
 

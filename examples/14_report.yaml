@@ -1,4 +1,5 @@
-# XNMT supports writing out reports, such as attention matrices generated during inference.
+# XNMT supports writing out reports, such as attention matrices generated during inference or difference highlighting
+# between outputs and references.
 # These are generally created by setting exp_global.compute_report to True, and adding one or several reporters
 # to the inference class.
 report: !Experiment
@@ -28,5 +29,8 @@ report: !Experiment
       ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.test_hyp
       inference: !AutoRegressiveInference
-        reporter: !AttentionHtmlReporter { report_path: 'examples/output/{EXP}.report' }
+        reporter:
+        - !AttentionReporter {} # plot attentions
+        - !ReferenceDiffReporter {} # difference highlighting
+        - !CompareMtReporter {} # analyze MT outputs
 

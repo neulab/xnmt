@@ -43,6 +43,7 @@ import xnmt.param_init
 import xnmt.positional
 import xnmt.preproc_runner
 import xnmt.pyramidal
+import xnmt.reports
 import xnmt.residual
 import xnmt.retriever
 import xnmt.scorer
