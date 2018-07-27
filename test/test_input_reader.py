@@ -1,13 +1,13 @@
 import unittest
 
 from xnmt import input_reader
-import xnmt.voc
+from xnmt import voc
 import xnmt.input
 
 class TestInputReader(unittest.TestCase):
 
   def test_one_file_multiple_readers(self):
-    vocab = xnmt.voc.Vocab(vocab_file="examples/data/head.en.vocab")
+    vocab = voc.Vocab(vocab_file="examples/data/head.en.vocab")
     cr = input_reader.CompoundReader(readers = [input_reader.PlainTextReader(vocab),
                                                 input_reader.PlainTextReader(read_sent_len=True)])
     sents = list(cr.read_sents(filename="examples/data/head.en"))
@@ -17,8 +17,8 @@ class TestInputReader(unittest.TestCase):
     self.assertEqual(sents[0].inputs[1].value, len("can you do it in one day ?".split()))
 
   def test_multiple_files_multiple_readers(self):
-    vocab_en = xnmt.voc.Vocab(vocab_file="examples/data/head.en.vocab")
-    vocab_ja = xnmt.voc.Vocab(vocab_file="examples/data/head.ja.vocab")
+    vocab_en = voc.Vocab(vocab_file="examples/data/head.en.vocab")
+    vocab_ja = voc.Vocab(vocab_file="examples/data/head.ja.vocab")
     cr = input_reader.CompoundReader(readers = [input_reader.PlainTextReader(vocab_en),
                                                 input_reader.PlainTextReader(vocab_ja)])
     sents = list(cr.read_sents(filename=["examples/data/head.en", "examples/data/head.ja"]))

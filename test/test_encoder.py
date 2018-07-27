@@ -18,12 +18,12 @@ from xnmt.self_attention import MultiHeadAttentionSeqTransducer
 from xnmt.transforms import NonLinear
 from xnmt.translators import DefaultTranslator
 from xnmt.voc import Vocab
-import xnmt.events
+from xnmt import events
 
 class TestEncoder(unittest.TestCase):
 
   def setUp(self):
-    xnmt.events.clear()
+    events.clear()
     ParamManager.init_param_col()
 
     self.src_reader = PlainTextReader()
@@ -31,10 +31,10 @@ class TestEncoder(unittest.TestCase):
     self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
 
-  @xnmt.events.register_xnmt_event
+  @events.register_xnmt_event
   def set_train(self, val):
     pass
-  @xnmt.events.register_xnmt_event
+  @events.register_xnmt_event
   def start_sent(self, src):
     pass
 

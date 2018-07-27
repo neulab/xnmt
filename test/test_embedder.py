@@ -6,12 +6,12 @@ from itertools import islice
 from xnmt.input_reader import PlainTextReader
 from xnmt.embed import PretrainedSimpleWordEmbedder
 from xnmt.param_collection import ParamManager
-import xnmt.events
+from xnmt import events
 
 
 class PretrainedSimpleWordEmbedderSanityTest(unittest.TestCase):
   def setUp(self):
-    xnmt.events.clear()
+    events.clear()
     self.input_reader = PlainTextReader()
     list(self.input_reader.read_sents('examples/data/head.ja'))
     ParamManager.init_param_col()

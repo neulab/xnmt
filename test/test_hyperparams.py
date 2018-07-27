@@ -1,4 +1,3 @@
-
 import unittest
 
 from xnmt.attention import MlpAttender
@@ -7,14 +6,13 @@ from xnmt.bridges import CopyBridge
 from xnmt.decode import AutoRegressiveDecoder
 from xnmt.embed import SimpleWordEmbedder
 from xnmt.eval_tasks import LossEvalTask
-import xnmt.events
+from xnmt import events
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calc import AutoRegressiveMLELoss
 from xnmt.optimize import AdamTrainer
 from xnmt.param_collection import ParamManager
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
-import xnmt.training_regimens
 from xnmt.transforms import NonLinear
 from xnmt.translators import DefaultTranslator
 from xnmt.scorers import Softmax
@@ -26,7 +24,7 @@ from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
 
 class TestSanityHyperParameter(unittest.TestCase):
   def setUp(self):
-    xnmt.events.clear()
+    events.clear()
 
   def test_scalar_operator(self):
     c = Scalar(5)
@@ -59,7 +57,7 @@ class TestSanityHyperParameter(unittest.TestCase):
 # Test will be made after there is an example to test serialized model
 #class TestPersistenceHyperParameter(unittest.TestCase):
 #  def setUp(self):
-#    xnmt.events.clear()
+#    events.clear()
 #    ParamManager.init_param_col()
 #    self.tail_transformer = TailSegmentTransformer()
 #    self.segment_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
