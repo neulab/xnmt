@@ -11,18 +11,14 @@ from xnmt.batching import Batch, mark_as_batch, is_batched, Mask
 from xnmt.decode import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
 from xnmt.embed import Embedder, SimpleWordEmbedder
 from xnmt.events import register_xnmt_handler
-from xnmt import model_base
-import xnmt.infer
+from xnmt import infer, input_reader, model_base
 from xnmt.input import Input, SimpleSentenceInput
-from xnmt import input_reader
-import xnmt.length_norm
 from xnmt.losses import FactoredLossExpr
 from xnmt.loss_calc import LossCalculator
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput, Output, NbestOutput
-import xnmt.plot
 from xnmt.persistence import serializable_init, Serializable, bare
-from xnmt.searching import BeamSearch, SearchStrategy
+from xnmt.search import BeamSearch, SearchStrategy
 from xnmt import transduce
 from xnmt.voc import Vocab
 from xnmt.persistence import Ref
@@ -106,7 +102,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
                attender: Attender=bare(MlpAttender),
                trg_embedder: Embedder=bare(SimpleWordEmbedder),
                decoder: Decoder=bare(AutoRegressiveDecoder),
-               inference: xnmt.infer.AutoRegressiveInference=bare(xnmt.infer.AutoRegressiveInference),
+               inference: infer.AutoRegressiveInference=bare(infer.AutoRegressiveInference),
                search_strategy:SearchStrategy=bare(BeamSearch),
                compute_report:bool = Ref("exp_global.compute_report", default=False),
                global_fertility:int=0):
@@ -426,7 +422,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable, model_base.Even
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, models, src_reader, trg_reader, inference=bare(xnmt.infer.AutoRegressiveInference)):
+  def __init__(self, models, src_reader, trg_reader, inference=bare(infer.AutoRegressiveInference)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.models = models
     self.inference = inference

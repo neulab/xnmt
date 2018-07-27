@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict
 
-from xnmt.param_init import ParamInitializer, GlorotInitializer, ZeroInitializer
+from xnmt.weight_init import ParamInitializer, GlorotInitializer, ZeroInitializer
 from xnmt.settings import settings
 
 from xnmt import logger

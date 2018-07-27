@@ -25,7 +25,7 @@ from scipy.stats import entropy
 import numpy as np
 import dynet as dy
 
-import xnmt.param_init
+import xnmt.weight_init
 from xnmt import transforms, norm, embed, events, lstm, param_collection, positional, transduce
 from xnmt.expr_seq import ExpressionSequence
 from xnmt.persistence import Serializable, serializable_init, Ref, bare
@@ -122,8 +122,8 @@ class SAAMMultiHeadedSelfAttention(Serializable):
                diag_gauss_mask: typing.Union[bool, float, int] = False,
                square_mask_std: bool = True, cross_pos_encoding_type: typing.Optional[str] = None,
                kq_pos_encoding_type: typing.Optional[str] = None, kq_pos_encoding_size: int = 40, max_len: int = 1500,
-               param_init: xnmt.param_init.ParamInitializer = xnmt.param_init.GlorotInitializer(),
-               bias_init: xnmt.param_init.ParamInitializer = xnmt.param_init.ZeroInitializer(),
+               param_init: xnmt.weight_init.ParamInitializer = xnmt.weight_init.GlorotInitializer(),
+               bias_init: xnmt.weight_init.ParamInitializer = xnmt.weight_init.ZeroInitializer(),
                linear_kvq = None, kq_positional_embedder = None, layer_norm = None, res_shortcut = None,
                desc: typing.Any = None) -> None:
     if input_dim is None: input_dim = model_dim
@@ -388,8 +388,8 @@ class TransformerEncoderLayer(Serializable):
                plot_attention=None, nonlinearity="rectify", diag_gauss_mask=False,
                square_mask_std=True, cross_pos_encoding_type=None,
                ff_lstm=False, kq_pos_encoding_type=None, kq_pos_encoding_size=40, max_len=1500,
-               param_init=Ref("exp_global.param_init", default=bare(xnmt.param_init.GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(xnmt.param_init.ZeroInitializer)),
+               param_init=Ref("exp_global.param_init", default=bare(xnmt.weight_init.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(xnmt.weight_init.ZeroInitializer)),
                dropout=None, self_attn=None, feed_forward=None, desc=None):
     self.self_attn = self.add_serializable_component("self_attn",
                                                      self_attn,
@@ -504,8 +504,8 @@ class SAAMSeqTransducer(transduce.SeqTransducer, Serializable):
                pos_encoding_combine:str="concat", pos_encoding_size:int=40, max_len:int=1500, diag_gauss_mask:typing.Union[bool,float,int]=False,
                square_mask_std:float=True, cross_pos_encoding_type:typing.Optional[str]=None, ff_lstm:bool=False, kq_pos_encoding_type:typing.Optional[str]=None,
                kq_pos_encoding_size:int=40,
-               param_init:xnmt.param_init.ParamInitializer=Ref("exp_global.param_init", default=bare(xnmt.param_init.GlorotInitializer)),
-               bias_init:xnmt.param_init.ParamInitializer=Ref("exp_global.bias_init", default=bare(xnmt.param_init.ZeroInitializer)),
+               param_init:xnmt.weight_init.ParamInitializer=Ref("exp_global.param_init", default=bare(xnmt.weight_init.GlorotInitializer)),
+               bias_init:xnmt.weight_init.ParamInitializer=Ref("exp_global.bias_init", default=bare(xnmt.weight_init.ZeroInitializer)),
                positional_embedder=None, modules=None):
     self.input_dim = input_dim = (
             input_dim + (pos_encoding_size if (pos_encoding_type and pos_encoding_combine == "concat") else 0))

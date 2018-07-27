@@ -7,8 +7,8 @@ from xnmt.losses import FactoredLossExpr
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.voc import Vocab
 from xnmt.transforms import Linear
-import xnmt.eval_metrics
-import xnmt.batching
+from xnmt import batching, eval_metrics
+import xnmt.input
 
 class LossCalculator(object):
   """
@@ -43,20 +43,20 @@ class AutoRegressiveMLELoss(Serializable, LossCalculator):
                 src: Union[xnmt.input.Input, 'batcher.Batch'],
                 trg: Union[xnmt.input.Input, 'batcher.Batch']):
     dec_state = initial_state
-    trg_mask = trg.mask if xnmt.batching.is_batched(trg) else None
+    trg_mask = trg.mask if batching.is_batched(trg) else None
     losses = []
     seq_len = trg.sent_len()
-    if xnmt.batching.is_batched(src):
+    if batching.is_batched(src):
       for j, single_trg in enumerate(trg):
         assert single_trg.sent_len() == seq_len # assert consistent length
         assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask.np_arr[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
     input_word = None
     for i in range(seq_len):
       ref_word = AutoRegressiveMLELoss._select_ref_words(trg, i, truncate_masked=self.truncate_dec_batches)
-      if self.truncate_dec_batches and xnmt.batching.is_batched(ref_word):
-        dec_state.rnn_state, ref_word = xnmt.batching.truncate_batches(dec_state.rnn_state, ref_word)
+      if self.truncate_dec_batches and batching.is_batched(ref_word):
+        dec_state.rnn_state, ref_word = batching.truncate_batches(dec_state.rnn_state, ref_word)
       dec_state, word_loss = translator.calc_loss_one_step(dec_state, ref_word, input_word)
-      if not self.truncate_dec_batches and xnmt.batching.is_batched(src) and trg_mask is not None:
+      if not self.truncate_dec_batches and batching.is_batched(src) and trg_mask is not None:
         word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
       losses.append(word_loss)
       input_word = ref_word
@@ -70,8 +70,8 @@ class AutoRegressiveMLELoss(Serializable, LossCalculator):
   @staticmethod
   def _select_ref_words(sent, index, truncate_masked = False):
     if truncate_masked:
-      mask = sent.mask if xnmt.batching.is_batched(sent) else None
-      if not xnmt.batching.is_batched(sent):
+      mask = sent.mask if batching.is_batched(sent) else None
+      if not batching.is_batched(sent):
         return sent[index]
       else:
         ret = []
@@ -82,10 +82,10 @@ class AutoRegressiveMLELoss(Serializable, LossCalculator):
             ret.append(single_trg[index])
           else:
             found_masked = True
-        return xnmt.batching.mark_as_batch(ret)
+        return batching.mark_as_batch(ret)
     else:
-      if not xnmt.batching.is_batched(sent): return sent[index]
-      else: return xnmt.batching.mark_as_batch([single_trg[index] for single_trg in sent])
+      if not batching.is_batched(sent): return sent[index]
+      else: return batching.mark_as_batch([single_trg[index] for single_trg in sent])
 
 class ReinforceLoss(Serializable, LossCalculator):
   yaml_tag = '!ReinforceLoss'
@@ -97,7 +97,7 @@ class ReinforceLoss(Serializable, LossCalculator):
     self.use_baseline = use_baseline
     self.inv_eval = inv_eval
     if evaluation_metric is None:
-      self.evaluation_metric = xnmt.eval_metrics.FastBLEUEvaluator(ngram=4, smooth=1)
+      self.evaluation_metric = eval_metrics.FastBLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
 
@@ -149,7 +149,7 @@ class MinRiskLoss(Serializable, LossCalculator):
     # Samples
     self.alpha = alpha
     if evaluation_metric is None:
-      self.evaluation_metric = xnmt.eval_metrics.FastBLEUEvaluator(ngram=4, smooth=1)
+      self.evaluation_metric = eval_metrics.FastBLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
     self.inv_eval = inv_eval

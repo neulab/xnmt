@@ -2,11 +2,10 @@ import dynet as dy
 import numpy as np
 from xnmt.settings import settings
 
-import xnmt.batching
+from xnmt import batching
 from xnmt.model_base import ConditionedModel, GeneratorModel, EventTrigger
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.expr_seq import ExpressionSequence
-from xnmt.reports import Reportable
 
 ##### A class for retrieval databases
 # This file contains databases used for retrieval.
@@ -28,8 +27,8 @@ class StandardRetrievalDatabase(Serializable):
     self.test_id_file = test_id_file
 
   def __getitem__(self, indices):
-    trg_examples, trg_masks = xnmt.batching.pad([self.data[index] for index in indices])
-    return xnmt.batching.mark_as_batch(trg_examples), trg_masks
+    trg_examples, trg_masks = batching.pad([self.data[index] for index in indices])
+    return batching.mark_as_batch(trg_examples), trg_masks
 
 ##### The actual retriever class
 class Retriever(ConditionedModel, GeneratorModel, EventTrigger):

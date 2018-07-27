@@ -6,7 +6,7 @@ from typing import List
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.expr_seq import ExpressionSequence
 from xnmt.param_collection import ParamManager
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.weight_init import GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 from xnmt.transduce import SeqTransducer, FinalTransducerState
 

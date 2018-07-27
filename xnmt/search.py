@@ -5,7 +5,7 @@ from typing import Optional, Callable
 import dynet as dy
 import numpy as np
 
-import xnmt.batching
+from xnmt import batching
 from xnmt import logger
 from xnmt.length_norm import NoNormalization, LengthNormalization
 from xnmt.persistence import Serializable, serializable_init, bare
@@ -74,7 +74,7 @@ class GreedySearch(Serializable, SearchStrategy):
         if len(word_id.shape) == 2:
           word_id = word_id[0]
       else:
-        if xnmt.batching.is_batched(forced_trg_ids):
+        if batching.is_batched(forced_trg_ids):
           word_id = [forced_trg_ids[i][length] for i in range(len(forced_trg_ids))]
         else:
           word_id = [forced_trg_ids[length]]

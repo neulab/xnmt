@@ -4,7 +4,7 @@ import dynet as dy
 from xnmt import logger
 from xnmt import batching
 from xnmt.param_collection import ParamManager
-from xnmt.param_init import GlorotInitializer, ZeroInitializer, ParamInitializer
+from xnmt.weight_init import GlorotInitializer, ZeroInitializer, ParamInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
 class Attender(object):

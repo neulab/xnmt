@@ -1,6 +1,6 @@
 import dynet as dy
 
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.weight_init import GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.transforms import Linear
 

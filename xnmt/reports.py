@@ -23,7 +23,7 @@ import matplotlib
 matplotlib.use('Agg')
 import numpy as np
 
-import xnmt.plot
+from xnmt import plot
 import xnmt.output
 import xnmt.input
 from xnmt import voc, util
@@ -382,7 +382,7 @@ class AttentionReporter(HtmlReporter, Serializable):
     attention_file = f"{self.report_path}/img/attention.{util.valid_filename(desc).lower()}.{idx}.png"
     html_att = f'<tr><td class="seghead">{desc}:</td><td></td></tr>' \
                f'<tr><td colspan="2" align="left"><img src="img/{os.path.basename(attention_file)}" alt="attention matrix" /></td></tr>'
-    xnmt.plot.plot_attention(src_words=src_tokens, trg_words=trg_tokens, attention_matrix=attentions,
+    plot.plot_attention(src_words=src_tokens, trg_words=trg_tokens, attention_matrix=attentions,
                              file_name=attention_file, size_x=size_x, size_y=size_y)
     self.html_contents.append(html_att)
 

@@ -38,7 +38,7 @@ import xnmt.lm
 import xnmt.lstm
 import xnmt.model_base
 import xnmt.optimize
-import xnmt.param_init
+import xnmt.weight_init
 import xnmt.positional
 import xnmt.preproc_runner
 import xnmt.pyramidal

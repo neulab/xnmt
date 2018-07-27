@@ -6,8 +6,8 @@ from xnmt.settings import settings
 import dynet as dy
 
 import xnmt.batching
-from xnmt import events, losses, loss_calc, model_base, output, reports, searching, util
-from xnmt import logger, losses, loss_calc, model_base, output, reports, searching, util
+from xnmt import events, losses, loss_calc, model_base, output, reports, search, util
+from xnmt import logger, losses, loss_calc, model_base, output, reports, search, util
 from xnmt.persistence import serializable_init, Serializable, bare
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
@@ -299,7 +299,7 @@ class AutoRegressiveInference(Inference, Serializable):
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
                post_process: Union[str, output.OutputProcessor] = bare(output.PlainTextOutputProcessor),
-               search_strategy: searching.SearchStrategy = bare(searching.BeamSearch),
+               search_strategy: search.SearchStrategy = bare(search.BeamSearch),
                mode: str = "onebest",
                batcher: xnmt.batching.InOrderBatcher = bare(xnmt.batching.InOrderBatcher, batch_size=1),
                reporter: Union[None, reports.Reporter, Sequence[reports.Reporter]] = None):

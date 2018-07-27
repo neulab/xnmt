@@ -1,7 +1,7 @@
 import dynet as dy
 from typing import List, Union, Optional
 
-from xnmt.param_init import ParamInitializer, GlorotInitializer, ZeroInitializer
+from xnmt.weight_init import ParamInitializer, GlorotInitializer, ZeroInitializer
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
 from xnmt.transforms import Linear

@@ -16,7 +16,7 @@ from xnmt.param_collection import ParamManager
 from xnmt.transforms import NonLinear
 from xnmt.translators import DefaultTranslator
 from xnmt.scorers import Softmax
-from xnmt.searching import GreedySearch
+from xnmt.search import GreedySearch
 
 class TestForcedDecodingOutputs(unittest.TestCase):
 

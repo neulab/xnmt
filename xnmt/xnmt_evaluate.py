@@ -2,7 +2,8 @@ import argparse
 import sys
 from typing import Any, Sequence, Union
 
-from xnmt.eval_metrics import * # import everything so we can parse it with eval()
+from xnmt import eval_metrics
+from xnmt import logger
 from xnmt.infer import NO_DECODING_ATTEMPTED
 
 def read_data(loc_, post_process=None):
@@ -18,17 +19,17 @@ def read_data(loc_, post_process=None):
   return data
 
 eval_shortcuts = {
-  "bleu": lambda:BLEUEvaluator(),
-  "gleu": lambda:GLEUEvaluator(),
-  "wer": lambda:WEREvaluator(),
-  "cer": lambda:CEREvaluator(),
-  "recall": lambda:RecallEvaluator(),
-  "accuracy": lambda:SequenceAccuracyEvaluator(),
+  "bleu": lambda: eval_metrics.BLEUEvaluator(),
+  "gleu": lambda: eval_metrics.GLEUEvaluator(),
+  "wer": lambda: eval_metrics.WEREvaluator(),
+  "cer": lambda: eval_metrics.CEREvaluator(),
+  "recall": lambda: eval_metrics.RecallEvaluator(),
+  "accuracy": lambda: eval_metrics.SequenceAccuracyEvaluator(),
 }
 
 
 def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequence[str]],
-                  evaluators: Sequence[Evaluator], desc: Any = None) -> Sequence[EvalScore]:
+                  evaluators: Sequence[eval_metrics.Evaluator], desc: Any = None) -> Sequence[eval_metrics.EvalScore]:
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
 
   Args:
@@ -72,6 +73,7 @@ def main():
   parser.add_argument("--ref", help="Path to read reference file from", nargs="+")
   args = parser.parse_args()
 
+  from xnmt.eval_metrics import *  # import everything so we can parse it with eval()
   evaluators = args.metric
   evaluators = [eval_shortcuts[shortcut]() if shortcut in eval_shortcuts else eval(shortcut) for shortcut in evaluators]
 

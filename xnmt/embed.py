@@ -7,7 +7,7 @@ from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.expr_seq import ExpressionSequence, LazyNumpyExpressionSequence
 from xnmt.transforms import Linear
 from xnmt.param_collection import ParamManager
-from xnmt.param_init import GlorotInitializer, ZeroInitializer, ParamInitializer
+from xnmt.weight_init import GlorotInitializer, ZeroInitializer, ParamInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
 
 class Embedder(object):

@@ -6,7 +6,7 @@ import dynet as dy
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
 from xnmt.expr_seq import ExpressionSequence
 from xnmt import param_collection, transduce
-import xnmt.param_init
+from xnmt import weight_init
 
 
 class FixedSizeAttSeqTransducer(transduce.SeqTransducer, Serializable):
@@ -30,8 +30,8 @@ class FixedSizeAttSeqTransducer(transduce.SeqTransducer, Serializable):
                hidden_dim: int = Ref("exp_global.default_layer_dim"),
                output_len: int = 32,
                pos_enc_max: Optional[int] = None,
-               param_init: xnmt.param_init.ParamInitializer = Ref("exp_global.param_init",
-                                                                  default=bare(xnmt.param_init.GlorotInitializer))) \
+               param_init: weight_init.ParamInitializer = Ref("exp_global.param_init",
+                                                                   default=bare(weight_init.GlorotInitializer))) \
           -> None:
     subcol = param_collection.ParamManager.my_params(self)
     self.output_len = output_len
@@ -59,4 +59,4 @@ class FixedSizeAttSeqTransducer(transduce.SeqTransducer, Serializable):
       scores = dy.cmult(scores, dy.inputTensor(pos_enc))
     attention = dy.softmax(scores)
     output_expr = x.as_tensor() * attention
-    return expression_sequence.ExpressionSequence(expr_tensor=output_expr, mask=None)
+    return ExpressionSequence(expr_tensor=output_expr, mask=None)

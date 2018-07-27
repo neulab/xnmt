@@ -4,8 +4,7 @@ from typing import List
 from xnmt.embed import Embedder
 from xnmt.expr_seq import ExpressionSequence
 from xnmt.param_collection import ParamManager
-from xnmt.param_init import ParamInitializer, GlorotInitializer, ZeroInitializer
-from xnmt.persistence import Serializable
+from xnmt.weight_init import ParamInitializer, GlorotInitializer
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 from xnmt.transduce import SeqTransducer, FinalTransducerState
 

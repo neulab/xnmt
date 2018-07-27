@@ -7,7 +7,7 @@ import dynet as dy
 from xnmt.expr_seq import ExpressionSequence, ReversedExpressionSequence
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.param_collection import ParamManager
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.weight_init import GlorotInitializer, ZeroInitializer
 from xnmt.transduce import SeqTransducer, FinalTransducerState
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
