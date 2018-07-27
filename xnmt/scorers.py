@@ -5,7 +5,7 @@ from xnmt.param_init import ParamInitializer, GlorotInitializer, ZeroInitializer
 from xnmt.param_collection import ParamManager
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
 from xnmt.transforms import Linear
-from xnmt import batching, vocab, input_reader
+from xnmt import batching, voc, input_reader
 
 class Scorer(object):
   """
@@ -55,7 +55,7 @@ class Scorer(object):
     """
     raise NotImplementedError('calc_loss must be implemented by subclasses of Scorer')
 
-  def _choose_vocab_size(self, vocab_size: Optional[int], vocab: Optional[vocab.Vocab],
+  def _choose_vocab_size(self, vocab_size: Optional[int], vocab: Optional[voc.Vocab],
                          trg_reader: Optional[input_reader.InputReader]) -> int:
     """Choose the vocab size for the embedder based on the passed arguments.
 
@@ -105,9 +105,9 @@ class Softmax(Scorer, Serializable):
 
   @serializable_init
   def __init__(self,
-               input_dim: int = Ref("exp_global.default_layer_dim"),               
+               input_dim: int = Ref("exp_global.default_layer_dim"),
                vocab_size: Optional[int] = None,
-               vocab: Optional[vocab.Vocab] = None,
+               vocab: Optional[voc.Vocab] = None,
                trg_reader: Optional[input_reader.InputReader] = Ref("model.trg_reader", default=None),
                label_smoothing: float = 0.0,
                param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer)),

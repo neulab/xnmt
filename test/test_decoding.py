@@ -10,7 +10,7 @@ from xnmt.decode import AutoRegressiveDecoder
 from xnmt.embed import SimpleWordEmbedder
 import xnmt.events
 from xnmt.input_reader import PlainTextReader
-from xnmt.loss_calculator import AutoRegressiveMLELoss
+from xnmt.loss_calc import AutoRegressiveMLELoss
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.param_collection import ParamManager
 from xnmt.transforms import NonLinear

@@ -2,7 +2,7 @@ import dynet as dy
 import numpy as np
 
 from xnmt import attention, batching, embed, events, infer, input_reader, losses, lstm, model_base, output, \
-  reports, scorers, transduce, transforms, vocab
+  reports, scorers, transduce, transforms, voc
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Serializable, reports.Reportable,
@@ -92,7 +92,7 @@ class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Seriali
         trg.mask = batching.Mask(np_arr=old_mask.np_arr[:, :-trunc_len])
     else:
       pad_len = seq_len - len(trg[0])
-      trg = batching.mark_as_batch([trg_sent.get_padded_sent(token=vocab.Vocab.ES, pad_len=pad_len) for trg_sent in trg])
+      trg = batching.mark_as_batch([trg_sent.get_padded_sent(token=voc.Vocab.ES, pad_len=pad_len) for trg_sent in trg])
       if old_mask:
         trg.mask = np.pad(old_mask.np_arr, pad_width=((0, 0), (0, pad_len)), mode="constant", constant_values=1)
     return trg
@@ -125,6 +125,6 @@ class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Seriali
     Set target vocab for generating outputs. If not specified, word IDs are generated instead.
 
     Args:
-      trg_vocab (vocab.Vocab): target vocab, or None to generate word IDs
+      trg_vocab (voc.Vocab): target vocab, or None to generate word IDs
     """
     self.trg_vocab = trg_vocab

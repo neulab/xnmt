@@ -30,7 +30,7 @@ import xnmt.eval_tasks
 import xnmt.eval_metrics
 import xnmt.experiments
 import xnmt.fixed_size_att
-import xnmt.hyper_parameters
+import xnmt.hyper_params
 import xnmt.infer
 import xnmt.input
 import xnmt.input_reader
@@ -44,7 +44,7 @@ import xnmt.preproc_runner
 import xnmt.pyramidal
 import xnmt.reports
 import xnmt.residual
-import xnmt.retriever
+import xnmt.retrieve
 import xnmt.scorers
 import xnmt.self_attention
 import xnmt.seq_labeler

@@ -17,7 +17,7 @@ from xnmt.scorers import Softmax
 from xnmt.self_attention import MultiHeadAttentionSeqTransducer
 from xnmt.transforms import NonLinear
 from xnmt.translators import DefaultTranslator
-from xnmt.vocab import Vocab
+from xnmt.voc import Vocab
 import xnmt.events
 
 class TestEncoder(unittest.TestCase):

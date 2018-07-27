@@ -7,7 +7,7 @@ strings.
 
 from typing import Optional, Sequence
 
-from xnmt.vocab import Vocab
+from xnmt.voc import Vocab
 from xnmt.persistence import Serializable, serializable_init
 
 class Output(object):

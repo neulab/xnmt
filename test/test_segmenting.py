@@ -17,7 +17,7 @@ import xnmt.batching
 from xnmt.input_reader import PlainTextReader, CharFromWordTextReader
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.translators import DefaultTranslator
-from xnmt.loss_calculator import AutoRegressiveMLELoss
+from xnmt.loss_calc import AutoRegressiveMLELoss
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
 from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLengthPrior
@@ -25,7 +25,7 @@ from xnmt.specialized_encoders.segmenting_encoder.priors import PoissonPrior, Go
 from xnmt.transforms import AuxNonLinear, Linear
 from xnmt.scorers import Softmax
 from xnmt.transduce import IdentitySeqTransducer
-from xnmt.vocab import Vocab
+from xnmt.voc import Vocab
 from xnmt.rl.policy_gradient import PolicyGradient
 from xnmt.rl.eps_greedy import EpsilonGreedy
 from xnmt.rl.confidence_penalty import ConfidencePenalty

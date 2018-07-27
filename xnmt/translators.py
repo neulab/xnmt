@@ -15,16 +15,16 @@ from xnmt import model_base
 import xnmt.infer
 from xnmt.input import Input, SimpleSentenceInput
 from xnmt import input_reader
-import xnmt.length_normalization
+import xnmt.length_norm
 from xnmt.losses import FactoredLossExpr
-from xnmt.loss_calculator import LossCalculator
+from xnmt.loss_calc import LossCalculator
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput, Output, NbestOutput
 import xnmt.plot
 from xnmt.persistence import serializable_init, Serializable, bare
 from xnmt.searching import BeamSearch, SearchStrategy
 from xnmt import transduce
-from xnmt.vocab import Vocab
+from xnmt.voc import Vocab
 from xnmt.persistence import Ref
 from xnmt.reports import Reportable
 from expr_seq import CompoundSeqExpression

@@ -1,9 +1,7 @@
 from typing import Union
 import time
 
-import numpy as np
-
-from xnmt import batching, input, losses, vocab, events, util
+from xnmt import batching, input, losses, events, util
 
 class AccumTimeTracker(object):
   def __init__(self):

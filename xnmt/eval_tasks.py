@@ -6,11 +6,9 @@ import dynet as dy
 
 from xnmt.batching import Batcher
 from xnmt.eval_metrics import Evaluator
-from xnmt import model_base
-import xnmt.infer
-import xnmt.input_reader
+from xnmt import infer, input_reader, model_base
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.loss_calculator import LossCalculator, AutoRegressiveMLELoss
+from xnmt.loss_calc import LossCalculator, AutoRegressiveMLELoss
 from xnmt.eval_metrics import LossScore
 from xnmt.losses import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate
@@ -67,13 +65,13 @@ class LossEvalTask(EvalTask, Serializable):
     self.model.set_train(False)
     if self.src_data is None:
       self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
-        xnmt.input_reader.read_parallel_corpus(src_reader=self.model.src_reader,
-                                               trg_reader=self.model.trg_reader,
-                                               src_file=self.src_file,
-                                               trg_file=self.ref_file,
-                                               batcher=self.batcher,
-                                               max_src_len=self.max_src_len,
-                                               max_trg_len=self.max_trg_len)
+        input_reader.read_parallel_corpus(src_reader=self.model.src_reader,
+                                          trg_reader=self.model.trg_reader,
+                                          src_file=self.src_file,
+                                          trg_file=self.ref_file,
+                                          batcher=self.batcher,
+                                          max_src_len=self.max_src_len,
+                                          max_trg_len=self.max_trg_len)
     loss_val = FactoredLossVal()
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
@@ -118,7 +116,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: 'model_base.GeneratorModel' = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
-               inference: Optional[xnmt.infer.Inference] = None, desc: Any = None):
+               inference: Optional[infer.Inference] = None, desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
@@ -157,7 +155,7 @@ class DecodingEvalTask(EvalTask, Serializable):
 
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: 'model_base.GeneratorModel' = Ref("model"),
-               inference: Optional[xnmt.infer.Inference] = None):
+               inference: Optional[infer.Inference] = None):
 
     self.model = model
     self.src_file = src_file

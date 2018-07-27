@@ -12,7 +12,7 @@ from xnmt.eval_tasks import LossEvalTask
 import xnmt.events
 from xnmt.input_reader import PlainTextReader, SimpleSentenceInput
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculator import AutoRegressiveMLELoss
+from xnmt.loss_calc import AutoRegressiveMLELoss
 from xnmt.optimize import AdamTrainer, DummyTrainer
 from xnmt.param_collection import ParamManager
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
@@ -20,7 +20,7 @@ import xnmt.training_regimens
 from xnmt.transforms import NonLinear
 from xnmt.translators import DefaultTranslator
 from xnmt.scorers import Softmax
-from xnmt.vocab import Vocab
+from xnmt.voc import Vocab
 
 class TestTruncatedBatchTraining(unittest.TestCase):
 

@@ -4,7 +4,7 @@ import unittest
 import xnmt.eval_metrics as evaluator
 import xnmt.events
 from xnmt.test.utils import has_cython
-from xnmt.vocab import Vocab
+from xnmt.voc import Vocab
 
 class TestBLEU(unittest.TestCase):
   def setUp(self):

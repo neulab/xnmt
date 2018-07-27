@@ -7,9 +7,9 @@ import numpy as np
 
 import xnmt.batching
 from xnmt import logger
-from xnmt.length_normalization import NoNormalization, LengthNormalization
+from xnmt.length_norm import NoNormalization, LengthNormalization
 from xnmt.persistence import Serializable, serializable_init, bare
-from xnmt.vocab import Vocab
+from xnmt.voc import Vocab
 
 
 # Output of the search

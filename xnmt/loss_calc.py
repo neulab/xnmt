@@ -5,7 +5,7 @@ import numpy as np
 
 from xnmt.losses import FactoredLossExpr
 from xnmt.persistence import serializable_init, Serializable, Ref
-from xnmt.vocab import Vocab
+from xnmt.voc import Vocab
 from xnmt.transforms import Linear
 import xnmt.eval_metrics
 import xnmt.batching

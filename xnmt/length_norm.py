@@ -6,7 +6,7 @@ from scipy.stats import norm
 
 from xnmt.persistence import serializable_init, Serializable
 from xnmt import searching
-from xnmt.vocab import Vocab
+from xnmt.voc import Vocab
 
 class LengthNormalization(object):
   """

@@ -26,7 +26,7 @@ import numpy as np
 import xnmt.plot
 import xnmt.output
 import xnmt.input
-from xnmt import vocab, util
+from xnmt import voc, util
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 from xnmt.persistence import Serializable, serializable_init
 from xnmt.settings import settings
@@ -116,7 +116,7 @@ class ReferenceDiffReporter(Reporter, Serializable):
     self.report_path = report_path
     self.hyp_sents, self.ref_sents, self.src_sents = [], [], []
 
-  def create_report(self, src: xnmt.input.Input, src_vocab: vocab.Vocab, trg_vocab: vocab.Vocab,
+  def create_report(self, src: xnmt.input.Input, src_vocab: voc.Vocab, trg_vocab: voc.Vocab,
                     output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor, reference: str = None,
                     **kwargs) -> None:
     trg_str = output.apply_post_processor(output_proc)
@@ -173,7 +173,7 @@ class CompareMtReporter(Reporter, Serializable):
     self.report_path = report_path
     self.hyp_sents, self.ref_sents = [], []
 
-  def create_report(self, trg_vocab: vocab.Vocab, output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
+  def create_report(self, trg_vocab: voc.Vocab, output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
                     reference: str, **kwargs) -> None:
     trg_str = output.apply_post_processor(output_proc)
     self.hyp_sents.append(trg_str)
@@ -326,8 +326,8 @@ class AttentionReporter(HtmlReporter, Serializable):
   def __init__(self, report_name: str = "attention", report_path: str = settings.DEFAULT_REPORT_PATH):
     super().__init__(report_name=report_name, report_path=report_path)
 
-  def create_report(self, idx: int, src: xnmt.input.Input, src_vocab: vocab.Vocab,
-                    trg_vocab: vocab.Vocab, output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
+  def create_report(self, idx: int, src: xnmt.input.Input, src_vocab: voc.Vocab,
+                    trg_vocab: voc.Vocab, output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
                     attentions: np.ndarray, reference: Optional[str] = None, **kwargs) -> None:
     """
     Create report.

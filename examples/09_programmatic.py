@@ -36,7 +36,7 @@ from xnmt.persistence import save_to_file
 import xnmt.tee
 from xnmt.training_regimens import SimpleTrainingRegimen
 from xnmt.translators import DefaultTranslator
-from xnmt.vocab import Vocab
+from xnmt.voc import Vocab
 
 seed=13
 random.seed(seed)

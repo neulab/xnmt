@@ -15,7 +15,7 @@ from xnmt import logger
 from xnmt.input import SimpleSentenceInput, ArrayInput, IntInput, CompoundInput
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.vocab import Vocab
+from xnmt.voc import Vocab
 import xnmt.input
 import xnmt.batching
 

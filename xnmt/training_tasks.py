@@ -4,7 +4,7 @@ import random
 import numpy as np
 from typing import Optional, Sequence, Union
 
-from xnmt import batching, eval_tasks, events, model_base, input_reader, logger, losses, loss_tracker, loss_calculator,\
+from xnmt import batching, eval_tasks, events, model_base, input_reader, logger, losses, loss_tracking, loss_calc,\
   param_collection
 from xnmt.persistence import serializable_init, Serializable, bare
 
@@ -105,7 +105,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                trg_file: str = None,
                dev_every: int = 0,
                batcher: batching.Batcher = bare(batching.SrcBatcher, batch_size=32),
-               loss_calculator: loss_calculator.LossCalculator = bare(loss_calculator.AutoRegressiveMLELoss),
+               loss_calculator: loss_calc.LossCalculator = bare(loss_calc.AutoRegressiveMLELoss),
                run_for_epochs: Optional[int] = None,
                lr_decay: float = 1.0, lr_decay_times: int = 3,
                patience: int = 1, initial_patience: Optional[int] = None,
@@ -145,7 +145,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.max_trg_len = max_trg_len
 
     self.batcher = batcher
-    self.dev_loss_tracker = loss_tracker.DevLossTracker(self, dev_every, name)
+    self.dev_loss_tracker = loss_tracking.DevLossTracker(self, dev_every, name)
     self.name = name
 
   def _augment_data_initial(self):
