@@ -15,7 +15,7 @@ from xnmt.specialized_encoders.segmenting_encoder.priors import GoldInputPrior
 from xnmt.reports import Reportable
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer
-from expr_seq import CompoundSeqExpression
+from xnmt.expr_seq import CompoundSeqExpression
 
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):

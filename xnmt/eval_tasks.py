@@ -116,7 +116,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: 'model_base.GeneratorModel' = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
-               inference: Optional[infer.Inference] = None, desc: Any = None):
+               inference: Optional['infer.Inference'] = None, desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
@@ -155,7 +155,7 @@ class DecodingEvalTask(EvalTask, Serializable):
 
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: 'model_base.GeneratorModel' = Ref("model"),
-               inference: Optional[infer.Inference] = None):
+               inference: Optional['infer.Inference'] = None):
 
     self.model = model
     self.src_file = src_file

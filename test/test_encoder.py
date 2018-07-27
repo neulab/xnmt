@@ -18,7 +18,7 @@ from xnmt.self_attention import MultiHeadAttentionSeqTransducer
 from xnmt.transforms import NonLinear
 from xnmt.translators import DefaultTranslator
 from xnmt.voc import Vocab
-from xnmt import events
+from xnmt import batching, events
 
 class TestEncoder(unittest.TestCase):
 
@@ -144,7 +144,7 @@ class TestEncoder(unittest.TestCase):
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
 
-    batcher = xnmt.batching.TrgBatcher(batch_size=3)
+    batcher = batching.TrgBatcher(batch_size=3)
     train_src, _ = \
       batcher.pack(self.src_data, self.trg_data)
 

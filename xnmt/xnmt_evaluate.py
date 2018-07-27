@@ -4,7 +4,9 @@ from typing import Any, Sequence, Union
 
 from xnmt import eval_metrics
 from xnmt import logger
-from xnmt.infer import NO_DECODING_ATTEMPTED
+from xnmt import infer
+
+from xnmt.eval_metrics import *  # import everything so we can parse it with eval()
 
 def read_data(loc_, post_process=None):
   """Reads the lines in the file specified in loc_ and return the list after inserting the tokens
@@ -52,7 +54,7 @@ def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequ
       ref_corpus = [tuple(ref_corpora[i][j] for i in range(len(ref_file))) for j in range(len(ref_corpora[0]))]
   hyp_corpus = read_data(hyp_file, post_process=hyp_postprocess)
   len_before = len(hyp_corpus)
-  ref_corpus, hyp_corpus = zip(*filter(lambda x: NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
+  ref_corpus, hyp_corpus = zip(*filter(lambda x: infer.NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
   if len(ref_corpus) < len_before:
     logger.info(f"> ignoring {len_before - len(ref_corpus)} out of {len_before} test sentences.")
 
@@ -73,7 +75,6 @@ def main():
   parser.add_argument("--ref", help="Path to read reference file from", nargs="+")
   args = parser.parse_args()
 
-  from xnmt.eval_metrics import *  # import everything so we can parse it with eval()
   evaluators = args.metric
   evaluators = [eval_shortcuts[shortcut]() if shortcut in eval_shortcuts else eval(shortcut) for shortcut in evaluators]
 

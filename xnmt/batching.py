@@ -323,8 +323,8 @@ class ShuffleBatcher(Batcher):
 
   def __init__(self, batch_size: int, granularity: str = 'sent', src_pad_token: Any = Vocab.ES,
                trg_pad_token: Any = Vocab.ES, pad_src_to_multiple: int = 1) -> None:
-    super(batch_size=batch_size, granularity=granularity, src_pad_token=src_pad_token, trg_pad_token=trg_pad_token,
-          pad_src_to_multiple=pad_src_to_multiple, sort_within_by_trg_len=True)
+    super.__init__(batch_size=batch_size, granularity=granularity, src_pad_token=src_pad_token,
+                   trg_pad_token=trg_pad_token, pad_src_to_multiple=pad_src_to_multiple, sort_within_by_trg_len=True)
 
   def pack(self, src, trg):
     order = list(range(len(src)))
