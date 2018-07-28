@@ -1,10 +1,10 @@
 import dynet as dy
 from typing import List
 
-from xnmt.expr_seq import ExpressionSequence
-from xnmt.param_collection import ParamManager
+from xnmt.expression_seqs import ExpressionSequence
+from xnmt.param_collections import ParamManager
 from xnmt.persistence import Serializable, serializable_init
-from xnmt.transduce import SeqTransducer, FinalTransducerState
+from xnmt.transducers import SeqTransducer, FinalTransducerState
 
 class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!ConvConnectedSeqTransducer'

@@ -20,9 +20,9 @@ class FactoredLossExpr(object):
       for key, val in init_loss.items():
         self.expr_factors[key] = val
 
-  def add_loss(self, loss_name: str, loss_expr: Optional[dy.Expression]) -> None:
-    if loss_expr:
-      self.expr_factors[loss_name] += loss_expr
+  def add_loss(self, loss_name: str, loss: Optional[dy.Expression]) -> None:
+    if loss:
+      self.expr_factors[loss_name] += loss
 
   def add_factored_loss_expr(self, factored_loss_expr: Optional['FactoredLossExpr']) -> None:
     if factored_loss_expr:

@@ -4,7 +4,7 @@ from typing import Any, Sequence, Union
 
 from xnmt import eval_metrics
 from xnmt import logger
-from xnmt import infer
+from xnmt import infererences
 
 from xnmt.eval_metrics import *  # import everything so we can parse it with eval()
 
@@ -54,7 +54,7 @@ def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequ
       ref_corpus = [tuple(ref_corpora[i][j] for i in range(len(ref_file))) for j in range(len(ref_corpora[0]))]
   hyp_corpus = read_data(hyp_file, post_process=hyp_postprocess)
   len_before = len(hyp_corpus)
-  ref_corpus, hyp_corpus = zip(*filter(lambda x: infer.NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
+  ref_corpus, hyp_corpus = zip(*filter(lambda x: infererences.NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
   if len(ref_corpus) < len_before:
     logger.info(f"> ignoring {len_before - len(ref_corpus)} out of {len_before} test sentences.")
 

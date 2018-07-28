@@ -4,11 +4,11 @@ from math import sqrt
 from typing import List
 
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.expr_seq import ExpressionSequence
-from xnmt.param_collection import ParamManager
-from xnmt.weight_init import GlorotInitializer, ZeroInitializer
+from xnmt.expression_seqs import ExpressionSequence
+from xnmt.param_collections import ParamManager
+from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt.transduce import SeqTransducer, FinalTransducerState
+from xnmt.transducers import SeqTransducer, FinalTransducerState
 
 class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
   """

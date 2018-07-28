@@ -1,8 +1,8 @@
 import dynet as dy
 import numpy as np
 
-from xnmt import attention, batching, embed, events, infer, input_reader, losses, lstm, model_base, output, \
-  reports, scorers, transduce, transforms, voc
+from xnmt import attenders, batchers, embedders, events, infererences, input_readers, losses, lstm, model_base, output, \
+  reports, scorers, transducers, transforms, vocabs
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Serializable, reports.Reportable,
@@ -27,18 +27,18 @@ class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Seriali
   @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
-               src_reader:input_reader.InputReader,
-               trg_reader:input_reader.InputReader,
-               src_embedder:embed.Embedder=bare(embed.SimpleWordEmbedder),
-               encoder:transduce.SeqTransducer=bare(lstm.BiLSTMSeqTransducer),
+               src_reader:input_readers.InputReader,
+               trg_reader:input_readers.InputReader,
+               src_embedder:embedders.Embedder=bare(embedders.SimpleWordEmbedder),
+               encoder:transducers.SeqTransducer=bare(lstm.BiLSTMSeqTransducer),
                transform:transforms.Transform=bare(transforms.NonLinear),
                scorer:scorers.Scorer=bare(scorers.Softmax),
-               inference:infer.Inference=bare(infer.IndependentOutputInference),
+               inference:infererences.Inference=bare(infererences.IndependentOutputInference),
                auto_cut_pad:bool=False):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
     self.encoder = encoder
-    self.attender = attention
+    self.attender = attenders
     self.transform = transform
     self.scorer = scorer
     self.inference = inference
@@ -61,7 +61,7 @@ class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Seriali
     return batch_size, encodings, outputs, seq_len
 
   def calc_loss(self, src, trg, loss_calculator):
-    assert batching.is_batched(src) and batching.is_batched(trg)
+    assert batchers.is_batched(src) and batchers.is_batched(trg)
     batch_size, encodings, outputs, seq_len = self._encode_src(src)
 
     if trg.sent_len() != seq_len:
@@ -71,7 +71,7 @@ class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Seriali
         raise ValueError(f"src/trg length do not match: {seq_len} != {len(trg[0])}")
 
     ref_action = np.asarray([sent.words for sent in trg]).reshape((seq_len * batch_size,))
-    loss_expr_perstep = self.scorer.calc_loss(outputs, batching.mark_as_batch(ref_action))
+    loss_expr_perstep = self.scorer.calc_loss(outputs, batchers.mark_as_batch(ref_action))
     # loss_expr_perstep = dy.pickneglogsoftmax_batch(outputs, ref_action)
     loss_expr_perstep = dy.reshape(loss_expr_perstep, (seq_len,), batch_size=batch_size)
     if trg.mask:
@@ -87,21 +87,21 @@ class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Seriali
     old_mask = trg.mask
     if len(trg[0]) > seq_len:
       trunc_len = len(trg[0]) - seq_len
-      trg = batching.mark_as_batch([trg_sent.get_truncated_sent(trunc_len=trunc_len) for trg_sent in trg])
+      trg = batchers.mark_as_batch([trg_sent.get_truncated_sent(trunc_len=trunc_len) for trg_sent in trg])
       if old_mask:
-        trg.mask = batching.Mask(np_arr=old_mask.np_arr[:, :-trunc_len])
+        trg.mask = batchers.Mask(np_arr=old_mask.np_arr[:, :-trunc_len])
     else:
       pad_len = seq_len - len(trg[0])
-      trg = batching.mark_as_batch([trg_sent.get_padded_sent(token=voc.Vocab.ES, pad_len=pad_len) for trg_sent in trg])
+      trg = batchers.mark_as_batch([trg_sent.get_padded_sent(token=vocabs.Vocab.ES, pad_len=pad_len) for trg_sent in trg])
       if old_mask:
         trg.mask = np.pad(old_mask.np_arr, pad_width=((0, 0), (0, pad_len)), mode="constant", constant_values=1)
     return trg
 
   def generate(self, src, idx, forced_trg_ids=None, normalize_scores = False):
-    if not batching.is_batched(src):
-      src = batching.mark_as_batch([src])
+    if not batchers.is_batched(src):
+      src = batchers.mark_as_batch([src])
       if forced_trg_ids:
-        forced_trg_ids = batching.mark_as_batch([forced_trg_ids])
+        forced_trg_ids = batchers.mark_as_batch([forced_trg_ids])
     assert src.batch_size() == 1, "batch size > 1 not properly tested"
 
     batch_size, encodings, outputs, seq_len = self._encode_src(src)
@@ -125,6 +125,6 @@ class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Seriali
     Set target vocab for generating outputs. If not specified, word IDs are generated instead.
 
     Args:
-      trg_vocab (voc.Vocab): target vocab, or None to generate word IDs
+      trg_vocab (vocabs.Vocab): target vocab, or None to generate word IDs
     """
     self.trg_vocab = trg_vocab

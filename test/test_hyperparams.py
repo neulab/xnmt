@@ -1,22 +1,22 @@
 import unittest
 
-from xnmt.attention import MlpAttender
-from xnmt.batching import mark_as_batch, Mask, SrcBatcher
+from xnmt.attenders import MlpAttender
+from xnmt.batchers import mark_as_batch, Mask, SrcBatcher
 from xnmt.bridges import CopyBridge
-from xnmt.decode import AutoRegressiveDecoder
-from xnmt.embed import SimpleWordEmbedder
+from xnmt.decoders import AutoRegressiveDecoder
+from xnmt.embedders import SimpleWordEmbedder
 from xnmt.eval_tasks import LossEvalTask
 from xnmt import events
-from xnmt.input_reader import PlainTextReader
+from xnmt.input_readers import PlainTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calc import AutoRegressiveMLELoss
-from xnmt.optimize import AdamTrainer
-from xnmt.param_collection import ParamManager
+from xnmt.optimizers import AdamTrainer
+from xnmt.param_collections import ParamManager
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
 from xnmt.transforms import NonLinear
 from xnmt.translators import DefaultTranslator
 from xnmt.scorers import Softmax
-from xnmt.voc import Vocab
+from xnmt.vocabs import Vocab
 
 from xnmt.hyper_params import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *

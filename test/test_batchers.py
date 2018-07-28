@@ -1,8 +1,8 @@
 import unittest
 
-from xnmt import batching, events
+from xnmt import batchers, events
 import xnmt.input
-from xnmt.param_collection import ParamManager
+from xnmt.param_collections import ParamManager
 
 class TestBatcher(unittest.TestCase):
 
@@ -13,7 +13,7 @@ class TestBatcher(unittest.TestCase):
   def test_batch_src(self):
     src_sents = [xnmt.input.SimpleSentenceInput([0] * i) for i in range(1,7)]
     trg_sents = [xnmt.input.SimpleSentenceInput([0] * ((i+3)%6 + 1)) for i in range(1,7)]
-    my_batcher = batching.SrcBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
+    my_batcher = batchers.SrcBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
     src, trg = my_batcher.pack(src_sents, trg_sents)
     self.assertEqual([[0, 0, 1], [0, 1, 1], [0, 0, 0]], [x.words for x in src[0]])
     self.assertEqual([[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 2], [0, 2, 2, 2, 2, 2]], [x.words for x in trg[0]])
@@ -23,7 +23,7 @@ class TestBatcher(unittest.TestCase):
   def test_batch_word_src(self):
     src_sents = [xnmt.input.SimpleSentenceInput([0] * i) for i in range(1,7)]
     trg_sents = [xnmt.input.SimpleSentenceInput([0] * ((i+3)%6 + 1)) for i in range(1,7)]
-    my_batcher = batching.WordSrcBatcher(words_per_batch=12, src_pad_token=1, trg_pad_token=2)
+    my_batcher = batchers.WordSrcBatcher(words_per_batch=12, src_pad_token=1, trg_pad_token=2)
     src, trg = my_batcher.pack(src_sents, trg_sents)
     self.assertEqual([[0]], [x.words for x in src[0]])
     self.assertEqual([[0, 0, 0, 0, 0]], [x.words for x in trg[0]])
@@ -39,7 +39,7 @@ class TestBatcher(unittest.TestCase):
   def test_batch_random_no_ties(self):
     src_sents = [xnmt.input.SimpleSentenceInput([0] * i) for i in range(1,7)]
     trg_sents = [xnmt.input.SimpleSentenceInput([0] * ((i+3)%6 + 1)) for i in range(1,7)]
-    my_batcher = batching.SrcBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
+    my_batcher = batchers.SrcBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
     _, trg = my_batcher.pack(src_sents, trg_sents)
     l0 = trg[0].sent_len()
     for _ in range(10):
@@ -50,7 +50,7 @@ class TestBatcher(unittest.TestCase):
   def test_batch_random_ties(self):
     src_sents = [xnmt.input.SimpleSentenceInput([0] * 5) for _ in range(1,7)]
     trg_sents = [xnmt.input.SimpleSentenceInput([0] * ((i+3)%6 + 1)) for i in range(1,7)]
-    my_batcher = batching.SrcBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
+    my_batcher = batchers.SrcBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
     _, trg = my_batcher.pack(src_sents, trg_sents)
     l0 = trg[0].sent_len()
     for _ in range(10):

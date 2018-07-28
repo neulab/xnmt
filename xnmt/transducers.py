@@ -2,7 +2,7 @@ from typing import List
 import dynet as dy
 
 from xnmt.persistence import serializable_init, Serializable
-from xnmt.expr_seq import ExpressionSequence
+from xnmt import expression_seqs
 
 class FinalTransducerState(object):
   """
@@ -34,15 +34,15 @@ class FinalTransducerState(object):
 
 class SeqTransducer(object):
   """
-  A class that transforms one sequence of vectors into another, using :class:`xnmt.expression_sequence.ExpressionSequence` objects as inputs and outputs.
+  A class that transforms one sequence of vectors into another, using :class:`expression_seqs.ExpressionSequence` objects as inputs and outputs.
   """
 
-  def transduce(self, seq: ExpressionSequence) -> ExpressionSequence:
+  def transduce(self, seq: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
     """
-    Parameters should be :class:`xnmt.expression_sequence.ExpressionSequence` objects wherever appropriate
+    Parameters should be :class:`expression_seqs.ExpressionSequence` objects wherever appropriate
 
     Args:
-      seq: An ExpressionSequence representing the input to the transduction
+      seq: An expression sequence representing the input to the transduction
 
     Returns:
       result of transduction, an expression sequence
@@ -61,11 +61,11 @@ class SeqTransducer(object):
 class ModularSeqTransducer(SeqTransducer, Serializable):
   """
   A sequence transducer that stacks several :class:`xnmt.transducer.SeqTransducer` objects, all of which must
-  accept exactly one argument (an :class:`xnmt.expression_sequence.ExpressionSequence`) in their transduce method.
+  accept exactly one argument (an :class:`expression_seqs.ExpressionSequence`) in their transduce method.
   
   Args:
     input_dim (int): input dimension (not required)
-    modules (list of :class:`xnmt.transduce.SeqTransducer`): list of SeqTransducer modules
+    modules (list of :class:`xnmt.transducers.SeqTransducer`): list of SeqTransducer modules
   """
 
   yaml_tag = '!ModularSeqTransducer'
@@ -77,7 +77,7 @@ class ModularSeqTransducer(SeqTransducer, Serializable):
   def shared_params(self):
     return [{".input_dim", ".modules.0.input_dim"}]
 
-  def transduce(self, seq: ExpressionSequence) -> ExpressionSequence:
+  def transduce(self, seq: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
     for module in self.modules:
       seq = module.transduce(seq)
     return seq
@@ -100,6 +100,6 @@ class IdentitySeqTransducer(SeqTransducer, Serializable):
   def __init__(self):
     pass
 
-  def transduce(self, seq: ExpressionSequence) -> ExpressionSequence:
+  def transduce(self, seq: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
     return seq
 

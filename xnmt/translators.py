@@ -6,24 +6,24 @@ from collections import namedtuple
 from typing import Any, Optional, Sequence, Tuple, Union
 
 from xnmt.settings import settings
-from xnmt.attention import Attender, MlpAttender
-from xnmt import batching
-from xnmt.decode import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
-from xnmt.embed import Embedder, SimpleWordEmbedder
+from xnmt.attenders import Attender, MlpAttender
+from xnmt import batchers
+from xnmt.decoders import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
+from xnmt.embedders import Embedder, SimpleWordEmbedder
 from xnmt.events import register_xnmt_handler
-from xnmt import infer, input_reader, model_base
+from xnmt import infererences, input_readers, model_base
 from xnmt.input import Input, SimpleSentenceInput
 from xnmt.losses import FactoredLossExpr
 from xnmt.loss_calc import LossCalculator
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.output import TextOutput, Output, NbestOutput
 from xnmt.persistence import serializable_init, Serializable, bare
-from xnmt.search import BeamSearch, SearchStrategy
-from xnmt import transduce
-from xnmt.voc import Vocab
+from xnmt.search_strategies import BeamSearch, SearchStrategy
+from xnmt import transducers
+from xnmt.vocabs import Vocab
 from xnmt.persistence import Ref
 from xnmt.reports import Reportable
-from xnmt.expr_seq import CompoundSeqExpression
+from xnmt.expression_seqs import CompoundSeqExpression
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
@@ -38,11 +38,11 @@ class AutoRegressiveTranslator(model_base.ConditionedModel, model_base.Generator
   generate_one_step.
   """
 
-  def calc_loss(self, src: Union[batching.Batch, Input], trg: Union[batching.Batch, Input],
+  def calc_loss(self, src: Union[batchers.Batch, Input], trg: Union[batchers.Batch, Input],
                 loss_calculator: LossCalculator) -> FactoredLossExpr:
     raise NotImplementedError('must be implemented by subclasses')
 
-  def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:batching.Batch, input_word:batching.Batch) \
+  def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:batchers.Batch, input_word:batchers.Batch) \
           -> Tuple[AutoRegressiveDecoderState,dy.Expression]:
     raise NotImplementedError("must be implemented by subclasses")
 
@@ -95,14 +95,14 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
   @register_xnmt_handler
   @serializable_init
   def __init__(self,
-               src_reader: input_reader.InputReader,
-               trg_reader: input_reader.InputReader,
+               src_reader: input_readers.InputReader,
+               trg_reader: input_readers.InputReader,
                src_embedder: Embedder=bare(SimpleWordEmbedder),
-               encoder: transduce.SeqTransducer=bare(BiLSTMSeqTransducer),
+               encoder: transducers.SeqTransducer=bare(BiLSTMSeqTransducer),
                attender: Attender=bare(MlpAttender),
                trg_embedder: Embedder=bare(SimpleWordEmbedder),
                decoder: Decoder=bare(AutoRegressiveDecoder),
-               inference: infer.AutoRegressiveInference=bare(infer.AutoRegressiveInference),
+               inference: infererences.AutoRegressiveInference=bare(infererences.AutoRegressiveInference),
                search_strategy:SearchStrategy=bare(BeamSearch),
                compute_report:bool = Ref("exp_global.compute_report", default=False),
                global_fertility:int=0):
@@ -137,7 +137,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     initial_states = []
     for encoding, final_state in zip(encodings, final_states):
       self.attender.init_sent(encoding)
-      ss = batching.mark_as_batch([Vocab.SS] * src.batch_size()) if batching.is_batched(src) else Vocab.SS
+      ss = batchers.mark_as_batch([Vocab.SS] * src.batch_size()) if batchers.is_batched(src) else Vocab.SS
       initial_states.append(self.decoder.initial_state(final_state, self.trg_embedder.embed(ss)))
     return CompoundSeqExpression(initial_states)
 
@@ -164,7 +164,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     finally:
       self.losses = losses
 
-  def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:batching.Batch, input_word:Optional[batching.Batch]) \
+  def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:batchers.Batch, input_word:Optional[batchers.Batch]) \
           -> Tuple[AutoRegressiveDecoderState,dy.Expression]:
     if input_word is not None:
       dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(input_word))
@@ -173,7 +173,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     word_loss = self.decoder.calc_loss(dec_state, ref_word)
     return dec_state, word_loss
 
-  def generate(self, src: batching.Batch, idx: Sequence[int], search_strategy: SearchStrategy, forced_trg_ids: batching.Batch=None):
+  def generate(self, src: batchers.Batch, idx: Sequence[int], search_strategy: SearchStrategy, forced_trg_ids: batchers.Batch=None):
     if src.batch_size()!=1:
       raise NotImplementedError("batched decoding not implemented for DefaultTranslator. "
                                 "Specify inference batcher with batch size 1.")
@@ -184,8 +184,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     cur_forced_trg = None
     sent = src[0]
     sent_mask = None
-    if src.mask: sent_mask = batching.Mask(np_arr=src.mask.np_arr[0:1])
-    sent_batch = batching.mark_as_batch([sent], mask=sent_mask)
+    if src.mask: sent_mask = batchers.Mask(np_arr=src.mask.np_arr[0:1])
+    sent_batch = batchers.mark_as_batch([sent], mask=sent_mask)
     # TODO MBR can be implemented here. It takes only the first result from the encoder
     # To further implement MBR, we need to handle the generation considering multiple encoder output.
     initial_state = self._encode_src(sent_batch)[0]
@@ -224,7 +224,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
       if type(current_word) == int:
         current_word = [current_word]
       if type(current_word) == list or type(current_word) == np.ndarray:
-        current_word = batching.mark_as_batch(current_word)
+        current_word = batchers.mark_as_batch(current_word)
       current_word_embed = self.trg_embedder.embed(current_word)
       next_state = self.decoder.add_input(current_state, current_word_embed)
     else:
@@ -324,10 +324,10 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
 
   def calc_loss(self, src, trg, loss_cal=None, infer_prediction=False):
     self.start_sent(src)
-    if not batching.is_batched(src):
-      src = batching.mark_as_batch([src])
-    if not batching.is_batched(trg):
-      trg = batching.mark_as_batch([trg])
+    if not batchers.is_batched(src):
+      src = batchers.mark_as_batch([src])
+    if not batchers.is_batched(trg):
+      trg = batchers.mark_as_batch([trg])
     src_words = np.array([[Vocab.SS] + x.words for x in src])
     batch_size, src_len = src_words.shape
 
@@ -371,14 +371,14 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
 
   def generate(self, src, idx, forced_trg_ids=None, search_strategy=None):
     self.start_sent(src)
-    if not batching.is_batched(src):
-      src = batching.mark_as_batch([src])
+    if not batchers.is_batched(src):
+      src = batchers.mark_as_batch([src])
     outputs = []
 
     trg = SimpleSentenceInput([0])
 
-    if not batching.is_batched(trg):
-      trg = batching.mark_as_batch([trg])
+    if not batchers.is_batched(trg):
+      trg = batchers.mark_as_batch([trg])
 
     output_actions = []
     score = 0.
@@ -394,8 +394,8 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
         break
       output_actions.append(ys)
       trg = SimpleSentenceInput(output_actions + [0])
-      if not batching.is_batched(trg):
-        trg = batching.mark_as_batch([trg])
+      if not batchers.is_batched(trg):
+        trg = batchers.mark_as_batch([trg])
 
     # Append output to the outputs
     if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
@@ -422,7 +422,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable, model_base.Even
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, models, src_reader, trg_reader, inference=bare(infer.AutoRegressiveInference)):
+  def __init__(self, models, src_reader, trg_reader, inference=bare(infererences.AutoRegressiveInference)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.models = models
     self.inference = inference

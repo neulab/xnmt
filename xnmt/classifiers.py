@@ -1,6 +1,6 @@
 import numpy as np
 
-from xnmt import batching, embed, infer, input_reader, losses, lstm, model_base, output, scorers, transduce, transforms
+from xnmt import batchers, embedders, infererences, input_readers, losses, lstm, model_base, output, scorers, transducers, transforms
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class SequenceClassifier(model_base.ConditionedModel, model_base.GeneratorModel, Serializable, model_base.EventTrigger):
@@ -23,11 +23,11 @@ class SequenceClassifier(model_base.ConditionedModel, model_base.GeneratorModel,
 
   @serializable_init
   def __init__(self,
-               src_reader: input_reader.InputReader,
-               trg_reader: input_reader.InputReader,
-               src_embedder: embed.Embedder = bare(embed.SimpleWordEmbedder),
-               encoder: transduce.SeqTransducer = bare(lstm.BiLSTMSeqTransducer),
-               inference=bare(infer.IndependentOutputInference),
+               src_reader: input_readers.InputReader,
+               trg_reader: input_readers.InputReader,
+               src_embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder),
+               encoder: transducers.SeqTransducer = bare(lstm.BiLSTMSeqTransducer),
+               inference=bare(infererences.IndependentOutputInference),
                transform: transforms.Transform = bare(transforms.NonLinear),
                scorer: scorers.Scorer = bare(scorers.Softmax)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
@@ -51,16 +51,16 @@ class SequenceClassifier(model_base.ConditionedModel, model_base.GeneratorModel,
 
   def calc_loss(self, src, trg, loss_calculator):
     h = self._encode_src(src)
-    ids = trg.value if not batching.is_batched(trg) else batching.ListBatch([trg_i.value for trg_i in trg])
-    loss_expr = self.scorer.calc_loss(h, ids)
-    classifier_loss = losses.FactoredLossExpr({"mle" : loss_expr})
+    ids = trg.value if not batchers.is_batched(trg) else batchers.ListBatch([trg_i.value for trg_i in trg])
+    loss = self.scorer.calc_loss(h, ids)
+    classifier_loss = losses.FactoredLossExpr({"mle" : loss})
     return classifier_loss
 
   def generate(self, src, idx, forced_trg_ids=None, normalize_scores=False):
-    if not batching.is_batched(src):
-      src = batching.mark_as_batch([src])
+    if not batchers.is_batched(src):
+      src = batchers.mark_as_batch([src])
       if forced_trg_ids:
-        forced_trg_ids = batching.mark_as_batch([forced_trg_ids])
+        forced_trg_ids = batchers.mark_as_batch([forced_trg_ids])
     h = self._encode_src(src)
     scores = self.scorer.calc_log_probs(h) if normalize_scores else self.scorer.calc_scores(h)
     np_scores = scores.npvalue()

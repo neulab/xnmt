@@ -1,13 +1,13 @@
 from typing import List, Optional, Dict
 
-from xnmt.weight_init import ParamInitializer, GlorotInitializer, ZeroInitializer
+from xnmt.param_initializers import ParamInitializer, GlorotInitializer, ZeroInitializer
 from xnmt.settings import settings
 
 from xnmt import logger
 from xnmt.eval_tasks import EvalTask
 from xnmt.model_base import TrainableModel
-from xnmt.param_collection import ParamManager, RevertingUnsavedModelException
-from xnmt.preproc_runner import PreprocRunner
+from xnmt.param_collections import ParamManager, RevertingUnsavedModelException
+from xnmt.preproc import PreprocRunner
 from xnmt.training_regimens import TrainingRegimen
 from xnmt.persistence import serializable_init, Serializable, bare
 

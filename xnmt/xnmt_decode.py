@@ -1,7 +1,7 @@
 import argparse, os, sys
 
 from xnmt import eval_tasks
-from xnmt import param_collection
+from xnmt import param_collections
 from xnmt import persistence
 
 def main():
@@ -14,7 +14,7 @@ def main():
   exp_dir = os.path.dirname(__file__)
   exp = "{EXP}"
 
-  param_collection.ParamManager.init_param_col()
+  param_collections.ParamManager.init_param_col()
 
   # TODO: can we avoid the LoadSerialized proxy and load stuff directly?
   load_experiment = persistence.LoadSerialized(filename=args.mod)
@@ -23,7 +23,7 @@ def main():
   loaded_experiment = persistence.initialize_if_needed(uninitialized_experiment)
   model = loaded_experiment.model
   inference = model.inference
-  param_collection.ParamManager.populate()
+  param_collections.ParamManager.populate()
 
   decoding_task = eval_tasks.DecodingEvalTask(args.src, args.hyp, model, inference)
   decoding_task.eval()

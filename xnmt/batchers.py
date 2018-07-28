@@ -7,9 +7,9 @@ from abc import ABC, abstractmethod
 import numpy as np
 import dynet as dy
 
-from xnmt.voc import Vocab
+from xnmt.vocabs import Vocab
 from xnmt.persistence import serializable_init, Serializable
-from xnmt import expr_seq, lstm
+from xnmt import expression_seqs, lstm
 import xnmt.input
 from functools import lru_cache
 
@@ -736,7 +736,7 @@ def truncate_batches(*xl: Union[dy.Expression, Batch, Mask, lstm.UniLSTMState]) 
   """
   batch_sizes = []
   for x in xl:
-    if isinstance(x, dy.Expression) or isinstance(x, expr_seq.ExpressionSequence):
+    if isinstance(x, dy.Expression) or isinstance(x, expression_seqs.ExpressionSequence):
       batch_sizes.append(x.dim()[1])
     elif isinstance(x, Batch):
       batch_sizes.append(len(x))
@@ -750,7 +750,7 @@ def truncate_batches(*xl: Union[dy.Expression, Batch, Mask, lstm.UniLSTMState]) 
   ret = []
   for i, x in enumerate(xl):
     if batch_sizes[i] > min(batch_sizes):
-      if isinstance(x, dy.Expression) or isinstance(x, expr_seq.ExpressionSequence):
+      if isinstance(x, dy.Expression) or isinstance(x, expression_seqs.ExpressionSequence):
         ret.append(x[tuple([slice(None)]*len(x.dim()[0]) + [slice(min(batch_sizes))])])
       elif isinstance(x, Batch):
         ret.append(mark_as_batch(x[:min(batch_sizes)]))

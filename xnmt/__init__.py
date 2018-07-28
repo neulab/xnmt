@@ -20,34 +20,32 @@ dyparams.from_args()
 
 # all Serializable objects must be imported here in order to be parsable
 # using the !Classname YAML syntax
-import xnmt.attention
-import xnmt.batching
-import xnmt.classify
-import xnmt.conv
-import xnmt.decode
-import xnmt.embed
+import xnmt.attenders
+import xnmt.batchers
+import xnmt.classifiers
+import xnmt.convolution
+import xnmt.decoders
+import xnmt.embedders
 import xnmt.eval_tasks
 import xnmt.eval_metrics
 import xnmt.experiments
-import xnmt.fixed_size_att
 import xnmt.hyper_params
-import xnmt.infer
+import xnmt.infererences
 import xnmt.input
-import xnmt.input_reader
-import xnmt.lm
+import xnmt.input_readers
+import xnmt.language_models
 import xnmt.lstm
 import xnmt.model_base
-import xnmt.optimize
-import xnmt.weight_init
+import xnmt.optimizers
+import xnmt.param_initializers
 import xnmt.positional
-import xnmt.preproc_runner
 import xnmt.pyramidal
 import xnmt.reports
 import xnmt.residual
-import xnmt.retrieve
+import xnmt.retrievers
 import xnmt.scorers
 import xnmt.self_attention
-import xnmt.seq_labeler
+import xnmt.sequence_labelers
 import xnmt.specialized_encoders.tilburg_harwath
 import xnmt.specialized_encoders.self_attentional_am
 import xnmt.specialized_encoders.segmenting_encoder

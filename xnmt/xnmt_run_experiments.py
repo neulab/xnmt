@@ -19,7 +19,7 @@ from xnmt.settings import settings
 
 from xnmt import logger
 from xnmt.tee import log_preamble
-from xnmt.param_collection import ParamManager
+from xnmt.param_collections import ParamManager
 import xnmt.tee as tee
 from xnmt.persistence import YamlPreloader, save_to_file, initialize_if_needed
 

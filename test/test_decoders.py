@@ -3,19 +3,19 @@ import unittest
 import dynet_config
 import dynet as dy
 
-from xnmt.attention import MlpAttender
-from xnmt import batching, events
+from xnmt.attenders import MlpAttender
+from xnmt import batchers, events
 from xnmt.bridges import CopyBridge
-from xnmt.decode import AutoRegressiveDecoder
-from xnmt.embed import SimpleWordEmbedder
-from xnmt.input_reader import PlainTextReader
+from xnmt.decoders import AutoRegressiveDecoder
+from xnmt.embedders import SimpleWordEmbedder
+from xnmt.input_readers import PlainTextReader
 from xnmt.loss_calc import AutoRegressiveMLELoss
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.param_collection import ParamManager
+from xnmt.param_collections import ParamManager
 from xnmt.transforms import NonLinear
 from xnmt.translators import DefaultTranslator
 from xnmt.scorers import Softmax
-from xnmt.search import GreedySearch
+from xnmt.search_strategies import GreedySearch
 
 class TestForcedDecodingOutputs(unittest.TestCase):
 
@@ -51,8 +51,8 @@ class TestForcedDecodingOutputs(unittest.TestCase):
 
   def assert_forced_decoding(self, sent_id):
     dy.renew_cg()
-    outputs = self.model.generate(batching.mark_as_batch([self.src_data[sent_id]]), [sent_id], self.search,
-                                  forced_trg_ids=batching.mark_as_batch([self.trg_data[sent_id]]))
+    outputs = self.model.generate(batchers.mark_as_batch([self.src_data[sent_id]]), [sent_id], self.search,
+                                  forced_trg_ids=batchers.mark_as_batch([self.trg_data[sent_id]]))
     self.assertItemsEqual(self.trg_data[sent_id].words, outputs[0].actions)
 
   def test_forced_decoding(self):
@@ -90,8 +90,8 @@ class TestForcedDecodingLoss(unittest.TestCase):
                                       trg=self.trg_data[0],
                                       loss_calculator=AutoRegressiveMLELoss()).value()
     dy.renew_cg()
-    outputs = self.model.generate(batching.mark_as_batch([self.src_data[0]]), [0], GreedySearch(),
-                                  forced_trg_ids=batching.mark_as_batch([self.trg_data[0]]))
+    outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), [0], GreedySearch(),
+                                  forced_trg_ids=batchers.mark_as_batch([self.trg_data[0]]))
     output_score = outputs[0].score
     self.assertAlmostEqual(-output_score, train_loss, places=5)
 
@@ -122,8 +122,8 @@ class TestFreeDecodingLoss(unittest.TestCase):
 
   def test_single(self):
     dy.renew_cg()
-    outputs = self.model.generate(batching.mark_as_batch([self.src_data[0]]), [0], GreedySearch(),
-                                  forced_trg_ids=batching.mark_as_batch([self.trg_data[0]]))
+    outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), [0], GreedySearch(),
+                                  forced_trg_ids=batchers.mark_as_batch([self.trg_data[0]]))
     output_score = outputs[0].score
 
     dy.renew_cg()

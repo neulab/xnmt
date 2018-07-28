@@ -4,9 +4,9 @@ import dynet as dy
 import numpy as np
 
 from xnmt import logger
-from xnmt.param_collection import ParamManager
+from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable
-from xnmt import util
+from xnmt import utils
 
 """
 The purpose of this module is mostly to expose the DyNet trainers to YAML serialization,
@@ -28,7 +28,7 @@ class XnmtOptimizer(object):
     self.optimizer = optimizer
     self.skip_noisy = skip_noisy
     if skip_noisy:
-      self.rolling_stats = util.RollingStatistic()
+      self.rolling_stats = utils.RollingStatistic()
 
   def update(self) -> None:
     """

@@ -2,10 +2,10 @@ from typing import Any
 
 import dynet as dy
 
-from xnmt import batching
+from xnmt import batchers
 from xnmt.bridges import Bridge, CopyBridge
 from xnmt.lstm import UniLSTMSeqTransducer
-from xnmt.param_collection import ParamManager
+from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 from xnmt.transforms import AuxNonLinear, Transform
 from xnmt.scorers import Scorer, Softmax
@@ -123,7 +123,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     if self.input_feeding:
       inp = dy.concatenate([inp, mlp_dec_state.context])
     rnn_state = mlp_dec_state.rnn_state
-    if self.truncate_dec_batches: rnn_state, inp = batching.truncate_batches(rnn_state, inp)
+    if self.truncate_dec_batches: rnn_state, inp = batchers.truncate_batches(rnn_state, inp)
     return AutoRegressiveDecoderState(rnn_state=rnn_state.add_input(inp),
                                       context=mlp_dec_state.context)
 

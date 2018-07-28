@@ -4,15 +4,15 @@ from xnmt.settings import settings
 
 import dynet as dy
 
-from xnmt.batching import Batcher
+from xnmt.batchers import Batcher
 from xnmt.eval_metrics import Evaluator
-from xnmt import infer, input_reader, model_base
+from xnmt import infererences, input_readers, model_base
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.loss_calc import LossCalculator, AutoRegressiveMLELoss
 from xnmt.eval_metrics import LossScore
 from xnmt.losses import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate
-from xnmt import util
+from xnmt import utils
 
 class EvalTask(object):
   """
@@ -40,7 +40,7 @@ class LossEvalTask(EvalTask, Serializable):
 
   @serializable_init
   def __init__(self, src_file: str, ref_file: Optional[str] = None, model: 'model_base.GeneratorModel' = Ref("model"),
-               batcher: Batcher = Ref("train.batcher", default=bare(xnmt.batching.SrcBatcher, batch_size=32)),
+               batcher: Batcher = Ref("train.batcher", default=bare(xnmt.batchers.SrcBatcher, batch_size=32)),
                loss_calculator: LossCalculator = bare(AutoRegressiveMLELoss), max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"), desc: Any = None):
@@ -65,17 +65,17 @@ class LossEvalTask(EvalTask, Serializable):
     self.model.set_train(False)
     if self.src_data is None:
       self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
-        input_reader.read_parallel_corpus(src_reader=self.model.src_reader,
-                                          trg_reader=self.model.trg_reader,
-                                          src_file=self.src_file,
-                                          trg_file=self.ref_file,
-                                          batcher=self.batcher,
-                                          max_src_len=self.max_src_len,
-                                          max_trg_len=self.max_trg_len)
+        input_readers.read_parallel_corpus(src_reader=self.model.src_reader,
+                                           trg_reader=self.model.trg_reader,
+                                           src_file=self.src_file,
+                                           trg_file=self.ref_file,
+                                           batcher=self.batcher,
+                                           max_src_len=self.max_src_len,
+                                           max_trg_len=self.max_trg_len)
     loss_val = FactoredLossVal()
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
-      with util.ReportOnException({"src": src, "trg": trg, "graph": dy.print_text_graphviz}):
+      with utils.ReportOnException({"src": src, "trg": trg, "graph": dy.print_text_graphviz}):
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
 
         loss_builder = FactoredLossExpr()
@@ -116,7 +116,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: 'model_base.GeneratorModel' = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
-               inference: Optional['infer.Inference'] = None, desc: Any = None):
+               inference: Optional['infererences.Inference'] = None, desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
@@ -155,7 +155,7 @@ class DecodingEvalTask(EvalTask, Serializable):
 
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: 'model_base.GeneratorModel' = Ref("model"),
-               inference: Optional['infer.Inference'] = None):
+               inference: Optional['infererences.Inference'] = None):
 
     self.model = model
     self.src_file = src_file

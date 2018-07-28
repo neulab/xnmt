@@ -1,11 +1,11 @@
 import dynet as dy
 from typing import List, Union, Optional
 
-from xnmt.weight_init import ParamInitializer, GlorotInitializer, ZeroInitializer
-from xnmt.param_collection import ParamManager
+from xnmt.param_initializers import ParamInitializer, GlorotInitializer, ZeroInitializer
+from xnmt.param_collections import ParamManager
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
 from xnmt.transforms import Linear
-from xnmt import batching, voc, input_reader
+from xnmt import batchers, vocabs, input_readers
 
 class Scorer(object):
   """
@@ -55,8 +55,8 @@ class Scorer(object):
     """
     raise NotImplementedError('calc_loss must be implemented by subclasses of Scorer')
 
-  def _choose_vocab_size(self, vocab_size: Optional[int], vocab: Optional[voc.Vocab],
-                         trg_reader: Optional[input_reader.InputReader]) -> int:
+  def _choose_vocab_size(self, vocab_size: Optional[int], vocab: Optional[vocabs.Vocab],
+                         trg_reader: Optional[input_readers.InputReader]) -> int:
     """Choose the vocab size for the embedder based on the passed arguments.
 
     This is done in order of priority of vocab_size, vocab, model
@@ -107,8 +107,8 @@ class Softmax(Scorer, Serializable):
   def __init__(self,
                input_dim: int = Ref("exp_global.default_layer_dim"),
                vocab_size: Optional[int] = None,
-               vocab: Optional[voc.Vocab] = None,
-               trg_reader: Optional[input_reader.InputReader] = Ref("model.trg_reader", default=None),
+               vocab: Optional[vocabs.Vocab] = None,
+               trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None),
                label_smoothing: float = 0.0,
                param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init: ParamInitializer = Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
@@ -132,14 +132,14 @@ class Softmax(Scorer, Serializable):
 
     if self.label_smoothing == 0.0:
       # single mode
-      if not batching.is_batched(y):
+      if not batchers.is_batched(y):
         loss = dy.pickneglogsoftmax(scores, y)
       # minibatch mode
       else:
         loss = dy.pickneglogsoftmax_batch(scores, y)
     else:
       log_prob = dy.log_softmax(scores)
-      if not batching.is_batched(y):
+      if not batchers.is_batched(y):
         pre_loss = -dy.pick(log_prob, y)
       else:
         pre_loss = -dy.pick_batch(log_prob, y)

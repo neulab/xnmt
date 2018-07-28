@@ -4,7 +4,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from xnmt import util
+from xnmt import utils
 
 def plot_attention(src_words, trg_words, attention_matrix, file_name, size_x = 8.0, size_y = 8.0):
   """This takes in source and target words and an attention matrix (in numpy format)
@@ -52,7 +52,7 @@ def plot_attention(src_words, trg_words, attention_matrix, file_name, size_x = 8
     plot_speech_features(feature_matrix=src_words, ax=ax, dpi=dpi)
     fig.tight_layout()
 
-  util.make_parent_dir(file_name)
+  utils.make_parent_dir(file_name)
   plt.savefig(file_name, dpi=dpi)
   plt.close()
 
@@ -78,7 +78,7 @@ def plot_speech_features(feature_matrix, file_name=None, vertical = True, ax=Non
     plt.pcolor(feature_matrix, cmap=plt.cm.jet, vmin=-1, vmax=1)
     plt.axis('off')
   if file_name is not None:
-    util.make_parent_dir(file_name)
+    utils.make_parent_dir(file_name)
     plt.savefig(file_name, dpi=dpi)
     plt.close()
 

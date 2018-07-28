@@ -3,24 +3,24 @@ import unittest
 import dynet as dy
 import numpy as np
 
-from xnmt.attention import MlpAttender, DotAttender
-from xnmt.batching import mark_as_batch, Mask, SrcBatcher
+from xnmt.attenders import MlpAttender, DotAttender
+from xnmt.batchers import mark_as_batch, Mask, SrcBatcher
 from xnmt.bridges import CopyBridge
-from xnmt.decode import AutoRegressiveDecoder
-from xnmt.embed import SimpleWordEmbedder
+from xnmt.decoders import AutoRegressiveDecoder
+from xnmt.embedders import SimpleWordEmbedder
 from xnmt.eval_tasks import LossEvalTask
 import xnmt.events
-from xnmt.input_reader import PlainTextReader, SimpleSentenceInput
+from xnmt.input_readers import PlainTextReader, SimpleSentenceInput
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calc import AutoRegressiveMLELoss
-from xnmt.optimize import AdamTrainer, DummyTrainer
-from xnmt.param_collection import ParamManager
+from xnmt.optimizers import AdamTrainer, DummyTrainer
+from xnmt.param_collections import ParamManager
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
 import xnmt.training_regimens
 from xnmt.transforms import NonLinear
 from xnmt.translators import DefaultTranslator
 from xnmt.scorers import Softmax
-from xnmt.voc import Vocab
+from xnmt.vocabs import Vocab
 
 class TestTruncatedBatchTraining(unittest.TestCase):
 

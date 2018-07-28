@@ -23,10 +23,10 @@ import matplotlib
 matplotlib.use('Agg')
 import numpy as np
 
-from xnmt import plot
+from xnmt import plotting
 import xnmt.output
 import xnmt.input
-from xnmt import voc, util
+from xnmt import vocabs, utils
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 from xnmt.persistence import Serializable, serializable_init
 from xnmt.settings import settings
@@ -116,7 +116,7 @@ class ReferenceDiffReporter(Reporter, Serializable):
     self.report_path = report_path
     self.hyp_sents, self.ref_sents, self.src_sents = [], [], []
 
-  def create_report(self, src: xnmt.input.Input, src_vocab: voc.Vocab, trg_vocab: voc.Vocab,
+  def create_report(self, src: xnmt.input.Input, src_vocab: vocabs.Vocab, trg_vocab: vocabs.Vocab,
                     output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor, reference: str = None,
                     **kwargs) -> None:
     trg_str = output.apply_post_processor(output_proc)
@@ -131,8 +131,8 @@ class ReferenceDiffReporter(Reporter, Serializable):
   def on_end_inference(self):
     if self.hyp_sents:
       html_filename = f"{self.report_path}/charcut.html"
-      util.make_parent_dir(html_filename)
-      args = util.ArgClass(html_output_file=html_filename, match_size=self.match_size, alt_norm=self.alt_norm)
+      utils.make_parent_dir(html_filename)
+      args = utils.ArgClass(html_output_file=html_filename, match_size=self.match_size, alt_norm=self.alt_norm)
       aligned_segs = charcut.load_input_segs(cand_segs=self.hyp_sents,
                                              ref_segs=self.ref_sents,
                                              src_segs=self.src_sents)
@@ -173,7 +173,7 @@ class CompareMtReporter(Reporter, Serializable):
     self.report_path = report_path
     self.hyp_sents, self.ref_sents = [], []
 
-  def create_report(self, trg_vocab: voc.Vocab, output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
+  def create_report(self, trg_vocab: vocabs.Vocab, output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
                     reference: str, **kwargs) -> None:
     trg_str = output.apply_post_processor(output_proc)
     self.hyp_sents.append(trg_str)
@@ -184,24 +184,24 @@ class CompareMtReporter(Reporter, Serializable):
     if self.hyp_sents:
       ref_filename = f"{self.report_path}/tmp/compare-mt.ref"
       out_filename = f"{self.report_path}/tmp/compare-mt.out"
-      util.make_parent_dir(out_filename)
+      utils.make_parent_dir(out_filename)
       with open(ref_filename, "w") as fout:
         for l in self.ref_sents: fout.write(f"{l.strip()}\n")
       with open(out_filename, "w") as fout:
         for l in self.hyp_sents: fout.write(f"{l.strip()}\n")
       import xnmt.thirdparty.comparemt.compare_mt as compare_mt
-      args = util.ArgClass(ref_file = ref_filename,
-                           out_file = out_filename,
-                           out2_file = self.out2_file,
-                           train_file = self.train_file,
-                           train_counts = self.train_counts,
-                           alpha = self.alpha,
-                           ngram = self.ngram,
-                           ngram_size = self.ngram_size,
-                           sent_size = self.sent_size)
+      args = utils.ArgClass(ref_file = ref_filename,
+                            out_file = out_filename,
+                            out2_file = self.out2_file,
+                            train_file = self.train_file,
+                            train_counts = self.train_counts,
+                            alpha = self.alpha,
+                            ngram = self.ngram,
+                            ngram_size = self.ngram_size,
+                            sent_size = self.sent_size)
       out_lines = compare_mt.main(args)
       report_filename = f"{self.report_path}/compare-mt.txt"
-      util.make_parent_dir(report_filename)
+      utils.make_parent_dir(report_filename)
       with open(report_filename, "w") as fout:
         for l in out_lines: fout.write(f"{l}\n")
       self.hyp_sents, self.ref_sents, self.src_sents = [], [], []
@@ -268,7 +268,7 @@ class HtmlReporter(Reporter):
     soup = bs(html_str, "lxml")
     pretty_html = soup.prettify()
     html_file_name = f"{self.report_path}/{self.report_name}.html"
-    util.make_parent_dir(html_file_name)
+    utils.make_parent_dir(html_file_name)
     with open(html_file_name, 'w', encoding='utf-8') as f:
       f.write(pretty_html)
 
@@ -326,8 +326,8 @@ class AttentionReporter(HtmlReporter, Serializable):
   def __init__(self, report_name: str = "attention", report_path: str = settings.DEFAULT_REPORT_PATH):
     super().__init__(report_name=report_name, report_path=report_path)
 
-  def create_report(self, idx: int, src: xnmt.input.Input, src_vocab: voc.Vocab,
-                    trg_vocab: voc.Vocab, output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
+  def create_report(self, idx: int, src: xnmt.input.Input, src_vocab: vocabs.Vocab,
+                    trg_vocab: vocabs.Vocab, output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
                     attentions: np.ndarray, reference: Optional[str] = None, **kwargs) -> None:
     """
     Create report.
@@ -379,11 +379,11 @@ class AttentionReporter(HtmlReporter, Serializable):
       size_y = math.log(src_tokens.shape[1]+2)
     else:
       size_y = math.log(len(src_tokens)+2) * 3
-    attention_file = f"{self.report_path}/img/attention.{util.valid_filename(desc).lower()}.{idx}.png"
+    attention_file = f"{self.report_path}/img/attention.{utils.valid_filename(desc).lower()}.{idx}.png"
     html_att = f'<tr><td class="seghead">{desc}:</td><td></td></tr>' \
                f'<tr><td colspan="2" align="left"><img src="img/{os.path.basename(attention_file)}" alt="attention matrix" /></td></tr>'
-    plot.plot_attention(src_words=src_tokens, trg_words=trg_tokens, attention_matrix=attentions,
-                             file_name=attention_file, size_x=size_x, size_y=size_y)
+    plotting.plot_attention(src_words=src_tokens, trg_words=trg_tokens, attention_matrix=attentions,
+                            file_name=attention_file, size_x=size_x, size_y=size_y)
     self.html_contents.append(html_att)
 
 
@@ -405,7 +405,7 @@ class SegmentationReporter(Reporter, Serializable):
   def create_report(self, segment_actions, src_vocab, src, **kwargs):
     if self.report_fp is None:
       report_path = self.report_path + "/segment.txt"
-      util.make_parent_dir(report_path)
+      utils.make_parent_dir(report_path)
       self.report_fp = open(report_path, "w")
 
     actions = segment_actions[0][0]

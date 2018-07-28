@@ -4,7 +4,7 @@ This module holds normalizers for neural networks. Currently implemented is laye
 
 import dynet as dy
 
-from xnmt import param_collection
+from xnmt import param_collections
 from xnmt.persistence import Serializable, serializable_init
 
 
@@ -13,7 +13,7 @@ class LayerNorm(Serializable):
 
   @serializable_init
   def __init__(self, d_hid):
-    subcol = param_collection.ParamManager.my_params(self)
+    subcol = param_collections.ParamManager.my_params(self)
     self.p_g = subcol.add_parameters(dim=d_hid, init=dy.ConstInitializer(1.0))
     self.p_b = subcol.add_parameters(dim=d_hid, init=dy.ConstInitializer(0.0))
 

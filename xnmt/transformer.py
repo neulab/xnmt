@@ -4,8 +4,8 @@ import dynet as dy
 from xnmt.transforms import Linear
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.weight_init import LeCunUniformInitializer
-from xnmt.param_collection import ParamManager
+from xnmt.param_initializers import LeCunUniformInitializer
+from xnmt.param_collections import ParamManager
 
 MIN_VALUE = -10000
 

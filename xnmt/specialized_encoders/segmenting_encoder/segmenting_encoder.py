@@ -5,17 +5,17 @@ from typing import List
 from enum import Enum
 
 from xnmt import logger
-from xnmt.batching import Mask
+from xnmt.batchers import Mask
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.expr_seq import ExpressionSequence
+from xnmt.expression_seqs import ExpressionSequence
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.transduce import SeqTransducer, FinalTransducerState, IdentitySeqTransducer
+from xnmt.transducers import SeqTransducer, FinalTransducerState, IdentitySeqTransducer
 from xnmt.losses import FactoredLossExpr
 from xnmt.specialized_encoders.segmenting_encoder.priors import GoldInputPrior
 from xnmt.reports import Reportable
 from xnmt.lstm import BiLSTMSeqTransducer
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer
-from xnmt.expr_seq import CompoundSeqExpression
+from xnmt.expression_seqs import CompoundSeqExpression
 
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):

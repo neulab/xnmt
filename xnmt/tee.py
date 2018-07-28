@@ -4,7 +4,7 @@ import logging
 import yaml
 
 from xnmt.settings import settings
-from xnmt.util import make_parent_dir
+from xnmt.utils import make_parent_dir
 import xnmt.git_rev
 
 STD_OUTPUT_LEVELNO = 35

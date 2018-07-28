@@ -1,7 +1,7 @@
 from typing import Union
 import time
 
-from xnmt import batching, input, losses, events, util
+from xnmt import batchers, input, losses, events, utils
 
 class AccumTimeTracker(object):
   def __init__(self):
@@ -64,7 +64,7 @@ class TrainLossTracker(object):
       fractional_epoch = (self.training_task.training_state.epoch_num - 1) \
                          + self.training_task.training_state.sents_into_epoch / self.training_task.cur_num_sentences()
       accum_time = self.time_tracker.get_and_reset()
-      util.log_readable_and_structured(
+      utils.log_readable_and_structured(
         TrainLossTracker.REPORT_TEMPLATE_SPEED if accum_time else TrainLossTracker.REPORT_TEMPLATE,
         {"key": "train_loss", "data": "train",
          "epoch": fractional_epoch,
@@ -72,22 +72,22 @@ class TrainLossTracker(object):
          "words": self.epoch_words,
          "words_per_sec": (self.epoch_words - self.last_report_words) / (
            accum_time) if accum_time else "-",
-         "time": util.format_time(time.time() - self.start_time)},
+         "time": utils.format_time(time.time() - self.start_time)},
         task_name=self.name)
 
       if len(self.epoch_loss) > 1:
         for loss_name, loss_values in self.epoch_loss.items():
-          util.log_readable_and_structured(TrainLossTracker.REPORT_TEMPLATE_ADDITIONAL,
-                                           {"key": "additional_train_loss",
+          utils.log_readable_and_structured(TrainLossTracker.REPORT_TEMPLATE_ADDITIONAL,
+                                            {"key": "additional_train_loss",
                                             "loss_name": loss_name,
                                             "loss": loss_values / self.epoch_words},
-                                           task_name=self.name)
+                                            task_name=self.name)
 
       self.last_report_words = self.epoch_words
       self.last_report_sents_since_start = self.training_task.training_state.sents_since_start
 
-  def count_trg_words(self, trg_words: Union[input.Input, batching.Batch]) -> int:
-    if isinstance(trg_words, batching.Batch):
+  def count_trg_words(self, trg_words: Union[input.Input, batchers.Batch]) -> int:
+    if isinstance(trg_words, batchers.Batch):
       return sum(inp.len_unpadded() for inp in trg_words)
     else:
       return trg_words.len_unpadded()
@@ -131,20 +131,20 @@ class DevLossTracker(object):
     self.fractional_epoch = (self.training_task.training_state.epoch_num - 1) \
                             + self.training_task.training_state.sents_into_epoch / self.training_task.cur_num_sentences()
     dev_time = self.time_tracker.get_and_reset()
-    util.log_readable_and_structured(DevLossTracker.REPORT_TEMPLATE_DEV,
-                                     {"key": "dev_loss",
+    utils.log_readable_and_structured(DevLossTracker.REPORT_TEMPLATE_DEV,
+                                      {"key": "dev_loss",
                                       "epoch": self.fractional_epoch,
                                       "score": self.dev_score,
-                                      "time": util.format_time(this_report_time - self.start_time)
+                                      "time": utils.format_time(this_report_time - self.start_time)
                                       },
-                                     task_name=self.name)
+                                      task_name=self.name)
     for score in self.aux_scores:
-      util.log_readable_and_structured(DevLossTracker.REPORT_TEMPLATE_DEV_AUX,
-                                       {"key": "auxiliary_score", "epoch": self.fractional_epoch, "score": score},
-                                       task_name=self.name)
-    util.log_readable_and_structured(DevLossTracker.REPORT_TEMPLATE_TIME_NEEDED,
-                                     {"key": "dev_time_needed", "epoch": self.fractional_epoch,
-                                      "time_needed": util.format_time(dev_time)},
-                                     task_name=self.name)
+      utils.log_readable_and_structured(DevLossTracker.REPORT_TEMPLATE_DEV_AUX,
+                                        {"key": "auxiliary_score", "epoch": self.fractional_epoch, "score": score},
+                                        task_name=self.name)
+    utils.log_readable_and_structured(DevLossTracker.REPORT_TEMPLATE_TIME_NEEDED,
+                                      {"key": "dev_time_needed", "epoch": self.fractional_epoch,
+                                      "time_needed": utils.format_time(dev_time)},
+                                      task_name=self.name)
     self.aux_scores = []
 

@@ -4,8 +4,8 @@ import random
 import numpy as np
 from typing import Optional, Sequence, Union
 
-from xnmt import batching, eval_tasks, events, model_base, input_reader, logger, losses, loss_tracking, loss_calc,\
-  param_collection
+from xnmt import batchers, eval_tasks, events, model_base, input_readers, logger, losses, loss_trackers, loss_calc,\
+  param_collections
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class TrainingTask(object):
@@ -104,7 +104,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                src_file: Union[str, Sequence[str]] = None,
                trg_file: str = None,
                dev_every: int = 0,
-               batcher: batching.Batcher = bare(batching.SrcBatcher, batch_size=32),
+               batcher: batchers.Batcher = bare(batchers.SrcBatcher, batch_size=32),
                loss_calculator: loss_calc.LossCalculator = bare(loss_calc.AutoRegressiveMLELoss),
                run_for_epochs: Optional[int] = None,
                lr_decay: float = 1.0, lr_decay_times: int = 3,
@@ -145,7 +145,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.max_trg_len = max_trg_len
 
     self.batcher = batcher
-    self.dev_loss_tracker = loss_tracking.DevLossTracker(self, dev_every, name)
+    self.dev_loss_tracker = loss_trackers.DevLossTracker(self, dev_every, name)
     self.name = name
 
   def _augment_data_initial(self):
@@ -177,15 +177,15 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       # reload the data 
       self.model.src_reader.train = self.model.trg_reader.train = True
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
-          input_reader.read_parallel_corpus(src_reader=self.model.src_reader,
-                                            trg_reader=self.model.trg_reader,
-                                            src_file=self.src_file,
-                                            trg_file=self.trg_file,
-                                            batcher=self.batcher,
-                                            sample_sents=self.sample_train_sents,
-                                            max_num_sents=self.max_num_train_sents,
-                                            max_src_len=self.max_src_len,
-                                            max_trg_len=self.max_trg_len)
+          input_readers.read_parallel_corpus(src_reader=self.model.src_reader,
+                                             trg_reader=self.model.trg_reader,
+                                             src_file=self.src_file,
+                                             trg_file=self.trg_file,
+                                             batcher=self.batcher,
+                                             sample_sents=self.sample_train_sents,
+                                             max_num_sents=self.max_num_train_sents,
+                                             max_src_len=self.max_src_len,
+                                             max_trg_len=self.max_trg_len)
       self.model.src_reader.train = self.model.trg_reader.train = False
       # restart data generation
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.training_state.epoch_num, shell=True)
@@ -238,11 +238,11 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       self.model.src_reader.needs_reload() or self.model.trg_reader.needs_reload():
       self.model.set_train(True)
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
-        input_reader.read_parallel_corpus(src_reader=self.model.src_reader, trg_reader=self.model.trg_reader,
-                                          src_file=self.src_file, trg_file=self.trg_file,
-                                          batcher=self.batcher, sample_sents=self.sample_train_sents,
-                                          max_num_sents=self.max_num_train_sents,
-                                          max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
+        input_readers.read_parallel_corpus(src_reader=self.model.src_reader, trg_reader=self.model.trg_reader,
+                                           src_file=self.src_file, trg_file=self.trg_file,
+                                           batcher=self.batcher, sample_sents=self.sample_train_sents,
+                                           max_num_sents=self.max_num_train_sents,
+                                           max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
       self.model.src_reader.train = self.model.trg_reader.train = False
     self.training_state.epoch_seed = random.randint(1,2147483647)
     random.seed(self.training_state.epoch_seed)
@@ -357,7 +357,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                 if self.restart_trainer:
                   logger.info('  restarting trainer and reverting learned weights to best checkpoint..')
                   self.trainer.restart()
-                  param_collection.ParamManager.param_col.revert_to_best_model()
+                  param_collections.ParamManager.param_col.revert_to_best_model()
       else: # case of not controling learning schedule
         needs_saving = False
     else: # case of no dev tasks

@@ -5,9 +5,9 @@ from xnmt.settings import settings
 
 import dynet as dy
 
-import xnmt.batching
-from xnmt import events, losses, loss_calc, model_base, output, reports, search, util
-from xnmt import logger, losses, loss_calc, model_base, output, reports, search, util
+import xnmt.batchers
+from xnmt import events, losses, loss_calc, model_base, output, reports, search_strategies, utils
+from xnmt import logger, losses, loss_calc, model_base, output, reports, search_strategies, utils
 from xnmt.persistence import serializable_init, Serializable, bare
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
@@ -36,7 +36,7 @@ class Inference(reports.Reportable):
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
                mode: str = "onebest",
-               batcher: xnmt.batching.InOrderBatcher = bare(xnmt.batching.InOrderBatcher, batch_size=1),
+               batcher: xnmt.batchers.InOrderBatcher = bare(xnmt.batchers.InOrderBatcher, batch_size=1),
                reporter: Union[None, reports.Reporter, Sequence[reports.Reporter]] = None):
     self.src_file = src_file
     self.trg_file = trg_file
@@ -47,7 +47,7 @@ class Inference(reports.Reportable):
     self.batcher = batcher
     self.reporter = reporter
 
-  def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batching.Batch, src_i: int, forced_ref_ids) \
+  def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batchers.Batch, src_i: int, forced_ref_ids) \
           -> List[output.Output]:
     raise NotImplementedError("must be implemented by subclasses")
 
@@ -68,7 +68,7 @@ class Inference(reports.Reportable):
     """
     src_file = src_file or self.src_file
     trg_file = trg_file or self.trg_file
-    util.make_parent_dir(trg_file)
+    utils.make_parent_dir(trg_file)
 
     logger.info(f'Performing inference on {src_file}')
 
@@ -92,7 +92,7 @@ class Inference(reports.Reportable):
 
 
   def _generate_output(self, generator: 'model_base.GeneratorModel', src_corpus: Sequence[xnmt.input.Input],
-                       trg_file: str, batcher: Optional[xnmt.batching.Batcher] = None, max_src_len: Optional[int] = None,
+                       trg_file: str, batcher: Optional[xnmt.batchers.Batcher] = None, max_src_len: Optional[int] = None,
                        forced_ref_corpus: Optional[Sequence[xnmt.input.Input]] = None,
                        assert_scores: Optional[Sequence[float]] = None,
                        ref_file_to_report: Union[None,str,Sequence[str]] = None) -> None:
@@ -168,11 +168,11 @@ class Inference(reports.Reportable):
     for sent_count, (src, ref) in enumerate(zip(batched_src, batched_ref)):
       if max_num_sents and sent_count >= max_num_sents: break
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-      loss_expr = self.compute_losses_one(generator, src, ref)
-      if isinstance(loss_expr.value(), collections.abc.Iterable):
-        ref_scores.extend(loss_expr.value())
+      loss = self.compute_losses_one(generator, src, ref)
+      if isinstance(loss.value(), collections.abc.Iterable):
+        ref_scores.extend(loss.value())
       else:
-        ref_scores.append(loss_expr.value())
+        ref_scores.append(loss.value())
     ref_scores = [-x for x in ref_scores]
     return ref_scores
 
@@ -252,13 +252,13 @@ class IndependentOutputInference(Inference, Serializable):
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
                post_process: Union[str, output.OutputProcessor] = bare(output.PlainTextOutputProcessor),
                mode: str = "onebest",
-               batcher: xnmt.batching.InOrderBatcher = bare(xnmt.batching.InOrderBatcher, batch_size=1),
+               batcher: xnmt.batchers.InOrderBatcher = bare(xnmt.batchers.InOrderBatcher, batch_size=1),
                reporter: Union[None, reports.Reporter, Sequence[reports.Reporter]] = None):
     super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
                      max_num_sents=max_num_sents, mode=mode, batcher=batcher, reporter=reporter)
     self.post_processor = output.OutputProcessor.get_output_processor(post_process)
 
-  def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batching.Batch, src_i: int, forced_ref_ids)\
+  def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batchers.Batch, src_i: int, forced_ref_ids)\
           -> List[output.Output]:
     outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids)
     return outputs
@@ -299,9 +299,9 @@ class AutoRegressiveInference(Inference, Serializable):
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
                post_process: Union[str, output.OutputProcessor] = bare(output.PlainTextOutputProcessor),
-               search_strategy: search.SearchStrategy = bare(search.BeamSearch),
+               search_strategy: search_strategies.SearchStrategy = bare(search_strategies.BeamSearch),
                mode: str = "onebest",
-               batcher: xnmt.batching.InOrderBatcher = bare(xnmt.batching.InOrderBatcher, batch_size=1),
+               batcher: xnmt.batchers.InOrderBatcher = bare(xnmt.batchers.InOrderBatcher, batch_size=1),
                reporter: Union[None, reports.Reporter, Sequence[reports.Reporter]] = None):
     super().__init__(src_file=src_file, trg_file=trg_file, ref_file=ref_file, max_src_len=max_src_len,
                      max_num_sents=max_num_sents, mode=mode, batcher=batcher, reporter=reporter)
@@ -309,7 +309,7 @@ class AutoRegressiveInference(Inference, Serializable):
     self.post_processor = output.OutputProcessor.get_output_processor(post_process)
     self.search_strategy = search_strategy
 
-  def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batching.Batch, src_i: int, forced_ref_ids)\
+  def generate_one(self, generator: 'model_base.GeneratorModel', src: xnmt.batchers.Batch, src_i: int, forced_ref_ids)\
           -> List[output.Output]:
     outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids, search_strategy=self.search_strategy)
     return outputs

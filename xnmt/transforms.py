@@ -1,10 +1,10 @@
 import dynet as dy
 from typing import List
 
-from xnmt.param_collection import ParamManager
-from xnmt.weight_init import GlorotInitializer, ZeroInitializer
-from xnmt.expr_seq import ExpressionSequence
-from xnmt.transduce import SeqTransducer, FinalTransducerState
+from xnmt.param_collections import ParamManager
+from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
+from xnmt.expression_seqs import ExpressionSequence
+from xnmt.transducers import SeqTransducer, FinalTransducerState
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 
 class Transform(object):

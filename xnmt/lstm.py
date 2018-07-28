@@ -4,11 +4,11 @@ from typing import List
 import numpy as np
 import dynet as dy
 
-from xnmt.expr_seq import ExpressionSequence, ReversedExpressionSequence
+from xnmt import expression_seqs
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.param_collection import ParamManager
-from xnmt.weight_init import GlorotInitializer, ZeroInitializer
-from xnmt.transduce import SeqTransducer, FinalTransducerState
+from xnmt.param_collections import ParamManager
+from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
+from xnmt import transducers
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
 class UniLSTMState(object):
@@ -64,7 +64,7 @@ class UniLSTMState(object):
                         h=[hi[item] for hi in self._h])
 
 
-class UniLSTMSeqTransducer(SeqTransducer, Serializable):
+class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   """
   This implements a single LSTM layer based on the memory-friendly dedicated DyNet nodes.
   It works similar to DyNet's CompactVanillaLSTMBuilder, but in addition supports
@@ -134,7 +134,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     self.dropout_mask_x = None
     self.dropout_mask_h = None
 
-  def get_final_states(self) -> List[FinalTransducerState]:
+  def get_final_states(self) -> List[transducers.FinalTransducerState]:
     return self._final_states
 
   def initial_state(self):
@@ -178,7 +178,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
 
     return new_c, new_h
 
-  def transduce(self, expr_seq: ExpressionSequence) -> ExpressionSequence:
+  def transduce(self, expr_seq: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
     """
     transduce the sequence, applying masks if given (masked timesteps simply copy previous h / c)
 
@@ -187,7 +187,7 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
     Returns:
       expression sequence
     """
-    if isinstance(expr_seq, ExpressionSequence):
+    if isinstance(expr_seq, expression_seqs.ExpressionSequence):
       expr_seq = [expr_seq]
     batch_size = expr_seq[0][0].dim()[1]
     seq_len = len(expr_seq[0])
@@ -219,12 +219,12 @@ class UniLSTMSeqTransducer(SeqTransducer, Serializable):
         else:
           c.append(expr_seq[0].mask.cmult_by_timestep_expr(c_t,pos_i,True) + expr_seq[0].mask.cmult_by_timestep_expr(c[-1],pos_i,False))
           h.append(expr_seq[0].mask.cmult_by_timestep_expr(h_t,pos_i,True) + expr_seq[0].mask.cmult_by_timestep_expr(h[-1],pos_i,False))
-      self._final_states.append(FinalTransducerState(h[-1], c[-1]))
+      self._final_states.append(transducers.FinalTransducerState(h[-1], c[-1]))
       cur_input = [h[1:]]
 
-    return ExpressionSequence(expr_list=h[1:], mask=expr_seq[0].mask)
+    return expression_seqs.ExpressionSequence(expr_list=h[1:], mask=expr_seq[0].mask)
 
-class BiLSTMSeqTransducer(SeqTransducer, Serializable):
+class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   """
   This implements a bidirectional LSTM and requires about 8.5% less memory per timestep
   than DyNet's CompactVanillaLSTMBuilder due to avoiding concat operations.
@@ -276,31 +276,31 @@ class BiLSTMSeqTransducer(SeqTransducer, Serializable):
   def on_start_sent(self, src):
     self._final_states = None
 
-  def get_final_states(self) -> List[FinalTransducerState]:
+  def get_final_states(self) -> List[transducers.FinalTransducerState]:
     return self._final_states
 
-  def transduce(self, es: ExpressionSequence) -> ExpressionSequence:
+  def transduce(self, es: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
     mask = es.mask
     # first layer
     forward_es = self.forward_layers[0].transduce(es)
-    rev_backward_es = self.backward_layers[0].transduce(ReversedExpressionSequence(es))
+    rev_backward_es = self.backward_layers[0].transduce(expression_seqs.ReversedExpressionSequence(es))
 
     for layer_i in range(1, len(self.forward_layers)):
-      new_forward_es = self.forward_layers[layer_i].transduce([forward_es, ReversedExpressionSequence(rev_backward_es)])
-      rev_backward_es = ExpressionSequence(
-        self.backward_layers[layer_i].transduce([ReversedExpressionSequence(forward_es), rev_backward_es]).as_list(),
+      new_forward_es = self.forward_layers[layer_i].transduce([forward_es, expression_seqs.ReversedExpressionSequence(rev_backward_es)])
+      rev_backward_es = expression_seqs.ExpressionSequence(
+        self.backward_layers[layer_i].transduce([expression_seqs.ReversedExpressionSequence(forward_es), rev_backward_es]).as_list(),
         mask=mask)
       forward_es = new_forward_es
 
-    self._final_states = [FinalTransducerState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
+    self._final_states = [transducers.FinalTransducerState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
                                                             self.backward_layers[layer_i].get_final_states()[0].main_expr()]),
                                             dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].cell_expr(),
                                                             self.backward_layers[layer_i].get_final_states()[0].cell_expr()])) \
                           for layer_i in range(len(self.forward_layers))]
-    return ExpressionSequence(expr_list=[dy.concatenate([forward_es[i],rev_backward_es[-i-1]]) for i in range(len(forward_es))], mask=mask)
+    return expression_seqs.ExpressionSequence(expr_list=[dy.concatenate([forward_es[i],rev_backward_es[-i-1]]) for i in range(len(forward_es))], mask=mask)
 
 
-class CustomLSTMSeqTransducer(SeqTransducer, Serializable):
+class CustomLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   """
   This implements an LSTM builder based on elementary DyNet operations.
   It is more memory-hungry than the compact LSTM, but can be extended more easily.
@@ -337,7 +337,7 @@ class CustomLSTMSeqTransducer(SeqTransducer, Serializable):
     self.p_Wh = model.add_parameters(dim=(hidden_dim*4, hidden_dim), init=param_init.initializer((hidden_dim*4, hidden_dim)))
     self.p_b  = model.add_parameters(dim=(hidden_dim*4,), init=bias_init.initializer((hidden_dim*4,)))
 
-  def transduce(self, xs: ExpressionSequence) -> ExpressionSequence:
+  def transduce(self, xs: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
     Wx = dy.parameter(self.p_Wx)
     Wh = dy.parameter(self.p_Wh)
     b = dy.parameter(self.p_b)

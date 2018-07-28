@@ -7,11 +7,11 @@ import numpy as np
 import dynet as dy
 
 from xnmt.model_base import ConditionedModel
-from xnmt.loss_tracking import TrainLossTracker
+from xnmt.loss_trackers import TrainLossTracker
 from xnmt.loss_calc import LossCalculator, AutoRegressiveMLELoss
-from xnmt.param_collection import ParamManager
+from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt import training_tasks, optimize, batching, eval_tasks, util
+from xnmt import training_tasks, optimizers, batchers, eval_tasks, utils
 
 class TrainingRegimen(object):
   """
@@ -38,7 +38,7 @@ class TrainingRegimen(object):
       dy.print_text_graphviz()
     loss.backward()
 
-  def update(self, trainer: optimize.XnmtOptimizer) -> None:
+  def update(self, trainer: optimizers.XnmtOptimizer) -> None:
     """
     Update DyNet weights using the given optimizer.
 
@@ -88,9 +88,9 @@ class SimpleTrainingRegimen(training_tasks.SimpleTrainingTask, TrainingRegimen, 
   @serializable_init
   def __init__(self, model: ConditionedModel = Ref("model"), src_file: Union[None, str, Sequence[str]] = None,
                trg_file: Optional[str] = None, dev_every: int = 0, dev_zero: bool = False,
-               batcher: batching.Batcher = bare(batching.SrcBatcher, batch_size=32),
+               batcher: batchers.Batcher = bare(batchers.SrcBatcher, batch_size=32),
                loss_calculator: LossCalculator = bare(AutoRegressiveMLELoss),
-               trainer: optimize.XnmtOptimizer = bare(optimize.SimpleSGDTrainer, e0=0.1),
+               trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                run_for_epochs: Optional[int] = None, lr_decay: float = 1.0, lr_decay_times: int = 3, patience: int = 1,
                initial_patience: Optional[int] = None, dev_tasks: Sequence[eval_tasks.EvalTask] = None,
                dev_combinator: Optional[str] = None, restart_trainer: bool = False,
@@ -122,7 +122,7 @@ class SimpleTrainingRegimen(training_tasks.SimpleTrainingTask, TrainingRegimen, 
                      max_src_len=max_src_len,
                      max_trg_len=max_trg_len)
     self.dev_zero = dev_zero
-    self.trainer = trainer or optimize.SimpleSGDTrainer(e0=0.1)
+    self.trainer = trainer or optimizers.SimpleSGDTrainer(e0=0.1)
     self.dynet_profiling = commandline_args.get("dynet_profiling", 0) if commandline_args else 0
     self.train_loss_tracker = TrainLossTracker(self)
     self.loss_comb_method = loss_comb_method
@@ -138,7 +138,7 @@ class SimpleTrainingRegimen(training_tasks.SimpleTrainingTask, TrainingRegimen, 
         if self.dev_zero:
           self.checkpoint_and_save(save_fct)
           self.dev_zero = False
-        with util.ReportOnException({"src": src, "trg": trg, "graph": dy.print_text_graphviz}):
+        with utils.ReportOnException({"src": src, "trg": trg, "graph": dy.print_text_graphviz}):
           dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
           with self.train_loss_tracker.time_tracker:
             self.model.set_train(True)
@@ -156,7 +156,7 @@ class SimpleTrainingRegimen(training_tasks.SimpleTrainingTask, TrainingRegimen, 
     if should_save:
       save_fct()
 
-  def update(self, trainer: optimize.XnmtOptimizer) -> None:
+  def update(self, trainer: optimizers.XnmtOptimizer) -> None:
     self.num_updates_skipped += 1
     if self.num_updates_skipped == self.update_every:
       trainer.update()
@@ -182,7 +182,7 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
   """
   def __init__(self,
                tasks: Sequence[training_tasks.TrainingTask],
-               trainer: optimize.XnmtOptimizer = bare(optimize.SimpleSGDTrainer, e0=0.1),
+               trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
                update_every: int = 1,
                commandline_args: dict = Ref("exp_global.commandline_args", default=None)) -> None:
@@ -218,7 +218,7 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
         self.train = value
         self.tasks[0].model.set_train(value)
 
-  def update(self, trainer: optimize.XnmtOptimizer) -> None:
+  def update(self, trainer: optimizers.XnmtOptimizer) -> None:
     self.num_updates_skipped += 1
     if self.num_updates_skipped == self.update_every:
       trainer.update()
@@ -253,7 +253,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   @serializable_init
   def __init__(self,
                tasks: Sequence[training_tasks.TrainingTask],
-               trainer: optimize.XnmtOptimizer = bare(optimize.SimpleSGDTrainer, e0=0.1),
+               trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
                per_task_backward: bool = True,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
@@ -344,7 +344,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
   def __init__(self,
                tasks: Sequence[training_tasks.TrainingTask],
                task_weights: Optional[Sequence[float]] = None,
-               trainer: optimize.XnmtOptimizer = bare(optimize.SimpleSGDTrainer, e0=0.1),
+               trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                update_every_within: int = 1,
@@ -413,7 +413,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
   @serializable_init
   def __init__(self,
                tasks: Sequence[training_tasks.TrainingTask],
-               trainer: optimize.XnmtOptimizer = bare(optimize.SimpleSGDTrainer, e0=0.1),
+               trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                update_every: int = 1,

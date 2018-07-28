@@ -5,7 +5,7 @@ from xnmt.events import handle_xnmt_event, register_xnmt_handler
 from xnmt.transforms import Linear
 from xnmt.persistence import Ref, bare, Serializable, serializable_init
 from xnmt.losses import FactoredLossExpr
-from xnmt.weight_init import GlorotInitializer, ZeroInitializer
+from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
 
 class PolicyGradient(Serializable):
   """
