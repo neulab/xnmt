@@ -36,7 +36,7 @@ class AutoRegressiveTranslator(model_base.ConditionedModel, model_base.Generator
   generate_one_step.
   """
 
-  def calc_nll(self, src: Union[Batch, Input], trg: Union[Batch, Input]) -> dy.Expression:
+  def calc_nll(self, src: Union[batchers.Batch, Input], trg: Union[batchers.Batch, Input]) -> dy.Expression:
     """
     Calculate the negative log likelihood, or similar value, of trg given src
 
@@ -126,28 +126,28 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
             {".trg_embedder.emb_dim", ".decoder.trg_embed_dim"}]
 
 
-  def _encode_src(self, src: Union[Batch, Input]):
+  def _encode_src(self, src: Union[batchers.Batch, Input]):
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     encoding = self.encoder.transduce(embeddings)
     final_state = self.encoder.get_final_states()
     self.attender.init_sent(encoding)
-    ss = mark_as_batch([Vocab.SS] * src.batch_size()) if is_batched(src) else Vocab.SS
+    ss = batchers.mark_as_batch([Vocab.SS] * src.batch_size()) if batchers.is_batched(src) else Vocab.SS
     initial_state = self.decoder.initial_state(final_state, self.trg_embedder.embed(ss))
     return initial_state
 
-  def calc_nll(self, src: Union[Batch, Input], trg: Union[Batch, Input]) -> dy.Expression:
+  def calc_nll(self, src: Union[batchers.Batch, Input], trg: Union[batchers.Batch, Input]) -> dy.Expression:
 
     # Encode the sentence
     initial_state = self._encode_src(src)
 
     dec_state = initial_state
-    trg_mask = trg.mask if xnmt.batcher.is_batched(trg) else None
+    trg_mask = trg.mask if batchers.is_batched(trg) else None
     losses = []
     seq_len = trg.sent_len()
 
     # # TODO: enable only when debugging
-    # if xnmt.batcher.is_batched(src):
+    # if batchers.is_batched(src):
     #   for j, single_trg in enumerate(trg):
     #     assert single_trg.sent_len() == seq_len # assert consistent length
     #     assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask.np_arr[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
@@ -155,8 +155,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     input_word = None
     for i in range(seq_len):
       ref_word = DefaultTranslator._select_ref_words(trg, i, truncate_masked=self.truncate_dec_batches)
-      if self.truncate_dec_batches and xnmt.batcher.is_batched(ref_word):
-        dec_state.rnn_state, ref_word = xnmt.batcher.truncate_batches(dec_state.rnn_state, ref_word)
+      if self.truncate_dec_batches and batchers.is_batched(ref_word):
+        dec_state.rnn_state, ref_word = batchers.truncate_batches(dec_state.rnn_state, ref_word)
 
       if input_word is not None:
         dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(input_word))
@@ -164,7 +164,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
       dec_state.context = self.attender.calc_context(rnn_output)
       word_loss = self.decoder.calc_loss(dec_state, ref_word)
 
-      if not self.truncate_dec_batches and xnmt.batcher.is_batched(src) and trg_mask is not None:
+      if not self.truncate_dec_batches and batchers.is_batched(src) and trg_mask is not None:
         word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
       losses.append(word_loss)
       input_word = ref_word
@@ -178,8 +178,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
   @staticmethod
   def _select_ref_words(sent, index, truncate_masked = False):
     if truncate_masked:
-      mask = sent.mask if xnmt.batcher.is_batched(sent) else None
-      if not xnmt.batcher.is_batched(sent):
+      mask = sent.mask if batchers.is_batched(sent) else None
+      if not batchers.is_batched(sent):
         return sent[index]
       else:
         ret = []
@@ -190,10 +190,10 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
             ret.append(single_trg[index])
           else:
             found_masked = True
-        return xnmt.batcher.mark_as_batch(ret)
+        return batchers.mark_as_batch(ret)
     else:
-      if not xnmt.batcher.is_batched(sent): return sent[index]
-      else: return xnmt.batcher.mark_as_batch([single_trg[index] for single_trg in sent])
+      if not batchers.is_batched(sent): return sent[index]
+      else: return batchers.mark_as_batch([single_trg[index] for single_trg in sent])
 
   def generate(self, src: batchers.Batch, idx: Sequence[int], search_strategy: SearchStrategy, forced_trg_ids: batchers.Batch=None):
     if src.batch_size()!=1:
@@ -472,7 +472,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable, model_base.Even
   def set_trg_vocab(self, trg_vocab=None):
     self._proxy.set_trg_vocab(trg_vocab=trg_vocab)
 
-  def calc_nll(self, src: Union[Batch, Input], trg: Union[Batch, Input]) -> dy.Expression:
+  def calc_nll(self, src: Union[batchers.Batch, Input], trg: Union[batchers.Batch, Input]) -> dy.Expression:
     sub_losses = collections.defaultdict(list)
     for model in self.models:
       for loss_name, loss in model.calc_loss(src, trg).expr_factors.items():

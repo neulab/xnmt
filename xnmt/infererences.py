@@ -315,7 +315,7 @@ class AutoRegressiveInference(Inference, Serializable):
     return outputs
 
   def compute_losses_one(self, generator: 'model_base.GeneratorModel', src: xnmt.input.Input,
-                         ref: xnmt.input.Input) -> loss.FactoredLossExpr:
+                         ref: xnmt.input.Input) -> losses.FactoredLossExpr:
     loss_expr = loss_calculator.MLELoss().calc_loss(generator, src, ref)
     return loss_expr
 

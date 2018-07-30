@@ -10,7 +10,7 @@ from xnmt import batchers, transducers
 from xnmt.param_collections import ParamManager
 from xnmt.param_initializers import GlorotInitializer, ZeroInitializer, ParamInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.expression_sequence import ExpressionSequence
+from xnmt.expression_seqs import ExpressionSequence
 
 class Attender(object):
   """
