@@ -4,7 +4,7 @@ import random
 import numpy as np
 from typing import Optional, Sequence, Union
 
-from xnmt import batchers, eval_tasks, events, input_readers, logger, losses, loss_trackers, loss_calculators,\
+from xnmt import batchers, events, input_readers, logger, losses, loss_trackers, loss_calculators,\
   param_collections
 from xnmt.persistence import serializable_init, Serializable, bare
 

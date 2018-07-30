@@ -4,7 +4,7 @@ from xnmt.param_initializers import ParamInitializer, GlorotInitializer, ZeroIni
 from xnmt.settings import settings
 
 from xnmt import logger
-from xnmt.eval_tasks import EvalTask
+from xnmt.eval.tasks import EvalTask
 from xnmt.models.base import TrainableModel
 from xnmt.param_collections import ParamManager, RevertingUnsavedModelException
 from xnmt.preproc import PreprocRunner

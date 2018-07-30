@@ -4,11 +4,11 @@ import dynet as dy
 
 from xnmt.settings import settings
 from xnmt.batchers import Batcher
-from xnmt.eval_metrics import Evaluator, EvalScore
+from xnmt.eval.metrics import Evaluator, EvalScore
 from xnmt import inferences, input_readers
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.loss_calculators import LossCalculator, AutoRegressiveMLELoss
-from xnmt.eval_metrics import LossScore
+from xnmt.eval.metrics import LossScore
 from xnmt.losses import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate
 from xnmt import events, reports, utils

@@ -23,7 +23,7 @@ from xnmt.batchers import SrcBatcher, InOrderBatcher
 from xnmt.bridges import CopyBridge
 from xnmt.decoders import AutoRegressiveDecoder
 from xnmt.embedders import SimpleWordEmbedder
-from xnmt.eval_tasks import LossEvalTask, AccuracyEvalTask
+from xnmt.eval.tasks import LossEvalTask, AccuracyEvalTask
 from xnmt.experiments import Experiment
 from xnmt.inferences import AutoRegressiveInference
 from xnmt.input_readers import PlainTextReader

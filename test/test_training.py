@@ -8,7 +8,7 @@ from xnmt.batchers import mark_as_batch, Mask, SrcBatcher
 from xnmt.bridges import CopyBridge
 from xnmt.decoders import AutoRegressiveDecoder
 from xnmt.embedders import SimpleWordEmbedder
-from xnmt.eval_tasks import LossEvalTask
+from xnmt.eval.tasks import LossEvalTask
 import xnmt.events
 from xnmt.input_readers import PlainTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
