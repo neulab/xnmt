@@ -63,7 +63,6 @@ class ExpGlobal(Serializable):
     self.compute_report = compute_report
     self.placeholders = placeholders
 
-
 class Experiment(Serializable):
   """
   A default experiment that performs preprocessing, training, and evaluation.
@@ -91,13 +90,15 @@ class Experiment(Serializable):
                model:Optional[TrainableModel] = None,
                train:Optional[TrainingRegimen] = None,
                evaluate:Optional[List[EvalTask]] = None,
-               random_search_report:Optional[dict] = None) -> None:
+               random_search_report:Optional[dict] = None,
+               status=None) -> None:
     self.name = name
     self.exp_global = exp_global
     self.preproc = preproc
     self.model = model
     self.train = train
     self.evaluate = evaluate
+    self.status = status
 
     if random_search_report:
       logger.info(f"> instantiated random parameter search: {random_search_report}")
@@ -107,25 +108,31 @@ class Experiment(Serializable):
     Launch training loop, followed by final evaluation.
     """
     eval_scores = ["Not evaluated"]
-    if self.train:
-      logger.info("> Training")
-      self.train.run_training(save_fct = save_fct)
-      logger.info('reverting learned weights to best checkpoint..')
-      try:
-        ParamManager.param_col.revert_to_best_model()
-      except RevertingUnsavedModelException:
-        pass
+    if self.status != "done":
+      if self.train:
+        logger.info("> Training")
+        self.train.run_training(save_fct = save_fct)
+        logger.info('reverting learned weights to best checkpoint..')
+        try:
+          ParamManager.param_col.revert_to_best_model()
+        except RevertingUnsavedModelException:
+          pass
 
-    evaluate_args = self.evaluate
-    if evaluate_args:
-      logger.info("> Performing final evaluation")
-      eval_scores = []
-      for evaluator in evaluate_args:
-        eval_score = evaluator.eval()
-        if type(eval_score) == list:
-          eval_scores.extend(eval_score)
-        else:
-          eval_scores.append(eval_score)
+      evaluate_args = self.evaluate
+      if evaluate_args:
+        logger.info("> Performing final evaluation")
+        eval_scores = []
+        for evaluator in evaluate_args:
+          eval_score = evaluator.eval()
+          if type(eval_score) == list:
+            eval_scores.extend(eval_score)
+          else:
+            eval_scores.append(eval_score)
+
+      self.save_processed_arg("status", "done")
+      save_fct()
+    else:
+      logger.info("Experiment already finished, skipping.")
 
     return eval_scores
 

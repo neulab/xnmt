@@ -37,6 +37,8 @@ def main(overwrite_args=None):
     argparser.add_argument("--settings", type=str, default="standard", help="settings (standard, debug, or unittest)"
                                                                             "must be given in '=' syntax, e.g."
                                                                             " --settings=standard")
+    argparser.add_argument("--resume", action='store_true', help="whether a saved experiment is being resumed, and"
+                                                                 "locations of output files should be re-used.")
     argparser.add_argument("experiments_file")
     argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
     argparser.set_defaults(generate_doc=False)
@@ -68,7 +70,8 @@ def main(overwrite_args=None):
 
       ParamManager.init_param_col()
 
-      uninitialized_exp_args = YamlPreloader.preload_experiment_from_file(args.experiments_file, experiment_name)
+      uninitialized_exp_args = YamlPreloader.preload_experiment_from_file(args.experiments_file, experiment_name,
+                                                                          resume=args.resume)
 
       logger.info(f"=> Running {experiment_name}")
 
