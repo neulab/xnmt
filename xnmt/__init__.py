@@ -43,6 +43,7 @@ import xnmt.optimizers
 import xnmt.param_initializers
 import xnmt.transducers.positional
 import xnmt.transducers.pyramidal
+import xnmt.transducers.network_in_network
 import xnmt.reports
 import xnmt.transducers.residual
 import xnmt.models.retrievers

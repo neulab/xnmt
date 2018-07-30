@@ -49,8 +49,8 @@ class NinTransducer(base.SeqTransducer, Serializable):
   @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
-               input_dim: int,
-               hidden_dim: int,
+               input_dim: int = Ref("exp_global.default_layer_dim"),
+               hidden_dim: int = Ref("exp_global.default_layer_dim"),
                use_proj: bool = True,
                use_bn: bool = True,
                batch_norm=None,
@@ -79,7 +79,7 @@ class NinTransducer(base.SeqTransducer, Serializable):
       self.batch_norm = self.add_serializable_component("batch_norm", batch_norm,
                                                         lambda: norms.BatchNorm(hidden_dim, 2, time_first=False))
 
-  def __call__(self, es: expression_seqs.ExpressionSequence):
+  def transduce(self, es: expression_seqs.ExpressionSequence):
     """
     Args:
       es: expression sequence of dimensions input_dim x time
