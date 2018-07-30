@@ -5,21 +5,18 @@ import itertools
 from collections import namedtuple
 from typing import Any, Optional, Sequence, Tuple, Union
 
+from xnmt import batchers, inferences, input_readers, model_base, search_strategies, transducers
 from xnmt.settings import settings
 from xnmt.attenders import Attender, MlpAttender
-from xnmt import batchers
 from xnmt.decoders import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
 from xnmt.embedders import Embedder, SimpleWordEmbedder
 from xnmt.events import register_xnmt_handler
-from xnmt import infererences, input_readers, model_base
 from xnmt.input import Input, SimpleSentenceInput
 from xnmt.losses import FactoredLossExpr
 from xnmt.loss_calculators import LossCalculator
 from xnmt.recurrent_transducers import BiLSTMSeqTransducer
 from xnmt.output import TextOutput, Output, NbestOutput
 from xnmt.persistence import serializable_init, Serializable, bare
-from xnmt.search_strategies import BeamSearch, SearchStrategy
-from xnmt import transducers
 from xnmt.vocabs import Vocab
 from xnmt.persistence import Ref
 from xnmt.reports import Reportable
@@ -104,8 +101,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
                attender: Attender=bare(MlpAttender),
                trg_embedder: Embedder=bare(SimpleWordEmbedder),
                decoder: Decoder=bare(AutoRegressiveDecoder),
-               inference: infererences.AutoRegressiveInference=bare(infererences.AutoRegressiveInference),
-               search_strategy:SearchStrategy=bare(BeamSearch),
+               inference: inferences.AutoRegressiveInference=bare(inferences.AutoRegressiveInference),
+               search_strategy:search_strategies.SearchStrategy=bare(BeamSearch),
                truncate_dec_batches:bool=False,
                compute_report:bool = Ref("exp_global.compute_report", default=False)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
@@ -195,11 +192,24 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
       if not batchers.is_batched(sent): return sent[index]
       else: return batchers.mark_as_batch([single_trg[index] for single_trg in sent])
 
-  def generate(self, src: batchers.Batch, idx: Sequence[int], search_strategy: SearchStrategy, forced_trg_ids: batchers.Batch=None):
+  def generate_search_output(self,
+                             src: batchers.Batch,
+                             search_strategy: search_strategies.SearchStrategy,
+                             forced_trg_ids: batchers.Batch=None) -> List[SearchOutput]:
+    """
+    Takes in a batch of source sentences and outputs a list of search outputs.
+
+    Args:
+      src: The source sentences
+      search_strategy: The strategy with which to perform the search
+      forced_trg_ids: The target IDs to generate if performing forced decoding
+
+    Returns:
+      A list of search outputs including scores, etc.
+    """
     if src.batch_size()!=1:
       raise NotImplementedError("batched decoding not implemented for DefaultTranslator. "
                                 "Specify inference batcher with batch size 1.")
-    assert src.batch_size() == len(idx), f"src: {src.batch_size()}, idx: {len(idx)}"
     # Generating outputs
     self.start_sent(src)
     outputs = []
@@ -216,6 +226,27 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     search_outputs = search_strategy.generate_output(self, initial_state,
                                                      src_length=[sent.sent_len()],
                                                      forced_trg_ids=cur_forced_trg)
+    return search_outputs
+
+  def generate(self,
+               src: batchers.Batch,
+               idx: Sequence[int],
+               search_strategy: search_strategies.SearchStrategy,
+               forced_trg_ids: batchers.Batch=None):
+    """
+    Takes in a batch of source sentences and outputs a list of search outputs.
+
+    Args:
+      src: The source sentences
+      idx: The ID of this sentence, to be saved in an n-best list, etc.
+      search_strategy: The strategy with which to perform the search
+      forced_trg_ids: The target IDs to generate if performing forced decoding
+
+    Returns:
+      A list of search outputs including scores, etc.
+    """
+    assert src.batch_size() == len(idx), f"src: {src.batch_size()}, idx: {len(idx)}"
+    search_outputs = self.generate_search_output(src, search_strategy, forced_trg_ids)
     sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
     assert len(sorted_outputs) >= 1
     for curr_output in sorted_outputs:
@@ -441,7 +472,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable, model_base.Even
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, models, src_reader, trg_reader, inference=bare(infererences.AutoRegressiveInference)):
+  def __init__(self, models, src_reader, trg_reader, inference=bare(inferences.AutoRegressiveInference)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.models = models
     self.inference = inference

@@ -1,7 +1,7 @@
 import dynet as dy
 import numpy as np
 
-from xnmt import attenders, batchers, embedders, events, infererences, input_readers, losses, recurrent_transducers, model_base, output, \
+from xnmt import attenders, batchers, embedders, events, inferences, input_readers, losses, recurrent_transducers, model_base, output, \
   reports, scorers, transducers, transforms, vocabs
 from xnmt.persistence import serializable_init, Serializable, bare
 
@@ -33,7 +33,7 @@ class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Seriali
                encoder:transducers.SeqTransducer=bare(recurrent_transducers.BiLSTMSeqTransducer),
                transform:transforms.Transform=bare(transforms.NonLinear),
                scorer:scorers.Scorer=bare(scorers.Softmax),
-               inference:infererences.Inference=bare(infererences.IndependentOutputInference),
+               inference:inferences.Inference=bare(inferences.IndependentOutputInference),
                auto_cut_pad:bool=False):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder

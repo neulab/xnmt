@@ -66,10 +66,10 @@ class ReinforceLoss(Serializable, LossCalculator):
       self.baseline = self.add_serializable_component("baseline", baseline,
                                                       lambda: Linear(input_dim=decoder_hidden_dim, output_dim=1))
 
-  def calc_loss(self, translator, initial_state, src, trg):
+  def calc_loss(self, translator, src, trg):
     # TODO(philip30): currently only using the best hypothesis / first sample for reinforce loss
     # A small further implementation is needed if we want to do reinforce with multiple samples.
-    search_output = translator.search_strategy.generate_output(translator, initial_state)[0]
+    search_output = translator.generate_search_output(src, translator.search_strategy)[0] 
     # Calculate evaluation scores
     self.eval_score = []
     for trg_i, sample_i in zip(trg, search_output.word_ids):
@@ -116,13 +116,13 @@ class MinRiskLoss(Serializable, LossCalculator):
     self.inv_eval = inv_eval
     self.unique_sample = unique_sample
 
-  def calc_loss(self, translator, initial_state, src, trg):
+  def calc_loss(self, translator, src, trg):
     batch_size = trg.batch_size()
     uniques = [set() for _ in range(batch_size)]
     deltas = []
     probs = []
     
-    search_outputs = translator.search_strategy.generate_output(translator, initial_state, forced_trg_ids=trg)
+    search_outputs = translator.generate_search_output(src, translator.search_strategy, forced_trg_ids=trg) 
     for search_output in search_outputs:
       logprob = search_output.logsoftmaxes
       sample = search_output.word_ids
