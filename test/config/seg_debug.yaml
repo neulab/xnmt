@@ -7,8 +7,12 @@ report: !Experiment
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     encoder: !SegmentingSeqTransducer
-      segment_composer: !WordEmbeddingSegmentComposer
+      segment_composer: !LookupComposer
         word_vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+      policy_learning: !PolicyGradient
+        output_dim: 2
+        conf_penalty: !ConfidencePenalty {}
+      reporter: !SegmentingReporter {}
       final_transducer: !BiLSTMSeqTransducer {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
