@@ -24,8 +24,6 @@ dyparams.from_args()
 
 import xnmt.attenders
 import xnmt.batchers
-import xnmt.models.classifiers
-import xnmt.transducers.convolution
 import xnmt.decoders
 import xnmt.embedders
 import xnmt.eval_tasks
@@ -34,28 +32,30 @@ import xnmt.experiments
 import xnmt.hyper_params
 import xnmt.inferences
 import xnmt.input_readers
-import xnmt.models.language_models
-import xnmt.transducers.recurrent
 import xnmt.models.base
+import xnmt.models.classifiers
+import xnmt.models.language_models
+import xnmt.models.retrievers
+import xnmt.models.sequence_labelers
+import xnmt.models.translators
 import xnmt.optimizers
 import xnmt.param_initializers
-import xnmt.transducers.positional
-import xnmt.transducers.pyramidal
+import xnmt.persistence
 import xnmt.reports
-import xnmt.transducers.residual
-import xnmt.models.retrievers
+import xnmt.rl
 import xnmt.scorers
-import xnmt.transducers.self_attention
-import xnmt.models.sequence_labelers
 import xnmt.specialized_encoders.tilburg_harwath
 import xnmt.specialized_encoders.self_attentional_am
 import xnmt.specialized_encoders.segmenting_encoder
 import xnmt.training_regimens
 import xnmt.training_tasks
+import xnmt.transducers.convolution
+import xnmt.transducers.recurrent
+import xnmt.transducers.positional
+import xnmt.transducers.pyramidal
+import xnmt.transducers.residual
+import xnmt.transducers.self_attention
 import xnmt.transformer
-import xnmt.models.translators
-import xnmt.persistence
-import xnmt.rl
 
 
 resolved_serialize_params = {}

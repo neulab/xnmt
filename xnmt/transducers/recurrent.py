@@ -8,7 +8,7 @@ from xnmt import expression_seqs
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.param_collections import ParamManager
 from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
-from xnmt.transducers import base
+from xnmt.transducers import base as transducers
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
 class UniLSTMState(object):
@@ -64,7 +64,7 @@ class UniLSTMState(object):
                         h=[hi[item] for hi in self._h])
 
 
-class UniLSTMSeqTransducer(base.SeqTransducer, Serializable):
+class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   """
   This implements a single LSTM layer based on the memory-friendly dedicated DyNet nodes.
   It works similar to DyNet's CompactVanillaLSTMBuilder, but in addition supports
@@ -134,7 +134,7 @@ class UniLSTMSeqTransducer(base.SeqTransducer, Serializable):
     self.dropout_mask_x = None
     self.dropout_mask_h = None
 
-  def get_final_states(self) -> List[base.FinalTransducerState]:
+  def get_final_states(self) -> List[transducers.FinalTransducerState]:
     return self._final_states
 
   def initial_state(self):
@@ -219,12 +219,12 @@ class UniLSTMSeqTransducer(base.SeqTransducer, Serializable):
         else:
           c.append(expr_seq[0].mask.cmult_by_timestep_expr(c_t,pos_i,True) + expr_seq[0].mask.cmult_by_timestep_expr(c[-1],pos_i,False))
           h.append(expr_seq[0].mask.cmult_by_timestep_expr(h_t,pos_i,True) + expr_seq[0].mask.cmult_by_timestep_expr(h[-1],pos_i,False))
-      self._final_states.append(base.FinalTransducerState(h[-1], c[-1]))
+      self._final_states.append(transducers.FinalTransducerState(h[-1], c[-1]))
       cur_input = [h[1:]]
 
     return expression_seqs.ExpressionSequence(expr_list=h[1:], mask=expr_seq[0].mask)
 
-class BiLSTMSeqTransducer(base.SeqTransducer, Serializable):
+class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   """
   This implements a bidirectional LSTM and requires about 8.5% less memory per timestep
   than DyNet's CompactVanillaLSTMBuilder due to avoiding concat operations.
@@ -276,7 +276,7 @@ class BiLSTMSeqTransducer(base.SeqTransducer, Serializable):
   def on_start_sent(self, src):
     self._final_states = None
 
-  def get_final_states(self) -> List[base.FinalTransducerState]:
+  def get_final_states(self) -> List[transducers.FinalTransducerState]:
     return self._final_states
 
   def transduce(self, es: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
@@ -293,15 +293,17 @@ class BiLSTMSeqTransducer(base.SeqTransducer, Serializable):
       forward_es = new_forward_es
 
     self._final_states = [
-      base.FinalTransducerState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
-                                                self.backward_layers[layer_i].get_final_states()[0].main_expr()]),
-                                dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].cell_expr(),
-                                                self.backward_layers[layer_i].get_final_states()[0].cell_expr()])) \
+      transducers.FinalTransducerState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
+                                                       self.backward_layers[layer_i].get_final_states()[
+                                                         0].main_expr()]),
+                                       dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].cell_expr(),
+                                                       self.backward_layers[layer_i].get_final_states()[
+                                                         0].cell_expr()])) \
       for layer_i in range(len(self.forward_layers))]
     return expression_seqs.ExpressionSequence(expr_list=[dy.concatenate([forward_es[i],rev_backward_es[-i-1]]) for i in range(len(forward_es))], mask=mask)
 
 
-class CustomLSTMSeqTransducer(base.SeqTransducer, Serializable):
+class CustomLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   """
   This implements an LSTM builder based on elementary DyNet operations.
   It is more memory-hungry than the compact LSTM, but can be extended more easily.

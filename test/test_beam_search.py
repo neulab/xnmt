@@ -8,12 +8,12 @@ from xnmt.bridges import CopyBridge
 from xnmt.decoders import AutoRegressiveDecoder
 from xnmt.embedders import SimpleWordEmbedder
 from xnmt.input_readers import PlainTextReader
-from transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
+from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculators import AutoRegressiveMLELoss
 from xnmt.param_collections import ParamManager
 from xnmt.transforms import NonLinear
 from xnmt.scorers import Softmax
-from models.translators import DefaultTranslator
+from xnmt.models.translators import DefaultTranslator
 from xnmt.search_strategies import BeamSearch, GreedySearch
 from xnmt.vocabs import Vocab
 

@@ -109,7 +109,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                run_for_epochs: Optional[int] = None,
                lr_decay: float = 1.0, lr_decay_times: int = 3,
                patience: int = 1, initial_patience: Optional[int] = None,
-               dev_tasks: Sequence[eval_tasks.EvalTask] = None, dev_combinator=None,
+               dev_tasks: Sequence['eval_tasks.EvalTask'] = None, dev_combinator=None,
                restart_trainer: bool = False,
                reload_command: Optional[str] = None,
                name: Optional[str] = None,

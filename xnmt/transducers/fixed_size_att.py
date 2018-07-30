@@ -4,7 +4,7 @@ import dynet as dy
 import numpy as np
 
 from xnmt import expression_seqs
-from xnmt import transducers
+from xnmt.transducers import base as transducers
 from xnmt.param_collections import ParamManager
 from xnmt.param_initializers import ParamInitializer, GlorotInitializer
 from xnmt.persistence import Serializable, serializable_init, Ref, bare
