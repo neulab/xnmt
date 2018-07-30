@@ -133,7 +133,7 @@ class AccuracyEvalTask(EvalTask, reports.Reportable, Serializable):
 
   def eval(self):
     self.model.set_train(False)
-    self.report_global_info({"ref_file":self.ref_file})
+    self.report_corpus_info({"ref_file":self.ref_file})
     self.inference.perform_inference(generator=self.model,
                                      src_file=self.src_file,
                                      trg_file=self.hyp_file)

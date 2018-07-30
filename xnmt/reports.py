@@ -54,7 +54,7 @@ class Reportable(object):
   - pass either global info or per-sentence info or both:
     - call ``self.report_sent_info(d)`` for each sentence, where d is a dictionary containing info to pass on to the
       reporter
-    - call ``self.report_global_info(d)`` once, where d is a dictionary containing info to pass on to the
+    - call ``self.report_corpus_info(d)`` once, where d is a dictionary containing info to pass on to the
       reporter
   """
 
@@ -76,7 +76,7 @@ class Reportable(object):
       self._sent_info_list = []
     self._sent_info_list.append(sent_info)
 
-  def report_global_info(self, glob_info: Dict[str, Any]) -> None:
+  def report_corpus_info(self, glob_info: Dict[str, Any]) -> None:
     """
     Add key/value pairs for reporting that are relevant to all reported sentences.
 
