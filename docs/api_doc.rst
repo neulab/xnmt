@@ -6,12 +6,8 @@ API Doc
 Experiment
 ----------
 
-.. automodule:: xnmt.experiment
-   :members:
-   :show-inheritance:
-
-.. _mod-exp_global:
-.. automodule:: xnmt.exp_global
+.. _mod-experiments:
+.. automodule:: xnmt.experiments
    :members:
    :show-inheritance:
 
@@ -28,28 +24,28 @@ Model Base Classes
 Translator
 ~~~~~~~~~~
 
-.. automodule:: xnmt.translator
+.. automodule:: xnmt.translators
    :members:
    :show-inheritance:
 
 Embedder
 ~~~~~~~~
 
-.. automodule:: xnmt.embedder
+.. automodule:: xnmt.embedders
    :members:
    :show-inheritance:
 
 Transducer
 ~~~~~~~~~~
 
-.. automodule:: xnmt.transducer
+.. automodule:: xnmt.transducers
    :members:
    :show-inheritance:
 
 RNN
 ~~~
 
-.. automodule:: xnmt.lstm
+.. automodule:: xnmt.recurrent_transducers
    :members:
    :show-inheritance:
 
@@ -64,7 +60,7 @@ RNN
 Attender
 ~~~~~~~~
 
-.. automodule:: xnmt.attender
+.. automodule:: xnmt.attenders
    :members:
    :show-inheritance:
 
@@ -72,38 +68,38 @@ Attender
 Decoder
 ~~~~~~~
 
-.. automodule:: xnmt.decoder
+.. automodule:: xnmt.decoders
    :members:
    :show-inheritance:
 
 
 Bridge
 ~~~~~~
-.. automodule:: xnmt.bridge
+.. automodule:: xnmt.bridges
    :members:
    :show-inheritance:
 
 Transform
 ~~~~~~~~~
-.. automodule:: xnmt.transform
+.. automodule:: xnmt.transforms
    :members:
    :show-inheritance:
 
 Scorer
 ~~~~~~
-.. automodule:: xnmt.scorer
+.. automodule:: xnmt.scorers
    :members:
    :show-inheritance:
 
 SequenceLabeler
 ~~~~~~~~~~~~~~~
-.. automodule:: xnmt.seq_labeler
+.. automodule:: xnmt.sequence_labelers
    :members:
    :show-inheritance:
 
 Classifier
 ~~~~~~~~~~
-.. automodule:: xnmt.classifier
+.. automodule:: xnmt.classifiers
    :members:
    :show-inheritance:
 
@@ -115,14 +111,14 @@ Loss
 Loss
 ~~~~
 
-.. automodule:: xnmt.loss
+.. automodule:: xnmt.losses
    :members:
    :show-inheritance:
 
 LossCalculator
 ~~~~~~~~~~~~~~
 
-.. automodule:: xnmt.loss_calculator
+.. automodule:: xnmt.loss_calculators
    :members:
    :show-inheritance:
 
@@ -131,13 +127,13 @@ Training
 
 TrainingRegimen
 ~~~~~~~~~~~~~~~
-.. automodule:: xnmt.training_regimen
+.. automodule:: xnmt.training_regimens
    :members:
    :show-inheritance:
 
 TrainingTask
 ~~~~~~~~~~~~
-.. automodule:: xnmt.training_task
+.. automodule:: xnmt.training_tasks
    :members:
    :show-inheritance:
 
@@ -146,7 +142,7 @@ Parameters
 
 ParamManager
 ~~~~~~~~~~~~
-.. automodule:: xnmt.param_collection
+.. automodule:: xnmt.param_collections
    :members:
    :show-inheritance:
 
@@ -154,13 +150,13 @@ ParamManager
 Optimizer
 ~~~~~~~~~
 
-.. automodule:: xnmt.optimizer
+.. automodule:: xnmt.optimizers
    :members:
    :show-inheritance:
 
 ParamInitializer
 ~~~~~~~~~~~~~~~~
-.. automodule:: xnmt.param_init
+.. automodule:: xnmt.param_initializers
    :members:
    :show-inheritance:
 
@@ -171,21 +167,21 @@ Inference
 AutoRegressiveInference
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: xnmt.inference
+.. automodule:: xnmt.inferences
    :members:
    :show-inheritance:
 
 SearchStrategy
 ~~~~~~~~~~~~~~
 
-.. automodule:: xnmt.search_strategy
+.. automodule:: xnmt.search_strategies
    :members:
    :show-inheritance:
 
 LengthNormalization
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: xnmt.length_normalization
+.. automodule:: xnmt.length_norm
    :members:
    :show-inheritance:
 
@@ -194,14 +190,14 @@ Evaluation
 
 EvalTasks
 ~~~~~~~~~
-.. automodule:: xnmt.eval_task
+.. automodule:: xnmt.eval_tasks
    :members:
    :show-inheritance:
 
-EvalScore / Evaluator
+Eval Metrics
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: xnmt.evaluator
+.. automodule:: xnmt.eval_metrics
    :members:
    :show-inheritance:
 
@@ -220,31 +216,27 @@ Input
 InputReader
 ~~~~~~~~~~~
 
-.. automodule:: xnmt.input_reader
+.. automodule:: xnmt.input_readers
    :members:
    :show-inheritance:
 
 Vocab
 ~~~~~
 
-.. automodule:: xnmt.vocab
+.. automodule:: xnmt.vocabs
    :members:
    :show-inheritance:
 
 Batcher
 ~~~~~~~
 
-.. automodule:: xnmt.batcher
+.. automodule:: xnmt.batchers
    :members:
    :show-inheritance:
 
 
 Preprocessing
 ~~~~~~~~~~~~~
-
-.. automodule:: xnmt.preproc_runner
-   :members:
-   :show-inheritance:
 
 .. automodule:: xnmt.preproc
    :members:

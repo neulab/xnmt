@@ -2,7 +2,7 @@
 Reports gather inputs, outputs, and intermediate computations in a nicely formatted way for convenient manual inspection.
 
 To support reporting, the models providing the data to be reported must subclass ``Reportable`` and call
-``self.add_sent_for_report(d)`` with key/value pairs containing the data to be reported at the appropriate times.
+``self.report_sent_info(d)`` with key/value pairs containing the data to be reported at the appropriate times.
 If this causes a computational overhead, the boolean ``compute_report`` field should queried and extra computations
 skipped if this field is ``False``.
 
@@ -15,7 +15,7 @@ Note that currently reporting is only supported at test-time, not at training ti
 
 import os
 import math
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, Optional, Sequence, Union
 
 from bs4 import BeautifulSoup as bs
 
@@ -24,13 +24,23 @@ matplotlib.use('Agg')
 import numpy as np
 
 from xnmt import plotting
-import xnmt.output
-import xnmt.input
-from xnmt import vocabs, utils
+from xnmt import sent, utils
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
 from xnmt.persistence import Serializable, serializable_init
 from xnmt.settings import settings
 import xnmt.thirdparty.charcut.charcut as charcut
+
+class ReportInfo(object):
+  """
+  Info to pass to reporter
+
+  Args:
+    sent_info: list of dicts, one dict per sentence
+    glob_info: a global dict applicable to each sentence
+  """
+  def __init__(self, sent_info=[], glob_info={}):
+    self.sent_info = sent_info
+    self.glob_info = glob_info
 
 class Reportable(object):
   """
@@ -40,15 +50,18 @@ class Reportable(object):
 
   - specify ``Reportable`` as base class
   - call this super class's ``__init__()``, or do ``@register_xnmt_handler`` manually
-  - call ``self.add_sent_for_report(d)`` for each sentence, where d is a dictionary containing info to pass on to the
-    reporter
+  - pass either global info or per-sentence info or both:
+    - call ``self.report_sent_info(d)`` for each sentence, where d is a dictionary containing info to pass on to the
+      reporter
+    - call ``self.report_corpus_info(d)`` once, where d is a dictionary containing info to pass on to the
+      reporter
   """
 
   @register_xnmt_handler
   def __init__(self) -> None:
     self._sent_info_list = []
 
-  def add_sent_for_report(self, sent_info: Dict[str,Any]) -> None:
+  def report_sent_info(self, sent_info: Dict[str, Any]) -> None:
     """
     Add key/value pairs belonging to the current sentence for reporting.
 
@@ -62,16 +75,30 @@ class Reportable(object):
       self._sent_info_list = []
     self._sent_info_list.append(sent_info)
 
+  def report_corpus_info(self, glob_info: Dict[str, Any]) -> None:
+    """
+    Add key/value pairs for reporting that are relevant to all reported sentences.
+
+    Args:
+      glob_info: A dictionary of key/value pairs. The keys must match (be a subset of) the arguments in the reporter's
+                 ``create_report()`` method, and the values must be of the corresponding types.
+    """
+    if not hasattr(self, "_glob_info_list"):
+      self._glob_info_list = {}
+    self._glob_info_list.update(glob_info)
+
   @handle_xnmt_event
-  def on_get_report_input(self, context={}):
+  def on_get_report_input(self, context=ReportInfo()):
+    if hasattr(self, "_glob_info_list"):
+      context.glob_info.update(self._glob_info_list)
     if not hasattr(self, "_sent_info_list"):
       return context
-    if len(context)>0:
-      assert len(context) == len(self._sent_info_list)
+    if len(context.sent_info)>0:
+      assert len(context.sent_info) == len(self._sent_info_list)
     else:
-      context = []
-      for _ in range(len(self._sent_info_list)): context.append({})
-    for context_i, sent_i in zip(context, self._sent_info_list):
+      context.sent_info = []
+      for _ in range(len(self._sent_info_list)): context.sent_info.append({})
+    for context_i, sent_i in zip(context.sent_info, self._sent_info_list):
       context_i.update(sent_i)
     self._sent_info_list.clear()
     return context
@@ -116,13 +143,20 @@ class ReferenceDiffReporter(Reporter, Serializable):
     self.report_path = report_path
     self.hyp_sents, self.ref_sents, self.src_sents = [], [], []
 
-  def create_report(self, src: xnmt.input.Input, src_vocab: vocabs.Vocab, trg_vocab: vocabs.Vocab,
-                    output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor, reference: str = None,
-                    **kwargs) -> None:
-    trg_str = output.apply_post_processor(output_proc)
-    src_is_speech = isinstance(src, xnmt.input.ArrayInput)
-    if not src_is_speech:
-      src_str = " ".join([src_vocab.i2w[src_token] for src_token in src])
+  def create_report(self, src: sent.Sentence, output: sent.ReadableSentence, ref_file: str = None, **kwargs) -> None:
+    """
+    Create report.
+
+    Args:
+      src: source-side input
+      output: generated output
+      ref_file: path to reference file
+      **kwargs: arguments to be ignored
+    """
+    reference = utils.cached_file_lines(ref_file)[output.idx]
+    trg_str = output.sent_str()
+    if isinstance(src, sent.ReadableSentence):
+      src_str = src.sent_str()
       self.src_sents.append(src_str)
     self.hyp_sents.append(trg_str)
     self.ref_sents.append(reference)
@@ -173,9 +207,17 @@ class CompareMtReporter(Reporter, Serializable):
     self.report_path = report_path
     self.hyp_sents, self.ref_sents = [], []
 
-  def create_report(self, trg_vocab: vocabs.Vocab, output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
-                    reference: str, **kwargs) -> None:
-    trg_str = output.apply_post_processor(output_proc)
+  def create_report(self, output: sent.ReadableSentence, ref_file: str, **kwargs) -> None:
+    """
+    Create report.
+
+    Args:
+      output: generated output
+      ref_file: path to reference file
+      **kwargs: arguments to be ignored
+    """
+    reference = utils.cached_file_lines(ref_file)[output.idx]
+    trg_str = output.sent_str()
     self.hyp_sents.append(trg_str)
     self.ref_sents.append(reference)
 
@@ -272,23 +314,6 @@ class HtmlReporter(Reporter):
     with open(html_file_name, 'w', encoding='utf-8') as f:
       f.write(pretty_html)
 
-  def get_tokens(self, output=None, inp=None, inp_vocab=None) -> List[str]:
-    assert output is None or (inp is None and inp_vocab is None)
-    if output:
-      return output.readable_actions()
-    else:
-      src_is_speech = isinstance(inp, xnmt.input.ArrayInput)
-      if src_is_speech:
-        src_tokens = []
-      else:
-        src_tokens = [inp_vocab.i2w[src_token] for src_token in inp]
-      return src_tokens
-
-  def get_strings(self, src_tokens, output, output_proc: xnmt.output.OutputProcessor):
-    trg_str = output.apply_post_processor(output_proc)
-    src_str = " ".join(src_tokens)
-    return src_str, trg_str
-
   def add_fields_if_set(self, fields):
     html_ret = ""
     for key, val in fields.items():
@@ -326,29 +351,29 @@ class AttentionReporter(HtmlReporter, Serializable):
   def __init__(self, report_name: str = "attention", report_path: str = settings.DEFAULT_REPORT_PATH):
     super().__init__(report_name=report_name, report_path=report_path)
 
-  def create_report(self, idx: int, src: xnmt.input.Input, src_vocab: vocabs.Vocab,
-                    trg_vocab: vocabs.Vocab, output: xnmt.output.Output, output_proc: xnmt.output.OutputProcessor,
-                    attentions: np.ndarray, reference: Optional[str] = None, **kwargs) -> None:
+  def create_report(self, src: sent.Sentence, output: sent.ReadableSentence, attentions: np.ndarray,
+                    ref_file: Optional[str], **kwargs) -> None:
+
     """
     Create report.
 
     Args:
-      idx: number of sentence
       src: source-side input
-      src_vocab: source-side vocabulary
-      trg_vocab: source-side vocabulary
       output: generated output
       attentions: attention matrices
-      reference: reference string
+      ref_file: path to reference file
       **kwargs: arguments to be ignored
     """
+    reference = utils.cached_file_lines(ref_file)[output.idx]
+    idx = src.idx
     self.add_sent_heading(idx)
-    src_tokens = self.get_tokens(inp=src, inp_vocab=src_vocab)
-    trg_tokens = self.get_tokens(output=output)
-    src_str, trg_str = self.get_strings(src_tokens=src_tokens, output=output, output_proc=output_proc)
+    src_tokens = src.str_tokens() if isinstance(src, sent.ReadableSentence) else []
+    trg_tokens = output.str_tokens()
+    src_str = src.sent_str() if isinstance(src, sent.ReadableSentence) else ""
+    trg_str = output.sent_str()
     self.add_charcut_diff(trg_str, reference)
     self.add_fields_if_set({"Src" : src_str})
-    self.add_atts(attentions, src.get_array() if isinstance(src, xnmt.input.ArrayInput) else src_tokens,
+    self.add_atts(attentions, src.get_array() if isinstance(src, sent.ArraySentence) else src_tokens,
                   trg_tokens, idx)
     self.finish_sent()
 
@@ -402,14 +427,14 @@ class SegmentationReporter(Reporter, Serializable):
     self.report_path = report_path
     self.report_fp = None
 
-  def create_report(self, segment_actions, src_vocab, src, **kwargs):
+  def create_report(self, segment_actions, src, **kwargs):
     if self.report_fp is None:
       report_path = self.report_path + "/segment.txt"
       utils.make_parent_dir(report_path)
       self.report_fp = open(report_path, "w")
 
     actions = segment_actions[0][0]
-    src = [src_vocab[x] for x in src]
+    src = src.str_tokens()
     words = []
     start = 0
     for end in actions:

@@ -5,11 +5,12 @@ import numpy as np
 
 from xnmt.losses import FactoredLossExpr
 from xnmt.persistence import serializable_init, Serializable, Ref
+
+from xnmt import sent
 from xnmt.vocabs import Vocab
 from xnmt.transforms import Linear
 from xnmt.persistence import bare
 from xnmt import batchers, eval_metrics
-import xnmt.input
 
 class LossCalculator(object):
   """
@@ -38,8 +39,8 @@ class MLELoss(Serializable, LossCalculator):
 
   def calc_loss(self,
                 model: 'model_base.ConditionedModel',
-                src: Union[xnmt.input.Input, 'batcher.Batch'],
-                trg: Union[xnmt.input.Input, 'batcher.Batch']):
+                src: Union[sent.Sentence, 'batchers.Batch'],
+                trg: Union[sent.Sentence, 'batchers.Batch']):
     loss = model.calc_nll(src, trg)
     return FactoredLossExpr({"mle": loss})
 
@@ -178,8 +179,8 @@ class FeedbackLoss(Serializable, LossCalculator):
 
   def calc_loss(self,
                 model: 'model_base.ConditionedModel',
-                src: Union[xnmt.input.Input, 'batcher.Batch'],
-                trg: Union[xnmt.input.Input, 'batcher.Batch']):
+                src: Union[sent.Sentence, 'batcher.Batch'],
+                trg: Union[sent.Sentence, 'batcher.Batch']):
     loss_builder = FactoredLossExpr()
     for _ in range(self.repeat):
       standard_loss = self.child_loss.calc_loss(model, src, trg)

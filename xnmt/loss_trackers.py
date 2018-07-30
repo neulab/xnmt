@@ -1,7 +1,7 @@
 from typing import Union
 import time
 
-from xnmt import batchers, input, losses, events, utils
+from xnmt import batchers, events, losses, sent, utils
 
 class AccumTimeTracker(object):
   def __init__(self):
@@ -86,7 +86,7 @@ class TrainLossTracker(object):
       self.last_report_words = self.epoch_words
       self.last_report_sents_since_start = self.training_task.training_state.sents_since_start
 
-  def count_trg_words(self, trg_words: Union[input.Input, batchers.Batch]) -> int:
+  def count_trg_words(self, trg_words: Union[sent.Sentence, batchers.Batch]) -> int:
     if isinstance(trg_words, batchers.Batch):
       return sum(inp.len_unpadded() for inp in trg_words)
     else:

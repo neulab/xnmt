@@ -11,11 +11,10 @@ from xnmt.attenders import Attender, MlpAttender
 from xnmt.decoders import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
 from xnmt.embedders import Embedder, SimpleWordEmbedder
 from xnmt.events import register_xnmt_handler
-from xnmt.input import Input, SimpleSentenceInput
+from xnmt import sent
 from xnmt.losses import FactoredLossExpr
 from xnmt.loss_calculators import LossCalculator
 from xnmt.recurrent_transducers import BiLSTMSeqTransducer
-from xnmt.output import TextOutput, Output, NbestOutput
 from xnmt.persistence import serializable_init, Serializable, bare
 from xnmt.vocabs import Vocab
 from xnmt.persistence import Ref
@@ -33,7 +32,7 @@ class AutoRegressiveTranslator(model_base.ConditionedModel, model_base.Generator
   generate_one_step.
   """
 
-  def calc_nll(self, src: Union[batchers.Batch, Input], trg: Union[batchers.Batch, Input]) -> dy.Expression:
+  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
     """
     Calculate the negative log likelihood, or similar value, of trg given src
 
@@ -46,7 +45,7 @@ class AutoRegressiveTranslator(model_base.ConditionedModel, model_base.Generator
     """
     raise NotImplementedError('must be implemented by subclasses')
 
-  def generate(self, src, idx, search_strategy, forced_trg_ids=None) -> Sequence[Output]:
+  def generate(self, src, idx, search_strategy, forced_trg_ids=None) -> Sequence[sent.Sentence]:
     raise NotImplementedError("must be implemented by subclasses")
 
   def generate_one_step(self, current_word: Any, current_state: AutoRegressiveDecoderState) -> TranslatorOutput:
@@ -123,7 +122,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
             {".trg_embedder.emb_dim", ".decoder.trg_embed_dim"}]
 
 
-  def _encode_src(self, src: Union[batchers.Batch, Input]):
+  def _encode_src(self, src: Union[batchers.Batch, sent.Sentence]):
     self.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     encoding = self.encoder.transduce(embeddings)
@@ -133,7 +132,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     initial_state = self.decoder.initial_state(final_state, self.trg_embedder.embed(ss))
     return initial_state
 
-  def calc_nll(self, src: Union[batchers.Batch, Input], trg: Union[batchers.Batch, Input]) -> dy.Expression:
+  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
 
     # Encode the sentence
     initial_state = self._encode_src(src)
@@ -213,7 +212,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     # Generating outputs
     self.start_sent(src)
     cur_forced_trg = None
-    sent = src[0]
+    src_sent = src[0]
     sent_mask = None
     if src.mask: sent_mask = batchers.Mask(np_arr=src.mask.np_arr[0:1])
     sent_batch = batchers.mark_as_batch([sent], mask=sent_mask)
@@ -223,7 +222,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
 
     if forced_trg_ids is  not None: cur_forced_trg = forced_trg_ids[0]
     search_outputs = search_strategy.generate_output(self, initial_state,
-                                                     src_length=[sent.sent_len()],
+                                                     src_length=[src_sent.sent_len()],
                                                      forced_trg_ids=cur_forced_trg)
     return search_outputs
 
@@ -253,22 +252,19 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
       output_actions = [x for x in curr_output.word_ids[0]]
       attentions = [x for x in curr_output.attentions[0]]
       score = curr_output.score[0]
+      out_sent = sent.SimpleSentence(idx=idx[0],
+                                     words=output_actions,
+                                     vocab=getattr(self.trg_reader, "vocab", None),
+                                     output_procs=self.trg_reader.output_procs,
+                                     score=score)
       if len(sorted_outputs) == 1:
-        outputs.append(TextOutput(actions=output_actions,
-                                  vocab=getattr(self.trg_reader, "vocab", None),
-                                  score=score))
+        outputs.append(out_sent)
       else:
-        outputs.append(NbestOutput(TextOutput(actions=output_actions,
-                                              vocab=getattr(self.trg_reader, "vocab", None),
-                                              score=score),
-                                   nbest_id=idx[0]))
+        outputs.append(sent.NbestSentence(base_sent=out_sent, nbest_id=idx[0]))
     if self.compute_report:
       attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
-      self.add_sent_for_report({"idx": idx[0],
-                                "attentions": attentions,
+      self.report_sent_info({"attentions": attentions,
                                 "src": src[0],
-                                "src_vocab": getattr(self.src_reader, "vocab", None),
-                                "trg_vocab": getattr(self.trg_reader, "vocab", None),
                                 "output": outputs[0]})
 
     return outputs
@@ -425,7 +421,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
       src = batchers.mark_as_batch([src])
     outputs = []
 
-    trg = SimpleSentenceInput([0])
+    trg = sent.SimpleSentence([0])
 
     if not batchers.is_batched(trg):
       trg = batchers.mark_as_batch([trg])
@@ -443,13 +439,13 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
         output_actions.append(ys)
         break
       output_actions.append(ys)
-      trg = SimpleSentenceInput(output_actions + [0])
+      trg = sent.SimpleSentence(words=output_actions + [0])
       if not batchers.is_batched(trg):
         trg = batchers.mark_as_batch([trg])
 
     # Append output to the outputs
     if hasattr(self, "trg_vocab") and self.trg_vocab is not None:
-      outputs.append(TextOutput(actions=output_actions, vocab=self.trg_vocab))
+      outputs.append(sent.SimpleSentence(words=output_actions, vocab=self.trg_vocab))
     else:
       outputs.append((output_actions, score))
 
@@ -503,7 +499,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable, model_base.Even
   def set_trg_vocab(self, trg_vocab=None):
     self._proxy.set_trg_vocab(trg_vocab=trg_vocab)
 
-  def calc_nll(self, src: Union[batchers.Batch, Input], trg: Union[batchers.Batch, Input]) -> dy.Expression:
+  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
     sub_losses = collections.defaultdict(list)
     for model in self.models:
       for loss_name, loss in model.calc_loss(src, trg).expr_factors.items():

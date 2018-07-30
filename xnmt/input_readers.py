@@ -12,18 +12,18 @@ with warnings.catch_warnings():
 
 from xnmt import logger
 
-from xnmt.input import SimpleSentenceInput, ArrayInput, IntInput, CompoundInput
+from xnmt.sent import SimpleSentence, CompoundSentence, ArraySentence, ScalarSentence
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
+from xnmt import sent
 from xnmt.vocabs import Vocab
-import xnmt.input
-from xnmt import batchers
+from xnmt import batchers, output
 
 class InputReader(object):
   """
   A base class to read in a file and turn it into an input
   """
-  def read_sents(self, filename: str, filter_ids: Sequence[int] = None) -> Iterator[xnmt.input.Input]:
+  def read_sents(self, filename: str, filter_ids: Sequence[int] = None) -> Iterator[sent.Sentence]:
     """
     Read sentences and return an iterator.
 
@@ -52,12 +52,13 @@ class InputReader(object):
 
 class BaseTextReader(InputReader):
 
-  def read_sent(self, line: str) -> xnmt.input.Input:
+  def read_sent(self, line: str, idx: int) -> sent.Sentence:
     """
     Convert a raw text line into an input object.
 
     Args:
       line: a single input string
+      idx: sentence number
     Returns: a SentenceInput object for the input sentence
     """
     raise RuntimeError("Input readers must implement the read_sent function")
@@ -85,7 +86,7 @@ class BaseTextReader(InputReader):
     with open(filename, encoding='utf-8') as f:
       for line in f:
         if filter_ids is None or sent_count in filter_ids:
-          yield self.read_sent(line)
+          yield self.read_sent(line=line, idx=sent_count)
         sent_count += 1
         if max_id is not None and sent_count > max_id:
           break
@@ -104,23 +105,28 @@ class PlainTextReader(BaseTextReader, Serializable):
     vocab: Vocabulary to convert string tokens to integer ids. If not given, plain text will be assumed to contain
            space-separated integer ids.
     read_sent_len: if set, read the length of each sentence instead of the sentence itself. EOS is not counted.
+    output_proc: output processors to revert the created sentences back to a readable string
   """
   yaml_tag = '!PlainTextReader'
  
   @serializable_init
-  def __init__(self, vocab: Optional[Vocab] = None, read_sent_len: bool = False):
+  def __init__(self, vocab: Optional[Vocab] = None, read_sent_len: bool = False, output_proc = []):
     self.vocab = vocab
     self.read_sent_len = read_sent_len
+    self.output_procs = output.OutputProcessor.get_output_processor(output_proc)
 
-  def read_sent(self, line):
+  def read_sent(self, line, idx):
     if self.vocab:
-      self.convert_fct = self.vocab.convert
+      convert_fct = self.vocab.convert
     else:
-      self.convert_fct = convert_int
+      convert_fct = convert_int
     if self.read_sent_len:
-      return IntInput(len(line.strip().split()))
+      return ScalarSentence(idx=idx, value=len(line.strip().split()))
     else:
-      return SimpleSentenceInput([self.convert_fct(word) for word in line.strip().split()] + [Vocab.ES])
+      return SimpleSentence(idx=idx,
+                            words=[convert_fct(word) for word in line.strip().split()] + [Vocab.ES],
+                            vocab=self.vocab,
+                            output_procs=self.output_procs)
 
   def vocab_size(self):
     return len(self.vocab)
@@ -129,7 +135,7 @@ class CompoundReader(InputReader, Serializable):
   """
   A compound reader reads inputs using several input readers at the same time.
 
-  The resulting inputs will be of type :class:`CompoundInput`, which holds the results from the different readers
+  The resulting inputs will be of type :class:`CompoundSentence`, which holds the results from the different readers
   as a tuple. Inputs can be read from different locations (if input file name is a sequence of filenames) or all from
   the same location (if it is a string). The latter can be used to read the same inputs using several input different
   readers which might capture different aspects of the input data.
@@ -144,14 +150,14 @@ class CompoundReader(InputReader, Serializable):
     if len(readers) < 2: raise ValueError("need at least two readers")
     self.readers = readers
     if vocab: self.vocab = vocab
-  def read_sents(self, filename: Union[str,Sequence[str]], filter_ids: Sequence[int] = None) \
-          -> Iterator[xnmt.input.Input]:
+  def read_sents(self, filename: Union[str,Sequence[str]], filter_ids: Sequence[int] = None) -> Iterator[sent.Sentence]:
     if isinstance(filename, str): filename = [filename] * len(self.readers)
     generators = [reader.read_sents(filename=cur_filename, filter_ids=filter_ids) for (reader, cur_filename) in
                      zip(self.readers, filename)]
     while True:
       try:
-        yield CompoundInput(tuple([next(gen) for gen in generators]))
+        sub_sents = tuple([next(gen) for gen in generators])
+        yield CompoundSentence(sents=sub_sents)
       except StopIteration:
         return
   def count_sents(self, filename: str) -> int:
@@ -170,7 +176,8 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, model_file, sample_train=False, l=-1, alpha=0.1, vocab=None):
+  def __init__(self, model_file, sample_train=False, l=-1, alpha=0.1, vocab=None,
+               output_proc=[output.JoinPieceTextOutputProcessor]):
     """
     Args:
       model_file: The sentence piece model file
@@ -178,6 +185,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
       l: The "l" parameter for subword regularization, how many sentences to sample
       alpha: The "alpha" parameter for subword regularization, how much to smooth the distribution
       vocab: The vocabulary
+      output_proc: output processors to revert the created sentences back to a readable string
     """
     import sentencepiece as spm
     self.subword_model = spm.SentencePieceProcessor()
@@ -187,19 +195,22 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
     self.alpha = alpha
     self.vocab = vocab
     self.train = False
+    self.output_procs = output.OutputProcessor.get_output_processor(output_proc)
 
   @handle_xnmt_event
   def on_set_train(self, val):
     self.train = val
 
-  def read_sent(self, sentence):
+  def read_sent(self, line, idx):
     if self.sample_train and self.train:
-      words = self.subword_model.SampleEncodeAsPieces(sentence.strip(), self.l, self.alpha)
+      words = self.subword_model.SampleEncodeAsPieces(line.strip(), self.l, self.alpha)
     else:
-      words = self.subword_model.EncodeAsPieces(sentence.strip())
+      words = self.subword_model.EncodeAsPieces(line.strip())
     words = [w.decode('utf-8') for w in words]
-    return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
-                                                       [self.vocab.convert(Vocab.ES_STR)])
+    return SimpleSentence(idx = idx,
+                          words = [self.vocab.convert(word) for word in words] + [self.vocab.convert(Vocab.ES_STR)],
+                          vocab=self.vocab,
+                          output_procs=self.output_procs)
 
   def count_words(self, trg_words):
     trg_cnt = 0
@@ -214,21 +225,25 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
     return len(self.vocab)
 
 class CharFromWordTextReader(PlainTextReader, Serializable):
+  # TODO @philip30
+  # - add documentation
+  # - this should probably return a SegmentedSentence etc. rather than a SimpleSentence
+  # - possibly represent as list of list
   yaml_tag = "!CharFromWordTextReader"
   @serializable_init
   def __init__(self, vocab:Vocab=None, read_sent_len:bool=False):
     super().__init__(vocab, read_sent_len)
-  def read_sent(self, sentence, filter_ids=None):
+  def read_sent(self, line, idx):
     chars = []
     segs = []
     offset = 0
-    for word in sentence.strip().split():
+    for word in line.strip().split():
       offset += len(word)
       segs.append(offset-1)
       chars.extend([c for c in word])
     segs.append(len(chars))
     chars.append(Vocab.ES_STR)
-    sent_input = SimpleSentenceInput([self.vocab.convert(c) for c in chars])
+    sent_input = SimpleSentence(words=[self.vocab.convert(c) for c in chars], idx=idx)
     sent_input.segment = segs
     return sent_input
 
@@ -268,9 +283,10 @@ class H5Reader(InputReader, Serializable):
     with h5py.File(filename, "r") as hf:
       h5_keys = sorted(hf.keys(), key=lambda x: int(x))
       if filter_ids is not None:
+        filter_ids = sorted(filter_ids)
         h5_keys = [h5_keys[i] for i in filter_ids]
         h5_keys.sort(key=lambda x: int(x))
-      for idx, key in enumerate(h5_keys):
+      for sent_no, key in enumerate(h5_keys):
         inp = hf[key][:]
         if self.transpose:
           inp = inp.transpose()
@@ -282,9 +298,9 @@ class H5Reader(InputReader, Serializable):
         else:
           inp = sub_inp
 
-        if idx % 1000 == 999:
-          logger.info(f"Read {idx+1} lines ({float(idx+1)/len(h5_keys)*100:.2f}%) of {filename} at {key}")
-        yield ArrayInput(inp)
+        if sent_no % 1000 == 999:
+          logger.info(f"Read {sent_no+1} lines ({float(sent_no+1)/len(h5_keys)*100:.2f}%) of {filename} at {key}")
+        yield ArraySentence(idx=filter_ids[sent_no] if filter_ids else sent_no, nparr=inp)
 
   def count_sents(self, filename):
     with h5py.File(filename, "r") as hf:
@@ -334,9 +350,10 @@ class NpzReader(InputReader, Serializable):
     npzFile = np.load(filename, mmap_mode=None if filter_ids is None else "r")
     npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[-1]))
     if filter_ids is not None:
+      filter_ids = sorted(filter_ids)
       npzKeys = [npzKeys[i] for i in filter_ids]
       npzKeys.sort(key=lambda x: int(x.split('_')[-1]))
-    for idx, key in enumerate(npzKeys):
+    for sent_no, key in enumerate(npzKeys):
       inp = npzFile[key]
       if self.transpose:
         inp = inp.transpose()
@@ -348,9 +365,9 @@ class NpzReader(InputReader, Serializable):
       else:
         inp = sub_inp
 
-      if idx % 1000 == 999:
-        logger.info(f"Read {idx+1} lines ({float(idx+1)/len(npzKeys)*100:.2f}%) of {filename} at {key}")
-      yield ArrayInput(inp)
+      if sent_no % 1000 == 999:
+        logger.info(f"Read {sent_no+1} lines ({float(sent_no+1)/len(npzKeys)*100:.2f}%) of {filename} at {key}")
+      yield ArraySentence(idx=filter_ids[sent_no] if filter_ids else sent_no, nparr=inp)
     npzFile.close()
 
   def count_sents(self, filename):
@@ -371,8 +388,8 @@ class IDReader(BaseTextReader, Serializable):
   def __init__(self):
     pass
 
-  def read_sent(self, line):
-    return xnmt.input.IntInput(int(line.strip()))
+  def read_sent(self, line, idx):
+    return ScalarSentence(idx=idx, value=int(line.strip()))
 
   def read_sents(self, filename, filter_ids=None):
     return [l for l in self.iterate_filtered(filename, filter_ids)]
