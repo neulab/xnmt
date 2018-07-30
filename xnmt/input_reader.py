@@ -233,17 +233,17 @@ class CharFromWordTextReader(PlainTextReader, Serializable):
   @serializable_init
   def __init__(self, vocab:Vocab=None, read_sent_len:bool=False):
     super().__init__(vocab, read_sent_len)
-  def read_sent(self, sentence, filter_ids=None):
+  def read_sent(self, line, idx):
     chars = []
     segs = []
     offset = 0
-    for word in sentence.strip().split():
+    for word in line.strip().split():
       offset += len(word)
       segs.append(offset-1)
       chars.extend([c for c in word])
     segs.append(len(chars))
     chars.append(Vocab.ES_STR)
-    sent_input = SimpleSentence([self.vocab.convert(c) for c in chars])
+    sent_input = SimpleSentence(words=[self.vocab.convert(c) for c in chars], idx=idx)
     sent_input.segment = segs
     return sent_input
 
