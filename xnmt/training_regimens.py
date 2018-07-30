@@ -6,7 +6,7 @@ from xnmt.settings import settings
 import numpy as np
 import dynet as dy
 
-from xnmt.model_base import ConditionedModel
+from xnmt.models.base import ConditionedModel
 from xnmt.loss_trackers import TrainLossTracker
 from xnmt.loss_calculators import LossCalculator, AutoRegressiveMLELoss
 from xnmt.param_collections import ParamManager

@@ -1,6 +1,7 @@
+from enum import Enum
+
 import dynet as dy
 
-from enum import Enum
 from xnmt.events import handle_xnmt_event, register_xnmt_handler
 from xnmt.transforms import Linear
 from xnmt.persistence import Ref, bare, Serializable, serializable_init

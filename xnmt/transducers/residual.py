@@ -3,7 +3,7 @@ from typing import List
 
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.persistence import serializable_init, Serializable
-from xnmt.transducers import SeqTransducer, FinalTransducerState
+from xnmt.transducers.base import SeqTransducer, FinalTransducerState
 from xnmt.param_collections import ParamManager
 
 class ResidualSeqTransducer(SeqTransducer, Serializable):
@@ -12,8 +12,8 @@ class ResidualSeqTransducer(SeqTransducer, Serializable):
   connection, and optionally performs some variety of normalization.
 
   Args:
-    child (:class:`xnmt.transducers.SeqTransducer`): the child transducer to wrap
-    layer_norm (bool): whether to perform layer normalization
+    child the child transducer to wrap
+    layer_norm: whether to perform layer normalization
   """
 
   yaml_tag = '!ResidualSeqTransducer'

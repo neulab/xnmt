@@ -11,14 +11,15 @@ from xnmt import batchers
 from xnmt.decoders import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
 from xnmt.embedders import Embedder, SimpleWordEmbedder
 from xnmt.events import register_xnmt_handler
-from xnmt import inferences, input_readers, model_base
+from xnmt import inferences, input_readers
+from xnmt.models import base
 from xnmt import sent
 from xnmt.losses import FactoredLossExpr
 from xnmt.loss_calculators import LossCalculator
-from xnmt.recurrent_transducers import BiLSTMSeqTransducer
+from xnmt.transducers.recurrent import BiLSTMSeqTransducer
 from xnmt.persistence import serializable_init, Serializable, bare
 from xnmt.search_strategies import BeamSearch, SearchStrategy
-from xnmt import transducers
+from xnmt.transducers import base as transducers_base
 from xnmt.vocabs import Vocab
 from xnmt.persistence import Ref
 from xnmt.reports import Reportable
@@ -26,7 +27,7 @@ from xnmt.expression_seqs import CompoundSeqExpression
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
-class AutoRegressiveTranslator(model_base.ConditionedModel, model_base.GeneratorModel):
+class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
   """
   A template class for auto-regressive translators.
 
@@ -72,7 +73,7 @@ class AutoRegressiveTranslator(model_base.ConditionedModel, model_base.Generator
       output_state = dy.nobackprop(output_state)
     return output_state
 
-class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, model_base.EventTrigger):
+class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base.EventTrigger):
   """
   A default translator based on attentional sequence-to-sequence models.
 
@@ -97,7 +98,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
                src_reader: input_readers.InputReader,
                trg_reader: input_readers.InputReader,
                src_embedder: Embedder=bare(SimpleWordEmbedder),
-               encoder: transducers.SeqTransducer=bare(BiLSTMSeqTransducer),
+               encoder: transducers_base.SeqTransducer=bare(BiLSTMSeqTransducer),
                attender: Attender=bare(MlpAttender),
                trg_embedder: Embedder=bare(SimpleWordEmbedder),
                decoder: Decoder=bare(AutoRegressiveDecoder),
@@ -233,7 +234,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
 
 
 
-class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, model_base.EventTrigger):
+class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, base.EventTrigger):
   """
   A translator based on the transformer model.
 
@@ -400,7 +401,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
 
     return outputs
 
-class EnsembleTranslator(AutoRegressiveTranslator, Serializable, model_base.EventTrigger):
+class EnsembleTranslator(AutoRegressiveTranslator, Serializable, base.EventTrigger):
   """
   A translator that decodes from an ensemble of DefaultTranslator models.
 

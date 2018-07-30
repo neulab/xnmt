@@ -6,7 +6,8 @@ from xnmt.settings import settings
 import dynet as dy
 
 from xnmt import batchers
-from xnmt import events, logger, losses, loss_calculators, model_base, output, reports, search_strategies, sent, utils
+from xnmt import events, logger, losses, loss_calculators, output, reports, search_strategies, sent, utils
+from xnmt.models import base as models
 from xnmt.persistence import serializable_init, Serializable, bare
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
@@ -46,16 +47,16 @@ class Inference(object):
     self.batcher = batcher
     self.reporter = reporter
 
-  def generate_one(self, generator: 'model_base.GeneratorModel', src: batchers.Batch, src_i: int, forced_ref_ids) \
+  def generate_one(self, generator: 'models.GeneratorModel', src: batchers.Batch, src_i: int, forced_ref_ids) \
           -> List[sent.ReadableSentence]:
     raise NotImplementedError("must be implemented by subclasses")
 
-  def compute_losses_one(self, generator: 'model_base.GeneratorModel', src: sent.Sentence,
+  def compute_losses_one(self, generator: 'models.GeneratorModel', src: sent.Sentence,
                          ref: sent.Sentence) -> losses.FactoredLossExpr:
     raise NotImplementedError("must be implemented by subclasses")
 
 
-  def perform_inference(self, generator: 'model_base.GeneratorModel', src_file: str = None, trg_file: str = None) \
+  def perform_inference(self, generator: 'models.GeneratorModel', src_file: str = None, trg_file: str = None) \
           -> None:
     """
     Perform inference.
@@ -90,7 +91,7 @@ class Inference(object):
     self.end_inference()
 
 
-  def _generate_output(self, generator: 'model_base.GeneratorModel', src_corpus: Sequence[sent.Sentence],
+  def _generate_output(self, generator: 'models.GeneratorModel', src_corpus: Sequence[sent.Sentence],
                        trg_file: str, batcher: Optional[batchers.Batcher] = None, max_src_len: Optional[int] = None,
                        forced_ref_corpus: Optional[Sequence[sent.Sentence]] = None,
                        assert_scores: Optional[Sequence[float]] = None) -> None:
@@ -181,7 +182,7 @@ class Inference(object):
           fp.write("{} ||| score={}\n".format(nbest.strip(), score))
 
   @staticmethod
-  def _read_corpus(generator: 'model_base.GeneratorModel', src_file: str, mode: str, ref_file: str) -> Tuple[List, List]:
+  def _read_corpus(generator: 'models.GeneratorModel', src_file: str, mode: str, ref_file: str) -> Tuple[List, List]:
     src_corpus = list(generator.src_reader.read_sents(src_file))
     # Get reference if it exists and is necessary
     if mode == "forced" or mode == "forceddebug" or mode == "score":
@@ -246,12 +247,12 @@ class IndependentOutputInference(Inference, Serializable):
                      max_num_sents=max_num_sents, mode=mode, batcher=batcher, reporter=reporter)
     self.post_processor = output.OutputProcessor.get_output_processor(post_process) or None
 
-  def generate_one(self, generator: 'model_base.GeneratorModel', src: batchers.Batch, src_i: int, forced_ref_ids)\
+  def generate_one(self, generator: 'models.GeneratorModel', src: batchers.Batch, src_i: int, forced_ref_ids)\
           -> List[sent.Sentence]:
     outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids)
     return outputs
 
-  def compute_losses_one(self, generator: 'model_base.GeneratorModel', src: sent.Sentence,
+  def compute_losses_one(self, generator: 'models.GeneratorModel', src: sent.Sentence,
                          ref: sent.Sentence) -> losses.FactoredLossExpr:
     loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calculators.AutoRegressiveMLELoss())
     return loss_expr
@@ -297,12 +298,12 @@ class AutoRegressiveInference(Inference, Serializable):
     self.post_processor = output.OutputProcessor.get_output_processor(post_process) or None
     self.search_strategy = search_strategy
 
-  def generate_one(self, generator: 'model_base.GeneratorModel', src: batchers.Batch, src_i: int, forced_ref_ids)\
+  def generate_one(self, generator: 'models.GeneratorModel', src: batchers.Batch, src_i: int, forced_ref_ids)\
           -> List[sent.Sentence]:
     outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids, search_strategy=self.search_strategy)
     return outputs
 
-  def compute_losses_one(self, generator: 'model_base.GeneratorModel', src: sent.Sentence,
+  def compute_losses_one(self, generator: 'models.GeneratorModel', src: sent.Sentence,
                          ref: sent.Sentence) -> losses.FactoredLossExpr:
     loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calculators.AutoRegressiveMLELoss())
     return loss_expr
@@ -313,7 +314,7 @@ class CascadeInference(Inference, Serializable):
   Steps are performed using a list of inference sub-objects and a list of models.
   Intermediate outputs are written out to disk and then read by the next time step.
 
-  The generator passed to ``perform_inference`` must be a :class:`xnmt.model_base.CascadeGenerator`.
+  The generator passed to ``perform_inference`` must be a :class:`xnmt.models.CascadeGenerator`.
 
   Args:
     steps: list of inference objects
@@ -324,9 +325,9 @@ class CascadeInference(Inference, Serializable):
   def __init__(self, steps: Sequence[Inference]) -> None:
     self.steps = steps
 
-  def perform_inference(self, generator: 'model_base.CascadeGenerator', src_file: str = None, trg_file: str = None) \
+  def perform_inference(self, generator: 'models.CascadeGenerator', src_file: str = None, trg_file: str = None) \
           -> None:
-    assert isinstance(generator, model_base.CascadeGenerator)
+    assert isinstance(generator, models.CascadeGenerator)
     assert len(generator.generators) == len(self.steps)
     src_files = [src_file] + [f"{trg_file}.tmp.{i}" for i in range(len(self.steps)-1)]
     trg_files = src_files[1:] + [trg_file]

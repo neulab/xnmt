@@ -3,7 +3,7 @@ import numpy as np
 from xnmt.settings import settings
 
 from xnmt import batchers
-from xnmt.model_base import ConditionedModel, GeneratorModel, EventTrigger
+from xnmt.models.base import ConditionedModel, GeneratorModel, EventTrigger
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.expression_seqs import ExpressionSequence
 

@@ -27,7 +27,7 @@ from xnmt.eval_tasks import LossEvalTask, AccuracyEvalTask
 from xnmt.experiments import Experiment
 from xnmt.inferences import AutoRegressiveInference
 from xnmt.input_readers import PlainTextReader
-from xnmt.recurrent_transducers import BiLSTMSeqTransducer, UniLSTMSeqTransducer
+from transducers.recurrent import BiLSTMSeqTransducer, UniLSTMSeqTransducer
 from xnmt.transforms import AuxNonLinear
 from xnmt.scorers import Softmax
 from xnmt.optimizers import AdamTrainer
@@ -35,7 +35,7 @@ from xnmt.param_collections import ParamManager
 from xnmt.persistence import save_to_file
 import xnmt.tee
 from xnmt.training_regimens import SimpleTrainingRegimen
-from xnmt.translators import DefaultTranslator
+from models.translators import DefaultTranslator
 from xnmt.vocabs import Vocab
 
 seed=13

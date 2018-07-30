@@ -1,5 +1,4 @@
 import dynet as dy
-import numpy as np
 from collections import Counter
 from functools import lru_cache
 
@@ -8,8 +7,8 @@ from xnmt.transforms import Linear
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
 from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
-from xnmt.events import register_xnmt_handler, register_xnmt_event, handle_xnmt_event
-from xnmt.recurrent_transducers import BiLSTMSeqTransducer
+from xnmt.events import register_xnmt_handler, handle_xnmt_event
+from xnmt.transducers.recurrent import BiLSTMSeqTransducer
 
 class SingleComposer(object):
   @register_xnmt_handler

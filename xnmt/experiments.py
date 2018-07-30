@@ -5,7 +5,7 @@ from xnmt.settings import settings
 
 from xnmt import logger
 from xnmt.eval_tasks import EvalTask
-from xnmt.model_base import TrainableModel
+from xnmt.models.base import TrainableModel
 from xnmt.param_collections import ParamManager, RevertingUnsavedModelException
 from xnmt.preproc import PreprocRunner
 from xnmt.training_regimens import TrainingRegimen

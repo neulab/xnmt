@@ -12,6 +12,8 @@ The main class to be aware of is :class:`SAAMSeqTransducer`.
 import typing
 import logging
 
+import embedders
+
 yaml_logger = logging.getLogger('yaml')
 from collections.abc import Sequence
 import math
@@ -26,7 +28,8 @@ import numpy as np
 import dynet as dy
 
 import xnmt.param_initializers
-from xnmt import transforms, norms, embedders, events, recurrent_transducers, param_collections, positional, transducers
+from xnmt import transforms, norms, events, param_collections
+from xnmt.transducers import recurrent, base as transducers
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.persistence import Serializable, serializable_init, Ref, bare
 
@@ -167,7 +170,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
       assert self.kq_pos_encoding_type == "embedding"
       self.kq_positional_embedder = self.add_serializable_component("kq_positional_embedder",
                                                                     kq_positional_embedder,
-                                                                    lambda: positional.PositionEmbedder(
+                                                                    lambda: embedders.PositionEmbedder(
                                                                       max_pos=self.max_len,
                                                                       emb_dim=self.kq_pos_encoding_size,
                                                                       param_init=param_init))
@@ -411,12 +414,12 @@ class TransformerEncoderLayer(Serializable):
     if ff_lstm:
       self.feed_forward = self.add_serializable_component("feed_forward",
                                                           feed_forward,
-                                                          lambda: recurrent_transducers.BiLSTMSeqTransducer(layers=1,
-                                                                                                            input_dim=hidden_dim,
-                                                                                                            hidden_dim=hidden_dim,
-                                                                                                            dropout=dropout,
-                                                                                                            param_init=param_init,
-                                                                                                            bias_init=bias_init))
+                                                          lambda: recurrent.BiLSTMSeqTransducer(layers=1,
+                                                                                                input_dim=hidden_dim,
+                                                                                                hidden_dim=hidden_dim,
+                                                                                                dropout=dropout,
+                                                                                                param_init=param_init,
+                                                                                                bias_init=bias_init))
     else:
       self.feed_forward = self.add_serializable_component("feed_forward",
                                                           feed_forward,
@@ -521,8 +524,8 @@ class SAAMSeqTransducer(transducers.SeqTransducer, Serializable):
       self.positional_embedder = \
         self.add_serializable_component("positional_embedder",
                                         positional_embedder,
-                                        lambda: positional.PositionEmbedder(max_pos=self.max_len,
-                                                                          emb_dim=input_dim if self.pos_encoding_combine == "add" else self.pos_encoding_size))
+                                        lambda: embedders.PositionEmbedder(max_pos=self.max_len,
+                                                                           emb_dim=input_dim if self.pos_encoding_combine == "add" else self.pos_encoding_size))
 
     self.modules = self.add_serializable_component("modules", modules,
                                                    lambda: self.make_modules(layers=layers,

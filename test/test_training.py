@@ -11,14 +11,14 @@ from xnmt.embedders import SimpleWordEmbedder
 from xnmt.eval_tasks import LossEvalTask
 import xnmt.events
 from xnmt.input_readers import PlainTextReader
-from xnmt.recurrent_transducers import UniLSTMSeqTransducer, BiLSTMSeqTransducer
+from transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculators import AutoRegressiveMLELoss
 from xnmt.optimizers import AdamTrainer, DummyTrainer
 from xnmt.param_collections import ParamManager
-from xnmt.pyramidal import PyramidalLSTMSeqTransducer
+from transducers.pyramidal import PyramidalLSTMSeqTransducer
 from xnmt import training_regimens
 from xnmt.transforms import NonLinear
-from xnmt.translators import DefaultTranslator
+from models.translators import DefaultTranslator
 from xnmt.scorers import Softmax
 from xnmt.vocabs import Vocab
 from xnmt import sent

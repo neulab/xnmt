@@ -1,9 +1,7 @@
 import argparse
 import sys
-from typing import Any, Sequence, Union
 
 from xnmt import eval_metrics
-from xnmt import logger
 from xnmt import inferences
 
 from xnmt.eval_metrics import *  # import everything so we can parse it with eval()

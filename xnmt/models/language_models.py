@@ -1,10 +1,13 @@
 import dynet as dy
 import numpy as np
 
-from xnmt import batchers, embedders, events, input_readers, losses, recurrent_transducers, model_base, scorers, transducers, transforms
+from xnmt import batchers, embedders, events, input_readers, losses, scorers, transforms
+from xnmt.models import base as models
+from xnmt.transducers import base as transducers
+from xnmt.transducers import recurrent
 from xnmt.persistence import serializable_init, Serializable, bare
 
-class LanguageModel(model_base.ConditionedModel, model_base.EventTrigger, Serializable):
+class LanguageModel(models.ConditionedModel, models.EventTrigger, Serializable):
   """
   A simple unidirectional language model predicting the next token.
 
@@ -23,7 +26,7 @@ class LanguageModel(model_base.ConditionedModel, model_base.EventTrigger, Serial
   def __init__(self,
                src_reader:input_readers.InputReader,
                src_embedder:embedders.Embedder=bare(embedders.SimpleWordEmbedder),
-               rnn:transducers.SeqTransducer=bare(recurrent_transducers.UniLSTMSeqTransducer),
+               rnn:transducers.SeqTransducer=bare(recurrent.UniLSTMSeqTransducer),
                transform:transforms.Transform=bare(transforms.NonLinear),
                scorer:scorers.Scorer=bare(scorers.Softmax)):
     super().__init__(src_reader=src_reader, trg_reader=src_reader)

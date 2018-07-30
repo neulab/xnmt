@@ -3,7 +3,6 @@ import unittest
 #import dynet_config
 #dynet_config.set(random_seed=3)
 
-import dynet as dy
 import numpy
 import random
 
@@ -15,8 +14,8 @@ import xnmt.events
 from xnmt import batchers
 from xnmt.input_readers import PlainTextReader
 from xnmt.input_readers import CharFromWordTextReader
-from xnmt.recurrent_transducers import UniLSTMSeqTransducer
-from xnmt.translators import DefaultTranslator
+from transducers.recurrent import UniLSTMSeqTransducer
+from models.translators import DefaultTranslator
 from xnmt.loss_calculators import AutoRegressiveMLELoss
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *

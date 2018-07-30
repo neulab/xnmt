@@ -1,12 +1,14 @@
 import dynet as dy
 import numpy as np
 
-from xnmt import attenders, batchers, embedders, events, inferences, input_readers, losses, recurrent_transducers, \
-  model_base, reports, scorers, sent, transducers, transforms, vocabs
+from xnmt import attenders, batchers, embedders, events, inferences, input_readers, losses, reports, scorers, sent, \
+  transforms, vocabs
+from xnmt.models import base as models
+from xnmt.transducers import recurrent, base as transducers
 from xnmt.persistence import serializable_init, Serializable, bare
 
-class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Serializable, reports.Reportable,
-                 model_base.EventTrigger):
+class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, reports.Reportable,
+                 models.EventTrigger):
   """
   A simple sequence labeler based on an encoder and an output softmax layer.
 
@@ -30,7 +32,7 @@ class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Seriali
                src_reader:input_readers.InputReader,
                trg_reader:input_readers.InputReader,
                src_embedder:embedders.Embedder=bare(embedders.SimpleWordEmbedder),
-               encoder:transducers.SeqTransducer=bare(recurrent_transducers.BiLSTMSeqTransducer),
+               encoder:transducers.SeqTransducer=bare(recurrent.BiLSTMSeqTransducer),
                transform:transforms.Transform=bare(transforms.NonLinear),
                scorer:scorers.Scorer=bare(scorers.Softmax),
                inference:inferences.Inference=bare(inferences.IndependentOutputInference),

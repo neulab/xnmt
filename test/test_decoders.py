@@ -1,6 +1,5 @@
 import unittest
 
-import dynet_config
 import dynet as dy
 
 from xnmt.attenders import MlpAttender
@@ -10,10 +9,10 @@ from xnmt.decoders import AutoRegressiveDecoder
 from xnmt.embedders import SimpleWordEmbedder
 from xnmt.input_readers import PlainTextReader
 from xnmt.loss_calculators import AutoRegressiveMLELoss
-from xnmt.recurrent_transducers import UniLSTMSeqTransducer, BiLSTMSeqTransducer
+from transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.param_collections import ParamManager
 from xnmt.transforms import NonLinear
-from xnmt.translators import DefaultTranslator
+from models.translators import DefaultTranslator
 from xnmt.scorers import Softmax
 from xnmt.search_strategies import GreedySearch
 from xnmt.vocabs import Vocab
