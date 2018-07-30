@@ -14,7 +14,7 @@ from xnmt.embedder import SimpleWordEmbedder
 import xnmt.events
 import xnmt.batcher
 from xnmt.input_reader import PlainTextReader
-from specialized_encoders.segmenting_encoder.reader import CharFromWordTextReader
+from xnmt.input_reader import CharFromWordTextReader
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.translator import DefaultTranslator
 from xnmt.loss_calculator import AutoRegressiveMLELoss

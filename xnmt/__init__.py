@@ -49,7 +49,6 @@ import xnmt.scorer
 import xnmt.self_attention
 import xnmt.seq_labeler
 import xnmt.specialized_encoders.segmenting_encoder
-import xnmt.specialized_encoders.segmenting_encoder.reader
 import xnmt.specialized_encoders.self_attentional_am
 import xnmt.specialized_encoders.tilburg_harwath
 import xnmt.training_regimen
