@@ -12,9 +12,9 @@ from xnmt.bridges import CopyBridge
 from xnmt.decoders import AutoRegressiveDecoder
 from xnmt.embedders import SimpleWordEmbedder
 import xnmt.events
-import xnmt.batchers
-
-from xnmt.input_readers import PlainTextReader, CharFromWordTextReader
+from xnmt import batchers
+from xnmt.input_readers import PlainTextReader
+from xnmt.input_readers import CharFromWordTextReader
 from xnmt.recurrent_transducers import UniLSTMSeqTransducer
 from xnmt.translators import DefaultTranslator
 from xnmt.loss_calculators import AutoRegressiveMLELoss
@@ -24,7 +24,6 @@ from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLen
 from xnmt.specialized_encoders.segmenting_encoder.priors import PoissonPrior, GoldInputPrior
 from xnmt.transforms import AuxNonLinear, Linear
 from xnmt.scorers import Softmax
-from xnmt.transducers import IdentitySeqTransducer
 from xnmt.vocabs import Vocab
 from xnmt.rl.policy_gradient import PolicyGradient
 from xnmt.rl.eps_greedy import EpsilonGreedy
@@ -90,7 +89,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.layer_dim = layer_dim
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
-    my_batcher = xnmt.batchers.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
+    my_batcher = batchers.TrgBatcher(batch_size=3)
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
     dy.renew_cg(immediate_compute=True, check_validity=True)
 
@@ -213,7 +212,7 @@ class TestComposing(unittest.TestCase):
     self.layer_dim = layer_dim
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
-    my_batcher = xnmt.batchers.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
+    my_batcher = batchers.TrgBatcher(batch_size=3)
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
     dy.renew_cg(immediate_compute=True, check_validity=True)
 

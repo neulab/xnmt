@@ -12,7 +12,7 @@ from xnmt.loss_calculators import LossCalculator, AutoRegressiveMLELoss
 from xnmt.eval_metrics import LossScore
 from xnmt.losses import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate
-from xnmt import utils
+from xnmt import events, reports, utils
 
 class EvalTask(object):
   """
@@ -97,7 +97,7 @@ class LossEvalTask(EvalTask, Serializable):
     except KeyError:
       raise RuntimeError("Did you wrap your loss calculation with FactoredLossExpr({'primary_loss': loss_value}) ?")
 
-class AccuracyEvalTask(EvalTask, Serializable):
+class AccuracyEvalTask(EvalTask, reports.Reportable, Serializable):
   """
   A task that does evaluation of some measure of accuracy.
 
@@ -114,6 +114,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
   yaml_tag = '!AccuracyEvalTask'
 
   @serializable_init
+  @events.register_xnmt_handler
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: 'model_base.GeneratorModel' = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
                inference: Optional['infererences.Inference'] = None, desc: Any = None):
@@ -130,10 +131,10 @@ class AccuracyEvalTask(EvalTask, Serializable):
 
   def eval(self):
     self.model.set_train(False)
+    self.report_corpus_info({"ref_file":self.ref_file})
     self.inference.perform_inference(generator=self.model,
                                      src_file=self.src_file,
-                                     trg_file=self.hyp_file,
-                                     ref_file_to_report=self.ref_file)
+                                     trg_file=self.hyp_file)
     # Evaluate
     eval_scores = xnmt.xnmt_evaluate.xnmt_evaluate(hyp_file=self.hyp_file, ref_file=self.ref_file, desc=self.desc,
                                                    evaluators=self.eval_metrics)

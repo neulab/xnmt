@@ -67,6 +67,7 @@ def plot_speech_features(feature_matrix, file_name=None, vertical = True, ax=Non
     vertical: if True, the time dimension will be projected onto the y axis, otherwise the x axis
     ax: if given, draw on this matplotlib axis; otherwise create a new figure
     length: figure length (if ax is not given)
+    dpi: plot resolution
   """
   if not ax:
     plt.subplots(figsize=(1.0, length))

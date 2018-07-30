@@ -9,7 +9,6 @@ exp1-multi_task_exp: !Experiment
       name: first_task
       run_for_epochs: 6
       batcher: !SrcBatcher
-        src_pad_token: ~
         pad_src_to_multiple: 4
         batch_size: 6 # batch size is twice as big as for task 2, which will give task 1 more impact during training
       src_file: examples/data/LDC94S13A.h5
@@ -48,7 +47,6 @@ exp1-multi_task_exp: !Experiment
         inference: !AutoRegressiveInference
           batcher: !InOrderBatcher
             _xnmt_id: inference_batcher
-            src_pad_token: ~
             pad_src_to_multiple: 4
             batch_size: 1
       dev_tasks:
@@ -61,7 +59,6 @@ exp1-multi_task_exp: !Experiment
     - !SimpleTrainingTask
       name: second_task
       batcher: !SrcBatcher
-        src_pad_token: ~
         batch_size: 3
         pad_src_to_multiple: 4
       src_file: examples/data/LDC94S13A.h5
