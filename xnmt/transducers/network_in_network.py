@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 import dynet as dy
 
@@ -120,9 +122,18 @@ class NinTransducer(base.SeqTransducer, Serializable):
       nonlin = self.nonlinearity(bn_layer)
     else:
       nonlin = self.nonlinearity(projected)
+
+    self._final_states = [base.FinalTransducerState(nonlin[-1])]
+
     return expression_seqs.ExpressionSequence(expr_tensor=nonlin, mask=mask_out)
+
+  def get_final_states(self) -> List[base.FinalTransducerState]:
+    return self._final_states
 
   @events.handle_xnmt_event
   def on_set_train(self, val):
     self.train = val
 
+  @events.handle_xnmt_event
+  def on_start_sent(self, *args, **kwargs):
+    self._final_states = None
