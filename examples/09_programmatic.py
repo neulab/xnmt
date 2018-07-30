@@ -25,7 +25,7 @@ from xnmt.decoders import AutoRegressiveDecoder
 from xnmt.embedders import SimpleWordEmbedder
 from xnmt.eval_tasks import LossEvalTask, AccuracyEvalTask
 from xnmt.experiments import Experiment
-from xnmt.infererences import AutoRegressiveInference
+from xnmt.inferences import AutoRegressiveInference
 from xnmt.input_readers import PlainTextReader
 from xnmt.recurrent_transducers import BiLSTMSeqTransducer, UniLSTMSeqTransducer
 from xnmt.transforms import AuxNonLinear

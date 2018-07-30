@@ -55,7 +55,7 @@ by the directory the config file lies in, ``{PID}`` by the process id, and
 ``{GIT_REV}`` by the current git revision.
 
 To obtain a full list of allowed parameters, please check the documentation for
-:ref:`ExpGlobal <mod-exp_global>`.
+:ref:`ExpGlobal <mod-experiments>`.
 
 Preprocessing
 =============
