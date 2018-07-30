@@ -57,16 +57,18 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     single_loss = 0.0
     for sent_id in range(batch_size):
       dy.renew_cg()
-      train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
-                                   trg=trg_sents_trunc[sent_id],
-                                   loss_calculator=MLELoss()).value()
+      train_loss = MLELoss().calc_loss(
+                                   model=model,
+                                   src=src_sents_trunc[sent_id],
+                                   trg=trg_sents_trunc[sent_id]).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
-    batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
-                                   trg=mark_as_batch(trg_sents_trunc),
-                                   loss_calculator=MLELoss()).value()
+    batched_loss = MLELoss().calc_loss(
+                                   model=model,
+                                   src=mark_as_batch(src_sents_trunc),
+                                   trg=mark_as_batch(trg_sents_trunc)).value()
     self.assertAlmostEqual(single_loss, np.sum(batched_loss), places=4)
 
   def test_loss_model1(self):
@@ -196,16 +198,18 @@ class TestBatchTraining(unittest.TestCase):
     single_loss = 0.0
     for sent_id in range(batch_size):
       dy.renew_cg()
-      train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
-                                   trg=trg_sents[sent_id],
-                                   loss_calculator=MLELoss()).value()
+      train_loss = MLELoss().calc_loss(
+                                   model=model,
+                                   src=src_sents_trunc[sent_id],
+                                   trg=trg_sents[sent_id]).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
-    batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
-                                   trg=mark_as_batch(trg_sents_padded, trg_masks),
-                                   loss_calculator=MLELoss()).value()
+    batched_loss = MLELoss().calc_loss(
+                                   model=model,
+                                   src=mark_as_batch(src_sents_trunc),
+                                   trg=mark_as_batch(trg_sents_padded, trg_masks)).value()
     self.assertAlmostEqual(single_loss, np.sum(batched_loss), places=4)
 
   def test_loss_model1(self):

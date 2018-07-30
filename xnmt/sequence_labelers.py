@@ -61,7 +61,7 @@ class SeqLabeler(model_base.ConditionedModel, model_base.GeneratorModel, Seriali
     return batch_size, encodings, outputs, seq_len
 
   def calc_nll(self, src, trg):
-    assert batchers.is_batched(src) and batcher.is_batched(trg)
+    assert batchers.is_batched(src) and batchers.is_batched(trg)
     batch_size, encodings, outputs, seq_len = self._encode_src(src)
 
     if trg.sent_len() != seq_len:

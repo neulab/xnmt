@@ -60,4 +60,4 @@ class LanguageModel(model_base.ConditionedModel, model_base.EventTrigger, Serial
       loss_expr_perstep = dy.cmult(loss_expr_perstep, dy.inputTensor(1.0-src_targets.mask.np_arr.T, batched=True))
     loss = dy.sum_elems(loss_expr_perstep)
 
-    return loss_expr
+    return loss
