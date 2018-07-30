@@ -1,48 +1,11 @@
 from typing import List
 
-import numpy as np
 import dynet as dy
 
 from xnmt.transducers import base
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
-from xnmt import batchers, events, expression_seqs, norms, param_collections, param_initializers
+from xnmt import events, expression_seqs, norms, param_collections, param_initializers
 
-
-class TimePadder(object):
-  """
-  Pads ExpressionSequence along time axis.
-
-  Args:
-    mode: ``zero`` or ``repeat_last``
-  """
-
-  def __init__(self, mode: str = "zero") -> None:
-    self.mode = mode
-
-  def __call__(self, es: expression_seqs.ExpressionSequence, pad_len: int) -> expression_seqs.ExpressionSequence:
-    """
-    Args:
-      es: ExpressionSequence
-      pad_len: how much to pad
-    Return:
-      expression sequence with padded items indicated as masked
-    """
-    single_pad_dim = list(es.dim()[0])[:-1]
-    batch_size = es.dim()[1]
-    if self.mode == "zero":
-      single_pad = dy.zeros(tuple(single_pad_dim), batch_size=batch_size)
-    elif self.mode == "repeat_last":
-      single_pad = es[-1]
-    mask = es.mask
-    if mask is not None:
-      mask_dim = (mask.np_arr.shape[0], pad_len)
-      mask = batchers.Mask(np.append(mask.np_arr, np.ones(mask_dim), axis=1))
-    if es.has_list():
-      es_list = es.as_list()
-      es_list.extend([single_pad] * pad_len)
-      return expression_seqs.ExpressionSequence(expr_list=es_list, mask=mask)
-    else:
-      raise NotImplementedError("tensor padding not implemented yet")
 
 
 class NinTransducer(base.SeqTransducer, Serializable):
@@ -70,7 +33,6 @@ class NinTransducer(base.SeqTransducer, Serializable):
     else:
       self.nonlinearity = getattr(dy, nonlinearity)
     self.downsampling_factor = downsampling_factor
-    self.timePadder = TimePadder(mode="zero")
     if downsampling_factor < 1: raise ValueError("downsampling_factor must be >= 1")
     if use_proj:
       dim_proj = (hidden_dim, input_dim * downsampling_factor)
