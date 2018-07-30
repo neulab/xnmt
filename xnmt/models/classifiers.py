@@ -1,10 +1,15 @@
 import numpy as np
 
-from xnmt import batchers, embedders, inferences, input_readers, losses, recurrent_transducers, model_base, scorers, \
-  sent, transducers, transforms
+from xnmt import batchers, inferences, input_readers, losses, sent
+from xnmt.modelparts import transforms
+from xnmt.modelparts import scorers
+from xnmt.modelparts import embedders
+from xnmt.transducers import recurrent
+from xnmt.transducers import base as transducers
+from xnmt.models import base as models
 from xnmt.persistence import serializable_init, Serializable, bare
 
-class SequenceClassifier(model_base.ConditionedModel, model_base.GeneratorModel, Serializable, model_base.EventTrigger):
+class SequenceClassifier(models.ConditionedModel, models.GeneratorModel, Serializable, models.EventTrigger):
   """
   A sequence classifier.
 
@@ -27,7 +32,7 @@ class SequenceClassifier(model_base.ConditionedModel, model_base.GeneratorModel,
                src_reader: input_readers.InputReader,
                trg_reader: input_readers.InputReader,
                src_embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder),
-               encoder: transducers.SeqTransducer = bare(recurrent_transducers.BiLSTMSeqTransducer),
+               encoder: transducers.SeqTransducer = bare(recurrent.BiLSTMSeqTransducer),
                inference=bare(inferences.IndependentOutputInference),
                transform: transforms.Transform = bare(transforms.NonLinear),
                scorer: scorers.Scorer = bare(scorers.Softmax)):

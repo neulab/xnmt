@@ -8,7 +8,7 @@ from xnmt.expression_seqs import ExpressionSequence
 from xnmt.param_collections import ParamManager
 from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt.transducers import SeqTransducer, FinalTransducerState
+from xnmt.transducers.base import SeqTransducer, FinalTransducerState
 
 class MultiHeadAttentionSeqTransducer(SeqTransducer, Serializable):
   """

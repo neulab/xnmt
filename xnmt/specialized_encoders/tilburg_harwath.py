@@ -3,7 +3,7 @@ import dynet as dy
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import Serializable, serializable_init
-from xnmt.transducers import SeqTransducer
+from xnmt.transducers.base import SeqTransducer
 
 # This is a file for specialized encoders that implement a particular model
 # Ideally, these will eventually be refactored to use standard components and the ModularSeqTransducer framework,

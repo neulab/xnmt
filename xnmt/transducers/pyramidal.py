@@ -1,11 +1,11 @@
 import dynet as dy
 from typing import List
 
-from xnmt.recurrent_transducers import UniLSTMSeqTransducer
+from xnmt.transducers.recurrent import UniLSTMSeqTransducer
 from xnmt.expression_seqs import ExpressionSequence, ReversedExpressionSequence
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.transducers import SeqTransducer, FinalTransducerState
+from xnmt.transducers.base import SeqTransducer, FinalTransducerState
 
 
 class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):

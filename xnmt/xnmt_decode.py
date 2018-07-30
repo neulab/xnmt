@@ -1,11 +1,13 @@
 import argparse, os, sys
 
-from xnmt import eval_tasks
+from xnmt.eval import tasks
 from xnmt import param_collections
 from xnmt import persistence
+from xnmt import utils
 
 def main():
   parser = argparse.ArgumentParser()
+  utils.add_dynet_argparse(parser)
   parser.add_argument("--src", help=f"Path of source file to read from.", required=True)
   parser.add_argument("--hyp", help="Path of file to write hypothesis to.", required=True)
   parser.add_argument("--mod", help="Path of model file to read.", required=True)
@@ -25,7 +27,7 @@ def main():
   inference = model.inference
   param_collections.ParamManager.populate()
 
-  decoding_task = eval_tasks.DecodingEvalTask(args.src, args.hyp, model, inference)
+  decoding_task = tasks.DecodingEvalTask(args.src, args.hyp, model, inference)
   decoding_task.eval()
 
 if __name__ == "__main__":

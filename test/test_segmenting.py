@@ -3,32 +3,31 @@ import unittest
 #import dynet_config
 #dynet_config.set(random_seed=3)
 
-import dynet as dy
 import numpy
 import random
 
-from xnmt.attenders import MlpAttender
-from xnmt.bridges import CopyBridge
-from xnmt.decoders import AutoRegressiveDecoder
-from xnmt.embedders import SimpleWordEmbedder
+from xnmt.modelparts.attenders import MlpAttender
+from xnmt.modelparts.bridges import CopyBridge
+from xnmt.modelparts.decoders import AutoRegressiveDecoder
+from xnmt.modelparts.embedders import SimpleWordEmbedder
 import xnmt.events
 from xnmt import batchers
 from xnmt.input_readers import PlainTextReader
 from xnmt.input_readers import CharFromWordTextReader
-from xnmt.recurrent_transducers import UniLSTMSeqTransducer
-from xnmt.translators import DefaultTranslator
+from xnmt.transducers.recurrent import UniLSTMSeqTransducer
+from xnmt.models.translators import DefaultTranslator
 from xnmt.loss_calculators import AutoRegressiveMLELoss
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
 from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLengthPrior
 from xnmt.specialized_encoders.segmenting_encoder.priors import PoissonPrior, GoldInputPrior
-from xnmt.transforms import AuxNonLinear, Linear
-from xnmt.scorers import Softmax
+from xnmt.modelparts.transforms import AuxNonLinear, Linear
+from xnmt.modelparts.scorers import Softmax
 from xnmt.vocabs import Vocab
 from xnmt.rl.policy_gradient import PolicyGradient
 from xnmt.rl.eps_greedy import EpsilonGreedy
 from xnmt.rl.confidence_penalty import ConfidencePenalty
-from xnmt.test.utils import has_cython
+from test.utils import has_cython
 
 class TestSegmentingEncoder(unittest.TestCase):
   

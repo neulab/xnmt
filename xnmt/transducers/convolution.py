@@ -4,7 +4,7 @@ from typing import List
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import Serializable, serializable_init
-from xnmt.transducers import SeqTransducer, FinalTransducerState
+from xnmt.transducers.base import SeqTransducer, FinalTransducerState
 
 class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!ConvConnectedSeqTransducer'

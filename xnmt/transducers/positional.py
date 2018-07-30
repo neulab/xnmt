@@ -1,36 +1,12 @@
 import dynet as dy
 from typing import List
 
-from xnmt.embedders import Embedder
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.param_collections import ParamManager
 from xnmt.param_initializers import ParamInitializer, GlorotInitializer
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt.transducers import SeqTransducer, FinalTransducerState
+from xnmt.transducers.base import SeqTransducer, FinalTransducerState
 
-class PositionEmbedder(Embedder, Serializable):
-
-  yaml_tag = '!PositionEmbedder'
-
-  @serializable_init
-  def __init__(self, max_pos: int, emb_dim: int = Ref("exp_global.default_layer_dim"),
-               param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer))):
-    """
-    max_pos: largest embedded position
-    emb_dim: embedding size
-    param_init: how to initialize embedding matrix
-    """
-    self.max_pos = max_pos
-    self.emb_dim = emb_dim
-    param_collection = ParamManager.my_params(self)
-    param_init = param_init
-    dim = (self.emb_dim, max_pos)
-    self.embeddings = param_collection.add_parameters(dim, init=param_init.initializer(dim, is_lookup=True))
-
-  def embed(self, word): raise NotImplementedError("Position-embedding for individual words not implemented yet.")
-  def embed_sent(self, sent_len):
-    embeddings = dy.strided_select(dy.parameter(self.embeddings), [1,1], [0,0], [self.emb_dim, sent_len])
-    return ExpressionSequence(expr_tensor=embeddings, mask=None)
 
 # Note: alternatively, this could wrap "PositionEmbedder", but it seems to me
 #       that PositionEmbedder is probably not necessary in the first place, so

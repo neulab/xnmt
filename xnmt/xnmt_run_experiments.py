@@ -21,8 +21,9 @@ from xnmt.settings import settings
 from xnmt import logger, file_logger
 from xnmt.tee import log_preamble
 from xnmt.param_collections import ParamManager
-import xnmt.tee as tee
+from xnmt import tee
 from xnmt.persistence import YamlPreloader, save_to_file, initialize_if_needed
+from xnmt import utils
 
 if settings.RESOURCE_WARNINGS:
   import warnings
@@ -32,16 +33,7 @@ def main(overwrite_args=None):
 
   with tee.Tee(), tee.Tee(error=True):
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("--dynet-mem", type=str)
-    argparser.add_argument("--dynet-seed", type=int, help="set random seed for DyNet and XNMT.")
-    argparser.add_argument("--dynet-autobatch", type=int)
-    argparser.add_argument("--dynet-devices", type=str)
-    argparser.add_argument("--dynet-viz", action='store_true', help="use visualization")
-    argparser.add_argument("--dynet-gpu", action='store_true', help="use GPU acceleration")
-    argparser.add_argument("--dynet-gpu-ids", type=int)
-    argparser.add_argument("--dynet-gpus", type=int)
-    argparser.add_argument("--dynet-weight-decay", type=float)
-    argparser.add_argument("--dynet-profiling", type=int)
+    utils.add_dynet_argparse(argparser)
     argparser.add_argument("--settings", type=str, default="standard", help="settings (standard, debug, or unittest)"
                                                                             "must be given in '=' syntax, e.g."
                                                                             " --settings=standard")

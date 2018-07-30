@@ -6,12 +6,15 @@ from xnmt.settings import settings
 import numpy as np
 import dynet as dy
 
-from xnmt.model_base import ConditionedModel
+from xnmt.models.base import ConditionedModel
 from xnmt.loss_trackers import TrainLossTracker
 from xnmt.loss_calculators import LossCalculator, AutoRegressiveMLELoss
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt import training_tasks, optimizers, batchers, eval_tasks, utils
+from xnmt import optimizers, batchers, utils
+from xnmt.eval import tasks as eval_tasks
+from xnmt.train import tasks as train_tasks
+
 
 class TrainingRegimen(object):
   """
@@ -47,7 +50,7 @@ class TrainingRegimen(object):
     """
     trainer.update()
 
-class SimpleTrainingRegimen(training_tasks.SimpleTrainingTask, TrainingRegimen, Serializable):
+class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Serializable):
   """
   Args:
     model: the model
@@ -181,7 +184,7 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     commandline_args:
   """
   def __init__(self,
-               tasks: Sequence[training_tasks.TrainingTask],
+               tasks: Sequence[train_tasks.TrainingTask],
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
                update_every: int = 1,
@@ -252,7 +255,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
 
   @serializable_init
   def __init__(self,
-               tasks: Sequence[training_tasks.TrainingTask],
+               tasks: Sequence[train_tasks.TrainingTask],
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
                per_task_backward: bool = True,
@@ -342,7 +345,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
 
   @serializable_init
   def __init__(self,
-               tasks: Sequence[training_tasks.TrainingTask],
+               tasks: Sequence[train_tasks.TrainingTask],
                task_weights: Optional[Sequence[float]] = None,
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
@@ -412,7 +415,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
 
   @serializable_init
   def __init__(self,
-               tasks: Sequence[training_tasks.TrainingTask],
+               tasks: Sequence[train_tasks.TrainingTask],
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),

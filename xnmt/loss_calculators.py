@@ -8,8 +8,10 @@ from xnmt.persistence import serializable_init, Serializable, Ref
 
 from xnmt import sent
 from xnmt.vocabs import Vocab
-from xnmt.transforms import Linear
-from xnmt import batchers, eval_metrics
+from xnmt.modelparts.transforms import Linear
+from xnmt import batchers
+from xnmt.eval import metrics
+
 
 class LossCalculator(object):
   """
@@ -98,7 +100,7 @@ class ReinforceLoss(Serializable, LossCalculator):
     self.use_baseline = use_baseline
     self.inv_eval = inv_eval
     if evaluation_metric is None:
-      self.evaluation_metric = eval_metrics.FastBLEUEvaluator(ngram=4, smooth=1)
+      self.evaluation_metric = metrics.FastBLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
 
@@ -150,7 +152,7 @@ class MinRiskLoss(Serializable, LossCalculator):
     # Samples
     self.alpha = alpha
     if evaluation_metric is None:
-      self.evaluation_metric = eval_metrics.FastBLEUEvaluator(ngram=4, smooth=1)
+      self.evaluation_metric = metrics.FastBLEUEvaluator(ngram=4, smooth=1)
     else:
       self.evaluation_metric = evaluation_metric
     self.inv_eval = inv_eval

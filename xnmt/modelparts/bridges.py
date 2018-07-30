@@ -2,7 +2,7 @@ import dynet as dy
 
 from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.transforms import Linear
+from xnmt.modelparts.transforms import Linear
 
 class Bridge(object):
   """

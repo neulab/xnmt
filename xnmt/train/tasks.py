@@ -4,8 +4,10 @@ import random
 import numpy as np
 from typing import Optional, Sequence, Union
 
-from xnmt import batchers, eval_tasks, events, model_base, input_readers, logger, losses, loss_trackers, loss_calculators,\
+from xnmt import batchers, events, input_readers, logger, losses, loss_trackers, loss_calculators,\
   param_collections
+from xnmt.models import base as model_base
+from xnmt.eval import tasks as eval_tasks
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class TrainingTask(object):
@@ -109,7 +111,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                run_for_epochs: Optional[int] = None,
                lr_decay: float = 1.0, lr_decay_times: int = 3,
                patience: int = 1, initial_patience: Optional[int] = None,
-               dev_tasks: Sequence[eval_tasks.EvalTask] = None, dev_combinator=None,
+               dev_tasks: Sequence['eval_tasks.EvalTask'] = None, dev_combinator=None,
                restart_trainer: bool = False,
                reload_command: Optional[str] = None,
                name: Optional[str] = None,
