@@ -148,6 +148,27 @@ class Mask(object):
     x = [np.nonzero(1-arr)[0] for arr in np_arr]
     return x
 
+  def set_masked_to_mean(self, tensor_expr, time_first=False):
+    """
+    Set masked parts of the tensor expr to the mean of the unmasked parts.
+    """
+    if np.count_nonzero(self.np_arr) == 0:
+      return tensor_expr
+    else:
+      dim_before = tensor_expr.dim()
+      reshape_size = self.mask_reshape_size(tensor_expr.dim(), time_first)
+      inv_mask_expr = dy.inputTensor(1.0 - np.reshape(self.np_arr.transpose(), reshape_size), batched=True)
+      unmasked = dy.cmult(tensor_expr, inv_mask_expr)
+      unmasked_mean = unmasked
+      while sum(unmasked_mean.dim()[0]) > 1: # loop because mean_dim only supports reducing up to 2 dimensions at a time
+        unmasked_mean = dy.mean_dim(unmasked_mean, list(range(min(2,len(unmasked_mean.dim()[0])))), unmasked_mean.dim()[1]>1, n=1) # this is mean without normalization == sum
+      unmasked_mean = dy.cdiv(unmasked_mean, dy.inputTensor(np.asarray([(self.np_arr.size - np.count_nonzero(self.np_arr)) * self.broadcast_factor(tensor_expr)]), batched=False))
+      mask_expr = dy.cmult(dy.inputTensor(np.reshape(self.np_arr.transpose(), reshape_size), batched=True), unmasked_mean)
+      ret = unmasked + mask_expr
+      assert ret.dim() == dim_before
+      return ret
+
+
 class Batcher(object):
   """
   A template class to convert a list of sentences to several batches of sentences.
