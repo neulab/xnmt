@@ -6,6 +6,7 @@ from xnmt.settings import settings
 from xnmt.batchers import Batcher
 from xnmt.eval.metrics import Evaluator, EvalScore
 from xnmt import inferences, input_readers
+from xnmt.models import base as model_base
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.loss_calculators import LossCalculator, AutoRegressiveMLELoss
 from xnmt.eval.metrics import LossScore

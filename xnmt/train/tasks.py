@@ -6,6 +6,8 @@ from typing import Optional, Sequence, Union
 
 from xnmt import batchers, events, input_readers, logger, losses, loss_trackers, loss_calculators,\
   param_collections
+from xnmt.models import base as model_base
+from xnmt.eval import tasks as eval_tasks
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class TrainingTask(object):
