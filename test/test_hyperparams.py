@@ -8,8 +8,8 @@ from xnmt.embedders import SimpleWordEmbedder
 from xnmt.eval_tasks import LossEvalTask
 from xnmt import events
 from xnmt.input_readers import PlainTextReader
-from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calc import AutoRegressiveMLELoss
+from xnmt.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
+from xnmt.loss_calculators import AutoRegressiveMLELoss
 from xnmt.optimizers import AdamTrainer
 from xnmt.param_collections import ParamManager
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer

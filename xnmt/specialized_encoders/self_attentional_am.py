@@ -26,7 +26,7 @@ import numpy as np
 import dynet as dy
 
 import xnmt.param_initializers
-from xnmt import transforms, norms, embedders, events, lstm, param_collections, positional, transducers
+from xnmt import transforms, norms, embedders, events, recurrent, param_collections, positional, transducers
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.persistence import Serializable, serializable_init, Ref, bare
 
@@ -411,12 +411,12 @@ class TransformerEncoderLayer(Serializable):
     if ff_lstm:
       self.feed_forward = self.add_serializable_component("feed_forward",
                                                           feed_forward,
-                                                          lambda: lstm.BiLSTMSeqTransducer(layers=1,
-                                                                                           input_dim=hidden_dim,
-                                                                                           hidden_dim=hidden_dim,
-                                                                                           dropout=dropout,
-                                                                                           param_init=param_init,
-                                                                                           bias_init=bias_init))
+                                                          lambda: recurrent.BiLSTMSeqTransducer(layers=1,
+                                                                                                input_dim=hidden_dim,
+                                                                                                hidden_dim=hidden_dim,
+                                                                                                dropout=dropout,
+                                                                                                param_init=param_init,
+                                                                                                bias_init=bias_init))
     else:
       self.feed_forward = self.add_serializable_component("feed_forward",
                                                           feed_forward,

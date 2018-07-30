@@ -13,7 +13,7 @@ from xnmt.transducers import SeqTransducer, FinalTransducerState, IdentitySeqTra
 from xnmt.losses import FactoredLossExpr
 from xnmt.specialized_encoders.segmenting_encoder.priors import GoldInputPrior
 from xnmt.reports import Reportable
-from xnmt.lstm import BiLSTMSeqTransducer
+from xnmt.recurrent import BiLSTMSeqTransducer
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer
 from xnmt.expression_seqs import CompoundSeqExpression
 

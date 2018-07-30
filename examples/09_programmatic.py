@@ -27,7 +27,7 @@ from xnmt.eval_tasks import LossEvalTask, AccuracyEvalTask
 from xnmt.experiments import Experiment
 from xnmt.infererences import AutoRegressiveInference
 from xnmt.input_readers import PlainTextReader
-from xnmt.lstm import BiLSTMSeqTransducer, UniLSTMSeqTransducer
+from xnmt.recurrent import BiLSTMSeqTransducer, UniLSTMSeqTransducer
 from xnmt.transforms import AuxNonLinear
 from xnmt.scorers import Softmax
 from xnmt.optimizers import AdamTrainer

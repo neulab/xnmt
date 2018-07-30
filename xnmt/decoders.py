@@ -4,7 +4,7 @@ import dynet as dy
 
 from xnmt import batchers
 from xnmt.bridges import Bridge, CopyBridge
-from xnmt.lstm import UniLSTMSeqTransducer
+from xnmt.recurrent import UniLSTMSeqTransducer
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 from xnmt.transforms import AuxNonLinear, Transform

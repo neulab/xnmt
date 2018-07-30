@@ -6,8 +6,8 @@ from xnmt.settings import settings
 import dynet as dy
 
 import xnmt.batchers
-from xnmt import events, losses, loss_calc, model_base, output, reports, search_strategies, utils
-from xnmt import logger, losses, loss_calc, model_base, output, reports, search_strategies, utils
+from xnmt import events, losses, loss_calculators, model_base, output, reports, search_strategies, utils
+from xnmt import logger, losses, loss_calculators, model_base, output, reports, search_strategies, utils
 from xnmt.persistence import serializable_init, Serializable, bare
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
@@ -265,7 +265,7 @@ class IndependentOutputInference(Inference, Serializable):
 
   def compute_losses_one(self, generator: 'model_base.GeneratorModel', src: xnmt.input.Input,
                          ref: xnmt.input.Input) -> losses.FactoredLossExpr:
-    loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calc.AutoRegressiveMLELoss())
+    loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calculators.AutoRegressiveMLELoss())
     return loss_expr
 
 class AutoRegressiveInference(Inference, Serializable):
@@ -316,7 +316,7 @@ class AutoRegressiveInference(Inference, Serializable):
 
   def compute_losses_one(self, generator: 'model_base.GeneratorModel', src: xnmt.input.Input,
                          ref: xnmt.input.Input) -> losses.FactoredLossExpr:
-    loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calc.AutoRegressiveMLELoss())
+    loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calculators.AutoRegressiveMLELoss())
     return loss_expr
 
 class CascadeInference(Inference, Serializable):

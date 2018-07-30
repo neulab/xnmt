@@ -8,7 +8,7 @@ from xnmt.batchers import Batcher
 from xnmt.eval_metrics import Evaluator
 from xnmt import infererences, input_readers, model_base
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.loss_calc import LossCalculator, AutoRegressiveMLELoss
+from xnmt.loss_calculators import LossCalculator, AutoRegressiveMLELoss
 from xnmt.eval_metrics import LossScore
 from xnmt.losses import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate

@@ -1,7 +1,7 @@
 from typing import Optional, Sequence, Union
 
 from xnmt import batchers, events, input_readers, losses, output, training_tasks
-from xnmt import loss_calc
+from xnmt import loss_calculators
 import xnmt.input
 from xnmt.persistence import Serializable, serializable_init
 
@@ -66,7 +66,7 @@ class ConditionedModel(TrainableModel):
     self.trg_reader = trg_reader
 
   def calc_loss(self, src: Union[batchers.Batch, xnmt.input.Input], trg: Union[batchers.Batch, xnmt.input.Input],
-                loss_calculator: loss_calc.LossCalculator) -> losses.FactoredLossExpr:
+                loss_calculator: loss_calculators.LossCalculator) -> losses.FactoredLossExpr:
     """Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.

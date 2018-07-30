@@ -34,7 +34,7 @@ import xnmt.infererences
 import xnmt.input
 import xnmt.input_readers
 import xnmt.language_models
-import xnmt.lstm
+import xnmt.recurrent
 import xnmt.model_base
 import xnmt.optimizers
 import xnmt.param_initializers

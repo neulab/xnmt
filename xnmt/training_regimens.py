@@ -8,7 +8,7 @@ import dynet as dy
 
 from xnmt.model_base import ConditionedModel
 from xnmt.loss_trackers import TrainLossTracker
-from xnmt.loss_calc import LossCalculator, AutoRegressiveMLELoss
+from xnmt.loss_calculators import LossCalculator, AutoRegressiveMLELoss
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 from xnmt import training_tasks, optimizers, batchers, eval_tasks, utils
