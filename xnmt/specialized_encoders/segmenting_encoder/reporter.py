@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import math
 
-from xnmt import util
+from xnmt import utils
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.persistence import serializable_init, Serializable, Ref, Path
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import SegmentingSeqTransducer
@@ -16,7 +16,7 @@ class SegmentingReporter(Serializable):
   def __init__(self, report_path:str, src_vocab=Ref(Path("model.src_reader.vocab"))):
     self.src_vocab = src_vocab
     self.logger = logging.getLogger("segmenting_reporter")
-    util.make_parent_dir(report_path)
+    utils.make_parent_dir(report_path)
     self.logger.addHandler(logging.StreamHandler(open(report_path, "w")))
     self.logger.setLevel("INFO")
 
