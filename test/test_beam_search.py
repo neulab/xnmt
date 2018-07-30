@@ -11,7 +11,6 @@ from xnmt.embedder import SimpleWordEmbedder
 import xnmt.events
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculator import AutoRegressiveMLELoss
 from xnmt.param_collection import ParamManager
 from xnmt.transform import NonLinear
 from xnmt.scorer import Softmax
@@ -85,9 +84,8 @@ class TestForcedDecodingLoss(unittest.TestCase):
 
   def test_single(self):
     dy.renew_cg()
-    train_loss = self.model.calc_loss(src=self.src_data[0],
-                                      trg=self.trg_data[0],
-                                      loss_calculator=AutoRegressiveMLELoss()).value()
+    train_loss = self.model.calc_nll(src=self.src_data[0],
+                                     trg=self.trg_data[0]).value()
     dy.renew_cg()
     outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], BeamSearch(beam_size=1),
                                   forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
@@ -123,9 +121,8 @@ class TestFreeDecodingLoss(unittest.TestCase):
     outputs = self.model.generate(xnmt.batcher.mark_as_batch([self.src_data[0]]), [0], BeamSearch(),
                                          forced_trg_ids=xnmt.batcher.mark_as_batch([self.trg_data[0]]))
     dy.renew_cg()
-    train_loss = self.model.calc_loss(src=self.src_data[0],
-                                      trg=outputs[0],
-                                      loss_calculator=AutoRegressiveMLELoss()).value()
+    train_loss = self.model.calc_nll(src=self.src_data[0],
+                                     trg=outputs[0]).value()
 
     self.assertAlmostEqual(-outputs[0].score, train_loss, places=4)
 

@@ -10,12 +10,13 @@ from xnmt.constants import INFINITY
 from xnmt.transform import Linear
 import xnmt.evaluator
 import xnmt.batcher
+import xnmt.model_base
 
 class LossCalculator(object):
   """
   A template class implementing the training strategy and corresponding loss calculation.
   """
-  def calc_loss(self, translator, initial_state, src, trg):
+  def calc_loss(self, translator, src, trg):
     raise NotImplementedError()
 
   def remove_eos(self, sequence, eos_sym=Vocab.ES):
@@ -27,66 +28,27 @@ class LossCalculator(object):
       pass
     return sequence
 
-class AutoRegressiveMLELoss(Serializable, LossCalculator):
+class MLELoss(Serializable, LossCalculator):
   """
-  Max likelihood loss calculator for autoregressive models.
+  Max likelihood loss calculator.
 
   Args:
-    truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
+    repeat: The calculation of maximum likelihood loss will be repeated this many times.
+            This is only helpful when there is some inherent non-determinism in the
+            training process (e.g. an encoder that uses sampling)
   """
-  yaml_tag = '!AutoRegressiveMLELoss'
+  yaml_tag = '!MLELoss'
   @serializable_init
-  def __init__(self, truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
-    self.truncate_dec_batches = truncate_dec_batches
+  def __init__(self,
+               repeat: int = 1) -> None:
+    self.repeat = repeat
 
-  def calc_loss(self, translator: 'translator.AutoRegressiveTranslator',
-                initial_state: 'translator.AutoRegressiveDecoderState',
+  def calc_loss(self,
+                model: 'model_base.ConditionedModel',
                 src: Union[xnmt.input.Input, 'batcher.Batch'],
                 trg: Union[xnmt.input.Input, 'batcher.Batch']):
-    dec_state = initial_state
-    trg_mask = trg.mask if xnmt.batcher.is_batched(trg) else None
-    losses = []
-    seq_len = trg.sent_len()
-    if xnmt.batcher.is_batched(src):
-      for j, single_trg in enumerate(trg):
-        assert single_trg.sent_len() == seq_len # assert consistent length
-        assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask.np_arr[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
-    input_word = None
-    for i in range(seq_len):
-      ref_word = AutoRegressiveMLELoss._select_ref_words(trg, i, truncate_masked=self.truncate_dec_batches)
-      if self.truncate_dec_batches and xnmt.batcher.is_batched(ref_word):
-        dec_state.rnn_state, ref_word = xnmt.batcher.truncate_batches(dec_state.rnn_state, ref_word)
-      dec_state, word_loss = translator.calc_loss_one_step(dec_state, ref_word, input_word)
-      if not self.truncate_dec_batches and xnmt.batcher.is_batched(src) and trg_mask is not None:
-        word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
-      losses.append(word_loss)
-      input_word = ref_word
-
-    if self.truncate_dec_batches:
-      loss_expr = dy.esum([dy.sum_batches(wl) for wl in losses])
-    else:
-      loss_expr = dy.esum(losses)
-    return FactoredLossExpr({"mle": loss_expr})
-
-  @staticmethod
-  def _select_ref_words(sent, index, truncate_masked = False):
-    if truncate_masked:
-      mask = sent.mask if xnmt.batcher.is_batched(sent) else None
-      if not xnmt.batcher.is_batched(sent):
-        return sent[index]
-      else:
-        ret = []
-        found_masked = False
-        for (j, single_trg) in enumerate(sent):
-          if mask is None or mask.np_arr[j, index] == 0 or np.sum(mask.np_arr[:, index]) == mask.np_arr.shape[0]:
-            assert not found_masked, "sentences must be sorted by decreasing target length"
-            ret.append(single_trg[index])
-          else:
-            found_masked = True
-        return xnmt.batcher.mark_as_batch(ret)
-    else:
-      if not xnmt.batcher.is_batched(sent): return sent[index]
-      else: return xnmt.batcher.mark_as_batch([single_trg[index] for single_trg in sent])
+    losses = [model.calc_nll(src, trg) for _ in range(self.repeat)]
+    return FactoredLossExpr({"mle": losses[0] if self.repeat == 1 else dy.esum(losses)})
 
 class ReinforceLoss(Serializable, LossCalculator):
   yaml_tag = '!ReinforceLoss'

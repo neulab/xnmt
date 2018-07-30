@@ -38,7 +38,7 @@ class LanguageModel(model_base.ConditionedModel, model_base.EventTrigger, Serial
   def get_primary_loss(self):
     return "mle"
 
-  def calc_loss(self, src, trg, loss_calculator):
+  def calc_nll(self, src, trg):
     if not batcher.is_batched(src):
       src = batcher.ListBatch([src])
 
@@ -60,7 +60,4 @@ class LanguageModel(model_base.ConditionedModel, model_base.EventTrigger, Serial
       loss_expr_perstep = dy.cmult(loss_expr_perstep, dy.inputTensor(1.0-src_targets.mask.np_arr.T, batched=True))
     loss_expr = dy.sum_elems(loss_expr_perstep)
 
-    model_loss = loss.FactoredLossExpr()
-    model_loss.add_loss("mle", loss_expr)
-
-    return model_loss
+    return loss_expr

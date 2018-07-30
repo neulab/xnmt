@@ -105,7 +105,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                trg_file: str = None,
                dev_every: int = 0,
                batcher: batcher.Batcher = bare(batcher.SrcBatcher, batch_size=32),
-               loss_calculator: loss_calculator.LossCalculator = bare(loss_calculator.AutoRegressiveMLELoss),
+               loss_calculator: loss_calculator.LossCalculator = bare(loss_calculator.MLELoss),
                run_for_epochs: Optional[int] = None,
                lr_decay: float = 1.0, lr_decay_times: int = 3,
                patience: int = 1, initial_patience: Optional[int] = None,
@@ -278,7 +278,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     Performs forward pass, backward pass, parameter update for the given minibatch
     """
     loss_builder = loss.FactoredLossExpr()
-    standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
+    standard_loss = self.loss_calculator.calc_loss(self.model, src, trg)
+    # TODO: this should be refactored
     additional_loss = self.model.calc_additional_loss(trg, self.model, standard_loss)
     loss_builder.add_factored_loss_expr(standard_loss)
     loss_builder.add_factored_loss_expr(additional_loss)

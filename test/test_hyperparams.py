@@ -10,7 +10,7 @@ from xnmt.eval_task import LossEvalTask
 import xnmt.events
 from xnmt.input_reader import PlainTextReader
 from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculator import AutoRegressiveMLELoss
+from xnmt.loss_calculator import MLELoss
 from xnmt.optimizer import AdamTrainer
 from xnmt.param_collection import ParamManager
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
@@ -68,7 +68,7 @@ class TestSanityHyperParameter(unittest.TestCase):
 #                                            transformer=self.tail_transformer)
 #    self.src_reader = PlainTextReader()
 #    self.trg_reader = PlainTextReader()
-#    self.loss_calculator = AutoRegressiveMLELoss()
+#    self.loss_calculator = MLELoss()
 #    self.segmenting_encoder = SegmentingSeqTransducer(
 #      embed_encoder = self.segment_embed_encoder_bilstm,
 #      segment_composer =  self.segment_composer,

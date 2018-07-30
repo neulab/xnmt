@@ -55,8 +55,8 @@ class TestRunningConfig(unittest.TestCase):
   def test_reload(self):
     run.main(["test/config/reload.yaml"])
 
-  def test_segmenting(self):
-    run.main(["test/config/seg_report.yaml"])
+  # def test_segmenting(self):
+  #   run.main(["test/config/seg_report.yaml"])
 
   def test_reload_exception(self):
     with self.assertRaises(ValueError) as context:

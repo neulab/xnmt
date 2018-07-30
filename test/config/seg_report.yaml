@@ -13,11 +13,12 @@ report: !Experiment
       final_transducer: !BiLSTMSeqTransducer {}
       policy_learning: !PolicyGradient 
         z_normalization: True
-        sample: 2
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en
+    loss_calculator: !MLELoss
+      repeat: 2
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu,wer

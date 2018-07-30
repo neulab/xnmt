@@ -10,7 +10,7 @@ from xnmt import model_base
 import xnmt.inference
 import xnmt.input_reader
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.loss_calculator import LossCalculator, AutoRegressiveMLELoss
+from xnmt.loss_calculator import LossCalculator, MLELoss
 from xnmt.evaluator import LossScore
 from xnmt.loss import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate
@@ -43,7 +43,7 @@ class LossEvalTask(EvalTask, Serializable):
   @serializable_init
   def __init__(self, src_file: str, ref_file: Optional[str] = None, model: 'model_base.GeneratorModel' = Ref("model"),
                batcher: Batcher = Ref("train.batcher", default=bare(xnmt.batcher.SrcBatcher, batch_size=32)),
-               loss_calculator: LossCalculator = bare(AutoRegressiveMLELoss), max_src_len: Optional[int] = None,
+               loss_calculator: LossCalculator = bare(MLELoss), max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"), desc: Any = None):
     self.model = model
@@ -81,7 +81,7 @@ class LossEvalTask(EvalTask, Serializable):
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
 
         loss_builder = FactoredLossExpr()
-        standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
+        standard_loss = self.loss_calculator.calc_loss(self.model, src, trg)
         additional_loss = self.model.calc_additional_loss(trg, self.model, standard_loss)
         loss_builder.add_factored_loss_expr(standard_loss)
         loss_builder.add_factored_loss_expr(additional_loss)

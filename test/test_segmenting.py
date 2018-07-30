@@ -17,7 +17,7 @@ import xnmt.batcher
 from xnmt.input_reader import PlainTextReader, CharFromWordTextReader
 from xnmt.lstm import UniLSTMSeqTransducer
 from xnmt.translator import DefaultTranslator
-from xnmt.loss_calculator import AutoRegressiveMLELoss
+from xnmt.loss_calculator import MLELoss
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
 from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLengthPrior
@@ -44,7 +44,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.segment_composer = SumComposer()
     self.src_reader = CharFromWordTextReader()
     self.trg_reader = PlainTextReader()
-    self.loss_calculator = AutoRegressiveMLELoss()
+    self.loss_calculator = MLELoss()
 
 
     baseline = Linear(input_dim=layer_dim, output_dim=1)
@@ -96,7 +96,7 @@ class TestSegmentingEncoder(unittest.TestCase):
 
   def test_reinforce_loss(self):
     self.model.global_fertility = 1.0
-    loss = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
+    loss = MLELoss().calc_loss(self.model, self.src[0], self.trg[0])
     reinforce_loss = self.model.calc_additional_loss(self.trg[0], self.model, loss)
     pl = self.model.encoder.policy_learning
     # Ensure correct length
@@ -122,7 +122,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.POLICY)
 
   def calc_loss_single_batch(self):
-    loss = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
+    loss = MLELoss().calc_loss(self.model, self.src[0], self.trg[0])
     reinforce_loss = self.model.calc_additional_loss(self.trg[0], self.model, loss)
     return loss, reinforce_loss
 
@@ -186,7 +186,7 @@ class TestComposing(unittest.TestCase):
     self.segment_composer = SumComposer()
     self.src_reader = CharFromWordTextReader()
     self.trg_reader = PlainTextReader()
-    self.loss_calculator = AutoRegressiveMLELoss()
+    self.loss_calculator = MLELoss()
     self.segmenting_encoder = SegmentingSeqTransducer(
       segment_composer =  self.segment_composer,
       final_transducer = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),

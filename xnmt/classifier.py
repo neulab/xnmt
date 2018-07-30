@@ -51,12 +51,11 @@ class SequenceClassifier(model_base.ConditionedModel, model_base.GeneratorModel,
     h = self.encoder.get_final_states()[-1].main_expr()
     return self.transform(h)
 
-  def calc_loss(self, src, trg, loss_calculator):
+  def calc_nll(self, src, trg):
     h = self._encode_src(src)
     ids = trg.value if not batcher.is_batched(trg) else batcher.ListBatch([trg_i.value for trg_i in trg])
     loss_expr = self.scorer.calc_loss(h, ids)
-    classifier_loss = loss.FactoredLossExpr({"mle" : loss_expr})
-    return classifier_loss
+    return loss_expr
 
   def generate(self, src, idx, forced_trg_ids=None, normalize_scores=False):
     if not batcher.is_batched(src):

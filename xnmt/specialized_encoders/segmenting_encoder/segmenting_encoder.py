@@ -102,7 +102,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         sent_context = self.final_transducer.transduce(expr_seq)
         self.final_states.append(self.final_transducer.get_final_states())
         enc_outputs.append(sent_context)
-      return CompoundSeqExpression(enc_outputs)
+      # TODO (neubig): This is a temporary minimial fix to revert to using only one sample.
+      #                Multiple samples can be done by the MLELoss(repeat=samp_num) functionality.
+      #                The code of this file should also be simplified to consider this.
+      if len(enc_outputs) > 1:
+        raise ValueError('Only one sample per output is supported')
+      self.final_states = self.final_states[0]
+      return enc_outputs[0]
+      # return CompoundSeqExpression(enc_outputs)
     finally:
       if self.length_prior:
         self.seg_size_unpadded = seg_size_unpadded
@@ -113,24 +120,39 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   @handle_xnmt_event
   def on_calc_additional_loss(self, trg, generator, generator_loss):
-    assert hasattr(generator, "losses"), "Must support multi sample encoder from generator."
+    # TODO (neubig): All quintuple-commented lines are commented out in favor of simpler implementation
+    ##### assert hasattr(generator, "losses"), "Must support multi sample encoder from generator."
     if self.policy_learning is None:
       return None
     ### Calculate reward
     rewards = []
     trg_counts = dy.inputTensor([t.len_unpadded() for t in trg], batched=True)
-    # Iterate through all samples
-    for i, (loss, actions) in enumerate(zip(generator.losses, self.compose_output)):
-      reward = FactoredLossExpr()
-      # Adding all reward from the translator
-      for loss_key, loss_value in loss.get_nobackprop_loss().items():
-        if loss_key == 'mle':
-          reward.add_loss('mle', dy.cdiv(-loss_value, trg_counts))
-        else:
-          reward.add_loss(loss_key, -loss_value)
-      if self.length_prior is not None:
-        reward.add_loss('seg_lp', self.length_prior.log_ll(self.seg_size_unpadded[i]))
-      rewards.append(dy.esum(list(reward.expr_factors.values())))
+    ##### # Iterate through all samples
+    ##### for i, (loss, actions) in enumerate(zip(generator.losses, self.compose_output)):
+    #####   reward = FactoredLossExpr()
+    #####   # Adding all reward from the translator
+    #####   for loss_key, loss_value in loss.get_nobackprop_loss().items():
+    #####     if loss_key == 'mle':
+    #####       reward.add_loss('mle', dy.cdiv(-loss_value, trg_counts))
+    #####     else:
+    #####       reward.add_loss(loss_key, -loss_value)
+    #####   if self.length_prior is not None:
+    #####     reward.add_loss('seg_lp', self.length_prior.log_ll(self.seg_size_unpadded[i]))
+    #####   rewards.append(dy.esum(list(reward.expr_factors.values())))
+    if len(self.compose_output) > 1:
+      raise ValueError('Only one sample per output is supported')
+    reward = FactoredLossExpr()
+    # Adding all reward from the translator
+    for loss_key, loss_value in generator_loss.get_nobackprop_loss().items():
+      if loss_key == 'mle':
+        reward.add_loss('mle', dy.cdiv(-loss_value, trg_counts))
+      else:
+        reward.add_loss(loss_key, -loss_value)
+    if self.length_prior is not None:
+      reward.add_loss('seg_lp', self.length_prior.log_ll(self.seg_size_unpadded[i]))
+    rewards.append(dy.esum(list(reward.expr_factors.values())))
+
+
     ### Calculate losses    
     return self.policy_learning.calc_loss(rewards)
 

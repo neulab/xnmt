@@ -1,7 +1,6 @@
 from typing import Optional, Sequence, Union
 
 from xnmt import batcher, events, input_reader, loss, output, training_task
-import xnmt.loss_calculator
 import xnmt.input
 from xnmt.persistence import Serializable, serializable_init
 
@@ -65,8 +64,7 @@ class ConditionedModel(TrainableModel):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
 
-  def calc_loss(self, src: Union[batcher.Batch, xnmt.input.Input], trg: Union[batcher.Batch, xnmt.input.Input],
-                loss_calculator: xnmt.loss_calculator.LossCalculator) -> loss.FactoredLossExpr:
+  def calc_loss(self, src: Union[batcher.Batch, xnmt.input.Input], trg: Union[batcher.Batch, xnmt.input.Input]) -> loss.FactoredLossExpr:
     """Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
@@ -74,7 +72,6 @@ class ConditionedModel(TrainableModel):
     Args:
       src: The source, a sentence or a batch of sentences.
       trg: The target, a sentence or a batch of sentences.
-      loss_calculator: loss calculator.
 
     Returns:
       A (possibly batched) expression representing the loss.
