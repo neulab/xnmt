@@ -5,8 +5,8 @@ from xnmt.settings import settings
 import dynet as dy
 
 from xnmt.batchers import Batcher
-from xnmt.eval_metrics import Evaluator
-from xnmt import infererences, input_readers, model_base
+from xnmt.eval_metrics import Evaluator, EvalScore
+from xnmt import inferences, input_readers, model_base
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.loss_calculators import LossCalculator, AutoRegressiveMLELoss
 from xnmt.eval_metrics import LossScore
@@ -117,7 +117,7 @@ class AccuracyEvalTask(EvalTask, reports.Reportable, Serializable):
   @events.register_xnmt_handler
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: 'model_base.GeneratorModel' = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
-               inference: Optional['infererences.Inference'] = None, desc: Any = None):
+               inference: Optional['inferences.Inference'] = None, desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
@@ -156,7 +156,7 @@ class DecodingEvalTask(EvalTask, Serializable):
 
   @serializable_init
   def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: 'model_base.GeneratorModel' = Ref("model"),
-               inference: Optional['infererences.Inference'] = None):
+               inference: Optional['inferences.Inference'] = None):
 
     self.model = model
     self.src_file = src_file

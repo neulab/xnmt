@@ -11,7 +11,7 @@ from xnmt import batchers
 from xnmt.decoders import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
 from xnmt.embedders import Embedder, SimpleWordEmbedder
 from xnmt.events import register_xnmt_handler
-from xnmt import infererences, input_readers, model_base
+from xnmt import inferences, input_readers, model_base
 from xnmt import sent
 from xnmt.losses import FactoredLossExpr
 from xnmt.loss_calculators import LossCalculator
@@ -101,7 +101,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
                attender: Attender=bare(MlpAttender),
                trg_embedder: Embedder=bare(SimpleWordEmbedder),
                decoder: Decoder=bare(AutoRegressiveDecoder),
-               inference: infererences.AutoRegressiveInference=bare(infererences.AutoRegressiveInference),
+               inference: inferences.AutoRegressiveInference=bare(inferences.AutoRegressiveInference),
                search_strategy:SearchStrategy=bare(BeamSearch),
                compute_report:bool = Ref("exp_global.compute_report", default=False),
                global_fertility:int=0):
@@ -417,7 +417,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable, model_base.Even
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, models, src_reader, trg_reader, inference=bare(infererences.AutoRegressiveInference)):
+  def __init__(self, models, src_reader, trg_reader, inference=bare(inferences.AutoRegressiveInference)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.models = models
     self.inference = inference

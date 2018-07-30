@@ -31,7 +31,7 @@ import xnmt.eval_tasks
 import xnmt.eval_metrics
 import xnmt.experiments
 import xnmt.hyper_params
-import xnmt.infererences
+import xnmt.inferences
 import xnmt.input_readers
 import xnmt.language_models
 import xnmt.recurrent_transducers
