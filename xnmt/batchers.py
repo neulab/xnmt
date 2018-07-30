@@ -148,6 +148,14 @@ class Mask(object):
     x = [np.nonzero(1-arr)[0] for arr in np_arr]
     return x
 
+  def broadcast_factor(self, tensor_expr):
+    """
+    returns product(tensor_expr dims) / product(mask dims)
+    """
+    tensor_expr_size = tensor_expr.dim()[1]
+    for d in tensor_expr.dim()[0]: tensor_expr_size *= d
+    return tensor_expr_size / self.np_arr.size
+
   def mask_reshape_size(self, tensor_dim, time_first=False):
     if time_first:
       return list(reversed(self.np_arr.shape[1:])) + [1] * (len(tensor_dim[0]) - len(self.np_arr.shape) + 1) + [self.np_arr.shape[0]]
