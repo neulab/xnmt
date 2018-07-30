@@ -114,8 +114,6 @@ class LookupComposer(SingleComposer, Serializable):
       word_vocab = Vocab()
       dict_entry = vocab_size
     else:
-      word_vocab.freeze()
-      word_vocab.set_unk(word_vocab.UNK_STR)
       dict_entry = len(word_vocab)
     self.src_vocab = src_vocab
     self.word_vocab = word_vocab
@@ -154,8 +152,6 @@ class CharNGramComposer(SingleComposer, Serializable):
       word_vocab = Vocab()
       dict_entry = vocab_size
     else:
-      word_vocab.freeze()
-      word_vocab.set_unk(word_vocab.UNK_STR)
       dict_entry = len(word_vocab)
 
     self.dict_entry = dict_entry

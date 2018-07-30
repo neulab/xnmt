@@ -42,8 +42,8 @@ class TestSegmentingEncoder(unittest.TestCase):
     ParamManager.init_param_col()
     self.segment_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
     self.segment_composer = SumComposer()
-    self.src_reader = CharFromWordTextReader()
-    self.trg_reader = PlainTextReader()
+    self.src_reader = CharFromWordTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.charvocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
     self.loss_calculator = AutoRegressiveMLELoss()
 
 
@@ -184,8 +184,8 @@ class TestComposing(unittest.TestCase):
     xnmt.events.clear()
     ParamManager.init_param_col()
     self.segment_composer = SumComposer()
-    self.src_reader = CharFromWordTextReader()
-    self.trg_reader = PlainTextReader()
+    self.src_reader = CharFromWordTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.charvocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
     self.loss_calculator = AutoRegressiveMLELoss()
     self.segmenting_encoder = SegmentingSeqTransducer(
       segment_composer =  self.segment_composer,
@@ -225,7 +225,6 @@ class TestComposing(unittest.TestCase):
   def test_lookup_composer(self):
     enc = self.segmenting_encoder
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
-    word_vocab.freeze()
     enc.segment_composer = LookupComposer(
         word_vocab = word_vocab,
         src_vocab = self.src_reader.vocab,
@@ -236,7 +235,6 @@ class TestComposing(unittest.TestCase):
   def test_charngram_composer(self):
     enc = self.segmenting_encoder
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
-    word_vocab.freeze()
     enc.segment_composer = CharNGramComposer(
         word_vocab = word_vocab,
         src_vocab = self.src_reader.vocab,
@@ -247,7 +245,6 @@ class TestComposing(unittest.TestCase):
   def test_add_multiple_segment_composer(self):
     enc = self.segmenting_encoder
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
-    word_vocab.freeze()
     enc.segment_composer = SumMultipleComposer(
       composers = [
         LookupComposer(word_vocab = word_vocab,
