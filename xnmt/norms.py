@@ -27,6 +27,45 @@ class LayerNorm(Serializable):
     return dy.layer_norm(x, g, b)
 
 
+
+
+
+
+def broadcast_factor(mask, tensor_expr):
+  """
+  returns product(tensor_expr dims) / product(mask dims)
+  """
+  tensor_expr_size = tensor_expr.dim()[1]
+  for d in tensor_expr.dim()[0]: tensor_expr_size *= d
+  return tensor_expr_size / mask.np_arr.size
+
+def mask_reshape_size(mask, tensor_dim, time_first=False):
+  if time_first:
+    return list(reversed(mask.np_arr.shape[1:])) + [1] * (len(tensor_dim[0]) - len(mask.np_arr.shape) + 1) + [mask.np_arr.shape[0]]
+  else:
+    return [1] * (len(tensor_dim[0]) - len(mask.np_arr.shape) + 1) + list(reversed(mask.np_arr.shape))
+
+def set_masked_to_mean(mask, tensor_expr, time_first=False):
+  """
+  Set masked parts of the tensor expr to the mean of the unmasked parts.
+  """
+  if np.count_nonzero(mask.np_arr) == 0:
+    return tensor_expr
+  else:
+    dim_before = tensor_expr.dim()
+    reshape_size = mask_reshape_size(mask, tensor_expr.dim(), time_first)
+    inv_mask_expr = dy.inputTensor(1.0 - np.reshape(mask.np_arr.transpose(), reshape_size), batched=True)
+    unmasked = dy.cmult(tensor_expr, inv_mask_expr)
+    unmasked_mean = unmasked
+    while sum(unmasked_mean.dim()[0]) > 1: # loop because mean_dim only supports reducing up to 2 dimensions at a time
+      unmasked_mean = dy.mean_dim(unmasked_mean, list(range(min(2,len(unmasked_mean.dim()[0])))), unmasked_mean.dim()[1]>1, n=1) # this is mean without normalization == sum
+    unmasked_mean = dy.cdiv(unmasked_mean, dy.inputTensor(np.asarray([(mask.np_arr.size - np.count_nonzero(mask.np_arr)) * broadcast_factor(mask, tensor_expr)]), batched=False))
+    mask_expr = dy.cmult(dy.inputTensor(np.reshape(mask.np_arr.transpose(), reshape_size), batched=True), unmasked_mean)
+    ret = unmasked + mask_expr
+    assert ret.dim() == dim_before
+    return ret
+
+
 BN_EPS = 0.1
 BN_MOMENTUM = 0.1
 
@@ -101,8 +140,8 @@ class BatchNorm(Serializable):
     if train:
       num_unmasked = 0
       if mask is not None:
-        input_expr = mask.set_masked_to_mean(input_expr, self.time_first)
-        num_unmasked = (mask.np_arr.size - np.count_nonzero(mask.np_arr)) * mask.broadcast_factor(input_expr)
+        input_expr = set_masked_to_mean(mask, input_expr, self.time_first)
+        num_unmasked = (mask.np_arr.size - np.count_nonzero(mask.np_arr)) * broadcast_factor(mask, input_expr)
       bn_mean = dy.moment_dim(input_expr, self.get_stat_dimensions(), 1, True, num_unmasked)
       neg_bn_mean_reshaped = -dy.reshape(-bn_mean, self.get_normalizer_dimensionality())
       self.population_running_mean += (-BN_MOMENTUM) * self.population_running_mean + BN_MOMENTUM * bn_mean.npvalue()
