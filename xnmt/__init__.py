@@ -12,6 +12,7 @@ if package_dir not in sys.path:
 import logging
 logger = logging.getLogger('xnmt')
 yaml_logger = logging.getLogger('yaml')
+file_logger = logging.getLogger('xnmt_file')
 
 import _dynet
 dyparams = _dynet.DynetParams()
