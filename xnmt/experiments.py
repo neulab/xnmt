@@ -72,6 +72,7 @@ class Experiment(Serializable):
   __call__() runs the individual steps.
 
   Args:
+    name: name of experiment
     exp_global: global experiment settings
     preproc: carry out preprocessing if specified
     model: The main model. In the case of multitask training, several models must be specified, in which case the models will live not here but inside the training task objects.
@@ -84,12 +85,14 @@ class Experiment(Serializable):
 
   @serializable_init
   def __init__(self,
+               name: str,
                exp_global:Optional[ExpGlobal] = bare(ExpGlobal),
                preproc:Optional[PreprocRunner] = None,
                model:Optional[TrainableModel] = None,
                train:Optional[TrainingRegimen] = None,
                evaluate:Optional[List[EvalTask]] = None,
                random_search_report:Optional[dict] = None) -> None:
+    self.name = name
     self.exp_global = exp_global
     self.preproc = preproc
     self.model = model

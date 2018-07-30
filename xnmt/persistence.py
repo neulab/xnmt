@@ -824,8 +824,22 @@ class YamlPreloader(object):
         "xnmt.serialize.serializable.Serializable, specifies a proper yaml_tag with leading '!', and its module is "
         "imported under xnmt/__init__.py")
       raise
-    if "defaults" in experiments: del experiments["defaults"]
-    return sorted(experiments.keys())
+    if isinstance(experiments, dict):
+      if "defaults" in experiments: del experiments["defaults"]
+      return sorted(experiments.keys())
+    elif isinstance(experiments, list):
+      exp_names = []
+      for exp in experiments:
+        if not hasattr(exp, "name"): raise ValueError("Encountered unnamed experiment.")
+        if exp.name != "default": exp_names.append(exp.name)
+      if len(exp_names) != len(set(exp_names)): raise ValueError(f"Found duplicate experiment names: {exp_names}.")
+      return exp_names
+    else:
+      if experiments.__class__.__name__ != "Experiment":
+        raise TypeError(f"Top level of config file must be a single Experiment or a list or dict of experiments."
+                        f"Found: {experiments} of type {type(experiments)}.")
+      if not hasattr(experiments, "name"): raise ValueError("Encountered unnamed experiment.")
+      return [experiments.name]
 
   @staticmethod
   def preload_experiment_from_file(filename:str, exp_name:str) -> UninitializedYamlObject:
@@ -844,7 +858,21 @@ class YamlPreloader(object):
     except IOError as e:
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
 
-    experiment = config[exp_name]
+    if isinstance(config, dict):
+      experiment = config[exp_name]
+      if getattr(experiment, "name", exp_name) != exp_name:
+        raise ValueError(f"Inconsistent experiment name '{exp_name}' / '{experiment.name}'")
+      experiment.name = exp_name
+    elif isinstance(config, list):
+      experiment = None
+      for exp in config:
+        if not hasattr(exp, "name"): raise ValueError("Encountered unnamed experiment.")
+        if exp.name==exp_name: experiment = exp
+      if exp is None: raise ValueError(f"No experiment of name '{exp_name}' exists.")
+    else:
+      experiment = config
+      if not hasattr(experiment, "name"): raise ValueError("Encountered unnamed experiment.")
+      if experiment.name != exp_name: raise ValueError(f"No experiment of name '{exp_name}' exists.")
     return YamlPreloader.preload_obj(experiment, exp_name=exp_name, exp_dir=os.path.dirname(filename) or ".")
 
   @staticmethod
