@@ -1,9 +1,8 @@
 from typing import Sequence, Union, Optional, Any
 
-from xnmt.settings import settings
-
 import dynet as dy
 
+from xnmt.settings import settings
 from xnmt.batchers import Batcher
 from xnmt.eval_metrics import Evaluator, EvalScore
 from xnmt import inferences, input_readers

@@ -12,7 +12,6 @@ The main class to be aware of is :class:`SAAMSeqTransducer`.
 import typing
 import logging
 
-import embedders
 
 yaml_logger = logging.getLogger('yaml')
 from collections.abc import Sequence
@@ -32,6 +31,7 @@ from xnmt import transforms, norms, events, param_collections
 from xnmt.transducers import recurrent, base as transducers
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.persistence import Serializable, serializable_init, Ref, bare
+from xnmt import embedders
 
 LOG_ATTENTION = False
 

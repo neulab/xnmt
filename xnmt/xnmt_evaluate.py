@@ -1,8 +1,7 @@
 import argparse
 import sys
 
-from xnmt import eval_metrics
-from xnmt import inferences
+from xnmt import eval_metrics, inferences, utils
 
 from xnmt.eval_metrics import *  # import everything so we can parse it with eval()
 
@@ -63,6 +62,7 @@ def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequ
 
 def main():
   parser = argparse.ArgumentParser()
+  utils.add_dynet_argparse(parser)
   parser.add_argument("--metric",
                       help=f"Scoring metric(s), a string. "
                            f"Accepted metrics are {', '.join(eval_shortcuts.keys())}."
