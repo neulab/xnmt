@@ -60,6 +60,7 @@ import xnmt.translator
 import xnmt.persistence
 import xnmt.rl
 import xnmt.compound_expr
+import xnmt.sentence_stats
 
 resolved_serialize_params = {}
 

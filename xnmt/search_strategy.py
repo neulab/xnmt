@@ -114,7 +114,7 @@ class BeamSearch(Serializable, SearchStrategy):
   """
 
   yaml_tag = '!BeamSearch'
-  Hypothesis = namedtuple('Hypothesis', ['score', 'output', 'parent', 'word'])
+  Hypothesis = namedtuple('Hypothesis', ['score', 'output', 'parent', 'word', 'length'])
   
   @serializable_init
   def __init__(self, beam_size: int = 1, max_len: int = 100, len_norm: LengthNormalization = bare(NoNormalization),
@@ -132,7 +132,7 @@ class BeamSearch(Serializable, SearchStrategy):
       logger.warning("Forced decoding with a target longer than max_len. "
                      "Increase max_len to avoid unexpected behavior.")
 
-    active_hyp = [self.Hypothesis(0, None, None, None)]
+    active_hyp = [self.Hypothesis(0, None, None, None, 0)]
     completed_hyp = []
     for length in range(self.max_len):
       if len(completed_hyp) >= self.beam_size:
@@ -161,7 +161,7 @@ class BeamSearch(Serializable, SearchStrategy):
         # Queue next states
         for cur_word in top_words:
           new_score = self.len_norm.normalize_partial_topk(hyp.score, score[cur_word], length + 1)
-          new_set.append(self.Hypothesis(new_score, current_output, hyp, cur_word))
+          new_set.append(self.Hypothesis(new_score, current_output, hyp, cur_word, hyp.length + 1))
       # Next top hypothesis
       active_hyp = sorted(new_set, key=lambda x: x.score, reverse=True)[:self.beam_size]
     # There is no hyp reached </s>

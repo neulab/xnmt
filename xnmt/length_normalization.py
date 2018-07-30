@@ -142,28 +142,77 @@ class GaussianNormalization(LengthNormalization, Serializable):
   yaml_tag = '!GaussianNormalization'
 
   @serializable_init
-  def __init__(self, sent_stats):
-    self.stats = sent_stats.trg_stat
+  def __init__(self, sent_stats, length_ratio=False, src_cond=False):
+    """
+     Args:
+       sent_stats: A SentenceStats object
+       length_ratio: Instead of fitting len(trg) in the training set, fit the length ratio len(trg) / len(src)
+       src_cond: Instead of fitting len(trg) in the training set, fit the length of trg with the given len(src) 
+    """
+    self.sent_stats = sent_stats
     self.num_sent = sent_stats.num_pair
+    self.length_ratio = length_ratio
+    self.src_cond = src_cond
     self.fit_distribution()
 
   def fit_distribution(self):
-    y = np.zeros(self.num_sent)
-    curr_iter = 0
-    for key in self.stats:
-      iter_end = self.stats[key].num_sents + curr_iter
-      y[curr_iter:iter_end] = key
-      curr_iter = iter_end
-    mu, std = norm.fit(y)
-    self.distr = norm(mu, std)
+    if self.length_ratio:
+      stats = self.sent_stats.src_stat
+      num_sent = self.sent_stats.num_pair
+      y = np.zeros(num_sent)
+      iter = 0
+      for key in stats:
+        for t_len, count in stats[key].trg_len_distribution.items():
+          iter_end = count + iter
+          y[iter:iter_end] = t_len / float(key)
+          iter = iter_end
+      mu, std = norm.fit(y)
+      self.distr = norm(mu, std)
+    elif self.src_cond:
+      stats = self.sent_stats.src_stat
+      self.distr = {}
+      self.max_key = -1
+      for key in stats:
+        if key > self.max_key: self.max_key = key
+        num_trg = stats[key].num_sents
+        y = np.zeros(num_trg)
+        iter = 0
+        for t_len, count in stats[key].trg_len_distribution.items():
+          iter_end = count + iter
+          y[iter:iter_end] = t_len
+          iter = iter_end
+        mu, std = norm.fit(y)
+        if std == 0: std = np.sqrt(key)
+        self.distr[key] = norm(mu, std)
+      for i in range(self.max_key-1, -1, -1):
+        if i not in self.distr:
+          self.distr[i] = self.distr[i+1]
+    else:
+      stats = self.sent_stats.trg_stat
+      y = np.zeros(self.num_sent)
+      curr_iter = 0
+      for key in stats:
+        iter_end = stats[key].num_sents + curr_iter
+        y[curr_iter:iter_end] = key
+        curr_iter = iter_end
+      mu, std = norm.fit(y)
+      self.distr = norm(mu, std)
 
-  def trg_length_prob(self, trg_length):
-    return self.distr.pdf(trg_length)
+  def trg_length_prob(self, src_length, trg_length):
+    if self.length_ratio:
+      assert (src_length is not None), "Length of Source Sentence is required in GaussianNormalization when length_ratio=True"
+      return self.distr.pdf(trg_length/src_length)
+    elif self.src_cond:
+      if src_length in self.distr:
+        return self.distr[src_length].pdf(trg_length)
+      else:
+        return self.distr[self.max_key].pdf(trg_length)
+    else:
+      return self.distr.pdf(trg_length)
 
   def normalize_completed(self, completed_hyps: Sequence['search_strategy.BeamSearch.Hypothesis'],
                           src_length: Optional[int] = None) -> Sequence[float]:
-    return [hyp.score / self.trg_length_prob(len(hyp.id_list)) for hyp in completed_hyps]
-
+    return [hyp.score / self.trg_length_prob(src_len, hyp.length) for hyp, src_len in zip(completed_hyps, src_length)]
 
 class EosBooster(Serializable):
   """
