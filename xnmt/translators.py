@@ -15,7 +15,7 @@ from xnmt import infererences, input_readers, model_base
 from xnmt.input import Input, SimpleSentenceInput
 from xnmt.losses import FactoredLossExpr
 from xnmt.loss_calculators import LossCalculator
-from xnmt.recurrent import BiLSTMSeqTransducer
+from xnmt.recurrent_transducers import BiLSTMSeqTransducer
 from xnmt.output import TextOutput, Output, NbestOutput
 from xnmt.persistence import serializable_init, Serializable, bare
 from xnmt.search_strategies import BeamSearch, SearchStrategy

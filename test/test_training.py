@@ -11,7 +11,7 @@ from xnmt.embedders import SimpleWordEmbedder
 from xnmt.eval_tasks import LossEvalTask
 import xnmt.events
 from xnmt.input_readers import PlainTextReader, SimpleSentenceInput
-from xnmt.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
+from xnmt.recurrent_transducers import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculators import AutoRegressiveMLELoss
 from xnmt.optimizers import AdamTrainer, DummyTrainer
 from xnmt.param_collections import ParamManager

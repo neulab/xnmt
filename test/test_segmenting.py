@@ -15,7 +15,7 @@ import xnmt.events
 import xnmt.batchers
 
 from xnmt.input_readers import PlainTextReader, CharFromWordTextReader
-from xnmt.recurrent import UniLSTMSeqTransducer
+from xnmt.recurrent_transducers import UniLSTMSeqTransducer
 from xnmt.translators import DefaultTranslator
 from xnmt.loss_calculators import AutoRegressiveMLELoss
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *

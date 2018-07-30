@@ -9,7 +9,7 @@ from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
 from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
 from xnmt.events import register_xnmt_handler, register_xnmt_event, handle_xnmt_event
-from xnmt.recurrent import BiLSTMSeqTransducer
+from xnmt.recurrent_transducers import BiLSTMSeqTransducer
 
 class SingleComposer(object):
   @register_xnmt_handler

@@ -9,7 +9,7 @@ import dynet as dy
 
 from xnmt.vocabs import Vocab
 from xnmt.persistence import serializable_init, Serializable
-from xnmt import expression_seqs, recurrent
+from xnmt import expression_seqs, recurrent_transducers
 import xnmt.input
 from functools import lru_cache
 
@@ -718,8 +718,8 @@ class WordTrgSrcBatcher(WordSortBatcher, Serializable):
       self.batch_size = (sum([len(s) for s in src]) + sum([len(s) for s in trg])) / len(src) * self.avg_batch_size
     return super()._pack_by_order(src, trg, order)
 
-def truncate_batches(*xl: Union[dy.Expression, Batch, Mask, recurrent.UniLSTMState]) \
-        -> Sequence[Union[dy.Expression, Batch, Mask, recurrent.UniLSTMState]]:
+def truncate_batches(*xl: Union[dy.Expression, Batch, Mask, recurrent_transducers.UniLSTMState]) \
+        -> Sequence[Union[dy.Expression, Batch, Mask, recurrent_transducers.UniLSTMState]]:
   """
   Truncate a list of batched items so that all items have the batch size of the input with the smallest batch size.
 
@@ -742,7 +742,7 @@ def truncate_batches(*xl: Union[dy.Expression, Batch, Mask, recurrent.UniLSTMSta
       batch_sizes.append(len(x))
     elif isinstance(x, Mask):
       batch_sizes.append(x.batch_size())
-    elif isinstance(x, recurrent.UniLSTMState):
+    elif isinstance(x, recurrent_transducers.UniLSTMState):
       batch_sizes.append(x.output().dim()[1])
     else:
       raise ValueError(f"unsupported type {type(x)}")
@@ -756,7 +756,7 @@ def truncate_batches(*xl: Union[dy.Expression, Batch, Mask, recurrent.UniLSTMSta
         ret.append(mark_as_batch(x[:min(batch_sizes)]))
       elif isinstance(x, Mask):
         ret.append(Mask(x.np_arr[:min(batch_sizes)]))
-      elif isinstance(x, recurrent.UniLSTMState):
+      elif isinstance(x, recurrent_transducers.UniLSTMState):
         ret.append(x[:,:min(batch_sizes)])
       else:
         raise ValueError(f"unsupported type {type(x)}")
