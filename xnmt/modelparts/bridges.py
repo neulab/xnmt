@@ -1,8 +1,8 @@
 import dynet as dy
 
-from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
+from xnmt import param_initializers
+from xnmt.modelparts import transforms
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.modelparts.transforms import Linear
 
 class Bridge(object):
   """
@@ -82,18 +82,18 @@ class LinearBridge(Bridge, Serializable):
                dec_layers = 1,
                enc_dim = Ref("exp_global.default_layer_dim"),
                dec_dim = Ref("exp_global.default_layer_dim"),
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               param_init=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
                projector=None):
     self.dec_layers = dec_layers
     self.enc_dim = enc_dim
     self.dec_dim = dec_dim
     self.projector = self.add_serializable_component("projector",
                                                      projector,
-                                                     lambda: Linear(input_dim=self.enc_dim,
-                                                                    output_dim=self.dec_dim,
-                                                                    param_init=param_init,
-                                                                    bias_init=bias_init))
+                                                     lambda: transforms.Linear(input_dim=self.enc_dim,
+                                                                               output_dim=self.dec_dim,
+                                                                               param_init=param_init,
+                                                                               bias_init=bias_init))
   def decoder_init(self, enc_final_states):
     if self.dec_layers > len(enc_final_states):
       raise RuntimeError(
