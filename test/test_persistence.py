@@ -4,7 +4,7 @@ import copy
 import yaml
 
 import xnmt
-from xnmt import util, persistence
+from xnmt import utils, persistence
 from xnmt.persistence import Path, YamlPreloader, Serializable, serializable_init, bare
 
 class TestPath(unittest.TestCase):
@@ -131,7 +131,7 @@ class TestPreloader(unittest.TestCase):
   def setUp(self):
     yaml.add_representer(DummyClass, xnmt.init_representer)
     self.out_dir = "test/tmp"
-    util.make_parent_dir(f"{self.out_dir}/asdf")
+    utils.make_parent_dir(f"{self.out_dir}/asdf")
 
   def test_experiment_names_from_file(self):
     with open(f"{self.out_dir}/tmp.yaml", "w") as f_out:

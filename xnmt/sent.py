@@ -4,7 +4,7 @@ import copy
 
 import numpy as np
 
-from xnmt.vocab import Vocab
+from xnmt.vocabs import Vocab
 from xnmt.output import OutputProcessor
 
 class Sentence(object):

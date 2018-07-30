@@ -18,25 +18,25 @@ import random
 
 import numpy as np
 
-from xnmt.attender import MlpAttender
-from xnmt.batcher import SrcBatcher, InOrderBatcher
-from xnmt.bridge import CopyBridge
-from xnmt.decoder import AutoRegressiveDecoder
-from xnmt.embedder import SimpleWordEmbedder
-from xnmt.eval_task import LossEvalTask, AccuracyEvalTask
-from xnmt.experiment import Experiment
-from xnmt.inference import AutoRegressiveInference
-from xnmt.input_reader import PlainTextReader
-from xnmt.lstm import BiLSTMSeqTransducer, UniLSTMSeqTransducer
-from xnmt.transform import AuxNonLinear
-from xnmt.scorer import Softmax
-from xnmt.optimizer import AdamTrainer
-from xnmt.param_collection import ParamManager
+from xnmt.attenders import MlpAttender
+from xnmt.batchers import SrcBatcher, InOrderBatcher
+from xnmt.bridges import CopyBridge
+from xnmt.decoders import AutoRegressiveDecoder
+from xnmt.embedders import SimpleWordEmbedder
+from xnmt.eval_tasks import LossEvalTask, AccuracyEvalTask
+from xnmt.experiments import Experiment
+from xnmt.infererences import AutoRegressiveInference
+from xnmt.input_readers import PlainTextReader
+from xnmt.recurrent_transducers import BiLSTMSeqTransducer, UniLSTMSeqTransducer
+from xnmt.transforms import AuxNonLinear
+from xnmt.scorers import Softmax
+from xnmt.optimizers import AdamTrainer
+from xnmt.param_collections import ParamManager
 from xnmt.persistence import save_to_file
 import xnmt.tee
-from xnmt.training_regimen import SimpleTrainingRegimen
-from xnmt.translator import DefaultTranslator
-from xnmt.vocab import Vocab
+from xnmt.training_regimens import SimpleTrainingRegimen
+from xnmt.translators import DefaultTranslator
+from xnmt.vocabs import Vocab
 
 seed=13
 random.seed(seed)

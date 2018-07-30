@@ -1,7 +1,7 @@
 from typing import Optional, Sequence, Union
 
-from xnmt import batcher, events, input_reader, loss, sent, training_task
-import xnmt.loss_calculator
+from xnmt import batchers, events, input_readers, losses, sent, training_tasks
+from xnmt import loss_calculators
 from xnmt.persistence import Serializable, serializable_init
 
 class TrainableModel(object):
@@ -9,7 +9,7 @@ class TrainableModel(object):
   A template class for a basic trainable model, implementing a loss function.
   """
 
-  def calc_loss(self, *args, **kwargs) -> loss.FactoredLossExpr:
+  def calc_loss(self, *args, **kwargs) -> losses.FactoredLossExpr:
     """Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
@@ -35,10 +35,10 @@ class UnconditionedModel(TrainableModel):
     trg_reader: target reader
   """
 
-  def __init__(self, trg_reader: input_reader.InputReader):
+  def __init__(self, trg_reader: input_readers.InputReader):
     self.trg_reader = trg_reader
 
-  def calc_loss(self, trg: Union[batcher.Batch, sent.Sentence]) -> loss.FactoredLossExpr:
+  def calc_loss(self, trg: Union[batchers.Batch, sent.Sentence]) -> losses.FactoredLossExpr:
     """Calculate loss based on target inputs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
@@ -60,12 +60,12 @@ class ConditionedModel(TrainableModel):
     trg_reader: target reader
   """
 
-  def __init__(self, src_reader: input_reader.InputReader, trg_reader: input_reader.InputReader):
+  def __init__(self, src_reader: input_readers.InputReader, trg_reader: input_readers.InputReader):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
 
-  def calc_loss(self, src: Union[batcher.Batch, sent.Sentence], trg: Union[batcher.Batch, sent.Sentence],
-                loss_calculator: xnmt.loss_calculator.LossCalculator) -> loss.FactoredLossExpr:
+  def calc_loss(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence],
+                loss_calculator: loss_calculators.LossCalculator) -> losses.FactoredLossExpr:
     """Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
@@ -88,12 +88,12 @@ class GeneratorModel(object):
     src_reader: source input reader
     trg_reader: an optional target input reader, needed in some cases such as n-best scoring
   """
-  def __init__(self, src_reader: input_reader.InputReader, trg_reader: Optional[input_reader.InputReader] = None) \
+  def __init__(self, src_reader: input_readers.InputReader, trg_reader: Optional[input_readers.InputReader] = None) \
           -> None:
     self.src_reader = src_reader
     self.trg_reader = trg_reader
 
-  def generate(self, src: batcher.Batch, idx: Sequence[int], *args, **kwargs) -> Sequence[sent.ReadableSentence]:
+  def generate(self, src: batchers.Batch, idx: Sequence[int], *args, **kwargs) -> Sequence[sent.ReadableSentence]:
     """
     Generate outputs.
 
@@ -112,7 +112,7 @@ class EventTrigger(object):
   A template class defining triggers to the common events used throughout XNMT.
   """
   @events.register_xnmt_event
-  def new_epoch(self, training_task: training_task.TrainingTask, num_sents: int) -> None:
+  def new_epoch(self, training_task: training_tasks.TrainingTask, num_sents: int) -> None:
     """
     Trigger event indicating a new epoch for the specified task.
 
@@ -133,7 +133,7 @@ class EventTrigger(object):
     pass
 
   @events.register_xnmt_event
-  def start_sent(self, src: Union[sent.Sentence, batcher.Batch]) -> None:
+  def start_sent(self, src: Union[sent.Sentence, batchers.Batch]) -> None:
     """
     Trigger event indicating the start of a new sentence (or batch of sentences).
 
@@ -144,9 +144,9 @@ class EventTrigger(object):
 
   @events.register_xnmt_event_sum
   def calc_additional_loss(self,
-                           trg: Union[sent.Sentence, batcher.Batch],
+                           trg: Union[sent.Sentence, batchers.Batch],
                            parent_model: TrainableModel,
-                           parent_model_loss: loss.FactoredLossExpr) -> loss.FactoredLossExpr:
+                           parent_model_loss: losses.FactoredLossExpr) -> losses.FactoredLossExpr:
     """
     Trigger event for calculating additional loss (e.g. reinforce loss) based on the reward
 
