@@ -4,9 +4,9 @@ import warnings
 import numpy as np
 import functools
 import copy
-from xnmt.vocab import Vocab
+from xnmt.vocabs import Vocab
 
-from xnmt import vocab
+from xnmt import vocabs
 
 
 class Input(object):
@@ -113,7 +113,7 @@ class SimpleSentenceInput(Input):
   
   @functools.lru_cache(maxsize=1)
   def len_unpadded(self):
-    return sum(x != vocab.Vocab.ES for x in self.words)
+    return sum(x != vocabs.Vocab.ES for x in self.words)
 
   def __getitem__(self, key):
     ret = self.words[key]

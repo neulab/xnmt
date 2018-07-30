@@ -3,13 +3,13 @@ import numpy as np
 from collections import Counter
 from functools import lru_cache
 
-from xnmt.expression_sequence import ExpressionSequence
-from xnmt.transform import Linear
-from xnmt.param_collection import ParamManager
+from xnmt.expression_seqs import ExpressionSequence
+from xnmt.transforms import Linear
+from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
 from xnmt.events import register_xnmt_handler, register_xnmt_event, handle_xnmt_event
-from xnmt.lstm import BiLSTMSeqTransducer
+from xnmt.recurrent_transducers import BiLSTMSeqTransducer
 
 class SingleComposer(object):
   @register_xnmt_handler

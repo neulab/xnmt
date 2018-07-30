@@ -1,32 +1,30 @@
-
 import unittest
 
-from xnmt.attender import MlpAttender
-from xnmt.batcher import mark_as_batch, Mask, SrcBatcher
-from xnmt.bridge import CopyBridge
-from xnmt.decoder import AutoRegressiveDecoder
-from xnmt.embedder import SimpleWordEmbedder
-from xnmt.eval_task import LossEvalTask
-import xnmt.events
-from xnmt.input_reader import PlainTextReader
-from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculator import AutoRegressiveMLELoss
-from xnmt.optimizer import AdamTrainer
-from xnmt.param_collection import ParamManager
+from xnmt.attenders import MlpAttender
+from xnmt.batchers import mark_as_batch, Mask, SrcBatcher
+from xnmt.bridges import CopyBridge
+from xnmt.decoders import AutoRegressiveDecoder
+from xnmt.embedders import SimpleWordEmbedder
+from xnmt.eval_tasks import LossEvalTask
+from xnmt import events
+from xnmt.input_readers import PlainTextReader
+from xnmt.recurrent_transducers import UniLSTMSeqTransducer, BiLSTMSeqTransducer
+from xnmt.loss_calculators import AutoRegressiveMLELoss
+from xnmt.optimizers import AdamTrainer
+from xnmt.param_collections import ParamManager
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
-import xnmt.training_regimen
-from xnmt.transform import NonLinear
-from xnmt.translator import DefaultTranslator
-from xnmt.scorer import Softmax
-from xnmt.vocab import Vocab
+from xnmt.transforms import NonLinear
+from xnmt.translators import DefaultTranslator
+from xnmt.scorers import Softmax
+from xnmt.vocabs import Vocab
 
-from xnmt.hyper_parameters import *
+from xnmt.hyper_params import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
 
 class TestSanityHyperParameter(unittest.TestCase):
   def setUp(self):
-    xnmt.events.clear()
+    events.clear()
 
   def test_scalar_operator(self):
     c = Scalar(5)
@@ -59,7 +57,7 @@ class TestSanityHyperParameter(unittest.TestCase):
 # Test will be made after there is an example to test serialized model
 #class TestPersistenceHyperParameter(unittest.TestCase):
 #  def setUp(self):
-#    xnmt.events.clear()
+#    events.clear()
 #    ParamManager.init_param_col()
 #    self.tail_transformer = TailSegmentTransformer()
 #    self.segment_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)

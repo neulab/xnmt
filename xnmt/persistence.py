@@ -34,8 +34,8 @@ import yaml
 
 from xnmt.tee import get_git_revision
 
-from xnmt.param_collection import ParamManager
-from xnmt import param_collection, util
+from xnmt.param_collections import ParamManager
+from xnmt import param_collections, utils
 import xnmt
 
 def serializable_init(f):
@@ -1245,7 +1245,7 @@ class _YamlDeserializer(object):
     init_args = _get_init_args_defaults(obj)
     if "yaml_path" in init_args: init_params["yaml_path"] = path
     self.check_init_param_types(obj, init_params)
-    with util.ReportOnException({"yaml_path":path}):
+    with utils.ReportOnException({"yaml_path":path}):
       try:
         if hasattr(obj, "xnmt_subcol_name"):
           initialized_obj = obj.__class__(**init_params, xnmt_subcol_name=obj.xnmt_subcol_name)
@@ -1317,7 +1317,7 @@ def save_to_file(fname: str, mod: Any) -> None:
     os.makedirs(dirname)
   with open(fname, 'w') as f:
     f.write(_dump(mod))
-    param_collection.ParamManager.param_col.save()
+    param_collections.ParamManager.param_col.save()
 
 
 def initialize_if_needed(root: Union[Any, UninitializedYamlObject]) -> Any:
