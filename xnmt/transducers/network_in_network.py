@@ -9,6 +9,23 @@ from xnmt import events, expression_seqs, norms, param_collections, param_initia
 
 
 class NinTransducer(base.SeqTransducer, Serializable):
+  """
+  Network-in-network transducer following Lin et al. (2013): Network in Network; https://arxiv.org/pdf/1312.4400.pdf
+
+  Here, this is a shared linear transformation across time steps, followed by batch normalization and a non-linearity.
+
+  Args:
+    input_dim: dimension of inputs
+    hidden_dim: dimension of outputs
+    use_proj: whether to enable the linear projection
+    use_bn: whether to enable batch norm
+    batch_norm: automatically set
+    nonlinearity: name of a unary DyNet operation (or ``id`` to use the identity transformation)
+    downsampling_factor: if > 1, feed adjacent time steps to the linear projections to downsample the sequence to a
+                         shorter length
+    param_init: how to initialize the projection matrix
+  """
+
   yaml_tag = "!NinTransducer"
 
   @events.register_xnmt_handler
@@ -21,7 +38,7 @@ class NinTransducer(base.SeqTransducer, Serializable):
                batch_norm=None,
                nonlinearity: str = "rectify",
                downsampling_factor: int = 1,
-               param_init = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer))):
+               param_init = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer))) -> None:
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
     self.use_proj = use_proj
