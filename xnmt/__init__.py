@@ -47,8 +47,8 @@ import xnmt.scorers
 import xnmt.specialized_encoders.tilburg_harwath
 import xnmt.specialized_encoders.self_attentional_am
 import xnmt.specialized_encoders.segmenting_encoder
-import xnmt.training_regimens
-import xnmt.training_tasks
+import xnmt.train.regimens
+import xnmt.train.tasks
 import xnmt.transducers.convolution
 import xnmt.transducers.recurrent
 import xnmt.transducers.positional

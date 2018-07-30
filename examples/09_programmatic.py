@@ -34,7 +34,7 @@ from xnmt.optimizers import AdamTrainer
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import save_to_file
 import xnmt.tee
-from xnmt.training_regimens import SimpleTrainingRegimen
+from xnmt.train.regimens import SimpleTrainingRegimen
 from xnmt.models.translators import DefaultTranslator
 from xnmt.vocabs import Vocab
 

@@ -27,7 +27,7 @@ from xnmt.vocabs import Vocab
 from xnmt.rl.policy_gradient import PolicyGradient
 from xnmt.rl.eps_greedy import EpsilonGreedy
 from xnmt.rl.confidence_penalty import ConfidencePenalty
-from xnmt.test.utils import has_cython
+from test.utils import has_cython
 
 class TestSegmentingEncoder(unittest.TestCase):
   

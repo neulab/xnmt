@@ -16,7 +16,7 @@ from xnmt.loss_calculators import AutoRegressiveMLELoss
 from xnmt.optimizers import AdamTrainer, DummyTrainer
 from xnmt.param_collections import ParamManager
 from xnmt.transducers.pyramidal import PyramidalLSTMSeqTransducer
-from xnmt import training_regimens
+from xnmt.train import regimens
 from xnmt.transforms import NonLinear
 from xnmt.models.translators import DefaultTranslator
 from xnmt.scorers import Softmax
@@ -313,7 +313,7 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['trainer'] = DummyTrainer()
     train_args['batcher'] = batcher
     train_args['run_for_epochs'] = 1
-    training_regimen = training_regimens.SimpleTrainingRegimen(**train_args)
+    training_regimen = regimens.SimpleTrainingRegimen(**train_args)
     training_regimen.run_training(save_fct = lambda: None)
     self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
                            training_regimen.dev_loss_tracker.dev_score.loss, places=5)
@@ -357,7 +357,7 @@ class TestOverfitting(unittest.TestCase):
     train_args['run_for_epochs'] = 1
     train_args['trainer'] = AdamTrainer(alpha=0.1)
     train_args['batcher'] = batcher
-    training_regimen = training_regimens.SimpleTrainingRegimen(**train_args)
+    training_regimen = regimens.SimpleTrainingRegimen(**train_args)
     for _ in range(50):
       training_regimen.run_training(save_fct=lambda:None)
     self.assertAlmostEqual(0.0,
