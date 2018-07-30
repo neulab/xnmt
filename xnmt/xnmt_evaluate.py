@@ -2,8 +2,11 @@ import argparse
 import sys
 from typing import Any, Sequence, Union
 
-from xnmt.evaluator import * # import everything so we can parse it with eval()
-from xnmt.inference import NO_DECODING_ATTEMPTED
+from xnmt import eval_metrics
+from xnmt import logger
+from xnmt import infererences
+
+from xnmt.eval_metrics import *  # import everything so we can parse it with eval()
 
 def read_data(loc_, post_process=None):
   """Reads the lines in the file specified in loc_ and return the list after inserting the tokens
@@ -18,17 +21,17 @@ def read_data(loc_, post_process=None):
   return data
 
 eval_shortcuts = {
-  "bleu": lambda:BLEUEvaluator(),
-  "gleu": lambda:GLEUEvaluator(),
-  "wer": lambda:WEREvaluator(),
-  "cer": lambda:CEREvaluator(),
-  "recall": lambda:RecallEvaluator(),
-  "accuracy": lambda:SequenceAccuracyEvaluator(),
+  "bleu": lambda: eval_metrics.BLEUEvaluator(),
+  "gleu": lambda: eval_metrics.GLEUEvaluator(),
+  "wer": lambda: eval_metrics.WEREvaluator(),
+  "cer": lambda: eval_metrics.CEREvaluator(),
+  "recall": lambda: eval_metrics.RecallEvaluator(),
+  "accuracy": lambda: eval_metrics.SequenceAccuracyEvaluator(),
 }
 
 
 def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequence[str]],
-                  evaluators: Sequence[Evaluator], desc: Any = None) -> Sequence[EvalScore]:
+                  evaluators: Sequence[eval_metrics.Evaluator], desc: Any = None) -> Sequence[eval_metrics.EvalScore]:
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
 
   Args:
@@ -51,7 +54,7 @@ def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequ
       ref_corpus = [tuple(ref_corpora[i][j] for i in range(len(ref_file))) for j in range(len(ref_corpora[0]))]
   hyp_corpus = read_data(hyp_file, post_process=hyp_postprocess)
   len_before = len(hyp_corpus)
-  ref_corpus, hyp_corpus = zip(*filter(lambda x: NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
+  ref_corpus, hyp_corpus = zip(*filter(lambda x: infererences.NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
   if len(ref_corpus) < len_before:
     logger.info(f"> ignoring {len_before - len(ref_corpus)} out of {len_before} test sentences.")
 

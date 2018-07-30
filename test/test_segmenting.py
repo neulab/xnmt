@@ -7,25 +7,25 @@ import dynet as dy
 import numpy
 import random
 
-from xnmt.attender import MlpAttender
-from xnmt.bridge import CopyBridge
-from xnmt.decoder import AutoRegressiveDecoder
-from xnmt.embedder import SimpleWordEmbedder
+from xnmt.attenders import MlpAttender
+from xnmt.bridges import CopyBridge
+from xnmt.decoders import AutoRegressiveDecoder
+from xnmt.embedders import SimpleWordEmbedder
 import xnmt.events
-import xnmt.batcher
+import xnmt.batchers
 
-from xnmt.input_reader import PlainTextReader, CharFromWordTextReader
-from xnmt.lstm import UniLSTMSeqTransducer
-from xnmt.translator import DefaultTranslator
-from xnmt.loss_calculator import MLELoss
+from xnmt.input_readers import PlainTextReader, CharFromWordTextReader
+from xnmt.recurrent_transducers import UniLSTMSeqTransducer
+from xnmt.translators import DefaultTranslator
+from xnmt.loss_calculators import MLELoss
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
 from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLengthPrior
 from xnmt.specialized_encoders.segmenting_encoder.priors import PoissonPrior, GoldInputPrior
-from xnmt.transform import AuxNonLinear, Linear
-from xnmt.scorer import Softmax
-from xnmt.transducer import IdentitySeqTransducer
-from xnmt.vocab import Vocab
+from xnmt.transforms import AuxNonLinear, Linear
+from xnmt.scorers import Softmax
+from xnmt.transducers import IdentitySeqTransducer
+from xnmt.vocabs import Vocab
 from xnmt.rl.policy_gradient import PolicyGradient
 from xnmt.rl.eps_greedy import EpsilonGreedy
 from xnmt.rl.confidence_penalty import ConfidencePenalty
@@ -42,10 +42,10 @@ class TestSegmentingEncoder(unittest.TestCase):
     ParamManager.init_param_col()
     self.segment_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
     self.segment_composer = SumComposer()
-    self.src_reader = CharFromWordTextReader()
-    self.trg_reader = PlainTextReader()
-    self.loss_calculator = MLELoss()
 
+    self.src_reader = CharFromWordTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.charvocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
+    self.loss_calculator = MLELoss()
 
     baseline = Linear(input_dim=layer_dim, output_dim=1)
     policy_network = Linear(input_dim=layer_dim, output_dim=2)
@@ -90,7 +90,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.layer_dim = layer_dim
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
-    my_batcher = xnmt.batcher.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
+    my_batcher = xnmt.batchers.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
     dy.renew_cg(immediate_compute=True, check_validity=True)
 
@@ -184,8 +184,8 @@ class TestComposing(unittest.TestCase):
     xnmt.events.clear()
     ParamManager.init_param_col()
     self.segment_composer = SumComposer()
-    self.src_reader = CharFromWordTextReader()
-    self.trg_reader = PlainTextReader()
+    self.src_reader = CharFromWordTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.charvocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
     self.loss_calculator = MLELoss()
     self.segmenting_encoder = SegmentingSeqTransducer(
       segment_composer =  self.segment_composer,
@@ -213,7 +213,7 @@ class TestComposing(unittest.TestCase):
     self.layer_dim = layer_dim
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
-    my_batcher = xnmt.batcher.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
+    my_batcher = xnmt.batchers.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
     dy.renew_cg(immediate_compute=True, check_validity=True)
 
@@ -225,7 +225,6 @@ class TestComposing(unittest.TestCase):
   def test_lookup_composer(self):
     enc = self.segmenting_encoder
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
-    word_vocab.freeze()
     enc.segment_composer = LookupComposer(
         word_vocab = word_vocab,
         src_vocab = self.src_reader.vocab,
@@ -236,7 +235,6 @@ class TestComposing(unittest.TestCase):
   def test_charngram_composer(self):
     enc = self.segmenting_encoder
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
-    word_vocab.freeze()
     enc.segment_composer = CharNGramComposer(
         word_vocab = word_vocab,
         src_vocab = self.src_reader.vocab,
@@ -247,7 +245,6 @@ class TestComposing(unittest.TestCase):
   def test_add_multiple_segment_composer(self):
     enc = self.segmenting_encoder
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
-    word_vocab.freeze()
     enc.segment_composer = SumMultipleComposer(
       composers = [
         LookupComposer(word_vocab = word_vocab,
