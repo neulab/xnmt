@@ -148,6 +148,12 @@ class Mask(object):
     x = [np.nonzero(1-arr)[0] for arr in np_arr]
     return x
 
+  def mask_reshape_size(self, tensor_dim, time_first=False):
+    if time_first:
+      return list(reversed(self.np_arr.shape[1:])) + [1] * (len(tensor_dim[0]) - len(self.np_arr.shape) + 1) + [self.np_arr.shape[0]]
+    else:
+      return [1] * (len(tensor_dim[0]) - len(self.np_arr.shape) + 1) + list(reversed(self.np_arr.shape))
+
   def set_masked_to_mean(self, tensor_expr, time_first=False):
     """
     Set masked parts of the tensor expr to the mean of the unmasked parts.
