@@ -123,7 +123,7 @@ class TestEncoder(unittest.TestCase):
     self.set_train(True)
     for sent_i in range(10):
       dy.renew_cg()
-      src = self.src_data[sent_i].get_padded_sent(Vocab.ES, 4 - (self.src_data[sent_i].sent_len() % 4))
+      src = self.src_data[sent_i].create_padded_sent(4 - (self.src_data[sent_i].sent_len() % 4))
       self.start_sent(src)
       embeddings = model.src_embedder.embed_sent(src)
       encodings = model.encoder.transduce(embeddings)

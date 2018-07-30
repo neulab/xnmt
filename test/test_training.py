@@ -10,17 +10,18 @@ from xnmt.decoders import AutoRegressiveDecoder
 from xnmt.embedders import SimpleWordEmbedder
 from xnmt.eval_tasks import LossEvalTask
 import xnmt.events
-from xnmt.input_readers import PlainTextReader, SimpleSentenceInput
+from xnmt.input_readers import PlainTextReader
 from xnmt.recurrent_transducers import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculators import AutoRegressiveMLELoss
 from xnmt.optimizers import AdamTrainer, DummyTrainer
 from xnmt.param_collections import ParamManager
 from xnmt.pyramidal import PyramidalLSTMSeqTransducer
-import xnmt.training_regimens
+from xnmt import training_regimens
 from xnmt.transforms import NonLinear
 from xnmt.translators import DefaultTranslator
 from xnmt.scorers import Softmax
 from xnmt.vocabs import Vocab
+from xnmt import sent
 
 class TestTruncatedBatchTraining(unittest.TestCase):
 
@@ -51,8 +52,8 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     trg_sents_trunc = [s.words[:trg_min] for s in trg_sents]
     for single_sent in trg_sents_trunc: single_sent[trg_min-1] = Vocab.ES
 
-    src_sents_trunc = [SimpleSentenceInput(s) for s in src_sents_trunc]
-    trg_sents_trunc = [SimpleSentenceInput(s) for s in trg_sents_trunc]
+    src_sents_trunc = [sent.SimpleSentence(words=s) for s in src_sents_trunc]
+    trg_sents_trunc = [sent.SimpleSentence(words=s) for s in trg_sents_trunc]
 
     single_loss = 0.0
     for sent_id in range(batch_size):
@@ -190,8 +191,8 @@ class TestBatchTraining(unittest.TestCase):
     trg_masks = Mask(np_arr)
     trg_sents_padded = [[w for w in s] + [Vocab.ES]*(trg_max-s.sent_len()) for s in trg_sents]
 
-    src_sents_trunc = [SimpleSentenceInput(s) for s in src_sents_trunc]
-    trg_sents_padded = [SimpleSentenceInput(s) for s in trg_sents_padded]
+    src_sents_trunc = [sent.SimpleSentence(words=s) for s in src_sents_trunc]
+    trg_sents_padded = [sent.SimpleSentence(words=s) for s in trg_sents_padded]
 
     single_loss = 0.0
     for sent_id in range(batch_size):
@@ -312,7 +313,7 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['trainer'] = DummyTrainer()
     train_args['batcher'] = batcher
     train_args['run_for_epochs'] = 1
-    training_regimen = xnmt.training_regimens.SimpleTrainingRegimen(**train_args)
+    training_regimen = training_regimens.SimpleTrainingRegimen(**train_args)
     training_regimen.run_training(save_fct = lambda: None)
     self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
                            training_regimen.dev_loss_tracker.dev_score.loss, places=5)
@@ -356,7 +357,7 @@ class TestOverfitting(unittest.TestCase):
     train_args['run_for_epochs'] = 1
     train_args['trainer'] = AdamTrainer(alpha=0.1)
     train_args['batcher'] = batcher
-    training_regimen = xnmt.training_regimens.SimpleTrainingRegimen(**train_args)
+    training_regimen = training_regimens.SimpleTrainingRegimen(**train_args)
     for _ in range(50):
       training_regimen.run_training(save_fct=lambda:None)
     self.assertAlmostEqual(0.0,

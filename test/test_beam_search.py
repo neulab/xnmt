@@ -54,7 +54,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
     dy.renew_cg()
     outputs = self.model.generate(batchers.mark_as_batch([self.src_data[sent_id]]), [sent_id], BeamSearch(),
                                   forced_trg_ids=batchers.mark_as_batch([self.trg_data[sent_id]]))
-    self.assertItemsEqual(self.trg_data[sent_id].words, outputs[0].actions)
+    self.assertItemsEqual(self.trg_data[sent_id].words, outputs[0].words)
 
   def test_forced_decoding(self):
     for i in range(1):

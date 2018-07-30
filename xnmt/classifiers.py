@@ -1,6 +1,7 @@
 import numpy as np
 
-from xnmt import batchers, embedders, inferences, input_readers, losses, recurrent_transducers, model_base, output, scorers, transducers, transforms
+from xnmt import batchers, embedders, inferences, input_readers, losses, recurrent_transducers, model_base, scorers, \
+  sent, transducers, transforms
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class SequenceClassifier(model_base.ConditionedModel, model_base.GeneratorModel, Serializable, model_base.EventTrigger):
@@ -71,8 +72,7 @@ class SequenceClassifier(model_base.ConditionedModel, model_base.GeneratorModel,
     outputs = []
     for batch_i in range(src.batch_size()):
       score = np_scores[:, batch_i][output_action[batch_i]]
-      outputs.append(output.ScalarOutput(actions=[output_action],
-                                         vocab=None,
+      outputs.append(sent.ScalarSentence(value=output_action,
                                          score=score))
     return outputs
 
