@@ -212,7 +212,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
                                 "Specify inference batcher with batch size 1.")
     # Generating outputs
     self.start_sent(src)
-    outputs = []
     cur_forced_trg = None
     sent = src[0]
     sent_mask = None
@@ -249,6 +248,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     search_outputs = self.generate_search_output(src, search_strategy, forced_trg_ids)
     sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
     assert len(sorted_outputs) >= 1
+    outputs = []
     for curr_output in sorted_outputs:
       output_actions = [x for x in curr_output.word_ids[0]]
       attentions = [x for x in curr_output.attentions[0]]

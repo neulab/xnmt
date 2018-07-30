@@ -122,7 +122,7 @@ class MinRiskLoss(Serializable, LossCalculator):
     deltas = []
     probs = []
     
-    search_outputs = translator.generate_search_output(src, translator.search_strategy, forced_trg_ids=trg) 
+    search_outputs = translator.generate_search_output(src, translator.search_strategy) 
     for search_output in search_outputs:
       logprob = search_output.logsoftmaxes
       sample = search_output.word_ids

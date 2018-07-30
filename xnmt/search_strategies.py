@@ -133,7 +133,7 @@ class BeamSearch(Serializable, SearchStrategy):
     self.one_best = one_best
     self.scores_proc = scores_proc
 
-  def generate_output(self, translator, dec_state,
+  def generate_output(self, translator, initial_state,
                       src_length=None, forced_trg_ids=None):
     # TODO(philip30): can only do single decoding, not batched
     assert forced_trg_ids is None or self.beam_size == 1
@@ -222,7 +222,7 @@ class SamplingSearch(Serializable, SearchStrategy):
     self.max_len = max_len
     self.sample_size = sample_size
 
-  def generate_output(self, translator, dec_state,
+  def generate_output(self, translator, initial_state,
                       src_length=None, forced_trg_ids=None):
     outputs = []
     for k in range(self.sample_size):
