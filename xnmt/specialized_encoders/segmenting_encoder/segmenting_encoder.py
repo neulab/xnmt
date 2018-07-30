@@ -57,6 +57,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                      length_prior=None,
                      eps_greedy=None,
                      sample_during_search=False,
+                     reporter=None,
                      compute_report=Ref("exp_global.compute_report", default=False)):
     self.embed_encoder = self.add_serializable_component("embed_encoder", embed_encoder, lambda: embed_encoder)
     self.segment_composer = self.add_serializable_component("segment_composer", segment_composer, lambda: segment_composer)
@@ -66,6 +67,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.eps_greedy = self.add_serializable_component("eps_greedy", eps_greedy, lambda: eps_greedy) if eps_greedy is not None else None
     self.sample_during_search = sample_during_search
     self.compute_report = compute_report
+    self.reporter = reporter
 
   def shared_params(self):
     return [{".embed_encoder.hidden_dim",".policy_learning.policy_network.input_dim"},
@@ -132,7 +134,12 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         reward.add_loss('seg_lp', self.length_prior.log_ll(self.seg_size_unpadded[i]))
       rewards.append(dy.esum(list(reward.expr_factors.values())))
     ### Calculate losses    
-    return self.policy_learning.calc_loss(rewards)
+    try:
+      return self.policy_learning.calc_loss(rewards)
+    finally:
+      self.rewards = rewards
+      if self.reporter is not None:
+        self.reporter.report_process(self)
 
   @handle_xnmt_event
   def on_start_sent(self, src):
