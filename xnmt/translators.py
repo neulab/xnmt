@@ -3,7 +3,7 @@ import numpy as np
 import collections
 import itertools
 from collections import namedtuple
-from typing import Any, Optional, Sequence, Tuple, Union
+from typing import Any, Optional, Sequence, Tuple, Union, List
 
 from xnmt import batchers, inferences, input_readers, model_base, search_strategies, transducers
 from xnmt.settings import settings
@@ -102,7 +102,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
                trg_embedder: Embedder=bare(SimpleWordEmbedder),
                decoder: Decoder=bare(AutoRegressiveDecoder),
                inference: inferences.AutoRegressiveInference=bare(inferences.AutoRegressiveInference),
-               search_strategy:search_strategies.SearchStrategy=bare(BeamSearch),
+               search_strategy:search_strategies.SearchStrategy=bare(search_strategies.BeamSearch),
                truncate_dec_batches:bool=False,
                compute_report:bool = Ref("exp_global.compute_report", default=False)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
@@ -195,7 +195,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
   def generate_search_output(self,
                              src: batchers.Batch,
                              search_strategy: search_strategies.SearchStrategy,
-                             forced_trg_ids: batchers.Batch=None) -> List[SearchOutput]:
+                             forced_trg_ids: batchers.Batch=None) -> List[search_strategies.SearchOutput]:
     """
     Takes in a batch of source sentences and outputs a list of search outputs.
 
