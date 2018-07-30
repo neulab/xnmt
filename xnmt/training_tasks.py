@@ -277,13 +277,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     Performs forward pass, backward pass, parameter update for the given minibatch
     """
-    loss_builder = losses.FactoredLossExpr()
-    standard_loss = self.loss_calculator.calc_loss(self.model, src, trg)
-    # TODO: this should be refactored
-    additional_loss = self.model.calc_additional_loss(trg, self.model, standard_loss)
-    loss_builder.add_factored_loss_expr(standard_loss)
-    loss_builder.add_factored_loss_expr(additional_loss)
-    return loss_builder
+    return self.loss_calculator.calc_loss(self.model, src, trg)
 
   def checkpoint_needed(self):
     return self.dev_loss_tracker.should_report_dev()

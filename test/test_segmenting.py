@@ -17,7 +17,7 @@ import xnmt.batchers
 from xnmt.input_readers import PlainTextReader, CharFromWordTextReader
 from xnmt.recurrent_transducers import UniLSTMSeqTransducer
 from xnmt.translators import DefaultTranslator
-from xnmt.loss_calculators import MLELoss
+from xnmt.loss_calculators import MLELoss, FeedbackLoss
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
 from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLengthPrior
@@ -45,7 +45,7 @@ class TestSegmentingEncoder(unittest.TestCase):
 
     self.src_reader = CharFromWordTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.charvocab"))
     self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
-    self.loss_calculator = MLELoss()
+    self.loss_calculator = FeedbackLoss(child_loss=MLELoss(), repeat=5)
 
     baseline = Linear(input_dim=layer_dim, output_dim=1)
     policy_network = Linear(input_dim=layer_dim, output_dim=2)
@@ -57,8 +57,7 @@ class TestSegmentingEncoder(unittest.TestCase):
                                           baseline=baseline,
                                           policy_network=policy_network,
                                           z_normalization=True,
-                                          conf_penalty=self.conf_penalty,
-                                          sample=5)
+                                          conf_penalty=self.conf_penalty)
     self.length_prior = PoissonLengthPrior(lmbd=3.3, weight=1)
     self.segmenting_encoder = SegmentingSeqTransducer(
       embed_encoder = self.segment_encoder_bilstm,
@@ -186,7 +185,7 @@ class TestComposing(unittest.TestCase):
     self.segment_composer = SumComposer()
     self.src_reader = CharFromWordTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.charvocab"))
     self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
-    self.loss_calculator = MLELoss()
+    self.loss_calculator = FeedbackLoss(child_loss=MLELoss(), repeat=5)
     self.segmenting_encoder = SegmentingSeqTransducer(
       segment_composer =  self.segment_composer,
       final_transducer = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),

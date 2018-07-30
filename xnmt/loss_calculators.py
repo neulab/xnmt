@@ -7,6 +7,7 @@ from xnmt.losses import FactoredLossExpr
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.vocabs import Vocab
 from xnmt.transforms import Linear
+from xnmt.persistence import bare
 from xnmt import batchers, eval_metrics
 import xnmt.input
 
@@ -29,24 +30,18 @@ class LossCalculator(object):
 class MLELoss(Serializable, LossCalculator):
   """
   Max likelihood loss calculator.
-
-  Args:
-    repeat: The calculation of maximum likelihood loss will be repeated this many times.
-            This is only helpful when there is some inherent non-determinism in the
-            training process (e.g. an encoder that uses sampling)
   """
   yaml_tag = '!MLELoss'
   @serializable_init
-  def __init__(self,
-               repeat: int = 1) -> None:
-    self.repeat = repeat
+  def __init__(self) -> None:
+    pass
 
   def calc_loss(self,
                 model: 'model_base.ConditionedModel',
                 src: Union[xnmt.input.Input, 'batcher.Batch'],
                 trg: Union[xnmt.input.Input, 'batcher.Batch']):
-    losses = [model.calc_nll(src, trg) for _ in range(self.repeat)]
-    return FactoredLossExpr({"mle": losses[0] if self.repeat == 1 else dy.esum(losses)})
+    loss = model.calc_nll(src, trg)
+    return FactoredLossExpr({"mle": loss})
 
 class ReinforceLoss(Serializable, LossCalculator):
   yaml_tag = '!ReinforceLoss'
@@ -162,3 +157,33 @@ class MinRiskLoss(Serializable, LossCalculator):
 
     return FactoredLossExpr({"risk": risk})
 
+
+class FeedbackLoss(Serializable, LossCalculator):
+  """
+  A loss that first calculates a standard loss function, then feeds it back to the
+  model using the model.additional_loss function.
+
+  Args:
+    child_loss: The loss that will be fed back to the model
+    repeat: Repeat the process multiple times and use the sum of the losses. This is
+            useful when there is some non-determinism (such as sampling in the encoder, etc.)
+  """
+  yaml_tag = '!FeedbackLoss'
+  @serializable_init
+  def __init__(self,
+               child_loss: LossCalculator=bare(MLELoss),
+               repeat: int=1) -> None:
+    self.child_loss = child_loss
+    self.repeat = repeat
+
+  def calc_loss(self,
+                model: 'model_base.ConditionedModel',
+                src: Union[xnmt.input.Input, 'batcher.Batch'],
+                trg: Union[xnmt.input.Input, 'batcher.Batch']):
+    loss_builder = FactoredLossExpr()
+    for _ in range(self.repeat):
+      standard_loss = self.child_loss.calc_loss(model, src, trg)
+      additional_loss = model.calc_additional_loss(trg, model, standard_loss)
+      loss_builder.add_factored_loss_expr(standard_loss)
+      loss_builder.add_factored_loss_expr(additional_loss)
+    return loss_builder

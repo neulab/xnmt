@@ -1,4 +1,6 @@
 lm: !Experiment
+  exp_global: !ExpGlobal
+    default_layer_dim: 64
   model: !LanguageModel
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}

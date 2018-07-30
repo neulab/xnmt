@@ -34,12 +34,12 @@ class SearchStrategy(object):
   Returns:
     (List[SearchOutput]): A list of search outputs
   """
-  def generate_output(self, translator, dec_state,
+  def generate_output(self, translator, initial_state,
                       src_length=None, forced_trg_ids=None):
     """
     Args:
       translator: a translator
-      dec_state: initial decoder state
+      initial_state: initial decoder state
       src_length: length of src sequence, required for some types of length normalization
       forced_trg_ids: list of word ids, if given will force to generate this is the target sequence
     Returns:
@@ -61,7 +61,7 @@ class GreedySearch(Serializable, SearchStrategy):
   def __init__(self, max_len=100):
     self.max_len = max_len
 
-  def generate_output(self, translator, dec_state,
+  def generate_output(self, translator, initial_state,
                       src_length=None, forced_trg_ids=None):
     # Output variables
     score = []

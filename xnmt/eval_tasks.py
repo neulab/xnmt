@@ -78,14 +78,10 @@ class LossEvalTask(EvalTask, Serializable):
       with utils.ReportOnException({"src": src, "trg": trg, "graph": dy.print_text_graphviz}):
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
 
-        loss_builder = FactoredLossExpr()
-        standard_loss = self.loss_calculator.calc_loss(self.model, src, trg)
-        additional_loss = self.model.calc_additional_loss(trg, self.model, standard_loss)
-        loss_builder.add_factored_loss_expr(standard_loss)
-        loss_builder.add_factored_loss_expr(additional_loss)
+        loss = self.loss_calculator.calc_loss(self.model, src, trg)
 
         ref_words_cnt += sum([trg_i.len_unpadded() for trg_i in trg])
-        loss_val += loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method)
+        loss_val += loss.get_factored_loss_val(comb_method=self.loss_comb_method)
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
 

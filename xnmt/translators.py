@@ -266,7 +266,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
       attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
       self.add_sent_for_report({"idx": idx[0],
                                 "attentions": attentions,
-                                "src": sent,
+                                "src": src[0],
                                 "src_vocab": getattr(self.src_reader, "vocab", None),
                                 "trg_vocab": getattr(self.trg_reader, "vocab", None),
                                 "output": outputs[0]})
