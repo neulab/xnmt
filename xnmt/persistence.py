@@ -872,7 +872,8 @@ class YamlPreloader(object):
       experiment = config[exp_name]
       if getattr(experiment, "name", exp_name) != exp_name:
         raise ValueError(f"Inconsistent experiment name '{exp_name}' / '{experiment.name}'")
-      experiment.name = exp_name
+      if not isinstance(experiment, LoadSerialized):
+        experiment.name = exp_name
     elif isinstance(config, list):
       experiment = None
       for exp in config:
@@ -882,7 +883,8 @@ class YamlPreloader(object):
     else:
       experiment = config
       if not hasattr(experiment, "name"): raise ValueError("Encountered unnamed experiment.")
-      if experiment.name != exp_name: raise ValueError(f"No experiment of name '{exp_name}' exists.")
+      if not isinstance(experiment, LoadSerialized):
+        if experiment.name != exp_name: raise ValueError(f"No experiment of name '{exp_name}' exists.")
     return YamlPreloader.preload_obj(experiment, exp_name=exp_name, exp_dir=os.path.dirname(filename) or ".",
                                      resume=resume)
 
@@ -909,14 +911,14 @@ class YamlPreloader(object):
 
     YamlPreloader._copy_duplicate_components(root) # sometimes duplicate objects occur with yaml.load()
 
-    root = YamlPreloader._remove_saved_format_strings(root, keep_value=resume)
-
     placeholders = {"EXP": exp_name,
                     "PID": os.getpid(),
                     "EXP_DIR": exp_dir,
                     "GIT_REV": get_git_revision()}
 
-    YamlPreloader._format_strings(root, placeholders) # do this both before and after resolving !LoadSerialized
+    # do this both before and after resolving !LoadSerialized
+    root = YamlPreloader._remove_saved_format_strings(root, keep_value=resume)
+    YamlPreloader._format_strings(root, placeholders)
 
     root = YamlPreloader._load_serialized(root)
 
@@ -930,7 +932,9 @@ class YamlPreloader(object):
     # into the object hierarchy so it can be used w/ param sharing etc.
     YamlPreloader._resolve_bare_default_args(root)
 
-    YamlPreloader._format_strings(root, placeholders)  # do this both before and after resolving !LoadSerialized
+    # do this both before and after resolving !LoadSerialized
+    root = YamlPreloader._remove_saved_format_strings(root, keep_value=resume)
+    YamlPreloader._format_strings(root, placeholders)
 
     return UninitializedYamlObject(root)
 
