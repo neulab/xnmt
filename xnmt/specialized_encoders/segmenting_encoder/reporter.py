@@ -52,7 +52,7 @@ class SegmentingReporter(Serializable):
       format = format[::-1]
       self.logger.info("Sample %d", (i+1))
       self.logger.info("SRC: %s", self.apply_segmentation(src_word, sample_action))
-      arr = np.flip(arr, [0]).transpose()
+      arr = np.flip(arr, 0).transpose()
 
       row_format = "".join(format)
       for item in arr:
