@@ -29,8 +29,8 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     xnmt.events.clear()
     ParamManager.init_param_col()
 
-    self.src_reader = PlainTextReader()
-    self.trg_reader = PlainTextReader()
+    self.src_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
     self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
 
@@ -164,8 +164,8 @@ class TestBatchTraining(unittest.TestCase):
     xnmt.events.clear()
     ParamManager.init_param_col()
 
-    self.src_reader = PlainTextReader()
-    self.trg_reader = PlainTextReader()
+    self.src_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
     self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
 
@@ -289,8 +289,8 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['src_file'] = "examples/data/head.ja"
     train_args['trg_file'] = "examples/data/head.en"
     train_args['loss_calculator'] = AutoRegressiveMLELoss()
-    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(),
-                                            trg_reader=PlainTextReader(),
+    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab")),
+                                            trg_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab")),
                                             src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
                                             encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
                                             attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim,
@@ -331,8 +331,8 @@ class TestOverfitting(unittest.TestCase):
     train_args['src_file'] = "examples/data/head.ja"
     train_args['trg_file'] = "examples/data/head.en"
     train_args['loss_calculator'] = AutoRegressiveMLELoss()
-    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(),
-                                            trg_reader=PlainTextReader(),
+    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab")),
+                                            trg_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab")),
                                             src_embedder=SimpleWordEmbedder(vocab_size=100, emb_dim=layer_dim),
                                             encoder=BiLSTMSeqTransducer(input_dim=layer_dim,
                                                                         hidden_dim=layer_dim),

@@ -33,8 +33,6 @@ class InputReader(object):
       filter_ids: only read sentences with these ids (0-indexed)
     Returns: iterator over sentences from filename
     """
-    if self.vocab is None:
-      self.vocab = Vocab()
     return self.iterate_filtered(filename, filter_ids)
 
   def count_sents(self, filename: str) -> int:
@@ -46,12 +44,6 @@ class InputReader(object):
     Returns: number of sentences in the data file
     """
     raise RuntimeError("Input readers must implement the count_sents function")
-
-  def freeze(self) -> None:
-    """
-    Freeze the data representation, e.g. by freezing the vocab.
-    """
-    pass
 
   def needs_reload(self) -> bool:
     """
@@ -99,6 +91,12 @@ class BaseTextReader(InputReader):
         if max_id is not None and sent_count > max_id:
           break
 
+def convert_int(x):
+  try:
+    return int(x)
+  except ValueError:
+    raise ValueError(f"Expecting integer tokens because no vocab was set. Got: '{x}'")
+
 class PlainTextReader(BaseTextReader, Serializable):
   """
   Handles the typical case of reading plain text files, with one sent per line.
@@ -116,15 +114,12 @@ class PlainTextReader(BaseTextReader, Serializable):
     self.vocab = vocab
     self.read_sent_len = read_sent_len
     self.output_procs = output.OutputProcessor.get_output_processor(output_proc)
-    if vocab is not None:
-      self.vocab.freeze()
-      self.vocab.set_unk(Vocab.UNK_STR)
 
   def read_sent(self, line, idx):
     if self.vocab:
       convert_fct = self.vocab.convert
     else:
-      convert_fct = int
+      convert_fct = convert_int
     if self.read_sent_len:
       return ScalarSentence(idx=idx, value=len(line.strip().split()))
     else:
@@ -132,11 +127,6 @@ class PlainTextReader(BaseTextReader, Serializable):
                             words=[convert_fct(word) for word in line.strip().split()] + [Vocab.ES],
                             vocab=self.vocab,
                             output_procs=self.output_procs)
-
-  def freeze(self):
-    self.vocab.freeze()
-    self.vocab.set_unk(Vocab.UNK_STR)
-    self.save_processed_arg("vocab", self.vocab)
 
   def vocab_size(self):
     return len(self.vocab)
@@ -172,8 +162,6 @@ class CompoundReader(InputReader, Serializable):
         return
   def count_sents(self, filename: str) -> int:
     return self.readers[0].count_sents(filename if isinstance(filename,str) else filename[0])
-  def freeze(self) -> None:
-    for reader in self.readers: reader.freeze()
   def needs_reload(self) -> bool:
     return any(reader.needs_reload() for reader in self.readers)
 
@@ -208,9 +196,6 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
     self.vocab = vocab
     self.train = False
     self.output_procs = output.OutputProcessor.get_output_processor(output_proc)
-    if vocab is not None:
-      self.vocab.freeze()
-      self.vocab.set_unk(Vocab.UNK_STR)
 
   @handle_xnmt_event
   def on_set_train(self, val):
@@ -227,11 +212,6 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
                           vocab=self.vocab,
                           output_procs=self.output_procs)
 
-  def freeze(self):
-    self.vocab.freeze()
-    self.vocab.set_unk(Vocab.UNK_STR)
-    self.save_processed_arg("vocab", self.vocab)
-
   def count_words(self, trg_words):
     trg_cnt = 0
     for x in trg_words:
@@ -243,6 +223,29 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
 
   def vocab_size(self):
     return len(self.vocab)
+
+class CharFromWordTextReader(PlainTextReader, Serializable):
+  # TODO @philip30
+  # - add documentation
+  # - this should probably return a SegmentedSentence etc. rather than a SimpleSentence
+  # - possibly represent as list of list
+  yaml_tag = "!CharFromWordTextReader"
+  @serializable_init
+  def __init__(self, vocab:Vocab=None, read_sent_len:bool=False):
+    super().__init__(vocab, read_sent_len)
+  def read_sent(self, sentence, filter_ids=None):
+    chars = []
+    segs = []
+    offset = 0
+    for word in sentence.strip().split():
+      offset += len(word)
+      segs.append(offset-1)
+      chars.extend([c for c in word])
+    segs.append(len(chars))
+    chars.append(Vocab.ES_STR)
+    sent_input = SimpleSentence([self.vocab.convert(c) for c in chars])
+    sent_input.segment = segs
+    return sent_input
 
 class H5Reader(InputReader, Serializable):
   """

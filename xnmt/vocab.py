@@ -1,15 +1,21 @@
+from typing import Optional, Sequence
+
 from xnmt.persistence import serializable_init, Serializable
 
 class Vocab(Serializable):
   """
-  Converts between strings and integer ids.
+  An open vocabulary that converts between strings and integer ids.
 
-  Configured via either i2w or vocab_file (mutually exclusive).
+  The open vocabulary is realized via a special unknown-word token that is used whenever a word is not inside the
+  list of known tokens.
+  This class is immutable, i.e. its contents are not to change after the vocab has been initialized.
+
+  For initialization, i2w or vocab_file must be specified, but not both.
 
   Args:
-    i2w (list of string): list of words, including <s> and </s>
-    vocab_file (str): file containing one word per line, and not containing <s>, </s>, <unk>
-    sentencepiece_vocab (bool): Set to ``True`` if ``vocab_file`` is the output of the sentencepiece tokenizer. Defaults to ``False``.
+    i2w: complete list of known words, including ``<s>`` and ``</s>``.
+    vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
+    sentencepiece_vocab: Set to ``True`` if ``vocab_file`` is the output of the sentencepiece tokenizer. Defaults to ``False``.
   """
 
   yaml_tag = "!Vocab"
@@ -22,23 +28,19 @@ class Vocab(Serializable):
   UNK_STR = "<unk>"
 
   @serializable_init
-  def __init__(self, i2w=None, vocab_file=None, sentencepiece_vocab=False):
+  def __init__(self, i2w: Optional[Sequence[str]] = None, vocab_file: Optional[str] = None,
+               sentencepiece_vocab: bool = False) -> None:
     assert i2w is None or vocab_file is None
+    assert i2w or vocab_file
     if vocab_file:
       i2w = Vocab.i2w_from_vocab_file(vocab_file, sentencepiece_vocab)
-    if i2w is not None:
-      self.i2w = i2w
-      self.w2i = {word: word_id for (word_id, word) in enumerate(self.i2w)}
-      self.frozen = True
-    else :
-      self.w2i = {}
-      self.i2w = []
-      self.unk_token = None
-      self.w2i[self.SS_STR] = self.SS
-      self.w2i[self.ES_STR] = self.ES
-      self.i2w.append(self.SS_STR)
-      self.i2w.append(self.ES_STR)
-      self.frozen = False
+    assert i2w is not None
+    self.i2w = i2w
+    self.w2i = {word: word_id for (word_id, word) in enumerate(self.i2w)}
+    if Vocab.UNK_STR not in self.w2i:
+      self.w2i[Vocab.UNK_STR] = len(self.i2w)
+      self.i2w.append(Vocab.UNK_STR)
+    self.unk_token = self.w2i[Vocab.UNK_STR]
     self.save_processed_arg("i2w", self.i2w)
     self.save_processed_arg("vocab_file", None)
 
@@ -70,13 +72,7 @@ class Vocab(Serializable):
     return vocab
 
   def convert(self, w: str) -> int:
-    if w not in self.w2i:
-      if self.frozen:
-        assert self.unk_token is not None, 'Attempt to convert an OOV in a frozen vocabulary with no UNK token set'
-        return self.unk_token
-      self.w2i[w] = len(self.i2w)
-      self.i2w.append(w)
-    return self.w2i[w]
+    return self.w2i.get(w, self.unk_token)
 
   def __getitem__(self, i: int) -> str:
     return self.i2w[i]
@@ -92,26 +88,6 @@ class Vocab(Serializable):
       return False
     if len(self) != len(other):
       return False
-    if self.frozen != other.frozen or self.unk_token != other.unk_token:
+    if self.unk_token != other.unk_token:
       return False
     return self.w2i == other.w2i
-
-  def freeze(self):
-    """
-    Mark this vocab as fixed, so no further words can be added. Only after freezing can the unknown word token be set.
-    """
-    self.frozen = True
-
-  def set_unk(self, w):
-    """
-    Sets the unknown word token. Can only be invoked after calling freeze().
-
-    Args:
-      w (str): unknown word token
-    """
-    assert self.frozen, 'Attempt to call set_unk on a non-frozen dict'
-    if w not in self.w2i:
-      self.w2i[w] = len(self.i2w)
-      self.i2w.append(w)
-    self.unk_token = self.w2i[w]
-
