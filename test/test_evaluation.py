@@ -12,7 +12,7 @@ class TestBLEU(unittest.TestCase):
     self.hyp = ["the taro met the hanako".split()]
     self.ref = ["taro met hanako".split()]
 
-    vocab = Vocab()
+    vocab = Vocab(i2w=["the","taro","met","hanako"])
     self.hyp_id = list(map(vocab.convert, self.hyp[0]))
     self.ref_id = list(map(vocab.convert, self.ref[0]))
 

@@ -7,12 +7,12 @@ from xnmt.input_readers import PlainTextReader
 from xnmt.embedders import PretrainedSimpleWordEmbedder
 from xnmt.param_collections import ParamManager
 from xnmt import events
-
+from xnmt.vocabs import Vocab
 
 class PretrainedSimpleWordEmbedderSanityTest(unittest.TestCase):
   def setUp(self):
     events.clear()
-    self.input_reader = PlainTextReader()
+    self.input_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab"))
     list(self.input_reader.read_sents('examples/data/head.ja'))
     ParamManager.init_param_col()
 

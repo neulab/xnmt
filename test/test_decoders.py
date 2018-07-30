@@ -16,6 +16,7 @@ from xnmt.transforms import NonLinear
 from xnmt.translators import DefaultTranslator
 from xnmt.scorers import Softmax
 from xnmt.search_strategies import GreedySearch
+from xnmt.vocabs import Vocab
 
 class TestForcedDecodingOutputs(unittest.TestCase):
 
@@ -28,9 +29,11 @@ class TestForcedDecodingOutputs(unittest.TestCase):
     layer_dim = 512
     events.clear()
     ParamManager.init_param_col()
+    src_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
     self.model = DefaultTranslator(
-      src_reader=PlainTextReader(),
-      trg_reader=PlainTextReader(),
+      src_reader=PlainTextReader(vocab=src_vocab),
+      trg_reader=PlainTextReader(vocab=trg_vocab),
       src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
@@ -65,9 +68,11 @@ class TestForcedDecodingLoss(unittest.TestCase):
     layer_dim = 512
     events.clear()
     ParamManager.init_param_col()
+    src_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
     self.model = DefaultTranslator(
-      src_reader=PlainTextReader(),
-      trg_reader=PlainTextReader(),
+      src_reader=PlainTextReader(vocab=src_vocab),
+      trg_reader=PlainTextReader(vocab=trg_vocab),
       src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
@@ -101,9 +106,11 @@ class TestFreeDecodingLoss(unittest.TestCase):
     layer_dim = 512
     events.clear()
     ParamManager.init_param_col()
+    src_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
     self.model = DefaultTranslator(
-      src_reader=PlainTextReader(),
-      trg_reader=PlainTextReader(),
+      src_reader=PlainTextReader(vocab=src_vocab),
+      trg_reader=PlainTextReader(vocab=trg_vocab),
       src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
