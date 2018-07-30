@@ -13,15 +13,17 @@ import socket
 import datetime
 import faulthandler
 faulthandler.enable()
+import traceback
 
 import numpy as np
 from xnmt.settings import settings
 
-from xnmt import logger
+from xnmt import logger, file_logger
 from xnmt.tee import log_preamble
-from xnmt.param_collection import ParamManager
-import xnmt.tee as tee
+from xnmt.param_collections import ParamManager
+from xnmt import tee
 from xnmt.persistence import YamlPreloader, save_to_file, initialize_if_needed
+from xnmt import utils
 
 if settings.RESOURCE_WARNINGS:
   import warnings
@@ -31,16 +33,7 @@ def main(overwrite_args=None):
 
   with tee.Tee(), tee.Tee(error=True):
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("--dynet-mem", type=str)
-    argparser.add_argument("--dynet-seed", type=int, help="set random seed for DyNet and XNMT.")
-    argparser.add_argument("--dynet-autobatch", type=int)
-    argparser.add_argument("--dynet-devices", type=str)
-    argparser.add_argument("--dynet-viz", action='store_true', help="use visualization")
-    argparser.add_argument("--dynet-gpu", action='store_true', help="use GPU acceleration")
-    argparser.add_argument("--dynet-gpu-ids", type=int)
-    argparser.add_argument("--dynet-gpus", type=int)
-    argparser.add_argument("--dynet-weight-decay", type=float)
-    argparser.add_argument("--dynet-profiling", type=int)
+    utils.add_dynet_argparse(argparser)
     argparser.add_argument("--settings", type=str, default="standard", help="settings (standard, debug, or unittest)"
                                                                             "must be given in '=' syntax, e.g."
                                                                             " --settings=standard")
@@ -90,22 +83,28 @@ def main(overwrite_args=None):
 
       tee.set_out_file(log_file)
 
-      model_file = glob_args.model_file
+      try:
 
-      uninitialized_exp_args.data.exp_global.commandline_args = vars(args)
+        model_file = glob_args.model_file
 
-      # Create the model
-      experiment = initialize_if_needed(uninitialized_exp_args)
-      ParamManager.param_col.model_file = experiment.exp_global.model_file
-      ParamManager.param_col.save_num_checkpoints = experiment.exp_global.save_num_checkpoints
-      ParamManager.populate()
+        uninitialized_exp_args.data.exp_global.commandline_args = vars(args)
 
-      # Run the experiment
-      eval_scores = experiment(save_fct = lambda: save_to_file(model_file, experiment))
-      results.append((experiment_name, eval_scores))
-      print_results(results)
+        # Create the model
+        experiment = initialize_if_needed(uninitialized_exp_args)
+        ParamManager.param_col.model_file = experiment.exp_global.model_file
+        ParamManager.param_col.save_num_checkpoints = experiment.exp_global.save_num_checkpoints
+        ParamManager.populate()
 
-      tee.unset_out_file()
+        # Run the experiment
+        eval_scores = experiment(save_fct = lambda: save_to_file(model_file, experiment))
+        results.append((experiment_name, eval_scores))
+        print_results(results)
+
+      except Exception as e:
+        file_logger.error(traceback.format_exc())
+        raise e
+      finally:
+        tee.unset_out_file()
     
 def print_results(results):
   print("")

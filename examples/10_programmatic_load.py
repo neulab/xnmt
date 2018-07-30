@@ -4,7 +4,7 @@
 import os
 
 import xnmt.tee
-from xnmt.param_collection import ParamManager
+from xnmt.param_collections import ParamManager
 from xnmt.persistence import initialize_if_needed, YamlPreloader, LoadSerialized, save_to_file
 
 EXP_DIR = os.path.dirname(__file__)

@@ -2,7 +2,7 @@
 # models and using the !Ref mechanism for weight sharing, as demonstrated
 # in this config file.
 # The possible multi-task training strategies can be looked up in
-# xnmt/training_regimen.py and include same-batch, alternating-batch, and serial
+# xnmt/regimens.py and include same-batch, alternating-batch, and serial
 # strategies.
 exp1-multi_task: !Experiment
   exp_global: !ExpGlobal
