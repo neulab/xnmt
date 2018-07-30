@@ -27,11 +27,12 @@ import numpy as np
 import dynet as dy
 
 import xnmt.param_initializers
-from xnmt import transforms, norms, events, param_collections
+from xnmt import norms, events, param_collections
+from xnmt.modelparts import transforms
 from xnmt.transducers import recurrent, base as transducers
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.persistence import Serializable, serializable_init, Ref, bare
-from xnmt import embedders
+from xnmt.modelparts import embedders
 
 LOG_ATTENTION = False
 

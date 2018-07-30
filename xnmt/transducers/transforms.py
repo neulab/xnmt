@@ -3,7 +3,7 @@ from typing import List
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.persistence import Serializable, serializable_init
 from xnmt.transducers.base import SeqTransducer, FinalTransducerState
-from xnmt.transforms import Transform
+from xnmt.modelparts.transforms import Transform
 
 
 class TransformSeqTransducer(SeqTransducer, Serializable):

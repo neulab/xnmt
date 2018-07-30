@@ -5,7 +5,7 @@ from xnmt import logger
 from xnmt import batchers
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.expression_seqs import ExpressionSequence, LazyNumpyExpressionSequence
-from xnmt.transforms import Linear
+from xnmt.modelparts.transforms import Linear
 from xnmt.param_collections import ParamManager
 from xnmt.param_initializers import GlorotInitializer, ZeroInitializer, ParamInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare

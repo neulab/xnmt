@@ -1,6 +1,9 @@
 import numpy as np
 
-from xnmt import batchers, embedders, inferences, input_readers, losses, scorers, sent, transforms
+from xnmt import batchers, inferences, input_readers, losses, sent
+from xnmt.modelparts import transforms
+from xnmt.modelparts import scorers
+from xnmt.modelparts import embedders
 from xnmt.transducers import recurrent
 from xnmt.transducers import base as transducers
 from xnmt.models import base as models

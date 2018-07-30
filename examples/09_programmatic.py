@@ -18,18 +18,18 @@ import random
 
 import numpy as np
 
-from xnmt.attenders import MlpAttender
+from xnmt.modelparts.attenders import MlpAttender
 from xnmt.batchers import SrcBatcher, InOrderBatcher
-from xnmt.bridges import CopyBridge
-from xnmt.decoders import AutoRegressiveDecoder
-from xnmt.embedders import SimpleWordEmbedder
+from xnmt.modelparts.bridges import CopyBridge
+from xnmt.modelparts.decoders import AutoRegressiveDecoder
+from xnmt.modelparts.embedders import SimpleWordEmbedder
 from xnmt.eval.tasks import LossEvalTask, AccuracyEvalTask
 from xnmt.experiments import Experiment
 from xnmt.inferences import AutoRegressiveInference
 from xnmt.input_readers import PlainTextReader
 from xnmt.transducers.recurrent import BiLSTMSeqTransducer, UniLSTMSeqTransducer
-from xnmt.transforms import AuxNonLinear
-from xnmt.scorers import Softmax
+from xnmt.modelparts.transforms import AuxNonLinear
+from xnmt.modelparts.scorers import Softmax
 from xnmt.optimizers import AdamTrainer
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import save_to_file

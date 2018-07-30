@@ -4,7 +4,7 @@ from typing import List, Union, Optional
 from xnmt.param_initializers import ParamInitializer, GlorotInitializer, ZeroInitializer
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
-from xnmt.transforms import Linear
+from xnmt.modelparts.transforms import Linear
 from xnmt import batchers, vocabs, input_readers
 
 class Scorer(object):

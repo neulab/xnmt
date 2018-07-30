@@ -4,17 +4,17 @@ import math
 import numpy as np
 import dynet as dy
 
-from xnmt.attenders import MlpAttender
-from xnmt.bridges import CopyBridge
-from xnmt.decoders import AutoRegressiveDecoder
-from xnmt.embedders import SimpleWordEmbedder
+from xnmt.modelparts.attenders import MlpAttender
+from xnmt.modelparts.bridges import CopyBridge
+from xnmt.modelparts.decoders import AutoRegressiveDecoder
+from xnmt.modelparts.embedders import SimpleWordEmbedder
 from xnmt.input_readers import PlainTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.param_collections import ParamManager
 from xnmt.transducers.pyramidal import PyramidalLSTMSeqTransducer
-from xnmt.scorers import Softmax
+from xnmt.modelparts.scorers import Softmax
 from xnmt.transducers.self_attention import MultiHeadAttentionSeqTransducer
-from xnmt.transforms import NonLinear
+from xnmt.modelparts.transforms import NonLinear
 from xnmt.models.translators import DefaultTranslator
 from xnmt.vocabs import Vocab
 from xnmt import batchers, events

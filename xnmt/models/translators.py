@@ -6,10 +6,10 @@ from collections import namedtuple
 from typing import Any, Optional, Sequence, Tuple, Union
 
 from xnmt.settings import settings
-from xnmt.attenders import Attender, MlpAttender
+from xnmt.modelparts.attenders import Attender, MlpAttender
 from xnmt import batchers
-from xnmt.decoders import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
-from xnmt.embedders import Embedder, SimpleWordEmbedder
+from xnmt.modelparts.decoders import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
+from xnmt.modelparts.embedders import Embedder, SimpleWordEmbedder
 from xnmt.events import register_xnmt_handler
 from xnmt import inferences, input_readers
 from xnmt.models import base

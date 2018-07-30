@@ -8,7 +8,7 @@ from xnmt.persistence import serializable_init, Serializable, Ref
 
 from xnmt import sent
 from xnmt.vocabs import Vocab
-from xnmt.transforms import Linear
+from xnmt.modelparts.transforms import Linear
 from xnmt import batchers
 from xnmt.eval import metrics
 

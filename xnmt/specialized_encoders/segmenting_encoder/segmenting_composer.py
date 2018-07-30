@@ -3,7 +3,7 @@ from collections import Counter
 from functools import lru_cache
 
 from xnmt.expression_seqs import ExpressionSequence
-from xnmt.transforms import Linear
+from xnmt.modelparts.transforms import Linear
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
 from xnmt.param_initializers import GlorotInitializer, ZeroInitializer

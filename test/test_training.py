@@ -3,11 +3,11 @@ import unittest
 import dynet as dy
 import numpy as np
 
-from xnmt.attenders import MlpAttender, DotAttender
+from xnmt.modelparts.attenders import MlpAttender, DotAttender
 from xnmt.batchers import mark_as_batch, Mask, SrcBatcher
-from xnmt.bridges import CopyBridge
-from xnmt.decoders import AutoRegressiveDecoder
-from xnmt.embedders import SimpleWordEmbedder
+from xnmt.modelparts.bridges import CopyBridge
+from xnmt.modelparts.decoders import AutoRegressiveDecoder
+from xnmt.modelparts.embedders import SimpleWordEmbedder
 from xnmt.eval.tasks import LossEvalTask
 import xnmt.events
 from xnmt.input_readers import PlainTextReader
@@ -17,9 +17,9 @@ from xnmt.optimizers import AdamTrainer, DummyTrainer
 from xnmt.param_collections import ParamManager
 from xnmt.transducers.pyramidal import PyramidalLSTMSeqTransducer
 from xnmt.train import regimens
-from xnmt.transforms import NonLinear
+from xnmt.modelparts.transforms import NonLinear
 from xnmt.models.translators import DefaultTranslator
-from xnmt.scorers import Softmax
+from xnmt.modelparts.scorers import Softmax
 from xnmt.vocabs import Vocab
 from xnmt import sent
 

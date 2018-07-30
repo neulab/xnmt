@@ -1,7 +1,10 @@
 import dynet as dy
 import numpy as np
 
-from xnmt import batchers, embedders, events, input_readers, losses, scorers, transforms
+from xnmt import batchers, events, input_readers, losses
+from xnmt.modelparts import transforms
+from xnmt.modelparts import scorers
+from xnmt.modelparts import embedders
 from xnmt.models import base as models
 from xnmt.transducers import base as transducers
 from xnmt.transducers import recurrent
@@ -25,10 +28,10 @@ class LanguageModel(models.ConditionedModel, models.EventTrigger, Serializable):
   @serializable_init
   def __init__(self,
                src_reader:input_readers.InputReader,
-               src_embedder:embedders.Embedder=bare(embedders.SimpleWordEmbedder),
+               src_embedder: embedders.Embedder=bare(embedders.SimpleWordEmbedder),
                rnn:transducers.SeqTransducer=bare(recurrent.UniLSTMSeqTransducer),
-               transform:transforms.Transform=bare(transforms.NonLinear),
-               scorer:scorers.Scorer=bare(scorers.Softmax)):
+               transform: transforms.Transform=bare(transforms.NonLinear),
+               scorer: scorers.Scorer=bare(scorers.Softmax)):
     super().__init__(src_reader=src_reader, trg_reader=src_reader)
     self.src_embedder = src_embedder
     self.rnn = rnn
