@@ -5,17 +5,18 @@ from typing import List
 from enum import Enum
 
 from xnmt import logger
-from xnmt.batcher import Mask
+from xnmt.batchers import Mask
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.expression_sequence import ExpressionSequence
+from xnmt.expression_seqs import ExpressionSequence
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.transducer import SeqTransducer, FinalTransducerState, IdentitySeqTransducer
-from xnmt.loss import FactoredLossExpr
+from xnmt.transducers.base import SeqTransducer, FinalTransducerState, IdentitySeqTransducer
+from xnmt.losses import FactoredLossExpr
 from xnmt.specialized_encoders.segmenting_encoder.priors import GoldInputPrior
 from xnmt.reports import Reportable
-from xnmt.lstm import BiLSTMSeqTransducer
+from xnmt.transducers.recurrent import BiLSTMSeqTransducer
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer
-from xnmt.compound_expr import CompoundSeqExpression
+from xnmt.expression_seqs import CompoundSeqExpression
+
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   """
@@ -111,7 +112,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       self.compose_output = outputs
       self.segment_actions = actions
       if not self.train and self.compute_report:
-        self.add_sent_for_report({"segment_actions": actions})
+        self.report_sent_info({"segment_actions": actions})
 
   @handle_xnmt_event
   def on_calc_additional_loss(self, trg, generator, generator_loss):

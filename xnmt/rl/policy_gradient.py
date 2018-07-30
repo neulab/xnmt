@@ -1,15 +1,12 @@
+from enum import Enum
 
-import numpy as np
 import dynet as dy
 
-from enum import Enum
 from xnmt.events import handle_xnmt_event, register_xnmt_handler
-from xnmt.transform import Linear
-from xnmt.persistence import Ref, bare, Path, Serializable, serializable_init
-from xnmt.rl.eps_greedy import EpsilonGreedy
-from xnmt.constants import EPSILON
-from xnmt.loss import FactoredLossExpr
-from xnmt.param_init import GlorotInitializer, ZeroInitializer
+from xnmt.modelparts.transforms import Linear
+from xnmt.persistence import Ref, bare, Serializable, serializable_init
+from xnmt.losses import FactoredLossExpr
+from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
 
 class PolicyGradient(Serializable):
   """

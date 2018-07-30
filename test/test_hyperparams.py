@@ -1,32 +1,13 @@
-
 import unittest
 
-from xnmt.attender import MlpAttender
-from xnmt.batcher import mark_as_batch, Mask, SrcBatcher
-from xnmt.bridge import CopyBridge
-from xnmt.decoder import AutoRegressiveDecoder
-from xnmt.embedder import SimpleWordEmbedder
-from xnmt.eval_task import LossEvalTask
-import xnmt.events
-from xnmt.input_reader import PlainTextReader
-from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculator import AutoRegressiveMLELoss
-from xnmt.optimizer import AdamTrainer
-from xnmt.param_collection import ParamManager
-from xnmt.pyramidal import PyramidalLSTMSeqTransducer
-import xnmt.training_regimen
-from xnmt.transform import NonLinear
-from xnmt.translator import DefaultTranslator
-from xnmt.scorer import Softmax
-from xnmt.vocab import Vocab
+from xnmt import events
 
-from xnmt.hyper_parameters import *
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
+from xnmt.hyper_params import *
+
 
 class TestSanityHyperParameter(unittest.TestCase):
   def setUp(self):
-    xnmt.events.clear()
+    events.clear()
 
   def test_scalar_operator(self):
     c = Scalar(5)
@@ -59,7 +40,7 @@ class TestSanityHyperParameter(unittest.TestCase):
 # Test will be made after there is an example to test serialized model
 #class TestPersistenceHyperParameter(unittest.TestCase):
 #  def setUp(self):
-#    xnmt.events.clear()
+#    events.clear()
 #    ParamManager.init_param_col()
 #    self.tail_transformer = TailSegmentTransformer()
 #    self.segment_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
@@ -101,7 +82,7 @@ class TestSanityHyperParameter(unittest.TestCase):
 #    self.layer_dim = layer_dim
 #    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
 #    self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
-#    my_batcher = xnmt.batcher.TrgBatcher(batch_size=3, src_pad_token=1, trg_pad_token=2)
+#    my_batcher = xnmt.batcher.TrgBatcher(batch_size=3)
 #    self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
 #    dy.renew_cg(immediate_compute=True, check_validity=True)
 
