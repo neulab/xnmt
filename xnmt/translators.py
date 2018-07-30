@@ -184,10 +184,9 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     src_sent = src[0]
     sent_mask = None
     if src.mask: sent_mask = batchers.Mask(np_arr=src.mask.np_arr[0:1])
-    sent_batch = batchers.mark_as_batch([sent], mask=sent_mask)
     # TODO MBR can be implemented here. It takes only the first result from the encoder
     # To further implement MBR, we need to handle the generation considering multiple encoder output.
-    initial_state = self._encode_src(sent_batch)[0]
+    initial_state = self._encode_src(src)[0]
     if forced_trg_ids is  not None: cur_forced_trg = forced_trg_ids[0]
     search_outputs = search_strategy.generate_output(self, initial_state,
                                                      src_length=[src_sent.sent_len()],

@@ -52,6 +52,7 @@ class Scorer(object):
 
     Args:
       x: The vector used to make the prediction
+      y: The correct label(s)
     """
     raise NotImplementedError('calc_loss must be implemented by subclasses of Scorer')
 

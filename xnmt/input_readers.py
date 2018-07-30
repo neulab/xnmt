@@ -58,6 +58,7 @@ class BaseTextReader(InputReader):
 
     Args:
       line: a single input string
+      idx: sentence number
     Returns: a SentenceInput object for the input sentence
     """
     raise RuntimeError("Input readers must implement the read_sent function")

@@ -69,11 +69,11 @@ class AutoRegressiveMLELoss(Serializable, LossCalculator):
     return FactoredLossExpr({"mle": loss})
 
   @staticmethod
-  def _select_ref_words(sent, index, truncate_masked = False):
+  def _select_ref_words(ref_sent, index, truncate_masked = False):
     if truncate_masked:
-      mask = sent.mask if batchers.is_batched(sent) else None
+      mask = ref_sent.mask if batchers.is_batched(ref_sent) else None
       if not batchers.is_batched(sent):
-        return sent[index]
+        return ref_sent[index]
       else:
         ret = []
         found_masked = False
@@ -85,8 +85,8 @@ class AutoRegressiveMLELoss(Serializable, LossCalculator):
             found_masked = True
         return batchers.mark_as_batch(ret)
     else:
-      if not batchers.is_batched(sent): return sent[index]
-      else: return batchers.mark_as_batch([single_trg[index] for single_trg in sent])
+      if not batchers.is_batched(ref_sent): return ref_sent[index]
+      else: return batchers.mark_as_batch([single_trg[index] for single_trg in ref_sent])
 
 class ReinforceLoss(Serializable, LossCalculator):
   yaml_tag = '!ReinforceLoss'
