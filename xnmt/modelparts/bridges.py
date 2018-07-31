@@ -2,9 +2,9 @@ from typing import List, Sequence
 
 import dynet as dy
 
-from xnmt.param_initializers import GlorotInitializer, ZeroInitializer, ParamInitializer
+from xnmt import param_initializers
+from xnmt.modelparts import transforms
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.modelparts.transforms import Linear
 from xnmt.transducers import base as transducers
 
 class Bridge(object):
@@ -79,23 +79,6 @@ class LinearBridge(Bridge, Serializable):
   """
   yaml_tag = '!LinearBridge'
 
-  @serializable_init
-  def __init__(self,
-               dec_layers: int = 1,
-               enc_dim: int = Ref("exp_global.default_layer_dim"),
-               dec_dim: int = Ref("exp_global.default_layer_dim"),
-               param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init: ParamInitializer = Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
-               projector=None):
-    self.dec_layers = dec_layers
-    self.enc_dim = enc_dim
-    self.dec_dim = dec_dim
-    self.projector = self.add_serializable_component("projector",
-                                                     projector,
-                                                     lambda: Linear(input_dim=self.enc_dim,
-                                                                    output_dim=self.dec_dim,
-                                                                    param_init=param_init,
-                                                                    bias_init=bias_init))
   def decoder_init(self, enc_final_states):
     if self.dec_layers > len(enc_final_states):
       raise RuntimeError(
@@ -105,3 +88,20 @@ class LinearBridge(Bridge, Serializable):
         f"LinearBridge requires enc_dim == {self.enc_dim}, but got {enc_final_states[0].main_expr().dim()[0][0]}")
     decoder_init = [self.projector(enc_state.main_expr()) for enc_state in enc_final_states[-self.dec_layers:]]
     return decoder_init + [dy.tanh(dec) for dec in decoder_init]
+  @serializable_init
+  def __init__(self,
+               dec_layers: int = 1,
+               enc_dim: int = Ref("exp_global.default_layer_dim"),
+               dec_dim: int = Ref("exp_global.default_layer_dim"),
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
+               projector=None):
+    self.dec_layers = dec_layers
+    self.enc_dim = enc_dim
+    self.dec_dim = dec_dim
+    self.projector = self.add_serializable_component("projector",
+                                                     projector,
+                                                     lambda: transforms.Linear(input_dim=self.enc_dim,
+                                                                               output_dim=self.dec_dim,
+                                                                               param_init=param_init,
+                                                                               bias_init=bias_init))
