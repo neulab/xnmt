@@ -2,7 +2,8 @@
 # between outputs and references.
 # These are generally created by setting exp_global.compute_report to True, and adding one or several reporters
 # to the inference class.
-report: !Experiment
+!Experiment
+  name: report
   exp_global: !ExpGlobal
     compute_report: True
   model: !DefaultTranslator
