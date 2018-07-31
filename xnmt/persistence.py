@@ -712,6 +712,14 @@ class PathError(Exception):
     super().__init__(message)
 
 
+class SavedFormatString(str, Serializable):
+  yaml_tag = "!SavedFormatString"
+  @serializable_init
+  def __init__(self, value, unformatted_value):
+    self.unformatted_value = unformatted_value
+    self.value = value
+
+
 class FormatString(str, yaml.YAMLObject):
   """
   Used to handle the ``{EXP}`` string formatting syntax.
@@ -723,12 +731,13 @@ class FormatString(str, yaml.YAMLObject):
     return super().__new__(cls, value)
 
   def __init__(self, value, serialize_as):
+    self.value = value
     self.serialize_as = serialize_as
 
 def _init_fs_representer(dumper, obj):
-  return dumper.represent_data(obj.serialize_as)
+  return dumper.represent_mapping('!SavedFormatString', {"value":obj.value,"unformatted_value":obj.serialize_as})
+  # return dumper.represent_data(SavedFormatString(value=obj.value, unformatted_value=obj.serialize_as))
 yaml.add_representer(FormatString, _init_fs_representer)
-
 
 class RandomParam(yaml.YAMLObject):
   yaml_tag = '!RandomParam'
@@ -824,16 +833,31 @@ class YamlPreloader(object):
         "xnmt.serialize.serializable.Serializable, specifies a proper yaml_tag with leading '!', and its module is "
         "imported under xnmt/__init__.py")
       raise
-    if "defaults" in experiments: del experiments["defaults"]
-    return sorted(experiments.keys())
+    if isinstance(experiments, dict):
+      if "defaults" in experiments: del experiments["defaults"]
+      return sorted(experiments.keys())
+    elif isinstance(experiments, list):
+      exp_names = []
+      for exp in experiments:
+        if not hasattr(exp, "name"): raise ValueError("Encountered unnamed experiment.")
+        if exp.name != "default": exp_names.append(exp.name)
+      if len(exp_names) != len(set(exp_names)): raise ValueError(f"Found duplicate experiment names: {exp_names}.")
+      return exp_names
+    else:
+      if experiments.__class__.__name__ != "Experiment":
+        raise TypeError(f"Top level of config file must be a single Experiment or a list or dict of experiments."
+                        f"Found: {experiments} of type {type(experiments)}.")
+      if not hasattr(experiments, "name"): raise ValueError("Encountered unnamed experiment.")
+      return [experiments.name]
 
   @staticmethod
-  def preload_experiment_from_file(filename:str, exp_name:str) -> UninitializedYamlObject:
+  def preload_experiment_from_file(filename: str, exp_name: str, resume: bool = False) -> UninitializedYamlObject:
     """Preload experiment from YAML file.
 
     Args:
       filename: YAML config file name
       exp_name: experiment name to load
+      resume: set to True if we are loading a saved model file directly and want to restore all formatted strings.
 
     Returns:
       Preloaded but uninitialized object.
@@ -844,11 +868,28 @@ class YamlPreloader(object):
     except IOError as e:
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
 
-    experiment = config[exp_name]
-    return YamlPreloader.preload_obj(experiment, exp_name=exp_name, exp_dir=os.path.dirname(filename) or ".")
+    if isinstance(config, dict):
+      experiment = config[exp_name]
+      if getattr(experiment, "name", exp_name) != exp_name:
+        raise ValueError(f"Inconsistent experiment name '{exp_name}' / '{experiment.name}'")
+      if not isinstance(experiment, LoadSerialized):
+        experiment.name = exp_name
+    elif isinstance(config, list):
+      experiment = None
+      for exp in config:
+        if not hasattr(exp, "name"): raise ValueError("Encountered unnamed experiment.")
+        if exp.name==exp_name: experiment = exp
+      if exp is None: raise ValueError(f"No experiment of name '{exp_name}' exists.")
+    else:
+      experiment = config
+      if not hasattr(experiment, "name"): raise ValueError("Encountered unnamed experiment.")
+      if not isinstance(experiment, LoadSerialized):
+        if experiment.name != exp_name: raise ValueError(f"No experiment of name '{exp_name}' exists.")
+    return YamlPreloader.preload_obj(experiment, exp_name=exp_name, exp_dir=os.path.dirname(filename) or ".",
+                                     resume=resume)
 
   @staticmethod
-  def preload_obj(root: Any, exp_name: str, exp_dir: str) -> UninitializedYamlObject:
+  def preload_obj(root: Any, exp_name: str, exp_dir: str, resume: bool = False) -> UninitializedYamlObject:
     """Preload a given object.
 
     Preloading a given object, usually an :class:`xnmt.experiment.Experiment` or :class:`LoadSerialized` object as
@@ -859,6 +900,7 @@ class YamlPreloader(object):
       root: object to preload
       exp_name: experiment name, needed to replace ``{EXP}``
       exp_dir: directory of the corresponding config file, needed to replace ``{EXP_DIR}``
+      resume: if True, keep the formatted strings, e.g. set ``{EXP}`` to the value of the previous run if possible
 
     Returns:
       Preloaded but uninitialized object.
@@ -874,7 +916,9 @@ class YamlPreloader(object):
                     "EXP_DIR": exp_dir,
                     "GIT_REV": get_git_revision()}
 
-    YamlPreloader._format_strings(root, placeholders) # do this both before and after resolving !LoadSerialized
+    # do this both before and after resolving !LoadSerialized
+    root = YamlPreloader._remove_saved_format_strings(root, keep_value=resume)
+    YamlPreloader._format_strings(root, placeholders)
 
     root = YamlPreloader._load_serialized(root)
 
@@ -882,13 +926,15 @@ class YamlPreloader(object):
     if random_search_report:
       setattr(root, 'random_search_report', random_search_report)
 
-    YamlPreloader._resolve_repeat(root)
+    root = YamlPreloader._resolve_repeat(root)
 
     # if arguments were not given in the YAML file and are set to a bare(Serializable) by default, copy the bare object
     # into the object hierarchy so it can be used w/ param sharing etc.
     YamlPreloader._resolve_bare_default_args(root)
 
-    YamlPreloader._format_strings(root, placeholders)  # do this both before and after resolving !LoadSerialized
+    # do this both before and after resolving !LoadSerialized
+    root = YamlPreloader._remove_saved_format_strings(root, keep_value=resume)
+    YamlPreloader._format_strings(root, placeholders)
 
     return UninitializedYamlObject(root)
 
@@ -998,6 +1044,18 @@ class YamlPreloader(object):
           root = expanded
         else:
           _set_descendant(root, path, expanded)
+    return root
+
+  @staticmethod
+  def _remove_saved_format_strings(root, keep_value=False):
+    for path, node in _traverse_tree(root, traversal_order=_TraversalOrder.ROOT_LAST):
+      if isinstance(node, SavedFormatString):
+        replace_by = node.value if keep_value else node.unformatted_value
+        if len(path) == 0:
+          root = replace_by
+        else:
+          _set_descendant(root, path, replace_by)
+    return root
 
   @staticmethod
   def _resolve_bare_default_args(root: Any) -> None:
@@ -1239,7 +1297,7 @@ class _YamlDeserializer(object):
       initialized object; this method is cached, so multiple requests for the same path will return the exact same object
     """
     obj = _get_descendant(self.deserialized_yaml, path)
-    if not isinstance(obj, Serializable):
+    if not isinstance(obj, Serializable) or isinstance(obj, FormatString):
       return obj
     init_params = OrderedDict(_name_children(obj, include_reserved=False))
     init_args = _get_init_args_defaults(obj)

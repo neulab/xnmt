@@ -103,6 +103,7 @@ evaluate = [AccuracyEvalTask(eval_metrics="bleu,wer",
                              model=model)]
 
 standard_experiment = Experiment(
+  name="programmatic",
   model=model,
   train=train,
   evaluate=evaluate

@@ -1,16 +1,8 @@
-# A config file can contain multiple experiments.
-# These are run in sequence, where the order is determined by lexicographic
-# ordering of the experiment names.
-# It's also possible to run experiments in parallel:
-# by default, experiments are skipped when the corresponding log file already
-# exists, i.e. when the experiment is currently running or has already finnished.
-# That means it's safe to run ``xnmt my_config.yaml`` on the same config file
-# multiple times.
-#
-# This particular examples runs the same experiment, changing only the amount
-# of dropout. model, train, evaluate settings are shared using YAML anchors,
-# see here for more information: http://yaml.readthedocs.io/en/latest/example.html
-exp1_dropout: !Experiment
+# This example demonstrates specifying multiple experiments as a list.
+# Here, the list makes the order of experiments explicit.
+# Experiment names have to be passed as arguments to !Experiment
+- !Experiment
+  name: exp1_dropout
   exp_global: !ExpGlobal
     dropout: 0.5
   model: &my_model !DefaultTranslator
@@ -33,7 +25,8 @@ exp1_dropout: !Experiment
       ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.test_hyp
 
-exp2_no_dropout: !Experiment
+- !Experiment
+  name: exp2_no_dropout
   exp_global: !ExpGlobal
     dropout: 0.0
   model: *my_model
