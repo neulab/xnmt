@@ -1,6 +1,7 @@
 # Sampling subword units for subword regularization
 # Note that this requires 'sentencepiece' as an extra dependency
-subword_sample: !Experiment 
+!Experiment
+  name: subword_sample
   exp_global: !ExpGlobal
     model_file: '{EXP_DIR}/models/{EXP}.mod'
     log_file: '{EXP_DIR}/logs/{EXP}.log'

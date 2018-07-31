@@ -1,6 +1,7 @@
 # XNMT supports various ways to preprocess data as demonstrated in this example.
 # Note that some preprocessing functionality relies on third-party tools.
-preproc: !Experiment
+!Experiment
+  name: preproc
   exp_global: !ExpGlobal
     # define some named strings that can be used throughout the experiment config:
     placeholders:

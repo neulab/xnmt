@@ -6,7 +6,8 @@
 # For example,xnmt.translator.DefaultTranslator.__init__()
 # specifies MlpAttender as the default attender, which will be used in this
 # examples since nothing is specified.
-minimal: !Experiment
+!Experiment
+  name: minimal
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}

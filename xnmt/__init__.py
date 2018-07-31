@@ -12,6 +12,7 @@ if package_dir not in sys.path:
 import logging
 logger = logging.getLogger('xnmt')
 yaml_logger = logging.getLogger('yaml')
+file_logger = logging.getLogger('xnmt_file')
 
 import _dynet
 dyparams = _dynet.DynetParams()
@@ -20,45 +21,43 @@ dyparams.from_args()
 
 # all Serializable objects must be imported here in order to be parsable
 # using the !Classname YAML syntax
-import xnmt.attender
-import xnmt.batcher
-import xnmt.classifier
-import xnmt.conv
-import xnmt.decoder
-import xnmt.embedder
-import xnmt.eval_task
-import xnmt.evaluator
-import xnmt.exp_global
-import xnmt.experiment
-import xnmt.fixed_size_att
-import xnmt.hyper_parameters
-import xnmt.inference
-import xnmt.input_reader
-import xnmt.lm
-import xnmt.lstm
-import xnmt.model_base
-import xnmt.optimizer
-import xnmt.param_init
-import xnmt.positional
-import xnmt.preproc_runner
-import xnmt.pyramidal
+import xnmt.batchers
+import xnmt.eval.metrics
+import xnmt.eval.tasks
+import xnmt.experiments
+import xnmt.hyper_params
+import xnmt.inferences
+import xnmt.input_readers
+import xnmt.modelparts.attenders
+import xnmt.modelparts.bridges
+import xnmt.modelparts.decoders
+import xnmt.modelparts.embedders
+import xnmt.modelparts.scorers
+import xnmt.modelparts.transforms
+import xnmt.models.base
+import xnmt.models.classifiers
+import xnmt.models.language_models
+import xnmt.models.retrievers
+import xnmt.models.sequence_labelers
+import xnmt.models.translators
+import xnmt.optimizers
+import xnmt.param_initializers
+import xnmt.persistence
 import xnmt.reports
-import xnmt.residual
-import xnmt.retriever
-import xnmt.scorer
-import xnmt.self_attention
-import xnmt.seq_labeler
+import xnmt.rl
 import xnmt.specialized_encoders.segmenting_encoder
-import xnmt.specialized_encoders.segmenting_encoder.reader
 import xnmt.specialized_encoders.self_attentional_am
 import xnmt.specialized_encoders.tilburg_harwath
-import xnmt.training_regimen
-import xnmt.training_task
+import xnmt.train.regimens
+import xnmt.train.tasks
+import xnmt.transducers.convolution
+import xnmt.transducers.positional
+import xnmt.transducers.pyramidal
+import xnmt.transducers.recurrent
+import xnmt.transducers.residual
+import xnmt.transducers.self_attention
 import xnmt.transformer
-import xnmt.translator
-import xnmt.persistence
-import xnmt.rl
-import xnmt.compound_expr
+
 
 resolved_serialize_params = {}
 

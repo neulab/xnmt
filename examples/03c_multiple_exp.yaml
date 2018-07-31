@@ -1,0 +1,25 @@
+# Finally, it's possible to specify a single experiment as top-level entry,
+# where again the experiment name has to be passed as an argument.
+!Experiment
+  name: exp1_dropout
+  exp_global: !ExpGlobal
+    dropout: 0.5
+  model: &my_model !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+  train: &my_train !SimpleTrainingRegimen
+    run_for_epochs: 2
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
+  evaluate: &my_eval
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp

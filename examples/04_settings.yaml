@@ -7,7 +7,8 @@
 # ``xnmt --settings=debug examples/04_settings.yaml``
 # 
 # It is easy to change behavior by either changing these configurations, or adding a new configuration to the module.
-settings-exp: !Experiment
+!Experiment
+  name: settings-exp
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}

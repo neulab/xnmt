@@ -4,7 +4,8 @@
 # instead directly read in a feature vector the pyramidal LSTM reduces length of
 # the input sequence by a factor of 2 per layer (except for the first layer).
 # Output units should be characters according to the paper.
-speech: !Experiment
+!Experiment
+  name: speech
   exp_global: !ExpGlobal
     save_num_checkpoints: 2
     default_layer_dim: 32
