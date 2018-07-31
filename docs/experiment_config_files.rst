@@ -151,7 +151,13 @@ Minimal
 Multiple experiments
 ~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: examples/03_multiple_exp.yaml
+.. literalinclude:: examples/03a_multiple_exp.yaml
+    :language: yaml
+
+.. literalinclude:: examples/03b_multiple_exp.yaml
+    :language: yaml
+
+.. literalinclude:: examples/03c_multiple_exp.yaml
     :language: yaml
 
 Settings
@@ -231,6 +237,8 @@ Scoring N-best lists
 Transformer
 ~~~~~~~~~~~
 
+(this is currently broken)
+
 .. literalinclude:: examples/16_transformer.yaml
     :language: yaml
 
@@ -240,11 +248,35 @@ Ensembling
 .. literalinclude:: examples/17_ensembling.yaml
     :language: yaml
 
-
 Minimum risk training
 ~~~~~~~~~~~~~~~~~~~~~
 
 .. literalinclude:: examples/18_minrisk.yaml
     :language: yaml
 
+Biased Lexicon
+~~~~~~~~~~~~~~
+
+(this is currently broken)
+
+.. literalinclude:: examples/19_lexiconbias.yaml
+    :language: yaml
+
+Subword Sampling
+~~~~~~~~~~~~~~~~
+
+.. literalinclude:: examples/20_subword_sample.yaml
+    :language: yaml
+
+Self Attention
+~~~~~~~~~~~~~~
+
+.. literalinclude:: examples/21_self_attention.yaml
+    :language: yaml
+
+Char Segment
+~~~~~~~~~~~~
+
+.. literalinclude:: examples/22_char_segment.yaml
+    :language: yaml
 
