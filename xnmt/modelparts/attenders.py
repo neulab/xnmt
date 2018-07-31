@@ -1,16 +1,15 @@
 import math
-from typing import Optional, List
 
 import dynet as dy
-import numpy as np
+from typing import Optional, List
 
-from xnmt import expression_seqs
 from xnmt import logger
-from xnmt import batchers, transducers
+from xnmt import batchers
 from xnmt.param_collections import ParamManager
 from xnmt.param_initializers import GlorotInitializer, ZeroInitializer, ParamInitializer
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.expression_seqs import ExpressionSequence
+from xnmt.transducers import base as transducers_base
 
 class Attender(object):
   """
@@ -201,7 +200,7 @@ class BilinearAttender(Attender, Serializable):
     return self.I * attention
 
 
-class FixedSizeAttSeqTransducer(transducers.SeqTransducer, Serializable):
+class FixedSizeAttSeqTransducer(transducers_base.SeqTransducer, Serializable):
   """
   A fixed-size attention-based representation of a sequence.
 
@@ -237,10 +236,10 @@ class FixedSizeAttSeqTransducer(transducers.SeqTransducer, Serializable):
           self.pos_enc[s, k] = (1.0 - k / self.output_len) * (
                   1.0 - s / self.pos_enc_max) + k / self.output_len * s / self.pos_enc_max
 
-  def get_final_states(self) -> List[transducers.FinalTransducerState]:
+  def get_final_states(self) -> List[transducers_base.FinalTransducerState]:
     raise NotImplementedError('FixedSizeAttSeqTransducer.get_final_states() not implemented')
 
-  def transduce(self, x: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
+  def transduce(self, x: ExpressionSequence) -> ExpressionSequence:
     x_T = x.as_transposed_tensor()
     scores = x_T * dy.parameter(self.W)
     if x.mask is not None:
@@ -251,4 +250,5 @@ class FixedSizeAttSeqTransducer(transducers.SeqTransducer, Serializable):
       scores = dy.cmult(scores, dy.inputTensor(pos_enc))
     attention = dy.softmax(scores)
     output_expr = x.as_tensor() * attention
-    return expression_seqs.ExpressionSequence(expr_tensor=output_expr, mask=None)
+    return ExpressionSequence(expr_tensor=output_expr, mask=None)
+

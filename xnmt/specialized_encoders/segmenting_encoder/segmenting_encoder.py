@@ -9,11 +9,11 @@ from xnmt.batchers import Mask
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.transducers import SeqTransducer, FinalTransducerState, IdentitySeqTransducer
+from xnmt.transducers.base import SeqTransducer, FinalTransducerState, IdentitySeqTransducer
 from xnmt.losses import FactoredLossExpr
 from xnmt.specialized_encoders.segmenting_encoder.priors import GoldInputPrior
 from xnmt.reports import Reportable
-from xnmt.recurrent_transducers import BiLSTMSeqTransducer
+from xnmt.transducers.recurrent import BiLSTMSeqTransducer
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer
 from xnmt.expression_seqs import CompoundSeqExpression
 
@@ -58,6 +58,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                      length_prior=None,
                      eps_greedy=None,
                      sample_during_search=False,
+                     reporter=None,
                      compute_report=Ref("exp_global.compute_report", default=False)):
     self.embed_encoder = self.add_serializable_component("embed_encoder", embed_encoder, lambda: embed_encoder)
     self.segment_composer = self.add_serializable_component("segment_composer", segment_composer, lambda: segment_composer)
@@ -67,6 +68,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.eps_greedy = self.add_serializable_component("eps_greedy", eps_greedy, lambda: eps_greedy) if eps_greedy is not None else None
     self.sample_during_search = sample_during_search
     self.compute_report = compute_report
+    self.reporter = reporter
 
   def shared_params(self):
     return [{".embed_encoder.hidden_dim",".policy_learning.policy_network.input_dim"},
@@ -155,7 +157,12 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
 
     ### Calculate losses    
-    return self.policy_learning.calc_loss(rewards)
+    try:
+      return self.policy_learning.calc_loss(rewards)
+    finally:
+      self.rewards = rewards
+      if self.reporter is not None:
+        self.reporter.report_process(self)
 
   @handle_xnmt_event
   def on_start_sent(self, src):

@@ -105,3 +105,14 @@ def cached_file_lines(file_name):
     ret = f.readlines()
   return ret
 
+def add_dynet_argparse(argparser):
+  argparser.add_argument("--dynet-mem", type=str)
+  argparser.add_argument("--dynet-seed", type=int, help="set random seed for DyNet and XNMT.")
+  argparser.add_argument("--dynet-autobatch", type=int)
+  argparser.add_argument("--dynet-devices", type=str)
+  argparser.add_argument("--dynet-viz", action='store_true', help="use visualization")
+  argparser.add_argument("--dynet-gpu", action='store_true', help="use GPU acceleration")
+  argparser.add_argument("--dynet-gpu-ids", type=int)
+  argparser.add_argument("--dynet-gpus", type=int)
+  argparser.add_argument("--dynet-weight-decay", type=float)
+  argparser.add_argument("--dynet-profiling", type=int)

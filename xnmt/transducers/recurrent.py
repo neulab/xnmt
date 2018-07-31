@@ -8,7 +8,7 @@ from xnmt import expression_seqs
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.param_collections import ParamManager
 from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
-from xnmt import transducers
+from xnmt.transducers import base as transducers
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
 class UniLSTMState(object):
@@ -292,11 +292,14 @@ class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
         mask=mask)
       forward_es = new_forward_es
 
-    self._final_states = [transducers.FinalTransducerState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
-                                                            self.backward_layers[layer_i].get_final_states()[0].main_expr()]),
-                                            dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].cell_expr(),
-                                                            self.backward_layers[layer_i].get_final_states()[0].cell_expr()])) \
-                          for layer_i in range(len(self.forward_layers))]
+    self._final_states = [
+      transducers.FinalTransducerState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
+                                                       self.backward_layers[layer_i].get_final_states()[
+                                                         0].main_expr()]),
+                                       dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].cell_expr(),
+                                                       self.backward_layers[layer_i].get_final_states()[
+                                                         0].cell_expr()])) \
+      for layer_i in range(len(self.forward_layers))]
     return expression_seqs.ExpressionSequence(expr_list=[dy.concatenate([forward_es[i],rev_backward_es[-i-1]]) for i in range(len(forward_es))], mask=mask)
 
 

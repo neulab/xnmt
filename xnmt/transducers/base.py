@@ -64,8 +64,8 @@ class ModularSeqTransducer(SeqTransducer, Serializable):
   accept exactly one argument (an :class:`expression_seqs.ExpressionSequence`) in their transduce method.
   
   Args:
-    input_dim (int): input dimension (not required)
-    modules (list of :class:`xnmt.transducers.SeqTransducer`): list of SeqTransducer modules
+    input_dim: input dimension (not required)
+    modules: list of SeqTransducer modules
   """
 
   yaml_tag = '!ModularSeqTransducer'

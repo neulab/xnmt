@@ -4,11 +4,11 @@ from xnmt.param_initializers import ParamInitializer, GlorotInitializer, ZeroIni
 from xnmt.settings import settings
 
 from xnmt import logger
-from xnmt.eval_tasks import EvalTask
-from xnmt.model_base import TrainableModel
+from xnmt.eval.tasks import EvalTask
+from xnmt.models.base import TrainableModel
 from xnmt.param_collections import ParamManager, RevertingUnsavedModelException
 from xnmt.preproc import PreprocRunner
-from xnmt.training_regimens import TrainingRegimen
+from xnmt.train.regimens import TrainingRegimen
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class ExpGlobal(Serializable):

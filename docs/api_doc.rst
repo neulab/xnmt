@@ -17,50 +17,50 @@ Model
 Model Base Classes
 ~~~~~~~~~~~~~~~~~~
 
-.. automodule:: xnmt.model_base
+.. automodule:: xnmt.models.base
    :members:
    :show-inheritance:
 
 Translator
 ~~~~~~~~~~
 
-.. automodule:: xnmt.translators
+.. automodule:: xnmt.models.translators
    :members:
    :show-inheritance:
 
 Embedder
 ~~~~~~~~
 
-.. automodule:: xnmt.embedders
+.. automodule:: xnmt.modelparts.embedders
    :members:
    :show-inheritance:
 
 Transducer
 ~~~~~~~~~~
 
-.. automodule:: xnmt.transducers
+.. automodule:: xnmt.transducers.base
    :members:
    :show-inheritance:
 
 RNN
 ~~~
 
-.. automodule:: xnmt.recurrent_transducers
+.. automodule:: xnmt.transducers.recurrent
    :members:
    :show-inheritance:
 
-.. automodule:: xnmt.pyramidal
+.. automodule:: xnmt.transducers.pyramidal
    :members:
    :show-inheritance:
 
-.. automodule:: xnmt.residual
+.. automodule:: xnmt.transducers.residual
    :members:
    :show-inheritance:
 
 Attender
 ~~~~~~~~
 
-.. automodule:: xnmt.attenders
+.. automodule:: xnmt.modelparts.attenders
    :members:
    :show-inheritance:
 
@@ -68,38 +68,38 @@ Attender
 Decoder
 ~~~~~~~
 
-.. automodule:: xnmt.decoders
+.. automodule:: xnmt.modelparts.decoders
    :members:
    :show-inheritance:
 
 
 Bridge
 ~~~~~~
-.. automodule:: xnmt.bridges
+.. automodule:: xnmt.modelparts.bridges
    :members:
    :show-inheritance:
 
 Transform
 ~~~~~~~~~
-.. automodule:: xnmt.transforms
+.. automodule:: xnmt.modelparts.transforms
    :members:
    :show-inheritance:
 
 Scorer
 ~~~~~~
-.. automodule:: xnmt.scorers
+.. automodule:: xnmt.modelparts.scorers
    :members:
    :show-inheritance:
 
 SequenceLabeler
 ~~~~~~~~~~~~~~~
-.. automodule:: xnmt.sequence_labelers
+.. automodule:: xnmt.models.sequence_labelers
    :members:
    :show-inheritance:
 
 Classifier
 ~~~~~~~~~~
-.. automodule:: xnmt.classifiers
+.. automodule:: xnmt.models.classifiers
    :members:
    :show-inheritance:
 
@@ -127,13 +127,13 @@ Training
 
 TrainingRegimen
 ~~~~~~~~~~~~~~~
-.. automodule:: xnmt.training_regimens
+.. automodule:: xnmt.train.regimens
    :members:
    :show-inheritance:
 
 TrainingTask
 ~~~~~~~~~~~~
-.. automodule:: xnmt.training_tasks
+.. automodule:: xnmt.train.tasks
    :members:
    :show-inheritance:
 
@@ -190,14 +190,14 @@ Evaluation
 
 EvalTasks
 ~~~~~~~~~
-.. automodule:: xnmt.eval_tasks
+.. automodule:: xnmt.eval.tasks
    :members:
    :show-inheritance:
 
 Eval Metrics
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: xnmt.eval_metrics
+.. automodule:: xnmt.eval.metrics
    :members:
    :show-inheritance:
 
@@ -206,10 +206,10 @@ Eval Metrics
 Data
 ----
 
-Input
-~~~~~
+Sentence
+~~~~~~~~
 
-.. automodule:: xnmt.input
+.. automodule:: xnmt.sent
    :members:
    :show-inheritance:
 

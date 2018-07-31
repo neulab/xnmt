@@ -1,26 +1,8 @@
 import unittest
 
-from xnmt.attenders import MlpAttender
-from xnmt.batchers import mark_as_batch, Mask, SrcBatcher
-from xnmt.bridges import CopyBridge
-from xnmt.decoders import AutoRegressiveDecoder
-from xnmt.embedders import SimpleWordEmbedder
-from xnmt.eval_tasks import LossEvalTask
 from xnmt import events
-from xnmt.input_readers import PlainTextReader
-from xnmt.recurrent_transducers import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculators import MLELoss
-from xnmt.optimizers import AdamTrainer
-from xnmt.param_collections import ParamManager
-from xnmt.pyramidal import PyramidalLSTMSeqTransducer
-from xnmt.transforms import NonLinear
-from xnmt.translators import DefaultTranslator
-from xnmt.scorers import Softmax
-from xnmt.vocabs import Vocab
-
 from xnmt.hyper_params import *
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
+
 
 class TestSanityHyperParameter(unittest.TestCase):
   def setUp(self):

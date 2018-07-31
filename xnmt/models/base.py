@@ -1,6 +1,7 @@
 from typing import Optional, Sequence, Union
 
-from xnmt import batchers, events, input_readers, losses, sent, training_tasks
+from xnmt import batchers, events, input_readers, losses, sent
+from xnmt.train import tasks
 from xnmt import loss_calculators
 from xnmt.persistence import Serializable, serializable_init
 
@@ -111,7 +112,7 @@ class EventTrigger(object):
   A template class defining triggers to the common events used throughout XNMT.
   """
   @events.register_xnmt_event
-  def new_epoch(self, training_task: training_tasks.TrainingTask, num_sents: int) -> None:
+  def new_epoch(self, training_task: tasks.TrainingTask, num_sents: int) -> None:
     """
     Trigger event indicating a new epoch for the specified task.
 

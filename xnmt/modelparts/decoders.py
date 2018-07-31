@@ -3,12 +3,12 @@ from typing import Any
 import dynet as dy
 
 from xnmt import batchers
-from xnmt.bridges import Bridge, CopyBridge
-from xnmt.recurrent_transducers import UniLSTMSeqTransducer
+from xnmt.modelparts.bridges import Bridge, CopyBridge
+from xnmt.transducers.recurrent import UniLSTMSeqTransducer
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt.transforms import AuxNonLinear, Transform
-from xnmt.scorers import Scorer, Softmax
+from xnmt.modelparts.transforms import AuxNonLinear, Transform
+from xnmt.modelparts.scorers import Scorer, Softmax
 
 class Decoder(object):
   """
