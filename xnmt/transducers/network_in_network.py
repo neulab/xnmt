@@ -11,25 +11,30 @@ class NinLayer(base.ModularSeqTransducer, Serializable):
   yaml_tag = "!NinLayer"
 
   @serializable_init
-  def __init__(self, input_dim, hidden_dim,
-               param_init = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+  def __init__(self,
+               input_dim: int = Ref("exp_global.default_layer_dim"),
+               hidden_dim: int = Ref("exp_global.default_layer_dim"),
+               downsample_by: int = 1,
+               param_init=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                projection=None, batch_norm=None, nonlinearity=None):
-    super().__init__(input_dim=input_dim,
-                     modules=[self.add_serializable_component("projection", projection,
-                                                              lambda: base.TransformSeqTransducer(
-                                                                modelparts_transforms.Linear(input_dim=input_dim,
-                                                                                             output_dim=hidden_dim,
-                                                                                             bias=False,
-                                                                                             param_init=param_init))),
-                              self.add_serializable_component("batch_norm", batch_norm,
-                                                              lambda: norms.BatchNorm(hidden_dim=hidden_dim,
-                                                                                      num_dim=2)),
-                              self.add_serializable_component("nonlinearity", nonlinearity,
-                                                              lambda: base.TransformSeqTransducer(
-                                                                modelparts_transforms.Cwise("rectify")
-                                                              ))
-                              ])
+    self.projection = self.add_serializable_component("projection", projection,
+                                                      lambda: base.TransformSeqTransducer(
+                                                        modelparts_transforms.Linear(input_dim=input_dim*downsample_by,
+                                                                                     output_dim=hidden_dim,
+                                                                                     bias=False,
+                                                                                     param_init=param_init),
+                                                        downsample_by=downsample_by))
+    self.batch_norm = self.add_serializable_component("batch_norm", batch_norm,
+                                                      lambda: norms.BatchNorm(hidden_dim=hidden_dim,
+                                                                              num_dim=2))
+    self.nonlinearity = self.add_serializable_component("nonlinearity", nonlinearity,
+                                                        lambda: base.TransformSeqTransducer(
+                                                          modelparts_transforms.Cwise("rectify")
+                                                        ))
+    self.modules = [self.projection, self.batch_norm, self.nonlinearity]
 
+  def get_final_states(self):
+    return self.modules[-1].get_final_states()
 
 class NinTransducer(base.SeqTransducer, Serializable):
   """

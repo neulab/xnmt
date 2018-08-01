@@ -57,7 +57,7 @@ class BatchNorm(Serializable, transforms.Transform, transducers.SeqTransducer):
 
   @serializable_init
   @events.register_xnmt_handler
-  def __init__(self, hidden_dim: int, num_dim: int, time_first: bool = True,
+  def __init__(self, hidden_dim: int, num_dim: int, time_first: bool = False,
                population_running_mean: Optional[np.ndarray] = None,
                population_running_std: Optional[np.ndarray] = None) -> None:
     model = param_collections.ParamManager.my_params(self)
