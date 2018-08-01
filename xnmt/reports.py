@@ -457,15 +457,20 @@ class SegmentationReporter(Reporter, Serializable):
       self.report_fp.close()
 
 
-class SubwordConsistencyReporter(Reporter, Serializable):
+class OOVStatisticsReporter(Reporter, Serializable):
   """
-  A reporter that gives statistics on subword consistency: recovered OOVs, fantasized new words, etc.
+  A reporter that prints OOV statistics: recovered OOVs, fantasized new words, etc.
+
+  Some models such as character- or subword-based models can produce words that are not in the training.
+  This is desirable when we produce a correct word that would have been an OOV with a word-based model
+  but undesirable when we produce something that's not a correct word.
+  The reporter prints some statistics that help analyze the OOV behavior of the model.
 
   Args:
     train_trg_file: path to word-tokenized training target file
     report_path: Path of directory to write text files to
   """
-  yaml_tag = "!SubwordConsistencyReporter"
+  yaml_tag = "!OOVStatisticsReporter"
 
   @serializable_init
   @register_xnmt_handler
@@ -477,7 +482,7 @@ class SubwordConsistencyReporter(Reporter, Serializable):
 
   def create_report(self, output: sent.ReadableSentence, ref_file: str, **kwargs):
     self.output_vocab = output.vocab
-    reference = util.cached_file_lines(ref_file)[output.idx]
+    reference = utils.cached_file_lines(ref_file)[output.idx]
     self.ref_lines.append(reference)
     self.out_sents.append(output)
 
