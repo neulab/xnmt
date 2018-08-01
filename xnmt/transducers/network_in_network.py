@@ -2,7 +2,7 @@ from xnmt.transducers import base
 from xnmt.modelparts import transforms as modelparts_transforms
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
 from xnmt import norms, param_initializers
-
+ 
 class NinLayer(base.ModularSeqTransducer, Serializable):
   """
   Network-in-network transducer following Lin et al. (2013): Network in Network; https://arxiv.org/pdf/1312.4400.pdf
