@@ -190,3 +190,18 @@ class MLP(Transform, Serializable):
       expr = layer.transform(expr)
     return expr
 
+class Cwise(Transform, Serializable):
+  """
+  A component-wise transformation that can be an arbitrary unary DyNet operation.
+
+  Args:
+    op: arbitrary unary DyNet node
+  """
+  yaml_tag = "!Cwise"
+  @serializable_init
+  def __init__(self, op="rectify"):
+    self.op = getattr(dy, op, None)
+    if not self.op:
+      raise ValueError(f"DyNet does not have an operation '{op}'.")
+  def transform(self, input_expr: dy.Expression):
+    return self.op(input_expr)
