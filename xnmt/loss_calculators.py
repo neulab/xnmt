@@ -134,7 +134,7 @@ class ReinforceLoss(Serializable, LossCalculator):
       for state, logsoft, mask in zip(search_output.state,
                                       search_output.logsoftmaxes,
                                       search_output.mask):
-        bs_score = self.baseline(state)
+        bs_score = self.baseline.transform(state)
         baseline_loss.append(dy.squared_distance(self.true_score, bs_score))
         loss_i = dy.cmult(logsoft, self.true_score - bs_score)
         losses.append(dy.cmult(loss_i, dy.inputTensor(mask, batched=True)))

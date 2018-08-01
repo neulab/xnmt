@@ -32,6 +32,7 @@ standard: !Experiment # 'standard' is the name given to the experiment
         output_dim: 512
         activation: 'tanh'
       bridge: !CopyBridge {}
+      scorer: !Softmax {}
   # training parameters
   train: !SimpleTrainingRegimen
     batcher: !SrcBatcher

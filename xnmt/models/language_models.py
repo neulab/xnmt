@@ -57,7 +57,7 @@ class LanguageModel(models.ConditionedModel, models.EventTrigger, Serializable):
     encodings_tensor = encodings.as_tensor()
     ((hidden_dim, seq_len), batch_size) = encodings.dim()
     encoding_reshaped = dy.reshape(encodings_tensor, (hidden_dim,), batch_size=batch_size * seq_len)
-    outputs = self.transform(encoding_reshaped)
+    outputs = self.transform.transform(encoding_reshaped)
 
     ref_action = np.asarray([sent.words for sent in src_targets]).reshape((seq_len * batch_size,))
     loss_expr_perstep = self.scorer.calc_loss(outputs, batchers.mark_as_batch(ref_action))

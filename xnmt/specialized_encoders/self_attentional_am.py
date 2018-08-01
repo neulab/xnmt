@@ -88,7 +88,7 @@ class SAAMPositionwiseFeedForward(Serializable):
 
   def __call__(self, x, p):
     residual = x
-    output = self.w_2(self.nonlinearity(self.w_1(x)))
+    output = self.w_2.transform(self.nonlinearity(self.w_1.transform(x)))
     if p > 0.0:
       output = dy.dropout(output, p)
     return self.layer_norm(output + residual)
@@ -248,11 +248,11 @@ class SAAMMultiHeadedSelfAttention(Serializable):
       residual = SAAMTimeDistributed()(x)
       sent_len_out = sent_len
     if self.model_dim != self.input_dim * self.downsample_factor:
-      residual = self.res_shortcut(residual)
+      residual = self.res_shortcut.transform(residual)
 
     # Concatenate all the words together for doing vectorized affine transform
     if self.kq_pos_encoding_type is None:
-      kvq_lin = self.linear_kvq(SAAMTimeDistributed()(x))
+      kvq_lin = self.linear_kvq.transform(SAAMTimeDistributed()(x))
       key_up = self.shape_projection(dy.pick_range(kvq_lin, 0, self.head_count * self.dim_per_head), batch_size)
       value_up = self.shape_projection(
         dy.pick_range(kvq_lin, self.head_count * self.dim_per_head, 2 * self.head_count * self.dim_per_head),
@@ -263,13 +263,13 @@ class SAAMMultiHeadedSelfAttention(Serializable):
     else:
       assert self.kq_pos_encoding_type == "embedding"
       encoding = self.kq_positional_embedder.embed_sent(sent_len).as_tensor()
-      kq_lin = self.linear_kq(
+      kq_lin = self.linear_kq.transform(
         SAAMTimeDistributed()(
           ExpressionSequence(expr_tensor=dy.concatenate([x.as_tensor(), encoding]))))
       key_up = self.shape_projection(dy.pick_range(kq_lin, 0, self.head_count * self.dim_per_head), batch_size)
       query_up = self.shape_projection(
         dy.pick_range(kq_lin, self.head_count * self.dim_per_head, 2 * self.head_count * self.dim_per_head), batch_size)
-      v_lin = self.linear_v(SAAMTimeDistributed()(x))
+      v_lin = self.linear_v.transform(SAAMTimeDistributed()(x))
       value_up = self.shape_projection(v_lin, batch_size)
 
     if self.cross_pos_encoding_type:
