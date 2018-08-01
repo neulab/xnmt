@@ -187,14 +187,14 @@ class EncoderLayer(object):
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
     if self.layer_norm:
-      e = self.ln_1(e)
+      e = self.ln_1.transform(e)
 
     sub = self.feed_forward(e)
     if self.dropout != 0.0:
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
     if self.layer_norm:
-      e = self.ln_2(e)
+      e = self.ln_2.transform(e)
     return e
 
 
@@ -219,7 +219,7 @@ class DecoderLayer(object):
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
     if self.layer_norm:
-      e = self.ln_1(e)
+      e = self.ln_1.transform(e)
 
     self.source_attention.set_dropout(self.dropout)
     sub = self.source_attention(e, s, mask=xy_mask)
@@ -227,14 +227,14 @@ class DecoderLayer(object):
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
     if self.layer_norm:
-      e = self.ln_2(e)
+      e = self.ln_2.transform(e)
 
     sub = self.feed_forward(e)
     if self.dropout != 0.0:
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
     if self.layer_norm:
-      e = self.ln_3(e)
+      e = self.ln_3.transform(e)
     return e
 
 

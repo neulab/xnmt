@@ -40,7 +40,7 @@ class Linear(Transform, Serializable):
   yaml_tag = "!Linear"
 
   @serializable_init
-  def transform(self,
+  def __init__(self,
                 input_dim: int = Ref("exp_global.default_layer_dim"),
                 output_dim: int = Ref("exp_global.default_layer_dim"),
                 bias=True,
@@ -55,7 +55,7 @@ class Linear(Transform, Serializable):
     if self.bias:
       self.b1 = model.add_parameters((output_dim,), init=bias_init.initializer((output_dim,)))
 
-  def __call__(self, input_expr: dy.Expression) -> dy.Expression:
+  def transform(self, input_expr: dy.Expression) -> dy.Expression:
     W1 = dy.parameter(self.W1)
     if self.bias:
       b1 = dy.parameter(self.b1)
@@ -187,6 +187,21 @@ class MLP(Transform, Serializable):
 
   def transform(self, expr: dy.Expression) -> dy.Expression:
     for layer in self.layers:
-      expr = layer(expr)
+      expr = layer.transform(expr)
     return expr
 
+class Cwise(Transform, Serializable):
+  """
+  A component-wise transformation that can be an arbitrary unary DyNet operation.
+
+  Args:
+    op: arbitrary unary DyNet node
+  """
+  yaml_tag = "!Cwise"
+  @serializable_init
+  def __init__(self, op="rectify"):
+    self.op = getattr(dy, op, None)
+    if not self.op:
+      raise ValueError(f"DyNet does not have an operation '{op}'.")
+  def transform(self, input_expr: dy.Expression):
+    return self.op(input_expr)

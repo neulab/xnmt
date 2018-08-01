@@ -127,6 +127,7 @@ class TransformSeqTransducer(SeqTransducer, Serializable):
 
   def transduce(self, src: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
     src_tensor = src.as_tensor()
+    out_mask = src.mask
     if self.downsample_by > 1:
       assert len(src_tensor.dim()[0])==2, \
         f"Downsampling only supported for tensors of order to. Found dims {src_tensor.dim()}"
@@ -138,7 +139,9 @@ class TransformSeqTransducer(SeqTransducer, Serializable):
       src_tensor = dy.reshape(src_tensor,
                               (hidden_dim*self.downsample_by, seq_len//self.downsample_by),
                               batch_size=batch_size)
+      if out_mask:
+        out_mask = out_mask.lin_subsampled(reduce_factor=self.downsample_by)
     output = self.transform.transform(src_tensor)
-    output_seq = expression_seqs.ExpressionSequence(expr_tensor=output)
+    output_seq = expression_seqs.ExpressionSequence(expr_tensor=output, mask=out_mask)
     self._final_states = [FinalTransducerState(output_seq[-1])]
     return output_seq
