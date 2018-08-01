@@ -103,14 +103,9 @@ class TestSegmentingEncoder(unittest.TestCase):
     outputs = self.segmenting_encoder.compose_output
     actions = self.segmenting_encoder.segment_actions
     # Ensure sample == outputs
-    self.assertEqual(len(outputs), pl.sample)
-    self.assertEqual(len(actions), pl.sample)
-    for sample_action in actions:
-      for i, sample_item in enumerate(sample_action):
-        # The last segmentation is 1
-        self.assertEqual(sample_item[-1], src[i].len_unpadded())
-        # Assert that all flagged actions are </s>
-        list(self.assertEqual(pl.actions[j][0][i], 1) for j in range(len(mask[i])) if mask[i][j] == 1)
+    for i, sample_item in enumerate(actions):
+      # The last segmentation is 1
+      self.assertEqual(sample_item[-1], src[i].len_unpadded())
     self.assertTrue("mle" in loss.expr_factors)
     self.assertTrue("fertility" in loss.expr_factors)
     self.assertTrue("rl_reinf" in reinforce_loss.expr_factors)
