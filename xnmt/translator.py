@@ -159,6 +159,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
         masked_attn = self.attender.attention_vecs
         if trg.mask is not None:
           trg_mask = 1-(trg.mask.np_arr.transpose())
+          assert len(masked_attn) == len(trg_mask)
           masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
         model_loss.add_loss("fertility", self._global_fertility(masked_attn))
       losses.append(model_loss)
@@ -195,7 +196,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, mode
     # To further implement MBR, we need to handle the generation considering multiple encoder output.
     initial_state = self._encode_src(sent_batch)[0]
     if forced_trg_ids is  not None: cur_forced_trg = forced_trg_ids[0]
-    search_outputs = search_strategy.generate_output(self, initial_state,
+    search_outputs = search_strategy.generate_output(self, initial_state, src,
                                                      src_length=[sent.sent_len()],
                                                      forced_trg_ids=cur_forced_trg)
     sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)

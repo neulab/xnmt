@@ -1,5 +1,6 @@
 from collections import namedtuple
 import math
+import os
 from typing import Optional, Callable
 
 import dynet as dy
@@ -7,8 +8,10 @@ import numpy as np
 
 import xnmt.batcher
 from xnmt import logger
+from xnmt.input import SimpleSentenceInput
+from xnmt.loss_calculator import AutoRegressiveMLELoss
 from xnmt.length_normalization import NoNormalization, LengthNormalization
-from xnmt.persistence import Serializable, serializable_init, bare
+from xnmt.persistence import Serializable, serializable_init, bare, LoadSerialized, YamlPreloader, initialize_if_needed, ParamManager
 from xnmt.vocab import Vocab
 
 
@@ -125,7 +128,7 @@ class BeamSearch(Serializable, SearchStrategy):
     self.one_best = one_best
     self.scores_proc = scores_proc
 
-  def generate_output(self, translator, initial_state, src_length=None, forced_trg_ids=None):
+  def generate_output(self, translator, initial_state, src, src_length=None, forced_trg_ids=None):
     # TODO(philip30): can only do single decoding, not batched
     assert forced_trg_ids is None or self.beam_size == 1
     if forced_trg_ids is not None and forced_trg_ids.sent_len() > self.max_len:
@@ -335,7 +338,7 @@ class MctsNode(object):
     if move in self.children:
       return self.children[move].expand()
     else:
-      output = self.translator.output_one_step(move, self.dec_state)
+      output = self.translator.generate_one_step(move, self.dec_state)
       prior_dist = output.logsoftmax.npvalue()
       attention = output.attention
 
@@ -389,7 +392,7 @@ class MctsNode(object):
     dy.cg_checkpoint()
 
     while True:
-      output = self.translator.output_one_step(prev_word, dec_state)
+      output = self.translator.generate_one_step(prev_word, dec_state)
       logsoftmax = output.logsoftmax.npvalue()
       attention = output.attention
       best_id = sample_func(logsoftmax)
@@ -455,14 +458,13 @@ def load_system(filename):
   desc = LoadSerialized(
     filename=filename,
     overwrite=[
-      {'path': 'train', 'val': None}
+      {'path': 'train', 'val': None},
+      {'path': 'evaluate', 'val': None}
     ]
   )
   exp_dir = os.path.dirname(filename)
-  #exp_name = os.path.basename(filename)
-  exp_name = 'exp.rev'
+  exp_name = os.path.basename(filename)
   preloaded_exp = YamlPreloader.preload_obj(desc, exp_dir=exp_dir, exp_name=exp_name)
-  #  desc, exp_dir=exp_dir, exp_name=exp_name)
   exp = initialize_if_needed(preloaded_exp)
   ParamManager.populate()
   return exp.model
@@ -471,6 +473,37 @@ def word_id_to_string(translator, word):
   word_str = '%s (%d)' % (translator.trg_vocab[word], word) if word is not None else '[None]'
   return word_str
 
+class OtherSystem(Serializable):
+  yaml_tag = '!OtherSystem'
+  @serializable_init
+  def __init__(self, filename, weight=1.0, reverse_direction=False, right_to_left=False, language_model=False):
+    self.filename = filename
+    if weight != 0.0:
+      self.system = load_system(filename)
+    self.weight = weight
+    self.reverse_direction = reverse_direction
+    self.right_to_left = right_to_left
+    self.language_model = language_model
+
+  def calc_loss(self, src, trg, loss_calculator):
+    if self.weight == 0.0:
+      return 0.0
+    if self.right_to_left:
+      src = src[::-1]
+      trg = trg[::-1]
+
+    src = SimpleSentenceInput(src)
+    trg = SimpleSentenceInput(trg)
+
+    if self.language_model:
+      score = -self.system.calc_loss(trg, trg, loss_calculator).get_factored_loss_val().sum_factors()
+    elif self.reverse_direction:
+      score = -self.system.calc_loss(trg, src, loss_calculator).get_factored_loss_val().sum_factors()
+    else:
+      score = -self.system.calc_loss(src, trg, loss_calculator).get_factored_loss_val().sum_factors()
+
+    return score * self.weight
+
 class MctsSearch(Serializable, SearchStrategy):
   """
   Performs search with Monte Carlo Tree Search
@@ -478,21 +511,21 @@ class MctsSearch(Serializable, SearchStrategy):
   yaml_tag = '!MctsSearch'
 
   @serializable_init
-  def __init__(self, visits=200, max_len=100, len_norm=bare(NoNormalization), other_system=None, c_puct=5.0, c_fpu=0.0, other_weight=0.0, best=False):
+  def __init__(self, visits=200, max_len=100, len_norm=bare(NoNormalization), other_systems=[], c_puct=5.0, c_fpu=0.0, self_weight=1.0, best=False):
     self.max_len = max_len
     self.visits = visits
     self.len_norm = len_norm
-    self.other_system = load_system(other_system) if other_system is not None else None
+    self.other_systems = other_systems
     self.c_puct = c_puct
     self.c_fpu = c_fpu
-    self.other_weight = other_weight
+    self.self_weight = self_weight
     self.best = best
 
   def generate_output(self, translator, dec_state, src, src_length=None, forced_trg_ids=None):
     assert forced_trg_ids is None
     orig_dec_state = dec_state
 
-    output = translator.output_one_step(None, dec_state)
+    output = translator.generate_one_step(None, dec_state)
     dec_state = output.state
     assert dec_state == orig_dec_state
     logsoftmax = output.logsoftmax.npvalue()
@@ -501,17 +534,31 @@ class MctsSearch(Serializable, SearchStrategy):
       terminal = root_node.expand() if i > 0 else root_node
       words, score = terminal.rollout(random_choice, self.max_len, src_length)
 
-      if self.other_system:
-        prefix = []
+      #logger.info('Base score: %f', score * self.self_weight)
+      score *= self.self_weight
+
+      if len(self.other_systems) > 0:
+        trg = []
         n = terminal
         while n.word != None:
-          prefix.append(n.word)
+          trg.append(n.word)
           n = n.parent
-        prefix = list(reversed(prefix))
-        loss_calculator = MLELoss()
-        reverse_score = -self.other_system.calc_loss(prefix + words, src[0].words, loss_calculator).get_factored_loss_val().sum_factors()
-        score += self.other_weight * reverse_score
+        trg = list(reversed(trg)) + words
+        #logger.info('src=%s', ' '.join([translator.src_reader.vocab[word] for word in src[0].words]))
+        #logger.info('trg=%s', ' '.join([translator.trg_reader.vocab[word] for word in trg]))
+        for other_system in self.other_systems:
+          if i > 0:
+            dy.cg_checkpoint()
 
+          loss_calculator = AutoRegressiveMLELoss()
+          other_score = other_system.calc_loss(src[0].words, trg, loss_calculator)
+          #logger.info('%f from %s', other_score, other_system.filename)
+          score += other_score
+
+          if i > 0:
+            dy.cg_revert()
+
+      #logger.info('total score: %f', score)
       terminal.backup(score, words)
       #print()
 
@@ -565,6 +612,8 @@ class MctsSearch(Serializable, SearchStrategy):
 
     # TODO: Get attentions, scores, logsoftmaxes, states, and masks from rollout
     word_ids = np.expand_dims(word_ids + suffix, axis=0)
+    scores = [0.0 for _ in word_ids]
+    attentions = [[] for _ in word_ids]
     return [SearchOutput(word_ids, attentions, scores, logsoftmaxes, states, masks)]
 
   def dump_tree(self, node, indents=0):
