@@ -47,6 +47,44 @@ class MLELoss(Serializable, LossCalculator):
     loss = model.calc_nll(src, trg)
     return FactoredLossExpr({"mle": loss})
 
+class GlobalFertilityLoss(Serializable, LossCalculator):
+  yaml_tag = '!GlobalFertilityLoss'
+  @serializable_init
+  def __init__(self, weight:float = 1) -> None:
+    self.weight = weight
+
+  def calc_loss(self,
+                model: 'model_base.ConditionedModel',
+                src: Union[sent.Sentence, 'batchers.Batch'],
+                trg: Union[sent.Sentence, 'batchers.Batch']):
+    assert hasattr(model, "attender") and hasattr(model.attender, "attention_vecs"), \
+           "Must be called after MLELoss with models that have attender."
+    masked_attn = model.attender.attention_vecs
+    if trg.mask is not None:
+      trg_mask = 1-(trg.mask.np_arr.transpose())
+      masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
+    
+    loss = self.global_fertility(masked_attn)
+    return FactoredLossExpr({"global_fertility": self.weight * loss})
+
+  def global_fertility(self, a):
+    return dy.sum_elems(dy.square(1 - dy.esum(a))) 
+
+class CompositeLoss(Serializable, LossCalculator):
+  yaml_tag = "!CompositeLoss"
+  @serializable_init
+  def __init__(self, losses):
+    self.losses = losses
+
+  def calc_loss(self,
+                model: 'model_base.ConditionedModel',
+                src: Union[sent.Sentence, 'batchers.Batch'],
+                trg: Union[sent.Sentence, 'batchers.Batch']):
+    total_loss = FactoredLossExpr()
+    for loss in self.losses:
+      total_loss.add_factored_loss_expr(loss.calc_loss(model, src, trg))
+    return total_loss
+
 class ReinforceLoss(Serializable, LossCalculator):
   yaml_tag = '!ReinforceLoss'
 

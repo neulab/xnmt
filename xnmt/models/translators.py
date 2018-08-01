@@ -92,6 +92,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
     decoder: A decoder
     inference: The default inference strategy used for this model
     search_strategy:
+    global_fertility: A parameter for global fertility weight. 0 for no computation.
   """
 
   yaml_tag = '!DefaultTranslator'
@@ -139,7 +140,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
     return initial_state
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
-
     # Encode the sentence
     initial_state = self._encode_src(src)
 

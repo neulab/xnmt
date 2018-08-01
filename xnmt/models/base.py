@@ -10,7 +10,7 @@ class TrainableModel(object):
   A template class for a basic trainable model, implementing a loss function.
   """
 
-  def calc_loss(self, *args, **kwargs) -> losses.FactoredLossExpr:
+  def calc_nll(self, *args, **kwargs) -> losses.FactoredLossExpr:
     """Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
@@ -39,7 +39,7 @@ class UnconditionedModel(TrainableModel):
   def __init__(self, trg_reader: input_readers.InputReader):
     self.trg_reader = trg_reader
 
-  def calc_loss(self, trg: Union[batchers.Batch, sent.Sentence]) -> losses.FactoredLossExpr:
+  def calc_nll(self, trg: Union[batchers.Batch, sent.Sentence]) -> losses.FactoredLossExpr:
     """Calculate loss based on target inputs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
@@ -65,7 +65,7 @@ class ConditionedModel(TrainableModel):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
 
-  def calc_loss(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence],
+  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence],
                 loss_calculator: loss_calculators.LossCalculator) -> losses.FactoredLossExpr:
     """Calculate loss based on input-output pairs.
 

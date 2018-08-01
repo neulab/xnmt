@@ -16,7 +16,7 @@ from xnmt.input_readers import PlainTextReader
 from xnmt.input_readers import CharFromWordTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer
 from xnmt.models.translators import DefaultTranslator
-from xnmt.loss_calculators import MLELoss, FeedbackLoss
+from xnmt.loss_calculators import MLELoss, FeedbackLoss, GlobalFertilityLoss, CompositeLoss
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
 from xnmt.specialized_encoders.segmenting_encoder.reporter import SegmentingReporter
@@ -93,8 +93,9 @@ class TestSegmentingEncoder(unittest.TestCase):
     dy.renew_cg(immediate_compute=True, check_validity=True)
 
   def test_reinforce_loss(self):
-    self.model.global_fertility = 1.0
-    loss = MLELoss().calc_loss(self.model, self.src[0], self.trg[0])
+    fertility_loss = GlobalFertilityLoss()
+    mle_loss = MLELoss()
+    loss = CompositeLoss(losses=[mle_loss, fertility_loss]).calc_loss(self.model, self.src[0], self.trg[0])
     reinforce_loss = self.model.calc_additional_loss(self.trg[0], self.model, loss)
     pl = self.model.encoder.policy_learning
     # Ensure correct length
@@ -107,7 +108,7 @@ class TestSegmentingEncoder(unittest.TestCase):
       # The last segmentation is 1
       self.assertEqual(sample_item[-1], src[i].len_unpadded())
     self.assertTrue("mle" in loss.expr_factors)
-    self.assertTrue("fertility" in loss.expr_factors)
+    self.assertTrue("global_fertility" in loss.expr_factors)
     self.assertTrue("rl_reinf" in reinforce_loss.expr_factors)
     self.assertTrue("rl_baseline" in reinforce_loss.expr_factors)
     self.assertTrue("rl_confpen" in reinforce_loss.expr_factors)
@@ -131,13 +132,6 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.POLICY_SAMPLE)
     self.assertEqual(self.model.encoder.policy_learning.sampling_action, PolicyGradient.SamplingAction.PREDEFINED)
-
-  def test_global_fertility(self):
-    # Test Global fertility weight
-    self.model.global_fertility = 1.0
-    self.segmenting_encoder.policy_learning = None
-    loss1, _ = self.calc_loss_single_batch()
-    self.assertTrue("fertility" in loss1.expr_factors)
   
   def test_policy_train_test(self):
     self.model.set_train(True)
