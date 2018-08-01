@@ -531,8 +531,8 @@ class OOVStatisticsReporter(Reporter, Serializable):
     num_oovs_hyp_matched = sum(hyp_oovs_matched.values())
     hyp_oov_prec = f"{num_oovs_hyp_matched/num_oovs_hyp*100:.2f}%" if num_oovs_hyp>0 else "n/a"
     hyp_oov_rec = f"{num_oovs_hyp_matched/num_oovs_ref*100:.2f}%" if num_oovs_ref>0 else "n/a"
-    with open(os.path.join(self.report_path, "subword-consistency.txt"), "w") as fout:
-      fout.write(f"Subword Consistency Report\n--------------------------\n")
+    with open(os.path.join(self.report_path, "oov-statistics.txt"), "w") as fout:
+      fout.write(f"OOV Statistics Report\n---------------------\n")
       fout.write(f"Size of subword vocab:                      {len(self.output_vocab)}\n")
       fout.write(f"Word types in training corpus:              {len(train_words)}\n")
       fout.write(f"Word types in test reference:               {len(ref_words)}\n")
