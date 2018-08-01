@@ -120,7 +120,7 @@ class NinTransducer(base.SeqTransducer, Serializable):
       projected = dy.reshape(expr_tensor, (self.input_dim * self.downsampling_factor, seq_len), batch_size=batch_size)
 
     if self.use_bn:
-      bn_layer = self.batch_norm(projected, train=self.train, mask=mask_out)
+      bn_layer = self.batch_norm.transform(projected, train=self.train, mask=mask_out)
       nonlin = self.nonlinearity(bn_layer)
     else:
       nonlin = self.nonlinearity(projected)

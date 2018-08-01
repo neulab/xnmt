@@ -91,7 +91,7 @@ class SAAMPositionwiseFeedForward(Serializable):
     output = self.w_2.transform(self.nonlinearity(self.w_1.transform(x)))
     if p > 0.0:
       output = dy.dropout(output, p)
-    return self.layer_norm(output + residual)
+    return self.layer_norm.transform(output + residual)
 
 
 class SAAMMultiHeadedSelfAttention(Serializable):
@@ -374,7 +374,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
       res = dy.dropout(out, p) + residual
     else:
       res = out + residual
-    ret = self.layer_norm(res)
+    ret = self.layer_norm.transform(res)
     return ret
 
   @events.handle_xnmt_event
