@@ -1,7 +1,6 @@
 import dynet as dy
 
-from xnmt.param_collections import ParamManager
-from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
+from xnmt import param_collections, param_initializers
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 
 class Transform(object):
@@ -44,13 +43,13 @@ class Linear(Transform, Serializable):
                input_dim: int = Ref("exp_global.default_layer_dim"),
                output_dim: int = Ref("exp_global.default_layer_dim"),
                bias=True,
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+               param_init=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))):
     self.bias = bias
     self.input_dim = input_dim
     self.output_dim = output_dim
 
-    model = ParamManager.my_params(self)
+    model = param_collections.ParamManager.my_params(self)
     self.W1 = model.add_parameters((output_dim, input_dim), init=param_init.initializer((output_dim, input_dim)))
     if self.bias:
       self.b1 = model.add_parameters((output_dim,), init=bias_init.initializer((output_dim,)))
@@ -84,8 +83,8 @@ class NonLinear(Transform, Serializable):
                output_dim: int = Ref("exp_global.default_layer_dim"),
                bias: bool = True,
                activation: str = 'tanh',
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+               param_init=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))):
     self.bias = bias
     self.output_dim = output_dim
     self.input_dim = input_dim
@@ -108,7 +107,7 @@ class NonLinear(Transform, Serializable):
     else:
       raise ValueError('Unknown activation %s' % activation)
 
-    model = ParamManager.my_params(self)
+    model = param_collections.ParamManager.my_params(self)
     self.W1 = model.add_parameters((self.output_dim, self.input_dim), init=param_init.initializer((self.output_dim, self.input_dim)))
     if self.bias:
       self.b1 = model.add_parameters((self.output_dim,), init=bias_init.initializer((self.output_dim,)))
@@ -148,8 +147,8 @@ class AuxNonLinear(NonLinear, Serializable):
                aux_input_dim: int = Ref("exp_global.default_layer_dim"),
                bias: bool = True,
                activation: str = 'tanh',
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+               param_init=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))):
     original_input_dim = input_dim
     input_dim += aux_input_dim
     super().__init__(
@@ -177,8 +176,8 @@ class MLP(Transform, Serializable):
                bias: bool = True,
                activation: str = 'tanh',
                hidden_layers: int = 1,
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+               param_init=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))):
     self.layers = []
     if hidden_layers > 0:
       self.layers = [NonLinear(input_dim=input_dim, output_dim=hidden_dim, bias=bias, activation=activation, param_init=param_init, bias_init=bias_init)]

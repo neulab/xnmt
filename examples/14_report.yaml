@@ -34,4 +34,6 @@
         - !AttentionReporter {} # plot attentions
         - !ReferenceDiffReporter {} # difference highlighting
         - !CompareMtReporter {} # analyze MT outputs
+        - !OOVStatisticsReporter # report on recovered OOVs, fantasized new words, etc.
+            train_trg_file: examples/data/head.en
 
