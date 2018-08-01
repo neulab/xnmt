@@ -63,7 +63,7 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
     encodings_tensor = encodings.as_tensor()
     ((hidden_dim, seq_len), batch_size) = encodings.dim()
     encoding_reshaped = dy.reshape(encodings_tensor, (hidden_dim,), batch_size=batch_size * seq_len)
-    outputs = self.transform(encoding_reshaped)
+    outputs = self.transform.transform(encoding_reshaped)
     return batch_size, encodings, outputs, seq_len
 
   def calc_loss(self, src, trg, loss_calculator):

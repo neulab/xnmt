@@ -138,7 +138,7 @@ class TransformSeqTransducer(SeqTransducer, Serializable):
       src_tensor = dy.reshape(src_tensor,
                               (hidden_dim*self.downsample_by, seq_len//self.downsample_by),
                               batch_size=batch_size)
-    output = self.transform(src_tensor)
+    output = self.transform.transform(src_tensor)
     output_seq = expression_seqs.ExpressionSequence(expr_tensor=output)
     self._final_states = [FinalTransducerState(output_seq[-1])]
     return output_seq
