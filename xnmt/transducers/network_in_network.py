@@ -3,7 +3,7 @@ from xnmt.modelparts import transforms as modelparts_transforms
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
 from xnmt import norms, param_initializers
 
-class NinLayer(base.ModularSeqTransducer, Serializable):
+class NinSeqTransducer(base.ModularSeqTransducer, Serializable):
   """
   Network-in-network transducer following Lin et al. (2013): Network in Network; https://arxiv.org/pdf/1312.4400.pdf
 
@@ -18,7 +18,7 @@ class NinLayer(base.ModularSeqTransducer, Serializable):
     batch_norm: automatically set
     nonlinearity: automatically set
   """
-  yaml_tag = "!NinLayer"
+  yaml_tag = "!NinSeqTransducer"
 
   @serializable_init
   def __init__(self,
