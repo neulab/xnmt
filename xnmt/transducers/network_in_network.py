@@ -3,9 +3,32 @@ from typing import List
 import dynet as dy
 
 from xnmt.transducers import base
+from xnmt.modelparts import transforms as modelparts_transforms
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
 from xnmt import events, expression_seqs, norms, param_collections, param_initializers
 
+class NinLayer(base.ModularSeqTransducer, Serializable):
+  yaml_tag = "!NinLayer"
+
+  @serializable_init
+  def __init__(self, input_dim, hidden_dim,
+               param_init = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               projection=None, batch_norm=None, nonlinearity=None):
+    super().__init__(input_dim=input_dim,
+                     modules=[self.add_serializable_component("projection", projection,
+                                                              lambda: base.TransformSeqTransducer(
+                                                                modelparts_transforms.Linear(input_dim=input_dim,
+                                                                                             output_dim=hidden_dim,
+                                                                                             bias=False,
+                                                                                             param_init=param_init))),
+                              self.add_serializable_component("batch_norm", batch_norm,
+                                                              lambda: norms.BatchNorm(hidden_dim=hidden_dim,
+                                                                                      num_dim=2)),
+                              self.add_serializable_component("nonlinearity", nonlinearity,
+                                                              lambda: base.TransformSeqTransducer(
+                                                                modelparts_transforms.Cwise("rectify")
+                                                              ))
+                              ])
 
 
 class NinTransducer(base.SeqTransducer, Serializable):
