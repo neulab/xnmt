@@ -298,7 +298,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     if self.dev_tasks and len(self.dev_tasks) > 0:
       dev_scores = []
       with self.dev_loss_tracker.time_tracker:
-        logger.info("> Checkpoint")
+        logger.info(f"> Checkpoint [{self.name}]" if self.name else "> Checkpoint")
         for dev_task in self.dev_tasks:
           dev_score = dev_task.eval()
           if type(dev_score) == list:

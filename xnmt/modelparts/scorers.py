@@ -1,11 +1,9 @@
 import dynet as dy
 from typing import List, Union, Optional
 
-from xnmt.param_initializers import ParamInitializer, GlorotInitializer, ZeroInitializer
-from xnmt.param_collections import ParamManager
+from xnmt import batchers, input_readers, param_collections, param_initializers, vocabs
+from xnmt.modelparts import transforms
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
-from xnmt.modelparts.transforms import Linear
-from xnmt import batchers, vocabs, input_readers
 
 class Scorer(object):
   """
@@ -111,21 +109,21 @@ class Softmax(Scorer, Serializable):
                vocab: Optional[vocabs.Vocab] = None,
                trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None),
                label_smoothing: float = 0.0,
-               param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init: ParamInitializer = Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
-               output_projector: Linear = None) -> None:
-    self.param_col = ParamManager.my_params(self)
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
+               output_projector: transforms.Linear = None) -> None:
+    self.param_col = param_collections.ParamManager.my_params(self)
     self.input_dim = input_dim
     self.output_dim = self._choose_vocab_size(vocab_size, vocab, trg_reader)
     self.label_smoothing = label_smoothing
 
     self.output_projector = self.add_serializable_component("output_projector", output_projector,
-                                                            lambda: output_projector or Linear(
+                                                            lambda: output_projector or transforms.Linear(
                                                               input_dim=self.input_dim, output_dim=self.output_dim,
                                                               param_init=param_init, bias_init=bias_init))
   
   def calc_scores(self, x: dy.Expression) -> dy.Expression:
-    return self.output_projector(x)
+    return self.output_projector.transform(x)
 
   def calc_loss(self, x: dy.Expression, y: Union[int, List[int]]) -> dy.Expression:
 

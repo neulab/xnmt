@@ -122,19 +122,20 @@ class Inference(object):
           fp.write(f"{output_txt}\n")
         else:
           if forced_ref_corpus: ref_batch = ref_batches[batch_i]
-          dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-          outputs = self.generate_one(generator, src_batch, range(cur_sent_i,cur_sent_i+batch_size), ref_batch)
-          if self.reporter: self._create_report()
-          for i in range(len(outputs)):
-            if assert_scores is not None:
-              # If debugging forced decoding, make sure it matches
-              assert batch_size == len(outputs), "debug forced decoding not supported with nbest inference"
-              if (abs(outputs[i].score - assert_scores[cur_sent_i + i]) / abs(assert_scores[cur_sent_i + i])) > 1e-5:
-                raise ValueError(
-                  f'Forced decoding score {outputs[0].score} and loss {assert_scores[cur_sent_i + i]} do not match at '
-                  f'sentence {cur_sent_i + i}')
-            output_txt = outputs[i].sent_str(custom_output_procs=self.post_processor)
-            fp.write(f"{output_txt}\n")
+          with utils.ReportOnException({"batchno":batch_i, "src": src_batch, "graph": dy.print_text_graphviz}):
+            dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+            outputs = self.generate_one(generator, src_batch, range(cur_sent_i,cur_sent_i+batch_size), ref_batch)
+            if self.reporter: self._create_report()
+            for i in range(len(outputs)):
+              if assert_scores is not None:
+                # If debugging forced decoding, make sure it matches
+                assert batch_size == len(outputs), "debug forced decoding not supported with nbest inference"
+                if (abs(outputs[i].score - assert_scores[cur_sent_i + i]) / abs(assert_scores[cur_sent_i + i])) > 1e-5:
+                  raise ValueError(
+                    f'Forced decoding score {outputs[0].score} and loss {assert_scores[cur_sent_i + i]} do not match at '
+                    f'sentence {cur_sent_i + i}')
+              output_txt = outputs[i].sent_str(custom_output_procs=self.post_processor)
+              fp.write(f"{output_txt}\n")
         cur_sent_i += batch_size
         if self.max_num_sents and cur_sent_i >= self.max_num_sents: break
 

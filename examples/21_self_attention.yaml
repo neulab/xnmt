@@ -1,5 +1,6 @@
 # A setup using self-attention
-self_attention: !Experiment
+!Experiment
+  name: self_attention
   exp_global: !ExpGlobal
     model_file: '{EXP_DIR}/models/{EXP}.mod'
     log_file: '{EXP_DIR}/logs/{EXP}.log'

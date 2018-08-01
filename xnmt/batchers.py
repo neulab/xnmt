@@ -148,6 +148,7 @@ class Mask(object):
     x = [np.nonzero(1-arr)[0] for arr in np_arr]
     return x
 
+
 class Batcher(object):
   """
   A template class to convert a list of sentences to several batches of sentences.

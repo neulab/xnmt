@@ -1,15 +1,14 @@
 import dynet as dy
 
-from xnmt.param_collections import ParamManager
-from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
+from xnmt import param_collections, param_initializers
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 
 class Transform(object):
   """
   A class of transforms that change a dynet expression into another.
   """
-  def __call__(self, input_expr: dy.Expression) -> dy.Expression:
-    raise NotImplementedError('__call__ must be implemented in subclasses of Transform')
+  def transform(self, input_expr: dy.Expression) -> dy.Expression:
+    raise NotImplementedError('transform() must be implemented in subclasses of Transform')
 
 class Identity(Transform, Serializable):
   """
@@ -19,10 +18,10 @@ class Identity(Transform, Serializable):
   yaml_tag = "!Identity"
 
   @serializable_init
-  def __init__(self) -> None:
+  def __init__(self):
     pass
 
-  def __call__(self, input_expr: dy.Expression) -> dy.Expression:
+  def transform(self, input_expr: dy.Expression) -> dy.Expression:
     return input_expr
 
 class Linear(Transform, Serializable):
@@ -44,18 +43,18 @@ class Linear(Transform, Serializable):
                input_dim: int = Ref("exp_global.default_layer_dim"),
                output_dim: int = Ref("exp_global.default_layer_dim"),
                bias=True,
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+               param_init=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))):
     self.bias = bias
     self.input_dim = input_dim
     self.output_dim = output_dim
 
-    model = ParamManager.my_params(self)
+    model = param_collections.ParamManager.my_params(self)
     self.W1 = model.add_parameters((output_dim, input_dim), init=param_init.initializer((output_dim, input_dim)))
     if self.bias:
       self.b1 = model.add_parameters((output_dim,), init=bias_init.initializer((output_dim,)))
 
-  def __call__(self, input_expr: dy.Expression) -> dy.Expression:
+  def transform(self, input_expr: dy.Expression) -> dy.Expression:
     W1 = dy.parameter(self.W1)
     if self.bias:
       b1 = dy.parameter(self.b1)
@@ -84,8 +83,8 @@ class NonLinear(Transform, Serializable):
                output_dim: int = Ref("exp_global.default_layer_dim"),
                bias: bool = True,
                activation: str = 'tanh',
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+               param_init=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))):
     self.bias = bias
     self.output_dim = output_dim
     self.input_dim = input_dim
@@ -108,12 +107,12 @@ class NonLinear(Transform, Serializable):
     else:
       raise ValueError('Unknown activation %s' % activation)
 
-    model = ParamManager.my_params(self)
+    model = param_collections.ParamManager.my_params(self)
     self.W1 = model.add_parameters((self.output_dim, self.input_dim), init=param_init.initializer((self.output_dim, self.input_dim)))
     if self.bias:
       self.b1 = model.add_parameters((self.output_dim,), init=bias_init.initializer((self.output_dim,)))
 
-  def __call__(self, input_expr: dy.Expression) -> dy.Expression:
+  def transform(self, input_expr: dy.Expression) -> dy.Expression:
     W1 = dy.parameter(self.W1)
     if self.bias:
       b1 = dy.parameter(self.b1)
@@ -148,8 +147,8 @@ class AuxNonLinear(NonLinear, Serializable):
                aux_input_dim: int = Ref("exp_global.default_layer_dim"),
                bias: bool = True,
                activation: str = 'tanh',
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+               param_init=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))):
     original_input_dim = input_dim
     input_dim += aux_input_dim
     super().__init__(
@@ -177,16 +176,31 @@ class MLP(Transform, Serializable):
                bias: bool = True,
                activation: str = 'tanh',
                hidden_layers: int = 1,
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+               param_init=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))):
     self.layers = []
     if hidden_layers > 0:
       self.layers = [NonLinear(input_dim=input_dim, output_dim=hidden_dim, bias=bias, activation=activation, param_init=param_init, bias_init=bias_init)]
       self.layers += [NonLinear(input_dim=hidden_dim, output_dim=hidden_dim, bias=bias, activation=activation, param_init=param_init, bias_init=bias_init) for _ in range(1,hidden_layers)]
     self.layers += [Linear(input_dim=hidden_dim, output_dim=output_dim, bias=bias, param_init=param_init, bias_init=bias_init)]
 
-  def __call__(self, expr: dy.Expression) -> dy.Expression:
+  def transform(self, expr: dy.Expression) -> dy.Expression:
     for layer in self.layers:
-      expr = layer(expr)
+      expr = layer.transform(expr)
     return expr
 
+class Cwise(Transform, Serializable):
+  """
+  A component-wise transformation that can be an arbitrary unary DyNet operation.
+
+  Args:
+    op: arbitrary unary DyNet node
+  """
+  yaml_tag = "!Cwise"
+  @serializable_init
+  def __init__(self, op="rectify"):
+    self.op = getattr(dy, op, None)
+    if not self.op:
+      raise ValueError(f"DyNet does not have an operation '{op}'.")
+  def transform(self, input_expr: dy.Expression):
+    return self.op(input_expr)

@@ -21,43 +21,43 @@ dyparams.from_args()
 
 # all Serializable objects must be imported here in order to be parsable
 # using the !Classname YAML syntax
-
-import xnmt.modelparts.attenders
-import xnmt.modelparts.bridges
-import xnmt.modelparts.transforms
 import xnmt.batchers
-import xnmt.models.classifiers
-import xnmt.transducers.convolution
-import xnmt.modelparts.decoders
-import xnmt.modelparts.embedders
-import xnmt.eval.tasks
 import xnmt.eval.metrics
+import xnmt.eval.tasks
 import xnmt.experiments
 import xnmt.hyper_params
 import xnmt.inferences
 import xnmt.input_readers
-import xnmt.models.language_models
-import xnmt.transducers.recurrent
+import xnmt.modelparts.attenders
+import xnmt.modelparts.bridges
+import xnmt.modelparts.decoders
+import xnmt.modelparts.embedders
+import xnmt.modelparts.scorers
+import xnmt.modelparts.transforms
 import xnmt.models.base
+import xnmt.models.classifiers
+import xnmt.models.language_models
+import xnmt.models.retrievers
+import xnmt.models.sequence_labelers
+import xnmt.models.translators
 import xnmt.optimizers
 import xnmt.param_initializers
-import xnmt.transducers.positional
-import xnmt.transducers.pyramidal
+import xnmt.persistence
 import xnmt.reports
-import xnmt.transducers.residual
-import xnmt.models.retrievers
-import xnmt.modelparts.scorers
-import xnmt.transducers.self_attention
-import xnmt.models.sequence_labelers
-import xnmt.specialized_encoders.tilburg_harwath
-import xnmt.specialized_encoders.self_attentional_am
+import xnmt.rl
 import xnmt.specialized_encoders.segmenting_encoder
+import xnmt.specialized_encoders.self_attentional_am
+import xnmt.specialized_encoders.tilburg_harwath
 import xnmt.train.regimens
 import xnmt.train.tasks
+import xnmt.transducers.convolution
+import xnmt.transducers.network_in_network
+import xnmt.transducers.positional
+import xnmt.transducers.pyramidal
+import xnmt.transducers.recurrent
+import xnmt.transducers.residual
+import xnmt.transducers.self_attention
 import xnmt.transformer
-import xnmt.models.translators
-import xnmt.persistence
-import xnmt.rl
 
 
 resolved_serialize_params = {}

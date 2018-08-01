@@ -4,9 +4,7 @@ import dynet as dy
 from typing import Optional, List
 
 from xnmt import logger
-from xnmt import batchers
-from xnmt.param_collections import ParamManager
-from xnmt.param_initializers import GlorotInitializer, ZeroInitializer, ParamInitializer
+from xnmt import batchers, param_collections, param_initializers
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.transducers import base as transducers_base
@@ -64,14 +62,14 @@ class MlpAttender(Attender, Serializable):
                input_dim: int = Ref("exp_global.default_layer_dim"),
                state_dim: int = Ref("exp_global.default_layer_dim"),
                hidden_dim: int = Ref("exp_global.default_layer_dim"),
-               param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init: ParamInitializer = Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
     self.truncate_dec_batches = truncate_dec_batches
-    param_collection = ParamManager.my_params(self)
+    param_collection = param_collections.ParamManager.my_params(self)
     self.pW = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
     self.pV = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
     self.pb = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
@@ -160,9 +158,9 @@ class BilinearAttender(Attender, Serializable):
   attention of https://arxiv.org/abs/1508.04025
 
   Args:
-    input_dim (int): input dimension; if None, use exp_global.default_layer_dim
-    state_dim (int): dimension of state inputs; if None, use exp_global.default_layer_dim
-    param_init (ParamInitializer): how to initialize weight matrices; if None, use ``exp_global.param_init``
+    input_dim: input dimension; if None, use exp_global.default_layer_dim
+    state_dim: dimension of state inputs; if None, use exp_global.default_layer_dim
+    param_init: how to initialize weight matrices; if None, use ``exp_global.param_init``
     truncate_dec_batches: currently unsupported
   """
 
@@ -172,12 +170,12 @@ class BilinearAttender(Attender, Serializable):
   def __init__(self,
                input_dim: int = Ref("exp_global.default_layer_dim"),
                state_dim: int = Ref("exp_global.default_layer_dim"),
-               param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
     if truncate_dec_batches: raise NotImplementedError("truncate_dec_batches not yet implemented for BilinearAttender")
     self.input_dim = input_dim
     self.state_dim = state_dim
-    param_collection = ParamManager.my_params(self)
+    param_collection = param_collections.ParamManager.my_params(self)
     self.pWa = param_collection.add_parameters((input_dim, state_dim), init=param_init.initializer((input_dim, state_dim)))
     self.curr_sent = None
 

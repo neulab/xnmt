@@ -1,19 +1,15 @@
-# Most entries in the config file have default values and don't need to be
-# specified explicitly. This config file produces the same results as
-# 01_standard.yaml.
-# Default parameters are specified and documented directly in the __init__()
-# method of the corresponding classes.
-# For example,xnmt.translator.DefaultTranslator.__init__()
-# specifies MlpAttender as the default attender, which will be used in this
-# examples since nothing is specified.
+# Finally, it's possible to specify a single experiment as top-level entry,
+# where again the experiment name has to be passed as an argument.
 !Experiment
-  name: minimal
-  model: !DefaultTranslator
+  name: exp1_dropout
+  exp_global: !ExpGlobal
+    dropout: 0.5
+  model: &my_model !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-  train: !SimpleTrainingRegimen
+  train: &my_train !SimpleTrainingRegimen
     run_for_epochs: 2
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en
@@ -21,7 +17,7 @@
       - !LossEvalTask
         src_file: examples/data/head.ja
         ref_file: examples/data/head.en
-  evaluate:
+  evaluate: &my_eval
     - !AccuracyEvalTask
       eval_metrics: bleu
       src_file: examples/data/head.ja

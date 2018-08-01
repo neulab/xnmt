@@ -53,7 +53,7 @@ class SequenceClassifier(models.ConditionedModel, models.GeneratorModel, Seriali
     embeddings = self.src_embedder.embed_sent(src)
     self.encoder.transduce(embeddings)
     h = self.encoder.get_final_states()[-1].main_expr()
-    return self.transform(h)
+    return self.transform.transform(h)
 
   def calc_nll(self, src, trg):
     h = self._encode_src(src)

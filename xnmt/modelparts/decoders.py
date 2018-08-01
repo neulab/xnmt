@@ -2,13 +2,10 @@ from typing import Any
 
 import dynet as dy
 
-from xnmt import batchers
-from xnmt.modelparts.bridges import Bridge, CopyBridge
-from xnmt.transducers.recurrent import UniLSTMSeqTransducer
-from xnmt.param_collections import ParamManager
+from xnmt import batchers, param_collections
+from xnmt.modelparts import bridges, transforms, scorers
+from xnmt.transducers import recurrent
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt.modelparts.transforms import AuxNonLinear, Transform
-from xnmt.modelparts.scorers import Scorer, Softmax
 
 class Decoder(object):
   """
@@ -53,10 +50,6 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     transform: a layer of transformation between rnn and output scorer
     scorer: the method of scoring the output (usually softmax)
     truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
-    label_smoothing: label smoothing value (if used, 0.1 is a reasonable value).
-                     Label Smoothing is implemented with reference to Section 7 of the paper
-                     "Rethinking the Inception Architecture for Computer Vision"
-                     (https://arxiv.org/pdf/1512.00567.pdf)
   """
 
   yaml_tag = '!AutoRegressiveDecoder'
@@ -66,12 +59,12 @@ class AutoRegressiveDecoder(Decoder, Serializable):
                input_dim: int = Ref("exp_global.default_layer_dim"),
                trg_embed_dim: int = Ref("exp_global.default_layer_dim"),
                input_feeding: bool = True,
-               bridge: Bridge = bare(CopyBridge),
-               rnn: UniLSTMSeqTransducer = bare(UniLSTMSeqTransducer),
-               transform: Transform = bare(AuxNonLinear),
-               scorer: Scorer = bare(Softmax),
+               bridge: bridges.Bridge = bare(bridges.CopyBridge),
+               rnn: recurrent.UniLSTMSeqTransducer = bare(recurrent.UniLSTMSeqTransducer),
+               transform: transforms.Transform = bare(transforms.AuxNonLinear),
+               scorer: scorers.Scorer = bare(scorers.Softmax),
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
-    self.param_col = ParamManager.my_params(self)
+    self.param_col = param_collections.ParamManager.my_params(self)
     self.input_dim = input_dim
     self.truncate_dec_batches = truncate_dec_batches
     self.bridge = bridge
@@ -130,7 +123,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
 
   def _calc_transform(self, mlp_dec_state: AutoRegressiveDecoderState) -> dy.Expression:
     h = dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context])
-    return self.transform(h)
+    return self.transform.transform(h)
 
   def calc_scores(self, mlp_dec_state: AutoRegressiveDecoderState) -> dy.Expression:
     """Get scores given a current state.

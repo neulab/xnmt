@@ -1,6 +1,7 @@
 # A standard setup, specifying model architecture, training parameters, 
 # and evaluation of the trained model
-standard: !Experiment # 'standard' is the name given to the experiment
+!Experiment # 'standard' is the name given to the experiment
+  name: standard # every experiment needs a name
   # global parameters shared throughout the experiment
   exp_global: !ExpGlobal
     # {EXP_DIR} is a placeholder for the directory in which the config file lies.
@@ -32,6 +33,7 @@ standard: !Experiment # 'standard' is the name given to the experiment
         output_dim: 512
         activation: 'tanh'
       bridge: !CopyBridge {}
+      scorer: !Softmax {}
   # training parameters
   train: !SimpleTrainingRegimen
     batcher: !SrcBatcher
