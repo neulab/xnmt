@@ -8,6 +8,20 @@ from xnmt.persistence import Serializable, serializable_init, bare, Ref
 from xnmt import events, expression_seqs, norms, param_collections, param_initializers
 
 class NinLayer(base.ModularSeqTransducer, Serializable):
+  """
+  Network-in-network transducer following Lin et al. (2013): Network in Network; https://arxiv.org/pdf/1312.4400.pdf
+
+  Here, this is a shared linear transformation across time steps, followed by batch normalization and a non-linearity.
+
+  Args:
+    input_dim: dimension of inputs
+    hidden_dim: dimension of outputs
+    downsample_by: if > 1, feed adjacent time steps to the linear projections to downsample the sequence
+    param_init: how to initialize the projection matrix
+    projection: automatically set
+    batch_norm: automatically set
+    nonlinearity: automatically set
+  """
   yaml_tag = "!NinLayer"
 
   @serializable_init
