@@ -7,7 +7,7 @@ Configuration files are in `YAML format <https://docs.ansible.com/ansible/YAMLSy
 
 At the top-level, a config file consists of a dictionary where keys are experiment
 names and values are the experiment specifications. By default, all experiments
-are run in lexicographical ordering, but xnmt_run_experiments can also be told
+are run in lexicographical ordering, but ``xnmt_run_experiments`` can also be told
 to run only a selection of the specified experiments. An example template with
 2 experiments looks like this
 
@@ -35,6 +35,7 @@ using YAML anchors or the !Ref mechanism (more on this later).
 The usage of ``exp_global``, ``preproc``, ``model``, ``train``, ``evaluate``
 are explained below.
 Not all of them need to be specified, depending on the use case.
+
 
 Experiment
 ==========
@@ -129,75 +130,95 @@ Evaluation
 ==========
 If specified, the model is tested after training finished.
 
+Config files vs. saved model files
+----------------------------------
+Saved model files are written out in the exact same YAML format as the config files (with the addition
+of some .data directories that contain DyNet weights). This means that it is possible to specify a
+saved model as the configuration file. There is one subtle difference: In a config file, placeholders
+such as ``{EXP_DIR}`` are resolved based on the current context, which will be different when directly
+specifying the saved model file as config file. For this purpose a ``--resume`` option exists that
+makes sure to use the context from the saved model file: ``xnmt --resume /path/to/saved-model.mod``.
+
+This feature is currently implemented only in a very basic form: When resuming a crashed experiment,
+this will cause the whole experiment to be carried out from the start. When resuming a finished
+experiment, *xnmt* will return without performing any action. In the future, this will be extended to
+support resuming from the most recent saved checkpoint, etc.
+
 Examples
-========
+--------
 
 Here are more elaborate examples from the github repository.
 
 .. _ex-standard:
 
 Standard
-~~~~~~~~
+========
 
 .. literalinclude:: examples/01_standard.yaml
     :language: yaml
 
 Minimal
-~~~~~~~
+=======
 
 .. literalinclude:: examples/02_minimal.yaml
     :language: yaml
 
 Multiple experiments
-~~~~~~~~~~~~~~~~~~~~
+====================
 
-.. literalinclude:: examples/03_multiple_exp.yaml
+.. literalinclude:: examples/03a_multiple_exp.yaml
+    :language: yaml
+
+.. literalinclude:: examples/03b_multiple_exp.yaml
+    :language: yaml
+
+.. literalinclude:: examples/03c_multiple_exp.yaml
     :language: yaml
 
 Settings
-~~~~~~~~
+========
 
 .. literalinclude:: examples/04_settings.yaml
     :language: yaml
 
 Preprocessing
-~~~~~~~~~~~~~
+=============
 
 .. literalinclude:: examples/05_preproc.yaml
     :language: yaml
 
 Early stopping
-~~~~~~~~~~~~~~
+==============
 
 .. literalinclude:: examples/06_early_stopping.yaml
     :language: yaml
 
 Fine-tuning
-~~~~~~~~~~~
+===========
 
 .. literalinclude:: examples/07_load_finetune.yaml
     :language: yaml
 
 Beam search
-~~~~~~~~~~~
+===========
 
 .. literalinclude:: examples/08_load_eval_beam.yaml
     :language: yaml
 
 Programmatic usage
-~~~~~~~~~~~~~~~~~~
+==================
 
 .. literalinclude:: examples/09_programmatic.py
     :language: python
 
 Programmatic loading
-~~~~~~~~~~~~~~~~~~~~
+====================
 
 .. literalinclude:: examples/10_programmatic_load.py
     :language: python
 
 Parameter sharing
-~~~~~~~~~~~~~~~~~~~~
+=================
 
 .. literalinclude:: examples/11_component_sharing.yaml
     :language: yaml
@@ -205,46 +226,72 @@ Parameter sharing
 .. _ex-multi-task:
 
 Multi-task
-~~~~~~~~~~~~~~~~~~~~
+==========
 
 .. literalinclude:: examples/12_multi_task.yaml
     :language: yaml
 
 Speech
-~~~~~~~~~~~~~~~~~~~~
+======
 
 .. literalinclude:: examples/13_speech.yaml
     :language: yaml
 
 Reporting attention matrices
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+============================
 
 .. literalinclude:: examples/14_report.yaml
     :language: yaml
 
 Scoring N-best lists
-~~~~~~~~~~~~~~~~~~~~
+====================
 
 .. literalinclude:: examples/15_score.yaml
     :language: yaml
 
 Transformer
-~~~~~~~~~~~
+===========
+
+(this is currently broken)
 
 .. literalinclude:: examples/16_transformer.yaml
     :language: yaml
 
 Ensembling
-~~~~~~~~~~
+==========
 
 .. literalinclude:: examples/17_ensembling.yaml
     :language: yaml
 
-
 Minimum risk training
-~~~~~~~~~~~~~~~~~~~~~
+=====================
 
 .. literalinclude:: examples/18_minrisk.yaml
     :language: yaml
 
+Biased Lexicon
+==============
+
+(this is currently broken)
+
+.. literalinclude:: examples/19_lexiconbias.yaml
+    :language: yaml
+
+Subword Sampling
+================
+
+.. literalinclude:: examples/20_subword_sample.yaml
+    :language: yaml
+
+Self Attention
+==============
+
+.. literalinclude:: examples/21_self_attention.yaml
+    :language: yaml
+
+Char Segment
+============
+
+.. literalinclude:: examples/22_char_segment.yaml
+    :language: yaml
 

@@ -16,6 +16,7 @@ Note that currently reporting is only supported at test-time, not at training ti
 import os
 import math
 from typing import Any, Dict, Optional, Sequence, Union
+from collections import defaultdict
 
 from bs4 import BeautifulSoup as bs
 
@@ -26,7 +27,7 @@ import numpy as np
 from xnmt import plotting
 from xnmt import sent, utils
 from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
-from xnmt.persistence import Serializable, serializable_init
+from xnmt.persistence import Serializable, serializable_init, Ref
 from xnmt.settings import settings
 import xnmt.thirdparty.charcut.charcut as charcut
 
@@ -131,7 +132,7 @@ class ReferenceDiffReporter(Reporter, Serializable):
   Args:
     match_size: min match size in characters (set < 3 e.g. for Japanese or Chinese)
     alt_norm: alternative normalization scheme: use only the candidate's length for normalization
-    report_path: Path to write HTML files to
+    report_path: Path of directory to write HTML files to
   """
   yaml_tag = "!ReferenceDiffReporter"
   @serializable_init
@@ -164,7 +165,7 @@ class ReferenceDiffReporter(Reporter, Serializable):
   @handle_xnmt_event
   def on_end_inference(self):
     if self.hyp_sents:
-      html_filename = f"{self.report_path}/charcut.html"
+      html_filename = os.path.join(self.report_path, "charcut.html")
       utils.make_parent_dir(html_filename)
       args = utils.ArgClass(html_output_file=html_filename, match_size=self.match_size, alt_norm=self.alt_norm)
       aligned_segs = charcut.load_input_segs(cand_segs=self.hyp_sents,
@@ -189,7 +190,7 @@ class CompareMtReporter(Reporter, Serializable):
     sent_size: How many sentences to print.
     ngram_size: How many n-grams to print.
 
-    report_path: Path to write report files to
+    report_path: Path of directory to write report files to
   """
   yaml_tag = "!CompareMtReporter"
   @serializable_init
@@ -224,8 +225,8 @@ class CompareMtReporter(Reporter, Serializable):
   @handle_xnmt_event
   def on_end_inference(self):
     if self.hyp_sents:
-      ref_filename = f"{self.report_path}/tmp/compare-mt.ref"
-      out_filename = f"{self.report_path}/tmp/compare-mt.out"
+      ref_filename = os.path.join(self.report_path, "tmp", "compare-mt.ref")
+      out_filename = os.path.join(self.report_path, "tmp", "compare-mt.out")
       utils.make_parent_dir(out_filename)
       with open(ref_filename, "w") as fout:
         for l in self.ref_sents: fout.write(f"{l.strip()}\n")
@@ -242,7 +243,7 @@ class CompareMtReporter(Reporter, Serializable):
                             ngram_size = self.ngram_size,
                             sent_size = self.sent_size)
       out_lines = compare_mt.main(args)
-      report_filename = f"{self.report_path}/compare-mt.txt"
+      report_filename = os.path.join(self.report_path, "compare-mt.txt")
       utils.make_parent_dir(report_filename)
       with open(report_filename, "w") as fout:
         for l in out_lines: fout.write(f"{l}\n")
@@ -255,7 +256,7 @@ class HtmlReporter(Reporter):
 
   Args:
     report_name: prefix for report files
-    report_path: Path to write HTML and image files to
+    report_path: Path of directory to write HTML and image files to
   """
   def __init__(self, report_name: str, report_path: str = settings.DEFAULT_REPORT_PATH) -> None:
     self.report_name = report_name
@@ -309,7 +310,7 @@ class HtmlReporter(Reporter):
     html_str = "\n".join(self.html_contents)
     soup = bs(html_str, "lxml")
     pretty_html = soup.prettify()
-    html_file_name = f"{self.report_path}/{self.report_name}.html"
+    html_file_name = os.path.join(self.report_path, f"{self.report_name}.html")
     utils.make_parent_dir(html_file_name)
     with open(html_file_name, 'w', encoding='utf-8') as f:
       f.write(pretty_html)
@@ -341,15 +342,20 @@ class AttentionReporter(HtmlReporter, Serializable):
   Reporter that writes attention matrices to HTML.
 
   Args:
-    report_path: Path to write HTML and image files to
+    max_num_sents: create attention report for only the first n sentences
+    report_name: prefix for output files
+    report_path: Path of directory to write HTML and image files to
   """
 
   yaml_tag = "!AttentionReporter"
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, report_name: str = "attention", report_path: str = settings.DEFAULT_REPORT_PATH):
+  def __init__(self, max_num_sents: Optional[int] = 100, report_name: str = "attention",
+               report_path: str = settings.DEFAULT_REPORT_PATH):
     super().__init__(report_name=report_name, report_path=report_path)
+    self.max_num_sents = max_num_sents
+    self.cur_sent_no = 0
 
   def create_report(self, src: sent.Sentence, output: sent.ReadableSentence, attentions: np.ndarray,
                     ref_file: Optional[str], **kwargs) -> None:
@@ -364,6 +370,8 @@ class AttentionReporter(HtmlReporter, Serializable):
       ref_file: path to reference file
       **kwargs: arguments to be ignored
     """
+    self.cur_sent_no += 1
+    if self.max_num_sents and self.cur_sent_no > self.max_num_sents: return
     reference = utils.cached_file_lines(ref_file)[output.idx]
     idx = src.idx
     self.add_sent_heading(idx)
@@ -381,6 +389,7 @@ class AttentionReporter(HtmlReporter, Serializable):
   def on_end_inference(self):
     self.finish_html_doc()
     self.write_html()
+    self.cur_sent_no = 0
 
   def add_atts(self,
                attentions: np.ndarray,
@@ -417,7 +426,7 @@ class SegmentationReporter(Reporter, Serializable):
   A reporter to be used with the segmenting encoder.
 
   Args:
-    report_path: Path to write text files to
+    report_path: Path of directory to write text files to
   """
   yaml_tag = "!SegmentationReporter"
 
@@ -429,7 +438,7 @@ class SegmentationReporter(Reporter, Serializable):
 
   def create_report(self, segment_actions, src, **kwargs):
     if self.report_fp is None:
-      report_path = self.report_path + "/segment.txt"
+      report_path = os.path.join(self.report_path, "segment.txt")
       utils.make_parent_dir(report_path)
       self.report_fp = open(report_path, "w")
 
@@ -446,4 +455,97 @@ class SegmentationReporter(Reporter, Serializable):
   def on_end_inference(self):
     if hasattr(self, "report_fp") and self.report_fp:
       self.report_fp.close()
+
+
+class OOVStatisticsReporter(Reporter, Serializable):
+  """
+  A reporter that prints OOV statistics: recovered OOVs, fantasized new words, etc.
+
+  Some models such as character- or subword-based models can produce words that are not in the training.
+  This is desirable when we produce a correct word that would have been an OOV with a word-based model
+  but undesirable when we produce something that's not a correct word.
+  The reporter prints some statistics that help analyze the OOV behavior of the model.
+
+  Args:
+    train_trg_file: path to word-tokenized training target file
+    report_path: Path of directory to write text files to
+  """
+  yaml_tag = "!OOVStatisticsReporter"
+
+  @serializable_init
+  @register_xnmt_handler
+  def __init__(self, train_trg_file, report_path: str=settings.DEFAULT_REPORT_PATH):
+    self.report_path = report_path
+    self.report_fp = None
+    self.train_trg_file = train_trg_file
+    self.out_sents, self.ref_lines = [], []
+
+  def create_report(self, output: sent.ReadableSentence, ref_file: str, **kwargs):
+    self.output_vocab = output.vocab
+    reference = utils.cached_file_lines(ref_file)[output.idx]
+    self.ref_lines.append(reference)
+    self.out_sents.append(output)
+
+  @handle_xnmt_event
+  def on_end_inference(self):
+    train_words = set()
+    with open(self.train_trg_file) as f_train:
+      for line in f_train:
+        for word in line.strip().split():
+          train_words.add(word)
+    ref_words = set()
+    ref_words_oov = defaultdict(int)
+    ref_words_total = 0
+    ref_oovs_unmatched = defaultdict(int)
+    for ref_line, trg_sent in zip(self.ref_lines, self.out_sents):
+      for word in ref_line.strip().split():
+        ref_words.add(word)
+        ref_words_total += 1
+        if word not in train_words:
+          ref_words_oov[word] += 1
+          if word not in trg_sent.sent_str().split():
+            ref_oovs_unmatched[word] += 1
+    if ref_words_total == 0: raise ValueError("Found empty reference")
+    hyp_words = set()
+    hyp_words_oov = defaultdict(int)
+    hyp_words_total = 0
+    hyp_oovs_matched = defaultdict(int)
+    hyp_oovs_unmatched = defaultdict(int)
+    for trg_sent, ref_line in zip(self.out_sents, self.ref_lines):
+      for word in trg_sent.sent_str().split():
+        hyp_words.add(word)
+        hyp_words_total += 1
+        if word not in train_words:
+          hyp_words_oov[word] += 1
+          ref_line_words = ref_line.strip().split()
+          if word in ref_line_words:
+            hyp_oovs_matched[word] += 1
+          else:
+            hyp_oovs_unmatched[word] += 1
+    if hyp_words_total == 0: raise ValueError("Found empty hypothesis")
+    sorted_hyp_oovs_matched = sorted(hyp_oovs_matched.items(), key=lambda x: x[1], reverse=True)
+    sorted_hyp_oovs_unmatched = sorted(hyp_oovs_unmatched.items(), key=lambda x: x[1], reverse=True)
+    sorted_ref_oovs_unmatched = sorted(ref_oovs_unmatched.items(), key=lambda x: x[1], reverse=True)
+    num_oovs_ref = sum(ref_words_oov.values())
+    num_oovs_hyp = sum(hyp_words_oov.values())
+    num_oovs_hyp_matched = sum(hyp_oovs_matched.values())
+    hyp_oov_prec = f"{num_oovs_hyp_matched/num_oovs_hyp*100:.2f}%" if num_oovs_hyp>0 else "n/a"
+    hyp_oov_rec = f"{num_oovs_hyp_matched/num_oovs_ref*100:.2f}%" if num_oovs_ref>0 else "n/a"
+    with open(os.path.join(self.report_path, "oov-statistics.txt"), "w") as fout:
+      fout.write(f"OOV Statistics Report\n---------------------\n")
+      fout.write(f"Size of subword vocab:                      {len(self.output_vocab)}\n")
+      fout.write(f"Word types in training corpus:              {len(train_words)}\n")
+      fout.write(f"Word types in test reference:               {len(ref_words)}\n")
+      fout.write(f"Word types in test hypothesis:              {len(hyp_words)}\n")
+      fout.write(f"OOV words in test reference:                {num_oovs_ref} ({num_oovs_ref/ref_words_total*100:.2f}%)\n")
+      fout.write(f"OOV words in test hypothesis:               {num_oovs_hyp} ({num_oovs_hyp/hyp_words_total*100:.2f}%)\n")
+      fout.write(f"Hypothesis OOVs precision (sentence-match): {hyp_oov_prec}\n")
+      fout.write(f"Hypothesis OOVs recall (sentence-match):    {hyp_oov_rec}\n")
+      fout.write(f"\n\nListing:\n")
+      fout.write(f"OOVs recovered: \n")
+      fout.write("\n".join([f"{item[0]} ({item[1]})" for item in sorted_hyp_oovs_matched]))
+      fout.write(f"\n\nOOVs not recovered: \n")
+      fout.write("\n".join([f"{item[0]} ({item[1]})" for item in sorted_ref_oovs_unmatched]))
+      fout.write(f"\n\nfantasized words: \n")
+      fout.write("\n".join([f"{item[0]} ({item[1]})" for item in sorted_hyp_oovs_unmatched]))
 
