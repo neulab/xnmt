@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, List
 
 import dynet as dy
 import numpy as np
@@ -9,11 +9,12 @@ from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt import sent
 from xnmt.vocabs import Vocab
 
+from xnmt.search_strategies import SamplingSearch, SearchStrategy
 from xnmt.modelparts.transforms import Linear
 from xnmt.persistence import bare
 from xnmt import batchers
 from xnmt.eval import metrics
-
+from xnmt import logger
 
 class LossCalculator(object):
   """
@@ -48,6 +49,12 @@ class MLELoss(Serializable, LossCalculator):
     return FactoredLossExpr({"mle": loss})
 
 class GlobalFertilityLoss(Serializable, LossCalculator):
+  """
+  A fertility loss according to Cohn+, 2016.
+  Incorporating Structural Alignment Biases into an Attentional Neural Translation Model
+  
+  https://arxiv.org/pdf/1601.01085.pdf
+  """
   yaml_tag = '!GlobalFertilityLoss'
   @serializable_init
   def __init__(self, weight:float = 1) -> None:
@@ -71,9 +78,12 @@ class GlobalFertilityLoss(Serializable, LossCalculator):
     return dy.sum_elems(dy.square(1 - dy.esum(a))) 
 
 class CompositeLoss(Serializable, LossCalculator):
+  """
+  Summing losses from multiple LossCalculator.
+  """
   yaml_tag = "!CompositeLoss"
   @serializable_init
-  def __init__(self, losses):
+  def __init__(self, losses:List[LossCalculator]):
     self.losses = losses
 
   def calc_loss(self,
@@ -86,80 +96,92 @@ class CompositeLoss(Serializable, LossCalculator):
     return total_loss
 
 class ReinforceLoss(Serializable, LossCalculator):
-  yaml_tag = '!ReinforceLoss'
+  """
+  Reinforce Loss according to Ranzato+, 2015.
+  SEQUENCE LEVEL TRAINING WITH RECURRENT NEURAL NETWORKS.
+  
+  (This is not the MIXER algorithm)
 
-  # TODO: document me
+  https://arxiv.org/pdf/1511.06732.pdf
+  """
+  yaml_tag = '!ReinforceLoss'
   @serializable_init
-  def __init__(self, evaluation_metric=None, sample_length=50, use_baseline=False,
-               inv_eval=True, decoder_hidden_dim=Ref("exp_global.default_layer_dim"), baseline=None):
-    self.use_baseline = use_baseline
+  def __init__(self,
+               baseline=None,
+               evaluation_metric:metrics.SentenceLevelEvaluator = bare(metrics.FastBLEUEvaluator),
+               search_strategy:SearchStrategy = bare(SamplingSearch),
+               sample_length:int = 50,
+               use_baseline:bool = False,
+               inv_eval:bool = True,
+               decoder_hidden_dim:int = Ref("exp_global.default_layer_dim")):
     self.inv_eval = inv_eval
-    if evaluation_metric is None:
-      self.evaluation_metric = metrics.FastBLEUEvaluator(ngram=4, smooth=1)
-    else:
-      self.evaluation_metric = evaluation_metric
+    self.search_strategy = search_strategy
+    self.evaluation_metric = evaluation_metric
 
     if self.use_baseline:
       self.baseline = self.add_serializable_component("baseline", baseline,
                                                       lambda: Linear(input_dim=decoder_hidden_dim, output_dim=1))
+    else:
+      self.baseline = None
 
   def calc_loss(self, translator, src, trg):
-    # TODO(philip30): currently only using the best hypothesis / first sample for reinforce loss
-    # A small further implementation is needed if we want to do reinforce with multiple samples.
-    search_output = translator.generate_search_output(src, translator.search_strategy)[0] 
-    # Calculate evaluation scores
-    self.eval_score = []
-    for trg_i, sample_i in zip(trg, search_output.word_ids):
-      # Removing EOS
-      sample_i = self.remove_eos(sample_i.tolist())
-      ref_i = self.remove_eos(trg_i.words)
-      # Evaluating 
-      if len(sample_i) == 0:
-        score = 0
+    search_outputs = translator.generate_search_output(src, self.search_strategy)
+    sign = -1 if self.inv_eval else 1
+
+    total_loss = FactoredLossExpr()
+    for search_output in search_outputs:
+      self.eval_score = []
+      for trg_i, sample_i in zip(trg, search_output.word_ids):
+        # Removing EOS
+        sample_i = self.remove_eos(sample_i.tolist())
+        ref_i = trg_i.words[:trg_i.len_unpadded()]
+        score = self.evaluation_metric.evaluate(ref_i, sample_i)
+        self.eval_score.append(sign * score)
+      self.reward = dy.inputTensor(self.eval_score, batched=True)
+      # Composing losses
+      loss = FactoredLossExpr()
+      if self.baseline is not None:
+        baseline_loss = []
+        losses = []
+        for state, logsoft, mask in zip(search_output.state,
+                                        search_output.logsoftmaxes,
+                                        search_output.mask):
+          bs_score = self.baseline(state)
+          baseline_loss.append(dy.squared_distance(self.reward, bs_score))
+          loss_i = dy.cmult(logsoft, self.reward - bs_score)
+          valid = list(np.nonzero(mask)[0])
+          losses.append(dy.cmult(loss_i, dy.inputTensor(mask, batched=True)))
+        loss.add_loss("reinforce", dy.sum_elems(dy.esum(losses)))
+        loss.add_loss("reinf_baseline", dy.sum_elems(dy.esum(baseline_loss)))
       else:
-        score = self.evaluation_metric.evaluate(ref_i, sample_i) * \
-                (-1 if self.inv_eval else 1)
-      self.eval_score.append(score)
-    self.true_score = dy.inputTensor(self.eval_score, batched=True)
-    # Composing losses
-    loss = FactoredLossExpr()
-    if self.use_baseline:
-      baseline_loss = []
-      losses = []
-      for state, logsoft, mask in zip(search_output.state,
-                                      search_output.logsoftmaxes,
-                                      search_output.mask):
-        bs_score = self.baseline(state)
-        baseline_loss.append(dy.squared_distance(self.true_score, bs_score))
-        loss_i = dy.cmult(logsoft, self.true_score - bs_score)
-        losses.append(dy.cmult(loss_i, dy.inputTensor(mask, batched=True)))
-      loss.add_loss("reinforce", dy.sum_elems(dy.esum(losses)))
-      loss.add_loss("reinf_baseline", dy.sum_elems(dy.esum(baseline_loss)))
-    else:
-      loss.add_loss("reinforce", dy.sum_elems(dy.cmult(self.true_score, dy.esum(logsofts))))
+        loss.add_loss("reinforce", dy.sum_elems(dy.cmult(self.true_score, dy.esum(logsofts))))
+      total_loss.add_factored_loss_expr(loss)
     return loss
 
 class MinRiskLoss(Serializable, LossCalculator):
   yaml_tag = '!MinRiskLoss'
 
   @serializable_init
-  def __init__(self, evaluation_metric=None, alpha=0.005, inv_eval=True, unique_sample=True):
+  def __init__(self,
+               evaluation_metric=bare(metrics.FastBLEUEvaluator),
+               alpha=0.005,
+               inv_eval=True,
+               unique_sample=True,
+               search_strategy=bare(SamplingSearch)):
     # Samples
     self.alpha = alpha
-    if evaluation_metric is None:
-      self.evaluation_metric = metrics.FastBLEUEvaluator(ngram=4, smooth=1)
-    else:
-      self.evaluation_metric = evaluation_metric
+    self.evaluation_metric = evaluation_metric
     self.inv_eval = inv_eval
     self.unique_sample = unique_sample
+    self.search_strategy = search_strategy
 
   def calc_loss(self, translator, src, trg):
     batch_size = trg.batch_size()
     uniques = [set() for _ in range(batch_size)]
     deltas = []
     probs = []
-    
-    search_outputs = translator.generate_search_output(src, translator.search_strategy) 
+    sign = -1 if self.inv_eval else 1
+    search_outputs = translator.generate_search_output(src, self.search_strategy)
     for search_output in search_outputs:
       logprob = search_output.logsoftmaxes
       sample = search_output.word_ids
@@ -178,11 +200,9 @@ class MinRiskLoss(Serializable, LossCalculator):
             mask[j] = -1e20 # represents negative infinity
             continue
           else:
-            # Count this sample in
             uniques[j].add(hash_val)
           # Calc evaluation score
-        eval_score[j] = self.evaluation_metric.evaluate(ref_j, hyp_j) * \
-                        (-1 if self.inv_eval else 1)
+        eval_score[j] = self.evaluation_metric.evaluate(ref_j, hyp_j) * sign
       # Appending the delta and logprob of this sample
       prob = logprob + dy.inputTensor(mask, batched=True)
       deltas.append(dy.inputTensor(eval_score, batched=True))

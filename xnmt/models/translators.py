@@ -91,8 +91,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
     trg_embedder: A word embedder for the output language
     decoder: A decoder
     inference: The default inference strategy used for this model
-    search_strategy:
-    global_fertility: A parameter for global fertility weight. 0 for no computation.
   """
 
   yaml_tag = '!DefaultTranslator'
@@ -108,7 +106,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
                trg_embedder: Embedder=bare(SimpleWordEmbedder),
                decoder: Decoder=bare(AutoRegressiveDecoder),
                inference: inferences.AutoRegressiveInference=bare(inferences.AutoRegressiveInference),
-               search_strategy:search_strategies.SearchStrategy=bare(search_strategies.BeamSearch),
                truncate_dec_batches:bool=False,
                compute_report:bool = Ref("exp_global.compute_report", default=False)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
@@ -118,7 +115,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
     self.trg_embedder = trg_embedder
     self.decoder = decoder
     self.inference = inference
-    self.search_strategy = search_strategy
     self.truncate_dec_batches = truncate_dec_batches
     self.compute_report = compute_report
 
