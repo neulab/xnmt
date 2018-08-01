@@ -133,6 +133,7 @@ class Inference(object):
                   f'sentence {cur_sent_i + i}')
             output_txt = outputs[i].apply_post_processor(self.post_processor)
             fp.write(f"{output_txt}\n")
+        fp.flush()
         cur_sent_i += batch_size
         if self.max_num_sents and cur_sent_i >= self.max_num_sents: break
 
