@@ -178,7 +178,7 @@ class CharNGramComposer(SingleComposer, Serializable):
     keys = list(self.word_vect.keys())
     values = list(self.word_vect.values())
     ngram_vocab_vect = dy.sparse_inputTensor([keys], values, (self.dict_entry,))
-    return dy.rectify(self.word_ngram(ngram_vocab_vect))
+    return dy.rectify(self.word_ngram.transform(ngram_vocab_vect))
 
   def set_word(self, word):
     self.word_vect = self.to_word_vector(word)

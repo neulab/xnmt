@@ -123,7 +123,7 @@ class Softmax(Scorer, Serializable):
                                                               param_init=param_init, bias_init=bias_init))
   
   def calc_scores(self, x: dy.Expression) -> dy.Expression:
-    return self.output_projector(x)
+    return self.output_projector.transform(x)
 
   def calc_loss(self, x: dy.Expression, y: Union[int, List[int]]) -> dy.Expression:
 

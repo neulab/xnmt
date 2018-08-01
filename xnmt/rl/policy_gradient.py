@@ -67,7 +67,7 @@ class PolicyGradient(Serializable):
                       from the gold distribution or some probability priors. It should be calculated from the outside.
   """
   def sample_action(self, state, argmax=False, sample_pp=None, predefined_actions=None):
-    policy = dy.log_softmax(self.policy_network(state))
+    policy = dy.log_softmax(self.policy_network.transform(state))
     actions = []
     if predefined_actions is not None:
       # Use defined action value
@@ -164,7 +164,7 @@ class PolicyGradient(Serializable):
     pred_rewards = []
     losses = []
     for i, state in enumerate(self.states):
-      pred_reward = self.baseline(dy.nobackprop(state))
+      pred_reward = self.baseline.transform(dy.nobackprop(state))
       pred_rewards.append(dy.nobackprop(pred_reward))
       if self.valid_pos is not None:
         pred_reward = dy.pick_batch_elems(pred_reward, self.valid_pos[i])

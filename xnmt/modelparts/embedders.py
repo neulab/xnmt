@@ -186,7 +186,7 @@ class DenseWordEmbedder(Embedder, transforms.Linear, Serializable):
       ret = dy.noise(ret, self.weight_noise)
     return ret
 
-  def __call__(self, input_expr):
+  def transform(self, input_expr):
     W1 = dy.parameter(self.embeddings)
     b1 = dy.parameter(self.bias)
     return dy.affine_transform([b1, W1, input_expr])

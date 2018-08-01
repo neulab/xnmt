@@ -86,7 +86,7 @@ class LinearBridge(Bridge, Serializable):
     if enc_final_states[0].main_expr().dim()[0][0] != self.enc_dim:
       raise RuntimeError(
         f"LinearBridge requires enc_dim == {self.enc_dim}, but got {enc_final_states[0].main_expr().dim()[0][0]}")
-    decoder_init = [self.projector(enc_state.main_expr()) for enc_state in enc_final_states[-self.dec_layers:]]
+    decoder_init = [self.projector.transform(enc_state.main_expr()) for enc_state in enc_final_states[-self.dec_layers:]]
     return decoder_init + [dy.tanh(dec) for dec in decoder_init]
   @serializable_init
   def __init__(self,

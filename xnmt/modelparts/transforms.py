@@ -7,8 +7,8 @@ class Transform(object):
   """
   A class of transforms that change a dynet expression into another.
   """
-  def __call__(self, input_expr: dy.Expression) -> dy.Expression:
-    raise NotImplementedError('__call__ must be implemented in subclasses of Transform')
+  def transform(self, input_expr: dy.Expression) -> dy.Expression:
+    raise NotImplementedError('transform() must be implemented in subclasses of Transform')
 
 class Identity(Transform, Serializable):
   """
@@ -18,10 +18,10 @@ class Identity(Transform, Serializable):
   yaml_tag = "!Identity"
 
   @serializable_init
-  def __init__(self) -> None:
+  def __init__(self):
     pass
 
-  def __call__(self, input_expr: dy.Expression) -> dy.Expression:
+  def transform(self, input_expr: dy.Expression) -> dy.Expression:
     return input_expr
 
 class Linear(Transform, Serializable):
@@ -54,7 +54,7 @@ class Linear(Transform, Serializable):
     if self.bias:
       self.b1 = model.add_parameters((output_dim,), init=bias_init.initializer((output_dim,)))
 
-  def __call__(self, input_expr: dy.Expression) -> dy.Expression:
+  def transform(self, input_expr: dy.Expression) -> dy.Expression:
     W1 = dy.parameter(self.W1)
     if self.bias:
       b1 = dy.parameter(self.b1)
@@ -112,7 +112,7 @@ class NonLinear(Transform, Serializable):
     if self.bias:
       self.b1 = model.add_parameters((self.output_dim,), init=bias_init.initializer((self.output_dim,)))
 
-  def __call__(self, input_expr: dy.Expression) -> dy.Expression:
+  def transform(self, input_expr: dy.Expression) -> dy.Expression:
     W1 = dy.parameter(self.W1)
     if self.bias:
       b1 = dy.parameter(self.b1)
@@ -184,8 +184,23 @@ class MLP(Transform, Serializable):
       self.layers += [NonLinear(input_dim=hidden_dim, output_dim=hidden_dim, bias=bias, activation=activation, param_init=param_init, bias_init=bias_init) for _ in range(1,hidden_layers)]
     self.layers += [Linear(input_dim=hidden_dim, output_dim=output_dim, bias=bias, param_init=param_init, bias_init=bias_init)]
 
-  def __call__(self, expr: dy.Expression) -> dy.Expression:
+  def transform(self, expr: dy.Expression) -> dy.Expression:
     for layer in self.layers:
-      expr = layer(expr)
+      expr = layer.transform(expr)
     return expr
 
+class Cwise(Transform, Serializable):
+  """
+  A component-wise transformation that can be an arbitrary unary DyNet operation.
+
+  Args:
+    op: arbitrary unary DyNet node
+  """
+  yaml_tag = "!Cwise"
+  @serializable_init
+  def __init__(self, op="rectify"):
+    self.op = getattr(dy, op, None)
+    if not self.op:
+      raise ValueError(f"DyNet does not have an operation '{op}'.")
+  def transform(self, input_expr: dy.Expression):
+    return self.op(input_expr)
