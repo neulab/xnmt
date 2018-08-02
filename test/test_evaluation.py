@@ -3,7 +3,7 @@ import unittest
 
 from xnmt.eval import metrics
 from xnmt import events
-from test.utils import has_cython
+from xnmt.utils import has_cython
 from xnmt.vocabs import Vocab
 
 class TestBLEU(unittest.TestCase):

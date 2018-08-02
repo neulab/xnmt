@@ -14,6 +14,7 @@ from xnmt.modelparts.transforms import NonLinear
 from xnmt.modelparts.scorers import Softmax
 from xnmt.models.translators import DefaultTranslator
 from xnmt.search_strategies import BeamSearch, GreedySearch
+from xnmt.param_collections import ParamManager
 from xnmt.vocabs import Vocab
 
 class TestForcedDecodingOutputs(unittest.TestCase):
