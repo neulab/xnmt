@@ -8,6 +8,7 @@ from xnmt import batchers, param_collections, param_initializers
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.transducers import base as transducers_base
+from xnmt.param_initializers import GlorotInitializer, ParamInitializer
 
 class Attender(object):
   """

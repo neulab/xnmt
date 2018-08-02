@@ -118,7 +118,7 @@ class ReinforceLoss(Serializable, LossCalculator):
     self.search_strategy = search_strategy
     self.evaluation_metric = evaluation_metric
 
-    if self.use_baseline:
+    if use_baseline:
       self.baseline = self.add_serializable_component("baseline", baseline,
                                                       lambda: Linear(input_dim=decoder_hidden_dim, output_dim=1))
     else:
@@ -135,7 +135,7 @@ class ReinforceLoss(Serializable, LossCalculator):
         # Removing EOS
         sample_i = self.remove_eos(sample_i.tolist())
         ref_i = trg_i.words[:trg_i.len_unpadded()]
-        score = self.evaluation_metric.evaluate(ref_i, sample_i)
+        score = self.evaluation_metric.evaluate_one_sent(ref_i, sample_i)
         self.eval_score.append(sign * score)
       self.reward = dy.inputTensor(self.eval_score, batched=True)
       # Composing losses
@@ -202,7 +202,7 @@ class MinRiskLoss(Serializable, LossCalculator):
           else:
             uniques[j].add(hash_val)
           # Calc evaluation score
-        eval_score[j] = self.evaluation_metric.evaluate(ref_j, hyp_j) * sign
+        eval_score[j] = self.evaluation_metric.evaluate_one_sent(ref_j, hyp_j) * sign
       # Appending the delta and logprob of this sample
       prob = logprob + dy.inputTensor(mask, batched=True)
       deltas.append(dy.inputTensor(eval_score, batched=True))

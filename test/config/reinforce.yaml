@@ -5,8 +5,7 @@ reinforce: !Experiment
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-    search_strategy: !SamplingSearch {}
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab} 
   train: !SimpleTrainingRegimen
     batcher: !SrcBatcher
       batch_size: 1
@@ -24,6 +23,7 @@ reinforce: !Experiment
         ref_file: examples/data/head.en
     loss_calculator: !ReinforceLoss
       use_baseline: True
+      search_strategy: !SamplingSearch {}
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu
