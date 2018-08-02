@@ -7,10 +7,9 @@ minrisk: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-    search_strategy: !SamplingSearch
-      max_len: 10
-      sample_size: 10
   train: !SimpleTrainingRegimen
+    batcher: !SrcBatcher
+      batch_size: 1
     run_for_epochs: 2
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en
@@ -25,6 +24,9 @@ minrisk: !Experiment
         ref_file: examples/data/head.en
     loss_calculator: !MinRiskLoss
       alpha: 0.005
+      search_strategy: !SamplingSearch
+        max_len: 10
+        sample_size: 10
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu
