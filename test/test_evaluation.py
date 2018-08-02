@@ -3,7 +3,7 @@ import unittest
 
 from xnmt.eval import metrics
 from xnmt import events
-from xnmt.utils import has_cython
+from test.utils import has_cython
 from xnmt.vocabs import Vocab
 
 class TestBLEU(unittest.TestCase):
@@ -26,7 +26,7 @@ class TestBLEU(unittest.TestCase):
   def test_bleu_4gram_fast(self):
     bleu = metrics.FastBLEUEvaluator(ngram=4, smooth=1)
     exp_bleu = math.exp(math.log((3.0/5.0) * (2.0/5.0) * (1.0/4.0) * (1.0/3.0))/4.0)
-    act_bleu = bleu.evaluate_one_sent(self.ref_id, self.hyp_id)
+    act_bleu = bleu.evaluate(self.ref_id, self.hyp_id)
     self.assertEqual(act_bleu, exp_bleu)
 
 class TestGLEU(unittest.TestCase):

@@ -1,7 +1,6 @@
 report: !Experiment
   exp_global: !ExpGlobal
     compute_report: True
-    default_layer_dim: 64
   model: !DefaultTranslator
     src_reader: !CharFromWordTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.charvocab}
@@ -14,13 +13,11 @@ report: !Experiment
       final_transducer: !BiLSTMSeqTransducer {}
       policy_learning: !PolicyGradient 
         z_normalization: True
+        sample: 2
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en
-    loss_calculator: !FeedbackLoss
-      child_loss: !MLELoss {}
-      repeat: 2
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu,wer
