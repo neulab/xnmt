@@ -470,7 +470,7 @@ def load_system(filename):
   return exp.model
 
 def word_id_to_string(translator, word):
-  word_str = '%s (%d)' % (translator.trg_vocab[word], word) if word is not None else '[None]'
+  word_str = '%s (%d)' % (translator.trg_reader.vocab[word], word) if word is not None else '[None]'
   return word_str
 
 class OtherSystem(Serializable):
@@ -571,9 +571,9 @@ class MctsSearch(Serializable, SearchStrategy):
       output = self.extract_best_output(root_node)
     else:
       output = self.extract_output(root_node, src_length)
-    #self.dump_tree(root_node)
-    #print('==========')
-    #sys.stdout.flush()
+    self.dump_tree(root_node)
+    print('==========')
+    sys.stdout.flush()
     return output
 
   def extract_best_output(self, root_node):
