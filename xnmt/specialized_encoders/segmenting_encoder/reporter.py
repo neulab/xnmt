@@ -31,32 +31,30 @@ class SegmentingReporter(Serializable):
     src_word = [self.src_vocab[c] for c in src]
     
     actions = encoder.segment_actions
-    for i in range(len(actions)):
-      table = []
-      format = []
-      table.append(["SRC"] + src_word)
+    table = []
+    format = []
+    table.append(["SRC"] + src_word)
+    format.append("{:>5}")
+    sample_action = actions[self.idx]
+    sample_dense = [1 if j in sample_action else 0 for j in range(src.sent_len())]
+    format.append("{:>5}")
+    table.append(["ACT"] + sample_dense)
+    if encoder.policy_learning is not None:
+      policy_lls = [encoder.policy_learning.policy_lls[j].npvalue().transpose()[self.idx] for j in range(src_len)]
+      table.append(["LLS"] + ["{:.4f}".format(math.exp(policy_lls[j][sample_dense[j]])) for j in range(src_len)])
+      self.pad_last(table)
+      valid_pos = [1 if self.idx in x else 0 for x in encoder.policy_learning.valid_pos]
+      table.append(["MSK"] + valid_pos)
+      format.append("{:>8}")
       format.append("{:>5}")
-      sample_action = actions[i][self.idx]
-      sample_dense = [1 if j in sample_action else 0 for j in range(src.sent_len())]
-      format.append("{:>5}")
-      table.append(["ACT"] + sample_dense)
-      if encoder.policy_learning is not None:
-        policy_lls = [encoder.policy_learning.policy_lls[j].npvalue().transpose()[self.idx] for j in range(src_len)]
-        table.append(["LLS"] + ["{:.4f}".format(math.exp(policy_lls[j][sample_dense[j]])) for j in range(src_len)])
-        self.pad_last(table)
-        valid_pos = [1 if self.idx in x else 0 for x in encoder.policy_learning.valid_pos]
-        table.append(["MSK"] + valid_pos)
-        format.append("{:>8}")
-        format.append("{:>5}")
-      arr = np.array(table)
-      format = format[::-1]
-      self.logger.info("Sample %d", (i+1))
-      self.logger.info("SRC: %s", self.apply_segmentation(src_word, sample_action))
-      arr = np.flip(arr, 0).transpose()
+    arr = np.array(table)
+    format = format[::-1]
+    self.logger.info("SRC: %s", self.apply_segmentation(src_word, sample_action))
+    arr = np.flip(arr, 0).transpose()
 
-      row_format = "".join(format)
-      for item in arr:
-        self.logger.info(row_format.format(*item))
+    row_format = "".join(format)
+    for item in arr:
+      self.logger.info(row_format.format(*item))
 
   def pad_last(self, table):
     table[-1].extend(["-" for _ in range(len(table[-2])-len(table[-1]))])

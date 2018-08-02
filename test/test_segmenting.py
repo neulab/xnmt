@@ -16,7 +16,7 @@ from xnmt.input_readers import PlainTextReader
 from xnmt.input_readers import CharFromWordTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer
 from xnmt.models.translators import DefaultTranslator
-from xnmt.loss_calculators import AutoRegressiveMLELoss
+from xnmt.loss_calculators import MLELoss, FeedbackLoss, GlobalFertilityLoss, CompositeLoss
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
 from xnmt.specialized_encoders.segmenting_encoder.reporter import SegmentingReporter
@@ -28,7 +28,7 @@ from xnmt.vocabs import Vocab
 from xnmt.rl.policy_gradient import PolicyGradient
 from xnmt.rl.eps_greedy import EpsilonGreedy
 from xnmt.rl.confidence_penalty import ConfidencePenalty
-from test.utils import has_cython
+from xnmt.utils import has_cython
 
 class TestSegmentingEncoder(unittest.TestCase):
   
@@ -41,10 +41,10 @@ class TestSegmentingEncoder(unittest.TestCase):
     ParamManager.init_param_col()
     self.segment_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
     self.segment_composer = SumComposer()
+
     self.src_reader = CharFromWordTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.charvocab"))
     self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
-    self.loss_calculator = AutoRegressiveMLELoss()
-
+    self.loss_calculator = FeedbackLoss(child_loss=MLELoss(), repeat=5)
 
     baseline = Linear(input_dim=layer_dim, output_dim=1)
     policy_network = Linear(input_dim=layer_dim, output_dim=2)
@@ -56,8 +56,7 @@ class TestSegmentingEncoder(unittest.TestCase):
                                           baseline=baseline,
                                           policy_network=policy_network,
                                           z_normalization=True,
-                                          conf_penalty=self.conf_penalty,
-                                          sample=5)
+                                          conf_penalty=self.conf_penalty)
     self.length_prior = PoissonLengthPrior(lmbd=3.3, weight=1)
     self.segmenting_encoder = SegmentingSeqTransducer(
       embed_encoder = self.segment_encoder_bilstm,
@@ -94,8 +93,9 @@ class TestSegmentingEncoder(unittest.TestCase):
     dy.renew_cg(immediate_compute=True, check_validity=True)
 
   def test_reinforce_loss(self):
-    self.model.global_fertility = 1.0
-    loss = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
+    fertility_loss = GlobalFertilityLoss()
+    mle_loss = MLELoss()
+    loss = CompositeLoss(losses=[mle_loss, fertility_loss]).calc_loss(self.model, self.src[0], self.trg[0])
     reinforce_loss = self.model.calc_additional_loss(self.trg[0], self.model, loss)
     pl = self.model.encoder.policy_learning
     # Ensure correct length
@@ -104,16 +104,11 @@ class TestSegmentingEncoder(unittest.TestCase):
     outputs = self.segmenting_encoder.compose_output
     actions = self.segmenting_encoder.segment_actions
     # Ensure sample == outputs
-    self.assertEqual(len(outputs), pl.sample)
-    self.assertEqual(len(actions), pl.sample)
-    for sample_action in actions:
-      for i, sample_item in enumerate(sample_action):
-        # The last segmentation is 1
-        self.assertEqual(sample_item[-1], src[i].len_unpadded())
-        # Assert that all flagged actions are </s>
-        list(self.assertEqual(pl.actions[j][0][i], 1) for j in range(len(mask[i])) if mask[i][j] == 1)
+    for i, sample_item in enumerate(actions):
+      # The last segmentation is 1
+      self.assertEqual(sample_item[-1], src[i].len_unpadded())
     self.assertTrue("mle" in loss.expr_factors)
-    self.assertTrue("fertility" in loss.expr_factors)
+    self.assertTrue("global_fertility" in loss.expr_factors)
     self.assertTrue("rl_reinf" in reinforce_loss.expr_factors)
     self.assertTrue("rl_baseline" in reinforce_loss.expr_factors)
     self.assertTrue("rl_confpen" in reinforce_loss.expr_factors)
@@ -121,7 +116,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.POLICY)
 
   def calc_loss_single_batch(self):
-    loss = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
+    loss = MLELoss().calc_loss(self.model, self.src[0], self.trg[0])
     reinforce_loss = self.model.calc_additional_loss(self.trg[0], self.model, loss)
     return loss, reinforce_loss
 
@@ -137,13 +132,6 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.POLICY_SAMPLE)
     self.assertEqual(self.model.encoder.policy_learning.sampling_action, PolicyGradient.SamplingAction.PREDEFINED)
-
-  def test_global_fertility(self):
-    # Test Global fertility weight
-    self.model.global_fertility = 1.0
-    self.segmenting_encoder.policy_learning = None
-    loss1, _ = self.calc_loss_single_batch()
-    self.assertTrue("fertility" in loss1.expr_factors)
   
   def test_policy_train_test(self):
     self.model.set_train(True)
@@ -189,7 +177,7 @@ class TestComposing(unittest.TestCase):
     self.segment_composer = SumComposer()
     self.src_reader = CharFromWordTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.charvocab"))
     self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
-    self.loss_calculator = AutoRegressiveMLELoss()
+    self.loss_calculator = FeedbackLoss(child_loss=MLELoss(), repeat=5)
     self.segmenting_encoder = SegmentingSeqTransducer(
       segment_composer =  self.segment_composer,
       final_transducer = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),

@@ -442,7 +442,7 @@ class SegmentationReporter(Reporter, Serializable):
       utils.make_parent_dir(report_path)
       self.report_fp = open(report_path, "w")
 
-    actions = segment_actions[0][0]
+    actions = segment_actions[0]
     src = src.str_tokens()
     words = []
     start = 0

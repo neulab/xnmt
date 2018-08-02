@@ -66,7 +66,7 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
     outputs = self.transform.transform(encoding_reshaped)
     return batch_size, encodings, outputs, seq_len
 
-  def calc_loss(self, src, trg, loss_calculator):
+  def calc_nll(self, src, trg):
     assert batchers.is_batched(src) and batchers.is_batched(trg)
     batch_size, encodings, outputs, seq_len = self._encode_src(src)
 
@@ -84,10 +84,7 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
       loss_expr_perstep = dy.cmult(loss_expr_perstep, dy.inputTensor(1.0-trg.mask.np_arr.T, batched=True))
     loss_expr = dy.sum_elems(loss_expr_perstep)
 
-    model_loss = losses.FactoredLossExpr()
-    model_loss.add_loss("mle", loss_expr)
-
-    return model_loss
+    return loss_expr
 
   def _cut_or_pad_targets(self, seq_len, trg):
     old_mask = trg.mask
