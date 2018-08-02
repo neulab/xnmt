@@ -430,7 +430,7 @@ class SentenceLevelEvaluator(Evaluator):
       with open(self.write_sentence_scores, "w") as f_out: f_out.write(yaml.dump(sentence_scores))
     return sentence_scores[0].__class__.aggregate(sentence_scores, desc=desc)
 
-class FastBLEUEvaluator(SentenceLevelEvaluator, Serializable):
+class FastBLEUEvaluator(Evaluator, Serializable):
   """
   Class for computing BLEU scores using a fast Cython implementation.
 
@@ -444,21 +444,20 @@ class FastBLEUEvaluator(SentenceLevelEvaluator, Serializable):
   yaml_tag = "!FastBLEUEvaluator"
 
   @serializable_init
-  def __init__(self, ngram:int = 4, smooth:float = 1):
+  def __init__(self, ngram: int = 4, smooth = 0):
     self.ngram = ngram
     self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
     self.smooth = smooth
     self.reference_corpus = None
     self.candidate_corpus = None
 
-  def evaluate_one_sent(self, ref, hyp):
+  def evaluate(self, ref, hyp, desc=None):
     try:
       from xnmt.cython import xnmt_cython
     except:
       logger.error("BLEU evaluate fast requires xnmt cython installation step."
                    "please check the documentation.")
       raise
-    if len(ref) == 0 or len(hyp) == 0: return 0
     return xnmt_cython.bleu_sentence(self.ngram, self.smooth, ref, hyp)
 
 

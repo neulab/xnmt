@@ -1,6 +1,7 @@
 import unittest
 
 from xnmt import events
+
 from xnmt.hyper_params import *
 
 
@@ -48,7 +49,7 @@ class TestSanityHyperParameter(unittest.TestCase):
 #                                            transformer=self.tail_transformer)
 #    self.src_reader = PlainTextReader()
 #    self.trg_reader = PlainTextReader()
-#    self.loss_calculator = MLELoss()
+#    self.loss_calculator = AutoRegressiveMLELoss()
 #    self.segmenting_encoder = SegmentingSeqTransducer(
 #      embed_encoder = self.segment_embed_encoder_bilstm,
 #      segment_composer =  self.segment_composer,

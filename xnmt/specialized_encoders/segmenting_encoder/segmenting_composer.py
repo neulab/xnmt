@@ -15,12 +15,12 @@ class SingleComposer(object):
   def __init__(self):
     pass
 
-  def compose(self, composed_words, batch_size):
-    outputs = [[] for _ in range(batch_size)]
+  def compose(self, composed_words, sample_size, batch_size):
+    outputs = [[[] for j in range(batch_size)] for i in range(sample_size)]
     # Batching expression
-    for expr_list, batch_num, position, start, end in composed_words:
+    for expr_list, sample_num, batch_num, position, start, end in composed_words:
       self.set_word(self.src_sent[batch_num][start:end])
-      outputs[batch_num].append(self.transduce(expr_list))
+      outputs[sample_num][batch_num].append(self.transduce(expr_list))
     return outputs
 
   @handle_xnmt_event

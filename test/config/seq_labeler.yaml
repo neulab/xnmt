@@ -1,7 +1,5 @@
 seq-labeler: !Experiment
   # model architecture
-  exp_global: !ExpGlobal
-    default_layer_dim: 64
   model: !SeqLabeler
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}

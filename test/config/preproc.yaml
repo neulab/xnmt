@@ -1,6 +1,4 @@
 standard-preproc: !Experiment
-  exp_global: !ExpGlobal
-    default_layer_dim: 64
   preproc: !PreprocRunner
     overwrite: True
     tasks:

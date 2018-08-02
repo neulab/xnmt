@@ -1,7 +1,6 @@
 # note: run as ``xnmt --settings=unittest <config>.yaml``
 speech-self-att: !Experiment
   exp_global: !ExpGlobal
-    default_layer_dim: 64
     dropout: 0.2
   preproc: !PreprocRunner
     overwrite: False

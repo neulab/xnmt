@@ -1,21 +1,17 @@
 import math
 
 import dynet as dy
-from typing import Optional, List
 
 from xnmt import logger
 from xnmt import batchers, param_collections, param_initializers
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.expression_seqs import ExpressionSequence
-from xnmt.transducers import base as transducers_base
-from xnmt.param_initializers import GlorotInitializer, ParamInitializer
 
 class Attender(object):
   """
   A template class for functions implementing attention.
   """
 
-  def init_sent(self, sent: ExpressionSequence):
+  def init_sent(self, sent):
     """Args:
          sent: the encoder states, aka keys and values. Usually but not necessarily an :class:`xnmt.expression_sequence.ExpressionSequence`
     """
@@ -77,7 +73,7 @@ class MlpAttender(Attender, Serializable):
     self.pU = param_collection.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
     self.curr_sent = None
 
-  def init_sent(self, sent: ExpressionSequence):
+  def init_sent(self, sent):
     self.attention_vecs = []
     self.curr_sent = sent
     I = self.curr_sent.as_tensor()
@@ -133,7 +129,7 @@ class DotAttender(Attender, Serializable):
     self.scale = scale
     self.attention_vecs = []
 
-  def init_sent(self, sent: ExpressionSequence):
+  def init_sent(self, sent):
     self.curr_sent = sent
     self.attention_vecs = []
     self.I = dy.transpose(self.curr_sent.as_tensor())
@@ -180,7 +176,7 @@ class BilinearAttender(Attender, Serializable):
     self.pWa = param_collection.add_parameters((input_dim, state_dim), init=param_init.initializer((input_dim, state_dim)))
     self.curr_sent = None
 
-  def init_sent(self, sent: ExpressionSequence):
+  def init_sent(self, sent):
     self.curr_sent = sent
     self.attention_vecs = []
     self.I = self.curr_sent.as_tensor()
@@ -197,57 +193,3 @@ class BilinearAttender(Attender, Serializable):
   def calc_context(self, state):
     attention = self.calc_attention(state)
     return self.I * attention
-
-
-class FixedSizeAttSeqTransducer(transducers_base.SeqTransducer, Serializable):
-  """
-  A fixed-size attention-based representation of a sequence.
-
-  This implements the basic fixed-size memory model according to Britz et. al 2017: ﻿Efficient Attention using a
-  Fixed-Size Memory Representation; https://arxiv.org/abs/1707.00110
-
-  Args:
-    hidden_dim: hidden dimension of inputs and outputs
-    output_len: fixed-size length of the output
-    pos_enc_max: if given, use positional encodings, assuming the number passed here as the maximum possible input
-                 sequence length
-    param_init: parameter initializer
-  """
-  yaml_tag = "!FixedSizeAttSeqTransducer"
-
-  @serializable_init
-  def __init__(self,
-               hidden_dim: int = Ref("exp_global.default_layer_dim"),
-               output_len: int = 32,
-               pos_enc_max: Optional[int] = None,
-               param_init: ParamInitializer = Ref("exp_global.param_init",
-                                                  default=bare(GlorotInitializer))) \
-          -> None:
-    subcol = ParamManager.my_params(self)
-    self.output_len = output_len
-    self.W = subcol.add_parameters(dim=(hidden_dim, output_len),
-                                   init=param_init.initializer((hidden_dim, output_len)))
-    self.pos_enc_max = pos_enc_max
-    if self.pos_enc_max:
-      self.pos_enc = np.zeros((self.pos_enc_max, self.output_len))
-      for k in range(self.output_len):
-        for s in range(self.pos_enc_max):
-          self.pos_enc[s, k] = (1.0 - k / self.output_len) * (
-                  1.0 - s / self.pos_enc_max) + k / self.output_len * s / self.pos_enc_max
-
-  def get_final_states(self) -> List[transducers_base.FinalTransducerState]:
-    raise NotImplementedError('FixedSizeAttSeqTransducer.get_final_states() not implemented')
-
-  def transduce(self, x: ExpressionSequence) -> ExpressionSequence:
-    x_T = x.as_transposed_tensor()
-    scores = x_T * dy.parameter(self.W)
-    if x.mask is not None:
-      scores = x.mask.add_to_tensor_expr(scores, multiplicator=-100.0, time_first=True)
-    if self.pos_enc_max:
-      seq_len = x_T.dim()[0][0]
-      pos_enc = self.pos_enc[:seq_len,:]
-      scores = dy.cmult(scores, dy.inputTensor(pos_enc))
-    attention = dy.softmax(scores)
-    output_expr = x.as_tensor() * attention
-    return ExpressionSequence(expr_tensor=output_expr, mask=None)
-

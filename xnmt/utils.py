@@ -116,11 +116,3 @@ def add_dynet_argparse(argparser):
   argparser.add_argument("--dynet-gpus", type=int)
   argparser.add_argument("--dynet-weight-decay", type=float)
   argparser.add_argument("--dynet-profiling", type=int)
-
-def has_cython():
-  try:
-    from xnmt.cython import xnmt_cython
-    return True
-  except:
-    return False
-

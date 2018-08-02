@@ -12,7 +12,7 @@ from xnmt.eval.tasks import LossEvalTask
 import xnmt.events
 from xnmt.input_readers import PlainTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculators import MLELoss
+from xnmt.loss_calculators import AutoRegressiveMLELoss
 from xnmt.optimizers import AdamTrainer, DummyTrainer
 from xnmt.param_collections import ParamManager
 from xnmt.transducers.pyramidal import PyramidalLSTMSeqTransducer
@@ -58,18 +58,16 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     single_loss = 0.0
     for sent_id in range(batch_size):
       dy.renew_cg()
-      train_loss = MLELoss().calc_loss(
-                                   model=model,
-                                   src=src_sents_trunc[sent_id],
-                                   trg=trg_sents_trunc[sent_id]).value()
+      train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
+                                   trg=trg_sents_trunc[sent_id],
+                                   loss_calculator=AutoRegressiveMLELoss()).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
-    batched_loss = MLELoss().calc_loss(
-                                   model=model,
-                                   src=mark_as_batch(src_sents_trunc),
-                                   trg=mark_as_batch(trg_sents_trunc)).value()
+    batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
+                                   trg=mark_as_batch(trg_sents_trunc),
+                                   loss_calculator=AutoRegressiveMLELoss()).value()
     self.assertAlmostEqual(single_loss, np.sum(batched_loss), places=4)
 
   def test_loss_model1(self):
@@ -199,18 +197,16 @@ class TestBatchTraining(unittest.TestCase):
     single_loss = 0.0
     for sent_id in range(batch_size):
       dy.renew_cg()
-      train_loss = MLELoss().calc_loss(
-                                   model=model,
-                                   src=src_sents_trunc[sent_id],
-                                   trg=trg_sents[sent_id]).value()
+      train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
+                                   trg=trg_sents[sent_id],
+                                   loss_calculator=AutoRegressiveMLELoss()).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
-    batched_loss = MLELoss().calc_loss(
-                                   model=model,
-                                   src=mark_as_batch(src_sents_trunc),
-                                   trg=mark_as_batch(trg_sents_padded, trg_masks)).value()
+    batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
+                                   trg=mark_as_batch(trg_sents_padded, trg_masks),
+                                   loss_calculator=AutoRegressiveMLELoss()).value()
     self.assertAlmostEqual(single_loss, np.sum(batched_loss), places=4)
 
   def test_loss_model1(self):
@@ -292,7 +288,7 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args = {}
     train_args['src_file'] = "examples/data/head.ja"
     train_args['trg_file'] = "examples/data/head.en"
-    train_args['loss_calculator'] = MLELoss()
+    train_args['loss_calculator'] = AutoRegressiveMLELoss()
     train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab")),
                                             trg_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab")),
                                             src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
@@ -334,7 +330,7 @@ class TestOverfitting(unittest.TestCase):
     train_args = {}
     train_args['src_file'] = "examples/data/head.ja"
     train_args['trg_file'] = "examples/data/head.en"
-    train_args['loss_calculator'] = MLELoss()
+    train_args['loss_calculator'] = AutoRegressiveMLELoss()
     train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab")),
                                             trg_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab")),
                                             src_embedder=SimpleWordEmbedder(vocab_size=100, emb_dim=layer_dim),

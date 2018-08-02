@@ -1,7 +1,7 @@
 import unittest
 import os, shutil
 
-from xnmt.utils import has_cython
+from test.utils import has_cython
 import xnmt.xnmt_run_experiments as run
 import xnmt.events
 

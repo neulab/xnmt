@@ -8,7 +8,7 @@ import dynet as dy
 
 from xnmt.models.base import ConditionedModel
 from xnmt.loss_trackers import TrainLossTracker
-from xnmt.loss_calculators import LossCalculator, MLELoss
+from xnmt.loss_calculators import LossCalculator, AutoRegressiveMLELoss
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 from xnmt import optimizers, batchers, utils
@@ -92,7 +92,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
   def __init__(self, model: ConditionedModel = Ref("model"), src_file: Union[None, str, Sequence[str]] = None,
                trg_file: Optional[str] = None, dev_every: int = 0, dev_zero: bool = False,
                batcher: batchers.Batcher = bare(batchers.SrcBatcher, batch_size=32),
-               loss_calculator: LossCalculator = bare(MLELoss),
+               loss_calculator: LossCalculator = bare(AutoRegressiveMLELoss),
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                run_for_epochs: Optional[int] = None, lr_decay: float = 1.0, lr_decay_times: int = 3, patience: int = 1,
                initial_patience: Optional[int] = None, dev_tasks: Sequence[eval_tasks.EvalTask] = None,
