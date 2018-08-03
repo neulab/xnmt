@@ -371,7 +371,7 @@ class SequenceAccuracyScore(SentenceLevelEvalScore, Serializable):
 
 
 class FMeasure(SentenceLevelEvalScore, Serializable):
-  yaml_tag = "!FScore"
+  yaml_tag = "!FMeasure"
   @serializable_init
   def __init__(self, true_pos: int, false_neg: int, false_pos: int, desc: Any = None):
     self.true_pos = true_pos
@@ -399,10 +399,10 @@ class FMeasure(SentenceLevelEvalScore, Serializable):
            f"TP={self.true_pos},FP={self.false_pos},FN={self.false_neg})"
   @staticmethod
   def aggregate(scores: Sequence['SentenceLevelEvalScore'], desc: Any = None):
-    return FScore(true_pos=sum(s.true_pos for s in scores),
-                  false_neg=sum(s.false_neg for s in scores),
-                  false_pos=sum(s.false_pos for s in scores),
-                  desc=desc)
+    return FMeasure( true_pos=sum(s.true_pos for s in scores),
+                    false_neg=sum(s.false_neg for s in scores),
+                    false_pos=sum(s.false_pos for s in scores),
+                    desc=desc)
 
 
 class Evaluator(object):
@@ -946,6 +946,6 @@ class FMeasureEvaluator(SentenceLevelEvaluator, Serializable):
     if len(ref)!=1 or len(hyp)!=1: raise ValueError("FScore requires scalar ref and hyp")
     ref = ref[0]
     hyp = hyp[0]
-    return FScore(true_pos= 1 if (ref==hyp) and (hyp==self.pos_token) else 0,
-                  false_neg= 1 if (ref!=hyp) and (hyp!=self.pos_token) else 0,
-                  false_pos= 1 if (ref!=hyp) and (hyp==self.pos_token) else 0)
+    return FMeasure( true_pos=1 if (ref == hyp) and (hyp == self.pos_token) else 0,
+                    false_neg=1 if (ref != hyp) and (hyp != self.pos_token) else 0,
+                    false_pos=1 if (ref != hyp) and (hyp == self.pos_token) else 0)

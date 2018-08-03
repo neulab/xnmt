@@ -23,7 +23,7 @@ classifier: !Experiment
       src_file: examples/data/head.en
       ref_file: examples/data/head.smallids
     - !AccuracyEvalTask
-      eval_metrics: accuracy,fscore
+      eval_metrics: accuracy,fmeasure
       src_file: examples/data/head.en
       ref_file: examples/data/head.smallids
       hyp_file: test/tmp/{EXP}.test_hyp
