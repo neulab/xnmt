@@ -7,7 +7,7 @@ from typing import Any, Optional, Sequence, Tuple, Union
 
 from xnmt.settings import settings
 from xnmt.modelparts.attenders import Attender, MlpAttender
-from xnmt import batchers
+from xnmt import batchers, event_trigger
 from xnmt.modelparts.decoders import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
 from xnmt.modelparts.embedders import Embedder, SimpleWordEmbedder
 from xnmt.events import register_xnmt_handler
@@ -73,7 +73,7 @@ class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
       output_state = dy.nobackprop(output_state)
     return output_state
 
-class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base.EventTrigger):
+class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
   """
   A default translator based on attentional sequence-to-sequence models.
 
@@ -142,7 +142,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
     return CompoundSeqExpression(initial_states)
 
   def calc_loss(self, src, trg, loss_calculator):
-    self.start_sent(src)
+    event_trigger.start_sent(src)
     initial_states = self._encode_src(src)
     # Calculate losses from multiple initial states
     losses = []
@@ -179,7 +179,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
                                 "Specify inference batcher with batch size 1.")
     assert src.batch_size() == len(idx), f"src: {src.batch_size()}, idx: {len(idx)}"
     # Generating outputs
-    self.start_sent(src)
+    event_trigger.start_sent(src)
     outputs = []
     cur_forced_trg = None
     src_sent = src[0]
@@ -234,7 +234,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
 
 
 
-class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, base.EventTrigger):
+class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable):
   """
   A translator based on the transformer model.
 
@@ -319,7 +319,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
     return e
 
   def calc_loss(self, src, trg, loss_cal=None, infer_prediction=False):
-    self.start_sent(src)
+    event_trigger.start_sent(src)
     if not batchers.is_batched(src):
       src = batchers.mark_as_batch([src])
     if not batchers.is_batched(trg):
@@ -366,7 +366,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
     return FactoredLossExpr({"mle": loss})
 
   def generate(self, src, idx, forced_trg_ids=None, search_strategy=None):
-    self.start_sent(src)
+    event_trigger.start_sent(src)
     if not batchers.is_batched(src):
       src = batchers.mark_as_batch([src])
     outputs = []
@@ -401,7 +401,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
 
     return outputs
 
-class EnsembleTranslator(AutoRegressiveTranslator, Serializable, base.EventTrigger):
+class EnsembleTranslator(AutoRegressiveTranslator, Serializable):
   """
   A translator that decodes from an ensemble of DefaultTranslator models.
 

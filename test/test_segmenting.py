@@ -11,7 +11,7 @@ from xnmt.modelparts.bridges import CopyBridge
 from xnmt.modelparts.decoders import AutoRegressiveDecoder
 from xnmt.modelparts.embedders import SimpleWordEmbedder
 import xnmt.events
-from xnmt import batchers
+from xnmt import batchers, event_trigger
 from xnmt.input_readers import PlainTextReader
 from xnmt.input_readers import CharFromWordTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer
@@ -84,7 +84,7 @@ class TestSegmentingEncoder(unittest.TestCase):
                                     trg_embed_dim=layer_dim,
                                     bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    self.model.set_train(True)
+    event_trigger.set_train(True)
 
     self.layer_dim = layer_dim
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
@@ -96,7 +96,7 @@ class TestSegmentingEncoder(unittest.TestCase):
   def test_reinforce_loss(self):
     self.model.global_fertility = 1.0
     loss = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
-    reinforce_loss = self.model.calc_additional_loss(self.trg[0], self.model, loss)
+    reinforce_loss = event_trigger.calc_additional_loss(self.trg[0], self.model, loss)
     pl = self.model.encoder.policy_learning
     # Ensure correct length
     src = self.src[0]
@@ -122,7 +122,7 @@ class TestSegmentingEncoder(unittest.TestCase):
 
   def calc_loss_single_batch(self):
     loss = self.model.calc_loss(self.src[0], self.trg[0], AutoRegressiveMLELoss())
-    reinforce_loss = self.model.calc_additional_loss(self.trg[0], self.model, loss)
+    reinforce_loss = event_trigger.calc_additional_loss(self.trg[0], self.model, loss)
     return loss, reinforce_loss
 
   def test_gold_input(self):
@@ -146,24 +146,24 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.assertTrue("fertility" in loss1.expr_factors)
   
   def test_policy_train_test(self):
-    self.model.set_train(True)
+    event_trigger.set_train(True)
     self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.policy_learning.sampling_action, PolicyGradient.SamplingAction.POLICY_CLP)
-    self.model.set_train(False)
+    event_trigger.set_train(False)
     self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.policy_learning.sampling_action, PolicyGradient.SamplingAction.POLICY_AMAX)
 
   def test_no_policy_train_test(self):
     self.model.encoder.policy_learning = None
-    self.model.set_train(True)
+    event_trigger.set_train(True)
     self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.PURE_SAMPLE)
-    self.model.set_train(False)
+    event_trigger.set_train(False)
     self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.PURE_SAMPLE)
 
   def test_sample_during_search(self):
-    self.model.set_train(False)
+    event_trigger.set_train(False)
     self.model.encoder.sample_during_search = True
     self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.POLICY)
@@ -211,7 +211,7 @@ class TestComposing(unittest.TestCase):
                                     trg_embed_dim=layer_dim,
                                     bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    self.model.set_train(True)
+    event_trigger.set_train(True)
 
     self.layer_dim = layer_dim
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
@@ -221,7 +221,7 @@ class TestComposing(unittest.TestCase):
     dy.renew_cg(immediate_compute=True, check_validity=True)
 
   def inp_emb(self, idx=0):
-    self.model.start_sent(self.src[idx])
+    event_trigger.start_sent(self.src[idx])
     embed = self.model.src_embedder.embed_sent(self.src[idx])
     return embed
 
@@ -280,19 +280,19 @@ class TestComposing(unittest.TestCase):
     enc.segment_composer = ConvolutionComposer(ngram_size=1,
                                                embed_dim=self.layer_dim,
                                                hidden_dim=self.layer_dim)
-    self.model.set_train(True)
+    event_trigger.set_train(True)
     enc.transduce(self.inp_emb(0))
     enc.segment_composer = ConvolutionComposer(ngram_size=3,
                                                embed_dim=self.layer_dim,
                                                hidden_dim=self.layer_dim)
-    self.model.set_train(True)
+    event_trigger.set_train(True)
     enc.transduce(self.inp_emb(0))
 
   def test_transducer_composer(self):
     enc = self.segmenting_encoder
     enc.segment_composer = SeqTransducerComposer(seq_transducer=BiLSTMSeqTransducer(input_dim=self.layer_dim,
                                                                                     hidden_dim=self.layer_dim))
-    self.model.set_train(True)
+    event_trigger.set_train(True)
     enc.transduce(self.inp_emb(0))
 
 if __name__ == "__main__":

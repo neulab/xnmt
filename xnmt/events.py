@@ -1,18 +1,20 @@
 """
-This implements events in XNMT. Events are handled globally, i.e. caller and handler
-do not need to know about each other, and it is not possible to limit the scope of an
-event. Event handling involves two parts:
+This module implements a global event mechanism in XNMT.
 
-- Registering an event caller. Callers are always class methods, and registration simply
-  means decorating them as such:
+Events are handled globally, i.e. caller and handler do not need to know about each other, and it is not possible to
+limit the scope of an event. Events are very useful, but should be used sparingly and only when triggering global
+events is not expected to hurt modularity. Event handling involves two parts:
 
-  class MyObject(object):
-    @register_xnmt_event
-    def my_event():
-      pass
+- Registering an event caller. Callers are always module-level functions, and registration simply means decorating them
+  as such:
 
+  @register_xnmt_event
+  def my_event():
+    pass
 
-- Defining event handlers. Event handlers are again always class methods. The following
+  The ``xnmt.event_triggers`` module is the general place to add such callers.
+
+- Defining event handlers. Event handlers are always *class methods*. The following
   must hold:
   - handlers are named 'on_' + name of the event, e.g. on_my_event
   - method arguments must be consistent
@@ -30,14 +32,10 @@ event. Event handling involves two parts:
       # do something
 
 
-  events can also return values. To make use of return   values, 2 special decorators are
-  available:
+  Events can also return values. To make use of return values, 2 special decorators are available:
   - @register_xnmt_event_assign assumes a special keyword argument named "context".
-    The return value is an updated value for this context argument, and will then be
-    passed on to the next event handler
-  - @register_xnmt_event_sum here the return values of all handlers are summed up and
-    returned.
-
+    The return value is an updated value for this context argument, and will then be passed on to the next event handler
+  - @register_xnmt_event_sum here the return values of all handlers are summed up and returned.
 """
 
 from functools import wraps
@@ -51,7 +49,6 @@ def clear():
   global handler_instances, handler_method_names, event_names
   handler_instances = []
   handler_method_names = set()
-  #event_names = set()
 
 handler_instances = []
 handler_method_names = set()
@@ -66,10 +63,10 @@ def register_xnmt_handler(f):
 
 def register_xnmt_event(f):
   @wraps(f)
-  def wrapper(obj, *args, **kwargs):
+  def wrapper(*args, **kwargs):
     assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(
       handler_method_names - event_names)
-    f(obj, *args, **kwargs)
+    f(*args, **kwargs)
     for handler in handler_instances:
       bound_handler = getattr(handler, "on_" + f.__name__, None)
       if bound_handler:
@@ -81,11 +78,11 @@ def register_xnmt_event(f):
 
 def register_xnmt_event_assign(f):
   @wraps(f)
-  def wrapper(obj, *args, **kwargs):
+  def wrapper(*args, **kwargs):
     assert "context" in kwargs, "register_xnmt_event_assign requires \"context\" in kwargs"
     assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(
       handler_method_names - event_names)
-    kwargs["context"] = f(obj, *args, **kwargs)
+    kwargs["context"] = f(*args, **kwargs)
     for handler in handler_instances:
       bound_handler = getattr(handler, "on_" + f.__name__, None)
       if bound_handler:
@@ -99,10 +96,10 @@ def register_xnmt_event_assign(f):
 
 def register_xnmt_event_sum(f):
   @wraps(f)
-  def wrapper(obj, *args, **kwargs):
+  def wrapper(*args, **kwargs):
     assert handler_method_names <= event_names, "detected handler for non-existant event: {}".format(
       handler_method_names - event_names)
-    res = f(obj, *args, **kwargs)
+    res = f(*args, **kwargs)
     for handler in handler_instances:
       bound_handler = getattr(handler, "on_" + f.__name__, None)
       if bound_handler:

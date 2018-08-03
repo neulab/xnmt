@@ -12,7 +12,7 @@ from xnmt.loss_calculators import LossCalculator, AutoRegressiveMLELoss
 from xnmt.eval.metrics import LossScore
 from xnmt.losses import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate
-from xnmt import events, reports, utils
+from xnmt import event_trigger, events, reports, utils
 
 class EvalTask(object):
   """
@@ -62,7 +62,7 @@ class LossEvalTask(EvalTask, Serializable):
     Returns:
       Evaluated score
     """
-    self.model.set_train(False)
+    event_trigger.set_train(False)
     if self.src_data is None:
       self.src_data, self.ref_data, self.src_batches, self.ref_batches = \
         input_readers.read_parallel_corpus(src_reader=self.model.src_reader,
@@ -80,7 +80,7 @@ class LossEvalTask(EvalTask, Serializable):
 
         loss_builder = FactoredLossExpr()
         standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-        additional_loss = self.model.calc_additional_loss(trg, self.model, standard_loss)
+        additional_loss = event_trigger.calc_additional_loss(trg, self.model, standard_loss)
         loss_builder.add_factored_loss_expr(standard_loss)
         loss_builder.add_factored_loss_expr(additional_loss)
 
@@ -130,7 +130,7 @@ class AccuracyEvalTask(EvalTask, reports.Reportable, Serializable):
     self.desc=desc
 
   def eval(self):
-    self.model.set_train(False)
+    event_trigger.set_train(False)
     self.report_corpus_info({"ref_file":self.ref_file})
     self.inference.perform_inference(generator=self.model,
                                      src_file=self.src_file,
@@ -164,7 +164,7 @@ class DecodingEvalTask(EvalTask, Serializable):
     self.inference = inference or self.model.inference
 
   def eval(self):
-    self.model.set_train(False)
+    event_trigger.set_train(False)
     self.inference.perform_inference(generator=self.model,
                                      src_file=self.src_file,
                                      trg_file=self.hyp_file)

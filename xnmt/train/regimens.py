@@ -11,7 +11,7 @@ from xnmt.loss_trackers import TrainLossTracker
 from xnmt.loss_calculators import LossCalculator, AutoRegressiveMLELoss
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt import optimizers, batchers, utils
+from xnmt import event_trigger, optimizers, batchers, utils
 from xnmt.eval import tasks as eval_tasks
 from xnmt.train import tasks as train_tasks
 
@@ -144,7 +144,7 @@ class SimpleTrainingRegimen(train_tasks.ConditionedTrainingTask, TrainingRegimen
         with utils.ReportOnException({"src": src, "trg": trg, "graph": dy.print_text_graphviz}):
           dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
           with self.train_loss_tracker.time_tracker:
-            self.model.set_train(True)
+            event_trigger.set_train(True)
             loss_builder = self.training_step(src, trg)
             loss = loss_builder.compute()
             self.backward(loss, self.dynet_profiling)
@@ -215,11 +215,11 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     """
     if self.train is None:
       self.train = value
-      self.tasks[0].model.set_train(value) # tasks[0] is arbitrary; will invoke on_set_train() for all models
+      event_trigger.set_train(value)
     else:
       if value!=self.train:
         self.train = value
-        self.tasks[0].model.set_train(value)
+        event_trigger.set_train(value)
 
   def update(self, trainer: optimizers.XnmtOptimizer) -> None:
     self.num_updates_skipped += 1

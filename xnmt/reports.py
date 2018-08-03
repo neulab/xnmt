@@ -26,7 +26,7 @@ import numpy as np
 
 from xnmt import plotting
 from xnmt import sent, utils
-from xnmt.events import register_xnmt_event_assign, handle_xnmt_event, register_xnmt_handler
+from xnmt.events import handle_xnmt_event, register_xnmt_handler
 from xnmt.persistence import Serializable, serializable_init, Ref
 from xnmt.settings import settings
 import xnmt.thirdparty.charcut.charcut as charcut
@@ -70,7 +70,7 @@ class Reportable(object):
 
     Args:
       sent_info: A dictionary of key/value pairs. The keys must match (be a subset of) the arguments in the reporter's
-                 ``create_report()`` method, and the values must be of the corresponding types.
+                 ``create_sent_report()`` method, and the values must be of the corresponding types.
     """
     if not hasattr(self, "_sent_info_list"):
       self._sent_info_list = []
@@ -82,7 +82,7 @@ class Reportable(object):
 
     Args:
       glob_info: A dictionary of key/value pairs. The keys must match (be a subset of) the arguments in the reporter's
-                 ``create_report()`` method, and the values must be of the corresponding types.
+                 ``create_sent_report()`` method, and the values must be of the corresponding types.
     """
     if not hasattr(self, "_glob_info_list"):
       self._glob_info_list = {}
@@ -108,7 +108,7 @@ class Reporter(object):
   """
   A base class for a reporter that collects reportable information, formats it and writes it to disk.
   """
-  def create_report(self, **kwargs) -> None:
+  def create_sent_report(self, **kwargs) -> None:
     """
     Create the report.
 
@@ -119,9 +119,8 @@ class Reporter(object):
       **kwargs: additional arguments
     """
     raise NotImplementedError("must be implemented by subclasses")
-  @register_xnmt_event_assign
-  def get_report_input(self, context={}) -> dict:
-    return context
+  def conclude_report(self) -> None:
+    raise NotImplementedError("must be implemented by subclasses")
 
 class ReferenceDiffReporter(Reporter, Serializable):
   """
@@ -144,7 +143,7 @@ class ReferenceDiffReporter(Reporter, Serializable):
     self.report_path = report_path
     self.hyp_sents, self.ref_sents, self.src_sents = [], [], []
 
-  def create_report(self, src: sent.Sentence, output: sent.ReadableSentence, ref_file: str = None, **kwargs) -> None:
+  def create_sent_report(self, src: sent.Sentence, output: sent.ReadableSentence, ref_file: str = None, **kwargs) -> None:
     """
     Create report.
 
@@ -162,8 +161,7 @@ class ReferenceDiffReporter(Reporter, Serializable):
     self.hyp_sents.append(trg_str)
     self.ref_sents.append(reference)
 
-  @handle_xnmt_event
-  def on_end_inference(self):
+  def conclude_report(self):
     if self.hyp_sents:
       html_filename = os.path.join(self.report_path, "charcut.html")
       utils.make_parent_dir(html_filename)
@@ -208,7 +206,7 @@ class CompareMtReporter(Reporter, Serializable):
     self.report_path = report_path
     self.hyp_sents, self.ref_sents = [], []
 
-  def create_report(self, output: sent.ReadableSentence, ref_file: str, **kwargs) -> None:
+  def create_sent_report(self, output: sent.ReadableSentence, ref_file: str, **kwargs) -> None:
     """
     Create report.
 
@@ -222,8 +220,7 @@ class CompareMtReporter(Reporter, Serializable):
     self.hyp_sents.append(trg_str)
     self.ref_sents.append(reference)
 
-  @handle_xnmt_event
-  def on_end_inference(self):
+  def conclude_report(self):
     if self.hyp_sents:
       ref_filename = os.path.join(self.report_path, "tmp", "compare-mt.ref")
       out_filename = os.path.join(self.report_path, "tmp", "compare-mt.out")
@@ -357,8 +354,8 @@ class AttentionReporter(HtmlReporter, Serializable):
     self.max_num_sents = max_num_sents
     self.cur_sent_no = 0
 
-  def create_report(self, src: sent.Sentence, output: sent.ReadableSentence, attentions: np.ndarray,
-                    ref_file: Optional[str], **kwargs) -> None:
+  def create_sent_report(self, src: sent.Sentence, output: sent.ReadableSentence, attentions: np.ndarray,
+                         ref_file: Optional[str], **kwargs) -> None:
 
     """
     Create report.
@@ -385,8 +382,7 @@ class AttentionReporter(HtmlReporter, Serializable):
                   trg_tokens, idx)
     self.finish_sent()
 
-  @handle_xnmt_event
-  def on_end_inference(self):
+  def conclude_report(self):
     self.finish_html_doc()
     self.write_html()
     self.cur_sent_no = 0
@@ -436,7 +432,7 @@ class SegmentationReporter(Reporter, Serializable):
     self.report_path = report_path
     self.report_fp = None
 
-  def create_report(self, segment_actions, src, **kwargs):
+  def create_sent_report(self, segment_actions, src, **kwargs):
     if self.report_fp is None:
       report_path = os.path.join(self.report_path, "segment.txt")
       utils.make_parent_dir(report_path)
@@ -451,8 +447,7 @@ class SegmentationReporter(Reporter, Serializable):
       start = end+1
     print(" ".join(words), file=self.report_fp)
 
-  @handle_xnmt_event
-  def on_end_inference(self):
+  def conclude_report(self):
     if hasattr(self, "report_fp") and self.report_fp:
       self.report_fp.close()
 
@@ -480,14 +475,13 @@ class OOVStatisticsReporter(Reporter, Serializable):
     self.train_trg_file = train_trg_file
     self.out_sents, self.ref_lines = [], []
 
-  def create_report(self, output: sent.ReadableSentence, ref_file: str, **kwargs):
+  def create_sent_report(self, output: sent.ReadableSentence, ref_file: str, **kwargs):
     self.output_vocab = output.vocab
     reference = utils.cached_file_lines(ref_file)[output.idx]
     self.ref_lines.append(reference)
     self.out_sents.append(output)
 
-  @handle_xnmt_event
-  def on_end_inference(self):
+  def conclude_report(self):
     train_words = set()
     with open(self.train_trg_file) as f_train:
       for line in f_train:

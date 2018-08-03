@@ -5,7 +5,7 @@ from xnmt.settings import settings
 
 import dynet as dy
 
-from xnmt import batchers
+from xnmt import batchers, event_trigger
 from xnmt import events, logger, losses, loss_calculators, output, reports, search_strategies, sent, utils
 from xnmt.models import base as models
 from xnmt.persistence import serializable_init, Serializable, bare
@@ -74,7 +74,7 @@ class Inference(object):
 
     ref_corpus, src_corpus = self._read_corpus(generator, src_file, mode=self.mode, ref_file=self.ref_file)
 
-    generator.set_train(False)
+    event_trigger.set_train(False)
 
     ref_scores = None
     if self.mode == 'score':
@@ -88,7 +88,6 @@ class Inference(object):
       self._generate_output(generator=generator, forced_ref_corpus=ref_corpus, assert_scores=ref_scores,
                             src_corpus=src_corpus, trg_file=trg_file, batcher=self.batcher,
                             max_src_len=self.max_src_len)
-    self.end_inference()
 
 
   def _generate_output(self, generator: 'models.GeneratorModel', src_corpus: Sequence[sent.Sentence],
@@ -125,7 +124,7 @@ class Inference(object):
           with utils.ReportOnException({"batchno":batch_i, "src": src_batch, "graph": dy.print_text_graphviz}):
             dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
             outputs = self.generate_one(generator, src_batch, range(cur_sent_i,cur_sent_i+batch_size), ref_batch)
-            if self.reporter: self._create_report()
+            if self.reporter: self._create_sent_report()
             for i in range(len(outputs)):
               if assert_scores is not None:
                 # If debugging forced decoding, make sure it matches
@@ -138,19 +137,23 @@ class Inference(object):
               fp.write(f"{output_txt}\n")
         cur_sent_i += batch_size
         if self.max_num_sents and cur_sent_i >= self.max_num_sents: break
+      if self.reporter: self._conclude_report()
 
-  @events.register_xnmt_event
-  def end_inference(self):
-    pass
-
-  def _create_report(self):
+  def _create_sent_report(self):
     assert self.reporter is not None
     if not isinstance(self.reporter, collections.abc.Iterable):
       self.reporter = [self.reporter]
-    report_context = self.reporter[0].get_report_input(context=reports.ReportInfo())
+    report_context = event_trigger.get_report_input(context=reports.ReportInfo())
     for report_input in report_context.sent_info:
       for reporter in self.reporter:
-        reporter.create_report(**report_input, **report_context.glob_info)
+        reporter.create_sent_report(**report_input, **report_context.glob_info)
+
+  def _conclude_report(self):
+    assert self.reporter is not None
+    if not isinstance(self.reporter, collections.abc.Iterable):
+      self.reporter = [self.reporter]
+    for reporter in self.reporter:
+      reporter.conclude_report()
 
   def _compute_losses(self, generator, ref_corpus, src_corpus, max_num_sents) -> List[float]:
     batched_src, batched_ref = self.batcher.pack(src_corpus, ref_corpus)

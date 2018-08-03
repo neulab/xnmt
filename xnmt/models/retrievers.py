@@ -2,8 +2,8 @@ import dynet as dy
 import numpy as np
 from xnmt.settings import settings
 
-from xnmt import batchers
-from xnmt.models.base import ConditionedModel, GeneratorModel, EventTrigger
+from xnmt import batchers, event_trigger
+from xnmt.models.base import ConditionedModel, GeneratorModel
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.expression_seqs import ExpressionSequence
 
@@ -31,7 +31,7 @@ class StandardRetrievalDatabase(Serializable):
     return batchers.mark_as_batch(trg_examples), trg_masks
 
 ##### The actual retriever class
-class Retriever(ConditionedModel, GeneratorModel, EventTrigger):
+class Retriever(ConditionedModel, GeneratorModel):
   """
   A template class implementing a retrieval model.
   """

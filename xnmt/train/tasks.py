@@ -4,7 +4,8 @@ import random
 import numpy as np
 from typing import Iterator, Optional, Sequence, Union
 
-from xnmt import batchers, input_readers, logger, losses, loss_trackers, loss_calculators, param_collections
+from xnmt import batchers, event_trigger, input_readers, logger, losses, loss_trackers, loss_calculators, \
+  param_collections
 from xnmt.models import base as model_base
 from xnmt.eval import tasks as eval_tasks
 from xnmt.persistence import serializable_init, Serializable, bare
@@ -75,7 +76,7 @@ class TrainingTask(object):
     raise NotImplementedError("must be implemented by subclasses")
 
 
-class ConditionedTrainingTask(TrainingTask, model_base.EventTrigger, Serializable):
+class ConditionedTrainingTask(TrainingTask, Serializable):
   """
   Args:
     model: a trainable supervised model
@@ -233,7 +234,7 @@ class ConditionedTrainingTask(TrainingTask, model_base.EventTrigger, Serializabl
         self._augment_data_next_epoch()
     if self.training_state.epoch_num==0 or self.sample_train_sents or \
       self.model.src_reader.needs_reload() or self.model.trg_reader.needs_reload():
-      self.model.set_train(True)
+      event_trigger.set_train(True)
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
         input_readers.read_parallel_corpus(src_reader=self.model.src_reader, trg_reader=self.model.trg_reader,
                                            src_file=self.src_file, trg_file=self.trg_file,
@@ -251,7 +252,7 @@ class ConditionedTrainingTask(TrainingTask, model_base.EventTrigger, Serializabl
     self.training_state.sents_into_epoch = 0
     self.minibatch_order = list(range(0, self.cur_num_minibatches()))
     np.random.shuffle(self.minibatch_order)
-    self.new_epoch(training_task=self, num_sents=self.cur_num_sentences())
+    event_trigger.new_epoch(training_task=self, num_sents=self.cur_num_sentences())
 
   def next_minibatch(self) -> Iterator:
     """
@@ -282,7 +283,7 @@ class ConditionedTrainingTask(TrainingTask, model_base.EventTrigger, Serializabl
     """
     loss_builder = losses.FactoredLossExpr()
     standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-    additional_loss = self.model.calc_additional_loss(trg, self.model, standard_loss)
+    additional_loss = event_trigger.calc_additional_loss(trg, self.model, standard_loss)
     loss_builder.add_factored_loss_expr(standard_loss)
     loss_builder.add_factored_loss_expr(additional_loss)
     return loss_builder
