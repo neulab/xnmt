@@ -504,6 +504,15 @@ class OtherSystem(Serializable):
 
     return score * self.weight
 
+class WordPenalty(Serializable):
+  yaml_tag = '!WordPenalty'
+  @serializable_init
+  def __init__(self, weight):
+    self.weight = weight
+
+  def calc_loss(self, src, trg, loss_calculator):
+    return len(trg) * self.weight
+
 class MctsSearch(Serializable, SearchStrategy):
   """
   Performs search with Monte Carlo Tree Search
