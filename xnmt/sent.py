@@ -202,16 +202,24 @@ class SimpleSentence(ReadableSentence):
     if pad_len == 0:
       return self
     # Copy is used to copy all possible annotations
-    new_sent = copy.deepcopy(self)
-    new_sent.words.extend([self.pad_token] * pad_len)
-    return new_sent
+    new_words = self.words + [self.pad_token] * pad_len
+    return SimpleSentence(words=new_words,
+                          idx=self.idx,
+                          vocab=self.vocab,
+                          score=self.score,
+                          output_procs=self.output_procs,
+                          pad_token=self.pad_token)
 
   def create_truncated_sent(self, trunc_len: int) -> 'SimpleSentence':
     if trunc_len == 0:
       return self
-    new_sent = copy.deepcopy(self)
-    new_sent.words = self.words[:-trunc_len]
-    return new_sent
+    new_words = self.words[:-trunc_len]
+    return SimpleSentence(words=new_words,
+                          idx=self.idx,
+                          vocab=self.vocab,
+                          score=self.score,
+                          output_procs=self.output_procs,
+                          pad_token=self.pad_token)
 
   def str_tokens(self, exclude_ss_es=True, exclude_unk=False, exclude_padded=True, **kwargs) -> List[str]:
     exclude_set = set()
