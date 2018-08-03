@@ -12,9 +12,8 @@ from xnmt.vocabs import Vocab
 from xnmt.search_strategies import SamplingSearch, SearchStrategy
 from xnmt.modelparts.transforms import Linear
 from xnmt.persistence import bare
-from xnmt import batchers
+from xnmt import batchers, event_trigger
 from xnmt.eval import metrics
-from xnmt import logger
 
 class LossCalculator(object):
   """
@@ -245,7 +244,7 @@ class FeedbackLoss(Serializable, LossCalculator):
     loss_builder = FactoredLossExpr()
     for _ in range(self.repeat):
       standard_loss = self.child_loss.calc_loss(model, src, trg)
-      additional_loss = model.calc_additional_loss(trg, model, standard_loss)
+      additional_loss = event_trigger.calc_additional_loss(trg, model, standard_loss)
       loss_builder.add_factored_loss_expr(standard_loss)
       loss_builder.add_factored_loss_expr(additional_loss)
     return loss_builder

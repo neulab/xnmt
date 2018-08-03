@@ -123,7 +123,7 @@ class Inference(object):
           if forced_ref_corpus: ref_batch = ref_batches[batch_i]
           with utils.ReportOnException({"batchno":batch_i, "src": src_batch, "graph": dy.print_text_graphviz}):
             dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-            outputs = self.generate_one(generator, src_batch, range(cur_sent_i,cur_sent_i+batch_size), ref_batch)
+            outputs = self.generate_one(generator, src_batch, ref_batch)
             if self.reporter: self._create_sent_report()
             for i in range(len(outputs)):
               if assert_scores is not None:
