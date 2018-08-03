@@ -18,15 +18,15 @@ classifier: !Experiment
     run_for_epochs: 2
     src_file: examples/data/head.en
     trg_file: examples/data/head.smallids
-    dev_tasks:
-      - !LossEvalTask
-        src_file: examples/data/head.en
-        ref_file: examples/data/head.smallids
-      - !AccuracyEvalTask
-        eval_metrics: accuracy
-        src_file: examples/data/head.en
-        ref_file: examples/data/head.smallids
-        hyp_file: test/tmp/{EXP}.test_hyp
-        inference: !IndependentOutputInference
-          batcher: !InOrderBatcher
-            batch_size: 2
+  evaluate:
+    - !LossEvalTask
+      src_file: examples/data/head.en
+      ref_file: examples/data/head.smallids
+    - !AccuracyEvalTask
+      eval_metrics: accuracy,fscore
+      src_file: examples/data/head.en
+      ref_file: examples/data/head.smallids
+      hyp_file: test/tmp/{EXP}.test_hyp
+      inference: !IndependentOutputInference
+        batcher: !InOrderBatcher
+          batch_size: 2

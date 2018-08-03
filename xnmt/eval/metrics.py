@@ -370,6 +370,41 @@ class SequenceAccuracyScore(SentenceLevelEvalScore, Serializable):
                                  desc=desc)
 
 
+class FScore(SentenceLevelEvalScore, Serializable):
+  yaml_tag = "!FScore"
+  @serializable_init
+  def __init__(self, true_pos: int, false_neg: int, false_pos: int, desc: Any = None):
+    self.true_pos = true_pos
+    self.false_neg = false_neg
+    self.false_pos = false_pos
+    self.serialize_params = {"true_pos": true_pos, "false_neg": false_neg, "false_pos": false_pos}
+    if desc is not None: self.serialize_params["desc"] = desc
+  def higher_is_better(self): return True
+  def value(self):
+    if self.true_pos + self.false_neg + self.false_pos > 0:
+      return 2*self.true_pos/(2*self.true_pos + self.false_neg + self.false_pos)
+    else:
+      return "n/a"
+  def metric_name(self): return "F1 Score"
+  def score_str(self):
+    prec = 0
+    if self.true_pos+self.false_pos > 0: prec = self.true_pos/(self.true_pos+self.false_pos)
+    rec = 0
+    if self.true_pos+self.false_neg > 0: rec = self.true_pos/(self.true_pos+self.false_neg)
+    val = self.value()
+    if isinstance(val, float): val = f"{self.value()*100.0:.2f}%"
+    return f"{val} " \
+           f"(prec: {prec}, " \
+           f"recall: {rec}; " \
+           f"TP={self.true_pos},FP={self.false_pos},FN={self.false_neg})"
+  @staticmethod
+  def aggregate(scores: Sequence['SentenceLevelEvalScore'], desc: Any = None):
+    return FScore(true_pos=sum(s.true_pos for s in scores),
+                  false_neg=sum(s.false_neg for s in scores),
+                  false_pos=sum(s.false_pos for s in scores),
+                  desc=desc)
+
+
 class Evaluator(object):
   """
   A template class to evaluate the quality of output.
@@ -883,3 +918,34 @@ class SequenceAccuracyEvaluator(SentenceLevelEvaluator, Serializable):
     """
     correct = 1 if self._compare(ref, hyp) else 0
     return SequenceAccuracyScore(num_correct=correct, num_total=1)
+
+
+class FScoreEvaluator(SentenceLevelEvaluator, Serializable):
+  """
+  A class to evaluate the quality of output in terms of classification F-score.
+
+  Args:
+    pos_token: token for the 'positive' class
+    write_sentence_scores: path of file to write sentence-level scores to (in YAML format)
+  """
+  yaml_tag = "!FScoreEvaluator"
+  @serializable_init
+  def __init__(self, pos_token:str="1", write_sentence_scores: Optional[str] = None) -> None:
+    super().__init__(write_sentence_scores=write_sentence_scores)
+    self.pos_token = pos_token
+
+  def evaluate_one_sent(self, ref:Sequence[str], hyp:Sequence[str]):
+    """
+    Calculate the accuracy of output given a references.
+
+    Args:
+      ref: list of list of reference words
+      hyp: list of list of decoded words
+    Return: formatted string
+    """
+    if len(ref)!=1 or len(hyp)!=1: raise ValueError("FScore requires scalar ref and hyp")
+    ref = ref[0]
+    hyp = hyp[0]
+    return FScore(true_pos= 1 if (ref==hyp) and (hyp==self.pos_token) else 0,
+                  false_neg= 1 if (ref!=hyp) and (hyp!=self.pos_token) else 0,
+                  false_pos= 1 if (ref!=hyp) and (hyp==self.pos_token) else 0)

@@ -77,7 +77,7 @@ class SequenceClassifier(models.ConditionedModel, models.GeneratorModel, Seriali
     outputs = []
     for batch_i in range(src.batch_size()):
       score = np_scores[:, batch_i][output_action[batch_i]]
-      outputs.append(sent.ScalarSentence(value=output_action,
+      outputs.append(sent.ScalarSentence(value=output_action[batch_i],
                                          score=score))
     return outputs
 
