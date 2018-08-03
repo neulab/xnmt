@@ -279,7 +279,7 @@ class InOrderBatcher(Batcher, Serializable):
   yaml_tag = "!InOrderBatcher"
 
   @serializable_init
-  def __init__(self, batch_size: int, pad_src_to_multiple: int = 1) -> None:
+  def __init__(self, batch_size: int = 1, pad_src_to_multiple: int = 1) -> None:
     super().__init__(batch_size, pad_src_to_multiple=pad_src_to_multiple, sort_within_by_trg_len=False)
 
   def pack(self, src: Sequence[sent.Sentence], trg: Optional[Sequence[sent.Sentence]]) \
