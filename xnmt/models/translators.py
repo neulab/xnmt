@@ -3,9 +3,9 @@ import numpy as np
 import collections
 import itertools
 from collections import namedtuple
-from typing import Any, Optional, Sequence, Tuple, Union, List
+from typing import Any, Sequence, Union, List
 
-from xnmt import batchers, inferences, input_readers, search_strategies, transducers
+from xnmt import search_strategies
 from xnmt.settings import settings
 from xnmt.modelparts.attenders import Attender, MlpAttender
 from xnmt import batchers, event_trigger
@@ -16,11 +16,9 @@ from xnmt import inferences, input_readers
 from xnmt.models import base
 from xnmt import sent
 from xnmt.losses import FactoredLossExpr
-from xnmt.loss_calculators import LossCalculator
 from xnmt.transducers.recurrent import BiLSTMSeqTransducer
 from xnmt.persistence import serializable_init, Serializable, bare
 
-from xnmt.search_strategies import BeamSearch, SearchStrategy
 from xnmt.transducers import base as transducers_base
 from xnmt.vocabs import Vocab
 from xnmt.persistence import Ref
@@ -31,7 +29,6 @@ TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'atten
 class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
   """
   A template class for auto-regressive translators.
-
   The core methods are calc_nll and generate / generate_one_step.
   The former is used during training, the latter for inference.
   Similarly during inference, a search strategy is used to generate an output sequence by repeatedly calling
@@ -41,17 +38,15 @@ class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
     """
     Calculate the negative log likelihood, or similar value, of trg given src
-
     Args:
       src: The input
       trg: The output
-
     Return:
       The likelihood
     """
     raise NotImplementedError('must be implemented by subclasses')
 
-  def generate(self, src, idx, search_strategy, forced_trg_ids=None) -> Sequence[sent.Sentence]:
+  def generate(self, src, search_strategy, forced_trg_ids=None) -> Sequence[sent.Sentence]:
     raise NotImplementedError("must be implemented by subclasses")
 
   def generate_one_step(self, current_word: Any, current_state: AutoRegressiveDecoderState) -> TranslatorOutput:
@@ -60,7 +55,6 @@ class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
   def set_trg_vocab(self, trg_vocab=None):
     """
     Set target vocab for generating outputs. If not specified, word IDs are generated instead.
-
     Args:
       trg_vocab (Vocab): target vocab, or None to generate word IDs
     """
@@ -81,7 +75,6 @@ class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
 class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
   """
   A default translator based on attentional sequence-to-sequence models.
-
   Args:
     src_reader: A reader for the source side.
     trg_reader: A reader for the target side.
@@ -198,12 +191,10 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
                              forced_trg_ids: batchers.Batch=None) -> List[search_strategies.SearchOutput]:
     """
     Takes in a batch of source sentences and outputs a list of search outputs.
-
     Args:
       src: The source sentences
       search_strategy: The strategy with which to perform the search
       forced_trg_ids: The target IDs to generate if performing forced decoding
-
     Returns:
       A list of search outputs including scores, etc.
     """
@@ -229,22 +220,18 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
   def generate(self,
                src: batchers.Batch,
-               idx: Sequence[int],
                search_strategy: search_strategies.SearchStrategy,
                forced_trg_ids: batchers.Batch=None):
     """
     Takes in a batch of source sentences and outputs a list of search outputs.
-
     Args:
       src: The source sentences
-      idx: The ID of this sentence, to be saved in an n-best list, etc.
       search_strategy: The strategy with which to perform the search
       forced_trg_ids: The target IDs to generate if performing forced decoding
-
     Returns:
       A list of search outputs including scores, etc.
     """
-    assert src.batch_size() == len(idx), f"src: {src.batch_size()}, idx: {len(idx)}"
+    assert src.batch_size() == 1
     search_outputs = self.generate_search_output(src, search_strategy, forced_trg_ids)
     sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
     assert len(sorted_outputs) >= 1
@@ -253,7 +240,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
       output_actions = [x for x in curr_output.word_ids[0]]
       attentions = [x for x in curr_output.attentions[0]]
       score = curr_output.score[0]
-      out_sent = sent.SimpleSentence(idx=idx[0],
+      out_sent = sent.SimpleSentence(idx=src[0].idx,
                                      words=output_actions,
                                      vocab=getattr(self.trg_reader, "vocab", None),
                                      output_procs=self.trg_reader.output_procs,
@@ -261,7 +248,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
       if len(sorted_outputs) == 1:
         outputs.append(out_sent)
       else:
-        outputs.append(sent.NbestSentence(base_sent=out_sent, nbest_id=idx[0]))
+        outputs.append(sent.NbestSentence(base_sent=out_sent, nbest_id=src[0].idx))
     if self.compute_report:
       attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
       self.report_sent_info({"attentions": attentions,
@@ -288,7 +275,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable):
   """
   A translator based on the transformer model.
-
   Args:
     src_reader (InputReader): A reader for the source side.
     src_embedder (Embedder): A word embedder for the input language
@@ -416,7 +402,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     loss = self.decoder.output_and_loss(h_block, concat_t_block)
     return FactoredLossExpr({"mle": loss})
 
-  def generate(self, src, idx, forced_trg_ids=None, search_strategy=None):
+  def generate(self, src, forced_trg_ids=None, search_strategy=None):
     event_trigger.start_sent(src)
     if not batchers.is_batched(src):
       src = batchers.mark_as_batch([src])
@@ -455,7 +441,6 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 class EnsembleTranslator(AutoRegressiveTranslator, Serializable):
   """
   A translator that decodes from an ensemble of DefaultTranslator models.
-
   Args:
     models: A list of DefaultTranslator instances; for all models, their
       src_reader.vocab and trg_reader.vocab has to match (i.e., provide
@@ -512,16 +497,14 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable):
       model_loss.add_loss(loss_name, dy.average(losslist))
     return model_loss
 
-  def generate(self, src, idx, search_strategy, forced_trg_ids=None):
-    return self._proxy.generate(src, idx, search_strategy, forced_trg_ids=forced_trg_ids)
+  def generate(self, src, search_strategy, forced_trg_ids=None):
+    return self._proxy.generate(src, search_strategy, forced_trg_ids=forced_trg_ids)
 
 class EnsembleListDelegate(object):
   """
   Auxiliary object to wrap a list of objects for ensembling.
-
   This class can wrap a list of objects that exist in parallel and do not need
   to interact with each other. The main functions of this class are:
-
   - All attribute access and function calls are delegated to the wrapped objects.
   - When wrapped objects return values, the list of all returned values is also
     wrapped in an EnsembleListDelegate object.
@@ -590,13 +573,10 @@ class EnsembleListDelegate(object):
 class EnsembleDecoder(EnsembleListDelegate):
   """
   Auxiliary object to wrap a list of decoders for ensembling.
-
   This behaves like an EnsembleListDelegate, except that it overrides
   get_scores() to combine the individual decoder's scores.
-
   Currently only supports averaging.
   """
   def calc_log_probs(self, mlp_dec_states):
     scores = [obj.calc_log_probs(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
     return dy.average(scores)
-
