@@ -572,8 +572,8 @@ class MctsSearch(Serializable, SearchStrategy):
       output = self.extract_best_output(root_node)
     else:
       output = self.extract_output(root_node, src_length)
-    self.dump_tree(root_node)
-    print('==========')
+    #self.dump_tree(root_node)
+    #print('==========')
     sys.stdout.flush()
     return output
 
