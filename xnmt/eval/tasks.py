@@ -8,7 +8,7 @@ from xnmt.eval.metrics import Evaluator, EvalScore
 from xnmt import inferences, input_readers
 from xnmt.models import base as model_base
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.loss_calculators import LossCalculator, AutoRegressiveMLELoss
+from xnmt.loss_calculators import LossCalculator, MLELoss
 from xnmt.eval.metrics import LossScore
 from xnmt.losses import FactoredLossExpr, FactoredLossVal
 import xnmt.xnmt_evaluate
@@ -41,7 +41,7 @@ class LossEvalTask(EvalTask, Serializable):
   @serializable_init
   def __init__(self, src_file: str, ref_file: Optional[str] = None, model: 'model_base.GeneratorModel' = Ref("model"),
                batcher: Batcher = Ref("train.batcher", default=bare(xnmt.batchers.SrcBatcher, batch_size=32)),
-               loss_calculator: LossCalculator = bare(AutoRegressiveMLELoss), max_src_len: Optional[int] = None,
+               loss_calculator: LossCalculator = bare(MLELoss), max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"), desc: Any = None):
     self.model = model
@@ -78,14 +78,10 @@ class LossEvalTask(EvalTask, Serializable):
       with utils.ReportOnException({"src": src, "trg": trg, "graph": dy.print_text_graphviz}):
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
 
-        loss_builder = FactoredLossExpr()
-        standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-        additional_loss = self.model.calc_additional_loss(trg, self.model, standard_loss)
-        loss_builder.add_factored_loss_expr(standard_loss)
-        loss_builder.add_factored_loss_expr(additional_loss)
+        loss = self.loss_calculator.calc_loss(self.model, src, trg)
 
         ref_words_cnt += sum([trg_i.len_unpadded() for trg_i in trg])
-        loss_val += loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method)
+        loss_val += loss.get_factored_loss_val(comb_method=self.loss_comb_method)
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
 

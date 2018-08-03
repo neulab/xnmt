@@ -5,8 +5,7 @@ from typing import Optional, Callable
 import dynet as dy
 import numpy as np
 
-from xnmt import batchers
-from xnmt import logger
+from xnmt import batchers, logger
 from xnmt.length_norm import NoNormalization, LengthNormalization
 from xnmt.persistence import Serializable, serializable_init, bare
 from xnmt.vocabs import Vocab
@@ -25,17 +24,26 @@ SearchOutput = namedtuple('SearchOutput', ['word_ids', 'attentions', 'score', 'l
 class SearchStrategy(object):
   """
   A template class to generate translation from the output probability model. (Non-batched operation)
+
+  Args:
+    translator (Translator): a translator
+    dec_state (AutoRegressiveDecoderState): initial decoder state
+    src_length (int): length of src sequence, required for some types of length normalization
+    forced_trg_ids (List[int]): list of word ids, if given will force to generate this is the target sequence
+
+  Returns:
+    (List[SearchOutput]): A list of search outputs
   """
-  def generate_output(self, translator, dec_state,
+  def generate_output(self, translator, initial_state,
                       src_length=None, forced_trg_ids=None):
     """
     Args:
-      translator (Translator): a translator
-      dec_state (AutoRegressiveDecoderState): initial decoder state
-      src_length (int): length of src sequence, required for some types of length normalization
-      forced_trg_ids (List[int]): list of word ids, if given will force to generate this is the target sequence
+      translator: a translator
+      initial_state: initial decoder state
+      src_length: length of src sequence, required for some types of length normalization
+      forced_trg_ids: list of word ids, if given will force to generate this is the target sequence
     Returns:
-      List[SearchOutput]: List of (word_ids, attentions, score, logsoftmaxes)
+      List of (word_ids, attentions, score, logsoftmaxes)
     """
     raise NotImplementedError('generate_output must be implemented in SearchStrategy subclasses')
 
@@ -125,7 +133,8 @@ class BeamSearch(Serializable, SearchStrategy):
     self.one_best = one_best
     self.scores_proc = scores_proc
 
-  def generate_output(self, translator, initial_state, src_length=None, forced_trg_ids=None):
+  def generate_output(self, translator, initial_state,
+                      src_length=None, forced_trg_ids=None):
     # TODO(philip30): can only do single decoding, not batched
     assert forced_trg_ids is None or self.beam_size == 1
     if forced_trg_ids is not None and forced_trg_ids.sent_len() > self.max_len:
@@ -399,7 +408,8 @@ class MctsSearch(Serializable, SearchStrategy):
     self.max_len = max_len
     self.visits = visits
 
-  def generate_output(self, translator, dec_state, src_length=None, forced_trg_ids=None):
+  def generate_output(self, translator, dec_state,
+                      src_length=None, forced_trg_ids=None):
     assert forced_trg_ids is None
     orig_dec_state = dec_state
 

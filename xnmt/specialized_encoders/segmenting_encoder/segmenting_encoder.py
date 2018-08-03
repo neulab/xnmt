@@ -78,7 +78,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def transduce(self, embed_sent: ExpressionSequence) -> List[ExpressionSequence]:
     batch_size = embed_sent[0].dim()[1]
     actions = self.sample_segmentation(embed_sent, batch_size)
-    sample_size = len(actions)
     embeddings = dy.concatenate(embed_sent.expr_list, d=1)
     embeddings.value()
     #
@@ -86,26 +85,20 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     for i in range(batch_size):
       sequence = dy.pick_batch_elem(embeddings, i)
       # For each sampled segmentations
-      for j, sample in enumerate(actions):
-        lower_bound = 0
-        # Read every 'segment' decision
-        for k, upper_bound in enumerate(sample[i]):
-          char_sequence = dy.pick_range(sequence, lower_bound, upper_bound+1, 1)
-          composed_words.append((dy.pick_range(sequence, lower_bound, upper_bound+1, 1), j, i, k, lower_bound, upper_bound+1))
-          lower_bound = upper_bound+1
-    outputs = self.segment_composer.compose(composed_words, sample_size, batch_size)
+      lower_bound = 0
+      for j, upper_bound in enumerate(actions[i]):
+        char_sequence = dy.pick_range(sequence, lower_bound, upper_bound+1, 1)
+        composed_words.append((char_sequence, i, j, lower_bound, upper_bound+1))
+        lower_bound = upper_bound+1
+    outputs = self.segment_composer.compose(composed_words, batch_size)
     # Padding + return
     try:
       if self.length_prior:
-        seg_size_unpadded = [[len(outputs[i][j]) for j in range(batch_size)] for i in range(sample_size)]
+        seg_size_unpadded = [len(outputs[i]) for i in range(batch_size)]
       enc_outputs = []
-      for batched_sampled_sentence in outputs:
-        sampled_sentence, segment_mask = self.pad(batched_sampled_sentence)
-        expr_seq = ExpressionSequence(expr_tensor=dy.concatenate_to_batch(sampled_sentence), mask=segment_mask)
-        sent_context = self.final_transducer.transduce(expr_seq)
-        self.final_states.append(self.final_transducer.get_final_states())
-        enc_outputs.append(sent_context)
-      return CompoundSeqExpression(enc_outputs)
+      sampled_sentence, segment_mask = self.pad(outputs)
+      expr_seq = ExpressionSequence(expr_tensor=dy.concatenate_to_batch(sampled_sentence), mask=segment_mask)
+      return self.final_transducer.transduce(expr_seq)
     finally:
       if self.length_prior:
         self.seg_size_unpadded = seg_size_unpadded
@@ -116,29 +109,24 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   @handle_xnmt_event
   def on_calc_additional_loss(self, trg, generator, generator_loss):
-    assert hasattr(generator, "losses"), "Must support multi sample encoder from generator."
     if self.policy_learning is None:
       return None
-    ### Calculate reward
-    rewards = []
     trg_counts = dy.inputTensor([t.len_unpadded() for t in trg], batched=True)
-    # Iterate through all samples
-    for i, (loss, actions) in enumerate(zip(generator.losses, self.compose_output)):
-      reward = FactoredLossExpr()
-      # Adding all reward from the translator
-      for loss_key, loss_value in loss.get_nobackprop_loss().items():
-        if loss_key == 'mle':
-          reward.add_loss('mle', dy.cdiv(-loss_value, trg_counts))
-        else:
-          reward.add_loss(loss_key, -loss_value)
-      if self.length_prior is not None:
-        reward.add_loss('seg_lp', self.length_prior.log_ll(self.seg_size_unpadded[i]))
-      rewards.append(dy.esum(list(reward.expr_factors.values())))
+    reward = FactoredLossExpr()
+    # Adding all reward from the translator
+    for loss_key, loss_value in generator_loss.get_nobackprop_loss().items():
+      if loss_key == 'mle':
+        reward.add_loss('mle', dy.cdiv(-loss_value, trg_counts))
+      else:
+        reward.add_loss(loss_key, -loss_value)
+    if self.length_prior is not None:
+      reward.add_loss('seg_lp', self.length_prior.log_ll(self.seg_size_unpadded))
+    reward = dy.inputTensor(reward.value(), batched=True)
     ### Calculate losses    
     try:
-      return self.policy_learning.calc_loss(rewards)
+      return self.policy_learning.calc_loss(reward)
     finally:
-      self.rewards = rewards
+      self.reward = reward
       if self.reporter is not None:
         self.reporter.report_process(self)
 
@@ -152,8 +140,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def on_set_train(self, train):
     self.train = train
   
-  def get_final_states(self) -> List[List[FinalTransducerState]]:
-    return self.final_states
+  def get_final_states(self) -> List[FinalTransducerState]:
+    return self.final_transducer.get_final_states()
   
   def sample_segmentation(self, embed_sent, batch_size):
     if self.policy_learning is None: # Not Learning any policy
@@ -177,17 +165,15 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   def sample_from_policy(self, encodings, batch_size, predefined_actions=None):
     from_argmax = not self.train and not self.sample_during_search
-    sample_size = 1 if from_argmax else self.policy_learning.sample
-    sample_size = sample_size if predefined_actions is None else len(predefined_actions[0])
-    actions = [[[] for _ in range(batch_size)] for _ in range(sample_size)]
+    actions = [[] for _ in range(batch_size)]
     mask = encodings.mask.np_arr if encodings.mask else None
     # Callback to ensure all samples are ended with </s> being segmented
-    def ensure_end_segment(sample, position):
-      for i in range(len(sample)):
+    def ensure_end_segment(sample_batch, position):
+      for i in range(len(sample_batch)):
         last_eos = self.src_sent[i].len_unpadded()
         if position >= last_eos:
-          sample[i] = 1
-      return sample
+          sample_batch[i] = 1
+      return sample_batch
     # Loop through all items in the sequence
     for position, encoding in enumerate(encodings):
       # Sample from softmax if we have no predefined action
@@ -197,14 +183,13 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                                                   sample_pp=lambda x: ensure_end_segment(x, position),
                                                   predefined_actions=predefined)
       # Appending the "1" position if it has valid flags
-      for i, sample in enumerate(action):
-        for j in np.nonzero(sample)[0]:
-          if mask is None or mask[j][position] == 0:
-            actions[i][j].append(position)
+      for i in np.nonzero(action)[0]:
+        if mask is None or mask[i][position] == 0:
+          actions[i].append(position)
     return actions
  
   def sample_from_gold(self):
-    return [[sent.segment for sent in self.src_sent]]
+    return [sent.segment for sent in self.src_sent]
 
   def sample_from_prior(self):
     prior = self.eps_greedy.get_prior()
@@ -227,8 +212,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if action[-1] != src_len:
           action.append(src_len)
         actions.append(action)
-    # Return only 1 sample for each batc
-    return [actions]
+    return actions
 
   def sparse_to_dense(self, actions, length):
     try:
@@ -237,14 +221,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       logger.error("BLEU evaluate fast requires xnmt cython installation step."
                    "please check the documentation.")
       raise RuntimeError()
-    dense_actions = []
-    for sample_actions in actions:
-      batch_dense = []
-      for batch_action in sample_actions:
-        batch_dense.append(xnmt_cython.dense_from_sparse(batch_action, length))
-      dense_actions.append(batch_dense)
-    arr = np.array(dense_actions) # (sample, batch, length)
-    return np.rollaxis(arr, 2)
+    batch_dense = []
+    for batch_action in actions:
+      batch_dense.append(xnmt_cython.dense_from_sparse(batch_action, length))
+    return np.array(batch_dense).transpose()
 
   def pad(self, outputs):
     # Padding

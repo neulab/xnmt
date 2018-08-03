@@ -3,8 +3,9 @@ import numpy as np
 import collections
 import itertools
 from collections import namedtuple
-from typing import Any, Optional, Sequence, Tuple, Union
+from typing import Any, Optional, Sequence, Tuple, Union, List
 
+from xnmt import batchers, inferences, input_readers, search_strategies, transducers
 from xnmt.settings import settings
 from xnmt.modelparts.attenders import Attender, MlpAttender
 from xnmt import batchers
@@ -18,12 +19,12 @@ from xnmt.losses import FactoredLossExpr
 from xnmt.loss_calculators import LossCalculator
 from xnmt.transducers.recurrent import BiLSTMSeqTransducer
 from xnmt.persistence import serializable_init, Serializable, bare
+
 from xnmt.search_strategies import BeamSearch, SearchStrategy
 from xnmt.transducers import base as transducers_base
 from xnmt.vocabs import Vocab
 from xnmt.persistence import Ref
 from xnmt.reports import Reportable
-from xnmt.expression_seqs import CompoundSeqExpression
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
 
@@ -31,20 +32,24 @@ class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
   """
   A template class for auto-regressive translators.
 
-  The core methods are calc_loss / calc_loss_one_step and generate / generate_one_step.
-  The former are used during training, the latter for inference.
-  During training, a loss calculator is used to calculate sequence loss by repeatedly calling the loss for one step.
+  The core methods are calc_nll and generate / generate_one_step.
+  The former is used during training, the latter for inference.
   Similarly during inference, a search strategy is used to generate an output sequence by repeatedly calling
   generate_one_step.
   """
 
-  def calc_loss(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence],
-                loss_calculator: LossCalculator) -> FactoredLossExpr:
-    raise NotImplementedError('must be implemented by subclasses')
+  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
+    """
+    Calculate the negative log likelihood, or similar value, of trg given src
 
-  def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:batchers.Batch, input_word:batchers.Batch) \
-          -> Tuple[AutoRegressiveDecoderState,dy.Expression]:
-    raise NotImplementedError("must be implemented by subclasses")
+    Args:
+      src: The input
+      trg: The output
+
+    Return:
+      The likelihood
+    """
+    raise NotImplementedError('must be implemented by subclasses')
 
   def generate(self, src, idx, search_strategy, forced_trg_ids=None) -> Sequence[sent.Sentence]:
     raise NotImplementedError("must be implemented by subclasses")
@@ -86,8 +91,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
     trg_embedder: A word embedder for the output language
     decoder: A decoder
     inference: The default inference strategy used for this model
-    global_fertility: A parameter for global fertility weight. 0 for no computation.
-    search_strategy:
   """
 
   yaml_tag = '!DefaultTranslator'
@@ -103,18 +106,16 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
                trg_embedder: Embedder=bare(SimpleWordEmbedder),
                decoder: Decoder=bare(AutoRegressiveDecoder),
                inference: inferences.AutoRegressiveInference=bare(inferences.AutoRegressiveInference),
-               search_strategy:SearchStrategy=bare(BeamSearch),
-               compute_report:bool = Ref("exp_global.compute_report", default=False),
-               global_fertility:int=0):
+               truncate_dec_batches:bool=False,
+               compute_report:bool = Ref("exp_global.compute_report", default=False)):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
     self.trg_embedder = trg_embedder
     self.decoder = decoder
-    self.global_fertility = global_fertility
     self.inference = inference
-    self.search_strategy = search_strategy
+    self.truncate_dec_batches = truncate_dec_batches
     self.compute_report = compute_report
 
   def shared_params(self):
@@ -124,76 +125,130 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
             {".trg_embedder.emb_dim", ".decoder.trg_embed_dim"}]
 
 
-  def _encode_src(self, src):
-    embeddings = self.src_embedder.embed_sent(src)
-    # We assume that the encoder can generate multiple possible encodings
-    encodings = self.encoder.transduce(embeddings)
-    # Most cases, it falls here where the encoder just generate 1 encodings
-    if type(encodings) != CompoundSeqExpression:
-      encodings = CompoundSeqExpression([encodings])
-      final_states = [self.encoder.get_final_states()]
-    else:
-      final_states = self.encoder.get_final_states()
-    initial_states = []
-    for encoding, final_state in zip(encodings, final_states):
-      self.attender.init_sent(encoding)
-      ss = batchers.mark_as_batch([Vocab.SS] * src.batch_size()) if batchers.is_batched(src) else Vocab.SS
-      initial_states.append(self.decoder.initial_state(final_state, self.trg_embedder.embed(ss)))
-    return CompoundSeqExpression(initial_states)
-
-  def calc_loss(self, src, trg, loss_calculator):
+  def _encode_src(self, src: Union[batchers.Batch, sent.Sentence]):
     self.start_sent(src)
-    initial_states = self._encode_src(src)
-    # Calculate losses from multiple initial states
+    embeddings = self.src_embedder.embed_sent(src)
+    encoding = self.encoder.transduce(embeddings)
+    final_state = self.encoder.get_final_states()
+    self.attender.init_sent(encoding)
+    ss = batchers.mark_as_batch([Vocab.SS] * src.batch_size()) if batchers.is_batched(src) else Vocab.SS
+    initial_state = self.decoder.initial_state(final_state, self.trg_embedder.embed(ss))
+    return initial_state
+
+  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
+    # Encode the sentence
+    initial_state = self._encode_src(src)
+
+    dec_state = initial_state
+    trg_mask = trg.mask if batchers.is_batched(trg) else None
     losses = []
-    for initial_state in initial_states:
-      model_loss = FactoredLossExpr()
-      model_loss.add_factored_loss_expr(loss_calculator.calc_loss(self, initial_state, src, trg))
-  
-      if self.global_fertility != 0:
-        masked_attn = self.attender.attention_vecs
-        if trg.mask is not None:
-          trg_mask = 1-(trg.mask.np_arr.transpose())
-          masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
-        model_loss.add_loss("fertility", self._global_fertility(masked_attn))
-      losses.append(model_loss)
-    try:
-      total_loss = FactoredLossExpr()
-      list(total_loss.add_factored_loss_expr(x) for x in losses)
-      return total_loss
-    finally:
-      self.losses = losses
+    seq_len = trg.sent_len()
 
-  def calc_loss_one_step(self, dec_state:AutoRegressiveDecoderState, ref_word:batchers.Batch, input_word:Optional[batchers.Batch]) \
-          -> Tuple[AutoRegressiveDecoderState,dy.Expression]:
-    if input_word is not None:
-      dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(input_word))
-    rnn_output = dec_state.rnn_state.output()
-    dec_state.context = self.attender.calc_context(rnn_output)
-    word_loss = self.decoder.calc_loss(dec_state, ref_word)
-    return dec_state, word_loss
+    if settings.CHECK_VALIDITY and batchers.is_batched(src):
+      for j, single_trg in enumerate(trg):
+        assert single_trg.sent_len() == seq_len # assert consistent length
+        assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask.np_arr[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
 
-  def generate(self, src: batchers.Batch, idx: Sequence[int], search_strategy: SearchStrategy, forced_trg_ids: batchers.Batch=None):
+    input_word = None
+    for i in range(seq_len):
+      ref_word = DefaultTranslator._select_ref_words(trg, i, truncate_masked=self.truncate_dec_batches)
+      if self.truncate_dec_batches and batchers.is_batched(ref_word):
+        dec_state.rnn_state, ref_word = batchers.truncate_batches(dec_state.rnn_state, ref_word)
+
+      if input_word is not None:
+        dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(input_word))
+      rnn_output = dec_state.rnn_state.output()
+      dec_state.context = self.attender.calc_context(rnn_output)
+      word_loss = self.decoder.calc_loss(dec_state, ref_word)
+
+      if not self.truncate_dec_batches and batchers.is_batched(src) and trg_mask is not None:
+        word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
+      losses.append(word_loss)
+      input_word = ref_word
+
+    if self.truncate_dec_batches:
+      loss_expr = dy.esum([dy.sum_batches(wl) for wl in losses])
+    else:
+      loss_expr = dy.esum(losses)
+    return loss_expr
+
+  @staticmethod
+  def _select_ref_words(sent, index, truncate_masked = False):
+    if truncate_masked:
+      mask = sent.mask if batchers.is_batched(sent) else None
+      if not batchers.is_batched(sent):
+        return sent[index]
+      else:
+        ret = []
+        found_masked = False
+        for (j, single_trg) in enumerate(sent):
+          if mask is None or mask.np_arr[j, index] == 0 or np.sum(mask.np_arr[:, index]) == mask.np_arr.shape[0]:
+            assert not found_masked, "sentences must be sorted by decreasing target length"
+            ret.append(single_trg[index])
+          else:
+            found_masked = True
+        return batchers.mark_as_batch(ret)
+    else:
+      if not batchers.is_batched(sent): return sent[index]
+      else: return batchers.mark_as_batch([single_trg[index] for single_trg in sent])
+
+  def generate_search_output(self,
+                             src: batchers.Batch,
+                             search_strategy: search_strategies.SearchStrategy,
+                             forced_trg_ids: batchers.Batch=None) -> List[search_strategies.SearchOutput]:
+    """
+    Takes in a batch of source sentences and outputs a list of search outputs.
+
+    Args:
+      src: The source sentences
+      search_strategy: The strategy with which to perform the search
+      forced_trg_ids: The target IDs to generate if performing forced decoding
+
+    Returns:
+      A list of search outputs including scores, etc.
+    """
     if src.batch_size()!=1:
       raise NotImplementedError("batched decoding not implemented for DefaultTranslator. "
                                 "Specify inference batcher with batch size 1.")
-    assert src.batch_size() == len(idx), f"src: {src.batch_size()}, idx: {len(idx)}"
     # Generating outputs
     self.start_sent(src)
-    outputs = []
     cur_forced_trg = None
     src_sent = src[0]
     sent_mask = None
     if src.mask: sent_mask = batchers.Mask(np_arr=src.mask.np_arr[0:1])
-    # TODO MBR can be implemented here. It takes only the first result from the encoder
-    # To further implement MBR, we need to handle the generation considering multiple encoder output.
-    initial_state = self._encode_src(src)[0]
+    sent_batch = batchers.mark_as_batch([sent], mask=sent_mask)
+
+    # Encode the sentence
+    initial_state = self._encode_src(src)
+
     if forced_trg_ids is  not None: cur_forced_trg = forced_trg_ids[0]
     search_outputs = search_strategy.generate_output(self, initial_state,
                                                      src_length=[src_sent.sent_len()],
                                                      forced_trg_ids=cur_forced_trg)
+    return search_outputs
+
+  def generate(self,
+               src: batchers.Batch,
+               idx: Sequence[int],
+               search_strategy: search_strategies.SearchStrategy,
+               forced_trg_ids: batchers.Batch=None):
+    """
+    Takes in a batch of source sentences and outputs a list of search outputs.
+
+    Args:
+      src: The source sentences
+      idx: The ID of this sentence, to be saved in an n-best list, etc.
+      search_strategy: The strategy with which to perform the search
+      forced_trg_ids: The target IDs to generate if performing forced decoding
+
+    Returns:
+      A list of search outputs including scores, etc.
+    """
+    assert src.batch_size() == len(idx), f"src: {src.batch_size()}, idx: {len(idx)}"
+    search_outputs = self.generate_search_output(src, search_strategy, forced_trg_ids)
     sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
     assert len(sorted_outputs) >= 1
+    outputs = []
     for curr_output in sorted_outputs:
       output_actions = [x for x in curr_output.word_ids[0]]
       attentions = [x for x in curr_output.attentions[0]]
@@ -210,7 +265,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
     if self.compute_report:
       attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
       self.report_sent_info({"attentions": attentions,
-                                "src": src_sent,
+                                "src": src[0],
                                 "output": outputs[0]})
 
     return outputs
@@ -228,10 +283,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
     next_state.context = self.attender.calc_context(next_state.rnn_state.output())
     next_logsoftmax = self.decoder.calc_log_probs(next_state)
     return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
-
-  def _global_fertility(self, a):
-    return self.global_fertility * dy.sum_elems(dy.square(1 - dy.esum(a)))
-
 
 
 class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, base.EventTrigger):
@@ -449,10 +500,10 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable, base.EventTrigg
   def set_trg_vocab(self, trg_vocab=None):
     self._proxy.set_trg_vocab(trg_vocab=trg_vocab)
 
-  def calc_loss(self, src, trg, loss_calculator):
+  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
     sub_losses = collections.defaultdict(list)
     for model in self.models:
-      for loss_name, loss in model.calc_loss(src, trg, loss_calculator).expr_factors.items():
+      for loss_name, loss in model.calc_loss(src, trg).expr_factors.items():
         sub_losses[loss_name].append(loss)
     model_loss = FactoredLossExpr()
     for loss_name, losslist in sub_losses.items():
