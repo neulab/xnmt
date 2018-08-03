@@ -116,12 +116,12 @@ class AccuracyEvalTask(EvalTask, reports.Reportable, Serializable):
   @serializable_init
   @events.register_xnmt_handler
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
-               model: 'model_base.GeneratorModel' = Ref("model"), eval_metrics: Union[str, Sequence[Evaluator]] = "bleu",
+               model: 'model_base.GeneratorModel' = Ref("model"), eval_metrics: Union[str, Evaluator, Sequence[Evaluator]] = "bleu",
                inference: Optional['inferences.Inference'] = None, desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
-    elif not isinstance(eval_metrics, str): eval_metrics = [eval_metrics]
+    elif not isinstance(eval_metrics, Sequence): eval_metrics = [eval_metrics]
     self.eval_metrics = eval_metrics
     self.src_file = src_file
     self.ref_file = ref_file
