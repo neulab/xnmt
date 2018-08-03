@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, List
 
 import dynet as dy
 import numpy as np
@@ -8,16 +8,19 @@ from xnmt.persistence import serializable_init, Serializable, Ref
 
 from xnmt import sent
 from xnmt.vocabs import Vocab
+
+from xnmt.search_strategies import SamplingSearch, SearchStrategy
 from xnmt.modelparts.transforms import Linear
+from xnmt.persistence import bare
 from xnmt import batchers
 from xnmt.eval import metrics
-
+from xnmt import logger
 
 class LossCalculator(object):
   """
   A template class implementing the training strategy and corresponding loss calculation.
   """
-  def calc_loss(self, translator, initial_state, src, trg):
+  def calc_loss(self, translator, src, trg):
     raise NotImplementedError()
 
   def remove_eos(self, sequence, eos_sym=Vocab.ES):
@@ -29,142 +32,156 @@ class LossCalculator(object):
       pass
     return sequence
 
-class AutoRegressiveMLELoss(Serializable, LossCalculator):
+class MLELoss(Serializable, LossCalculator):
   """
-  Max likelihood loss calculator for autoregressive models.
-
-  Args:
-    truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
+  Max likelihood loss calculator.
   """
-  yaml_tag = '!AutoRegressiveMLELoss'
+  yaml_tag = '!MLELoss'
   @serializable_init
-  def __init__(self, truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
-    self.truncate_dec_batches = truncate_dec_batches
+  def __init__(self) -> None:
+    pass
 
-  def calc_loss(self, translator: 'translator.AutoRegressiveTranslator',
-                initial_state: 'translator.AutoRegressiveDecoderState',
+  def calc_loss(self,
+                model: 'model_base.ConditionedModel',
                 src: Union[sent.Sentence, 'batchers.Batch'],
                 trg: Union[sent.Sentence, 'batchers.Batch']):
-    dec_state = initial_state
-    trg_mask = trg.mask if batchers.is_batched(trg) else None
-    losses = []
-    seq_len = trg.sent_len()
-    if batchers.is_batched(src):
-      for j, single_trg in enumerate(trg):
-        assert single_trg.sent_len() == seq_len # assert consistent length
-        assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask.np_arr[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
-    input_word = None
-    for i in range(seq_len):
-      ref_word = AutoRegressiveMLELoss._select_ref_words(trg, i, truncate_masked=self.truncate_dec_batches)
-      if self.truncate_dec_batches and batchers.is_batched(ref_word):
-        dec_state.rnn_state, ref_word = batchers.truncate_batches(dec_state.rnn_state, ref_word)
-      dec_state, word_loss = translator.calc_loss_one_step(dec_state, ref_word, input_word)
-      if not self.truncate_dec_batches and batchers.is_batched(src) and trg_mask is not None:
-        word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
-      losses.append(word_loss)
-      input_word = ref_word
-
-    if self.truncate_dec_batches:
-      loss = dy.esum([dy.sum_batches(wl) for wl in losses])
-    else:
-      loss = dy.esum(losses)
+    loss = model.calc_nll(src, trg)
     return FactoredLossExpr({"mle": loss})
 
-  @staticmethod
-  def _select_ref_words(ref_sent, index, truncate_masked = False):
-    if truncate_masked:
-      mask = ref_sent.mask if batchers.is_batched(ref_sent) else None
-      if not batchers.is_batched(sent):
-        return ref_sent[index]
-      else:
-        ret = []
-        found_masked = False
-        for (j, single_trg) in enumerate(sent):
-          if mask is None or mask.np_arr[j, index] == 0 or np.sum(mask.np_arr[:, index]) == mask.np_arr.shape[0]:
-            assert not found_masked, "sentences must be sorted by decreasing target length"
-            ret.append(single_trg[index])
-          else:
-            found_masked = True
-        return batchers.mark_as_batch(ret)
-    else:
-      if not batchers.is_batched(ref_sent): return ref_sent[index]
-      else: return batchers.mark_as_batch([single_trg[index] for single_trg in ref_sent])
+class GlobalFertilityLoss(Serializable, LossCalculator):
+  """
+  A fertility loss according to Cohn+, 2016.
+  Incorporating Structural Alignment Biases into an Attentional Neural Translation Model
+  
+  https://arxiv.org/pdf/1601.01085.pdf
+  """
+  yaml_tag = '!GlobalFertilityLoss'
+  @serializable_init
+  def __init__(self, weight:float = 1) -> None:
+    self.weight = weight
+
+  def calc_loss(self,
+                model: 'model_base.ConditionedModel',
+                src: Union[sent.Sentence, 'batchers.Batch'],
+                trg: Union[sent.Sentence, 'batchers.Batch']):
+    assert hasattr(model, "attender") and hasattr(model.attender, "attention_vecs"), \
+           "Must be called after MLELoss with models that have attender."
+    masked_attn = model.attender.attention_vecs
+    if trg.mask is not None:
+      trg_mask = 1-(trg.mask.np_arr.transpose())
+      masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
+    
+    loss = self.global_fertility(masked_attn)
+    return FactoredLossExpr({"global_fertility": self.weight * loss})
+
+  def global_fertility(self, a):
+    return dy.sum_elems(dy.square(1 - dy.esum(a))) 
+
+class CompositeLoss(Serializable, LossCalculator):
+  """
+  Summing losses from multiple LossCalculator.
+  """
+  yaml_tag = "!CompositeLoss"
+  @serializable_init
+  def __init__(self, losses:List[LossCalculator]):
+    self.losses = losses
+
+  def calc_loss(self,
+                model: 'model_base.ConditionedModel',
+                src: Union[sent.Sentence, 'batchers.Batch'],
+                trg: Union[sent.Sentence, 'batchers.Batch']):
+    total_loss = FactoredLossExpr()
+    for loss in self.losses:
+      total_loss.add_factored_loss_expr(loss.calc_loss(model, src, trg))
+    return total_loss
 
 class ReinforceLoss(Serializable, LossCalculator):
+  """
+  Reinforce Loss according to Ranzato+, 2015.
+  SEQUENCE LEVEL TRAINING WITH RECURRENT NEURAL NETWORKS.
+  
+  (This is not the MIXER algorithm)
+
+  https://arxiv.org/pdf/1511.06732.pdf
+  """
   yaml_tag = '!ReinforceLoss'
-
-  # TODO: document me
   @serializable_init
-  def __init__(self, evaluation_metric=None, sample_length=50, use_baseline=False,
-               inv_eval=True, decoder_hidden_dim=Ref("exp_global.default_layer_dim"), baseline=None):
-    self.use_baseline = use_baseline
+  def __init__(self,
+               baseline=None,
+               evaluation_metric:metrics.SentenceLevelEvaluator = bare(metrics.FastBLEUEvaluator),
+               search_strategy:SearchStrategy = bare(SamplingSearch),
+               sample_length:int = 50,
+               use_baseline:bool = False,
+               inv_eval:bool = True,
+               decoder_hidden_dim:int = Ref("exp_global.default_layer_dim")):
     self.inv_eval = inv_eval
-    if evaluation_metric is None:
-      self.evaluation_metric = metrics.FastBLEUEvaluator(ngram=4, smooth=1)
-    else:
-      self.evaluation_metric = evaluation_metric
+    self.search_strategy = search_strategy
+    self.evaluation_metric = evaluation_metric
 
-    if self.use_baseline:
+    if use_baseline:
       self.baseline = self.add_serializable_component("baseline", baseline,
                                                       lambda: Linear(input_dim=decoder_hidden_dim, output_dim=1))
-
-  def calc_loss(self, translator, initial_state, src, trg):
-    # TODO(philip30): currently only using the best hypothesis / first sample for reinforce loss
-    # A small further implementation is needed if we want to do reinforce with multiple samples.
-    search_output = translator.search_strategy.generate_output(translator, initial_state)[0]
-    # Calculate evaluation scores
-    self.eval_score = []
-    for trg_i, sample_i in zip(trg, search_output.word_ids):
-      # Removing EOS
-      sample_i = self.remove_eos(sample_i.tolist())
-      ref_i = self.remove_eos(trg_i.words)
-      # Evaluating 
-      if len(sample_i) == 0:
-        score = 0
-      else:
-        score = self.evaluation_metric.evaluate(ref_i, sample_i) * \
-                (-1 if self.inv_eval else 1)
-      self.eval_score.append(score)
-    self.true_score = dy.inputTensor(self.eval_score, batched=True)
-    # Composing losses
-    loss = FactoredLossExpr()
-    if self.use_baseline:
-      baseline_loss = []
-      losses = []
-      for state, logsoft, mask in zip(search_output.state,
-                                      search_output.logsoftmaxes,
-                                      search_output.mask):
-        bs_score = self.baseline.transform(state)
-        baseline_loss.append(dy.squared_distance(self.true_score, bs_score))
-        loss_i = dy.cmult(logsoft, self.true_score - bs_score)
-        losses.append(dy.cmult(loss_i, dy.inputTensor(mask, batched=True)))
-      loss.add_loss("reinforce", dy.sum_elems(dy.esum(losses)))
-      loss.add_loss("reinf_baseline", dy.sum_elems(dy.esum(baseline_loss)))
     else:
-      loss.add_loss("reinforce", dy.sum_elems(dy.cmult(self.true_score, dy.esum(logsofts))))
+      self.baseline = None
+
+  def calc_loss(self, translator, src, trg):
+    search_outputs = translator.generate_search_output(src, self.search_strategy)
+    sign = -1 if self.inv_eval else 1
+
+    total_loss = FactoredLossExpr()
+    for search_output in search_outputs:
+      self.eval_score = []
+      for trg_i, sample_i in zip(trg, search_output.word_ids):
+        # Removing EOS
+        sample_i = self.remove_eos(sample_i.tolist())
+        ref_i = trg_i.words[:trg_i.len_unpadded()]
+        score = self.evaluation_metric.evaluate_one_sent(ref_i, sample_i)
+        self.eval_score.append(sign * score)
+      self.reward = dy.inputTensor(self.eval_score, batched=True)
+      # Composing losses
+      loss = FactoredLossExpr()
+      if self.baseline is not None:
+        baseline_loss = []
+        losses = []
+        for state, logsoft, mask in zip(search_output.state,
+                                        search_output.logsoftmaxes,
+                                        search_output.mask):
+          bs_score = self.baseline.transform(state)
+          baseline_loss.append(dy.squared_distance(self.reward, bs_score))
+          loss_i = dy.cmult(logsoft, self.reward - bs_score)
+          valid = list(np.nonzero(mask)[0])
+          losses.append(dy.cmult(loss_i, dy.inputTensor(mask, batched=True)))
+        loss.add_loss("reinforce", dy.sum_elems(dy.esum(losses)))
+        loss.add_loss("reinf_baseline", dy.sum_elems(dy.esum(baseline_loss)))
+      else:
+        loss.add_loss("reinforce", dy.sum_elems(dy.cmult(self.true_score, dy.esum(logsofts))))
+      total_loss.add_factored_loss_expr(loss)
     return loss
 
 class MinRiskLoss(Serializable, LossCalculator):
   yaml_tag = '!MinRiskLoss'
 
   @serializable_init
-  def __init__(self, evaluation_metric=None, alpha=0.005, inv_eval=True, unique_sample=True):
+  def __init__(self,
+               evaluation_metric=bare(metrics.FastBLEUEvaluator),
+               alpha=0.005,
+               inv_eval=True,
+               unique_sample=True,
+               search_strategy=bare(SamplingSearch)):
     # Samples
     self.alpha = alpha
-    if evaluation_metric is None:
-      self.evaluation_metric = metrics.FastBLEUEvaluator(ngram=4, smooth=1)
-    else:
-      self.evaluation_metric = evaluation_metric
+    self.evaluation_metric = evaluation_metric
     self.inv_eval = inv_eval
     self.unique_sample = unique_sample
+    self.search_strategy = search_strategy
 
-  def calc_loss(self, translator, initial_state, src, trg):
+  def calc_loss(self, translator, src, trg):
     batch_size = trg.batch_size()
     uniques = [set() for _ in range(batch_size)]
     deltas = []
     probs = []
-    
-    search_outputs = translator.search_strategy.generate_output(translator, initial_state, forced_trg_ids=trg)
+    sign = -1 if self.inv_eval else 1
+    search_outputs = translator.generate_search_output(src, self.search_strategy)
     for search_output in search_outputs:
       logprob = search_output.logsoftmaxes
       sample = search_output.word_ids
@@ -183,11 +200,9 @@ class MinRiskLoss(Serializable, LossCalculator):
             mask[j] = -1e20 # represents negative infinity
             continue
           else:
-            # Count this sample in
             uniques[j].add(hash_val)
           # Calc evaluation score
-        eval_score[j] = self.evaluation_metric.evaluate(ref_j, hyp_j) * \
-                        (-1 if self.inv_eval else 1)
+        eval_score[j] = self.evaluation_metric.evaluate_one_sent(ref_j, hyp_j) * sign
       # Appending the delta and logprob of this sample
       prob = logprob + dy.inputTensor(mask, batched=True)
       deltas.append(dy.inputTensor(eval_score, batched=True))
@@ -204,3 +219,33 @@ class MinRiskLoss(Serializable, LossCalculator):
 
     return FactoredLossExpr({"risk": risk})
 
+
+class FeedbackLoss(Serializable, LossCalculator):
+  """
+  A loss that first calculates a standard loss function, then feeds it back to the
+  model using the model.additional_loss function.
+
+  Args:
+    child_loss: The loss that will be fed back to the model
+    repeat: Repeat the process multiple times and use the sum of the losses. This is
+            useful when there is some non-determinism (such as sampling in the encoder, etc.)
+  """
+  yaml_tag = '!FeedbackLoss'
+  @serializable_init
+  def __init__(self,
+               child_loss: LossCalculator=bare(MLELoss),
+               repeat: int=1) -> None:
+    self.child_loss = child_loss
+    self.repeat = repeat
+
+  def calc_loss(self,
+                model: 'model_base.ConditionedModel',
+                src: Union[sent.Sentence, 'batcher.Batch'],
+                trg: Union[sent.Sentence, 'batcher.Batch']):
+    loss_builder = FactoredLossExpr()
+    for _ in range(self.repeat):
+      standard_loss = self.child_loss.calc_loss(model, src, trg)
+      additional_loss = model.calc_additional_loss(trg, model, standard_loss)
+      loss_builder.add_factored_loss_expr(standard_loss)
+      loss_builder.add_factored_loss_expr(additional_loss)
+    return loss_builder

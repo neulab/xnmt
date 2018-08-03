@@ -115,7 +115,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                trg_file: str = None,
                dev_every: int = 0,
                batcher: batchers.Batcher = bare(batchers.SrcBatcher, batch_size=32),
-               loss_calculator: loss_calculators.LossCalculator = bare(loss_calculators.AutoRegressiveMLELoss),
+               loss_calculator: loss_calculators.LossCalculator = bare(loss_calculators.MLELoss),
                run_for_epochs: Optional[int] = None,
                lr_decay: float = 1.0, lr_decay_times: int = 3,
                patience: int = 1, initial_patience: Optional[int] = None,
@@ -281,12 +281,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     Returns:
       Loss
     """
-    loss_builder = losses.FactoredLossExpr()
-    standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)
-    additional_loss = event_trigger.calc_additional_loss(trg, self.model, standard_loss)
-    loss_builder.add_factored_loss_expr(standard_loss)
-    loss_builder.add_factored_loss_expr(additional_loss)
-    return loss_builder
+    return self.loss_calculator.calc_loss(self.model, src, trg)
 
   def checkpoint_needed(self):
     return self.dev_loss_tracker.should_report_dev()

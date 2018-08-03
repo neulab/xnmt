@@ -258,7 +258,7 @@ class IndependentOutputInference(Inference, Serializable):
 
   def compute_losses_one(self, generator: 'models.GeneratorModel', src: sent.Sentence,
                          ref: sent.Sentence) -> losses.FactoredLossExpr:
-    loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calculators.AutoRegressiveMLELoss())
+    loss_expr = loss_calculators.MLELoss().calc_loss(generator, src, ref)
     return loss_expr
 
 class AutoRegressiveInference(Inference, Serializable):
@@ -309,7 +309,7 @@ class AutoRegressiveInference(Inference, Serializable):
 
   def compute_losses_one(self, generator: 'models.GeneratorModel', src: sent.Sentence,
                          ref: sent.Sentence) -> losses.FactoredLossExpr:
-    loss_expr = generator.calc_loss(src, ref, loss_calculator=loss_calculators.AutoRegressiveMLELoss())
+    loss_expr = loss_calculators.MLELoss().calc_loss(generator, src, ref)
     return loss_expr
 
 class CascadeInference(Inference, Serializable):

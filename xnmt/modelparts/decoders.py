@@ -98,7 +98,8 @@ class AutoRegressiveDecoder(Decoder, Serializable):
       initial decoder state
     """
     rnn_state = self.rnn.initial_state()
-    rnn_state = rnn_state.set_s(self.bridge.decoder_init(enc_final_states))
+    rnn_s = self.bridge.decoder_init(enc_final_states)
+    rnn_state = rnn_state.set_s(rnn_s)
     zeros = dy.zeros(self.input_dim) if self.input_feeding else None
     rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]) if self.input_feeding else ss_expr)
     return AutoRegressiveDecoderState(rnn_state=rnn_state, context=zeros)
