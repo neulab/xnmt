@@ -35,7 +35,6 @@ class PolicyGradient(Serializable):
                      baseline=None,
                      z_normalization=True,
                      conf_penalty=None,
-                     sample=1,
                      weight=1.0,
                      use_baseline=True,
                      input_dim=Ref("exp_global.default_layer_dim"),
@@ -56,7 +55,6 @@ class PolicyGradient(Serializable):
 
     self.confidence_penalty = self.add_serializable_component("conf_penalty", conf_penalty, lambda: conf_penalty) if conf_penalty is not None else None
     self.z_normalization = z_normalization
-    self.sample = sample
     self.weight = weight
 
   """
@@ -68,21 +66,16 @@ class PolicyGradient(Serializable):
   """
   def sample_action(self, state, argmax=False, sample_pp=None, predefined_actions=None):
     policy = dy.log_softmax(self.policy_network.transform(state))
-    actions = []
     if predefined_actions is not None:
       # Use defined action value
       self.sampling_action = self.SamplingAction.PREDEFINED
-      actions.extend(predefined_actions)
+      actions = predefined_actions
     else:
       # sample from policy
-      for k in range(self.sample):
-        sample = self.sample_from_policy(policy, argmax=argmax)
-        if sample_pp is not None:
-          sample = sample_pp(sample)
-        actions.append(sample)
-        # only one sample during argmax
-        if argmax:
-          break
+      sample = self.sample_from_policy(policy, argmax=argmax)
+      if sample_pp is not None:
+        sample = sample_pp(sample)
+      actions = sample
     try:
       return actions
     finally:
@@ -93,18 +86,17 @@ class PolicyGradient(Serializable):
   """
   Calc policy networks loss.
   """
-  def calc_loss(self, rewards):
+  def calc_loss(self, reward):
     loss = FactoredLossExpr()
     ## Z-Normalization
     if self.z_normalization:
-      reward_batches = dy.concatenate_to_batch(rewards)
-      mean_batches = dy.mean_batches(reward_batches)
-      std_batches = dy.std_batches(reward_batches)
-      rewards = [dy.cdiv(reward-mean_batches, std_batches) for reward in rewards]
+      mean_batches = dy.mean_batches(reward)
+      std_batches = dy.std_batches(reward)
+      reward = dy.cdiv(reward-mean_batches, std_batches)
     ## Calculate baseline   
     if self.baseline is not None:
-      pred_reward, baseline_loss = self.calc_baseline_loss(rewards)
-      loss.add_loss("rl_baseline", dy.esum(list(map(dy.sum_batches, baseline_loss))))
+      pred_reward, baseline_loss = self.calc_baseline_loss(reward)
+      loss.add_loss("rl_baseline", baseline_loss)
     ## Calculate Confidence Penalty
     if self.confidence_penalty:
       cp_loss = self.confidence_penalty.calc_loss(self.policy_lls)
@@ -112,26 +104,24 @@ class PolicyGradient(Serializable):
     ## Calculate Reinforce Loss
     reinf_loss = []
     # Loop through all action in one sequence
-    for i, (policy, action_sample) in enumerate(zip(self.policy_lls, self.actions)):
+    for i, (policy, action) in enumerate(zip(self.policy_lls, self.actions)):
       # Discount the reward if we use baseline
       if self.baseline is not None:
-        rewards = [reward-pred_reward[i] for reward in rewards]
+        reward = reward - pred_reward[i]
       # Main Reinforce calculation
-      sample_loss = []
-      for action, reward in zip(action_sample, rewards):
-        ll = dy.pick_batch(policy, action)
-        if self.valid_pos is not None:
-          ll = dy.pick_batch_elems(ll, self.valid_pos[i])
-          reward = dy.pick_batch_elems(reward, self.valid_pos[i])
-        sample_loss.append(-ll*reward)
-      # Take the average of the losses accross multiple samples
-      reinf_loss.append(dy.esum(list(map(dy.sum_batches, sample_loss))) / len(sample_loss))
+      ll = dy.pick_batch(policy, action)
+      if self.valid_pos is not None:
+        ll = dy.pick_batch_elems(ll, self.valid_pos[i])
+        reward_i = dy.pick_batch_elems(reward, self.valid_pos[i])
+      else:
+        reward_i = reward
+      reinf_loss.append(dy.sum_batches(-ll*reward_i))
     loss.add_loss("rl_reinf", self.weight * dy.esum(reinf_loss))
     ## the composed losses
     try:
       return loss
     finally:
-      self.rewards = rewards
+      self.reward = reward
 
   def shared_params(self):
     return [{".input_dim", ".policy_network.input_dim"},
@@ -159,8 +149,7 @@ class PolicyGradient(Serializable):
     finally:
       self.sampling_action = self.SamplingAction.POLICY_CLP if not argmax else self.SamplingAction.POLICY_AMAX
 
-  def calc_baseline_loss(self, rewards):
-    avg_rewards = dy.average(rewards) # Taking average of the rewards accross multiple samples
+  def calc_baseline_loss(self, reward):
     pred_rewards = []
     losses = []
     for i, state in enumerate(self.states):
@@ -168,11 +157,11 @@ class PolicyGradient(Serializable):
       pred_rewards.append(dy.nobackprop(pred_reward))
       if self.valid_pos is not None:
         pred_reward = dy.pick_batch_elems(pred_reward, self.valid_pos[i])
-        avg_reward = dy.pick_batch_elems(avg_rewards, self.valid_pos[i])
+        act_reward = dy.pick_batch_elems(reward, self.valid_pos[i])
       else:
-        avg_reward = avg_rewards
-      losses.append(dy.squared_distance(pred_reward, avg_reward))
-    return pred_rewards, losses
+        act_reward = reward
+      losses.append(dy.sum_batches(dy.squared_distance(pred_reward, dy.nobackprop(act_reward))))
+    return pred_rewards, dy.esum(losses)
   
   class SamplingAction(Enum):
     POLICY_CLP = 0

@@ -9,12 +9,12 @@ from xnmt.modelparts.decoders import AutoRegressiveDecoder
 from xnmt.modelparts.embedders import SimpleWordEmbedder
 from xnmt.input_readers import PlainTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculators import AutoRegressiveMLELoss
-from xnmt.param_collections import ParamManager
+from xnmt.loss_calculators import MLELoss
 from xnmt.modelparts.transforms import NonLinear
 from xnmt.modelparts.scorers import Softmax
 from xnmt.models.translators import DefaultTranslator
 from xnmt.search_strategies import BeamSearch, GreedySearch
+from xnmt.param_collections import ParamManager
 from xnmt.vocabs import Vocab
 
 class TestForcedDecodingOutputs(unittest.TestCase):
@@ -88,9 +88,8 @@ class TestForcedDecodingLoss(unittest.TestCase):
 
   def test_single(self):
     dy.renew_cg()
-    train_loss = self.model.calc_loss(src=self.src_data[0],
-                                      trg=self.trg_data[0],
-                                      loss_calculator=AutoRegressiveMLELoss()).value()
+    train_loss = self.model.calc_nll(src=self.src_data[0],
+                                     trg=self.trg_data[0]).value()
     dy.renew_cg()
     outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), BeamSearch(beam_size=1),
                                   forced_trg_ids=batchers.mark_as_batch([self.trg_data[0]]))
@@ -128,9 +127,8 @@ class TestFreeDecodingLoss(unittest.TestCase):
     outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), BeamSearch(),
                                   forced_trg_ids=batchers.mark_as_batch([self.trg_data[0]]))
     dy.renew_cg()
-    train_loss = self.model.calc_loss(src=self.src_data[0],
-                                      trg=outputs[0],
-                                      loss_calculator=AutoRegressiveMLELoss()).value()
+    train_loss = self.model.calc_nll(src=self.src_data[0],
+                                     trg=outputs[0]).value()
 
     self.assertAlmostEqual(-outputs[0].score, train_loss, places=4)
 

@@ -1,5 +1,7 @@
 # This demonstrates using a sequence classifier model that takes a sequence as input and outputs a single class label.
 classifier: !Experiment
+  exp_global: !ExpGlobal
+    default_layer_dim: 64
   model: !SequenceClassifier
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
