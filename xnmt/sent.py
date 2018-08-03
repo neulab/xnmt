@@ -232,6 +232,37 @@ class SimpleSentence(ReadableSentence):
     if self.vocab: return [self.vocab[w] for w in ret_toks]
     else: return [str(w) for w in ret_toks]
 
+class SegmentedSentence(SimpleSentence):
+  def __init__(self, segment=[], **kwargs) -> None:
+    super().__init__(**kwargs)
+    self.segment = segment
+
+  def create_padded_sent(self, pad_len: int) -> 'SimpleSentence':
+    if pad_len == 0:
+      return self
+    # Copy is used to copy all possible annotations
+    new_words = self.words + [self.pad_token] * pad_len
+    return SegmentedSentence(words=new_words,
+                             idx=self.idx,
+                             vocab=self.vocab,
+                             score=self.score,
+                             output_procs=self.output_procs,
+                             pad_token=self.pad_token,
+                             segment=self.segment)
+
+  def create_truncated_sent(self, trunc_len: int) -> 'SimpleSentence':
+    if trunc_len == 0:
+      return self
+    new_words = self.words[:-trunc_len]
+    return SegmentedSentence(words=new_words,
+                             idx=self.idx,
+                             vocab=self.vocab,
+                             score=self.score,
+                             output_procs=self.output_procs,
+                             pad_token=self.pad_token,
+                             segment=self.segment)
+
+
 class ArraySentence(Sentence):
   """
   A sentence based on a numpy array containing a continuous-space vector for each token.

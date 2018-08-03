@@ -12,7 +12,7 @@ with warnings.catch_warnings():
 
 from xnmt import logger
 
-from xnmt.sent import SimpleSentence, CompoundSentence, ArraySentence, ScalarSentence
+from xnmt.sent import SimpleSentence, CompoundSentence, ArraySentence, ScalarSentence, SegmentedSentence
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt import sent
@@ -227,7 +227,6 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
 class CharFromWordTextReader(PlainTextReader, Serializable):
   # TODO @philip30
   # - add documentation
-  # - this should probably return a SegmentedSentence etc. rather than a SimpleSentence
   # - possibly represent as list of list
   yaml_tag = "!CharFromWordTextReader"
   @serializable_init
@@ -243,8 +242,7 @@ class CharFromWordTextReader(PlainTextReader, Serializable):
       chars.extend([c for c in word])
     segs.append(len(chars))
     chars.append(Vocab.ES_STR)
-    sent_input = SimpleSentence(words=[self.vocab.convert(c) for c in chars], idx=idx)
-    sent_input.segment = segs
+    sent_input = SegmentedSentence(segment=segs, words=[self.vocab.convert(c) for c in chars], idx=idx)
     return sent_input
 
 class H5Reader(InputReader, Serializable):
