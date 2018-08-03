@@ -144,11 +144,10 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
     losses = []
     seq_len = trg.sent_len()
 
-    # # TODO: enable only when debugging
-    # if batchers.is_batched(src):
-    #   for j, single_trg in enumerate(trg):
-    #     assert single_trg.sent_len() == seq_len # assert consistent length
-    #     assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask.np_arr[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
+    if settings.CHECK_VALIDITY and batchers.is_batched(src):
+      for j, single_trg in enumerate(trg):
+        assert single_trg.sent_len() == seq_len # assert consistent length
+        assert 1==len([i for i in range(seq_len) if (trg_mask is None or trg_mask.np_arr[j,i]==0) and single_trg[i]==Vocab.ES]) # assert exactly one unmasked ES token
 
     input_word = None
     for i in range(seq_len):

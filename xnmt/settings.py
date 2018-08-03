@@ -5,7 +5,7 @@ Currently, settings control the following:
 
 * ``OVERWRITE_LOG``: whether logs should be overwritten (not overwriting helps when copy-pasting config files and forgetting to change the output location)
 * ``IMMEDIATE_COMPUTE``: whether to execute DyNet in eager mode
-* ``CHECK_VALIDITY``: configure DyNet to perform numerical checks
+* ``CHECK_VALIDITY``: configure xnmt and DyNet to perform checks of validity
 * ``RESOURCE_WARNINGS``: whether to show resource warnings
 * ``LOG_LEVEL_CONSOLE``: verbosity of console output (``DEBUG`` | ``INFO`` | ``WARNING`` | ``ERROR`` | ``CRITICAL``)
 * ``LOG_LEVEL_FILE``: verbosity of file output (``DEBUG`` | ``INFO`` | ``WARNING`` | ``ERROR`` | ``CRITICAL``)
