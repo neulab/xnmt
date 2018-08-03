@@ -55,7 +55,7 @@ class Retriever(ConditionedModel, GeneratorModel, EventTrigger):
     """
     pass
 
-  def generate(self, src, i):
+  def generate(self, src):
     """Perform retrieval, trying to get the sentence that most closely matches in the database.
 
     Args:
@@ -168,7 +168,7 @@ class DotProductRetriever(Retriever, Serializable):
     encodings = self.exprseq_pooling(self.trg_encoder.transduce(embeddings))
     return encodings
 
-  def generate(self, src, idx, return_type="idxscore", nbest=10, forced_trg_ids=None):
+  def generate(self, src, return_type="idxscore", nbest=10, forced_trg_ids=None):
     if forced_trg_ids is not None: raise NotImplementedError()
     src_embedding = self.src_embedder.embed_sent(src)
     self.src_encoder.set_input(src)

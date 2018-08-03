@@ -47,7 +47,7 @@ class Inference(object):
     self.batcher = batcher
     self.reporter = reporter
 
-  def generate_one(self, generator: 'models.GeneratorModel', src: batchers.Batch, src_i: int, forced_ref_ids) \
+  def generate_one(self, generator: 'models.GeneratorModel', src: batchers.Batch, forced_ref_ids) \
           -> List[sent.ReadableSentence]:
     raise NotImplementedError("must be implemented by subclasses")
 
@@ -124,7 +124,7 @@ class Inference(object):
           if forced_ref_corpus: ref_batch = ref_batches[batch_i]
           with utils.ReportOnException({"batchno":batch_i, "src": src_batch, "graph": dy.print_text_graphviz}):
             dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-            outputs = self.generate_one(generator, src_batch, range(cur_sent_i,cur_sent_i+batch_size), ref_batch)
+            outputs = self.generate_one(generator, src_batch, ref_batch)
             if self.reporter: self._create_report()
             for i in range(len(outputs)):
               if assert_scores is not None:
@@ -248,9 +248,9 @@ class IndependentOutputInference(Inference, Serializable):
                      max_num_sents=max_num_sents, mode=mode, batcher=batcher, reporter=reporter)
     self.post_processor = output.OutputProcessor.get_output_processor(post_process) or None
 
-  def generate_one(self, generator: 'models.GeneratorModel', src: batchers.Batch, src_i: int, forced_ref_ids)\
+  def generate_one(self, generator: 'models.GeneratorModel', src: batchers.Batch, forced_ref_ids)\
           -> List[sent.Sentence]:
-    outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids)
+    outputs = generator.generate(src, forced_trg_ids=forced_ref_ids)
     return outputs
 
   def compute_losses_one(self, generator: 'models.GeneratorModel', src: sent.Sentence,
@@ -299,9 +299,9 @@ class AutoRegressiveInference(Inference, Serializable):
     self.post_processor = output.OutputProcessor.get_output_processor(post_process) or None
     self.search_strategy = search_strategy
 
-  def generate_one(self, generator: 'models.GeneratorModel', src: batchers.Batch, src_i: int, forced_ref_ids)\
+  def generate_one(self, generator: 'models.GeneratorModel', src: batchers.Batch, forced_ref_ids)\
           -> List[sent.Sentence]:
-    outputs = generator.generate(src, src_i, forced_trg_ids=forced_ref_ids, search_strategy=self.search_strategy)
+    outputs = generator.generate(src, forced_trg_ids=forced_ref_ids, search_strategy=self.search_strategy)
     return outputs
 
   def compute_losses_one(self, generator: 'models.GeneratorModel', src: sent.Sentence,
