@@ -1,6 +1,7 @@
 from collections import namedtuple
 import math
 import os
+import sys
 from typing import Optional, Callable
 
 import dynet as dy
@@ -618,11 +619,12 @@ class MctsSearch(Serializable, SearchStrategy):
 
   def dump_tree(self, node, indents=0):
     parent_prior = node.parent.prior_dist[node.word] if node.parent is not None else 1.0
+    entropy = -sum([np.exp(x) * x for x in node.prior_dist])
     word_str = word_id_to_string(node.translator, node.word)
     #best_rollout_str = ' '.join([word_id_to_string(node.translator, word) for word in node.best_rollout]) if node.best_rollout is not None else '[None]'
     best_rollout_str = ' '.join(map(str, node.best_rollout)) if node.best_rollout is not None else '[None]'
-    print('  ' * indents, word_str, node.tries, 'ps=%f' % node.path_score,
-          'pr=%f' % parent_prior, 'q=%f' % node.avg_value, best_rollout_str, node.best_rollout_score)
+    logger.info(' '.join(map(str, ('  ' * indents, word_str, node.tries, 'ent=%f' % entropy, 'nc=%d' % len(node.children), 'ps=%f' % node.path_score,
+          'pr=%f' % parent_prior, 'q=%f' % node.avg_value, best_rollout_str, node.best_rollout_score))))
     for child in sorted(node.children.values(), key=lambda child: child.tries, reverse=True):
       self.dump_tree(child, indents + 1)
 
