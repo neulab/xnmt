@@ -1,8 +1,7 @@
 import dynet as dy
 import numpy as np
 
-from xnmt import batchers, events, inferences, input_readers, losses, reports, sent, \
-  vocabs
+from xnmt import batchers, event_trigger, events, inferences, input_readers, losses, reports, sent, vocabs
 from xnmt.modelparts import transforms
 from xnmt.modelparts import scorers
 from xnmt.modelparts import embedders
@@ -11,8 +10,7 @@ from xnmt.models import base as models
 from xnmt.transducers import recurrent, base as transducers
 from xnmt.persistence import serializable_init, Serializable, bare
 
-class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, reports.Reportable,
-                 models.EventTrigger):
+class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, reports.Reportable):
   """
   A simple sequence labeler based on an encoder and an output softmax layer.
 
@@ -57,7 +55,7 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
     return "mle"
 
   def _encode_src(self, src):
-    self.start_sent(src)
+    event_trigger.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder.transduce(embeddings)
     encodings_tensor = encodings.as_tensor()

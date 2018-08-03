@@ -3,7 +3,7 @@ import unittest
 import dynet as dy
 
 from xnmt.modelparts.attenders import MlpAttender
-from xnmt import batchers, events
+from xnmt import batchers, event_trigger, events
 from xnmt.modelparts.bridges import CopyBridge
 from xnmt.modelparts.decoders import AutoRegressiveDecoder
 from xnmt.modelparts.embedders import SimpleWordEmbedder
@@ -44,7 +44,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    self.model.set_train(False)
+    event_trigger.set_train(False)
 
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
@@ -81,7 +81,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    self.model.set_train(False)
+    event_trigger.set_train(False)
 
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
@@ -117,7 +117,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    self.model.set_train(False)
+    event_trigger.set_train(False)
 
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
@@ -156,7 +156,7 @@ class TestGreedyVsBeam(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    self.model.set_train(False)
+    event_trigger.set_train(False)
 
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))

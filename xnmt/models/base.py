@@ -1,8 +1,7 @@
 from typing import Optional, Sequence, Union
 
-from xnmt import batchers, events, input_readers, losses, sent
-from xnmt.train import tasks
-from xnmt import loss_calculators
+from xnmt import batchers, input_readers, losses, sent
+from xnmt import event_trigger, loss_calculators
 from xnmt.persistence import Serializable, serializable_init
 
 class TrainableModel(object):
@@ -106,57 +105,8 @@ class GeneratorModel(object):
     """
     raise NotImplementedError("must be implemented by subclasses")
 
-class EventTrigger(object):
-  """
-  A template class defining triggers to the common events used throughout XNMT.
-  """
-  @events.register_xnmt_event
-  def new_epoch(self, training_task: tasks.TrainingTask, num_sents: int) -> None:
-    """
-    Trigger event indicating a new epoch for the specified task.
 
-    Args:
-      training_task: task that proceeds into next epoch.
-      num_sents: number of training sentences in new epoch.
-    """
-    pass
-
-  @events.register_xnmt_event
-  def set_train(self, val: bool) -> None:
-    """
-    Trigger event indicating enabling/disabling of "training" mode.
-
-    Args:
-      val: whether "training" mode is enabled
-    """
-    pass
-
-  @events.register_xnmt_event
-  def start_sent(self, src: Union[sent.Sentence, batchers.Batch]) -> None:
-    """
-    Trigger event indicating the start of a new sentence (or batch of sentences).
-
-    Args:
-      src: new sentence (or batch of sentences)
-    """
-    pass
-
-  @events.register_xnmt_event_sum
-  def calc_additional_loss(self,
-                           trg: Union[sent.Sentence, batchers.Batch],
-                           parent_model: TrainableModel,
-                           parent_model_loss: losses.FactoredLossExpr) -> losses.FactoredLossExpr:
-    """
-    Trigger event for calculating additional loss (e.g. reinforce loss) based on the reward
-
-    Args:
-      trg: Reference sentence
-      parent_model: The reference to the parent model who called the addcitional_loss
-      parent_model_loss: The loss from the parent_model.calc_loss()
-    """
-    return None
-
-class CascadeGenerator(GeneratorModel, EventTrigger, Serializable):
+class CascadeGenerator(GeneratorModel, Serializable):
   """
   A cascade that chains several generator models.
 

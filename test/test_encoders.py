@@ -17,7 +17,7 @@ from xnmt.transducers.self_attention import MultiHeadAttentionSeqTransducer
 from xnmt.modelparts.transforms import NonLinear
 from xnmt.models.translators import DefaultTranslator
 from xnmt.vocabs import Vocab
-from xnmt import batchers, events
+from xnmt import batchers, event_trigger, events
 
 class TestEncoder(unittest.TestCase):
 
@@ -32,18 +32,11 @@ class TestEncoder(unittest.TestCase):
     self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
 
-  @events.register_xnmt_event
-  def set_train(self, val):
-    pass
-  @events.register_xnmt_event
-  def start_sent(self, src):
-    pass
-
   def assert_in_out_len_equal(self, model):
     dy.renew_cg()
-    self.set_train(True)
+    event_trigger.set_train(True)
     src = self.src_data[0]
-    self.start_sent(src)
+    event_trigger.start_sent(src)
     embeddings = model.src_embedder.embed_sent(src)
     encodings = model.encoder.transduce(embeddings)
     self.assertEqual(len(embeddings), len(encodings))
@@ -119,11 +112,11 @@ class TestEncoder(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    self.set_train(True)
+    event_trigger.set_train(True)
     for sent_i in range(10):
       dy.renew_cg()
       src = self.src_data[sent_i].create_padded_sent(4 - (self.src_data[sent_i].sent_len() % 4))
-      self.start_sent(src)
+      event_trigger.start_sent(src)
       embeddings = model.src_embedder.embed_sent(src)
       encodings = model.encoder.transduce(embeddings)
       self.assertEqual(int(math.ceil(len(embeddings) / float(4))), len(encodings))
@@ -149,11 +142,11 @@ class TestEncoder(unittest.TestCase):
     train_src, _ = \
       batcher.pack(self.src_data, self.trg_data)
 
-    self.set_train(True)
+    event_trigger.set_train(True)
     for sent_i in range(3):
       dy.renew_cg()
       src = train_src[sent_i]
-      self.start_sent(src)
+      event_trigger.start_sent(src)
       embeddings = model.src_embedder.embed_sent(src)
       encodings = model.encoder.transduce(embeddings)
       if train_src[sent_i].mask is None:

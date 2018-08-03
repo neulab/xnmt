@@ -21,7 +21,7 @@ from xnmt.modelparts.transforms import NonLinear
 from xnmt.models.translators import DefaultTranslator
 from xnmt.modelparts.scorers import Softmax
 from xnmt.vocabs import Vocab
-from xnmt import sent
+from xnmt import event_trigger, sent
 
 class TestTruncatedBatchTraining(unittest.TestCase):
 
@@ -91,7 +91,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    model.set_train(False)
+    event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
   def test_loss_model2(self):
@@ -113,7 +113,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    model.set_train(False)
+    event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model, pad_src_to_multiple=4)
 
   def test_loss_model3(self):
@@ -135,7 +135,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    model.set_train(False)
+    event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
   def test_loss_model4(self):
@@ -157,7 +157,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    model.set_train(False)
+    event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
 class TestBatchTraining(unittest.TestCase):
@@ -232,7 +232,7 @@ class TestBatchTraining(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    model.set_train(False)
+    event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
   def test_loss_model2(self):
@@ -254,7 +254,7 @@ class TestBatchTraining(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    model.set_train(False)
+    event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model, pad_src_to_multiple=4)
 
   def test_loss_model3(self):
@@ -276,7 +276,7 @@ class TestBatchTraining(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    model.set_train(False)
+    event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
 
