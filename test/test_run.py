@@ -61,7 +61,7 @@ class TestRunningConfig(unittest.TestCase):
   def test_reload_exception(self):
     with self.assertRaises(ValueError) as context:
       run.main(["test/config/reload_exception.yaml"])
-    self.assertEqual(str(context.exception), 'VanillaLSTMGates: x_t has inconsistent dimension')
+    self.assertEqual(str(context.exception), 'VanillaLSTMGates: x_t has inconsistent dimension 20, expecting 40')
 
   def test_report(self):
     run.main(["test/config/report.yaml"])
