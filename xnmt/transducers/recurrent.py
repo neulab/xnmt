@@ -206,9 +206,19 @@ class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
           x_t = [x_t]
         elif type(x_t) != list:
           x_t = list(x_t)
+        if sum([x_t_i.dim()[0][0] for x_t_i in x_t]) != self.input_dim:
+          found_dim = sum([x_t_i.dim()[0][0] for x_t_i in x_t])
+          raise ValueError(f"VanillaLSTMGates: x_t has inconsistent dimension {found_dim}, expecting {self.input_dim}")
         if self.dropout_rate > 0.0 and self.train:
           # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)
-          gates_t = dy.vanilla_lstm_gates_dropout_concat(x_t, h[-1], self.Wx[layer_i], self.Wh[layer_i], self.b[layer_i], self.dropout_mask_x[layer_i], self.dropout_mask_h[layer_i], self.weightnoise_std if self.train else 0.0)
+          gates_t = dy.vanilla_lstm_gates_dropout_concat(x_t,
+                                                         h[-1],
+                                                         self.Wx[layer_i],
+                                                         self.Wh[layer_i],
+                                                         self.b[layer_i],
+                                                         self.dropout_mask_x[layer_i],
+                                                         self.dropout_mask_h[layer_i],
+                                                         self.weightnoise_std if self.train else 0.0)
         else:
           gates_t = dy.vanilla_lstm_gates_concat(x_t, h[-1], self.Wx[layer_i], self.Wh[layer_i], self.b[layer_i], self.weightnoise_std if self.train else 0.0)
         c_t = dy.vanilla_lstm_c(c[-1], gates_t)
