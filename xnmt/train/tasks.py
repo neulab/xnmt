@@ -2,10 +2,9 @@ from subprocess import Popen
 from asteval import Interpreter
 import random
 import numpy as np
-from typing import Optional, Sequence, Union
+from typing import Iterator, Optional, Sequence, Union
 
-from xnmt import batchers, events, input_readers, logger, losses, loss_trackers, loss_calculators,\
-  param_collections
+from xnmt import batchers, input_readers, logger, losses, loss_trackers, loss_calculators, param_collections
 from xnmt.models import base as model_base
 from xnmt.eval import tasks as eval_tasks
 from xnmt.persistence import serializable_init, Serializable, bare
@@ -19,56 +18,64 @@ class TrainingTask(object):
   Args:
     model: The model to train
   """
-  def __init__(self, model: 'model_base.TrainableModel'):
+  def __init__(self, model: 'model_base.TrainableModel') -> None:
     self.model = model
 
-  def load_data(self):
-    """
-    Used to load data.
-    """
-    raise NotImplementedError("")
   def should_stop_training(self):
     """
     Returns:
       True iff training is finished, i.e. training_step(...) should not be called again
     """
-    raise NotImplementedError("")
+    raise NotImplementedError("must be implemented by subclasses")
 
-  def training_step(self, src, trg):
+  def training_step(self, **kwargs) -> 'losses.FactoredLossExpr':
     """
-    Performs forward pass corresponding to a single training step.
-    Training logic like switching epochs, reshuffling batches, etc. must be
-    handled as well.
+    Perform forward pass for the next training step and handle training logic (switching epoch, reshuffling, ..)
 
     Args:
-      src: src minibatch
-      trg: trg minibatch
+      **kwargs: depends on subclass implementations
     Returns:
       Loss
     """
-    raise NotImplementedError("")
+    raise NotImplementedError("must be implemented by subclasses")
 
-  def checkpoint_needed(self):
-    raise NotImplementedError()
-
-  def checkpoint(self, control_learning_schedule=False, out_ext=".dev_hyp", ref_ext=".dev_ref",
-                 encoding='utf-8'):
+  def next_minibatch(self) -> Iterator:
     """
-    Performs a dev checkpoint
+    Infinitely loop over training minibatches.
+
+    Returns:
+      Generator yielding (src_batch,trg_batch) tuples
+    """
+
+  def checkpoint_needed(self) -> bool:
+    raise NotImplementedError("must be implemented by subclasses")
+
+  def checkpoint(self, control_learning_schedule: bool = False) -> bool:
+    """
+    Perform a dev checkpoint.
 
     Args:
-      control_learning_schedule: If False, only evaluate dev data.
-                                      If True, also perform model saving, LR decay etc. if needed.
-      out_ext:
-      ref_ext:
-      encoding:
+      control_learning_schedule: If ``False``, only evaluate dev data.
+                                 If ``True``, also perform model saving, LR decay etc. if needed.
     Returns:
-      True if the model needs saving, False otherwise
+      ``True`` iff the model needs saving
     """
-    raise NotImplementedError()
+    raise NotImplementedError("must be implemented by subclasses")
+
+  def cur_num_minibatches(self) -> int:
+    """
+    Current number of minibatches (may change between epochs, e.g. for randomizing batchers or if reload_command is given)
+    """
+    raise NotImplementedError("must be implemented by subclasses")
+
+  def cur_num_sentences(self) -> int:
+    """
+    Current number of parallel sentences (may change between epochs, e.g. if reload_command is given)
+    """
+    raise NotImplementedError("must be implemented by subclasses")
 
 
-class SimpleTrainingTask(TrainingTask, Serializable):
+class ConditionedTrainingTask(TrainingTask, model_base.EventTrigger, Serializable):
   """
   Args:
     model: a trainable supervised model
@@ -98,7 +105,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     max_trg_len: Discard training sentences with target-side longer than this
     name: will be prepended to log outputs if given
   """
-  yaml_tag = '!SimpleTrainingTask'
+  yaml_tag = '!ConditionedTrainingTask'
 
   @serializable_init
   def __init__(self,
@@ -117,7 +124,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                name: Optional[str] = None,
                sample_train_sents: Optional[int] = None,
                max_num_train_sents: Optional[int] = None, max_src_len: Optional[int] = None,
-               max_trg_len: Optional[int] = None):
+               max_trg_len: Optional[int] = None) -> None:
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks
@@ -177,7 +184,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       if self.training_state.epoch_num > 0:
         logger.info('using reloaded data')
       # reload the data 
-      self.model.src_reader.train = self.model.trg_reader.train = True
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
           input_readers.read_parallel_corpus(src_reader=self.model.src_reader,
                                              trg_reader=self.model.trg_reader,
@@ -193,17 +199,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.training_state.epoch_num, shell=True)
     else:
       logger.info('new data set is not ready yet, using data from last epoch.')
-
-  @events.register_xnmt_event
-  def new_epoch(self, training_task, num_sents):
-    """
-    New epoch event.
-
-    Args:
-      training_task: Indicates which training task is advancing to the next epoch.
-      num_sents: Number of sentences in the upcoming epoch (may change between epochs)
-    """
-    pass
 
   def should_stop_training(self):
     """
@@ -226,7 +221,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     return len(self.src_data)
 
-  def advance_epoch(self):
+  def _advance_epoch(self):
     """
     Shifts internal state to the next epoch, including data (re-)loading, batch re-packing and shuffling.
     """
@@ -258,15 +253,15 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     np.random.shuffle(self.minibatch_order)
     self.new_epoch(training_task=self, num_sents=self.cur_num_sentences())
 
-  def next_minibatch(self):
+  def next_minibatch(self) -> Iterator:
     """
-    Infinitely loops over training minibatches and calls advance_epoch() after every complete sweep over the corpus.
+    Infinitely loops over training minibatches and advances internal epoch state after every complete sweep over the corpus.
 
     Returns:
       Generator yielding (src_batch,trg_batch) tuples
     """
     while True:
-      self.advance_epoch()
+      self._advance_epoch()
       for batch_num in self.minibatch_order:
         src = self.src_batches[batch_num]
         trg = self.trg_batches[batch_num]
@@ -277,7 +272,13 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
   def training_step(self, src, trg):
     """
-    Performs forward pass, backward pass, parameter update for the given minibatch
+    Perform forward pass for the next training step and handle training logic (switching epoch, reshuffling, ..)
+
+    Args:
+      src: src minibatch
+      trg: trg minibatch
+    Returns:
+      Loss
     """
     loss_builder = losses.FactoredLossExpr()
     standard_loss = self.model.calc_loss(src, trg, self.loss_calculator)

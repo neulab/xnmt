@@ -50,7 +50,7 @@ class TrainingRegimen(object):
     """
     trainer.update()
 
-class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Serializable):
+class SimpleTrainingRegimen(train_tasks.ConditionedTrainingTask, TrainingRegimen, Serializable):
   """
   Args:
     model: the model

@@ -7,7 +7,7 @@ exp1-multi_task_exp: !Experiment
   train: !SameBatchMultiTaskTrainingRegimen
     trainer: !AdamTrainer {}
     tasks: &training_tasks
-    - !SimpleTrainingTask # first task is the main task: it will control early stopping, learning rate schedule, model checkpoints, ..
+    - !ConditionedTrainingTask # first task is the main task: it will control early stopping, learning rate schedule, model checkpoints, ..
       name: first_task
       run_for_epochs: 6
       batcher: !SrcBatcher
@@ -51,7 +51,7 @@ exp1-multi_task_exp: !Experiment
           ref_file: &first_task_dev_trg examples/data/head.en  # value-sharing between first task dev and final eval
           hyp_file: test/tmp/{EXP}.first_dev_hyp
           eval_metrics: bleu # tasks can specify different dev_metrics
-    - !SimpleTrainingTask
+    - !ConditionedTrainingTask
       name: second_task
       batcher: !SrcBatcher
         batch_size: 3
