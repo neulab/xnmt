@@ -62,7 +62,7 @@ class SequenceClassifier(models.ConditionedModel, models.GeneratorModel, Seriali
     classifier_loss = losses.FactoredLossExpr({"mle" : loss})
     return classifier_loss
 
-  def generate(self, src, idx, forced_trg_ids=None, normalize_scores=False):
+  def generate(self, src, forced_trg_ids=None, normalize_scores=False):
     if not batchers.is_batched(src):
       src = batchers.mark_as_batch([src])
       if forced_trg_ids:

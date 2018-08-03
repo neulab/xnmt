@@ -103,7 +103,7 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
         trg.mask = np.pad(old_mask.np_arr, pad_width=((0, 0), (0, pad_len)), mode="constant", constant_values=1)
     return trg
 
-  def generate(self, src, idx, forced_trg_ids=None, normalize_scores = False):
+  def generate(self, src, forced_trg_ids=None, normalize_scores = False):
     if not batchers.is_batched(src):
       src = batchers.mark_as_batch([src])
       if forced_trg_ids:

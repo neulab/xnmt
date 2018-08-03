@@ -53,7 +53,7 @@ class TestForcedDecodingOutputs(unittest.TestCase):
 
   def assert_forced_decoding(self, sent_id):
     dy.renew_cg()
-    outputs = self.model.generate(batchers.mark_as_batch([self.src_data[sent_id]]), [sent_id], self.search,
+    outputs = self.model.generate(batchers.mark_as_batch([self.src_data[sent_id]]), self.search,
                                   forced_trg_ids=batchers.mark_as_batch([self.trg_data[sent_id]]))
     self.assertItemsEqual(self.trg_data[sent_id].words, outputs[0].words)
 
@@ -94,7 +94,7 @@ class TestForcedDecodingLoss(unittest.TestCase):
                                       trg=self.trg_data[0],
                                       loss_calculator=AutoRegressiveMLELoss()).value()
     dy.renew_cg()
-    outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), [0], GreedySearch(),
+    outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), GreedySearch(),
                                   forced_trg_ids=batchers.mark_as_batch([self.trg_data[0]]))
     output_score = outputs[0].score
     self.assertAlmostEqual(-output_score, train_loss, places=5)
@@ -128,7 +128,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
 
   def test_single(self):
     dy.renew_cg()
-    outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), [0], GreedySearch(),
+    outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), GreedySearch(),
                                   forced_trg_ids=batchers.mark_as_batch([self.trg_data[0]]))
     output_score = outputs[0].score
 

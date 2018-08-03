@@ -46,7 +46,7 @@ class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
           -> Tuple[AutoRegressiveDecoderState,dy.Expression]:
     raise NotImplementedError("must be implemented by subclasses")
 
-  def generate(self, src, idx, search_strategy, forced_trg_ids=None) -> Sequence[sent.Sentence]:
+  def generate(self, src, search_strategy, forced_trg_ids=None) -> Sequence[sent.Sentence]:
     raise NotImplementedError("must be implemented by subclasses")
 
   def generate_one_step(self, current_word: Any, current_state: AutoRegressiveDecoderState) -> TranslatorOutput:
@@ -173,11 +173,10 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
     word_loss = self.decoder.calc_loss(dec_state, ref_word)
     return dec_state, word_loss
 
-  def generate(self, src: batchers.Batch, idx: Sequence[int], search_strategy: SearchStrategy, forced_trg_ids: batchers.Batch=None):
+  def generate(self, src: batchers.Batch, search_strategy: SearchStrategy, forced_trg_ids: batchers.Batch=None):
     if src.batch_size()!=1:
       raise NotImplementedError("batched decoding not implemented for DefaultTranslator. "
                                 "Specify inference batcher with batch size 1.")
-    assert src.batch_size() == len(idx), f"src: {src.batch_size()}, idx: {len(idx)}"
     # Generating outputs
     self.start_sent(src)
     outputs = []
@@ -198,7 +197,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
       output_actions = [x for x in curr_output.word_ids[0]]
       attentions = [x for x in curr_output.attentions[0]]
       score = curr_output.score[0]
-      out_sent = sent.SimpleSentence(idx=idx[0],
+      out_sent = sent.SimpleSentence(idx=src_sent.idx,
                                      words=output_actions,
                                      vocab=getattr(self.trg_reader, "vocab", None),
                                      output_procs=self.trg_reader.output_procs,
@@ -206,7 +205,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable, base
       if len(sorted_outputs) == 1:
         outputs.append(out_sent)
       else:
-        outputs.append(sent.NbestSentence(base_sent=out_sent, nbest_id=idx[0]))
+        outputs.append(sent.NbestSentence(base_sent=out_sent, nbest_id=src_sent.idx))
     if self.compute_report:
       attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
       self.report_sent_info({"attentions": attentions,
@@ -365,7 +364,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable, 
     loss = self.decoder.output_and_loss(h_block, concat_t_block)
     return FactoredLossExpr({"mle": loss})
 
-  def generate(self, src, idx, forced_trg_ids=None, search_strategy=None):
+  def generate(self, src, forced_trg_ids=None, search_strategy=None):
     self.start_sent(src)
     if not batchers.is_batched(src):
       src = batchers.mark_as_batch([src])
@@ -461,8 +460,8 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable, base.EventTrigg
       model_loss.add_loss(loss_name, dy.average(losslist))
     return model_loss
 
-  def generate(self, src, idx, search_strategy, forced_trg_ids=None):
-    return self._proxy.generate(src, idx, search_strategy, forced_trg_ids=forced_trg_ids)
+  def generate(self, src, search_strategy, forced_trg_ids=None):
+    return self._proxy.generate(src, search_strategy, forced_trg_ids=forced_trg_ids)
 
 class EnsembleListDelegate(object):
   """

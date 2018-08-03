@@ -94,13 +94,12 @@ class GeneratorModel(object):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
 
-  def generate(self, src: batchers.Batch, idx: Sequence[int], *args, **kwargs) -> Sequence[sent.ReadableSentence]:
+  def generate(self, src: batchers.Batch, *args, **kwargs) -> Sequence[sent.ReadableSentence]:
     """
     Generate outputs.
 
     Args:
       src: batch of source-side inputs
-      idx: list of integers specifying the place of the input sentences in the test corpus
       *args:
       **kwargs: Further arguments to be specified by subclasses
     Returns:
