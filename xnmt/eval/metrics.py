@@ -370,7 +370,7 @@ class SequenceAccuracyScore(SentenceLevelEvalScore, Serializable):
                                  desc=desc)
 
 
-class FScore(SentenceLevelEvalScore, Serializable):
+class FMeasure(SentenceLevelEvalScore, Serializable):
   yaml_tag = "!FScore"
   @serializable_init
   def __init__(self, true_pos: int, false_neg: int, false_pos: int, desc: Any = None):
@@ -920,7 +920,7 @@ class SequenceAccuracyEvaluator(SentenceLevelEvaluator, Serializable):
     return SequenceAccuracyScore(num_correct=correct, num_total=1)
 
 
-class FScoreEvaluator(SentenceLevelEvaluator, Serializable):
+class FMeasureEvaluator(SentenceLevelEvaluator, Serializable):
   """
   A class to evaluate the quality of output in terms of classification F-score.
 
@@ -928,7 +928,7 @@ class FScoreEvaluator(SentenceLevelEvaluator, Serializable):
     pos_token: token for the 'positive' class
     write_sentence_scores: path of file to write sentence-level scores to (in YAML format)
   """
-  yaml_tag = "!FScoreEvaluator"
+  yaml_tag = "!FMeasureEvaluator"
   @serializable_init
   def __init__(self, pos_token:str="1", write_sentence_scores: Optional[str] = None) -> None:
     super().__init__(write_sentence_scores=write_sentence_scores)

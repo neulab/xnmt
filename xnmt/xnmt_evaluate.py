@@ -25,7 +25,7 @@ eval_shortcuts = {
   "cer": lambda: metrics.CEREvaluator(),
   "recall": lambda: metrics.RecallEvaluator(),
   "accuracy": lambda: metrics.SequenceAccuracyEvaluator(),
-  "fscore" : lambda: metrics.FScoreEvaluator(),
+  "fmeasure" : lambda: metrics.FMeasureEvaluator(),
 }
 
 
