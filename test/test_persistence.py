@@ -1,11 +1,13 @@
 import unittest
-import copy
+import os
+import shutil
 
 import yaml
 
 import xnmt
-from xnmt import utils, persistence
-from xnmt.persistence import Path, YamlPreloader, Serializable, serializable_init, bare
+from xnmt import events, param_collections, utils
+from xnmt.persistence import Path, YamlPreloader, Serializable, serializable_init, bare, initialize_if_needed,\
+  save_to_file
 
 class TestPath(unittest.TestCase):
 
@@ -253,6 +255,50 @@ class TestPreloader(unittest.TestCase):
     self.assertFalse(hasattr(test_obj["b"], "arg3"))
     self.assertEqual(test_obj["c"], "val1/bla")
     self.assertListEqual(test_obj["d"], ["bla", "bla.val2"])
+
+class DummyArgClass(Serializable):
+  yaml_tag = "!DummyArgClass"
+  @serializable_init
+  def __init__(self, arg1, arg2):
+    pass # arg1 and arg2 are purposefully not kept
+class DummyArgClass2(Serializable):
+  yaml_tag = "!DummyArgClass2"
+  @serializable_init
+  def __init__(self, v):
+    self.v = v
+
+class TestSaving(unittest.TestCase):
+  def setUp(self):
+    events.clear()
+    yaml.add_representer(DummyArgClass, xnmt.init_representer)
+    yaml.add_representer(DummyArgClass2, xnmt.init_representer)
+    self.out_dir = os.path.join("test", "tmp")
+    utils.make_parent_dir(os.path.join(self.out_dir, "asdf"))
+    self.model_file = os.path.join(self.out_dir, "saved.mod")
+    param_collections.ParamManager.init_param_col()
+    param_collections.ParamManager.param_col.model_file = self.model_file
+
+  def test_1(self):
+    test_obj = yaml.load("""
+                         a: !DummyArgClass
+                           arg1: !DummyArgClass2
+                             v: !DummyArgClass2
+                               _xnmt_id: id1
+                               v: some_val
+                           arg2: !DummyArgClass2
+                             v: !Ref { name: id1 }
+                         """)
+    preloaded = YamlPreloader.preload_obj(root=test_obj,exp_name="exp1",exp_dir=self.out_dir)
+    initalized = initialize_if_needed(preloaded)
+    save_to_file(self.model_file, initalized)
+    print("break")
+
+  def tearDown(self):
+    try:
+      if os.path.isdir(os.path.join("test","tmp")):
+        shutil.rmtree(os.path.join("test","tmp"))
+    except:
+      pass
 
 if __name__ == '__main__':
   unittest.main()
