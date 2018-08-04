@@ -278,7 +278,19 @@ class TestSaving(unittest.TestCase):
     param_collections.ParamManager.init_param_col()
     param_collections.ParamManager.param_col.model_file = self.model_file
 
-  def test_1(self):
+  def test_shallow(self):
+    test_obj = yaml.load("""
+                         a: !DummyArgClass
+                           arg1: !DummyArgClass2
+                             _xnmt_id: id1
+                             v: some_val
+                           arg2: !Ref { name: id1 }
+                         """)
+    preloaded = YamlPreloader.preload_obj(root=test_obj,exp_name="exp1",exp_dir=self.out_dir)
+    initalized = initialize_if_needed(preloaded)
+    save_to_file(self.model_file, initalized)
+
+  def test_mid(self):
     test_obj = yaml.load("""
                          a: !DummyArgClass
                            arg1: !DummyArgClass2
@@ -291,7 +303,22 @@ class TestSaving(unittest.TestCase):
     preloaded = YamlPreloader.preload_obj(root=test_obj,exp_name="exp1",exp_dir=self.out_dir)
     initalized = initialize_if_needed(preloaded)
     save_to_file(self.model_file, initalized)
-    print("break")
+
+  def test_deep(self):
+    test_obj = yaml.load("""
+                         a: !DummyArgClass
+                           arg1: !DummyArgClass2
+                             v: !DummyArgClass2
+                               v: !DummyArgClass2
+                                 _xnmt_id: id1
+                                 v: some_val
+                           arg2: !DummyArgClass2
+                             v: !DummyArgClass2
+                               v: !Ref { name: id1 }
+                         """)
+    preloaded = YamlPreloader.preload_obj(root=test_obj,exp_name="exp1",exp_dir=self.out_dir)
+    initalized = initialize_if_needed(preloaded)
+    save_to_file(self.model_file, initalized)
 
   def tearDown(self):
     try:
