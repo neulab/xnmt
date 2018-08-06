@@ -1,6 +1,7 @@
 import sys, os
 import logging
 
+import tensorboardX
 import yaml
 
 from xnmt.settings import settings
@@ -55,6 +56,22 @@ logger.addHandler(ch_err)
 yaml_logger = logging.getLogger("yaml")
 yaml_logger.setLevel(logging.INFO)
 
+class TensorboardCustomWriter(object):
+  def __init__(self):
+    self.out_file_name = None
+    self.writer = None
+  def set_out_file(self, out_file_name):
+    self.out_file_name = out_file_name
+    self.writer = tensorboardX.SummaryWriter()
+  def flush(self):
+    self.writer.export_scalars_to_json(self.out_file_name)
+  def unset_out_file(self):
+    self.out_file_name = None
+  def add_scalars(self, *args, **kwargs):
+    return self.writer.add_scalars(*args, **kwargs)
+
+tensorboard_writer = TensorboardCustomWriter()
+
 _preamble_content = []
 def log_preamble(log_line, level=logging.INFO):
   """
@@ -87,6 +104,7 @@ def set_out_file(out_file):
   yaml_fh.setFormatter(YamlFormatter())
   yaml_fh.setLevel(logging.DEBUG)
   yaml_logger.addHandler(yaml_fh)
+  tensorboard_writer.set_out_file(f"{out_file}.tb.json")
 
 def unset_out_file():
   """
@@ -103,6 +121,7 @@ def unset_out_file():
   for hdlr in list(logger_file.handlers):
     hdlr.close()
     logger_file.removeHandler(hdlr)
+  tensorboard_writer.unset_out_file()
 
 class Tee(object):
   def __init__(self, indent=0, error=False):
