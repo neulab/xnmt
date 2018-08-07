@@ -84,7 +84,7 @@ def main(overwrite_args=None):
                        f"or specifying --settings=debug, or changing xnmt.settings.Standard.OVERWRITE_LOG manually)")
         continue
 
-      tee.set_out_file(log_file)
+      tee.set_out_file(log_file, exp_name=experiment_name)
 
       try:
 
