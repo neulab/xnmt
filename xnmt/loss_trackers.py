@@ -82,7 +82,9 @@ class TrainLossTracker(object):
                                              args={loss_name: loss_values / self.epoch_words},
                                              n_iter=fractional_epoch,
                                              data_name="train",
-                                             task_name=self.name
+                                             task_name=self.name,
+                                             loss_name=loss_name,
+                                             loss=loss_values / self.epoch_words,
                                              )
 
       self.last_report_words = self.epoch_words
