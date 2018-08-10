@@ -201,25 +201,12 @@ class SimpleSentence(ReadableSentence):
   def create_padded_sent(self, pad_len: int) -> 'SimpleSentence':
     if pad_len == 0:
       return self
-    # Copy is used to copy all possible annotations
-    new_words = self.words + [self.pad_token] * pad_len
-    return SimpleSentence(words=new_words,
-                          idx=self.idx,
-                          vocab=self.vocab,
-                          score=self.score,
-                          output_procs=self.output_procs,
-                          pad_token=self.pad_token)
+    return self.sent_with_new_words(self.words + [self.pad_token] * pad_len)
 
   def create_truncated_sent(self, trunc_len: int) -> 'SimpleSentence':
     if trunc_len == 0:
       return self
-    new_words = self.words[:-trunc_len]
-    return SimpleSentence(words=new_words,
-                          idx=self.idx,
-                          vocab=self.vocab,
-                          score=self.score,
-                          output_procs=self.output_procs,
-                          pad_token=self.pad_token)
+    return self.sent_with_words(self.words[:-trunc_len])
 
   def str_tokens(self, exclude_ss_es=True, exclude_unk=False, exclude_padded=True, **kwargs) -> List[str]:
     exclude_set = set()
@@ -232,28 +219,20 @@ class SimpleSentence(ReadableSentence):
     if self.vocab: return [self.vocab[w] for w in ret_toks]
     else: return [str(w) for w in ret_toks]
 
+  def sent_with_new_words(self, new_words):
+    return SimpleSentence(words=new_words,
+                          idx=self.idx,
+                          vocab=self.vocab,
+                          score=self.score,
+                          output_procs=self.output_procs,
+                          pad_token=self.pad_token)
+
 class SegmentedSentence(SimpleSentence):
   def __init__(self, segment=[], **kwargs) -> None:
     super().__init__(**kwargs)
     self.segment = segment
 
-  def create_padded_sent(self, pad_len: int) -> 'SimpleSentence':
-    if pad_len == 0:
-      return self
-    # Copy is used to copy all possible annotations
-    new_words = self.words + [self.pad_token] * pad_len
-    return SegmentedSentence(words=new_words,
-                             idx=self.idx,
-                             vocab=self.vocab,
-                             score=self.score,
-                             output_procs=self.output_procs,
-                             pad_token=self.pad_token,
-                             segment=self.segment)
-
-  def create_truncated_sent(self, trunc_len: int) -> 'SimpleSentence':
-    if trunc_len == 0:
-      return self
-    new_words = self.words[:-trunc_len]
+  def sent_with_new_words(self, new_words):
     return SegmentedSentence(words=new_words,
                              idx=self.idx,
                              vocab=self.vocab,
