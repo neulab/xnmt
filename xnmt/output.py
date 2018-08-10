@@ -86,4 +86,5 @@ class JoinPieceTextOutputProcessor(OutputProcessor, Serializable):
     self.space_token = space_token
 
   def process(self, s: str) -> str:
-    return s.replace(self.space_token, " ").strip()
+    return s.replace(" ", "").replace(self.space_token, " ").strip()
+

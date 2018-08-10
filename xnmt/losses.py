@@ -79,6 +79,8 @@ class FactoredLossExpr(object):
   def __len__(self):
     return len(self.expr_factors)
 
+  def __mul__(self, scalar):
+    return FactoredLossExpr({key: scalar*value for key, value in self.expr_factors.items()})
 
 class FactoredLossVal(object):
   
