@@ -60,9 +60,6 @@ class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
     """
     self.trg_vocab = trg_vocab
 
-  def get_primary_loss(self) -> str:
-    return "mle"
-
   def get_nobp_state(self, state):
     output_state = state.rnn_state.output()
     if type(output_state) == EnsembleListDelegate:
