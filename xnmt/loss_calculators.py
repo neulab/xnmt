@@ -56,8 +56,8 @@ class GlobalFertilityLoss(Serializable, LossCalculator):
   """
   yaml_tag = '!GlobalFertilityLoss'
   @serializable_init
-  def __init__(self, weight:float = 1) -> None:
-    self.weight = weight
+  def __init__(self) -> None:
+    pass
 
   def calc_loss(self,
                 model: 'model_base.ConditionedModel',
@@ -71,7 +71,7 @@ class GlobalFertilityLoss(Serializable, LossCalculator):
       masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
     
     loss = self.global_fertility(masked_attn)
-    return FactoredLossExpr({"global_fertility": self.weight * loss})
+    return FactoredLossExpr({"global_fertility": loss})
 
   def global_fertility(self, a):
     return dy.sum_elems(dy.square(1 - dy.esum(a))) 
@@ -82,16 +82,21 @@ class CompositeLoss(Serializable, LossCalculator):
   """
   yaml_tag = "!CompositeLoss"
   @serializable_init
-  def __init__(self, losses:List[LossCalculator]):
+  def __init__(self, losses:List[LossCalculator], loss_weight=None):
     self.losses = losses
+    if loss_weight is None:
+      self.loss_weight = [1.0 for _ in range(len(losses))]
+    else:
+      self.loss_weight = loss_weight
+    assert len(self.loss_weight) == len(losses)
 
   def calc_loss(self,
                 model: 'model_base.ConditionedModel',
                 src: Union[sent.Sentence, 'batchers.Batch'],
                 trg: Union[sent.Sentence, 'batchers.Batch']):
     total_loss = FactoredLossExpr()
-    for loss in self.losses:
-      total_loss.add_factored_loss_expr(loss.calc_loss(model, src, trg))
+    for loss, weight in zip(self.losses, self.loss_weight):
+      total_loss.add_factored_loss_expr(loss.calc_loss(model, src, trg) * weight)
     return total_loss
 
 class ReinforceLoss(Serializable, LossCalculator):
