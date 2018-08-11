@@ -270,9 +270,12 @@ class Ref(Serializable):
     """Return name, or ``None`` if this is not a named reference"""
     return getattr(self, "name", None)
 
-  def get_path(self) -> 'Path':
+  def get_path(self) -> Optional['Path']:
     """Return path, or ``None`` if this is a named reference"""
-    return getattr(self, "path", None)
+    if getattr(self, "path", None):
+      if isinstance(self.path, str): self.path = Path(self.path)
+      return self.path
+    return None
 
   def is_required(self) -> bool:
     """Return ``True`` iff there exists no default value and it is mandatory that this reference be resolved."""
@@ -545,6 +548,8 @@ def _get_child_serializable(node, name):
     return _get_child(node.serialize_params, name)
   else:
     if not hasattr(node, name):
+      if name=="m":
+        print("break")
       raise PathError(f"{node} has no child named {name}")
     return getattr(node, name)
 
