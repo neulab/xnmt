@@ -136,7 +136,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
     """
     Main training loop (overwrites TrainingRegimen.run_training())
     """
-    if self.run_for_epochs > 0:
+    if self.run_for_epochs is None or self.run_for_epochs > 0:
       for src, trg in self.next_minibatch():
         if self.dev_zero:
           self.checkpoint_and_save(save_fct)
