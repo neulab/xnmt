@@ -13,6 +13,9 @@ class TestRunningConfig(unittest.TestCase):
   def test_assemble(self):
     run.main(["test/config/assemble.yaml"])
 
+  def test_cascade(self):
+    run.main(["test/config/cascade.yaml"])
+
   def test_classifier(self):
     run.main(["test/config/classifier.yaml"])
 
