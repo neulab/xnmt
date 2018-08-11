@@ -1332,7 +1332,7 @@ def _resolve_serialize_refs(root):
       if not hasattr(node, "serialize_params"):
         raise ValueError(f"Cannot serialize node that has no serialize_params attribute: {node}\n"
                          "Did you forget to wrap the __init__() in @serializable_init ?")
-      xnmt.resolved_serialize_params[id(node)] = node.serialize_params
+      xnmt.resolved_serialize_params[id(node)] = dict(node.serialize_params)
     elif isinstance(node, collections.abc.MutableMapping):
       xnmt.resolved_serialize_params[id(node)] = dict(node)
     elif isinstance(node, collections.abc.Sequence):
