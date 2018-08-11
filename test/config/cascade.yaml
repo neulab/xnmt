@@ -35,8 +35,8 @@ cascade: !Experiment
     - !SimpleTrainingTask
       kwargs:
         << : *task1
-        src_file: 'examples/LDC94S13A.char'
-        trg_file: 'examples/LDC94S13A.char'
+        src_file: 'examples/data/LDC94S13A.char'
+        trg_file: 'examples/data/LDC94S13A.char'
         model: !DefaultTranslator
           src_embedder: !SimpleWordEmbedder
             emb_dim: 64
@@ -63,8 +63,8 @@ cascade: !Experiment
     - !AccuracyEvalTask
       desc: casc_acc
       eval_metrics: bleu
-      src_file: 'examples/LDC94S13A.h5'
-      ref_file: 'examples/LDC94S13A.words'
+      src_file: 'examples/data/LDC94S13A.h5'
+      ref_file: 'examples/data/LDC94S13A.words'
       hyp_file: '{EXP_DIR}/hyp/{EXP}.eval_casc_hyp'
       model: !CascadeGenerator
         generators:
