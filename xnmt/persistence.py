@@ -547,9 +547,6 @@ def _get_child_serializable(node, name):
     if not hasattr(node, name):
       raise PathError(f"{node} has no child named {name}")
     return getattr(node, name)
-  # if not hasattr(node, name):
-  #   raise PathError(f"{node} has no child named {name}")
-  # return getattr(node, name)
 
 
 @singledispatch
