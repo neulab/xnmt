@@ -270,6 +270,7 @@ class DummyArgClass2(Serializable):
 class TestSaving(unittest.TestCase):
   def setUp(self):
     events.clear()
+    xnmt.resolved_serialize_params = {}
     yaml.add_representer(DummyArgClass, xnmt.init_representer)
     yaml.add_representer(DummyArgClass2, xnmt.init_representer)
     self.out_dir = os.path.join("test", "tmp")
@@ -319,6 +320,22 @@ class TestSaving(unittest.TestCase):
     preloaded = YamlPreloader.preload_obj(root=test_obj,exp_name="exp1",exp_dir=self.out_dir)
     initalized = initialize_if_needed(preloaded)
     save_to_file(self.model_file, initalized)
+
+  def test_double_ref(self):
+    test_obj = yaml.load("""
+                         a: !DummyArgClass
+                           arg1: !DummyArgClass2
+                             _xnmt_id: id1
+                             v: some_val
+                           arg2:
+                             - !Ref { name: id1 }
+                             - !Ref { name: id1 }
+                         """)
+    preloaded = YamlPreloader.preload_obj(root=test_obj,exp_name="exp1",exp_dir=self.out_dir)
+    initalized = initialize_if_needed(preloaded)
+    save_to_file(self.model_file, initalized)
+
+
 
   def tearDown(self):
     try:
