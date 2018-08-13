@@ -64,7 +64,7 @@ class TensorboardCustomWriter(object):
   def set_out_file(self, out_file_name, exp_name):
     self.out_file_name = out_file_name
     self.exp_name = exp_name
-    self.writer = tensorboardX.SummaryWriter(log_dir=f"{out_file_name}.tb")
+    self.writer = tensorboardX.SummaryWriter(log_dir=f"{out_file_name}")
   def unset_out_file(self):
     self.out_file_name = None
   def add_scalars(self, name, *args, **kwargs):
