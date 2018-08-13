@@ -1331,10 +1331,10 @@ def _resolve_serialize_refs(root):
       if not hasattr(node, "serialize_params"):
         raise ValueError(f"Cannot serialize node that has no serialize_params attribute: {node}\n"
                          "Did you forget to wrap the __init__() in @serializable_init ?")
-      xnmt.resolved_serialize_params[id(node)] = dict(node.serialize_params)
+      xnmt.resolved_serialize_params[id(node)] = node.serialize_params
     elif isinstance(node, collections.abc.MutableMapping):
       xnmt.resolved_serialize_params[id(node)] = dict(node)
-    elif isinstance(node, collections.abc.Sequence):
+    elif isinstance(node, collections.abc.MutableSequence):
       xnmt.resolved_serialize_params[id(node)] = list(node)
   if not ParamManager.param_col.all_subcol_owners <= all_serializable:
     raise RuntimeError(f"Not all registered DyNet parameter collections written out. "
@@ -1344,7 +1344,7 @@ def _resolve_serialize_refs(root):
   refs_inserted_at = set()
   refs_inserted_to = set()
   for path_to, node in _traverse_serializable(root):
-    if not refs_inserted_at & path_to.ancestors() and not refs_inserted_at & path_to.ancestors():
+    if not refs_inserted_at & path_to.ancestors():
       if isinstance(node, Serializable):
         for path_from, matching_node in _traverse_serializable(root):
           if not path_from in refs_inserted_to:

@@ -108,7 +108,7 @@ class GeneratorModel(object):
 
 class CascadeGenerator(GeneratorModel, Serializable):
   """
-  A cascade that chains several generator models.
+  A cascade that chains two generator models.
 
   This generator does not support calling ``generate()`` directly. Instead, it's sub-generators should be accessed
   and used to generate outputs one by one.
@@ -119,9 +119,13 @@ class CascadeGenerator(GeneratorModel, Serializable):
   yaml_tag = '!CascadeGenerator'
 
   @serializable_init
-  def __init__(self, generators: Sequence[GeneratorModel]) -> None:
-    super().__init__(src_reader = generators[0].src_reader, trg_reader = generators[-1].trg_reader)
-    self.generators = generators
+  def __init__(self, generator1: GeneratorModel, generator2: GeneratorModel) -> None:
+    super().__init__(src_reader = generator1.src_reader, trg_reader = generator2.trg_reader)
+    self.generators = [generator1, generator2]
+  # TODO: not supported with serialization, but should use arbitrary number of sub-models like so:
+  # def __init__(self, generators: Sequence[GeneratorModel]) -> None:
+  #   super().__init__(src_reader = generators[0].src_reader, trg_reader = generators[-1].trg_reader)
+  #   self.generators = generators
 
   def generate(self, *args, **kwargs):
     raise ValueError("cannot call CascadeGenerator.generate() directly; access the sub-generators instead.")
