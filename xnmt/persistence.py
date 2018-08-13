@@ -1322,7 +1322,9 @@ class _YamlDeserializer(object):
     return initialized_obj
 
 def _resolve_serialize_refs(root):
-  all_serializable = set()
+  all_serializable = set() # for DyNet param check
+
+  # gather all non-basic types (Serializable, list, dict) in the global dictionary xnmt.resolved_serialize_params
   for _, node in _traverse_serializable(root):
     if isinstance(node, Serializable):
       all_serializable.add(node)
@@ -1334,29 +1336,37 @@ def _resolve_serialize_refs(root):
       xnmt.resolved_serialize_params[id(node)] = dict(node)
     elif isinstance(node, collections.abc.MutableSequence):
       xnmt.resolved_serialize_params[id(node)] = list(node)
+
   if not ParamManager.param_col.all_subcol_owners <= all_serializable:
     raise RuntimeError(f"Not all registered DyNet parameter collections written out. "
                        f"Missing: {ParamManager.param_col.all_subcol_owners - all_serializable}.\n"
                        f"This indicates that potentially not all components adhere to the protocol of using "
                        f"Serializable.add_serializable_component() for creating serializable sub-components.")
+
   refs_inserted_at = set()
   refs_inserted_to = set()
-  for path_to, node in _traverse_serializable(root):
-    if not refs_inserted_at & path_to.ancestors():
-      if isinstance(node, Serializable):
-        for path_from, matching_node in _traverse_serializable(root):
-          if not path_from in refs_inserted_to:
-            if path_from!=path_to and matching_node is node:
-                ref = Ref(path=path_to)
-                xnmt.resolved_serialize_params[id(ref)] = ref.serialize_params
-                _set_descendant(xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent()))], Path(path_from[-1]), ref)
-                if isinstance(_get_descendant(root, path_from.parent()), (collections.abc.MutableMapping, collections.abc.Sequence)):
-                  assert isinstance(_get_descendant(root, path_from.parent().parent()), Serializable), \
-                    "resolving references inside nested lists/dicts is not yet implemented"
-                  xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent().parent()))][
-                    path_from[-2]] = xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent()))]
-                refs_inserted_at.add(path_from)
-                refs_inserted_to.add(path_from)
+  for path_trg, node_trg in _traverse_serializable(root): # loop potential reference targets
+    if not refs_inserted_at & path_trg.ancestors(): # skip target if it or its ancestor has already been replaced by a reference
+      if isinstance(node_trg, Serializable):
+        for path_src, node_src in _traverse_serializable(root): # loop potential nodes that should be replaced by a reference to the current target
+          if not path_src in refs_inserted_to: # don't replace by reference if someone is pointing to this node already
+            if path_src!=path_trg and node_src is node_trg: # don't reference to self
+              # now we're ready to create a reference from node_src to node_trg (node_src will be replaced, node_trg remains unchanged)
+              ref = Ref(path=path_trg)
+              xnmt.resolved_serialize_params[id(ref)] = ref.serialize_params # make sure the reference itself can be properly serialized
+
+              src_node_parent = _get_descendant(root, path_src.parent())
+              src_node_parent_serialize_params = xnmt.resolved_serialize_params[id(src_node_parent)]
+              _set_descendant(src_node_parent_serialize_params, Path(path_src[-1]), ref)
+              if isinstance(src_node_parent, (collections.abc.MutableMapping, collections.abc.Sequence)):
+                assert isinstance(_get_descendant(root, path_src.parent().parent()), Serializable), \
+                  "resolving references inside nested lists/dicts is not yet implemented"
+                src_node_grandparent = _get_descendant(root, path_src.parent().parent())
+                src_node_parent_name = path_src[-2]
+                xnmt.resolved_serialize_params[id(src_node_grandparent)][src_node_parent_name] = \
+                  xnmt.resolved_serialize_params[id(src_node_parent)]
+              refs_inserted_at.add(path_src)
+              refs_inserted_to.add(path_trg)
 
 def _dump(ser_obj):
   assert len(xnmt.resolved_serialize_params)==0
