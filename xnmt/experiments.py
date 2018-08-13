@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict
+from typing import Any, Dict, List, Optional
 
 from xnmt.param_initializers import ParamInitializer, GlorotInitializer, ZeroInitializer
 from xnmt.settings import settings
@@ -48,7 +48,7 @@ class ExpGlobal(Serializable):
                loss_comb_method: str = "sum",
                compute_report: bool = False,
                commandline_args: dict = {},
-               placeholders: Dict[str, str] = {}) -> None:
+               placeholders: Dict[str, Any] = {}) -> None:
     self.model_file = model_file
     self.log_file = log_file
     self.dropout = dropout
