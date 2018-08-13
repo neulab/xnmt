@@ -119,7 +119,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
 
   def _encode_src(self, src: Union[batchers.Batch, sent.Sentence]):
-    event_trigger.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     encoding = self.encoder.transduce(embeddings)
     final_state = self.encoder.get_final_states()
@@ -129,6 +128,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     return initial_state
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
+    event_trigger.start_sent(src)
     if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
     # Encode the sentence
     initial_state = self._encode_src(src)
@@ -232,6 +232,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     Returns:
       A list of search outputs including scores, etc.
     """
+    event_trigger.start_sent(src)
     if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
     assert src.batch_size() == 1
     search_outputs = self.generate_search_output(src, search_strategy, forced_trg_ids)
