@@ -548,8 +548,6 @@ def _get_child_serializable(node, name):
     return _get_child(node.serialize_params, name)
   else:
     if not hasattr(node, name):
-      if name=="m":
-        print("break")
       raise PathError(f"{node} has no child named {name}")
     return getattr(node, name)
 
