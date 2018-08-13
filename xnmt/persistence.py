@@ -544,9 +544,9 @@ def _get_child_dict(node, name):
 
 @_get_child.register(Serializable)
 def _get_child_serializable(node, name):
-  if hasattr(node, "serialize_params"):
-    return _get_child(node.serialize_params, name)
-  else:
+  # if hasattr(node, "serialize_params"):
+  #   return _get_child(node.serialize_params, name)
+  # else:
     if not hasattr(node, name):
       raise PathError(f"{node} has no child named {name}")
     return getattr(node, name)
@@ -1358,7 +1358,7 @@ def _resolve_serialize_refs(root):
               src_node_parent = _get_descendant(root, path_src.parent())
               src_node_parent_serialize_params = xnmt.resolved_serialize_params[id(src_node_parent)]
               _set_descendant(src_node_parent_serialize_params, Path(path_src[-1]), ref)
-              if isinstance(src_node_parent, (collections.abc.MutableMapping, collections.abc.Sequence)):
+              if isinstance(src_node_parent, (collections.abc.MutableMapping, collections.abc.MutableSequence)):
                 assert isinstance(_get_descendant(root, path_src.parent().parent()), Serializable), \
                   "resolving references inside nested lists/dicts is not yet implemented"
                 src_node_grandparent = _get_descendant(root, path_src.parent().parent())
