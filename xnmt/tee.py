@@ -105,7 +105,7 @@ def set_out_file(out_file, exp_name):
   yaml_fh.setFormatter(YamlFormatter())
   yaml_fh.setLevel(logging.DEBUG)
   yaml_logger.addHandler(yaml_fh)
-  tensorboard_writer.set_out_file(f"{out_file}.tb.json", exp_name=exp_name)
+  tensorboard_writer.set_out_file(f"{out_file}.tb", exp_name=exp_name)
 
 def unset_out_file():
   """
