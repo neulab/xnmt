@@ -1,4 +1,0 @@
-librosa # for audio feature extraction
-sentencepiece>=0.0.6
-docopt
-tensorflow # for tensorboard visualization
