@@ -119,7 +119,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
 
   def _encode_src(self, src: Union[batchers.Batch, sent.Sentence]):
-    event_trigger.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     encoding = self.encoder.transduce(embeddings)
     final_state = self.encoder.get_final_states()
@@ -129,6 +128,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     return initial_state
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
+    event_trigger.start_sent(src)
+    if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
     # Encode the sentence
     initial_state = self._encode_src(src)
 
@@ -201,8 +202,9 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     if src.batch_size()!=1:
       raise NotImplementedError("batched decoding not implemented for DefaultTranslator. "
                                 "Specify inference batcher with batch size 1.")
-    # Generating outputs
     event_trigger.start_sent(src)
+    if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
+    # Generating outputs
     cur_forced_trg = None
     src_sent = src[0]
     sent_mask = None
@@ -233,6 +235,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     """
     assert src.batch_size() == 1
     search_outputs = self.generate_search_output(src, search_strategy, forced_trg_ids)
+    if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
     sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
     assert len(sorted_outputs) >= 1
     outputs = []

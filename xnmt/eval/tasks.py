@@ -39,11 +39,16 @@ class LossEvalTask(EvalTask, Serializable):
   yaml_tag = '!LossEvalTask'
 
   @serializable_init
-  def __init__(self, src_file: str, ref_file: Optional[str] = None, model: 'model_base.GeneratorModel' = Ref("model"),
+  def __init__(self,
+               src_file: Union[str, Sequence[str]],
+               ref_file: Optional[str] = None,
+               model: 'model_base.GeneratorModel' = Ref("model"),
                batcher: Batcher = Ref("train.batcher", default=bare(xnmt.batchers.SrcBatcher, batch_size=32)),
-               loss_calculator: LossCalculator = bare(MLELoss), max_src_len: Optional[int] = None,
+               loss_calculator: LossCalculator = bare(MLELoss),
+               max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
-               loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"), desc: Any = None):
+               loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
+               desc: Any = None):
     self.model = model
     self.loss_calculator = loss_calculator
     self.src_file = src_file
