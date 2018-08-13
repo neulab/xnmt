@@ -203,7 +203,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
       raise NotImplementedError("batched decoding not implemented for DefaultTranslator. "
                                 "Specify inference batcher with batch size 1.")
     # Generating outputs
-    event_trigger.start_sent(src)
     cur_forced_trg = None
     src_sent = src[0]
     sent_mask = None
