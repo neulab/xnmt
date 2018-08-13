@@ -202,6 +202,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     if src.batch_size()!=1:
       raise NotImplementedError("batched decoding not implemented for DefaultTranslator. "
                                 "Specify inference batcher with batch size 1.")
+    event_trigger.start_sent(src)
+    if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
     # Generating outputs
     cur_forced_trg = None
     src_sent = src[0]
@@ -231,10 +233,9 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     Returns:
       A list of search outputs including scores, etc.
     """
-    event_trigger.start_sent(src)
-    if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
     assert src.batch_size() == 1
     search_outputs = self.generate_search_output(src, search_strategy, forced_trg_ids)
+    if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
     sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
     assert len(sorted_outputs) >= 1
     outputs = []
