@@ -142,7 +142,6 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
           self.checkpoint_and_save(save_fct)
           self.dev_zero = False
         with utils.ReportOnException({"src": src, "trg": trg, "graph": utils.print_cg_conditional}):
-          raise ValueError()
           dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
           with self.train_loss_tracker.time_tracker:
             event_trigger.set_train(True)
