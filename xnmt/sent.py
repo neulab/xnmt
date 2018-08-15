@@ -98,8 +98,11 @@ class ReadableSentence(Sentence):
     if isinstance(pps, OutputProcessor): pps = [pps]
     for pp in pps:
       out_str = pp.process(out_str)
-      # TODO: change output processor interface accordingly
     return out_str
+  def __repr__(self):
+    return f'"{self.sent_str()}"'
+  def __str__(self):
+    return self.sent_str()
 
 class ScalarSentence(ReadableSentence):
   """
@@ -177,12 +180,6 @@ class SimpleSentence(ReadableSentence):
     self.pad_token = pad_token
     self.words = words
     self.vocab = vocab
-
-  def __repr__(self):
-    return f"SimpleSentence({repr(self.words)})"
-
-  def __str__(self):
-    return self.sent_str()
 
   def __getitem__(self, key):
     ret = self.words[key]
