@@ -6,8 +6,14 @@ import string
 import functools
 
 import numpy as np
+import dynet as dy
 
 from xnmt import logger, yaml_logger
+from xnmt.settings import settings
+
+def print_cg_conditional():
+  if settings.PRINT_CG_ON_ERROR:
+    dy.print_text_graphviz()
 
 def make_parent_dir(filename):
   if not os.path.exists(os.path.dirname(filename) or "."):

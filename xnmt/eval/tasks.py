@@ -80,7 +80,7 @@ class LossEvalTask(EvalTask, Serializable):
     loss_val = FactoredLossVal()
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
-      with utils.ReportOnException({"src": src, "trg": trg, "graph": dy.print_text_graphviz}):
+      with utils.ReportOnException({"src": src, "trg": trg, "graph": utils.print_cg_conditional}):
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
 
         loss = self.loss_calculator.calc_loss(self.model, src, trg)
