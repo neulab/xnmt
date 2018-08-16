@@ -80,9 +80,6 @@ class SequenceClassifier(models.ConditionedModel, models.GeneratorModel, Seriali
                                          score=score))
     return outputs
 
-  def get_primary_loss(self):
-    return "mle"
-
   def get_nobp_state(self, state):
     output_state = state.rnn_state.output()
     return output_state

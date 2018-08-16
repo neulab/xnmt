@@ -41,9 +41,6 @@ class LanguageModel(models.ConditionedModel, Serializable):
   def shared_params(self):
     return [{".src_embedder.emb_dim", ".encoder.input_dim"},]
 
-  def get_primary_loss(self):
-    return "mle"
-
   def calc_nll(self, src, trg):
     if not batchers.is_batched(src):
       src = batchers.ListBatch([src])

@@ -1,5 +1,7 @@
 from typing import Optional, Sequence, Union
 
+import dynet as dy
+
 from xnmt import batchers, input_readers, losses, sent
 from xnmt import event_trigger, loss_calculators
 from xnmt.persistence import Serializable, serializable_init
@@ -9,7 +11,7 @@ class TrainableModel(object):
   A template class for a basic trainable model, implementing a loss function.
   """
 
-  def calc_nll(self, *args, **kwargs) -> losses.FactoredLossExpr:
+  def calc_nll(self, *args, **kwargs) -> dy.Expression:
     """Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
@@ -19,13 +21,6 @@ class TrainableModel(object):
     Returns:
       A (possibly batched) expression representing the loss.
     """
-
-  def get_primary_loss(self) -> str:
-    """
-    Returns:
-      Identifier for primary loss.
-    """
-    raise NotImplementedError("Pick a key for primary loss that is used for dev_loss calculation")
 
 class UnconditionedModel(TrainableModel):
   """
@@ -38,7 +33,7 @@ class UnconditionedModel(TrainableModel):
   def __init__(self, trg_reader: input_readers.InputReader):
     self.trg_reader = trg_reader
 
-  def calc_nll(self, trg: Union[batchers.Batch, sent.Sentence]) -> losses.FactoredLossExpr:
+  def calc_nll(self, trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
     """Calculate loss based on target inputs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
@@ -64,8 +59,8 @@ class ConditionedModel(TrainableModel):
     self.src_reader = src_reader
     self.trg_reader = trg_reader
 
-  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence],
-                loss_calculator: loss_calculators.LossCalculator) -> losses.FactoredLossExpr:
+  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) \
+          -> dy.Expression:
     """Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.

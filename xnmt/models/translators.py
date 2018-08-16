@@ -60,9 +60,6 @@ class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
     """
     self.trg_vocab = trg_vocab
 
-  def get_primary_loss(self) -> str:
-    return "mle"
-
   def get_nobp_state(self, state):
     output_state = state.rnn_state.output()
     if type(output_state) == EnsembleListDelegate:
@@ -358,7 +355,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     e = dy.reshape(e, (units, length), batch_size=batch)
     return e
 
-  def calc_loss(self, src, trg, loss_cal=None, infer_prediction=False):
+  def calc_loss(self, src, trg, infer_prediction=False):
     event_trigger.start_sent(src)
     if not batchers.is_batched(src):
       src = batchers.mark_as_batch([src])
@@ -491,7 +488,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable):
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
     sub_losses = collections.defaultdict(list)
     for model in self.models:
-      for loss_name, loss in model.calc_loss(src, trg).expr_factors.items():
+      for loss_name, loss in model.calc_nll(src, trg).expr_factors.items():
         sub_losses[loss_name].append(loss)
     model_loss = FactoredLossExpr()
     for loss_name, losslist in sub_losses.items():
