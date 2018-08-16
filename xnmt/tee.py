@@ -1,10 +1,11 @@
 import sys, os
 import logging
 
+import tensorboardX
 import yaml
 
 from xnmt.settings import settings
-from xnmt.utils import make_parent_dir
+from xnmt import utils
 import xnmt.git_rev
 
 STD_OUTPUT_LEVELNO = 35
@@ -55,6 +56,22 @@ logger.addHandler(ch_err)
 yaml_logger = logging.getLogger("yaml")
 yaml_logger.setLevel(logging.INFO)
 
+class TensorboardCustomWriter(object):
+  def __init__(self):
+    self.out_file_name = None
+    self.writer = None
+    self.exp_name = None
+  def set_out_file(self, out_file_name, exp_name):
+    self.out_file_name = out_file_name
+    self.exp_name = exp_name
+    self.writer = tensorboardX.SummaryWriter(log_dir=f"{out_file_name}")
+  def unset_out_file(self):
+    self.out_file_name = None
+  def add_scalars(self, name, *args, **kwargs):
+    return self.writer.add_scalars(f"{self.exp_name}/{name}", *args, **kwargs)
+
+tensorboard_writer = TensorboardCustomWriter()
+
 _preamble_content = []
 def log_preamble(log_line, level=logging.INFO):
   """
@@ -66,14 +83,15 @@ def log_preamble(log_line, level=logging.INFO):
   _preamble_content.append(log_line)
   logger.log(level=level, msg=log_line)
 
-def set_out_file(out_file):
+def set_out_file(out_file, exp_name):
   """
   Set the file to log to. Before calling this, logs are only passed to stdout/stderr.
   Args:
     out_file: file name
+    exp_name: name of experiment
   """
   unset_out_file()
-  make_parent_dir(out_file)
+  utils.make_parent_dir(out_file)
   with open(out_file, mode="w") as f_out:
     for line in _preamble_content:
       f_out.write(f"{line}\n")
@@ -87,6 +105,7 @@ def set_out_file(out_file):
   yaml_fh.setFormatter(YamlFormatter())
   yaml_fh.setLevel(logging.DEBUG)
   yaml_logger.addHandler(yaml_fh)
+  tensorboard_writer.set_out_file(f"{out_file}.tb", exp_name=exp_name)
 
 def unset_out_file():
   """
@@ -103,6 +122,7 @@ def unset_out_file():
   for hdlr in list(logger_file.handlers):
     hdlr.close()
     logger_file.removeHandler(hdlr)
+  tensorboard_writer.unset_out_file()
 
 class Tee(object):
   def __init__(self, indent=0, error=False):

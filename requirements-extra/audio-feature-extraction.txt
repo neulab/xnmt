@@ -1,0 +1,2 @@
+# needed for audio feature extraction via !MelFiltExtractor
+librosa
