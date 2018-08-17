@@ -123,22 +123,22 @@ class VocabBasedComposer(SingleComposer):
       raise ValueError("Should not delete any id when not learning")
 
   def convert(self, word):
+    self.current_word = word
     if self.vocab is not None:
       wordid = self.vocab.convert(word)
     elif word not in self.lrucache:
       if self.train:
-        if len(self.id_pool) != 0:
-          wordid = self.id_pool.pop()
-        else:
-          wordid = len(self.lrucache)
+        wordid = len(self.lrucache)
         self.lrucache[word] = wordid  # Cache value
+        if wordid == self.lrucache.size():
+          self.lrucache[word] = self.id_pool.pop()
       else:
-        wordid = self.lru_cache.size()  # Unknown ID
+        wordid = self.lrucache.size()  # Unknown ID
     else:
       wordid = self.lrucache[word]
     return wordid
 
-  @register_xnmt_handler
+  @handle_xnmt_event
   def on_set_train(self, train):
     self.train = train
 
@@ -175,6 +175,7 @@ class LookupComposer(VocabBasedComposer, Serializable):
     # Serializations
     self.save_processed_arg("lrucache", self.lrucache)
     self.save_processed_arg("dict_entry", self.dict_entry)
+    self.hidden_dim = hidden_dim
 
   def transduce(self, inputs):
     return dy.lookup(self.embedding, self.convert(self.word))
@@ -188,7 +189,9 @@ class LookupComposer(VocabBasedComposer, Serializable):
 
   def on_id_delete(self, wordid):
     assert self.train and self.learn_vocab
-    # TODO
+    # TODO(philip30): reset the value of self.embedding
+    # self.embedding is a lookup parameter with dimension (self.dict_entry, hidden_dim)
+    # we need to set the row value of [wordid] with glorot initializer
 
 class CharNGramComposer(VocabBasedComposer, Serializable):
   """
@@ -227,6 +230,7 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
     # Word Embedding
     emb_dim = (self.dict_entry, hidden_dim)
     self.ngram_size = ngram_size
+    embed_dim = (self.dict_entry, hidden_dim)
     self.embedding = self.add_serializable_component("embedding", embedding,
                                                       lambda: Linear(input_dim=self.dict_entry,
                                                                      output_dim=hidden_dim,
@@ -238,7 +242,6 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
     self.save_processed_arg("lrucache", self.lrucache)
     self.save_processed_arg("ngram_size", self.ngram_size)
     self.save_processed_arg("dict_entry", self.dict_entry)
-
 
   def transduce(self, inputs):
     ngrams = [self.convert(ngram) for ngram in self.word_vect.keys()]
@@ -264,7 +267,10 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
 
   def on_id_delete(self, wordid):
     assert self.train and self.learn_vocab
-    # TODO
+    # TODO(philip30): reset the value of self.embedding
+    # self.embedding is a Linear Parameter with dimension (self.dict_entry, hidden_dim) for W and
+    # (self.dict_entry, 1) for b
+    # we need to set the row value of W[wordid] with glorot initializer and set b[wordid] with Zero
 
 class SumMultipleComposer(SingleComposer, Serializable):
   yaml_tag = "!SumMultipleComposer"
