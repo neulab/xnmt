@@ -91,6 +91,11 @@ def serializable_init(f):
     if "yaml_path" in serialize_params: del serialize_params["yaml_path"]
     obj.serialize_params = serialize_params
     obj.init_completed = True
+    # TODO: the below is needed for proper reference creation when saving the model, but should be replaced with
+    # something safer
+    for key, arg in serialize_params.items():
+      if not hasattr(obj, key):
+        setattr(obj, key, arg)
 
   wrapper.uses_serializable_init = True
   return wrapper
