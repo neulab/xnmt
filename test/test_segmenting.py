@@ -260,7 +260,7 @@ class TestComposing(unittest.TestCase):
     self.assertDictEqual(act, exp)
 
     event_trigger.set_train(False)
-    enc.segment_composer.set_word((5, 5, 5))
+    enc.segment_composer.set_word((3, 3, 2))
     enc.segment_composer.transduce([])
 
   def test_add_multiple_segment_composer(self):
