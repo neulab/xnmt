@@ -6,8 +6,14 @@ import string
 import functools
 
 import numpy as np
+import dynet as dy
 
 from xnmt import logger, yaml_logger
+from xnmt.settings import settings
+
+def print_cg_conditional():
+  if settings.PRINT_CG_ON_ERROR:
+    dy.print_text_graphviz()
 
 def make_parent_dir(filename):
   if not os.path.exists(os.path.dirname(filename) or "."):
@@ -34,10 +40,18 @@ def format_time(seconds):
   return "{}-{}".format(int(seconds) // 86400,
                         time.strftime("%H:%M:%S", time.gmtime(seconds)))
 
-def log_readable_and_structured(template, args, task_name=None):
-  if task_name: args["task_name"] = task_name
-  logger.info(template.format(**args), extra=args)
-  yaml_logger.info(args)
+def log_readable_and_tensorboard(template, args, n_iter, data_name, task_name=None, **kwargs):
+  log_args = dict(args)
+  log_args["data_name"] = data_name
+  log_args["epoch"] = n_iter
+  log_args.update(kwargs)
+  if task_name: log_args["task_name"] = task_name
+  logger.info(template.format(**log_args), extra=log_args)
+
+  from xnmt.tee import tensorboard_writer
+  tensorboard_writer.add_scalars(f"{task_name}/{data_name}" if task_name else data_name,
+                                 args,
+                                 n_iter)
 
 class RollingStatistic(object):
   """

@@ -1,5 +1,3 @@
-#!/usr/bin/env python2
-
 # CharCut: lightweight character-based MT output highlighting and scoring.
 # Copyright (C) 2017 Lardilleux
 #
@@ -25,7 +23,6 @@ so that they be reused in other projects.
 
 import argparse
 import difflib
-import gzip
 import math
 import re
 

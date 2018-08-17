@@ -20,7 +20,7 @@ It is coded in Python based on `DyNet <http://github.com/clab/dynet>`_.
    programming_style
    writing_xnmt_classes
    save_file_format
-
+   visualization
 
 Indices and tables
 ==================

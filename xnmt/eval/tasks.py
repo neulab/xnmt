@@ -33,17 +33,24 @@ class LossEvalTask(EvalTask, Serializable):
     loss_calculator: loss calculator
     max_src_len: omit sentences with source length greater than specified number
     max_trg_len: omit sentences with target length greater than specified number
+    max_num_sents: compute loss only for the first n sentences in the given corpus
     loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
     desc: description to pass on to computed score objects
   """
   yaml_tag = '!LossEvalTask'
 
   @serializable_init
-  def __init__(self, src_file: str, ref_file: Optional[str] = None, model: 'model_base.GeneratorModel' = Ref("model"),
+  def __init__(self,
+               src_file: Union[str, Sequence[str]],
+               ref_file: Optional[str] = None,
+               model: 'model_base.GeneratorModel' = Ref("model"),
                batcher: Batcher = Ref("train.batcher", default=bare(xnmt.batchers.SrcBatcher, batch_size=32)),
-               loss_calculator: LossCalculator = bare(MLELoss), max_src_len: Optional[int] = None,
+               loss_calculator: LossCalculator = bare(MLELoss),
+               max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
-               loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"), desc: Any = None):
+               max_num_sents: Optional[int] = None,
+               loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
+               desc: Any = None):
     self.model = model
     self.loss_calculator = loss_calculator
     self.src_file = src_file
@@ -52,6 +59,7 @@ class LossEvalTask(EvalTask, Serializable):
     self.src_data = None
     self.max_src_len = max_src_len
     self.max_trg_len = max_trg_len
+    self.max_num_sents = max_num_sents
     self.loss_comb_method = loss_comb_method
     self.desc=desc
 
@@ -70,12 +78,13 @@ class LossEvalTask(EvalTask, Serializable):
                                            src_file=self.src_file,
                                            trg_file=self.ref_file,
                                            batcher=self.batcher,
+                                           max_num_sents=self.max_num_sents,
                                            max_src_len=self.max_src_len,
                                            max_trg_len=self.max_trg_len)
     loss_val = FactoredLossVal()
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
-      with utils.ReportOnException({"src": src, "trg": trg, "graph": dy.print_text_graphviz}):
+      with utils.ReportOnException({"src": src, "trg": trg, "graph": utils.print_cg_conditional}):
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
 
         loss = self.loss_calculator.calc_loss(self.model, src, trg)
@@ -85,13 +94,10 @@ class LossEvalTask(EvalTask, Serializable):
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
 
-    try:
-      return LossScore(loss_stats[self.model.get_primary_loss()],
-                       loss_stats=loss_stats,
-                       num_ref_words = ref_words_cnt,
-                       desc=self.desc)
-    except KeyError:
-      raise RuntimeError("Did you wrap your loss calculation with FactoredLossExpr({'primary_loss': loss_value}) ?")
+    return LossScore(sum(loss_stats.values()),
+                     loss_stats=loss_stats,
+                     num_ref_words = ref_words_cnt,
+                     desc=self.desc)
 
 class AccuracyEvalTask(EvalTask, reports.Reportable, Serializable):
   """

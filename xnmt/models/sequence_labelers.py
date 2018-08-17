@@ -51,9 +51,6 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
   def shared_params(self):
     return [{".src_embedder.emb_dim", ".encoder.input_dim"},]
 
-  def get_primary_loss(self):
-    return "mle"
-
   def _encode_src(self, src):
     event_trigger.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)

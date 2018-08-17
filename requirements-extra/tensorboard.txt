@@ -1,0 +1,2 @@
+# for tensorboard visualization; run via 'tensorboard --logdir <path/to/base/xnmt/log/dir>'
+tensorflow

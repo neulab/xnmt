@@ -66,9 +66,9 @@ class BaseTextReader(InputReader):
   @lru_cache(maxsize=128)
   def count_sents(self, filename):
     newlines = 0
-    f = open(filename, 'r+b')
-    for line in f:
-      newlines += 1
+    with open(filename, 'r+b') as f:
+      for _ in f:
+        newlines += 1
     return newlines
 
   def iterate_filtered(self, filename, filter_ids=None):
@@ -383,9 +383,9 @@ class NpzReader(InputReader, Serializable):
     npzFile.close()
 
   def count_sents(self, filename):
-    npzFile = np.load(filename, mmap_mode="r")  # for counting sentences, only read the index
-    l = len(npzFile.files)
-    npzFile.close()
+    npz_file = np.load(filename, mmap_mode="r")  # for counting sentences, only read the index
+    l = len(npz_file.files)
+    npz_file.close()
     return l
 
 class IDReader(BaseTextReader, Serializable):

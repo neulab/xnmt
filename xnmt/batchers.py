@@ -71,7 +71,7 @@ class CompoundBatch(Batch):
     return sum(b.sent_len() for b in self.batches)
 
   def __iter__(self):
-    for i in self.batch_size():
+    for i in range(self.batch_size()):
       yield sent.CompoundSentence(sents=[b[i] for b in self.batches])
 
   def __getitem__(self, key):

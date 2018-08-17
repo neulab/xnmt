@@ -33,6 +33,7 @@ class Standard(object):
   IMMEDIATE_COMPUTE = False
   CHECK_VALIDITY = False
   RESOURCE_WARNINGS = False
+  PRINT_CG_ON_ERROR = False
   LOG_LEVEL_CONSOLE = "INFO"
   LOG_LEVEL_FILE = "DEBUG"
   DEFAULT_MOD_PATH = "{EXP_DIR}/models/{EXP}.mod"
@@ -47,6 +48,7 @@ class Debug(Standard):
   IMMEDIATE_COMPUTE = True
   CHECK_VALIDITY = True
   RESOURCE_WARNINGS = True
+  PRINT_CG_ON_ERROR = True
   LOG_LEVEL_CONSOLE = "DEBUG"
   LOG_LEVEL_FILE = "DEBUG"
 

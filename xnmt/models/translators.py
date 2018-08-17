@@ -60,9 +60,6 @@ class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
     """
     self.trg_vocab = trg_vocab
 
-  def get_primary_loss(self) -> str:
-    return "mle"
-
   def get_nobp_state(self, state):
     output_state = state.rnn_state.output()
     if type(output_state) == EnsembleListDelegate:
@@ -119,7 +116,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
 
   def _encode_src(self, src: Union[batchers.Batch, sent.Sentence]):
-    event_trigger.start_sent(src)
     embeddings = self.src_embedder.embed_sent(src)
     encoding = self.encoder.transduce(embeddings)
     final_state = self.encoder.get_final_states()
@@ -129,6 +125,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     return initial_state
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
+    event_trigger.start_sent(src)
+    if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
     # Encode the sentence
     initial_state = self._encode_src(src)
 
@@ -201,8 +199,9 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     if src.batch_size()!=1:
       raise NotImplementedError("batched decoding not implemented for DefaultTranslator. "
                                 "Specify inference batcher with batch size 1.")
-    # Generating outputs
     event_trigger.start_sent(src)
+    if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
+    # Generating outputs
     cur_forced_trg = None
     src_sent = src[0]
     sent_mask = None
@@ -233,6 +232,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     """
     assert src.batch_size() == 1
     search_outputs = self.generate_search_output(src, search_strategy, forced_trg_ids)
+    if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
     sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
     assert len(sorted_outputs) >= 1
     outputs = []
@@ -355,7 +355,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     e = dy.reshape(e, (units, length), batch_size=batch)
     return e
 
-  def calc_loss(self, src, trg, loss_cal=None, infer_prediction=False):
+  def calc_loss(self, src, trg, infer_prediction=False):
     event_trigger.start_sent(src)
     if not batchers.is_batched(src):
       src = batchers.mark_as_batch([src])
@@ -488,7 +488,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable):
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
     sub_losses = collections.defaultdict(list)
     for model in self.models:
-      for loss_name, loss in model.calc_loss(src, trg).expr_factors.items():
+      for loss_name, loss in model.calc_nll(src, trg).expr_factors.items():
         sub_losses[loss_name].append(loss)
     model_loss = FactoredLossExpr()
     for loss_name, losslist in sub_losses.items():

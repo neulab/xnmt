@@ -1,7 +1,10 @@
 .. _sec-exp-conf:
 
 Experiment configuration file format
-------------------------------------
+====================================
+
+Intro
+-----
 
 Configuration files are in `YAML format <https://docs.ansible.com/ansible/YAMLSyntax.html>`_.
 
@@ -38,7 +41,7 @@ Not all of them need to be specified, depending on the use case.
 
 
 Experiment
-==========
+~~~~~~~~~~
 
 This specifies settings that are global to this experiment. An example
 
@@ -59,13 +62,13 @@ To obtain a full list of allowed parameters, please check the documentation for
 :ref:`ExpGlobal <mod-experiments>`.
 
 Preprocessing
-=============
+~~~~~~~~~~~~~
 
 *xnmt* supports a variety of data preprocessing features. Please refer to
 :ref:`sec-preproc` for details.
 
 Model
-=====
+~~~~~
 This specifies the model architecture. An typical example looks like this
 
 .. code-block:: yaml
@@ -103,7 +106,7 @@ are initialized in the order they appear in the constructor. Among others,
 this guarantees that preprocessing is carried out before the model training.
 
 Training
-========
+~~~~~~~~
 
 A typical example looks like this
 
@@ -127,7 +130,7 @@ case models must be specified as sub-components of the training regimen. An exam
 :ref:`ex-multi-task` configuration can be refered to for more details on this.
 
 Evaluation
-==========
+~~~~~~~~~~
 If specified, the model is tested after training finished.
 
 Config files vs. saved model files
@@ -152,19 +155,19 @@ Here are more elaborate examples from the github repository.
 .. _ex-standard:
 
 Standard
-========
+~~~~~~~~
 
 .. literalinclude:: examples/01_standard.yaml
     :language: yaml
 
 Minimal
-=======
+~~~~~~~
 
 .. literalinclude:: examples/02_minimal.yaml
     :language: yaml
 
 Multiple experiments
-====================
+~~~~~~~~~~~~~~~~~~~~
 
 .. literalinclude:: examples/03a_multiple_exp.yaml
     :language: yaml
@@ -176,49 +179,49 @@ Multiple experiments
     :language: yaml
 
 Settings
-========
+~~~~~~~~
 
 .. literalinclude:: examples/04_settings.yaml
     :language: yaml
 
 Preprocessing
-=============
+~~~~~~~~~~~~~
 
 .. literalinclude:: examples/05_preproc.yaml
     :language: yaml
 
 Early stopping
-==============
+~~~~~~~~~~~~~~
 
 .. literalinclude:: examples/06_early_stopping.yaml
     :language: yaml
 
 Fine-tuning
-===========
+~~~~~~~~~~~
 
 .. literalinclude:: examples/07_load_finetune.yaml
     :language: yaml
 
 Beam search
-===========
+~~~~~~~~~~~
 
 .. literalinclude:: examples/08_load_eval_beam.yaml
     :language: yaml
 
 Programmatic usage
-==================
+~~~~~~~~~~~~~~~~~~
 
 .. literalinclude:: examples/09_programmatic.py
     :language: python
 
 Programmatic loading
-====================
+~~~~~~~~~~~~~~~~~~~~
 
 .. literalinclude:: examples/10_programmatic_load.py
     :language: python
 
 Parameter sharing
-=================
+~~~~~~~~~~~~~~~~~
 
 .. literalinclude:: examples/11_component_sharing.yaml
     :language: yaml
@@ -226,31 +229,31 @@ Parameter sharing
 .. _ex-multi-task:
 
 Multi-task
-==========
+~~~~~~~~~~
 
 .. literalinclude:: examples/12_multi_task.yaml
     :language: yaml
 
 Speech
-======
+~~~~~~
 
 .. literalinclude:: examples/13_speech.yaml
     :language: yaml
 
 Reporting attention matrices
-============================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. literalinclude:: examples/14_report.yaml
     :language: yaml
 
 Scoring N-best lists
-====================
+~~~~~~~~~~~~~~~~~~~~
 
 .. literalinclude:: examples/15_score.yaml
     :language: yaml
 
 Transformer
-===========
+~~~~~~~~~~~
 
 (this is currently broken)
 
@@ -258,19 +261,19 @@ Transformer
     :language: yaml
 
 Ensembling
-==========
+~~~~~~~~~~
 
 .. literalinclude:: examples/17_ensembling.yaml
     :language: yaml
 
 Minimum risk training
-=====================
+~~~~~~~~~~~~~~~~~~~~~
 
 .. literalinclude:: examples/18_minrisk.yaml
     :language: yaml
 
 Biased Lexicon
-==============
+~~~~~~~~~~~~~~
 
 (this is currently broken)
 
@@ -278,19 +281,19 @@ Biased Lexicon
     :language: yaml
 
 Subword Sampling
-================
+~~~~~~~~~~~~~~~~
 
 .. literalinclude:: examples/20_subword_sample.yaml
     :language: yaml
 
 Self Attention
-==============
+~~~~~~~~~~~~~~
 
 .. literalinclude:: examples/21_self_attention.yaml
     :language: yaml
 
 Char Segment
-============
+~~~~~~~~~~~~
 
 .. literalinclude:: examples/22_char_segment.yaml
     :language: yaml

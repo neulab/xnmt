@@ -29,7 +29,7 @@ from xnmt import sent, utils
 from xnmt.events import handle_xnmt_event, register_xnmt_handler
 from xnmt.persistence import Serializable, serializable_init, Ref
 from xnmt.settings import settings
-import xnmt.thirdparty.charcut.charcut as charcut
+from xnmt.thirdparty.charcut import charcut
 
 class ReportInfo(object):
   """
