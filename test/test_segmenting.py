@@ -218,7 +218,7 @@ class TestComposing(unittest.TestCase):
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
     enc.segment_composer = LookupComposer(
         word_vocab = word_vocab,
-        src_vocab = self.src_reader.vocab,
+        char_vocab = self.src_reader.vocab,
         hidden_dim = self.layer_dim
     )
     enc.transduce(self.inp_emb(0))
@@ -228,7 +228,7 @@ class TestComposing(unittest.TestCase):
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
     enc.segment_composer = CharNGramComposer(
         word_vocab = word_vocab,
-        src_vocab = self.src_reader.vocab,
+        char_vocab = self.src_reader.vocab,
         hidden_dim = self.layer_dim
     )
     enc.transduce(self.inp_emb(0))
@@ -239,11 +239,11 @@ class TestComposing(unittest.TestCase):
     enc.segment_composer = SumMultipleComposer(
       composers = [
         LookupComposer(word_vocab = word_vocab,
-                                     src_vocab = self.src_reader.vocab,
-                                     hidden_dim = self.layer_dim),
+                       char_vocab = self.src_reader.vocab,
+                       hidden_dim = self.layer_dim),
         CharNGramComposer(word_vocab = word_vocab,
-                                 src_vocab = self.src_reader.vocab,
-                                 hidden_dim = self.layer_dim)
+                          char_vocab = self.src_reader.vocab,
+                          hidden_dim = self.layer_dim)
       ]
     )
     enc.transduce(self.inp_emb(0))

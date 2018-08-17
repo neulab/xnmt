@@ -1,4 +1,6 @@
 import dynet as dy
+import pylru
+
 from collections import Counter
 from functools import lru_cache
 
@@ -99,36 +101,96 @@ class ConvolutionComposer(SingleComposer, Serializable):
     encodings = dy.rectify(dy.conv2d_bias(inp, dy.parameter(self.filter), dy.parameter(self.bias), stride=(1, 1), is_valid=True))
     return dy.max_dim(dy.max_dim(encodings, d=1), d=0)
 
-class LookupComposer(SingleComposer, Serializable):
+class VocabBasedComposer(SingleComposer):
+  @register_xnmt_handler
+  def __init__(self,
+               vocab=None,
+               vocab_size=32000,
+               lrucache=None):
+    self.vocab = vocab
+    self.learn_vocab = vocab is None
+    if lrucache is None:
+      self.lrucache = pylru.lrucache(len(vocab) if not self.learn_vocab else vocab_size, self.on_word_delete)
+    else:
+      self.lrucache = lrucache
+    self.id_pool = []
+
+  def on_word_delete(self, word, wordid):
+    if self.learn_vocab:
+      self.id_pool.append(wordid)
+      self.on_id_delete(wordid)
+    else:
+      raise ValueError("Should not delete any id when not learning")
+
+  def convert(self, word):
+    if self.vocab is not None:
+      wordid = self.vocab.convert(word)
+    elif word not in self.lrucache:
+      if self.train:
+        if len(self.id_pool) != 0:
+          wordid = self.id_pool.pop()
+        else:
+          wordid = len(self.lrucache)
+        self.lrucache[word] = wordid  # Cache value
+      else:
+        wordid = self.lru_cache.size()  # Unknown ID
+    else:
+      wordid = self.lrucache[word]
+    return wordid
+
+  @register_xnmt_handler
+  def on_set_train(self, train):
+    self.train = train
+
+  def on_id_delete(self, wordid):
+    raise NotImplementedError("Should implement process_word")
+
+class LookupComposer(VocabBasedComposer, Serializable):
   yaml_tag = '!LookupComposer'
   @serializable_init
   def __init__(self,
                word_vocab=None,
-               src_vocab=Ref(Path("model.src_reader.vocab")),
+               vocab_size=32000,
+               dict_entry=None,
+               lrucache=None,
+               char_vocab=Ref(Path("model.src_reader.vocab")),
                hidden_dim=Ref("exp_global.default_layer_dim"),
-               vocab_size=25000):
-    super().__init__()
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer))):
+    super().__init__(vocab=word_vocab, vocab_size=vocab_size, lrucache=lrucache)
     param_collection = ParamManager.my_params(self)
-    if word_vocab is None:
-      word_vocab = Vocab()
-      dict_entry = vocab_size
+    # The size of input
+    if dict_entry is None:
+      if word_vocab is None:
+        self.dict_entry = vocab_size+1
+      else:
+        self.dict_entry = len(word_vocab)
     else:
-      dict_entry = len(word_vocab)
-    self.src_vocab = src_vocab
-    self.word_vocab = word_vocab
-    self.embedding = param_collection.add_lookup_parameters((dict_entry, hidden_dim))
+      self.dict_entry = dict_entry
+    # The reference to char vocabulary
+    self.char_vocab = char_vocab
+    # Word Embedding
+    embed_dim = (self.dict_entry, hidden_dim)
+    self.param_init = param_init.initializer(embed_dim, is_lookup=True)
+    self.embedding = param_collection.add_lookup_parameters(embed_dim, init=self.param_init)
+    # Serializations
+    self.save_processed_arg("lrucache", self.lrucache)
+    self.save_processed_arg("dict_entry", self.dict_entry)
 
   def transduce(self, inputs):
-    return dy.lookup(self.embedding, self.word_id)
-
-  def set_word(self, word):
-    self.word_id = self.to_word_id(word)
+    return dy.lookup(self.embedding, self.convert(self.word))
 
   @lru_cache(maxsize=32000)
-  def to_word_id(self, word):
-    return self.word_vocab.convert("".join([self.src_vocab[c] for c in word]))
+  def to_word(self, word):
+    return "".join([self.char_vocab[c] for c in word]) 
 
-class CharNGramComposer(SingleComposer, Serializable):
+  def set_word(self, word):
+    self.word = self.to_word(word)
+
+  def on_id_delete(self, wordid):
+    assert self.train and self.learn_vocab
+    # TODO
+
+class CharNGramComposer(VocabBasedComposer, Serializable):
   """
   CHARAGRAM composition function
 
@@ -141,47 +203,68 @@ class CharNGramComposer(SingleComposer, Serializable):
   @serializable_init
   def __init__(self,
                word_vocab=None,
+               embedding=None,
                ngram_size=4,
-               src_vocab=Ref(Path("model.src_reader.vocab")),
+               vocab_size=32000,
+               dict_entry=None,
+               lrucache=None,
+               char_vocab=Ref(Path("model.src_reader.vocab")),
                hidden_dim=Ref("exp_global.default_layer_dim"),
-               word_ngram=None,
-               vocab_size=None):
-    super().__init__()
-    if word_vocab is None:
-      word_vocab = Vocab()
-      dict_entry = vocab_size
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+    super().__init__(vocab=word_vocab, vocab_size=vocab_size, lrucache=lrucache)
+    param_collection = ParamManager.my_params(self)
+    # The size of input
+    if dict_entry is None:
+      if word_vocab is None:
+        self.dict_entry = vocab_size+1
+      else:
+        self.dict_entry = len(word_vocab)
     else:
-      dict_entry = len(word_vocab)
-
-    self.dict_entry = dict_entry
-    self.src_vocab = src_vocab
-    self.word_vocab = word_vocab
+      self.dict_entry = dict_entry
+    # The reference to char vocabulary
+    self.char_vocab = char_vocab
+    # Word Embedding
+    emb_dim = (self.dict_entry, hidden_dim)
     self.ngram_size = ngram_size
-    self.word_ngram = self.add_serializable_component("word_ngram", word_ngram,
-                                                      lambda: Linear(input_dim=dict_entry,
-                                                                     output_dim=hidden_dim))
+    self.embedding = self.add_serializable_component("embedding", embedding,
+                                                      lambda: Linear(input_dim=self.dict_entry,
+                                                                     output_dim=hidden_dim,
+                                                                     param_init=param_init,
+                                                                     bias_init=bias_init))
+    self.param_init = param_init
+    self.bias_init = bias_init
+    # Serializations
+    self.save_processed_arg("lrucache", self.lrucache)
+    self.save_processed_arg("ngram_size", self.ngram_size)
+    self.save_processed_arg("dict_entry", self.dict_entry)
 
-  @lru_cache(maxsize=32000)
+
+  def transduce(self, inputs):
+    ngrams = [self.convert(ngram) for ngram in self.word_vect.keys()]
+    counts = list(self.word_vect.values())
+    ngram_vocab_vect = dy.sparse_inputTensor([ngrams], counts, (self.dict_entry,))
+    return dy.rectify(self.embedding.transform(ngram_vocab_vect))
+
+  @lru_cache(maxsize=256000)
   def to_word_vector(self, word):
-    word = "".join([self.src_vocab[c] for c in word])
+    word = "".join([self.char_vocab[c] for c in word])
     word_vector = Counter()
     for i in range(len(word)):
       for j in range(i, min(i+self.ngram_size, len(word))):
         ngram = word[i:j+1]
-        if ngram in self.word_vocab.w2i:
-          word_vector[int(self.word_vocab.convert(ngram))] += 1
-    if len(word_vector) == 0:
-      word_vector[int(self.word_vocab[self.word_vocab.UNK_STR])] += 1
+        if self.vocab is None or ngram in self.vocab.w2i:
+          word_vector[ngram] += 1
+    if self.vocab is not None and len(word_vector) == 0:
+      word_vector[self.vocab.UNK_STR] += 1
     return word_vector
-
-  def transduce(self, inputs):
-    keys = list(self.word_vect.keys())
-    values = list(self.word_vect.values())
-    ngram_vocab_vect = dy.sparse_inputTensor([keys], values, (self.dict_entry,))
-    return dy.rectify(self.word_ngram.transform(ngram_vocab_vect))
 
   def set_word(self, word):
     self.word_vect = self.to_word_vector(word)
+
+  def on_id_delete(self, wordid):
+    assert self.train and self.learn_vocab
+    # TODO
 
 class SumMultipleComposer(SingleComposer, Serializable):
   yaml_tag = "!SumMultipleComposer"
