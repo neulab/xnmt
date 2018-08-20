@@ -19,18 +19,21 @@ class Scalar(Serializable):
   @serializable_init
   @register_xnmt_handler
   def __init__(self, initial=0.0, times_updated=0):
-    self.value = initial
+    self.initial = initial
     self.times_updated = times_updated
+    self.value = self.get_curr_value()
 
   @handle_xnmt_event
   def on_new_epoch(self, *args, **kwargs):
-    self.value = self.update_value()
+    self.value = self.get_curr_value()
     self.times_updated += 1
-    self.save_processed_arg("initial", self.value)
     self.save_processed_arg("times_updated", self.times_updated)
  
-  def update_value(self):
-    return self.value
+  def get_curr_value(self):
+    return self.initial
+
+  def __repr__(self):
+    return f"{self.__class__.__name__}[curr={self.get_curr_value()}]"
 
   # Operators
   def __lt__(a, b): return a.value < b
@@ -48,17 +51,19 @@ class Scalar(Serializable):
   def __truediv__(a, b): return a.value / b
   def __floordiv__(a, b): return a.value // b
 
-class DefinedSequence(Scalar):
+class DefinedSequence(Scalar, Serializable):
   """
   Class that represents a fixed defined sequence from config files.
   If update has been made more than the length of the sequence, the last element of the sequence will be returned instead
   
   x = DefinedSequence([0.1, 0.5, 1])
   
-  # Epoch 1: 0+x = 0.1
-  # Epoch 2: 0+x = 0.5
-  # Epoch 3: 0+x = 1
-  
+  # Epoch 1: 0.1
+  # Epoch 2: 0.5
+  # Epoch 3: 1
+  # Epoch 4: 1
+  # ...
+
   Args:
     sequence: A list of numbers
     times_updated: The epoch number
@@ -68,10 +73,11 @@ class DefinedSequence(Scalar):
 
   @serializable_init
   def __init__(self, sequence: typing.Sequence[numbers.Real], times_updated: int = 0):
-    super().__init__(initial=sequence[0], times_updated=times_updated)
     self.sequence = sequence
+    if len(sequence)==0: raise ValueError("DefinedSequence initialized with empty sequence")
+    super().__init__(times_updated=times_updated)
 
-  def update_value(self):
+  def get_curr_value(self):
     return self.sequence[min(len(self.sequence) - 1, self.times_updated)]
 
 numbers.Real.register(Scalar)

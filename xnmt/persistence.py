@@ -1327,7 +1327,7 @@ def _resolve_serialize_refs(root):
   # gather all non-basic types (Serializable, list, dict) in the global dictionary xnmt.resolved_serialize_params
   for _, node in _traverse_serializable(root):
     if isinstance(node, Serializable):
-      all_serializable.add(node)
+      all_serializable.add(id(node))
       if not hasattr(node, "serialize_params"):
         raise ValueError(f"Cannot serialize node that has no serialize_params attribute: {node}\n"
                          "Did you forget to wrap the __init__() in @serializable_init ?")
@@ -1337,7 +1337,7 @@ def _resolve_serialize_refs(root):
     elif isinstance(node, collections.abc.MutableSequence):
       xnmt.resolved_serialize_params[id(node)] = list(node)
 
-  if not ParamManager.param_col.all_subcol_owners <= all_serializable:
+  if not set(id(o) for o in ParamManager.param_col.all_subcol_owners) <= all_serializable:
     raise RuntimeError(f"Not all registered DyNet parameter collections written out. "
                        f"Missing: {ParamManager.param_col.all_subcol_owners - all_serializable}.\n"
                        f"This indicates that potentially not all components adhere to the protocol of using "
