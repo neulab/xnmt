@@ -1,3 +1,4 @@
+import typing
 import numbers
 
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
@@ -10,23 +11,23 @@ class Scalar(Serializable):
   
   Args:
     initial: The value being hold by the scalar.
-    update: Is the epoch number. 
+    times_updated: Is the epoch number.
   """
 
   yaml_tag = "!Scalar"
   
   @serializable_init
   @register_xnmt_handler
-  def __init__(self, initial=0.0, update=0):
+  def __init__(self, initial=0.0, times_updated=0):
     self.value = initial
-    self.times_updated = update
+    self.times_updated = times_updated
 
   @handle_xnmt_event
   def on_new_epoch(self, *args, **kwargs):
     self.value = self.update_value()
     self.times_updated += 1
     self.save_processed_arg("initial", self.value)
-    self.save_processed_arg("update", self.times_updated)
+    self.save_processed_arg("times_updated", self.times_updated)
  
   def update_value(self):
     return self.value
@@ -60,15 +61,14 @@ class DefinedSequence(Scalar):
   
   Args:
     sequence: A list of numbers
-    initial: The current value or the value.
-    update: The epoch number
+    times_updated: The epoch number
   """
   
   yaml_tag = "!DefinedSequence"
 
   @serializable_init
-  def __init__(self, sequence=None, initial=0.0, update=0):
-    super().__init__(initial, update)
+  def __init__(self, sequence: typing.Sequence[numbers.Real], times_updated: int = 0):
+    super().__init__(initial=sequence[0], times_updated=times_updated)
     self.sequence = sequence
 
   def update_value(self):
