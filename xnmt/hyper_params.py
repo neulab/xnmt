@@ -1,3 +1,5 @@
+import numbers
+
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.persistence import serializable_init, Serializable
 
@@ -17,14 +19,14 @@ class Scalar(Serializable):
   @register_xnmt_handler
   def __init__(self, initial=0.0, update=0):
     self.value = initial
-    self.update = update
+    self.times_updated = update
 
   @handle_xnmt_event
   def on_new_epoch(self, *args, **kwargs):
     self.value = self.update_value()
-    self.update += 1
+    self.times_updated += 1
     self.save_processed_arg("initial", self.value)
-    self.save_processed_arg("update", self.update)
+    self.save_processed_arg("update", self.times_updated)
  
   def update_value(self):
     return self.value
@@ -70,5 +72,6 @@ class DefinedSequence(Scalar):
     self.sequence = sequence
 
   def update_value(self):
-    return self.sequence[min(len(self.sequence)-1, self.update)]
+    return self.sequence[min(len(self.sequence) - 1, self.times_updated)]
 
+numbers.Real.register(Scalar)

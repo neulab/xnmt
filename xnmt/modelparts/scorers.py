@@ -1,5 +1,7 @@
-import dynet as dy
 from typing import List, Union, Optional
+import numbers
+
+import dynet as dy
 
 from xnmt import batchers, input_readers, param_collections, param_initializers, vocabs
 from xnmt.modelparts import transforms
@@ -108,7 +110,7 @@ class Softmax(Scorer, Serializable):
                vocab_size: Optional[int] = None,
                vocab: Optional[vocabs.Vocab] = None,
                trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None),
-               label_smoothing: float = 0.0,
+               label_smoothing: numbers.Real = 0.0,
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
                output_projector: transforms.Linear = None) -> None:

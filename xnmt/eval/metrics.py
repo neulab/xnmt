@@ -20,6 +20,7 @@ from collections import defaultdict, Counter
 import math
 import subprocess
 from typing import List, Sequence, Dict, Tuple, Union, Any, Optional
+import numbers
 
 import yaml
 import numpy as np
@@ -125,8 +126,8 @@ class LossScore(EvalScore, Serializable):
   yaml_tag = "!LossScore"
 
   @serializable_init
-  def __init__(self, loss: float, loss_stats: Dict[str, float] = None, num_ref_words: Optional[int] = None,
-               desc: Any = None) -> None:
+  def __init__(self, loss: numbers.Real, loss_stats: Dict[str, numbers.Real] = None,
+               num_ref_words: Optional[int] = None, desc: Any = None) -> None:
     super().__init__(desc=desc)
     self.loss = loss
     self.loss_stats = loss_stats
@@ -159,8 +160,14 @@ class BLEUScore(EvalScore, Serializable):
   yaml_tag = "!BLEUScore"
 
   @serializable_init
-  def __init__(self, bleu: float, frac_score_list: Sequence[float] = None, brevity_penalty_score: float = None,
-               hyp_len: int = None, ref_len: int = None, ngram: int = 4, desc: Any = None) -> None:
+  def __init__(self,
+               bleu: numbers.Real,
+               frac_score_list: Sequence[numbers.Real] = None,
+               brevity_penalty_score: numbers.Real = None,
+               hyp_len: int = None,
+               ref_len: int = None,
+               ngram: int = 4,
+               desc: Any = None) -> None:
     self.bleu = bleu
     self.frac_score_list = frac_score_list
     self.brevity_penalty_score = brevity_penalty_score
@@ -291,7 +298,7 @@ class RecallScore(SentenceLevelEvalScore, Serializable):
   yaml_tag = "!RecallScore"
 
   @serializable_init
-  def __init__(self, recall: float, hyp_len: int, ref_len: int, nbest: int = 5, desc: Any = None) -> None:
+  def __init__(self, recall: numbers.Real, hyp_len: int, ref_len: int, nbest: int = 5, desc: Any = None) -> None:
     self.recall  = recall
     self.hyp_len = hyp_len
     self.ref_len = ref_len
@@ -327,7 +334,7 @@ class ExternalScore(EvalScore, Serializable):
   yaml_tag = "!ExternalScore"
 
   @serializable_init
-  def __init__(self, value: float, higher_is_better: bool = True, desc: Any = None) -> None:
+  def __init__(self, value: numbers.Real, higher_is_better: bool = True, desc: Any = None) -> None:
     self.value = value
     self.higher_is_better = higher_is_better
     self.desc = desc
@@ -479,7 +486,7 @@ class FastBLEUEvaluator(SentenceLevelEvaluator, Serializable):
   yaml_tag = "!FastBLEUEvaluator"
 
   @serializable_init
-  def __init__(self, ngram:int = 4, smooth:float = 1):
+  def __init__(self, ngram:int = 4, smooth:numbers.Real = 1):
     self.ngram = ngram
     self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
     self.smooth = smooth
