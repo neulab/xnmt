@@ -85,7 +85,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
     loss_comb_method: method for combining loss across batch elements (``sum`` or ``avg``).
     update_every: simulate large-batch training by accumulating gradients over several steps before updating parameters
     commandline_args:
-    filter:
+    sent_filter:
   """
   yaml_tag = '!SimpleTrainingRegimen'
 
@@ -104,7 +104,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                update_every: int = 1,
                commandline_args: dict = Ref("exp_global.commandline_args", default={}),
-               filter = None) -> None:
+               sent_filter = None) -> None:
 
     super().__init__(model=model,
                      src_file=src_file,
@@ -126,7 +126,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
                      max_num_train_sents=max_num_train_sents,
                      max_src_len=max_src_len,
                      max_trg_len=max_trg_len,
-                     filter=filter)
+                     sent_filter=sent_filter)
     self.dev_zero = dev_zero
     self.trainer = trainer or optimizers.SimpleSGDTrainer(e0=0.1)
     self.dynet_profiling = commandline_args.get("dynet_profiling", 0) if commandline_args else 0
