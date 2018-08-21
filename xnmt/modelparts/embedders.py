@@ -1,8 +1,11 @@
+import numbers
+from typing import Optional
+
 import numpy as np
 import dynet as dy
 
 from xnmt import logger
-from xnmt import batchers, events, expression_seqs, param_collections, param_initializers
+from xnmt import batchers, events, expression_seqs, input_readers, param_collections, param_initializers, vocabs
 from xnmt.modelparts import transforms
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
 
@@ -49,16 +52,16 @@ class Embedder(object):
 
     return expression_seqs.ExpressionSequence(expr_list=embeddings, mask=x.mask if batchers.is_batched(x) else None)
 
-  def choose_vocab(self, vocab, yaml_path, src_reader, trg_reader):
+  def choose_vocab(self, vocab: vocabs.Vocab, yaml_path, src_reader: input_readers.InputReader, trg_reader: input_readers.InputReader):
     """Choose the vocab for the embedder basd on the passed arguments
 
     This is done in order of priority of vocab, model+yaml_path
 
     Args:
-      vocab (Vocab): If None, try to obtain from ``src_reader`` or ``trg_reader``, depending on the ``yaml_path``
-      yaml_path (Path): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
-      src_reader (InputReader): Model's src_reader, if exists and unambiguous.
-      trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
+      vocab: If None, try to obtain from ``src_reader`` or ``trg_reader``, depending on the ``yaml_path``
+      yaml_path: Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
+      src_reader: Model's src_reader, if exists and unambiguous.
+      trg_reader: Model's trg_reader, if exists and unambiguous.
 
     Returns:
       xnmt.vocab.Vocab: chosen vocab
@@ -76,17 +79,18 @@ class Embedder(object):
     else:
       raise ValueError("Attempted to determine vocab size of {} (path: {}), but path was not src_embedder, trg_embedder, or output_projector, so it could not determine what part of the model to use. Please set vocab_size or vocab explicitly.".format(self.__class__, yaml_path))
 
-  def choose_vocab_size(self, vocab_size, vocab, yaml_path, src_reader, trg_reader):
+  def choose_vocab_size(self, vocab_size: int, vocab: vocabs.Vocab, yaml_path, src_reader: input_readers.InputReader,
+                        trg_reader: input_readers.InputReader):
     """Choose the vocab size for the embedder basd on the passed arguments
 
     This is done in order of priority of vocab_size, vocab, model+yaml_path
 
     Args:
-      vocab_size (int): vocab size or None
-      vocab (Vocab): vocab or None
-      yaml_path (Path): Path of this embedder in the component hierarchy. Automatically determined when deserializing the YAML model.
-      src_reader (InputReader): Model's src_reader, if exists and unambiguous.
-      trg_reader (InputReader): Model's trg_reader, if exists and unambiguous.
+      vocab_size : vocab size or None
+      vocab: vocab or None
+      yaml_path: Path of this embedder in the component hierarchy. Automatically determined when YAML-deserializing.
+      src_reader: Model's src_reader, if exists and unambiguous.
+      trg_reader: Model's trg_reader, if exists and unambiguous.
 
     Returns:
       int: chosen vocab size
@@ -97,48 +101,54 @@ class Embedder(object):
       return len(vocab)
     elif "src_embedder" in yaml_path:
       if src_reader is None or getattr(src_reader,"vocab",None) is None:
-        raise ValueError("Could not determine src_embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of src_reader ahead of time.")
+        raise ValueError("Could not determine src_embedder's size. "
+                         "Please set its vocab_size or vocab member explicitly, or specify the vocabulary of src_reader ahead of time.")
       return len(src_reader.vocab)
     elif "trg_embedder" in yaml_path or "output_projector" in yaml_path:
       if trg_reader is None or trg_reader.vocab is None:
-        raise ValueError("Could not determine target embedder's size. Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
+        raise ValueError("Could not determine target embedder's size. "
+                         "Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
       return len(trg_reader.vocab)
     else:
-      raise ValueError("Attempted to determine vocab size of {} (path: {}), but path was not src_embedder, trg_embedder, or output_projector, so it could not determine what part of the model to use. Please set vocab_size or vocab explicitly.".format(self.__class__, yaml_path))
+      raise ValueError(f"Attempted to determine vocab size of {self.__class__} (path: {yaml_path}), "
+                       f"but path was not src_embedder, trg_embedder, or output_projector, so it could not determine what part of the model to use. "
+                       f"Please set vocab_size or vocab explicitly.")
 
 class DenseWordEmbedder(Embedder, transforms.Linear, Serializable):
   """
   Word embeddings via full matrix.
 
   Args:
-    emb_dim (int): embedding dimension
-    weight_noise (float): apply Gaussian noise with given standard deviation to embeddings
-    word_dropout (float): drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
-    fix_norm (float): fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
+    emb_dim: embedding dimension
+    weight_noise: apply Gaussian noise with given standard deviation to embeddings
+    word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
+    fix_norm: fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
     param_init: how to initialize weight matrices
     bias_init: how to initialize bias vectors
-    vocab_size (int): vocab size or None
-    vocab (Vocab): vocab or None
-    yaml_path (Path): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
-    src_reader (InputReader): A reader for the source side. Automatically set by the YAML deserializer.
-    trg_reader (InputReader): A reader for the target side. Automatically set by the YAML deserializer.
+    vocab_size: vocab size or None
+    vocab: vocab or None
+    yaml_path: Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
+    src_reader: A reader for the source side. Automatically set by the YAML deserializer.
+    trg_reader: A reader for the target side. Automatically set by the YAML deserializer.
   """
   yaml_tag = "!DenseWordEmbedder"
 
   @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
-               emb_dim=Ref("exp_global.default_layer_dim"),
-               weight_noise=Ref("exp_global.weight_noise", default=0.0),
-               word_dropout=0.0,
-               fix_norm=None,
-               param_init: param_initializers.ParamInitializer=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
-               bias_init: param_initializers.ParamInitializer=Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
-               vocab_size=None,
-               vocab=None,
+               emb_dim: int = Ref("exp_global.default_layer_dim"),
+               weight_noise: numbers.Real = Ref("exp_global.weight_noise", default=0.0),
+               word_dropout: numbers.Real = 0.0,
+               fix_norm: Optional[numbers.Real] = None,
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(
+                 param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init",
+                                                                    default=bare(param_initializers.ZeroInitializer)),
+               vocab_size: Optional[int] = None,
+               vocab: Optional[vocabs.Vocab] = None,
                yaml_path=None,
-               src_reader=Ref("model.src_reader", default=None),
-               trg_reader=Ref("model.trg_reader", default=None)):
+               src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
+               trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)):
     self.fix_norm = fix_norm
     self.weight_noise = weight_noise
     self.word_dropout = word_dropout
@@ -197,16 +207,16 @@ class SimpleWordEmbedder(Embedder, Serializable):
   Simple word embeddings via lookup.
 
   Args:
-    emb_dim (int): embedding dimension
-    weight_noise (float): apply Gaussian noise with given standard deviation to embeddings
-    word_dropout (float): drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
-    fix_norm (float): fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
-    param_init (ParamInitializer): how to initialize lookup matrices
-    vocab_size (int): vocab size or None
-    vocab (Vocab): vocab or None
-    yaml_path (Path): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
-    src_reader (InputReader): A reader for the source side. Automatically set by the YAML deserializer.
-    trg_reader (InputReader): A reader for the target side. Automatically set by the YAML deserializer.
+    emb_dim: embedding dimension
+    weight_noise: apply Gaussian noise with given standard deviation to embeddings
+    word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
+    fix_norm: fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
+    param_init: how to initialize lookup matrices
+    vocab_size: vocab size or None
+    vocab: vocab or None
+    yaml_path: Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
+    src_reader: A reader for the source side. Automatically set by the YAML deserializer.
+    trg_reader: A reader for the target side. Automatically set by the YAML deserializer.
   """
 
   yaml_tag = '!SimpleWordEmbedder'
@@ -214,16 +224,17 @@ class SimpleWordEmbedder(Embedder, Serializable):
   @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
-               emb_dim=Ref("exp_global.default_layer_dim"),
-               weight_noise=Ref("exp_global.weight_noise", default=0.0),
-               word_dropout=0.0,
-               fix_norm=None,
-               param_init=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
-               vocab_size = None,
-               vocab = None,
-               yaml_path = None,
-               src_reader = Ref("model.src_reader", default=None),
-               trg_reader = Ref("model.trg_reader", default=None)):
+               emb_dim: int = Ref("exp_global.default_layer_dim"),
+               weight_noise: numbers.Real = Ref("exp_global.weight_noise", default=0.0),
+               word_dropout: numbers.Real = 0.0,
+               fix_norm: Optional[numbers.Real] = None,
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(
+                 param_initializers.GlorotInitializer)),
+               vocab_size: Optional[int] = None,
+               vocab: Optional[vocabs.Vocab] = None,
+               yaml_path=None,
+               src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
+               trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)):
     #print(f"embedder received param_init: {param_init}")
     self.emb_dim = emb_dim
     self.weight_noise = weight_noise
@@ -280,13 +291,13 @@ class NoopEmbedder(Embedder, Serializable):
   Normally, the input is a Sentence object, which is converted to an expression.
 
   Args:
-    emb_dim (int): Size of the inputs (not required)
+    emb_dim: Size of the inputs
   """
 
   yaml_tag = '!NoopEmbedder'
 
   @serializable_init
-  def __init__(self, emb_dim):
+  def __init__(self, emb_dim: Optional[int]):
     self.emb_dim = emb_dim
 
   def embed(self, x):
@@ -318,15 +329,15 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder, Serializable):
   Simple word embeddings via lookup. Initial pretrained embeddings must be supplied in FastText text format.
 
   Args:
-    filename (str): Filename for the pretrained embeddings
-    emb_dim (int): embedding dimension; if None, use exp_global.default_layer_dim
-    weight_noise (float): apply Gaussian noise with given standard deviation to embeddings; if ``None``, use exp_global.weight_noise
-    word_dropout (float): drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
-    fix_norm (float): fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
-    vocab (Vocab): vocab or None
-    yaml_path (Path): Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
-    src_reader (InputReader): A reader for the source side. Automatically set by the YAML deserializer.
-    trg_reader (InputReader): A reader for the target side. Automatically set by the YAML deserializer.
+    filename: Filename for the pretrained embeddings
+    emb_dim: embedding dimension; if None, use exp_global.default_layer_dim
+    weight_noise: apply Gaussian noise with given standard deviation to embeddings; if ``None``, use exp_global.weight_noise
+    word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
+    fix_norm: fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
+    vocab: vocab or None
+    yaml_path: Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
+    src_reader: A reader for the source side. Automatically set by the YAML deserializer.
+    trg_reader: A reader for the target side. Automatically set by the YAML deserializer.
 """
 
   yaml_tag = '!PretrainedSimpleWordEmbedder'
@@ -334,15 +345,15 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder, Serializable):
   @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
-               filename,
-               emb_dim=Ref("exp_global.default_layer_dim"),
-               weight_noise=Ref("exp_global.weight_noise", default=0.0),
-               word_dropout=0.0,
-               fix_norm = None,
-               vocab = None,
-               yaml_path = None,
-               src_reader = Ref("model.src_reader", default=None),
-               trg_reader = Ref("model.trg_reader", default=None)):
+               filename: str,
+               emb_dim: int = Ref("exp_global.default_layer_dim"),
+               weight_noise: numbers.Real = Ref("exp_global.weight_noise", default=0.0),
+               word_dropout: numbers.Real = 0.0,
+               fix_norm: Optional[numbers.Real] = None,
+               vocab: Optional[vocabs.Vocab] = None,
+               yaml_path=None,
+               src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
+               trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)):
     self.emb_dim = emb_dim
     self.weight_noise = weight_noise
     self.word_dropout = word_dropout
@@ -410,7 +421,8 @@ class PositionEmbedder(Embedder, Serializable):
 
   @serializable_init
   def __init__(self, max_pos: int, emb_dim: int = Ref("exp_global.default_layer_dim"),
-               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer))):
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init",
+                                                                     default=bare(param_initializers.GlorotInitializer))):
     """
     max_pos: largest embedded position
     emb_dim: embedding size

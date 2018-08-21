@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional
+import numbers
 
 from xnmt.param_initializers import ParamInitializer, GlorotInitializer, ZeroInitializer
 from xnmt.settings import settings
@@ -38,8 +39,8 @@ class ExpGlobal(Serializable):
   def __init__(self,
                model_file: str = settings.DEFAULT_MOD_PATH,
                log_file: str = settings.DEFAULT_LOG_PATH,
-               dropout: float = 0.3,
-               weight_noise: float = 0.0,
+               dropout: numbers.Real = 0.3,
+               weight_noise: numbers.Real = 0.0,
                default_layer_dim: int = 512,
                param_init: ParamInitializer = bare(GlorotInitializer),
                bias_init: ParamInitializer = bare(ZeroInitializer),

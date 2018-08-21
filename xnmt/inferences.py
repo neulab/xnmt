@@ -1,5 +1,6 @@
 import collections.abc
 from typing import List, Optional, Tuple, Sequence, Union
+import numbers
 
 from xnmt.settings import settings
 
@@ -93,7 +94,7 @@ class Inference(object):
   def _generate_output(self, generator: 'models.GeneratorModel', src_corpus: Sequence[sent.Sentence],
                        trg_file: str, batcher: Optional[batchers.Batcher] = None, max_src_len: Optional[int] = None,
                        forced_ref_corpus: Optional[Sequence[sent.Sentence]] = None,
-                       assert_scores: Optional[Sequence[float]] = None) -> None:
+                       assert_scores: Optional[Sequence[numbers.Real]] = None) -> None:
     """
     Generate outputs and write them to file.
 
@@ -155,7 +156,7 @@ class Inference(object):
     for reporter in self.reporter:
       reporter.conclude_report()
 
-  def _compute_losses(self, generator, ref_corpus, src_corpus, max_num_sents) -> List[float]:
+  def _compute_losses(self, generator, ref_corpus, src_corpus, max_num_sents) -> List[numbers.Real]:
     batched_src, batched_ref = self.batcher.pack(src_corpus, ref_corpus)
     ref_scores = []
     for sent_count, (src, ref) in enumerate(zip(batched_src, batched_ref)):
@@ -171,7 +172,7 @@ class Inference(object):
 
 
   @staticmethod
-  def _write_rescored_output(ref_scores: Sequence[float], ref_file: str, trg_file: str) -> None:
+  def _write_rescored_output(ref_scores: Sequence[numbers.Real], ref_file: str, trg_file: str) -> None:
     """
     Write scored sequences and scores to file when mode=='score'.
 

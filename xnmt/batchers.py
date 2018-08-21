@@ -4,6 +4,7 @@ import math
 import random
 from abc import ABC, abstractmethod
 from functools import lru_cache
+import numbers
 
 import numpy as np
 import dynet as dy
@@ -538,7 +539,7 @@ class WordSortBatcher(SortBatcher):
     pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
 
-  def __init__(self, words_per_batch: Optional[int], avg_batch_size: Optional[Union[int,float]], sort_key: Callable,
+  def __init__(self, words_per_batch: Optional[int], avg_batch_size: Optional[numbers.Real], sort_key: Callable,
                break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
     # Sanity checks
     if words_per_batch and avg_batch_size:
@@ -566,7 +567,7 @@ class WordSrcBatcher(WordSortBatcher, Serializable):
   yaml_tag = "!WordSrcBatcher"
 
   @serializable_init
-  def __init__(self, words_per_batch:Optional[int]=None, avg_batch_size:Optional[Union[int,float]]=None,
+  def __init__(self, words_per_batch:Optional[int]=None, avg_batch_size:Optional[numbers.Real]=None,
                break_ties_randomly:bool=True, pad_src_to_multiple:int=1) -> None:
     super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: x[0].sent_len(),
                      break_ties_randomly=break_ties_randomly,
@@ -592,7 +593,7 @@ class WordTrgBatcher(WordSortBatcher, Serializable):
   yaml_tag = "!WordTrgBatcher"
 
   @serializable_init
-  def __init__(self, words_per_batch:Optional[int]=None, avg_batch_size:Optional[Union[int,float]]=None,
+  def __init__(self, words_per_batch:Optional[int]=None, avg_batch_size:Optional[numbers.Real]=None,
                break_ties_randomly:bool=True, pad_src_to_multiple:int=1) -> None:
     super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: x[1].sent_len(),
                      break_ties_randomly=break_ties_randomly,
@@ -618,7 +619,7 @@ class WordSrcTrgBatcher(WordSortBatcher, Serializable):
   yaml_tag = "!WordSrcTrgBatcher"
 
   @serializable_init
-  def __init__(self, words_per_batch: Optional[int] = None, avg_batch_size: Optional[Union[int, float]] = None,
+  def __init__(self, words_per_batch: Optional[int] = None, avg_batch_size: Optional[numbers.Real] = None,
                break_ties_randomly: bool = True, pad_src_to_multiple: bool = 1) -> None:
     super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: x[0].sent_len() + 1.0e-6 * x[1].sent_len(),
                      break_ties_randomly=break_ties_randomly,
@@ -644,7 +645,7 @@ class WordTrgSrcBatcher(WordSortBatcher, Serializable):
   yaml_tag = "!WordTrgSrcBatcher"
 
   @serializable_init
-  def __init__(self, words_per_batch: Optional[int] = None, avg_batch_size: Optional[Union[int, float]] = None,
+  def __init__(self, words_per_batch: Optional[int] = None, avg_batch_size: Optional[numbers.Real] = None,
                break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
     super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: x[1].sent_len() + 1.0e-6 * x[0].sent_len(),
                      break_ties_randomly=break_ties_randomly,

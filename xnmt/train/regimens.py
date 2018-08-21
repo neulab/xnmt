@@ -1,6 +1,7 @@
 import contextlib
 from typing import Sequence, Optional, Union
 from collections import OrderedDict
+import numbers
 
 from xnmt.settings import settings
 import numpy as np
@@ -94,7 +95,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
                batcher: batchers.Batcher = bare(batchers.SrcBatcher, batch_size=32),
                loss_calculator: LossCalculator = bare(MLELoss),
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
-               run_for_epochs: Optional[int] = None, lr_decay: float = 1.0, lr_decay_times: int = 3, patience: int = 1,
+               run_for_epochs: Optional[int] = None, lr_decay: numbers.Real= 1.0, lr_decay_times: int = 3, patience: int = 1,
                initial_patience: Optional[int] = None, dev_tasks: Sequence[eval_tasks.EvalTask] = None,
                dev_combinator: Optional[str] = None, restart_trainer: bool = False,
                reload_command: Optional[str] = None, name: str = "{EXP}", sample_train_sents: Optional[int] = None,
@@ -346,7 +347,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
   @serializable_init
   def __init__(self,
                tasks: Sequence[train_tasks.TrainingTask],
-               task_weights: Optional[Sequence[float]] = None,
+               task_weights: Optional[Sequence[numbers.Real]] = None,
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),

@@ -1,8 +1,10 @@
 from subprocess import Popen
 from asteval import Interpreter
 import random
-import numpy as np
 from typing import Iterator, Optional, Sequence, Union
+import numbers
+
+import numpy as np
 
 from xnmt import batchers, event_trigger, input_readers, logger, losses, loss_trackers, loss_calculators, \
   param_collections
@@ -117,7 +119,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                batcher: batchers.Batcher = bare(batchers.SrcBatcher, batch_size=32),
                loss_calculator: loss_calculators.LossCalculator = bare(loss_calculators.MLELoss),
                run_for_epochs: Optional[int] = None,
-               lr_decay: float = 1.0, lr_decay_times: int = 3,
+               lr_decay: numbers.Real = 1.0, lr_decay_times: int = 3,
                patience: int = 1, initial_patience: Optional[int] = None,
                dev_tasks: Sequence['eval_tasks.EvalTask'] = None, dev_combinator=None,
                restart_trainer: bool = False,
