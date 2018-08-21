@@ -1,4 +1,5 @@
 import dynet as dy
+import numpy as np
 import pylru
 
 from collections import Counter
@@ -189,9 +190,9 @@ class LookupComposer(VocabBasedComposer, Serializable):
 
   def on_id_delete(self, wordid):
     assert self.train and self.learn_vocab
-    # TODO(philip30): reset the value of self.embedding
-    # self.embedding is a lookup parameter with dimension (self.dict_entry, hidden_dim)
-    # we need to set the row value of [wordid] with glorot initializer
+    # TODO Temporarily reset the value to the values between uniform(-1, 1)
+    new_vct = np.random.uniform(low=-1, high=1, size=self.hidden_dim)
+    self.embedding.init_row(wordid, new_vct)
 
 class CharNGramComposer(VocabBasedComposer, Serializable):
   """
@@ -238,6 +239,7 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
                                                                      bias_init=bias_init))
     self.param_init = param_init
     self.bias_init = bias_init
+    self.hidden_dim = hidden_dim
     # Serializations
     self.save_processed_arg("lrucache", self.lrucache)
     self.save_processed_arg("ngram_size", self.ngram_size)
@@ -267,10 +269,17 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
 
   def on_id_delete(self, wordid):
     assert self.train and self.learn_vocab
-    # TODO(philip30): reset the value of self.embedding
-    # self.embedding is a Linear Parameter with dimension (self.dict_entry, hidden_dim) for W and
-    # (self.dict_entry, 1) for b
-    # we need to set the row value of W[wordid] with glorot initializer and set b[wordid] with Zero
+    # Temporarily reset the initialization to (-1, 1)
+    W = dy.parameter(self.embedding.W1)
+    b = dy.parameter(self.embedding.b1)
+
+    W_np = W.as_array()
+    W_np[:,wordid] = np.random.uniform(low=-1, high=1, size=self.hidden_dim)
+    W.set_value(W_np)
+
+    b_np = b.as_array()
+    b_np[wordid] = 0
+    b.set_value(b_np)
 
 class SumMultipleComposer(SingleComposer, Serializable):
   yaml_tag = "!SumMultipleComposer"

@@ -36,7 +36,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     # Seeding
     numpy.random.seed(2)
     random.seed(2)
-    layer_dim = 64
+    layer_dim = 4
     xnmt.events.clear()
     ParamManager.init_param_col()
     self.segment_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
@@ -171,7 +171,7 @@ class TestComposing(unittest.TestCase):
     # Seeding
     numpy.random.seed(2)
     random.seed(2)
-    layer_dim = 64
+    layer_dim = 4
     xnmt.events.clear()
     ParamManager.init_param_col()
     self.segment_composer = SumComposer()
@@ -262,6 +262,29 @@ class TestComposing(unittest.TestCase):
     event_trigger.set_train(False)
     enc.segment_composer.set_word((3, 3, 2))
     enc.segment_composer.transduce([])
+
+  def test_chargram_composer_learn(self):
+    enc = self.segmenting_encoder
+    char_vocab = Vocab(i2w=['a', 'b', 'c', 'd'])
+    enc.segment_composer = CharNGramComposer(
+        word_vocab = None,
+        char_vocab = char_vocab,
+        hidden_dim = self.layer_dim,
+        ngram_size = 2,
+        vocab_size = 5,
+    )
+    event_trigger.set_train(True)
+    enc.segment_composer.set_word((0, 1, 2)) # a:0, ab:1, b: 2, bc: 3, c: 4
+    enc.segment_composer.transduce([])
+    act = dict(enc.segment_composer.lrucache.items())
+    exp = {'a': 0, 'ab': 1, 'b': 2, 'bc': 3, 'c': 4}
+    self.assertDictEqual(act, exp)
+
+    enc.segment_composer.set_word((2, 3)) # c, cd, d
+    enc.segment_composer.transduce([])
+    act = dict(enc.segment_composer.lrucache.items())
+    exp = {'cd': 0, 'd': 1, 'b': 2, 'bc': 3, 'c': 4}
+    self.assertDictEqual(act, exp)
 
   def test_add_multiple_segment_composer(self):
     enc = self.segmenting_encoder
