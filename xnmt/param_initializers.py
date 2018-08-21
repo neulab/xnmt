@@ -12,7 +12,8 @@ class ParamInitializer(object):
   A parameter initializer that delegates to the DyNet initializers and possibly
   performs some extra configuration.
   """
-  def initializer(self, dim: Tuple[int], is_lookup: bool = False, num_shared: int = 1):
+
+  def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False, num_shared: numbers.Integral = 1):
     """
     Args:
       dim: dimension of parameter tensor
@@ -41,7 +42,8 @@ class NormalInitializer(ParamInitializer, Serializable):
   def __init__(self, mean: numbers.Real = 0, var: numbers.Real = 1):
     self.mean = mean
     self.var = var
-  def initializer(self, dim, is_lookup=False, num_shared=1):
+
+  def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False, num_shared: numbers.Integral = 1):
     return dy.NormalInitializer(mean=self.mean, var=self.var)
 
 class UniformInitializer(ParamInitializer, Serializable):
@@ -57,7 +59,8 @@ class UniformInitializer(ParamInitializer, Serializable):
   @serializable_init
   def __init__(self, scale: numbers.Real):
     self.scale = scale
-  def initializer(self, dim, is_lookup=False, num_shared=1):
+
+  def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False, num_shared: numbers.Integral = 1):
     return dy.UniformInitializer(scale=self.scale)
 
 class ConstInitializer(ParamInitializer, Serializable):
@@ -74,7 +77,8 @@ class ConstInitializer(ParamInitializer, Serializable):
   @serializable_init
   def __init__(self, c: numbers.Real):
     self.c = c
-  def initializer(self, dim, is_lookup=False, num_shared=1):
+
+  def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False, num_shared: numbers.Integral = 1):
     return dy.ConstInitializer(c=self.c)
 
 class GlorotInitializer(ParamInitializer, Serializable):
@@ -104,7 +108,8 @@ class GlorotInitializer(ParamInitializer, Serializable):
   @serializable_init
   def __init__(self, gain: numbers.Real = 1.0):
     self.gain = gain
-  def initializer(self, dim:tuple, is_lookup:bool=False, num_shared:int=1):
+
+  def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False, num_shared: numbers.Integral = 1):
     """
     Args:
       dim: dimensions of parameter tensor
@@ -138,7 +143,8 @@ class FromFileInitializer(ParamInitializer, Serializable):
   @serializable_init
   def __init__(self, fname: str):
     self.fname = fname
-  def initializer(self, dim, is_lookup=False, num_shared=1):
+
+  def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False, num_shared: numbers.Integral = 1):
     return dy.FromFileInitializer(fname=self.fname)
 
 class NumpyInitializer(ParamInitializer, Serializable):
@@ -157,7 +163,8 @@ class NumpyInitializer(ParamInitializer, Serializable):
   @serializable_init
   def __init__(self, array: np.ndarray):
     self.array = array
-  def initializer(self, dim, is_lookup=False, num_shared=1):
+
+  def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False, num_shared: numbers.Integral = 1):
     return dy.NumpyInitializer(array=self.array)
 
 
@@ -173,7 +180,7 @@ class ZeroInitializer(ParamInitializer, Serializable):
   def __init__(self):
     pass
 
-  def initializer(self, dim, is_lookup=False, num_shared=1):
+  def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False, num_shared: numbers.Integral = 1):
     return dy.ConstInitializer(c=0.0)
 
 class LeCunUniformInitializer(ParamInitializer, Serializable):
@@ -190,7 +197,7 @@ class LeCunUniformInitializer(ParamInitializer, Serializable):
   def __init__(self, scale: numbers.Real = 1.0):
     self.scale = scale
 
-  def initializer(self, dim, is_lookup=False, num_shared=1):
+  def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False, num_shared: numbers.Integral = 1):
     if is_lookup:
       fan_in = dim[0]
     else:

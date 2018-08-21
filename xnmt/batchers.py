@@ -76,7 +76,7 @@ class CompoundBatch(Batch):
       yield sent.CompoundSentence(sents=[b[i] for b in self.batches])
 
   def __getitem__(self, key):
-    if isinstance(key, int):
+    if isinstance(key, numbers.Integral):
       return sent.CompoundSentence(sents=[b[key] for b in self.batches])
     else:
       assert isinstance(key, slice)
@@ -161,7 +161,10 @@ class Batcher(object):
     sort_within_by_trg_len: whether to sort by reverse trg len inside a batch
   """
 
-  def __init__(self, batch_size: int, granularity: str = 'sent', pad_src_to_multiple: int = 1,
+  def __init__(self,
+               batch_size: numbers.Integral,
+               granularity: str = 'sent',
+               pad_src_to_multiple: numbers.Integral = 1,
                sort_within_by_trg_len: bool = True) -> None:
     self.batch_size = batch_size
     self.granularity = granularity
@@ -206,8 +209,10 @@ class Batcher(object):
       src_batch = self.create_single_batch(src_curr, trg_curr, sort_by_trg_len)
     src_ret.append(src_batch)
 
-  def _pack_by_order(self, src: Sequence[sent.Sentence], trg: Optional[Sequence[sent.Sentence]],
-                     order: Sequence[int]) -> Tuple[Sequence[Batch], Sequence[Batch]]:
+  def _pack_by_order(self,
+                     src: Sequence[sent.Sentence],
+                     trg: Optional[Sequence[sent.Sentence]],
+                     order: Sequence[numbers.Integral]) -> Tuple[Sequence[Batch], Sequence[Batch]]:
     """
     Pack batches by given order.
 
@@ -280,7 +285,9 @@ class InOrderBatcher(Batcher, Serializable):
   yaml_tag = "!InOrderBatcher"
 
   @serializable_init
-  def __init__(self, batch_size: int = 1, pad_src_to_multiple: int = 1) -> None:
+  def __init__(self,
+               batch_size: numbers.Integral = 1,
+               pad_src_to_multiple: numbers.Integral = 1) -> None:
     super().__init__(batch_size, pad_src_to_multiple=pad_src_to_multiple, sort_within_by_trg_len=False)
 
   def pack(self, src: Sequence[sent.Sentence], trg: Optional[Sequence[sent.Sentence]]) \
@@ -310,7 +317,10 @@ class ShuffleBatcher(Batcher):
     pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
 
-  def __init__(self, batch_size: int, granularity: str = 'sent', pad_src_to_multiple: int = 1) -> None:
+  def __init__(self,
+               batch_size: numbers.Integral,
+               granularity: str = 'sent',
+               pad_src_to_multiple: numbers.Integral = 1) -> None:
     super().__init__(batch_size=batch_size, granularity=granularity, pad_src_to_multiple=pad_src_to_multiple,
                      sort_within_by_trg_len=True)
 
@@ -335,8 +345,12 @@ class SortBatcher(Batcher):
   """
   __tiebreaker_eps = 1.0e-7
 
-  def __init__(self, batch_size: int, granularity: str = 'sent', sort_key: Callable = lambda x: x[0].sent_len(),
-               break_ties_randomly=True, pad_src_to_multiple=1) -> None:
+  def __init__(self,
+               batch_size: numbers.Integral,
+               granularity: str = 'sent',
+               sort_key: Callable = lambda x: x[0].sent_len(),
+               break_ties_randomly: bool=True,
+               pad_src_to_multiple: numbers.Integral = 1) -> None:
     super().__init__(batch_size, granularity=granularity,
                      pad_src_to_multiple=pad_src_to_multiple,
                      sort_within_by_trg_len=True)
@@ -382,13 +396,13 @@ def is_batched(data):
   """
   return isinstance(data, Batch)
 
-def pad(batch: Sequence, pad_to_multiple=1) -> Batch:
+def pad(batch: Sequence, pad_to_multiple: numbers.Integral = 1) -> Batch:
   """
   Apply padding to sentences in a batch.
 
   Args:
     batch: batch of sentences
-    pad_to_multiple (int): pad sentences so their length is a multiple of this integer.
+    pad_to_multiple: pad sentences so their length is a multiple of this integer.
 
   Returns:
     batch containing padded items and a corresponding batch mask.
@@ -429,10 +443,12 @@ class SrcBatcher(SortBatcher, Serializable):
   yaml_tag = "!SrcBatcher"
 
   @serializable_init
-  def __init__(self, batch_size: int, break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
+  def __init__(self,
+               batch_size: numbers.Integral,
+               break_ties_randomly: bool = True,
+               pad_src_to_multiple: numbers.Integral = 1) -> None:
     super().__init__(batch_size, sort_key=lambda x: x[0].sent_len(), granularity='sent',
-                     break_ties_randomly=break_ties_randomly,
-                     pad_src_to_multiple=pad_src_to_multiple)
+                     break_ties_randomly=break_ties_randomly, pad_src_to_multiple=pad_src_to_multiple)
 
 class TrgBatcher(SortBatcher, Serializable):
   """
@@ -448,7 +464,10 @@ class TrgBatcher(SortBatcher, Serializable):
   yaml_tag = "!TrgBatcher"
 
   @serializable_init
-  def __init__(self, batch_size: int, break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
+  def __init__(self,
+               batch_size: numbers.Integral,
+               break_ties_randomly: bool = True,
+               pad_src_to_multiple: numbers.Integral = 1) -> None:
     super().__init__(batch_size, sort_key=lambda x: x[1].sent_len(), granularity='sent',
                      break_ties_randomly=break_ties_randomly,
                      pad_src_to_multiple=pad_src_to_multiple)
@@ -467,7 +486,10 @@ class SrcTrgBatcher(SortBatcher, Serializable):
   yaml_tag = "!SrcTrgBatcher"
 
   @serializable_init
-  def __init__(self, batch_size: int, break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
+  def __init__(self,
+               batch_size: numbers.Integral,
+               break_ties_randomly: bool = True,
+               pad_src_to_multiple: numbers.Integral = 1) -> None:
     super().__init__(batch_size, sort_key=lambda x: x[0].sent_len() + 1.0e-6 * len(x[1]),
                      granularity='sent', break_ties_randomly=break_ties_randomly,
                      pad_src_to_multiple=pad_src_to_multiple)
@@ -486,7 +508,10 @@ class TrgSrcBatcher(SortBatcher, Serializable):
   yaml_tag = "!TrgSrcBatcher"
 
   @serializable_init
-  def __init__(self, batch_size: int, break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
+  def __init__(self,
+               batch_size: numbers.Integral,
+               break_ties_randomly: bool = True,
+               pad_src_to_multiple: numbers.Integral = 1) -> None:
     super().__init__(batch_size, sort_key=lambda x: x[1].sent_len() + 1.0e-6 * len(x[0]),
                      granularity='sent',
                      break_ties_randomly=break_ties_randomly,
@@ -506,7 +531,7 @@ class SentShuffleBatcher(ShuffleBatcher, Serializable):
   yaml_tag = "!SentShuffleBatcher"
 
   @serializable_init
-  def __init__(self, batch_size: int, pad_src_to_multiple: int = 1) -> None:
+  def __init__(self, batch_size: numbers.Integral, pad_src_to_multiple: numbers.Integral = 1) -> None:
     super().__init__(batch_size, granularity='sent', pad_src_to_multiple=pad_src_to_multiple)
 
 class WordShuffleBatcher(ShuffleBatcher, Serializable):
@@ -522,7 +547,7 @@ class WordShuffleBatcher(ShuffleBatcher, Serializable):
   yaml_tag = "!WordShuffleBatcher"
 
   @serializable_init
-  def __init__(self, words_per_batch: int, pad_src_to_multiple: int = 1) -> None:
+  def __init__(self, words_per_batch: numbers.Integral, pad_src_to_multiple: numbers.Integral = 1) -> None:
     super().__init__(words_per_batch, granularity='word', pad_src_to_multiple=pad_src_to_multiple)
 
 class WordSortBatcher(SortBatcher):
@@ -539,8 +564,12 @@ class WordSortBatcher(SortBatcher):
     pad_src_to_multiple: pad source sentences so its length is multiple of this integer.
   """
 
-  def __init__(self, words_per_batch: Optional[int], avg_batch_size: Optional[numbers.Real], sort_key: Callable,
-               break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
+  def __init__(self,
+               words_per_batch: Optional[numbers.Integral],
+               avg_batch_size: Optional[numbers.Real],
+               sort_key: Callable,
+               break_ties_randomly: bool = True,
+               pad_src_to_multiple: numbers.Integral = 1) -> None:
     # Sanity checks
     if words_per_batch and avg_batch_size:
       raise ValueError("words_per_batch and avg_batch_size are mutually exclusive.")
@@ -567,8 +596,11 @@ class WordSrcBatcher(WordSortBatcher, Serializable):
   yaml_tag = "!WordSrcBatcher"
 
   @serializable_init
-  def __init__(self, words_per_batch:Optional[int]=None, avg_batch_size:Optional[numbers.Real]=None,
-               break_ties_randomly:bool=True, pad_src_to_multiple:int=1) -> None:
+  def __init__(self,
+               words_per_batch: Optional[numbers.Integral] = None,
+               avg_batch_size: Optional[numbers.Real] = None,
+               break_ties_randomly: bool = True,
+               pad_src_to_multiple: numbers.Integral = 1) -> None:
     super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: x[0].sent_len(),
                      break_ties_randomly=break_ties_randomly,
                      pad_src_to_multiple=pad_src_to_multiple)
@@ -593,8 +625,11 @@ class WordTrgBatcher(WordSortBatcher, Serializable):
   yaml_tag = "!WordTrgBatcher"
 
   @serializable_init
-  def __init__(self, words_per_batch:Optional[int]=None, avg_batch_size:Optional[numbers.Real]=None,
-               break_ties_randomly:bool=True, pad_src_to_multiple:int=1) -> None:
+  def __init__(self,
+               words_per_batch: Optional[numbers.Integral] = None,
+               avg_batch_size: Optional[numbers.Real] = None,
+               break_ties_randomly: bool = True,
+               pad_src_to_multiple: numbers.Integral = 1) -> None:
     super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: x[1].sent_len(),
                      break_ties_randomly=break_ties_randomly,
                      pad_src_to_multiple=pad_src_to_multiple)
@@ -619,8 +654,11 @@ class WordSrcTrgBatcher(WordSortBatcher, Serializable):
   yaml_tag = "!WordSrcTrgBatcher"
 
   @serializable_init
-  def __init__(self, words_per_batch: Optional[int] = None, avg_batch_size: Optional[numbers.Real] = None,
-               break_ties_randomly: bool = True, pad_src_to_multiple: bool = 1) -> None:
+  def __init__(self,
+               words_per_batch: Optional[numbers.Integral] = None,
+               avg_batch_size: Optional[numbers.Real] = None,
+               break_ties_randomly: bool = True,
+               pad_src_to_multiple: numbers.Integral = 1) -> None:
     super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: x[0].sent_len() + 1.0e-6 * x[1].sent_len(),
                      break_ties_randomly=break_ties_randomly,
                      pad_src_to_multiple=pad_src_to_multiple)
@@ -645,8 +683,11 @@ class WordTrgSrcBatcher(WordSortBatcher, Serializable):
   yaml_tag = "!WordTrgSrcBatcher"
 
   @serializable_init
-  def __init__(self, words_per_batch: Optional[int] = None, avg_batch_size: Optional[numbers.Real] = None,
-               break_ties_randomly: bool = True, pad_src_to_multiple: int = 1) -> None:
+  def __init__(self,
+               words_per_batch: Optional[numbers.Integral] = None,
+               avg_batch_size: Optional[numbers.Real] = None,
+               break_ties_randomly: bool = True,
+               pad_src_to_multiple: numbers.Integral = 1) -> None:
     super().__init__(words_per_batch, avg_batch_size, sort_key=lambda x: x[1].sent_len() + 1.0e-6 * x[0].sent_len(),
                      break_ties_randomly=break_ties_randomly,
                      pad_src_to_multiple=pad_src_to_multiple)

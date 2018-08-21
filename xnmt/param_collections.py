@@ -27,12 +27,6 @@ class ParamManager(object):
     ParamManager.load_paths = []
     ParamManager.initialized = True
 
-  # @staticmethod
-  # def set_save_file(file_name: str, save_num_checkpoints: int=1) -> None:
-  #   assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
-  #   ParamManager.param_col.model_file = file_name
-  #   ParamManager.param_col.save_num_checkpoints = save_num_checkpoints
-
   @staticmethod
   def add_load_path(data_file: str) -> None:
     """

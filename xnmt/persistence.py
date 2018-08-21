@@ -19,7 +19,7 @@ The main objects to be aware of are:
 from functools import singledispatch
 from enum import IntEnum, auto
 import collections.abc
-
+import numbers
 import logging
 logger = logging.getLogger('xnmt')
 import os
@@ -444,7 +444,7 @@ class Repeat(Serializable):
   """
   yaml_tag = "!Repeat"
   @serializable_init
-  def __init__(self, times: int, content: Any):
+  def __init__(self, times: numbers.Integral, content: Any):
     self.times = times
     self.content = content
     raise ValueError("Repeat cannot be instantiated")

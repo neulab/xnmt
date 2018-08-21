@@ -126,8 +126,11 @@ class LossScore(EvalScore, Serializable):
   yaml_tag = "!LossScore"
 
   @serializable_init
-  def __init__(self, loss: numbers.Real, loss_stats: Dict[str, numbers.Real] = None,
-               num_ref_words: Optional[int] = None, desc: Any = None) -> None:
+  def __init__(self,
+               loss: numbers.Real,
+               loss_stats: Dict[str, numbers.Real] = None,
+               num_ref_words: Optional[numbers.Integral] = None,
+               desc: Any = None) -> None:
     super().__init__(desc=desc)
     self.loss = loss
     self.loss_stats = loss_stats
@@ -164,9 +167,9 @@ class BLEUScore(EvalScore, Serializable):
                bleu: numbers.Real,
                frac_score_list: Sequence[numbers.Real] = None,
                brevity_penalty_score: numbers.Real = None,
-               hyp_len: int = None,
-               ref_len: int = None,
-               ngram: int = 4,
+               hyp_len: numbers.Integral = None,
+               ref_len: numbers.Integral = None,
+               ngram: numbers.Integral = 4,
                desc: Any = None) -> None:
     self.bleu = bleu
     self.frac_score_list = frac_score_list
@@ -203,7 +206,12 @@ class GLEUScore(SentenceLevelEvalScore, Serializable):
   yaml_tag = "!GLEUScore"
 
   @serializable_init
-  def __init__(self, corpus_n_match: int, corpus_total: int, hyp_len: int, ref_len: int, desc: Any = None) -> None:
+  def __init__(self,
+               corpus_n_match: numbers.Integral,
+               corpus_total: numbers.Integral,
+               hyp_len: numbers.Integral,
+               ref_len: numbers.Integral,
+               desc: Any = None) -> None:
     self.corpus_n_match = corpus_n_match
     self.corpus_total = corpus_total
     self.hyp_len = hyp_len
@@ -244,7 +252,12 @@ class LevenshteinScore(SentenceLevelEvalScore):
   """
 
   @serializable_init
-  def __init__(self, correct: int, substitutions: int, insertions: int, deletions: int, desc: Any = None) -> None:
+  def __init__(self,
+               correct: numbers.Integral,
+               substitutions: numbers.Integral,
+               insertions: numbers.Integral,
+               deletions: numbers.Integral,
+               desc: Any = None) -> None:
     self.correct = correct
     self.substitutions = substitutions
     self.insertions = insertions
@@ -298,7 +311,12 @@ class RecallScore(SentenceLevelEvalScore, Serializable):
   yaml_tag = "!RecallScore"
 
   @serializable_init
-  def __init__(self, recall: numbers.Real, hyp_len: int, ref_len: int, nbest: int = 5, desc: Any = None) -> None:
+  def __init__(self,
+               recall: numbers.Real,
+               hyp_len: numbers.Integral,
+               ref_len: numbers.Integral,
+               nbest: numbers.Integral = 5,
+               desc: Any = None) -> None:
     self.recall  = recall
     self.hyp_len = hyp_len
     self.ref_len = ref_len
@@ -358,7 +376,10 @@ class SequenceAccuracyScore(SentenceLevelEvalScore, Serializable):
   yaml_tag = "!SequenceAccuracyScore"
 
   @serializable_init
-  def __init__(self, num_correct: int, num_total: int, desc: Any = None):
+  def __init__(self,
+               num_correct: numbers.Integral,
+               num_total: numbers.Integral,
+               desc: Any = None):
     self.num_correct = num_correct
     self.num_total = num_total
     self.desc = desc
@@ -380,7 +401,11 @@ class SequenceAccuracyScore(SentenceLevelEvalScore, Serializable):
 class FMeasure(SentenceLevelEvalScore, Serializable):
   yaml_tag = "!FMeasure"
   @serializable_init
-  def __init__(self, true_pos: int, false_neg: int, false_pos: int, desc: Any = None):
+  def __init__(self,
+               true_pos: numbers.Integral,
+               false_neg: numbers.Integral,
+               false_pos: numbers.Integral,
+               desc: Any = None):
     self.true_pos = true_pos
     self.false_neg = false_neg
     self.false_pos = false_pos
@@ -486,7 +511,7 @@ class FastBLEUEvaluator(SentenceLevelEvaluator, Serializable):
   yaml_tag = "!FastBLEUEvaluator"
 
   @serializable_init
-  def __init__(self, ngram:int = 4, smooth:numbers.Real = 1):
+  def __init__(self, ngram: numbers.Integral = 4, smooth: numbers.Real = 1):
     self.ngram = ngram
     self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
     self.smooth = smooth
@@ -516,7 +541,7 @@ class BLEUEvaluator(Evaluator, Serializable):
   yaml_tag = "!BLEUEvaluator"
 
   @serializable_init
-  def __init__(self, ngram: int = 4):
+  def __init__(self, ngram: numbers.Integral = 4):
     self.ngram = ngram
     self.weights = (1 / ngram) * np.ones(ngram, dtype=np.float32)
     self.reference_corpus = None
@@ -611,7 +636,7 @@ class BLEUEvaluator(Evaluator, Serializable):
     bleu_score = brevity_penalty_score * precision_score
     return BLEUScore(bleu_score, frac_score_list, brevity_penalty_score, word_counter['candidate'], word_counter['reference'], ngram=self.ngram, desc=desc)
 
-  def _brevity_penalty(self, r: int, c: int) -> float:
+  def _brevity_penalty(self, r: numbers.Integral, c: numbers.Integral) -> float:
     """
     Args:
       r: number of words in reference corpus
@@ -702,7 +727,10 @@ class GLEUEvaluator(SentenceLevelEvaluator, Serializable):
   """
   yaml_tag = "!GLEUEvaluator"
   @serializable_init
-  def __init__(self, min_length: int = 1, max_length: int = 4, write_sentence_scores: Optional[str] = None) -> None:
+  def __init__(self,
+               min_length: numbers.Integral = 1,
+               max_length: numbers.Integral = 4,
+               write_sentence_scores: Optional[str] = None) -> None:
     super().__init__(write_sentence_scores=write_sentence_scores)
     self.min = min_length
     self.max = max_length
@@ -858,7 +886,7 @@ class RecallEvaluator(SentenceLevelEvaluator,Serializable):
   """
   yaml_tag = "!RecallEvaluator"
   @serializable_init
-  def __init__(self, nbest: int = 5, write_sentence_scores: Optional[str] = None):
+  def __init__(self, nbest: numbers.Integral = 5, write_sentence_scores: Optional[str] = None):
     super().__init__(write_sentence_scores=write_sentence_scores)
     self.nbest = nbest
 
