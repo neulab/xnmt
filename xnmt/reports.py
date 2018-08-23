@@ -434,16 +434,16 @@ class SegmentationReporter(Reporter, Serializable):
 
   def create_sent_report(self, segment_actions, src, **kwargs):
     if self.report_fp is None:
-      report_path = os.path.join(self.report_path, "segment.txt")
-      utils.make_parent_dir(report_path)
-      self.report_fp = open(report_path, "w")
+      utils.make_parent_dir(self.report_path)
+      self.report_fp = open(self.report_path, "w")
 
     actions = segment_actions[0]
     src = src.str_tokens()
     words = []
     start = 0
     for end in actions:
-      words.append("".join(str(src[start:end+1])))
+      if start < end+1:
+        words.append("".join(map(str, src[start:end+1])))
       start = end+1
     print(" ".join(words), file=self.report_fp)
 

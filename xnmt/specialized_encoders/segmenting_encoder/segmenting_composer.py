@@ -20,10 +20,14 @@ class SingleComposer(object):
 
   def compose(self, composed_words, batch_size):
     outputs = [[] for _ in range(batch_size)]
+    exprs = []
     # Batching expression
     for expr_list, batch_num, position, start, end in composed_words:
       self.set_word(self.src_sent[batch_num][start:end])
-      outputs[batch_num].append(self.transduce(expr_list))
+      expr = self.transduce(expr_list)
+      outputs[batch_num].append(expr)
+      exprs.append(expr)
+    dy.forward(exprs)
     return outputs
 
   @handle_xnmt_event
@@ -270,16 +274,16 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
   def on_id_delete(self, wordid):
     assert self.train and self.learn_vocab
     # Temporarily reset the initialization to (-1, 1)
-    W = dy.parameter(self.embedding.W1)
-    b = dy.parameter(self.embedding.b1)
+    #W = dy.parameter(self.embedding.W1)
+    #b = dy.parameter(self.embedding.b1)
 
-    W_np = W.as_array()
-    W_np[:,wordid] = np.random.uniform(low=-1, high=1, size=self.hidden_dim)
-    W.set_value(W_np)
+    #W_np = W.as_array()
+    #W_np[:,wordid] = np.random.uniform(low=-1, high=1, size=self.hidden_dim)
+    #W.set_value(W_np)
 
-    b_np = b.as_array()
-    b_np[wordid] = 0
-    b.set_value(b_np)
+    #b_np = b.as_array()
+    #b_np[wordid] = 0
+    #b.set_value(b_np)
 
 class SumMultipleComposer(SingleComposer, Serializable):
   yaml_tag = "!SumMultipleComposer"

@@ -72,3 +72,8 @@ class DefinedSequence(Scalar):
   def update_value(self):
     return self.sequence[min(len(self.sequence)-1, self.update)]
 
+  def __hash__(self):
+    return hash(tuple(self.sequence + [self.value, self.update]))
+
+  def __eq__(self, other):
+    return self.sequence == other.sequence and self.value == other.value and self.update == other.update

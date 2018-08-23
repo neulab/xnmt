@@ -14,7 +14,7 @@ report: !Experiment
         output_dim: 2
         conf_penalty: !ConfidencePenalty {}
       compute_report: True
-      reporter: !SegmentingReporter
+      reporter: !SegmentPLLogger
         report_path: examples/output/report
       final_transducer: !BiLSTMSeqTransducer {}
   train: !SimpleTrainingRegimen

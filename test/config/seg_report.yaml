@@ -28,7 +28,8 @@ report: !Experiment
       ref_file: examples/data/head.en
       hyp_file: test/tmp/{EXP}.test_hyp
       inference: !AutoRegressiveInference
-      reporter: !SegmentationReporter {}
+        reporter: !SegmentationReporter
+          report_path: examples/output/test.segment
     - !LossEvalTask
       src_file: examples/data/head.ja
       ref_file: examples/data/head.en
