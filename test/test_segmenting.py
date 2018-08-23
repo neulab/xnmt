@@ -19,7 +19,7 @@ from xnmt.models.translators import DefaultTranslator
 from xnmt.loss_calculators import MLELoss, FeedbackLoss, GlobalFertilityLoss, CompositeLoss
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
-from xnmt.specialized_encoders.segmenting_encoder.reporter import SegmentingReporter
+from xnmt.specialized_encoders.segmenting_encoder.reporter import SegmentPLLogger
 from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLengthPrior
 from xnmt.specialized_encoders.segmenting_encoder.priors import PoissonPrior, GoldInputPrior
 from xnmt.modelparts.transforms import AuxNonLinear, Linear
@@ -163,7 +163,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.calc_loss_single_batch()
 
   def test_reporter(self):
-    self.model.encoder.reporter = SegmentingReporter("test/tmp/seg-report.log", self.model.src_reader.vocab)
+    self.model.encoder.reporter = SegmentPLLogger("test/tmp/seg-report.log", self.model.src_reader.vocab)
     self.calc_loss_single_batch()
 
 class TestComposing(unittest.TestCase):

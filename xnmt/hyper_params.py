@@ -76,4 +76,7 @@ class DefinedSequence(Scalar):
     return hash(tuple(self.sequence + [self.value, self.update]))
 
   def __eq__(self, other):
-    return self.sequence == other.sequence and self.value == other.value and self.update == other.update
+    if type(other) == DefinedSequence:
+      return self.sequence == other.sequence and self.value == other.value and self.update == other.update
+    else:
+      return super().__eq__(other)
