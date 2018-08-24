@@ -1,4 +1,5 @@
 import numbers
+from typing import Optional, Sequence
 
 import dynet as dy
 
@@ -18,10 +19,6 @@ class Identity(Transform, Serializable):
   not perform a specific transform in a place where you would normally do one.
   """
   yaml_tag = "!Identity"
-
-  @serializable_init
-  def __init__(self):
-    pass
 
   def transform(self, input_expr: dy.Expression) -> dy.Expression:
     return input_expr
@@ -43,9 +40,9 @@ class Linear(Transform, Serializable):
   def __init__(self,
                input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                output_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
-               bias: bool = True,
+               bias: bool=True,
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
-               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))):
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))) -> None:
     self.bias = bias
     self.input_dim = input_dim
     self.output_dim = output_dim
@@ -85,7 +82,7 @@ class NonLinear(Transform, Serializable):
                bias: bool = True,
                activation: str = 'tanh',
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
-               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))):
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))) -> None:
     self.bias = bias
     self.output_dim = output_dim
     self.input_dim = input_dim
@@ -131,8 +128,8 @@ class AuxNonLinear(NonLinear, Serializable):
     input_dim: input dimension
     output_dim: hidden dimension
     aux_input_dim: auxiliary input dimension.
-                   The actual input dimension is aux_input_dim + input_dim. This is useful
-                  for when you want to do something like input feeding.
+                   The actual input dimension is aux_input_dim + input_dim.
+                   This is useful for when you want to do something like input feeding.
     bias: whether to add a bias
     activation: One of ``tanh``, ``relu``, ``sigmoid``, ``elu``, ``selu``, ``asinh`` or ``identity``.
     param_init: how to initialize weight matrices
@@ -149,7 +146,7 @@ class AuxNonLinear(NonLinear, Serializable):
                bias: bool = True,
                activation: str = 'tanh',
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
-               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))):
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))) -> None:
     original_input_dim = input_dim
     input_dim += aux_input_dim
     super().__init__(
@@ -178,17 +175,42 @@ class MLP(Transform, Serializable):
                activation: str = 'tanh',
                hidden_layers: numbers.Integral = 1,
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
-               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))):
-    self.layers = []
-    if hidden_layers > 0:
-      self.layers = [NonLinear(input_dim=input_dim, output_dim=hidden_dim, bias=bias, activation=activation, param_init=param_init, bias_init=bias_init)]
-      self.layers += [NonLinear(input_dim=hidden_dim, output_dim=hidden_dim, bias=bias, activation=activation, param_init=param_init, bias_init=bias_init) for _ in range(1,hidden_layers)]
-    self.layers += [Linear(input_dim=hidden_dim, output_dim=output_dim, bias=bias, param_init=param_init, bias_init=bias_init)]
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
+               layers: Optional[Sequence[Transform]] = None) -> None:
+    self.layers = self.add_serializable_component("layers",
+                                                  layers,
+                                                  lambda: MLP._create_layers(num_layers=hidden_layers,
+                                                                             input_dim=input_dim,
+                                                                             hidden_dim=hidden_dim,
+                                                                             output_dim=output_dim,
+                                                                             bias=bias,
+                                                                             activation=activation,
+                                                                             param_init=param_init,
+                                                                             bias_init=bias_init))
+
+  @staticmethod
+  def _create_layers(num_layers: numbers.Integral, input_dim: numbers.Integral, hidden_dim: numbers.Integral,
+                     output_dim: numbers.Integral, bias: bool, activation: str,
+                     param_init: param_initializers.ParamInitializer, bias_init: param_initializers.ParamInitializer) \
+          -> Sequence[Transform]:
+    layers = []
+    if num_layers > 0:
+      layers = [NonLinear(input_dim=input_dim, output_dim=hidden_dim, bias=bias, activation=activation,
+                          param_init=param_init, bias_init=bias_init)]
+      layers += [NonLinear(input_dim=hidden_dim, output_dim=hidden_dim, bias=bias, activation=activation,
+                           param_init=param_init, bias_init=bias_init) for _ in range(1, num_layers)]
+    layers += [Linear(input_dim=hidden_dim if num_layers>0 else input_dim,
+                      output_dim=output_dim,
+                      bias=bias,
+                      param_init=param_init,
+                      bias_init=bias_init)]
+    return layers
 
   def transform(self, expr: dy.Expression) -> dy.Expression:
     for layer in self.layers:
       expr = layer.transform(expr)
     return expr
+
 
 class Cwise(Transform, Serializable):
   """
@@ -199,9 +221,10 @@ class Cwise(Transform, Serializable):
   """
   yaml_tag = "!Cwise"
   @serializable_init
-  def __init__(self, op="rectify"):
+  def __init__(self, op: str = "rectify") -> None:
     self.op = getattr(dy, op, None)
     if not self.op:
       raise ValueError(f"DyNet does not have an operation '{op}'.")
-  def transform(self, input_expr: dy.Expression):
+
+  def transform(self, input_expr: dy.Expression) -> dy.Expression:
     return self.op(input_expr)
