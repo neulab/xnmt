@@ -1,4 +1,4 @@
-from numbers import Real
+import numbers
 from typing import Sequence, Optional
 
 import numpy as np
@@ -57,7 +57,7 @@ class AdditiveNormalization(LengthNormalization, Serializable):
   yaml_tag = '!AdditiveNormalization'
 
   @serializable_init
-  def __init__(self, penalty: Real = -0.1, apply_during_search: bool = False):
+  def __init__(self, penalty: numbers.Real = -0.1, apply_during_search: bool = False):
     self.penalty = penalty
     self.apply_during_search = apply_during_search
 
@@ -78,7 +78,7 @@ class PolynomialNormalization(LengthNormalization, Serializable):
   yaml_tag = '!PolynomialNormalization'
 
   @serializable_init
-  def __init__(self, m: Real = 1, apply_during_search: bool = False):
+  def __init__(self, m: numbers.Real = 1, apply_during_search: bool = False):
     self.m = m
     self.apply_during_search = apply_during_search
     self.pows = []
@@ -175,7 +175,7 @@ class EosBooster(Serializable):
   """
   yaml_tag = "!EosBooster"
   @serializable_init
-  def __init__(self, boost_val: float):
+  def __init__(self, boost_val: numbers.Real):
     self.boost_val = boost_val
   def __call__(self, scores:np.ndarray) -> None:
     scores[Vocab.ES] += self.boost_val

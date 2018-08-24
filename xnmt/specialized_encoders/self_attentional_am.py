@@ -11,7 +11,7 @@ The main class to be aware of is :class:`SAAMSeqTransducer`.
 
 import typing
 import logging
-
+import numbers
 
 yaml_logger = logging.getLogger('yaml')
 from collections.abc import Sequence
@@ -123,7 +123,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
   @serializable_init
   def __init__(self, head_count: int, model_dim: int, downsample_factor: int = 1, input_dim: int = None,
                ignore_masks: bool = False, plot_attention: typing.Optional[str] = None,
-               diag_gauss_mask: typing.Union[bool, float, int] = False,
+               diag_gauss_mask: typing.Union[bool, numbers.Real] = False,
                square_mask_std: bool = True, cross_pos_encoding_type: typing.Optional[str] = None,
                kq_pos_encoding_type: typing.Optional[str] = None, kq_pos_encoding_size: int = 40, max_len: int = 1500,
                param_init: xnmt.param_initializers.ParamInitializer = xnmt.param_initializers.GlorotInitializer(),
@@ -218,7 +218,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
     out = dy.transpose(out)
     return dy.reshape(out, (seq_len, self.dim_per_head), batch_size=batch_size * self.head_count)
 
-  def __call__(self, x: dy.Expression, att_mask: np.ndarray, batch_mask: np.ndarray, p: float):
+  def __call__(self, x: dy.Expression, att_mask: np.ndarray, batch_mask: np.ndarray, p: numbers.Real):
     """
     x: expression of dimensions (input_dim, time) x batch
     att_mask: numpy array of dimensions (time, time); pre-transposed
@@ -503,10 +503,10 @@ class SAAMSeqTransducer(transducers.SeqTransducer, Serializable):
   @serializable_init
   @events.register_xnmt_handler
   def __init__(self, input_dim:int=512, layers:int=1, hidden_dim:int=512, head_count:int=8, ff_hidden_dim:int=2048,
-               dropout:float=Ref("exp_global.dropout", default=0.0), downsample_factor:int=1, diagonal_mask_width:int=None,
+               dropout:numbers.Real=Ref("exp_global.dropout", default=0.0), downsample_factor:int=1, diagonal_mask_width:int=None,
                ignore_masks:bool=False, plot_attention:typing.Optional[str]=None, nonlinearity:str="rectify", pos_encoding_type:typing.Optional[str]=None,
-               pos_encoding_combine:str="concat", pos_encoding_size:int=40, max_len:int=1500, diag_gauss_mask:typing.Union[bool,float,int]=False,
-               square_mask_std:float=True, cross_pos_encoding_type:typing.Optional[str]=None, ff_lstm:bool=False, kq_pos_encoding_type:typing.Optional[str]=None,
+               pos_encoding_combine:str="concat", pos_encoding_size:int=40, max_len:int=1500, diag_gauss_mask:typing.Union[bool,numbers.Real]=False,
+               square_mask_std:numbers.Real=True, cross_pos_encoding_type:typing.Optional[str]=None, ff_lstm:bool=False, kq_pos_encoding_type:typing.Optional[str]=None,
                kq_pos_encoding_size:int=40,
                param_init:xnmt.param_initializers.ParamInitializer=Ref("exp_global.param_init", default=bare(xnmt.param_initializers.GlorotInitializer)),
                bias_init:xnmt.param_initializers.ParamInitializer=Ref("exp_global.bias_init", default=bare(xnmt.param_initializers.ZeroInitializer)),

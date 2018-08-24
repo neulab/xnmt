@@ -1,4 +1,6 @@
 import math
+from typing import Tuple
+import numbers
 
 import numpy as np
 import dynet as dy
@@ -10,12 +12,12 @@ class ParamInitializer(object):
   A parameter initializer that delegates to the DyNet initializers and possibly
   performs some extra configuration.
   """
-  def initializer(self, dim, is_lookup=False, num_shared=1):
+  def initializer(self, dim: Tuple[int], is_lookup: bool = False, num_shared: int = 1):
     """
     Args:
-      dim (tuple of int): dimension of parameter tensor
-      is_lookup (bool): True if parameters are a lookup matrix
-      num_shared (int): Indicates if one parameter object holds multiple matrices
+      dim: dimension of parameter tensor
+      is_lookup: True if parameters are a lookup matrix
+      num_shared: Indicates if one parameter object holds multiple matrices
     Returns:
       a dynet initializer object
     """
@@ -30,13 +32,13 @@ class NormalInitializer(ParamInitializer, Serializable):
   Initialize the parameters with a gaussian distribution.
 
   Args:
-    mean (float): Mean of the distribution
-    var (float): Variance of the distribution
+    mean: Mean of the distribution
+    var: Variance of the distribution
   """
   yaml_tag = "!NormalInitializer"
 
   @serializable_init
-  def __init__(self, mean=0, var=1):
+  def __init__(self, mean: numbers.Real = 0, var: numbers.Real = 1):
     self.mean = mean
     self.var = var
   def initializer(self, dim, is_lookup=False, num_shared=1):
@@ -48,12 +50,12 @@ class UniformInitializer(ParamInitializer, Serializable):
 
   Initialize the parameters with a uniform distribution.
   Args:
-    scale (float): Parameters are sampled from :math:`\\mathcal U([-\\texttt{scale},\\texttt{scale}])`
+    scale: Parameters are sampled from :math:`\\mathcal U([-\\texttt{scale},\\texttt{scale}])`
   """
   yaml_tag = "!UniformInitializer"
 
   @serializable_init
-  def __init__(self, scale):
+  def __init__(self, scale: numbers.Real):
     self.scale = scale
   def initializer(self, dim, is_lookup=False, num_shared=1):
     return dy.UniformInitializer(scale=self.scale)
@@ -65,12 +67,12 @@ class ConstInitializer(ParamInitializer, Serializable):
   Initialize the parameters with a constant value.
 
   Args:
-    c (float): Value to initialize the parameters
+    c: Value to initialize the parameters
   """
   yaml_tag = "!ConstInitializer"
 
   @serializable_init
-  def __init__(self, c):
+  def __init__(self, c: numbers.Real):
     self.c = c
   def initializer(self, dim, is_lookup=False, num_shared=1):
     return dy.ConstInitializer(c=self.c)
@@ -95,12 +97,12 @@ class GlorotInitializer(ParamInitializer, Serializable):
     *Note:* This is also known as **Xavier initialization**
 
   Args:
-    gain (float): Gain (Depends on the activation function)
+    gain: Gain (Depends on the activation function)
   """
   yaml_tag = "!GlorotInitializer"
 
   @serializable_init
-  def __init__(self, gain=1.0):
+  def __init__(self, gain: numbers.Real = 1.0):
     self.gain = gain
   def initializer(self, dim:tuple, is_lookup:bool=False, num_shared:int=1):
     """
@@ -129,12 +131,12 @@ class FromFileInitializer(ParamInitializer, Serializable):
   Initialize parameter from file.
 
   Args:
-    fname (str): File name
+    fname: File name
   """
   yaml_tag = "!FromFileInitializer"
 
   @serializable_init
-  def __init__(self, fname):
+  def __init__(self, fname: str):
     self.fname = fname
   def initializer(self, dim, is_lookup=False, num_shared=1):
     return dy.FromFileInitializer(fname=self.fname)
@@ -148,12 +150,12 @@ class NumpyInitializer(ParamInitializer, Serializable):
   Alternatively, use ``ParameterCollection.parameters_from_numpy()``
 
   Args:
-    array (np.ndarray): Numpy array
+    array: Numpy array
   """
   yaml_tag = "!NumpyInitializer"
 
   @serializable_init
-  def __init__(self, array):
+  def __init__(self, array: np.ndarray):
     self.array = array
   def initializer(self, dim, is_lookup=False, num_shared=1):
     return dy.NumpyInitializer(array=self.array)
@@ -180,12 +182,12 @@ class LeCunUniformInitializer(ParamInitializer, Serializable):
   http://yann.lecun.com/exdb/publis/pdf/lecun-98b.pdf
 
   Args:
-    scale (float): scale
+    scale: scale
   """
   yaml_tag = "!LeCunUniformInitializer"
 
   @serializable_init
-  def __init__(self, scale=1.0):
+  def __init__(self, scale: numbers.Real = 1.0):
     self.scale = scale
 
   def initializer(self, dim, is_lookup=False, num_shared=1):

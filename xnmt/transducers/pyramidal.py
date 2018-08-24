@@ -1,5 +1,5 @@
 import dynet as dy
-from typing import List
+from typing import Any, List, Sequence, Union
 
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer
 from xnmt.expression_seqs import ExpressionSequence, ReversedExpressionSequence
@@ -16,24 +16,26 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
   Every layer (except the first) reduces sequence length by the specified factor.
 
   Args:
-    layers (int): number of layers
-    input_dim (int): input dimension
-    hidden_dim (int): hidden dimension
-    downsampling_method (str): how to perform downsampling (concat|skip)
-    reduce_factor (Union[int,List[int]): integer, or list of ints (different skip for each layer)
-    dropout (float): dropout probability; if None, use exp_global.dropout
+    layers: number of layers
+    input_dim: input dimension
+    hidden_dim: hidden dimension
+    downsampling_method: how to perform downsampling (concat|skip)
+    reduce_factor: integer, or list of ints (different skip for each layer)
+    dropout: dropout probability; if None, use exp_global.dropout
+    builder_layers: set automatically
   """
   yaml_tag = '!PyramidalLSTMSeqTransducer'
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, layers=1,
-               input_dim=Ref("exp_global.default_layer_dim"),
-               hidden_dim=Ref("exp_global.default_layer_dim"),
-               downsampling_method="concat",
-               reduce_factor=2,
-               dropout=Ref("exp_global.dropout", default=0.0),
-               builder_layers=None):
+  def __init__(self,
+               layers: int = 1,
+               input_dim: int = Ref("exp_global.default_layer_dim"),
+               hidden_dim: int = Ref("exp_global.default_layer_dim"),
+               downsampling_method: str = "concat",
+               reduce_factor: Union[int, Sequence[int]] = 2,
+               dropout: float = Ref("exp_global.dropout", default=0.0),
+               builder_layers: Any = None):
     self.dropout = dropout
     assert layers > 0
     assert hidden_dim % 2 == 0

@@ -17,6 +17,7 @@ import os
 import math
 from typing import Any, Dict, Optional, Sequence, Union
 from collections import defaultdict
+import numbers
 
 from bs4 import BeautifulSoup as bs
 
@@ -194,7 +195,7 @@ class CompareMtReporter(Reporter, Serializable):
   @serializable_init
   @register_xnmt_handler
   def __init__(self, out2_file: Optional[str] = None, train_file: Optional[str] = None,
-               train_counts: Optional[str] = None, alpha: float = 1.0, ngram: int = 4, ngram_size: int = 50,
+               train_counts: Optional[str] = None, alpha: numbers.Real = 1.0, ngram: int = 4, ngram_size: int = 50,
                sent_size: int = 10, report_path: str = settings.DEFAULT_REPORT_PATH) -> None:
     self.out2_file = out2_file
     self.train_file = train_file
