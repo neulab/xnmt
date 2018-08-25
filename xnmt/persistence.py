@@ -1099,7 +1099,7 @@ class YamlPreloader(object):
       if isinstance(node, str):
         try:
           formatted = node.format(**format_dict)
-        except (ValueError, KeyError):  # will occur e.g. if a vocab entry contains a curly bracket
+        except (ValueError, KeyError, IndexError):  # will occur e.g. if a vocab entry contains a curly bracket
           formatted = node
         if node != formatted:
           _set_descendant(root,
