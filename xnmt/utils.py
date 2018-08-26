@@ -60,6 +60,8 @@ class RollingStatistic(object):
   Code adopted from http://jonisalonen.com/2014/efficient-and-accurate-rolling-standard-deviation/
   """
 
+  EPS = 1e-6
+
   def __init__(self, window_size=100):
     self.N = window_size
     self.average = None
@@ -79,7 +81,7 @@ class RollingStatistic(object):
       newavg = oldavg + (new - old) / self.N
       self.average = newavg
       self.variance += (new - old) * (new - newavg + old - oldavg) / (self.N - 1)
-      self.stddev = math.sqrt(self.variance)
+      self.stddev = math.sqrt(self.variance + RollingStatistic.EPS)
     else:
       assert len(self.vals) < self.N
 
