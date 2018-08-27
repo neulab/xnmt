@@ -12,7 +12,7 @@ seg_learn_debug: !Experiment
         vocab_size: 1000
         ngram_size: 4
       policy_learning: !PolicyGradient
-        weight: !DefinedSequence { sequence: [1.0]}
+        weight: !DefinedSequence {sequence: [1.0]}
         output_dim: 2
         use_baseline: True
         z_normalization: True

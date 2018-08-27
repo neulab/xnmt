@@ -109,23 +109,31 @@ class ConvolutionComposer(SingleComposer, Serializable):
 class VocabBasedComposer(SingleComposer):
   @register_xnmt_handler
   def __init__(self,
-               vocab=None,
-               vocab_size=32000,
-               lrucache=None):
+               vocab,
+               vocab_size,
+               cache_id_pool,
+               cache_word_table):
     self.vocab = vocab
     self.learn_vocab = vocab is None
-    if lrucache is None:
-      self.lrucache = pylru.lrucache(len(vocab) if not self.learn_vocab else vocab_size, self.on_word_delete)
-    else:
-      self.lrucache = lrucache
-    self.id_pool = []
+
+    cache_size = len(vocab) if vocab is not None else vocab_size
+    self.lrucache = pylru.lrucache(cache_size, self.on_id_delete)
+    self.cache_id_pool = cache_id_pool or []
+    self.cache_word_table = cache_word_table or {}
+
+    # Adding words according to its timestep
+    for i, (wordid, (_, word)) in enumerate(sorted(self.cache_word_table.items(), key=lambda x: x[1][0])):
+      self.lrucache[word] = wordid
+    self.cache_counter = len(self.lrucache)
 
   def on_word_delete(self, word, wordid):
     if self.learn_vocab:
-      self.id_pool.append(wordid)
+      self.cache_id_pool.append(wordid)
       self.on_id_delete(wordid)
+      del self.cache_word_table[wordid]
     else:
       raise ValueError("Should not delete any id when not learning")
+    self.save_processed_arg("cache_id_pool", self.cache_id_pool)
 
   def convert(self, word):
     self.current_word = word
@@ -136,12 +144,19 @@ class VocabBasedComposer(SingleComposer):
         wordid = len(self.lrucache)
         self.lrucache[word] = wordid  # Cache value
         if wordid == self.lrucache.size():
-          self.lrucache[word] = self.id_pool.pop()
+          self.lrucache[word] = self.cache_id_pool.pop()
       else:
         wordid = self.lrucache.size()  # Unknown ID
     else:
       wordid = self.lrucache[word]
-    return wordid
+    try:
+      return wordid
+    finally:
+      self.cache_word_table[wordid] = (self.cache_counter, word)
+      self.cache_counter += 1
+      self.save_processed_arg("cache_id_pool", self.cache_id_pool)
+      print(type(self.cache_word_table))
+      self.save_processed_arg("cache_word_table", self.cache_word_table)
 
   @handle_xnmt_event
   def on_set_train(self, train):
@@ -156,31 +171,24 @@ class LookupComposer(VocabBasedComposer, Serializable):
   def __init__(self,
                word_vocab=None,
                vocab_size=32000,
-               dict_entry=None,
-               lrucache=None,
+               cache_id_pool=None,
+               cache_word_table=None,
                char_vocab=Ref(Path("model.src_reader.vocab")),
                hidden_dim=Ref("exp_global.default_layer_dim"),
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer))):
-    super().__init__(vocab=word_vocab, vocab_size=vocab_size, lrucache=lrucache)
+    super().__init__(word_vocab, vocab_size, cache_id_pool, cache_word_table)
     param_collection = ParamManager.my_params(self)
-    # The size of input
-    if dict_entry is None:
-      if word_vocab is None:
-        self.dict_entry = vocab_size+1
-      else:
-        self.dict_entry = len(word_vocab)
+    # Attributes
+    if word_vocab is None:
+      self.dict_entry = vocab_size+1
     else:
-      self.dict_entry = dict_entry
-    # The reference to char vocabulary
+      self.dict_entry = len(word_vocab)
     self.char_vocab = char_vocab
+    self.hidden_dim = hidden_dim
     # Word Embedding
     embed_dim = (self.dict_entry, hidden_dim)
     self.param_init = param_init.initializer(embed_dim, is_lookup=True)
     self.embedding = param_collection.add_lookup_parameters(embed_dim, init=self.param_init)
-    # Serializations
-    self.save_processed_arg("lrucache", self.lrucache)
-    self.save_processed_arg("dict_entry", self.dict_entry)
-    self.hidden_dim = hidden_dim
 
   def transduce(self, inputs):
     return dy.lookup(self.embedding, self.convert(self.word))
@@ -214,40 +222,30 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
                embedding=None,
                ngram_size=4,
                vocab_size=32000,
-               dict_entry=None,
-               lrucache=None,
+               cache_id_pool=None,
+               cache_word_table=None,
                char_vocab=Ref(Path("model.src_reader.vocab")),
                hidden_dim=Ref("exp_global.default_layer_dim"),
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
-    super().__init__(vocab=word_vocab, vocab_size=vocab_size, lrucache=lrucache)
+    super().__init__(word_vocab, vocab_size, cache_id_pool, cache_word_table)
     param_collection = ParamManager.my_params(self)
-    # The size of input
-    if dict_entry is None:
-      if word_vocab is None:
-        self.dict_entry = vocab_size+1
-      else:
-        self.dict_entry = len(word_vocab)
+    # Attributes
+    if word_vocab is None:
+      self.dict_entry = vocab_size+1
     else:
-      self.dict_entry = dict_entry
-    # The reference to char vocabulary
+      self.dict_entry = len(word_vocab)
     self.char_vocab = char_vocab
+    self.param_init = param_init
+    self.bias_init = bias_init
+    self.hidden_dim = hidden_dim
     # Word Embedding
-    emb_dim = (self.dict_entry, hidden_dim)
     self.ngram_size = ngram_size
-    embed_dim = (self.dict_entry, hidden_dim)
     self.embedding = self.add_serializable_component("embedding", embedding,
                                                       lambda: Linear(input_dim=self.dict_entry,
                                                                      output_dim=hidden_dim,
                                                                      param_init=param_init,
                                                                      bias_init=bias_init))
-    self.param_init = param_init
-    self.bias_init = bias_init
-    self.hidden_dim = hidden_dim
-    # Serializations
-    self.save_processed_arg("lrucache", self.lrucache)
-    self.save_processed_arg("ngram_size", self.ngram_size)
-    self.save_processed_arg("dict_entry", self.dict_entry)
 
   def transduce(self, inputs):
     ngrams = [self.convert(ngram) for ngram in self.word_vect.keys()]
