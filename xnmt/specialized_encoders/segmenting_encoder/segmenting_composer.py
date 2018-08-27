@@ -120,20 +120,22 @@ class VocabBasedComposer(SingleComposer):
     self.lrucache = pylru.lrucache(cache_size, self.on_id_delete)
     self.cache_id_pool = cache_id_pool or []
     self.cache_word_table = cache_word_table or {}
-
+    self.save_processed_arg("cache_id_pool", self.cache_id_pool)
+    self.save_processed_arg("cache_word_table", self.cache_word_table)
+    
     # Adding words according to its timestep
     for i, (wordid, (_, word)) in enumerate(sorted(self.cache_word_table.items(), key=lambda x: x[1][0])):
-      self.lrucache[word] = wordid
+      self.lrucache[word] = int(wordid)
     self.cache_counter = len(self.lrucache)
 
   def on_word_delete(self, word, wordid):
     if self.learn_vocab:
       self.cache_id_pool.append(wordid)
       self.on_id_delete(wordid)
-      del self.cache_word_table[wordid]
+      del self.cache_word_table[str(wordid)]
     else:
       raise ValueError("Should not delete any id when not learning")
-    self.save_processed_arg("cache_id_pool", self.cache_id_pool)
+    
 
   def convert(self, word):
     self.current_word = word
@@ -152,12 +154,9 @@ class VocabBasedComposer(SingleComposer):
     try:
       return wordid
     finally:
-      self.cache_word_table[wordid] = (self.cache_counter, word)
+      self.cache_word_table[str(wordid)] = [self.cache_counter, word]
       self.cache_counter += 1
-      self.save_processed_arg("cache_id_pool", self.cache_id_pool)
-      print(type(self.cache_word_table))
-      self.save_processed_arg("cache_word_table", self.cache_word_table)
-
+      
   @handle_xnmt_event
   def on_set_train(self, train):
     self.train = train
@@ -203,8 +202,8 @@ class LookupComposer(VocabBasedComposer, Serializable):
   def on_id_delete(self, wordid):
     assert self.train and self.learn_vocab
     # TODO Temporarily reset the value to the values between uniform(-1, 1)
-    new_vct = np.random.uniform(low=-1, high=1, size=self.hidden_dim)
-    self.embedding.init_row(wordid, new_vct)
+    #new_vct = np.random.uniform(low=-1, high=1, size=self.hidden_dim)
+    #self.embedding.init_row(wordid, new_vct)
 
 class CharNGramComposer(VocabBasedComposer, Serializable):
   """
