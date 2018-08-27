@@ -3,13 +3,14 @@ A module defining triggers to the common events used throughout XNMT.
 """
 
 from typing import Union
+import numbers
 
 from xnmt.train import tasks as training_tasks
 from xnmt.models import base as models
 from xnmt import batchers, events, losses, sent
 
 @events.register_xnmt_event
-def new_epoch(training_task: training_tasks.TrainingTask, num_sents: int) -> None:
+def new_epoch(training_task: training_tasks.TrainingTask, num_sents: numbers.Integral) -> None:
   """
   Trigger event indicating a new epoch for the specified task.
 

@@ -1,4 +1,6 @@
 from typing import List
+import numbers
+
 import dynet as dy
 
 from xnmt.modelparts import transforms
@@ -72,7 +74,7 @@ class ModularSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!ModularSeqTransducer'
 
   @serializable_init
-  def __init__(self, input_dim: int, modules: List[SeqTransducer]):
+  def __init__(self, input_dim: numbers.Integral, modules: List[SeqTransducer]):
     self.modules = modules
 
   def shared_params(self):
@@ -117,7 +119,7 @@ class TransformSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!TransformSeqTransducer'
 
   @serializable_init
-  def __init__(self, transform: transforms.Transform, downsample_by: int = 1):
+  def __init__(self, transform: transforms.Transform, downsample_by: numbers.Integral = 1) -> None:
     self.transform = transform
     if downsample_by < 1: raise ValueError(f"downsample_by must be >=1, was {downsample_by}")
     self.downsample_by = downsample_by

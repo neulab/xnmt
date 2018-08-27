@@ -38,6 +38,8 @@ Documentation
 
 - Docstrings should be made according to the `Google style guide <http://sphinxcontrib-napoleon.readthedocs.io/en/latest/>`_.
 - Types should be annotated consistently, see `corresponding Python docs <https://docs.python.org/3/library/typing.html>`_.
+  As a rule of thumb, function arguments should be given a general type (e.g. ``numbers.Real``, ``numbers.Integral``,
+  ``typing.Sequence[str]``), whereas return types may be more specific (``float``, ``int``, ``typing.List[str]``).
 - Ideally, documentation should be added at module-level (giving a summary of the most relevant contents of the module),
   the class level (including arguments for ``__init__()``), and method level. Documentation for methods/classes etc.
   that do not need to be accessed from outside may be omitted and these should ideally marked as private by adding a

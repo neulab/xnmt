@@ -1,6 +1,7 @@
 from collections import namedtuple
 import math
 from typing import Optional, Callable
+import numbers
 
 import dynet as dy
 import numpy as np
@@ -24,15 +25,6 @@ SearchOutput = namedtuple('SearchOutput', ['word_ids', 'attentions', 'score', 'l
 class SearchStrategy(object):
   """
   A template class to generate translation from the output probability model. (Non-batched operation)
-
-  Args:
-    translator (Translator): a translator
-    dec_state (AutoRegressiveDecoderState): initial decoder state
-    src_length (int): length of src sequence, required for some types of length normalization
-    forced_trg_ids (List[int]): list of word ids, if given will force to generate this is the target sequence
-
-  Returns:
-    (List[SearchOutput]): A list of search outputs
   """
   def generate_output(self, translator, initial_state,
                       src_length=None, forced_trg_ids=None):
@@ -52,13 +44,13 @@ class GreedySearch(Serializable, SearchStrategy):
   Performs greedy search (aka beam search with beam size 1)
 
   Args:
-    max_len (int): maximum number of tokens to generate.
+    max_len: maximum number of tokens to generate.
   """
 
   yaml_tag = '!GreedySearch'
 
   @serializable_init
-  def __init__(self, max_len=100):
+  def __init__(self, max_len: numbers.Integral = 100):
     self.max_len = max_len
 
   def generate_output(self, translator, initial_state,
@@ -125,8 +117,12 @@ class BeamSearch(Serializable, SearchStrategy):
   Hypothesis = namedtuple('Hypothesis', ['score', 'output', 'parent', 'word'])
   
   @serializable_init
-  def __init__(self, beam_size: int = 1, max_len: int = 100, len_norm: LengthNormalization = bare(NoNormalization),
-               one_best: bool = True, scores_proc: Optional[Callable[[np.ndarray], None]] = None):
+  def __init__(self,
+               beam_size: numbers.Integral = 1,
+               max_len: numbers.Integral = 100,
+               len_norm: LengthNormalization = bare(NoNormalization),
+               one_best: bool = True,
+               scores_proc: Optional[Callable[[np.ndarray], None]] = None):
     self.beam_size = beam_size
     self.max_len = max_len
     self.len_norm = len_norm
@@ -211,14 +207,14 @@ class SamplingSearch(Serializable, SearchStrategy):
   Similar to greedy searchol
   
   Args:
-    max_len (int):
-    sample_size (int): 
+    max_len:
+    sample_size:
   """
 
   yaml_tag = '!SamplingSearch'
 
   @serializable_init
-  def __init__(self, max_len=100, sample_size=5):
+  def __init__(self, max_len: numbers.Integral = 100, sample_size: numbers.Integral = 5):
     self.max_len = max_len
     self.sample_size = sample_size
 

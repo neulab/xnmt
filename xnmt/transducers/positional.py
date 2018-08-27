@@ -1,5 +1,7 @@
-import dynet as dy
 from typing import List
+import numbers
+
+import dynet as dy
 
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.param_collections import ParamManager
@@ -17,10 +19,10 @@ class PositionalSeqTransducer(SeqTransducer, Serializable):
 
   @serializable_init
   def __init__(self,
-               max_pos: int,
+               max_pos: numbers.Integral,
                op: str = 'sum',
                emb_type: str = 'param',
-               input_dim: int = Ref("exp_global.default_layer_dim"),
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                param_init: ParamInitializer = Ref("exp_global.param_init", default=bare(GlorotInitializer))):
     """
     max_pos: largest embedded position

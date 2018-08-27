@@ -1,4 +1,5 @@
 from typing import Optional, List
+import numbers
 
 import dynet as dy
 import numpy as np
@@ -28,9 +29,9 @@ class FixedSizeAttSeqTransducer(transducers.SeqTransducer, Serializable):
 
   @serializable_init
   def __init__(self,
-               hidden_dim: int = Ref("exp_global.default_layer_dim"),
-               output_len: int = 32,
-               pos_enc_max: Optional[int] = None,
+               hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               output_len: numbers.Integral = 32,
+               pos_enc_max: Optional[numbers.Integral] = None,
                param_init: ParamInitializer = Ref("exp_global.param_init",
                                                   default=bare(GlorotInitializer))) \
           -> None:

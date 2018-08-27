@@ -1,4 +1,5 @@
 from typing import Optional, Sequence
+import numbers
 
 from xnmt.persistence import serializable_init, Serializable
 
@@ -74,7 +75,7 @@ class Vocab(Serializable):
   def convert(self, w: str) -> int:
     return self.w2i.get(w, self.unk_token)
 
-  def __getitem__(self, i: int) -> str:
+  def __getitem__(self, i: numbers.Integral) -> str:
     return self.i2w[i]
 
   def __len__(self) -> int:

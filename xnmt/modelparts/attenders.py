@@ -1,14 +1,12 @@
 import math
+import numbers
 
 import dynet as dy
-from typing import Optional, List
 
 from xnmt import logger
 from xnmt import batchers, param_collections, param_initializers
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.expression_seqs import ExpressionSequence
-from xnmt.transducers import base as transducers_base
-from xnmt.param_initializers import GlorotInitializer, ParamInitializer
 
 class Attender(object):
   """
@@ -60,9 +58,9 @@ class MlpAttender(Attender, Serializable):
 
   @serializable_init
   def __init__(self,
-               input_dim: int = Ref("exp_global.default_layer_dim"),
-               state_dim: int = Ref("exp_global.default_layer_dim"),
-               hidden_dim: int = Ref("exp_global.default_layer_dim"),
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               state_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
@@ -169,8 +167,8 @@ class BilinearAttender(Attender, Serializable):
 
   @serializable_init
   def __init__(self,
-               input_dim: int = Ref("exp_global.default_layer_dim"),
-               state_dim: int = Ref("exp_global.default_layer_dim"),
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               state_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
     if truncate_dec_batches: raise NotImplementedError("truncate_dec_batches not yet implemented for BilinearAttender")

@@ -2,6 +2,7 @@ from itertools import zip_longest
 from functools import lru_cache
 import ast
 from typing import Iterator, Optional, Sequence, Union
+import numbers
 
 import numpy as np
 
@@ -23,7 +24,7 @@ class InputReader(object):
   """
   A base class to read in a file and turn it into an input
   """
-  def read_sents(self, filename: str, filter_ids: Sequence[int] = None) -> Iterator[sent.Sentence]:
+  def read_sents(self, filename: str, filter_ids: Sequence[numbers.Integral] = None) -> Iterator[sent.Sentence]:
     """
     Read sentences and return an iterator.
 
@@ -52,7 +53,7 @@ class InputReader(object):
 
 class BaseTextReader(InputReader):
 
-  def read_sent(self, line: str, idx: int) -> sent.Sentence:
+  def read_sent(self, line: str, idx: numbers.Integral) -> sent.Sentence:
     """
     Convert a raw text line into an input object.
 
@@ -150,7 +151,8 @@ class CompoundReader(InputReader, Serializable):
     if len(readers) < 2: raise ValueError("need at least two readers")
     self.readers = readers
     if vocab: self.vocab = vocab
-  def read_sents(self, filename: Union[str,Sequence[str]], filter_ids: Sequence[int] = None) -> Iterator[sent.Sentence]:
+  def read_sents(self, filename: Union[str,Sequence[str]], filter_ids: Sequence[numbers.Integral] = None) \
+          -> Iterator[sent.Sentence]:
     if isinstance(filename, str): filename = [filename] * len(self.readers)
     generators = [reader.read_sents(filename=cur_filename, filter_ids=filter_ids) for (reader, cur_filename) in
                      zip(self.readers, filename)]
@@ -273,17 +275,22 @@ class H5Reader(InputReader, Serializable):
   * sents[sent_id][timestep,feat_ind] if transpose=True
 
   Args:
-    transpose (bool): whether inputs are transposed or not.
-    feat_from (int): use feature dimensions in a range, starting at this index (inclusive)
-    feat_to (int): use feature dimensions in a range, ending at this index (exclusive)
-    feat_skip (int): stride over features
-    timestep_skip (int): stride over timesteps
-    timestep_truncate (int): cut off timesteps if sequence is longer than specified value
+    transpose: whether inputs are transposed or not.
+    feat_from: use feature dimensions in a range, starting at this index (inclusive)
+    feat_to: use feature dimensions in a range, ending at this index (exclusive)
+    feat_skip: stride over features
+    timestep_skip: stride over timesteps
+    timestep_truncate: cut off timesteps if sequence is longer than specified value
   """
   yaml_tag = u"!H5Reader"
   @serializable_init
-  def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, timestep_skip=None,
-               timestep_truncate=None):
+  def __init__(self,
+               transpose: bool = False,
+               feat_from: Optional[numbers.Integral] = None,
+               feat_to: Optional[numbers.Integral] = None,
+               feat_skip: Optional[numbers.Integral] = None,
+               timestep_skip: Optional[numbers.Integral] = None,
+               timestep_truncate: Optional[numbers.Integral] = None):
     self.transpose = transpose
     self.feat_from = feat_from
     self.feat_to = feat_to
@@ -340,17 +347,22 @@ class NpzReader(InputReader, Serializable):
   * sents[sent_id][timestep,feat_ind] if transpose=True
 
   Args:
-    transpose (bool): whether inputs are transposed or not.
-    feat_from (int): use feature dimensions in a range, starting at this index (inclusive)
-    feat_to (int): use feature dimensions in a range, ending at this index (exclusive)
-    feat_skip (int): stride over features
-    timestep_skip (int): stride over timesteps
-    timestep_truncate (int): cut off timesteps if sequence is longer than specified value
+    transpose: whether inputs are transposed or not.
+    feat_from: use feature dimensions in a range, starting at this index (inclusive)
+    feat_to: use feature dimensions in a range, ending at this index (exclusive)
+    feat_skip: stride over features
+    timestep_skip: stride over timesteps
+    timestep_truncate: cut off timesteps if sequence is longer than specified value
   """
   yaml_tag = u"!NpzReader"
   @serializable_init
-  def __init__(self, transpose=False, feat_from=None, feat_to=None, feat_skip=None, timestep_skip=None,
-               timestep_truncate=None):
+  def __init__(self,
+               transpose: bool = False,
+               feat_from: Optional[numbers.Integral] = None,
+               feat_to: Optional[numbers.Integral] = None,
+               feat_skip: Optional[numbers.Integral] = None,
+               timestep_skip: Optional[numbers.Integral] = None,
+               timestep_truncate: Optional[numbers.Integral] = None):
     self.transpose = transpose
     self.feat_from = feat_from
     self.feat_to = feat_to
@@ -407,21 +419,28 @@ class IDReader(BaseTextReader, Serializable):
     return [l for l in self.iterate_filtered(filename, filter_ids)]
 
 ###### A utility function to read a parallel corpus
-def read_parallel_corpus(src_reader: InputReader, trg_reader: InputReader, src_file: str, trg_file: str,
-                         batcher: batchers.Batcher=None, sample_sents=None, max_num_sents=None, max_src_len=None, max_trg_len=None):
+def read_parallel_corpus(src_reader: InputReader,
+                         trg_reader: InputReader,
+                         src_file: str,
+                         trg_file: str,
+                         batcher: batchers.Batcher=None,
+                         sample_sents: Optional[numbers.Integral] = None,
+                         max_num_sents: Optional[numbers.Integral] = None,
+                         max_src_len: Optional[numbers.Integral] = None,
+                         max_trg_len: Optional[numbers.Integral] = None) -> tuple:
   """
   A utility function to read a parallel corpus.
 
   Args:
-    src_reader (InputReader):
-    trg_reader (InputReader):
-    src_file (str):
-    trg_file (str):
-    batcher (Batcher):
-    sample_sents (int): if not None, denote the number of sents that should be randomly chosen from all available sents.
-    max_num_sents (int): if not None, read only the first this many sents
-    max_src_len (int): skip pair if src side is too long
-    max_trg_len (int): skip pair if trg side is too long
+    src_reader:
+    trg_reader:
+    src_file:
+    trg_file:
+    batcher:
+    sample_sents: if not None, denote the number of sents that should be randomly chosen from all available sents.
+    max_num_sents: if not None, read only the first this many sents
+    max_src_len: skip pair if src side is too long
+    max_trg_len: skip pair if trg side is too long
 
   Returns:
     A tuple of (src_data, trg_data, src_batches, trg_batches) where ``*_batches = *_data`` if ``batcher=None``
