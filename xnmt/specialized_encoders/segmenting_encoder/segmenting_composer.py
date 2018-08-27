@@ -117,7 +117,7 @@ class VocabBasedComposer(SingleComposer):
     self.learn_vocab = vocab is None
 
     cache_size = len(vocab) if vocab is not None else vocab_size
-    self.lrucache = pylru.lrucache(cache_size, self.on_id_delete)
+    self.lrucache = pylru.lrucache(cache_size, self.on_word_delete)
     self.cache_id_pool = cache_id_pool or []
     self.cache_word_table = cache_word_table or {}
     self.save_processed_arg("cache_id_pool", self.cache_id_pool)
@@ -136,7 +136,6 @@ class VocabBasedComposer(SingleComposer):
     else:
       raise ValueError("Should not delete any id when not learning")
     
-
   def convert(self, word):
     self.current_word = word
     if self.vocab is not None:
