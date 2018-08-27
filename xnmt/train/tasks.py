@@ -127,7 +127,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                name: Optional[str] = None,
                sample_train_sents: Optional[int] = None,
                max_num_train_sents: Optional[int] = None, max_src_len: Optional[int] = None,
-               max_trg_len: Optional[int] = None) -> None:
+               max_trg_len: Optional[int] = None, sent_filter = None) -> None:
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks
@@ -155,6 +155,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.max_num_train_sents = max_num_train_sents
     self.max_src_len = max_src_len
     self.max_trg_len = max_trg_len
+    self.sent_filter = sent_filter
 
     self.batcher = batcher
     self.dev_loss_tracker = loss_trackers.DevLossTracker(self, dev_every, name)
@@ -196,7 +197,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                                              sample_sents=self.sample_train_sents,
                                              max_num_sents=self.max_num_train_sents,
                                              max_src_len=self.max_src_len,
-                                             max_trg_len=self.max_trg_len)
+                                             max_trg_len=self.max_trg_len,
+                                             sent_filter=self.sent_filter)
       self.model.src_reader.train = self.model.trg_reader.train = False
       # restart data generation
       self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.training_state.epoch_num, shell=True)
@@ -242,7 +244,8 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                                            src_file=self.src_file, trg_file=self.trg_file,
                                            batcher=self.batcher, sample_sents=self.sample_train_sents,
                                            max_num_sents=self.max_num_train_sents,
-                                           max_src_len=self.max_src_len, max_trg_len=self.max_trg_len)
+                                           max_src_len=self.max_src_len, max_trg_len=self.max_trg_len,
+                                           sent_filter=self.sent_filter)
       self.model.src_reader.train = self.model.trg_reader.train = False
     self.training_state.epoch_seed = random.randint(1,2147483647)
     random.seed(self.training_state.epoch_seed)

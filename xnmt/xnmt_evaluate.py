@@ -30,7 +30,7 @@ eval_shortcuts = {
 
 
 def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequence[str]],
-                  evaluators: Sequence[metrics.Evaluator], desc: Any = None) -> Sequence[metrics.EvalScore]:
+                  evaluators: Sequence[metrics.Evaluator], desc: Any = None, sent_filter = None) -> Sequence[metrics.EvalScore]:
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
 
   Args:
@@ -53,7 +53,17 @@ def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequ
       ref_corpus = [tuple(ref_corpora[i][j] for i in range(len(ref_file))) for j in range(len(ref_corpora[0]))]
   hyp_corpus = read_data(hyp_file, post_process=hyp_postprocess)
   len_before = len(hyp_corpus)
-  ref_corpus, hyp_corpus = zip(*filter(lambda x: inferences.NO_DECODING_ATTEMPTED not in x[1], zip(ref_corpus, hyp_corpus)))
+  def utt_as_str(utt):
+    return "".join([e.replace("__", " ") for e in utt])
+
+  def do_decoding_attempt(x):
+    do_decode = NO_DECODING_ATTEMPTED not in x[1]
+    if sent_filter is not None:
+      hyp_ref = [utt_as_str(e) for e in x]
+      do_decode = do_decode and sent_filter.keep(hyp_ref)
+    return do_decode
+
+  hyp_corpus, ref_corpus = zip(*filter(do_decoding_attempt, zip(hyp_corpus, ref_corpus)))
   if len(ref_corpus) < len_before:
     logger.info(f"> ignoring {len_before - len(ref_corpus)} out of {len_before} test sentences.")
 

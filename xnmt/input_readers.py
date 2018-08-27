@@ -408,7 +408,8 @@ class IDReader(BaseTextReader, Serializable):
 
 ###### A utility function to read a parallel corpus
 def read_parallel_corpus(src_reader: InputReader, trg_reader: InputReader, src_file: str, trg_file: str,
-                         batcher: batchers.Batcher=None, sample_sents=None, max_num_sents=None, max_src_len=None, max_trg_len=None):
+                         batcher: batchers.Batcher=None, sample_sents=None, max_num_sents=None, max_src_len=None, max_trg_len=None,
+                         sent_filter=None):
   """
   A utility function to read a parallel corpus.
 
@@ -448,7 +449,21 @@ def read_parallel_corpus(src_reader: InputReader, trg_reader: InputReader, src_f
       break
     src_len_ok = max_src_len is None or src_sent.sent_len() <= max_src_len
     trg_len_ok = max_trg_len is None or trg_sent.sent_len() <= max_trg_len
-    if src_len_ok and trg_len_ok:
+    keep_sent = src_len_ok and trg_len_ok
+
+    if sent_filter is not None and keep_sent:
+      if hasattr(trg_sent, "words"):
+        tmp_trg_sent = "".join([e.replace("__", " ") for e in [trg_reader.vocab[i] for i in trg_sent.words][:-1]])
+      else:
+        tmp_trg_sent = trg_sent
+      if hasattr(src_sent, "words"):
+        tmp_src_sent = "".join([e.replace("__", " ") for e in [src_reader.vocab[i] for i in src_sent.words][:-1]])
+      else:
+        tmp_src_sent = src_sent
+
+      keep_sent = sent_filter.keep([tmp_src_sent, tmp_trg_sent])
+
+    if keep_sent:
       src_data.append(src_sent)
       trg_data.append(trg_sent)
 

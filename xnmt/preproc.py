@@ -472,10 +472,13 @@ class SentenceFilterer(object):
           raise RuntimeError("Unknown preprocessing type {}".format(my_spec["type"]))
     return preproc_list
 
-class SentenceFiltererMatchingRegex(SentenceFilterer):
+class SentenceFiltererMatchingRegex(SentenceFilterer, Serializable):
   """Filters sentences via regular expressions.
   A sentence must match the expression to be kept.
   """
+  yaml_tag= '!SentenceFiltererMatchingRegex'
+
+  @serializable_init
   def __init__(self, spec):
     """Specifies the regular expressions to filter the sentences that we'll be getting.
 
@@ -485,7 +488,7 @@ class SentenceFiltererMatchingRegex(SentenceFilterer):
       regex_trg: Equivalent to regex_1
     """
     self.regex = {}
-    idx_map = {"src": 0, "trg": 1}
+    idx_map = {"src": 0, "trg": 1, "hyp": 0, "ref": 1}
     for k, v in spec.items():
       if k == "type":
         pass
@@ -511,6 +514,7 @@ class SentenceFiltererMatchingRegex(SentenceFilterer):
 class SentenceFiltererLength(SentenceFilterer):
   """Filters sentences by length"""
 
+  @serializable_init
   def __init__(self, spec):
     """Specifies the type of length limitations on the sentences that we'll be getting.
 
@@ -524,7 +528,7 @@ class SentenceFiltererLength(SentenceFilterer):
     self.each_min = {}
     self.overall_max = -1
     self.overall_min = -1
-    idx_map = {"src": 0, "trg": 1}
+    idx_map = {"src": 0, "trg": 1, "hyp": 0, "ref": 1}
     for k, v in spec.items():
       if k == "type":
         pass
