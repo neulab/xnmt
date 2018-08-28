@@ -190,88 +190,23 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
   def needs_reload(self):
     return True
 
-class LexAugTextReader(BaseTextReader, Serializable):
-  """
-  Read in text and segment it with sentencepiece. Optionally perform sampling
-  for subword regularization, only at training time.
-  https://arxiv.org/pdf/1804.10959.pdf 
-  """
-  yaml_tag = '!LexAugTextReader'
-
-  @register_xnmt_handler
-  @serializable_init
-  def __init__(self, model_file, vocab, lex_file=None, include_vocab_reference=False):
-    """
-    Args:
-      model_file: The sentence piece model file
-      sample_train: On the training set, sample outputs
-      l: The "l" parameter for subword regularization, how many sentences to sample
-      alpha: The "alpha" parameter for subword regularization, how much to smooth the distribution
-      vocab: The vocabulary
-      include_vocab_reference: Whether to include the vocab with the input
-    """
-    import sentencepiece as spm
-    self.subword_model = spm.SentencePieceProcessor()
-    self.subword_model.Load(model_file)
-    self.vocab = vocab
-    self.include_vocab_reference = include_vocab_reference
-    self.train = False
-    if vocab is not None:
-      self.vocab.freeze()
-      self.vocab.set_unk(Vocab.UNK_STR)
-    if lex_file:
-      lex = {}
-      with open(lex_file, 'r', encoding='utf-8') as myfile:
-        for line in myfile:
-          toks = line.split(' ||| ')
-          lex[toks[0].strip()] = toks[1].strip()
-      self.lex = lex
-    else:
-      self.lex = None
-
-  @handle_xnmt_event
-  def on_set_train(self, val):
-    self.train = val
-
-  def read_sent(self, sentence):
-    #words = self.subword_model.EncodeAsPieces(sentence.strip())
-    return sentence.split()
-
-  def encode(self, sentence):
-    vocab_reference = self.vocab if self.include_vocab_reference else None
-    words = self.subword_model.EncodeAsPieces(sentence.strip())
-    return SimpleSentenceInput([self.vocab.convert(word) for word in words] + \
-                                                       [self.vocab.convert(Vocab.ES_STR)], vocab_reference)
-  
-  def freeze(self):
-    self.vocab.freeze()
-    self.vocab.set_unk(Vocab.UNK_STR)
-    self.save_processed_arg("vocab", self.vocab)
-
-  def count_words(self, trg_words):
-    trg_cnt = 0
-    for x in trg_words:
-      if type(x) == int:
-        trg_cnt += 1 if x != Vocab.ES else 0
-      else:
-        trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
-    return trg_cnt
-
-  def vocab_size(self):
-    return len(self.vocab)
-
-  def needs_reload(self):
-    return True
-
 class RamlTextReader(BaseTextReader, Serializable):
   """
-  Handles the RAML sampling.
+  Handles the RAML sampling, can be used on the target side, or on both the source and target side.
+  https://arxiv.org/pdf/1808.07512.pdf
+  https://arxiv.org/pdf/1609.00150.pdf
   """
   yaml_tag = '!RamlTextReader'
 
   @register_xnmt_handler
   @serializable_init
   def __init__(self, tau=1., vocab=None, include_vocab_reference=False):
+    """
+    Args:
+      tau: The temperature that controls peakiness of the sampling distribution
+      vocab: The vocabulary
+      include_vocab_reference: Whether to include the vocab with the input
+    """
     self.tau = tau
     self.vocab = vocab
     self.include_vocab_reference = include_vocab_reference
