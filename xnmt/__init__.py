@@ -13,11 +13,6 @@ import logging
 logger = logging.getLogger('xnmt')
 yaml_logger = logging.getLogger('yaml')
 
-import _dynet
-dyparams = _dynet.DynetParams()
-dyparams.from_args()
-
-
 # all Serializable objects must be imported here in order to be parsable
 # using the !Classname YAML syntax
 import xnmt.attender
