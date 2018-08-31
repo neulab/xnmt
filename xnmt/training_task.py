@@ -87,9 +87,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                     second dev task score is our measure of how good we're doing. If not
                     specified, only the score from the first dev task will be used.
     restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying LR decay (https://arxiv.org/pdf/1706.09733.pdf)
-    reload_command: Command to change the input data after each epoch.
-                         --epoch EPOCH_NUM will be appended to the command.
-                         To just reload the data after each epoch set the command to 'true'.
     sample_train_sents: If given, load a random subset of training sentences before each epoch. Useful when training data does not fit in memory.
     max_num_train_sents: Train only on the first n sentences
     max_src_len: Discard training sentences with source-side longer than this
@@ -111,7 +108,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                patience: int = 1, initial_patience: Optional[int] = None,
                dev_tasks: Sequence[eval_task.EvalTask] = None, dev_combinator=None,
                restart_trainer: bool = False,
-               reload_command: Optional[str] = None,
                name: Optional[str] = None,
                sample_train_sents: Optional[int] = None,
                max_num_train_sents: Optional[int] = None, max_src_len: Optional[int] = None,
@@ -134,8 +130,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     # training state
     self.training_state = TrainingState()
 
-    self.reload_command = reload_command
-
     self.model = model
     self.loss_calculator = loss_calculator
 
@@ -147,50 +141,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.batcher = batcher
     self.dev_loss_tracker = loss_tracker.DevLossTracker(self, dev_every, name)
     self.name = name
-
-  def _augment_data_initial(self):
-    """
-    Called before loading corpus for the first time, if reload_command is given
-    """
-    augment_command = self.reload_command
-    logger.debug('initial augmentation')
-    if self._augmentation_handle is None:
-      # first run
-      self._augmentation_handle = Popen(augment_command + " --epoch 0", shell=True)
-      self._augmentation_handle.wait()
-
-  def _augment_data_next_epoch(self):
-    """
-    This is run in the background if reload_command is given to prepare data for the next epoch
-    """
-    augment_command = self.reload_command
-    if self._augmentation_handle is None:
-      # first run
-      self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.training_state.epoch_num, shell=True)
-      self._augmentation_handle.wait()
-
-    self._augmentation_handle.poll()
-    retcode = self._augmentation_handle.returncode
-    if retcode is not None:
-      if self.training_state.epoch_num > 0:
-        logger.info('using reloaded data')
-      # reload the data 
-      self.model.src_reader.train = self.model.trg_reader.train = True
-      self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
-          input_reader.read_parallel_corpus(src_reader=self.model.src_reader,
-                                            trg_reader=self.model.trg_reader,
-                                            src_file=self.src_file,
-                                            trg_file=self.trg_file,
-                                            batcher=self.batcher,
-                                            sample_sents=self.sample_train_sents,
-                                            max_num_sents=self.max_num_train_sents,
-                                            max_src_len=self.max_src_len,
-                                            max_trg_len=self.max_trg_len)
-      self.model.src_reader.train = self.model.trg_reader.train = False
-      # restart data generation
-      self._augmentation_handle = Popen(augment_command + " --epoch %d" % self.training_state.epoch_num, shell=True)
-    else:
-      logger.info('new data set is not ready yet, using data from last epoch.')
 
   @events.register_xnmt_event
   def new_epoch(self, training_task, num_sents):
@@ -214,13 +164,13 @@ class SimpleTrainingTask(TrainingTask, Serializable):
 
   def cur_num_minibatches(self):
     """
-    Current number of minibatches (may change between epochs, e.g. for randomizing batchers or if reload_command is given)
+    Current number of minibatches (may change between epochs, e.g. for randomizing batchers)
     """
     return len(self.src_batches)
 
   def cur_num_sentences(self):
     """
-    Current number of parallel sentences (may change between epochs, e.g. if reload_command is given)
+    Current number of parallel sentences (may change between epochs)
     """
     return len(self.src_data)
 
@@ -228,12 +178,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     Shifts internal state to the next epoch, including data (re-)loading, batch re-packing and shuffling.
     """
-    if self.reload_command is not None:
-      if self.training_state.epoch_num==0:
-        self._augmentation_handle = None
-        self._augment_data_initial()
-      else:
-        self._augment_data_next_epoch()
     if self.training_state.epoch_num==0 or self.sample_train_sents or \
       self.model.src_reader.needs_reload() or self.model.trg_reader.needs_reload():
       self.model.set_train(True)
