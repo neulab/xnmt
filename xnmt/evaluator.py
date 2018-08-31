@@ -772,38 +772,6 @@ class CEREvaluator(SentenceLevelEvaluator, Serializable):
     assert score.hyp_len() == len(hyp_char)
     return score
 
-class ExternalEvaluator(Evaluator, Serializable):
-  """
-  A class to evaluate the quality of the output according to an external evaluation script.
-
-  Does not support multiple references.
-  The external script should only print a number representing the calculated score.
-
-  Args:
-    path: path to external command line tool.
-    higher_better: whether to interpret higher scores as favorable.
-  """
-  yaml_tag = "!ExternalEvaluator"
-  @serializable_init
-  def __init__(self, path:str=None, higher_better:bool=True):
-    self.path = path
-    self.higher_better = higher_better
-
-  def evaluate(self, ref, hyp, desc=None):
-    """
-    Calculate the quality of output according to an external script.
-
-    Args:
-      ref: (ignored)
-      hyp: (ignored)
-      desc: description to pass on to returned score
-    Return:
-      external eval script score
-    """
-    proc = subprocess.Popen([self.path], stdout=subprocess.PIPE, shell=True)
-    (out, _) = proc.communicate()
-    external_score = float(out)
-    return ExternalScore(external_score, higher_is_better=self.higher_better, desc=desc)
 
 class RecallEvaluator(SentenceLevelEvaluator,Serializable):
   """
