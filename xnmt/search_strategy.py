@@ -217,7 +217,7 @@ class SamplingSearch(Serializable, SearchStrategy):
     self.max_len = max_len
     self.sample_size = sample_size
 
-  def generate_output(self, translator, initial_state,
+  def generate_output(self, translator, initial_state, src,
                       src_length=None, forced_trg_ids=None):
     outputs = []
     for k in range(self.sample_size):
