@@ -1,4 +1,3 @@
-from subprocess import Popen
 from asteval import Interpreter
 import random
 import numpy as np

@@ -18,7 +18,6 @@ printed with an informative string representation.
 
 from collections import defaultdict, Counter
 import math
-import subprocess
 from typing import List, Sequence, Dict, Tuple, Union, Any, Optional
 
 import yaml

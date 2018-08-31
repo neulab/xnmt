@@ -1,7 +1,6 @@
 import time
 import sys
 import os.path
-import subprocess
 from collections import defaultdict
 import unicodedata
 import re
@@ -178,54 +177,6 @@ class UnicodeTokenizer(Tokenizer, Serializable):
   @staticmethod
   def _is_weird(c):
     return not (unicodedata.category(c)[0] in 'LMN' or c.isspace())
-
-class ExternalTokenizer(Tokenizer, Serializable):
-  """
-  Class for arbitrary external tokenizer that accepts untokenized text to stdin and
-  emits tokenized tezt to stdout, with passable parameters.
-
-  It is assumed that in general, external tokenizers will be more efficient when run
-  once per file, so are run as such (instead of one-execution-per-line.)
-
-  """
-  yaml_tag = '!ExternalTokenizer'
-
-  @serializable_init
-  def __init__(self, path, tokenizer_args=None, arg_separator=' '):
-    """Initialize the wrapper around the external tokenizer. """
-    if tokenizer_args is None: tokenizer_args = {}
-    tokenizer_options = []
-    if arg_separator != ' ':
-      tokenizer_options = [option + arg_separator + str(tokenizer_args[option])
-          for option in tokenizer_args]
-    else:
-      for option in tokenizer_args:
-        tokenizer_options.extend([option, str(tokenizer_args[option])])
-    self.tokenizer_command = [path] + tokenizer_options
-    print(self.tokenizer_command)
-
-  def tokenize(self, sent):
-    """
-    Pass the sentence through the external tokenizer.
-
-    Args:
-      sent: An untokenized sentence
-    Return:
-      A tokenized sentence
-
-    """
-    encode_proc = subprocess.Popen(self.tokenizer_command, stdin=subprocess.PIPE
-        , stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if isinstance(sent, str):
-      sent = sent.encode('utf-8')
-    stdout, stderr = encode_proc.communicate(sent)
-    if isinstance(stdout, bytes):
-      stdout = stdout.decode('utf-8')
-    if stderr:
-      if isinstance(stderr, bytes):
-        stderr = stderr.decode('utf-8')
-      sys.stderr.write(stderr + '\n')
-    return stdout
 
 class SentencepieceTokenizer(Tokenizer, Serializable):
   """
