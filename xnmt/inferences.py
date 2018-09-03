@@ -107,6 +107,7 @@ class Inference(object):
     """
     Generate outputs for a single batch and write them to the output file.
     """
+    batch_size = src_batch.batch_size()
     src_len = src_batch.sent_len()
     if max_src_len is not None and src_len > max_src_len:
       output_txt = "\n".join([NO_DECODING_ATTEMPTED] * batch_size)
