@@ -71,7 +71,7 @@ def plot_speech_features(feature_matrix, file_name=None, vertical = True, ax=Non
   """
   if not ax:
     plt.subplots(figsize=(1.0, length))
-  if vertical: feature_matrix = feature_matrix.T
+  if vertical: feature_matrix = feature_matrix[::-1].T
   if ax:
     ax.pcolor(feature_matrix, cmap=plt.cm.jet, vmin=-1, vmax=1)
     ax.axis('off')
