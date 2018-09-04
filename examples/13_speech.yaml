@@ -10,7 +10,6 @@
     save_num_checkpoints: 2
     default_layer_dim: 32
     dropout: 0.4
-    compute_report: True
   preproc: !PreprocRunner
     overwrite: False
     tasks:
@@ -47,7 +46,7 @@
       vocab: !Vocab {vocab_file: examples/data/char.vocab}
       output_proc: join-char
   train: !SimpleTrainingRegimen
-    run_for_epochs: 0
+    run_for_epochs: 1
     batcher: !SrcBatcher
       pad_src_to_multiple: 4
       batch_size: 3
@@ -76,4 +75,3 @@
       hyp_file: examples/output/{EXP}.test_hyp
       inference: !AutoRegressiveInference
         batcher: !Ref { name: inference_batcher }
-        reporter: !AttentionReporter {}
