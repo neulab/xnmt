@@ -108,6 +108,7 @@ class Inference(object):
       ref_batch = ref_batches[0]
     else:
       src_batches = batcher.pack(src_batch, None)
+      ref_batch = None
     src_batch = src_batches[0]
     src_len = src_batch.sent_len()
     if max_src_len is not None and src_len > max_src_len:
