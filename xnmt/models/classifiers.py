@@ -75,8 +75,13 @@ class SequenceClassifier(models.ConditionedModel, models.GeneratorModel, Seriali
       output_action = np.argmax(np_scores, axis=0)
     outputs = []
     for batch_i in range(src.batch_size()):
-      score = np_scores[:, batch_i][output_action[batch_i]]
-      outputs.append(sent.ScalarSentence(value=output_action[batch_i],
+      if src.batch_size() > 1:
+        my_action = output_action[batch_i]
+        score = np_scores[:, batch_i][my_action]
+      else:
+        my_action = output_action
+        score = np_scores[my_action]
+      outputs.append(sent.ScalarSentence(value=my_action,
                                          score=score))
     return outputs
 
