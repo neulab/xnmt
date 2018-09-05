@@ -33,15 +33,13 @@ class Inference(object):
             * ``score``: output scores, useful for rescoring
     batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
     reporter: a reporter to create reports for each decoded sentence
-    stream: whether to perform streaming inference (one input at a time) from a file
   """
   @events.register_xnmt_handler
   def __init__(self, src_file: Optional[str] = None, trg_file: Optional[str] = None, ref_file: Optional[str] = None,
                max_src_len: Optional[int] = None, max_num_sents: Optional[int] = None,
                mode: str = "onebest",
                batcher: batchers.InOrderBatcher = bare(batchers.InOrderBatcher, batch_size=1),
-               reporter: Union[None, reports.Reporter, Sequence[reports.Reporter]] = None,
-               stream: bool = True):
+               reporter: Union[None, reports.Reporter, Sequence[reports.Reporter]] = None):
     self.src_file = src_file
     self.trg_file = trg_file
     self.ref_file = ref_file
@@ -50,7 +48,6 @@ class Inference(object):
     self.mode = mode
     self.batcher = batcher
     self.reporter = reporter
-    self.stream = stream
 
   def generate_one(self, generator: 'models.GeneratorModel', src: batchers.Batch, forced_ref_ids) \
           -> List[sent.ReadableSentence]:
@@ -135,7 +132,7 @@ class Inference(object):
                        forced_ref_file: Optional[str] = None,
                        assert_scores: Optional[Sequence[numbers.Real]] = None) -> None:
     """
-    Generate outputs in a streaming format (one input at a time) and write them to file.
+    Generate outputs and write them to file.
 
     Args:
       generator: generator model to use
