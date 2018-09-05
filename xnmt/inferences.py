@@ -81,24 +81,19 @@ class Inference(object):
 
     ref_scores = None
 
-    if self.stream == False or self.mode in ['score', 'forceddebug']:
-      ref_corpus, src_corpus = self._read_corpus(generator, src_file, mode=self.mode, ref_file=self.ref_file)
-
     if self.mode in ['score', 'forceddebug']:
+      ref_corpus, src_corpus = self._read_corpus(generator, src_file, mode=self.mode, ref_file=self.ref_file)
       ref_scores = self._compute_losses(generator, ref_corpus, src_corpus, self.max_num_sents)
 
     if self.mode == 'score':
       self._write_rescored_output(ref_scores, self.ref_file, trg_file)
-    elif self.stream == False:
-      self._generate_output_batch(generator=generator, forced_ref_corpus=ref_corpus, assert_scores=ref_scores,
-                                  src_corpus=src_corpus, trg_file=trg_file, batcher=self.batcher,
-                                  max_src_len=self.max_src_len)
     else:
-      self._generate_output_stream(generator=generator, forced_ref_file=self.ref_file, assert_scores=ref_scores,
-                                   src_file=src_file, trg_file=trg_file, batcher=self.batcher,
-                                   max_src_len=self.max_src_len)
+      self._generate_output(generator=generator, forced_ref_file=self.ref_file, assert_scores=ref_scores,
+                            src_file=src_file, trg_file=trg_file, batcher=self.batcher,
+                            max_src_len=self.max_src_len)
 
   def _generate_one_batch(self, generator: 'models.GeneratorModel',
+                                batcher: Optional[batchers.Batcher] = None,
                                 src_batch: batchers.Batch = None,
                                 ref_batch: Optional[batchers.Batch] = None,
                                 assert_scores: Optional[List[int]] = None,
@@ -107,7 +102,13 @@ class Inference(object):
     """
     Generate outputs for a single batch and write them to the output file.
     """
-    batch_size = src_batch.batch_size()
+    batch_size = len(src_batch)
+    if ref_batch[0] is not None:
+      src_batches, ref_batches = batcher.pack(src_batch, ref_batch)
+      ref_batch = ref_batches[0]
+    else:
+      src_batches = batcher.pack(src_batch, None)
+    src_batch = src_batches[0]
     src_len = src_batch.sent_len()
     if max_src_len is not None and src_len > max_src_len:
       output_txt = "\n".join([NO_DECODING_ATTEMPTED] * batch_size)
@@ -118,7 +119,7 @@ class Inference(object):
         outputs = self.generate_one(generator, src_batch, ref_batch)
         if self.reporter: self._create_sent_report()
         for i in range(len(outputs)):
-          if assert_scores is not None:
+          if assert_scores[0] is not None:
             # If debugging forced decoding, make sure it matches
             assert batch_size == len(outputs), "debug forced decoding not supported with nbest inference"
             if (abs(outputs[i].score - assert_scores[i]) / abs(assert_scores[i])) > 1e-5:
@@ -128,39 +129,7 @@ class Inference(object):
           output_txt = outputs[i].sent_str(custom_output_procs=self.post_processor)
           fp.write(f"{output_txt}\n")
 
-  def _generate_output_batch(self, generator: 'models.GeneratorModel', src_corpus: Sequence[sent.Sentence],
-                             trg_file: str, batcher: Optional[batchers.Batcher] = None, max_src_len: Optional[int] = None,
-                             forced_ref_corpus: Optional[Sequence[sent.Sentence]] = None,
-                             assert_scores: Optional[Sequence[numbers.Real]] = None) -> None:
-    """
-    Generate outputs in a batch format and write them to file.
-
-    Args:
-      generator: generator model to use
-      src_corpus: src-side inputs to generate outputs for
-      trg_file: file to write outputs to
-      batcher: necessary with some cases of input pre-processing such as padding or truncation
-      max_src_len: if given, skip inputs that are too long
-      forced_ref_corpus: if given, perform forced decoding with the given trg-side inputs
-      assert_scores: if given, raise exception if the scores for generated outputs don't match the given scores
-    """
-    with open(trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
-      if forced_ref_corpus:
-        src_batches, ref_batches = batcher.pack(src_corpus, forced_ref_corpus)
-      else:
-        src_batches = batcher.pack(src_corpus, None)
-      cur_sent_i = 0
-      ref_batch, assert_batch = None, None
-      for batch_i, src_batch in enumerate(src_batches):
-        batch_size = src_batch.batch_size()
-        if assert_scores:
-          assert_batch = assert_scores[curr_sent_i:curr_sent_i+batch_size]
-        self._generate_one_batch(generator, src_batch, ref_batch, assert_batch, max_src_len, fp)
-        cur_sent_i += batch_size
-        if self.max_num_sents and cur_sent_i >= self.max_num_sents: break
-      if self.reporter: self._conclude_report()
-
-  def _generate_output_stream(self, generator: 'models.GeneratorModel', src_file: str,
+  def _generate_output(self, generator: 'models.GeneratorModel', src_file: str,
                        trg_file: str, batcher: Optional[batchers.Batcher] = None, max_src_len: Optional[int] = None,
                        forced_ref_file: Optional[str] = None,
                        assert_scores: Optional[Sequence[numbers.Real]] = None) -> None:
@@ -179,21 +148,21 @@ class Inference(object):
     src_in = generator.src_reader.read_sents(src_file)
     # If we have a reference file return it, otherwise return "None" infinitely
     forced_ref_in = generator.trg_reader.read_sents(forced_ref_file) if forced_ref_file else iter(lambda: None, 1)
+    assert_in = assert_scores if assert_scores else iter(lambda: None, 1)
     with open(trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
       cur_sent_i = 0
-      ref_batch, assert_batch = None, None
-      for curr_sent_i, (src_line, forced_ref_line) in enumerate(zip(src_in, forced_ref_in)):
-        if self.max_num_sents and cur_sent_i >= self.max_num_sents: break
-        if forced_ref_line:
-          src_batches, ref_batches = batcher.pack([src_line], [forced_ref_line])
-          ref_batch = ref_batches[0]
-        else:
-          src_batches = batcher.pack([src_line], None)
-        src_batch = src_batches[0]
-        if assert_scores:
-          assert_batch = [assert_scores[curr_sent_i]]
-        assert(src_batch.batch_size() == 1)
-        self._generate_one_batch(generator, src_batch, ref_batch, assert_batch, max_src_len, fp)
+      src_batch, ref_batch, assert_batch = [], [], []
+      for curr_sent_i, (src_line, ref_line, assert_line) in enumerate(zip(src_in, forced_ref_in, assert_in)):
+        if self.max_num_sents and cur_sent_i >= self.max_num_sents:
+          break
+        src_batch.append(src_line)
+        ref_batch.append(ref_line)
+        assert_batch.append(assert_line)
+        if len(src_batch) == batcher.batch_size:
+          self._generate_one_batch(generator, batcher, src_batch, ref_batch, assert_batch, max_src_len, fp)
+          src_batch, ref_batch, assert_batch = [], [], []
+      if len(src_batch) != 0:
+        self._generate_one_batch(generator, batcher, src_batch, ref_batch, assert_batch, max_src_len, fp)
       if self.reporter: self._conclude_report()
 
   def _create_sent_report(self):
