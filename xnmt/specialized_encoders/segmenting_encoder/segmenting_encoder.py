@@ -99,7 +99,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     try:
       if self.length_prior:
         seg_size_unpadded = [len(outputs[i]) for i in range(batch_size)]
-      enc_outputs = []
       sampled_sentence, segment_mask = self.pad(outputs)
       expr_seq = ExpressionSequence(expr_tensor=dy.concatenate_to_batch(sampled_sentence), mask=segment_mask)
       return self.final_transducer.transduce(expr_seq)
@@ -216,7 +215,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           if current >= src_len:
             break
           action.append(current)
-        if action[-1] != src_len:
+        if len(action) == 0 or action[-1] != src_len:
           action.append(src_len)
         actions.append(action)
     return actions

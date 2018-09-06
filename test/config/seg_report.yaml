@@ -24,8 +24,8 @@ report: !Experiment
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu,wer
-      src_file: examples/data/head.ja
-      ref_file: examples/data/head.en
+      src_file: examples/data/dev.ja
+      ref_file: examples/data/dev.en
       hyp_file: test/tmp/{EXP}.test_hyp
       inference: !AutoRegressiveInference
         reporter: !SegmentationReporter

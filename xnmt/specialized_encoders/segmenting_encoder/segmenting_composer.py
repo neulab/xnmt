@@ -237,6 +237,7 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
     self.param_init = param_init
     self.bias_init = bias_init
     self.hidden_dim = hidden_dim
+    self.word_vect = None
     # Word Embedding
     self.ngram_size = ngram_size
     self.embedding = self.add_serializable_component("embedding", embedding,
