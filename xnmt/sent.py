@@ -209,6 +209,98 @@ class SimpleSentence(ReadableSentence):
       return self
     return self.sent_with_words(self.words[:-trunc_len])
 
+class SyntaxTree(Sentence):
+  """
+  A syntax tree, represented recursively
+  """
+
+  def __init__(self, label, children, idx=None, score=None):
+    super().__init__(idx, score)
+    self.label = label
+    self.children = children
+
+  def __repr__(self):
+    if len(self.children) == 0:
+      return self.label
+    return '(%s %s)' % (self.label, ' '.join(repr(child) for child in self.children))
+
+  def __str__(self):
+    return repr(self)
+
+  def sent_len(self):
+    if len(self.children) == 0:
+      return 1
+    else:
+      return sum(child.sent_len() for child in self.children)
+
+  @staticmethod
+  def from_string(line, nt_vocab, term_vocab, idx=None, depth=0):
+    line = line.strip()
+    if line.startswith('( ') and line.endswith(' )'):
+      # Berkeley Parser likes to add an extra layer of parents
+      # separate by spaces for whatever reason.
+      line = line[2:-2]
+
+    # if it's a terminal
+    if not line.startswith('('):
+      assert ' ' not in line
+      return SyntaxTree(line, [], idx)
+    else:
+      assert line.endswith(')')
+      line = line[1:-1]
+      first_space = line.find(' ')
+      assert first_space >= 0
+      label = line[:first_space]
+      line = line[first_space + 1:]
+
+      child_strings = []
+      cur_child = []
+      paren_depth = 0
+      for i, c in enumerate(line):
+        assert paren_depth >= 0
+        if paren_depth == 0 and c == ' ':
+          if cur_child:
+            child_strings.append(''.join(cur_child))
+            cur_child = []
+        else:
+          cur_child.append(c)
+
+        if c == '(':
+          paren_depth += 1
+        elif c == ')':
+          paren_depth -= 1
+          if paren_depth == 0:
+            cur_child = ''.join(cur_child)
+            assert cur_child.startswith('(') and cur_child.endswith(')')
+            child_strings.append(cur_child)
+            cur_child = []
+
+    if cur_child:
+      child_strings.append(''.join(cur_child))
+      cur_child = []
+    assert paren_depth >= 0
+
+    children = []
+    for child in child_strings:
+      child_node = SyntaxTree.from_string(child, nt_vocab, term_vocab, depth=depth+1)
+      children.append(child_node)
+    return SyntaxTree(label, children, idx)
+      
+
+  @functools.lru_cache(maxsize=1)
+  def len_unpadded(self):
+    raise NotImplementedError()
+
+  def __getitem__(self, key):
+    raise NotImplementedError()
+
+  def get_padded_sent(self, token, pad_len):
+    raise NotImplementedError()
+
+  def get_truncated_sent(self, trunc_len: int) -> 'Input':
+    raise NotImplementedError()
+
+
   def str_tokens(self, exclude_ss_es=True, exclude_unk=False, exclude_padded=True, **kwargs) -> List[str]:
     exclude_set = set()
     if exclude_ss_es:

@@ -13,7 +13,7 @@ with warnings.catch_warnings():
 
 from xnmt import logger
 
-from xnmt.sent import SimpleSentence, CompoundSentence, ArraySentence, ScalarSentence, SegmentedSentence
+from xnmt.sent import SimpleSentence, CompoundSentence, ArraySentence, ScalarSentence, SegmentedSentence, SyntaxTree
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt import sent
@@ -417,6 +417,25 @@ class IDReader(BaseTextReader, Serializable):
 
   def read_sents(self, filename, filter_ids=None):
     return [l for l in self.iterate_filtered(filename, filter_ids)]
+
+class SyntaxTreeReader(BaseTextReader, Serializable):
+  """
+  Reads in syntax trees, one per line, and converts them into xnmt Input objects.
+  """
+  yaml_tag = "!SyntaxTreeReader"
+
+  @serializable_init
+  def __init__(self, nt_vocab, term_vocab):
+    self.nt_vocab = nt_vocab
+    self.vocab = term_vocab
+
+  def read_sent(self, line, idx):
+    assert self.nt_vocab is not None
+    assert self.term_vocab is not None
+    tree = SyntaxTree.from_string(line, self.nt_vocab, self.vocab, idx)
+    import sys
+    print('Read tree:', tree, file=sys.__stdout__)
+    return tree
 
 ###### A utility function to read a parallel corpus
 def read_parallel_corpus(src_reader: InputReader,
