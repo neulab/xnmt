@@ -1,5 +1,7 @@
-import dynet as dy
 from typing import List
+import numbers
+
+import dynet as dy
 
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.persistence import serializable_init, Serializable
@@ -19,7 +21,7 @@ class ResidualSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!ResidualSeqTransducer'
 
   @serializable_init
-  def __init__(self, child: SeqTransducer, input_dim: int, layer_norm: bool = False):
+  def __init__(self, child: SeqTransducer, input_dim: numbers.Integral, layer_norm: bool = False):
     self.child = child
     self.input_dim = input_dim
     self.layer_norm = layer_norm

@@ -79,8 +79,12 @@ class Embedder(object):
     else:
       raise ValueError("Attempted to determine vocab size of {} (path: {}), but path was not src_embedder, trg_embedder, or output_projector, so it could not determine what part of the model to use. Please set vocab_size or vocab explicitly.".format(self.__class__, yaml_path))
 
-  def choose_vocab_size(self, vocab_size: int, vocab: vocabs.Vocab, yaml_path, src_reader: input_readers.InputReader,
-                        trg_reader: input_readers.InputReader):
+  def choose_vocab_size(self,
+                        vocab_size: numbers.Integral,
+                        vocab: vocabs.Vocab,
+                        yaml_path,
+                        src_reader: input_readers.InputReader,
+                        trg_reader: input_readers.InputReader) -> int:
     """Choose the vocab size for the embedder basd on the passed arguments
 
     This is done in order of priority of vocab_size, vocab, model+yaml_path
@@ -93,7 +97,7 @@ class Embedder(object):
       trg_reader: Model's trg_reader, if exists and unambiguous.
 
     Returns:
-      int: chosen vocab size
+      chosen vocab size
     """
     if vocab_size is not None:
       return vocab_size
@@ -136,7 +140,7 @@ class DenseWordEmbedder(Embedder, transforms.Linear, Serializable):
   @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
-               emb_dim: int = Ref("exp_global.default_layer_dim"),
+               emb_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                weight_noise: numbers.Real = Ref("exp_global.weight_noise", default=0.0),
                word_dropout: numbers.Real = 0.0,
                fix_norm: Optional[numbers.Real] = None,
@@ -144,11 +148,11 @@ class DenseWordEmbedder(Embedder, transforms.Linear, Serializable):
                  param_initializers.GlorotInitializer)),
                bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init",
                                                                     default=bare(param_initializers.ZeroInitializer)),
-               vocab_size: Optional[int] = None,
+               vocab_size: Optional[numbers.Integral] = None,
                vocab: Optional[vocabs.Vocab] = None,
                yaml_path=None,
                src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
-               trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)):
+               trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)) -> None:
     self.fix_norm = fix_norm
     self.weight_noise = weight_noise
     self.word_dropout = word_dropout
@@ -224,17 +228,17 @@ class SimpleWordEmbedder(Embedder, Serializable):
   @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
-               emb_dim: int = Ref("exp_global.default_layer_dim"),
+               emb_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                weight_noise: numbers.Real = Ref("exp_global.weight_noise", default=0.0),
                word_dropout: numbers.Real = 0.0,
                fix_norm: Optional[numbers.Real] = None,
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(
                  param_initializers.GlorotInitializer)),
-               vocab_size: Optional[int] = None,
+               vocab_size: Optional[numbers.Integral] = None,
                vocab: Optional[vocabs.Vocab] = None,
                yaml_path=None,
                src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
-               trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)):
+               trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)) -> None:
     #print(f"embedder received param_init: {param_init}")
     self.emb_dim = emb_dim
     self.weight_noise = weight_noise
@@ -297,7 +301,7 @@ class NoopEmbedder(Embedder, Serializable):
   yaml_tag = '!NoopEmbedder'
 
   @serializable_init
-  def __init__(self, emb_dim: Optional[int]):
+  def __init__(self, emb_dim: Optional[numbers.Integral]) -> None:
     self.emb_dim = emb_dim
 
   def embed(self, x):
@@ -346,14 +350,14 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder, Serializable):
   @serializable_init
   def __init__(self,
                filename: str,
-               emb_dim: int = Ref("exp_global.default_layer_dim"),
+               emb_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                weight_noise: numbers.Real = Ref("exp_global.weight_noise", default=0.0),
                word_dropout: numbers.Real = 0.0,
                fix_norm: Optional[numbers.Real] = None,
                vocab: Optional[vocabs.Vocab] = None,
                yaml_path=None,
                src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
-               trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)):
+               trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)) -> None:
     self.emb_dim = emb_dim
     self.weight_noise = weight_noise
     self.word_dropout = word_dropout
@@ -372,7 +376,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder, Serializable):
     logger.info(f"{in_vocab} vocabulary matches out of {total_embs} total embeddings; "
                 f"{missing} vocabulary words without a pretrained embedding out of {self.vocab_size}")
 
-  def _read_fasttext_embeddings(self, vocab, embeddings_file_handle):
+  def _read_fasttext_embeddings(self, vocab: vocabs.Vocab, embeddings_file_handle):
     """
     Reads FastText embeddings from a file. Also prints stats about the loaded embeddings for sanity checking.
 
@@ -420,7 +424,9 @@ class PositionEmbedder(Embedder, Serializable):
   yaml_tag = '!PositionEmbedder'
 
   @serializable_init
-  def __init__(self, max_pos: int, emb_dim: int = Ref("exp_global.default_layer_dim"),
+  def __init__(self,
+               max_pos: numbers.Integral,
+               emb_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init",
                                                                      default=bare(param_initializers.GlorotInitializer))):
     """

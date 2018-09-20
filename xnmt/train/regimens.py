@@ -30,7 +30,7 @@ class TrainingRegimen(object):
     """
     raise NotImplementedError("")
 
-  def backward(self, loss: dy.Expression, dynet_profiling: int) -> None:
+  def backward(self, loss: dy.Expression, dynet_profiling: numbers.Integral) -> None:
     """
     Perform backward pass to accumulate gradients.
 
@@ -90,19 +90,31 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
   yaml_tag = '!SimpleTrainingRegimen'
 
   @serializable_init
-  def __init__(self, model: ConditionedModel = Ref("model"), src_file: Union[None, str, Sequence[str]] = None,
-               trg_file: Optional[str] = None, dev_every: int = 0, dev_zero: bool = False,
+  def __init__(self,
+               model: ConditionedModel = Ref("model"),
+               src_file: Union[None, str, Sequence[str]] = None,
+               trg_file: Optional[str] = None,
+               dev_every: numbers.Integral = 0,
+               dev_zero: bool = False,
                batcher: batchers.Batcher = bare(batchers.SrcBatcher, batch_size=32),
                loss_calculator: LossCalculator = bare(MLELoss),
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
-               run_for_epochs: Optional[int] = None, lr_decay: numbers.Real= 1.0, lr_decay_times: int = 3, patience: int = 1,
-               initial_patience: Optional[int] = None, dev_tasks: Sequence[eval_tasks.EvalTask] = None,
-               dev_combinator: Optional[str] = None, restart_trainer: bool = False,
-               reload_command: Optional[str] = None, name: str = "{EXP}", sample_train_sents: Optional[int] = None,
-               max_num_train_sents: Optional[int] = None, max_src_len: Optional[int] = None,
-               max_trg_len: Optional[int] = None,
+               run_for_epochs: Optional[numbers.Integral] = None,
+               lr_decay: numbers.Real= 1.0,
+               lr_decay_times: numbers.Integral = 3,
+               patience: numbers.Integral = 1,
+               initial_patience: Optional[numbers.Integral] = None,
+               dev_tasks: Sequence[eval_tasks.EvalTask] = None,
+               dev_combinator: Optional[str] = None,
+               restart_trainer: bool = False,
+               reload_command: Optional[str] = None,
+               name: str = "{EXP}",
+               sample_train_sents: Optional[numbers.Integral] = None,
+               max_num_train_sents: Optional[numbers.Integral] = None,
+               max_src_len: Optional[numbers.Integral] = None,
+               max_trg_len: Optional[numbers.Integral] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
-               update_every: int = 1,
+               update_every: numbers.Integral = 1,
                commandline_args: dict = Ref("exp_global.commandline_args", default={})) -> None:
 
     super().__init__(model=model,
@@ -188,7 +200,7 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
                tasks: Sequence[train_tasks.TrainingTask],
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
-               update_every: int = 1,
+               update_every: numbers.Integral = 1,
                commandline_args: dict = Ref("exp_global.commandline_args", default=None)) -> None:
     super().__init__()
     self.dynet_profiling = commandline_args.get("dynet_profiling", 0) if commandline_args else 0
@@ -261,8 +273,8 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                dev_zero: bool = False,
                per_task_backward: bool = True,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
-               update_every: int = 1,
-               n_task_steps: Optional[Sequence[int]] = None,
+               update_every: numbers.Integral = 1,
+               n_task_steps: Optional[Sequence[numbers.Integral]] = None,
                commandline_args: dict = Ref("exp_global.commandline_args", default=None)) -> None:
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every,
                      commandline_args=commandline_args)
@@ -351,8 +363,8 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
-               update_every_within: int = 1,
-               update_every_across: int = 1,
+               update_every_within: numbers.Integral = 1,
+               update_every_across: numbers.Integral = 1,
                commandline_args=Ref("exp_global.commandline_args", default=None)) -> None:
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every_across,
                      commandline_args=commandline_args)
@@ -420,7 +432,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
-               update_every: int = 1,
+               update_every: numbers.Integral = 1,
                commandline_args: dict = Ref("exp_global.commandline_args", default=None)) -> None:
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args,
                      update_every=update_every)

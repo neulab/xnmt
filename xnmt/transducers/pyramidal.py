@@ -1,5 +1,7 @@
-import dynet as dy
 from typing import Any, List, Sequence, Union
+import numbers
+
+import dynet as dy
 
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer
 from xnmt.expression_seqs import ExpressionSequence, ReversedExpressionSequence
@@ -29,11 +31,11 @@ class PyramidalLSTMSeqTransducer(SeqTransducer, Serializable):
   @register_xnmt_handler
   @serializable_init
   def __init__(self,
-               layers: int = 1,
-               input_dim: int = Ref("exp_global.default_layer_dim"),
-               hidden_dim: int = Ref("exp_global.default_layer_dim"),
+               layers: numbers.Integral = 1,
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                downsampling_method: str = "concat",
-               reduce_factor: Union[int, Sequence[int]] = 2,
+               reduce_factor: Union[numbers.Integral, Sequence[numbers.Integral]] = 2,
                dropout: float = Ref("exp_global.dropout", default=0.0),
                builder_layers: Any = None):
     self.dropout = dropout

@@ -1,3 +1,5 @@
+import numbers
+
 import dynet as dy
 import numpy as np
 
@@ -51,23 +53,23 @@ class XnmtOptimizer(object):
     """
     return self.optimizer.status()
 
-  def set_clip_threshold(self, thr):
+  def set_clip_threshold(self, thr: numbers.Real):
     """
     Set clipping thershold
 
     To deactivate clipping, set the threshold to be <=0
 
     Args:
-      thr (number): Clipping threshold
+      thr: Clipping threshold
     """
     return self.optimizer.set_clip_threshold(thr)
 
-  def get_clip_threshold(self):
+  def get_clip_threshold(self) -> numbers.Real:
     """
     Get clipping threshold
 
     Returns:
-      number: Gradient clipping threshold
+      Gradient clipping threshold
     """
     return self.optimizer.get_clip_threshold()
 
@@ -108,7 +110,7 @@ class SimpleSGDTrainer(XnmtOptimizer, Serializable):
   This trainer performs stochastic gradient descent, the goto optimization procedure for neural networks.
 
   Args:
-    e0 (number): Initial learning rate
+    e0: Initial learning rate
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
@@ -116,7 +118,7 @@ class SimpleSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!SimpleSGDTrainer'
 
   @serializable_init
-  def __init__(self, e0 = 0.1, skip_noisy: bool = False):
+  def __init__(self, e0: numbers.Real = 0.1, skip_noisy: bool = False):
     super().__init__(optimizer=dy.SimpleSGDTrainer(ParamManager.global_collection(), e0),
                      skip_noisy=skip_noisy)
 
@@ -127,8 +129,8 @@ class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   This is a modified version of the SGD algorithm with momentum to stablize the gradient trajectory.
 
   Args:
-    e0 (number): Initial learning rate
-    mom (number): Momentum
+    e0: Initial learning rate
+    mom: Momentum
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
@@ -136,7 +138,7 @@ class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!MomentumSGDTrainer'
 
   @serializable_init
-  def __init__(self, e0=0.01, mom=0.9, skip_noisy: bool = False):
+  def __init__(self, e0: numbers.Real = 0.01, mom: numbers.Real = 0.9, skip_noisy: bool = False):
     super().__init__(optimizer=dy.MomentumSGDTrainer(ParamManager.global_collection(), e0, mom),
                      skip_noisy=skip_noisy)
 
@@ -147,8 +149,8 @@ class AdagradTrainer(XnmtOptimizer, Serializable):
   The adagrad algorithm assigns a different learning rate to each parameter.
 
   Args:
-    e0 (number): Initial learning rate
-    eps (number): Epsilon parameter to prevent numerical instability
+    e0: Initial learning rate
+    eps: Epsilon parameter to prevent numerical instability
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
@@ -156,7 +158,7 @@ class AdagradTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!AdagradTrainer'
 
   @serializable_init
-  def __init__(self, e0=0.1, eps=1e-20, skip_noisy: bool = False):
+  def __init__(self, e0: numbers.Real = 0.1, eps: numbers.Real = 1e-20, skip_noisy: bool = False):
     super().__init__(optimizer=dy.AdagradTrainer(ParamManager.global_collection(), e0, eps=eps),
                      skip_noisy=skip_noisy)
 
@@ -167,8 +169,8 @@ class AdadeltaTrainer(XnmtOptimizer, Serializable):
   The AdaDelta optimizer is a variant of Adagrad aiming to prevent vanishing learning rates.
 
   Args:
-    eps (number): Epsilon parameter to prevent numerical instability
-    rho (number): Update parameter for the moving average of updates in the numerator
+    eps: Epsilon parameter to prevent numerical instability
+    rho: Update parameter for the moving average of updates in the numerator
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
@@ -176,7 +178,7 @@ class AdadeltaTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!AdadeltaTrainer'
 
   @serializable_init
-  def __init__(self, eps=1e-6, rho=0.95, skip_noisy: bool = False):
+  def __init__(self, eps: numbers.Real = 1e-6, rho: numbers.Real = 0.95, skip_noisy: bool = False):
     super().__init__(optimizer=dy.AdadeltaTrainer(ParamManager.global_collection(), eps, rho),
                      skip_noisy=skip_noisy)
 
@@ -187,10 +189,10 @@ class AdamTrainer(XnmtOptimizer, Serializable):
   The Adam optimizer is similar to RMSProp but uses unbiased estimates of the first and second moments of the gradient
 
   Args:
-    alpha (number): Initial learning rate
-    beta_1 (number): Moving average parameter for the mean
-    beta_2 (number): Moving average parameter for the variance
-    eps (number): Epsilon parameter to prevent numerical instability
+    alpha: Initial learning rate
+    beta_1: Moving average parameter for the mean
+    beta_2: Moving average parameter for the variance
+    eps: Epsilon parameter to prevent numerical instability
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
@@ -198,7 +200,12 @@ class AdamTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!AdamTrainer'
 
   @serializable_init
-  def __init__(self, alpha=0.001, beta_1=0.9, beta_2=0.999, eps=1e-8, update_every: int = 1, skip_noisy: bool = False):
+  def __init__(self,
+               alpha: numbers.Real = 0.001,
+               beta_1: numbers.Real = 0.9,
+               beta_2: numbers.Real = 0.999,
+               eps: numbers.Real = 1e-8,
+               skip_noisy: bool = False):
     super().__init__(optimizer=dy.AdamTrainer(ParamManager.global_collection(), alpha, beta_1, beta_2, eps),
                      skip_noisy=skip_noisy)
 
@@ -208,12 +215,12 @@ class NoamTrainer(XnmtOptimizer, Serializable):
   In this the learning rate of Adam Optimizer is increased for the first warmup steps followed by a gradual decay
 
   Args:
-    alpha (float):
-    dim (int):
-    warmup_steps (int):
-    beta_1 (float):
-    beta_2 (float):
-    eps (float):
+    alpha:
+    dim:
+    warmup_steps:
+    beta_1:
+    beta_2:
+    eps:
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
@@ -221,7 +228,13 @@ class NoamTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!NoamTrainer'
 
   @serializable_init
-  def __init__(self, alpha=1.0, dim=512, warmup_steps=4000, beta_1=0.9, beta_2=0.98, eps=1e-9,
+  def __init__(self,
+               alpha: numbers.Real = 1.0,
+               dim: numbers.Integral = 512,
+               warmup_steps: numbers.Integral = 4000,
+               beta_1: numbers.Real = 0.9,
+               beta_2: numbers.Real = 0.98,
+               eps: numbers.Real = 1e-9,
                skip_noisy: bool = False):
     super().__init__(optimizer=dy.AdamTrainer(ParamManager.global_collection(),
                                     alpha=alpha,

@@ -106,8 +106,8 @@ class Softmax(Scorer, Serializable):
 
   @serializable_init
   def __init__(self,
-               input_dim: int = Ref("exp_global.default_layer_dim"),
-               vocab_size: Optional[int] = None,
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               vocab_size: Optional[numbers.Integral] = None,
                vocab: Optional[vocabs.Vocab] = None,
                trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None),
                label_smoothing: numbers.Real = 0.0,
@@ -127,7 +127,7 @@ class Softmax(Scorer, Serializable):
   def calc_scores(self, x: dy.Expression) -> dy.Expression:
     return self.output_projector.transform(x)
 
-  def calc_loss(self, x: dy.Expression, y: Union[int, List[int]]) -> dy.Expression:
+  def calc_loss(self, x: dy.Expression, y: Union[numbers.Integral, List[numbers.Integral]]) -> dy.Expression:
 
     scores = self.calc_scores(x)
 

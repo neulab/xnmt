@@ -115,19 +115,23 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                model: 'model_base.ConditionedModel',
                src_file: Union[str, Sequence[str]] = None,
                trg_file: str = None,
-               dev_every: int = 0,
+               dev_every: numbers.Integral = 0,
                batcher: batchers.Batcher = bare(batchers.SrcBatcher, batch_size=32),
                loss_calculator: loss_calculators.LossCalculator = bare(loss_calculators.MLELoss),
-               run_for_epochs: Optional[int] = None,
-               lr_decay: numbers.Real = 1.0, lr_decay_times: int = 3,
-               patience: int = 1, initial_patience: Optional[int] = None,
-               dev_tasks: Sequence['eval_tasks.EvalTask'] = None, dev_combinator=None,
+               run_for_epochs: Optional[numbers.Integral] = None,
+               lr_decay: numbers.Real = 1.0,
+               lr_decay_times: numbers.Integral = 3,
+               patience: numbers.Integral = 1,
+               initial_patience: Optional[numbers.Integral] = None,
+               dev_tasks: Sequence['eval_tasks.EvalTask'] = None,
+               dev_combinator=None,
                restart_trainer: bool = False,
                reload_command: Optional[str] = None,
                name: Optional[str] = None,
-               sample_train_sents: Optional[int] = None,
-               max_num_train_sents: Optional[int] = None, max_src_len: Optional[int] = None,
-               max_trg_len: Optional[int] = None) -> None:
+               sample_train_sents: Optional[numbers.Integral] = None,
+               max_num_train_sents: Optional[numbers.Integral] = None,
+               max_src_len: Optional[numbers.Integral] = None,
+               max_trg_len: Optional[numbers.Integral] = None) -> None:
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks

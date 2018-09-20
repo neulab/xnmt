@@ -1,3 +1,6 @@
+import numbers
+from typing import Optional
+
 from xnmt.transducers import base
 from xnmt.modelparts import transforms as modelparts_transforms
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
@@ -22,11 +25,13 @@ class NinSeqTransducer(base.ModularSeqTransducer, Serializable):
 
   @serializable_init
   def __init__(self,
-               input_dim: int = Ref("exp_global.default_layer_dim"),
-               hidden_dim: int = Ref("exp_global.default_layer_dim"),
-               downsample_by: int = 1,
-               param_init=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
-               projection=None, batch_norm=None, nonlinearity=None):
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               downsample_by: numbers.Integral = 1,
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               projection: Optional[base.TransformSeqTransducer] = None,
+               batch_norm: Optional[norms.BatchNorm] = None,
+               nonlinearity: Optional[base.TransformSeqTransducer] = None):
     self.projection = self.add_serializable_component("projection", projection,
                                                       lambda: base.TransformSeqTransducer(
                                                         modelparts_transforms.Linear(input_dim=input_dim*downsample_by,
