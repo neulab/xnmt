@@ -15,8 +15,6 @@ from xnmt.specialized_encoders.segmenting_encoder.priors import GoldInputPrior
 from xnmt.reports import Reportable
 from xnmt.transducers.recurrent import BiLSTMSeqTransducer
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer, VocabBasedComposer
-from xnmt.expression_seqs import CompoundSeqExpression
-
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   """
@@ -139,7 +137,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   @handle_xnmt_event
   def on_start_sent(self, src):
     self.src_sent = src
-    self.final_states = []
     self.segmenting_action = self.SegmentingAction.NONE
 
   @handle_xnmt_event
@@ -255,4 +252,3 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     POLICY_SAMPLE = 2
     PURE_SAMPLE = 3
     NONE = 100
-

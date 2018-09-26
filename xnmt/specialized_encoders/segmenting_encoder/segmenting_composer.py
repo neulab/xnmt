@@ -1,5 +1,4 @@
 import dynet as dy
-import numpy as np
 import pylru
 
 from collections import Counter
@@ -75,7 +74,7 @@ class SeqTransducerComposer(SingleComposer, Serializable):
     self.seq_transducer = seq_transducer
 
   def transduce(self, embed):
-    encodings = self.seq_transducer.transduce(ExpressionSequence(expr_tensor=embed))
+    self.seq_transducer.transduce(ExpressionSequence(expr_tensor=embed))
     return self.seq_transducer.get_final_states()[-1].main_expr()
 
 class ConvolutionComposer(SingleComposer, Serializable):
@@ -129,6 +128,8 @@ class VocabBasedComposer(SingleComposer):
     self.cache_counter = len(self.lrucache)
 
   def on_word_delete(self, word, wordid):
+    print(word, wordid)
+    print(self.cache_word_table)
     if self.learn_vocab:
       self.cache_id_pool.append(wordid)
       self.on_id_delete(wordid)
@@ -145,7 +146,9 @@ class VocabBasedComposer(SingleComposer):
         wordid = len(self.lrucache)
         self.lrucache[word] = wordid  # Cache value
         if wordid == self.lrucache.size():
-          self.lrucache[word] = self.cache_id_pool.pop()
+          # Don't merge this line, it will cause bug!
+          wordid = self.cache_id_pool.pop()
+          self.lrucache[word] =  wordid
       else:
         wordid = self.lrucache.size()  # Unknown ID
     else:
@@ -227,7 +230,6 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
                param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
                bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
     super().__init__(word_vocab, vocab_size, cache_id_pool, cache_word_table)
-    param_collection = ParamManager.my_params(self)
     # Attributes
     if word_vocab is None:
       self.dict_entry = vocab_size+1
