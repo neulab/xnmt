@@ -24,8 +24,9 @@ class SingleComposer(object):
     for expr_list, batch_num, position, start, end in composed_words:
       self.set_word(self.src_sent[batch_num][start:end])
       expr = self.transduce(expr_list)
-      outputs[batch_num].append(expr)
-      exprs.append(expr)
+      if expr is not None:
+        outputs[batch_num].append(expr)
+        exprs.append(expr)
     dy.forward(exprs)
     return outputs
 
@@ -128,8 +129,6 @@ class VocabBasedComposer(SingleComposer):
     self.cache_counter = len(self.lrucache)
 
   def on_word_delete(self, word, wordid):
-    print(word, wordid)
-    print(self.cache_word_table)
     if self.learn_vocab:
       self.cache_id_pool.append(wordid)
       self.on_id_delete(wordid)
@@ -251,8 +250,11 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
   def transduce(self, inputs):
     ngrams = [self.convert(ngram) for ngram in self.word_vect.keys()]
     counts = list(self.word_vect.values())
-    ngram_vocab_vect = dy.sparse_inputTensor([ngrams], counts, (self.dict_entry,))
-    return dy.rectify(self.embedding.transform(ngram_vocab_vect))
+    if len(ngrams) != 0:
+      ngram_vocab_vect = dy.sparse_inputTensor([ngrams], counts, (self.dict_entry,))
+      return dy.rectify(self.embedding.transform(ngram_vocab_vect))
+    else:
+      return None
 
   @lru_cache(maxsize=256000)
   def to_word_vector(self, word):
