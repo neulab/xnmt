@@ -68,6 +68,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.compute_report = compute_report
     self.reporter = reporter
     self.no_char_embed = issubclass(segment_composer.__class__, VocabBasedComposer)
+    # Others
+    self.segmenting_action = None
+    self.compose_output = None
+    self.segment_actions = None
+    self.seg_size_unpadded = None
+    self.src_sent = None
+    self.reward = None
+    self.train = None
 
   def shared_params(self):
     return [{".embed_encoder.hidden_dim",".policy_learning.policy_network.input_dim"},
@@ -106,7 +114,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       self.compose_output = outputs
       self.segment_actions = actions
       if not self.train and self.compute_report:
-        self.report_sent_info({"segment_actions": actions})
+        if len(actions) == 1: # Support only AccuracyEvalTask
+          self.report_sent_info({"segment_actions": actions})
 
   @handle_xnmt_event
   def on_calc_additional_loss(self, trg, generator, generator_loss):
@@ -232,14 +241,14 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def pad(self, outputs):
     # Padding
     max_col = max(len(xs) for xs in outputs)
-    P0 = dy.vecInput(outputs[0][0].dim()[0][0])
+    p0 = dy.vecInput(outputs[0][0].dim()[0][0])
     masks = np.zeros((len(outputs), max_col), dtype=int)
     modified = False
     ret = []
     for xs, mask in zip(outputs, masks):
       deficit = max_col - len(xs)
       if deficit > 0:
-        xs.extend([P0 for _ in range(deficit)])
+        xs.extend([p0 for _ in range(deficit)])
         mask[-deficit:] = 1
         modified = True
       ret.append(dy.concatenate_cols(xs))
