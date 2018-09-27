@@ -14,9 +14,7 @@ from xnmt.losses import FactoredLossExpr
 from xnmt.specialized_encoders.segmenting_encoder.priors import GoldInputPrior
 from xnmt.reports import Reportable
 from xnmt.transducers.recurrent import BiLSTMSeqTransducer
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer
-from xnmt.expression_seqs import CompoundSeqExpression
-
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer, VocabBasedComposer
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   """
@@ -69,6 +67,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.sample_during_search = sample_during_search
     self.compute_report = compute_report
     self.reporter = reporter
+    self.no_char_embed = issubclass(segment_composer.__class__, VocabBasedComposer)
 
   def shared_params(self):
     return [{".embed_encoder.hidden_dim",".policy_learning.policy_network.input_dim"},
@@ -87,7 +86,10 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       # For each sampled segmentations
       lower_bound = 0
       for j, upper_bound in enumerate(actions[i]):
-        char_sequence = dy.pick_range(sequence, lower_bound, upper_bound+1, 1)
+        if self.no_char_embed:
+          char_sequence = []
+        else:
+          char_sequence = dy.pick_range(sequence, lower_bound, upper_bound+1, 1)
         composed_words.append((char_sequence, i, j, lower_bound, upper_bound+1))
         lower_bound = upper_bound+1
     outputs = self.segment_composer.compose(composed_words, batch_size)
@@ -95,7 +97,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     try:
       if self.length_prior:
         seg_size_unpadded = [len(outputs[i]) for i in range(batch_size)]
-      enc_outputs = []
       sampled_sentence, segment_mask = self.pad(outputs)
       expr_seq = ExpressionSequence(expr_tensor=dy.concatenate_to_batch(sampled_sentence), mask=segment_mask)
       return self.final_transducer.transduce(expr_seq)
@@ -121,19 +122,21 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         reward.add_loss(loss_key, -loss_value)
     if self.length_prior is not None:
       reward.add_loss('seg_lp', self.length_prior.log_ll(self.seg_size_unpadded))
-    reward = dy.inputTensor(reward.value(), batched=True)
+    reward_value = reward.value()
+    if trg.batch_size() == 1:
+      reward_value = [reward_value]
+    reward_tensor = dy.inputTensor(reward_value, batched=True)
     ### Calculate losses    
     try:
-      return self.policy_learning.calc_loss(reward)
+      return self.policy_learning.calc_loss(reward_tensor)
     finally:
-      self.reward = reward
-      if self.reporter is not None:
+      self.reward = reward_tensor
+      if self.train and self.reporter is not None:
         self.reporter.report_process(self)
 
   @handle_xnmt_event
   def on_start_sent(self, src):
     self.src_sent = src
-    self.final_states = []
     self.segmenting_action = self.SegmentingAction.NONE
 
   @handle_xnmt_event
@@ -209,7 +212,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           if current >= src_len:
             break
           action.append(current)
-        if action[-1] != src_len:
+        if len(action) == 0 or action[-1] != src_len:
           action.append(src_len)
         actions.append(action)
     return actions
@@ -249,4 +252,3 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     POLICY_SAMPLE = 2
     PURE_SAMPLE = 3
     NONE = 100
-

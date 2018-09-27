@@ -1462,7 +1462,7 @@ def check_type(obj, desired_type):
     elif desired_type.__class__.__name__ == "_Union":
       return any(
         subtype.__class__.__name__ == "_ForwardRef" or check_type(obj, subtype) for subtype in desired_type.__args__)
-    elif issubclass(desired_type, collections.abc.MutableMapping):
+    elif issubclass(desired_type.__class__, collections.abc.MutableMapping):
       if not isinstance(obj, collections.abc.MutableMapping): return False
       if desired_type.__args__:
         return (desired_type.__args__[0].__class__.__name__ == "_ForwardRef" or all(
@@ -1470,7 +1470,7 @@ def check_type(obj, desired_type):
                          desired_type.__args__[1].__class__.__name__ == "_ForwardRef" or all(
                    check_type(val, desired_type.__args__[1]) for val in obj.values()))
       else: return True
-    elif issubclass(desired_type, collections.abc.Sequence):
+    elif issubclass(desired_type.__class__, collections.abc.Sequence):
       if not isinstance(obj, collections.abc.Sequence): return False
       if desired_type.__args__ and desired_type.__args__[0].__class__.__name__ != "_ForwardRef":
         return all(check_type(item, desired_type.__args__[0]) for item in obj)

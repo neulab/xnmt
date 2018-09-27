@@ -92,7 +92,7 @@ class PolicyGradient(Serializable):
     if self.z_normalization:
       mean_batches = dy.mean_batches(reward)
       std_batches = dy.std_batches(reward)
-      reward = dy.cdiv(reward-mean_batches, std_batches)
+      reward = dy.cdiv(reward-mean_batches, std_batches+1e-6)
     ## Calculate baseline   
     if self.baseline is not None:
       pred_reward, baseline_loss = self.calc_baseline_loss(reward)
