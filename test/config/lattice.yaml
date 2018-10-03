@@ -1,8 +1,5 @@
 lattice: !Experiment
-  xnmt_global: !XnmtGlobal
-    model_file: examples/output/{EXP}.mod
-    out_file: examples/output/{EXP}.out
-    err_file: examples/output/{EXP}.err
+  exp_global: !ExpGlobal
     default_layer_dim: 32 # 512
     dropout: 0.3
   train: !SerialMultiTaskTrainingRegimen
@@ -35,11 +32,16 @@ lattice: !Experiment
           _xnmt_id: task1_model_trg_emb
           emb_dim: 128
           vocab: !Ref { name : trg_vocab }
-        decoder: !MlpSoftmaxDecoder
+        decoder: !AutoRegressiveDecoder
           _xnmt_id: task1_model_dec
-          layers: 1
+          rnn: !UniLSTMSeqTransducer
+            layers: 1
+          transform: !AuxNonLinear
+            output_dim: 512
+            activation: 'tanh'
           bridge: !CopyBridge {}
-          vocab: !Ref { name : trg_vocab }
+          scorer: !Softmax
+            vocab: !Ref { name : trg_vocab }
         src_reader: !LatticeTextReader
           use_words: True
           use_chars: False
@@ -59,13 +61,9 @@ lattice: !Experiment
           src_file: examples/data/dev.en
           ref_file: examples/data/dev.ja
           hyp_file: examples/output/{EXP}.dev_hyp
-          inference: !SimpleInference {}
-          inference: !SimpleInference
-            batcher: !Ref { path: train.tasks.0.batcher }
         - !LossEvalTask
           src_file: examples/data/dev.en
           ref_file: examples/data/dev.ja
-          batcher: !Ref { path: train.tasks.0.batcher }
     - !SimpleTrainingTask
       name: words+chars
       run_for_epochs: 50
@@ -95,7 +93,5 @@ lattice: !Experiment
       src_file: examples/data/test.en
       ref_file: examples/data/test.ja
       hyp_file: examples/output/{EXP}.test_hyp
-      inference: !SimpleInference
-        batcher: !Ref { path: train.tasks.0.batcher }
       model: !Ref { path: train.tasks.0.model }
     
