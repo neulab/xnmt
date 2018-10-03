@@ -1,0 +1,30 @@
+# This is a minimal example failing in combination with autobatching
+debug: !Experiment
+  xnmt_global: !XnmtGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
+  model: !DefaultTranslator
+    src_embedder: !SimpleWordEmbedder {}
+    encoder: !BiLatticeLSTMTransducer {}
+    attender: !MlpAttender {}
+    trg_embedder: !SimpleWordEmbedder {}
+    decoder: !MlpSoftmaxDecoder
+      layers: 1
+      bridge: !NoBridge {}
+    src_reader: !PlainTextReader
+      vocab: !Vocab
+        vocab_file: examples/data/head.en.vocab
+    trg_reader: !PlainTextReader
+      vocab: !Vocab
+        vocab_file: examples/data/head.ja.vocab
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 10
+    batcher: !SrcBatcher
+      batch_size: 1
+    src_file: &train_src_file examples/data/train.en
+    trg_file: &train_trg_file examples/data/train.ja
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/dev.en
+        ref_file: examples/data/dev.ja

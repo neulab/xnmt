@@ -1,0 +1,101 @@
+lattice: !Experiment
+  xnmt_global: !XnmtGlobal
+    model_file: examples/output/{EXP}.mod
+    out_file: examples/output/{EXP}.out
+    err_file: examples/output/{EXP}.err
+    default_layer_dim: 32 # 512
+    dropout: 0.3
+  train: !SerialMultiTaskTrainingRegimen
+    trainer: !AdamTrainer
+      alpha: 0.0003
+    tasks:
+    - !SimpleTrainingTask
+      name: words
+      run_for_epochs: 10
+      batcher: !SrcBatcher
+        batch_size: 1
+      restart_trainer: True
+      lr_decay: 0.8
+      patience: 5
+      src_file: &train_src_file examples/data/train.en
+      trg_file: &train_trg_file examples/data/train.ja
+      model: !DefaultTranslator
+        _xnmt_id: task1_model
+        src_embedder: !LatticeEmbedder
+          _xnmt_id: task1_model_src_emb
+          emb_dim: 128
+          #arc_dropout: 0.5
+          vocab: !Ref { name : src_vocab }
+        encoder: !BiLatticeLSTMTransducer
+          _xnmt_id: task1_model_enc
+          layers: 2
+        attender: !MlpAttender
+          _xnmt_id: task1_model_att
+        trg_embedder: !SimpleWordEmbedder
+          _xnmt_id: task1_model_trg_emb
+          emb_dim: 128
+          vocab: !Ref { name : trg_vocab }
+        decoder: !MlpSoftmaxDecoder
+          _xnmt_id: task1_model_dec
+          layers: 1
+          bridge: !CopyBridge {}
+          vocab: !Ref { name : trg_vocab }
+        src_reader: !LatticeTextReader
+          use_words: True
+          use_chars: False
+          use_pronun_from: ~
+          vocab: !Vocab
+            _xnmt_id: src_vocab
+            vocab_file: examples/data/head.en.vocab
+        trg_reader: !PlainTextReader
+          _xnmt_id: task1_model_trg_reader
+          vocab: !Vocab
+            _xnmt_id: trg_vocab
+            vocab_file: examples/data/head.ja.vocab
+      dev_tasks: &task1_model_dev_tasks
+        - !AccuracyEvalTask
+          model: !Ref { name: task1_model }
+          eval_metrics: bleu
+          src_file: examples/data/dev.en
+          ref_file: examples/data/dev.ja
+          hyp_file: examples/output/{EXP}.dev_hyp
+          inference: !SimpleInference {}
+          inference: !SimpleInference
+            batcher: !Ref { path: train.tasks.0.batcher }
+        - !LossEvalTask
+          src_file: examples/data/dev.en
+          ref_file: examples/data/dev.ja
+          batcher: !Ref { path: train.tasks.0.batcher }
+    - !SimpleTrainingTask
+      name: words+chars
+      run_for_epochs: 50
+      restart_trainer: True
+      lr_decay: 0.5
+      patience: 5
+      batcher: !SrcBatcher
+        batch_size: 1
+      src_file: *train_src_file 
+      trg_file: *train_trg_file 
+      model: !DefaultTranslator
+        src_embedder: !Ref { name: task1_model_src_emb }
+        encoder: !Ref { name: task1_model_enc }
+        attender: !Ref { name: task1_model_att }
+        trg_embedder: !Ref { name: task1_model_trg_emb }
+        decoder: !Ref { name: task1_model_dec }
+        src_reader: !LatticeTextReader
+          use_words: True
+          use_chars: True
+          use_pronun_from: ~
+          vocab: !Ref { name: src_vocab }
+        trg_reader: !Ref { name: task1_model_trg_reader }
+      dev_tasks: !Ref { path: train.tasks.0.dev_tasks }
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/data/test.en
+      ref_file: examples/data/test.ja
+      hyp_file: examples/output/{EXP}.test_hyp
+      inference: !SimpleInference
+        batcher: !Ref { path: train.tasks.0.batcher }
+      model: !Ref { path: train.tasks.0.model }
+    
