@@ -242,6 +242,7 @@ class LatticeEmbedder(embedders.SimpleWordEmbedder, Serializable):
                  param_initializers.GlorotInitializer)),
                src_reader=Ref("model.src_reader", default=None),
                trg_reader=Ref("model.trg_reader", default=None)):
+    # TODO: refactor by taking a base embedder, and only adding the lattice structure on top of its output?
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
     self.emb_dim = emb_dim
     self.word_dropout = word_dropout
@@ -372,19 +373,33 @@ class BiLatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
                layers=1,
                input_dim=Ref("exp_global.default_layer_dim"),
                hidden_dim=Ref("exp_global.default_layer_dim"),
-               dropout=Ref("exp_global.dropout", default=0.0)):
+               dropout=Ref("exp_global.dropout", default=0.0),
+               forward_layers=None,
+               backward_layers=None):
     self.num_layers = layers
     input_dim = input_dim
     hidden_dim = hidden_dim
     self.hidden_dim = hidden_dim
     self.dropout_rate = dropout
     assert hidden_dim % 2 == 0
-    self.forward_layers = [LatticeLSTMTransducer(input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)]
-    self.backward_layers = [LatticeLSTMTransducer(input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)]
-    self.forward_layers += [LatticeLSTMTransducer(input_dim=hidden_dim, hidden_dim=hidden_dim / 2, dropout=dropout) for
+    self.forward_layers = self.add_serializable_component("forward_layers",
+                                                          forward_layers,
+                                                          lambda: self._make_dir_layers(input_dim=input_dim,
+                                                                                        hidden_dim=hidden_dim,
+                                                                                        dropout=dropout,
+                                                                                        layers=layers))
+    self.backward_layers = self.add_serializable_component("backward_layers",
+                                                           backward_layers,
+                                                           lambda: self._make_dir_layers(input_dim=input_dim,
+                                                                                         hidden_dim=hidden_dim,
+                                                                                         dropout=dropout,
+                                                                                         layers=layers))
+
+  def _make_dir_layers(self, input_dim, hidden_dim, dropout, layers):
+    dir_layers = [LatticeLSTMTransducer(input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)]
+    dir_layers += [LatticeLSTMTransducer(input_dim=hidden_dim, hidden_dim=hidden_dim / 2, dropout=dropout) for
                             _ in range(layers - 1)]
-    self.backward_layers += [LatticeLSTMTransducer(input_dim=hidden_dim, hidden_dim=hidden_dim / 2, dropout=dropout) for
-                             _ in range(layers - 1)]
+    return dir_layers
 
   @events.handle_xnmt_event
   def on_start_sent(self, src):
