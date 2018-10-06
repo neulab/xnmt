@@ -5,7 +5,8 @@ import subprocess
 from collections import defaultdict
 import unicodedata
 import re
-from typing import List, Optional
+from typing import List, Optional, Sequence, Union
+import numbers
 
 import numpy as np
 import warnings
@@ -111,20 +112,19 @@ class PreprocNormalize(PreprocTask, Serializable):
 class PreprocFilter(PreprocTask, Serializable):
   yaml_tag = "!PreprocFilter"
   @serializable_init
-  def __init__(self, in_files, out_files, specs):
+  def __init__(self, in_files, out_files, filters):
     self.in_files = in_files
     self.out_files = out_files
-    self.specs = specs
+    self.filters = filters
   def run_preproc_task(self, overwrite=False):
     # TODO: This will only work with plain-text sentences at the moment. It would be nice if it plays well with the readers
     #       in input.py
-    filters = SentenceFilterer.from_spec(self.specs)
     out_streams = [open(x, 'w', encoding='utf-8') if overwrite or not os.path.isfile(x) else None for x in self.out_files]
     if any(x is not None for x in out_streams):
       in_streams = [open(x, 'r', encoding='utf-8') for x in self.in_files]
       for in_lines in zip(*in_streams):
         in_lists = [line.strip().split() for line in in_lines]
-        if all([my_filter.keep(in_lists) for my_filter in filters]):
+        if all([my_filter.keep(in_lists) for my_filter in self.filters]):
           for in_line, out_stream in zip(in_lines, out_streams):
             out_stream.write(in_line)
       for x in in_streams:
@@ -458,44 +458,27 @@ class SentenceFilterer(object):
     """
     raise RuntimeError("Subclasses of SentenceFilterer must implement the keep() function")
 
-  @staticmethod
-  def from_spec(spec):
-    """Takes a list of preprocessor specifications, and returns the appropriate processors."""
-    preproc_list = []
-    if spec is not None:
-      for my_spec in spec:
-        if my_spec["type"] == "length":
-          preproc_list.append(SentenceFiltererLength(my_spec))
-        elif my_spec["type"] == "matching-regex":
-          preproc_list.append(SentenceFiltererMatchingRegex(my_spec))
-        else:
-          raise RuntimeError("Unknown preprocessing type {}".format(my_spec["type"]))
-    return preproc_list
-
 class SentenceFiltererMatchingRegex(SentenceFilterer):
   """Filters sentences via regular expressions.
   A sentence must match the expression to be kept.
   """
-  def __init__(self, spec):
+  def __init__(self,
+               regex_src: Optional[str],
+               regex_trg: Optional[str],
+               regex_all: Optional[Sequence[str]]):
     """Specifies the regular expressions to filter the sentences that we'll be getting.
 
-    The regular expressions are passed as a dictionary with keys as follows:
-      regex_INT: This will specify the regular expression for a specific language (zero indexed)
-      regex_src: Equivalent to regex_0
-      regex_trg: Equivalent to regex_1
+    Args:
+      regex_src: regular expression for source language (language index 0)
+      regex_trg: regular expression for target language (language index 1)
+      regex_all: list of regular expressions for all languages in order
     """
     self.regex = {}
-    idx_map = {"src": 0, "trg": 1}
-    for k, v in spec.items():
-      if k == "type":
-        pass
-      elif k.startswith("regex"):
-        _, idx = k.split("_")
-        idx_tmp = idx_map.get(idx)
-        if idx_tmp is None:
-          idx_tmp = int(idx)
-        idx = idx_tmp
-        self.regex[idx] = v
+    if regex_src: self.regex[0] = regex_src
+    if regex_trg: self.regex[1] = regex_trg
+    if regex_all:
+      for i, v in enumerate(regex_all):
+        self.regex[i] = v
 
   def keep(self, sents):
     """ Keep only sentences that match the regex.
@@ -508,43 +491,43 @@ class SentenceFiltererMatchingRegex(SentenceFilterer):
           return False
     return True
 
-class SentenceFiltererLength(SentenceFilterer):
+class SentenceFiltererLength(SentenceFilterer, Serializable):
   """Filters sentences by length"""
 
-  def __init__(self, spec):
-    """Specifies the type of length limitations on the sentences that we'll be getting.
+  yaml_tag = "!SentenceFiltererLength"
 
-    The limitations are passed as a dictionary with keys as follows:
-      max/min: This will specify the default maximum and minimum length.
-      max_INT/min_INT: This will specify limitations for a specific language (zero indexed)
-      max_src/min_src: Equivalent to max_0/min_0
-      max_trg/min_trg: Equivalent to max_1/min_1
+  @serializable_init
+  def __init__(self,
+               min_src: Optional[numbers.Integral] = None,
+               max_src: Optional[numbers.Integral] = None,
+               min_trg: Optional[numbers.Integral] = None,
+               max_trg: Optional[numbers.Integral] = None,
+               min_all: Union[None, numbers.Integral, Sequence[Optional[numbers.Integral]]] = None,
+               max_all: Union[None, numbers.Integral, Sequence[Optional[numbers.Integral]]] = None) -> None:
+    """Specifies the length limitations on the sentences that we'll be getting.
+
+    Args:
+      min_src: min length of src side
+      max_src: max length of src side
+      min_trg: min length of trg side
+      max_trg: max length of trg side
+      min_all: min length; can be a single integer for all languages, or a list with individual values per language
+      max_all: max length; can be a single integer for all languages, or a list with individual values per language
     """
-    self.each_max = {}
     self.each_min = {}
-    self.overall_max = -1
-    self.overall_min = -1
-    idx_map = {"src": 0, "trg": 1}
-    for k, v in spec.items():
-      if k == "type":
-        pass
-      elif k == "max":
-        self.overall_max = v
-      elif k == "min":
-        self.overall_min = v
-      else:
-        direc, idx = k.split('_')
-        idx_tmp = idx_map.get(idx)
-        if idx_tmp is None:
-          idx_tmp = int(idx)
-        idx = idx_tmp
-
-        if direc == "max":
-          self.each_max[idx] = v
-        elif direc == "min":
-          self.each_min[idx] = v
-        else:
-          raise RuntimeError("Unknown limitation type {} in length-based sentence filterer".format(k))
+    self.each_max = {}
+    self.overall_min = min_all if isinstance(min_all, numbers.Integral) else -1
+    self.overall_max = max_all if isinstance(max_all, numbers.Integral) else -1
+    if min_src is not None: self.each_min[0] = min_src
+    if max_src is not None: self.each_max[0] = max_src
+    if min_trg is not None: self.each_min[1] = min_trg
+    if max_trg is not None: self.each_max[1] = max_trg
+    if isinstance(min_all, list):
+      for i, v in enumerate(min_all):
+        self.each_min[i] = v
+    if isinstance(max_all, list):
+      for i, v in enumerate(max_all):
+        self.each_max[i] = v
 
   def keep(self, sents):
     """Filter sentences by length."""
@@ -576,20 +559,6 @@ class VocabFilterer(object):
     """
     raise RuntimeError("Subclasses of VocabFilterer must implement the filter() function")
 
-  @staticmethod
-  def from_spec(spec):
-    """Takes a list of preprocessor specifications, and returns the appropriate processors."""
-    preproc_list = []
-    if spec is not None:
-      for my_spec in spec:
-        if my_spec["type"] == "freq":
-          preproc_list.append(VocabFiltererFreq(my_spec))
-        elif my_spec["type"] == "rank":
-          preproc_list.append(VocabFiltererRank(my_spec))
-        else:
-          raise RuntimeError("Unknown VocabFilterer type {}".format(my_spec["type"]))
-    return preproc_list
-
 class VocabFiltererFreq(VocabFilterer, Serializable):
   """Filter the vocabulary, removing words below a particular minimum frequency"""
   yaml_tag = "!VocabFiltererFreq"
@@ -617,7 +586,7 @@ class VocabFiltererRank(VocabFilterer, Serializable):
 ##### Preprocessors
 
 class Extractor(object):
-  """A type of feature extraction to perform."""
+  """A type of extraction task to perform."""
 
   def extract_to(self, in_file, out_file):
     raise RuntimeError("Subclasses of Extractor must implement the extract_to() function")
@@ -669,3 +638,4 @@ class MelFiltExtractor(Extractor, Serializable):
           features = normalize(features, mean, std)
           hf.create_dataset(str(db_item["index"]), data=features)
     logger.debug(f"feature extraction took {time.time()-start_time:.3f} seconds")
+

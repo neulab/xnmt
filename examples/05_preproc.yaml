@@ -59,10 +59,10 @@
       out_files:
       - '{DATA_OUT}/train.tok.norm.filter.ja'
       - '{DATA_OUT}/train.tok.norm.filter.en'
-      specs:
-      - type: length
-        min: 1
-        max: 60
+      filters:
+      - !SentenceFiltererLength
+        min_all: 1
+        max_all: 60
     - !PreprocVocab
       in_files:
       - '{DATA_OUT}/train.tok.norm.ja'
