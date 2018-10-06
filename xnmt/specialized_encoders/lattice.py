@@ -1,6 +1,6 @@
 import io
 import random
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 import numbers
 
 import dynet as dy
@@ -13,32 +13,45 @@ from xnmt.persistence import bare, Ref, Serializable, serializable_init
 
 class LatticeNode(object):
   """
-  A lattice node.
+  A lattice node, keeping track of neighboring nodes.
 
   Args:
-    nodes_prev: list of integers indicating indices of direct predecessors
-    nodes_next: list of integers indicating indices of direct successors
-    value:
+    nodes_prev: A list indices of direct predecessors
+    nodes_next: A list indices of direct successors
+    value: A value assigned to this node.
   """
-  def __init__(self, nodes_prev, nodes_next, value):
+  def __init__(self, nodes_prev: Sequence[numbers.Integral], nodes_next: Sequence[numbers.Integral], value: Any) \
+          -> None:
     self.nodes_prev = nodes_prev
     self.nodes_next = nodes_next
     self.value = value
 
-  def new_node_with_val(self, value):
+  def new_node_with_val(self, value: Any) -> 'LatticeNode':
+    """
+    Create a new node that has the same location in the lattice but different value.
+
+    Args:
+      value: value of new node.
+
+    Returns:
+      A new lattice node with given new value and the same predecessors/successors as the current node.
+    """
     return LatticeNode(self.nodes_prev, self.nodes_next, value)
 
 
 class Lattice(sent.Sentence):
   """
-  A lattice.
+  A lattice structure.
+
+  The lattice is represented as a list of nodes, each of which keep track of the indices of predecessor and
+  successor nodes.
 
   Args:
     idx: running sentence number (0-based; unique among sentences loaded from the same file, but not across files)
     nodes: list of lattice nodes
   """
 
-  def __init__(self, idx: Optional[int], nodes: Sequence[LatticeNode]):
+  def __init__(self, idx: Optional[numbers.Integral], nodes: Sequence[LatticeNode]) -> None:
     self.idx = idx
     self.nodes = nodes
     assert len(nodes[0].nodes_prev) == 0
@@ -50,26 +63,72 @@ class Lattice(sent.Sentence):
     self.expr_tensor = None
 
   def sent_len(self) -> int:
+    """Return number of nodes in the lattice.
+
+    Return:
+      Number of nodes in lattice.
+    """
     return len(self.nodes)
 
   def len_unpadded(self) -> int:
+    """Return number of nodes in the lattice (padding is not supported with lattices).
+
+    Returns:
+      Number of nodes in lattice.
+    """
     return self.sent_len()
 
-  def __getitem__(self, key):
+  def __getitem__(self, key: numbers.Integral) -> LatticeNode:
+    """
+    Return a particular lattice node.
+
+    Args:
+      key: Index of lattice node to return.
+
+    Returns:
+      Lattice node with given index.
+    """
     ret = self.nodes[key]
     if isinstance(ret, list):
+      # no guarantee that slice is still a consistent graph
       raise ValueError("Slicing not support for lattices.")
     return ret
 
   def create_padded_sent(self, pad_len: numbers.Integral) -> 'Lattice':
+    """
+    Return self, as padding is not supported.
+
+    Args:
+      pad_len: Number of tokens to pad, must be 0.
+
+    Returns:
+      self.
+    """
     if pad_len != 0: raise ValueError("Lattices cannot be padded.")
     return self
 
   def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'Sentence':
+    """
+    Return self, as truncation is not supported.
+
+    Args:
+      trunc_len: Number of tokens to truncate, must be 0.
+
+    Returns:
+      self.
+    """
     if trunc_len != 0: raise ValueError("Lattices cannot be truncated.")
     return self
 
-  def reversed(self):
+  def reversed(self) -> 'Lattice':
+    """
+    Create a lattice with reversed direction.
+
+    The new lattice will have lattice nodes in reversed order and switched successors/predecessors.
+
+    Returns:
+      Reversed lattice.
+    """
     rev_nodes = []
     seq_len = len(self.nodes)
     for node in reversed(self.nodes):
@@ -79,21 +138,39 @@ class Lattice(sent.Sentence):
       rev_nodes.append(new_node)
     return Lattice(idx=self.idx, nodes=rev_nodes)
 
-  def as_list(self):
+  def as_list(self) -> list:
+    """
+    Return list of values.
+
+    Returns:
+      List of values.
+    """
     return [node.value for node in self.nodes]
 
-  def as_tensor(self):
+  def as_tensor(self) -> dy.Expression:
+    """
+    Return tensor expression of complete sequence, assuming node values are DyNet vector expressions.
+
+    Returns:
+      Lattice as tensor expression.
+    """
     if self.expr_tensor is None:
       self.expr_tensor = dy.concatenate_cols(self.as_list())
     return self.expr_tensor
 
-  def _add_bwd_connections(self, nodes):
+  def _add_bwd_connections(self, nodes: Sequence[LatticeNode]) -> None:
+    """
+    Add backward connections, given lattice nodes that specify only forward connections.
+
+    Args:
+      nodes: lattice nodes
+    """
     for pos in range(len(nodes)):
       for pred_i in nodes[pos].nodes_prev:
         nodes[pred_i].nodes_next.append(pos)
     return nodes
 
-
+# TODO: remove BinnedLattice
 class BinnedLattice(Lattice):
   """
   A binned lattice.
@@ -140,7 +217,7 @@ class BinnedLattice(Lattice):
   def drop_arcs(self, dropout):
     return Lattice(nodes=self.bins_to_nodes(self.bins, drop_arcs=dropout))
 
-
+# TODO: replace by reader that reads actual lattices from file
 class LatticeTextReader(input_readers.BaseTextReader, Serializable):
   yaml_tag = '!LatticeTextReader'
 
@@ -271,15 +348,25 @@ class LatticeEmbedder(embedders.SimpleWordEmbedder, Serializable):
 
 
 class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
+  """
+  A lattice LSTM.
+
+  This is the unidirectional single-layer lattice LSTM.
+
+  Args:
+    input_dim: size of inputs
+    hidden_dim: number of hidden units
+    dropout: dropout rate for variational dropout, or 0.0 to disable dropout
+  """
 
   yaml_tag = "!LatticeLSTMTransducer"
 
   @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
-               input_dim=Ref("exp_global.default_layer_dim"),
-               hidden_dim=Ref("exp_global.default_layer_dim"),
-               dropout=Ref("exp_global.dropout", default=0.0)):
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               dropout: numbers.Real = Ref("exp_global.dropout", default=0.0)) -> None:
     self.dropout_rate = dropout
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
@@ -365,17 +452,31 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
 
 
 class BiLatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
+  """
+  A multi-layered bidirectional lattice LSTM.
+
+  Makes use of several LatticeLSTMTransducer instances and combines them appropriately.
+
+  Args:
+    layers: number of layers
+    input_dim: size of inputs
+    hidden_dim: number of hidden units
+    dropout: dropout rate for variational dropout, or 0.0 to disable dropout
+    forward_layers: determined automatically
+    backward_layers: determined automatically
+  """
+
   yaml_tag = '!BiLatticeLSTMTransducer'
 
   @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
-               layers=1,
-               input_dim=Ref("exp_global.default_layer_dim"),
-               hidden_dim=Ref("exp_global.default_layer_dim"),
-               dropout=Ref("exp_global.dropout", default=0.0),
-               forward_layers=None,
-               backward_layers=None):
+               layers: numbers.Integral = 1,
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               dropout: numbers.Real = Ref("exp_global.dropout", default=0.0),
+               forward_layers: Optional[Sequence[LatticeLSTMTransducer]] = None,
+               backward_layers: Optional[Sequence[LatticeLSTMTransducer]] = None) -> None:
     self.num_layers = layers
     input_dim = input_dim
     hidden_dim = hidden_dim
