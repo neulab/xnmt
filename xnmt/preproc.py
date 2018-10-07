@@ -1,3 +1,4 @@
+import argparse
 import time
 import sys
 import os.path
@@ -7,6 +8,7 @@ import unicodedata
 import re
 from typing import List, Optional, Sequence, Union
 import numbers
+import math
 
 import numpy as np
 import warnings
@@ -17,8 +19,8 @@ import yaml
 
 from xnmt import logger
 from xnmt.persistence import serializable_init, Serializable
-from xnmt.thirdparty.speech_features import logfbank, calculate_delta, get_mean_std, normalize
-from xnmt.utils import make_parent_dir
+import xnmt.thirdparty.speech_features as speech_features
+import xnmt.utils as utils
 
 
 class PreprocTask(object):
@@ -61,7 +63,7 @@ class PreprocExtract(PreprocTask, Serializable):
     extractor = self.specs
     for in_file, out_file in zip(self.in_files, self.out_files):
       if overwrite or not os.path.isfile(out_file):
-        make_parent_dir(out_file)
+        utils.make_parent_dir(out_file)
         extractor.extract_to(in_file, out_file)
 
 class PreprocTokenize(PreprocTask, Serializable):
@@ -77,7 +79,7 @@ class PreprocTokenize(PreprocTask, Serializable):
           for my_opts in self.specs}
     for file_num, (in_file, out_file) in enumerate(zip(self.in_files, self.out_files)):
       if overwrite or not os.path.isfile(out_file):
-        make_parent_dir(out_file)
+        utils.make_parent_dir(out_file)
         my_tokenizers = tokenizers.get(file_num, tokenizers["all"])
         with open(out_file, "w", encoding='utf-8') as out_stream, \
              open(in_file, "r", encoding='utf-8') as in_stream:
@@ -99,7 +101,7 @@ class PreprocNormalize(PreprocTask, Serializable):
           for my_opts in self.specs}
     for i, (in_file, out_file) in enumerate(zip(self.in_files, self.out_files)):
       if overwrite or not os.path.isfile(out_file):
-        make_parent_dir(out_file)
+        utils.make_parent_dir(out_file)
         my_normalizers = normalizers.get(i, normalizers["all"])
         with open(out_file, "w", encoding='utf-8') as out_stream, \
              open(in_file, "r", encoding='utf-8') as in_stream:
@@ -147,7 +149,7 @@ class PreprocVocab(PreprocTask, Serializable):
           for my_opts in self.specs}
     for i, (in_file, out_file) in enumerate(zip(self.in_files, self.out_files)):
       if overwrite or not os.path.isfile(out_file):
-        make_parent_dir(out_file)
+        utils.make_parent_dir(out_file)
         with open(out_file, "w", encoding='utf-8') as out_stream, \
              open(in_file, "r", encoding='utf-8') as in_stream:
           vocab = {}
@@ -405,7 +407,7 @@ class SentencepieceTokenizer(Tokenizer, Serializable):
     self.encode_extra_options = ['--extra_options='+encode_extra_options] if encode_extra_options else []
     self.decode_extra_options = ['--extra_options='+decode_extra_options] if decode_extra_options else []
 
-    make_parent_dir(model_prefix)
+    utils.make_parent_dir(model_prefix)
     self.sentpiece_train_args = ['--input=' + ','.join(train_files),
                                  '--model_prefix=' + str(model_prefix),
                                  '--vocab_size=' + str(vocab_size),
@@ -626,16 +628,193 @@ class MelFiltExtractor(Extractor, Serializable):
                                offset=db_item.get("offset", 0.0),
                                duration=db_item.get("duration", None))
           if len(y)==0: raise ValueError(f"encountered an empty or out of bounds segment: {db_item}")
-          logmel = logfbank(y, samplerate=sr, nfilt=self.nfilt)
+          logmel = speech_features.logfbank(y, samplerate=sr, nfilt=self.nfilt)
           if self.delta:
-            delta = calculate_delta(logmel)
+            delta = speech_features.calculate_delta(logmel)
             features = np.concatenate([logmel, delta], axis=1)
           else:
             features = logmel
           data.append(features)
-        mean, std = get_mean_std(np.concatenate(data))
+        mean, std = speech_features.get_mean_std(np.concatenate(data))
         for features, db_item in zip(data, db_by_speaker[speaker_id]):
-          features = normalize(features, mean, std)
+          features = speech_features.normalize(features, mean, std)
           hf.create_dataset(str(db_item["index"]), data=features)
     logger.debug(f"feature extraction took {time.time()-start_time:.3f} seconds")
 
+class LatticeFromPlfExtractor(Extractor, Serializable):
+  yaml_tag = "!LatticeFromPlfExtractor"
+
+  def extract_to(self, in_file: str, out_file: str):
+    looper = LatticeFromPlfExtractor.FileLooper(in_file)
+    output_file = open(out_file, "w")
+
+    counter, num_node_sum1, num_edge_sum1, num_node_sum2, num_edge_sum2 = 0, 0, 0, 0, 0
+    for line in looper.next():
+      graph = LatticeFromPlfExtractor.Lattice()
+      graph.read_plf_line(line)
+      graph.insert_initial_node()
+      graph.insert_final_node()
+      graph.forward()
+      graph2 = LatticeFromPlfExtractor.Lattice.convert_to_node_labeled_lattice(graph)
+      if len(graph2.nodes) == 1:
+        graph2.insert_initial_node()
+      serial = graph2.serialize_to_string()
+      output_file.write(serial + "\n")
+      counter += 1
+      num_node_sum1 += len(graph.nodes)
+      num_node_sum2 += len(graph2.nodes)
+      num_edge_sum1 += len(graph.edges)
+      num_edge_sum2 += len(graph2.edges)
+      if counter % 1000 == 0:
+        logger.info(f"finished {counter} lattices.")
+
+    output_file.close()
+
+    logger.info(f"avg # nodes, # edges for edge-labeled lattices: {float(num_node_sum1) / counter}, {float(num_edge_sum1) / counter}")
+    logger.info(f"avg # nodes, # edges for node-labeled lattices: {float(num_node_sum2) / counter}, {float(num_edge_sum2) / counter}")
+
+  class Lattice(object):
+
+    def __init__(self, nodes=None, edges=None):
+      self.nodes = nodes
+      self.edges = edges
+
+    def update_vocab_counts(self, all_words):
+      for word in [n.label[0] for n in self.nodes]:
+        if not word in all_words:
+          all_words[word] = 0
+        all_words[word] += 1
+
+    def serialize_to_string(self, valid_vocab=None):
+      node_ids = {}
+      for n in self.nodes:
+        node_ids[n] = len(node_ids)
+      if valid_vocab is not None:
+        node_lst = [(n.label[0] if n.label[0] in valid_vocab else "<unk>", n.label[1]) for n in self.nodes]
+      else:
+        node_lst = [n.label for n in self.nodes]
+      node_str = "[" + ", ".join(["(" + ", ".join(
+        [("'" + str(labelItem) + "'" if type(labelItem) == str else str(labelItem)) for labelItem in node]) + ")" for
+                                 node in node_lst]) + "]"
+      numbered_edges = []
+      for fromNode, toNode, _ in self.edges:
+        from_id = node_ids[fromNode]
+        to_id = node_ids[toNode]
+        numbered_edges.append((from_id, to_id))
+      edge_str = str(numbered_edges)
+      return node_str + "," + edge_str
+
+    def insert_initial_node(self):
+      initial_node = LatticeFromPlfExtractor.LatticeLabel(label=("<s>", 0.0, 0.0, 0.0))
+      if len(self.nodes) > 0:
+        self.edges.insert(0, (initial_node, self.nodes[0], LatticeFromPlfExtractor.LatticeLabel(("<s>", 0.0))))
+      self.nodes.insert(0, initial_node)
+
+    def insert_final_node(self):
+      final_node = LatticeFromPlfExtractor.LatticeLabel(label=("final-node", 0.0))
+      self.edges.append((self.nodes[-1], final_node, LatticeFromPlfExtractor.LatticeLabel(("</s>", 0.0))))
+      self.nodes.append(final_node)
+
+    @staticmethod
+    def convert_to_node_labeled_lattice(edge_labeled_lattice):
+      word_nodes = []
+      word_node_edges = []
+      for edge in edge_labeled_lattice.edges:
+        _, _, edge_label = edge
+        new_word_node = edge_label
+        word_nodes.append(new_word_node)
+      for edge1 in edge_labeled_lattice.edges:
+        _, edge1_to, edge1_label = edge1
+        for edge2 in edge_labeled_lattice.edges:
+          edge2_from, _, edge2_label = edge2
+          if edge1_to == edge2_from:
+            word_node_edges.append((edge1_label, edge2_label, LatticeFromPlfExtractor.LatticeLabel()))
+      return LatticeFromPlfExtractor.Lattice(nodes=word_nodes, edges=word_node_edges)
+
+    def forward(self):
+      """
+      Use the forward algorithm to add marginal link probs and backward-normalized lattice weights to the graph
+      """
+      self.nodes[0].marginal_log_prob = 0.0
+      for edge in self.edges:
+        from_node, to_node, edge_label = edge
+        prev_sum = 0.0  # incomplete P(toNode)
+        if not hasattr(to_node, 'marginal_log_prob'):
+          to_node.marginal_log_prob = 0.0
+        else:
+          prev_sum = math.exp(to_node.marginal_log_prob)
+        fwd_weight = math.exp(edge_label.label[1])  # lattice weight normalized across outgoing edges
+        marginal_link_prob = math.exp(from_node.marginal_log_prob) * fwd_weight  # P(fromNode, toNode)
+        to_node.marginal_log_prob = math.log(prev_sum + marginal_link_prob)  # (partially) completed P(toNode)
+        to_node.label = (to_node.marginal_log_prob,)
+        edge_label.label = tuple(list(edge_label.label) + [min(0.0, math.log(marginal_link_prob))])
+      for node in self.nodes:
+        incomingEdges = [edge for edge in self.edges if edge[1] == node]
+        incomingSum = sum([math.exp(edge[0].marginal_log_prob) for edge in incomingEdges])
+        for edge in incomingEdges:
+          from_node, to_node, edge_label = edge
+          bwd_weight_log = min(0.0, edge[0].marginal_log_prob - math.log(incomingSum))
+          edge_label.label = tuple(list(edge_label.label) + [bwd_weight_log])
+
+    def read_plf_line(self, line):
+      parenth_depth = 0
+      plf_nodes = []
+      plf_edges = []
+
+      for token in re.split("([()])", line):
+        if len(token.strip()) > 0 and token.strip() != ",":
+          if token == "(":
+            parenth_depth += 1
+            if parenth_depth == 2:
+              new_node = LatticeFromPlfExtractor.LatticeLabel(label=None)
+              plf_nodes.append(new_node)
+          elif token == ")":
+            parenth_depth -= 1
+            if parenth_depth == 0:
+              new_node = LatticeFromPlfExtractor.LatticeLabel(label=None)
+              plf_nodes.append(new_node)
+              break  # end of the lattice
+          elif token[0] == "'":
+            word, score, distance = [eval(tt) for tt in token.split(",")]
+            cur_node_id = len(plf_nodes) - 1
+            edge_from = cur_node_id
+            edge_to = cur_node_id + distance
+            edge_label = LatticeFromPlfExtractor.LatticeLabel(label=(word, score))
+            plf_edges.append((edge_from, edge_to, edge_label))
+      resolved_edges = []
+      for edge in plf_edges:
+        edge_from, edge_to, edge_label = edge
+        resolved_edges.append((plf_nodes[edge_from], plf_nodes[edge_to], edge_label))
+      self.nodes = plf_nodes
+      self.edges = resolved_edges
+
+  class LatticeLabel(object):
+    """
+    This can be assigned to a node or an arc (to allow convenient converting between arcs and nodes)
+    """
+
+    def __init__(self, label=None):
+      self.label = label
+
+    def __str__(self):
+      return "l:" + str(self.label)
+
+    def __repr__(self):
+      return "l:" + self.__str__()
+
+    def serialize_to_string(self):
+      label = self.label
+      if type(label) not in [list, tuple]:
+        label = [label]
+      return "\t".join([str(i) for i in label])
+
+  class FileLooper(object):
+    def __init__(self, file_name):
+      self.file_name = file_name
+
+    def next(self):
+      counter = 0
+      with open(self.file_name) as f:
+        for line in f:
+          yield (line)
+          counter += 1
