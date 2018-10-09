@@ -13,12 +13,16 @@ report: !Experiment
       policy_learning: !PolicyGradient
         output_dim: 2
         conf_penalty: !ConfidencePenalty {}
-      reporter: !SegmentingReporter {}
+      compute_report: True
+      reporter: !SegmentPLLogger
+        report_path: examples/output/report
       final_transducer: !BiLSTMSeqTransducer {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     src_file: examples/data/head.ja
-    trg_file: examples/data/head.en
+    trg_file: examples/data/head.en 
+    loss_calculator: !CompositeLoss
+      losses: [!FeedbackLoss {child_loss: !MLELoss {}}]
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu,wer
