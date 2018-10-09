@@ -236,7 +236,7 @@ class RamlTextReader(BaseTextReader, Serializable):
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, tau=1., vocab=None, output_proc=[output.JoinPieceTextOutputProcessor]):
+  def __init__(self, tau: Optional[float] = 1., vocab: Optional[Vocab] = None, output_proc=[]):
     """
     Args:
       tau: The temperature that controls peakiness of the sampling distribution
@@ -253,38 +253,25 @@ class RamlTextReader(BaseTextReader, Serializable):
 
   def read_sent(self, line, idx):
     words = line.strip().split()
-    #if not self.train:
-    if True:
+    if not self.train:
       return SimpleSentence(idx=idx,
                             words=[self.vocab.convert(word) for word in words] + [Vocab.ES],
                             vocab=self.vocab,
                             output_procs=self.output_procs)
-    #word_ids = np.array([self.vocab.convert(word) for word in words])
-    #length = len(word_ids)
-    #logits = np.arange(length) * (-1) * self.tau
-    #logits = np.exp(logits - np.max(logits))
-    #probs = logits / np.sum(logits)
-    #num_words = np.random.choice(length, p=probs)
-    #corrupt_pos = np.random.binomial(1, p=num_words/length, size=(length,))
-    #num_words_to_sample = np.sum(corrupt_pos)
-    #sampled_words = np.random.choice(np.arange(2, len(self.vocab)), size=(num_words_to_sample,))
-    #word_ids[np.where(corrupt_pos==1)[0].tolist()] = sampled_words
-    #return SimpleSentence(idx=idx, 
-    #                      words=word_ids.tolist() + [Vocab.ES], 
-    #                      vocab=self.vocab,
-    #                      output_procs=self.output_procs)
-
-  #def count_words(self, trg_words):
-  #  trg_cnt = 0
-  #  for x in trg_words:
-  #    if type(x) == int:
-  #      trg_cnt += 1 if x != Vocab.ES else 0
-  #    else:
-  #      trg_cnt += sum([1 if y != Vocab.ES else 0 for y in x])
-  #  return trg_cnt
-
-  #def vocab_size(self):
-  #  return len(self.vocab)
+    word_ids = np.array([self.vocab.convert(word) for word in words])
+    length = len(word_ids)
+    logits = np.arange(length) * (-1) * self.tau
+    logits = np.exp(logits - np.max(logits))
+    probs = logits / np.sum(logits)
+    num_words = np.random.choice(length, p=probs)
+    corrupt_pos = np.random.binomial(1, p=num_words/length, size=(length,))
+    num_words_to_sample = np.sum(corrupt_pos)
+    sampled_words = np.random.choice(np.arange(2, len(self.vocab)), size=(num_words_to_sample,))
+    word_ids[np.where(corrupt_pos==1)[0].tolist()] = sampled_words
+    return SimpleSentence(idx=idx, 
+                          words=word_ids.tolist() + [Vocab.ES], 
+                          vocab=self.vocab,
+                          output_procs=self.output_procs)
 
   def needs_reload(self) -> bool:
     return True 
