@@ -428,6 +428,7 @@ class SyntaxTreeReader(BaseTextReader, Serializable):
   def __init__(self, nt_vocab, term_vocab):
     self.nt_vocab = nt_vocab
     self.vocab = term_vocab
+    self.output_procs = None
 
   def read_sent(self, line, idx):
     assert self.nt_vocab is not None
