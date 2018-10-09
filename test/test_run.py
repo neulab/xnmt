@@ -1,7 +1,7 @@
 import unittest
 import os, shutil
 
-from xnmt.test.utils import has_cython
+from xnmt.utils import has_cython
 import xnmt.xnmt_run_experiments as run
 import xnmt.events
 
@@ -12,6 +12,9 @@ class TestRunningConfig(unittest.TestCase):
 
   def test_assemble(self):
     run.main(["test/config/assemble.yaml"])
+
+  def test_cascade(self):
+    run.main(["test/config/cascade.yaml"])
 
   def test_classifier(self):
     run.main(["test/config/classifier.yaml"])
@@ -28,6 +31,9 @@ class TestRunningConfig(unittest.TestCase):
   def test_forced(self):
     run.main(["test/config/forced.yaml"])
 
+  def test_lm(self):
+    run.main(["test/config/lm.yaml"])
+
   def test_load_model(self):
     run.main(["test/config/load_model.yaml"])
 
@@ -43,9 +49,6 @@ class TestRunningConfig(unittest.TestCase):
   def test_pretrained_emb(self):
     run.main(["test/config/pretrained_embeddings.yaml"])
 
-  def test_prior_segmenting(self):
-    run.main(["test/config/prior_segmenting.yaml"])
-
   def test_random_search_test_params(self):
     run.main(["test/config/random_search_test_params.yaml"])
 
@@ -55,10 +58,13 @@ class TestRunningConfig(unittest.TestCase):
   def test_reload(self):
     run.main(["test/config/reload.yaml"])
 
+  def test_segmenting(self):
+    run.main(["test/config/seg_report.yaml"])
+
   def test_reload_exception(self):
     with self.assertRaises(ValueError) as context:
       run.main(["test/config/reload_exception.yaml"])
-    self.assertEqual(str(context.exception), 'VanillaLSTMGates: x_t has inconsistent dimension')
+    self.assertEqual(str(context.exception), 'VanillaLSTMGates: x_t has inconsistent dimension 20, expecting 40')
 
   def test_report(self):
     run.main(["test/config/report.yaml"])
@@ -69,9 +75,6 @@ class TestRunningConfig(unittest.TestCase):
 
   def test_score(self):
     run.main(["test/config/score.yaml"])
-
-  def test_segmenting(self):
-    run.main(["test/config/segmenting.yaml"])
 
   def test_self_attentional_am(self):
     run.main(["test/config/self_attentional_am.yaml"])

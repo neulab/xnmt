@@ -1,0 +1,2 @@
+# Needed when using sentencepiece via !SentencepieceTokenizer or !SentencePieceTextReader
+sentencepiece>=0.0.6

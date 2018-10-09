@@ -1,6 +1,7 @@
 # note: run as ``xnmt --settings=unittest <config>.yaml``
 speech-self-att: !Experiment
   exp_global: !ExpGlobal
+    default_layer_dim: 64
     dropout: 0.2
   preproc: !PreprocRunner
     overwrite: False
@@ -40,7 +41,6 @@ speech-self-att: !Experiment
     batcher: !SrcBatcher
       batch_size: 3
       pad_src_to_multiple: 4
-      src_pad_token: ~
     dev_tasks:
       - !LossEvalTask
         src_file: examples/data/LDC94S13A.h5

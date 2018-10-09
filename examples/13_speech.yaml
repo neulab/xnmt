@@ -4,7 +4,8 @@
 # instead directly read in a feature vector the pyramidal LSTM reduces length of
 # the input sequence by a factor of 2 per layer (except for the first layer).
 # Output units should be characters according to the paper.
-speech: !Experiment
+!Experiment
+  name: speech
   exp_global: !ExpGlobal
     save_num_checkpoints: 2
     default_layer_dim: 32
@@ -42,13 +43,13 @@ speech: !Experiment
     src_reader: !H5Reader
       transpose: True
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+      vocab: !Vocab {vocab_file: examples/data/char.vocab}
+      output_proc: join-char
   train: !SimpleTrainingRegimen
-    run_for_epochs: 2
+    run_for_epochs: 1
     batcher: !SrcBatcher
       pad_src_to_multiple: 4
       batch_size: 3
-      src_pad_token: ~
     trainer: !AdamTrainer {}
     src_file: examples/data/LDC94S13A.h5
     trg_file: examples/data/LDC94S13A.char
@@ -62,12 +63,10 @@ speech: !Experiment
         ref_file: examples/data/LDC94S13A.char
         hyp_file: examples/output/{EXP}.dev_hyp
         inference: !AutoRegressiveInference
-          post_process: join-char
           batcher: !InOrderBatcher
             _xnmt_id: inference_batcher
             pad_src_to_multiple: 4
             batch_size: 1
-            src_pad_token: ~
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: cer,wer
@@ -75,5 +74,4 @@ speech: !Experiment
       ref_file: examples/data/LDC94S13A.words
       hyp_file: examples/output/{EXP}.test_hyp
       inference: !AutoRegressiveInference
-        post_process: join-char
         batcher: !Ref { name: inference_batcher }

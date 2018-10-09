@@ -6,6 +6,7 @@ The main objects to be aware of are:
 
 * :class:`Serializable`: must be subclassed by all components that are specified in a YAML file.
 * :class:`Ref`: a reference that points somewhere in the object hierarchy, for both convenience and to realize parameter sharing.
+* :class:`Repeat`: a syntax for creating a list components with same configuration but without parameter sharing.
 * :class:`YamlPreloader`: pre-loads YAML contents so that some infrastructure can be set up, but does not initialize components.
 * :meth:`initialize_if_needed`, :meth:`initialize_object`: initialize a preloaded YAML tree, taking care of resolving references etc.
 * :meth:`save_to_file`: saves a YAML file along with registered DyNet parameters
@@ -18,7 +19,7 @@ The main objects to be aware of are:
 from functools import singledispatch
 from enum import IntEnum, auto
 import collections.abc
-
+import numbers
 import logging
 logger = logging.getLogger('xnmt')
 import os
@@ -33,8 +34,8 @@ import yaml
 
 from xnmt.tee import get_git_revision
 
-from xnmt.param_collection import ParamManager
-from xnmt import param_collection
+from xnmt.param_collections import ParamManager
+from xnmt import param_collections, utils
 import xnmt
 
 def serializable_init(f):
@@ -90,6 +91,11 @@ def serializable_init(f):
     if "yaml_path" in serialize_params: del serialize_params["yaml_path"]
     obj.serialize_params = serialize_params
     obj.init_completed = True
+    # TODO: the below is needed for proper reference creation when saving the model, but should be replaced with
+    # something safer
+    for key, arg in serialize_params.items():
+      if not hasattr(obj, key):
+        setattr(obj, key, arg)
 
   wrapper.uses_serializable_init = True
   return wrapper
@@ -269,9 +275,12 @@ class Ref(Serializable):
     """Return name, or ``None`` if this is not a named reference"""
     return getattr(self, "name", None)
 
-  def get_path(self) -> 'Path':
+  def get_path(self) -> Optional['Path']:
     """Return path, or ``None`` if this is a named reference"""
-    return getattr(self, "path", None)
+    if getattr(self, "path", None):
+      if isinstance(self.path, str): self.path = Path(self.path)
+      return self.path
+    return None
 
   def is_required(self) -> bool:
     """Return ``True`` iff there exists no default value and it is mandatory that this reference be resolved."""
@@ -303,7 +312,6 @@ class Ref(Serializable):
       return named_paths[self.get_name()]
     else:
       raise ValueError(f"Could not resolve path of reference {self}")
-
 
 class Path(object):
   """
@@ -426,6 +434,21 @@ class Path(object):
       ret.add(a)
     return ret
 
+class Repeat(Serializable):
+  """
+  A special object that is replaced by a list of components with identical configuration but not with shared params.
+
+  This can be specified anywhere in the config hierarchy where normally a list is expected.
+  A common use case is a multi-layer neural architecture, where layer configurations are repeated many times.
+  It is replaced in the preloader and cannot be instantiated directly.
+  """
+  yaml_tag = "!Repeat"
+  @serializable_init
+  def __init__(self, times: numbers.Integral, content: Any):
+    self.times = times
+    self.content = content
+    raise ValueError("Repeat cannot be instantiated")
+
 
 _subcol_rand = random.Random()
 
@@ -526,9 +549,12 @@ def _get_child_dict(node, name):
 
 @_get_child.register(Serializable)
 def _get_child_serializable(node, name):
-  if not hasattr(node, name):
-    raise PathError(f"{node} has no child named {name}")
-  return getattr(node, name)
+  # if hasattr(node, "serialize_params"):
+  #   return _get_child(node.serialize_params, name)
+  # else:
+    if not hasattr(node, name):
+      raise PathError(f"{node} has no child named {name}")
+    return getattr(node, name)
 
 
 @singledispatch
@@ -697,6 +723,14 @@ class PathError(Exception):
     super().__init__(message)
 
 
+class SavedFormatString(str, Serializable):
+  yaml_tag = "!SavedFormatString"
+  @serializable_init
+  def __init__(self, value, unformatted_value):
+    self.unformatted_value = unformatted_value
+    self.value = value
+
+
 class FormatString(str, yaml.YAMLObject):
   """
   Used to handle the ``{EXP}`` string formatting syntax.
@@ -708,12 +742,13 @@ class FormatString(str, yaml.YAMLObject):
     return super().__new__(cls, value)
 
   def __init__(self, value, serialize_as):
+    self.value = value
     self.serialize_as = serialize_as
 
 def _init_fs_representer(dumper, obj):
-  return dumper.represent_data(obj.serialize_as)
+  return dumper.represent_mapping('!SavedFormatString', {"value":obj.value,"unformatted_value":obj.serialize_as})
+  # return dumper.represent_data(SavedFormatString(value=obj.value, unformatted_value=obj.serialize_as))
 yaml.add_representer(FormatString, _init_fs_representer)
-
 
 class RandomParam(yaml.YAMLObject):
   yaml_tag = '!RandomParam'
@@ -809,16 +844,31 @@ class YamlPreloader(object):
         "xnmt.serialize.serializable.Serializable, specifies a proper yaml_tag with leading '!', and its module is "
         "imported under xnmt/__init__.py")
       raise
-    if "defaults" in experiments: del experiments["defaults"]
-    return sorted(experiments.keys())
+    if isinstance(experiments, dict):
+      if "defaults" in experiments: del experiments["defaults"]
+      return sorted(experiments.keys())
+    elif isinstance(experiments, list):
+      exp_names = []
+      for exp in experiments:
+        if not hasattr(exp, "name"): raise ValueError("Encountered unnamed experiment.")
+        if exp.name != "default": exp_names.append(exp.name)
+      if len(exp_names) != len(set(exp_names)): raise ValueError(f"Found duplicate experiment names: {exp_names}.")
+      return exp_names
+    else:
+      if experiments.__class__.__name__ != "Experiment":
+        raise TypeError(f"Top level of config file must be a single Experiment or a list or dict of experiments."
+                        f"Found: {experiments} of type {type(experiments)}.")
+      if not hasattr(experiments, "name"): raise ValueError("Encountered unnamed experiment.")
+      return [experiments.name]
 
   @staticmethod
-  def preload_experiment_from_file(filename:str, exp_name:str) -> UninitializedYamlObject:
+  def preload_experiment_from_file(filename: str, exp_name: str, resume: bool = False) -> UninitializedYamlObject:
     """Preload experiment from YAML file.
 
     Args:
       filename: YAML config file name
       exp_name: experiment name to load
+      resume: set to True if we are loading a saved model file directly and want to restore all formatted strings.
 
     Returns:
       Preloaded but uninitialized object.
@@ -829,11 +879,28 @@ class YamlPreloader(object):
     except IOError as e:
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
 
-    experiment = config[exp_name]
-    return YamlPreloader.preload_obj(experiment, exp_name=exp_name, exp_dir=os.path.dirname(filename) or ".")
+    if isinstance(config, dict):
+      experiment = config[exp_name]
+      if getattr(experiment, "name", exp_name) != exp_name:
+        raise ValueError(f"Inconsistent experiment name '{exp_name}' / '{experiment.name}'")
+      if not isinstance(experiment, LoadSerialized):
+        experiment.name = exp_name
+    elif isinstance(config, list):
+      experiment = None
+      for exp in config:
+        if not hasattr(exp, "name"): raise ValueError("Encountered unnamed experiment.")
+        if exp.name==exp_name: experiment = exp
+      if exp is None: raise ValueError(f"No experiment of name '{exp_name}' exists.")
+    else:
+      experiment = config
+      if not hasattr(experiment, "name"): raise ValueError("Encountered unnamed experiment.")
+      if not isinstance(experiment, LoadSerialized):
+        if experiment.name != exp_name: raise ValueError(f"No experiment of name '{exp_name}' exists.")
+    return YamlPreloader.preload_obj(experiment, exp_name=exp_name, exp_dir=os.path.dirname(filename) or ".",
+                                     resume=resume)
 
   @staticmethod
-  def preload_obj(root: Any, exp_name: str, exp_dir: str) -> UninitializedYamlObject:
+  def preload_obj(root: Any, exp_name: str, exp_dir: str, resume: bool = False) -> UninitializedYamlObject:
     """Preload a given object.
 
     Preloading a given object, usually an :class:`xnmt.experiment.Experiment` or :class:`LoadSerialized` object as
@@ -844,6 +911,7 @@ class YamlPreloader(object):
       root: object to preload
       exp_name: experiment name, needed to replace ``{EXP}``
       exp_dir: directory of the corresponding config file, needed to replace ``{EXP_DIR}``
+      resume: if True, keep the formatted strings, e.g. set ``{EXP}`` to the value of the previous run if possible
 
     Returns:
       Preloaded but uninitialized object.
@@ -859,24 +927,30 @@ class YamlPreloader(object):
                     "EXP_DIR": exp_dir,
                     "GIT_REV": get_git_revision()}
 
-    YamlPreloader._format_strings(root, placeholders) # do this both before and after resolving !LoadSerialized
+    # do this both before and after resolving !LoadSerialized
+    root = YamlPreloader._remove_saved_format_strings(root, keep_value=resume)
+    YamlPreloader._format_strings(root, placeholders)
 
-    root = YamlPreloader._load_referenced_serialized(root)
+    root = YamlPreloader._load_serialized(root)
 
     random_search_report = YamlPreloader._instantiate_random_search(root)
     if random_search_report:
       setattr(root, 'random_search_report', random_search_report)
 
+    root = YamlPreloader._resolve_repeat(root)
+
     # if arguments were not given in the YAML file and are set to a bare(Serializable) by default, copy the bare object
     # into the object hierarchy so it can be used w/ param sharing etc.
     YamlPreloader._resolve_bare_default_args(root)
 
-    YamlPreloader._format_strings(root, placeholders)  # do this both before and after resolving !LoadSerialized
+    # do this both before and after resolving !LoadSerialized
+    root = YamlPreloader._remove_saved_format_strings(root, keep_value=resume)
+    YamlPreloader._format_strings(root, placeholders)
 
     return UninitializedYamlObject(root)
 
   @staticmethod
-  def _load_referenced_serialized(root: Any) -> Any:
+  def _load_serialized(root: Any) -> Any:
     for path, node in _traverse_tree(root, traversal_order=_TraversalOrder.ROOT_LAST):
       if isinstance(node, LoadSerialized):
         LoadSerialized._check_wellformed(node)
@@ -971,6 +1045,30 @@ class YamlPreloader(object):
     return param_report
 
   @staticmethod
+  def _resolve_repeat(root):
+    for path, node in _traverse_tree(root, traversal_order=_TraversalOrder.ROOT_LAST):
+      if isinstance(node, Repeat):
+        expanded = []
+        for _ in range(node.times):
+          expanded.append(copy.deepcopy(node.content))
+        if len(path) == 0:
+          root = expanded
+        else:
+          _set_descendant(root, path, expanded)
+    return root
+
+  @staticmethod
+  def _remove_saved_format_strings(root, keep_value=False):
+    for path, node in _traverse_tree(root, traversal_order=_TraversalOrder.ROOT_LAST):
+      if isinstance(node, SavedFormatString):
+        replace_by = node.value if keep_value else node.unformatted_value
+        if len(path) == 0:
+          root = replace_by
+        else:
+          _set_descendant(root, path, replace_by)
+    return root
+
+  @staticmethod
   def _resolve_bare_default_args(root: Any) -> None:
     for path, node in _traverse_tree(root):
       if isinstance(node, Serializable):
@@ -1001,7 +1099,7 @@ class YamlPreloader(object):
       if isinstance(node, str):
         try:
           formatted = node.format(**format_dict)
-        except (ValueError, KeyError):  # will occur e.g. if a vocab entry contains a curly bracket
+        except (ValueError, KeyError, IndexError):  # will occur e.g. if a vocab entry contains a curly bracket
           formatted = node
         if node != formatted:
           _set_descendant(root,
@@ -1149,16 +1247,13 @@ class _YamlDeserializer(object):
       for shared_param_path in shared_param_set:
         try:
           new_shared_val = _get_descendant(root, shared_param_path)
-          # print('found {} = {}'.format(shared_param_path, new_shared_val))
         except PathError:
-          # print('found not {}'.format(shared_param_path))
           continue
         for _, child_of_shared_param in _traverse_tree(new_shared_val, include_root=False):
           if isinstance(child_of_shared_param, Serializable):
             raise ValueError(f"{path} shared params {shared_param_set} contains Serializable sub-object {child_of_shared_param} which is not permitted")
         if not isinstance(new_shared_val, Ref):
           shared_val_choices.add(new_shared_val)
-      # print('shared set {} == {}'.format(shared_param_set, shared_val_choices))
       if len(shared_val_choices)>1:
         logger.warning(f"inconsistent shared params at {path} for {shared_param_set}: {shared_val_choices}; Ignoring these shared parameters.")
       elif len(shared_val_choices)==1:
@@ -1210,62 +1305,73 @@ class _YamlDeserializer(object):
       initialized object; this method is cached, so multiple requests for the same path will return the exact same object
     """
     obj = _get_descendant(self.deserialized_yaml, path)
-    if not isinstance(obj, Serializable):
+    if not isinstance(obj, Serializable) or isinstance(obj, FormatString):
       return obj
     init_params = OrderedDict(_name_children(obj, include_reserved=False))
     init_args = _get_init_args_defaults(obj)
     if "yaml_path" in init_args: init_params["yaml_path"] = path
     self.check_init_param_types(obj, init_params)
-    try:
-      if hasattr(obj, "xnmt_subcol_name"):
-        initialized_obj = obj.__class__(**init_params, xnmt_subcol_name=obj.xnmt_subcol_name)
-      else:
-        initialized_obj = obj.__class__(**init_params)
-      logger.debug(f"initialized {path}: {obj.__class__.__name__}@{id(obj)}({dict(init_params)})"[:1000])
-    except TypeError as e:
-      raise ComponentInitError(f"An error occurred when calling {type(obj).__name__}.__init__()\n"
-                               f" The following arguments were passed: {init_params}\n"
-                               f" The following arguments were expected: {init_args.keys()}\n"
-                               f" Current path: {path}\n"
-                               f" Error message: {e}")
+    with utils.ReportOnException({"yaml_path":path}):
+      try:
+        if hasattr(obj, "xnmt_subcol_name"):
+          initialized_obj = obj.__class__(**init_params, xnmt_subcol_name=obj.xnmt_subcol_name)
+        else:
+          initialized_obj = obj.__class__(**init_params)
+        logger.debug(f"initialized {path}: {obj.__class__.__name__}@{id(obj)}({dict(init_params)})"[:1000])
+      except TypeError as e:
+        raise ComponentInitError(f"An error occurred when calling {type(obj).__name__}.__init__()\n"
+                                 f" The following arguments were passed: {init_params}\n"
+                                 f" The following arguments were expected: {init_args.keys()}\n"
+                                 f" Current path: {path}\n"
+                                 f" Error message: {e}")
     return initialized_obj
 
 def _resolve_serialize_refs(root):
-  all_serializable = set()
+  all_serializable = set() # for DyNet param check
+
+  # gather all non-basic types (Serializable, list, dict) in the global dictionary xnmt.resolved_serialize_params
   for _, node in _traverse_serializable(root):
     if isinstance(node, Serializable):
-      all_serializable.add(node)
+      all_serializable.add(id(node))
       if not hasattr(node, "serialize_params"):
         raise ValueError(f"Cannot serialize node that has no serialize_params attribute: {node}\n"
                          "Did you forget to wrap the __init__() in @serializable_init ?")
       xnmt.resolved_serialize_params[id(node)] = node.serialize_params
     elif isinstance(node, collections.abc.MutableMapping):
       xnmt.resolved_serialize_params[id(node)] = dict(node)
-    elif isinstance(node, collections.abc.Sequence):
+    elif isinstance(node, collections.abc.MutableSequence):
       xnmt.resolved_serialize_params[id(node)] = list(node)
-  if not ParamManager.param_col.all_subcol_owners <= all_serializable:
+
+  if not set(id(o) for o in ParamManager.param_col.all_subcol_owners) <= all_serializable:
     raise RuntimeError(f"Not all registered DyNet parameter collections written out. "
                        f"Missing: {ParamManager.param_col.all_subcol_owners - all_serializable}.\n"
                        f"This indicates that potentially not all components adhere to the protocol of using "
                        f"Serializable.add_serializable_component() for creating serializable sub-components.")
+
   refs_inserted_at = set()
   refs_inserted_to = set()
-  for path_to, node in _traverse_serializable(root):
-    if not refs_inserted_at & path_to.ancestors() and not refs_inserted_at & path_to.ancestors():
-      if isinstance(node, Serializable):
-        for path_from, matching_node in _traverse_serializable(root):
-          if not path_from in refs_inserted_to:
-            if path_from!=path_to and matching_node is node:
-                ref = Ref(path=path_to)
-                xnmt.resolved_serialize_params[id(ref)] = ref.serialize_params
-                _set_descendant(xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent()))], Path(path_from[-1]), ref)
-                if isinstance(_get_descendant(root, path_from.parent()), (collections.abc.MutableMapping, collections.abc.Sequence)):
-                  assert isinstance(_get_descendant(root, path_from.parent().parent()), Serializable), \
-                    "resolving references inside nested lists/dicts is not yet implemented"
-                  xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent().parent()))][
-                    path_from[-2]] = xnmt.resolved_serialize_params[id(_get_descendant(root, path_from.parent()))]
-                refs_inserted_at.add(path_from)
-                refs_inserted_to.add(path_from)
+  for path_trg, node_trg in _traverse_serializable(root): # loop potential reference targets
+    if not refs_inserted_at & path_trg.ancestors(): # skip target if it or its ancestor has already been replaced by a reference
+      if isinstance(node_trg, Serializable):
+        for path_src, node_src in _traverse_serializable(root): # loop potential nodes that should be replaced by a reference to the current target
+          if not path_src in refs_inserted_to: # don't replace by reference if someone is pointing to this node already
+            if path_src!=path_trg and node_src is node_trg: # don't reference to self
+              # now we're ready to create a reference from node_src to node_trg (node_src will be replaced, node_trg remains unchanged)
+              ref = Ref(path=path_trg)
+              xnmt.resolved_serialize_params[id(ref)] = ref.serialize_params # make sure the reference itself can be properly serialized
+
+              src_node_parent = _get_descendant(root, path_src.parent())
+              src_node_parent_serialize_params = xnmt.resolved_serialize_params[id(src_node_parent)]
+              _set_descendant(src_node_parent_serialize_params, Path(path_src[-1]), ref)
+              if isinstance(src_node_parent, (collections.abc.MutableMapping, collections.abc.MutableSequence)):
+                assert isinstance(_get_descendant(root, path_src.parent().parent()), Serializable), \
+                  "resolving references inside nested lists/dicts is not yet implemented"
+                src_node_grandparent = _get_descendant(root, path_src.parent().parent())
+                src_node_parent_name = path_src[-2]
+                xnmt.resolved_serialize_params[id(src_node_grandparent)][src_node_parent_name] = \
+                  xnmt.resolved_serialize_params[id(src_node_parent)]
+              refs_inserted_at.add(path_src)
+              refs_inserted_to.add(path_trg)
 
 def _dump(ser_obj):
   assert len(xnmt.resolved_serialize_params)==0
@@ -1287,7 +1393,7 @@ def save_to_file(fname: str, mod: Any) -> None:
     os.makedirs(dirname)
   with open(fname, 'w') as f:
     f.write(_dump(mod))
-    param_collection.ParamManager.param_col.save()
+    param_collections.ParamManager.param_col.save()
 
 
 def initialize_if_needed(root: Union[Any, UninitializedYamlObject]) -> Any:
@@ -1348,6 +1454,7 @@ def check_type(obj, desired_type):
         return True
     return False
   except TypeError:
+    if type(desired_type) == str: return True # don't support forward type references
     if desired_type.__class__.__name__ == "_Any":
       return True
     elif desired_type == type(None):

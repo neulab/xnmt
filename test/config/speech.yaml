@@ -3,6 +3,7 @@ speech: !Experiment
     save_num_checkpoints: 2
     default_layer_dim: 32
     dropout: 0.4
+    compute_report: True
   preproc: !PreprocRunner
     overwrite: False
     tasks:
@@ -34,15 +35,13 @@ speech: !Experiment
     src_reader: !H5Reader
       transpose: True
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-    inference: !AutoRegressiveInference
-      report_path: test/tmp/report/
+      vocab: !Vocab {vocab_file: examples/data/char.vocab}
+      output_proc: join-char
   train: !SimpleTrainingRegimen
-    run_for_epochs: 1
+    run_for_epochs: 0
     batcher: !SrcBatcher
       pad_src_to_multiple: 4
       batch_size: 3
-      src_pad_token: ~
     trainer: !AdamTrainer {}
     src_file: examples/data/LDC94S13A.h5
     trg_file: examples/data/LDC94S13A.char
@@ -57,12 +56,10 @@ speech: !Experiment
         hyp_file: test/tmp/{EXP}.dev_hyp
         inference: !AutoRegressiveInference
           post_process: join-char
-          report_path: test/tmp/report.{EXP}
           batcher: !InOrderBatcher
             _xnmt_id: inference_batcher
             pad_src_to_multiple: 4
             batch_size: 1
-            src_pad_token: ~
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: cer,wer
@@ -70,5 +67,5 @@ speech: !Experiment
       ref_file: examples/data/LDC94S13A.words
       hyp_file: test/tmp/{EXP}.test_hyp
       inference: !AutoRegressiveInference
-        post_process: join-char
         batcher: !Ref { name: inference_batcher }
+        reporter: !AttentionReporter {}

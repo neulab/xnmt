@@ -1,13 +1,16 @@
 .. _sec-exp-conf:
 
 Experiment configuration file format
-------------------------------------
+====================================
+
+Intro
+-----
 
 Configuration files are in `YAML format <https://docs.ansible.com/ansible/YAMLSyntax.html>`_.
 
 At the top-level, a config file consists of a dictionary where keys are experiment
 names and values are the experiment specifications. By default, all experiments
-are run in lexicographical ordering, but xnmt_run_experiments can also be told
+are run in lexicographical ordering, but ``xnmt_run_experiments`` can also be told
 to run only a selection of the specified experiments. An example template with
 2 experiments looks like this
 
@@ -36,8 +39,9 @@ The usage of ``exp_global``, ``preproc``, ``model``, ``train``, ``evaluate``
 are explained below.
 Not all of them need to be specified, depending on the use case.
 
+
 Experiment
-==========
+~~~~~~~~~~
 
 This specifies settings that are global to this experiment. An example
 
@@ -55,16 +59,16 @@ by the directory the config file lies in, ``{PID}`` by the process id, and
 ``{GIT_REV}`` by the current git revision.
 
 To obtain a full list of allowed parameters, please check the documentation for
-:ref:`ExpGlobal <mod-exp_global>`.
+:ref:`ExpGlobal <mod-experiments>`.
 
 Preprocessing
-=============
+~~~~~~~~~~~~~
 
 *xnmt* supports a variety of data preprocessing features. Please refer to
 :ref:`sec-preproc` for details.
 
 Model
-=====
+~~~~~
 This specifies the model architecture. An typical example looks like this
 
 .. code-block:: yaml
@@ -102,7 +106,7 @@ are initialized in the order they appear in the constructor. Among others,
 this guarantees that preprocessing is carried out before the model training.
 
 Training
-========
+~~~~~~~~
 
 A typical example looks like this
 
@@ -126,11 +130,25 @@ case models must be specified as sub-components of the training regimen. An exam
 :ref:`ex-multi-task` configuration can be refered to for more details on this.
 
 Evaluation
-==========
+~~~~~~~~~~
 If specified, the model is tested after training finished.
 
+Config files vs. saved model files
+----------------------------------
+Saved model files are written out in the exact same YAML format as the config files (with the addition
+of some .data directories that contain DyNet weights). This means that it is possible to specify a
+saved model as the configuration file. There is one subtle difference: In a config file, placeholders
+such as ``{EXP_DIR}`` are resolved based on the current context, which will be different when directly
+specifying the saved model file as config file. For this purpose a ``--resume`` option exists that
+makes sure to use the context from the saved model file: ``xnmt --resume /path/to/saved-model.mod``.
+
+This feature is currently implemented only in a very basic form: When resuming a crashed experiment,
+this will cause the whole experiment to be carried out from the start. When resuming a finished
+experiment, *xnmt* will return without performing any action. In the future, this will be extended to
+support resuming from the most recent saved checkpoint, etc.
+
 Examples
-========
+--------
 
 Here are more elaborate examples from the github repository.
 
@@ -151,7 +169,13 @@ Minimal
 Multiple experiments
 ~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: examples/03_multiple_exp.yaml
+.. literalinclude:: examples/03a_multiple_exp.yaml
+    :language: yaml
+
+.. literalinclude:: examples/03b_multiple_exp.yaml
+    :language: yaml
+
+.. literalinclude:: examples/03c_multiple_exp.yaml
     :language: yaml
 
 Settings
@@ -197,7 +221,7 @@ Programmatic loading
     :language: python
 
 Parameter sharing
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 .. literalinclude:: examples/11_component_sharing.yaml
     :language: yaml
@@ -205,13 +229,13 @@ Parameter sharing
 .. _ex-multi-task:
 
 Multi-task
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~
 
 .. literalinclude:: examples/12_multi_task.yaml
     :language: yaml
 
 Speech
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~
 
 .. literalinclude:: examples/13_speech.yaml
     :language: yaml
@@ -231,6 +255,8 @@ Scoring N-best lists
 Transformer
 ~~~~~~~~~~~
 
+(this is currently broken)
+
 .. literalinclude:: examples/16_transformer.yaml
     :language: yaml
 
@@ -240,11 +266,35 @@ Ensembling
 .. literalinclude:: examples/17_ensembling.yaml
     :language: yaml
 
-
 Minimum risk training
 ~~~~~~~~~~~~~~~~~~~~~
 
 .. literalinclude:: examples/18_minrisk.yaml
     :language: yaml
 
+Biased Lexicon
+~~~~~~~~~~~~~~
+
+(this is currently broken)
+
+.. literalinclude:: examples/19_lexiconbias.yaml
+    :language: yaml
+
+Subword Sampling
+~~~~~~~~~~~~~~~~
+
+.. literalinclude:: examples/20_subword_sample.yaml
+    :language: yaml
+
+Self Attention
+~~~~~~~~~~~~~~
+
+.. literalinclude:: examples/21_self_attention.yaml
+    :language: yaml
+
+Char Segment
+~~~~~~~~~~~~
+
+.. literalinclude:: examples/22_char_segment.yaml
+    :language: yaml
 

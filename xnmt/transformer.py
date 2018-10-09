@@ -1,10 +1,11 @@
 import numpy as np
 import dynet as dy
-from xnmt.transform import Linear
+
+from xnmt.modelparts.transforms import Linear
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.param_init import LeCunUniformInitializer
-from xnmt.param_collection import ParamManager
+from xnmt.param_initializers import LeCunUniformInitializer
+from xnmt.param_collections import ParamManager
 
 MIN_VALUE = -10000
 
@@ -186,14 +187,14 @@ class EncoderLayer(object):
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
     if self.layer_norm:
-      e = self.ln_1(e)
+      e = self.ln_1.transform(e)
 
     sub = self.feed_forward(e)
     if self.dropout != 0.0:
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
     if self.layer_norm:
-      e = self.ln_2(e)
+      e = self.ln_2.transform(e)
     return e
 
 
@@ -218,7 +219,7 @@ class DecoderLayer(object):
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
     if self.layer_norm:
-      e = self.ln_1(e)
+      e = self.ln_1.transform(e)
 
     self.source_attention.set_dropout(self.dropout)
     sub = self.source_attention(e, s, mask=xy_mask)
@@ -226,14 +227,14 @@ class DecoderLayer(object):
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
     if self.layer_norm:
-      e = self.ln_2(e)
+      e = self.ln_2.transform(e)
 
     sub = self.feed_forward(e)
     if self.dropout != 0.0:
       sub = dy.dropout(sub, self.dropout)
     e = e + sub
     if self.layer_norm:
-      e = self.ln_3(e)
+      e = self.ln_3.transform(e)
     return e
 
 

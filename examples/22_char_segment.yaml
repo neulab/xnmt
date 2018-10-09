@@ -1,0 +1,138 @@
+# Examples of using SegmentingSeqTransducer
+# Look available composition functions at xnmt/specialized_encoders/segmenting_encoder/segmenting_composer.py
+
+# Looking up characters from word vocabulary
+# Basically this is the same as 01_standard.yaml
+seg_lookup: !Experiment
+  exp_global: !ExpGlobal {}
+  model: !DefaultTranslator
+    src_reader: !CharFromWordTextReader
+      # Can be produced by script/vocab/make_vocab.py --char_vocab < [CORPUS]
+      vocab: !Vocab {vocab_file: examples/data/head.ja.charvocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    # It reads in characters and produce word embeddings
+    encoder: !SegmentingSeqTransducer
+      segment_composer: !LookupComposer
+        word_vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+      final_transducer: !BiLSTMSeqTransducer {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 1
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: test/tmp/{EXP}.test_hyp
+      inference: !AutoRegressiveInference {}
+
+# Summing together character composition functions.
+seg_sum: !Experiment
+  exp_global: !ExpGlobal {}
+  model: !DefaultTranslator
+    src_reader: !CharFromWordTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.charvocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    encoder: !SegmentingSeqTransducer
+      ### Pay attention to this part
+      segment_composer: !SumComposer {}
+      ###
+      final_transducer: !BiLSTMSeqTransducer {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 1
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: test/tmp/{EXP}.test_hyp
+      inference: !AutoRegressiveInference {}
+
+# Using BiLSTM to predict word embeddings.
+seg_bilstm: !Experiment
+  exp_global: !ExpGlobal {}
+  model: !DefaultTranslator
+    src_reader: !CharFromWordTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.charvocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    encoder: !SegmentingSeqTransducer
+      ### Pay attention to this part
+      segment_composer: !SeqTransducerComposer
+        seq_transducer: !BiLSTMSeqTransducer {}
+      ###
+      final_transducer: !BiLSTMSeqTransducer {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 1
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: test/tmp/{EXP}.test_hyp
+      inference: !AutoRegressiveInference {}
+
+# Using CHARAGRAM composition function
+seg_charagram: !Experiment
+  exp_global: !ExpGlobal {}
+  model: !DefaultTranslator
+    src_reader: !CharFromWordTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.charvocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    encoder: !SegmentingSeqTransducer
+      ### Pay attention to this part
+      segment_composer: !CharNGramComposer
+        ngram_size: 4
+        word_vocab: !Vocab {vocab_file: examples/data/head.ngramcount.ja}
+      ###
+      final_transducer: !BiLSTMSeqTransducer {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 1
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: test/tmp/{EXP}.test_hyp
+      inference: !AutoRegressiveInference {}
+
+# Using Composition of CHARAGRAM and Lookup
+seg_lookup_charagram: !Experiment
+  exp_global: !ExpGlobal {}
+  model: !DefaultTranslator
+    src_reader: !CharFromWordTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.charvocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    encoder: !SegmentingSeqTransducer
+      ### Pay attention to this part
+      segment_composer: !SumMultipleComposer
+        composers: 
+        - !LookupComposer
+          word_vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+        - !CharNGramComposer
+          ngram_size: 4
+          word_vocab: !Vocab {vocab_file: examples/data/head.ngramcount.ja}
+      ###
+      final_transducer: !BiLSTMSeqTransducer {}
+  train: !SimpleTrainingRegimen
+    run_for_epochs: 1
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu,wer
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: test/tmp/{EXP}.test_hyp
+      inference: !AutoRegressiveInference {}

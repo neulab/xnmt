@@ -19,7 +19,6 @@ defaults: !Experiment
         ref_file: examples/data/head.en
         hyp_file: test/tmp/{EXP}.test_hyp
 
-
 exp1-lstm-encoder: !Experiment
   kwargs:
     << : *defaults
@@ -28,25 +27,10 @@ exp1-lstm-encoder: !Experiment
         vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
       trg_reader: !PlainTextReader
         vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-        word_dropout: 0.3
       encoder: !BiLSTMSeqTransducer
         layers: 2
         input_dim: 64
-      attender: !MlpAttender
-        state_dim: 64
-        hidden_dim: 64
-        input_dim: 64
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-        word_dropout: 0.3
-      decoder: !AutoRegressiveDecoder
-        rnn: !UniLSTMSeqTransducer
-          layers: 1
-        input_feeding: True
-        bridge: !CopyBridge {}
-      inference: !AutoRegressiveInference {}
+
 exp2-residual-encoder: !Experiment
   kwargs:
     << : *defaults
@@ -55,22 +39,14 @@ exp2-residual-encoder: !Experiment
         vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
       trg_reader: !PlainTextReader
         vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      encoder: !ResidualLSTMSeqTransducer
-        layers: 2
+      encoder: !ModularSeqTransducer
         input_dim: 64
-      attender: !MlpAttender
-        state_dim: 64
-        hidden_dim: 64
-        input_dim: 64
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      decoder: !AutoRegressiveDecoder
-        rnn: !UniLSTMSeqTransducer
-          layers: 2
-        bridge: !CopyBridge {}
-      inference: !AutoRegressiveInference {}
+        modules:
+        - !ResidualSeqTransducer
+          child: !BiLSTMSeqTransducer
+            input_dim: 64
+        - !BiLSTMSeqTransducer
+          input_dim: 64
 exp3-pyramidal-encoder: !Experiment
   kwargs:
     << : *defaults
@@ -85,27 +61,15 @@ exp3-pyramidal-encoder: !Experiment
         vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
       trg_reader: !PlainTextReader
         vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 64
       encoder: !PyramidalLSTMSeqTransducer
         layers: 3
         input_dim: 64
         hidden_dim: 64
-      attender: !MlpAttender
-        state_dim: 64
-        hidden_dim: 64
-        input_dim: 64
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      decoder: !AutoRegressiveDecoder
-        rnn: !UniLSTMSeqTransducer
-          layers: 2
-        input_feeding: True
-        bridge: !CopyBridge {}
       inference: !AutoRegressiveInference
         batcher: !InOrderBatcher
-          batch_size: 5
+          batch_size: 1
           pad_src_to_multiple: 4
+
 exp4-modular-encoder: !Experiment
   kwargs:
     << : *defaults
@@ -120,8 +84,6 @@ exp4-modular-encoder: !Experiment
         vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
       trg_reader: !PlainTextReader
         vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-      src_embedder: !SimpleWordEmbedder
-        emb_dim: 64
       encoder: !ModularSeqTransducer
         modules:
         - !BiLSTMSeqTransducer
@@ -129,23 +91,14 @@ exp4-modular-encoder: !Experiment
           hidden_dim: 64
           layers: 1
           dropout: 0.1
+        - !NinSeqTransducer
+          downsample_by: 2
         - !PyramidalLSTMSeqTransducer
           input_dim: 64
           hidden_dim: 64
-          layers: 2
-      attender: !MlpAttender
-        state_dim: 64
-        hidden_dim: 64
-        input_dim: 64
-      trg_embedder: !SimpleWordEmbedder
-        emb_dim: 64
-      decoder: !AutoRegressiveDecoder
-        rnn: !UniLSTMSeqTransducer
-          layers: 3
-        input_feeding: True
-        bridge: !CopyBridge {}
+          layers: 1
       inference: !AutoRegressiveInference
         batcher: !InOrderBatcher
-          batch_size: 5
+          batch_size: 1
           pad_src_to_multiple: 4
 

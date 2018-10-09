@@ -3,24 +3,25 @@ import unittest
 import dynet as dy
 import numpy as np
 
-from xnmt.attender import MlpAttender, DotAttender
-from xnmt.batcher import mark_as_batch, Mask, SrcBatcher
-from xnmt.bridge import CopyBridge
-from xnmt.decoder import AutoRegressiveDecoder
-from xnmt.embedder import SimpleWordEmbedder
-from xnmt.eval_task import LossEvalTask
+from xnmt.modelparts.attenders import MlpAttender, DotAttender
+from xnmt.batchers import mark_as_batch, Mask, SrcBatcher
+from xnmt.modelparts.bridges import CopyBridge
+from xnmt.modelparts.decoders import AutoRegressiveDecoder
+from xnmt.modelparts.embedders import SimpleWordEmbedder
+from xnmt.eval.tasks import LossEvalTask
 import xnmt.events
-from xnmt.input_reader import PlainTextReader
-from xnmt.lstm import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculator import AutoRegressiveMLELoss
-from xnmt.optimizer import AdamTrainer
-from xnmt.param_collection import ParamManager
-from xnmt.pyramidal import PyramidalLSTMSeqTransducer
-import xnmt.training_regimen
-from xnmt.transform import NonLinear
-from xnmt.translator import DefaultTranslator
-from xnmt.scorer import Softmax
-from xnmt.vocab import Vocab
+from xnmt.input_readers import PlainTextReader
+from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
+from xnmt.loss_calculators import MLELoss
+from xnmt.optimizers import AdamTrainer, DummyTrainer
+from xnmt.param_collections import ParamManager
+from xnmt.transducers.pyramidal import PyramidalLSTMSeqTransducer
+from xnmt.train import regimens
+from xnmt.modelparts.transforms import NonLinear
+from xnmt.models.translators import DefaultTranslator
+from xnmt.modelparts.scorers import Softmax
+from xnmt.vocabs import Vocab
+from xnmt import event_trigger, sent
 
 class TestTruncatedBatchTraining(unittest.TestCase):
 
@@ -28,8 +29,8 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     xnmt.events.clear()
     ParamManager.init_param_col()
 
-    self.src_reader = PlainTextReader()
-    self.trg_reader = PlainTextReader()
+    self.src_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
     self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
 
@@ -40,30 +41,35 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     """
     batch_size=5
     src_sents = self.src_data[:batch_size]
-    src_min = min([len(x) for x in src_sents])
-    src_sents_trunc = [s[:src_min] for s in src_sents]
+    src_min = min([x.sent_len() for x in src_sents])
+    src_sents_trunc = [s.words[:src_min] for s in src_sents]
     for single_sent in src_sents_trunc:
       single_sent[src_min-1] = Vocab.ES
       while len(single_sent)%pad_src_to_multiple != 0:
         single_sent.append(Vocab.ES)
     trg_sents = self.trg_data[:batch_size]
-    trg_min = min([len(x) for x in trg_sents])
-    trg_sents_trunc = [s[:trg_min] for s in trg_sents]
+    trg_min = min([x.sent_len() for x in trg_sents])
+    trg_sents_trunc = [s.words[:trg_min] for s in trg_sents]
     for single_sent in trg_sents_trunc: single_sent[trg_min-1] = Vocab.ES
+
+    src_sents_trunc = [sent.SimpleSentence(words=s) for s in src_sents_trunc]
+    trg_sents_trunc = [sent.SimpleSentence(words=s) for s in trg_sents_trunc]
 
     single_loss = 0.0
     for sent_id in range(batch_size):
       dy.renew_cg()
-      train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
-                                   trg=trg_sents_trunc[sent_id],
-                                   loss_calculator=AutoRegressiveMLELoss()).value()
+      train_loss = MLELoss().calc_loss(
+                                   model=model,
+                                   src=src_sents_trunc[sent_id],
+                                   trg=trg_sents_trunc[sent_id]).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
-    batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
-                                   trg=mark_as_batch(trg_sents_trunc),
-                                   loss_calculator=AutoRegressiveMLELoss()).value()
+    batched_loss = MLELoss().calc_loss(
+                                   model=model,
+                                   src=mark_as_batch(src_sents_trunc),
+                                   trg=mark_as_batch(trg_sents_trunc)).value()
     self.assertAlmostEqual(single_loss, np.sum(batched_loss), places=4)
 
   def test_loss_model1(self):
@@ -85,7 +91,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    model.set_train(False)
+    event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
   def test_loss_model2(self):
@@ -107,7 +113,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    model.set_train(False)
+    event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model, pad_src_to_multiple=4)
 
   def test_loss_model3(self):
@@ -129,7 +135,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    model.set_train(False)
+    event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
   def test_loss_model4(self):
@@ -151,7 +157,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    model.set_train(False)
+    event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
 class TestBatchTraining(unittest.TestCase):
@@ -160,8 +166,8 @@ class TestBatchTraining(unittest.TestCase):
     xnmt.events.clear()
     ParamManager.init_param_col()
 
-    self.src_reader = PlainTextReader()
-    self.trg_reader = PlainTextReader()
+    self.src_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
     self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
 
@@ -172,33 +178,39 @@ class TestBatchTraining(unittest.TestCase):
     """
     batch_size = 5
     src_sents = self.src_data[:batch_size]
-    src_min = min([len(x) for x in src_sents])
-    src_sents_trunc = [s[:src_min] for s in src_sents]
+    src_min = min([x.sent_len() for x in src_sents])
+    src_sents_trunc = [s.words[:src_min] for s in src_sents]
     for single_sent in src_sents_trunc:
       single_sent[src_min-1] = Vocab.ES
       while len(single_sent)%pad_src_to_multiple != 0:
         single_sent.append(Vocab.ES)
-    trg_sents = sorted(self.trg_data[:batch_size], key=lambda x: len(x), reverse=True)
-    trg_max = max([len(x) for x in trg_sents])
-    trg_masks = Mask(np.zeros([batch_size, trg_max]))
+    trg_sents = sorted(self.trg_data[:batch_size], key=lambda x: x.sent_len(), reverse=True)
+    trg_max = max([x.sent_len() for x in trg_sents])
+    np_arr = np.zeros([batch_size, trg_max])
     for i in range(batch_size):
-      for j in range(len(trg_sents[i]), trg_max):
-        trg_masks.np_arr[i,j] = 1.0
-    trg_sents_padded = [[w for w in s] + [Vocab.ES]*(trg_max-len(s)) for s in trg_sents]
+      for j in range(trg_sents[i].sent_len(), trg_max):
+        np_arr[i,j] = 1.0
+    trg_masks = Mask(np_arr)
+    trg_sents_padded = [[w for w in s] + [Vocab.ES]*(trg_max-s.sent_len()) for s in trg_sents]
+
+    src_sents_trunc = [sent.SimpleSentence(words=s) for s in src_sents_trunc]
+    trg_sents_padded = [sent.SimpleSentence(words=s) for s in trg_sents_padded]
 
     single_loss = 0.0
     for sent_id in range(batch_size):
       dy.renew_cg()
-      train_loss = model.calc_loss(src=src_sents_trunc[sent_id],
-                                   trg=trg_sents[sent_id],
-                                   loss_calculator=AutoRegressiveMLELoss()).value()
+      train_loss = MLELoss().calc_loss(
+                                   model=model,
+                                   src=src_sents_trunc[sent_id],
+                                   trg=trg_sents[sent_id]).value()
       single_loss += train_loss
 
     dy.renew_cg()
 
-    batched_loss = model.calc_loss(src=mark_as_batch(src_sents_trunc),
-                                   trg=mark_as_batch(trg_sents_padded, trg_masks),
-                                   loss_calculator=AutoRegressiveMLELoss()).value()
+    batched_loss = MLELoss().calc_loss(
+                                   model=model,
+                                   src=mark_as_batch(src_sents_trunc),
+                                   trg=mark_as_batch(trg_sents_padded, trg_masks)).value()
     self.assertAlmostEqual(single_loss, np.sum(batched_loss), places=4)
 
   def test_loss_model1(self):
@@ -220,7 +232,7 @@ class TestBatchTraining(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    model.set_train(False)
+    event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
   def test_loss_model2(self):
@@ -242,7 +254,7 @@ class TestBatchTraining(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    model.set_train(False)
+    event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model, pad_src_to_multiple=4)
 
   def test_loss_model3(self):
@@ -264,7 +276,7 @@ class TestBatchTraining(unittest.TestCase):
                                 scorer=Softmax(input_dim=layer_dim, vocab_size=100),
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
-    model.set_train(False)
+    event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
 
@@ -280,9 +292,9 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args = {}
     train_args['src_file'] = "examples/data/head.ja"
     train_args['trg_file'] = "examples/data/head.en"
-    train_args['loss_calculator'] = AutoRegressiveMLELoss()
-    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(),
-                                            trg_reader=PlainTextReader(),
+    train_args['loss_calculator'] = MLELoss()
+    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab")),
+                                            trg_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab")),
                                             src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
                                             encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
                                             attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim,
@@ -302,11 +314,11 @@ class TestTrainDevLoss(unittest.TestCase):
                                             src_file="examples/data/head.ja",
                                             ref_file="examples/data/head.en",
                                             batcher=batcher)]
-    train_args['trainer'] = None
+    train_args['trainer'] = DummyTrainer()
     train_args['batcher'] = batcher
     train_args['run_for_epochs'] = 1
-    training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(**train_args)
-    training_regimen.run_training(save_fct = lambda: None, update_weights=False)
+    training_regimen = regimens.SimpleTrainingRegimen(**train_args)
+    training_regimen.run_training(save_fct = lambda: None)
     self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
                            training_regimen.dev_loss_tracker.dev_score.loss, places=5)
 
@@ -322,9 +334,9 @@ class TestOverfitting(unittest.TestCase):
     train_args = {}
     train_args['src_file'] = "examples/data/head.ja"
     train_args['trg_file'] = "examples/data/head.en"
-    train_args['loss_calculator'] = AutoRegressiveMLELoss()
-    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(),
-                                            trg_reader=PlainTextReader(),
+    train_args['loss_calculator'] = MLELoss()
+    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab")),
+                                            trg_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab")),
                                             src_embedder=SimpleWordEmbedder(vocab_size=100, emb_dim=layer_dim),
                                             encoder=BiLSTMSeqTransducer(input_dim=layer_dim,
                                                                         hidden_dim=layer_dim),
@@ -349,9 +361,9 @@ class TestOverfitting(unittest.TestCase):
     train_args['run_for_epochs'] = 1
     train_args['trainer'] = AdamTrainer(alpha=0.1)
     train_args['batcher'] = batcher
-    training_regimen = xnmt.training_regimen.SimpleTrainingRegimen(**train_args)
+    training_regimen = regimens.SimpleTrainingRegimen(**train_args)
     for _ in range(50):
-      training_regimen.run_training(save_fct=lambda:None, update_weights=True)
+      training_regimen.run_training(save_fct=lambda:None)
     self.assertAlmostEqual(0.0,
                            training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
                            places=2)

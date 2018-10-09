@@ -18,25 +18,25 @@ import random
 
 import numpy as np
 
-from xnmt.attender import MlpAttender
-from xnmt.batcher import SrcBatcher, InOrderBatcher
-from xnmt.bridge import CopyBridge
-from xnmt.decoder import AutoRegressiveDecoder
-from xnmt.embedder import SimpleWordEmbedder
-from xnmt.eval_task import LossEvalTask, AccuracyEvalTask
-from xnmt.experiment import Experiment
-from xnmt.inference import AutoRegressiveInference
-from xnmt.input_reader import PlainTextReader
-from xnmt.lstm import BiLSTMSeqTransducer, UniLSTMSeqTransducer
-from xnmt.transform import AuxNonLinear
-from xnmt.scorer import Softmax
-from xnmt.optimizer import AdamTrainer
-from xnmt.param_collection import ParamManager
+from xnmt.modelparts.attenders import MlpAttender
+from xnmt.batchers import SrcBatcher, InOrderBatcher
+from xnmt.modelparts.bridges import CopyBridge
+from xnmt.modelparts.decoders import AutoRegressiveDecoder
+from xnmt.modelparts.embedders import SimpleWordEmbedder
+from xnmt.eval.tasks import LossEvalTask, AccuracyEvalTask
+from xnmt.experiments import Experiment
+from xnmt.inferences import AutoRegressiveInference
+from xnmt.input_readers import PlainTextReader
+from xnmt.transducers.recurrent import BiLSTMSeqTransducer, UniLSTMSeqTransducer
+from xnmt.modelparts.transforms import AuxNonLinear
+from xnmt.modelparts.scorers import Softmax
+from xnmt.optimizers import AdamTrainer
+from xnmt.param_collections import ParamManager
 from xnmt.persistence import save_to_file
 import xnmt.tee
-from xnmt.training_regimen import SimpleTrainingRegimen
-from xnmt.translator import DefaultTranslator
-from xnmt.vocab import Vocab
+from xnmt.train.regimens import SimpleTrainingRegimen
+from xnmt.models.translators import DefaultTranslator
+from xnmt.vocabs import Vocab
 
 seed=13
 random.seed(seed)
@@ -103,6 +103,7 @@ evaluate = [AccuracyEvalTask(eval_metrics="bleu,wer",
                              model=model)]
 
 standard_experiment = Experiment(
+  name="programmatic",
   model=model,
   train=train,
   evaluate=evaluate
