@@ -1,4 +1,4 @@
-report: !Experiment
+seg_learn_debug: !Experiment
   exp_global: !ExpGlobal
     default_layer_dim: 64
     compute_report: True
@@ -8,21 +8,34 @@ report: !Experiment
     trg_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     encoder: !SegmentingSeqTransducer
-      segment_composer: !LookupComposer
-        word_vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+      segment_composer: !CharNGramComposer
+        vocab_size: 1000
+        ngram_size: 4
       policy_learning: !PolicyGradient
+        weight: !DefinedSequence {sequence: [1.0]}
         output_dim: 2
+        use_baseline: True
+        z_normalization: True
         conf_penalty: !ConfidencePenalty {}
       compute_report: True
       reporter: !SegmentPLLogger
         report_path: examples/output/report
       final_transducer: !BiLSTMSeqTransducer {}
   train: !SimpleTrainingRegimen
-    run_for_epochs: 1
+    run_for_epochs: 3
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en 
     loss_calculator: !CompositeLoss
       losses: [!FeedbackLoss {child_loss: !MLELoss {}}]
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
+      - !AccuracyEvalTask
+        eval_metrics: bleu
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en  
+        hyp_file: examples/output/dev_hyp
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu,wer

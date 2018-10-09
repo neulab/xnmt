@@ -16,7 +16,7 @@ from xnmt.events import register_xnmt_handler, handle_xnmt_event
 
 class Prior(object):
   def log_ll(self, event): raise NotImplementedError()
-  def sample(self, size): raise NotImplementedError()
+  def sample(self, batch_size, size): raise NotImplementedError()
 
 class PoissonPrior(Prior, Serializable):
   """ The poisson prior """

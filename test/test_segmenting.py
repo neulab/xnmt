@@ -19,7 +19,7 @@ from xnmt.models.translators import DefaultTranslator
 from xnmt.loss_calculators import MLELoss, FeedbackLoss, GlobalFertilityLoss, CompositeLoss
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
-from xnmt.specialized_encoders.segmenting_encoder.reporter import SegmentingReporter
+from xnmt.specialized_encoders.segmenting_encoder.reporter import SegmentPLLogger
 from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLengthPrior
 from xnmt.specialized_encoders.segmenting_encoder.priors import PoissonPrior, GoldInputPrior
 from xnmt.modelparts.transforms import AuxNonLinear, Linear
@@ -36,7 +36,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     # Seeding
     numpy.random.seed(2)
     random.seed(2)
-    layer_dim = 64
+    layer_dim = 4
     xnmt.events.clear()
     ParamManager.init_param_col()
     self.segment_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
@@ -163,7 +163,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.calc_loss_single_batch()
 
   def test_reporter(self):
-    self.model.encoder.reporter = SegmentingReporter("test/tmp/seg-report.log", self.model.src_reader.vocab)
+    self.model.encoder.reporter = SegmentPLLogger("test/tmp/seg-report.log", self.model.src_reader.vocab)
     self.calc_loss_single_batch()
 
 class TestComposing(unittest.TestCase):
@@ -171,7 +171,7 @@ class TestComposing(unittest.TestCase):
     # Seeding
     numpy.random.seed(2)
     random.seed(2)
-    layer_dim = 64
+    layer_dim = 4
     xnmt.events.clear()
     ParamManager.init_param_col()
     self.segment_composer = SumComposer()
@@ -218,7 +218,7 @@ class TestComposing(unittest.TestCase):
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
     enc.segment_composer = LookupComposer(
         word_vocab = word_vocab,
-        src_vocab = self.src_reader.vocab,
+        char_vocab = self.src_reader.vocab,
         hidden_dim = self.layer_dim
     )
     enc.transduce(self.inp_emb(0))
@@ -228,10 +228,76 @@ class TestComposing(unittest.TestCase):
     word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
     enc.segment_composer = CharNGramComposer(
         word_vocab = word_vocab,
-        src_vocab = self.src_reader.vocab,
+        char_vocab = self.src_reader.vocab,
         hidden_dim = self.layer_dim
     )
     enc.transduce(self.inp_emb(0))
+
+  def test_lookup_composer_learn(self):
+    enc = self.segmenting_encoder
+    char_vocab = Vocab(i2w=['a', 'b', 'c', 'd'])
+    enc.segment_composer = LookupComposer(
+        word_vocab = None,
+        char_vocab = char_vocab,
+        hidden_dim = self.layer_dim,
+        vocab_size = 4
+    )
+    event_trigger.set_train(True)
+    enc.segment_composer.set_word((0, 1, 2)) # abc 0
+    enc.segment_composer.transduce([])
+    enc.segment_composer.set_word((0, 2, 1)) # acb 1
+    enc.segment_composer.transduce([])
+    enc.segment_composer.set_word((0, 3, 2)) # adc 2
+    enc.segment_composer.transduce([])
+    enc.segment_composer.set_word((0, 1, 2)) # abc 0
+    enc.segment_composer.transduce([])
+    enc.segment_composer.set_word((1, 3, 2)) # bdc 3
+    enc.segment_composer.transduce([])
+    enc.segment_composer.set_word((3, 3, 3)) # ddd 1 -> acb is the oldest
+    enc.segment_composer.transduce([])
+    act = dict(enc.segment_composer.lrucache.items())
+    exp = {'abc': 0, 'ddd': 1, 'adc': 2, 'bdc': 3}
+    self.assertDictEqual(act, exp)
+    
+    enc.segment_composer.set_word((0, 2, 1))
+    enc.segment_composer.transduce([])
+    enc.segment_composer.set_word((0, 3, 2))
+    enc.segment_composer.transduce([])
+    enc.segment_composer.set_word((0, 1, 2))  # abc 0
+    enc.segment_composer.transduce([])
+    enc.segment_composer.set_word((1, 3, 2))  # bdc 3
+    enc.segment_composer.transduce([])
+    enc.segment_composer.set_word((3, 3, 3))
+    enc.segment_composer.transduce([])
+    enc.segment_composer.set_word((0, 3, 1))
+    enc.segment_composer.transduce([])
+
+    event_trigger.set_train(False)
+    enc.segment_composer.set_word((3, 3, 2))
+    enc.segment_composer.transduce([])
+
+  def test_chargram_composer_learn(self):
+    enc = self.segmenting_encoder
+    char_vocab = Vocab(i2w=['a', 'b', 'c', 'd'])
+    enc.segment_composer = CharNGramComposer(
+        word_vocab = None,
+        char_vocab = char_vocab,
+        hidden_dim = self.layer_dim,
+        ngram_size = 2,
+        vocab_size = 5,
+    )
+    event_trigger.set_train(True)
+    enc.segment_composer.set_word((0, 1, 2)) # a:0, ab:1, b: 2, bc: 3, c: 4
+    enc.segment_composer.transduce([])
+    act = dict(enc.segment_composer.lrucache.items())
+    exp = {'a': 0, 'ab': 1, 'b': 2, 'bc': 3, 'c': 4}
+    self.assertDictEqual(act, exp)
+
+    enc.segment_composer.set_word((2, 3)) # c, cd, d
+    enc.segment_composer.transduce([])
+    act = dict(enc.segment_composer.lrucache.items())
+    exp = {'cd': 0, 'd': 1, 'b': 2, 'bc': 3, 'c': 4}
+    self.assertDictEqual(act, exp)
 
   def test_add_multiple_segment_composer(self):
     enc = self.segmenting_encoder
@@ -239,11 +305,11 @@ class TestComposing(unittest.TestCase):
     enc.segment_composer = SumMultipleComposer(
       composers = [
         LookupComposer(word_vocab = word_vocab,
-                                     src_vocab = self.src_reader.vocab,
-                                     hidden_dim = self.layer_dim),
+                       char_vocab = self.src_reader.vocab,
+                       hidden_dim = self.layer_dim),
         CharNGramComposer(word_vocab = word_vocab,
-                                 src_vocab = self.src_reader.vocab,
-                                 hidden_dim = self.layer_dim)
+                          char_vocab = self.src_reader.vocab,
+                          hidden_dim = self.layer_dim)
       ]
     )
     enc.transduce(self.inp_emb(0))
