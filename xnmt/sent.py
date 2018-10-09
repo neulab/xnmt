@@ -285,7 +285,7 @@ class SyntaxTree(Sentence):
       child_node = SyntaxTree.from_string(child, nt_vocab, term_vocab, depth=depth+1)
       children.append(child_node)
     return SyntaxTree(label, children, idx)
-      
+
 
   @functools.lru_cache(maxsize=1)
   def len_unpadded(self):
