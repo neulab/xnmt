@@ -209,6 +209,27 @@ class SimpleSentence(ReadableSentence):
       return self
     return self.sent_with_words(self.words[:-trunc_len])
 
+
+  def str_tokens(self, exclude_ss_es=True, exclude_unk=False, exclude_padded=True, **kwargs) -> List[str]:
+    exclude_set = set()
+    if exclude_ss_es:
+      exclude_set.add(Vocab.SS)
+      exclude_set.add(Vocab.ES)
+    if exclude_unk: exclude_set.add(self.vocab.unk_token)
+    # TODO: exclude padded if requested (i.e., all </s> tags except for the first)
+    ret_toks =  [w for w in self.words if w not in exclude_set]
+    if self.vocab: return [self.vocab[w] for w in ret_toks]
+    else: return [str(w) for w in ret_toks]
+
+  def sent_with_new_words(self, new_words):
+    return SimpleSentence(words=new_words,
+                          idx=self.idx,
+                          vocab=self.vocab,
+                          score=self.score,
+                          output_procs=self.output_procs,
+                          pad_token=self.pad_token)
+
+
 class SyntaxTree(Sentence):
   """
   A syntax tree, represented recursively
@@ -300,25 +321,6 @@ class SyntaxTree(Sentence):
   def get_truncated_sent(self, trunc_len: int) -> 'Input':
     raise NotImplementedError()
 
-
-  def str_tokens(self, exclude_ss_es=True, exclude_unk=False, exclude_padded=True, **kwargs) -> List[str]:
-    exclude_set = set()
-    if exclude_ss_es:
-      exclude_set.add(Vocab.SS)
-      exclude_set.add(Vocab.ES)
-    if exclude_unk: exclude_set.add(self.vocab.unk_token)
-    # TODO: exclude padded if requested (i.e., all </s> tags except for the first)
-    ret_toks =  [w for w in self.words if w not in exclude_set]
-    if self.vocab: return [self.vocab[w] for w in ret_toks]
-    else: return [str(w) for w in ret_toks]
-
-  def sent_with_new_words(self, new_words):
-    return SimpleSentence(words=new_words,
-                          idx=self.idx,
-                          vocab=self.vocab,
-                          score=self.score,
-                          output_procs=self.output_procs,
-                          pad_token=self.pad_token)
 
 class SegmentedSentence(SimpleSentence):
   def __init__(self, segment=[], **kwargs) -> None:
