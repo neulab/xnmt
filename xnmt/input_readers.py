@@ -280,7 +280,7 @@ class CharFromWordTextReader(PlainTextReader, Serializable):
   """
   Read in word based corpus and turned that into SegmentedSentence.
   SegmentedSentece's words are characters, but it contains the information of the segmentation.
- 
+  
   x = SegmentedSentence("i code today")
   (TRUE) x.words == ["i", "c", "o", "d", "e", "t", "o", "d", "a", "y"]
   (TRUE) x.segment == [0, 4, 9]
@@ -480,6 +480,7 @@ def read_parallel_corpus(src_reader: InputReader,
                          max_trg_len: Optional[numbers.Integral] = None) -> tuple:
   """
   A utility function to read a parallel corpus.
+
   Args:
     src_reader:
     trg_reader:
@@ -490,6 +491,7 @@ def read_parallel_corpus(src_reader: InputReader,
     max_num_sents: if not None, read only the first this many sents
     max_src_len: skip pair if src side is too long
     max_trg_len: skip pair if trg side is too long
+
   Returns:
     A tuple of (src_data, trg_data, src_batches, trg_batches) where ``*_batches = *_data`` if ``batcher=None``
   """
