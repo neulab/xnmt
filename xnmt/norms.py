@@ -2,6 +2,7 @@
 This module holds normalizers for neural networks. Currently implemented are layer norm and batch norm.
 """
 from typing import Optional
+import numbers
 
 import dynet as dy
 import numpy as np
@@ -57,7 +58,11 @@ class BatchNorm(Serializable, transforms.Transform, transducers.SeqTransducer):
 
   @serializable_init
   @events.register_xnmt_handler
-  def __init__(self, hidden_dim: int, num_dim: int, time_first: bool = False,
+  def __init__(self,
+               hidden_dim:
+               numbers.Integral,
+               num_dim: numbers.Integral,
+               time_first: bool = False,
                population_running_mean: Optional[np.ndarray] = None,
                population_running_std: Optional[np.ndarray] = None) -> None:
     model = param_collections.ParamManager.my_params(self)

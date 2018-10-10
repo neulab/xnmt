@@ -137,8 +137,10 @@ class ReferenceDiffReporter(Reporter, Serializable):
   yaml_tag = "!ReferenceDiffReporter"
   @serializable_init
   @register_xnmt_handler
-  def __init__(self, match_size: int = 3, alt_norm: bool = False, report_path: str = settings.DEFAULT_REPORT_PATH) \
-          -> None:
+  def __init__(self,
+               match_size: numbers.Integral = 3,
+               alt_norm: bool = False,
+               report_path: str = settings.DEFAULT_REPORT_PATH) -> None:
     self.match_size = match_size
     self.alt_norm = alt_norm
     self.report_path = report_path
@@ -194,9 +196,15 @@ class CompareMtReporter(Reporter, Serializable):
   yaml_tag = "!CompareMtReporter"
   @serializable_init
   @register_xnmt_handler
-  def __init__(self, out2_file: Optional[str] = None, train_file: Optional[str] = None,
-               train_counts: Optional[str] = None, alpha: numbers.Real = 1.0, ngram: int = 4, ngram_size: int = 50,
-               sent_size: int = 10, report_path: str = settings.DEFAULT_REPORT_PATH) -> None:
+  def __init__(self,
+               out2_file: Optional[str] = None,
+               train_file: Optional[str] = None,
+               train_counts: Optional[str] = None,
+               alpha: numbers.Real = 1.0,
+               ngram: numbers.Integral = 4,
+               ngram_size: numbers.Integral = 50,
+               sent_size: numbers.Integral = 10,
+               report_path: str = settings.DEFAULT_REPORT_PATH) -> None:
     self.out2_file = out2_file
     self.train_file = train_file
     self.train_counts = train_counts
@@ -294,7 +302,7 @@ class HtmlReporter(Reporter):
       </script>
    """)
 
-  def add_sent_heading(self, idx: int):
+  def add_sent_heading(self, idx: numbers.Integral):
     self.html_contents.append(f"<h1>Translation Report for Sentence {idx}</h1>")
     self.html_contents.append("<table>")
 
@@ -349,7 +357,9 @@ class AttentionReporter(HtmlReporter, Serializable):
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, max_num_sents: Optional[int] = 100, report_name: str = "attention",
+  def __init__(self,
+               max_num_sents: Optional[numbers.Integral] = 100,
+               report_name: str = "attention",
                report_path: str = settings.DEFAULT_REPORT_PATH):
     super().__init__(report_name=report_name, report_path=report_path)
     self.max_num_sents = max_num_sents
@@ -392,7 +402,7 @@ class AttentionReporter(HtmlReporter, Serializable):
                attentions: np.ndarray,
                src_tokens: Union[Sequence[str], np.ndarray],
                trg_tokens: Sequence[str],
-               idx: int,
+               idx: numbers.Integral,
                desc: str = "Attentions") -> None:
     """
     Add attention matrix to HTML code.
@@ -435,16 +445,16 @@ class SegmentationReporter(Reporter, Serializable):
 
   def create_sent_report(self, segment_actions, src, **kwargs):
     if self.report_fp is None:
-      report_path = os.path.join(self.report_path, "segment.txt")
-      utils.make_parent_dir(report_path)
-      self.report_fp = open(report_path, "w")
+      utils.make_parent_dir(self.report_path)
+      self.report_fp = open(self.report_path, "w")
 
     actions = segment_actions[0]
     src = src.str_tokens()
     words = []
     start = 0
     for end in actions:
-      words.append("".join(str(src[start:end+1])))
+      if start < end+1:
+        words.append("".join(map(str, src[start:end+1])))
       start = end+1
     print(" ".join(words), file=self.report_fp)
 

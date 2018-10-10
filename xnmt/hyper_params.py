@@ -18,7 +18,7 @@ class Scalar(Serializable):
   
   @serializable_init
   @register_xnmt_handler
-  def __init__(self, initial=0.0, times_updated=0):
+  def __init__(self, initial:numbers.Integral = 0.0, times_updated:numbers.Integral = 0):
     self.initial = initial
     self.times_updated = times_updated
     self.value = self.get_curr_value()
@@ -72,7 +72,7 @@ class DefinedSequence(Scalar, Serializable):
   yaml_tag = "!DefinedSequence"
 
   @serializable_init
-  def __init__(self, sequence: typing.Sequence[numbers.Real], times_updated: int = 0):
+  def __init__(self, sequence: typing.Sequence[numbers.Real], times_updated: numbers.Integral = 0):
     self.sequence = sequence
     if len(sequence)==0: raise ValueError("DefinedSequence initialized with empty sequence")
     super().__init__(times_updated=times_updated)

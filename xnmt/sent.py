@@ -47,7 +47,7 @@ class Sentence(object):
     Returns: unpadded length
     """
 
-  def create_padded_sent(self, pad_len: int) -> 'Sentence':
+  def create_padded_sent(self, pad_len: numbers.Integral) -> 'Sentence':
     """
     Return a new, padded version of the sentence (or self if pad_len is zero).
 
@@ -58,7 +58,7 @@ class Sentence(object):
     """
     raise NotImplementedError("must be implemented by subclasses")
 
-  def create_truncated_sent(self, trunc_len: int) -> 'Sentence':
+  def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'Sentence':
     """
     Create a new, right-truncated version of the sentence (or self if trunc_len is zero).
 
@@ -90,7 +90,7 @@ class ReadableSentence(Sentence):
     score: a score given to this sentence by a model
     output_procs: output processors to be applied when calling sent_str()
   """
-  def __init__(self, idx: int, score: Optional[numbers.Real] = None,
+  def __init__(self, idx: numbers.Integral, score: Optional[numbers.Real] = None,
                output_procs: Union[OutputProcessor, Sequence[OutputProcessor]] = []) -> None:
     super().__init__(idx=idx, score=score)
     self.output_procs = output_procs
@@ -140,7 +140,7 @@ class ScalarSentence(ReadableSentence):
     vocab: optional vocab to give different scalar values a string representation.
     score: a score given to this sentence by a model
   """
-  def __init__(self, value: int, idx: Optional[int] = None, vocab: Optional[Vocab] = None,
+  def __init__(self, value: numbers.Integral, idx: Optional[numbers.Integral] = None, vocab: Optional[Vocab] = None,
                score: Optional[numbers.Real] = None) -> None:
     super().__init__(idx=idx, score=score)
     self.value = value
@@ -158,11 +158,11 @@ class ScalarSentence(ReadableSentence):
     return 1
   def len_unpadded(self) -> int:
     return 1
-  def create_padded_sent(self, pad_len: int) -> 'ScalarSentence':
+  def create_padded_sent(self, pad_len: numbers.Integral) -> 'ScalarSentence':
     if pad_len != 0:
       raise ValueError("ScalarSentence cannot be padded")
     return self
-  def create_truncated_sent(self, trunc_len: int) -> 'ScalarSentence':
+  def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'ScalarSentence':
     if trunc_len != 0:
       raise ValueError("ScalarSentence cannot be truncated")
     return self
@@ -214,12 +214,12 @@ class SimpleSentence(ReadableSentence):
     unpadded_sent: reference to original, unpadded sentence if available
   """
   def __init__(self,
-               words: Sequence[int],
-               idx: Optional[int] = None,
+               words: Sequence[numbers.Integral],
+               idx: Optional[numbers.Integral] = None,
                vocab: Optional[Vocab] = None,
                score: Optional[numbers.Real] = None,
                output_procs: Union[OutputProcessor, Sequence[OutputProcessor]] = [],
-               pad_token: int = Vocab.ES,
+               pad_token: numbers.Integral = Vocab.ES,
                unpadded_sent: 'SimpleSentence' = None) -> None:
     super().__init__(idx=idx, score=score, output_procs=output_procs)
     self.pad_token = pad_token
@@ -241,12 +241,12 @@ class SimpleSentence(ReadableSentence):
   def len_unpadded(self):
     return sum(x != self.pad_token for x in self.words)
 
-  def create_padded_sent(self, pad_len: int) -> 'SimpleSentence':
+  def create_padded_sent(self, pad_len: numbers.Integral) -> 'SimpleSentence':
     if pad_len == 0:
       return self
     return self.sent_with_new_words(self.words + [self.pad_token] * pad_len)
 
-  def create_truncated_sent(self, trunc_len: int) -> 'SimpleSentence':
+  def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'SimpleSentence':
     if trunc_len == 0:
       return self
     return self.sent_with_words(self.words[:-trunc_len])
@@ -307,8 +307,8 @@ class ArraySentence(Sentence):
 
   def __init__(self,
                nparr: np.ndarray,
-               idx: Optional[int] = None,
-               padded_len: int = 0,
+               idx: Optional[numbers.Integral] = None,
+               padded_len: numbers.Integral= 0,
                score: Optional[numbers.Real] = None,
                unpadded_sent: 'ArraySentence' = None) -> None:
     super().__init__(idx=idx, score=score)
@@ -327,7 +327,7 @@ class ArraySentence(Sentence):
   def len_unpadded(self):
     return len(self) - self.padded_len
 
-  def create_padded_sent(self, pad_len: int) -> 'ArraySentence':
+  def create_padded_sent(self, pad_len: numbers.Integral) -> 'ArraySentence':
     if pad_len == 0:
       return self
     new_nparr = np.append(self.nparr, np.broadcast_to(np.reshape(self.nparr[:, -1], (self.nparr.shape[0], 1)),
@@ -335,7 +335,7 @@ class ArraySentence(Sentence):
     return ArraySentence(new_nparr, idx=self.idx, score=self.score, padded_len=self.padded_len + pad_len,
                          unpadded_sent=self if self.padded_len==0 else self.unpadded_sent)
 
-  def create_truncated_sent(self, trunc_len: int) -> 'ArraySentence':
+  def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'ArraySentence':
     if trunc_len == 0:
       return self
     new_nparr = np.asarray(self.nparr[:-trunc_len])
@@ -359,7 +359,7 @@ class NbestSentence(SimpleSentence):
     nbest_id: The sentence id in the nbest list
     print_score: If True, print nbest_id, score, content separated by ``|||``. If False, drop the score.
   """
-  def __init__(self, base_sent: SimpleSentence, nbest_id: int, print_score: bool = False) -> None:
+  def __init__(self, base_sent: SimpleSentence, nbest_id: numbers.Integral, print_score: bool = False) -> None:
     super().__init__(words=base_sent.words, vocab=base_sent.vocab, score=base_sent.score)
     self.base_output = base_sent
     self.nbest_id = nbest_id
