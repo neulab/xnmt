@@ -1,4 +1,5 @@
-# Implements swithcout, a data augmentation strategy for NMT
+# Implements SwithcOut, a data augmentation strategy for NMT
+# RAML corrupts target side only, while SwitchOut corrupts both source and target
 # https://arxiv.org/pdf/1808.07512.pdf 
 switchout: !Experiment 
   # global parameters shared throughout the experiment

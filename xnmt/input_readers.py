@@ -229,6 +229,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
 class RamlTextReader(BaseTextReader, Serializable):
   """
   Handles the RAML sampling, can be used on the target side, or on both the source and target side.
+  Randomly replaces words according to Hamming Distance.
   https://arxiv.org/pdf/1808.07512.pdf
   https://arxiv.org/pdf/1609.00150.pdf
   """
@@ -241,7 +242,6 @@ class RamlTextReader(BaseTextReader, Serializable):
     Args:
       tau: The temperature that controls peakiness of the sampling distribution
       vocab: The vocabulary
-      include_vocab_reference: Whether to include the vocab with the input
     """
     self.tau = tau
     self.vocab = vocab
