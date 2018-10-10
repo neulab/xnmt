@@ -1,7 +1,8 @@
 import io
 import random
-from typing import Any, Optional, Sequence
+from typing import Any, List, Optional, Sequence
 import numbers
+import ast
 
 import dynet as dy
 
@@ -19,12 +20,23 @@ class LatticeNode(object):
     nodes_prev: A list indices of direct predecessors
     nodes_next: A list indices of direct successors
     value: A value assigned to this node.
+    fwd_log_prob: Lattice log probability normalized in forward-direction (successors sum to 1)
+    marginal_log_prob: Lattice log probability globally normalized
+    bwd_log_prob: Lattice log probability normalized in backward-direction (predecessors sum to 1)
   """
-  def __init__(self, nodes_prev: Sequence[numbers.Integral], nodes_next: Sequence[numbers.Integral], value: Any) \
-          -> None:
+  def __init__(self,
+               nodes_prev: Sequence[numbers.Integral],
+               nodes_next: Sequence[numbers.Integral],
+               value: Any,
+               fwd_log_prob: Optional[numbers.Real]=None,
+               marginal_log_prob: Optional[numbers.Real]=None,
+               bwd_log_prob: Optional[numbers.Real]=None) -> None:
     self.nodes_prev = nodes_prev
     self.nodes_next = nodes_next
     self.value = value
+    self.fwd_log_prob = fwd_log_prob
+    self.marginal_log_prob = marginal_log_prob
+    self.bwd_log_prob = bwd_log_prob
 
   def new_node_with_val(self, value: Any) -> 'LatticeNode':
     """
@@ -39,7 +51,7 @@ class LatticeNode(object):
     return LatticeNode(self.nodes_prev, self.nodes_next, value)
 
 
-class Lattice(sent.Sentence):
+class Lattice(sent.ReadableSentence):
   """
   A lattice structure.
 
@@ -51,9 +63,10 @@ class Lattice(sent.Sentence):
     nodes: list of lattice nodes
   """
 
-  def __init__(self, idx: Optional[numbers.Integral], nodes: Sequence[LatticeNode]) -> None:
+  def __init__(self, idx: Optional[numbers.Integral], nodes: Sequence[LatticeNode], vocab: vocabs.Vocab) -> None:
     self.idx = idx
     self.nodes = nodes
+    self.vocab = vocab
     assert len(nodes[0].nodes_prev) == 0
     assert len(nodes[-1].nodes_next) == 0
     for t in range(1, len(nodes) - 1):
@@ -170,6 +183,30 @@ class Lattice(sent.Sentence):
         nodes[pred_i].nodes_next.append(pos)
     return nodes
 
+  def str_tokens(self, **kwargs) -> List[str]:
+    """
+    Return list of readable string tokens.
+
+    Args:
+      **kwargs: ignored
+
+    Returns: list of tokens of linearized lattice.
+    """
+    return [self.vocab.i2w[node.value] for node in self.nodes]
+
+  def sent_str(self, custom_output_procs=None, **kwargs) -> str:
+    """
+    Return a single string containing the readable version of the sentence.
+
+    Args:
+      custom_output_procs: ignored
+      **kwargs: ignored
+
+    Returns: readable string
+    """
+    out_str = str(self.str_tokens(**kwargs), [node.nodes_next for node in self.nodes])
+    return out_str
+  
 # TODO: remove BinnedLattice
 class BinnedLattice(Lattice):
   """
@@ -187,18 +224,18 @@ class BinnedLattice(Lattice):
   def __repr__(self):
     return str(self.bins)
 
-  def bins_to_nodes(self, bins, drop_arcs=0.0):
+  def bins_to_nodes(self, bins, dropout_arcs=0.0):
     assert len(bins[0]) == len(bins[-1]) == len(bins[0][0]) == len(bins[-1][0]) == 1
     nodes = [LatticeNode([], [], bins[0][0][0])]
     prev_indices = [0]
     for cur_bin in bins[1:-1]:
       new_prev_indices = []
-      if drop_arcs > 0.0:
+      if dropout_arcs > 0.0:
         shuffled_bin = list(cur_bin)
         random.shuffle(shuffled_bin)
         dropped_bin = [shuffled_bin[0]]
         for b in shuffled_bin[1:]:
-          if random.random() > drop_arcs:
+          if random.random() > dropout_arcs:
             dropped_bin.append(b)
         cur_bin = dropped_bin
       for rep in cur_bin:
@@ -214,8 +251,56 @@ class BinnedLattice(Lattice):
     nodes.append(LatticeNode(prev_indices, [], bins[-1][0][0]))
     return self._add_bwd_connections(nodes)
 
-  def drop_arcs(self, dropout):
-    return Lattice(nodes=self.bins_to_nodes(self.bins, drop_arcs=dropout))
+  def dropout_arcs(self, dropout):
+    return Lattice(idx=self.idx,
+                   nodes=self.bins_to_nodes(self.bins, dropout_arcs=dropout))
+
+
+class LatticeReader(input_readers.BaseTextReader, Serializable):
+  """
+  Reads lattices from a text file.
+
+  The expected lattice file format is as follows:
+  * 1 line per lattice
+  * lines are serialized python lists / tuples
+  * 2 lists per lattice:
+    - list of nodes, with every node a 4-tuple: (lexicon_entry, fwd_log_prob, marginal_log_prob, bwd_log_prob)
+    - list of arcs, each arc a tuple: (node_id_start, node_id_end)
+            - node_id references the nodes and is 0-indexed
+            - node_id_start < node_id_end
+  * All paths must share a common start and end node, i.e. <s> and </s> need to be contained in the lattice
+
+  A simple example lattice:
+    [('<s>', 0.0, 0.0, 0.0), ('buenas', 0, 0.0, 0.0), ('tardes', 0, 0.0, 0.0), ('</s>', 0.0, 0.0, 0.0)],[(0, 1), (1, 2), (2, 3)]
+
+  Args:
+    vocab: Vocabulary to convert string tokens to integer ids. If not given, plain text will be assumed to contain
+           space-separated integer ids.
+  """
+  yaml_tag = '!LatticeReader'
+
+  @serializable_init
+  def __init__(self, vocab: vocabs.Vocab):
+    self.vocab = vocab
+
+  def read_sent(self, line, idx):
+    node_list, arc_list = ast.literal_eval(line)
+    nodes = [LatticeNode(nodes_prev=[], nodes_next=[],
+                         value=self.vocab.convert(item[0]),
+                         fwd_log_prob=item[1], marginal_log_prob=item[2], bwd_log_prob=item[2])
+             for item in node_list]
+    for from_index, to_index in arc_list:
+      nodes[from_index].nodes_next.append(to_index)
+      nodes[to_index].nodes_prev.append(from_index)
+
+    assert nodes[0].val == self.vocab.SS
+    assert nodes[-1].val == self.vocab.ES
+
+    return Lattice(idx=idx, nodes=nodes, vocab=self.vocab)
+
+  def vocab_size(self):
+    return len(self.vocab)
+
 
 # TODO: replace by reader that reads actual lattices from file
 class LatticeTextReader(input_readers.BaseTextReader, Serializable):
@@ -332,15 +417,15 @@ class LatticeEmbedder(embedders.SimpleWordEmbedder, Serializable):
     self.fix_norm = None
     self.arc_dropout = arc_dropout
 
-  def embed_sent(self, sent):
-    if batchers.is_batched(sent):
-      assert len(sent) == 1, "LatticeEmbedder requires batch size of 1"
-      assert sent.mask is None
-      sent = sent[0]
+  def embed_sent(self, s):
+    if batchers.is_batched(s):
+      assert len(s) == 1, "LatticeEmbedder requires batch size of 1"
+      assert s.mask is None
+      s = s[0]
     if self.train and self.arc_dropout > 0.0:
-      sent = sent.drop_arcs(self.arc_dropout)
-    embedded_nodes = [word.new_node_with_val(self.embed(word.value)) for word in sent]
-    return Lattice(idx=sent.idx, nodes=embedded_nodes)
+      s = s.dropout_arcs(self.arc_dropout)
+    embedded_nodes = [word.new_node_with_val(self.embed(word.value)) for word in s]
+    return Lattice(idx=s.idx, nodes=embedded_nodes)
 
   @events.handle_xnmt_event
   def on_set_train(self, val):
