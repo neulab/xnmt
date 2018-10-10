@@ -2,6 +2,15 @@ lattice: !Experiment
   exp_global: !ExpGlobal
     default_layer_dim: 32 # 512
     dropout: 0.3
+  preproc: !PreprocRunner
+    overwrite: False
+    tasks:
+    - !PreprocExtract
+      in_files:
+      - examples/data/fisher_dev.es.plf
+      out_files:
+      - examples/output/fisher_dev.es.xlat
+      specs: !LatticeFromPlfExtractor {}
   model: !DefaultTranslator
     _xnmt_id: task1_model
     src_embedder: !LatticeEmbedder

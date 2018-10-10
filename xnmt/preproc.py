@@ -1,4 +1,3 @@
-import argparse
 import time
 import sys
 import os.path
@@ -642,57 +641,57 @@ class MelFiltExtractor(Extractor, Serializable):
     logger.debug(f"feature extraction took {time.time()-start_time:.3f} seconds")
 
 class LatticeFromPlfExtractor(Extractor, Serializable):
+  """
+  Creates node-labeled lattices that can be read by the ``LatticeInputReader``.
+
+  The input to this extractor is a list of edge-labeled lattices in PLF format. The PLF format is described here:
+  http://www.statmt.org/moses/?n=Moses.WordLattices
+  It is used, among others, in the Fisher/Callhome Spanish-to-English Speech Translation Corpus (Post et al, 2013).
+  """
+
   yaml_tag = "!LatticeFromPlfExtractor"
 
   def extract_to(self, in_file: str, out_file: str):
-    looper = LatticeFromPlfExtractor.FileLooper(in_file)
+
     output_file = open(out_file, "w")
 
     counter, num_node_sum1, num_edge_sum1, num_node_sum2, num_edge_sum2 = 0, 0, 0, 0, 0
-    for line in looper.next():
-      graph = LatticeFromPlfExtractor.Lattice()
-      graph.read_plf_line(line)
-      graph.insert_initial_node()
-      graph.insert_final_node()
-      graph.forward()
-      graph2 = LatticeFromPlfExtractor.Lattice.convert_to_node_labeled_lattice(graph)
-      if len(graph2.nodes) == 1:
-        graph2.insert_initial_node()
-      serial = graph2.serialize_to_string()
-      output_file.write(serial + "\n")
-      counter += 1
-      num_node_sum1 += len(graph.nodes)
-      num_node_sum2 += len(graph2.nodes)
-      num_edge_sum1 += len(graph.edges)
-      num_edge_sum2 += len(graph2.edges)
-      if counter % 1000 == 0:
-        logger.info(f"finished {counter} lattices.")
+    with open(in_file) as f:
+      for line in f:
+        graph = LatticeFromPlfExtractor._Lattice()
+        graph.read_plf_line(line)
+        graph.insert_initial_node()
+        graph.insert_final_node()
+        graph.forward()
+        graph2 = LatticeFromPlfExtractor._Lattice.convert_to_node_labeled_lattice(graph)
+        if len(graph2.nodes) == 1:
+          graph2.insert_initial_node()
+        serial = graph2.serialize_to_string()
+        output_file.write(serial + "\n")
+        counter += 1
+        num_node_sum1 += len(graph.nodes)
+        num_node_sum2 += len(graph2.nodes)
+        num_edge_sum1 += len(graph.edges)
+        num_edge_sum2 += len(graph2.edges)
+        if counter % 1000 == 0:
+          logger.info(f"finished {counter} lattices.")
 
     output_file.close()
 
     logger.info(f"avg # nodes, # edges for edge-labeled lattices: {float(num_node_sum1) / counter}, {float(num_edge_sum1) / counter}")
     logger.info(f"avg # nodes, # edges for node-labeled lattices: {float(num_node_sum2) / counter}, {float(num_edge_sum2) / counter}")
 
-  class Lattice(object):
+  class _Lattice(object):
 
     def __init__(self, nodes=None, edges=None):
       self.nodes = nodes
       self.edges = edges
 
-    def update_vocab_counts(self, all_words):
-      for word in [n.label[0] for n in self.nodes]:
-        if not word in all_words:
-          all_words[word] = 0
-        all_words[word] += 1
-
-    def serialize_to_string(self, valid_vocab=None):
+    def serialize_to_string(self):
       node_ids = {}
       for n in self.nodes:
         node_ids[n] = len(node_ids)
-      if valid_vocab is not None:
-        node_lst = [(n.label[0] if n.label[0] in valid_vocab else "<unk>", n.label[1]) for n in self.nodes]
-      else:
-        node_lst = [n.label for n in self.nodes]
+      node_lst = [n.label for n in self.nodes]
       node_str = "[" + ", ".join(["(" + ", ".join(
         [("'" + str(labelItem) + "'" if type(labelItem) == str else str(labelItem)) for labelItem in node]) + ")" for
                                  node in node_lst]) + "]"
@@ -705,14 +704,14 @@ class LatticeFromPlfExtractor(Extractor, Serializable):
       return node_str + "," + edge_str
 
     def insert_initial_node(self):
-      initial_node = LatticeFromPlfExtractor.LatticeLabel(label=("<s>", 0.0, 0.0, 0.0))
+      initial_node = LatticeFromPlfExtractor._LatticeLabel(label=("<s>", 0.0, 0.0, 0.0))
       if len(self.nodes) > 0:
-        self.edges.insert(0, (initial_node, self.nodes[0], LatticeFromPlfExtractor.LatticeLabel(("<s>", 0.0))))
+        self.edges.insert(0, (initial_node, self.nodes[0], LatticeFromPlfExtractor._LatticeLabel(("<s>", 0.0))))
       self.nodes.insert(0, initial_node)
 
     def insert_final_node(self):
-      final_node = LatticeFromPlfExtractor.LatticeLabel(label=("final-node", 0.0))
-      self.edges.append((self.nodes[-1], final_node, LatticeFromPlfExtractor.LatticeLabel(("</s>", 0.0))))
+      final_node = LatticeFromPlfExtractor._LatticeLabel(label=("final-node", 0.0))
+      self.edges.append((self.nodes[-1], final_node, LatticeFromPlfExtractor._LatticeLabel(("</s>", 0.0))))
       self.nodes.append(final_node)
 
     @staticmethod
@@ -728,8 +727,8 @@ class LatticeFromPlfExtractor(Extractor, Serializable):
         for edge2 in edge_labeled_lattice.edges:
           edge2_from, _, edge2_label = edge2
           if edge1_to == edge2_from:
-            word_node_edges.append((edge1_label, edge2_label, LatticeFromPlfExtractor.LatticeLabel()))
-      return LatticeFromPlfExtractor.Lattice(nodes=word_nodes, edges=word_node_edges)
+            word_node_edges.append((edge1_label, edge2_label, LatticeFromPlfExtractor._LatticeLabel()))
+      return LatticeFromPlfExtractor._Lattice(nodes=word_nodes, edges=word_node_edges)
 
     def forward(self):
       """
@@ -749,11 +748,11 @@ class LatticeFromPlfExtractor(Extractor, Serializable):
         to_node.label = (to_node.marginal_log_prob,)
         edge_label.label = tuple(list(edge_label.label) + [min(0.0, math.log(marginal_link_prob))])
       for node in self.nodes:
-        incomingEdges = [edge for edge in self.edges if edge[1] == node]
-        incomingSum = sum([math.exp(edge[0].marginal_log_prob) for edge in incomingEdges])
-        for edge in incomingEdges:
+        incoming_edges = [edge for edge in self.edges if edge[1] == node]
+        incoming_sum = sum([math.exp(edge[0].marginal_log_prob) for edge in incoming_edges])
+        for edge in incoming_edges:
           from_node, to_node, edge_label = edge
-          bwd_weight_log = min(0.0, edge[0].marginal_log_prob - math.log(incomingSum))
+          bwd_weight_log = min(0.0, edge[0].marginal_log_prob - math.log(incoming_sum))
           edge_label.label = tuple(list(edge_label.label) + [bwd_weight_log])
 
     def read_plf_line(self, line):
@@ -766,12 +765,12 @@ class LatticeFromPlfExtractor(Extractor, Serializable):
           if token == "(":
             parenth_depth += 1
             if parenth_depth == 2:
-              new_node = LatticeFromPlfExtractor.LatticeLabel(label=None)
+              new_node = LatticeFromPlfExtractor._LatticeLabel(label=None)
               plf_nodes.append(new_node)
           elif token == ")":
             parenth_depth -= 1
             if parenth_depth == 0:
-              new_node = LatticeFromPlfExtractor.LatticeLabel(label=None)
+              new_node = LatticeFromPlfExtractor._LatticeLabel(label=None)
               plf_nodes.append(new_node)
               break  # end of the lattice
           elif token[0] == "'":
@@ -779,7 +778,7 @@ class LatticeFromPlfExtractor(Extractor, Serializable):
             cur_node_id = len(plf_nodes) - 1
             edge_from = cur_node_id
             edge_to = cur_node_id + distance
-            edge_label = LatticeFromPlfExtractor.LatticeLabel(label=(word, score))
+            edge_label = LatticeFromPlfExtractor._LatticeLabel(label=(word, score))
             plf_edges.append((edge_from, edge_to, edge_label))
       resolved_edges = []
       for edge in plf_edges:
@@ -788,33 +787,10 @@ class LatticeFromPlfExtractor(Extractor, Serializable):
       self.nodes = plf_nodes
       self.edges = resolved_edges
 
-  class LatticeLabel(object):
+  class _LatticeLabel(object):
     """
     This can be assigned to a node or an arc (to allow convenient converting between arcs and nodes)
     """
 
     def __init__(self, label=None):
       self.label = label
-
-    def __str__(self):
-      return "l:" + str(self.label)
-
-    def __repr__(self):
-      return "l:" + self.__str__()
-
-    def serialize_to_string(self):
-      label = self.label
-      if type(label) not in [list, tuple]:
-        label = [label]
-      return "\t".join([str(i) for i in label])
-
-  class FileLooper(object):
-    def __init__(self, file_name):
-      self.file_name = file_name
-
-    def next(self):
-      counter = 0
-      with open(self.file_name) as f:
-        for line in f:
-          yield (line)
-          counter += 1
