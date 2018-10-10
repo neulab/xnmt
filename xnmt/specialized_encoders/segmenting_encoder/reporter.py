@@ -8,8 +8,8 @@ from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.persistence import serializable_init, Serializable, Ref, Path
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import SegmentingSeqTransducer
 
-class SegmentingReporter(Serializable):
-  yaml_tag = "!SegmentingReporter"
+class SegmentPLLogger(Serializable):
+  yaml_tag = "!SegmentPLLogger"
 
   @serializable_init
   @register_xnmt_handler
@@ -40,10 +40,16 @@ class SegmentingReporter(Serializable):
     format.append("{:>5}")
     table.append(["ACT"] + sample_dense)
     if encoder.policy_learning is not None:
-      policy_lls = [encoder.policy_learning.policy_lls[j].npvalue().transpose()[self.idx] for j in range(src_len)]
+      if self.src_sent.batch_size() == 1:
+        policy_lls = [encoder.policy_learning.policy_lls[j].npvalue().transpose() for j in range(src_len)]
+      else:
+        policy_lls = [encoder.policy_learning.policy_lls[j].npvalue().transpose()[self.idx] for j in range(src_len)]
       table.append(["LLS"] + ["{:.4f}".format(math.exp(policy_lls[j][sample_dense[j]])) for j in range(src_len)])
       self.pad_last(table)
-      valid_pos = [1 if self.idx in x else 0 for x in encoder.policy_learning.valid_pos]
+      if encoder.policy_learning.valid_pos is not None:
+        valid_pos = [1 if self.idx in x else 0 for x in encoder.policy_learning.valid_pos]
+      else:
+        valid_pos = [1 for _ in range(src.sent_len())]
       table.append(["MSK"] + valid_pos)
       format.append("{:>8}")
       format.append("{:>5}")

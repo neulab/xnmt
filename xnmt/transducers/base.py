@@ -1,4 +1,6 @@
 from typing import List
+import numbers
+
 import dynet as dy
 
 from xnmt.modelparts import transforms
@@ -72,7 +74,7 @@ class ModularSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!ModularSeqTransducer'
 
   @serializable_init
-  def __init__(self, input_dim: int, modules: List[SeqTransducer]):
+  def __init__(self, input_dim: numbers.Integral, modules: List[SeqTransducer]):
     self.modules = modules
 
   def shared_params(self):
@@ -117,7 +119,7 @@ class TransformSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!TransformSeqTransducer'
 
   @serializable_init
-  def __init__(self, transform: transforms.Transform, downsample_by: int = 1):
+  def __init__(self, transform: transforms.Transform, downsample_by: numbers.Integral = 1) -> None:
     self.transform = transform
     if downsample_by < 1: raise ValueError(f"downsample_by must be >=1, was {downsample_by}")
     self.downsample_by = downsample_by
@@ -142,6 +144,9 @@ class TransformSeqTransducer(SeqTransducer, Serializable):
       if out_mask:
         out_mask = out_mask.lin_subsampled(reduce_factor=self.downsample_by)
     output = self.transform.transform(src_tensor)
+    if self.downsample_by==1:
+      if len(output.dim())!=src_tensor.dim(): # can happen with seq length 1
+        output = dy.reshape(output, src_tensor.dim()[0], batch_size=src_tensor.dim()[1])
     output_seq = expression_seqs.ExpressionSequence(expr_tensor=output, mask=out_mask)
     self._final_states = [FinalTransducerState(output_seq[-1])]
     return output_seq

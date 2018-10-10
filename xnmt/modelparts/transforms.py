@@ -34,13 +34,12 @@ class Linear(Transform, Serializable):
     param_init: how to initialize weight matrices
     bias_init: how to initialize bias vectors
   """
-
   yaml_tag = "!Linear"
 
   @serializable_init
   def __init__(self,
-               input_dim: int = Ref("exp_global.default_layer_dim"),
-               output_dim: int = Ref("exp_global.default_layer_dim"),
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               output_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                bias: bool=True,
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))) -> None:
@@ -78,8 +77,8 @@ class NonLinear(Transform, Serializable):
 
   @serializable_init
   def __init__(self,
-               input_dim: int = Ref("exp_global.default_layer_dim"),
-               output_dim: int = Ref("exp_global.default_layer_dim"),
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               output_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                bias: bool = True,
                activation: str = 'tanh',
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
@@ -129,8 +128,8 @@ class AuxNonLinear(NonLinear, Serializable):
     input_dim: input dimension
     output_dim: hidden dimension
     aux_input_dim: auxiliary input dimension.
-                         The actual input dimension is aux_input_dim + input_dim. This is useful
-                         for when you want to do something like input feeding.
+                   The actual input dimension is aux_input_dim + input_dim.
+                   This is useful for when you want to do something like input feeding.
     bias: whether to add a bias
     activation: One of ``tanh``, ``relu``, ``sigmoid``, ``elu``, ``selu``, ``asinh`` or ``identity``.
     param_init: how to initialize weight matrices
@@ -141,9 +140,9 @@ class AuxNonLinear(NonLinear, Serializable):
 
   @serializable_init
   def __init__(self,
-               input_dim: int = Ref("exp_global.default_layer_dim"),
-               output_dim: int = Ref("exp_global.default_layer_dim"),
-               aux_input_dim: int = Ref("exp_global.default_layer_dim"),
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               output_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               aux_input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                bias: bool = True,
                activation: str = 'tanh',
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),

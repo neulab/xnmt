@@ -1,4 +1,5 @@
 from typing import Any
+import numbers
 
 import dynet as dy
 
@@ -56,8 +57,8 @@ class AutoRegressiveDecoder(Decoder, Serializable):
 
   @serializable_init
   def __init__(self,
-               input_dim: int = Ref("exp_global.default_layer_dim"),
-               trg_embed_dim: int = Ref("exp_global.default_layer_dim"),
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               trg_embed_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                input_feeding: bool = True,
                bridge: bridges.Bridge = bare(bridges.CopyBridge),
                rnn: recurrent.UniLSTMSeqTransducer = bare(recurrent.UniLSTMSeqTransducer),

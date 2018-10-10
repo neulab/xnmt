@@ -1,14 +1,13 @@
 from typing import Union, List
+import numbers
 
 import dynet as dy
 import numpy as np
 
 from xnmt.losses import FactoredLossExpr
 from xnmt.persistence import serializable_init, Serializable, Ref
-
 from xnmt import sent
 from xnmt.vocabs import Vocab
-
 from xnmt.search_strategies import SamplingSearch, SearchStrategy
 from xnmt.modelparts.transforms import Linear
 from xnmt.persistence import bare
@@ -112,12 +111,12 @@ class ReinforceLoss(Serializable, LossCalculator):
   @serializable_init
   def __init__(self,
                baseline=None,
-               evaluation_metric:metrics.SentenceLevelEvaluator = bare(metrics.FastBLEUEvaluator),
-               search_strategy:SearchStrategy = bare(SamplingSearch),
-               sample_length:int = 50,
-               use_baseline:bool = False,
-               inv_eval:bool = True,
-               decoder_hidden_dim:int = Ref("exp_global.default_layer_dim")):
+               evaluation_metric: metrics.SentenceLevelEvaluator = bare(metrics.FastBLEUEvaluator),
+               search_strategy: SearchStrategy = bare(SamplingSearch),
+               sample_length: numbers.Integral = 50,
+               use_baseline: bool = False,
+               inv_eval: bool = True,
+               decoder_hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim")):
     self.inv_eval = inv_eval
     self.search_strategy = search_strategy
     self.evaluation_metric = evaluation_metric
@@ -237,8 +236,8 @@ class FeedbackLoss(Serializable, LossCalculator):
   yaml_tag = '!FeedbackLoss'
   @serializable_init
   def __init__(self,
-               child_loss: LossCalculator=bare(MLELoss),
-               repeat: int=1) -> None:
+               child_loss: LossCalculator = bare(MLELoss),
+               repeat: numbers.Integral = 1) -> None:
     self.child_loss = child_loss
     self.repeat = repeat
 

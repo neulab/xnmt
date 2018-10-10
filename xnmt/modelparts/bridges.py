@@ -1,4 +1,5 @@
-from typing import List, Sequence
+from typing import List, Optional, Sequence
+import numbers
 
 import dynet as dy
 
@@ -31,7 +32,9 @@ class NoBridge(Bridge, Serializable):
   yaml_tag = '!NoBridge'
 
   @serializable_init
-  def __init__(self, dec_layers: int = 1, dec_dim: int = Ref("exp_global.default_layer_dim")) -> None:
+  def __init__(self,
+               dec_layers: numbers.Integral = 1,
+               dec_dim: numbers.Integral = Ref("exp_global.default_layer_dim")) -> None:
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim
   def decoder_init(self, enc_final_states):
@@ -53,7 +56,9 @@ class CopyBridge(Bridge, Serializable):
   yaml_tag = '!CopyBridge'
 
   @serializable_init
-  def __init__(self, dec_layers: int = 1, dec_dim: int = Ref("exp_global.default_layer_dim")) -> None:
+  def __init__(self,
+               dec_layers: numbers.Integral = 1,
+               dec_dim: numbers.Integral = Ref("exp_global.default_layer_dim")) -> None:
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim
   def decoder_init(self, enc_final_states):
@@ -90,12 +95,12 @@ class LinearBridge(Bridge, Serializable):
     return decoder_init + [dy.tanh(dec) for dec in decoder_init]
   @serializable_init
   def __init__(self,
-               dec_layers: int = 1,
-               enc_dim: int = Ref("exp_global.default_layer_dim"),
-               dec_dim: int = Ref("exp_global.default_layer_dim"),
+               dec_layers: numbers.Integral = 1,
+               enc_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               dec_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
-               projector=None):
+               projector: Optional[transforms.Linear]=None):
     self.dec_layers = dec_layers
     self.enc_dim = enc_dim
     self.dec_dim = dec_dim

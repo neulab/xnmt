@@ -43,9 +43,11 @@ class ExpressionSequence(object):
         if e.dim() != expr_list[0].dim():
           raise AssertionError()
     if expr_tensor:
-      if not isinstance(expr_tensor,dy.Expression): raise ValueError("expr_tensor must be dynet expression, was:", type(expr_tensor))
+      if not isinstance(expr_tensor,dy.Expression):
+        raise ValueError("expr_tensor must be dynet expression, was:", type(expr_tensor))
     if expr_transposed_tensor:
-      if not isinstance(expr_transposed_tensor,dy.Expression): raise ValueError("expr_transposed_tensor must be dynet expression, was:", type(expr_transposed_tensor))
+      if not isinstance(expr_transposed_tensor,dy.Expression):
+        raise ValueError("expr_transposed_tensor must be dynet expression, was:", type(expr_transposed_tensor))
 
   def __len__(self):
     """Return length.
@@ -104,7 +106,10 @@ class ExpressionSequence(object):
       the whole sequence as a tensor expression where each column is one of the embeddings.
     """
     if self.expr_tensor is None:
-      self.expr_tensor = dy.concatenate_cols(self.expr_list) if self.expr_list else dy.transpose(self.expr_transposed_tensor)
+      if self.expr_list:
+        self.expr_tensor = dy.concatenate_cols(self.expr_list)
+      else:
+        self.expr_tensor = dy.transpose(self.expr_transposed_tensor)
     return self.expr_tensor
 
   def has_tensor(self):
