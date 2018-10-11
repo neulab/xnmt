@@ -1,6 +1,4 @@
-import io
-import random
-from typing import Any, List, Optional, Sequence
+from typing import Optional, Sequence
 import numbers
 import ast
 
@@ -12,200 +10,6 @@ from xnmt.transducers import base as transducers
 from xnmt.persistence import bare, Ref, Serializable, serializable_init
 
 
-class LatticeNode(object):
-  """
-  A lattice node, keeping track of neighboring nodes.
-
-  Args:
-    nodes_prev: A list indices of direct predecessors
-    nodes_next: A list indices of direct successors
-    value: A value assigned to this node.
-    fwd_log_prob: Lattice log probability normalized in forward-direction (successors sum to 1)
-    marginal_log_prob: Lattice log probability globally normalized
-    bwd_log_prob: Lattice log probability normalized in backward-direction (predecessors sum to 1)
-  """
-  def __init__(self,
-               nodes_prev: Sequence[numbers.Integral],
-               nodes_next: Sequence[numbers.Integral],
-               value: Any,
-               fwd_log_prob: Optional[numbers.Real]=None,
-               marginal_log_prob: Optional[numbers.Real]=None,
-               bwd_log_prob: Optional[numbers.Real]=None) -> None:
-    self.nodes_prev = nodes_prev
-    self.nodes_next = nodes_next
-    self.value = value
-    self.fwd_log_prob = fwd_log_prob
-    self.marginal_log_prob = marginal_log_prob
-    self.bwd_log_prob = bwd_log_prob
-
-  def new_node_with_val(self, value: Any) -> 'LatticeNode':
-    """
-    Create a new node that has the same location in the lattice but different value.
-
-    Args:
-      value: value of new node.
-
-    Returns:
-      A new lattice node with given new value and the same predecessors/successors as the current node.
-    """
-    return LatticeNode(self.nodes_prev, self.nodes_next, value)
-
-
-class Lattice(sent.ReadableSentence):
-  """
-  A lattice structure.
-
-  The lattice is represented as a list of nodes, each of which keep track of the indices of predecessor and
-  successor nodes.
-
-  Args:
-    idx: running sentence number (0-based; unique among sentences loaded from the same file, but not across files)
-    nodes: list of lattice nodes
-  """
-
-  def __init__(self, idx: Optional[numbers.Integral], nodes: Sequence[LatticeNode], vocab: vocabs.Vocab) -> None:
-    self.idx = idx
-    self.nodes = nodes
-    self.vocab = vocab
-    assert len(nodes[0].nodes_prev) == 0
-    assert len(nodes[-1].nodes_next) == 0
-    for t in range(1, len(nodes) - 1):
-      assert len(nodes[t].nodes_prev) > 0
-      assert len(nodes[t].nodes_next) > 0
-    self.mask = None
-    self.expr_tensor = None
-
-  def sent_len(self) -> int:
-    """Return number of nodes in the lattice.
-
-    Return:
-      Number of nodes in lattice.
-    """
-    return len(self.nodes)
-
-  def len_unpadded(self) -> int:
-    """Return number of nodes in the lattice (padding is not supported with lattices).
-
-    Returns:
-      Number of nodes in lattice.
-    """
-    return self.sent_len()
-
-  def __getitem__(self, key: numbers.Integral) -> LatticeNode:
-    """
-    Return a particular lattice node.
-
-    Args:
-      key: Index of lattice node to return.
-
-    Returns:
-      Lattice node with given index.
-    """
-    ret = self.nodes[key]
-    if isinstance(ret, list):
-      # no guarantee that slice is still a consistent graph
-      raise ValueError("Slicing not support for lattices.")
-    return ret
-
-  def create_padded_sent(self, pad_len: numbers.Integral) -> 'Lattice':
-    """
-    Return self, as padding is not supported.
-
-    Args:
-      pad_len: Number of tokens to pad, must be 0.
-
-    Returns:
-      self.
-    """
-    if pad_len != 0: raise ValueError("Lattices cannot be padded.")
-    return self
-
-  def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'Sentence':
-    """
-    Return self, as truncation is not supported.
-
-    Args:
-      trunc_len: Number of tokens to truncate, must be 0.
-
-    Returns:
-      self.
-    """
-    if trunc_len != 0: raise ValueError("Lattices cannot be truncated.")
-    return self
-
-  def reversed(self) -> 'Lattice':
-    """
-    Create a lattice with reversed direction.
-
-    The new lattice will have lattice nodes in reversed order and switched successors/predecessors.
-
-    Returns:
-      Reversed lattice.
-    """
-    rev_nodes = []
-    seq_len = len(self.nodes)
-    for node in reversed(self.nodes):
-      new_node = LatticeNode(nodes_prev=[seq_len - n - 1 for n in node.nodes_next],
-                             nodes_next=[seq_len - p - 1 for p in node.nodes_prev],
-                             value=node.value)
-      rev_nodes.append(new_node)
-    return Lattice(idx=self.idx, nodes=rev_nodes, vocab=self.vocab)
-
-  def as_list(self) -> list:
-    """
-    Return list of values.
-
-    Returns:
-      List of values.
-    """
-    return [node.value for node in self.nodes]
-
-  def as_tensor(self) -> dy.Expression:
-    """
-    Return tensor expression of complete sequence, assuming node values are DyNet vector expressions.
-
-    Returns:
-      Lattice as tensor expression.
-    """
-    if self.expr_tensor is None:
-      self.expr_tensor = dy.concatenate_cols(self.as_list())
-    return self.expr_tensor
-
-  def _add_bwd_connections(self, nodes: Sequence[LatticeNode]) -> None:
-    """
-    Add backward connections, given lattice nodes that specify only forward connections.
-
-    Args:
-      nodes: lattice nodes
-    """
-    for pos in range(len(nodes)):
-      for pred_i in nodes[pos].nodes_prev:
-        nodes[pred_i].nodes_next.append(pos)
-    return nodes
-
-  def str_tokens(self, **kwargs) -> List[str]:
-    """
-    Return list of readable string tokens.
-
-    Args:
-      **kwargs: ignored
-
-    Returns: list of tokens of linearized lattice.
-    """
-    return [self.vocab.i2w[node.value] for node in self.nodes]
-
-  def sent_str(self, custom_output_procs=None, **kwargs) -> str:
-    """
-    Return a single string containing the readable version of the sentence.
-
-    Args:
-      custom_output_procs: ignored
-      **kwargs: ignored
-
-    Returns: readable string
-    """
-    out_str = str([self.str_tokens(**kwargs), [node.nodes_next for node in self.nodes]])
-    return out_str
 
 class LatticeReader(input_readers.BaseTextReader, Serializable):
   """
@@ -236,9 +40,9 @@ class LatticeReader(input_readers.BaseTextReader, Serializable):
 
   def read_sent(self, line, idx):
     node_list, arc_list = ast.literal_eval(line)
-    nodes = [LatticeNode(nodes_prev=[], nodes_next=[],
-                         value=self.vocab.convert(item[0]),
-                         fwd_log_prob=item[1], marginal_log_prob=item[2], bwd_log_prob=item[2])
+    nodes = [sent.LatticeNode(nodes_prev=[], nodes_next=[],
+                              value=self.vocab.convert(item[0]),
+                              fwd_log_prob=item[1], marginal_log_prob=item[2], bwd_log_prob=item[2])
              for item in node_list]
     for from_index, to_index in arc_list:
       nodes[from_index].nodes_next.append(to_index)
@@ -247,7 +51,7 @@ class LatticeReader(input_readers.BaseTextReader, Serializable):
     assert nodes[0].value == self.vocab.SS
     assert nodes[-1].value == self.vocab.ES
 
-    return Lattice(idx=idx, nodes=nodes, vocab=self.vocab)
+    return sent.Lattice(idx=idx, nodes=nodes, vocab=self.vocab)
 
   def vocab_size(self):
     return len(self.vocab)
@@ -298,7 +102,7 @@ class LatticeEmbedder(embedders.SimpleWordEmbedder, Serializable):
       assert s.mask is None
       s = s[0]
     embedded_nodes = [word.new_node_with_val(self.embed(word.value)) for word in s]
-    return Lattice(idx=s.idx, nodes=embedded_nodes, vocab=s.vocab)
+    return sent.Lattice(idx=s.idx, nodes=embedded_nodes, vocab=s.vocab)
 
   @events.handle_xnmt_event
   def on_set_train(self, val):
@@ -406,9 +210,9 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
         h_t = dy.cmult(h_t, self.dropout_mask_h)
       h.append(h_t)
     self._final_states = [transducers.FinalTransducerState(h[-1], c[-1])]
-    return Lattice(idx=lattice.idx,
-                   nodes=[node_t.new_node_with_val(h_t) for node_t, h_t in zip(lattice.nodes, h)],
-                   vocab=lattice.vocab)
+    return sent.Lattice(idx=lattice.idx,
+                        nodes=[node_t.new_node_with_val(h_t) for node_t, h_t in zip(lattice.nodes, h)],
+                        vocab=lattice.vocab)
 
 
 class BiLatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
@@ -471,26 +275,25 @@ class BiLatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
 
   def transduce(self, lattice):
     if isinstance(lattice, expression_seqs.ExpressionSequence):
-      lattice = Lattice(
-        idx=lattice.idx,
-        nodes=[LatticeNode([i - 1] if i > 0 else [], [i + 1] if i < len(lattice) - 1 else [], value) \
-               for (i, value) in enumerate(lattice)])
+      lattice = sent.Lattice(idx=lattice.idx,
+                             nodes=[sent.LatticeNode([i - 1] if i > 0 else [],
+                                                     [i + 1] if i < len(lattice) - 1 else [],
+                                                     value)
+                                    for (i, value) in enumerate(lattice)])
 
     # first layer
     forward_es = self.forward_layers[0].transduce(lattice)
     rev_backward_es = self.backward_layers[0].transduce(lattice.reversed())
 
     for layer_i in range(1, len(self.forward_layers)):
-      concat_fwd = Lattice(
-        idx=lattice.idx,
-        nodes=[node_fwd.new_node_with_val(dy.concatenate([node_fwd.value, node_bwd.value])) \
-               for node_fwd, node_bwd in zip(forward_es, reversed(rev_backward_es.nodes))],
-        vocab=lattice.vocab)
-      concat_bwd = Lattice(
-        idx=lattice.idx,
-        nodes=[node_bwd.new_node_with_val(dy.concatenate([node_fwd.value, node_bwd.value])) \
-               for node_fwd, node_bwd in zip(reversed(forward_es.nodes), rev_backward_es)],
-        vocab=lattice.vocab)
+      concat_fwd = sent.Lattice(idx=lattice.idx,
+                                nodes=[node_fwd.new_node_with_val(dy.concatenate([node_fwd.value, node_bwd.value]))
+                                       for node_fwd, node_bwd in zip(forward_es, reversed(rev_backward_es.nodes))],
+                                vocab=lattice.vocab)
+      concat_bwd = sent.Lattice(idx=lattice.idx,
+                                nodes=[node_bwd.new_node_with_val(dy.concatenate([node_fwd.value, node_bwd.value]))
+                                       for node_fwd, node_bwd in zip(reversed(forward_es.nodes), rev_backward_es)],
+                                vocab=lattice.vocab)
       new_forward_es = self.forward_layers[layer_i].transduce(concat_fwd)
       rev_backward_es = self.backward_layers[layer_i].transduce(concat_bwd)
       forward_es = new_forward_es
@@ -503,8 +306,8 @@ class BiLatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
                                                        self.backward_layers[layer_i].get_final_states()[
                                                          0].cell_expr()])) \
       for layer_i in range(len(self.forward_layers))]
-    return Lattice(
-      idx=lattice.idx,
-      nodes=[lattice.nodes[i].new_node_with_val(dy.concatenate([forward_es[i].value, rev_backward_es[-i - 1].value]))
-             for i in range(forward_es.sent_len())],
-      vocab=lattice.vocab)
+    return sent.Lattice(idx=lattice.idx,
+                        nodes=[lattice.nodes[i].new_node_with_val(dy.concatenate([forward_es[i].value,
+                                                                                  rev_backward_es[-i - 1].value]))
+                               for i in range(forward_es.sent_len())],
+                        vocab=lattice.vocab)
