@@ -314,7 +314,6 @@ class NbestSentence(SimpleSentence):
       entries.insert(1, str(self.base_output.score))
     return " ||| ".join(entries)
 
-# TODO: document that the lattice also work similar to the ExpressionSequence class
 class LatticeNode(object):
   """
   A lattice node, keeping track of neighboring nodes.
@@ -361,9 +360,15 @@ class Lattice(ReadableSentence):
   The lattice is represented as a list of nodes, each of which keep track of the indices of predecessor and
   successor nodes.
 
+  Implements the ReadableSentence base class for use with word IDs as node values.
+
+  Also doubles as the equivalent of an ExpressionSequence for lattice structure (when node values are DyNet
+  expressions) by partly implementing the ExpressionSequence interface (namely, as_list() and as_tensor() methods)
+
   Args:
     idx: running sentence number (0-based; unique among sentences loaded from the same file, but not across files)
     nodes: list of lattice nodes
+    vocab: vocabulary for word IDs
   """
 
   def __init__(self, idx: Optional[numbers.Integral], nodes: Sequence[LatticeNode], vocab: Vocab) -> None:

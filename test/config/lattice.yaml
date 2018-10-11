@@ -1,6 +1,6 @@
 lattice: !Experiment
   exp_global: !ExpGlobal
-    default_layer_dim: 32 # 512
+    default_layer_dim: 32
     dropout: 0.3
   preproc: !PreprocRunner
     overwrite: False
@@ -16,9 +16,7 @@ lattice: !Experiment
     encoder: !BiLatticeLSTMTransducer
       layers: 2
     attender: !MlpAttender {}
-    trg_embedder: !SimpleWordEmbedder
-      emb_dim: 128
-      vocab: !Ref { name : trg_vocab }
+    trg_embedder: !SimpleWordEmbedder {}
     decoder: !AutoRegressiveDecoder
       rnn: !UniLSTMSeqTransducer
         layers: 1
@@ -26,8 +24,7 @@ lattice: !Experiment
         output_dim: 512
         activation: 'tanh'
       bridge: !CopyBridge {}
-      scorer: !Softmax
-        vocab: !Ref { name : trg_vocab }
+      scorer: !Softmax {}
     src_reader: !LatticeReader
       vocab: !Vocab
         vocab_file: examples/data/fisher_dev.es.vocab
@@ -46,7 +43,7 @@ lattice: !Experiment
     patience: 5
     src_file: examples/output/fisher_dev.es.xlat
     trg_file: examples/data/fisher_dev.en
-    dev_tasks: &task1_model_dev_tasks
+    dev_tasks:
       - !AccuracyEvalTask
         eval_metrics: bleu
         src_file: examples/output/fisher_dev.es.xlat
