@@ -21,6 +21,7 @@ class LatticeEmbedder(embedders.Embedder, Serializable):
   @serializable_init
   def __init__(self, base_embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder)) -> None:
     self.base_embedder = base_embedder
+    
   def embed(self, word) -> dy.Expression:
     return self.base_embedder.embed(word)
 

@@ -12,22 +12,14 @@ lattice: !Experiment
       - examples/output/fisher_dev.es.xlat
       specs: !LatticeFromPlfExtractor {}
   model: !DefaultTranslator
-    _xnmt_id: task1_model
-    src_embedder: !LatticeEmbedder2
-      _xnmt_id: task1_model_src_emb
-      #emb_dim: 128
-      #vocab: !Ref { name : src_vocab }
+    src_embedder: !LatticeEmbedder {}
     encoder: !BiLatticeLSTMTransducer
-      _xnmt_id: task1_model_enc
       layers: 2
-    attender: !MlpAttender
-      _xnmt_id: task1_model_att
+    attender: !MlpAttender {}
     trg_embedder: !SimpleWordEmbedder
-      _xnmt_id: task1_model_trg_emb
       emb_dim: 128
       vocab: !Ref { name : trg_vocab }
     decoder: !AutoRegressiveDecoder
-      _xnmt_id: task1_model_dec
       rnn: !UniLSTMSeqTransducer
         layers: 1
       transform: !AuxNonLinear
@@ -38,10 +30,8 @@ lattice: !Experiment
         vocab: !Ref { name : trg_vocab }
     src_reader: !LatticeReader
       vocab: !Vocab
-        _xnmt_id: src_vocab
         vocab_file: examples/data/fisher_dev.es.vocab
     trg_reader: !PlainTextReader
-      _xnmt_id: task1_model_trg_reader
       vocab: !Vocab
         _xnmt_id: trg_vocab
         vocab_file: examples/data/fisher_dev.en.vocab
