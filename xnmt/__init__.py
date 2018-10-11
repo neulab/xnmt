@@ -45,13 +45,13 @@ import xnmt.param_initializers
 import xnmt.persistence
 import xnmt.reports
 import xnmt.rl
-import xnmt.specialized_encoders.lattice
 import xnmt.specialized_encoders.segmenting_encoder
 import xnmt.specialized_encoders.self_attentional_am
 import xnmt.specialized_encoders.tilburg_harwath
 import xnmt.train.regimens
 import xnmt.train.tasks
 import xnmt.transducers.convolution
+import xnmt.transducers.lattice
 import xnmt.transducers.network_in_network
 import xnmt.transducers.positional
 import xnmt.transducers.pyramidal
