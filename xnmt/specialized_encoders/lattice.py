@@ -2,35 +2,10 @@ from typing import Optional, Sequence
 import numbers
 import dynet as dy
 
-from xnmt import batchers, events, expression_seqs, param_collections, param_initializers, sent
-from xnmt.modelparts import embedders
+from xnmt import events, expression_seqs, param_collections, sent
 from xnmt.transducers import base as transducers
-from xnmt.persistence import bare, Ref, Serializable, serializable_init
+from xnmt.persistence import Ref, Serializable, serializable_init
 
-
-class LatticeEmbedder(embedders.Embedder, Serializable):
-  """
-  Embed lattices by delegating word embedding to a base embedder and adding the lattice structure of the input.
-
-  Args:
-     base_embedder: base embedder to use to compute word embeddings for each lattice node.
-  """
-
-  yaml_tag = '!LatticeEmbedder'
-
-  @serializable_init
-  def __init__(self, base_embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder)) -> None:
-    self.base_embedder = base_embedder
-    
-  def embed(self, word) -> dy.Expression:
-    return self.base_embedder.embed(word)
-
-  def embed_sent(self, x) -> sent.Lattice:
-    if batchers.is_batched(x):
-      if x.batch_size()!=1: raise ValueError(f"batch size must be one for lattice embedder, was: {x.batch_size()}")
-      x = x[0]
-    embedded_nodes = [word.new_node_with_val(self.base_embedder.embed(word.value)) for word in x]
-    return sent.Lattice(idx=x.idx, nodes=embedded_nodes, vocab=x.vocab)
 
 class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
   """
