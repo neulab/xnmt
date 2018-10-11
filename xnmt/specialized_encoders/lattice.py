@@ -149,7 +149,7 @@ class Lattice(sent.ReadableSentence):
                              nodes_next=[seq_len - p - 1 for p in node.nodes_prev],
                              value=node.value)
       rev_nodes.append(new_node)
-    return Lattice(idx=self.idx, nodes=rev_nodes)
+    return Lattice(idx=self.idx, nodes=rev_nodes, vocab=self.vocab)
 
   def as_list(self) -> list:
     """
@@ -204,9 +204,9 @@ class Lattice(sent.ReadableSentence):
 
     Returns: readable string
     """
-    out_str = str(self.str_tokens(**kwargs), [node.nodes_next for node in self.nodes])
+    out_str = str([self.str_tokens(**kwargs), [node.nodes_next for node in self.nodes]])
     return out_str
-  
+
 # TODO: remove BinnedLattice
 class BinnedLattice(Lattice):
   """
@@ -293,8 +293,8 @@ class LatticeReader(input_readers.BaseTextReader, Serializable):
       nodes[from_index].nodes_next.append(to_index)
       nodes[to_index].nodes_prev.append(from_index)
 
-    assert nodes[0].val == self.vocab.SS
-    assert nodes[-1].val == self.vocab.ES
+    assert nodes[0].value == self.vocab.SS
+    assert nodes[-1].value == self.vocab.ES
 
     return Lattice(idx=idx, nodes=nodes, vocab=self.vocab)
 
@@ -425,7 +425,7 @@ class LatticeEmbedder(embedders.SimpleWordEmbedder, Serializable):
     if self.train and self.arc_dropout > 0.0:
       s = s.dropout_arcs(self.arc_dropout)
     embedded_nodes = [word.new_node_with_val(self.embed(word.value)) for word in s]
-    return Lattice(idx=s.idx, nodes=embedded_nodes)
+    return Lattice(idx=s.idx, nodes=embedded_nodes, vocab=s.vocab)
 
   @events.handle_xnmt_event
   def on_set_train(self, val):
@@ -533,7 +533,9 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
         h_t = dy.cmult(h_t, self.dropout_mask_h)
       h.append(h_t)
     self._final_states = [transducers.FinalTransducerState(h[-1], c[-1])]
-    return Lattice(idx=lattice.idx, nodes=[node_t.new_node_with_val(h_t) for node_t, h_t in zip(lattice.nodes, h)])
+    return Lattice(idx=lattice.idx,
+                   nodes=[node_t.new_node_with_val(h_t) for node_t, h_t in zip(lattice.nodes, h)],
+                   vocab=lattice.vocab)
 
 
 class BiLatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
@@ -609,11 +611,13 @@ class BiLatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
       concat_fwd = Lattice(
         idx=lattice.idx,
         nodes=[node_fwd.new_node_with_val(dy.concatenate([node_fwd.value, node_bwd.value])) \
-               for node_fwd, node_bwd in zip(forward_es, reversed(rev_backward_es.nodes))])
+               for node_fwd, node_bwd in zip(forward_es, reversed(rev_backward_es.nodes))],
+        vocab=lattice.vocab)
       concat_bwd = Lattice(
         idx=lattice.idx,
         nodes=[node_bwd.new_node_with_val(dy.concatenate([node_fwd.value, node_bwd.value])) \
-               for node_fwd, node_bwd in zip(reversed(forward_es.nodes), rev_backward_es)])
+               for node_fwd, node_bwd in zip(reversed(forward_es.nodes), rev_backward_es)],
+        vocab=lattice.vocab)
       new_forward_es = self.forward_layers[layer_i].transduce(concat_fwd)
       rev_backward_es = self.backward_layers[layer_i].transduce(concat_bwd)
       forward_es = new_forward_es
@@ -629,4 +633,5 @@ class BiLatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
     return Lattice(
       idx=lattice.idx,
       nodes=[lattice.nodes[i].new_node_with_val(dy.concatenate([forward_es[i].value, rev_backward_es[-i - 1].value]))
-             for i in range(forward_es.sent_len())])
+             for i in range(forward_es.sent_len())],
+      vocab=lattice.vocab)
