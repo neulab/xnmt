@@ -297,8 +297,6 @@ class LatticeEmbedder(embedders.SimpleWordEmbedder, Serializable):
       assert len(s) == 1, "LatticeEmbedder requires batch size of 1"
       assert s.mask is None
       s = s[0]
-    if self.train and self.arc_dropout > 0.0:
-      s = s.dropout_arcs(self.arc_dropout)
     embedded_nodes = [word.new_node_with_val(self.embed(word.value)) for word in s]
     return Lattice(idx=s.idx, nodes=embedded_nodes, vocab=s.vocab)
 

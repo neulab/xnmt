@@ -16,7 +16,6 @@ lattice: !Experiment
     src_embedder: !LatticeEmbedder
       _xnmt_id: task1_model_src_emb
       emb_dim: 128
-      #arc_dropout: 0.5
       vocab: !Ref { name : src_vocab }
     encoder: !BiLatticeLSTMTransducer
       _xnmt_id: task1_model_enc
