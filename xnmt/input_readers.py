@@ -1,3 +1,4 @@
+import ast
 from itertools import zip_longest
 from functools import lru_cache
 from typing import Iterator, Optional, Sequence, Union
@@ -416,6 +417,53 @@ class IDReader(BaseTextReader, Serializable):
 
   def read_sents(self, filename, filter_ids=None):
     return [l for l in self.iterate_filtered(filename, filter_ids)]
+
+
+class LatticeReader(BaseTextReader, Serializable):
+  """
+  Reads lattices from a text file.
+
+  The expected lattice file format is as follows:
+  * 1 line per lattice
+  * lines are serialized python lists / tuples
+  * 2 lists per lattice:
+    - list of nodes, with every node a 4-tuple: (lexicon_entry, fwd_log_prob, marginal_log_prob, bwd_log_prob)
+    - list of arcs, each arc a tuple: (node_id_start, node_id_end)
+            - node_id references the nodes and is 0-indexed
+            - node_id_start < node_id_end
+  * All paths must share a common start and end node, i.e. <s> and </s> need to be contained in the lattice
+
+  A simple example lattice:
+    [('<s>', 0.0, 0.0, 0.0), ('buenas', 0, 0.0, 0.0), ('tardes', 0, 0.0, 0.0), ('</s>', 0.0, 0.0, 0.0)],[(0, 1), (1, 2), (2, 3)]
+
+  Args:
+    vocab: Vocabulary to convert string tokens to integer ids. If not given, plain text will be assumed to contain
+           space-separated integer ids.
+  """
+  yaml_tag = '!LatticeReader'
+
+  @serializable_init
+  def __init__(self, vocab: Vocab):
+    self.vocab = vocab
+
+  def read_sent(self, line, idx):
+    node_list, arc_list = ast.literal_eval(line)
+    nodes = [sent.LatticeNode(nodes_prev=[], nodes_next=[],
+                              value=self.vocab.convert(item[0]),
+                              fwd_log_prob=item[1], marginal_log_prob=item[2], bwd_log_prob=item[2])
+             for item in node_list]
+    for from_index, to_index in arc_list:
+      nodes[from_index].nodes_next.append(to_index)
+      nodes[to_index].nodes_prev.append(from_index)
+
+    assert nodes[0].value == self.vocab.SS
+    assert nodes[-1].value == self.vocab.ES
+
+    return sent.Lattice(idx=idx, nodes=nodes, vocab=self.vocab)
+
+  def vocab_size(self):
+    return len(self.vocab)
+
 
 ###### A utility function to read a parallel corpus
 def read_parallel_corpus(src_reader: InputReader,
