@@ -391,6 +391,9 @@ class Lattice(ReadableSentence):
     """
     return len(self.nodes)
 
+  def __len__(self) -> int:
+    return self.sent_len()
+
   def len_unpadded(self) -> int:
     """Return number of nodes in the lattice (padding is not supported with lattices).
 
