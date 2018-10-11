@@ -8,57 +8,28 @@ from xnmt.transducers import base as transducers
 from xnmt.persistence import bare, Ref, Serializable, serializable_init
 
 
-class LatticeEmbedder(embedders.SimpleWordEmbedder, Serializable):
+class LatticeEmbedder(embedders.Embedder, Serializable):
   """
-  Simple word embeddings via lookup.
+  Embed lattices by delegating word embedding to a base embedder and adding the lattice structure of the input.
 
   Args:
-    vocab_size:
-    emb_dim:
-    word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level,
-                  see https://arxiv.org/abs/1512.05287
+     base_embedder: base embedder to use to compute word embeddings for each lattice node.
   """
 
   yaml_tag = '!LatticeEmbedder'
 
-  @events.register_xnmt_handler
   @serializable_init
-  def __init__(self,
-               vocab=None,
-               vocab_size=None,
-               emb_dim=Ref("exp_global.default_layer_dim"),
-               word_dropout=0.0,
-               arc_dropout=0.0,
-               yaml_path=None,
-               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(
-                 param_initializers.GlorotInitializer)),
-               src_reader=Ref("model.src_reader", default=None),
-               trg_reader=Ref("model.trg_reader", default=None)):
-    # TODO: refactor by taking a base embedder, and only adding the lattice structure on top of its output?
-    self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
-    self.emb_dim = emb_dim
-    self.word_dropout = word_dropout
-    param_collection = param_collections.ParamManager.my_params(self)
-    self.embeddings = param_collection.add_lookup_parameters((self.vocab_size, self.emb_dim),
-                                                             init=param_init.initializer(
-                                                               (self.vocab_size, self.emb_dim), is_lookup=True))
-    self.word_id_mask = None
-    self.weight_noise = 0.0
-    self.fix_norm = None
-    self.arc_dropout = arc_dropout
+  def __init__(self, base_embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder)) -> None:
+    self.base_embedder = base_embedder
+  def embed(self, word) -> dy.Expression:
+    return self.base_embedder.embed(word)
 
-  def embed_sent(self, s):
-    if batchers.is_batched(s):
-      assert len(s) == 1, "LatticeEmbedder requires batch size of 1"
-      assert s.mask is None
-      s = s[0]
-    embedded_nodes = [word.new_node_with_val(self.embed(word.value)) for word in s]
-    return sent.Lattice(idx=s.idx, nodes=embedded_nodes, vocab=s.vocab)
-
-  @events.handle_xnmt_event
-  def on_set_train(self, val):
-    self.train = val
-
+  def embed_sent(self, x) -> sent.Lattice:
+    if batchers.is_batched(x):
+      if x.batch_size()!=1: raise ValueError(f"batch size must be one for lattice embedder, was: {x.batch_size()}")
+      x = x[0]
+    embedded_nodes = [word.new_node_with_val(self.base_embedder.embed(word.value)) for word in x]
+    return sent.Lattice(idx=x.idx, nodes=embedded_nodes, vocab=x.vocab)
 
 class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
   """

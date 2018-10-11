@@ -16,7 +16,7 @@ class Embedder(object):
   This can be done on a word-by-word basis, or over a sequence.
   """
 
-  def embed(self, word):
+  def embed(self, word) -> dy.Expression:
     """Embed a single word.
 
     Args:

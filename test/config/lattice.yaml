@@ -13,10 +13,10 @@ lattice: !Experiment
       specs: !LatticeFromPlfExtractor {}
   model: !DefaultTranslator
     _xnmt_id: task1_model
-    src_embedder: !LatticeEmbedder
+    src_embedder: !LatticeEmbedder2
       _xnmt_id: task1_model_src_emb
-      emb_dim: 128
-      vocab: !Ref { name : src_vocab }
+      #emb_dim: 128
+      #vocab: !Ref { name : src_vocab }
     encoder: !BiLatticeLSTMTransducer
       _xnmt_id: task1_model_enc
       layers: 2
