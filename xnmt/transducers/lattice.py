@@ -11,7 +11,11 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
   """
   A lattice LSTM.
 
-  This is the unidirectional single-layer lattice LSTM.
+  This is the unidirectional single-layer lattice LSTM, as described here:
+    Sperber et al.: Neural Lattice-to-Sequence Models for Uncertain Inputs (EMNLP 2017)
+    http://aclweb.org/anthology/D17-1145
+
+  Note that lattice scores are currently not handled.
 
   Args:
     input_dim: size of inputs
