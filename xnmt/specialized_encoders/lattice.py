@@ -207,55 +207,6 @@ class Lattice(sent.ReadableSentence):
     out_str = str([self.str_tokens(**kwargs), [node.nodes_next for node in self.nodes]])
     return out_str
 
-# TODO: remove BinnedLattice
-class BinnedLattice(Lattice):
-  """
-  A binned lattice.
-
-  Args:
-    idx: running sentence number (0-based; unique among sentences loaded from the same file, but not across files)
-    bins: nested list with indices [bin_pos][rep_pos][token_pos]
-  """
-
-  def __init__(self, idx: Optional[int], bins):
-    super(BinnedLattice, self).__init__(idx=idx, nodes=self.bins_to_nodes(bins))
-    self.bins = bins
-
-  def __repr__(self):
-    return str(self.bins)
-
-  def bins_to_nodes(self, bins, dropout_arcs=0.0):
-    assert len(bins[0]) == len(bins[-1]) == len(bins[0][0]) == len(bins[-1][0]) == 1
-    nodes = [LatticeNode([], [], bins[0][0][0])]
-    prev_indices = [0]
-    for cur_bin in bins[1:-1]:
-      new_prev_indices = []
-      if dropout_arcs > 0.0:
-        shuffled_bin = list(cur_bin)
-        random.shuffle(shuffled_bin)
-        dropped_bin = [shuffled_bin[0]]
-        for b in shuffled_bin[1:]:
-          if random.random() > dropout_arcs:
-            dropped_bin.append(b)
-        cur_bin = dropped_bin
-      for rep in cur_bin:
-        for rep_pos in range(len(rep)):
-          if rep_pos == 0:
-            preds = prev_indices
-          else:
-            preds = [len(nodes) - 1]
-          # print("node", len(nodes), preds)
-          nodes.append(LatticeNode(preds, [], rep[rep_pos]))
-        new_prev_indices.append(len(nodes) - 1)
-      prev_indices = new_prev_indices
-    nodes.append(LatticeNode(prev_indices, [], bins[-1][0][0]))
-    return self._add_bwd_connections(nodes)
-
-  def dropout_arcs(self, dropout):
-    return Lattice(idx=self.idx,
-                   nodes=self.bins_to_nodes(self.bins, dropout_arcs=dropout))
-
-
 class LatticeReader(input_readers.BaseTextReader, Serializable):
   """
   Reads lattices from a text file.
@@ -300,82 +251,6 @@ class LatticeReader(input_readers.BaseTextReader, Serializable):
 
   def vocab_size(self):
     return len(self.vocab)
-
-
-# TODO: replace by reader that reads actual lattices from file
-class LatticeTextReader(input_readers.BaseTextReader, Serializable):
-  yaml_tag = '!LatticeTextReader'
-
-  @serializable_init
-  def __init__(self, vocab=None, use_words=True, use_chars=False, use_pronun_from=None):
-    self.vocab = vocab
-    self.use_chars = use_chars
-    self.use_words = use_words
-    self.use_pronun = False
-    if use_pronun_from:
-      self.use_pronun = {}
-      for l in io.open(use_pronun_from):
-        spl = l.strip().split()
-        word = spl[0]
-        pronun = spl[1:]
-        assert word not in self.use_pronun
-        self.use_pronun[word] = pronun
-
-  # def read_sents(self, filename, filter_ids=None):
-  #   if self.vocab is None:
-  #     self.vocab = vocabs.Vocab()
-  #   sents = []
-  #   for l in self.iterate_filtered(filename, filter_ids):
-  #     words = l.strip().split()
-  #     if words[0] != vocabs.Vocab.SS_STR: words.insert(0, vocabs.Vocab.SS_STR)
-  #     if words[-1] != vocabs.Vocab.ES_STR: words.append(vocabs.Vocab.ES_STR)
-  #     bins = []
-  #     for word in words:
-  #       representations = self.get_representations(word)
-  #       cur_bin = []
-  #       for rep in representations:
-  #         cur_rep_mapped = []
-  #         for rep_token in rep:
-  #           cur_rep_mapped.append(self.vocab.convert(rep_token))
-  #         cur_bin.append(cur_rep_mapped)
-  #       bins.append(cur_bin)
-  #     lattice = BinnedLattice(bins=bins)
-  #     sents.append(lattice)
-  #   return sents
-
-  def read_sent(self, line: str, idx: numbers.Integral) -> BinnedLattice:
-    words = line.strip().split()
-    if words[0] != vocabs.Vocab.SS_STR: words.insert(0, vocabs.Vocab.SS_STR)
-    if words[-1] != vocabs.Vocab.ES_STR: words.append(vocabs.Vocab.ES_STR)
-    bins = []
-    for word in words:
-      representations = self.get_representations(word)
-      cur_bin = []
-      for rep in representations:
-        cur_rep_mapped = []
-        for rep_token in rep:
-          cur_rep_mapped.append(self.vocab.convert(rep_token))
-        cur_bin.append(cur_rep_mapped)
-      bins.append(cur_bin)
-    return BinnedLattice(idx=idx, bins=bins)
-
-  def vocab_size(self):
-    return len(self.vocab)
-
-  def get_representations(self, word):
-    if word in [vocabs.Vocab.ES_STR, vocabs.Vocab.SS_STR, vocabs.Vocab.UNK_STR]:
-      return [[word]]
-    reps = []
-    if self.use_words:
-      reps.append([word])
-    if self.use_chars:
-      reps.append(["c_" + char for char in word] + ["c_"])
-    if self.use_pronun:
-      if word in self.use_pronun:
-        reps.append(self.use_pronun[word] + ['__'])
-      else:
-        print("WARNING: no pronunciation for", word)
-    return reps
 
 
 class LatticeEmbedder(embedders.SimpleWordEmbedder, Serializable):
