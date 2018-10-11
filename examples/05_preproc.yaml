@@ -59,7 +59,7 @@
       out_files:
       - '{DATA_OUT}/train.tok.norm.filter.ja'
       - '{DATA_OUT}/train.tok.norm.filter.en'
-      filters:
+      specs:
       - !SentenceFiltererLength
         min_all: 1
         max_all: 60

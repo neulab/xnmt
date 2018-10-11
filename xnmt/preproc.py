@@ -113,10 +113,10 @@ class PreprocNormalize(PreprocTask, Serializable):
 class PreprocFilter(PreprocTask, Serializable):
   yaml_tag = "!PreprocFilter"
   @serializable_init
-  def __init__(self, in_files, out_files, filters):
+  def __init__(self, in_files, out_files, specs):
     self.in_files = in_files
     self.out_files = out_files
-    self.filters = filters
+    self.filters = specs
   def run_preproc_task(self, overwrite=False):
     # TODO: This will only work with plain-text sentences at the moment. It would be nice if it plays well with the readers
     #       in input.py
