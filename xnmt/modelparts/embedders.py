@@ -445,28 +445,3 @@ class PositionEmbedder(Embedder, Serializable):
   def embed_sent(self, sent_len):
     embeddings = dy.strided_select(dy.parameter(self.embeddings), [1,1], [0,0], [self.emb_dim, sent_len])
     return expression_seqs.ExpressionSequence(expr_tensor=embeddings, mask=None)
-
-
-class LatticeEmbedder(Embedder, Serializable):
-  """
-  Embed lattices by delegating word embedding to a base embedder and adding the lattice structure of the input.
-
-  Args:
-     base_embedder: base embedder to use to compute word embeddings for each lattice node.
-  """
-
-  yaml_tag = '!LatticeEmbedder'
-
-  @serializable_init
-  def __init__(self, base_embedder: Embedder = bare(SimpleWordEmbedder)) -> None:
-    self.base_embedder = base_embedder
-
-  def embed(self, word) -> dy.Expression:
-    return self.base_embedder.embed(word)
-
-  def embed_sent(self, x) -> sent.Lattice:
-    if batchers.is_batched(x):
-      if x.batch_size() != 1: raise ValueError(f"batch size must be one for lattice embedder, was: {x.batch_size()}")
-      x = x[0]
-    embedded_nodes = [word.new_node_with_val(self.base_embedder.embed(word.value)) for word in x]
-    return sent.Lattice(idx=x.idx, nodes=embedded_nodes, vocab=x.vocab)

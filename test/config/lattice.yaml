@@ -12,7 +12,7 @@ lattice: !Experiment
       - examples/output/fisher_dev.es.xlat
       specs: !LatticeFromPlfExtractor {}
   model: !DefaultTranslator
-    src_embedder: !LatticeEmbedder {}
+    src_embedder: !SimpleWordEmbedder {}
     encoder: !BiLatticeLSTMTransducer
       layers: 2
     attender: !MlpAttender {}

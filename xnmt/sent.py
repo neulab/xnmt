@@ -321,7 +321,7 @@ class LatticeNode(object):
   Args:
     nodes_prev: A list indices of direct predecessors
     nodes_next: A list indices of direct successors
-    value: A value assigned to this node.
+    value: Word id assigned to this node.
     fwd_log_prob: Lattice log probability normalized in forward-direction (successors sum to 1)
     marginal_log_prob: Lattice log probability globally normalized
     bwd_log_prob: Lattice log probability normalized in backward-direction (predecessors sum to 1)
@@ -329,7 +329,7 @@ class LatticeNode(object):
   def __init__(self,
                nodes_prev: Sequence[numbers.Integral],
                nodes_next: Sequence[numbers.Integral],
-               value: Any,
+               value: numbers.Integral,
                fwd_log_prob: Optional[numbers.Real]=None,
                marginal_log_prob: Optional[numbers.Real]=None,
                bwd_log_prob: Optional[numbers.Real]=None) -> None:
@@ -340,18 +340,6 @@ class LatticeNode(object):
     self.marginal_log_prob = marginal_log_prob
     self.bwd_log_prob = bwd_log_prob
 
-  def new_node_with_val(self, value: Any) -> 'LatticeNode':
-    """
-    Create a new node that has the same location in the lattice but different value.
-
-    Args:
-      value: value of new node.
-
-    Returns:
-      A new lattice node with given new value and the same predecessors/successors as the current node.
-    """
-    return LatticeNode(self.nodes_prev, self.nodes_next, value)
-
 
 class Lattice(ReadableSentence):
   """
@@ -359,11 +347,6 @@ class Lattice(ReadableSentence):
 
   The lattice is represented as a list of nodes, each of which keep track of the indices of predecessor and
   successor nodes.
-
-  Implements the ReadableSentence base class for use with word IDs as node values.
-
-  Also doubles as the equivalent of an ExpressionSequence for lattice structure (when node values are DyNet
-  expressions) by partly implementing the ExpressionSequence interface (namely, as_list() and as_tensor() methods)
 
   Args:
     idx: running sentence number (0-based; unique among sentences loaded from the same file, but not across files)
@@ -391,9 +374,6 @@ class Lattice(ReadableSentence):
     """
     return len(self.nodes)
 
-  def __len__(self) -> int:
-    return self.sent_len()
-
   def len_unpadded(self) -> int:
     """Return number of nodes in the lattice (padding is not supported with lattices).
 
@@ -402,21 +382,21 @@ class Lattice(ReadableSentence):
     """
     return self.sent_len()
 
-  def __getitem__(self, key: numbers.Integral) -> LatticeNode:
+  def __getitem__(self, key: numbers.Integral) -> int:
     """
-    Return a particular lattice node.
+    Return the value of a particular lattice node.
 
     Args:
-      key: Index of lattice node to return.
+      key: Index of lattice node.
 
     Returns:
-      Lattice node with given index.
+      Value of lattice node with given index.
     """
-    ret = self.nodes[key]
-    if isinstance(ret, list):
+    node = self.nodes[key]
+    if isinstance(node, list):
       # no guarantee that slice is still a consistent graph
       raise ValueError("Slicing not support for lattices.")
-    return ret
+    return node.value
 
   def create_padded_sent(self, pad_len: numbers.Integral) -> 'Lattice':
     """
@@ -461,38 +441,6 @@ class Lattice(ReadableSentence):
                              value=node.value)
       rev_nodes.append(new_node)
     return Lattice(idx=self.idx, nodes=rev_nodes, vocab=self.vocab)
-
-  def as_list(self) -> list:
-    """
-    Return list of values.
-
-    Returns:
-      List of values.
-    """
-    return [node.value for node in self.nodes]
-
-  def as_tensor(self) -> dy.Expression:
-    """
-    Return tensor expression of complete sequence, assuming node values are DyNet vector expressions.
-
-    Returns:
-      Lattice as tensor expression.
-    """
-    if self.expr_tensor is None:
-      self.expr_tensor = dy.concatenate_cols(self.as_list())
-    return self.expr_tensor
-
-  def _add_bwd_connections(self, nodes: Sequence[LatticeNode]) -> None:
-    """
-    Add backward connections, given lattice nodes that specify only forward connections.
-
-    Args:
-      nodes: lattice nodes
-    """
-    for pos in range(len(nodes)):
-      for pred_i in nodes[pos].nodes_prev:
-        nodes[pred_i].nodes_next.append(pos)
-    return nodes
 
   def str_tokens(self, **kwargs) -> List[str]:
     """
