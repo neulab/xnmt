@@ -13,14 +13,15 @@ EXP = "programmatic-load"
 model_file = f"{EXP_DIR}/models/{EXP}.mod"
 log_file = f"{EXP_DIR}/logs/{EXP}.log"
 
-xnmt.tee.set_out_file(log_file)
+xnmt.tee.set_out_file(log_file, EXP)
 
 ParamManager.init_param_col()
 
 load_experiment = LoadSerialized(
   filename=f"{EXP_DIR}/models/programmatic.mod",
   overwrite=[
-    {"path" : "train", "val" : None}
+    {"path" : "train", "val" : None},
+    {"path": "status", "val": None},
   ]
 )
 
@@ -32,4 +33,4 @@ loaded_experiment = initialize_if_needed(uninitialized_experiment)
 ParamManager.populate()
 
 # run experiment
-loaded_experiment(save_fct=lambda: save_to_file(model_file, loaded_experiment))
+loaded_experiment(save_fct=lambda: None)
