@@ -1,0 +1,57 @@
+# A standard setup, specifying model architecture, training parameters, 
+# and evaluation of the trained model
+!Experiment # 'standard' is the name given to the experiment
+  name: standard # every experiment needs a name
+  # global parameters shared throughout the experiment
+  exp_global: !ExpGlobal
+    # {EXP_DIR} is a placeholder for the directory in which the config file lies.
+    # {EXP} is a placeholder for the experiment name (here: 'standard')
+    model_file: '{EXP_DIR}/models/{EXP}.mod'
+    log_file: '{EXP_DIR}/logs/{EXP}.log'
+    default_layer_dim: 512
+    dropout: 0.3
+  # model architecture
+  model: !DefaultTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+    src_embedder: !SimpleWordEmbedder
+      emb_dim: 512
+    encoder: !BiLSTMSeqTransducer
+      layers: 1
+    attender: !MlpAttender
+      hidden_dim: 512
+      state_dim: 512
+      input_dim: 512
+    trg_embedder: !SimpleWordEmbedder
+      emb_dim: 512
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
+        layers: 1
+      transform: !AuxNonLinear
+        output_dim: 512
+        activation: 'tanh'
+      bridge: !CopyBridge {}
+      scorer: !Softmax {}
+  # training parameters
+  train: !AutobatchTrainingRegimen
+    update_every: 3
+    batcher: !SrcBatcher
+      batch_size: 1
+    trainer: !AdamTrainer
+      alpha: 0.001
+    run_for_epochs: 2
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
+  # final evaluation
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
+      hyp_file: examples/output/{EXP}.test_hyp
