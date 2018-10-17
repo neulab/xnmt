@@ -788,9 +788,5 @@ class LatticeFromPlfExtractor(Extractor, Serializable):
       self.edges = resolved_edges
 
   class _LatticeLabel(object):
-    """
-    This can be assigned to a node or an arc (to allow convenient converting between arcs and nodes)
-    """
-
     def __init__(self, label=None):
       self.label = label
