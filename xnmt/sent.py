@@ -467,12 +467,13 @@ class Lattice(ReadableSentence):
     out_str = str([self.str_tokens(**kwargs), [node.nodes_next for node in self.nodes]])
     return out_str
 
-  def plot(self, out_file):
+  def plot(self, out_file, show_log_probs=["fwd_log_prob", "marginal_log_prob", "bwd_log_prob"]):
       from graphviz import Digraph
       dot = Digraph(comment='Lattice')
       for i, node in enumerate(self.nodes):
         node_id = i
-        node_label = f"{self.vocab.i2w[node.value]} {math.exp(node.fwd_log_prob):.3f}|{math.exp(node.marginal_log_prob):.3f}|{math.exp(node.bwd_log_prob):.3f}"
+        log_prob_strings = [f"{math.exp(getattr(node,field)):.3f}" for field in show_log_probs]
+        node_label = f"{self.vocab.i2w[node.value]} {'|'.join(log_prob_strings)}"
         node.id = node_id
         dot.node(str(node_id), f"{node_id} : {node_label}")
       for node_i, node in enumerate(self.nodes):
