@@ -364,8 +364,6 @@ class Lattice(ReadableSentence):
     for t in range(1, len(nodes) - 1):
       assert len(nodes[t].nodes_prev) > 0
       assert len(nodes[t].nodes_next) > 0
-    self.mask = None
-    self.expr_tensor = None
 
   def sent_len(self) -> int:
     """Return number of nodes in the lattice.
