@@ -439,7 +439,10 @@ class Lattice(ReadableSentence):
     for node in reversed(self.nodes):
       new_node = LatticeNode(nodes_prev=[seq_len - n - 1 for n in node.nodes_next],
                              nodes_next=[seq_len - p - 1 for p in node.nodes_prev],
-                             value=node.value)
+                             value=node.value,
+                             fwd_log_prob=node.bwd_log_prob,
+                             marginal_log_prob=node.marginal_log_prob,
+                             bwd_log_prob=node.bwd_log_prob)
       rev_nodes.append(new_node)
     return Lattice(idx=self.idx, nodes=rev_nodes, vocab=self.vocab)
 
