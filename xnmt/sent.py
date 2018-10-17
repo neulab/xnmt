@@ -1,9 +1,10 @@
-from typing import Any, List, Optional, Sequence, Union
 import functools
+import math
 import numbers
+import subprocess
+from typing import List, Optional, Sequence, Union
 
 import numpy as np
-import dynet as dy
 
 from xnmt.vocabs import Vocab
 from xnmt.output import OutputProcessor
@@ -465,3 +466,20 @@ class Lattice(ReadableSentence):
     """
     out_str = str([self.str_tokens(**kwargs), [node.nodes_next for node in self.nodes]])
     return out_str
+
+  def plot(self, out_file):
+      from graphviz import Digraph
+      dot = Digraph(comment='Lattice')
+      for i, node in enumerate(self.nodes):
+        node_id = i
+        node_label = f"{self.vocab.i2w[node.value]} {math.exp(node.fwd_log_prob):.3f}|{math.exp(node.marginal_log_prob):.3f}|{math.exp(node.bwd_log_prob):.3f}"
+        node.id = node_id
+        dot.node(str(node_id), f"{node_id} : {node_label}")
+      for node_i, node in enumerate(self.nodes):
+        for node_next in node.nodes_next:
+          edge_from, edge_to = node_i, node_next
+          dot.edge(str(edge_from), str(edge_to), "")
+      try:
+          dot.render(out_file)
+      except RuntimeError:
+          pass
