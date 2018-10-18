@@ -15,6 +15,7 @@ from xnmt.persistence import serializable_init, Serializable, bare, Ref
 from xnmt import event_trigger, optimizers, batchers, utils
 from xnmt.eval import tasks as eval_tasks
 from xnmt.train import tasks as train_tasks
+from xnmt.losses import FactoredLossExpr
 
 
 class TrainingRegimen(object):
@@ -280,7 +281,9 @@ class AutobatchTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, 
     Main training loop (overwrites TrainingRegimen.run_training())
     """
     if self.run_for_epochs is None or self.run_for_epochs > 0:
-      losses = []
+      total_loss = FactoredLossExpr()
+      # Needed for report
+      total_trg = []
       for src, trg in self.next_minibatch():
         if self.dev_zero:
           self.checkpoint_and_save(save_fct)
@@ -293,16 +296,27 @@ class AutobatchTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, 
           with self.train_loss_tracker.time_tracker:
             event_trigger.set_train(True)
             loss_builder = self.training_step(src, trg)
-            loss = loss_builder.compute()
+            #loss = loss_builder.compute()
             ######
             #self.backward(loss, self.dynet_profiling)
-            losses.append(loss)
+            #losses.append(loss)
+            total_loss.add_factored_loss_expr(loss_builder)
             #self.update(self.trainer)
-            self.update(self.trainer, losses)
-            if self.num_updates_skipped == 0:
-              losses = []
+            self.update(self.trainer, total_loss)
+            total_trg.append(trg[0])
             ######
-          self.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
+          if self.num_updates_skipped == 0:
+            #self.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
+            total_loss_val = total_loss.get_factored_loss_val(comb_method=self.loss_comb_method)
+            #for loss in total_loss_val._loss_dict:
+            #  total_loss_val._loss_dict[loss] /= self.update_every
+            #print(total_loss_val._loss_dict)
+            #print(type(total_trg[0]))
+            #print(total_trg)
+            reported_trg = batchers.ListBatch(total_trg)
+            self.train_loss_tracker.report(reported_trg, total_loss_val)
+            total_loss = FactoredLossExpr()
+            total_trg = []
         if self.checkpoint_needed():
           self.checkpoint_and_save(save_fct)
         if self.should_stop_training(): break
@@ -313,10 +327,10 @@ class AutobatchTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, 
       save_fct()
 
   def update(self, trainer: optimizers.XnmtOptimizer,
-             losses) -> None:
+             total_loss) -> None:
     self.num_updates_skipped += 1
     if self.num_updates_skipped == self.update_every:
-      self.backward(sum(losses), self.dynet_profiling)
+      self.backward(total_loss.compute(), self.dynet_profiling)
       trainer.update()
       self.num_updates_skipped = 0
     else:

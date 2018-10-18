@@ -36,7 +36,7 @@
       scorer: !Softmax {}
   # training parameters
   train: !AutobatchTrainingRegimen
-    update_every: 3
+    update_every: 5
     batcher: !SrcBatcher
       batch_size: 1
     trainer: !AdamTrainer
