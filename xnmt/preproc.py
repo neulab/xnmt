@@ -790,3 +790,5 @@ class LatticeFromPlfExtractor(Extractor, Serializable):
   class _LatticeLabel(object):
     def __init__(self, label=None):
       self.label = label
+    def __repr__(self):
+      return str(self.label)
