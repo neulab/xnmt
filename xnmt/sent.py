@@ -574,19 +574,19 @@ class Lattice(ReadableSentence):
     return out_str
 
   def plot(self, out_file, show_log_probs=["fwd_log_prob", "marginal_log_prob", "bwd_log_prob"]):
-      from graphviz import Digraph
-      dot = Digraph(comment='Lattice')
-      for i, node in enumerate(self.nodes):
-        node_id = i
-        log_prob_strings = [f"{math.exp(getattr(node,field)):.3f}" for field in show_log_probs]
-        node_label = f"{self.vocab.i2w[node.value]} {'|'.join(log_prob_strings)}"
-        node.id = node_id
-        dot.node(str(node_id), f"{node_id} : {node_label}")
-      for node_i, node in enumerate(self.nodes):
-        for node_next in node.nodes_next:
-          edge_from, edge_to = node_i, node_next
-          dot.edge(str(edge_from), str(edge_to), "")
-      try:
-          dot.render(out_file)
-      except RuntimeError:
-          pass
+    from graphviz import Digraph
+    dot = Digraph(comment='Lattice')
+    for i, node in enumerate(self.nodes):
+      node_id = i
+      log_prob_strings = [f"{math.exp(getattr(node,field)):.3f}" for field in show_log_probs]
+      node_label = f"{self.vocab.i2w[node.value]} {'|'.join(log_prob_strings)}"
+      node.id = node_id
+      dot.node(str(node_id), f"{node_id} : {node_label}")
+    for node_i, node in enumerate(self.nodes):
+      for node_next in node.nodes_next:
+        edge_from, edge_to = node_i, node_next
+        dot.edge(str(edge_from), str(edge_to), "")
+    try:
+      dot.render(out_file)
+    except RuntimeError:
+      pass

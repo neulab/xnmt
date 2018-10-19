@@ -15,7 +15,7 @@ lattice: !Experiment
     src_embedder: !SimpleWordEmbedder {}
     encoder: !BiLatticeLSTMTransducer
       layers: 2
-    attender: !MlpAttender {}
+    attender: !LatticeBiasedMlpAttender {}
     trg_embedder: !SimpleWordEmbedder {}
     decoder: !AutoRegressiveDecoder
       rnn: !UniLSTMSeqTransducer

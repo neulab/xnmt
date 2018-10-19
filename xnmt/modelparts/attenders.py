@@ -4,7 +4,7 @@ import numbers
 import dynet as dy
 
 from xnmt import logger
-from xnmt import batchers, param_collections, param_initializers
+from xnmt import batchers, events, param_collections, param_initializers
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.expression_seqs import ExpressionSequence
 
@@ -196,4 +196,78 @@ class BilinearAttender(Attender, Serializable):
     attention = self.calc_attention(state)
     return self.I * attention
 
+class LatticeBiasedMlpAttender(Attender, Serializable):
+  """
+  Modified MLP attention, where lattices are assumed as input and the attention is biased toward confident nodes.
+
+  Args:
+    input_dim: input dimension
+    state_dim: dimension of state inputs
+    hidden_dim: hidden MLP dimension
+    param_init: how to initialize weight matrices
+    bias_init: how to initialize bias vectors
+    truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
+  """
+
+  yaml_tag = '!LatticeBiasedMlpAttender'
+
+  @events.register_xnmt_handler
+  @serializable_init
+  def __init__(self,
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               state_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
+               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
+    self.input_dim = input_dim
+    self.state_dim = state_dim
+    self.hidden_dim = hidden_dim
+    self.truncate_dec_batches = truncate_dec_batches
+    param_collection = param_collections.ParamManager.my_params(self)
+    self.pW = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
+    self.pV = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
+    self.pb = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
+    self.pU = param_collection.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
+    self.curr_sent = None
+
+  @events.handle_xnmt_event
+  def on_start_sent(self, src):
+    self.cur_sent = src
+
+  def init_sent(self, sent: ExpressionSequence):
+    self.attention_vecs = []
+    self.curr_sent = sent
+    I = self.curr_sent.as_tensor()
+    W = dy.parameter(self.pW)
+    b = dy.parameter(self.pb)
+    self.WI = dy.affine_transform([b, W, I])
+    wi_dim = self.WI.dim()
+    # TODO(philip30): dynet affine transform bug, should be fixed upstream
+    # if the input size is "1" then the last dimension will be dropped.
+    if len(wi_dim[0]) == 1:
+      self.WI = dy.reshape(self.WI, (wi_dim[0][0], 1), batch_size=wi_dim[1])
+
+  def calc_attention(self, state):
+    V = dy.parameter(self.pV)
+    U = dy.parameter(self.pU)
+
+    WI = self.WI
+    curr_sent_mask = self.curr_sent.mask
+    if self.truncate_dec_batches:
+      if curr_sent_mask: state, WI, curr_sent_mask = batchers.truncate_batches(state, WI, curr_sent_mask)
+      else: state, WI = batchers.truncate_batches(state, WI)
+    h = dy.tanh(dy.colwise_add(WI, V * state))
+    scores = dy.transpose(U * h)
+    if curr_sent_mask is not None:
+      scores = curr_sent_mask.add_to_tensor_expr(scores, multiplicator = -100.0)
+    normalized = dy.softmax(scores)
+    self.attention_vecs.append(normalized)
+    return normalized
+
+  def calc_context(self, state):
+    attention = self.calc_attention(state)
+    I = self.curr_sent.as_tensor()
+    if self.truncate_dec_batches: I, attention = batchers.truncate_batches(I, attention)
+    return I * attention
 
