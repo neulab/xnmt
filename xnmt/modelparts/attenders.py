@@ -1,6 +1,7 @@
 import math
 import numbers
 
+import numpy as np
 import dynet as dy
 
 from xnmt import logger
@@ -196,7 +197,7 @@ class BilinearAttender(Attender, Serializable):
     attention = self.calc_attention(state)
     return self.I * attention
 
-class LatticeBiasedMlpAttender(Attender, Serializable):
+class LatticeBiasedMlpAttender(MlpAttender, Serializable):
   """
   Modified MLP attention, where lattices are assumed as input and the attention is biased toward confident nodes.
 
@@ -220,33 +221,19 @@ class LatticeBiasedMlpAttender(Attender, Serializable):
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
-    self.input_dim = input_dim
-    self.state_dim = state_dim
-    self.hidden_dim = hidden_dim
-    self.truncate_dec_batches = truncate_dec_batches
-    param_collection = param_collections.ParamManager.my_params(self)
-    self.pW = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
-    self.pV = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
-    self.pb = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
-    self.pU = param_collection.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
-    self.curr_sent = None
+    super().__init__(input_dim=input_dim, state_dim=state_dim, hidden_dim=hidden_dim, param_init=param_init,
+                     bias_init=bias_init, truncate_dec_batches=truncate_dec_batches)
 
   @events.handle_xnmt_event
   def on_start_sent(self, src):
-    self.cur_sent = src
+    self.cur_sent_bias = np.full((src.sent_len(), 1, src.batch_size()), -1e10)
+    for batch_i, lattice_batch_elem in enumerate(src):
+      for node_i, node in enumerate(lattice_batch_elem.nodes):
+        self.cur_sent_bias[node_i, 0, batch_i] = node.marginal_log_prob
+    self.cur_sent_bias_expr = None
 
-  def init_sent(self, sent: ExpressionSequence):
-    self.attention_vecs = []
-    self.curr_sent = sent
-    I = self.curr_sent.as_tensor()
-    W = dy.parameter(self.pW)
-    b = dy.parameter(self.pb)
-    self.WI = dy.affine_transform([b, W, I])
-    wi_dim = self.WI.dim()
-    # TODO(philip30): dynet affine transform bug, should be fixed upstream
-    # if the input size is "1" then the last dimension will be dropped.
-    if len(wi_dim[0]) == 1:
-      self.WI = dy.reshape(self.WI, (wi_dim[0][0], 1), batch_size=wi_dim[1])
+  # inherited from MlpAttender
+  # def init_sent(self, sent: ExpressionSequence)
 
   def calc_attention(self, state):
     V = dy.parameter(self.pV)
@@ -260,14 +247,12 @@ class LatticeBiasedMlpAttender(Attender, Serializable):
     h = dy.tanh(dy.colwise_add(WI, V * state))
     scores = dy.transpose(U * h)
     if curr_sent_mask is not None:
-      scores = curr_sent_mask.add_to_tensor_expr(scores, multiplicator = -100.0)
-    normalized = dy.softmax(scores)
+      scores = curr_sent_mask.add_to_tensor_expr(scores, multiplicator = -1e10)
+    if self.cur_sent_bias_expr is None: self.cur_sent_bias_expr = dy.inputTensor(self.cur_sent_bias, batched=True)
+    normalized = dy.softmax(scores + self.cur_sent_bias_expr)
     self.attention_vecs.append(normalized)
     return normalized
 
-  def calc_context(self, state):
-    attention = self.calc_attention(state)
-    I = self.curr_sent.as_tensor()
-    if self.truncate_dec_batches: I, attention = batchers.truncate_batches(I, attention)
-    return I * attention
+  # inherited from MlpAttender
+  # def calc_context(self, state)
 
