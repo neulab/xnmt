@@ -439,25 +439,39 @@ class LatticeReader(BaseTextReader, Serializable):
   Args:
     vocab: Vocabulary to convert string tokens to integer ids. If not given, plain text will be assumed to contain
            space-separated integer ids.
+    text_input: If ```True```, assume a standard text file as input and convert it to a flat lattice.
   """
   yaml_tag = '!LatticeReader'
 
   @serializable_init
-  def __init__(self, vocab: Vocab):
+  def __init__(self, vocab: Vocab, text_input: bool = False):
     self.vocab = vocab
+    self.text_input = text_input
 
   def read_sent(self, line, idx):
-    node_list, arc_list = ast.literal_eval(line)
-    nodes = [sent.LatticeNode(nodes_prev=[], nodes_next=[],
-                              value=self.vocab.convert(item[0]),
-                              fwd_log_prob=item[1], marginal_log_prob=item[2], bwd_log_prob=item[2])
-             for item in node_list]
-    for from_index, to_index in arc_list:
-      nodes[from_index].nodes_next.append(to_index)
-      nodes[to_index].nodes_prev.append(from_index)
+    if self.text_input:
+      nodes = [sent.LatticeNode(nodes_prev=[], nodes_next=[1], value=Vocab.SS,
+                                fwd_log_prob=0.0, marginal_log_prob=0.0, bwd_log_prob=0.0)]
+      for word in line.strip().split():
+        nodes.append(
+          sent.LatticeNode(nodes_prev=[len(nodes)-1], nodes_next=[len(nodes)+1], value=self.vocab.convert(word),
+                           fwd_log_prob=0.0, marginal_log_prob=0.0, bwd_log_prob=0.0))
+      nodes.append(
+        sent.LatticeNode(nodes_prev=[len(nodes) - 1], nodes_next=[], value=Vocab.ES,
+                         fwd_log_prob=0.0, marginal_log_prob=0.0, bwd_log_prob=0.0))
 
-    assert nodes[0].value == self.vocab.SS
-    assert nodes[-1].value == self.vocab.ES
+    else:
+      node_list, arc_list = ast.literal_eval(line)
+      nodes = [sent.LatticeNode(nodes_prev=[], nodes_next=[],
+                                value=self.vocab.convert(item[0]),
+                                fwd_log_prob=item[1], marginal_log_prob=item[2], bwd_log_prob=item[2])
+               for item in node_list]
+      for from_index, to_index in arc_list:
+        nodes[from_index].nodes_next.append(to_index)
+        nodes[to_index].nodes_prev.append(from_index)
+
+      assert nodes[0].value == self.vocab.SS
+      assert nodes[-1].value == self.vocab.ES
 
     return sent.Lattice(idx=idx, nodes=nodes, vocab=self.vocab)
 
