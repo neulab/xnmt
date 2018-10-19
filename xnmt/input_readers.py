@@ -464,7 +464,7 @@ class LatticeReader(BaseTextReader, Serializable):
       node_list, arc_list = ast.literal_eval(line)
       nodes = [sent.LatticeNode(nodes_prev=[], nodes_next=[],
                                 value=self.vocab.convert(item[0]),
-                                fwd_log_prob=item[1], marginal_log_prob=item[2], bwd_log_prob=item[2])
+                                fwd_log_prob=item[1], marginal_log_prob=item[2], bwd_log_prob=item[3])
                for item in node_list]
       for from_index, to_index in arc_list:
         nodes[from_index].nodes_next.append(to_index)
