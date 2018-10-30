@@ -89,16 +89,14 @@ class PolicyGradient(Serializable):
     rewards = [policy_reward - pw_i for pw_i in pred_reward]
     loss.add_loss("rl_baseline", baseline_loss)
     ## Z-Normalization
-    mean_elems = dy.average(rewards)
-    # Calculate stddev along all timesteps
-    if len(rewards) > 1:
-      denom = dy.scalarInput(len(rewards)-1)
-      var_elems = dy.cdiv(dy.esum([dy.square(reward - mean_elems) for reward in rewards]), denom)
+    rewards = dy.concatenate(rewards, d=0)
+    dim, batch_size = rewards.dim()
+    rewards_mean = dy.mean_dim(rewards, [0], False)
+    if dim[0] > 1:
+      rewards_std = dy.std_dim(rewards, [0], False)
     else:
-      var_elems = dy.scalarInput(1)
-    std_elems = dy.sqrt(var_elems)
-    # 0 mean, 1 stddev
-    rewards = [dy.cdiv(reward - mean_elems, std_elems) for reward in rewards]
+      rewards_std = dy.ones((1,), batch_size)
+    rewards = dy.cdiv(rewards - rewards_mean, rewards_std)
     ## Calculate Confidence Penalty
     if self.confidence_penalty:
       cp_loss = self.confidence_penalty.calc_loss(self.policy_lls)
@@ -106,8 +104,9 @@ class PolicyGradient(Serializable):
     ## Calculate Reinforce Loss
     reinf_loss = []
     # Loop through all action in one sequence
-    for i, (reward, policy, action) in enumerate(zip(rewards, self.policy_lls, self.actions)):
+    for i, (policy, action) in enumerate(zip(self.policy_lls, self.actions)):
       # Main Reinforce calculation
+      reward = dy.pick(rewards, i)
       ll = dy.pick_batch(policy, action)
       if self.valid_pos is not None:
         ll = dy.pick_batch_elems(ll, self.valid_pos[i])
