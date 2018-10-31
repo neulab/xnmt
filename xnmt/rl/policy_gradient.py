@@ -83,7 +83,6 @@ class PolicyGradient(Serializable):
   """
   def calc_loss(self, policy_reward):
     loss = FactoredLossExpr()
-    policy_reward = dy.nobackprop(policy_reward)
     ## Calculate baseline
     pred_reward, baseline_loss = self.calc_baseline_loss(policy_reward)
     rewards = [policy_reward - pw_i for pw_i in pred_reward]
