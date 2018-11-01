@@ -1,6 +1,5 @@
 report: !Experiment
   exp_global: !ExpGlobal
-    compute_report: True
     default_layer_dim: 64
   model: !DefaultTranslator
     src_reader: !CharFromWordTextReader

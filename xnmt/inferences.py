@@ -150,6 +150,7 @@ class Inference(object):
     with open(trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
       cur_sent_i = 0
       src_batch, ref_batch, assert_batch = [], [], []
+      event_trigger.set_reporting(self.reporter is not None)
       for curr_sent_i, (src_line, ref_line, assert_line) in enumerate(zip(src_in, forced_ref_in, assert_in)):
         if self.max_num_sents and cur_sent_i >= self.max_num_sents:
           break

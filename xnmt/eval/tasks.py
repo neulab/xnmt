@@ -93,13 +93,13 @@ class LossEvalTask(EvalTask, Serializable):
         loss_val += loss.get_factored_loss_val(comb_method=self.loss_comb_method)
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
-
+#
     return LossScore(sum(loss_stats.values()),
                      loss_stats=loss_stats,
                      num_ref_words = ref_words_cnt,
                      desc=self.desc)
 
-class AccuracyEvalTask(EvalTask, reports.Reportable, Serializable):
+class AccuracyEvalTask(EvalTask, Serializable):
   """
   A task that does evaluation of some measure of accuracy.
 
@@ -133,7 +133,8 @@ class AccuracyEvalTask(EvalTask, reports.Reportable, Serializable):
 
   def eval(self):
     event_trigger.set_train(False)
-    self.report_corpus_info({"ref_file":self.ref_file})
+    if issubclass(self.model.__class__, reports.Reportable):
+      self.model.report_corpus_info({"ref_file": self.ref_file})
     self.inference.perform_inference(generator=self.model,
                                      src_file=self.src_file,
                                      trg_file=self.hyp_file)
