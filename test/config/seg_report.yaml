@@ -15,7 +15,7 @@ report: !Experiment
       policy_learning: !PolicyGradient 
         z_normalization: True
   train: !SimpleTrainingRegimen
-    run_for_epochs: 1
+    run_for_epochs: 2
     src_file: examples/data/head.ja
     trg_file: examples/data/head.en
     loss_calculator: !FeedbackLoss
@@ -30,10 +30,16 @@ report: !Experiment
         src_file: examples/data/dev.ja
         ref_file: examples/data/dev.en
         hyp_file: test/tmp/{EXP}.test_hyp
-        inference: !AutoRegressiveInference
-          reporter: !SegmentationReporter
-            report_path: examples/output/test.segment
-
+        inference: !AutoRegressiveInference {reporter: !SegmentationReporter {report_path: examples/output/dev-1.segment}}
+      - !AccuracyEvalTask
+        eval_metrics: bleu,wer
+        src_file: examples/data/dev.ja
+        ref_file: examples/data/dev.en
+        hyp_file: test/tmp/{EXP}.test_hyp
+        inference: !AutoRegressiveInference {reporter: !SegmentationReporter {report_path: examples/output/dev-2.segment}}
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
   evaluate:
     - !LossEvalTask
       src_file: examples/data/head.ja
@@ -43,16 +49,14 @@ report: !Experiment
       src_file: examples/data/dev.ja
       ref_file: examples/data/dev.en
       hyp_file: test/tmp/{EXP}.test_hyp
-      inference: !AutoRegressiveInference
-        reporter: !SegmentationReporter
-          report_path: examples/output/test.segment
+      inference: !AutoRegressiveInference {reporter: !SegmentationReporter {report_path: examples/output/test-1.segment}}
     - !AccuracyEvalTask
       eval_metrics: bleu,wer
       src_file: examples/data/dev.ja
       ref_file: examples/data/dev.en
       hyp_file: test/tmp/{EXP}.test_hyp
-      inference: !AutoRegressiveInference
-        reporter: !SegmentationReporter
-          report_path: examples/output/test.segment
-
+      inference: !AutoRegressiveInference {reporter: !SegmentationReporter {report_path: examples/output/test-2.segment}}
+    - !LossEvalTask
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en     
 
