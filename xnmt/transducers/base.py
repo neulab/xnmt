@@ -144,6 +144,9 @@ class TransformSeqTransducer(SeqTransducer, Serializable):
       if out_mask:
         out_mask = out_mask.lin_subsampled(reduce_factor=self.downsample_by)
     output = self.transform.transform(src_tensor)
+    if self.downsample_by==1:
+      if len(output.dim())!=src_tensor.dim(): # can happen with seq length 1
+        output = dy.reshape(output, src_tensor.dim()[0], batch_size=src_tensor.dim()[1])
     output_seq = expression_seqs.ExpressionSequence(expr_tensor=output, mask=out_mask)
     self._final_states = [FinalTransducerState(output_seq[-1])]
     return output_seq
