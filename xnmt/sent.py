@@ -511,10 +511,11 @@ class Lattice(ReadableSentence):
     nodes: list of lattice nodes
     vocab: vocabulary for word IDs
     num_padded: denoting that this many words are padded (without adding any physical nodes)
+    unpadded_sent: reference to original, unpadded sentence if available
   """
 
   def __init__(self, idx: Optional[numbers.Integral], nodes: Sequence[LatticeNode], vocab: Vocab,
-               num_padded: numbers.Integral = 0) -> None:
+               num_padded: numbers.Integral = 0, unpadded_sent: 'Lattice' = None) -> None:
     self.idx = idx
     self.nodes = nodes
     self.vocab = vocab
@@ -524,6 +525,7 @@ class Lattice(ReadableSentence):
       assert len(nodes[t].nodes_prev) > 0
       assert len(nodes[t].nodes_next) > 0
     self.num_padded = num_padded
+    self.unpadded_sent = unpadded_sent
 
   def sent_len(self) -> int:
     """Return number of nodes in the lattice, including padded words.
@@ -572,7 +574,8 @@ class Lattice(ReadableSentence):
     if pad_len == 0:
       return self
     copied_nodes = copy.deepcopy(self.nodes)
-    return Lattice(idx=self.idx, nodes=copied_nodes, vocab=self.vocab, num_padded=pad_len)
+    return Lattice(idx=self.idx, nodes=copied_nodes, vocab=self.vocab, num_padded=pad_len,
+                   unpadded_sent=self.unpadded_sent or super().get_unpadded_sent())
 
   def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'Lattice':
     """
@@ -586,6 +589,9 @@ class Lattice(ReadableSentence):
     """
     if trunc_len != 0: raise ValueError("Lattices cannot be truncated.")
     return self
+
+  def get_unpadded_sent(self) -> 'Lattice':
+    return self.unpadded_sent or super().get_unpadded_sent()
 
   def reversed(self) -> 'Lattice':
     """
@@ -650,3 +656,4 @@ class Lattice(ReadableSentence):
       dot.render(out_file)
     except RuntimeError:
       pass
+
