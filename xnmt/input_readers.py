@@ -439,14 +439,16 @@ class LatticeReader(BaseTextReader, Serializable):
   Args:
     vocab: Vocabulary to convert string tokens to integer ids. If not given, plain text will be assumed to contain
            space-separated integer ids.
-    text_input: If ```True```, assume a standard text file as input and convert it to a flat lattice.
+    text_input: If ``True``, assume a standard text file as input and convert it to a flat lattice.
+    flatten: If ``True``, convert to a flat lattice, with all probabilities set to 1.
   """
   yaml_tag = '!LatticeReader'
 
   @serializable_init
-  def __init__(self, vocab: Vocab, text_input: bool = False):
+  def __init__(self, vocab: Vocab, text_input: bool = False, flatten = False):
     self.vocab = vocab
     self.text_input = text_input
+    self.flatten = flatten
 
   def read_sent(self, line, idx):
     if self.text_input:
@@ -466,9 +468,15 @@ class LatticeReader(BaseTextReader, Serializable):
                                 value=self.vocab.convert(item[0]),
                                 fwd_log_prob=item[1], marginal_log_prob=item[2], bwd_log_prob=item[3])
                for item in node_list]
-      for from_index, to_index in arc_list:
-        nodes[from_index].nodes_next.append(to_index)
-        nodes[to_index].nodes_prev.append(from_index)
+      if self.flatten:
+        for node_i in range(len(nodes)):
+          if node_i < len(nodes)-1: nodes[node_i].nodes_next.append(node_i+1)
+          if node_i > 0: nodes[node_i].nodes_prev.append(node_i-1)
+          nodes[node_i].fwd_log_prob = nodes[node_i].bwd_log_prob = nodes[node_i].marginal_log_prob = 0.0
+      else:
+        for from_index, to_index in arc_list:
+          nodes[from_index].nodes_next.append(to_index)
+          nodes[to_index].nodes_prev.append(from_index)
 
       assert nodes[0].value == self.vocab.SS
       assert nodes[-1].value == self.vocab.ES
