@@ -91,11 +91,8 @@ class PolicyGradient(Serializable):
     rewards = dy.concatenate(rewards, d=0)
     dim, batch_size = rewards.dim()
     rewards_mean = dy.mean_dim(rewards, [0], False)
-    if dim[0] > 1:
-      rewards_std = dy.std_dim(rewards, [0], False)
-    else:
-      rewards_std = dy.ones((1,), batch_size)
-    rewards = dy.cdiv(rewards - rewards_mean, rewards_std)
+    rewards_std = dy.std_dim(rewards, [0], False)
+    rewards = dy.cdiv(rewards - rewards_mean, rewards_std+1e-10)
     ## Calculate Confidence Penalty
     if self.confidence_penalty:
       cp_loss = self.confidence_penalty.calc_loss(self.policy_lls)

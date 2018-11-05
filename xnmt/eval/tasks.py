@@ -110,6 +110,8 @@ class AccuracyEvalTask(EvalTask, Serializable):
     model: generator model to generate hypothesis with
     eval_metrics: list of evaluation metrics (list of Evaluator objects or string of comma-separated shortcuts)
     inference: inference object
+    perform_inference: Whether to generate the output or not. One eval task can use difference hyp_file that is generated
+                       by previous eval Tasks.
     desc: human-readable description passed on to resulting score objects
   """
 
@@ -119,7 +121,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
   @events.register_xnmt_handler
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
                model: 'model_base.GeneratorModel' = Ref("model"), eval_metrics: Union[str, Evaluator, Sequence[Evaluator]] = "bleu",
-               inference: Optional['inferences.Inference'] = None, desc: Any = None):
+               inference: Optional['inferences.Inference'] = None, perform_inference=True, desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
@@ -129,15 +131,17 @@ class AccuracyEvalTask(EvalTask, Serializable):
     self.ref_file = ref_file
     self.hyp_file = hyp_file
     self.inference = inference or self.model.inference
+    self.perform_inference = perform_inference
     self.desc=desc
 
   def eval(self):
     event_trigger.set_train(False)
     if issubclass(self.model.__class__, reports.Reportable):
       self.model.report_corpus_info({"ref_file": self.ref_file})
-    self.inference.perform_inference(generator=self.model,
-                                     src_file=self.src_file,
-                                     trg_file=self.hyp_file)
+    if self.perform_inference:
+      self.inference.perform_inference(generator=self.model,
+                                       src_file=self.src_file,
+                                       trg_file=self.hyp_file)
     # Evaluate
     eval_scores = xnmt.xnmt_evaluate.xnmt_evaluate(hyp_file=self.hyp_file, ref_file=self.ref_file, desc=self.desc,
                                                    evaluators=self.eval_metrics)

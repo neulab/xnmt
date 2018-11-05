@@ -11,6 +11,7 @@ from xnmt.modelparts.bridges import CopyBridge
 from xnmt.modelparts.decoders import AutoRegressiveDecoder
 from xnmt.modelparts.embedders import SimpleWordEmbedder
 import xnmt.events
+from xnmt.eval import metrics
 from xnmt import batchers, event_trigger
 from xnmt.input_readers import PlainTextReader
 from xnmt.input_readers import CharFromWordTextReader
@@ -348,6 +349,15 @@ class TestComposing(unittest.TestCase):
                                                                                     hidden_dim=self.layer_dim))
     event_trigger.set_train(True)
     enc.transduce(self.inp_emb(0))
+
+class TestSegmentationFMeasureEvaluator(unittest.TestCase):
+  def test_fmeasure(self):
+    self.assertEqual(metrics.SegmentationFMeasureEvaluator().evaluate_one_sent("ab c def".split(), "a bc def".split()).value(),
+                     0.80)
+
+  def test_fmeasure_error(self):
+    with self.assertRaises(Exception) as context:
+      metrics.SegmentationFMeasureEvaluator().evaluate_one_sent("aaa b".split(), "aaa".split())
 
 if __name__ == "__main__":
   unittest.main()
