@@ -137,7 +137,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     try:
       return self.policy_learning.calc_loss(reward_tensor)
     finally:
-      self.reward = reward_tensor
+      self.reward = reward
       if self.train and self.reporter is not None:
         self.reporter.report_process(self)
 
