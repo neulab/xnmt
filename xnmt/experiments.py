@@ -47,7 +47,6 @@ class ExpGlobal(Serializable):
                truncate_dec_batches: bool = False,
                save_num_checkpoints: numbers.Integral = 1,
                loss_comb_method: str = "sum",
-               compute_report: bool = False,
                commandline_args: dict = {},
                placeholders: Dict[str, Any] = {}) -> None:
     self.model_file = model_file
@@ -61,7 +60,6 @@ class ExpGlobal(Serializable):
     self.commandline_args = commandline_args
     self.save_num_checkpoints = save_num_checkpoints
     self.loss_comb_method = loss_comb_method
-    self.compute_report = compute_report
     self.placeholders = placeholders
 
 class Experiment(Serializable):

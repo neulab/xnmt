@@ -57,3 +57,8 @@ def calc_additional_loss(trg: Union[sent.Sentence, batchers.Batch],
 @events.register_xnmt_event_assign
 def get_report_input(context={}) -> dict:
   return context
+
+@events.register_xnmt_event
+def set_reporting(reporting):
+  pass
+

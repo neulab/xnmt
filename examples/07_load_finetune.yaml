@@ -67,5 +67,6 @@ exp2-finetune-model: !LoadSerialized
     val: 0.5
   - path: train.dev_zero
     val: True
-
+  - path: status
+    val: null
 

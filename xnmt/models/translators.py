@@ -96,8 +96,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
                trg_embedder: Embedder=bare(SimpleWordEmbedder),
                decoder: Decoder=bare(AutoRegressiveDecoder),
                inference: inferences.AutoRegressiveInference=bare(inferences.AutoRegressiveInference),
-               truncate_dec_batches:bool=False,
-               compute_report:bool = Ref("exp_global.compute_report", default=False)):
+               truncate_dec_batches:bool=False):
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
     self.encoder = encoder
@@ -106,14 +105,12 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     self.decoder = decoder
     self.inference = inference
     self.truncate_dec_batches = truncate_dec_batches
-    self.compute_report = compute_report
 
   def shared_params(self):
     return [{".src_embedder.emb_dim", ".encoder.input_dim"},
             {".encoder.hidden_dim", ".attender.input_dim", ".decoder.input_dim"},
             {".attender.state_dim", ".decoder.rnn.hidden_dim"},
             {".trg_embedder.emb_dim", ".decoder.trg_embed_dim"}]
-
 
   def _encode_src(self, src: Union[batchers.Batch, sent.Sentence]):
     embeddings = self.src_embedder.embed_sent(src)
@@ -249,11 +246,12 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
         outputs.append(out_sent)
       else:
         outputs.append(sent.NbestSentence(base_sent=out_sent, nbest_id=src[0].idx))
-    if self.compute_report:
+    
+    if self.is_reporting():
       attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
       self.report_sent_info({"attentions": attentions,
-                                "src": src[0],
-                                "output": outputs[0]})
+                             "src": src[0],
+                             "output": outputs[0]})
 
     return outputs
 

@@ -4,8 +4,6 @@
 # to the inference class.
 !Experiment
   name: report
-  exp_global: !ExpGlobal
-    compute_report: True
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
