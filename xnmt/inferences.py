@@ -147,10 +147,12 @@ class Inference(object):
     # If we have a reference file return it, otherwise return "None" infinitely
     forced_ref_in = generator.trg_reader.read_sents(forced_ref_file) if forced_ref_file else iter(lambda: None, 1)
     assert_in = assert_scores if assert_scores else iter(lambda: None, 1)
-    with open(trg_file, 'wt', encoding='utf-8') as fp:  # Saving the translated output to a trg file
-      cur_sent_i = 0
+    # Reporting is commenced if there is some defined reporters
+    is_reporting = self.reporter is not None
+    event_trigger.set_reporting(is_reporting)
+    # Saving the translated output to a trg file
+    with open(trg_file, 'wt', encoding='utf-8') as fp:
       src_batch, ref_batch, assert_batch = [], [], []
-      event_trigger.set_reporting(self.reporter is not None)
       for curr_sent_i, (src_line, ref_line, assert_line) in enumerate(zip(src_in, forced_ref_in, assert_in)):
         if self.max_num_sents and cur_sent_i >= self.max_num_sents:
           break
@@ -162,7 +164,13 @@ class Inference(object):
           src_batch, ref_batch, assert_batch = [], [], []
       if len(src_batch) != 0:
         self._generate_one_batch(generator, batcher, src_batch, ref_batch, assert_batch, max_src_len, fp)
-      if self.reporter: self._conclude_report()
+    # Finishing up
+    try:
+      if is_reporting:
+        self._conclude_report()
+    finally:
+      # Reporting is done in _generate_output only
+      event_trigger.set_reporting(False)
 
   def _create_sent_report(self):
     assert self.reporter is not None
