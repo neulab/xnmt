@@ -44,7 +44,7 @@ class LossEvalTask(EvalTask, Serializable):
                src_file: Union[str, Sequence[str]],
                ref_file: Optional[str] = None,
                model: 'model_base.GeneratorModel' = Ref("model"),
-               batcher: Batcher = Ref("training.batcher", default=bare(xnmt.batchers.SrcBatcher, batch_size=32)),
+               batcher: Batcher = Ref("train.batcher", default=bare(xnmt.batchers.SrcBatcher, batch_size=32)),
                loss_calculator: LossCalculator = bare(MLELoss),
                max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,

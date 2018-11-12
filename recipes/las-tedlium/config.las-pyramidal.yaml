@@ -11,11 +11,11 @@ las-pyramidal: !Experiment
       in_files:
       - '{DATA_DIR}/db/dev.yaml'
       - '{DATA_DIR}/db/test.yaml'
-      - '{DATA_DIR}/db/training.yaml'
+      - '{DATA_DIR}/db/train.yaml'
       out_files:
       - '{DATA_DIR}/feat/dev.h5'
       - '{DATA_DIR}/feat/test.h5'
-      - '{DATA_DIR}/feat/training.h5'
+      - '{DATA_DIR}/feat/train.h5'
       specs: !MelFiltExtractor {}
   model: !DefaultTranslator
     src_embedder: !NoopEmbedder
@@ -49,8 +49,8 @@ las-pyramidal: !Experiment
         vocab_file: '{EXP_DIR}/vocab.char'
       output_proc: join-char
   train: !SimpleTrainingRegimen
-    src_file: '{DATA_DIR}/feat/training.h5'
-    trg_file: '{DATA_DIR}/transcript/training.char'
+    src_file: '{DATA_DIR}/feat/train.h5'
+    trg_file: '{DATA_DIR}/transcript/train.char'
     max_src_len: 1500
     max_trg_len: 350
     run_for_epochs: 500

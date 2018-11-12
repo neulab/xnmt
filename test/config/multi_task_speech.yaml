@@ -52,8 +52,8 @@ exp1-multi_task_exp: !Experiment
       dev_tasks:
         - !AccuracyEvalTask
           model: !Ref { name: first_task_model }
-          src_file: &first_task_dev_src examples/data/LDC94S13A.h5    # value-sharing between training.training_corpus.dev_src and inference.src_file
-          ref_file: &first_task_dev_trg examples/data/LDC94S13A.char  # value-sharing between training.training_corpus.dev_trg and evaluate.ref_file
+          src_file: &first_task_dev_src examples/data/LDC94S13A.h5    # value-sharing between train.training_corpus.dev_src and inference.src_file
+          ref_file: &first_task_dev_trg examples/data/LDC94S13A.char  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
           hyp_file: test/tmp/{EXP}.first_dev_hyp
           eval_metrics: bleu # tasks can specify different dev_metrics
     - !SimpleTrainingTask
@@ -91,7 +91,7 @@ exp1-multi_task_exp: !Experiment
         - !AccuracyEvalTask
           model: !Ref { name: second_task_model }
           src_file: examples/data/LDC94S13A.h5
-          ref_file: examples/data/LDC94S13A.char  # value-sharing between training.training_corpus.dev_trg and evaluate.ref_file
+          ref_file: examples/data/LDC94S13A.char  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
           hyp_file: test/tmp/{EXP}.second_dev_hyp
           eval_metrics: gleu # tasks can specify different dev_metrics
   evaluate:

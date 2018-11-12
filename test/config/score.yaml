@@ -44,7 +44,7 @@ exp1-model: !Experiment
 exp2-score: !LoadSerialized
   filename: test/tmp/exp1-model.mod
   overwrite:
-  - path: training
+  - path: train
     val: ~
   - path: model.inference
     val: !AutoRegressiveInference

@@ -8,8 +8,8 @@ kftt.en-ja: !Experiment
     tasks:
     - !PreprocVocab        # Create vocabulary files from the training data
       in_files:
-      - '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-training.cln.en'
-      - '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-training.cln.ja'
+      - '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-train.cln.en'
+      - '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-train.cln.ja'
       out_files:
       - '{EXP_DIR}/vocab.en'
       - '{EXP_DIR}/vocab.ja'
@@ -59,8 +59,8 @@ kftt.en-ja: !Experiment
       alpha: 0.001
     batcher: !WordSrcBatcher
       avg_batch_size: 64
-    src_file: '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-training.cln.en'
-    trg_file: '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-training.cln.ja'
+    src_file: '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-train.cln.en'
+    trg_file: '{EXP_DIR}/kftt-data-1.0/data/tok/kyoto-train.cln.ja'
     dev_tasks:
       - !AccuracyEvalTask
         eval_metrics: bleu
