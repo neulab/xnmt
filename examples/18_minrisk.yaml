@@ -56,13 +56,13 @@ exp2-finetune-minrisk: !LoadSerialized
   filename: examples/models/exp1-pretrain-model.mod
   path: ''
   overwrite:
-  - path: training.loss_calculator
+  - path: train.loss_calculator
     val: !MinRiskLoss
       alpha: 0.005
   - path: model.search_strategy
     val: !SamplingSearch
       sample_size: 10
       max_len: 50
-  - path: training.run_for_epochs
+  - path: train.run_for_epochs
     val: 1
 

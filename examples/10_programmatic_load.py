@@ -20,7 +20,7 @@ ParamManager.init_param_col()
 load_experiment = LoadSerialized(
   filename=f"{EXP_DIR}/models/programmatic.mod",
   overwrite=[
-    {"path" : "training", "val" : None},
+    {"path" : "train", "val" : None},
     {"path": "status", "val": None},
   ]
 )
