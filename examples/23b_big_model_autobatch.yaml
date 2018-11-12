@@ -13,9 +13,9 @@
   # model architecture
   model: !DefaultTranslator
     src_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/big-ja.vocab}
+      vocab: !Vocab {vocab_file: examples/data/big-ja-word.vocab}
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/big-en.vocab}
+      vocab: !Vocab {vocab_file: examples/data/big-en-word.vocab}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 512
     encoder: !BiLSTMSeqTransducer
