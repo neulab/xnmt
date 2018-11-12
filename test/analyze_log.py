@@ -11,7 +11,7 @@ WORDS = 4
 WORDS_SEC = 6
 TIME = 7
 
-regex = r'Epoch ([.0-9]+): (train|test)_ppl=([.0-9]+) \(words=(\d+), (words/sec=([.0-9]{2,4}), )?time=([0-9:\-]+)\)'
+regex = r'Epoch ([.0-9]+): (training|test)_ppl=([.0-9]+) \(words=(\d+), (words/sec=([.0-9]{2,4}), )?time=([0-9:\-]+)\)'
 
 
 def plot_ppl_against_epoch(log_file):
@@ -22,7 +22,7 @@ def plot_ppl_against_epoch(log_file):
     for line in f.readlines():
       matches = re.search(regex, line.rstrip())
       if matches:
-        if matches.group(TRAIN_TEST) == 'train':
+        if matches.group(TRAIN_TEST) == 'training':
           data['epoch'].append(matches.group(EPOCH))
           data['train_ppl'].append(matches.group(PPL))
         else:

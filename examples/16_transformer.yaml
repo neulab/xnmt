@@ -27,8 +27,8 @@ transformer: !Experiment
       alpha: 1.0
       warmup_steps: 4000
     lr_decay: 1.0
-    src_file: examples/data/train-big.ja
-    trg_file: examples/data/train-big.en
+    src_file: examples/data/training-big.ja
+    trg_file: examples/data/training-big.en
     dev_tasks:
       - !AccuracyEvalTask
         eval_metrics: bleu

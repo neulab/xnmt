@@ -7,7 +7,7 @@
 # multiple times.
 #
 # This particular examples runs the same experiment, changing only the amount
-# of dropout. model, train, evaluate settings are shared using YAML anchors,
+# of dropout. model, training, evaluate settings are shared using YAML anchors,
 # see here for more information: http://yaml.readthedocs.io/en/latest/example.html
 #
 # There are two ways of specifying multiple experiments: the dictionary-way and the

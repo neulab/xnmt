@@ -19,7 +19,7 @@ class TrainingTask(object):
   loop.
 
   Args:
-    model: The model to train
+    model: The model to training
   """
   def __init__(self, model: 'model_base.TrainableModel') -> None:
     self.model = model

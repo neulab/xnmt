@@ -9,7 +9,7 @@ from xnmt.eval.tasks import EvalTask
 from xnmt.models.base import TrainableModel
 from xnmt.param_collections import ParamManager, RevertingUnsavedModelException
 from xnmt.preproc import PreprocRunner
-from xnmt.train.regimens import TrainingRegimen
+from xnmt.training.regimens import TrainingRegimen
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class ExpGlobal(Serializable):

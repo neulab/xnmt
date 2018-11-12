@@ -1,10 +1,9 @@
-from typing import Optional, Sequence, Union
-
 import dynet as dy
 
-from xnmt import batchers, input_readers, losses, sent
-from xnmt import event_trigger, loss_calculators
+from typing import Optional, Sequence, Union
+from xnmt import batchers, input_readers, sent
 from xnmt.persistence import Serializable, serializable_init
+
 
 class TrainableModel(object):
   """
@@ -21,6 +20,7 @@ class TrainableModel(object):
     Returns:
       A (possibly batched) expression representing the loss.
     """
+
 
 class UnconditionedModel(TrainableModel):
   """

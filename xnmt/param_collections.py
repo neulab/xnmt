@@ -5,6 +5,7 @@ import dynet as dy
 
 from xnmt import logger
 
+
 class ParamManager(object):
   """
   A static class that manages the currently loaded DyNet parameters of all components.

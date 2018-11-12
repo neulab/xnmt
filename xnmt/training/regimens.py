@@ -14,7 +14,7 @@ from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 from xnmt import event_trigger, optimizers, batchers, utils
 from xnmt.eval import tasks as eval_tasks
-from xnmt.train import tasks as train_tasks
+from xnmt.training import tasks as train_tasks
 
 
 class TrainingRegimen(object):

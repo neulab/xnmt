@@ -26,8 +26,8 @@ iwslt-experiment: !Experiment
     batcher: !WordSrcBatcher
       avg_batch_size: 64
     run_for_epochs: 20
-    src_file: '{EXP_DIR}/train.en'
-    trg_file: '{EXP_DIR}/train.vi'
+    src_file: '{EXP_DIR}/training.en'
+    trg_file: '{EXP_DIR}/training.vi'
     dev_tasks:
       - !AccuracyEvalTask
         eval_metrics: bleu

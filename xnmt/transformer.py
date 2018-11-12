@@ -122,9 +122,9 @@ class MultiHeadAttention(object):
     batch_K = dy.concatenate_to_batch(self.split_rows(K, h))
     batch_V = dy.concatenate_to_batch(self.split_rows(V, h))
 
-    assert(batch_Q.dim() == (n_units // h, n_querys), batch * h)
-    assert(batch_K.dim() == (n_units // h, n_keys), batch * h)
-    assert(batch_V.dim() == (n_units // h, n_keys), batch * h)
+    assert batch_Q.dim() == ((n_units // h, n_querys), batch * h)
+    assert batch_K.dim() == ((n_units // h, n_keys), batch * h)
+    assert batch_V.dim() == ((n_units // h, n_keys), batch * h)
 
     mask = np.concatenate([mask] * h, axis=0)
     mask = np.moveaxis(mask, [1, 0, 2], [0, 2, 1])

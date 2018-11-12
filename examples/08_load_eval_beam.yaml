@@ -56,9 +56,9 @@ exp1-train-model: !Experiment
       hyp_file: examples/output/{EXP}.test_hyp
 
 exp2-eval-model: !LoadSerialized
-  filename: examples/output/exp1-train-model.mod
+  filename: examples/output/exp1-training-model.mod
   overwrite: # list of [path, value] pairs. Value can be scalar or an arbitrary object
-  - path: train # skip the training loop
+  - path: training # skip the training loop
     val: null
   - path: status
     val: null

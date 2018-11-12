@@ -12,15 +12,15 @@
     tasks:
     - !PreprocTokenize
       in_files:
-      - '{DATA_IN}/train.ja'
-      - '{DATA_IN}/train.en'
+      - '{DATA_IN}/training.ja'
+      - '{DATA_IN}/training.en'
       - '{DATA_IN}/dev.ja'
       - '{DATA_IN}/dev.en'
       - '{DATA_IN}/test.ja'
       - '{DATA_IN}/test.en'
       out_files:
-      - '{DATA_OUT}/train.tok.ja'
-      - '{DATA_OUT}/train.tok.en'
+      - '{DATA_OUT}/training.tok.ja'
+      - '{DATA_OUT}/training.tok.en'
       - '{DATA_OUT}/dev.tok.ja'
       - '{DATA_OUT}/dev.tok.en'
       - '{DATA_OUT}/test.tok.ja'
@@ -31,8 +31,8 @@
         - !UnicodeTokenizer {}
     - !PreprocNormalize
       in_files:
-      - '{DATA_OUT}/train.tok.ja'
-      - '{DATA_OUT}/train.tok.en'
+      - '{DATA_OUT}/training.tok.ja'
+      - '{DATA_OUT}/training.tok.en'
       - '{DATA_OUT}/dev.tok.ja'
       - '{DATA_OUT}/dev.tok.en'
       - '{DATA_OUT}/test.tok.ja'
@@ -40,8 +40,8 @@
       - '{DATA_IN}/dev.en'
       - '{DATA_IN}/test.en'
       out_files:
-      - '{DATA_OUT}/train.tok.norm.ja'
-      - '{DATA_OUT}/train.tok.norm.en'
+      - '{DATA_OUT}/training.tok.norm.ja'
+      - '{DATA_OUT}/training.tok.norm.en'
       - '{DATA_OUT}/dev.tok.norm.ja'
       - '{DATA_OUT}/dev.tok.norm.en'
       - '{DATA_OUT}/test.tok.norm.ja'
@@ -54,22 +54,22 @@
         - !NormalizerLower {}
     - !PreprocFilter
       in_files:
-      - '{DATA_OUT}/train.tok.norm.ja'
-      - '{DATA_OUT}/train.tok.norm.en'
+      - '{DATA_OUT}/training.tok.norm.ja'
+      - '{DATA_OUT}/training.tok.norm.en'
       out_files:
-      - '{DATA_OUT}/train.tok.norm.filter.ja'
-      - '{DATA_OUT}/train.tok.norm.filter.en'
+      - '{DATA_OUT}/training.tok.norm.filter.ja'
+      - '{DATA_OUT}/training.tok.norm.filter.en'
       specs:
       - type: length
         min: 1
         max: 60
     - !PreprocVocab
       in_files:
-      - '{DATA_OUT}/train.tok.norm.ja'
-      - '{DATA_OUT}/train.tok.norm.en'
+      - '{DATA_OUT}/training.tok.norm.ja'
+      - '{DATA_OUT}/training.tok.norm.en'
       out_files:
-      - '{DATA_OUT}/train.vocab.ja'
-      - '{DATA_OUT}/train.vocab.en'
+      - '{DATA_OUT}/training.vocab.ja'
+      - '{DATA_OUT}/training.vocab.en'
       specs:
       - filenum: all
         filters:
@@ -78,10 +78,10 @@
   model: !DefaultTranslator
     src_reader: !PlainTextReader
       vocab: !Vocab
-        vocab_file: examples/preproc/train.vocab.ja
+        vocab_file: examples/preproc/training.vocab.ja
     trg_reader: !PlainTextReader
       vocab: !Vocab
-        vocab_file: examples/preproc/train.vocab.en
+        vocab_file: examples/preproc/training.vocab.en
     src_embedder: !SimpleWordEmbedder
       emb_dim: 512
     encoder: !BiLSTMSeqTransducer

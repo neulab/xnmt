@@ -16,6 +16,7 @@ from xnmt.reports import Reportable
 from xnmt.transducers.recurrent import BiLSTMSeqTransducer
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer, VocabBasedComposer
 
+
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   """
   A transducer that perform composition on smaller units (characters) into bigger units (words).
@@ -49,14 +50,15 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, embed_encoder=bare(IdentitySeqTransducer),
-                     segment_composer=bare(SeqTransducerComposer),
-                     final_transducer=bare(BiLSTMSeqTransducer),
-                     policy_learning=None,
-                     length_prior=None,
-                     eps_greedy=None,
-                     sample_during_search=False,
-                     reporter=None):
+  def __init__(self,
+               embed_encoder=bare(IdentitySeqTransducer),
+               segment_composer=bare(SeqTransducerComposer),
+               final_transducer=bare(BiLSTMSeqTransducer),
+               policy_learning=None,
+               length_prior=None,
+               eps_greedy=None,
+               sample_during_search=False,
+               reporter=None):
     self.embed_encoder = self.add_serializable_component("embed_encoder", embed_encoder, lambda: embed_encoder)
     self.segment_composer = self.add_serializable_component("segment_composer", segment_composer, lambda: segment_composer)
     self.final_transducer = self.add_serializable_component("final_transducer", final_transducer, lambda: final_transducer)
@@ -76,8 +78,8 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.train = None
 
   def shared_params(self):
-    return [{".embed_encoder.hidden_dim",".policy_learning.policy_network.input_dim"},
-            {".embed_encoder.hidden_dim",".policy_learning.baseline.input_dim"},
+    return [{".embed_encoder.hidden_dim", ".policy_learning.policy_network.input_dim"},
+            {".embed_encoder.hidden_dim", ".policy_learning.baseline.input_dim"},
             {".segment_composer.hidden_dim", ".final_transducer.input_dim"}]
 
   def transduce(self, embed_sent: ExpressionSequence) -> List[ExpressionSequence]:
@@ -85,7 +87,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     actions = self.sample_segmentation(embed_sent, batch_size)
     embeddings = dy.concatenate(embed_sent.expr_list, d=1)
     embeddings.value()
-    #
     composed_words = []
     for i in range(batch_size):
       sequence = dy.pick_batch_elem(embeddings, i)
@@ -112,8 +113,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
       self.compose_output = outputs
       self.segment_actions = actions
       if not self.train and self.is_reporting():
-        if len(actions) == 1: # Support only AccuracyEvalTask
-          self.report_sent_info({"segment_actions": actions})
+        self.report_sent_info({"segment_actions": actions})
 
   @handle_xnmt_event
   def on_calc_additional_loss(self, trg, generator, generator_loss):
@@ -133,7 +133,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     if trg.batch_size() == 1:
       reward_value = [reward_value]
     reward_tensor = dy.inputTensor(reward_value, batched=True)
-    ### Calculate losses    
+    # Loss Part
     try:
       return self.policy_learning.calc_loss(reward_tensor)
     finally:
@@ -177,6 +177,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     from_argmax = not self.train and not self.sample_during_search
     actions = [[] for _ in range(batch_size)]
     mask = encodings.mask.np_arr if encodings.mask else None
+
     # Callback to ensure all samples are ended with </s> being segmented
     def ensure_end_segment(sample_batch, position):
       for i in range(len(sample_batch)):
@@ -184,6 +185,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         if position >= last_eos:
           sample_batch[i] = 1
       return sample_batch
+
     # Loop through all items in the sequence
     for position, encoding in enumerate(encodings):
       # Sample from softmax if we have no predefined action

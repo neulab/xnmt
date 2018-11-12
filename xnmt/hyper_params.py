@@ -4,6 +4,7 @@ import numbers
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.persistence import serializable_init, Serializable
 
+
 class Scalar(Serializable):
   """
   Scalar class for hyper parameter that support 1 value serialization.
@@ -36,20 +37,48 @@ class Scalar(Serializable):
     return f"{self.__class__.__name__}[curr={self.get_curr_value()}]"
 
   # Operators
-  def __lt__(a, b): return a.value < b
-  def __le__(a, b): return a.value <= b
-  def __eq__(a, b): return a.value == b
-  def __ne__(a, b): return a.value != b
-  def __ge__(a, b): return a.value >= b
-  def __gt__(a, b): return a.value > b
-  def __add__(a, b): return a.value + b
-  def __sub__(a, b): return a.value - b
-  def __mul__(a, b): return a.value * b
-  def __neg__(a): return -a.value
-  def __pos__(a): return +a.value
-  def __pow__(a, b): return a.value ** b
-  def __truediv__(a, b): return a.value / b
-  def __floordiv__(a, b): return a.value // b
+  def __lt__(self, b):
+    return self.value < b
+
+  def __le__(self, b):
+    return self.value <= b
+
+  def __eq__(self, b):
+    return self.value == b
+
+  def __ne__(self, b):
+    return self.value != b
+
+  def __ge__(self, b):
+    return self.value >= b
+
+  def __gt__(self, b):
+    return self.value > b
+
+  def __add__(self, b):
+    return self.value + b
+
+  def __sub__(self, b):
+    return self.value - b
+
+  def __mul__(self, b):
+    return self.value * b
+
+  def __neg__(self):
+    return -self.value
+
+  def __pos__(self):
+    return +self.value
+
+  def __pow__(self, b):
+    return self.value ** b
+
+  def __truediv__(self, b):
+    return self.value / b
+
+  def __floordiv__(self, b):
+    return self.value // b
+
 
 class DefinedSequence(Scalar, Serializable):
   """
@@ -79,5 +108,6 @@ class DefinedSequence(Scalar, Serializable):
 
   def get_curr_value(self):
     return self.sequence[min(len(self.sequence) - 1, self.times_updated)]
+
 
 numbers.Real.register(Scalar)

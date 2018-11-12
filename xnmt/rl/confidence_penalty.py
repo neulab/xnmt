@@ -4,6 +4,7 @@ import dynet as dy
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 
+
 class ConfidencePenalty(Serializable):
   """ 
   The confidence penalty.
@@ -12,17 +13,18 @@ class ConfidencePenalty(Serializable):
   Calculate the -entropy for the given (batched policy).
   Entropy is used as an additional loss so that it will penalize a too confident network.
   """
- 
   yaml_tag = "!ConfidencePenalty"
 
   @serializable_init
   @register_xnmt_handler
   def __init__(self, weight=1.0):
     self.weight = weight
+    self.valid_pos = None
 
   @handle_xnmt_event
   def on_start_sent(self, src):
-    self.valid_pos = src.mask.get_valid_position() if src.mask is not None else None
+    if src.mask is not None:
+      self.valid_pos = src.mask.get_valid_position()
 
   def calc_loss(self, policy):
     if self.weight < 1e-8:

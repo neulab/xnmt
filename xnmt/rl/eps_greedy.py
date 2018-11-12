@@ -1,16 +1,14 @@
-"""
-Epsilon greedy is a simple component that tells you if you should sample from your policy or from its prior.
-When eps_prob = 0, you will always sample from the policy.
-When eps_prob = 1, you will always sample from the prior.
-"""
-
 import numpy as np
 
 from xnmt.persistence import Serializable, serializable_init, bare
 from xnmt.specialized_encoders.segmenting_encoder.priors import UniformPrior
 
+
 class EpsilonGreedy(Serializable):
   """
+  Epsilon greedy is a simple component that tells you if you should sample from your policy or from its prior.
+  When eps_prob = 0, you will always sample from the policy.
+  When eps_prob = 1, you will always sample from the prior.
   Args:
     eps_prob: The probability of sampling from the prior.
   """
@@ -22,5 +20,6 @@ class EpsilonGreedy(Serializable):
     self.prior = prior
 
   def is_triggered(self): return np.random.random() <= self.eps_prob
+
   def get_prior(self): return self.prior
 

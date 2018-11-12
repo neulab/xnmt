@@ -5,9 +5,10 @@ A module defining triggers to the common events used throughout XNMT.
 from typing import Union
 import numbers
 
-from xnmt.train import tasks as training_tasks
+from xnmt.training import tasks as training_tasks
 from xnmt.models import base as models
 from xnmt import batchers, events, losses, sent
+
 
 @events.register_xnmt_event
 def new_epoch(training_task: training_tasks.TrainingTask, num_sents: numbers.Integral) -> None:
@@ -20,6 +21,7 @@ def new_epoch(training_task: training_tasks.TrainingTask, num_sents: numbers.Int
   """
   pass
 
+
 @events.register_xnmt_event
 def set_train(val: bool) -> None:
   """
@@ -30,6 +32,7 @@ def set_train(val: bool) -> None:
   """
   pass
 
+
 @events.register_xnmt_event
 def start_sent(src: Union[sent.Sentence, batchers.Batch]) -> None:
   """
@@ -39,6 +42,7 @@ def start_sent(src: Union[sent.Sentence, batchers.Batch]) -> None:
     src: new sentence (or batch of sentences)
   """
   pass
+
 
 @events.register_xnmt_event_sum
 def calc_additional_loss(trg: Union[sent.Sentence, batchers.Batch],
@@ -54,9 +58,11 @@ def calc_additional_loss(trg: Union[sent.Sentence, batchers.Batch],
   """
   return None
 
+
 @events.register_xnmt_event_assign
 def get_report_input(context={}) -> dict:
   return context
+
 
 @events.register_xnmt_event
 def set_reporting(reporting):

@@ -7,6 +7,7 @@ strings.
 
 from xnmt.persistence import Serializable, serializable_init
 
+
 class OutputProcessor(object):
   def process(self, s: str) -> str:
     """
@@ -35,16 +36,11 @@ class OutputProcessor(object):
           procs.append(JoinPieceTextOutputProcessor())
       return procs
     else:
-      return spec
+      if spec is None:
+        return []
+      else:
+        return spec
 
-class PlainTextOutputProcessor(OutputProcessor, Serializable):
-  """
-  This output processor does nothing and exists only for backward compatibility.
-  # TODO: remove eventually.
-  """
-  yaml_tag = "!PlainTextOutputProcessor"
-  def process(self, s: str) -> str:
-    return s
 
 class JoinCharTextOutputProcessor(OutputProcessor, Serializable):
   """
@@ -53,12 +49,14 @@ class JoinCharTextOutputProcessor(OutputProcessor, Serializable):
   Per default, double underscores '__' are treated as word separating tokens.
   """
   yaml_tag = "!JoinCharTextOutputProcessor"
+
   @serializable_init
   def __init__(self, space_token="__"):
     self.space_token = space_token
 
   def process(self, s: str) -> str:
     return s.replace(" ", "").replace(self.space_token, " ")
+
 
 class JoinBpeTextOutputProcessor(OutputProcessor, Serializable):
   """
@@ -67,12 +65,14 @@ class JoinBpeTextOutputProcessor(OutputProcessor, Serializable):
   Per default, the '@' postfix indicates subwords that should be merged
   """
   yaml_tag = "!JoinBpeTextOutputProcessor"
+
   @serializable_init
   def __init__(self, merge_indicator="@@"):
     self.merge_indicator_with_space = merge_indicator + " "
 
   def process(self, s: str) -> str:
     return s.replace(self.merge_indicator_with_space, "")
+
 
 class JoinPieceTextOutputProcessor(OutputProcessor, Serializable):
   """
@@ -81,6 +81,7 @@ class JoinPieceTextOutputProcessor(OutputProcessor, Serializable):
   Space_token could be the starting character of a piece per default, the u'\u2581' indicates spaces
   """
   yaml_tag = "!JoinPieceTextOutputProcessor"
+
   @serializable_init
   def __init__(self, space_token="\u2581"):
     self.space_token = space_token

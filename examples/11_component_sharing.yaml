@@ -48,8 +48,8 @@ exp1.pretrain: !Experiment
     trg_file: examples/data/head.en
     dev_tasks:
       - !LossEvalTask
-        src_file: &dev_src examples/data/head.ja  # value-sharing between train.training_corpus.dev_src and inference.src_file
-        ref_file: &dev_trg examples/data/head.en  # value-sharing between train.training_corpus.dev_trg and evaluate.ref_file
+        src_file: &dev_src examples/data/head.ja  # value-sharing between training.training_corpus.dev_src and inference.src_file
+        ref_file: &dev_trg examples/data/head.en  # value-sharing between training.training_corpus.dev_trg and evaluate.ref_file
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu

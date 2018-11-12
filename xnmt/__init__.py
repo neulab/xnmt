@@ -1,6 +1,7 @@
 import os
 import sys
 
+
 # No support for python2
 if sys.version_info[0] == 2:
   raise RuntimeError("XNMT does not support python2 any longer.")
@@ -48,8 +49,8 @@ import xnmt.rl
 import xnmt.specialized_encoders.segmenting_encoder
 import xnmt.specialized_encoders.self_attentional_am
 import xnmt.specialized_encoders.tilburg_harwath
-import xnmt.train.regimens
-import xnmt.train.tasks
+import xnmt.training.regimens
+import xnmt.training.tasks
 import xnmt.transducers.convolution
 import xnmt.transducers.network_in_network
 import xnmt.transducers.positional

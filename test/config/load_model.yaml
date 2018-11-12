@@ -53,7 +53,7 @@ exp2-finetune-model: !LoadSerialized
   filename: test/tmp/exp1-pretrain-model.mod
   path: ''
   overwrite: # list of [path, value] pairs. Value can be scalar or an arbitrary object
-  - path: train.trainer
+  - path: training.trainer
     val: !AdamTrainer
         alpha: 0.0002
   - path: exp_global.dropout

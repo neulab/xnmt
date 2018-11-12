@@ -1,11 +1,12 @@
 import dynet as dy
 
-from typing import Union, List
+from typing import Union
 
-from xnmt import batchers, inferences, search_strategies, sent
+from xnmt import batchers, inferences, sent
 from xnmt.models.translators import AutoRegressiveTranslator, DefaultTranslator
 from xnmt.persistence import serializable_init, Serializable, bare
 from xnmt.events import register_xnmt_handler
+
 
 class EnsembleTranslator(AutoRegressiveTranslator, Serializable):
   """

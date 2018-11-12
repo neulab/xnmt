@@ -5,7 +5,6 @@ from typing import Union, List, Any
 
 from xnmt import batchers, event_trigger, inferences, input_readers, search_strategies, sent
 from xnmt.events import register_xnmt_handler
-from xnmt.losses import FactoredLossExpr
 from xnmt.models.translators import TranslatorOutput, AutoRegressiveTranslator
 from xnmt.modelparts.attenders import Attender, MlpAttender
 from xnmt.modelparts.embedders import Embedder, SimpleWordEmbedder

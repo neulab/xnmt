@@ -5,7 +5,8 @@ from typing import Any, Sequence, Union
 from xnmt import sent, batchers
 from xnmt.models import ConditionedModel, GeneratorModel
 from xnmt.models.translators import TranslatorOutput
-from xnmt.modelparts.decoders import Decoder, AutoRegressiveDecoder, AutoRegressiveDecoderState
+from xnmt.modelparts.decoders import AutoRegressiveDecoderState
+
 
 class AutoRegressiveTranslator(ConditionedModel, GeneratorModel):
   """

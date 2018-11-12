@@ -14,11 +14,11 @@
     tasks:
     - !PreprocVocab
       in_files:
-      - '{DATA_IN}/train.ja'
-      - '{DATA_IN}/train.en'
+      - '{DATA_IN}/training.ja'
+      - '{DATA_IN}/training.en'
       out_files:
-      - '{DATA_OUT}/train.ja.vocab'
-      - '{DATA_OUT}/train.en.vocab'
+      - '{DATA_OUT}/training.ja.vocab'
+      - '{DATA_OUT}/training.en.vocab'
       specs:
       - filenum: all
         filters:
@@ -26,9 +26,9 @@
             min_freq: 2
   model: !DefaultTranslator
     src_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: '{DATA_OUT}/train.ja.vocab'}
+      vocab: !Vocab {vocab_file: '{DATA_OUT}/training.ja.vocab'}
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: '{DATA_OUT}/train.en.vocab'}
+      vocab: !Vocab {vocab_file: '{DATA_OUT}/training.en.vocab'}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 512
     encoder: !ModularSeqTransducer
@@ -72,8 +72,8 @@
       alpha: 1.0
       warmup_steps: 4000
     run_for_epochs: 2
-    src_file: examples/data/train.ja
-    trg_file: examples/data/train.en
+    src_file: examples/data/training.ja
+    trg_file: examples/data/training.en
     dev_tasks:
       - !LossEvalTask
         src_file: examples/data/head.ja

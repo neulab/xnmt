@@ -68,8 +68,8 @@ cascade: !Experiment
       hyp_file: '{EXP_DIR}/hyp/{EXP}.eval_casc_hyp'
       model: !CascadeGenerator
         generators:
-        - !Ref { path: train.tasks.0.model }
-        - !Ref { path: train.tasks.1.model }
+        - !Ref { path: training.tasks.0.model }
+        - !Ref { path: training.tasks.1.model }
       inference: !CascadeInference
         steps:
         - !AutoRegressiveInference

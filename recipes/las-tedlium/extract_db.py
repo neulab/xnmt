@@ -99,10 +99,10 @@ def main(argv=None):
             out_text=data_path + "/transcript/test.char",
             wavdir=data_path + "/wav/test")
 
-    extract(mypath=tedlium_path + "/train/stm/",
-            out_yaml=data_path + "/db/train.yaml",
-            out_text=data_path + "/transcript/train.char",
-            wavdir=data_path + "/wav/train")
+    extract(mypath=tedlium_path + "/training/stm/",
+            out_yaml=data_path + "/db/training.yaml",
+            out_text=data_path + "/transcript/training.char",
+            wavdir=data_path + "/wav/training")
     ###########################
     ###########################
 

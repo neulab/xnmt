@@ -390,7 +390,7 @@ class SentencepieceTokenizer(Tokenizer, Serializable):
       , output_format='piece', model_type='bpe', hard_vocab_limit=True
       , encode_extra_options=None, decode_extra_options=None):
     """
-    This will initialize and train the sentencepiece tokenizer.
+    This will initialize and training the sentencepiece tokenizer.
 
     If overwrite is set to False, learned model will not be overwritten, even if parameters
     are changed.

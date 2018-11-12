@@ -71,7 +71,7 @@ class TrainLossTracker(object):
         n_iter = fractional_epoch,
         time = utils.format_time(time.time() - self.start_time),
         words = self.epoch_words,
-        data_name = "train",
+        data_name = "training",
         task_name = self.name,
         words_per_sec = (self.epoch_words - self.last_report_words) / accum_time if accum_time else None
       )
@@ -81,7 +81,7 @@ class TrainLossTracker(object):
           utils.log_readable_and_tensorboard(template=TrainLossTracker.REPORT_TEMPLATE_ADDITIONAL,
                                              args={loss_name: loss_values / self.epoch_words},
                                              n_iter=fractional_epoch,
-                                             data_name="train",
+                                             data_name="training",
                                              task_name=self.name,
                                              loss_name=loss_name,
                                              loss=loss_values / self.epoch_words,
