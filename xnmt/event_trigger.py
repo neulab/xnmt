@@ -5,7 +5,7 @@ A module defining triggers to the common events used throughout XNMT.
 from typing import Union
 import numbers
 
-from xnmt.training import tasks as training_tasks
+from xnmt.train import tasks as training_tasks
 from xnmt.models import base as models
 from xnmt import batchers, events, losses, sent
 

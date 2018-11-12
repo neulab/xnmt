@@ -16,7 +16,7 @@ from xnmt.loss_calculators import MLELoss
 from xnmt.optimizers import AdamTrainer, DummyTrainer
 from xnmt.param_collections import ParamManager
 from xnmt.transducers.pyramidal import PyramidalLSTMSeqTransducer
-from xnmt.training import regimens
+from xnmt.train import regimens
 from xnmt.modelparts.transforms import NonLinear
 from xnmt.models.translators import DefaultTranslator
 from xnmt.modelparts.scorers import Softmax
