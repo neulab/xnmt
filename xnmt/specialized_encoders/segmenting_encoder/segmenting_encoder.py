@@ -119,21 +119,15 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   def on_calc_additional_loss(self, trg, generator, generator_loss):
     if self.policy_learning is None:
       return None
-    trg_counts = dy.inputTensor([t.len_unpadded() for t in trg], batched=True)
     reward = FactoredLossExpr()
-    # Adding all reward from the translator
-    for loss_key, loss_value in generator_loss.get_nobackprop_loss().items():
-      if loss_key == 'mle':
-        reward.add_loss('mle', dy.cdiv(-loss_value, trg_counts))
-      else:
-        reward.add_loss(loss_key, -loss_value)
+    reward.add_loss("generator", -dy.inputTensor(generator_loss.value(), batched=True))
     if self.length_prior is not None:
-      reward.add_loss('seg_lp', self.length_prior.log_ll(self.seg_size_unpadded))
+      reward.add_loss('length_prior', self.length_prior.log_ll(self.seg_size_unpadded))
     reward_value = reward.value()
     if trg.batch_size() == 1:
       reward_value = [reward_value]
     reward_tensor = dy.inputTensor(reward_value, batched=True)
-    ### Calculate losses    
+    ### Calculate losses
     try:
       return self.policy_learning.calc_loss(reward_tensor)
     finally:

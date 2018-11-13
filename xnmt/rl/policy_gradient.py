@@ -1,6 +1,7 @@
 from enum import Enum
 
 import dynet as dy
+import numpy as np
 
 from xnmt.events import handle_xnmt_event, register_xnmt_handler
 from xnmt.modelparts.transforms import Linear
@@ -89,10 +90,10 @@ class PolicyGradient(Serializable):
     loss.add_loss("rl_baseline", baseline_loss)
     ## Z-Normalization
     rewards = dy.concatenate(rewards, d=0)
-    dim, batch_size = rewards.dim()
-    rewards_mean = dy.mean_dim(rewards, [0], False)
-    rewards_std = dy.std_dim(rewards, [0], False)
-    rewards = dy.cdiv(rewards - rewards_mean, rewards_std+1e-10)
+    rewards_value = rewards.value()
+    rewards_mean = np.mean(rewards_value)
+    rewards_std = np.std(rewards_value) + 1e-10
+    rewards = (rewards - rewards_mean) / rewards_std
     ## Calculate Confidence Penalty
     if self.confidence_penalty:
       cp_loss = self.confidence_penalty.calc_loss(self.policy_lls)
