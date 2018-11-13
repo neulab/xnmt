@@ -296,30 +296,30 @@ class AutobatchTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, 
           with self.train_loss_tracker.time_tracker:
             event_trigger.set_train(True)
             loss_builder = self.training_step(src, trg)
-            #loss = loss_builder.compute()
-            ######
-            #self.backward(loss, self.dynet_profiling)
-            #losses.append(loss)
             total_loss.add_factored_loss_expr(loss_builder)
-            #self.update(self.trainer)
             self.update(self.trainer, total_loss)
             total_trg.append(trg[0])
             ######
           if self.num_updates_skipped == 0:
-            #self.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
             total_loss_val = total_loss.get_factored_loss_val(comb_method=self.loss_comb_method)
-            #for loss in total_loss_val._loss_dict:
-            #  total_loss_val._loss_dict[loss] /= self.update_every
-            #print(total_loss_val._loss_dict)
-            #print(type(total_trg[0]))
-            #print(total_trg)
             reported_trg = batchers.ListBatch(total_trg)
             self.train_loss_tracker.report(reported_trg, total_loss_val)
             total_loss = FactoredLossExpr()
             total_trg = []
         if self.checkpoint_needed():
+          # Do a last update before checkpoint
+          self.num_updates_skipped = self.update_every - 1
+          self.update(self.trainer, total_loss)
+          total_loss_val = total_loss.get_factored_loss_val(comb_method=self.loss_comb_method)
+          reported_trg = batchers.ListBatch(total_trg)
+          self.train_loss_tracker.report(reported_trg, total_loss_val)
+          total_loss = FactoredLossExpr()
+          total_trg = []
           self.checkpoint_and_save(save_fct)
         if self.should_stop_training(): break
+      # Do a final update before starting the new epoch
+      #self.num_updates_skipped = self.update_every - 1
+      #self.update(self.trainer, total_loss)
 
   def checkpoint_and_save(self, save_fct):
     should_save = self.checkpoint()
