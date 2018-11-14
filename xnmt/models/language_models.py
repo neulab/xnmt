@@ -1,7 +1,7 @@
 import dynet as dy
 import numpy as np
 
-from xnmt import batchers, event_trigger, events, input_readers, losses
+from xnmt import batchers, event_trigger, events, input_readers
 from xnmt.modelparts import transforms
 from xnmt.modelparts import scorers
 from xnmt.modelparts import embedders

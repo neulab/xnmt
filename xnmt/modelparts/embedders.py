@@ -7,7 +7,7 @@ import dynet as dy
 from xnmt import logger
 from xnmt import batchers, events, expression_seqs, input_readers, param_collections, param_initializers, vocabs
 from xnmt.modelparts import transforms
-from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
+from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
 class Embedder(object):
   """

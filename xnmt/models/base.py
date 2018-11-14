@@ -2,8 +2,7 @@ from typing import Optional, Sequence, Union
 
 import dynet as dy
 
-from xnmt import batchers, input_readers, losses, sent
-from xnmt import event_trigger, loss_calculators
+from xnmt import batchers, input_readers, sent
 from xnmt.persistence import Serializable, serializable_init
 
 class TrainableModel(object):

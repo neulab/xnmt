@@ -4,18 +4,17 @@ import numbers
 import dynet as dy
 
 from xnmt import logger
-from xnmt import batchers, param_collections, param_initializers
+from xnmt import batchers, expression_seqs, param_collections, param_initializers
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.expression_seqs import ExpressionSequence
 
 class Attender(object):
   """
   A template class for functions implementing attention.
   """
 
-  def init_sent(self, sent: ExpressionSequence):
+  def init_sent(self, sent: expression_seqs.ExpressionSequence):
     """Args:
-         sent: the encoder states, aka keys and values. Usually but not necessarily an :class:`xnmt.expression_sequence.ExpressionSequence`
+         sent: the encoder states, aka keys and values. Usually but not necessarily an :class:`expression_seqs.ExpressionSequence`
     """
     raise NotImplementedError('init_sent must be implemented for Attender subclasses')
 
@@ -75,7 +74,7 @@ class MlpAttender(Attender, Serializable):
     self.pU = param_collection.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
     self.curr_sent = None
 
-  def init_sent(self, sent: ExpressionSequence):
+  def init_sent(self, sent: expression_seqs.ExpressionSequence):
     self.attention_vecs = []
     self.curr_sent = sent
     I = self.curr_sent.as_tensor()
@@ -131,7 +130,7 @@ class DotAttender(Attender, Serializable):
     self.scale = scale
     self.attention_vecs = []
 
-  def init_sent(self, sent: ExpressionSequence):
+  def init_sent(self, sent: expression_seqs.ExpressionSequence):
     self.curr_sent = sent
     self.attention_vecs = []
     self.I = dy.transpose(self.curr_sent.as_tensor())
@@ -178,7 +177,7 @@ class BilinearAttender(Attender, Serializable):
     self.pWa = param_collection.add_parameters((input_dim, state_dim), init=param_init.initializer((input_dim, state_dim)))
     self.curr_sent = None
 
-  def init_sent(self, sent: ExpressionSequence):
+  def init_sent(self, sent: expression_seqs.ExpressionSequence):
     self.curr_sent = sent
     self.attention_vecs = []
     self.I = self.curr_sent.as_tensor()

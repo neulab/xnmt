@@ -3,16 +3,12 @@ from typing import Sequence, Union, Optional, Any
 import dynet as dy
 
 from xnmt.settings import settings
-from xnmt.batchers import Batcher
-from xnmt.eval.metrics import Evaluator, EvalScore
-from xnmt import inferences, input_readers
+
+from xnmt import batchers, event_trigger, events, inferences, input_readers, loss_calculators, losses, reports, utils, \
+  xnmt_evaluate
+from xnmt.eval import metrics
 from xnmt.models import base as model_base
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.loss_calculators import LossCalculator, MLELoss
-from xnmt.eval.metrics import LossScore
-from xnmt.losses import FactoredLossExpr, FactoredLossVal
-import xnmt.xnmt_evaluate
-from xnmt import event_trigger, events, reports, utils
 
 class EvalTask(object):
   """
@@ -44,8 +40,8 @@ class LossEvalTask(EvalTask, Serializable):
                src_file: Union[str, Sequence[str]],
                ref_file: Optional[str] = None,
                model: 'model_base.GeneratorModel' = Ref("model"),
-               batcher: Batcher = Ref("train.batcher", default=bare(xnmt.batchers.SrcBatcher, batch_size=32)),
-               loss_calculator: LossCalculator = bare(MLELoss),
+               batcher: batchers.Batcher = Ref("train.batcher", default=bare(batchers.SrcBatcher, batch_size=32)),
+               loss_calculator: loss_calculators.LossCalculator = bare(loss_calculators.MLELoss),
                max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
                max_num_sents: Optional[int] = None,
@@ -63,7 +59,7 @@ class LossEvalTask(EvalTask, Serializable):
     self.loss_comb_method = loss_comb_method
     self.desc=desc
 
-  def eval(self) -> 'EvalScore':
+  def eval(self) -> 'metrics.EvalScore':
     """
     Perform evaluation task.
 
@@ -81,7 +77,7 @@ class LossEvalTask(EvalTask, Serializable):
                                            max_num_sents=self.max_num_sents,
                                            max_src_len=self.max_src_len,
                                            max_trg_len=self.max_trg_len)
-    loss_val = FactoredLossVal()
+    loss_val = losses.FactoredLossVal()
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
       with utils.ReportOnException({"src": src, "trg": trg, "graph": utils.print_cg_conditional}):
@@ -94,10 +90,10 @@ class LossEvalTask(EvalTask, Serializable):
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
 #
-    return LossScore(sum(loss_stats.values()),
-                     loss_stats=loss_stats,
-                     num_ref_words = ref_words_cnt,
-                     desc=self.desc)
+    return metrics.LossScore(sum(loss_stats.values()),
+                             loss_stats=loss_stats,
+                             num_ref_words=ref_words_cnt,
+                             desc=self.desc)
 
 class AccuracyEvalTask(EvalTask, Serializable):
   """
@@ -120,11 +116,11 @@ class AccuracyEvalTask(EvalTask, Serializable):
   @serializable_init
   @events.register_xnmt_handler
   def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
-               model: 'model_base.GeneratorModel' = Ref("model"), eval_metrics: Union[str, Evaluator, Sequence[Evaluator]] = "bleu",
+               model: 'model_base.GeneratorModel' = Ref("model"), eval_metrics: Union[str, metrics.Evaluator, Sequence[metrics.Evaluator]] = "bleu",
                inference: Optional['inferences.Inference'] = None, perform_inference=True, desc: Any = None):
     self.model = model
     if isinstance(eval_metrics, str):
-      eval_metrics = [xnmt.xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
+      eval_metrics = [xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
     elif not isinstance(eval_metrics, Sequence): eval_metrics = [eval_metrics]
     self.eval_metrics = eval_metrics
     self.src_file = src_file
@@ -143,8 +139,8 @@ class AccuracyEvalTask(EvalTask, Serializable):
                                        src_file=self.src_file,
                                        trg_file=self.hyp_file)
     # Evaluate
-    eval_scores = xnmt.xnmt_evaluate.xnmt_evaluate(hyp_file=self.hyp_file, ref_file=self.ref_file, desc=self.desc,
-                                                   evaluators=self.eval_metrics)
+    eval_scores = xnmt_evaluate.xnmt_evaluate(hyp_file=self.hyp_file, ref_file=self.ref_file, desc=self.desc,
+                                              evaluators=self.eval_metrics)
 
     return eval_scores
 

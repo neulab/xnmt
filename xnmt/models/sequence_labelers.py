@@ -1,11 +1,8 @@
 import dynet as dy
 import numpy as np
 
-from xnmt import batchers, event_trigger, events, inferences, input_readers, losses, reports, sent, vocabs
-from xnmt.modelparts import transforms
-from xnmt.modelparts import scorers
-from xnmt.modelparts import embedders
-from xnmt.modelparts import attenders
+from xnmt import batchers, event_trigger, events, inferences, input_readers, reports, sent, vocabs
+from xnmt.modelparts import attenders, embedders, scorers, transforms
 from xnmt.models import base as models
 from xnmt.transducers import recurrent, base as transducers
 from xnmt.persistence import serializable_init, Serializable, bare
