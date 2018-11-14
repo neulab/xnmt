@@ -46,6 +46,7 @@
               input_dim: 512
               child: !MultiHeadAttentionSeqTransducer
                 num_heads: 8
+                dropout: 0.1
               layer_norm: True
               dropout: 0.1
             - !ResidualSeqTransducer
