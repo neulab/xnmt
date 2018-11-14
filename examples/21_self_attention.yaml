@@ -36,6 +36,7 @@
       - !PositionalSeqTransducer
         input_dim: 512
         max_pos: 100
+        dropout: 0.1
       - !ModularSeqTransducer
         modules: !Repeat
           times: 2
@@ -46,12 +47,14 @@
               child: !MultiHeadAttentionSeqTransducer
                 num_heads: 8
               layer_norm: True
+              dropout: 0.1
             - !ResidualSeqTransducer
               input_dim: 512
               child: !TransformSeqTransducer
                 transform: !MLP
                   activation: relu
               layer_norm: True
+              dropout: 0.1
     attender: !MlpAttender
       hidden_dim: 512
       state_dim: 512
