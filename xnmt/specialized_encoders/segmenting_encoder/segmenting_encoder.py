@@ -56,8 +56,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
                      length_prior=None,
                      eps_greedy=None,
                      sample_during_search=False,
-                     reporter=None,
-                     compute_report=Ref("exp_global.compute_report", default=False)):
+                     reporter=None):
     self.embed_encoder = self.add_serializable_component("embed_encoder", embed_encoder, lambda: embed_encoder)
     self.segment_composer = self.add_serializable_component("segment_composer", segment_composer, lambda: segment_composer)
     self.final_transducer = self.add_serializable_component("final_transducer", final_transducer, lambda: final_transducer)
@@ -65,7 +64,6 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     self.length_prior = self.add_serializable_component("length_prior", length_prior, lambda: length_prior) if length_prior is not None else None
     self.eps_greedy = self.add_serializable_component("eps_greedy", eps_greedy, lambda: eps_greedy) if eps_greedy is not None else None
     self.sample_during_search = sample_during_search
-    self.compute_report = compute_report
     self.reporter = reporter
     self.no_char_embed = issubclass(segment_composer.__class__, VocabBasedComposer)
     # Others
@@ -113,7 +111,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         self.seg_size_unpadded = seg_size_unpadded
       self.compose_output = outputs
       self.segment_actions = actions
-      if not self.train and self.compute_report:
+      if not self.train and self.is_reporting():
         if len(actions) == 1: # Support only AccuracyEvalTask
           self.report_sent_info({"segment_actions": actions})
 
@@ -139,7 +137,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
     try:
       return self.policy_learning.calc_loss(reward_tensor)
     finally:
-      self.reward = reward_tensor
+      self.reward = reward
       if self.train and self.reporter is not None:
         self.reporter.report_process(self)
 

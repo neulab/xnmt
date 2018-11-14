@@ -36,7 +36,6 @@ class PolicyGradient(Serializable):
                      z_normalization=True,
                      conf_penalty=None,
                      weight=1.0,
-                     use_baseline=True,
                      input_dim=Ref("exp_global.default_layer_dim"),
                      output_dim=2,
                      param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
@@ -46,15 +45,11 @@ class PolicyGradient(Serializable):
                                                            policy_network,
                                                            lambda: Linear(input_dim=self.input_dim, output_dim=output_dim,
                                                                           param_init=param_init, bias_init=bias_init))
-    if use_baseline:
-      self.baseline = self.add_serializable_component("baseline", baseline,
-                                                      lambda: Linear(input_dim=self.input_dim, output_dim=1,
-                                                                     param_init=param_init, bias_init=bias_init))
-    else:
-      self.baseline = None
+    self.baseline = self.add_serializable_component("baseline", baseline,
+                                                    lambda: Linear(input_dim=self.input_dim, output_dim=1,
+                                                                   param_init=param_init, bias_init=bias_init))
 
     self.confidence_penalty = self.add_serializable_component("conf_penalty", conf_penalty, lambda: conf_penalty) if conf_penalty is not None else None
-    self.z_normalization = z_normalization
     self.weight = weight
 
   """
@@ -86,17 +81,18 @@ class PolicyGradient(Serializable):
   """
   Calc policy networks loss.
   """
-  def calc_loss(self, reward):
+  def calc_loss(self, policy_reward):
     loss = FactoredLossExpr()
+    ## Calculate baseline
+    pred_reward, baseline_loss = self.calc_baseline_loss(policy_reward)
+    rewards = [policy_reward - pw_i for pw_i in pred_reward]
+    loss.add_loss("rl_baseline", baseline_loss)
     ## Z-Normalization
-    if self.z_normalization:
-      mean_batches = dy.mean_batches(reward)
-      std_batches = dy.std_batches(reward)
-      reward = dy.cdiv(reward-mean_batches, std_batches+1e-6)
-    ## Calculate baseline   
-    if self.baseline is not None:
-      pred_reward, baseline_loss = self.calc_baseline_loss(reward)
-      loss.add_loss("rl_baseline", baseline_loss)
+    rewards = dy.concatenate(rewards, d=0)
+    dim, batch_size = rewards.dim()
+    rewards_mean = dy.mean_dim(rewards, [0], False)
+    rewards_std = dy.std_dim(rewards, [0], False)
+    rewards = dy.cdiv(rewards - rewards_mean, rewards_std+1e-10)
     ## Calculate Confidence Penalty
     if self.confidence_penalty:
       cp_loss = self.confidence_penalty.calc_loss(self.policy_lls)
@@ -105,23 +101,16 @@ class PolicyGradient(Serializable):
     reinf_loss = []
     # Loop through all action in one sequence
     for i, (policy, action) in enumerate(zip(self.policy_lls, self.actions)):
-      # Discount the reward if we use baseline
-      if self.baseline is not None:
-        reward = reward - pred_reward[i]
       # Main Reinforce calculation
+      reward = dy.pick(rewards, i)
       ll = dy.pick_batch(policy, action)
       if self.valid_pos is not None:
         ll = dy.pick_batch_elems(ll, self.valid_pos[i])
-        reward_i = dy.pick_batch_elems(reward, self.valid_pos[i])
-      else:
-        reward_i = reward
-      reinf_loss.append(dy.sum_batches(-ll*reward_i))
+        reward = dy.pick_batch_elems(reward, self.valid_pos[i])
+      reinf_loss.append(dy.sum_batches(-ll * reward))
     loss.add_loss("rl_reinf", self.weight * dy.esum(reinf_loss))
     ## the composed losses
-    try:
-      return loss
-    finally:
-      self.reward = reward
+    return loss
 
   def shared_params(self):
     return [{".input_dim", ".policy_network.input_dim"},

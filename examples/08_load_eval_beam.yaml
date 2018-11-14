@@ -60,6 +60,8 @@ exp2-eval-model: !LoadSerialized
   overwrite: # list of [path, value] pairs. Value can be scalar or an arbitrary object
   - path: train # skip the training loop
     val: null
+  - path: status
+    val: null
   - path: model.inference.search_strategy.beam_size # try some new beam settings
     val: 10
   - path: evaluate

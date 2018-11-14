@@ -26,8 +26,8 @@ eval_shortcuts = {
   "recall": lambda: metrics.RecallEvaluator(),
   "accuracy": lambda: metrics.SequenceAccuracyEvaluator(),
   "fmeasure" : lambda: metrics.FMeasureEvaluator(),
+  "seg_fmeasure": lambda: metrics.SegmentationFMeasureEvaluator(),
 }
-
 
 def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequence[str]],
                   evaluators: Sequence[metrics.Evaluator], desc: Any = None) -> Sequence[metrics.EvalScore]:

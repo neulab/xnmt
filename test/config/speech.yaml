@@ -3,7 +3,6 @@ speech: !Experiment
     save_num_checkpoints: 2
     default_layer_dim: 32
     dropout: 0.4
-    compute_report: True
   preproc: !PreprocRunner
     overwrite: False
     tasks:
