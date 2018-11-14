@@ -1,6 +1,5 @@
 from itertools import zip_longest
 from functools import lru_cache
-import ast
 from typing import Iterator, Optional, Sequence, Union
 import numbers
 
@@ -16,9 +15,11 @@ from xnmt import logger
 from xnmt.sent import SimpleSentence, CompoundSentence, ArraySentence, ScalarSentence, SegmentedSentence
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
+from xnmt.graph import DependencyTree
 from xnmt import sent
 from xnmt.vocabs import Vocab
 from xnmt import batchers, output
+from xnmt.grammars import RNNG
 
 class InputReader(object):
   """
@@ -417,6 +418,38 @@ class IDReader(BaseTextReader, Serializable):
 
   def read_sents(self, filename, filter_ids=None):
     return [l for l in self.iterate_filtered(filename, filter_ids)]
+  
+class CoNLLTreeReader(BaseTextReader, Serializable):
+  """
+  Handles the reading of CoNLL File Format:
+  
+  ID FORM LEMMA POS FEAT HEAD DEPREL
+  
+  A single line represents a single edge of dependency parse tree.
+  """
+  yaml_tag = "!CoNLLTreeReader"
+  @serializable_init
+  def __init__(self):
+    pass
+  
+  def read_sents(self, filename: str, filter_ids: Sequence[numbers.Integral] = None):
+    trees = []
+    with open(filename) as fp:
+      buffer = []
+      for line in fp:
+        line = line.strip()
+        if len(line) == 0:
+          trees.append(RNNG.from_graph(DependencyTree.from_conll(buffer)))
+          buffer.clear()
+        else:
+          try:
+            node_id, form, lemma, pos, feat, head, deprel = line.strip().split()
+          except ValueError:
+            logger.error("Bad line: %s", line)
+          buffer.append((node_id, form, lemma, pos, feat, head, deprel))
+      if len(buffer) != 0:
+        trees.append(RNNG.from_graph(DependencyTree.from_conll(buffer)))
+    return trees
 
 ###### A utility function to read a parallel corpus
 def read_parallel_corpus(src_reader: InputReader,

@@ -28,6 +28,7 @@ import xnmt.experiments
 import xnmt.hyper_params
 import xnmt.inferences
 import xnmt.input_readers
+import xnmt.graph
 import xnmt.modelparts.attenders
 import xnmt.modelparts.bridges
 import xnmt.modelparts.decoders
