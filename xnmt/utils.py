@@ -82,10 +82,9 @@ class RollingStatistic(object):
       try:
         self.stddev = math.sqrt(self.variance)
       except ValueError:
-        logger.warn("rolling stddev: numerical issues?")
-        # switch to more expensive full computation
         self.variance = np.var(self.vals)
         self.stddev = math.sqrt(self.variance)
+        logger.warn("Numerical issues in computation of rolling stddev, was resolved through full re-computation")
 
     else:
       assert len(self.vals) < self.N
