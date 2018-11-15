@@ -300,7 +300,9 @@ class AutobatchTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, 
             total_trg.append(trg[0])
             loss_builder = self.training_step(src, trg)
             total_loss.add_factored_loss_expr(loss_builder)
-            if self.num_updates_skipped == self.update_every:
+            # num_updates_skipped is incremented in update but
+            # we need to call backward before update
+            if self.num_updates_skipped == self.update_every - 1:
               self.backward(total_loss.compute(), self.dynet_profiling)
             self.update(self.trainer)
             ######
