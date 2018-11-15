@@ -1,3 +1,5 @@
+from abc import ABC
+
 import dynet as dy
 import pylru
 
@@ -12,10 +14,11 @@ from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.transducers.recurrent import BiLSTMSeqTransducer
 
+
 class SingleComposer(object):
   @register_xnmt_handler
   def __init__(self):
-    pass
+    self.src_sent = None
 
   def compose(self, composed_words, batch_size):
     outputs = [[] for _ in range(batch_size)]
@@ -42,6 +45,7 @@ class SingleComposer(object):
 
 class SumComposer(SingleComposer, Serializable):
   yaml_tag = "!SumComposer"
+  
   @serializable_init
   def __init__(self):
     super().__init__()
@@ -49,8 +53,10 @@ class SumComposer(SingleComposer, Serializable):
   def transduce(self, embeds):
     return dy.sum_dim(embeds, [1])
 
+
 class AverageComposer(SingleComposer, Serializable):
   yaml_tag = "!AverageComposer"
+  
   @serializable_init
   def __init__(self):
     super().__init__()
@@ -58,8 +64,10 @@ class AverageComposer(SingleComposer, Serializable):
   def transduce(self, embeds):
     return dy.mean_dim(embeds, [1], False)
 
+
 class MaxComposer(SingleComposer, Serializable):
   yaml_tag = "!MaxComposer"
+  
   @serializable_init
   def __init__(self):
     super().__init__()
@@ -67,8 +75,10 @@ class MaxComposer(SingleComposer, Serializable):
   def transduce(self, embeds):
     return dy.max_dim(embeds, d=1)
 
+
 class SeqTransducerComposer(SingleComposer, Serializable):
   yaml_tag = "!SeqTransducerComposer"
+  
   @serializable_init
   def __init__(self, seq_transducer=bare(BiLSTMSeqTransducer)):
     super().__init__()
@@ -78,8 +88,10 @@ class SeqTransducerComposer(SingleComposer, Serializable):
     self.seq_transducer.transduce(ExpressionSequence(expr_tensor=embed))
     return self.seq_transducer.get_final_states()[-1].main_expr()
 
+
 class ConvolutionComposer(SingleComposer, Serializable):
   yaml_tag = "!ConvolutionComposer"
+  
   @register_xnmt_handler
   @serializable_init
   def __init__(self,
@@ -103,10 +115,16 @@ class ConvolutionComposer(SingleComposer, Serializable):
       inp = dy.concatenate([inp, pad], d=1)
       dim = inp.dim()
     inp = dy.reshape(inp, (1, dim[0][1], dim[0][0]))
-    encodings = dy.rectify(dy.conv2d_bias(inp, dy.parameter(self.filter), dy.parameter(self.bias), stride=(1, 1), is_valid=True))
+    encodings = dy.rectify(dy.conv2d_bias(inp,
+                                          dy.parameter(self.filter),
+                                          dy.parameter(self.bias),
+                                          stride=(1, 1),
+                                          is_valid=True))
     return dy.max_dim(dy.max_dim(encodings, d=1), d=0)
 
-class VocabBasedComposer(SingleComposer):
+
+class VocabBasedComposer(SingleComposer, ABC):
+  
   @register_xnmt_handler
   def __init__(self,
                vocab,
@@ -115,6 +133,8 @@ class VocabBasedComposer(SingleComposer):
                cache_word_table):
     self.vocab = vocab
     self.learn_vocab = vocab is None
+    self.current_word = None
+    self.train = False
 
     cache_size = len(vocab) if vocab is not None else vocab_size
     self.lrucache = pylru.lrucache(cache_size, self.on_word_delete)
@@ -165,6 +185,7 @@ class VocabBasedComposer(SingleComposer):
   def on_id_delete(self, wordid):
     raise NotImplementedError("Should implement process_word")
 
+
 class LookupComposer(VocabBasedComposer, Serializable):
   yaml_tag = '!LookupComposer'
   @serializable_init
@@ -205,6 +226,7 @@ class LookupComposer(VocabBasedComposer, Serializable):
     # TODO Temporarily reset the value to the values between uniform(-1, 1)
     #new_vct = np.random.uniform(low=-1, high=1, size=self.hidden_dim)
     #self.embedding.init_row(wordid, new_vct)
+
 
 class CharNGramComposer(VocabBasedComposer, Serializable):
   """
@@ -285,6 +307,7 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
     #b_np = b.as_array()
     #b_np[wordid] = 0
     #b.set_value(b_np)
+
 
 class SumMultipleComposer(SingleComposer, Serializable):
   yaml_tag = "!SumMultipleComposer"

@@ -7,4 +7,3 @@ import xnmt.specialized_encoders.segmenting_encoder.segmenting_composer
 import xnmt.specialized_encoders.segmenting_encoder.length_prior
 import xnmt.specialized_encoders.segmenting_encoder.priors
 import xnmt.specialized_encoders.segmenting_encoder.reporter
-

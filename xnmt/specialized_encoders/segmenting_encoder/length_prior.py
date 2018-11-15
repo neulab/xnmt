@@ -19,8 +19,9 @@ class PoissonLengthPrior(Serializable):
   @serializable_init
   @register_xnmt_handler
   def __init__(self, lmbd=3.3, weight=1):
-    self.lmbd = 3.3
+    self.lmbd = lmbd
     self.weight = weight
+    self.src = None
 
   @handle_xnmt_event
   def on_start_sent(self, src):
