@@ -182,8 +182,8 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
       assert 0 < self.num_updates_skipped < self.update_every
 
 
-class AutobatchTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Serializable):
-#class AutobatchTrainingRegimen(SimpleTrainingRegimen):
+#class AutobatchTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Serializable):
+class AutobatchTrainingRegimen(SimpleTrainingRegimen):
   """
   Args:
     model: the model
@@ -326,18 +326,18 @@ class AutobatchTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, 
           self.checkpoint_and_save(save_fct)
         if self.should_stop_training(): break
 
-  def checkpoint_and_save(self, save_fct):
-    should_save = self.checkpoint()
-    if should_save:
-      save_fct()
+  # def checkpoint_and_save(self, save_fct):
+  #   should_save = self.checkpoint()
+  #   if should_save:
+  #     save_fct()
 
-  def update(self, trainer: optimizers.XnmtOptimizer) -> None:
-    self.num_updates_skipped += 1
-    if self.num_updates_skipped == self.update_every:
-      trainer.update()
-      self.num_updates_skipped = 0
-    else:
-      assert 0 < self.num_updates_skipped < self.update_every
+  # def update(self, trainer: optimizers.XnmtOptimizer) -> None:
+  #   self.num_updates_skipped += 1
+  #   if self.num_updates_skipped == self.update_every:
+  #     trainer.update()
+  #     self.num_updates_skipped = 0
+  #   else:
+  #     assert 0 < self.num_updates_skipped < self.update_every
 
 
 class MultiTaskTrainingRegimen(TrainingRegimen):
