@@ -8,7 +8,7 @@ import dynet as dy
 from xnmt import logger
 from xnmt import batchers, events, expression_seqs, input_readers, param_collections, param_initializers, sent, vocabs
 from xnmt.modelparts import transforms
-from xnmt.persistence import serializable_init, Serializable, Ref, bare
+from xnmt.persistence import bare, Path, Ref, Serializable, serializable_init
 
 class Embedder(object):
   """
@@ -55,7 +55,7 @@ class Embedder(object):
 
   def choose_vocab(self,
                    vocab: vocabs.Vocab,
-                   yaml_path: str,
+                   yaml_path: Path,
                    src_reader: input_readers.InputReader,
                    trg_reader: input_readers.InputReader) -> vocabs.Vocab:
     """Choose the vocab for the embedder basd on the passed arguments
@@ -87,7 +87,7 @@ class Embedder(object):
   def choose_vocab_size(self,
                         vocab_size: numbers.Integral,
                         vocab: vocabs.Vocab,
-                        yaml_path: str,
+                        yaml_path: Path,
                         src_reader: input_readers.InputReader,
                         trg_reader: input_readers.InputReader) -> int:
     """Choose the vocab size for the embedder basd on the passed arguments
@@ -155,7 +155,7 @@ class DenseWordEmbedder(Embedder, transforms.Linear, Serializable):
                                                                     default=bare(param_initializers.ZeroInitializer)),
                vocab_size: Optional[numbers.Integral] = None,
                vocab: Optional[vocabs.Vocab] = None,
-               yaml_path: str = '',
+               yaml_path: Path = '',
                src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
                trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)) -> None:
     self.fix_norm = fix_norm
@@ -241,7 +241,7 @@ class SimpleWordEmbedder(Embedder, Serializable):
                  param_initializers.GlorotInitializer)),
                vocab_size: Optional[numbers.Integral] = None,
                vocab: Optional[vocabs.Vocab] = None,
-               yaml_path: str = '',
+               yaml_path: Path = Path(),
                src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
                trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)) -> None:
     self.emb_dim = emb_dim
@@ -359,7 +359,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder, Serializable):
                word_dropout: numbers.Real = 0.0,
                fix_norm: Optional[numbers.Real] = None,
                vocab: Optional[vocabs.Vocab] = None,
-               yaml_path: str = '',
+               yaml_path: Path = Path(),
                src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
                trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)) -> None:
     self.emb_dim = emb_dim
