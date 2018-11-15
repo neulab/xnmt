@@ -182,7 +182,6 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
       assert 0 < self.num_updates_skipped < self.update_every
 
 
-#class AutobatchTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Serializable):
 class AutobatchTrainingRegimen(SimpleTrainingRegimen):
   """
   Args:
@@ -291,10 +290,6 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
           self.checkpoint_and_save(save_fct)
           self.dev_zero = False
         with utils.ReportOnException({"src": src, "trg": trg, "graph": utils.print_cg_conditional}):
-          #####
-          #if self.num_updates_skipped == 0:
-          #  dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-          #####
           with self.train_loss_tracker.time_tracker:
             event_trigger.set_train(True)
             total_trg.append(trg[0])
@@ -305,7 +300,6 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
             if self.num_updates_skipped == self.update_every - 1:
               self.backward(total_loss.compute(), self.dynet_profiling)
             self.update(self.trainer)
-            ######
           if self.num_updates_skipped == 0:
             total_loss_val = total_loss.get_factored_loss_val(comb_method=self.loss_comb_method)
             reported_trg = batchers.ListBatch(total_trg)
@@ -315,7 +309,8 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
             dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
         if self.checkpoint_needed():
           # Do a last update before checkpoint
-          #self.num_updates_skipped = self.update_every - 1
+          # Force forward-backward for the last batch even if it's smaller than update_every
+          self.num_updates_skipped = self.update_every - 1
           self.backward(total_loss.compute(), self.dynet_profiling)
           self.update(self.trainer, total_loss)
           total_loss_val = total_loss.get_factored_loss_val(comb_method=self.loss_comb_method)
@@ -325,19 +320,6 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
           total_trg = []
           self.checkpoint_and_save(save_fct)
         if self.should_stop_training(): break
-
-  # def checkpoint_and_save(self, save_fct):
-  #   should_save = self.checkpoint()
-  #   if should_save:
-  #     save_fct()
-
-  # def update(self, trainer: optimizers.XnmtOptimizer) -> None:
-  #   self.num_updates_skipped += 1
-  #   if self.num_updates_skipped == self.update_every:
-  #     trainer.update()
-  #     self.num_updates_skipped = 0
-  #   else:
-  #     assert 0 < self.num_updates_skipped < self.update_every
 
 
 class MultiTaskTrainingRegimen(TrainingRegimen):
