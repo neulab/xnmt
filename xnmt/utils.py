@@ -79,7 +79,13 @@ class RollingStatistic(object):
       newavg = oldavg + (new - old) / self.N
       self.average = newavg
       self.variance += (new - old) * (new - newavg + old - oldavg) / (self.N - 1)
-      self.stddev = math.sqrt(self.variance)
+      try:
+        self.stddev = math.sqrt(self.variance)
+      except ValueError:
+        # This happens in case of numerical issues in computation of rolling stddev, but we can easily resolve this
+        # through full re-computation
+        self.variance = np.var(self.vals)
+        self.stddev = math.sqrt(self.variance)
     else:
       assert len(self.vals) < self.N
 

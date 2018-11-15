@@ -48,7 +48,7 @@ EXP = "programmatic"
 model_file = f"{EXP_DIR}/models/{EXP}.mod"
 log_file = f"{EXP_DIR}/logs/{EXP}.log"
 
-xnmt.tee.set_out_file(log_file)
+xnmt.tee.set_out_file(log_file, EXP)
 
 ParamManager.init_param_col()
 ParamManager.param_col.model_file = model_file

@@ -295,7 +295,6 @@ class SegmentedSentence(SimpleSentence):
                              segment=self.segment,
                              unpadded_sent=self.unpadded_sent)
 
-
 class ArraySentence(Sentence):
   """
   A sentence based on a numpy array containing a continuous-space vector for each token.
@@ -416,14 +415,16 @@ class ArraySentence(Sentence):
   def __init__(self,
                nparr: np.ndarray,
                idx: Optional[numbers.Integral] = None,
-               padded_len: int = 0,
-               score: Optional[numbers.Real] = None) -> None:
+               padded_len: numbers.Integral= 0,
+               score: Optional[numbers.Real] = None,
+               unpadded_sent: 'ArraySentence' = None) -> None:
     super().__init__(idx=idx, score=score)
     self.nparr = nparr
     self.padded_len = padded_len
+    self.unpadded_sent = unpadded_sent
 
   def __getitem__(self, key):
-    assert isinstance(key, numbers.Integral)
+    if not isinstance(key, numbers.Integral): raise NotImplementedError()
     return self.nparr.__getitem__(key)
 
   def sent_len(self):
@@ -438,13 +439,20 @@ class ArraySentence(Sentence):
       return self
     new_nparr = np.append(self.nparr, np.broadcast_to(np.reshape(self.nparr[:, -1], (self.nparr.shape[0], 1)),
                                                       (self.nparr.shape[0], pad_len)), axis=1)
-    return ArraySentence(new_nparr, idx=self.idx, score=self.score, padded_len=self.padded_len + pad_len)
+    return ArraySentence(new_nparr, idx=self.idx, score=self.score, padded_len=self.padded_len + pad_len,
+                         unpadded_sent=self if self.padded_len==0 else self.unpadded_sent)
 
   def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'ArraySentence':
     if trunc_len == 0:
       return self
     new_nparr = np.asarray(self.nparr[:-trunc_len])
-    return ArraySentence(new_nparr, idx=self.idx, score=self.score, padded_len=max(0,self.padded_len - trunc_len))
+    return ArraySentence(new_nparr, idx=self.idx, score=self.score, padded_len=max(0,self.padded_len - trunc_len),
+                         unpadded_sent=self if self.padded_len == 0 else self.unpadded_sent)
+
+  def get_unpadded_sent(self):
+    if self.padded_len==0: return self
+    elif self.unpadded_sent: return self.unpadded_sent
+    else: return super().get_unpadded_sent()
 
   def get_array(self):
     return self.nparr

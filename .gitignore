@@ -19,6 +19,7 @@ test/tmp
 test/config/logs/
 test/config/models/
 test/config/reports/
+test/config/hyp/
 /*.yaml
 examples/preproc/
 .project

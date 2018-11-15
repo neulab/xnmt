@@ -59,7 +59,7 @@ class SegmentPLLogger(Serializable):
     arr = np.flip(arr, 0).transpose()
 
     row_format = "".join(format)
-    for item in arr:
+    for i, item in enumerate(arr):
       self.logger.info(row_format.format(*item))
 
   def pad_last(self, table):

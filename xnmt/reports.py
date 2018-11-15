@@ -61,8 +61,8 @@ class Reportable(object):
 
   @register_xnmt_handler
   def __init__(self) -> None:
-    self._sent_info_list = []
-
+    pass
+  
   def report_sent_info(self, sent_info: Dict[str, Any]) -> None:
     """
     Add key/value pairs belonging to the current sentence for reporting.
@@ -90,13 +90,14 @@ class Reportable(object):
     self._glob_info_list.update(glob_info)
 
   @handle_xnmt_event
-  def on_get_report_input(self, context=ReportInfo()):
+  def on_get_report_input(self, context):
     if hasattr(self, "_glob_info_list"):
       context.glob_info.update(self._glob_info_list)
     if not hasattr(self, "_sent_info_list"):
       return context
     if len(context.sent_info)>0:
-      assert len(context.sent_info) == len(self._sent_info_list)
+      assert len(context.sent_info) == len(self._sent_info_list), \
+             "{} != {}".format(len(context.sent_info), len(self._sent_info_list))
     else:
       context.sent_info = []
       for _ in range(len(self._sent_info_list)): context.sent_info.append({})
@@ -104,6 +105,14 @@ class Reportable(object):
       context_i.update(sent_i)
     self._sent_info_list.clear()
     return context
+
+  @handle_xnmt_event
+  def on_set_reporting(self, is_reporting):
+    self._sent_info_list = []
+    self._is_reporting = is_reporting
+
+  def is_reporting(self):
+    return self._is_reporting if hasattr(self, "_is_reporting") else False
 
 class Reporter(object):
   """
@@ -461,6 +470,7 @@ class SegmentationReporter(Reporter, Serializable):
   def conclude_report(self):
     if hasattr(self, "report_fp") and self.report_fp:
       self.report_fp.close()
+      self.report_fp = None
 
 
 class OOVStatisticsReporter(Reporter, Serializable):

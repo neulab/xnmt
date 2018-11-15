@@ -985,3 +985,43 @@ class FMeasureEvaluator(SentenceLevelEvaluator, Serializable):
     return FMeasure( true_pos=1 if (ref == hyp) and (hyp == self.pos_token) else 0,
                     false_neg=1 if (ref != hyp) and (hyp != self.pos_token) else 0,
                     false_pos=1 if (ref != hyp) and (hyp == self.pos_token) else 0)
+
+class SegmentationFMeasureEvaluator(SentenceLevelEvaluator, Serializable):
+  yaml_tag = "!SegmentationFMeasureEvaluator"
+  @serializable_init
+  def __init__(self, write_sentence_scores: Optional[str] = None) -> None:
+    super().__init__(write_sentence_scores=write_sentence_scores)
+
+  def evaluate_one_sent(self, ref:Sequence[str], hyp:Sequence[str]):
+    hyp = [x.replace("<unk>","_") for x in hyp]
+
+    hyp_seg = [len(x) for x in hyp]
+    ref_seg = [len(x) for x in ref]
+    hyp_sum = sum(hyp_seg)
+    ref_sum = sum(ref_seg)
+  
+    assert hyp_sum == ref_sum, \
+           "Bad Line {} != {}: \n{}\n{}".format(hyp_sum, ref_sum, " ".join(hyp), " ".join(ref))
+
+    hyp_dec = [0 for _ in range(hyp_sum)]
+    ref_dec = [0 for _ in range(ref_sum)]
+
+    position = 0
+    for seg in hyp_seg:
+      position += seg
+      hyp_dec[position-1] = 1
+    position = 0
+    for seg in ref_seg:
+      position += seg
+      ref_dec[position-1] = 1
+
+    tp, fn, fp = 0, 0, 0
+    for pred, act in zip(hyp_dec, ref_dec):
+      if pred == act:
+        tp += 1
+      elif pred == 1:
+        fp += 1
+      else:
+        fn += 1
+    return FMeasure(true_pos=tp, false_neg=fn, false_pos=fp)
+
