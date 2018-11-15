@@ -1,11 +1,12 @@
 import numbers
-from typing import Optional
+from typing import Any, Optional, Union
+import io
 
 import numpy as np
 import dynet as dy
 
 from xnmt import logger
-from xnmt import batchers, events, expression_seqs, input_readers, param_collections, param_initializers, vocabs
+from xnmt import batchers, events, expression_seqs, input_readers, param_collections, param_initializers, sent, vocabs
 from xnmt.modelparts import transforms
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
@@ -16,7 +17,7 @@ class Embedder(object):
   This can be done on a word-by-word basis, or over a sequence.
   """
 
-  def embed(self, word):
+  def embed(self, word: Any) -> dy.Expression:
     """Embed a single word.
 
     Args:
@@ -24,11 +25,11 @@ class Embedder(object):
             also be batched, in which case the input will be a :class:`xnmt.batcher.Batch` of integers or other things.
 
     Returns:
-      A DyNet Expression corresponding to the embedding of the word(s), possibly batched using :class:`xnmt.batcher.Batch`.
+      Expression corresponding to the embedding of the word(s).
     """
     raise NotImplementedError('embed must be implemented in Embedder subclasses')
 
-  def embed_sent(self, x) -> expression_seqs.ExpressionSequence:
+  def embed_sent(self, x: Any) -> expression_seqs.ExpressionSequence:
     """Embed a full sentence worth of words. By default, just do a for loop.
 
     Args:
@@ -52,7 +53,11 @@ class Embedder(object):
 
     return expression_seqs.ExpressionSequence(expr_list=embeddings, mask=x.mask if batchers.is_batched(x) else None)
 
-  def choose_vocab(self, vocab: vocabs.Vocab, yaml_path, src_reader: input_readers.InputReader, trg_reader: input_readers.InputReader):
+  def choose_vocab(self,
+                   vocab: vocabs.Vocab,
+                   yaml_path: str,
+                   src_reader: input_readers.InputReader,
+                   trg_reader: input_readers.InputReader) -> vocabs.Vocab:
     """Choose the vocab for the embedder basd on the passed arguments
 
     This is done in order of priority of vocab, model+yaml_path
@@ -64,7 +69,7 @@ class Embedder(object):
       trg_reader: Model's trg_reader, if exists and unambiguous.
 
     Returns:
-      xnmt.vocab.Vocab: chosen vocab
+      chosen vocab
     """
     if vocab is not None:
       return len(vocab)
@@ -82,7 +87,7 @@ class Embedder(object):
   def choose_vocab_size(self,
                         vocab_size: numbers.Integral,
                         vocab: vocabs.Vocab,
-                        yaml_path,
+                        yaml_path: str,
                         src_reader: input_readers.InputReader,
                         trg_reader: input_readers.InputReader) -> int:
     """Choose the vocab size for the embedder basd on the passed arguments
@@ -150,7 +155,7 @@ class DenseWordEmbedder(Embedder, transforms.Linear, Serializable):
                                                                     default=bare(param_initializers.ZeroInitializer)),
                vocab_size: Optional[numbers.Integral] = None,
                vocab: Optional[vocabs.Vocab] = None,
-               yaml_path=None,
+               yaml_path: str = '',
                src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
                trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)) -> None:
     self.fix_norm = fix_norm
@@ -164,14 +169,14 @@ class DenseWordEmbedder(Embedder, transforms.Linear, Serializable):
     self.bias = param_collection.add_parameters((self.vocab_size,), init=bias_init.initializer((self.vocab_size,)))
 
   @events.handle_xnmt_event
-  def on_start_sent(self, src):
+  def on_start_sent(self, *args, **kwargs) -> None:
     self.word_id_mask = None
 
   @events.handle_xnmt_event
-  def on_set_train(self, val):
+  def on_set_train(self, val: bool) -> None:
     self.train = val
 
-  def embed(self, x):
+  def embed(self, x: Union[batchers.Batch, numbers.Integral]) -> dy.Expression:
     if self.train and self.word_dropout > 0.0 and self.word_id_mask is None:
       batch_size = x.batch_size() if batchers.is_batched(x) else 1
       self.word_id_mask = [set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False)) for _ in range(batch_size)]
@@ -200,7 +205,7 @@ class DenseWordEmbedder(Embedder, transforms.Linear, Serializable):
       ret = dy.noise(ret, self.weight_noise)
     return ret
 
-  def transform(self, input_expr):
+  def transform(self, input_expr: dy.Expression) -> dy.Expression:
     W1 = dy.parameter(self.embeddings)
     b1 = dy.parameter(self.bias)
     return dy.affine_transform([b1, W1, input_expr])
@@ -236,10 +241,9 @@ class SimpleWordEmbedder(Embedder, Serializable):
                  param_initializers.GlorotInitializer)),
                vocab_size: Optional[numbers.Integral] = None,
                vocab: Optional[vocabs.Vocab] = None,
-               yaml_path=None,
+               yaml_path: str = '',
                src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
                trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)) -> None:
-    #print(f"embedder received param_init: {param_init}")
     self.emb_dim = emb_dim
     self.weight_noise = weight_noise
     self.word_dropout = word_dropout
@@ -253,14 +257,14 @@ class SimpleWordEmbedder(Embedder, Serializable):
                              init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
 
   @events.handle_xnmt_event
-  def on_set_train(self, val):
+  def on_set_train(self, val: bool) -> None:
     self.train = val
 
   @events.handle_xnmt_event
-  def on_start_sent(self, src):
+  def on_start_sent(self, *args, **kwargs) -> None:
     self.word_id_mask = None
 
-  def embed(self, x):
+  def embed(self, x: Union[numbers.Integral, batchers.Batch]) -> dy.Expression:
     if self.train and self.word_dropout > 0.0 and self.word_id_mask is None:
       batch_size = x.batch_size() if batchers.is_batched(x) else 1
       self.word_id_mask = [set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False)) for _ in range(batch_size)]
@@ -304,10 +308,10 @@ class NoopEmbedder(Embedder, Serializable):
   def __init__(self, emb_dim: Optional[numbers.Integral]) -> None:
     self.emb_dim = emb_dim
 
-  def embed(self, x):
+  def embed(self, x: Union[np.ndarray, list]) -> dy.Expression:
     return dy.inputTensor(x, batched=batchers.is_batched(x))
 
-  def embed_sent(self, x):
+  def embed_sent(self, x: sent.Sentence) -> expression_seqs.ExpressionSequence:
     # TODO refactor: seems a bit too many special cases that need to be distinguished
     batched = batchers.is_batched(x)
     first_sent = x[0] if batched else x
@@ -355,7 +359,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder, Serializable):
                word_dropout: numbers.Real = 0.0,
                fix_norm: Optional[numbers.Real] = None,
                vocab: Optional[vocabs.Vocab] = None,
-               yaml_path=None,
+               yaml_path: str = '',
                src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
                trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)) -> None:
     self.emb_dim = emb_dim
@@ -376,7 +380,7 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder, Serializable):
     logger.info(f"{in_vocab} vocabulary matches out of {total_embs} total embeddings; "
                 f"{missing} vocabulary words without a pretrained embedding out of {self.vocab_size}")
 
-  def _read_fasttext_embeddings(self, vocab: vocabs.Vocab, embeddings_file_handle):
+  def _read_fasttext_embeddings(self, vocab: vocabs.Vocab, embeddings_file_handle: io.IOBase) -> tuple:
     """
     Reads FastText embeddings from a file. Also prints stats about the loaded embeddings for sanity checking.
 
@@ -428,7 +432,8 @@ class PositionEmbedder(Embedder, Serializable):
                max_pos: numbers.Integral,
                emb_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init",
-                                                                     default=bare(param_initializers.GlorotInitializer))):
+                                                                     default=bare(param_initializers.GlorotInitializer))) \
+          -> None:
     """
     max_pos: largest embedded position
     emb_dim: embedding size
@@ -442,6 +447,6 @@ class PositionEmbedder(Embedder, Serializable):
     self.embeddings = param_collection.add_parameters(dim, init=param_init.initializer(dim, is_lookup=True))
 
   def embed(self, word): raise NotImplementedError("Position-embedding for individual words not implemented yet.")
-  def embed_sent(self, sent_len):
+  def embed_sent(self, sent_len: numbers.Integral) -> expression_seqs.ExpressionSequence:
     embeddings = dy.strided_select(dy.parameter(self.embeddings), [1,1], [0,0], [self.emb_dim, sent_len])
     return expression_seqs.ExpressionSequence(expr_tensor=embeddings, mask=None)

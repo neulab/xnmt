@@ -46,7 +46,7 @@ class LossEvalTask(EvalTask, Serializable):
                max_trg_len: Optional[int] = None,
                max_num_sents: Optional[int] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
-               desc: Any = None):
+               desc: Any = None) -> None:
     self.model = model
     self.loss_calculator = loss_calculator
     self.src_file = src_file
@@ -115,9 +115,15 @@ class AccuracyEvalTask(EvalTask, Serializable):
 
   @serializable_init
   @events.register_xnmt_handler
-  def __init__(self, src_file: Union[str,Sequence[str]], ref_file: Union[str,Sequence[str]], hyp_file: str,
-               model: 'model_base.GeneratorModel' = Ref("model"), eval_metrics: Union[str, metrics.Evaluator, Sequence[metrics.Evaluator]] = "bleu",
-               inference: Optional['inferences.Inference'] = None, perform_inference=True, desc: Any = None):
+  def __init__(self,
+               src_file: Union[str,Sequence[str]],
+               ref_file: Union[str,Sequence[str]],
+               hyp_file: str,
+               model: 'model_base.GeneratorModel' = Ref("model"),
+               eval_metrics: Union[str, metrics.Evaluator, Sequence[metrics.Evaluator]] = "bleu",
+               inference: Optional['inferences.Inference'] = None,
+               perform_inference: bool = True,
+               desc: Any = None) -> None:
     self.model = model
     if isinstance(eval_metrics, str):
       eval_metrics = [xnmt_evaluate.eval_shortcuts[shortcut]() for shortcut in eval_metrics.split(",")]
@@ -130,7 +136,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
     self.perform_inference = perform_inference
     self.desc=desc
 
-  def eval(self):
+  def eval(self) -> Sequence[metrics.EvalScore]:
     event_trigger.set_train(False)
     if issubclass(self.model.__class__, reports.Reportable):
       self.model.report_corpus_info({"ref_file": self.ref_file})
@@ -158,15 +164,18 @@ class DecodingEvalTask(EvalTask, Serializable):
   yaml_tag = '!DecodingEvalTask'
 
   @serializable_init
-  def __init__(self, src_file: Union[str,Sequence[str]], hyp_file: str, model: 'model_base.GeneratorModel' = Ref("model"),
-               inference: Optional['inferences.Inference'] = None):
+  def __init__(self,
+               src_file: Union[str,Sequence[str]],
+               hyp_file: str,
+               model: 'model_base.GeneratorModel' = Ref("model"),
+               inference: Optional['inferences.Inference'] = None) -> None:
 
     self.model = model
     self.src_file = src_file
     self.hyp_file = hyp_file
     self.inference = inference or self.model.inference
 
-  def eval(self):
+  def eval(self) -> None:
     event_trigger.set_train(False)
     self.inference.perform_inference(generator=self.model,
                                      src_file=self.src_file,

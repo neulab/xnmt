@@ -1,10 +1,10 @@
+from typing import Sequence, Set, Union
+
 import dynet as dy
 import numpy as np
 
-from xnmt import batchers, event_trigger, events, input_readers
-from xnmt.modelparts import transforms
-from xnmt.modelparts import scorers
-from xnmt.modelparts import embedders
+from xnmt import batchers, event_trigger, events, input_readers, sent
+from xnmt.modelparts import embedders, scorers, transforms
 from xnmt.models import base as models
 from xnmt.transducers import base as transducers
 from xnmt.transducers import recurrent
@@ -31,17 +31,18 @@ class LanguageModel(models.ConditionedModel, Serializable):
                src_embedder: embedders.Embedder=bare(embedders.SimpleWordEmbedder),
                rnn:transducers.SeqTransducer=bare(recurrent.UniLSTMSeqTransducer),
                transform: transforms.Transform=bare(transforms.NonLinear),
-               scorer: scorers.Scorer=bare(scorers.Softmax)):
+               scorer: scorers.Scorer=bare(scorers.Softmax)) -> None:
     super().__init__(src_reader=src_reader, trg_reader=src_reader)
     self.src_embedder = src_embedder
     self.rnn = rnn
     self.transform = transform
     self.scorer = scorer
 
-  def shared_params(self):
+  def shared_params(self) -> Sequence[Set[str]]:
     return [{".src_embedder.emb_dim", ".encoder.input_dim"},]
 
-  def calc_nll(self, src, trg):
+  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) \
+          -> dy.Expression:
     if not batchers.is_batched(src):
       src = batchers.ListBatch([src])
 
