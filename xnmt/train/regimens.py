@@ -183,6 +183,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
 
 
 class AutobatchTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Serializable):
+#class AutobatchTrainingRegimen(SimpleTrainingRegimen):
   """
   Args:
     model: the model
