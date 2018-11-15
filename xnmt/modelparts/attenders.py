@@ -5,40 +5,46 @@ import numpy as np
 import dynet as dy
 
 from xnmt import logger
-from xnmt import batchers, events, param_collections, param_initializers
+from xnmt import batchers, expression_seqs, events, param_collections, param_initializers
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
-from xnmt.expression_seqs import ExpressionSequence
 
 class Attender(object):
   """
   A template class for functions implementing attention.
   """
 
-  def init_sent(self, sent: ExpressionSequence):
+  def init_sent(self, sent: expression_seqs.ExpressionSequence) -> None:
     """Args:
-         sent: the encoder states, aka keys and values. Usually but not necessarily an :class:`xnmt.expression_sequence.ExpressionSequence`
+         sent: the encoder states, aka keys and values. Usually but not necessarily an :class:`expression_seqs.ExpressionSequence`
     """
     raise NotImplementedError('init_sent must be implemented for Attender subclasses')
 
-  def calc_attention(self, state):
+  def calc_attention(self, state: dy.Expression) -> dy.Expression:
     """ Compute attention weights.
 
     Args:
-      state (dy.Expression): the current decoder state, aka query, for which to compute the weights.
+      state: the current decoder state, aka query, for which to compute the weights.
+    Returns:
+      DyNet expression containing normalized attention scores
     """
     raise NotImplementedError('calc_attention must be implemented for Attender subclasses')
 
-  def calc_context(self, state):
+  def calc_context(self, state: dy.Expression) -> dy.Expression:
     """ Compute weighted sum.
 
     Args:
-      state (dy.Expression): the current decoder state, aka query, for which to compute the weighted sum.
+      state: the current decoder state, aka query, for which to compute the weighted sum.
     """
     attention = self.calc_attention(state)
     I = self.curr_sent.as_tensor()
     return I * attention
 
-  def get_last_attention(self):
+  def get_last_attention(self) -> dy.Expression:
+    """ Get the last computed vector of normalized attention scores.
+
+    Returns:
+      Last attention scores.
+    """
     return self.attention_vecs[-1]
 
 class MlpAttender(Attender, Serializable):
@@ -76,7 +82,7 @@ class MlpAttender(Attender, Serializable):
     self.pU = param_collection.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
     self.curr_sent = None
 
-  def init_sent(self, sent: ExpressionSequence):
+  def init_sent(self, sent: expression_seqs.ExpressionSequence) -> None:
     self.attention_vecs = []
     self.curr_sent = sent
     I = self.curr_sent.as_tensor()
@@ -89,7 +95,7 @@ class MlpAttender(Attender, Serializable):
     if len(wi_dim[0]) == 1:
       self.WI = dy.reshape(self.WI, (wi_dim[0][0], 1), batch_size=wi_dim[1])
 
-  def calc_attention(self, state):
+  def calc_attention(self, state: dy.Expression) -> dy.Expression:
     V = dy.parameter(self.pV)
     U = dy.parameter(self.pU)
 
@@ -106,7 +112,7 @@ class MlpAttender(Attender, Serializable):
     self.attention_vecs.append(normalized)
     return normalized
 
-  def calc_context(self, state):
+  def calc_context(self, state: dy.Expression) -> dy.Expression:
     attention = self.calc_attention(state)
     I = self.curr_sent.as_tensor()
     if self.truncate_dec_batches: I, attention = batchers.truncate_batches(I, attention)
@@ -125,19 +131,20 @@ class DotAttender(Attender, Serializable):
   yaml_tag = '!DotAttender'
 
   @serializable_init
-  def __init__(self, scale: bool = True,
+  def __init__(self,
+               scale: bool = True,
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
     if truncate_dec_batches: raise NotImplementedError("truncate_dec_batches not yet implemented for DotAttender")
     self.curr_sent = None
     self.scale = scale
     self.attention_vecs = []
 
-  def init_sent(self, sent: ExpressionSequence):
+  def init_sent(self, sent: expression_seqs.ExpressionSequence) -> None:
     self.curr_sent = sent
     self.attention_vecs = []
     self.I = dy.transpose(self.curr_sent.as_tensor())
 
-  def calc_attention(self, state):
+  def calc_attention(self, state: dy.Expression) -> dy.Expression:
     scores = self.I * state
     if self.scale:
       scores /= math.sqrt(state.dim()[0][0])
@@ -147,7 +154,7 @@ class DotAttender(Attender, Serializable):
     self.attention_vecs.append(normalized)
     return normalized
 
-  def calc_context(self, state):
+  def calc_context(self, state: dy.Expression) -> dy.Expression:
     attention = self.calc_attention(state)
     I = self.curr_sent.as_tensor()
     return I * attention
@@ -179,13 +186,13 @@ class BilinearAttender(Attender, Serializable):
     self.pWa = param_collection.add_parameters((input_dim, state_dim), init=param_init.initializer((input_dim, state_dim)))
     self.curr_sent = None
 
-  def init_sent(self, sent: ExpressionSequence):
+  def init_sent(self, sent: expression_seqs.ExpressionSequence) -> None:
     self.curr_sent = sent
     self.attention_vecs = []
     self.I = self.curr_sent.as_tensor()
 
   # TODO(philip30): Please apply masking here
-  def calc_attention(self, state):
+  def calc_attention(self, state: dy.Expression) -> dy.Expression:
     logger.warning("BilinearAttender does currently not do masking, which may harm training results.")
     Wa = dy.parameter(self.pWa)
     scores = (dy.transpose(state) * Wa) * self.I
@@ -193,7 +200,7 @@ class BilinearAttender(Attender, Serializable):
     self.attention_vecs.append(normalized)
     return dy.transpose(normalized)
 
-  def calc_context(self, state):
+  def calc_context(self, state: dy.Expression) -> dy.Expression:
     attention = self.calc_attention(state)
     return self.I * attention
 
@@ -232,9 +239,6 @@ class LatticeBiasedMlpAttender(MlpAttender, Serializable):
         self.cur_sent_bias[node_i, 0, batch_i] = node.marginal_log_prob
     self.cur_sent_bias_expr = None
 
-  # inherited from MlpAttender
-  # def init_sent(self, sent: ExpressionSequence)
-
   def calc_attention(self, state):
     V = dy.parameter(self.pV)
     U = dy.parameter(self.pU)
@@ -252,7 +256,4 @@ class LatticeBiasedMlpAttender(MlpAttender, Serializable):
     normalized = dy.softmax(scores + self.cur_sent_bias_expr)
     self.attention_vecs.append(normalized)
     return normalized
-
-  # inherited from MlpAttender
-  # def calc_context(self, state)
 

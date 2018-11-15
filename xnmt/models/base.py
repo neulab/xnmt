@@ -2,8 +2,7 @@ from typing import Optional, Sequence, Union
 
 import dynet as dy
 
-from xnmt import batchers, input_readers, losses, sent
-from xnmt import event_trigger, loss_calculators
+from xnmt import batchers, input_readers, sent
 from xnmt.persistence import Serializable, serializable_init
 
 class TrainableModel(object):
@@ -30,7 +29,7 @@ class UnconditionedModel(TrainableModel):
     trg_reader: target reader
   """
 
-  def __init__(self, trg_reader: input_readers.InputReader):
+  def __init__(self, trg_reader: input_readers.InputReader) -> None:
     self.trg_reader = trg_reader
 
   def calc_nll(self, trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
@@ -55,7 +54,7 @@ class ConditionedModel(TrainableModel):
     trg_reader: target reader
   """
 
-  def __init__(self, src_reader: input_readers.InputReader, trg_reader: input_readers.InputReader):
+  def __init__(self, src_reader: input_readers.InputReader, trg_reader: input_readers.InputReader) -> None:
     self.src_reader = src_reader
     self.trg_reader = trg_reader
 
@@ -118,5 +117,5 @@ class CascadeGenerator(GeneratorModel, Serializable):
     super().__init__(src_reader = generators[0].src_reader, trg_reader = generators[-1].trg_reader)
     self.generators = generators
 
-  def generate(self, *args, **kwargs):
+  def generate(self, *args, **kwargs) -> Sequence[sent.ReadableSentence]:
     raise ValueError("cannot call CascadeGenerator.generate() directly; access the sub-generators instead.")
