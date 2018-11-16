@@ -184,6 +184,13 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
 
 class AutobatchTrainingRegimen(SimpleTrainingRegimen):
   """
+  This regimen overrides SimpleTrainingRegimen by accumulating (summing) losses
+  into a FactoreLossExpr *before* running forward/backward in the computation graph.
+  It is designed to work with DyNet autobatching and when parts of architecture make
+  batching difficult (such as structured encoders like TreeLSTMS or Graph Networks).
+  The actual batch size is set through the "update_every" parameter, while the
+  underlying Batcher is expected to have "batch_size" equal to 1.
+
   Args:
     model: the model
     src_file: the source training file
@@ -215,7 +222,7 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
     max_src_len:
     max_trg_len:
     loss_comb_method: method for combining loss across batch elements (``sum`` or ``avg``).
-    update_every: simulate large-batch training by accumulating gradients over several steps before updating parameters
+    update_every: how many instances to accumulate before updating parameters. This effectively sets the batch size under DyNet autobatching.
     commandline_args:
   """
   yaml_tag = '!AutobatchTrainingRegimen'
