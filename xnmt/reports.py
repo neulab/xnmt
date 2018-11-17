@@ -28,7 +28,7 @@ import numpy as np
 from xnmt import plotting
 from xnmt import sent, utils
 from xnmt.events import handle_xnmt_event, register_xnmt_handler
-from xnmt.persistence import Serializable, serializable_init, Ref
+from xnmt.persistence import Serializable, serializable_init
 from xnmt.settings import settings
 from xnmt.thirdparty.charcut import charcut
 
