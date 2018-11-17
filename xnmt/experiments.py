@@ -1,10 +1,11 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence
 import numbers
 
 from xnmt.param_initializers import ParamInitializer, GlorotInitializer, ZeroInitializer
 from xnmt.settings import settings
 
 from xnmt import logger
+from xnmt.eval import metrics
 from xnmt.eval.tasks import EvalTask
 from xnmt.models.base import TrainableModel
 from xnmt.param_collections import ParamManager, RevertingUnsavedModelException
@@ -77,6 +78,7 @@ class Experiment(Serializable):
     train: The training regimen defines the training loop.
     evaluate: list of tasks to evaluate the model after training finishes.
     random_search_report: When random search is used, this holds the settings that were randomly drawn for documentary purposes.
+    status: Status of the experiment, will be automatically set to "done" in saved model if the experiment has finished running.
   """
 
   yaml_tag = '!Experiment'
@@ -84,13 +86,13 @@ class Experiment(Serializable):
   @serializable_init
   def __init__(self,
                name: str,
-               exp_global:Optional[ExpGlobal] = bare(ExpGlobal),
-               preproc:Optional[PreprocRunner] = None,
-               model:Optional[TrainableModel] = None,
-               train:Optional[TrainingRegimen] = None,
-               evaluate:Optional[List[EvalTask]] = None,
-               random_search_report:Optional[dict] = None,
-               status=None) -> None:
+               exp_global: Optional[ExpGlobal] = bare(ExpGlobal),
+               preproc: Optional[PreprocRunner] = None,
+               model: Optional[TrainableModel] = None,
+               train: Optional[TrainingRegimen] = None,
+               evaluate: Optional[List[EvalTask]] = None,
+               random_search_report: Optional[dict] = None,
+               status: Optional[str] = None) -> None:
     self.name = name
     self.exp_global = exp_global
     self.preproc = preproc
@@ -102,7 +104,7 @@ class Experiment(Serializable):
     if random_search_report:
       logger.info(f"> instantiated random parameter search: {random_search_report}")
 
-  def __call__(self, save_fct):
+  def __call__(self, save_fct: Callable) -> Sequence[metrics.EvalScore]:
     """
     Launch training loop, followed by final evaluation.
     """

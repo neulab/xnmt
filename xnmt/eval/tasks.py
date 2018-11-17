@@ -14,7 +14,7 @@ class EvalTask(object):
   """
   An EvalTask is a task that does evaluation and returns one or more EvalScore objects.
   """
-  def eval(self):
+  def eval(self) -> 'metrics.EvalScore':
     raise NotImplementedError("EvalTask.eval() needs to be implemented in child classes")
 
 class LossEvalTask(EvalTask, Serializable):
