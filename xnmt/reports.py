@@ -40,7 +40,7 @@ class ReportInfo(object):
     sent_info: list of dicts, one dict per sentence
     glob_info: a global dict applicable to each sentence
   """
-  def __init__(self, sent_info=[], glob_info={}):
+  def __init__(self, sent_info: Sequence[Dict[str, Any]] = [], glob_info: Dict[str, Any] = {}) -> None:
     self.sent_info = sent_info
     self.glob_info = glob_info
 
@@ -90,7 +90,7 @@ class Reportable(object):
     self._glob_info_list.update(glob_info)
 
   @handle_xnmt_event
-  def on_get_report_input(self, context):
+  def on_get_report_input(self, context: ReportInfo) -> ReportInfo:
     if hasattr(self, "_glob_info_list"):
       context.glob_info.update(self._glob_info_list)
     if not hasattr(self, "_sent_info_list"):
@@ -107,7 +107,7 @@ class Reportable(object):
     return context
 
   @handle_xnmt_event
-  def on_set_reporting(self, is_reporting):
+  def on_set_reporting(self, is_reporting: bool) -> None:
     self._sent_info_list = []
     self._is_reporting = is_reporting
 
@@ -155,7 +155,11 @@ class ReferenceDiffReporter(Reporter, Serializable):
     self.report_path = report_path
     self.hyp_sents, self.ref_sents, self.src_sents = [], [], []
 
-  def create_sent_report(self, src: sent.Sentence, output: sent.ReadableSentence, ref_file: str = None, **kwargs) -> None:
+  def create_sent_report(self,
+                         src: sent.Sentence,
+                         output: sent.ReadableSentence,
+                         ref_file: Optional[str] = None,
+                         **kwargs) -> None:
     """
     Create report.
 
@@ -173,7 +177,7 @@ class ReferenceDiffReporter(Reporter, Serializable):
     self.hyp_sents.append(trg_str)
     self.ref_sents.append(reference)
 
-  def conclude_report(self):
+  def conclude_report(self) -> None:
     if self.hyp_sents:
       html_filename = os.path.join(self.report_path, "charcut.html")
       utils.make_parent_dir(html_filename)
@@ -238,7 +242,7 @@ class CompareMtReporter(Reporter, Serializable):
     self.hyp_sents.append(trg_str)
     self.ref_sents.append(reference)
 
-  def conclude_report(self):
+  def conclude_report(self) -> None:
     if self.hyp_sents:
       ref_filename = os.path.join(self.report_path, "tmp", "compare-mt.ref")
       out_filename = os.path.join(self.report_path, "tmp", "compare-mt.out")
@@ -311,14 +315,14 @@ class HtmlReporter(Reporter):
       </script>
    """)
 
-  def add_sent_heading(self, idx: numbers.Integral):
+  def add_sent_heading(self, idx: numbers.Integral) -> None:
     self.html_contents.append(f"<h1>Translation Report for Sentence {idx}</h1>")
     self.html_contents.append("<table>")
 
-  def finish_sent(self):
+  def finish_sent(self) -> None:
     self.html_contents.append("</table>")
 
-  def finish_html_doc(self):
+  def finish_html_doc(self) -> None:
     self.html_contents.append("</body></html>")
 
   def write_html(self) -> None:
@@ -330,7 +334,7 @@ class HtmlReporter(Reporter):
     with open(html_file_name, 'w', encoding='utf-8') as f:
       f.write(pretty_html)
 
-  def add_fields_if_set(self, fields):
+  def add_fields_if_set(self, fields: dict) -> None:
     html_ret = ""
     for key, val in fields.items():
       if val:
@@ -338,7 +342,13 @@ class HtmlReporter(Reporter):
     if html_ret:
       self.html_contents.append(html_ret)
 
-  def add_charcut_diff(self, trg_str, reference, match_size=3, alt_norm=False, mt_label="MT:", ref_label="Ref:"):
+  def add_charcut_diff(self,
+                       trg_str: str,
+                       reference: str,
+                       match_size: numbers.Integral=3,
+                       alt_norm: bool = False,
+                       mt_label: str  = "MT:",
+                       ref_label: str  = "Ref:") -> None:
     aligned_segs = charcut.load_input_segs(cand_segs=[trg_str],
                                            ref_segs=[reference])
     styled_ops = [charcut.compare_segments(cand, ref, match_size)
@@ -369,7 +379,7 @@ class AttentionReporter(HtmlReporter, Serializable):
   def __init__(self,
                max_num_sents: Optional[numbers.Integral] = 100,
                report_name: str = "attention",
-               report_path: str = settings.DEFAULT_REPORT_PATH):
+               report_path: str = settings.DEFAULT_REPORT_PATH) -> None:
     super().__init__(report_name=report_name, report_path=report_path)
     self.max_num_sents = max_num_sents
     self.cur_sent_no = 0
@@ -402,7 +412,7 @@ class AttentionReporter(HtmlReporter, Serializable):
                   trg_tokens, idx)
     self.finish_sent()
 
-  def conclude_report(self):
+  def conclude_report(self) -> None:
     self.finish_html_doc()
     self.write_html()
     self.cur_sent_no = 0
@@ -448,11 +458,11 @@ class SegmentationReporter(Reporter, Serializable):
 
   @serializable_init
   @register_xnmt_handler
-  def __init__(self, report_path: str=settings.DEFAULT_REPORT_PATH):
+  def __init__(self, report_path: str = settings.DEFAULT_REPORT_PATH) -> None:
     self.report_path = report_path
     self.report_fp = None
 
-  def create_sent_report(self, segment_actions, src, **kwargs):
+  def create_sent_report(self, segment_actions, src: sent.Sentence, **kwargs):
     if self.report_fp is None:
       utils.make_parent_dir(self.report_path)
       self.report_fp = open(self.report_path, "w")
@@ -490,19 +500,19 @@ class OOVStatisticsReporter(Reporter, Serializable):
 
   @serializable_init
   @register_xnmt_handler
-  def __init__(self, train_trg_file, report_path: str=settings.DEFAULT_REPORT_PATH):
+  def __init__(self, train_trg_file: str, report_path: str = settings.DEFAULT_REPORT_PATH) -> None:
     self.report_path = report_path
     self.report_fp = None
     self.train_trg_file = train_trg_file
     self.out_sents, self.ref_lines = [], []
 
-  def create_sent_report(self, output: sent.ReadableSentence, ref_file: str, **kwargs):
+  def create_sent_report(self, output: sent.ReadableSentence, ref_file: str, **kwargs) -> None:
     self.output_vocab = output.vocab
     reference = utils.cached_file_lines(ref_file)[output.idx]
     self.ref_lines.append(reference)
     self.out_sents.append(output)
 
-  def conclude_report(self):
+  def conclude_report(self) -> None:
     train_words = set()
     with open(self.train_trg_file) as f_train:
       for line in f_train:
