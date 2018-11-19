@@ -1,3 +1,4 @@
+from typing import Optional
 import numbers
 
 import dynet as dy
@@ -231,7 +232,7 @@ class NoamTrainer(XnmtOptimizer, Serializable):
   def __init__(self,
                alpha: numbers.Real = 1.0,
                dim: numbers.Integral = 512,
-               warmup_steps: numbers.Integral = 4000,
+               warmup_steps: Optional[numbers.Integral] = 4000,
                beta_1: numbers.Real = 0.9,
                beta_2: numbers.Real = 0.98,
                eps: numbers.Real = 1e-9,
@@ -248,7 +249,10 @@ class NoamTrainer(XnmtOptimizer, Serializable):
 
   def update(self):
     self.steps += 1
-    decay = (self.dim ** (-0.5)) * np.min([self.steps ** (-0.5), self.steps * (self.warmup_steps ** (-1.5))])
+    if self.warmup_steps:
+      decay = (self.dim ** (-0.5)) * np.min([self.steps ** (-0.5), self.steps * (self.warmup_steps ** (-1.5))])
+    else:
+      decay = (self.dim ** (-0.5)) * self.steps ** (-0.5)
     self.optimizer.learning_rate = 1. * decay
     super().update()
 
