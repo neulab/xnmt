@@ -71,7 +71,7 @@ class SettingsAccessor(object):
 
 settings = SettingsAccessor()
 
-def _resolve_active_settings():
+def _resolve_active_settings() -> None:
   # use command line argument, if not given use environment var, if not given us 'standard'
   # overwrite with environment variables if present.
   global _active

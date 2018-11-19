@@ -5,7 +5,7 @@ import numpy as np
 from scipy.stats import norm
 
 from xnmt.persistence import serializable_init, Serializable
-from xnmt import search_strategies
+from xnmt import search_strategies, sentence_stats
 from xnmt.vocabs import Vocab
 
 class LengthNormalization(object):
@@ -142,7 +142,7 @@ class GaussianNormalization(LengthNormalization, Serializable):
   yaml_tag = '!GaussianNormalization'
 
   @serializable_init
-  def __init__(self, sent_stats):
+  def __init__(self, sent_stats: sentence_stats.SentenceStats) -> None:
     self.stats = sent_stats.trg_stat
     self.num_sent = sent_stats.num_pair
     self.fit_distribution()

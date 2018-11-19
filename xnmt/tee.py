@@ -1,5 +1,7 @@
 import sys, os
 import logging
+import numbers
+from typing import Optional
 
 import tensorboardX
 import yaml
@@ -11,15 +13,15 @@ import xnmt.git_rev
 STD_OUTPUT_LEVELNO = 35
 
 class NoErrorFilter(logging.Filter):
-  def filter(self, record):
+  def filter(self, record: logging.LogRecord) -> bool:
     return not record.levelno in [logging.WARNING, logging.ERROR, logging.CRITICAL]
 
 class ErrorOnlyFilter(logging.Filter):
-  def filter(self, record):
+  def filter(self, record: logging.LogRecord) -> bool:
     return record.levelno in [logging.WARNING, logging.ERROR, logging.CRITICAL]
 
 class MainFormatter(logging.Formatter):
-  def format(self, record):
+  def format(self, record: logging.LogRecord) -> str:
     task_name = getattr(record, "task_name", None)
     if task_name:
       record.msg = f"[{record.task_name}] {record.msg}"
@@ -28,7 +30,7 @@ class MainFormatter(logging.Formatter):
     return super().format(record)
 
 class YamlFormatter(logging.Formatter):
-  def format(self, record):
+  def format(self, record: logging.LogRecord) -> str:
     record.msg = yaml.dump([record.msg]).rstrip()
     return super().format(record)
 
@@ -57,25 +59,26 @@ yaml_logger = logging.getLogger("yaml")
 yaml_logger.setLevel(logging.INFO)
 
 class TensorboardCustomWriter(object):
-  def __init__(self):
+  def __init__(self) -> None:
     self.out_file_name = None
     self.writer = None
     self.exp_name = None
-  def set_out_file(self, out_file_name, exp_name):
+  def set_out_file(self, out_file_name: str, exp_name: str) -> None:
     self.out_file_name = out_file_name
     self.exp_name = exp_name
     self.writer = tensorboardX.SummaryWriter(log_dir=f"{out_file_name}")
-  def unset_out_file(self):
+  def unset_out_file(self) -> None:
     self.out_file_name = None
-  def add_scalars(self, name, *args, **kwargs):
+  def add_scalars(self, name: str, *args, **kwargs):
     return self.writer.add_scalars(f"{self.exp_name}/{name}", *args, **kwargs)
 
 tensorboard_writer = TensorboardCustomWriter()
 
 _preamble_content = []
-def log_preamble(log_line, level=logging.INFO):
+def log_preamble(log_line: str, level: numbers.Integral = logging.INFO) -> None:
   """
-  Logs a message when no out_file is set. Once out_file is set, all preamble strings will be prepended to the out_file.
+  Log a message when no out_file is set. Once out_file is set, all preamble strings will be prepended to the out_file.
+
   Args:
     log_line: log message
     level: log level
@@ -83,7 +86,7 @@ def log_preamble(log_line, level=logging.INFO):
   _preamble_content.append(log_line)
   logger.log(level=level, msg=log_line)
 
-def set_out_file(out_file, exp_name):
+def set_out_file(out_file: str, exp_name: str) -> None:
   """
   Set the file to log to. Before calling this, logs are only passed to stdout/stderr.
   Args:
@@ -107,7 +110,7 @@ def set_out_file(out_file, exp_name):
   yaml_logger.addHandler(yaml_fh)
   tensorboard_writer.set_out_file(f"{out_file}.tb", exp_name=exp_name)
 
-def unset_out_file():
+def unset_out_file() -> None:
   """
   Unset the file to log to.
   """
@@ -125,7 +128,7 @@ def unset_out_file():
   tensorboard_writer.unset_out_file()
 
 class Tee(object):
-  def __init__(self, indent=0, error=False):
+  def __init__(self, indent: numbers.Integral = 0, error: bool = False) -> None:
     self.logger = logger
     self.stdstream = sys_std_err if error else sys_std_out
     self.indent = indent
@@ -135,7 +138,7 @@ class Tee(object):
     else:
       sys.stdout = self
 
-  def close(self):
+  def close(self) -> None:
     if self.error:
       sys.stderr = self.stdstream
     else:
@@ -147,7 +150,7 @@ class Tee(object):
   def __exit__(self, exc_type, exc_val, exc_tb):
     self.close()
 
-  def write(self, data):
+  def write(self, data: str) -> None:
     if data.strip()!="":
       if self.error:
         self.logger.error(data.rstrip())
@@ -155,13 +158,13 @@ class Tee(object):
         self.logger.log(STD_OUTPUT_LEVELNO, data.rstrip())
       self.flush()
 
-  def flush(self):
+  def flush(self) -> None:
     self.stdstream.flush()
 
   def getvalue(self):
     return self.stdstream.getvalue()
 
-def get_git_revision():
+def get_git_revision() -> Optional[str]:
   if xnmt.git_rev.CUR_GIT_REVISION: return xnmt.git_rev.CUR_GIT_REVISION
   from subprocess import CalledProcessError, check_output
   try:

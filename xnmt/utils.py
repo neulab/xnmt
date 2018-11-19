@@ -1,21 +1,24 @@
+import argparse
 import os
 import time
 import math
 import unicodedata
 import string
 import functools
+import numbers
+from typing import List, MutableMapping, Optional
 
 import numpy as np
 import dynet as dy
 
-from xnmt import logger, yaml_logger
+from xnmt import logger
 from xnmt.settings import settings
 
-def print_cg_conditional():
+def print_cg_conditional() -> None:
   if settings.PRINT_CG_ON_ERROR:
     dy.print_text_graphviz()
 
-def make_parent_dir(filename):
+def make_parent_dir(filename: str) -> None:
   if not os.path.exists(os.path.dirname(filename) or "."):
     try:
       os.makedirs(os.path.dirname(filename))
@@ -26,7 +29,7 @@ def make_parent_dir(filename):
 
 _valid_filename_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
 
-def valid_filename(filename, whitelist=_valid_filename_chars, replace=' '):
+def valid_filename(filename: str, whitelist: str = _valid_filename_chars, replace: str = ' '):
   # from https://gist.github.com/wassname/1393c4a57cfcbf03641dbc31886123b8
   # replace spaces
   for r in replace:
@@ -36,11 +39,15 @@ def valid_filename(filename, whitelist=_valid_filename_chars, replace=' '):
   # keep only whitelisted chars
   return ''.join(c for c in cleaned_filename if c in whitelist)
 
-def format_time(seconds):
-  return "{}-{}".format(int(seconds) // 86400,
-                        time.strftime("%H:%M:%S", time.gmtime(seconds)))
+def format_time(seconds: numbers.Number) -> str:
+  return "{}-{}".format(int(seconds) // 86400, time.strftime("%H:%M:%S", time.gmtime(seconds)))
 
-def log_readable_and_tensorboard(template, args, n_iter, data_name, task_name=None, **kwargs):
+def log_readable_and_tensorboard(template: str,
+                                 args: MutableMapping,
+                                 n_iter: numbers.Real,
+                                 data_name: str,
+                                 task_name: Optional[str] = None,
+                                 **kwargs) -> None:
   log_args = dict(args)
   log_args["data_name"] = data_name
   log_args["epoch"] = n_iter
@@ -60,14 +67,14 @@ class RollingStatistic(object):
   Code adopted from http://jonisalonen.com/2014/efficient-and-accurate-rolling-standard-deviation/
   """
 
-  def __init__(self, window_size=100):
+  def __init__(self, window_size: numbers.Integral = 100) -> None:
     self.N = window_size
     self.average = None
     self.variance = None
     self.stddev = None
     self.vals = []
 
-  def update(self, new):
+  def update(self, new: numbers.Real) -> None:
     self.vals.append(new)
     if len(self.vals) == self.N:
       self.average = np.average(self.vals)
@@ -96,7 +103,7 @@ class ReportOnException(object):
   Args:
     args: a dictionary containing debug info. Callable items are called, other items are passed to logger.error()
   """
-  def __init__(self, args: dict):
+  def __init__(self, args: dict) -> None:
     self.args = args
   def __enter__(self):
     return self
@@ -116,16 +123,16 @@ class ArgClass(object):
 
   Can be useful e.g. when integrating standalone-scripts into XNMT.
   """
-  def __init__(self, **kwargs):
+  def __init__(self, **kwargs) -> None:
     for key in kwargs: setattr(self, key, kwargs[key])
 
 @functools.lru_cache()
-def cached_file_lines(file_name):
+def cached_file_lines(file_name: str) -> List[str]:
   with open(file_name) as f:
     ret = f.readlines()
   return ret
 
-def add_dynet_argparse(argparser):
+def add_dynet_argparse(argparser: argparse.ArgumentParser) -> None:
   argparser.add_argument("--dynet-mem", type=str)
   argparser.add_argument("--dynet-seed", type=int, help="set random seed for DyNet and XNMT.")
   argparser.add_argument("--dynet-autobatch", type=int)
@@ -137,7 +144,7 @@ def add_dynet_argparse(argparser):
   argparser.add_argument("--dynet-weight-decay", type=float)
   argparser.add_argument("--dynet-profiling", type=int)
 
-def has_cython():
+def has_cython() -> bool:
   try:
     from xnmt.cython import xnmt_cython
     return True
