@@ -36,9 +36,9 @@ standard-preproc: !Experiment
       - test/tmp/head.tok.norm.filter.ja
       - test/tmp/head.tok.norm.filter.en
       specs:
-      - type: length
-        min: 1
-        max: 50
+      - !SentenceFiltererLength
+        min_all: 1
+        max_all: 50
     - !PreprocVocab
       in_files:
       - test/tmp/head.tok.norm.ja

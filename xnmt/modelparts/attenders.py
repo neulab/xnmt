@@ -1,10 +1,11 @@
 import math
 import numbers
 
+import numpy as np
 import dynet as dy
 
 from xnmt import logger
-from xnmt import batchers, expression_seqs, param_collections, param_initializers
+from xnmt import batchers, expression_seqs, events, param_collections, param_initializers
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
 class Attender(object):
@@ -203,4 +204,56 @@ class BilinearAttender(Attender, Serializable):
     attention = self.calc_attention(state)
     return self.I * attention
 
+class LatticeBiasedMlpAttender(MlpAttender, Serializable):
+  """
+  Modified MLP attention, where lattices are assumed as input and the attention is biased toward confident nodes.
+
+  Args:
+    input_dim: input dimension
+    state_dim: dimension of state inputs
+    hidden_dim: hidden MLP dimension
+    param_init: how to initialize weight matrices
+    bias_init: how to initialize bias vectors
+    truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
+  """
+
+  yaml_tag = '!LatticeBiasedMlpAttender'
+
+  @events.register_xnmt_handler
+  @serializable_init
+  def __init__(self,
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               state_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
+               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
+    super().__init__(input_dim=input_dim, state_dim=state_dim, hidden_dim=hidden_dim, param_init=param_init,
+                     bias_init=bias_init, truncate_dec_batches=truncate_dec_batches)
+
+  @events.handle_xnmt_event
+  def on_start_sent(self, src):
+    self.cur_sent_bias = np.full((src.sent_len(), 1, src.batch_size()), -1e10)
+    for batch_i, lattice_batch_elem in enumerate(src):
+      for node_i, node in enumerate(lattice_batch_elem.nodes):
+        self.cur_sent_bias[node_i, 0, batch_i] = node.marginal_log_prob
+    self.cur_sent_bias_expr = None
+
+  def calc_attention(self, state):
+    V = dy.parameter(self.pV)
+    U = dy.parameter(self.pU)
+
+    WI = self.WI
+    curr_sent_mask = self.curr_sent.mask
+    if self.truncate_dec_batches:
+      if curr_sent_mask: state, WI, curr_sent_mask = batchers.truncate_batches(state, WI, curr_sent_mask)
+      else: state, WI = batchers.truncate_batches(state, WI)
+    h = dy.tanh(dy.colwise_add(WI, V * state))
+    scores = dy.transpose(U * h)
+    if curr_sent_mask is not None:
+      scores = curr_sent_mask.add_to_tensor_expr(scores, multiplicator = -1e10)
+    if self.cur_sent_bias_expr is None: self.cur_sent_bias_expr = dy.inputTensor(self.cur_sent_bias, batched=True)
+    normalized = dy.softmax(scores + self.cur_sent_bias_expr)
+    self.attention_vecs.append(normalized)
+    return normalized
 

@@ -1,0 +1,60 @@
+lattice: !Experiment
+  exp_global: !ExpGlobal
+    default_layer_dim: 32
+    dropout: 0.3
+  preproc: !PreprocRunner
+    overwrite: False
+    tasks:
+    - !PreprocExtract
+      in_files:
+      - examples/data/fisher_dev.es.plf
+      out_files:
+      - examples/output/fisher_dev.es.xlat
+      specs: !LatticeFromPlfExtractor {}
+  model: !DefaultTranslator
+    src_embedder: !SimpleWordEmbedder {}
+    encoder: !BiLatticeLSTMTransducer
+      layers: 2
+    attender: !LatticeBiasedMlpAttender {}
+    trg_embedder: !SimpleWordEmbedder {}
+    decoder: !AutoRegressiveDecoder
+      rnn: !UniLSTMSeqTransducer
+        layers: 1
+      transform: !AuxNonLinear
+        output_dim: 512
+        activation: 'tanh'
+      bridge: !CopyBridge {}
+      scorer: !Softmax {}
+    src_reader: !LatticeReader
+      vocab: !Vocab
+        vocab_file: examples/data/fisher_dev.es.vocab
+    trg_reader: !PlainTextReader
+      vocab: !Vocab
+        _xnmt_id: trg_vocab
+        vocab_file: examples/data/fisher_dev.en.vocab
+  train: !SimpleTrainingRegimen
+    trainer: !AdamTrainer
+      alpha: 0.0003
+    run_for_epochs: 10
+    batcher: !SrcBatcher
+      batch_size: 1
+    restart_trainer: True
+    lr_decay: 0.8
+    patience: 5
+    src_file: examples/output/fisher_dev.es.xlat
+    trg_file: examples/data/fisher_dev.en
+    dev_tasks:
+      - !AccuracyEvalTask
+        eval_metrics: bleu
+        src_file: examples/output/fisher_dev.es.xlat
+        ref_file: examples/data/fisher_dev.en
+        hyp_file: examples/output/{EXP}.dev_hyp
+      - !LossEvalTask
+        src_file: examples/output/fisher_dev.es.xlat
+        ref_file: examples/data/fisher_dev.en
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: bleu
+      src_file: examples/output/fisher_dev.es.xlat
+      ref_file: examples/data/fisher_dev.en
+      hyp_file: examples/output/{EXP}.test_hyp
