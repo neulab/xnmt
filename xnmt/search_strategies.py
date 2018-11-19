@@ -7,7 +7,6 @@ import dynet as dy
 import numpy as np
 
 from xnmt import batchers, logger
-from xnmt.models import translators
 from xnmt.modelparts import decoders
 from xnmt.length_norm import NoNormalization, LengthNormalization
 from xnmt.persistence import Serializable, serializable_init, bare
@@ -32,7 +31,7 @@ class SearchStrategy(object):
   A template class to generate translation from the output probability model. (Non-batched operation)
   """
   def generate_output(self,
-                      translator: translators.AutoRegressiveTranslator,
+                      translator: 'xnmt.models.translators.AutoRegressiveTranslator',
                       initial_state: decoders.AutoRegressiveDecoderState,
                       src_length: Optional[numbers.Integral] = None,
                       forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
@@ -62,7 +61,7 @@ class GreedySearch(Serializable, SearchStrategy):
     self.max_len = max_len
 
   def generate_output(self,
-                      translator: translators.AutoRegressiveTranslator,
+                      translator: 'xnmt.models.translators.AutoRegressiveTranslator',
                       initial_state: decoders.AutoRegressiveDecoderState,
                       src_length: Optional[numbers.Integral] = None,
                       forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
@@ -141,7 +140,7 @@ class BeamSearch(Serializable, SearchStrategy):
     self.scores_proc = scores_proc
 
   def generate_output(self,
-                      translator: translators.AutoRegressiveTranslator,
+                      translator: 'xnmt.models.translators.AutoRegressiveTranslator',
                       initial_state: decoders.AutoRegressiveDecoderState,
                       src_length: Optional[numbers.Integral] = None,
                       forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
@@ -233,7 +232,7 @@ class SamplingSearch(Serializable, SearchStrategy):
     self.sample_size = sample_size
 
   def generate_output(self,
-                      translator: translators.AutoRegressiveTranslator,
+                      translator: 'xnmt.models.translators.AutoRegressiveTranslator',
                       initial_state: decoders.AutoRegressiveDecoderState,
                       src_length: Optional[numbers.Integral] = None,
                       forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
@@ -247,7 +246,7 @@ class SamplingSearch(Serializable, SearchStrategy):
  
   # Words ids, attentions, score, logsoftmax, state
   def sample_one(self,
-                 translator: translators.AutoRegressiveTranslator,
+                 translator: 'xnmt.models.translators.AutoRegressiveTranslator',
                  initial_state: decoders.AutoRegressiveDecoderState,
                  forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> SearchOutput:
     # Search variables
@@ -302,7 +301,7 @@ class MctsNode(object):
                prior_dist: np.ndarray,
                word: Optional[numbers.Integral],
                attention: Optional[List[np.ndarray]],
-               translator: translators.AutoRegressiveTranslator,
+               translator: 'xnmt.models.translators.AutoRegressiveTranslator',
                dec_state: decoders.AutoRegressiveDecoderState) -> None:
     self.parent = parent
     self.prior_dist = prior_dist  # log of softmax
@@ -430,7 +429,7 @@ class MctsSearch(Serializable, SearchStrategy):
     self.visits = visits
 
   def generate_output(self,
-                      translator: translators.AutoRegressiveTranslator,
+                      translator: 'xnmt.models.translators.AutoRegressiveTranslator',
                       dec_state: decoders.AutoRegressiveDecoderState,
                       src_length: Optional[numbers.Integral] = None,
                       forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
