@@ -1,33 +1,40 @@
 from collections import namedtuple
 import math
-from typing import Optional, Callable
+from typing import Callable, List, Optional, Sequence
 import numbers
 
 import dynet as dy
 import numpy as np
 
 from xnmt import batchers, logger
+from xnmt.modelparts import decoders
 from xnmt.length_norm import NoNormalization, LengthNormalization
 from xnmt.persistence import Serializable, serializable_init, bare
 from xnmt.vocabs import Vocab
 
 
-# Output of the search
-# words_ids: list of generated word ids
-# attentions: list of corresponding attention vector of word_ids
-# score: a single value of log(p(E|F))
-# logsoftmaxes: a corresponding softmax vector of the score. score = logsoftmax[word_id]
-# state: a NON-BACKPROPAGATEABLE state that is used to produce the logsoftmax layer
-#        state is usually used to generate 'baseline' in reinforce loss
-# masks: whether the particular word id should be ignored or not (1 for not, 0 for yes)
 SearchOutput = namedtuple('SearchOutput', ['word_ids', 'attentions', 'score', 'logsoftmaxes', 'state', 'mask'])
+"""
+Output of the search
+words_ids: list of generated word ids
+attentions: list of corresponding attention vector of word_ids
+score: a single value of log(p(E|F))
+logsoftmaxes: a corresponding softmax vector of the score. score = logsoftmax[word_id]
+state: a NON-BACKPROPAGATEABLE state that is used to produce the logsoftmax layer
+       state is usually used to generate 'baseline' in reinforce loss
+masks: whether the particular word id should be ignored or not (1 for not, 0 for yes)
+"""
+
 
 class SearchStrategy(object):
   """
   A template class to generate translation from the output probability model. (Non-batched operation)
   """
-  def generate_output(self, translator, initial_state,
-                      src_length=None, forced_trg_ids=None):
+  def generate_output(self,
+                      translator: 'xnmt.models.translators.AutoRegressiveTranslator',
+                      initial_state: decoders.AutoRegressiveDecoderState,
+                      src_length: Optional[numbers.Integral] = None,
+                      forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
     """
     Args:
       translator: a translator
@@ -50,11 +57,14 @@ class GreedySearch(Serializable, SearchStrategy):
   yaml_tag = '!GreedySearch'
 
   @serializable_init
-  def __init__(self, max_len: numbers.Integral = 100):
+  def __init__(self, max_len: numbers.Integral = 100) -> None:
     self.max_len = max_len
 
-  def generate_output(self, translator, initial_state,
-                      src_length=None, forced_trg_ids=None):
+  def generate_output(self,
+                      translator: 'xnmt.models.translators.AutoRegressiveTranslator',
+                      initial_state: decoders.AutoRegressiveDecoderState,
+                      src_length: Optional[numbers.Integral] = None,
+                      forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
     # Output variables
     score = []
     word_ids = []
@@ -90,7 +100,7 @@ class GreedySearch(Serializable, SearchStrategy):
       word_ids.append(word_id)
       attentions.append(current_output.attention)
       logsoftmaxes.append(dy.pick_batch(current_output.logsoftmax, word_id))
-      states.append(translator.get_nobp_state(current_state))
+      states.append(translator.get_nobp_state(current_state)) # TODO: not a part of translator interface, refactor
       # Check if we are done.
       done = [x == Vocab.ES for x in word_id]
       if all(done):
@@ -122,15 +132,18 @@ class BeamSearch(Serializable, SearchStrategy):
                max_len: numbers.Integral = 100,
                len_norm: LengthNormalization = bare(NoNormalization),
                one_best: bool = True,
-               scores_proc: Optional[Callable[[np.ndarray], None]] = None):
+               scores_proc: Optional[Callable[[np.ndarray], None]] = None) -> None:
     self.beam_size = beam_size
     self.max_len = max_len
     self.len_norm = len_norm
     self.one_best = one_best
     self.scores_proc = scores_proc
 
-  def generate_output(self, translator, initial_state,
-                      src_length=None, forced_trg_ids=None):
+  def generate_output(self,
+                      translator: 'xnmt.models.translators.AutoRegressiveTranslator',
+                      initial_state: decoders.AutoRegressiveDecoderState,
+                      src_length: Optional[numbers.Integral] = None,
+                      forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
     # TODO(philip30): can only do single decoding, not batched
     assert forced_trg_ids is None or self.beam_size == 1
     if forced_trg_ids is not None and forced_trg_ids.sent_len() > self.max_len:
@@ -214,12 +227,15 @@ class SamplingSearch(Serializable, SearchStrategy):
   yaml_tag = '!SamplingSearch'
 
   @serializable_init
-  def __init__(self, max_len: numbers.Integral = 100, sample_size: numbers.Integral = 5):
+  def __init__(self, max_len: numbers.Integral = 100, sample_size: numbers.Integral = 5) -> None:
     self.max_len = max_len
     self.sample_size = sample_size
 
-  def generate_output(self, translator, initial_state,
-                      src_length=None, forced_trg_ids=None):
+  def generate_output(self,
+                      translator: 'xnmt.models.translators.AutoRegressiveTranslator',
+                      initial_state: decoders.AutoRegressiveDecoderState,
+                      src_length: Optional[numbers.Integral] = None,
+                      forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
     outputs = []
     for k in range(self.sample_size):
       if k == 0 and forced_trg_ids is not None:
@@ -229,7 +245,10 @@ class SamplingSearch(Serializable, SearchStrategy):
     return outputs
  
   # Words ids, attentions, score, logsoftmax, state
-  def sample_one(self, translator, initial_state, forced_trg_ids=None):
+  def sample_one(self,
+                 translator: 'xnmt.models.translators.AutoRegressiveTranslator',
+                 initial_state: decoders.AutoRegressiveDecoderState,
+                 forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> SearchOutput:
     # Search variables
     current_words = None
     current_state = initial_state
@@ -277,7 +296,13 @@ class SamplingSearch(Serializable, SearchStrategy):
 
 
 class MctsNode(object):
-  def __init__(self, parent, prior_dist, word, attention, translator, dec_state):
+  def __init__(self,
+               parent: Optional['MctsNode'],
+               prior_dist: np.ndarray,
+               word: Optional[numbers.Integral],
+               attention: Optional[List[np.ndarray]],
+               translator: 'xnmt.models.translators.AutoRegressiveTranslator',
+               dec_state: decoders.AutoRegressiveDecoderState) -> None:
     self.parent = parent
     self.prior_dist = prior_dist  # log of softmax
     self.word = word
@@ -295,11 +320,10 @@ class MctsNode(object):
     # where c is 0.25 in leela
     self.reduction = 0.0
 
-  def choose_child(self):
-    return max(range(len(self.prior_dist)),
-               key=lambda move: self.compute_priority(move))
+  def choose_child(self) -> numbers.Integral:
+    return max(range(len(self.prior_dist)), key=lambda move: self.compute_priority(move))
 
-  def compute_priority(self, move):
+  def compute_priority(self, move: numbers.Integral) -> numbers.Real:
     if move not in self.children:
       child_val = self.prior_dist[move] + self.avg_value - self.reduction
       child_tries = 0
@@ -315,7 +339,7 @@ class MctsNode(object):
     total_value = child_val + exp_term
     return total_value
 
-  def expand(self):
+  def expand(self) -> 'MctsNode':
     if self.word == Vocab.ES:
       return self
 
@@ -381,7 +405,7 @@ class MctsNode(object):
       best_child.collect(words, attentions)
 
 
-def random_choice(logsoftmax):
+def random_choice(logsoftmax: np.ndarray) -> numbers.Integral:
   #logsoftmax *= 100
   probs = np.exp(logsoftmax)
   probs /= sum(probs)
@@ -389,7 +413,7 @@ def random_choice(logsoftmax):
   return choices[0]
 
 
-def greedy_choice(logsoftmax):
+def greedy_choice(logsoftmax: np.ndarray) -> numbers.Integral:
   return np.argmax(logsoftmax)
 
 
@@ -400,12 +424,15 @@ class MctsSearch(Serializable, SearchStrategy):
   yaml_tag = '!MctsSearch'
 
   @serializable_init
-  def __init__(self, visits=200, max_len=100):
+  def __init__(self, visits: numbers.Integral = 200, max_len: numbers. Integral = 100) -> None:
     self.max_len = max_len
     self.visits = visits
 
-  def generate_output(self, translator, dec_state,
-                      src_length=None, forced_trg_ids=None):
+  def generate_output(self,
+                      translator: 'xnmt.models.translators.AutoRegressiveTranslator',
+                      dec_state: decoders.AutoRegressiveDecoderState,
+                      src_length: Optional[numbers.Integral] = None,
+                      forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
     assert forced_trg_ids is None
     orig_dec_state = dec_state
 

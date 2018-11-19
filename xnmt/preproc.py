@@ -5,7 +5,8 @@ import subprocess
 from collections import defaultdict
 import unicodedata
 import re
-from typing import List, Optional
+from typing import Dict, List, Optional, Sequence
+import numbers
 
 import numpy as np
 import warnings
@@ -21,7 +22,7 @@ from xnmt.utils import make_parent_dir
 
 
 class PreprocTask(object):
-  def run_preproc_task(self, overwrite=False):
+  def run_preproc_task(self, overwrite: bool = False) -> None:
     ...
 
 class PreprocRunner(Serializable):
@@ -39,7 +40,7 @@ class PreprocRunner(Serializable):
   yaml_tag = "!PreprocRunner"
 
   @serializable_init
-  def __init__(self, tasks:Optional[List[PreprocTask]]=None, overwrite:bool=False):
+  def __init__(self, tasks: Optional[List[PreprocTask]] = None, overwrite: bool = False) -> None:
     if tasks is None: tasks = []
     logger.info("> Preprocessing")
 
@@ -52,11 +53,12 @@ class PreprocRunner(Serializable):
 class PreprocExtract(PreprocTask, Serializable):
   yaml_tag = "!PreprocExtract"
   @serializable_init
-  def __init__(self, in_files, out_files, specs):
+  def __init__(self, in_files: Sequence[str], out_files: Sequence[str], specs: 'Extractor') -> None:
     self.in_files = in_files
     self.out_files = out_files
     self.specs = specs
-  def run_preproc_task(self, overwrite=False):
+
+  def run_preproc_task(self, overwrite: bool = False) -> None:
     extractor = self.specs
     for in_file, out_file in zip(self.in_files, self.out_files):
       if overwrite or not os.path.isfile(out_file):
@@ -66,11 +68,12 @@ class PreprocExtract(PreprocTask, Serializable):
 class PreprocTokenize(PreprocTask, Serializable):
   yaml_tag = "!PreprocTokenize"
   @serializable_init
-  def __init__(self, in_files, out_files, specs):
+  def __init__(self, in_files: Sequence[str], out_files: Sequence[str], specs: Sequence['Tokenizer']) -> None:
     self.in_files = in_files
     self.out_files = out_files
     self.specs = specs
-  def run_preproc_task(self, overwrite=False):
+
+  def run_preproc_task(self, overwrite: bool = False) -> None:
     tokenizers = {my_opts["filenum"]: [tok
           for tok in my_opts["tokenizers"]]
           for my_opts in self.specs}
@@ -88,11 +91,12 @@ class PreprocTokenize(PreprocTask, Serializable):
 class PreprocNormalize(PreprocTask, Serializable):
   yaml_tag = "!PreprocNormalize"
   @serializable_init
-  def __init__(self, in_files, out_files, specs):
+  def __init__(self, in_files: Sequence[str], out_files: Sequence[str], specs: Sequence['Normalizer']):
     self.in_files = in_files
     self.out_files = out_files
     self.specs = specs
-  def run_preproc_task(self, overwrite=False):
+
+  def run_preproc_task(self, overwrite: bool = False) -> None:
     normalizers = {my_opts["filenum"]: [norm
           for norm in my_opts["normalizers"]]
           for my_opts in self.specs}
@@ -111,11 +115,12 @@ class PreprocNormalize(PreprocTask, Serializable):
 class PreprocFilter(PreprocTask, Serializable):
   yaml_tag = "!PreprocFilter"
   @serializable_init
-  def __init__(self, in_files, out_files, specs):
+  def __init__(self, in_files: Sequence[str], out_files: Sequence[str], specs: Sequence[dict]):
     self.in_files = in_files
     self.out_files = out_files
-    self.specs = specs
-  def run_preproc_task(self, overwrite=False):
+    self.specs = specs # TODO: should use YAML style object passing here
+
+  def run_preproc_task(self, overwrite: bool = False) -> None:
     # TODO: This will only work with plain-text sentences at the moment. It would be nice if it plays well with the readers
     #       in input.py
     filters = SentenceFilterer.from_spec(self.specs)
@@ -137,11 +142,12 @@ class PreprocFilter(PreprocTask, Serializable):
 class PreprocVocab(PreprocTask, Serializable):
   yaml_tag = "!PreprocVocab"
   @serializable_init
-  def __init__(self, in_files, out_files, specs):
+  def __init__(self, in_files: Sequence[str], out_files: Sequence[str], specs: Sequence[dict]) -> None:
     self.in_files = in_files
     self.out_files = out_files
-    self.specs = specs
-  def run_preproc_task(self, overwrite=False):
+    self.specs = specs# TODO: should use YAML style object passing here
+
+  def run_preproc_task(self, overwrite: bool = False) -> None:
     filters = {my_opts["filenum"]: [norm
           for norm in my_opts["filters"]]
           for my_opts in self.specs}
@@ -166,7 +172,7 @@ class PreprocVocab(PreprocTask, Serializable):
 class Normalizer(object):
   """A type of normalization to perform to a file. It is initialized first, then expanded."""
 
-  def normalize(self, sent):
+  def normalize(self, sent: str) -> str:
     """Takes a plain text string and converts it into another plain text string after preprocessing."""
     raise RuntimeError("Subclasses of Normalizer must implement the normalize() function")
 
@@ -175,7 +181,7 @@ class NormalizerLower(Normalizer, Serializable):
 
   yaml_tag = "!NormalizerLower"
 
-  def normalize(self, sent):
+  def normalize(self, sent: str) -> str:
     return sent.lower()
 
 class NormalizerRemovePunct(Normalizer, Serializable):
@@ -188,11 +194,11 @@ class NormalizerRemovePunct(Normalizer, Serializable):
   yaml_tag = "!NormalizerRemovePunct"
 
   @serializable_init
-  def __init__(self, remove_inside_word:bool=False, allowed_chars:str="") -> None:
+  def __init__(self, remove_inside_word: bool = False, allowed_chars: str = "") -> None:
     self.remove_inside_word = remove_inside_word
     self.exclude = set(chr(i) for i in range(sys.maxunicode) if unicodedata.category(chr(i)).startswith('P')
                                                               and chr(i) not in set(allowed_chars))
-  def normalize(self, sent):
+  def normalize(self, sent: str) -> str:
     if self.remove_inside_word:
       ret = ''.join(ch for ch in sent if ch not in self.exclude)
     else:
@@ -211,7 +217,7 @@ class Tokenizer(Normalizer):
   TODO: only StreamTokenizers are supported by the preproc runner right now.
   """
 
-  def tokenize(self, sent):
+  def tokenize(self, sent: str) -> str:
     raise RuntimeError("Subclasses of Tokenizer must implement tokenize() or tokenize_stream()")
 
   def tokenize_stream(self, stream):
@@ -252,10 +258,10 @@ class CharacterTokenizer(Tokenizer, Serializable):
   yaml_tag = '!CharacterTokenizer'
 
   @serializable_init
-  def __init__(self):
+  def __init__(self) -> None:
     pass
 
-  def tokenize(self, sent):
+  def tokenize(self, sent: str) -> str:
     """Tokenizes a single sentence into characters."""
     return ' '.join([('__' if x == ' ' else x) for x in sent])
 
@@ -274,7 +280,7 @@ class UnicodeTokenizer(Tokenizer, Serializable):
   yaml_tag = '!UnicodeTokenizer'
 
   @serializable_init
-  def __init__(self, use_merge_symbol: bool = True, merge_symbol: str = '↹', reverse: bool = False):
+  def __init__(self, use_merge_symbol: bool = True, merge_symbol: str = '↹', reverse: bool = False) -> None:
     self.merge_symbol = merge_symbol if use_merge_symbol else ''
     self.reverse = reverse
 
@@ -330,11 +336,15 @@ class ExternalTokenizer(Tokenizer, Serializable):
   It is assumed that in general, external tokenizers will be more efficient when run
   once per file, so are run as such (instead of one-execution-per-line.)
 
+  Args:
+    path
+    tokenizer_args
+    arg_separator
   """
   yaml_tag = '!ExternalTokenizer'
 
   @serializable_init
-  def __init__(self, path, tokenizer_args=None, arg_separator=' '):
+  def __init__(self, path: str, tokenizer_args: Optional[Sequence[str]] = None, arg_separator: str = ' ') -> None:
     """Initialize the wrapper around the external tokenizer. """
     if tokenizer_args is None: tokenizer_args = {}
     tokenizer_options = []
@@ -347,7 +357,7 @@ class ExternalTokenizer(Tokenizer, Serializable):
     self.tokenizer_command = [path] + tokenizer_options
     print(self.tokenizer_command)
 
-  def tokenize(self, sent):
+  def tokenize(self, sent: str) -> str:
     """
     Pass the sentence through the external tokenizer.
 
@@ -375,20 +385,33 @@ class SentencepieceTokenizer(Tokenizer, Serializable):
   Sentencepiece tokenizer
   The options supported by the SentencepieceTokenizer are almost exactly those presented in the Sentencepiece `readme <https://github.com/google/sentencepiece/blob/master/README.md>`_, namely:
 
-    - ``model_type``: Either ``unigram`` (default), ``bpe``, ``char`` or ``word``.
-      Please refer to the sentencepiece documentation for more details
-    - ``model_prefix``: The trained bpe model will be saved under ``{model_prefix}.model``/``.vocab``
-    - ``vocab_size``: fixes the vocabulary size
-    - ``hard_vocab_limit``: setting this to ``False`` will make the vocab size a soft limit. 
-      Useful for small datasets. This is ``True`` by default.
+  Args:
+    train_files
+    vocab_size: fixes the vocabulary size
+    overwrite
+    model_prefix: The trained bpe model will be saved under ``{model_prefix}.model``/``.vocab``
+    output_format
+    model_type: Either ``unigram`` (default), ``bpe``, ``char`` or ``word``.
+                Please refer to the sentencepiece documentation for more details
+    hard_vocab_limit: setting this to ``False`` will make the vocab size a soft limit.
+                      Useful for small datasets. This is ``True`` by default.
+    encode_extra_options:
+    decode_extra_options:
   """
 
   yaml_tag = '!SentencepieceTokenizer'
 
   @serializable_init
-  def __init__(self, train_files, vocab_size, overwrite=False, model_prefix='sentpiece'
-      , output_format='piece', model_type='bpe', hard_vocab_limit=True
-      , encode_extra_options=None, decode_extra_options=None):
+  def __init__(self,
+               train_files: Sequence[str],
+               vocab_size: numbers.Integral,
+               overwrite: bool = False,
+               model_prefix: str = 'sentpiece',
+               output_format: str = 'piece',
+               model_type: str  = 'bpe',
+               hard_vocab_limit: bool = True,
+               encode_extra_options: Optional[str] = None,
+               decode_extra_options: Optional[str] = None) -> None:
     """
     This will initialize and train the sentencepiece tokenizer.
 
@@ -415,7 +438,7 @@ class SentencepieceTokenizer(Tokenizer, Serializable):
 
     self.sentpiece_processor = None
 
-  def init_sentencepiece(self):
+  def init_sentencepiece(self) -> None:
     import sentencepiece as spm
     if ((not os.path.exists(self.model_prefix + '.model')) or
         (not os.path.exists(self.model_prefix + '.vocab')) or
@@ -429,7 +452,7 @@ class SentencepieceTokenizer(Tokenizer, Serializable):
     self.sentpiece_encode = self.sentpiece_processor.EncodeAsPieces if self.output_format == 'piece' else self.sentpiece_processor.EncodeAsIds
 
   
-  def tokenize(self, sent):
+  def tokenize(self, sent: str) -> str:
     """Tokenizes a single sentence into pieces."""
     if self.sentpiece_processor is None:
         self.init_sentencepiece()
@@ -441,11 +464,11 @@ class SentencepieceTokenizer(Tokenizer, Serializable):
 class SentenceFilterer(object):
   """Filters sentences that don't match a criterion."""
 
-  def __init__(self, spec):
+  def __init__(self, spec: dict) -> None:
     """Initialize the filterer from a specification."""
     pass
 
-  def keep(self, sents):
+  def keep(self, sents: list) -> bool:
     """Takes a list of inputs/outputs for a single sentence and decides whether to keep them.
 
     In general, these inputs/outpus should already be segmented into words, so len() will return the number of words,
@@ -459,7 +482,7 @@ class SentenceFilterer(object):
     raise RuntimeError("Subclasses of SentenceFilterer must implement the keep() function")
 
   @staticmethod
-  def from_spec(spec):
+  def from_spec(spec: dict) -> Sequence['SentenceFilterer']:
     """Takes a list of preprocessor specifications, and returns the appropriate processors."""
     preproc_list = []
     if spec is not None:
@@ -476,7 +499,7 @@ class SentenceFiltererMatchingRegex(SentenceFilterer):
   """Filters sentences via regular expressions.
   A sentence must match the expression to be kept.
   """
-  def __init__(self, spec):
+  def __init__(self, spec: dict) -> None:
     """Specifies the regular expressions to filter the sentences that we'll be getting.
 
     The regular expressions are passed as a dictionary with keys as follows:
@@ -497,7 +520,7 @@ class SentenceFiltererMatchingRegex(SentenceFilterer):
         idx = idx_tmp
         self.regex[idx] = v
 
-  def keep(self, sents):
+  def keep(self, sents: list) -> bool:
     """ Keep only sentences that match the regex.
     """
     for i, sent in enumerate(sents):
@@ -511,7 +534,7 @@ class SentenceFiltererMatchingRegex(SentenceFilterer):
 class SentenceFiltererLength(SentenceFilterer):
   """Filters sentences by length"""
 
-  def __init__(self, spec):
+  def __init__(self, spec: dict) ->  None:
     """Specifies the type of length limitations on the sentences that we'll be getting.
 
     The limitations are passed as a dictionary with keys as follows:
@@ -546,7 +569,7 @@ class SentenceFiltererLength(SentenceFilterer):
         else:
           raise RuntimeError("Unknown limitation type {} in length-based sentence filterer".format(k))
 
-  def keep(self, sents):
+  def keep(self, sents: list) -> bool:
     """Filter sentences by length."""
     for i, sent in enumerate(sents):
       if type(sent) == str:
@@ -562,11 +585,11 @@ class SentenceFiltererLength(SentenceFilterer):
 class VocabFilterer(object):
   """Filters vocabulary by some criterion"""
 
-  def __init__(self, spec):
+  def __init__(self, spec: dict) -> None:
     """Initialize the filterer from a specification."""
     pass
 
-  def filter(self, vocab):
+  def filter(self, vocab: Dict[str,numbers.Integral]) -> Dict[str,numbers.Integral]:
     """Filter a vocabulary.
 
     Args:
@@ -577,7 +600,7 @@ class VocabFilterer(object):
     raise RuntimeError("Subclasses of VocabFilterer must implement the filter() function")
 
   @staticmethod
-  def from_spec(spec):
+  def from_spec(spec: dict) -> Sequence['VocabFilterer']:
     """Takes a list of preprocessor specifications, and returns the appropriate processors."""
     preproc_list = []
     if spec is not None:
@@ -594,7 +617,7 @@ class VocabFiltererFreq(VocabFilterer, Serializable):
   """Filter the vocabulary, removing words below a particular minimum frequency"""
   yaml_tag = "!VocabFiltererFreq"
   @serializable_init
-  def __init__(self, min_freq):
+  def __init__(self, min_freq: numbers.Integral) -> None:
     """Specification contains a single value min_freq"""
     self.min_freq = min_freq
 
@@ -605,7 +628,7 @@ class VocabFiltererRank(VocabFilterer, Serializable):
   """Filter the vocabulary, removing words above a particular frequency rank"""
   yaml_tag = "!VocabFiltererRank"
   @serializable_init
-  def __init__(self, max_rank):
+  def __init__(self, max_rank: numbers.Integral) -> None:
     """Specification contains a single value max_rank"""
     self.max_rank = max_rank
 
@@ -619,16 +642,16 @@ class VocabFiltererRank(VocabFilterer, Serializable):
 class Extractor(object):
   """A type of feature extraction to perform."""
 
-  def extract_to(self, in_file, out_file):
+  def extract_to(self, in_file: str, out_file: str) -> None:
     raise RuntimeError("Subclasses of Extractor must implement the extract_to() function")
 
 class MelFiltExtractor(Extractor, Serializable):
   yaml_tag = "!MelFiltExtractor"
   @serializable_init
-  def __init__(self, nfilt=40, delta=False):
+  def __init__(self, nfilt: numbers.Integral = 40, delta: bool = False):
     self.delta = delta
     self.nfilt = nfilt
-  def extract_to(self, in_file, out_file):
+  def extract_to(self, in_file: str, out_file: str) -> None:
     """
     Args:
       in_file: yaml file that contains a list of dictionaries.

@@ -8,7 +8,7 @@ from xnmt.losses import FactoredLossExpr
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt import sent
 from xnmt.vocabs import Vocab
-from xnmt.search_strategies import SamplingSearch, SearchStrategy
+from xnmt import search_strategies
 from xnmt.modelparts.transforms import Linear
 from xnmt.persistence import bare
 from xnmt import batchers, event_trigger
@@ -112,7 +112,7 @@ class ReinforceLoss(Serializable, LossCalculator):
   def __init__(self,
                baseline=None,
                evaluation_metric: metrics.SentenceLevelEvaluator = bare(metrics.FastBLEUEvaluator),
-               search_strategy: SearchStrategy = bare(SamplingSearch),
+               search_strategy: search_strategies.SearchStrategy = bare(search_strategies.SamplingSearch),
                sample_length: numbers.Integral = 50,
                use_baseline: bool = False,
                inv_eval: bool = True,
@@ -170,7 +170,7 @@ class MinRiskLoss(Serializable, LossCalculator):
                alpha=0.005,
                inv_eval=True,
                unique_sample=True,
-               search_strategy=bare(SamplingSearch)):
+               search_strategy=bare(search_strategies.SamplingSearch)):
     # Samples
     self.alpha = alpha
     self.evaluation_metric = evaluation_metric

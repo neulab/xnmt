@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Reads experiments descriptions in the passed configuration file
-and runs them sequentially, logging outputs
+Reads experiments descriptions in the passed configuration file and runs them sequentially, logging outputs
 """
 import argparse
 import logging
@@ -14,22 +13,22 @@ import datetime
 import faulthandler
 faulthandler.enable()
 import traceback
+from typing import Optional, Sequence, Tuple
 
 import numpy as np
-from xnmt.settings import settings
 
-from xnmt import logger, file_logger
+from xnmt.settings import settings
+from xnmt import logger, file_logger, tee, utils
 from xnmt.tee import log_preamble
 from xnmt.param_collections import ParamManager
-from xnmt import tee
 from xnmt.persistence import YamlPreloader, save_to_file, initialize_if_needed
-from xnmt import utils
+from xnmt.eval import metrics
 
 if settings.RESOURCE_WARNINGS:
   import warnings
   warnings.simplefilter('always', ResourceWarning)
 
-def main(overwrite_args=None):
+def main(overwrite_args: Optional[Sequence[str]] = None) -> None:
 
   with tee.Tee(), tee.Tee(error=True):
     argparser = argparse.ArgumentParser()
@@ -109,7 +108,7 @@ def main(overwrite_args=None):
       finally:
         tee.unset_out_file()
     
-def print_results(results):
+def print_results(results: Sequence[Tuple[str,Sequence[metrics.EvalScore]]]):
   print("")
   print("{:<30}|{:<40}".format("Experiment", " Final Scores"))
   print("-" * (70 + 1))

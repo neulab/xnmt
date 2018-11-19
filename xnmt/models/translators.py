@@ -21,7 +21,6 @@ from xnmt.persistence import serializable_init, Serializable, bare
 
 from xnmt.transducers import base as transducers_base
 from xnmt.vocabs import Vocab
-from xnmt.persistence import Ref
 from xnmt.reports import Reportable
 
 TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
