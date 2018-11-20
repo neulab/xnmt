@@ -80,7 +80,7 @@ class CompositeLoss(Serializable, LossCalculator):
   yaml_tag = "!CompositeLoss"
   @serializable_init
   def __init__(self, pt_losses:List[LossCalculator], loss_weight: Optional[Sequence[numbers.Real]] = None) -> None:
-    self.losses = pt_losses
+    self.pt_losses = pt_losses
     if loss_weight is None:
       self.loss_weight = [1.0 for _ in range(len(pt_losses))]
     else:
@@ -92,7 +92,7 @@ class CompositeLoss(Serializable, LossCalculator):
                 src: Union[sent.Sentence, 'batchers.Batch'],
                 trg: Union[sent.Sentence, 'batchers.Batch']) -> losses.FactoredLossExpr:
     total_loss = losses.FactoredLossExpr()
-    for loss, weight in zip(self.losses, self.loss_weight):
+    for loss, weight in zip(self.pt_losses, self.loss_weight):
       total_loss.add_factored_loss_expr(loss.calc_loss(model, src, trg) * weight)
     return total_loss
 
@@ -146,7 +146,7 @@ class ReinforceLoss(Serializable, LossCalculator):
       loss = losses.FactoredLossExpr()
       if self.baseline is not None:
         baseline_loss = []
-        losses = []
+        cur_losses = []
         for state, logsoft, mask in zip(search_output.state,
                                         search_output.logsoftmaxes,
                                         search_output.mask):
@@ -154,8 +154,8 @@ class ReinforceLoss(Serializable, LossCalculator):
           baseline_loss.append(dy.squared_distance(self.reward, bs_score))
           loss_i = dy.cmult(logsoft, self.reward - bs_score)
           valid = list(np.nonzero(mask)[0])
-          losses.append(dy.cmult(loss_i, dy.inputTensor(mask, batched=True)))
-        loss.add_loss("reinforce", dy.sum_elems(dy.esum(losses)))
+          cur_losses.append(dy.cmult(loss_i, dy.inputTensor(mask, batched=True)))
+        loss.add_loss("reinforce", dy.sum_elems(dy.esum(cur_losses)))
         loss.add_loss("reinf_baseline", dy.sum_elems(dy.esum(baseline_loss)))
       else:
         loss.add_loss("reinforce", dy.sum_elems(dy.cmult(self.true_score, dy.esum(logsofts))))
