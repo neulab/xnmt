@@ -1,27 +1,25 @@
-from typing import Union, List
+from typing import List, Optional, Sequence, Union
 import numbers
 
 import dynet as dy
 import numpy as np
 
-from xnmt.losses import FactoredLossExpr
-from xnmt.persistence import serializable_init, Serializable, Ref
-from xnmt import sent
-from xnmt.vocabs import Vocab
-from xnmt import search_strategies
-from xnmt.modelparts.transforms import Linear
-from xnmt.persistence import bare
-from xnmt import batchers, event_trigger
+from xnmt import batchers, event_trigger, losses, search_strategies, sent, vocabs
+from xnmt.persistence import bare, Ref, Serializable, serializable_init
+from xnmt.modelparts import transforms
 from xnmt.eval import metrics
 
 class LossCalculator(object):
   """
   A template class implementing the training strategy and corresponding loss calculation.
   """
-  def calc_loss(self, translator, src, trg):
+  def calc_loss(self,
+                model: 'model_base.ConditionedModel',
+                src: Union[sent.Sentence, 'batchers.Batch'],
+                trg: Union[sent.Sentence, 'batchers.Batch']) -> losses.FactoredLossExpr:
     raise NotImplementedError()
 
-  def remove_eos(self, sequence, eos_sym=Vocab.ES):
+  def remove_eos(self, sequence: Sequence[numbers.Integral], eos_sym=vocabs.Vocab.ES) -> Sequence[numbers.Integral]:
     try:
       idx = sequence.index(eos_sym)
       sequence = sequence[:idx]
@@ -42,9 +40,9 @@ class MLELoss(Serializable, LossCalculator):
   def calc_loss(self,
                 model: 'model_base.ConditionedModel',
                 src: Union[sent.Sentence, 'batchers.Batch'],
-                trg: Union[sent.Sentence, 'batchers.Batch']):
+                trg: Union[sent.Sentence, 'batchers.Batch']) -> losses.FactoredLossExpr:
     loss = model.calc_nll(src, trg)
-    return FactoredLossExpr({"mle": loss})
+    return losses.FactoredLossExpr({"mle": loss})
 
 class GlobalFertilityLoss(Serializable, LossCalculator):
   """
@@ -61,7 +59,7 @@ class GlobalFertilityLoss(Serializable, LossCalculator):
   def calc_loss(self,
                 model: 'model_base.ConditionedModel',
                 src: Union[sent.Sentence, 'batchers.Batch'],
-                trg: Union[sent.Sentence, 'batchers.Batch']):
+                trg: Union[sent.Sentence, 'batchers.Batch']) -> losses.FactoredLossExpr:
     assert hasattr(model, "attender") and hasattr(model.attender, "attention_vecs"), \
            "Must be called after MLELoss with models that have attender."
     masked_attn = model.attender.attention_vecs
@@ -70,9 +68,9 @@ class GlobalFertilityLoss(Serializable, LossCalculator):
       masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
     
     loss = self.global_fertility(masked_attn)
-    return FactoredLossExpr({"global_fertility": loss})
+    return losses.FactoredLossExpr({"global_fertility": loss})
 
-  def global_fertility(self, a):
+  def global_fertility(self, a: Sequence[dy.Expression]) -> dy.Expression:
     return dy.sum_elems(dy.square(1 - dy.esum(a))) 
 
 class CompositeLoss(Serializable, LossCalculator):
@@ -81,19 +79,19 @@ class CompositeLoss(Serializable, LossCalculator):
   """
   yaml_tag = "!CompositeLoss"
   @serializable_init
-  def __init__(self, losses:List[LossCalculator], loss_weight=None):
-    self.losses = losses
+  def __init__(self, pt_losses:List[LossCalculator], loss_weight: Optional[Sequence[numbers.Real]] = None) -> None:
+    self.losses = pt_losses
     if loss_weight is None:
-      self.loss_weight = [1.0 for _ in range(len(losses))]
+      self.loss_weight = [1.0 for _ in range(len(pt_losses))]
     else:
       self.loss_weight = loss_weight
-    assert len(self.loss_weight) == len(losses)
+    assert len(self.loss_weight) == len(pt_losses)
 
   def calc_loss(self,
                 model: 'model_base.ConditionedModel',
                 src: Union[sent.Sentence, 'batchers.Batch'],
-                trg: Union[sent.Sentence, 'batchers.Batch']):
-    total_loss = FactoredLossExpr()
+                trg: Union[sent.Sentence, 'batchers.Batch']) -> losses.FactoredLossExpr:
+    total_loss = losses.FactoredLossExpr()
     for loss, weight in zip(self.losses, self.loss_weight):
       total_loss.add_factored_loss_expr(loss.calc_loss(model, src, trg) * weight)
     return total_loss
@@ -110,28 +108,31 @@ class ReinforceLoss(Serializable, LossCalculator):
   yaml_tag = '!ReinforceLoss'
   @serializable_init
   def __init__(self,
-               baseline=None,
+               baseline:Optional[Serializable]=None,
                evaluation_metric: metrics.SentenceLevelEvaluator = bare(metrics.FastBLEUEvaluator),
                search_strategy: search_strategies.SearchStrategy = bare(search_strategies.SamplingSearch),
-               sample_length: numbers.Integral = 50,
+               # sample_length: numbers.Integral = 50, TODO unused?
                use_baseline: bool = False,
                inv_eval: bool = True,
-               decoder_hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim")):
+               decoder_hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim")) -> None:
     self.inv_eval = inv_eval
     self.search_strategy = search_strategy
     self.evaluation_metric = evaluation_metric
 
     if use_baseline:
       self.baseline = self.add_serializable_component("baseline", baseline,
-                                                      lambda: Linear(input_dim=decoder_hidden_dim, output_dim=1))
+                                                      lambda: transforms.Linear(input_dim=decoder_hidden_dim, output_dim=1))
     else:
       self.baseline = None
 
-  def calc_loss(self, translator, src, trg):
-    search_outputs = translator.generate_search_output(src, self.search_strategy)
+  def calc_loss(self,
+                model: 'model_base.ConditionedModel',
+                src: Union[sent.Sentence, 'batchers.Batch'],
+                trg: Union[sent.Sentence, 'batchers.Batch']) -> losses.FactoredLossExpr:
+    search_outputs = model.generate_search_output(src, self.search_strategy)
     sign = -1 if self.inv_eval else 1
 
-    total_loss = FactoredLossExpr()
+    total_loss = losses.FactoredLossExpr()
     for search_output in search_outputs:
       self.eval_score = []
       for trg_i, sample_i in zip(trg, search_output.word_ids):
@@ -142,7 +143,7 @@ class ReinforceLoss(Serializable, LossCalculator):
         self.eval_score.append(sign * score)
       self.reward = dy.inputTensor(self.eval_score, batched=True)
       # Composing losses
-      loss = FactoredLossExpr()
+      loss = losses.FactoredLossExpr()
       if self.baseline is not None:
         baseline_loss = []
         losses = []
@@ -166,11 +167,11 @@ class MinRiskLoss(Serializable, LossCalculator):
 
   @serializable_init
   def __init__(self,
-               evaluation_metric=bare(metrics.FastBLEUEvaluator),
-               alpha=0.005,
-               inv_eval=True,
-               unique_sample=True,
-               search_strategy=bare(search_strategies.SamplingSearch)):
+               evaluation_metric: metrics.Evaluator = bare(metrics.FastBLEUEvaluator),
+               alpha: numbers.Real = 0.005,
+               inv_eval: bool = True,
+               unique_sample: bool = True,
+               search_strategy: search_strategies.SearchStrategy = bare(search_strategies.SamplingSearch)) -> None:
     # Samples
     self.alpha = alpha
     self.evaluation_metric = evaluation_metric
@@ -178,13 +179,16 @@ class MinRiskLoss(Serializable, LossCalculator):
     self.unique_sample = unique_sample
     self.search_strategy = search_strategy
 
-  def calc_loss(self, translator, src, trg):
+  def calc_loss(self,
+                model: 'model_base.ConditionedModel',
+                src: Union[sent.Sentence, 'batchers.Batch'],
+                trg: Union[sent.Sentence, 'batchers.Batch']) -> losses.FactoredLossExpr:
     batch_size = trg.batch_size()
     uniques = [set() for _ in range(batch_size)]
     deltas = []
     probs = []
     sign = -1 if self.inv_eval else 1
-    search_outputs = translator.generate_search_output(src, self.search_strategy)
+    search_outputs = model.generate_search_output(src, self.search_strategy)
     for search_output in search_outputs:
       logprob = search_output.logsoftmaxes
       sample = search_output.word_ids
@@ -220,7 +224,7 @@ class MinRiskLoss(Serializable, LossCalculator):
     #print("----------------------")
     ### End debug
 
-    return FactoredLossExpr({"risk": risk})
+    return losses.FactoredLossExpr({"risk": risk})
 
 
 class FeedbackLoss(Serializable, LossCalculator):
@@ -244,8 +248,8 @@ class FeedbackLoss(Serializable, LossCalculator):
   def calc_loss(self,
                 model: 'model_base.ConditionedModel',
                 src: Union[sent.Sentence, 'batcher.Batch'],
-                trg: Union[sent.Sentence, 'batcher.Batch']):
-    loss_builder = FactoredLossExpr()
+                trg: Union[sent.Sentence, 'batcher.Batch']) -> losses.FactoredLossExpr:
+    loss_builder = losses.FactoredLossExpr()
     for _ in range(self.repeat):
       standard_loss = self.child_loss.calc_loss(model, src, trg)
       additional_loss = event_trigger.calc_additional_loss(trg, model, standard_loss)
