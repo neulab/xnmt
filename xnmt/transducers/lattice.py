@@ -1,8 +1,8 @@
-from typing import Optional, Sequence
+from typing import List, Optional, Sequence
 import numbers
 import dynet as dy
 
-from xnmt import events, expression_seqs, param_collections, sent
+from xnmt import events, expression_seqs, param_collections
 from xnmt.transducers import base as transducers
 from xnmt.persistence import Ref, Serializable, serializable_init
 
@@ -58,17 +58,17 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
     self.dropout_mask_h = None
     self.cur_src = src
 
-  def get_final_states(self):
+  def get_final_states(self) -> List[transducers.FinalTransducerState]:
     return self._final_states
 
-  def set_dropout_masks(self, batch_size=1):
+  def set_dropout_masks(self, batch_size: numbers.Integral = 1) -> None:
     if self.dropout_rate > 0.0 and self.train:
       retention_rate = 1.0 - self.dropout_rate
       scale = 1.0 / retention_rate
       self.dropout_mask_x = dy.random_bernoulli((self.input_dim,), retention_rate, scale, batch_size=batch_size)
       self.dropout_mask_h = dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size)
 
-  def transduce(self, expr_seq):
+  def transduce(self, expr_seq: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
     lattice = self.cur_src[0]
     Wx_iog = dy.parameter(self.p_Wx_iog)
     Wh_iog = dy.parameter(self.p_Wh_iog)
@@ -174,10 +174,10 @@ class BiLatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
     self.cur_src = src
     self._final_states = None
 
-  def get_final_states(self):
+  def get_final_states(self) -> List[transducers.FinalTransducerState]:
     return self._final_states
 
-  def transduce(self, expr_sequence):
+  def transduce(self, expr_sequence: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
     # first layer
     forward_es = self.forward_layers[0].transduce(expr_sequence)
     rev_backward_es = self.backward_layers[0].transduce(expression_seqs.ReversedExpressionSequence(expr_sequence))

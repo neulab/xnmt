@@ -22,8 +22,9 @@ class PositionalSeqTransducer(transducers.SeqTransducer, Serializable):
                op: str = 'sum',
                emb_type: str = 'param',
                input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
-               dropout=Ref("exp_global.dropout", default=0.0),
-               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer))):
+               dropout: numbers.Real = Ref("exp_global.dropout", default=0.0),
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer))) \
+          -> None:
     """
     max_pos: largest embedded position
     op: how to combine positional encodings with the original encodings, can be "sum" or "concat"
