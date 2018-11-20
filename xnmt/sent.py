@@ -1,6 +1,8 @@
-from typing import List, Optional, Sequence, Union
+import copy
 import functools
+import math
 import numbers
+from typing import List, Optional, Sequence, Union
 
 import numpy as np
 
@@ -293,7 +295,6 @@ class SegmentedSentence(SimpleSentence):
                              segment=self.segment,
                              unpadded_sent=self.unpadded_sent)
 
-
 class ArraySentence(Sentence):
   """
   A sentence based on a numpy array containing a continuous-space vector for each token.
@@ -372,3 +373,190 @@ class NbestSentence(SimpleSentence):
     if self.print_score:
       entries.insert(1, str(self.base_output.score))
     return " ||| ".join(entries)
+
+class LatticeNode(object):
+  """
+  A lattice node, keeping track of neighboring nodes.
+
+  Args:
+    nodes_prev: A list indices of direct predecessors
+    nodes_next: A list indices of direct successors
+    value: Word id assigned to this node.
+    fwd_log_prob: Lattice log probability normalized in forward-direction (successors sum to 1)
+    marginal_log_prob: Lattice log probability globally normalized
+    bwd_log_prob: Lattice log probability normalized in backward-direction (predecessors sum to 1)
+  """
+  def __init__(self,
+               nodes_prev: Sequence[numbers.Integral],
+               nodes_next: Sequence[numbers.Integral],
+               value: numbers.Integral,
+               fwd_log_prob: Optional[numbers.Real]=None,
+               marginal_log_prob: Optional[numbers.Real]=None,
+               bwd_log_prob: Optional[numbers.Real]=None) -> None:
+    self.nodes_prev = nodes_prev
+    self.nodes_next = nodes_next
+    self.value = value
+    self.fwd_log_prob = fwd_log_prob
+    self.marginal_log_prob = marginal_log_prob
+    self.bwd_log_prob = bwd_log_prob
+
+
+
+class Lattice(ReadableSentence):
+  """
+  A lattice structure.
+
+  The lattice is represented as a list of nodes, each of which keep track of the indices of predecessor and
+  successor nodes.
+
+  Args:
+    idx: running sentence number (0-based; unique among sentences loaded from the same file, but not across files)
+    nodes: list of lattice nodes
+    vocab: vocabulary for word IDs
+    num_padded: denoting that this many words are padded (without adding any physical nodes)
+    unpadded_sent: reference to original, unpadded sentence if available
+  """
+
+  def __init__(self, idx: Optional[numbers.Integral], nodes: Sequence[LatticeNode], vocab: Vocab,
+               num_padded: numbers.Integral = 0, unpadded_sent: 'Lattice' = None) -> None:
+    self.idx = idx
+    self.nodes = nodes
+    self.vocab = vocab
+    assert len(nodes[0].nodes_prev) == 0
+    assert len(nodes[-1].nodes_next) == 0
+    for t in range(1, len(nodes) - 1):
+      assert len(nodes[t].nodes_prev) > 0
+      assert len(nodes[t].nodes_next) > 0
+    self.num_padded = num_padded
+    self.unpadded_sent = unpadded_sent
+
+  def sent_len(self) -> int:
+    """Return number of nodes in the lattice, including padded words.
+
+    Return:
+      Number of nodes in lattice.
+    """
+    return len(self.nodes) + self.num_padded
+
+  def len_unpadded(self) -> int:
+    """Return number of nodes in the lattice, without counting padded words.
+
+    Returns:
+      Number of nodes in lattice.
+    """
+    return len(self.nodes)
+
+  def __getitem__(self, key: numbers.Integral) -> Optional[int]:
+    """
+    Return the value of a particular lattice node. Padded nodes are virtually appended at the end.
+
+    Args:
+      key: Index of lattice node.
+
+    Returns:
+      Value of lattice node with given index, or ES if accessing a padded lattice node.
+    """
+    if self.len_unpadded() <= key < self.sent_len():
+      return self.vocab.ES
+    node = self.nodes[key]
+    if isinstance(node, list):
+      # no guarantee that slice is still a consistent graph
+      raise ValueError("Slicing not support for lattices.")
+    return node.value
+
+  def create_padded_sent(self, pad_len: numbers.Integral) -> 'Lattice':
+    """
+    Return padded lattice.
+
+    Args:
+      pad_len: Number of tokens to pad.
+
+    Returns:
+      New padded lattice, or self if pad_len==0.
+    """
+    if pad_len == 0:
+      return self
+    copied_nodes = copy.deepcopy(self.nodes)
+    return Lattice(idx=self.idx, nodes=copied_nodes, vocab=self.vocab, num_padded=pad_len,
+                   unpadded_sent=self.unpadded_sent or super().get_unpadded_sent())
+
+  def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'Lattice':
+    """
+    Return self, as truncation is not supported.
+
+    Args:
+      trunc_len: Number of tokens to truncate, must be 0.
+
+    Returns:
+      self.
+    """
+    if trunc_len != 0: raise ValueError("Lattices cannot be truncated.")
+    return self
+
+  def get_unpadded_sent(self) -> 'Lattice':
+    return self.unpadded_sent or super().get_unpadded_sent()
+
+  def reversed(self) -> 'Lattice':
+    """
+    Create a lattice with reversed direction.
+
+    The new lattice will have lattice nodes in reversed order and switched successors/predecessors.
+    It will have the same number of padded nodes (again at the end of the nodes!).
+
+    Returns:
+      Reversed lattice.
+    """
+    rev_nodes = []
+    seq_len = len(self.nodes)
+    for node in reversed(self.nodes[:self.len_unpadded()]):
+      new_node = LatticeNode(nodes_prev=[seq_len - n - 1 for n in node.nodes_next],
+                             nodes_next=[seq_len - p - 1 for p in node.nodes_prev],
+                             value=node.value,
+                             fwd_log_prob=node.bwd_log_prob,
+                             marginal_log_prob=node.marginal_log_prob,
+                             bwd_log_prob=node.bwd_log_prob)
+      rev_nodes.append(new_node)
+    return Lattice(idx=self.idx, nodes=rev_nodes, vocab=self.vocab, num_padded=self.num_padded)
+
+  def str_tokens(self, **kwargs) -> List[str]:
+    """
+    Return list of readable string tokens.
+
+    Args:
+      **kwargs: ignored
+
+    Returns: list of tokens of linearized lattice.
+    """
+    return [self.vocab.i2w[node.value] for node in self.nodes]
+
+  def sent_str(self, custom_output_procs=None, **kwargs) -> str:
+    """
+    Return a single string containing the readable version of the sentence.
+
+    Args:
+      custom_output_procs: ignored
+      **kwargs: ignored
+
+    Returns: readable string
+    """
+    out_str = str([self.str_tokens(**kwargs), [node.nodes_next for node in self.nodes]])
+    return out_str
+
+  def plot(self, out_file, show_log_probs=["fwd_log_prob", "marginal_log_prob", "bwd_log_prob"]):
+    from graphviz import Digraph
+    dot = Digraph(comment='Lattice')
+    for i, node in enumerate(self.nodes):
+      node_id = i
+      log_prob_strings = [f"{math.exp(getattr(node,field)):.3f}" for field in show_log_probs]
+      node_label = f"{self.vocab.i2w[node.value]} {'|'.join(log_prob_strings)}"
+      node.id = node_id
+      dot.node(str(node_id), f"{node_id} : {node_label}")
+    for node_i, node in enumerate(self.nodes):
+      for node_next in node.nodes_next:
+        edge_from, edge_to = node_i, node_next
+        dot.edge(str(edge_from), str(edge_to), "")
+    try:
+      dot.render(out_file)
+    except RuntimeError:
+      pass
+
