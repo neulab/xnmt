@@ -129,6 +129,10 @@ class Softmax(Scorer, Serializable):
     return self.output_projector.transform(x)
   
   def is_modifying_softmax_layer(self):
+    """
+    This method can be used to determine whether dy.pickneglogsoftmax can be used to fastly calculate the loss value.
+    If False, then the calc_loss method should calc (1) log_softmax, (2) perform necessary modification, (3) pick the loss
+    """
     return self.label_smoothing != 0.0
 
   def calc_loss(self, x: dy.Expression, y: Union[numbers.Integral, List[numbers.Integral]]) -> dy.Expression:
