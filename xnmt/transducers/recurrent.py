@@ -28,36 +28,36 @@ class UniLSTMState(object):
     self._h = tuple(h)
     self._prev = prev
 
-  def add_input(self, x):
+  def add_input(self, x: Union[dy.Expression, Sequence[dy.Expression]]):
     new_c, new_h = self._network.add_input_to_prev(self, x)
     return UniLSTMState(self._network, prev=self, c=new_c, h=new_h)
 
-  def b(self):
+  def b(self) -> 'UniLSTMSeqTransducer':
     return self._network
 
-  def h(self):
+  def h(self) -> Sequence[dy.Expression]:
     return self._h
 
-  def s(self):
+  def s(self) -> Sequence[dy.Expression]:
     return self._c + self._h
 
-  def prev(self):
+  def prev(self) -> 'UniLSTMState':
     return self._prev
 
-  def set_h(self, es=None):
+  def set_h(self, es: Optional[Sequence[dy.Expression]] = None) -> 'UniLSTMState':
     if es is not None:
       assert len(es) == self._network.num_layers
     self._h = tuple(es)
     return self
 
-  def set_s(self, es=None):
+  def set_s(self, es: Optional[Sequence[dy.Expression]] = None) -> 'UniLSTMState':
     if es is not None:
       assert len(es) == 2 * self._network.num_layers
     self._c = tuple(es[:self._network.num_layers])
     self._h = tuple(es[self._network.num_layers:])
     return self
 
-  def output(self):
+  def output(self) -> dy.Expression:
     return self._h[-1]
 
   def __getitem__(self, item):
