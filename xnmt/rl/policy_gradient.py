@@ -32,7 +32,7 @@ class PolicyGradient(Serializable):
   @events.register_xnmt_handler
   def __init__(self, policy_network=None,
                      baseline=None,
-                     z_normalization=True, # TODO unused?
+                     z_normalization=True,
                      conf_penalty=None,
                      weight=1.0,
                      input_dim=Ref("exp_global.default_layer_dim"),
