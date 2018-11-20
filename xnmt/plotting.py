@@ -1,3 +1,5 @@
+from typing import Optional, Sequence, Union
+import numbers
 from unidecode import unidecode
 import numpy as np
 import matplotlib
@@ -6,12 +8,17 @@ import matplotlib.pyplot as plt
 
 from xnmt import utils
 
-def plot_attention(src_words, trg_words, attention_matrix, file_name, size_x = 8.0, size_y = 8.0):
+def plot_attention(src_words: Union[np.ndarray, Sequence[str]],
+                   trg_words: Sequence[str],
+                   attention_matrix: np.ndarray,
+                   file_name: str,
+                   size_x: numbers.Real = 8.0,
+                   size_y: numbers.Real = 8.0) -> None:
   """This takes in source and target words and an attention matrix (in numpy format)
   and prints a visualization of this to a file.
 
   Args:
-    src_words: a list of words in the source
+    src_words: a list of words in the source; alternatively, a numpy array containing speech features.
     trg_words: a list of target words
     attention_matrix: a two-dimensional numpy array of values between zero and one,
       where rows correspond to source words, and columns correspond to target words
@@ -57,7 +64,12 @@ def plot_attention(src_words, trg_words, attention_matrix, file_name, size_x = 8
   plt.close()
 
 
-def plot_speech_features(feature_matrix, file_name=None, vertical = True, ax=None, length = 8.0, dpi=100):
+def plot_speech_features(feature_matrix: np.ndarray,
+                         file_name: Optional[str] = None,
+                         vertical: bool = True,
+                         ax: Optional[matplotlib.axes.Axes] = None,
+                         length: numbers.Real = 8.0,
+                         dpi: numbers.Number = 100):
   """Plot speech feature matrix.
 
   Args:
