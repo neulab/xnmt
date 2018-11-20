@@ -275,7 +275,8 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
                      max_num_train_sents=max_num_train_sents,
                      max_src_len=max_src_len,
                      max_trg_len=max_trg_len)
-    assert batcher.batch_size == 1, "AutobatchTrainingRegimen forces the batcher to have batch_size 1. Use update_every to set the actual batch size in this regimen."
+    if batcher.batch_size != 1:
+      raise ValueError("AutobatchTrainingRegimen forces the batcher to have batch_size 1. Use update_every to set the actual batch size in this regimen.")
     self.dev_zero = dev_zero
     self.trainer = trainer or optimizers.SimpleSGDTrainer(e0=0.1)
     self.dynet_profiling = commandline_args.get("dynet_profiling", 0) if commandline_args else 0
