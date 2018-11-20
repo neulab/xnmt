@@ -1,10 +1,12 @@
-from typing import Union
+from typing import Optional, Union
 import time
+import numbers
 
 from xnmt import batchers, events, logger, losses, sent, utils
+from xnmt.eval import metrics
 
 class AccumTimeTracker(object):
-  def __init__(self):
+  def __init__(self) -> None:
     self.start_time = None
     self.accum_time = 0.0
 
@@ -14,7 +16,7 @@ class AccumTimeTracker(object):
   def __exit__(self, *args):
     self.accum_time += time.time() - self.start_time
 
-  def get_and_reset(self):
+  def get_and_reset(self) -> numbers.Real:
     ret = self.accum_time
     self.accum_time = 0.0
     return ret
@@ -27,7 +29,7 @@ class TrainLossTracker(object):
   REPORT_EVERY = 1000
 
   @events.register_xnmt_handler
-  def __init__(self, training_task):
+  def __init__(self, training_task: 'xnmt.train.tasks.TrainingTask') -> None:
     self.training_task = training_task
 
     self.epoch_loss = losses.FactoredLossVal()
@@ -49,7 +51,7 @@ class TrainLossTracker(object):
       self.last_report_sents_since_start = 0
       self.last_report_words = 0
 
-  def report(self, trg, loss):
+  def report(self, trg: Union[sent.Sequence, batchers.Batch], loss: losses.FactoredLossVal) -> None:
     """
     Accumulate training loss and report every REPORT_EVERY sentences.
     """
@@ -102,7 +104,10 @@ class DevLossTracker(object):
   REPORT_TEMPLATE_DEV_AUX     = '             dev auxiliary {score}'
   REPORT_TEMPLATE_TIME_NEEDED = '             checkpoint took {time_needed}'
 
-  def __init__(self, training_task, eval_every, name=None):
+  def __init__(self,
+               training_task: 'xnmt.train.tasks.TrainingTask',
+               eval_every: numbers.Integral,
+               name: Optional[str]=None) -> None:
     self.training_task = training_task
     self.eval_dev_every = eval_every
 
@@ -116,20 +121,20 @@ class DevLossTracker(object):
     self.name = name
     self.time_tracker = AccumTimeTracker()
 
-  def set_dev_score(self, dev_score):
+  def set_dev_score(self, dev_score: metrics.EvalScore) -> None:
     self.dev_score = dev_score
 
-  def add_aux_score(self, score):
+  def add_aux_score(self, score: metrics.EvalScore) -> None:
     self.aux_scores.append(score)
 
-  def should_report_dev(self):
+  def should_report_dev(self) -> bool:
     sent_num_not_report = self.training_task.training_state.sents_since_start - self.last_report_sents_since_start
     if self.eval_dev_every > 0:
       return sent_num_not_report >= self.eval_dev_every
     else:
       return sent_num_not_report >= self.training_task.cur_num_sentences()
 
-  def report(self):
+  def report(self) -> None:
     this_report_time = time.time()
     self.last_report_sents_since_start = self.training_task.training_state.sents_since_start
     self.fractional_epoch = (self.training_task.training_state.epoch_num - 1) \
