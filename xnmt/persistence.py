@@ -32,10 +32,7 @@ import inspect, random
 
 import yaml
 
-from xnmt.tee import get_git_revision
-
-from xnmt.param_collections import ParamManager
-from xnmt import param_collections, utils
+from xnmt import param_collections, tee, utils
 import xnmt
 
 def serializable_init(f):
@@ -85,7 +82,7 @@ def serializable_init(f):
         assert not getattr(initialized, "_is_bare", False)
         serialize_params[key] = initialized
     f(obj, **serialize_params)
-    if ParamManager.initialized and xnmt_subcol_name in ParamManager.param_col.subcols:
+    if param_collections.ParamManager.initialized and xnmt_subcol_name in param_collections.ParamManager.param_col.subcols:
       serialize_params["xnmt_subcol_name"] = xnmt_subcol_name
     serialize_params.update(getattr(obj, "serialize_params", {}))
     if "yaml_path" in serialize_params: del serialize_params["yaml_path"]
@@ -106,7 +103,7 @@ class Serializable(yaml.YAMLObject):
   Implementing classes must specify a unique yaml_tag class attribute, e.g. ``yaml_tag = "!Serializable"``
   """
   @serializable_init
-  def __init__(self):
+  def __init__(self) -> None:
     """
     Initialize class, including allocation of DyNet parameters if needed.
 
@@ -217,7 +214,7 @@ class UninitializedYamlObject(object):
       raise AssertionError
     self.data = data
 
-  def get(self, key: str, default: Any):
+  def get(self, key: str, default: Any) -> Any:
     return self.data.get(key, default)
 
 
@@ -444,7 +441,7 @@ class Repeat(Serializable):
   """
   yaml_tag = "!Repeat"
   @serializable_init
-  def __init__(self, times: numbers.Integral, content: Any):
+  def __init__(self, times: numbers.Integral, content: Any) -> None:
     self.times = times
     self.content = content
     raise ValueError("Repeat cannot be instantiated")
@@ -719,14 +716,14 @@ def _get_named_paths(root):
 
 
 class PathError(Exception):
-  def __init__(self, message):
+  def __init__(self, message: str) -> None:
     super().__init__(message)
 
 
 class SavedFormatString(str, Serializable):
   yaml_tag = "!SavedFormatString"
   @serializable_init
-  def __init__(self, value, unformatted_value):
+  def __init__(self, value: str, unformatted_value: str) -> None:
     self.unformatted_value = unformatted_value
     self.value = value
 
@@ -738,10 +735,10 @@ class FormatString(str, yaml.YAMLObject):
   but writing it back to YAML will use original version containing ``{EXP}``
   """
 
-  def __new__(cls, value, *args, **kwargs):
+  def __new__(cls, value: str, *args, **kwargs) -> 'FormatString':
     return super().__new__(cls, value)
 
-  def __init__(self, value, serialize_as):
+  def __init__(self, value: str, serialize_as: str) -> None:
     self.value = value
     self.serialize_as = serialize_as
 
@@ -753,13 +750,13 @@ yaml.add_representer(FormatString, _init_fs_representer)
 class RandomParam(yaml.YAMLObject):
   yaml_tag = '!RandomParam'
 
-  def __init__(self, values):
+  def __init__(self, values: list) -> None:
     self.values = values
 
   def __repr__(self):
     return f"{self.__class__.__name__}(values={self.values})"
 
-  def draw_value(self):
+  def draw_value(self) -> Any:
     if not hasattr(self, 'drawn_value'):
       self.drawn_value = random.choice(self.values)
     return self.drawn_value
@@ -789,7 +786,7 @@ class LoadSerialized(Serializable):
   yaml_tag = "!LoadSerialized"
 
   @serializable_init
-  def __init__(self, filename: str, path: str = "", overwrite: Optional[List[Dict[str,Any]]] = None):
+  def __init__(self, filename: str, path: str = "", overwrite: Optional[List[Dict[str,Any]]] = None) -> None:
     if overwrite is None: overwrite = []
     self.filename = filename
     self.path = path
@@ -925,7 +922,7 @@ class YamlPreloader(object):
     placeholders = {"EXP": exp_name,
                     "PID": os.getpid(),
                     "EXP_DIR": exp_dir,
-                    "GIT_REV": get_git_revision()}
+                    "GIT_REV": tee.get_git_revision()}
 
     # do this both before and after resolving !LoadSerialized
     root = YamlPreloader._remove_saved_format_strings(root, keep_value=resume)
@@ -960,7 +957,7 @@ class YamlPreloader(object):
         except IOError as e:
           raise RuntimeError(f"Could not read configuration file {node.filename}: {e}")
         if os.path.isdir(f"{node.filename}.data"):
-          ParamManager.add_load_path(f"{node.filename}.data")
+          param_collections.ParamManager.add_load_path(f"{node.filename}.data")
         cur_path = Path(getattr(node, "path", ""))
         for _ in range(10):  # follow references
           loaded_trg = _get_descendant(loaded_root, cur_path, redirect=True)
@@ -1124,7 +1121,7 @@ class _YamlDeserializer(object):
   def __init__(self):
     self.has_been_called = False
 
-  def initialize_if_needed(self, obj):
+  def initialize_if_needed(self, obj: Union[Serializable,UninitializedYamlObject]) -> Serializable:
     """
     Initialize if obj has not yet been initialized.
 
@@ -1132,16 +1129,16 @@ class _YamlDeserializer(object):
     ``_YamlDeserializer().initialize_object()``
 
     Args:
-      obj (Union[Serializable,UninitializedYamlObject]): object to be potentially serialized
+      obj: object to be potentially serialized
 
     Returns:
-      Serializable: initialized object
+      initialized object
     """
     if self.is_initialized(obj): return obj
     else: return self.initialize_object(deserialized_yaml_wrapper=obj)
 
   @staticmethod
-  def is_initialized(obj):
+  def is_initialized(obj: Union[Serializable,UninitializedYamlObject]) -> bool:
     """
     Returns: ``True`` if a serializable object's ``__init__()`` has been invoked (either programmatically or through
               YAML deserialization).
@@ -1150,7 +1147,7 @@ class _YamlDeserializer(object):
     """
     return type(obj) != UninitializedYamlObject
 
-  def initialize_object(self, deserialized_yaml_wrapper):
+  def initialize_object(self, deserialized_yaml_wrapper: Any) -> Any:
     """
     Initializes a hierarchy of deserialized YAML objects.
 
@@ -1342,9 +1339,9 @@ def _resolve_serialize_refs(root):
     elif isinstance(node, collections.abc.MutableSequence):
       xnmt.resolved_serialize_params[id(node)] = list(node)
 
-  if not set(id(o) for o in ParamManager.param_col.all_subcol_owners) <= all_serializable:
+  if not set(id(o) for o in param_collections.ParamManager.param_col.all_subcol_owners) <= all_serializable:
     raise RuntimeError(f"Not all registered DyNet parameter collections written out. "
-                       f"Missing: {ParamManager.param_col.all_subcol_owners - all_serializable}.\n"
+                       f"Missing: {param_collections.ParamManager.param_col.all_subcol_owners - all_serializable}.\n"
                        f"This indicates that potentially not all components adhere to the protocol of using "
                        f"Serializable.add_serializable_component() for creating serializable sub-components.")
 
