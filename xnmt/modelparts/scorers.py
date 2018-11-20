@@ -129,7 +129,7 @@ class Softmax(Scorer, Serializable):
     return self.output_projector.transform(x)
   
   def is_modifying_softmax_layer(self):
-    return self.label_smoothing > 0.0
+    return self.label_smoothing != 0.0
 
   def calc_loss(self, x: dy.Expression, y: Union[numbers.Integral, List[numbers.Integral]]) -> dy.Expression:
     if not self.is_modifying_softmax_layer():
