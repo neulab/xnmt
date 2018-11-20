@@ -37,7 +37,7 @@ class NoBridge(Bridge, Serializable):
                dec_dim: numbers.Integral = Ref("exp_global.default_layer_dim")) -> None:
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim
-  def decoder_init(self, enc_final_states):
+  def decoder_init(self, enc_final_states: Sequence[transducers.FinalTransducerState]) -> List[dy.Expression]:
     batch_size = enc_final_states[0].main_expr().dim()[1]
     z = dy.zeros(self.dec_dim, batch_size)
     return [z] * (self.dec_layers * 2)
@@ -61,7 +61,7 @@ class CopyBridge(Bridge, Serializable):
                dec_dim: numbers.Integral = Ref("exp_global.default_layer_dim")) -> None:
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim
-  def decoder_init(self, enc_final_states):
+  def decoder_init(self, enc_final_states: Sequence[transducers.FinalTransducerState]) -> List[dy.Expression]:
     if self.dec_layers > len(enc_final_states):
       raise RuntimeError("CopyBridge requires dec_layers <= len(enc_final_states), but got %s and %s" % (self.dec_layers, len(enc_final_states)))
     if enc_final_states[0].main_expr().dim()[0][0] != self.dec_dim:
@@ -84,7 +84,7 @@ class LinearBridge(Bridge, Serializable):
   """
   yaml_tag = '!LinearBridge'
 
-  def decoder_init(self, enc_final_states):
+  def decoder_init(self, enc_final_states: Sequence[transducers.FinalTransducerState]) -> List[dy.Expression]:
     if self.dec_layers > len(enc_final_states):
       raise RuntimeError(
         f"LinearBridge requires dec_layers <= len(enc_final_states), but got {self.dec_layers} and {len(enc_final_states)}")

@@ -98,7 +98,7 @@ class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
                yaml_path: Path = Path(),
-               decoder_input_dim: numbers.Integral = Ref("exp_global.default_layer_dim", default=None),
+               decoder_input_dim: Optional[numbers.Integral] = Ref("exp_global.default_layer_dim", default=None),
                decoder_input_feeding: bool = True) -> None:
     self.num_layers = layers
     model = param_collections.ParamManager.my_params(self)
@@ -277,13 +277,13 @@ class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     self.weightnoise_std = weightnoise_std
     assert hidden_dim % 2 == 0
     self.forward_layers = self.add_serializable_component("forward_layers", forward_layers, lambda: [
-      UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim / 2, dropout=dropout,
+      UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim // 2, dropout=dropout,
                            weightnoise_std=weightnoise_std,
                            param_init=param_init[i] if isinstance(param_init, collections.abc.Sequence) else param_init,
                            bias_init=bias_init[i] if isinstance(bias_init, collections.abc.Sequence) else bias_init) for i in
       range(layers)])
     self.backward_layers = self.add_serializable_component("backward_layers", backward_layers, lambda: [
-      UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim / 2, dropout=dropout,
+      UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim // 2, dropout=dropout,
                            weightnoise_std=weightnoise_std,
                            param_init=param_init[i] if isinstance(param_init, collections.abc.Sequence) else param_init,
                            bias_init=bias_init[i] if isinstance(bias_init, collections.abc.Sequence) else bias_init) for i in

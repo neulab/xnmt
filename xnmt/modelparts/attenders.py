@@ -239,7 +239,7 @@ class LatticeBiasedMlpAttender(MlpAttender, Serializable):
         self.cur_sent_bias[node_i, 0, batch_i] = node.marginal_log_prob
     self.cur_sent_bias_expr = None
 
-  def calc_attention(self, state):
+  def calc_attention(self, state: dy.Expression) -> dy.Expression:
     V = dy.parameter(self.pV)
     U = dy.parameter(self.pU)
 

@@ -613,7 +613,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
 
   def checkpoint_and_save(self,
                           cur_task: train_tasks.TrainingTask,
-                          cur_task_i: numbers.Integral,
+                          cur_task_id: numbers.Integral,
                           save_fct: Callable,
                           dev_zero: Dict[numbers.Integral,bool]) -> None:
     if dev_zero[cur_task_id] or cur_task.checkpoint_needed():

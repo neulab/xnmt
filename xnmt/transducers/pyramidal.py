@@ -55,13 +55,13 @@ class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
 
   def make_builder_layers(self, input_dim, hidden_dim, layers, dropout, downsampling_method, reduce_factor):
     builder_layers = []
-    f = recurrent.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
-    b = recurrent.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
+    f = recurrent.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim // 2, dropout=dropout)
+    b = recurrent.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim // 2, dropout=dropout)
     builder_layers.append([f, b])
     for _ in range(layers - 1):
       layer_input_dim = hidden_dim if downsampling_method=="skip" else hidden_dim*reduce_factor
-      f = recurrent.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
-      b = recurrent.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim / 2, dropout=dropout)
+      f = recurrent.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim // 2, dropout=dropout)
+      b = recurrent.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim // 2, dropout=dropout)
       builder_layers.append([f, b])
     return builder_layers
 

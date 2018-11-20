@@ -1,6 +1,10 @@
+import numbers
+from typing import Optional, Sequence, Union
+
+import dynet as dy
 import numpy as np
 
-from xnmt import batchers, event_trigger, inferences, input_readers, losses, sent
+from xnmt import batchers, event_trigger, inferences, input_readers, sent
 from xnmt.modelparts import transforms
 from xnmt.modelparts import scorers
 from xnmt.modelparts import embedders
@@ -35,7 +39,7 @@ class SequenceClassifier(models.ConditionedModel, models.GeneratorModel, Seriali
                encoder: transducers.SeqTransducer = bare(recurrent.BiLSTMSeqTransducer),
                inference=bare(inferences.IndependentOutputInference),
                transform: transforms.Transform = bare(transforms.NonLinear),
-               scorer: scorers.Scorer = bare(scorers.Softmax)):
+               scorer: scorers.Scorer = bare(scorers.Softmax)) -> None:
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
     self.encoder = encoder
@@ -55,13 +59,17 @@ class SequenceClassifier(models.ConditionedModel, models.GeneratorModel, Seriali
     h = self.encoder.get_final_states()[-1].main_expr()
     return self.transform.transform(h)
 
-  def calc_nll(self, src, trg):
+  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) \
+          -> dy.Expression:
     h = self._encode_src(src)
     ids = trg.value if not batchers.is_batched(trg) else batchers.ListBatch([trg_i.value for trg_i in trg])
     loss_expr = self.scorer.calc_loss(h, ids)
     return loss_expr
 
-  def generate(self, src, forced_trg_ids=None, normalize_scores=False):
+  def generate(self,
+               src: Union[batchers.Batch, sent.Sentence],
+               forced_trg_ids: Optional[Sequence[numbers.Integral]] = None,
+               normalize_scores: bool = False):
     if not batchers.is_batched(src):
       src = batchers.mark_as_batch([src])
       if forced_trg_ids:
