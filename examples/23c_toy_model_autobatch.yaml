@@ -1,6 +1,6 @@
-# Same as big model, but this time using autobatching.
+# A toy model using autobatching.
 # Autobatching is implemented using a specific training regimen.
-!Experiment # 'big_autobatch' is the name given to the experiment
+!Experiment # 'toy_autobatch' is the name given to the experiment
   name: toy_autobatch # every experiment needs a name
   # global parameters shared throughout the experiment
   exp_global: !ExpGlobal
