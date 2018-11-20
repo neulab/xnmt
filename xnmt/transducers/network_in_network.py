@@ -1,5 +1,5 @@
 import numbers
-from typing import Optional
+from typing import List, Optional
 
 from xnmt.transducers import base
 from xnmt.modelparts import transforms as modelparts_transforms
@@ -31,7 +31,7 @@ class NinSeqTransducer(base.ModularSeqTransducer, Serializable):
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                projection: Optional[base.TransformSeqTransducer] = None,
                batch_norm: Optional[norms.BatchNorm] = None,
-               nonlinearity: Optional[base.TransformSeqTransducer] = None):
+               nonlinearity: Optional[base.TransformSeqTransducer] = None) -> None:
     self.projection = self.add_serializable_component("projection", projection,
                                                       lambda: base.TransformSeqTransducer(
                                                         modelparts_transforms.Linear(input_dim=input_dim*downsample_by,
@@ -48,5 +48,5 @@ class NinSeqTransducer(base.ModularSeqTransducer, Serializable):
                                                         ))
     self.modules = [self.projection, self.batch_norm, self.nonlinearity]
 
-  def get_final_states(self):
+  def get_final_states(self) -> List[base.FinalTransducerState]:
     return self.modules[-1].get_final_states()

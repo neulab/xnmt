@@ -1,4 +1,4 @@
-from typing import Optional, Sequence
+from typing import List, Optional, Sequence
 
 import dynet as dy
 import numpy as np
@@ -11,9 +11,11 @@ class ExpressionSequence(object):
   Internal representation is either a list of expressions or a single tensor or both.
   If necessary, both forms of representation are created from the other on demand.
   """
-  def __init__(self, expr_list: Optional[Sequence[dy.Expression]] = None, expr_tensor: Optional[dy.Expression] = None,
-               expr_transposed_tensor: Optional[dy.Expression] = None, mask: Optional['batchers.Mask'] = None) \
-          -> None:
+  def __init__(self,
+               expr_list: Optional[Sequence[dy.Expression]] = None,
+               expr_tensor: Optional[dy.Expression] = None,
+               expr_transposed_tensor: Optional[dy.Expression] = None,
+               mask: Optional['batchers.Mask'] = None) -> None:
     """Constructor.
 
     Args:
@@ -83,7 +85,7 @@ class ExpressionSequence(object):
       else:
         return dy.pick(self.expr_transposed_tensor, key, dim=0)
 
-  def as_list(self):
+  def as_list(self) -> List[dy.Expression]:
     """Get a list.
 
     Returns:
@@ -93,14 +95,14 @@ class ExpressionSequence(object):
       self.expr_list = [self[i] for i in range(len(self))]
     return self.expr_list
 
-  def has_list(self):
+  def has_list(self) -> bool:
     """
     Returns:
       False if as_list() will result in creating additional expressions, True otherwise
     """
     return self.expr_list is not None
 
-  def as_tensor(self):
+  def as_tensor(self) -> dy.Expression:
     """Get a tensor.
     Returns:
       the whole sequence as a tensor expression where each column is one of the embeddings.
@@ -112,14 +114,14 @@ class ExpressionSequence(object):
         self.expr_tensor = dy.transpose(self.expr_transposed_tensor)
     return self.expr_tensor
 
-  def has_tensor(self):
+  def has_tensor(self) -> bool:
     """
     Returns:
       False if as_tensor() will result in creating additional expressions, True otherwise
     """
     return self.expr_tensor is not None
 
-  def as_transposed_tensor(self):
+  def as_transposed_tensor(self) -> dy.Expression:
     """Get a tensor.
     Returns:
       the whole sequence as a tensor expression where each row is one of the embeddings.
@@ -128,14 +130,14 @@ class ExpressionSequence(object):
       self.expr_transposed_tensor = dy.transpose(self.as_tensor())
     return self.expr_transposed_tensor
 
-  def has_transposed_tensor(self):
+  def has_transposed_tensor(self) -> bool:
     """
     Returns:
       False if as_transposed_tensor() will result in creating additional expressions, True otherwise
     """
     return self.expr_transposed_tensor is not None
 
-  def dim(self):
+  def dim(self) -> tuple:
     """
     Return dimension of the expression sequence
 
@@ -151,7 +153,7 @@ class LazyNumpyExpressionSequence(ExpressionSequence):
   This is initialized via numpy arrays, and dynet expressions are only created
   once a consumer requests representation as list or tensor.
   """
-  def __init__(self, lazy_data, mask=None):
+  def __init__(self, lazy_data: np.ndarray, mask: Optional['batchers.Mask'] = None) -> None:
     """
     Args:
       lazy_data: numpy array, or Batcher.Batch of numpy arrays
@@ -179,7 +181,7 @@ class LazyNumpyExpressionSequence(ExpressionSequence):
           [self.lazy_data[batch].get_array()[:, key] for batch in range(self.lazy_data.batch_size())], batched=True)
       else:
         return dy.inputTensor(self.lazy_data.get_array()[:,key], batched=False)
-  def as_tensor(self):
+  def as_tensor(self) -> dy.Expression:
     if not (self.expr_list or self.expr_tensor):
       if not batchers.is_batched(self.lazy_data):
         raise NotImplementedError()
@@ -211,15 +213,15 @@ class ReversedExpressionSequence(ExpressionSequence):
   def __getitem__(self, key):
     return self.base_expr_seq[len(self) - key - 1]
 
-  def as_list(self):
+  def as_list(self) -> List[dy.Expression]:
     if self.expr_list is None:
       self.expr_list = list(reversed(self.base_expr_seq.as_list()))
     return self.expr_list
 
-  def has_list(self):
+  def has_list(self) -> bool:
     return self.base_expr_seq.has_list()
 
-  def as_tensor(self):
+  def as_tensor(self) -> dy.Expression:
     # note: this is quite memory hungry and should be avoided if possible
     if self.expr_tensor is None:
       if self.expr_list is None:
@@ -227,7 +229,7 @@ class ReversedExpressionSequence(ExpressionSequence):
       self.expr_tensor = dy.concatenate_cols(self.expr_list)
     return self.expr_tensor
 
-  def has_tensor(self):
+  def has_tensor(self) -> bool:
     return self.expr_tensor is not None
 
 

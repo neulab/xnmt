@@ -55,10 +55,10 @@ def calc_additional_loss(trg: Union[sent.Sentence, batchers.Batch],
   return None
 
 @events.register_xnmt_event_assign
-def get_report_input(context={}) -> dict:
+def get_report_input(context: dict = {}) -> dict:
   return context
 
 @events.register_xnmt_event
-def set_reporting(reporting):
+def set_reporting(reporting: bool) -> None:
   pass
 

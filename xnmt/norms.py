@@ -1,7 +1,7 @@
 """
 This module holds normalizers for neural networks. Currently implemented are layer norm and batch norm.
 """
-from typing import Optional
+from typing import List, Optional, Tuple
 import numbers
 
 import dynet as dy
@@ -17,12 +17,12 @@ class LayerNorm(Serializable, transforms.Transform):
   yaml_tag = "!LayerNorm"
 
   @serializable_init
-  def __init__(self, d_hid):
+  def __init__(self, d_hid: numbers.Integral) -> None:
     subcol = param_collections.ParamManager.my_params(self)
     self.p_g = subcol.add_parameters(dim=d_hid, init=dy.ConstInitializer(1.0))
     self.p_b = subcol.add_parameters(dim=d_hid, init=dy.ConstInitializer(0.0))
 
-  def transform(self, x):
+  def transform(self, x: dy.Expression) -> dy.Expression:
     g = dy.parameter(self.p_g)
     b = dy.parameter(self.p_b)
     return dy.layer_norm(x, g, b)
@@ -59,8 +59,7 @@ class BatchNorm(Serializable, transforms.Transform, transducers.SeqTransducer):
   @serializable_init
   @events.register_xnmt_handler
   def __init__(self,
-               hidden_dim:
-               numbers.Integral,
+               hidden_dim: numbers.Integral,
                num_dim: numbers.Integral,
                time_first: bool = False,
                population_running_mean: Optional[np.ndarray] = None,
@@ -80,7 +79,7 @@ class BatchNorm(Serializable, transforms.Transform, transducers.SeqTransducer):
     else:
       self.population_running_std = population_running_std
 
-  def get_normalizer_dimensionality(self):
+  def get_normalizer_dimensionality(self) -> Tuple[numbers.Integral]:
     if self.num_dim == 1:
       return self.hidden_dim,
     elif self.num_dim == 2:
@@ -91,11 +90,11 @@ class BatchNorm(Serializable, transforms.Transform, transducers.SeqTransducer):
     else:
       raise NotImplementedError("BatchNorm not implemented for num_dim > 3")
 
-  def get_stat_dimensions(self):
+  def get_stat_dimensions(self) -> List[numbers.Integral]:
     if self.time_first: return list(range(self.num_dim-1))
     else: return list(range(1, self.num_dim))
 
-  def transform(self, input_expr: dy.Expression, mask: Optional[batchers.Mask]=None):
+  def transform(self, input_expr: dy.Expression, mask: Optional[batchers.Mask]=None) -> dy.Expression:
     """
     Apply batch norm.
 
@@ -128,7 +127,7 @@ class BatchNorm(Serializable, transforms.Transform, transducers.SeqTransducer):
     assert dim_out == dim_in
     return bn_y
 
-  def transduce(self, es: expression_seqs.ExpressionSequence):
+  def transduce(self, es: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
     output = self.transform(es.as_tensor(), es.mask)
     return expression_seqs.ExpressionSequence(expr_tensor=output, mask=es.mask)
 
@@ -139,7 +138,7 @@ class BatchNorm(Serializable, transforms.Transform, transducers.SeqTransducer):
 
 # Batch norm helpers:
 
-def broadcast_factor(mask, tensor_expr):
+def broadcast_factor(mask: batchers.Mask, tensor_expr: dy.Expression) -> numbers.Integral:
   """
   returns product(tensor_expr dims) / product(mask dims)
   """
@@ -147,13 +146,13 @@ def broadcast_factor(mask, tensor_expr):
   for d in tensor_expr.dim()[0]: tensor_expr_size *= d
   return tensor_expr_size / mask.np_arr.size
 
-def mask_reshape_size(mask, tensor_dim, time_first=False):
+def mask_reshape_size(mask: batchers.Mask, tensor_dim: tuple, time_first: bool = False) -> tuple:
   if time_first:
     return list(reversed(mask.np_arr.shape[1:])) + [1] * (len(tensor_dim[0]) - len(mask.np_arr.shape) + 1) + [mask.np_arr.shape[0]]
   else:
     return [1] * (len(tensor_dim[0]) - len(mask.np_arr.shape) + 1) + list(reversed(mask.np_arr.shape))
 
-def set_masked_to_mean(mask, tensor_expr, time_first=False):
+def set_masked_to_mean(mask: batchers.Mask, tensor_expr: dy.Expression, time_first: bool = False) -> dy.Expression:
   """
   Set masked parts of the tensor expr to the mean of the unmasked parts.
   """

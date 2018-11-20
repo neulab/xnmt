@@ -46,7 +46,7 @@ class XnmtOptimizer(object):
         for param in subcol.parameters_list():
           param.scale_gradient(0)
 
-  def status(self):
+  def status(self) -> None:
     """
     Outputs information about the trainer in the stderr.
 
@@ -54,7 +54,7 @@ class XnmtOptimizer(object):
     """
     return self.optimizer.status()
 
-  def set_clip_threshold(self, thr: numbers.Real):
+  def set_clip_threshold(self, thr: numbers.Real) -> None:
     """
     Set clipping thershold
 
@@ -74,7 +74,7 @@ class XnmtOptimizer(object):
     """
     return self.optimizer.get_clip_threshold()
 
-  def restart(self):
+  def restart(self) -> None:
     """
     Restarts the optimizer
 
@@ -119,7 +119,7 @@ class SimpleSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!SimpleSGDTrainer'
 
   @serializable_init
-  def __init__(self, e0: numbers.Real = 0.1, skip_noisy: bool = False):
+  def __init__(self, e0: numbers.Real = 0.1, skip_noisy: bool = False) -> None:
     super().__init__(optimizer=dy.SimpleSGDTrainer(ParamManager.global_collection(), e0),
                      skip_noisy=skip_noisy)
 
@@ -139,7 +139,7 @@ class MomentumSGDTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!MomentumSGDTrainer'
 
   @serializable_init
-  def __init__(self, e0: numbers.Real = 0.01, mom: numbers.Real = 0.9, skip_noisy: bool = False):
+  def __init__(self, e0: numbers.Real = 0.01, mom: numbers.Real = 0.9, skip_noisy: bool = False) -> None:
     super().__init__(optimizer=dy.MomentumSGDTrainer(ParamManager.global_collection(), e0, mom),
                      skip_noisy=skip_noisy)
 
@@ -159,7 +159,7 @@ class AdagradTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!AdagradTrainer'
 
   @serializable_init
-  def __init__(self, e0: numbers.Real = 0.1, eps: numbers.Real = 1e-20, skip_noisy: bool = False):
+  def __init__(self, e0: numbers.Real = 0.1, eps: numbers.Real = 1e-20, skip_noisy: bool = False) -> None:
     super().__init__(optimizer=dy.AdagradTrainer(ParamManager.global_collection(), e0, eps=eps),
                      skip_noisy=skip_noisy)
 
@@ -179,7 +179,7 @@ class AdadeltaTrainer(XnmtOptimizer, Serializable):
   yaml_tag = '!AdadeltaTrainer'
 
   @serializable_init
-  def __init__(self, eps: numbers.Real = 1e-6, rho: numbers.Real = 0.95, skip_noisy: bool = False):
+  def __init__(self, eps: numbers.Real = 1e-6, rho: numbers.Real = 0.95, skip_noisy: bool = False) -> None:
     super().__init__(optimizer=dy.AdadeltaTrainer(ParamManager.global_collection(), eps, rho),
                      skip_noisy=skip_noisy)
 
@@ -206,7 +206,7 @@ class AdamTrainer(XnmtOptimizer, Serializable):
                beta_1: numbers.Real = 0.9,
                beta_2: numbers.Real = 0.999,
                eps: numbers.Real = 1e-8,
-               skip_noisy: bool = False):
+               skip_noisy: bool = False) -> None:
     super().__init__(optimizer=dy.AdamTrainer(ParamManager.global_collection(), alpha, beta_1, beta_2, eps),
                      skip_noisy=skip_noisy)
 
@@ -236,7 +236,7 @@ class NoamTrainer(XnmtOptimizer, Serializable):
                beta_1: numbers.Real = 0.9,
                beta_2: numbers.Real = 0.98,
                eps: numbers.Real = 1e-9,
-               skip_noisy: bool = False):
+               skip_noisy: bool = False) -> None:
     super().__init__(optimizer=dy.AdamTrainer(ParamManager.global_collection(),
                                     alpha=alpha,
                                     beta_1=beta_1,
@@ -247,7 +247,7 @@ class NoamTrainer(XnmtOptimizer, Serializable):
     self.warmup_steps = warmup_steps
     self.steps = 0
 
-  def update(self):
+  def update(self) -> None:
     self.steps += 1
     if self.warmup_steps:
       decay = (self.dim ** (-0.5)) * np.min([self.steps ** (-0.5), self.steps * (self.warmup_steps ** (-1.5))])
@@ -269,22 +269,22 @@ class DummyTrainer(XnmtOptimizer, Serializable):
   yaml_tag = "!DummyTrainer"
 
   @serializable_init
-  def __init__(self):
+  def __init__(self) -> None:
     pass
 
   def update(self) -> None:
     pass
 
-  def status(self):
-    return "n/a"
-
-  def set_clip_threshold(self, thr):
+  def status(self) -> None:
     pass
 
-  def get_clip_threshold(self):
+  def set_clip_threshold(self, thr) -> None:
     pass
 
-  def restart(self):
+  def get_clip_threshold(self) -> None:
+    pass
+
+  def restart(self) -> None:
     pass
 
   @property

@@ -1,5 +1,5 @@
 import contextlib
-from typing import Sequence, Optional, Union
+from typing import Callable, Dict, Optional, Sequence, Union
 from collections import OrderedDict
 import numbers
 
@@ -7,22 +7,19 @@ from xnmt.settings import settings
 import numpy as np
 import dynet as dy
 
-from xnmt.models.base import ConditionedModel
-from xnmt.loss_trackers import TrainLossTracker
-from xnmt.loss_calculators import LossCalculator, MLELoss
-from xnmt.param_collections import ParamManager
+
+from xnmt import batchers, event_trigger, loss_calculators, loss_trackers, losses, optimizers, param_collections, utils
+from xnmt.models import base as models
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-from xnmt import event_trigger, optimizers, batchers, utils
 from xnmt.eval import tasks as eval_tasks
 from xnmt.train import tasks as train_tasks
-from xnmt.losses import FactoredLossExpr
 
 
 class TrainingRegimen(object):
   """
   A training regimen is a class that implements a training loop.
   """
-  def run_training(self, save_fct):
+  def run_training(self, save_fct: Callable) -> None:
     """
     Run training steps in a loop until stopping criterion is reached.
 
@@ -92,13 +89,13 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
 
   @serializable_init
   def __init__(self,
-               model: ConditionedModel = Ref("model"),
+               model: models.ConditionedModel = Ref("model"),
                src_file: Union[None, str, Sequence[str]] = None,
                trg_file: Optional[str] = None,
                dev_every: numbers.Integral = 0,
                dev_zero: bool = False,
                batcher: batchers.Batcher = bare(batchers.SrcBatcher, batch_size=32),
-               loss_calculator: LossCalculator = bare(MLELoss),
+               loss_calculator: loss_calculators.LossCalculator = bare(loss_calculators.MLELoss),
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                run_for_epochs: Optional[numbers.Integral] = None,
                lr_decay: numbers.Real= 1.0,
@@ -141,12 +138,12 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
     self.dev_zero = dev_zero
     self.trainer = trainer or optimizers.SimpleSGDTrainer(e0=0.1)
     self.dynet_profiling = commandline_args.get("dynet_profiling", 0) if commandline_args else 0
-    self.train_loss_tracker = TrainLossTracker(self)
+    self.train_loss_tracker = loss_trackers.TrainLossTracker(self)
     self.loss_comb_method = loss_comb_method
     self.update_every = update_every
     self.num_updates_skipped = 0
 
-  def run_training(self, save_fct):
+  def run_training(self, save_fct: Callable) -> None:
     """
     Main training loop (overwrites TrainingRegimen.run_training())
     """
@@ -168,7 +165,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
           self.checkpoint_and_save(save_fct)
         if self.should_stop_training(): break
 
-  def checkpoint_and_save(self, save_fct):
+  def checkpoint_and_save(self, save_fct: Callable) -> None:
     should_save = self.checkpoint()
     if should_save:
       save_fct()
@@ -229,13 +226,13 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
 
   @serializable_init
   def __init__(self,
-               model: ConditionedModel = Ref("model"),
+               model: models.ConditionedModel = Ref("model"),
                src_file: Union[None, str, Sequence[str]] = None,
                trg_file: Optional[str] = None,
                dev_every: numbers.Integral = 0,
                dev_zero: bool = False,
                batcher: batchers.Batcher = bare(batchers.SrcBatcher, batch_size=32),
-               loss_calculator: LossCalculator = bare(MLELoss),
+               loss_calculator: loss_calculators.LossCalculator = bare(loss_calculators.MLELoss),
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                run_for_epochs: Optional[numbers.Integral] = None,
                lr_decay: numbers.Real= 1.0,
@@ -280,18 +277,18 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
     self.dev_zero = dev_zero
     self.trainer = trainer or optimizers.SimpleSGDTrainer(e0=0.1)
     self.dynet_profiling = commandline_args.get("dynet_profiling", 0) if commandline_args else 0
-    self.train_loss_tracker = TrainLossTracker(self)
+    self.train_loss_tracker = loss_trackers.TrainLossTracker(self)
     self.loss_comb_method = loss_comb_method
     self.update_every = update_every
     self.num_updates_skipped = 0
 
-  def run_training(self, save_fct):
+  def run_training(self, save_fct: Callable) -> None:
     """
     Main training loop (overwrites TrainingRegimen.run_training())
     """
     dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
     if self.run_for_epochs is None or self.run_for_epochs > 0:
-      total_loss = FactoredLossExpr()
+      total_loss = losses.FactoredLossExpr()
       # Needed for report
       total_trg = []
       for src, trg in self.next_minibatch():
@@ -313,7 +310,7 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
             total_loss_val = total_loss.get_factored_loss_val(comb_method=self.loss_comb_method)
             reported_trg = batchers.ListBatch(total_trg)
             self.train_loss_tracker.report(reported_trg, total_loss_val)
-            total_loss = FactoredLossExpr()
+            total_loss = losses.FactoredLossExpr()
             total_trg = []
             dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
         if self.checkpoint_needed():
@@ -325,7 +322,7 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
           total_loss_val = total_loss.get_factored_loss_val(comb_method=self.loss_comb_method)
           reported_trg = batchers.ListBatch(total_trg)
           self.train_loss_tracker.report(reported_trg, total_loss_val)
-          total_loss = FactoredLossExpr()
+          total_loss = losses.FactoredLossExpr()
           total_trg = []
           self.checkpoint_and_save(save_fct)
         if self.should_stop_training(): break
@@ -361,15 +358,14 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
       if hasattr(task, "trainer") and task.trainer is not None:
         raise ValueError("Can instantiate only one trainer object. Possibly, multiple training regimens were created when training tasks should have been used.")
     self.train = None
-    self.model_file = ParamManager.param_col.model_file
+    self.model_file = param_collections.ParamManager.param_col.model_file
     for task in tasks:
       task.trainer = trainer
     self.dev_zero = dev_zero
     self.update_every = update_every
     self.num_updates_skipped = 0
 
-
-  def trigger_train_event(self, value):
+  def trigger_train_event(self, value: bool) -> None:
     """
     Trigger set_train event, but only if that would lead to a change of the value
     of set_train.
@@ -428,14 +424,14 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                commandline_args: dict = Ref("exp_global.commandline_args", default=None)) -> None:
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every,
                      commandline_args=commandline_args)
-    self.train_loss_trackers = {task : TrainLossTracker(task) for task in tasks}
+    self.train_loss_trackers = {task : loss_trackers.TrainLossTracker(task) for task in tasks}
     self.per_task_backward = per_task_backward
     self.loss_comb_method = loss_comb_method
     self.n_task_steps = n_task_steps or [1] * len(tasks)
     if len(self.n_task_steps) != len(tasks):
       raise ValueError(f"number of tasks and steps per task do not match: {len(tasks)} != {len(self.n_task_steps)}")
 
-  def run_training(self, save_fct):
+  def run_training(self, save_fct: Callable) -> None:
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -474,7 +470,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
         self.checkpoint_and_save(save_fct)
         if self.tasks[0].should_stop_training(): break
 
-  def checkpoint_and_save(self, save_fct):
+  def checkpoint_and_save(self, save_fct: Callable) -> None:
     for task_i, task in enumerate(self.tasks):
       if self.dev_zero or task.checkpoint_needed():
         should_save = task.checkpoint(control_learning_schedule=(task_i == 0))
@@ -525,10 +521,10 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     if len(self.task_weights) != len(self.tasks):
       raise ValueError(f"number of tasks must match number of task weights; "
                        f"found: {len(self.task_weights)} != {len(self.tasks)}")
-    self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
+    self.train_loss_trackers = {task: loss_trackers.TrainLossTracker(task) for task in tasks}
     self.loss_comb_method = loss_comb_method
 
-  def run_training(self, save_fct):
+  def run_training(self, save_fct: Callable) -> None:
     task_generators = OrderedDict()
     for task in self.tasks:
       task_generators[task] = task.next_minibatch()
@@ -552,7 +548,11 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
         self.checkpoint_and_save(cur_task, cur_task_i, save_fct, dev_zero)
         if self.tasks[0].should_stop_training(): break
 
-  def checkpoint_and_save(self, cur_task, cur_task_i, save_fct, dev_zero):
+  def checkpoint_and_save(self,
+                          cur_task: train_tasks.TrainingTask,
+                          cur_task_i: numbers.Integral,
+                          save_fct: Callable,
+                          dev_zero: Dict[numbers.Integral,bool]) -> None:
     if dev_zero[cur_task_i] or cur_task.checkpoint_needed():
       dev_zero[cur_task_i] = False
       should_save = cur_task.checkpoint(control_learning_schedule=(cur_task_i == 0))
@@ -586,10 +586,10 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                commandline_args: dict = Ref("exp_global.commandline_args", default=None)) -> None:
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args,
                      update_every=update_every)
-    self.train_loss_trackers = {task: TrainLossTracker(task) for task in tasks}
+    self.train_loss_trackers = {task: loss_trackers.TrainLossTracker(task) for task in tasks}
     self.loss_comb_method = loss_comb_method
 
-  def run_training(self, save_fct):
+  def run_training(self, save_fct: Callable) -> None:
     dev_zero = {i:self.dev_zero for i in range(len(self.tasks))}
     for cur_task_id in range(len(self.tasks)):
       self.train = None
@@ -611,7 +611,11 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
           self.checkpoint_and_save(cur_task, cur_task_id, save_fct, dev_zero)
           if cur_task.should_stop_training(): break
 
-  def checkpoint_and_save(self, cur_task, cur_task_id, save_fct, dev_zero):
+  def checkpoint_and_save(self,
+                          cur_task: train_tasks.TrainingTask,
+                          cur_task_id: numbers.Integral,
+                          save_fct: Callable,
+                          dev_zero: Dict[numbers.Integral,bool]) -> None:
     if dev_zero[cur_task_id] or cur_task.checkpoint_needed():
       dev_zero[cur_task_id] = False
       should_save = cur_task.checkpoint(control_learning_schedule=True)

@@ -5,8 +5,7 @@ import numpy as np
 from scipy.stats import norm
 
 from xnmt.persistence import serializable_init, Serializable
-from xnmt import search_strategies, sentence_stats
-from xnmt.vocabs import Vocab
+from xnmt import search_strategies, sentence_stats, vocabs
 
 class LengthNormalization(object):
   """
@@ -178,4 +177,4 @@ class EosBooster(Serializable):
   def __init__(self, boost_val: numbers.Real):
     self.boost_val = boost_val
   def __call__(self, scores:np.ndarray) -> None:
-    scores[Vocab.ES] += self.boost_val
+    scores[vocabs.Vocab.ES] += self.boost_val

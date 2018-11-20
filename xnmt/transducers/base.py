@@ -17,7 +17,7 @@ class FinalTransducerState(object):
     main_expr: expression for hidden state
     cell_expr: expression for cell state, if exists
   """
-  def __init__(self, main_expr: dy.Expression, cell_expr: dy.Expression=None):
+  def __init__(self, main_expr: dy.Expression, cell_expr: dy.Expression=None) -> None:
     self._main_expr = main_expr
     self._cell_expr = cell_expr
 
@@ -100,7 +100,7 @@ class IdentitySeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!IdentitySeqTransducer'
 
   @serializable_init
-  def __init__(self):
+  def __init__(self) -> None:
     pass
 
   def transduce(self, seq: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':

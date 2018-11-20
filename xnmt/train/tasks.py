@@ -207,7 +207,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     else:
       logger.info('new data set is not ready yet, using data from last epoch.')
 
-  def should_stop_training(self):
+  def should_stop_training(self) -> bool:
     """
     Signal stopping if self.early_stopping_reached is marked or we exhausted the number of requested epochs.
     """
@@ -216,13 +216,13 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                                               or (self.training_state.epoch_num == self.run_for_epochs and
                                                   self.training_state.steps_into_epoch >= self.cur_num_minibatches()))
 
-  def cur_num_minibatches(self):
+  def cur_num_minibatches(self) -> numbers.Integral:
     """
     Current number of minibatches (may change between epochs, e.g. for randomizing batchers or if reload_command is given)
     """
     return len(self.src_batches)
 
-  def cur_num_sentences(self):
+  def cur_num_sentences(self) -> numbers.Integral:
     """
     Current number of parallel sentences (may change between epochs, e.g. if reload_command is given)
     """
@@ -277,7 +277,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         self.training_state.sents_since_start += src.batch_size()
         yield src, trg
 
-  def training_step(self, src, trg):
+  def training_step(self, src: batchers.Batch, trg: batchers.Batch):
     """
     Perform forward pass for the next training step and handle training logic (switching epoch, reshuffling, ..)
 
@@ -292,7 +292,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
   def checkpoint_needed(self):
     return self.dev_loss_tracker.should_report_dev()
 
-  def checkpoint(self, control_learning_schedule=True):
+  def checkpoint(self, control_learning_schedule: bool = True):
     """
     Performs a dev checkpoint
 
@@ -374,7 +374,7 @@ class TrainingState(object):
   """
   This holds the state of the training loop.
   """
-  def __init__(self):
+  def __init__(self) -> None:
     self.num_times_lr_decayed = 0
     self.cur_attempt = 0
     self.epoch_num = 0

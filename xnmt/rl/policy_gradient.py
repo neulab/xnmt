@@ -2,11 +2,9 @@ from enum import Enum
 
 import dynet as dy
 
-from xnmt.events import handle_xnmt_event, register_xnmt_handler
-from xnmt.modelparts.transforms import Linear
+from xnmt import events, losses, param_initializers
+from xnmt.modelparts import transforms
 from xnmt.persistence import Ref, bare, Serializable, serializable_init
-from xnmt.losses import FactoredLossExpr
-from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
 
 class PolicyGradient(Serializable):
   """
@@ -30,24 +28,27 @@ class PolicyGradient(Serializable):
 
   yaml_tag = '!PolicyGradient'
   @serializable_init
-  @register_xnmt_handler
+  @events.register_xnmt_handler
   def __init__(self, policy_network=None,
                      baseline=None,
-                     z_normalization=True,
+                     z_normalization=True, # TODO unused?
                      conf_penalty=None,
                      weight=1.0,
                      input_dim=Ref("exp_global.default_layer_dim"),
                      output_dim=2,
-                     param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-                     bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+                     param_init=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+                     bias_init=Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))):
     self.input_dim = input_dim
     self.policy_network = self.add_serializable_component("policy_network",
                                                            policy_network,
-                                                           lambda: Linear(input_dim=self.input_dim, output_dim=output_dim,
-                                                                          param_init=param_init, bias_init=bias_init))
+                                                          lambda: transforms.Linear(input_dim=self.input_dim,
+                                                                                    output_dim=output_dim,
+                                                                                    param_init=param_init,
+                                                                                    bias_init=bias_init))
     self.baseline = self.add_serializable_component("baseline", baseline,
-                                                    lambda: Linear(input_dim=self.input_dim, output_dim=1,
-                                                                   param_init=param_init, bias_init=bias_init))
+                                                    lambda: transforms.Linear(input_dim=self.input_dim, output_dim=1,
+                                                                              param_init=param_init,
+                                                                              bias_init=bias_init))
 
     self.confidence_penalty = self.add_serializable_component("conf_penalty", conf_penalty, lambda: conf_penalty) if conf_penalty is not None else None
     self.weight = weight
@@ -82,7 +83,7 @@ class PolicyGradient(Serializable):
   Calc policy networks loss.
   """
   def calc_loss(self, policy_reward):
-    loss = FactoredLossExpr()
+    loss = losses.FactoredLossExpr()
     ## Calculate baseline
     pred_reward, baseline_loss = self.calc_baseline_loss(policy_reward)
     rewards = [policy_reward - pw_i for pw_i in pred_reward]
@@ -116,7 +117,7 @@ class PolicyGradient(Serializable):
     return [{".input_dim", ".policy_network.input_dim"},
             {".input_dim", ".baseline.input_dim"}]
 
-  @handle_xnmt_event
+  @events.handle_xnmt_event
   def on_start_sent(self, src_sent):
     self.policy_lls = []
     self.actions = []
@@ -140,7 +141,7 @@ class PolicyGradient(Serializable):
 
   def calc_baseline_loss(self, reward):
     pred_rewards = []
-    losses = []
+    cur_losses = []
     for i, state in enumerate(self.states):
       pred_reward = self.baseline.transform(dy.nobackprop(state))
       pred_rewards.append(dy.nobackprop(pred_reward))
@@ -149,8 +150,8 @@ class PolicyGradient(Serializable):
         act_reward = dy.pick_batch_elems(reward, self.valid_pos[i])
       else:
         act_reward = reward
-      losses.append(dy.sum_batches(dy.squared_distance(pred_reward, dy.nobackprop(act_reward))))
-    return pred_rewards, dy.esum(losses)
+      cur_losses.append(dy.sum_batches(dy.squared_distance(pred_reward, dy.nobackprop(act_reward))))
+    return pred_rewards, dy.esum(cur_losses)
   
   class SamplingAction(Enum):
     POLICY_CLP = 0

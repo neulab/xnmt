@@ -2,6 +2,7 @@ import numpy as np
 import dynet as dy
 from math import sqrt
 from typing import List
+import numbers
 
 from xnmt import events, expression_seqs, param_collections, param_initializers
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
@@ -24,11 +25,11 @@ class MultiHeadAttentionSeqTransducer(transducers.SeqTransducer, Serializable):
   @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
-               input_dim=Ref("exp_global.default_layer_dim"),
-               dropout=Ref("exp_global.dropout", default=0.0),
-               param_init=Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
-               num_heads=8):
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               dropout: numbers.Real = Ref("exp_global.dropout", default=0.0),
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
+               num_heads: numbers.Integral = 8):
     assert(input_dim % num_heads == 0)
 
     self.dropout = dropout

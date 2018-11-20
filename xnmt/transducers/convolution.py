@@ -1,12 +1,12 @@
 import dynet as dy
 from typing import List
+import numbers
 
-from xnmt.expression_seqs import ExpressionSequence
-from xnmt.param_collections import ParamManager
+from xnmt import expression_seqs, param_collections
+from xnmt.transducers import base as transducers
 from xnmt.persistence import Serializable, serializable_init
-from xnmt.transducers.base import SeqTransducer, FinalTransducerState
 
-class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
+class ConvConnectedSeqTransducer(transducers.SeqTransducer, Serializable):
   yaml_tag = '!ConvConnectedSeqTransducer'
   """
     Input goes through through a first convolution in time and space, no stride,
@@ -15,7 +15,13 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
     """
 
   @serializable_init
-  def __init__(self, input_dim, window_receptor,output_dim,num_layers,internal_dim,non_linearity='linear'):
+  def __init__(self,
+               input_dim: numbers.Integral,
+               window_receptor: numbers.Integral,
+               output_dim: numbers.Integral,
+               num_layers: numbers.Integral,
+               internal_dim: numbers.Integral,
+               non_linearity: str = 'linear') -> None:
     """
     Args:
       num_layers: num layers after first receptor conv
@@ -26,7 +32,7 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
       non_linearity: Non linearity to apply between layers
       """
 
-    model = ParamManager.my_params(self)
+    model = param_collections.ParamManager.my_params(self)
     self.input_dim = input_dim
     self.window_receptor = window_receptor
     self.internal_dim = internal_dim
@@ -54,12 +60,10 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
     self.last_conv = model.add_parameters(dim = (self.internal_dim,1,1,self.output_dim),init=normalInit)
     self.last_bias = model.add_parameters(dim = (self.output_dim,))
 
-  def whoami(self): return "ConvConnectedEncoder"
-
-  def get_final_states(self) -> List[FinalTransducerState]:
+  def get_final_states(self) -> List[transducers.FinalTransducerState]:
     return self._final_states
 
-  def transduce(self, embed_sent: ExpressionSequence) -> ExpressionSequence:
+  def transduce(self, embed_sent: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
     src = embed_sent.as_tensor()
 
     sent_len = src.dim()[0][1]
@@ -99,8 +103,8 @@ class ConvConnectedSeqTransducer(SeqTransducer, Serializable):
     last_bias = dy.parameter(self.last_bias)
     output = dy.conv2d_bias(hidden_layer,last_conv,last_bias,stride=[1,1])
     output = dy.reshape(output, (sent_len,self.output_dim),batch_size=batch_size)
-    output_seq = ExpressionSequence(expr_tensor=output)
-    self._final_states = [FinalTransducerState(output_seq[-1])]
+    output_seq = expression_seqs.ExpressionSequence(expr_tensor=output)
+    self._final_states = [transducers.FinalTransducerState(output_seq[-1])]
     return output_seq
 
 

@@ -4,12 +4,9 @@ import numbers
 import dynet as dy
 import numpy as np
 
-from xnmt import expression_seqs
+from xnmt import expression_seqs, param_collections, param_initializers
 from xnmt.transducers import base as transducers
-from xnmt.param_collections import ParamManager
-from xnmt.param_initializers import ParamInitializer, GlorotInitializer
 from xnmt.persistence import Serializable, serializable_init, Ref, bare
-
 
 class FixedSizeAttSeqTransducer(transducers.SeqTransducer, Serializable):
   """
@@ -32,10 +29,9 @@ class FixedSizeAttSeqTransducer(transducers.SeqTransducer, Serializable):
                hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                output_len: numbers.Integral = 32,
                pos_enc_max: Optional[numbers.Integral] = None,
-               param_init: ParamInitializer = Ref("exp_global.param_init",
-                                                  default=bare(GlorotInitializer))) \
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer))) \
           -> None:
-    subcol = ParamManager.my_params(self)
+    subcol = param_collections.ParamManager.my_params(self)
     self.output_len = output_len
     self.W = subcol.add_parameters(dim=(hidden_dim, output_len),
                                    init=param_init.initializer((hidden_dim, output_len)))

@@ -1,21 +1,24 @@
-from collections.abc import Sequence
-from typing import List
+import numbers
+import collections.abc
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import dynet as dy
 
-from xnmt import expression_seqs
+from xnmt import expression_seqs, param_collections, param_initializers
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.param_collections import ParamManager
-from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
 from xnmt.transducers import base as transducers
-from xnmt.persistence import serializable_init, Serializable, Ref, bare
+from xnmt.persistence import bare, Ref, Serializable, serializable_init, Path
 
 class UniLSTMState(object):
   """
   State object for UniLSTMSeqTransducer.
   """
-  def __init__(self, network, prev=None, c=None, h=None):
+  def __init__(self,
+               network: 'UniLSTMSeqTransducer',
+               prev: Optional['UniLSTMState'] = None,
+               c: Sequence[dy.Expression] = None,
+               h: Sequence[dy.Expression] = None) -> None:
     self._network = network
     if c is None:
       c = [dy.zeroes(dim=(network.hidden_dim,)) for _ in range(network.num_layers)]
@@ -25,36 +28,36 @@ class UniLSTMState(object):
     self._h = tuple(h)
     self._prev = prev
 
-  def add_input(self, x):
+  def add_input(self, x: Union[dy.Expression, Sequence[dy.Expression]]):
     new_c, new_h = self._network.add_input_to_prev(self, x)
     return UniLSTMState(self._network, prev=self, c=new_c, h=new_h)
 
-  def b(self):
+  def b(self) -> 'UniLSTMSeqTransducer':
     return self._network
 
-  def h(self):
+  def h(self) -> Sequence[dy.Expression]:
     return self._h
 
-  def s(self):
+  def s(self) -> Sequence[dy.Expression]:
     return self._c + self._h
 
-  def prev(self):
+  def prev(self) -> 'UniLSTMState':
     return self._prev
 
-  def set_h(self, es=None):
+  def set_h(self, es: Optional[Sequence[dy.Expression]] = None) -> 'UniLSTMState':
     if es is not None:
       assert len(es) == self._network.num_layers
     self._h = tuple(es)
     return self
 
-  def set_s(self, es=None):
+  def set_s(self, es: Optional[Sequence[dy.Expression]] = None) -> 'UniLSTMState':
     if es is not None:
       assert len(es) == 2 * self._network.num_layers
     self._c = tuple(es[:self._network.num_layers])
     self._h = tuple(es[self._network.num_layers:])
     return self
 
-  def output(self):
+  def output(self) -> dy.Expression:
     return self._h[-1]
 
   def __getitem__(self, item):
@@ -87,18 +90,18 @@ class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   @register_xnmt_handler
   @serializable_init
   def __init__(self,
-               layers=1,
-               input_dim=Ref("exp_global.default_layer_dim"),
-               hidden_dim=Ref("exp_global.default_layer_dim"),
-               dropout = Ref("exp_global.dropout", default=0.0),
-               weightnoise_std=Ref("exp_global.weight_noise", default=0.0),
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
-               yaml_path=None,
-               decoder_input_dim=Ref("exp_global.default_layer_dim", default=None),
-               decoder_input_feeding=True):
+               layers: numbers.Integral = 1,
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               dropout: numbers.Real = Ref("exp_global.dropout", default=0.0),
+               weightnoise_std: numbers.Real = Ref("exp_global.weight_noise", default=0.0),
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
+               yaml_path: Path = Path(),
+               decoder_input_dim: Optional[numbers.Integral] = Ref("exp_global.default_layer_dim", default=None),
+               decoder_input_feeding: bool = True) -> None:
     self.num_layers = layers
-    model = ParamManager.my_params(self)
+    model = param_collections.ParamManager.my_params(self)
     if yaml_path is not None and "decoder" in yaml_path:
       if decoder_input_feeding:
         input_dim += decoder_input_dim
@@ -107,9 +110,9 @@ class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     self.weightnoise_std = weightnoise_std
     self.input_dim = input_dim
 
-    if not isinstance(param_init, Sequence):
+    if not isinstance(param_init, collections.abc.Sequence):
       param_init = [param_init] * layers
-    if not isinstance(bias_init, Sequence):
+    if not isinstance(bias_init, collections.abc.Sequence):
         bias_init = [bias_init] * layers
 
     # [i; f; o; g]
@@ -137,13 +140,13 @@ class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   def get_final_states(self) -> List[transducers.FinalTransducerState]:
     return self._final_states
 
-  def initial_state(self):
+  def initial_state(self) -> UniLSTMState:
     return UniLSTMState(self)
 
-  def set_dropout(self, dropout):
+  def set_dropout(self, dropout: numbers.Real) -> None:
     self.dropout_rate = dropout
 
-  def set_dropout_masks(self, batch_size=1):
+  def set_dropout_masks(self, batch_size: numbers.Integral = 1) -> None:
     if self.dropout_rate > 0.0 and self.train:
       retention_rate = 1.0 - self.dropout_rate
       scale = 1.0 / retention_rate
@@ -151,7 +154,8 @@ class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
       self.dropout_mask_x += [dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size) for _ in range(1, self.num_layers)]
       self.dropout_mask_h = [dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size) for _ in range(self.num_layers)]
 
-  def add_input_to_prev(self, prev_state, x):
+  def add_input_to_prev(self, prev_state: UniLSTMState, x: Union[dy.Expression, Sequence[dy.Expression]]) \
+          -> Tuple[Sequence[dy.Expression]]:
     if isinstance(x, dy.Expression):
       x = [x]
     elif type(x) != list:
@@ -250,36 +254,39 @@ class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
                 specifying how to initialize weight matrices. If a list is given, each entry denotes one layer.
     bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
                specifying how to initialize bias vectors. If a list is given, each entry denotes one layer.
+    forward_layers: set automatically
+    backward_layers: set automatically
   """
   yaml_tag = '!BiLSTMSeqTransducer'
 
   @register_xnmt_handler
   @serializable_init
   def __init__(self,
-               layers=1,
-               input_dim=Ref("exp_global.default_layer_dim"),
-               hidden_dim=Ref("exp_global.default_layer_dim"),
-               dropout=Ref("exp_global.dropout", default=0.0),
-               weightnoise_std=Ref("exp_global.weight_noise", default=0.0),
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer)),
-               forward_layers=None, backward_layers=None):
+               layers: numbers.Integral = 1,
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               dropout: numbers.Real = Ref("exp_global.dropout", default=0.0),
+               weightnoise_std: numbers.Real = Ref("exp_global.weight_noise", default=0.0),
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
+               forward_layers : Optional[Sequence[UniLSTMSeqTransducer]] = None,
+               backward_layers: Optional[Sequence[UniLSTMSeqTransducer]] = None) -> None:
     self.num_layers = layers
     self.hidden_dim = hidden_dim
     self.dropout_rate = dropout
     self.weightnoise_std = weightnoise_std
     assert hidden_dim % 2 == 0
     self.forward_layers = self.add_serializable_component("forward_layers", forward_layers, lambda: [
-      UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim / 2, dropout=dropout,
+      UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim // 2, dropout=dropout,
                            weightnoise_std=weightnoise_std,
-                           param_init=param_init[i] if isinstance(param_init, Sequence) else param_init,
-                           bias_init=bias_init[i] if isinstance(bias_init, Sequence) else bias_init) for i in
+                           param_init=param_init[i] if isinstance(param_init, collections.abc.Sequence) else param_init,
+                           bias_init=bias_init[i] if isinstance(bias_init, collections.abc.Sequence) else bias_init) for i in
       range(layers)])
     self.backward_layers = self.add_serializable_component("backward_layers", backward_layers, lambda: [
-      UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim / 2, dropout=dropout,
+      UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim // 2, dropout=dropout,
                            weightnoise_std=weightnoise_std,
-                           param_init=param_init[i] if isinstance(param_init, Sequence) else param_init,
-                           bias_init=bias_init[i] if isinstance(bias_init, Sequence) else bias_init) for i in
+                           param_init=param_init[i] if isinstance(param_init, collections.abc.Sequence) else param_init,
+                           bias_init=bias_init[i] if isinstance(bias_init, collections.abc.Sequence) else bias_init) for i in
       range(layers)])
 
   @handle_xnmt_event
@@ -291,7 +298,7 @@ class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
 
   def transduce(self, es: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
     mask = es.mask
-    # first layer
+     # first layer
     forward_es = self.forward_layers[0].transduce(es)
     rev_backward_es = self.backward_layers[0].transduce(expression_seqs.ReversedExpressionSequence(es))
 
@@ -335,15 +342,15 @@ class CustomLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
 
   @serializable_init
   def __init__(self,
-               layers,
-               input_dim,
-               hidden_dim,
-               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
-               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+               layers: numbers.Integral,
+               input_dim: numbers.Integral,
+               hidden_dim: numbers.Integral,
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))) -> None:
     if layers!=1: raise RuntimeError("CustomLSTMSeqTransducer supports only exactly one layer")
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
-    model = ParamManager.my_params(self)
+    model = param_collections.ParamManager.my_params(self)
 
     # [i; f; o; g]
     self.p_Wx = model.add_parameters(dim=(hidden_dim*4, input_dim), init=param_init.initializer((hidden_dim*4, input_dim)))

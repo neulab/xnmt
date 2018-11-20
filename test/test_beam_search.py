@@ -9,7 +9,6 @@ from xnmt.modelparts.decoders import AutoRegressiveDecoder
 from xnmt.modelparts.embedders import SimpleWordEmbedder
 from xnmt.input_readers import PlainTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.loss_calculators import MLELoss
 from xnmt.modelparts.transforms import NonLinear
 from xnmt.modelparts.scorers import Softmax
 from xnmt.models.translators import DefaultTranslator
