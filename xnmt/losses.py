@@ -73,7 +73,13 @@ class FactoredLossExpr(object):
     else:
       raise ValueError(f"Unknown batch combination method '{comb_method}', expected 'sum' or 'avg'.'")
 
-  def get_nobackprop_loss(self):
+  def get_nobackprop_loss(self) -> Dict[str, dy.Expression]:
+    """
+    Get dictionary of named non-backpropagating loss expressions
+
+    Returns:
+      Loss expressions
+    """
     return {k: dy.nobackprop(v) for k, v in self.expr_factors.items()}
 
   def __len__(self):
@@ -95,7 +101,7 @@ class FactoredLossVal(object):
       loss_dict = {}
     self._loss_dict = loss_dict
 
-  def __iadd__(self, other: 'FactoredLossVal'):
+  def __iadd__(self, other: 'FactoredLossVal') -> 'FactoredLossVal':
     """
     Implements += operator, adding up factors individually.
 

@@ -1,3 +1,5 @@
+from typing import Sequence
+import numbers
 
 import dynet as dy
 
@@ -17,14 +19,14 @@ class ConfidencePenalty(Serializable):
 
   @serializable_init
   @register_xnmt_handler
-  def __init__(self, weight=1.0):
+  def __init__(self, weight: numbers.Real = 1.0):
     self.weight = weight
 
   @handle_xnmt_event
   def on_start_sent(self, src):
     self.valid_pos = src.mask.get_valid_position() if src.mask is not None else None
 
-  def calc_loss(self, policy):
+  def calc_loss(self, policy: Sequence[dy.Expression]) -> dy.Expression:
     if self.weight < 1e-8:
       return None
     neg_entropy = []

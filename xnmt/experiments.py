@@ -1,15 +1,12 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence
 import numbers
 
-from xnmt.param_initializers import ParamInitializer, GlorotInitializer, ZeroInitializer
 from xnmt.settings import settings
 
-from xnmt import logger
-from xnmt.eval.tasks import EvalTask
-from xnmt.models.base import TrainableModel
-from xnmt.param_collections import ParamManager, RevertingUnsavedModelException
-from xnmt.preproc import PreprocRunner
-from xnmt.train.regimens import TrainingRegimen
+from xnmt import logger, param_collections, param_initializers, preproc
+from xnmt.eval import metrics, tasks as eval_tasks
+from xnmt.models import base as models_base
+from xnmt.train import regimens
 from xnmt.persistence import serializable_init, Serializable, bare
 
 class ExpGlobal(Serializable):
@@ -42,8 +39,8 @@ class ExpGlobal(Serializable):
                dropout: numbers.Real = 0.3,
                weight_noise: numbers.Real = 0.0,
                default_layer_dim: numbers.Integral = 512,
-               param_init: ParamInitializer = bare(GlorotInitializer),
-               bias_init: ParamInitializer = bare(ZeroInitializer),
+               param_init: param_initializers.ParamInitializer = bare(param_initializers.GlorotInitializer),
+               bias_init: param_initializers.ParamInitializer = bare(param_initializers.ZeroInitializer),
                truncate_dec_batches: bool = False,
                save_num_checkpoints: numbers.Integral = 1,
                loss_comb_method: str = "sum",
@@ -77,6 +74,7 @@ class Experiment(Serializable):
     train: The training regimen defines the training loop.
     evaluate: list of tasks to evaluate the model after training finishes.
     random_search_report: When random search is used, this holds the settings that were randomly drawn for documentary purposes.
+    status: Status of the experiment, will be automatically set to "done" in saved model if the experiment has finished running.
   """
 
   yaml_tag = '!Experiment'
@@ -84,13 +82,13 @@ class Experiment(Serializable):
   @serializable_init
   def __init__(self,
                name: str,
-               exp_global:Optional[ExpGlobal] = bare(ExpGlobal),
-               preproc:Optional[PreprocRunner] = None,
-               model:Optional[TrainableModel] = None,
-               train:Optional[TrainingRegimen] = None,
-               evaluate:Optional[List[EvalTask]] = None,
-               random_search_report:Optional[dict] = None,
-               status=None) -> None:
+               exp_global: Optional[ExpGlobal] = bare(ExpGlobal),
+               preproc: Optional[preproc.PreprocRunner] = None,
+               model: Optional[models_base.TrainableModel] = None,
+               train: Optional[regimens.TrainingRegimen] = None,
+               evaluate: Optional[List[eval_tasks.EvalTask]] = None,
+               random_search_report: Optional[dict] = None,
+               status: Optional[str] = None) -> None:
     self.name = name
     self.exp_global = exp_global
     self.preproc = preproc
@@ -102,7 +100,7 @@ class Experiment(Serializable):
     if random_search_report:
       logger.info(f"> instantiated random parameter search: {random_search_report}")
 
-  def __call__(self, save_fct):
+  def __call__(self, save_fct: Callable) -> Sequence[metrics.EvalScore]:
     """
     Launch training loop, followed by final evaluation.
     """
@@ -113,8 +111,8 @@ class Experiment(Serializable):
         self.train.run_training(save_fct = save_fct)
         logger.info('reverting learned weights to best checkpoint..')
         try:
-          ParamManager.param_col.revert_to_best_model()
-        except RevertingUnsavedModelException:
+          param_collections.ParamManager.param_col.revert_to_best_model()
+        except param_collections.RevertingUnsavedModelException:
           pass
 
       evaluate_args = self.evaluate

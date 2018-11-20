@@ -1,4 +1,4 @@
-from typing import Optional, Sequence
+from typing import Any, List, Optional, Sequence
 import numbers
 
 from xnmt.persistence import serializable_init, Serializable
@@ -29,7 +29,9 @@ class Vocab(Serializable):
   UNK_STR = "<unk>"
 
   @serializable_init
-  def __init__(self, i2w: Optional[Sequence[str]] = None, vocab_file: Optional[str] = None,
+  def __init__(self,
+               i2w: Optional[Sequence[str]] = None,
+               vocab_file: Optional[str] = None,
                sentencepiece_vocab: bool = False) -> None:
     assert i2w is None or vocab_file is None
     assert i2w or vocab_file
@@ -46,13 +48,13 @@ class Vocab(Serializable):
     self.save_processed_arg("vocab_file", None)
 
   @staticmethod
-  def i2w_from_vocab_file(vocab_file, sentencepiece_vocab=False):
-    """Loads the vocabulary from a file.
+  def i2w_from_vocab_file(vocab_file: str, sentencepiece_vocab: bool = False) -> List[str]:
+    """Load the vocabulary from a file.
     
     If ``sentencepiece_vocab`` is set to True, this will accept a sentencepiece vocabulary file
     
     Args:
-      vocab_file: file containing one word per line, and not containing <s>, </s>, <unk>
+      vocab_file: file containing one word per line, and not containing ``<s>``, ``</s>``, ``<unk>``
       sentencepiece_vocab (bool): Set to ``True`` if ``vocab_file`` is the output of the sentencepiece tokenizer. Defaults to ``False``.
     """
     vocab = [Vocab.SS_STR, Vocab.ES_STR]
@@ -81,7 +83,7 @@ class Vocab(Serializable):
   def __len__(self) -> int:
     return len(self.i2w)
 
-  def is_compatible(self, other):
+  def is_compatible(self, other: Any) -> bool:
     """
     Check if this vocab produces the same conversions as another one.
     """

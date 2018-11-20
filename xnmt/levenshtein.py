@@ -1,23 +1,44 @@
+from typing import Any, Sequence
+import numbers
+
 class LevenshteinAligner(object):
   # gap penalty:
   gapPenalty = -1.0
   gapSymbol = None
 
   # similarity function:
-  def sim(self, word1, word2):
+  def sim(self, word1: Any, word2: Any) -> numbers.Number:
+    """
+    Similarity function between two words
+
+    Args:
+      word1:
+      word2:
+
+    Returns:
+      Similarity measure
+    """
     if word1 == word2:
       return 0
     else:
       return -1
 
-  # performs edit distance alignment between two lists
-  # outputs c, x, y, s:
-  # c = score
-  # x = l1 with gapSymbol inserted to indicate insertions
-  # y = l2 with gapSymbol inserted to indicate deletions
-  # s = list of same length as x and y, specifying correct words, substitutions,
-  #			deletions, insertions as 'c', 's', 'd', 'i'
-  def align(self, l1, l2):
+  def align(self, l1: Sequence, l2: Sequence) -> tuple:
+    """
+    Perform edit distance alignment between two lists.
+
+    Args:
+      l1: first sequence
+      l2: second sequence
+
+    Returns:
+      a tuple (c, x, y, s), with:
+        c = score
+        x = l1 with gapSymbol inserted to indicate insertions
+        y = l2 with gapSymbol inserted to indicate deletions
+        s = list of same length as x and y, specifying correct words, substitutions,
+            deletions, insertions as 'c', 's', 'd', 'i'
+    """
     # compute matrix
     dp_matrix = [[0] * (len(l2) + 1) for _ in range((len(l1) + 1))]
     for i in range(len(l1) + 1):

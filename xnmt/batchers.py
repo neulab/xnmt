@@ -1,5 +1,5 @@
 import warnings
-from typing import Callable, Optional, Sequence, Tuple, Union
+from typing import Callable, List, Optional, Sequence, Tuple, Union
 import math
 import random
 from abc import ABC, abstractmethod
@@ -61,14 +61,14 @@ class CompoundBatch(Batch):
     *batch_elements: one or several batches
   """
 
-  def __init__(self, *batch_elements: Batch):
+  def __init__(self, *batch_elements: Batch) -> None:
     assert len(batch_elements) > 0
     self.batches = batch_elements
 
-  def batch_size(self):
+  def batch_size(self) -> numbers.Integral:
     return self.batches[0].batch_size()
 
-  def sent_len(self):
+  def sent_len(self) -> numbers.Integral:
     return sum(b.sent_len() for b in self.batches)
 
   def __iter__(self):
@@ -94,20 +94,20 @@ class Mask(object):
   Args:
     np_arr: numpy array
   """
-  def __init__(self, np_arr: np.ndarray):
+  def __init__(self, np_arr: np.ndarray) -> None:
     self.np_arr = np_arr
     self.np_arr.flags.writeable = False
 
   def __len__(self):
     return self.np_arr.shape[1]
 
-  def batch_size(self):
+  def batch_size(self) -> numbers.Integral:
     return self.np_arr.shape[0]
 
-  def reversed(self):
+  def reversed(self) -> 'Mask':
     return Mask(self.np_arr[:,::-1])
 
-  def add_to_tensor_expr(self, tensor_expr, multiplicator=None):
+  def add_to_tensor_expr(self, tensor_expr: dy.Expression, multiplicator: Optional[numbers.Real]=None) -> dy.Expression:
     # TODO: might cache these expressions to save memory
     if np.count_nonzero(self.np_arr) == 0:
       return tensor_expr
@@ -118,13 +118,13 @@ class Mask(object):
         mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1), batched=True)
       return tensor_expr + mask_expr
 
-  def lin_subsampled(self, reduce_factor=None, trg_len=None):
+  def lin_subsampled(self, reduce_factor: Optional[numbers.Integral] = None, trg_len: Optional[numbers.Integral]=None) -> 'Mask':
     if reduce_factor:
       return Mask(np.array([[self.np_arr[b,int(i*reduce_factor)] for i in range(int(math.ceil(len(self)/float(reduce_factor))))] for b in range(self.batch_size())]))
     else:
       return Mask(np.array([[self.np_arr[b,int(i*len(self)/float(trg_len))] for i in range(trg_len)] for b in range(self.batch_size())]))
 
-  def cmult_by_timestep_expr(self, expr, timestep, inverse=False):
+  def cmult_by_timestep_expr(self, expr: dy.Expression, timestep: numbers.Integral, inverse: bool = False) -> dy.Expression:
     # TODO: might cache these expressions to save memory
     """
     Args:
@@ -143,7 +143,7 @@ class Mask(object):
     return dy.cmult(expr, mask_exp)
 
   @lru_cache(maxsize=1)
-  def get_valid_position(self, transpose=True):
+  def get_valid_position(self, transpose: bool = True) -> List[numbers.Integral]:
     np_arr = self.np_arr
     if transpose: np_arr = np_arr.transpose()
     x = [np.nonzero(1-arr)[0] for arr in np_arr]
@@ -171,14 +171,15 @@ class Batcher(object):
     self.pad_src_to_multiple = pad_src_to_multiple
     self.sort_within_by_trg_len = sort_within_by_trg_len
 
-  def is_random(self):
+  def is_random(self) -> bool:
     """
     Returns:
       True if there is some randomness in the batching process, False otherwise.
     """
     return False
 
-  def create_single_batch(self, src_sents: Sequence[sent.Sentence],
+  def create_single_batch(self,
+                          src_sents: Sequence[sent.Sentence],
                           trg_sents: Optional[Sequence[sent.Sentence]] = None,
                           sort_by_trg_len: bool = False) -> Union[Batch, Tuple[Batch]]:
     """
@@ -324,12 +325,13 @@ class ShuffleBatcher(Batcher):
     super().__init__(batch_size=batch_size, granularity=granularity, pad_src_to_multiple=pad_src_to_multiple,
                      sort_within_by_trg_len=True)
 
-  def pack(self, src, trg):
+  def pack(self, src: Sequence[sent.Sentence], trg: Optional[Sequence[sent.Sentence]]) \
+          -> Tuple[Sequence[Batch], Sequence[Batch]]:
     order = list(range(len(src)))
     np.random.shuffle(order)
     return self._pack_by_order(src, trg, order)
 
-  def is_random(self):
+  def is_random(self) -> bool:
     return True
 
 class SortBatcher(Batcher):
@@ -357,18 +359,19 @@ class SortBatcher(Batcher):
     self.sort_key = sort_key
     self.break_ties_randomly = break_ties_randomly
 
-  def pack(self, src, trg):
+  def pack(self, src: Sequence[sent.Sentence], trg: Optional[Sequence[sent.Sentence]]) \
+          -> Tuple[Sequence[Batch], Sequence[Batch]]:
     if self.break_ties_randomly:
       order = np.argsort([self.sort_key(x) + random.uniform(-SortBatcher.__tiebreaker_eps, SortBatcher.__tiebreaker_eps) for x in zip(src,trg)])
     else:
       order = np.argsort([self.sort_key(x) for x in zip(src,trg)])
     return self._pack_by_order(src, trg, order)
 
-  def is_random(self):
+  def is_random(self) -> bool:
     return self.break_ties_randomly
 
 # Module level functions
-def mark_as_batch(data, mask=None):
+def mark_as_batch(data: Sequence, mask: Optional[Mask] = None) -> Batch:
   """
   Mark a sequence of items as batch
 
@@ -384,7 +387,7 @@ def mark_as_batch(data, mask=None):
     ret = ListBatch(data, mask)
   return ret
 
-def is_batched(data):
+def is_batched(data: Sequence) -> bool:
   """
   Check whether some data is batched.
 

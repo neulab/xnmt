@@ -2,10 +2,9 @@ import dynet as dy
 import numpy as np
 from xnmt.settings import settings
 
-from xnmt import batchers, event_trigger
-from xnmt.models.base import ConditionedModel, GeneratorModel
+from xnmt import batchers, expression_seqs
+from xnmt.models import base as models
 from xnmt.persistence import serializable_init, Serializable
-from xnmt.expression_seqs import ExpressionSequence
 
 ##### A class for retrieval databases
 # This file contains databases used for retrieval.
@@ -31,7 +30,7 @@ class StandardRetrievalDatabase(Serializable):
     return batchers.mark_as_batch(trg_examples), trg_masks
 
 ##### The actual retriever class
-class Retriever(ConditionedModel, GeneratorModel):
+class Retriever(models.ConditionedModel, models.GeneratorModel):
   """
   A template class implementing a retrieval model.
   """
@@ -100,7 +99,7 @@ class DotProductRetriever(Retriever, Serializable):
 
   def exprseq_pooling(self, exprseq):
     # Reduce to vector
-    exprseq = ExpressionSequence(expr_tensor=exprseq.mask.add_to_tensor_expr(exprseq.as_tensor(),-1e10), mask=exprseq.mask)
+    exprseq = expression_seqs.ExpressionSequence(expr_tensor=exprseq.mask.add_to_tensor_expr(exprseq.as_tensor(),-1e10), mask=exprseq.mask)
     if exprseq.expr_tensor is not None:
       if len(exprseq.expr_tensor.dim()[0]) > 1:
         return dy.max_dim(exprseq.expr_tensor, d=1)

@@ -104,9 +104,10 @@ class ParamManager(object):
 
 class ParamCollection(object):
 
-  def __init__(self):
+  def __init__(self) -> None:
     self.reset()
-  def reset(self):
+
+  def reset(self) -> None:
     self._save_num_checkpoints = 1
     self._model_file = None
     self._param_col = dy.Model()
@@ -136,7 +137,7 @@ class ParamCollection(object):
     else:
       self._data_files = []
 
-  def add_subcollection(self, subcol_owner, subcol_name):
+  def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> dy.ParameterCollection:
     assert subcol_owner not in self.all_subcol_owners
     self.all_subcol_owners.add(subcol_owner)
     if subcol_name in self.subcols:
@@ -145,10 +146,10 @@ class ParamCollection(object):
     self.subcols[subcol_name] = new_subcol
     return new_subcol
 
-  def load_subcol_from_data_file(self, subcol_name, data_file):
+  def load_subcol_from_data_file(self, subcol_name: str, data_file: str) -> None:
     self.subcols[subcol_name].populate(data_file)
 
-  def save(self):
+  def save(self) -> None:
     if not self._is_saved:
       self._remove_existing_history()
     self._shift_saved_checkpoints()
@@ -158,7 +159,7 @@ class ParamCollection(object):
       subcol.save(os.path.join(self._data_files[0], subcol_name))
     self._is_saved = True
 
-  def revert_to_best_model(self):
+  def revert_to_best_model(self) -> None:
     if not self._is_saved:
       raise RevertingUnsavedModelException("revert_to_best_model() is illegal because this model has never been saved.")
     for subcol_name, subcol in self.subcols.items():

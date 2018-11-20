@@ -1,12 +1,13 @@
 import argparse
 import sys
+from typing import Callable
 
 from xnmt import inferences, utils
 from xnmt.eval import metrics
 
 from xnmt.eval.metrics import *  # import everything so we can parse it with eval()
 
-def read_data(loc_, post_process=None):
+def read_data(loc_: str, post_process: Optional[Callable[[str], str]] = None) -> List[str]:
   """Reads the lines in the file specified in loc_ and return the list after inserting the tokens
   """
   data = list()
@@ -29,8 +30,10 @@ eval_shortcuts = {
   "seg_fmeasure": lambda: metrics.SegmentationFMeasureEvaluator(),
 }
 
-def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequence[str]],
-                  evaluators: Sequence[metrics.Evaluator], desc: Any = None) -> Sequence[metrics.EvalScore]:
+def xnmt_evaluate(ref_file: Union[str, Sequence[str]],
+                  hyp_file: Union[str, Sequence[str]],
+                  evaluators: Sequence[metrics.Evaluator],
+                  desc: Any = None) -> Sequence[metrics.EvalScore]:
   """"Returns the eval score (e.g. BLEU) of the hyp sents using reference trg sents
 
   Args:
@@ -62,7 +65,7 @@ def xnmt_evaluate(ref_file: Union[str, Sequence[str]], hyp_file: Union[str, Sequ
   else:
     return [evaluator.evaluate(ref_corpus, hyp_corpus, desc=desc) for evaluator in evaluators]
 
-def main():
+def main() -> None:
   parser = argparse.ArgumentParser()
   utils.add_dynet_argparse(parser)
   parser.add_argument("--metric",

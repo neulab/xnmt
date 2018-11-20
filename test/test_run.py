@@ -31,6 +31,9 @@ class TestRunningConfig(unittest.TestCase):
   def test_forced(self):
     run.main(["test/config/forced.yaml"])
 
+  def test_lattice(self):
+    run.main(["test/config/lattice.yaml"])
+
   def test_lm(self):
     run.main(["test/config/lm.yaml"])
 
