@@ -5,6 +5,8 @@ The main responsibilities are data structures for holding such outputs, and code
 strings.
 """
 
+from typing import List, Union
+
 from xnmt.persistence import Serializable, serializable_init
 
 class OutputProcessor(object):
@@ -21,7 +23,7 @@ class OutputProcessor(object):
     raise NotImplementedError("must be implemented by subclasses")
 
   @staticmethod
-  def get_output_processor(spec):
+  def get_output_processor(spec: Union[str, List['OutputProcessor']]) -> List['OutputProcessor']:
     if isinstance(spec, str):
       procs = []
       for spec_item in spec.split(","):
@@ -54,7 +56,7 @@ class JoinCharTextOutputProcessor(OutputProcessor, Serializable):
   """
   yaml_tag = "!JoinCharTextOutputProcessor"
   @serializable_init
-  def __init__(self, space_token="__"):
+  def __init__(self, space_token: str = "__") -> None:
     self.space_token = space_token
 
   def process(self, s: str) -> str:
@@ -68,7 +70,7 @@ class JoinBpeTextOutputProcessor(OutputProcessor, Serializable):
   """
   yaml_tag = "!JoinBpeTextOutputProcessor"
   @serializable_init
-  def __init__(self, merge_indicator="@@"):
+  def __init__(self, merge_indicator: str = "@@") -> None:
     self.merge_indicator_with_space = merge_indicator + " "
 
   def process(self, s: str) -> str:
@@ -82,7 +84,7 @@ class JoinPieceTextOutputProcessor(OutputProcessor, Serializable):
   """
   yaml_tag = "!JoinPieceTextOutputProcessor"
   @serializable_init
-  def __init__(self, space_token="\u2581"):
+  def __init__(self, space_token: str = "\u2581") -> None:
     self.space_token = space_token
 
   def process(self, s: str) -> str:
