@@ -128,15 +128,15 @@ class Softmax(Scorer, Serializable):
   def calc_scores(self, x: dy.Expression) -> dy.Expression:
     return self.output_projector.transform(x)
   
-  def is_modifying_softmax_layer(self):
+  def can_loss_be_derived_from_scores(self):
     """
     This method can be used to determine whether dy.pickneglogsoftmax can be used to fastly calculate the loss value.
     If False, then the calc_loss method should calc (1) log_softmax, (2) perform necessary modification, (3) pick the loss
     """
-    return self.label_smoothing != 0.0
+    return self.label_smoothing == 0.0
 
   def calc_loss(self, x: dy.Expression, y: Union[numbers.Integral, List[numbers.Integral]]) -> dy.Expression:
-    if not self.is_modifying_softmax_layer():
+    if self.can_loss_be_derived_from_scores():
       scores = self.calc_scores(x)
       # single mode
       if not batchers.is_batched(y):
@@ -311,5 +311,5 @@ class LexiconSoftmax(Softmax, Serializable):
     else:
       return dy.log_softmax(self.calc_scores(x))
 
-  def is_modifying_softmax_layer(self):
-    return self.lexicon_type == 'linear' or super().is_modifying_softmax_layer()
+  def can_loss_be_derived_from_scores(self):
+    return self.lexicon_type == 'bias' and super().is_modifying_softmax_layer()
