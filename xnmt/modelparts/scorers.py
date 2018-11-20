@@ -162,7 +162,7 @@ class Softmax(Scorer, Serializable):
 
 class LexiconSoftmax(Softmax, Serializable):
   """
-    A subclass of the softmax class but can make use of a external lexicon probability scorer as defined in:
+    A subclass of the softmax class that can make use of an external lexicon probability as described in:
     http://anthology.aclweb.org/D/D16/D16-1162.pdf
 
     Args:
@@ -174,6 +174,9 @@ class LexiconSoftmax(Softmax, Serializable):
       param_init: How to initialize the parameters
       bias_init: How to initialize the bias
       output_projector: The projection to be used before the output
+      lexicon_file: A file containing "trg src p(trg|src)"
+      lexicon_alpha: smoothing constant for bias method
+      lexicon_type: Either bias or linear method
     """
   
   yaml_tag = '!LexiconSoftmax'

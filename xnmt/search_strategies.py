@@ -176,7 +176,7 @@ class BeamSearch(Serializable, SearchStrategy):
           top_words = np.argpartition(score, max(-len(score),-self.beam_size))[-self.beam_size:]
         else:
           top_words = [forced_trg_ids[length]]
-        # Queue next state
+        # Queue next states
         for cur_word in top_words:
           new_score = self.len_norm.normalize_partial_topk(hyp.score, score[cur_word], length + 1)
           new_set.append(self.Hypothesis(new_score, current_output, hyp, cur_word))
