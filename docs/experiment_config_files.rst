@@ -298,3 +298,15 @@ Char Segment
 .. literalinclude:: examples/22_char_segment.yaml
     :language: yaml
 
+Switchout
+~~~~~~~~~
+
+.. literalinclude:: examples/23_switchout.yaml
+    :language: yaml
+
+Autobatching
+~~~~~~~~~~~~
+
+.. literalinclude:: examples/24_autobatch.yaml
+    :language: yaml
+
