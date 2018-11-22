@@ -1,0 +1,42 @@
+# A reasonably big model to demonstrate speed-ups via autobatching.
+# Autobatching is implemented using a specific training regimen, and turning on the command line option.
+#
+# E.g. launch with:
+#     xnmt --dynet-autobatch 1 --dynet-mem 10000 examples/24_autobatch.yaml autobatch-big
+# and contrast with:
+#     xnmt examples/24_autobatch.yaml noautobatch-big
+
+autobatch-big: !Experiment
+  exp_global: !ExpGlobal &autobatch_exp_global
+    model_file: '{EXP_DIR}/models/{EXP}.mod'
+    log_file: '{EXP_DIR}/logs/{EXP}.log'
+    default_layer_dim: 512
+  model: !DefaultTranslator &autobatch_model
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/big-ja-word.vocab}
+    trg_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/big-en-word.vocab}
+  train: !AutobatchTrainingRegimen
+    kwargs: &regimen_args
+      # for autobatching, we set the batch_size to 1, and use update_every to control how many sentences are combined
+      # through the autobatch feature.
+      update_every: 32
+      batcher: !SrcBatcher
+        batch_size: 1
+      run_for_epochs: 2
+      src_file: examples/data/train-big.ja
+      trg_file: examples/data/train-big.en
+      dev_tasks:
+        - !LossEvalTask
+          src_file: examples/data/head.ja
+          ref_file: examples/data/head.en
+
+noautobatch-big: !Experiment
+  exp_global: *autobatch_exp_global
+  model: *autobatch_model
+  train: !SimpleTrainingRegimen
+    kwargs:
+      << : *regimen_args
+      update_every: 1
+      batcher: !SrcBatcher
+        batch_size: 32
