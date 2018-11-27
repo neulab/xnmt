@@ -1,6 +1,7 @@
 from enum import Enum
 
 import dynet as dy
+import numpy as np
 
 from xnmt import events, losses, param_initializers
 from xnmt.modelparts import transforms
@@ -31,7 +32,7 @@ class PolicyGradient(Serializable):
   @events.register_xnmt_handler
   def __init__(self, policy_network=None,
                      baseline=None,
-                     z_normalization=True, # TODO unused?
+                     z_normalization=True,
                      conf_penalty=None,
                      weight=1.0,
                      input_dim=Ref("exp_global.default_layer_dim"),
@@ -52,6 +53,7 @@ class PolicyGradient(Serializable):
 
     self.confidence_penalty = self.add_serializable_component("conf_penalty", conf_penalty, lambda: conf_penalty) if conf_penalty is not None else None
     self.weight = weight
+    self.z_normalization = z_normalization
 
   """
   state: Input state.
@@ -90,10 +92,11 @@ class PolicyGradient(Serializable):
     loss.add_loss("rl_baseline", baseline_loss)
     ## Z-Normalization
     rewards = dy.concatenate(rewards, d=0)
-    dim, batch_size = rewards.dim()
-    rewards_mean = dy.mean_dim(rewards, [0], False)
-    rewards_std = dy.std_dim(rewards, [0], False)
-    rewards = dy.cdiv(rewards - rewards_mean, rewards_std+1e-10)
+    if self.z_normalization:
+      rewards_value = rewards.value()
+      rewards_mean = np.mean(rewards_value)
+      rewards_std = np.std(rewards_value) + 1e-10
+      rewards = (rewards - rewards_mean) / rewards_std
     ## Calculate Confidence Penalty
     if self.confidence_penalty:
       cp_loss = self.confidence_penalty.calc_loss(self.policy_lls)
@@ -108,8 +111,8 @@ class PolicyGradient(Serializable):
       if self.valid_pos is not None:
         ll = dy.pick_batch_elems(ll, self.valid_pos[i])
         reward = dy.pick_batch_elems(reward, self.valid_pos[i])
-      reinf_loss.append(dy.sum_batches(-ll * reward))
-    loss.add_loss("rl_reinf", self.weight * dy.esum(reinf_loss))
+      reinf_loss.append(dy.sum_batches(ll * reward))
+    loss.add_loss("rl_reinf", -self.weight * dy.esum(reinf_loss))
     ## the composed losses
     return loss
 
