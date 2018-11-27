@@ -1,7 +1,6 @@
 from typing import List, Dict
 import numbers
 
-from xnmt import logger
 
 class Node(object):
   """
@@ -26,6 +25,7 @@ class Node(object):
     return "Node {:d} ({}:{}){}".format(self.node_id, self.data,
                                         self.node_type, children)
 
+
 class Edge(object):
   """
   Represents an (hyper)-edge in a graph
@@ -45,6 +45,7 @@ class Edge(object):
   def __repr__(self):
     return "[{:s}, ({:s})]".format(self.name, ", ".join([str(node.node_id) for node in self.node_to]))
 
+
 class Graph(object):
   """
   Represents the graph data structure
@@ -60,6 +61,7 @@ class Graph(object):
       representation.append(repr(node))
     return "\n".join(representation)
 
+
 class DependencyTree(Graph):
   @staticmethod
   def from_conll(conll_line):
@@ -69,7 +71,7 @@ class DependencyTree(Graph):
       if node_id not in nodes:
         nodes[node_id] = Node(None, node_id=node_id)
       return nodes[node_id]
-    
+ 
     for node_id, form, lemma, pos, feat, head, deprel in conll_line:
       node_id, head_id = int(node_id), int(head)
       node_from = get_or_insert(head_id)
@@ -86,4 +88,4 @@ class DependencyTree(Graph):
     root.node_type = 0
     root.data = 0
     return DependencyTree(edges, nodes, root)
-      
+ 

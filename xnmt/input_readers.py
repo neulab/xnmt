@@ -474,7 +474,8 @@ class IDReader(BaseTextReader, Serializable):
 
   def read_sents(self, filename: str, filter_ids: Optional[Sequence[numbers.Integral]] = None) -> list:
     return [l for l in self.iterate_filtered(filename, filter_ids)]
-  
+ 
+ 
 class CoNLLTreeReader(BaseTextReader, Serializable):
   """
   Handles the reading of CoNLL File Format:
@@ -495,7 +496,7 @@ class CoNLLTreeReader(BaseTextReader, Serializable):
       for line in fp:
         line = line.strip()
         if len(line) == 0:
-          trees.append(RNNG.from_graph(DependencyTree.from_conll(buffer)))
+          trees.append(grammars.ShiftReduceGrammar.from_graph(DependencyTree.from_conll(buffer)))
           buffer.clear()
         else:
           try:
