@@ -113,7 +113,7 @@ class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     if not isinstance(param_init, collections.abc.Sequence):
       param_init = [param_init] * layers
     if not isinstance(bias_init, collections.abc.Sequence):
-        bias_init = [bias_init] * layers
+      bias_init = [bias_init] * layers
 
     # [i; f; o; g]
     self.p_Wx = [model.add_parameters(dim=(hidden_dim*4, input_dim), init=param_init[0].initializer((hidden_dim*4, input_dim), num_shared=4))]
@@ -250,7 +250,7 @@ class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     hidden_dim (int): hidden dimension
     dropout (float): dropout probability
     weightnoise_std (float): weight noise standard deviation
-    param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects 
+    param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
                 specifying how to initialize weight matrices. If a list is given, each entry denotes one layer.
     bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
                specifying how to initialize bias vectors. If a list is given, each entry denotes one layer.

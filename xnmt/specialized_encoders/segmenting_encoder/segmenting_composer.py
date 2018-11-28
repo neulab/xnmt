@@ -1,5 +1,3 @@
-from abc import ABC
-
 import dynet as dy
 import pylru
 
@@ -123,7 +121,7 @@ class ConvolutionComposer(SingleComposer, Serializable):
     return dy.max_dim(dy.max_dim(encodings, d=1), d=0)
 
 
-class VocabBasedComposer(SingleComposer, ABC):
+class VocabBasedComposer(SingleComposer):
   
   @register_xnmt_handler
   def __init__(self,
@@ -183,7 +181,7 @@ class VocabBasedComposer(SingleComposer, ABC):
     self.train = train
 
   def on_id_delete(self, wordid):
-    raise NotImplementedError("Should implement process_word")
+    raise NotImplementedError()
 
 
 class LookupComposer(VocabBasedComposer, Serializable):
@@ -216,7 +214,7 @@ class LookupComposer(VocabBasedComposer, Serializable):
 
   @lru_cache(maxsize=32000)
   def to_word(self, word):
-    return "".join([self.char_vocab[c] for c in word]) 
+    return "".join([self.char_vocab[c] for c in word])
 
   def set_word(self, word):
     self.word = self.to_word(word)

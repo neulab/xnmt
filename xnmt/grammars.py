@@ -3,17 +3,20 @@ from typing import List
 class RNNGAction(object):
   pass
 
+
 class Gen(RNNGAction):
   def __init__(self, word_id):
     self.word_id = word_id
   def __repr__(self):
     return "GEN({})".format(self.word_id)
+
     
 class NT(RNNGAction):
   def __init__(self, head_id):
     self.head_id = head_id
   def __repr__(self):
     return "NT({})".format(self.head_id)
+
 
 class Reduce(RNNGAction):
   def __init__(self, is_left, label=None):
@@ -24,6 +27,7 @@ class Reduce(RNNGAction):
       return "RL({})".format(self.label)
     else:
       return "RR({})".format(self.label)
+
 
 class ShiftReduceGrammar(object):
   """
@@ -47,7 +51,7 @@ class ShiftReduceGrammar(object):
       else:
         results[0].append(NT(nodes[i].data))
     results[1] = max(results[1], current.node_id+1)
-        
+    
     for edge in current.edges:
       for child in edge.node_to:
         ShiftReduceGrammar.from_graph_rec(child, results, nodes, no_nt)

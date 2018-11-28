@@ -81,6 +81,8 @@ class MlpAttender(Attender, Serializable):
     self.pb = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
     self.pU = param_collection.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
     self.curr_sent = None
+    self.attention_vecs = None
+    self.WI = None
 
   def init_sent(self, sent: expression_seqs.ExpressionSequence) -> None:
     self.attention_vecs = []
