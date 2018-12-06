@@ -27,7 +27,15 @@ class Decoder(object):
   def initial_state(self, enc_final_states, ss_expr):
     raise NotImplementedError('must be implemented by subclasses')
 
-class AutoRegressiveDecoderState(object):
+class DecoderState(object):
+  """A state that holds whatever information is required for the decoder.
+     Child classes must implement the as_vector() method, which will be
+     used by e.g. the attention mechanism"""
+
+  def as_vector(self):
+    raise NotImplementedError('must be implemented by subclass')
+
+class AutoRegressiveDecoderState(DecoderState):
   """A state holding all the information needed for AutoRegressiveDecoder
   
   Args:
@@ -37,6 +45,9 @@ class AutoRegressiveDecoderState(object):
   def __init__(self, rnn_state=None, context=None):
     self.rnn_state = rnn_state
     self.context = context
+
+  def as_vector(self):
+    return self.rnn_state.output()
 
 class AutoRegressiveDecoder(Decoder, Serializable):
   """
