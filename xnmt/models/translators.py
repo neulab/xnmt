@@ -54,7 +54,7 @@ class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
     self.trg_vocab = trg_vocab
 
   def get_nobp_state(self, state: decoders.AutoRegressiveDecoderState) -> dy.Expression:
-    output_state = state.rnn_state.output()
+    output_state = state.as_vector()
     if type(output_state) == EnsembleListDelegate:
       for i in range(len(output_state)):
         output_state[i] = dy.nobackprop(output_state[i])
@@ -133,12 +133,10 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     input_word = None
     for i in range(seq_len):
       ref_word = DefaultTranslator._select_ref_words(trg, i, truncate_masked=self.truncate_dec_batches)
-      if self.truncate_dec_batches and batchers.is_batched(ref_word):
-        dec_state.rnn_state, ref_word = batchers.truncate_batches(dec_state.rnn_state, ref_word)
 
       if input_word is not None:
         dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(input_word))
-      rnn_output = dec_state.rnn_state.output()
+      rnn_output = dec_state.as_vector()
       dec_state.context = self.attender.calc_context(rnn_output)
       word_loss = self.decoder.calc_loss(dec_state, ref_word)
 
@@ -258,7 +256,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
       next_state = self.decoder.add_input(current_state, current_word_embed)
     else:
       next_state = current_state
-    next_state.context = self.attender.calc_context(next_state.rnn_state.output())
+    next_state.context = self.attender.calc_context(next_state.as_vector())
     next_logsoftmax = self.decoder.calc_log_probs(next_state)
     return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
 

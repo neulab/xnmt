@@ -94,5 +94,5 @@ class SequenceClassifier(models.ConditionedModel, models.GeneratorModel, Seriali
     return outputs
 
   def get_nobp_state(self, state):
-    output_state = state.rnn_state.output()
+    output_state = state.as_vector()
     return output_state
