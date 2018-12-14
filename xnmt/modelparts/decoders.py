@@ -20,7 +20,7 @@ class Decoder(object):
     raise NotImplementedError('must be implemented by subclasses')
   def calc_prob(self, calc_scores_logsoftmax):
     raise NotImplementedError('must be implemented by subclasses')
-  def calc_log_prob(self, calc_scores_logsoftmax):
+  def calc_log_probs(self, calc_scores_logsoftmax):
     raise NotImplementedError('must be implemented by subclasses')
   def add_input(self, mlp_dec_state, trg_embedding):
     raise NotImplementedError('must be implemented by subclasses')

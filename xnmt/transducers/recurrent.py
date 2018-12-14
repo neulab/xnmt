@@ -37,6 +37,9 @@ class UniLSTMState(object):
 
   def h(self) -> Sequence[dy.Expression]:
     return self._h
+  
+  def c(self) -> Sequence[dy.Expression]:
+    return self._c
 
   def s(self) -> Sequence[dy.Expression]:
     return self._c + self._h

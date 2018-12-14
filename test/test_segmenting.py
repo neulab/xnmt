@@ -3,6 +3,7 @@ import unittest
 #import dynet_config
 #dynet_config.set(random_seed=3)
 
+import dynet as dy
 import numpy
 import random
 
@@ -15,14 +16,22 @@ from xnmt.eval import metrics
 from xnmt import batchers, event_trigger
 from xnmt.input_readers import PlainTextReader
 from xnmt.input_readers import CharFromWordTextReader
-from xnmt.transducers.recurrent import UniLSTMSeqTransducer
+from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.models.translators import DefaultTranslator
 from xnmt.loss_calculators import MLELoss, FeedbackLoss, GlobalFertilityLoss, CompositeLoss
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import *
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import *
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import SegmentingSeqTransducer
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SumComposer
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SumMultipleComposer
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import AverageComposer
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import ConvolutionComposer
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import CharNGramComposer
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import MaxComposer
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import LookupComposer
 from xnmt.specialized_encoders.segmenting_encoder.reporter import SegmentPLLogger
 from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLengthPrior
 from xnmt.specialized_encoders.segmenting_encoder.priors import PoissonPrior, GoldInputPrior
+from xnmt.param_collections import ParamManager
 from xnmt.modelparts.transforms import AuxNonLinear, Linear
 from xnmt.modelparts.scorers import Softmax
 from xnmt.vocabs import Vocab

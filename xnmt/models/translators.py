@@ -3,11 +3,9 @@ import numpy as np
 import collections
 import itertools
 
-from enum import Enum
 from collections import namedtuple
 from typing import Any, List, Optional, Sequence, Union
 
-import xnmt.expression_seqs as expr_seq
 from xnmt.settings import settings
 from xnmt import batchers, event_trigger, events, inferences, input_readers, losses, search_strategies, sent, vocabs
 from xnmt.modelparts import attenders, decoders, embedders
@@ -265,92 +263,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     next_logsoftmax = self.decoder.calc_log_probs(next_state)
     return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
 
-
-class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
-  
-  yaml_tag = '!SimultaneousTranslator'
-  
-  @events.register_xnmt_handler
-  @serializable_init
-  def __init__(self,
-               src_reader: input_readers.InputReader,
-               trg_reader: input_readers.InputReader,
-               src_embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder),
-               encoder: recurrent.UniLSTMSeqTransducer = bare(recurrent.UniLSTMSeqTransducer),
-               attender: attenders.Attender = bare(attenders.MlpAttender),
-               trg_embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder),
-               decoder: decoders.Decoder = bare(decoders.AutoRegressiveDecoder),
-               inference: inferences.AutoRegressiveInference = bare(inferences.AutoRegressiveInference),
-               truncate_dec_batches: bool = False,
-               policy_learning = None) -> None:
-    super().__init__(src_reader=src_reader,
-                     trg_reader=trg_reader,
-                     encoder=encoder,
-                     attender=attender,
-                     src_embedder=src_embedder,
-                     trg_embedder=trg_embedder,
-                     decoder=decoder,
-                     inference=inference,
-                     truncate_dec_batches=truncate_dec_batches)
-    self.policy_learning = policy_learning
-
-  def calc_nll(self, src: sent.Sentence, trg: sent.Sentence) -> dy.Expression:
-    encoder_state = self.encoder.initial_state()
-    decoder_state = None
-    output_state = None
-    
-    now_write = 0
-    
-    # Reading + Writing
-    encoding = []
-    loss_exprs = []
-    for last_read in range(src.sent_len()):
-      action = self.next_action([encoder_state, decoder_state, output_state])
-      if action == self.Action.READ:
-        src_embed = self.src_embedder.embed(src[last_read])
-        encoding.append(encoder_state.add_input(src_embed))
-      else:
-        input_seq = expr_seq.ExpressionSequence(encoding)
-        decoder_state, output_state, loss = self.write_nll(input_seq,
-                                                           encoder_state,
-                                                           decoder_state,
-                                                           trg[now_write])
-        now_write += 1
-        loss_exprs.append(loss)
-    # Writing
-    input_seq = expr_seq.ExpressionSequence(encoding)
-    while now_write < trg.sent_len():
-      decoder_state, output_state, loss = self.write_nll(input_seq, encoder_state, decoder_state, now_write)
-      loss_exprs.append(loss)
-      now_write += 1
-    return dy.esum(loss_exprs)
-    
-    
-  def write_nll(self, encoding, encoder_state, decoder_state, ref_word):
-    self.attender.init_sent(encoding)
-    if decoder_state is None:
-      decoder_state = self.decoder.initial_state(encoder_state.output(), self.trg_embedder.embed(vocabs.Vocab.SS))
-    next_word = ref_word
-    rnn_output = decoder_state.rnn_state.output()
-    decoder_state.context = self.attender.calc_context(rnn_output)
-    word_loss = self.decoder.calc_loss(decoder_state, next_word)
-    output_state = self.trg_embedder.embed(next_word)
-    decoder_state.add_input(decoder_state, next_word)
-    return decoder_state, output_state, word_loss
-    
-  
-  def next_action(self, observation):
-    if self.policy_learning is None:
-      return self.Actions.READ
-    else:
-      encoder_state, decoder_state, output_state = observation
-      return NotImplementedError()
-
-  
-  class Action(Enum):
-    READ = 0
-    WRITE = 1
-  
 class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable):
   """
   A translator based on the transformer model.
@@ -392,7 +304,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable):
   def make_history_mask(self, block):
     batch, length = block.shape
     arange = np.arange(length)
-    history_mask = (arange[None,] <= arange[:, None])[None,]
+    history_mask = arange[None,] <= arange[:, None][None,]
     history_mask = np.broadcast_to(history_mask, (batch, length, length))
     return history_mask
 
