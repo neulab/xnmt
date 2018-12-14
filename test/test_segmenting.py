@@ -28,6 +28,7 @@ from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import Cha
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import MaxComposer
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import LookupComposer
+from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import ConcatMultipleComposer
 from xnmt.specialized_encoders.segmenting_encoder.reporter import SegmentPLLogger
 from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLengthPrior
 from xnmt.specialized_encoders.segmenting_encoder.priors import PoissonPrior, GoldInputPrior
@@ -321,6 +322,22 @@ class TestComposing(unittest.TestCase):
                           char_vocab = self.src_reader.vocab,
                           hidden_dim = self.layer_dim)
       ]
+    )
+    enc.transduce(self.inp_emb(0))
+
+  def test_concat_multiple_segment_composer(self):
+    enc = self.segmenting_encoder
+    word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    enc.segment_composer = ConcatMultipleComposer(
+      composers = [
+        LookupComposer(word_vocab = word_vocab,
+                       char_vocab = self.src_reader.vocab,
+                       hidden_dim = self.layer_dim),
+        CharNGramComposer(word_vocab = word_vocab,
+                          char_vocab = self.src_reader.vocab,
+                          hidden_dim = self.layer_dim)
+      ],
+      hidden_dim=self.layer_dim
     )
     enc.transduce(self.inp_emb(0))
 

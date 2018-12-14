@@ -322,3 +322,31 @@ class SumMultipleComposer(SingleComposer, Serializable):
   def transduce(self, embeds):
     return sum([composer.transduce(embeds) for composer in self.composers])
 
+
+class ConcatMultipleComposer(SingleComposer, Serializable):
+  yaml_tag = "!ConcatMultipleComposer"
+
+  @serializable_init
+  def __init__(self,
+               composers,
+               hidden_dim=Ref("exp_global.default_layer_dim"),
+               embedding=None,
+               param_init=Ref("exp_global.param_init", default=bare(GlorotInitializer)),
+               bias_init=Ref("exp_global.bias_init", default=bare(ZeroInitializer))):
+    super().__init__()
+    assert len(composers) > 1
+    self.composers = composers
+    self.embedding = self.add_serializable_component("embedding", embedding,
+                                                      lambda: Linear(input_dim=len(composers)*hidden_dim,
+                                                                     output_dim=hidden_dim,
+                                                                     param_init=param_init,
+                                                                     bias_init=bias_init))
+
+
+  def set_word(self, word):
+    for composer in self.composers:
+      composer.set_word(word)
+
+  def transduce(self, embeds):
+    results = dy.concatenate([composer.transduce(embeds) for composer in self.composers])
+    return self.embedding.transform(results)
