@@ -77,7 +77,7 @@ class Embedder(object):
       if src_reader is None or src_reader.vocab is None:
         raise ValueError("Could not determine src_embedder's vocabulary. Please set its vocab member explicitly, or specify the vocabulary of src_reader ahead of time.")
       return len(src_reader.vocab)
-    elif "trg_embedder" in yaml_path or "output_projector" in yaml_path:
+    elif "embedder" in yaml_path or "output_projector" in yaml_path:
       if trg_reader is None or trg_reader.vocab is None:
         raise ValueError("Could not determine trg_embedder's vocabulary. Please set its vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
       return len(trg_reader.vocab)
@@ -90,7 +90,7 @@ class Embedder(object):
                         yaml_path: Path,
                         src_reader: input_readers.InputReader,
                         trg_reader: input_readers.InputReader) -> int:
-    """Choose the vocab size for the embedder basd on the passed arguments
+    """Choose the vocab size for the embedder based on the passed arguments
 
     This is done in order of priority of vocab_size, vocab, model+yaml_path
 
@@ -113,14 +113,14 @@ class Embedder(object):
         raise ValueError("Could not determine src_embedder's size. "
                          "Please set its vocab_size or vocab member explicitly, or specify the vocabulary of src_reader ahead of time.")
       return len(src_reader.vocab)
-    elif "trg_embedder" in yaml_path or "output_projector" in yaml_path:
+    elif "embedder" in yaml_path or "output_projector" in yaml_path:
       if trg_reader is None or trg_reader.vocab is None:
         raise ValueError("Could not determine target embedder's size. "
                          "Please set its vocab_size or vocab member explicitly, or specify the vocabulary of trg_reader ahead of time.")
       return len(trg_reader.vocab)
     else:
       raise ValueError(f"Attempted to determine vocab size of {self.__class__} (path: {yaml_path}), "
-                       f"but path was not src_embedder, trg_embedder, or output_projector, so it could not determine what part of the model to use. "
+                       f"but path was not src_embedder, decoder.embedder, or output_projector, so it could not determine what part of the model to use. "
                        f"Please set vocab_size or vocab explicitly.")
 
 class DenseWordEmbedder(Embedder, transforms.Linear, Serializable):

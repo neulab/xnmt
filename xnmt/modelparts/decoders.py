@@ -4,7 +4,7 @@ import numbers
 import dynet as dy
 
 from xnmt import batchers, param_collections
-from xnmt.modelparts import bridges, transforms, scorers
+from xnmt.modelparts import bridges, transforms, scorers, embedders
 from xnmt.transducers import recurrent
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 
@@ -69,7 +69,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
   @serializable_init
   def __init__(self,
                input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
-               trg_embed_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder),
                input_feeding: bool = True,
                bridge: bridges.Bridge = bare(bridges.CopyBridge),
                rnn: recurrent.UniLSTMSeqTransducer = bare(recurrent.UniLSTMSeqTransducer),
@@ -78,6 +78,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
     self.param_col = param_collections.ParamManager.my_params(self)
     self.input_dim = input_dim
+    self.embedder = embedder
     self.truncate_dec_batches = truncate_dec_batches
     self.bridge = bridge
     self.rnn = rnn
@@ -85,13 +86,13 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     self.scorer = scorer
     # Input feeding
     self.input_feeding = input_feeding
-    rnn_input_dim = trg_embed_dim
+    rnn_input_dim = embedder.emb_dim
     if input_feeding:
       rnn_input_dim += input_dim
     assert rnn_input_dim == rnn.input_dim, "Wrong input dimension in RNN layer: {} != {}".format(rnn_input_dim, rnn.input_dim)
 
   def shared_params(self):
-    return [{".trg_embed_dim", ".rnn.input_dim"},
+    return [{".rnn.input_dim"},
             {".input_dim", ".rnn.decoder_input_dim"},
             {".input_dim", ".transform.input_dim"},
             {".input_feeding", ".rnn.decoder_input_feeding"},
@@ -100,7 +101,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
             {".rnn.hidden_dim", ".transform.aux_input_dim"},
             {".transform.output_dim", ".scorer.input_dim"}]
 
-  def initial_state(self, enc_final_states: Any, ss_expr: dy.Expression) -> AutoRegressiveDecoderState:
+  def initial_state(self, enc_final_states: Any, ss) -> AutoRegressiveDecoderState:
     """Get the initial state of the decoder given the encoder final states.
 
     Args:
@@ -113,10 +114,11 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     rnn_s = self.bridge.decoder_init(enc_final_states)
     rnn_state = rnn_state.set_s(rnn_s)
     zeros = dy.zeros(self.input_dim) if self.input_feeding else None
+    ss_expr = self.embedder.embed(ss)
     rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]) if self.input_feeding else ss_expr)
     return AutoRegressiveDecoderState(rnn_state=rnn_state, context=zeros)
 
-  def add_input(self, mlp_dec_state: AutoRegressiveDecoderState, trg_embedding: dy.Expression) -> AutoRegressiveDecoderState:
+  def add_input(self, mlp_dec_state: AutoRegressiveDecoderState, trg_word) -> AutoRegressiveDecoderState:
     """Add an input and update the state.
 
     Args:
@@ -125,6 +127,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     Returns:
       The updated decoder state.
     """
+    trg_embedding = self.embedder.embed(trg_word)
     inp = trg_embedding
     if self.input_feeding:
       inp = dy.concatenate([inp, mlp_dec_state.context])
