@@ -72,7 +72,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
                embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder),
                input_feeding: bool = True,
                bridge: bridges.Bridge = bare(bridges.CopyBridge),
-               rnn: recurrent.UniLSTMSeqTransducer = bare(recurrent.UniLSTMSeqTransducer, input_dim=Ref('model.decoder.embedder.emb_dim')),
+               rnn: recurrent.UniLSTMSeqTransducer = bare(recurrent.UniLSTMSeqTransducer),
                transform: transforms.Transform = bare(transforms.AuxNonLinear),
                scorer: scorers.Scorer = bare(scorers.Softmax),
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
@@ -89,10 +89,10 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     rnn_input_dim = embedder.emb_dim
     if input_feeding:
       rnn_input_dim += input_dim
-    assert rnn_input_dim == rnn.input_dim, "Wrong input dimension in RNN layer: {} != {}".format(rnn_input_dim, rnn.input_dim)
+    assert rnn_input_dim == rnn.total_input_dim, "Wrong input dimension in RNN layer: {} != {}".format(rnn_input_dim, rnn.total_input_dim)
 
   def shared_params(self):
-    return [{".rnn.input_dim"},
+    return [{".embedder.emb_dim", ".rnn.input_dim"},
             {".input_dim", ".rnn.decoder_input_dim"},
             {".input_dim", ".transform.input_dim"},
             {".input_feeding", ".rnn.decoder_input_feeding"},

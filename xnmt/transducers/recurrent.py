@@ -102,13 +102,14 @@ class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
                decoder_input_feeding: bool = True) -> None:
     self.num_layers = layers
     model = param_collections.ParamManager.my_params(self)
-    if yaml_path is not None and "decoder" in yaml_path:
-      if decoder_input_feeding:
-        input_dim += decoder_input_dim
     self.hidden_dim = hidden_dim
     self.dropout_rate = dropout
     self.weightnoise_std = weightnoise_std
     self.input_dim = input_dim
+    self.total_input_dim = input_dim
+    if yaml_path is not None and "decoder" in yaml_path:
+      if decoder_input_feeding:
+        self.total_input_dim += decoder_input_dim
 
     if not isinstance(param_init, collections.abc.Sequence):
       param_init = [param_init] * layers
@@ -116,7 +117,7 @@ class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
         bias_init = [bias_init] * layers
 
     # [i; f; o; g]
-    self.p_Wx = [model.add_parameters(dim=(hidden_dim*4, input_dim), init=param_init[0].initializer((hidden_dim*4, input_dim), num_shared=4))]
+    self.p_Wx = [model.add_parameters(dim=(hidden_dim*4, self.total_input_dim), init=param_init[0].initializer((hidden_dim*4, self.total_input_dim), num_shared=4))]
     self.p_Wx += [model.add_parameters(dim=(hidden_dim*4, hidden_dim), init=param_init[i].initializer((hidden_dim*4, hidden_dim), num_shared=4)) for i in range(1, layers)]
     self.p_Wh = [model.add_parameters(dim=(hidden_dim*4, hidden_dim), init=param_init[i].initializer((hidden_dim*4, hidden_dim), num_shared=4)) for i in range(layers)]
     self.p_b  = [model.add_parameters(dim=(hidden_dim*4,), init=bias_init[i].initializer((hidden_dim*4,), num_shared=4)) for i in range(layers)]
@@ -150,7 +151,7 @@ class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     if self.dropout_rate > 0.0 and self.train:
       retention_rate = 1.0 - self.dropout_rate
       scale = 1.0 / retention_rate
-      self.dropout_mask_x = [dy.random_bernoulli((self.input_dim,), retention_rate, scale, batch_size=batch_size)]
+      self.dropout_mask_x = [dy.random_bernoulli((self.total_input_dim,), retention_rate, scale, batch_size=batch_size)]
       self.dropout_mask_x += [dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size) for _ in range(1, self.num_layers)]
       self.dropout_mask_h = [dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size) for _ in range(self.num_layers)]
 
@@ -210,9 +211,9 @@ class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
           x_t = [x_t]
         elif type(x_t) != list:
           x_t = list(x_t)
-        if sum([x_t_i.dim()[0][0] for x_t_i in x_t]) != self.input_dim:
+        if sum([x_t_i.dim()[0][0] for x_t_i in x_t]) != self.total_input_dim:
           found_dim = sum([x_t_i.dim()[0][0] for x_t_i in x_t])
-          raise ValueError(f"VanillaLSTMGates: x_t has inconsistent dimension {found_dim}, expecting {self.input_dim}")
+          raise ValueError(f"VanillaLSTMGates: x_t has inconsistent dimension {found_dim}, expecting {self.total_input_dim}")
         if self.dropout_rate > 0.0 and self.train:
           # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)
           gates_t = dy.vanilla_lstm_gates_dropout_concat(x_t,

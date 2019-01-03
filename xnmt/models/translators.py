@@ -466,7 +466,6 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable):
       EnsembleListDelegate([model.src_embedder for model in self.models]),
       EnsembleListDelegate([model.encoder for model in self.models]),
       EnsembleListDelegate([model.attender for model in self.models]),
-      EnsembleListDelegate([model.trg_embedder for model in self.models]),
       EnsembleDecoder([model.decoder for model in self.models])
     )
 
