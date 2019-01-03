@@ -17,10 +17,10 @@ exp1.pretrain: !Experiment
       - !Ref { name: shared_enc }
     attender: !MlpAttender
       input_dim: 32
-    trg_embedder: !DenseWordEmbedder
-      _xnmt_id: trg_emb
-      emb_dim: 32
     decoder: !AutoRegressiveDecoder
+      embedder: !DenseWordEmbedder
+        _xnmt_id: trg_emb
+        emb_dim: 32
       rnn: !UniLSTMSeqTransducer
         layers: 1
       bridge: !CopyBridge {}

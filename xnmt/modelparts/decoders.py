@@ -72,7 +72,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
                embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder),
                input_feeding: bool = True,
                bridge: bridges.Bridge = bare(bridges.CopyBridge),
-               rnn: recurrent.UniLSTMSeqTransducer = bare(recurrent.UniLSTMSeqTransducer),
+               rnn: recurrent.UniLSTMSeqTransducer = bare(recurrent.UniLSTMSeqTransducer, input_dim=Ref('model.decoder.embedder.emb_dim')),
                transform: transforms.Transform = bare(transforms.AuxNonLinear),
                scorer: scorers.Scorer = bare(scorers.Softmax),
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
