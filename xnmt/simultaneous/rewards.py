@@ -1,0 +1,3 @@
+class SimultaneousReward(object):
+  pass
+

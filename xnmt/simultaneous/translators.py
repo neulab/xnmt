@@ -79,23 +79,27 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
                decoder: decoders.Decoder = bare(decoders.AutoRegressiveDecoder),
                inference: inferences.AutoRegressiveInference = bare(inferences.AutoRegressiveInference),
                truncate_dec_batches: bool = False,
-               policy_learning=None) -> None:
+               policy_learning=None,
+               freeze_param=False) -> None:
     super().__init__(src_reader=src_reader,
                      trg_reader=trg_reader,
-                     encoder=None,
+                     encoder=encoder,
                      attender=attender,
                      src_embedder=src_embedder,
                      trg_embedder=trg_embedder,
                      decoder=decoder,
                      inference=inference,
                      truncate_dec_batches=truncate_dec_batches)
-    self.encoder = encoder
     self.policy_learning = policy_learning
     self.actions = []
+    self.freeze_param = freeze_param
+    
+  @events.handle_xnmt_event
+  def on_set_train(self, train):
+    self.train = train
   
   def calc_nll(self, src_batch, trg_batch) -> dy.Expression:
     self.actions.clear()
-    print(src_batch)
     event_trigger.start_sent(src_batch)
     batch_loss = []
     # For every item in the batch
@@ -106,7 +110,7 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
       src_encoding = []
       loss_exprs = []
       while state.to_write < trg.sent_len():
-        action = self.next_action(state, src_len)
+        action = self.next_action(state, src_len, len(src_encoding))
         if action == self.Action.READ:
           state = state.read(src)
           src_encoding.append(state.encoder_state.output())
@@ -119,17 +123,31 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
       # Accumulate loss
       batch_loss.append(dy.esum(loss_exprs))
     dy.forward(batch_loss)
-    return dy.esum(batch_loss)
+    loss = dy.esum(batch_loss)
+    return loss if not self.freeze_param else dy.nobackprop(loss)
 
-  def next_action(self, state, src_len):
+  def 
+
+  def next_action(self, state, src_len, enc_len):
     if self.policy_learning is None:
       if state.to_read < src_len:
         return self.Action.READ
       else:
         return self.Action.WRITE
     else:
-      return NotImplementedError()
-  
+      # Sanity Check here:
+      force_action = [self.Action.READ.value] if enc_len == 0 else None # No writing at the beginning.
+      force_action = [self.Action.WRITE.value] if enc_len == src_len else force_action # No reading at the end.
+      # Compose inputs from 3 states
+      encoder_state = state.encoder_state.output()
+      enc_dim = encoder_state.dim()
+      context_state = state.context_state.rnn_state.output() if state.context_state else dy.zeros(enc_dim[0], enc_dim[1])
+      output_embed = state.output_embed if state.output_embed else dy.zeros(enc_dim[0], enc_dim[1])
+      input_state = dy.concatenate([encoder_state, context_state, output_embed])
+      # Sample / Calculate a single action
+      action = self.policy_learning.sample_action(input_state, predefined_actions=force_action, argmax=not self.train)[0]
+      return self.Action(action)
+      
   class Action(Enum):
     READ = 0
     WRITE = 1
@@ -151,7 +169,6 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
     if forced_trg_ids is not None:
       raise NotImplementedError("Forced decoding is not implemented for Simultaneous Translator.")
     event_trigger.start_sent(src)
-    if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
     # Generating outputs
     search_outputs = search_strategy.generate_output(self, self.initial_state(),
                                                      src_length=None,

@@ -9,10 +9,10 @@ import xnmt.search_strategies as search_strategies
 import xnmt.event_trigger as event_trigger
 
 from xnmt.vocabs import Vocab
-from xnmt.persistence import serializable_init
+from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import handle_xnmt_event, register_xnmt_handler
 
-class SimultaneousGreedySearch(search_strategies.SearchStrategy):
+class SimultaneousGreedySearch(search_strategies.SearchStrategy, Serializable):
   """
   Performs greedy search (aka beam search with beam size 1)
 
@@ -20,7 +20,7 @@ class SimultaneousGreedySearch(search_strategies.SearchStrategy):
     max_len: maximum number of tokens to generate.
   """
 
-  yaml_tag = '!SimultanouesGreedySearch'
+  yaml_tag = '!SimultaneousGreedySearch'
 
   @serializable_init
   @register_xnmt_handler
@@ -30,9 +30,6 @@ class SimultaneousGreedySearch(search_strategies.SearchStrategy):
 
   @handle_xnmt_event
   def on_start_sent(self, src_sent):
-    if src_sent.batch_size() != 1:
-      raise NotImplementedError("Batched decoding is not implemented for SimultaneousTranslator. "
-                                "Specify inference batcher with batch size 1.")
     self.src_sent = src_sent[0]
   
   def generate_output(self,
@@ -51,7 +48,7 @@ class SimultaneousGreedySearch(search_strategies.SearchStrategy):
     encoding = []
     next_word = None
     while current_state.to_write < self.max_len:
-      action = translator.next_action(current_state, self.src_sent.sent_len())
+      action = translator.next_action(current_state, self.src_sent.sent_len(), len(encoding))
       if action == translator.Action.READ:
         # Reading
         current_state = current_state.read(self.src_sent)

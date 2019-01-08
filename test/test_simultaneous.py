@@ -24,6 +24,7 @@ from xnmt.loss_calculators import MLELoss
 from xnmt.modelparts.transforms import AuxNonLinear, Linear
 from xnmt.modelparts.scorers import Softmax
 from xnmt.vocabs import Vocab
+from xnmt.rl.policy_gradient import PolicyGradient
 from xnmt.utils import has_cython
 
 
@@ -72,6 +73,11 @@ class TestSimultaneousTranslation(unittest.TestCase):
 
   def test_simult_greedy(self):
     self.model.generate(batchers.mark_as_batch([self.src_data[0]]), SimultaneousGreedySearch())
+    
+  def test_policy(self):
+    self.model.policy_learning = PolicyGradient(input_dim=3*self.layer_dim)
+    mle_loss = MLELoss()
+    mle_loss.calc_loss(self.model, self.src[0], self.trg[0])
 
 if __name__ == "__main__":
   unittest.main()

@@ -46,6 +46,7 @@ import xnmt.param_initializers
 import xnmt.persistence
 import xnmt.reports
 import xnmt.rl
+import xnmt.simultaneous
 import xnmt.specialized_encoders.segmenting_encoder
 import xnmt.specialized_encoders.self_attentional_am
 import xnmt.specialized_encoders.tilburg_harwath
