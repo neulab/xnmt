@@ -1,8 +1,6 @@
 import dynet as dy
-import numpy as np
 
 from enum import Enum
-from typing import Any, Sequence, List
 
 import xnmt.input_readers as input_readers
 import xnmt.modelparts.embedders as embedders
@@ -16,7 +14,6 @@ import xnmt.event_trigger as event_trigger
 import xnmt.expression_seqs as expr_seq
 import xnmt.vocabs as vocabs
 import xnmt.batchers as batchers
-import xnmt.search_strategies as search_strategies
 
 from xnmt.models.translators import DefaultTranslator, TranslatorOutput
 from xnmt.persistence import bare, Serializable, serializable_init
@@ -65,7 +62,7 @@ class SimultaneousState(object):
     return SimultaneousState(self.model, self.encoder_state, self.context_state,
                              self.model.trg_embedder.embed(next_word), self.to_read,
                              self.to_write+1, self.reset_attender)
-    
+
 
 class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
   yaml_tag = '!SimultaneousTranslator'
@@ -94,8 +91,11 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
                      truncate_dec_batches=truncate_dec_batches)
     self.encoder = encoder
     self.policy_learning = policy_learning
+    self.actions = []
   
   def calc_nll(self, src_batch, trg_batch) -> dy.Expression:
+    self.actions.clear()
+    print(src_batch)
     event_trigger.start_sent(src_batch)
     batch_loss = []
     # For every item in the batch
@@ -115,6 +115,7 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
           state = state.calc_context(src_encoding, next_word)
           loss_exprs.append(self.decoder.calc_loss(state.context_state, next_word))
           state = state.write(next_word)
+        self.actions.append(action)
       # Accumulate loss
       batch_loss.append(dy.esum(loss_exprs))
     dy.forward(batch_loss)
@@ -134,9 +135,9 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
     WRITE = 1
   
   def generate_search_output(self,
-                             src: batchers.Batch,
-                             search_strategy: search_strategies.SearchStrategy,
-                             forced_trg_ids: batchers.Batch = None) -> List[search_strategies.SearchOutput]:
+                             src,
+                             search_strategy,
+                             forced_trg_ids = None):
     """
     Takes in a batch of source sentences and outputs a list of search outputs.
     Args:
@@ -157,9 +158,10 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
                                                      forced_trg_ids=None)
     return search_outputs
   
-  def generate_one_step(self, current_word: Any, current_state: SimultaneousState) -> TranslatorOutput:
+  def generate_one_step(self, current_word, current_state: SimultaneousState) -> TranslatorOutput:
     next_logsoftmax = self.decoder.calc_log_probs(current_state.context_state)
     return TranslatorOutput(current_state.context_state, next_logsoftmax, self.attender.get_last_attention())
   
   def initial_state(self):
     return SimultaneousState(self, self.encoder.initial_state(), None, None)
+  
