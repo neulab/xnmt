@@ -76,7 +76,6 @@ model = DefaultTranslator(
                                 transform=AuxNonLinear(input_dim=layer_dim, output_dim=layer_dim,
                                                        aux_input_dim=layer_dim),
                                 scorer=Softmax(vocab_size=len(trg_vocab), input_dim=layer_dim),
-                                trg_embed_dim=layer_dim,
                                 bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
   inference=inference
 )
