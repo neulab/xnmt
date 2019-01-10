@@ -55,7 +55,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
 
   Args:
     input_dim: input dimension
-    trg_embed_dim: dimension of target embeddings
+    embedder: embedder for target words
     input_feeding: whether to activate input feeding
     bridge: how to initialize decoder state
     rnn: recurrent decoder
@@ -101,12 +101,12 @@ class AutoRegressiveDecoder(Decoder, Serializable):
             {".rnn.hidden_dim", ".transform.aux_input_dim"},
             {".transform.output_dim", ".scorer.input_dim"}]
 
-  def initial_state(self, enc_final_states: Any, ss) -> AutoRegressiveDecoderState:
+  def initial_state(self, enc_final_states: Any, ss: Any) -> AutoRegressiveDecoderState:
     """Get the initial state of the decoder given the encoder final states.
 
     Args:
       enc_final_states: The encoder final states. Usually but not necessarily an :class:`xnmt.expression_sequence.ExpressionSequence`
-      ss_expr: first input
+      ss: first input
     Returns:
       initial decoder state
     """
@@ -118,12 +118,12 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]) if self.input_feeding else ss_expr)
     return AutoRegressiveDecoderState(rnn_state=rnn_state, context=zeros)
 
-  def add_input(self, mlp_dec_state: AutoRegressiveDecoderState, trg_word) -> AutoRegressiveDecoderState:
+  def add_input(self, mlp_dec_state: AutoRegressiveDecoderState, trg_word: Any) -> AutoRegressiveDecoderState:
     """Add an input and update the state.
 
     Args:
       mlp_dec_state: An object containing the current state.
-      trg_embedding: The embedding of the word to input.
+      trg_word: The word to input.
     Returns:
       The updated decoder state.
     """
