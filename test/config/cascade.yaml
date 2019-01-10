@@ -18,12 +18,12 @@ cascade: !Experiment
           attender: !MlpAttender
             _xnmt_id: task1_attender
             hidden_dim: 128
-          trg_embedder: !SimpleWordEmbedder
-            emb_dim: 64
-            vocab: !Vocab
-              _xnmt_id: char_vocab
-              vocab_file: 'examples/data/char.vocab'
           decoder: !AutoRegressiveDecoder
+            embedder: !SimpleWordEmbedder
+              emb_dim: 64
+              vocab: !Vocab
+                _xnmt_id: char_vocab
+                vocab_file: 'examples/data/char.vocab'
             scorer: !Softmax
               vocab: !Ref { name: char_vocab }
             bridge: !CopyBridge {}
@@ -43,11 +43,11 @@ cascade: !Experiment
             vocab: !Ref { name: char_vocab }
           encoder: !BiLSTMSeqTransducer {}
           attender: !Ref { name: task1_attender }
-          trg_embedder: !SimpleWordEmbedder
-            emb_dim: 64
-            vocab: !Ref { name: char_vocab }
           decoder: !AutoRegressiveDecoder
             _xnmt_id: task1_decoder
+            embedder: !SimpleWordEmbedder
+              emb_dim: 64
+              vocab: !Ref { name: char_vocab }
             scorer: !Softmax
               label_smoothing: 0.1
               vocab: !Ref { name: char_vocab }

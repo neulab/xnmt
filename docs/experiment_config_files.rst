@@ -84,9 +84,9 @@ This specifies the model architecture. An typical example looks like this
       hidden_dim: 512
       state_dim: 512
       input_dim: 512
-    trg_embedder: !SimpleWordEmbedder
-      emb_dim: 512
     decoder: !AutoRegressiveDecoder
+      embedder: !SimpleWordEmbedder
+        emb_dim: 512
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
       transform: !NonLinear

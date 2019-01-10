@@ -34,10 +34,10 @@ exp1-multi_task_exp: !Experiment
           state_dim: 64
           hidden_dim: 64
           input_dim: 64
-        trg_embedder: !SimpleWordEmbedder
-          emb_dim: 64
-          vocab: !Ref {name: trg_vocab}
         decoder: !AutoRegressiveDecoder
+          embedder: !SimpleWordEmbedder
+            emb_dim: 64
+            vocab: !Ref {name: trg_vocab}
           rnn: !UniLSTMSeqTransducer
             layers: 1
             hidden_dim: 64
@@ -72,10 +72,10 @@ exp1-multi_task_exp: !Experiment
           state_dim: 64
           hidden_dim: 64
           input_dim: 64
-        trg_embedder: !SimpleWordEmbedder
-          emb_dim: 64
-          vocab: !Ref {name: trg_vocab}
         decoder: !AutoRegressiveDecoder
+          embedder: !SimpleWordEmbedder
+            emb_dim: 64
+            vocab: !Ref {name: trg_vocab}
           rnn: !UniLSTMSeqTransducer
             layers: 1
           bridge: !CopyBridge {}

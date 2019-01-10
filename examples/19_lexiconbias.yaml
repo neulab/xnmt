@@ -18,9 +18,9 @@ lexbias: !Experiment # 'standard' is the name given to the experiment
       hidden_dim: 512
       state_dim: 512
       input_dim: 512
-    trg_embedder: !SimpleWordEmbedder
-      emb_dim: 512
     decoder: !AutoRegressiveDecoder
+      embedder: !SimpleWordEmbedder
+        emb_dim: 512
       rnn: !UniLSTMSeqTransducer
         layers: 1
       transform: !AuxNonLinear
