@@ -23,7 +23,7 @@ class Scorer(object):
     Args:
       x: The vector used to make the prediction
     """
-    raise NotImplementedError('calc_score must be implemented by subclasses of Scorer')
+    raise NotImplementedError('calc_scores must be implemented by subclasses of Scorer')
 
   def calc_probs(self, x: dy.Expression) -> dy.Expression:
     """

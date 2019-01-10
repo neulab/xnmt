@@ -16,7 +16,7 @@ class Decoder(object):
 
   def calc_loss(self, x, ref_action):
     raise NotImplementedError('must be implemented by subclasses')
-  def calc_score(self, calc_scores_logsoftmax):
+  def calc_scores(self, calc_scores_logsoftmax):
     raise NotImplementedError('must be implemented by subclasses')
   def calc_prob(self, calc_scores_logsoftmax):
     raise NotImplementedError('must be implemented by subclasses')
