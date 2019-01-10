@@ -99,8 +99,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
   def shared_params(self):
     return [{".src_embedder.emb_dim", ".encoder.input_dim"},
             {".encoder.hidden_dim", ".attender.input_dim", ".decoder.input_dim"},
-            {".attender.state_dim", ".decoder.rnn.hidden_dim"},
-            {".decoder.trg_embed_dim"}]
+            {".attender.state_dim", ".decoder.rnn.hidden_dim"}]
 
   def _encode_src(self, src: Union[batchers.Batch, sent.Sentence]):
     embeddings = self.src_embedder.embed_sent(src)
