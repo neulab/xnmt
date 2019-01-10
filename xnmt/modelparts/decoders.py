@@ -90,6 +90,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
             {".transform.output_dim", ".scorer.input_dim"}]
 
   def initial_state(self, enc_final_states: Any, ss_expr: dy.Expression) -> AutoRegressiveDecoderState:
+    rnn_state = self.rnn.initial_state()
     """Get the initial state of the decoder given the encoder final states.
 
     Args:
@@ -98,7 +99,6 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     Returns:
       initial decoder state
     """
-    rnn_state = self.rnn.initial_state()
     rnn_s = self.bridge.decoder_init(enc_final_states)
     rnn_state = rnn_state.set_s(rnn_s)
     zeros = dy.zeros(self.input_dim) if self.input_feeding else None

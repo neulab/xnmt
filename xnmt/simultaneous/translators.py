@@ -1,4 +1,5 @@
 import dynet as dy
+import numpy as np
 
 from enum import Enum
 
@@ -14,6 +15,7 @@ import xnmt.event_trigger as event_trigger
 import xnmt.expression_seqs as expr_seq
 import xnmt.vocabs as vocabs
 import xnmt.batchers as batchers
+import xnmt.simultaneous.rewards as rewards
 
 from xnmt.models.translators import DefaultTranslator, TranslatorOutput
 from xnmt.persistence import bare, Serializable, serializable_init
@@ -29,15 +31,15 @@ class SimultaneousState(object):
     self.encoder_state = encoder_state
     self.context_state = context_state
     self.output_embed = output_embed
-    self.to_read = to_read
-    self.to_write = to_write
+    self.has_been_read = to_read
+    self.has_been_written = to_write
     self.reset_attender = reset_attender
     
   def read(self, src):
-    src_embed = self.model.src_embedder.embed(src[self.to_read])
+    src_embed = self.model.src_embedder.embed(src[self.has_been_read])
     next_encoder_state = self.encoder_state.add_input(src_embed)
     return SimultaneousState(self.model, next_encoder_state, self.context_state,
-                             self.output_embed, self.to_read+1, self.to_write, True)
+                             self.output_embed, self.has_been_read+1, self.has_been_written, True)
   
   def calc_context(self, src_encoding, prev_word):
     # Generating h_t based on RNN(h_{t-1}, embed(e_{t-1}))
@@ -56,12 +58,12 @@ class SimultaneousState(object):
     # Calc context for decoding
     context_state.context = self.model.attender.calc_context(context_state.rnn_state.output())
     return SimultaneousState(self.model, self.encoder_state, context_state,
-                             self.output_embed, self.to_read, self.to_write, reset_attender)
+                             self.output_embed, self.has_been_read, self.has_been_written, reset_attender)
     
   def write(self, next_word):
     return SimultaneousState(self.model, self.encoder_state, self.context_state,
-                             self.model.trg_embedder.embed(next_word), self.to_read,
-                             self.to_write+1, self.reset_attender)
+                             self.model.trg_embedder.embed(next_word), self.has_been_read,
+                             self.has_been_written+1, self.reset_attender)
 
 
 class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
@@ -80,7 +82,8 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
                inference: inferences.AutoRegressiveInference = bare(inferences.AutoRegressiveInference),
                truncate_dec_batches: bool = False,
                policy_learning=None,
-               freeze_param=False) -> None:
+               freeze_decoder_param=False,
+               max_generation=100) -> None:
     super().__init__(src_reader=src_reader,
                      trg_reader=trg_reader,
                      encoder=encoder,
@@ -92,14 +95,21 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
                      truncate_dec_batches=truncate_dec_batches)
     self.policy_learning = policy_learning
     self.actions = []
-    self.freeze_param = freeze_param
+    self.outputs = []
+    self.freeze_decoder_param = freeze_decoder_param
+    self.max_generation = max_generation
     
   @events.handle_xnmt_event
   def on_set_train(self, train):
     self.train = train
+    
+  @events.handle_xnmt_event
+  def on_start_sent(self, src_batch):
+    self.src = src_batch
   
   def calc_nll(self, src_batch, trg_batch) -> dy.Expression:
     self.actions.clear()
+    self.outputs.clear()
     event_trigger.start_sent(src_batch)
     batch_loss = []
     # For every item in the batch
@@ -109,28 +119,57 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
       # Reading + Writing
       src_encoding = []
       loss_exprs = []
-      while state.to_write < trg.sent_len():
+      now_action = []
+      outputs = []
+      prev_word = None
+      while not self._stoping_criterions_met(state, trg, prev_word):
         action = self.next_action(state, src_len, len(src_encoding))
         if action == self.Action.READ:
           state = state.read(src)
           src_encoding.append(state.encoder_state.output())
         else:
-          next_word = trg[state.to_write]
-          state = state.calc_context(src_encoding, next_word)
-          loss_exprs.append(self.decoder.calc_loss(state.context_state, next_word))
+          state = state.calc_context(src_encoding, prev_word)
+          ground_truth = self._select_ground_truth(state, trg)
+          loss_exprs.append(self.decoder.calc_loss(state.context_state, ground_truth))
+          next_word = self._select_next_word(ground_truth)
+          outputs.append(next_word)
           state = state.write(next_word)
-        self.actions.append(action)
+          prev_word = next_word
+        now_action.append(action)
+      self.actions.append(now_action)
+      self.outputs.append(outputs)
       # Accumulate loss
       batch_loss.append(dy.esum(loss_exprs))
     dy.forward(batch_loss)
     loss = dy.esum(batch_loss)
-    return loss if not self.freeze_param else dy.nobackprop(loss)
+    return loss if not self.freeze_decoder_param else dy.nobackprop(loss)
 
-  def 
+  def _select_next_word(self, ref):
+    if self.policy_learning is None:
+      return ref
+    else:
+      return np.argmax(self.decoder.scorer.last_model_scores.npvalue())
+    
+  def _stoping_criterions_met(self, state, trg, prev_word):
+    if self.policy_learning is None:
+      return state.has_been_written >= trg.sent_len()
+    else:
+      return state.has_been_written >= self.max_generation or prev_word == vocabs.Vocab.ES
+    
+  def _select_ground_truth(self, state, trg):
+    if trg.sent_len() <= state.has_been_written:
+      return vocabs.Vocab.ES
+    else:
+      return trg[state.has_been_written]
+
+  @events.handle_xnmt_event
+  def on_calc_additional_loss(self, trg, generator, generator_loss):
+    reward = rewards.SimultaneousReward(self.src, trg, self.actions, self.outputs, self.trg_reader.vocab).calculate()
+    pass
 
   def next_action(self, state, src_len, enc_len):
     if self.policy_learning is None:
-      if state.to_read < src_len:
+      if state.has_been_read < src_len:
         return self.Action.READ
       else:
         return self.Action.WRITE
@@ -180,5 +219,6 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
     return TranslatorOutput(current_state.context_state, next_logsoftmax, self.attender.get_last_attention())
   
   def initial_state(self):
+    self.decoder.scorer.last_model_scores = None
     return SimultaneousState(self, self.encoder.initial_state(), None, None)
   

@@ -126,7 +126,8 @@ class Softmax(Scorer, Serializable):
                                                               param_init=param_init, bias_init=bias_init))
   
   def calc_scores(self, x: dy.Expression) -> dy.Expression:
-    return self.output_projector.transform(x)
+    self.last_model_scores = self.output_projector.transform(x)
+    return self.last_model_scores
   
   def can_loss_be_derived_from_scores(self):
     """
@@ -285,6 +286,7 @@ class LexiconSoftmax(Softmax, Serializable):
     model_score = self.output_projector.transform(x)
     if self.lexicon_type == 'bias':
       model_score += dy.sum_dim(dy.log(self.calculate_dict_prob() + self.lexicon_alpha), [1])
+    self.last_model_scores = model_score
     return model_score
   
   def calculate_coeff(self, x):
