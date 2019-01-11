@@ -135,7 +135,7 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
           outputs.append(next_word)
           state = state.write(next_word)
           prev_word = next_word
-        now_action.append(action)
+        now_action.append(action.value)
       self.actions.append(now_action)
       self.outputs.append(outputs)
       # Accumulate loss
@@ -164,8 +164,10 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
 
   @events.handle_xnmt_event
   def on_calc_additional_loss(self, trg, generator, generator_loss):
+    if self.policy_learning is None:
+      return None
     reward = rewards.SimultaneousReward(self.src, trg, self.actions, self.outputs, self.trg_reader.vocab).calculate()
-    pass
+    return self.policy_learning.calc_loss(reward, only_final_reward=False)
 
   def next_action(self, state, src_len, enc_len):
     if self.policy_learning is None:

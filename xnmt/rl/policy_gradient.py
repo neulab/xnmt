@@ -13,7 +13,7 @@ class PolicyGradient(Serializable):
   This class works by calling the sample_action() that will sample some actions from the current policy, given the input state.
 
   Every time sample_action is called, the actions and the softmax are being recorded and then the network can be trained by passing the reward
-  to the calc_loss function. 
+  to the calc_loss function.
   
   Depending on the passed flags, currently it supports the calculation of additional losses of:
   - baseline: Linear regression that predicts future reward from the current input state
@@ -24,7 +24,7 @@ class PolicyGradient(Serializable):
     use_baseline: Whether to turn on baseline reward discounting or not.
     weight: The weight of the reinforce_loss.
     output_dim: The size of the predicitions.
-  """ 
+  """
 
 
   yaml_tag = '!PolicyGradient'
@@ -59,7 +59,7 @@ class PolicyGradient(Serializable):
   state: Input state.
   argmax: Whether to perform argmax or sampling.
   sample_pp: Stands for sample post_processing. Every time the sample are being drawn, this method will be invoked with sample_pp(sample).
-  predefined_actions: Whether to forcefully the network to assign the action value to some predefined actions. This predefined actions can be 
+  predefined_actions: Whether to forcefully the network to assign the action value to some predefined actions. This predefined actions can be
                       from the gold distribution or some probability priors. It should be calculated from the outside.
   """
   def sample_action(self, state, argmax=False, sample_pp=None, predefined_actions=None):
@@ -84,11 +84,15 @@ class PolicyGradient(Serializable):
   """
   Calc policy networks loss.
   """
-  def calc_loss(self, policy_reward):
+  def calc_loss(self, policy_reward, only_final_reward=True):
+    assert not only_final_reward or len(policy_reward) == len(self.actions)
     loss = losses.FactoredLossExpr()
     ## Calculate baseline
-    pred_reward, baseline_loss = self.calc_baseline_loss(policy_reward)
-    rewards = [policy_reward - pw_i for pw_i in pred_reward]
+    pred_reward, baseline_loss = self.calc_baseline_loss(policy_reward, only_final_reward)
+    if only_final_reward:
+      rewards = [policy_reward - pw_i for pw_i in pred_reward]
+    else:
+      rewards = [pr_i - pw_i for pr_i, pw_i in zip(policy_reward, pred_reward)]
     loss.add_loss("rl_baseline", baseline_loss)
     ## Z-Normalization
     rewards = dy.concatenate(rewards, d=0)
@@ -126,7 +130,9 @@ class PolicyGradient(Serializable):
     self.actions = []
     self.states = []
     self.baseline_input = None
-    self.valid_pos = src_sent.mask.get_valid_position() if src_sent.mask else None 
+    self.valid_pos = None
+    # TODO(philip30): Fix this line
+    # valid_pos = src_sent.mask.get_valid_position() if src_sent.mask else None
     self.sampling_action = self.SamplingAction.NONE
 
   def sample_from_policy(self, policy, argmax=False):
@@ -142,17 +148,18 @@ class PolicyGradient(Serializable):
     finally:
       self.sampling_action = self.SamplingAction.POLICY_CLP if not argmax else self.SamplingAction.POLICY_AMAX
 
-  def calc_baseline_loss(self, reward):
+  def calc_baseline_loss(self, reward, only_final_reward):
     pred_rewards = []
     cur_losses = []
     for i, state in enumerate(self.states):
       pred_reward = self.baseline.transform(dy.nobackprop(state))
       pred_rewards.append(dy.nobackprop(pred_reward))
+      seq_reward = reward if only_final_reward else reward[i]
       if self.valid_pos is not None:
         pred_reward = dy.pick_batch_elems(pred_reward, self.valid_pos[i])
-        act_reward = dy.pick_batch_elems(reward, self.valid_pos[i])
+        act_reward = dy.pick_batch_elems(seq_reward, self.valid_pos[i])
       else:
-        act_reward = reward
+        act_reward = seq_reward
       cur_losses.append(dy.sum_batches(dy.squared_distance(pred_reward, dy.nobackprop(act_reward))))
     return pred_rewards, dy.esum(cur_losses)
   
