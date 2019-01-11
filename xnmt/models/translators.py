@@ -71,7 +71,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     src_embedder: A word embedder for the input language
     encoder: An encoder to generate encoded inputs
     attender: An attention module
-    trg_embedder: A word embedder for the output language
     decoder: A decoder
     inference: The default inference strategy used for this model
   """
@@ -86,7 +85,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
                src_embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder),
                encoder: transducers_base.SeqTransducer = bare(recurrent.BiLSTMSeqTransducer),
                attender: attenders.Attender = bare(attenders.MlpAttender),
-               trg_embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder),
                decoder: decoders.Decoder = bare(decoders.AutoRegressiveDecoder),
                inference: inferences.AutoRegressiveInference = bare(inferences.AutoRegressiveInference),
                truncate_dec_batches: bool = False) -> None:
@@ -94,7 +92,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
-    self.trg_embedder = trg_embedder
     self.decoder = decoder
     self.inference = inference
     self.truncate_dec_batches = truncate_dec_batches
@@ -102,8 +99,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
   def shared_params(self):
     return [{".src_embedder.emb_dim", ".encoder.input_dim"},
             {".encoder.hidden_dim", ".attender.input_dim", ".decoder.input_dim"},
-            {".attender.state_dim", ".decoder.rnn.hidden_dim"},
-            {".trg_embedder.emb_dim", ".decoder.trg_embed_dim"}]
+            {".attender.state_dim", ".decoder.rnn.hidden_dim"}]
 
   def _encode_src(self, src: Union[batchers.Batch, sent.Sentence]):
     embeddings = self.src_embedder.embed_sent(src)
@@ -111,7 +107,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     final_state = self.encoder.get_final_states()
     self.attender.init_sent(encoding)
     ss = batchers.mark_as_batch([vocabs.Vocab.SS] * src.batch_size()) if batchers.is_batched(src) else vocabs.Vocab.SS
-    initial_state = self.decoder.initial_state(final_state, self.trg_embedder.embed(ss))
+    initial_state = self.decoder.initial_state(final_state, ss)
     return initial_state
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
@@ -135,7 +131,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
       ref_word = DefaultTranslator._select_ref_words(trg, i, truncate_masked=self.truncate_dec_batches)
 
       if input_word is not None:
-        dec_state = self.decoder.add_input(dec_state, self.trg_embedder.embed(input_word))
+        dec_state = self.decoder.add_input(dec_state, input_word)
       rnn_output = dec_state.as_vector()
       dec_state.context = self.attender.calc_context(rnn_output)
       word_loss = self.decoder.calc_loss(dec_state, ref_word)
@@ -252,8 +248,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
         current_word = [current_word]
       if type(current_word) == list or type(current_word) == np.ndarray:
         current_word = batchers.mark_as_batch(current_word)
-      current_word_embed = self.trg_embedder.embed(current_word)
-      next_state = self.decoder.add_input(current_state, current_word_embed)
+      next_state = self.decoder.add_input(current_state, current_word)
     else:
       next_state = current_state
     next_state.context = self.attender.calc_context(next_state.as_vector())
@@ -470,7 +465,6 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable):
       EnsembleListDelegate([model.src_embedder for model in self.models]),
       EnsembleListDelegate([model.encoder for model in self.models]),
       EnsembleListDelegate([model.attender for model in self.models]),
-      EnsembleListDelegate([model.trg_embedder for model in self.models]),
       EnsembleDecoder([model.decoder for model in self.models])
     )
 

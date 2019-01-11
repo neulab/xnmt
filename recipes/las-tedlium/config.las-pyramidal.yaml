@@ -30,11 +30,11 @@ las-pyramidal: !Experiment
         hidden_dim: 512
     attender: !MlpAttender
       hidden_dim: 128
-    trg_embedder: !SimpleWordEmbedder
-      emb_dim: 64
-      word_dropout: 0.1
-      fix_norm: 1
     decoder: !AutoRegressiveDecoder
+      embedder: !SimpleWordEmbedder
+        emb_dim: 64
+        word_dropout: 0.1
+        fix_norm: 1
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
         hidden_dim: 512
