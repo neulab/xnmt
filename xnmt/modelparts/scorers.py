@@ -312,4 +312,5 @@ class LexiconSoftmax(Softmax, Serializable):
       return dy.log_softmax(self.calc_scores(x))
 
   def can_loss_be_derived_from_scores(self):
+    # TODO: this line is broken
     return self.lexicon_type == 'bias' and super().is_modifying_softmax_layer()
