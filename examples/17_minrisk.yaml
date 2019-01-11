@@ -59,7 +59,7 @@ exp2-finetune-minrisk: !LoadSerialized
   - path: train.loss_calculator
     val: !MinRiskLoss
       alpha: 0.005
-  - path: model.search_strategy
+  - path: model.inference.search_strategy
     val: !SamplingSearch
       sample_size: 10
       max_len: 50

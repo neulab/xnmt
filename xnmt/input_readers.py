@@ -216,7 +216,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
       words = self.subword_model.SampleEncodeAsPieces(line.strip(), self.l, self.alpha)
     else:
       words = self.subword_model.EncodeAsPieces(line.strip())
-    words = [w.decode('utf-8') for w in words]
+    #words = [w.decode('utf-8') for w in words]
     return sent.SimpleSentence(idx=idx,
                                words=[self.vocab.convert(word) for word in words] + [self.vocab.convert(vocabs.Vocab.ES_STR)],
                                vocab=self.vocab,

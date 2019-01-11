@@ -476,16 +476,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable):
     self._proxy.set_trg_vocab(trg_vocab=trg_vocab)
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
-    sub_losses = collections.defaultdict(list)
-    for model in self.models:
-      for loss_name, loss in model.calc_nll(src, trg).expr_factors.items():
-        sub_losses[loss_name].append(loss)
-    model_loss = losses.FactoredLossExpr()
-    for loss_name, losslist in sub_losses.items():
-      # TODO: dy.average(losslist)  _or_  dy.esum(losslist) / len(self.models) ?
-      #       -- might not be the same if not all models return all losses
-      model_loss.add_loss(loss_name, dy.average(losslist))
-    return model_loss
+    return dy.average([model.calc_nll(src, trg) for model in self.models])
 
   def generate(self,
                src: batchers.Batch,
