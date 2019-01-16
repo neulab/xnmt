@@ -84,14 +84,13 @@ class TestSegmentingEncoder(unittest.TestCase):
       src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       encoder=self.segmenting_encoder,
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
-      trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                     rnn=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim,
                                                              decoder_input_dim=layer_dim, yaml_path="decoder"),
                                     transform=AuxNonLinear(input_dim=layer_dim, output_dim=layer_dim,
                                                            aux_input_dim=layer_dim),
                                     scorer=Softmax(vocab_size=100, input_dim=layer_dim),
-                                    trg_embed_dim=layer_dim,
+                                    embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
                                     bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     event_trigger.set_train(True)
@@ -200,14 +199,13 @@ class TestComposing(unittest.TestCase):
       src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       encoder=self.segmenting_encoder,
       attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
-      trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
       decoder=AutoRegressiveDecoder(input_dim=layer_dim,
                                     rnn=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim,
                                                              decoder_input_dim=layer_dim, yaml_path="decoder"),
                                     transform=AuxNonLinear(input_dim=layer_dim, output_dim=layer_dim,
                                                            aux_input_dim=layer_dim),
                                     scorer=Softmax(vocab_size=100, input_dim=layer_dim),
-                                    trg_embed_dim=layer_dim,
+                                    embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
                                     bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
     )
     event_trigger.set_train(True)

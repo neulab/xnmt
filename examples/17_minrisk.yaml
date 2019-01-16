@@ -22,9 +22,9 @@ exp1-pretrain-model: !Experiment
       state_dim: 64
       hidden_dim: 64
       input_dim: 64
-    trg_embedder: !SimpleWordEmbedder
-      emb_dim: 64
     decoder: !AutoRegressiveDecoder
+      embedder: !SimpleWordEmbedder
+        emb_dim: 64
       rnn: !UniLSTMSeqTransducer
         layers: 1
       transform: !AuxNonLinear
@@ -59,7 +59,7 @@ exp2-finetune-minrisk: !LoadSerialized
   - path: train.loss_calculator
     val: !MinRiskLoss
       alpha: 0.005
-  - path: model.search_strategy
+  - path: model.inference.search_strategy
     val: !SamplingSearch
       sample_size: 10
       max_len: 50

@@ -4,7 +4,7 @@ import numbers
 import dynet as dy
 
 from xnmt import batchers, param_collections
-from xnmt.modelparts import bridges, transforms, scorers
+from xnmt.modelparts import bridges, transforms, scorers, embedders
 from xnmt.transducers import recurrent
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 
@@ -27,7 +27,15 @@ class Decoder(object):
   def initial_state(self, enc_final_states, ss_expr):
     raise NotImplementedError('must be implemented by subclasses')
 
-class AutoRegressiveDecoderState(object):
+class DecoderState(object):
+  """A state that holds whatever information is required for the decoder.
+     Child classes must implement the as_vector() method, which will be
+     used by e.g. the attention mechanism"""
+
+  def as_vector(self):
+    raise NotImplementedError('must be implemented by subclass')
+
+class AutoRegressiveDecoderState(DecoderState):
   """A state holding all the information needed for AutoRegressiveDecoder
   
   Args:
@@ -38,13 +46,16 @@ class AutoRegressiveDecoderState(object):
     self.rnn_state = rnn_state
     self.context = context
 
+  def as_vector(self):
+    return self.rnn_state.output()
+
 class AutoRegressiveDecoder(Decoder, Serializable):
   """
   Standard autoregressive-decoder.
 
   Args:
     input_dim: input dimension
-    trg_embed_dim: dimension of target embeddings
+    embedder: embedder for target words
     input_feeding: whether to activate input feeding
     bridge: how to initialize decoder state
     rnn: recurrent decoder
@@ -58,7 +69,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
   @serializable_init
   def __init__(self,
                input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
-               trg_embed_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder),
                input_feeding: bool = True,
                bridge: bridges.Bridge = bare(bridges.CopyBridge),
                rnn: recurrent.UniLSTMSeqTransducer = bare(recurrent.UniLSTMSeqTransducer),
@@ -67,6 +78,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
                truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
     self.param_col = param_collections.ParamManager.my_params(self)
     self.input_dim = input_dim
+    self.embedder = embedder
     self.truncate_dec_batches = truncate_dec_batches
     self.bridge = bridge
     self.rnn = rnn
@@ -74,13 +86,13 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     self.scorer = scorer
     # Input feeding
     self.input_feeding = input_feeding
-    rnn_input_dim = trg_embed_dim
+    rnn_input_dim = embedder.emb_dim
     if input_feeding:
       rnn_input_dim += input_dim
-    assert rnn_input_dim == rnn.input_dim, "Wrong input dimension in RNN layer: {} != {}".format(rnn_input_dim, rnn.input_dim)
+    assert rnn_input_dim == rnn.total_input_dim, "Wrong input dimension in RNN layer: {} != {}".format(rnn_input_dim, rnn.total_input_dim)
 
   def shared_params(self):
-    return [{".trg_embed_dim", ".rnn.input_dim"},
+    return [{".embedder.emb_dim", ".rnn.input_dim"},
             {".input_dim", ".rnn.decoder_input_dim"},
             {".input_dim", ".transform.input_dim"},
             {".input_feeding", ".rnn.decoder_input_feeding"},
@@ -89,31 +101,33 @@ class AutoRegressiveDecoder(Decoder, Serializable):
             {".rnn.hidden_dim", ".transform.aux_input_dim"},
             {".transform.output_dim", ".scorer.input_dim"}]
 
-  def initial_state(self, enc_final_states: Any, ss_expr: dy.Expression) -> AutoRegressiveDecoderState:
-    rnn_state = self.rnn.initial_state()
+  def initial_state(self, enc_final_states: Any, ss: Any) -> AutoRegressiveDecoderState:
     """Get the initial state of the decoder given the encoder final states.
 
     Args:
       enc_final_states: The encoder final states. Usually but not necessarily an :class:`xnmt.expression_sequence.ExpressionSequence`
-      ss_expr: first input
+      ss: first input
     Returns:
       initial decoder state
     """
+    rnn_state = self.rnn.initial_state()
     rnn_s = self.bridge.decoder_init(enc_final_states)
     rnn_state = rnn_state.set_s(rnn_s)
     zeros = dy.zeros(self.input_dim) if self.input_feeding else None
+    ss_expr = self.embedder.embed(ss)
     rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]) if self.input_feeding else ss_expr)
     return AutoRegressiveDecoderState(rnn_state=rnn_state, context=zeros)
 
-  def add_input(self, mlp_dec_state: AutoRegressiveDecoderState, trg_embedding: dy.Expression) -> AutoRegressiveDecoderState:
+  def add_input(self, mlp_dec_state: AutoRegressiveDecoderState, trg_word: Any) -> AutoRegressiveDecoderState:
     """Add an input and update the state.
 
     Args:
       mlp_dec_state: An object containing the current state.
-      trg_embedding: The embedding of the word to input.
+      trg_word: The word to input.
     Returns:
       The updated decoder state.
     """
+    trg_embedding = self.embedder.embed(trg_word)
     inp = trg_embedding
     if self.input_feeding:
       inp = dy.concatenate([inp, mlp_dec_state.context])

@@ -1,15 +1,23 @@
-lexbias: !Experiment # 'standard' is the name given to the experiment
+# Implements SwitchOut, a data augmentation strategy for NMT
+# RAML corrupts target side only, while SwitchOut corrupts both source and target
+# https://arxiv.org/pdf/1808.07512.pdf 
+switchout: !Experiment 
+  # global parameters shared throughout the experiment
   exp_global: !ExpGlobal
+    # {EXP_DIR} is a placeholder for the directory in which the config file lies.
+    # {EXP} is a placeholder for the experiment name (here: 'standard')
     model_file: '{EXP_DIR}/models/{EXP}.mod'
     log_file: '{EXP_DIR}/logs/{EXP}.log'
     default_layer_dim: 512
     dropout: 0.3
   # model architecture
   model: !DefaultTranslator
-    src_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
-    trg_reader: !PlainTextReader
+    src_reader: !RamlTextReader
       vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+      tau: 0.8
+    trg_reader: !RamlTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+      tau: 0.8
     src_embedder: !SimpleWordEmbedder
       emb_dim: 512
     encoder: !BiLSTMSeqTransducer
@@ -18,20 +26,16 @@ lexbias: !Experiment # 'standard' is the name given to the experiment
       hidden_dim: 512
       state_dim: 512
       input_dim: 512
-    trg_embedder: !SimpleWordEmbedder
-      emb_dim: 512
     decoder: !AutoRegressiveDecoder
+      embedder: !SimpleWordEmbedder
+        emb_dim: 512
       rnn: !UniLSTMSeqTransducer
         layers: 1
       transform: !AuxNonLinear
         output_dim: 512
+        activation: 'tanh'
       bridge: !CopyBridge {}
-      scorer: !LexiconSoftmax
-        lexicon_file: examples/data/head-ja_given_en.lex
-        # can choose between bias/linear
-        lexicon_type: bias
-        # The small epsilon value to be added to the bias
-        lexicon_alpha: 0.001
+      scorer: !Softmax {}
   # training parameters
   train: !SimpleTrainingRegimen
     batcher: !SrcBatcher
@@ -39,16 +43,16 @@ lexbias: !Experiment # 'standard' is the name given to the experiment
     trainer: !AdamTrainer
       alpha: 0.001
     run_for_epochs: 2
-    src_file: examples/data/head.en
-    trg_file: examples/data/head.ja
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en
     dev_tasks:
       - !LossEvalTask
-        src_file: examples/data/head.en
-        ref_file: examples/data/head.ja
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en
   # final evaluation
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu
-      src_file: examples/data/head.en
-      ref_file: examples/data/head.ja
+      src_file: examples/data/head.ja
+      ref_file: examples/data/head.en
       hyp_file: examples/output/{EXP}.test_hyp

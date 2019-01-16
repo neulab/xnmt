@@ -66,9 +66,9 @@ standard-preproc: !Experiment
       hidden_dim: 256
       state_dim: 256
       input_dim: 256
-    trg_embedder: !SimpleWordEmbedder
-      emb_dim: 256
     decoder: !AutoRegressiveDecoder
+      embedder: !SimpleWordEmbedder
+        emb_dim: 256
       rnn: !UniLSTMSeqTransducer
         layers: 1
       bridge: !NoBridge {}

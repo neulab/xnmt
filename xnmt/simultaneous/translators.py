@@ -47,9 +47,9 @@ class SimultaneousState(object):
       final_transducer_state = [transducers_base.FinalTransducerState(h, c) \
                               for h, c in zip(self.encoder_state.h(), self.encoder_state.c())]
       context_state = self.model.decoder.initial_state(final_transducer_state,
-                                                       self.model.trg_embedder.embed(vocabs.Vocab.SS))
+                                                       vocabs.Vocab.SS)
     else:
-      context_state = self.model.decoder.add_input(self.context_state, self.model.trg_embedder.embed(prev_word))
+      context_state = self.model.decoder.add_input(self.context_state, prev_word)
     # Reset attender if there is a read action
     reset_attender = self.reset_attender
     if reset_attender:
@@ -62,7 +62,7 @@ class SimultaneousState(object):
     
   def write(self, next_word):
     return SimultaneousState(self.model, self.encoder_state, self.context_state,
-                             self.model.trg_embedder.embed(next_word), self.has_been_read,
+                             self.model.decoder.embedder.embed(next_word), self.has_been_read,
                              self.has_been_written+1, self.reset_attender)
 
 
@@ -77,7 +77,6 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
                src_embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder),
                encoder: recurrent.UniLSTMSeqTransducer = bare(recurrent.UniLSTMSeqTransducer),
                attender: attenders.Attender = bare(attenders.MlpAttender),
-               trg_embedder: embedders.Embedder = bare(embedders.SimpleWordEmbedder),
                decoder: decoders.Decoder = bare(decoders.AutoRegressiveDecoder),
                inference: inferences.AutoRegressiveInference = bare(inferences.AutoRegressiveInference),
                truncate_dec_batches: bool = False,
@@ -89,7 +88,6 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
                      encoder=encoder,
                      attender=attender,
                      src_embedder=src_embedder,
-                     trg_embedder=trg_embedder,
                      decoder=decoder,
                      inference=inference,
                      truncate_dec_batches=truncate_dec_batches)

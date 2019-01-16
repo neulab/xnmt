@@ -131,8 +131,8 @@ class Softmax(Scorer, Serializable):
   
   def can_loss_be_derived_from_scores(self):
     """
-    This method can be used to determine whether dy.pickneglogsoftmax can be used to fastly calculate the loss value.
-    If False, then the calc_loss method should calc (1) log_softmax, (2) perform necessary modification, (3) pick the loss
+    This method can be used to determine whether dy.pickneglogsoftmax can be used to quickly calculate the loss value.
+    If False, then the calc_loss method should (1) calc log_softmax, (2) perform necessary modification, (3) pick the loss
     """
     return self.label_smoothing == 0.0
 
@@ -314,4 +314,4 @@ class LexiconSoftmax(Softmax, Serializable):
       return dy.log_softmax(self.calc_scores(x))
 
   def can_loss_be_derived_from_scores(self):
-    return self.lexicon_type == 'bias' and super().is_modifying_softmax_layer()
+    return self.lexicon_type == 'bias' and super().can_loss_be_derived_from_scores()

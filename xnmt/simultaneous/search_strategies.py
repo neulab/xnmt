@@ -47,7 +47,7 @@ class SimultaneousGreedySearch(search_strategies.SearchStrategy, Serializable):
     
     encoding = []
     next_word = None
-    while current_state.to_write < self.max_len:
+    while current_state.has_been_written < self.max_len:
       action = translator.next_action(current_state, self.src_sent.sent_len(), len(encoding))
       if action == translator.Action.READ:
         # Reading

@@ -31,10 +31,10 @@ exp2-single: !Experiment
     encoder: !BiLSTMSeqTransducer
       layers: 3
       hidden_dim: 64
-    trg_embedder: !DenseWordEmbedder
-      _xnmt_id: dense_embed
-      emb_dim: 64
     decoder: !AutoRegressiveDecoder
+      embedder: !DenseWordEmbedder
+        _xnmt_id: dense_embed
+        emb_dim: 64
       rnn: !UniLSTMSeqTransducer
         hidden_dim: 64
       transform: !AuxNonLinear

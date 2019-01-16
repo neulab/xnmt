@@ -84,9 +84,9 @@ This specifies the model architecture. An typical example looks like this
       hidden_dim: 512
       state_dim: 512
       input_dim: 512
-    trg_embedder: !SimpleWordEmbedder
-      emb_dim: 512
     decoder: !AutoRegressiveDecoder
+      embedder: !SimpleWordEmbedder
+        emb_dim: 512
       rnn_layer: !UniLSTMSeqTransducer
         layers: 1
       transform: !NonLinear
@@ -252,24 +252,16 @@ Scoring N-best lists
 .. literalinclude:: examples/15_score.yaml
     :language: yaml
 
-Transformer
-~~~~~~~~~~~
-
-(this is currently broken)
-
-.. literalinclude:: examples/16_transformer.yaml
-    :language: yaml
-
 Ensembling
 ~~~~~~~~~~
 
-.. literalinclude:: examples/17_ensembling.yaml
+.. literalinclude:: examples/16_ensembling.yaml
     :language: yaml
 
 Minimum risk training
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: examples/18_minrisk.yaml
+.. literalinclude:: examples/17_minrisk.yaml
     :language: yaml
 
 Biased Lexicon
@@ -277,24 +269,36 @@ Biased Lexicon
 
 (this is currently broken)
 
-.. literalinclude:: examples/19_lexiconbias.yaml
+.. literalinclude:: examples/18_lexiconbias.yaml
     :language: yaml
 
 Subword Sampling
 ~~~~~~~~~~~~~~~~
 
-.. literalinclude:: examples/20_subword_sample.yaml
+.. literalinclude:: examples/19_subword_sample.yaml
     :language: yaml
 
 Self Attention
 ~~~~~~~~~~~~~~
 
-.. literalinclude:: examples/21_self_attention.yaml
+.. literalinclude:: examples/20_self_attention.yaml
     :language: yaml
 
 Char Segment
 ~~~~~~~~~~~~
 
-.. literalinclude:: examples/22_char_segment.yaml
+.. literalinclude:: examples/21_char_segment.yaml
+    :language: yaml
+
+Switchout
+~~~~~~~~~
+
+.. literalinclude:: examples/22_switchout.yaml
+    :language: yaml
+
+Autobatching
+~~~~~~~~~~~~
+
+.. literalinclude:: examples/24_autobatch.yaml
     :language: yaml
 
