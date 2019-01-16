@@ -85,7 +85,6 @@ class PolicyGradient(Serializable):
   Calc policy networks loss.
   """
   def calc_loss(self, policy_reward, only_final_reward=True):
-    assert not only_final_reward or len(policy_reward) == len(self.actions)
     loss = losses.FactoredLossExpr()
     ## Calculate baseline
     pred_reward, baseline_loss = self.calc_baseline_loss(policy_reward, only_final_reward)

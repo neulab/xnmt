@@ -4,9 +4,7 @@ import numbers
 
 from typing import List
 
-import xnmt.modelparts.decoders as decoders
 import xnmt.search_strategies as search_strategies
-import xnmt.event_trigger as event_trigger
 
 from xnmt.vocabs import Vocab
 from xnmt.persistence import serializable_init, Serializable

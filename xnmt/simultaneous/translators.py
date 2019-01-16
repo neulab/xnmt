@@ -14,7 +14,6 @@ import xnmt.events as events
 import xnmt.event_trigger as event_trigger
 import xnmt.expression_seqs as expr_seq
 import xnmt.vocabs as vocabs
-import xnmt.batchers as batchers
 import xnmt.simultaneous.rewards as rewards
 
 from xnmt.models.translators import DefaultTranslator, TranslatorOutput

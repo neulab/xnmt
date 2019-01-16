@@ -14,8 +14,6 @@ logger = logging.getLogger('xnmt')
 yaml_logger = logging.getLogger('yaml')
 file_logger = logging.getLogger('xnmt_file')
 
-import dynet
-
 # all Serializable objects must be imported here in order to be parsable
 # using the !Classname YAML syntax
 import xnmt.batchers

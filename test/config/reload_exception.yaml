@@ -31,7 +31,7 @@ reload: !Experiment
     src_file: test/tmp/reload/LDC94S13A.npz
     trg_file: test/tmp/reload/LDC94S13A.char
     reload_command: >-
-      python script/code/reload_example.py
+      python3 script/code/reload_example.py
       --initial-dir examples/data/
       --tmp-basedir test/tmp/reload-tmp
       --target-dir test/tmp/reload
