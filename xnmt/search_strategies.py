@@ -33,14 +33,12 @@ class SearchStrategy(object):
   def generate_output(self,
                       translator: 'xnmt.models.translators.AutoRegressiveTranslator',
                       initial_state: decoders.AutoRegressiveDecoderState,
-                      src_length: Optional[numbers.Integral] = None,
-                      forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
+                      src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     """
     Args:
       translator: a translator
       initial_state: initial decoder state
       src_length: length of src sequence, required for some types of length normalization
-      forced_trg_ids: list of word ids, if given will force to generate this is the target sequence
     Returns:
       List of (word_ids, attentions, score, logsoftmaxes)
     """
@@ -63,8 +61,7 @@ class GreedySearch(Serializable, SearchStrategy):
   def generate_output(self,
                       translator: 'xnmt.models.translators.AutoRegressiveTranslator',
                       initial_state: decoders.AutoRegressiveDecoderState,
-                      src_length: Optional[numbers.Integral] = None,
-                      forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
+                      src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     # Output variables
     score = []
     word_ids = []
@@ -77,34 +74,34 @@ class GreedySearch(Serializable, SearchStrategy):
     current_state = initial_state
     for length in range(self.max_len):
       prev_word = word_ids[length-1] if length > 0 else None
-      current_output = translator.generate_one_step(prev_word, current_state)
+      current_output = translator.add_input(prev_word, current_state)
+      word_id, word_score = translator.best_k(current_output, 1)
+      word_id = word_id[0]
+      word_score = word_score[0]
       current_state = current_output.state
-      if forced_trg_ids is None:
-        word_id = np.argmax(current_output.logsoftmax.npvalue(), axis=0)
-        if len(word_id.shape) == 2:
-          word_id = word_id[0]
-      else:
-        if batchers.is_batched(forced_trg_ids):
-          word_id = [forced_trg_ids[i][length] for i in range(len(forced_trg_ids))]
-        else:
-          word_id = [forced_trg_ids[length]]
-      logsoft = dy.pick_batch(current_output.logsoftmax, word_id)
+
+      if len(word_id.shape) == 0:
+        word_id = np.array([word_id])
+        word_score = np.array([word_score])
+
       if done is not None:
         word_id = [word_id[i] if not done[i] else Vocab.ES for i in range(len(done))]
-        # masking for logsoftmax
         mask = [1 if not done[i] else 0 for i in range(len(done))]
-        logsoft = dy.cmult(logsoft, dy.inputTensor(mask, batched=True))
+        word_score = [s * m for (s, m) in zip(word_score, mask)]
         masks.append(mask)
+
       # Packing outputs
-      score.append(logsoft.npvalue())
+      score.append(word_score)
       word_ids.append(word_id)
       attentions.append(current_output.attention)
-      logsoftmaxes.append(dy.pick_batch(current_output.logsoftmax, word_id))
+      logsoftmaxes.append(None)
       states.append(translator.get_nobp_state(current_state)) # TODO: not a part of translator interface, refactor
+
       # Check if we are done.
       done = [x == Vocab.ES for x in word_id]
       if all(done):
         break
+
     masks.insert(0, [1 for _ in range(len(done))])
     words = np.stack(word_ids, axis=1)
     score = np.sum(score, axis=0)
@@ -142,14 +139,8 @@ class BeamSearch(Serializable, SearchStrategy):
   def generate_output(self,
                       translator: 'xnmt.models.translators.AutoRegressiveTranslator',
                       initial_state: decoders.AutoRegressiveDecoderState,
-                      src_length: Optional[numbers.Integral] = None,
-                      forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
+                      src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     # TODO(philip30): can only do single decoding, not batched
-    assert forced_trg_ids is None or self.beam_size == 1
-    if forced_trg_ids is not None and forced_trg_ids.sent_len() > self.max_len:
-      logger.warning("Forced decoding with a target longer than max_len. "
-                     "Increase max_len to avoid unexpected behavior.")
-
     active_hyp = [self.Hypothesis(0, None, None, None)]
     completed_hyp = []
     for length in range(self.max_len):
@@ -164,32 +155,37 @@ class BeamSearch(Serializable, SearchStrategy):
         else:
           prev_word = None
           prev_state = initial_state
+
+        # We have a complete hyp ending with </s>
         if prev_word == Vocab.ES:
           completed_hyp.append(hyp)
           continue
-        current_output = translator.generate_one_step(prev_word, prev_state)
-        score = current_output.logsoftmax.npvalue().transpose()
-        if self.scores_proc:
-          self.scores_proc(score)
-        # Next Words
-        if forced_trg_ids is None:
-          top_words = np.argpartition(score, max(-len(score),-self.beam_size))[-self.beam_size:]
-        else:
-          top_words = [forced_trg_ids[length]]
+
+        # Find the k best words at the next time step
+        current_output = translator.add_input(prev_word, prev_state)
+        top_words, top_scores = translator.best_k(current_output, self.beam_size)
+
         # Queue next states
-        for cur_word in top_words:
-          new_score = self.len_norm.normalize_partial_topk(hyp.score, score[cur_word], length + 1)
+        for cur_word, score in zip(top_words, top_scores):
+          assert len(score.shape) == 0
+          new_score = self.len_norm.normalize_partial_topk(hyp.score, score, length + 1)
           new_set.append(self.Hypothesis(new_score, current_output, hyp, cur_word))
+
       # Next top hypothesis
       active_hyp = sorted(new_set, key=lambda x: x.score, reverse=True)[:self.beam_size]
-    # There is no hyp reached </s>
+
+    # There is no hyp that reached </s>
     if len(completed_hyp) == 0:
       completed_hyp = active_hyp
+
     # Length Normalization
     normalized_scores = self.len_norm.normalize_completed(completed_hyp, src_length)
     hyp_and_score = sorted(list(zip(completed_hyp, normalized_scores)), key=lambda x: x[1], reverse=True)
+
+    # Take only the one best, if that's what was desired
     if self.one_best:
       hyp_and_score = [hyp_and_score[0]]
+
     # Backtracing + Packing outputs
     results = []
     for end_hyp, score in hyp_and_score:
@@ -234,65 +230,66 @@ class SamplingSearch(Serializable, SearchStrategy):
   def generate_output(self,
                       translator: 'xnmt.models.translators.AutoRegressiveTranslator',
                       initial_state: decoders.AutoRegressiveDecoderState,
-                      src_length: Optional[numbers.Integral] = None,
-                      forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
+                      src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     outputs = []
     for k in range(self.sample_size):
-      if k == 0 and forced_trg_ids is not None:
-        outputs.append(self.sample_one(translator, initial_state, forced_trg_ids))
-      else:
-        outputs.append(self.sample_one(translator, initial_state))
+      outputs.append(self.sample_one(translator, initial_state))
     return outputs
  
   # Words ids, attentions, score, logsoftmax, state
   def sample_one(self,
                  translator: 'xnmt.models.translators.AutoRegressiveTranslator',
-                 initial_state: decoders.AutoRegressiveDecoderState,
-                 forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> SearchOutput:
+                 initial_state: decoders.AutoRegressiveDecoderState) -> SearchOutput:
     # Search variables
     current_words = None
     current_state = initial_state
     done = None
     # Outputs
-    logsofts = []
+    scores = []
     samples = []
     states = []
     attentions = []
     masks = []
     # Sample to the max length
     for length in range(self.max_len):
-      translator_output = translator.generate_one_step(current_words, current_state)
-      if forced_trg_ids is None:
-        sample = translator_output.logsoftmax.tensor_value().categorical_sample_log_prob().as_numpy()
-        if len(sample.shape) == 2:
-          sample = sample[0]
-      else:
-        sample = [forced_trg[length] if forced_trg.sent_len() > length else Vocab.ES for forced_trg in forced_trg_ids]
-      logsoft = dy.pick_batch(translator_output.logsoftmax, sample)
+      current_output = translator.add_input(current_words, current_state)
+      word_id, word_score = translator.sample(current_output, 1)[0]
+      word_score = word_score.npvalue()
+      assert word_score.shape == (1,)
+      word_score = word_score[0]
+
+      if len(word_id.shape) == 0:
+        word_id = np.array([word_id])
+        word_score = np.array([word_score])
+
       if done is not None:
-        sample = [sample[i] if not done[i] else Vocab.ES for i in range(len(done))]
+        word_id = [word_id[i] if not done[i] else Vocab.ES for i in range(len(done))]
         # masking for logsoftmax
         mask = [1 if not done[i] else 0 for i in range(len(done))]
-        logsoft = dy.cmult(logsoft, dy.inputTensor(mask, batched=True))
+        word_score = [s * m for (s, m) in zip(word_score, mask)]
         masks.append(mask)
+
       # Appending output
-      logsofts.append(logsoft)
-      samples.append(sample)
-      states.append(translator.get_nobp_state(translator_output.state))
-      attentions.append(translator_output.attention)
+      scores.append(word_score)
+      samples.append(word_id)
+      states.append(translator.get_nobp_state(current_output.state))
+      attentions.append(current_output.attention)
+
       # Next time step
-      current_words = sample
-      current_state = translator_output.state
+      current_words = word_id
+      current_state = current_output.state
+
       # Check done
-      done = [x == Vocab.ES for x in sample]
+      done = [x == Vocab.ES for x in word_id]
       # Check if we are done.
       if all(done):
         break
+
     # Packing output
-    scores = dy.esum(logsofts).npvalue()
+    scores = [np.sum(scores)]
     masks.insert(0, [1 for _ in range(len(done))])
     samples = np.stack(samples, axis=1)
-    return SearchOutput(samples, attentions, scores, logsofts, states, masks)
+    return SearchOutput(samples, attentions, scores, None, states, masks)
 
 
 class MctsNode(object):
@@ -347,8 +344,8 @@ class MctsNode(object):
     if move in self.children:
       return self.children[move].expand()
     else:
-      output = self.translator.generate_one_step(move, self.dec_state)
-      prior_dist = output.logsoftmax.npvalue()
+      output = self.translator.add_input(move, self.dec_state)
+      prior_dist = self.translator.calc_log_probs(output.state).npvalue()
       attention = output.attention
 
       path = []
@@ -373,8 +370,8 @@ class MctsNode(object):
       return prefix, scores
 
     while True:
-      output = self.translator.generate_one_step(prev_word, dec_state)
-      logsoftmax = output.logsoftmax.npvalue()
+      output = self.translator.add_input(prev_word, dec_state)
+      logsoftmax = self.translator.calc_log_probs(output.state).npvalue()
       attention = output.attention
       best_id = sample_func(logsoftmax)
       print("Rolling out node with word=", best_id, 'score=', logsoftmax[best_id])
@@ -431,15 +428,13 @@ class MctsSearch(Serializable, SearchStrategy):
   def generate_output(self,
                       translator: 'xnmt.models.translators.AutoRegressiveTranslator',
                       dec_state: decoders.AutoRegressiveDecoderState,
-                      src_length: Optional[numbers.Integral] = None,
-                      forced_trg_ids: Optional[Sequence[numbers.Integral]] = None) -> List[SearchOutput]:
-    assert forced_trg_ids is None
+                      src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     orig_dec_state = dec_state
 
-    output = translator.generate_one_step(None, dec_state)
+    output = translator.add_input(None, dec_state)
     dec_state = output.state
     assert dec_state == orig_dec_state
-    logsoftmax = output.logsoftmax.npvalue()
+    logsoftmax = self.translator.calc_log_probs(dec_state).npvalue()
     root_node = MctsNode(None, logsoftmax, None, None, translator, dec_state)
     for i in range(self.visits):
       terminal = root_node.expand()

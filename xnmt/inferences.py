@@ -1,7 +1,9 @@
 import collections.abc
+from itertools import islice
 from typing import List, Optional, Tuple, Sequence, Union
 from typing.io import TextIO
 import numbers
+import shutil
 
 from xnmt.settings import settings
 
@@ -27,13 +29,14 @@ class Inference(object):
     mode: type of decoding to perform.
 
             * ``onebest``: generate one best.
+            * ``score``: output scores, useful for rescoring
             * ``forced``: perform forced decoding.
             * ``forceddebug``: perform forced decoding, calculate training loss, and make sure the scores are identical
               for debugging purposes.
-            * ``score``: output scores, useful for rescoring
     batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
     reporter: a reporter to create reports for each decoded sentence
   """
+  # TODO: Support k-best inference?
   @events.register_xnmt_handler
   def __init__(self,
                src_file: Optional[str] = None,
@@ -53,7 +56,7 @@ class Inference(object):
     self.batcher = batcher
     self.reporter = reporter
 
-  def generate_one(self, generator: 'models.GeneratorModel', src: batchers.Batch, forced_ref_ids) \
+  def generate_one(self, generator: 'models.GeneratorModel', src: batchers.Batch) \
           -> List[sent.ReadableSentence]:
     raise NotImplementedError("must be implemented by subclasses")
 
@@ -61,8 +64,7 @@ class Inference(object):
                          ref: sent.Sentence) -> losses.FactoredLossExpr:
     raise NotImplementedError("must be implemented by subclasses")
 
-
-  def perform_inference(self, generator: 'models.GeneratorModel', src_file: str = None, trg_file: str = None) \
+  def perform_inference(self, generator: 'models.GeneratorModel', src_file: str = None, trg_file: str = None, ref_file: str = None) \
           -> None:
     """
     Perform inference.
@@ -74,9 +76,15 @@ class Inference(object):
     """
     src_file = src_file or self.src_file
     trg_file = trg_file or self.trg_file
-    utils.make_parent_dir(trg_file)
+    ref_file = ref_file or self.ref_file
 
-    logger.info(f'Performing inference on {src_file}')
+    if trg_file is not None:
+      utils.make_parent_dir(trg_file)
+
+    if ref_file is not None:
+      logger.info(f'Performing inference on {src_file} and {ref_file}')
+    else:
+      logger.info(f'Performing inference on {src_file}')
 
     event_trigger.set_train(False)
 
@@ -88,28 +96,28 @@ class Inference(object):
 
     if self.mode == 'score':
       self._write_rescored_output(ref_scores, self.ref_file, trg_file)
+    elif self.mode == 'forced' or self.mode == 'forceddebug':
+      self._forced_decode(generator=generator, src_file=src_file,
+                          ref_file=ref_file, batcher=self.batcher,
+                          max_src_len=self.max_src_len,
+                          assert_scores=ref_scores)
+      if trg_file is not None:
+        shutil.copyfile(ref_file, trg_file)
     else:
-      self._generate_output(generator=generator, forced_ref_file=self.ref_file, assert_scores=ref_scores,
+      self._generate_output(generator=generator,
                             src_file=src_file, trg_file=trg_file, batcher=self.batcher,
                             max_src_len=self.max_src_len)
 
   def _generate_one_batch(self, generator: 'models.GeneratorModel',
                                 batcher: Optional[batchers.Batcher] = None,
                                 src_batch: batchers.Batch = None,
-                                ref_batch: Optional[batchers.Batch] = None,
-                                assert_scores: Optional[List[int]] = None,
                                 max_src_len: Optional[int] = None,
                                 fp: TextIO = None):
     """
     Generate outputs for a single batch and write them to the output file.
     """
     batch_size = len(src_batch)
-    if ref_batch[0] is not None:
-      src_batches, ref_batches = batcher.pack(src_batch, ref_batch)
-      ref_batch = ref_batches[0]
-    else:
-      src_batches = batcher.pack(src_batch, None)
-      ref_batch = None
+    src_batches = batcher.pack(src_batch, None)
     src_batch = src_batches[0]
     src_len = src_batch.sent_len()
     if max_src_len is not None and src_len > max_src_len:
@@ -118,23 +126,14 @@ class Inference(object):
     else:
       with utils.ReportOnException({"src": src_batch, "graph": utils.print_cg_conditional}):
         dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-        outputs = self.generate_one(generator, src_batch, ref_batch)
+        outputs = self.generate_one(generator, src_batch)
         if self.reporter: self._create_sent_report()
         for i in range(len(outputs)):
-          if assert_scores[0] is not None:
-            # If debugging forced decoding, make sure it matches
-            assert batch_size == len(outputs), "debug forced decoding not supported with nbest inference"
-            if (abs(outputs[i].score - assert_scores[i]) / abs(assert_scores[i])) > 1e-5:
-              raise ValueError(
-                f'Forced decoding score {outputs[i].score} and loss {assert_scores[i]} do not match at '
-                f'sentence {i}')
           output_txt = outputs[i].sent_str(custom_output_procs=self.post_processor)
           fp.write(f"{output_txt}\n")
 
   def _generate_output(self, generator: 'models.GeneratorModel', src_file: str,
-                       trg_file: str, batcher: Optional[batchers.Batcher] = None, max_src_len: Optional[int] = None,
-                       forced_ref_file: Optional[str] = None,
-                       assert_scores: Optional[Sequence[numbers.Real]] = None) -> None:
+                       trg_file: str, batcher: Optional[batchers.Batcher] = None, max_src_len: Optional[int] = None) -> None:
     """
     Generate outputs and write them to file.
 
@@ -144,30 +143,95 @@ class Inference(object):
       trg_file: file to write outputs to
       batcher: necessary with some cases of input pre-processing such as padding or truncation
       max_src_len: if given, skip inputs that are too long
-      forced_ref_file: if given, perform forced decoding with the given file of trg-side inputs
-      assert_scores: if given, raise exception if the scores for generated outputs don't match the given scores
     """
     src_in = generator.src_reader.read_sents(src_file)
-    # If we have a reference file return it, otherwise return "None" infinitely
-    forced_ref_in = generator.trg_reader.read_sents(forced_ref_file) if forced_ref_file else iter(lambda: None, 1)
-    assert_in = assert_scores if assert_scores else iter(lambda: None, 1)
+
     # Reporting is commenced if there is some defined reporters
     is_reporting = self.reporter is not None
     event_trigger.set_reporting(is_reporting)
+
     # Saving the translated output to a trg file
     with open(trg_file, 'wt', encoding='utf-8') as fp:
-      src_batch, ref_batch, assert_batch = [], [], []
-      for curr_sent_i, (src_line, ref_line, assert_line) in enumerate(zip(src_in, forced_ref_in, assert_in)):
-        if self.max_num_sents and cur_sent_i >= self.max_num_sents:
-          break
+      src_batch = []
+      for curr_sent_i, src_line in islice(enumerate(src_in), self.max_num_sents):
         src_batch.append(src_line)
-        ref_batch.append(ref_line)
-        assert_batch.append(assert_line)
         if len(src_batch) == batcher.batch_size:
-          self._generate_one_batch(generator, batcher, src_batch, ref_batch, assert_batch, max_src_len, fp)
-          src_batch, ref_batch, assert_batch = [], [], []
+          self._generate_one_batch(generator, batcher, src_batch, max_src_len, fp)
+          src_batch = []
       if len(src_batch) != 0:
-        self._generate_one_batch(generator, batcher, src_batch, ref_batch, assert_batch, max_src_len, fp)
+        self._generate_one_batch(generator, batcher, src_batch, max_src_len, fp)
+
+    # Finishing up
+    try:
+      if is_reporting:
+        self._conclude_report()
+    finally:
+      # Reporting is done in _generate_output only
+      event_trigger.set_reporting(False)
+
+  def _forced_decode_one_batch(self, generator: 'models.GeneratorModel',
+                               batcher: Optional[batchers.Batcher] = None,
+                               src_batch: batchers.Batch = None,
+                               ref_batch: batchers.Batch = None,
+                               assert_scores: batchers.Batch = None,
+                               max_src_len: Optional[int] = None):
+    """
+    Performs forced decoding for a single batch.
+    """
+    batch_size = len(src_batch)
+    src_batches, ref_batches = batcher.pack(src_batch, ref_batch)
+    src_batch = src_batches[0]
+    ref_batch = ref_batches[0]
+    src_len = src_batch.sent_len()
+
+    if max_src_len is None or src_len <= max_src_len is not None and src_len > max_src_len:
+      with utils.ReportOnException({"src": src_batch, "graph": utils.print_cg_conditional}):
+        dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+        outputs = self.generate_one(generator, src_batch)
+        if self.reporter: self._create_sent_report()
+        for i in range(len(outputs)):
+          if assert_scores is not None:
+            # If debugging forced decoding, make sure it matches
+            assert batch_size == len(outputs), "debug forced decoding not supported with nbest inference"
+            if (abs(outputs[i].score - assert_scores[i]) / abs(assert_scores[i])) > 1e-5:
+              raise ValueError(
+                f'Forced decoding score {outputs[i].score} and loss {assert_scores[i]} do not match at '
+                f'sentence {i}')
+
+  def _forced_decode(self, generator: 'models.GeneratorModel', src_file: str,
+                      ref_file: str, batcher: Optional[batchers.Batcher] = None, max_src_len: Optional[int] = None,
+                      assert_scores: Optional[Sequence[numbers.Real]] = None) -> None:
+    """
+    Perform forced decoding.
+
+    Args:
+      generator: generator model to use
+      src_file: a file of src-side inputs to generate outputs for
+      ref_file: path of file with reference translations
+      batcher: necessary with some cases of input pre-processing such as padding or truncation
+      max_src_len: if given, skip inputs that are too long
+      assert_scores: if given, raise exception if the scores for generated outputs don't match the given scores
+    """
+    src_in = generator.src_reader.read_sents(src_file)
+
+    # If we have a "assert scores" list return it, otherwise return "None" infinitely
+    assert_in = assert_scores if assert_scores else iter(lambda: None, 1)
+
+    # Reporting is commenced if there is some defined reporters
+    is_reporting = self.reporter is not None
+    event_trigger.set_reporting(is_reporting)
+
+    # Saving the translated output to a trg file
+    src_batch, ref_batch, assert_batch = [], [], []
+    for curr_sent_i, (src_line, assert_line) in islice(enumerate(zip(src_in, assert_in)), self.max_num_sents):
+      src_batch.append(src_line)
+      assert_batch.append(assert_line)
+      if len(src_batch) == batcher.batch_size:
+        self._forced_decode_one_batch(generator, batcher, src_batch, assert_batch, max_src_len)
+        src_batch, ref_batch, assert_batch = [], [], []
+    if len(src_batch) != 0:
+      self._forced_decode_one_batch(generator, batcher, src_batch, assert_batch, max_src_len)
+
     # Finishing up
     try:
       if is_reporting:
@@ -268,12 +332,10 @@ class IndependentOutputInference(Inference, Serializable):
     mode: type of decoding to perform.
 
           * ``onebest``: generate one best.
-          * ``forced``: perform forced decoding.
-          * ``forceddebug``: perform forced decoding, calculate training loss, and make sure the scores are identical
-            for debugging purposes.
           * ``score``: output scores, useful for rescoring
 
     batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
+    reporter: a reporter to create reports for each decoded sentence
   """
   yaml_tag = "!IndependentOutputInference"
 
@@ -290,9 +352,8 @@ class IndependentOutputInference(Inference, Serializable):
 
   def generate_one(self,
                    generator: 'models.GeneratorModel',
-                   src: batchers.Batch,
-                   forced_ref_ids: Optional[Sequence[numbers.Integral]]) -> List[sent.Sentence]:
-    outputs = generator.generate(src, forced_trg_ids=forced_ref_ids)
+                   src: batchers.Batch) -> List[sent.Sentence]:
+    outputs = generator.generate(src)
     return outputs
 
   def compute_losses_one(self,
@@ -320,11 +381,9 @@ class AutoRegressiveInference(Inference, Serializable):
     mode: type of decoding to perform.
 
             * ``onebest``: generate one best.
-            * ``forced``: perform forced decoding.
-            * ``forceddebug``: perform forced decoding, calculate training loss, and make sure the scores are identical
-              for debugging purposes.
             * ``score``: output scores, useful for rescoring
     batcher: inference batcher, needed e.g. in connection with ``pad_src_token_to_multiple``
+    reporter: a reporter to create reports for each decoded sentence
   """
 
   yaml_tag = '!AutoRegressiveInference'
@@ -349,9 +408,8 @@ class AutoRegressiveInference(Inference, Serializable):
 
   def generate_one(self,
                    generator: 'models.GeneratorModel',
-                   src: batchers.Batch,
-                   forced_ref_ids: Optional[Sequence[numbers.Integral]]) -> List[sent.Sentence]:
-    outputs = generator.generate(src, forced_trg_ids=forced_ref_ids, search_strategy=self.search_strategy)
+                   src: batchers.Batch) -> List[sent.Sentence]:
+    outputs = generator.generate(src, search_strategy=self.search_strategy)
     return outputs
 
   def compute_losses_one(self,
@@ -378,7 +436,7 @@ class CascadeInference(Inference, Serializable):
   def __init__(self, steps: Sequence[Inference]) -> None:
     self.steps = steps
 
-  def perform_inference(self, generator: 'models.CascadeGenerator', src_file: str = None, trg_file: str = None) \
+  def perform_inference(self, generator: 'models.CascadeGenerator', src_file: str = None, trg_file: str = None, ref_file: str = None) \
           -> None:
     assert isinstance(generator, models.CascadeGenerator)
     assert len(generator.generators) == len(self.steps)

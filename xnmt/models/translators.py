@@ -2,12 +2,14 @@ import dynet as dy
 import numpy as np
 import collections
 import itertools
+import numbers
 from collections import namedtuple
 from typing import Any, List, Optional, Sequence, Union
 
 from xnmt.settings import settings
 from xnmt import batchers, event_trigger, events, inferences, input_readers, losses, search_strategies, sent, vocabs
 from xnmt.modelparts import attenders, decoders, embedders
+from xnmt.modelparts.scorers import find_best_k
 from xnmt.models import base
 from xnmt.transducers import recurrent, base as transducers_base
 from xnmt.persistence import serializable_init, Serializable, bare
@@ -19,10 +21,10 @@ TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'atten
 class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
   """
   A template class for auto-regressive translators.
-  The core methods are calc_nll and generate / generate_one_step.
-  The former is used during training, the latter for inference.
+  The core methods are calc_nll, add_input, best_k, and sample.
+  The first is used during training, the latter three for inference.
   Similarly during inference, a search strategy is used to generate an output sequence by repeatedly calling
-  generate_one_step.
+  add_input and either best_k or sample.
   """
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
@@ -38,11 +40,7 @@ class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
 
   def generate(self,
                src: batchers.Batch,
-               search_strategy: search_strategies.SearchStrategy,
-               forced_trg_ids: batchers.Batch=None) -> Sequence[sent.Sentence]:
-    raise NotImplementedError("must be implemented by subclasses")
-
-  def generate_one_step(self, current_word: Any, current_state: decoders.AutoRegressiveDecoderState) -> TranslatorOutput:
+               search_strategy: search_strategies.SearchStrategy) -> Sequence[sent.Sentence]:
     raise NotImplementedError("must be implemented by subclasses")
 
   def set_trg_vocab(self, trg_vocab: Optional[vocabs.Vocab] = None) -> None:
@@ -169,24 +167,21 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
   def generate_search_output(self,
                              src: batchers.Batch,
-                             search_strategy: search_strategies.SearchStrategy,
-                             forced_trg_ids: batchers.Batch=None) -> List[search_strategies.SearchOutput]:
+                             search_strategy: search_strategies.SearchStrategy) -> List[search_strategies.SearchOutput]:
     """
     Takes in a batch of source sentences and outputs a list of search outputs.
     Args:
       src: The source sentences
       search_strategy: The strategy with which to perform the search
-      forced_trg_ids: The target IDs to generate if performing forced decoding
     Returns:
       A list of search outputs including scores, etc.
     """
-    if src.batch_size()!=1:
+    if src.batch_size() != 1:
       raise NotImplementedError("batched decoding not implemented for DefaultTranslator. "
                                 "Specify inference batcher with batch size 1.")
     event_trigger.start_sent(src)
     if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
     # Generating outputs
-    cur_forced_trg = None
     src_sent = src[0]
     sent_mask = None
     if src.mask: sent_mask = batchers.Mask(np_arr=src.mask.np_arr[0:1])
@@ -195,27 +190,23 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     # Encode the sentence
     initial_state = self._encode_src(src)
 
-    if forced_trg_ids is  not None: cur_forced_trg = forced_trg_ids[0]
     search_outputs = search_strategy.generate_output(self, initial_state,
-                                                     src_length=[src_sent.sent_len()],
-                                                     forced_trg_ids=cur_forced_trg)
+                                                     src_length=[src_sent.sent_len()])
     return search_outputs
 
   def generate(self,
                src: batchers.Batch,
-               search_strategy: search_strategies.SearchStrategy,
-               forced_trg_ids: batchers.Batch=None) -> Sequence[sent.Sentence]:
+               search_strategy: search_strategies.SearchStrategy) -> Sequence[sent.Sentence]:
     """
     Takes in a batch of source sentences and outputs a list of search outputs.
     Args:
       src: The source sentences
       search_strategy: The strategy with which to perform the search
-      forced_trg_ids: The target IDs to generate if performing forced decoding
     Returns:
       A list of search outputs including scores, etc.
     """
     assert src.batch_size() == 1
-    search_outputs = self.generate_search_output(src, search_strategy, forced_trg_ids)
+    search_outputs = self.generate_search_output(src, search_strategy)
     if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
     sorted_outputs = sorted(search_outputs, key=lambda x: x.score[0], reverse=True)
     assert len(sorted_outputs) >= 1
@@ -242,19 +233,26 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
     return outputs
 
-  def generate_one_step(self, current_word: Any, current_state: decoders.AutoRegressiveDecoderState) -> TranslatorOutput:
-    if current_word is not None:
-      if type(current_word) == int:
-        current_word = [current_word]
-      if type(current_word) == list or type(current_word) == np.ndarray:
-        current_word = batchers.mark_as_batch(current_word)
-      next_state = self.decoder.add_input(current_state, current_word)
-    else:
-      next_state = current_state
-    next_state.context = self.attender.calc_context(next_state.as_vector())
-    next_logsoftmax = self.decoder.calc_log_probs(next_state)
-    return TranslatorOutput(next_state, next_logsoftmax, self.attender.get_last_attention())
+  def add_input(self, word: Any, state: decoders.AutoRegressiveDecoderState) -> TranslatorOutput:
+    if word is not None:
+      if type(word) == int:
+        word = [word]
+      if type(word) == list or type(word) == np.ndarray:
+        word = batchers.mark_as_batch(word)
 
+    next_state = self.decoder.add_input(state, word) if word is not None else state
+    next_state.context = self.attender.calc_context(next_state.as_vector())
+    return TranslatorOutput(next_state, None, self.attender.get_last_attention())
+
+  def best_k(self, state: decoders.AutoRegressiveDecoderState, k: numbers.Integral, normalize_scores: bool = False):
+    best_words, best_scores = self.decoder.best_k(state.state, k, normalize_scores)
+    return best_words, best_scores
+
+  def sample(self, state: decoders.AutoRegressiveDecoderState, n: numbers.Integral, temperature: float = 1.0):
+    return self.decoder.sample(state.state, n, temperature)
+
+  def calc_log_probs(self, state: decoders.AutoRegressiveDecoderState):
+    return self.decoder.calc_log_probs(state.state)
 
 class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable):
   """
@@ -388,8 +386,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
   def generate(self,
                src: batchers.Batch,
-               search_strategy: search_strategies.SearchStrategy,
-               forced_trg_ids: batchers.Batch=None) -> Sequence[sent.Sentence]:
+               search_strategy: search_strategies.SearchStrategy) -> Sequence[sent.Sentence]:
     event_trigger.start_sent(src)
     if not batchers.is_batched(src):
       src = batchers.mark_as_batch([src])
@@ -403,7 +400,7 @@ class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     output_actions = []
     score = 0.
 
-    # TODO Fix this with generate_one_step and use the appropriate search_strategy
+    # TODO Fix this with add_input / best_k and use the appropriate search_strategy
     self.max_len = 100 # This is a temporary hack
     for _ in range(self.max_len):
       dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
@@ -489,9 +486,8 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable):
 
   def generate(self,
                src: batchers.Batch,
-               search_strategy: search_strategies.SearchStrategy,
-               forced_trg_ids: batchers.Batch=None) -> Sequence[sent.Sentence]:
-    return self._proxy.generate(src, search_strategy, forced_trg_ids=forced_trg_ids)
+               search_strategy: search_strategies.SearchStrategy) -> Sequence[sent.Sentence]:
+    return self._proxy.generate(src, search_strategy)
 
 class EnsembleListDelegate(object):
   """
@@ -563,6 +559,7 @@ class EnsembleListDelegate(object):
     return "EnsembleListDelegate([" + ', '.join(repr(elem) for elem in self._objects) + "])"
 
 
+# TODO: Why is this here and not in decoders.py?
 class EnsembleDecoder(EnsembleListDelegate):
   """
   Auxiliary object to wrap a list of decoders for ensembling.
@@ -573,3 +570,9 @@ class EnsembleDecoder(EnsembleListDelegate):
   def calc_log_probs(self, mlp_dec_states):
     scores = [obj.calc_log_probs(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
     return dy.average(scores)
+
+  # TODO: Implement best_k in a way that doesn't rely on the existence of the deprecated
+  # calc_log_probs function
+  def best_k(self, mlp_dec_states, k: numbers.Integral, normalize_scores: bool = False):
+    logprobs = self.calc_log_probs(mlp_dec_states)
+    return find_best_k(logprobs.npvalue(), k)

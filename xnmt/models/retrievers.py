@@ -167,8 +167,7 @@ class DotProductRetriever(Retriever, Serializable):
     encodings = self.exprseq_pooling(self.trg_encoder.transduce(embeddings))
     return encodings
 
-  def generate(self, src, return_type="idxscore", nbest=10, forced_trg_ids=None):
-    if forced_trg_ids is not None: raise NotImplementedError()
+  def generate(self, src, return_type="idxscore", nbest=10):
     src_embedding = self.src_embedder.embed_sent(src)
     self.src_encoder.set_input(src)
     src_encoding = dy.transpose(self.exprseq_pooling(self.src_encoder.transduce(src_embedding))).npvalue()
