@@ -75,7 +75,7 @@ class GreedySearch(Serializable, SearchStrategy):
     for length in range(self.max_len):
       prev_word = word_ids[length-1] if length > 0 else None
       current_output = translator.add_input(prev_word, current_state)
-      word_id, word_score = translator.best_k(current_output, 1)
+      word_id, word_score = translator.best_k(current_output, 1, normalize_scores=True)
       word_id = word_id[0]
       word_score = word_score[0]
       current_state = current_output.state
@@ -163,7 +163,7 @@ class BeamSearch(Serializable, SearchStrategy):
 
         # Find the k best words at the next time step
         current_output = translator.add_input(prev_word, prev_state)
-        top_words, top_scores = translator.best_k(current_output, self.beam_size)
+        top_words, top_scores = translator.best_k(current_output, self.beam_size, normalize_scores=True)
 
         # Queue next states
         for cur_word, score in zip(top_words, top_scores):

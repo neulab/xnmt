@@ -1,0 +1,197 @@
+!Experiment
+evaluate:
+- !AccuracyEvalTask
+  desc: null
+  eval_metrics: bleu
+  hyp_file: examples/data/tiny_hyps.en
+  inference: null
+  model: !Ref {default: 1928437192847, name: null, path: model}
+  perform_inference: true
+  ref_file: examples/data/head.en
+  src_file: examples/data/head.ja
+exp_global: !ExpGlobal
+  bias_init: !ZeroInitializer {}
+  commandline_args:
+    dynet_autobatch: null
+    dynet_devices: null
+    dynet_gpu: false
+    dynet_gpu_ids: null
+    dynet_gpus: null
+    dynet_mem: null
+    dynet_profiling: null
+    dynet_seed: null
+    dynet_viz: false
+    dynet_weight_decay: null
+    experiment_name: []
+    experiments_file: decode_tiny.yaml
+    generate_doc: false
+    resume: false
+    settings: standard
+  default_layer_dim: 32
+  dropout: 0.3
+  log_file: examples/data/tiny_jaen_decode.log
+  loss_comb_method: sum
+  model_file: examples/data/tiny_jaen.model
+  param_init: !GlorotInitializer {gain: 1.0}
+  placeholders: {}
+  save_num_checkpoints: 1
+  truncate_dec_batches: false
+  weight_noise: 0.0
+model: !DefaultTranslator
+  attender: !MlpAttender
+    bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
+    hidden_dim: 32
+    input_dim: 32
+    param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
+    state_dim: 32
+    truncate_dec_batches: false
+    xnmt_subcol_name: MlpAttender.dd4040ad
+  decoder: !AutoRegressiveDecoder
+    bridge: !CopyBridge {dec_dim: 32, dec_layers: 1}
+    embedder: !SimpleWordEmbedder
+      emb_dim: 32
+      fix_norm: null
+      param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
+      src_reader: !Ref {default: 1928437192847, name: null, path: model.src_reader}
+      trg_reader: !Ref {default: 1928437192847, name: null, path: model.trg_reader}
+      vocab: null
+      vocab_size: 69
+      weight_noise: 0.0
+      word_dropout: 0.0
+      xnmt_subcol_name: SimpleWordEmbedder.4433ba39
+    input_dim: 32
+    input_feeding: true
+    rnn: !UniLSTMSeqTransducer
+      bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
+      decoder_input_dim: 32
+      decoder_input_feeding: true
+      dropout: 0.3
+      hidden_dim: 32
+      input_dim: 32
+      layers: 1
+      param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
+      weightnoise_std: 0.0
+      xnmt_subcol_name: UniLSTMSeqTransducer.f0cd8e59
+    scorer: !Softmax
+      bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
+      input_dim: 32
+      label_smoothing: 0.0
+      output_projector: !Linear
+        bias: true
+        bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
+        input_dim: 32
+        output_dim: 69
+        param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
+        xnmt_subcol_name: Linear.1c40e55e
+      param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
+      trg_reader: !Ref {default: 1928437192847, name: null, path: model.trg_reader}
+      vocab: null
+      vocab_size: null
+      xnmt_subcol_name: Softmax.21c2feda
+    transform: !AuxNonLinear
+      activation: tanh
+      aux_input_dim: 32
+      bias: true
+      bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
+      input_dim: 32
+      output_dim: 32
+      param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
+      xnmt_subcol_name: AuxNonLinear.63afb176
+    truncate_dec_batches: false
+    xnmt_subcol_name: AutoRegressiveDecoder.45b88e09
+  encoder: !BiLSTMSeqTransducer
+    backward_layers:
+    - !UniLSTMSeqTransducer
+      bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
+      decoder_input_dim: null
+      decoder_input_feeding: true
+      dropout: 0.3
+      hidden_dim: 16
+      input_dim: 32
+      layers: 1
+      param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
+      weightnoise_std: 0.0
+      xnmt_subcol_name: UniLSTMSeqTransducer.710411d0
+    bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
+    dropout: 0.3
+    forward_layers:
+    - !UniLSTMSeqTransducer
+      bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
+      decoder_input_dim: null
+      decoder_input_feeding: true
+      dropout: 0.3
+      hidden_dim: 16
+      input_dim: 32
+      layers: 1
+      param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
+      weightnoise_std: 0.0
+      xnmt_subcol_name: UniLSTMSeqTransducer.597432e9
+    hidden_dim: 32
+    input_dim: 32
+    layers: 1
+    param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
+    weightnoise_std: 0.0
+  inference: !AutoRegressiveInference
+    batcher: !InOrderBatcher {batch_size: 1, pad_src_to_multiple: 1}
+    max_num_sents: null
+    max_src_len: null
+    mode: onebest
+    post_process: []
+    ref_file: null
+    reporter: null
+    search_strategy: !BeamSearch
+      beam_size: 1
+      len_norm: !NoNormalization {}
+      max_len: 100
+      one_best: true
+      scores_proc: null
+    src_file: null
+    trg_file: null
+  src_embedder: !SimpleWordEmbedder
+    emb_dim: 32
+    fix_norm: null
+    param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
+    src_reader: !Ref {default: 1928437192847, name: null, path: model.src_reader}
+    trg_reader: !Ref {default: 1928437192847, name: null, path: model.trg_reader}
+    vocab: null
+    vocab_size: 73
+    weight_noise: 0.0
+    word_dropout: 0.0
+    xnmt_subcol_name: SimpleWordEmbedder.36f64a98
+  src_reader: !PlainTextReader
+    output_proc: []
+    read_sent_len: false
+    vocab: !Vocab
+      i2w: [<s>, </s>, "\u3002", "\u3044", "\u3067", "\u3092", "\u304C", "\u306F",
+        "\u305F", "\u306A", "\u3057", "\u3059", "\u306E", "\u3066", "\u308B", "\u304B",
+        "\u4E00", "\u304D", "\u4EF6", "\u79C1", "\u307E", "\u304B\u3089", "\u7B11\u3044",
+        "\u4F55", "\u3067\u304D", "\u5F85", "\u6642\u9593", "\u305F\u3061", "\u4E3B\u8981",
+        "\u30C8\u30E9", "\u3061", "\u7D42\u308F", "\u3042\u306A\u305F", "\u982D",
+        "\u8131\u8D70", "\u541B", "\u76AE\u8089", "\u304F\u3060\u3055", "\u6C7A\u5B9A",
+        "\u65E5", "\u30E1\u30FC\u30EB", "\u8981\u7D20", "\u5348\u5F8C", "\u3044\u305F\
+          \u3060", "\u3053\u308C", "\u52D5\u7269", "\u5206", "\u5DEE\u3057\u8FEB",
+        "\u3079", "\u4E88\u5B9A", "\u5B58\u5728", "\u3063", "\u3044\u3064", "\u5712",
+        "\u5F7C", "\u3042\u308A\u304C\u3068\u3046", "\u4EBA", "\u4ED5\u4E8B", "\u3054\u3056",
+        "\u51FA\u767A", "\u5224\u65AD", "\u898B\u3064\u3081", "\u4F8B", "\u6D6E\u304B\
+          \u3079", "\u3042", "\u5916\u898B", "\u305D\u308C", "\u6DF1", "\u8208\u5473",
+        "\u304A", "\uFF15", "\uFF11", <unk>]
+      sentencepiece_vocab: false
+      vocab_file: null
+  trg_reader: !PlainTextReader
+    output_proc: []
+    read_sent_len: false
+    vocab: !Vocab
+      i2w: [<s>, </s>, ., you, '?', a, do, the, in, it, to, with, for, is, minutes,
+        time, tiger, case, person, what, mail, his, through, will, this, at, leave,
+        'no', from, question, smile, stared, wait, '&apos;s', principal, he, judge,
+        there, interesting, looks, e, determining, by, when, where, matter, escaped,
+        one, '&apos;t', afternoon, get, zoo, an, element, regarding, has, thank, your,
+        shouldn, satirical, day, work, five, want, me, please, '@-@', can, <unk>]
+      sentencepiece_vocab: false
+      vocab_file: null
+  truncate_dec_batches: false
+name: exp.fwd
+preproc: null
+random_search_report: null
+status: done
+train: null
