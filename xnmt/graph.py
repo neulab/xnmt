@@ -1,91 +1,121 @@
-from typing import List, Dict
-import numbers
+from typing import List, Any
+from collections import defaultdict
+
+import functools
 
 
-class Node(object):
+class HyperNode(object):
   """
-  Represents a single (hyper)-node in a graph
+  Represents a single HyperNode in a graph.
+  - data: Value of the node
+  - node_id: A unique id of the node.
   """
-  def __init__(self,
-               data: str = None,
-               node_type: str = None,
-               node_id: numbers.Integral = None,
-               edges = None):
-    self.data = data
-    self.node_type = node_type
-    self.node_id = node_id
-    self.edges = edges or []
+  def __init__(self, data: Any, node_id: int):
+    self._data = data
+    self._node_id = node_id
     
-  def __repr__(self):
-    if len(self.edges) != 0:
-      children = " -> {}".format(" ".join([repr(edge) for edge in self.edges]))
-    else:
-      children = ""
-    
-    return "Node {:d} ({}:{}){}".format(self.node_id, self.data,
-                                        self.node_type, children)
-
-
-class Edge(object):
-  """
-  Represents an (hyper)-edge in a graph
-  """
-  def __init__(self,
-               node_from:Node,
-               node_to:List[Node],
-               weight:numbers.Integral = 0,
-               name:str = None,
-               edge_id:numbers.Integral = -1):
-    self.node_from = node_from
-    self.node_to = node_to
-    self.weight = weight
-    self.name = name
-    self.edge_id = edge_id
+  @property
+  def data(self):
+    return self._data
+  
+  @property
+  def node_id(self):
+    return self._node_id
   
   def __repr__(self):
-    return "[{:s}, ({:s})]".format(self.name, ", ".join([str(node.node_id) for node in self.node_to]))
+    return "Node({}, {})".format(self.node_id, str(self.data))
 
 
-class Graph(object):
+class HyperEdge(object):
   """
-  Represents the graph data structure
+  Represents a single HyperEdge in a graph.
+  - node_from: Source Node.
+  - node_to: Destintation Nodes.
+  - features: Float values representing the weight/features of the weight.
   """
-  def __init__(self, edg_list : List[Edge], nodes: Dict[numbers.Integral, Node], root: Node):
-    self.edg_list = edg_list
-    self.nodes = nodes
-    self.root = root
+  def __init__(self,
+               node_from: HyperNode,
+               node_to: List[HyperNode],
+               features: List[float] = None):
+    self._node_from = node_from
+    self._node_to = tuple(node_to)
+    self._features = tuple(features) if features is not None else features
     
+  @property
+  def node_from(self):
+    return self._node_from
+
+  @property
+  def node_to(self):
+    return self._node_to
+  
+  @property
+  def features(self):
+    return self._features
+  
   def __repr__(self):
-    representation = []
-    for node in sorted(self.nodes.values(), key=lambda node: node.node_id):
-      representation.append(repr(node))
-    return "\n".join(representation)
+    return "Edge({} -> {}, {})".format(self.node_from.node_id,
+                                   str([child.node_id for child in self.node_to]),
+                                   str(self.features))
 
 
-class DependencyTree(Graph):
-  @staticmethod
-  def from_conll(conll_line):
-    nodes = {}
-    edges = []
-    def get_or_insert(node_id):
-      if node_id not in nodes:
-        nodes[node_id] = Node(None, node_id=node_id)
-      return nodes[node_id]
+class HyperGraph(object):
+  """
+  A hypergraph datastructure. Represented with a list of HyperEdge.
+  - edge_list: The list of hyperedge forming the graph.
+  """
+  def __init__(self, edge_list: List[HyperEdge]):
+    self._edge_list = tuple(edge_list)
+    adj_list, pred_list, node_list = self._build_graph()
+    self._adj_list = adj_list
+    self._pred_list = pred_list
+    self._node_list = node_list
+
+  # If hypergraph is immutable, we can cache the reverse of the graph
+  @functools.lru_cache(maxsize=1)
+  def reverse(self):
+    rev_edge_list = []
+    for edge in self._edge_list:
+      assert len(edge.node_to) == 1, "Does not support reversed of HyperGraph yet."
+      rev_edge_list.append(HyperEdge(edge.node_to[0], [edge.node_from], edge.features))
+    return HyperGraph(rev_edge_list)
+  
+  # If hypergraph is immutable, we can cache the topological sort of the graph
+  @functools.lru_cache(maxsize=1)
+  def topo_sort(self):
+    stack = []
+    visited = [False for _ in range(len(self._node_list))]
+    for node_id in sorted(self._node_list.keys()):
+      if not visited[node_id]:
+        self._topo_sort(node_id, visited, stack)
+    return [self._node_list[node_id] for node_id in stack]
+    
+  def _topo_sort(self, node_id, visited, stack):
+    visited[node_id] = True
+    if node_id in self._adj_list:
+      for adj_id in self._adj_list[node_id]:
+        if not visited[adj_id]:
+          self._topo_sort(adj_id, visited, stack)
+    stack.append(node_id)
+  
+  def _build_graph(self):
+    pred_list = defaultdict(list)
+    adj_list = defaultdict(list)
+    node_list = {}
+    for edge in self._edge_list:
+      from_id = edge.node_from.node_id
+      for dest in edge.node_to:
+        to_id = dest.node_id
+        adj_list[from_id].append(to_id)
+        pred_list[to_id].append(from_id)
+        node_list[from_id] = edge.node_from
+        node_list[to_id] = dest
+    return dict(pred_list), dict(adj_list), node_list
  
-    for node_id, form, lemma, pos, feat, head, deprel in conll_line:
-      node_id, head_id = int(node_id), int(head)
-      node_from = get_or_insert(head_id)
-      node_to = get_or_insert(node_id)
-      node_to.data = form
-      node_to.node_type = pos
-      
-      edge = Edge(node_from, [node_to], name=deprel, edge_id=node_id)
-      node_from.edges.append(edge)
-      nodes[node_id] = node_to
-      nodes[head_id] = node_from
-      edges.append(edge)
-    root = nodes[0]
-    root.node_type = 0
-    root.data = 0
-    return DependencyTree(edges, nodes, root)
- 
+  def __repr__(self):
+    lst = []
+    for node in self._node_list.values():
+      lst.append(repr(node))
+    for edge in self._edge_list:
+      lst.append(repr(edge))
+    return "\n".join(lst)
