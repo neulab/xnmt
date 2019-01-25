@@ -376,38 +376,7 @@ class NbestSentence(SimpleSentence):
     return " ||| ".join(entries)
 
 
-class LatticeNode(HyperNode):
-  """
-  A lattice node, keeping track of neighboring nodes.
-
-  Args:
-    node_id: Unique identifier for node
-    value: Word id assigned to this node.
-    fwd_log_prob: Lattice log probability normalized in forward-direction (successors sum to 1)
-    marginal_log_prob: Lattice log probability globally normalized
-    bwd_log_prob: Lattice log probability normalized in backward-direction (predecessors sum to 1)
-  """
-  def __init__(self,
-               node_id: int,
-               value: numbers.Integral,
-               fwd_log_prob: Optional[numbers.Real]=0,
-               marginal_log_prob: Optional[numbers.Real]=0,
-               bwd_log_prob: Optional[numbers.Real]=0) -> None:
-    super().__init__(value, node_id)
-    self.fwd_log_prob = fwd_log_prob
-    self.marginal_log_prob = marginal_log_prob
-    self.bwd_log_prob = bwd_log_prob
-
-  def reset_prob(self):
-    self.fwd_log_prob = 0
-    self.marginal_log_prob = 0
-    self.bwd_log_prob = 0
-    
-  def reverse_prob(self):
-    self.fwd_log_prob, self.bwd_log_prob = self.bwd_log_prob, self.fwd_log_prob
-
-
-class Lattice(ReadableSentence):
+class GraphSentence(ReadableSentence):
   """
   A lattice structure.
 
@@ -416,22 +385,19 @@ class Lattice(ReadableSentence):
 
   Args:
     idx: running sentence number (0-based; unique among sentences loaded from the same file, but not across files)
-    nodes: list of lattice nodes
+    graph: hypergraph containing lattices
     vocab: vocabulary for word IDs
     num_padded: denoting that this many words are padded (without adding any physical nodes)
     unpadded_sent: reference to original, unpadded sentence if available
   """
 
   def __init__(self, idx: Optional[numbers.Integral], graph: HyperGraph, vocab: Vocab,
-               num_padded: numbers.Integral = 0, unpadded_sent: 'Lattice' = None) -> None:
+               num_padded: numbers.Integral = 0, unpadded_sent: 'GraphSentence' = None) -> None:
     self.idx = idx
     self.graph = graph
     self.vocab = vocab
     self.num_padded = num_padded
     self.unpadded_sent = unpadded_sent
-    
-    assert len(graph.roots()) == 1 # <SOS>
-    assert len(graph.leaves()) == 1 # <EOS>
 
   def sent_len(self) -> int:
     """Return number of nodes in the lattice, including padded words.
@@ -467,7 +433,7 @@ class Lattice(ReadableSentence):
       raise ValueError("Slicing not support for lattices.")
     return node.value
 
-  def create_padded_sent(self, pad_len: numbers.Integral) -> 'Lattice':
+  def create_padded_sent(self, pad_len: numbers.Integral) -> 'GraphSentence':
     """
     Return padded lattice.
 
@@ -480,10 +446,10 @@ class Lattice(ReadableSentence):
     if pad_len == 0:
       return self
     copied_graph = copy.deepcopy(self.graph)
-    return Lattice(idx=self.idx, graph=copied_graph, vocab=self.vocab, num_padded=pad_len,
-                   unpadded_sent=self.unpadded_sent or super().get_unpadded_sent())
+    return GraphSentence(idx=self.idx, graph=copied_graph, vocab=self.vocab, num_padded=pad_len,
+                         unpadded_sent=self.unpadded_sent or super().get_unpadded_sent())
 
-  def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'Lattice':
+  def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'GraphSentence':
     """
     Return self, as truncation is not supported.
 
@@ -496,23 +462,20 @@ class Lattice(ReadableSentence):
     if trunc_len != 0: raise ValueError("Lattices cannot be truncated.")
     return self
 
-  def get_unpadded_sent(self) -> 'Lattice':
+  def get_unpadded_sent(self) -> 'GraphSentence':
     return self.unpadded_sent or super().get_unpadded_sent()
 
-  def reversed(self) -> 'Lattice':
+  def reversed(self) -> 'GraphSentence':
     """
-    Create a lattice with reversed direction.
+    Create a graph with reversed direction.
 
-    The new lattice will have lattice nodes in reversed order and switched successors/predecessors.
+    The new graph will have graph nodes in reversed order and switched successors/predecessors.
     It will have the same number of padded nodes (again at the end of the nodes!).
 
     Returns:
-      Reversed lattice.
+      Reversed graph.
     """
-    reversed_graph = self.graph.reverse()
-    for i in range(reversed_graph.len_nodes):
-      reversed_graph[i].reverse_prob()
-    return Lattice(idx=self.idx, graph=reversed_graph, vocab=self.vocab, num_padded=self.num_padded)
+    return GraphSentence(idx=self.idx, graph=self.graph.reverse(), vocab=self.vocab, num_padded=self.num_padded)
 
   def str_tokens(self, **kwargs) -> List[str]:
     """
@@ -537,7 +500,46 @@ class Lattice(ReadableSentence):
     """
     out_str = str([self.str_tokens(**kwargs), [self.graph.sucessors(node.node_id) for node in self.graph.iter_nodes()]])
     return out_str
+  
+    
+class LatticeNode(HyperNode):
+  """
+  A lattice node, keeping track of neighboring nodes.
 
+  Args:
+    node_id: Unique identifier for node
+    value: Word id assigned to this node.
+    fwd_log_prob: Lattice log probability normalized in forward-direction (successors sum to 1)
+    marginal_log_prob: Lattice log probability globally normalized
+    bwd_log_prob: Lattice log probability normalized in backward-direction (predecessors sum to 1)
+  """
+  def __init__(self,
+               node_id: int,
+               value: numbers.Integral,
+               fwd_log_prob: Optional[numbers.Real]=0,
+               marginal_log_prob: Optional[numbers.Real]=0,
+               bwd_log_prob: Optional[numbers.Real]=0) -> None:
+    super().__init__(value, node_id)
+    self.fwd_log_prob = fwd_log_prob
+    self.marginal_log_prob = marginal_log_prob
+    self.bwd_log_prob = bwd_log_prob
+
+  def reset_prob(self):
+    self.fwd_log_prob = 0
+    self.marginal_log_prob = 0
+    self.bwd_log_prob = 0
+    
+  def reverse_prob(self):
+    self.fwd_log_prob, self.bwd_log_prob = self.bwd_log_prob, self.fwd_log_prob
+
+
+class LatticeSentence(GraphSentence):
+  def reversed(self):
+    reversed_lattice = super().reversed()
+    for i in range(reversed_lattice.graph.len_nodes):
+      reversed_lattice.graph[i].reverse_prob()
+    return reversed_lattice
+  
   def plot(self, out_file, show_log_probs=("fwd_log_prob", "marginal_log_prob", "bwd_log_prob")):
     try:
       from graphviz import Digraph
@@ -555,4 +557,3 @@ class Lattice(ReadableSentence):
       dot.render(out_file)
     except RuntimeError:
       pass
-

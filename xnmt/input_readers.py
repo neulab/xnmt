@@ -595,8 +595,12 @@ class LatticeReader(BaseTextReader, Serializable):
           edge_list.append(HyperEdge(nodes[from_index], [nodes[to_index]]))
 
       assert nodes[0].value == self.vocab.SS and nodes[-1].value == self.vocab.ES
-
-    return sent.Lattice(idx=idx, graph=HyperGraph(edge_list), vocab=self.vocab)
+    # Construct graph
+    graph = HyperGraph(edge_list)
+    assert len(graph.roots()) == 1 # <SOS>
+    assert len(graph.leaves()) == 1 # <EOS>
+    # Construct LatticeSentence
+    return sent.GraphSentence(idx=idx, graph=graph, vocab=self.vocab)
 
   def vocab_size(self):
     return len(self.vocab)
