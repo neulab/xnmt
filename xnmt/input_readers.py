@@ -500,8 +500,12 @@ class CoNLLToRNNGActionsReader(BaseTextReader, Serializable):
         nodes[node_id] = sent.SyntaxTreeNode(node_id=node_id, value=form, head=pos)
       for node_id, form, lemma, pos, feat, head, deprel in lines:
         if head != 0 and deprel != "ROOT":
-          edge_list.append(HyperEdge(nodes[head], [nodes[node_id]], None, deprel))
-      return sent.RNNGSequenceSentence(idx, HyperGraph(edge_list), self.surface_vocab, self.nt_vocab, all_surfaces=True)
+          edge_list.append(HyperEdge(head, [node_id], None, deprel))
+      return sent.RNNGSequenceSentence(idx,
+                                       HyperGraph(edge_list, nodes),
+                                       self.surface_vocab,
+                                       self.nt_vocab,
+                                       all_surfaces=True)
     idx = 0
     lines = []
     # Loop all lines in the file
@@ -563,7 +567,7 @@ class LatticeReader(BaseTextReader, Serializable):
       nodes.append(sent.LatticeNode(node_id=len(nodes), value=vocabs.Vocab.ES))
       # Flat edge list
       for i in range(len(nodes)-1):
-        edge_list.append(HyperEdge(nodes[i], [nodes[i+1]]))
+        edge_list.append(HyperEdge(i, [i+1]))
     else:
       node_list, arc_list = ast.literal_eval(line)
       nodes = [sent.LatticeNode(node_id=i,
@@ -572,16 +576,16 @@ class LatticeReader(BaseTextReader, Serializable):
                for i, item in enumerate(node_list)]
       if self.flatten:
         for i in range(len(nodes)-1):
-          edge_list.append(HyperEdge(nodes[i], [nodes[i+1]]))
+          edge_list.append(HyperEdge(i, [i+1]))
           nodes[i].reset_prob()
         nodes[-1].reset_prob()
       else:
         for from_index, to_index in arc_list:
-          edge_list.append(HyperEdge(nodes[from_index], [nodes[to_index]]))
+          edge_list.append(HyperEdge(from_index, [to_index]))
 
       assert nodes[0].value == self.vocab.SS and nodes[-1].value == self.vocab.ES
     # Construct graph
-    graph = HyperGraph(edge_list)
+    graph = HyperGraph(edge_list, {node.node_id: node for node in nodes})
     assert len(graph.roots()) == 1 # <SOS>
     assert len(graph.leaves()) == 1 # <EOS>
     # Construct LatticeSentence

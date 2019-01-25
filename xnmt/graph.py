@@ -1,4 +1,4 @@
-from typing import List, Any
+from typing import List, Any, Dict
 from collections import defaultdict
 
 import functools
@@ -26,6 +26,12 @@ class HyperNode(object):
   def id(self):
     return self.node_id
   
+  def reversed(self):
+    return self
+  
+  def feature_str(self):
+    return ""
+  
   def __repr__(self):
     return "Node({}, {})".format(self.node_id, str(self.value))
 
@@ -38,8 +44,8 @@ class HyperEdge(object):
   - features: Float values representing the weight/features of the weight.
   """
   def __init__(self,
-               node_from: HyperNode,
-               node_to: List[HyperNode],
+               node_from: int,
+               node_to: List[int],
                features: List[float] = None,
                label: str = None):
     self._node_from = node_from
@@ -64,21 +70,22 @@ class HyperEdge(object):
     return self._label
   
   def __repr__(self):
-    return "Edge({} -> {})".format(self.node_from.node_id,
-                                   str([child.node_id for child in self.node_to]))
+    return "Edge({} -> {})".format(self.node_from,
+                                   str([child for child in self.node_to]))
 
 
 class HyperGraph(object):
   """
   A hypergraph datastructure. Represented with a list of HyperEdge.
   - edge_list: The list of hyperedge forming the graph.
+  - node_List: A map of node_id and the corresponding node
   """
-  def __init__(self, edge_list: List[HyperEdge]):
+  def __init__(self, edge_list: List[HyperEdge], node_list: Dict[int, HyperNode]):
     self._edge_list = tuple(edge_list)
-    succ_list, pred_list, node_list = self._build_graph()
+    self._node_list = node_list
+    succ_list, pred_list = self._build_graph()
     self._succ_list = succ_list
     self._pred_list = pred_list
-    self._node_list = node_list
 
   # If hypergraph is immutable, we can cache the reverse of the graph
   @functools.lru_cache(maxsize=1)
@@ -87,7 +94,8 @@ class HyperGraph(object):
     for edge in self._edge_list:
       assert len(edge.node_to) == 1, "Does not support reversed of HyperGraph."
       rev_edge_list.append(HyperEdge(edge.node_to[0], [edge.node_from], edge.features, edge.label))
-    return HyperGraph(rev_edge_list)
+    node_list = {node_id: node.reversed() for node_id, node in self._node_list.items()}
+    return HyperGraph(rev_edge_list, node_list)
   
   # If hypergraph is immutable, we can cache the topological sort of the graph
   @functools.lru_cache(maxsize=1)
@@ -129,16 +137,14 @@ class HyperGraph(object):
   def _build_graph(self):
     pred_list = defaultdict(list)
     succ_list = defaultdict(list)
-    node_list = {}
     for edge in self._edge_list:
-      from_id = edge.node_from.node_id
-      for dest in edge.node_to:
-        to_id = dest.node_id
+      from_id = edge.node_from
+      assert from_id in self._node_list
+      for to_id in edge.node_to:
+        assert to_id in self._node_list
         succ_list[from_id].append(to_id)
         pred_list[to_id].append(from_id)
-        node_list[from_id] = edge.node_from
-        node_list[to_id] = dest
-    return dict(succ_list), dict(pred_list), node_list
+    return dict(succ_list), dict(pred_list)
 
   @property
   def len_nodes(self):

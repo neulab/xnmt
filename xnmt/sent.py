@@ -380,14 +380,13 @@ class NbestSentence(SimpleSentence):
 
 class GraphSentence(ReadableSentence):
   """
-  A lattice structure.
+  A graph structure.
 
-  The lattice is represented as a list of nodes, each of which keep track of the indices of predecessor and
-  successor nodes.
+  This is a wrapper for a graph datastructure.
 
   Args:
     idx: running sentence number (0-based; unique among sentences loaded from the same file, but not across files)
-    graph: hypergraph containing lattices
+    graph: hypergraph containing graphs
     vocab: vocabulary for word IDs
     num_padded: denoting that this many words are padded (without adding any physical nodes)
     unpadded_sent: reference to original, unpadded sentence if available
@@ -403,48 +402,48 @@ class GraphSentence(ReadableSentence):
     self.nodes = self.graph.topo_sort()
 
   def sent_len(self) -> int:
-    """Return number of nodes in the lattice, including padded words.
+    """Return number of nodes in the graph, including padded words.
 
     Return:
-      Number of nodes in lattice.
+      Number of nodes in graph.
     """
     return len(self.nodes) + self.num_padded
 
   def len_unpadded(self) -> int:
-    """Return number of nodes in the lattice, without counting padded words.
+    """Return number of nodes in the graph, without counting padded words.
 
     Returns:
-      Number of nodes in lattice.
+      Number of nodes in graph.
     """
     return len(self.nodes)
 
   def __getitem__(self, key: numbers.Integral) -> Optional[int]:
     """
-    Return the value of a particular lattice node. Padded nodes are virtually appended at the end.
+    Return the value of a particular graph node. Padded nodes are virtually appended at the end.
 
     Args:
-      key: Index of lattice node.
+      key: Index of graph node.
 
     Returns:
-      Value of lattice node with given index, or ES if accessing a padded lattice node.
+      Value of graph node with given index, or ES if accessing a padded lattice node.
     """
     if self.len_unpadded() <= key < self.sent_len():
       return self.vocab.ES
     node = self.graph[key]
     if isinstance(node, list):
       # no guarantee that slice is still a consistent graph
-      raise ValueError("Slicing not support for lattices.")
+      raise ValueError("Slicing not support for graphs.")
     return node.value
 
   def create_padded_sent(self, pad_len: numbers.Integral) -> 'GraphSentence':
     """
-    Return padded lattice.
+    Return padded graph.
 
     Args:
       pad_len: Number of tokens to pad.
 
     Returns:
-      New padded lattice, or self if pad_len==0.
+      New padded graph, or self if pad_len==0.
     """
     if pad_len == 0:
       return self
@@ -487,7 +486,7 @@ class GraphSentence(ReadableSentence):
     Args:
       **kwargs: ignored
 
-    Returns: list of tokens of linearized lattice.
+    Returns: list of tokens of linearized graph.
     """
     return [self.vocab.i2w[self.graph[node_id].value] for node_id in self.nodes]
 
@@ -504,10 +503,28 @@ class GraphSentence(ReadableSentence):
     out_str = str([self.str_tokens(**kwargs), [self.graph.sucessors(node_id) for node_id in self.nodes]])
     return out_str
   
+  def plot(self, out_file):
+    try:
+      from graphviz import Digraph
+    except:
+      raise RuntimeError("Need graphviz package to be installed.")
+    dot = Digraph(comment='Graph')
+    for node_id in self.nodes:
+      node = self.graph[node_id]
+      node_label = "{} {}".format(self.vocab.i2w[node.value], node.feature_str())
+      dot.node(str(node_id), "{} : {}".format(node_id, node_label))
+    for edge in self.graph.iter_edges():
+      for node_next in edge.node_to:
+        dot.edge(str(edge.node_from.node_id), str(node_next.node_id), "")
+    try:
+      dot.render(out_file)
+    except RuntimeError:
+      pass
     
+
 class LatticeNode(HyperNode):
   """
-  A lattice node, keeping track of neighboring nodes.
+  A lattice node.
 
   Args:
     node_id: Unique identifier for node
@@ -531,37 +548,13 @@ class LatticeNode(HyperNode):
     self.fwd_log_prob = 0
     self.marginal_log_prob = 0
     self.bwd_log_prob = 0
-    
-  def reverse_prob(self):
-    self.fwd_log_prob, self.bwd_log_prob = self.bwd_log_prob, self.fwd_log_prob
 
-
-class LatticeSentence(GraphSentence):
   def reversed(self):
-    reversed_lattice = super().reversed()
-    for i in range(reversed_lattice.graph.len_nodes):
-      reversed_lattice.graph[i].reverse_prob()
-    return reversed_lattice
-  
-  def plot(self, out_file, show_log_probs=("fwd_log_prob", "marginal_log_prob", "bwd_log_prob")):
-    try:
-      from graphviz import Digraph
-    except:
-      raise RuntimeError("Need graphviz package to be installed.")
-    dot = Digraph(comment='Lattice')
-    for node_id in self.nodes:
-      node = self.graph[node_id]
-      log_prob_strings = ["{:.3f}".format(math.exp(getattr(node, field))) for field in show_log_probs]
-      node_label = "{} {}".format(self.vocab.i2w[node.value], '|'.join(log_prob_strings))
-      dot.node(str(node_id), "{} : {}".format(node_id, node_label))
-    for edge in self.graph.iter_edges():
-      for node_next in edge.node_to:
-        dot.edge(str(edge.node_from.node_id), str(node_next.node_id), "")
-    try:
-      dot.render(out_file)
-    except RuntimeError:
-      pass
-    
+    return LatticeNode(self.node_id, self.value, self.bwd_log_prob, self.marginal_log_prob, self.fwd_log_prob)
+
+  def feature_str(self):
+    return "{:.3f}|{:.3f}|{:.3f}".format(self.fwd_log_prob, self.marginal_log_prob, self.bwd_log_prob)
+
     
 class SyntaxTreeNode(HyperNode):
   class Type(enum.Enum):
