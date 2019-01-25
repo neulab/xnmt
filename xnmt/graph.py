@@ -90,18 +90,20 @@ class HyperGraph(object):
     # Buffers for topological sorting
     stack = []
     visited = [False for _ in range(len(self._node_list))]
+    print(self._node_list)
+    print(self._edge_list)
     # Helper function for topological sorting
     def _topo_sort(current_id):
-      visited[node_id] = True
+      visited[current_id] = True
       if current_id in self._succ_list:
-        for adj_id in self._succ_list[node_id]:
+        for adj_id in self._succ_list[current_id]:
           if not visited[adj_id]:
             _topo_sort(adj_id)
-      stack.append(node_id)
+      stack.append(current_id)
     # Driver function for topo sort
     for node_id in sorted(self._node_list.keys()):
       if not visited[node_id]:
-        _topo_sort(node_id, visited, stack)
+        _topo_sort(node_id)
     # The results are seen from the reversed list
     return list(reversed(stack))
 
