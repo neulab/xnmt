@@ -13,7 +13,7 @@ with warnings.catch_warnings():
 
 from xnmt import logger
 
-from xnmt import events, vocabs, grammars
+from xnmt import events, vocabs
 from xnmt.graph import HyperEdge, HyperGraph
 from xnmt.persistence import serializable_init, Serializable
 from xnmt import sent
@@ -476,65 +476,50 @@ class IDReader(BaseTextReader, Serializable):
     return [l for l in self.iterate_filtered(filename, filter_ids)]
  
  
-#class CoNLLTreeReader(BaseTextReader, Serializable):
-#  """
-#  Handles the reading of CoNLL File Format:
-#
-#  ID FORM LEMMA POS FEAT HEAD DEPREL
-#
-#  A single line represents a single edge of dependency parse tree.
-#  """
-#  yaml_tag = "!CoNLLTreeReader"
-#  @serializable_init
-#  def __init__(self):
-#    pass
-#
-#  def read_sents(self, filename: str, filter_ids: Sequence[numbers.Integral] = None):
-#    trees = []
-#    with open(filename) as fp:
-#      buffer = []
-#      for line in fp:
-#        line = line.strip()
-#        if len(line) == 0:
-#          trees.append(grammars.ShiftReduceGrammar.from_graph(DependencyTree.from_conll(buffer)))
-#          buffer.clear()
-#        else:
-#          try:
-#            node_id, form, lemma, pos, feat, head, deprel = line.strip().split()
-#          except ValueError:
-#            logger.error("Bad line: %s", line)
-#          buffer.append((node_id, form, lemma, pos, feat, head, deprel))
-#      if len(buffer) != 0:
-#        trees.append(grammars.ShiftReduceGrammar.from_graph(DependencyTree.from_conll(buffer)))
-#    return trees
-#
-#
-#class DependencyTree(Graph):
-#  @staticmethod
-#  def from_conll(conll_line):
-#    nodes = {}
-#    edges = []
-#    def get_or_insert(node_id):
-#      if node_id not in nodes:
-#        nodes[node_id] = Node(None, node_id=node_id)
-#      return nodes[node_id]
-#
-#    for node_id, form, lemma, pos, feat, head, deprel in conll_line:
-#      node_id, head_id = int(node_id), int(head)
-#      node_from = get_or_insert(head_id)
-#      node_to = get_or_insert(node_id)
-#      node_to.data = form
-#      node_to.node_type = pos
-#
-#      edge = HyperEdge(node_from, [node_to], name=deprel, edge_id=node_id)
-#      node_from.edges.append(edge)
-#      nodes[node_id] = node_to
-#      nodes[head_id] = node_from
-#      edges.append(edge)
-#    root = nodes[0]
-#    root.node_type = 0
-#    root.data = 0
-#    return DependencyTree(nodes, root)
+class CoNLLToRNNGActionsReader(BaseTextReader, Serializable):
+  """
+  Handles the reading of CoNLL File Format:
+
+  ID FORM LEMMA POS FEAT HEAD DEPREL
+
+  A single line represents a single edge of dependency parse tree.
+  """
+  yaml_tag = "!CoNLLToRNNGActionsReader"
+  @serializable_init
+  def __init__(self, surface_vocab: vocabs.Vocab, nt_vocab:vocabs.Vocab):
+    self.surface_vocab = surface_vocab
+    self.nt_vocab = nt_vocab
+    pass
+
+  def read_sents(self, filename: str, filter_ids: Sequence[numbers.Integral] = None):
+    # Routine to add tree
+    def emit_tree(idx, lines):
+      nodes = {}
+      edge_list = []
+      for node_id, form, lemma, pos, feat, head, deprel in lines:
+        nodes[node_id] = sent.SyntaxTreeNode(node_id=node_id, value=form, head=pos)
+      for node_id, form, lemma, pos, feat, head, deprel in lines:
+        if head != 0 and deprel != "ROOT":
+          edge_list.append(HyperEdge(nodes[head], [nodes[node_id]], None, deprel))
+      return sent.RNNGSequenceSentence(idx, HyperGraph(edge_list), self.surface_vocab, self.nt_vocab, all_surfaces=True)
+    idx = 0
+    lines = []
+    # Loop all lines in the file
+    with open(filename) as fp:
+      for line in fp:
+        line = line.strip()
+        if len(line) == 0:
+          yield emit_tree(idx, lines)
+          lines.clear()
+          idx += 1
+        else:
+          try:
+            node_id, form, lemma, pos, feat, head, deprel = line.strip().split()
+            lines.append((int(node_id), form, lemma, pos, feat, int(head), deprel))
+          except ValueError:
+            logger.error("Bad line: %s", line)
+      if len(lines) != 0:
+        yield emit_tree(idx, lines)
 
 
 class LatticeReader(BaseTextReader, Serializable):

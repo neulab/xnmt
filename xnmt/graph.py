@@ -40,10 +40,12 @@ class HyperEdge(object):
   def __init__(self,
                node_from: HyperNode,
                node_to: List[HyperNode],
-               features: List[float] = None):
+               features: List[float] = None,
+               label: str = None):
     self._node_from = node_from
     self._node_to = tuple(node_to)
     self._features = tuple(features) if features is not None else features
+    self._label = label
     
   @property
   def node_from(self):
@@ -57,10 +59,13 @@ class HyperEdge(object):
   def features(self):
     return self._features
   
+  @property
+  def label(self):
+    return self._label
+  
   def __repr__(self):
-    return "Edge({} -> {}, {})".format(self.node_from.node_id,
-                                   str([child.node_id for child in self.node_to]),
-                                   str(self.features))
+    return "Edge({} -> {})".format(self.node_from.node_id,
+                                   str([child.node_id for child in self.node_to]))
 
 
 class HyperGraph(object):
@@ -81,7 +86,7 @@ class HyperGraph(object):
     rev_edge_list = []
     for edge in self._edge_list:
       assert len(edge.node_to) == 1, "Does not support reversed of HyperGraph."
-      rev_edge_list.append(HyperEdge(edge.node_to[0], [edge.node_from], edge.features))
+      rev_edge_list.append(HyperEdge(edge.node_to[0], [edge.node_from], edge.features, edge.label))
     return HyperGraph(rev_edge_list)
   
   # If hypergraph is immutable, we can cache the topological sort of the graph

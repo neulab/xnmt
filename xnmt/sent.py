@@ -2,13 +2,14 @@ import copy
 import functools
 import math
 import numbers
+import enum
 from typing import List, Optional, Sequence, Union
 
 import numpy as np
 
 from xnmt.vocabs import Vocab
 from xnmt.output import OutputProcessor
-from xnmt.graph import  HyperGraph, HyperEdge, HyperNode
+from xnmt.graph import  HyperGraph, HyperNode
 
 class Sentence(object):
   """
@@ -560,3 +561,125 @@ class LatticeSentence(GraphSentence):
       dot.render(out_file)
     except RuntimeError:
       pass
+    
+    
+class SyntaxTreeNode(HyperNode):
+  class Type(enum.Enum):
+    NONE=0
+    NT=1
+    PRT=2
+    T=3
+  
+  def __init__(self, node_id, value, head, node_type=Type.NONE):
+    super().__init__(value, node_id)
+    self._head = head
+    self._type = node_type
+    
+  @property
+  def head(self):
+    return self._head
+  
+  @property
+  def node_type(self):
+    return self._type
+  
+class RNNGAction(object):
+  class Type(enum.Enum):
+    GEN=0
+    REDUCE=1
+    NT=2
+    NONE=3
+    
+  def __init__(self, action_type, action_content=None):
+    self._action_type = action_type
+    self._action_content = action_content
+  
+  @property
+  def action_type(self):
+    return self._action_type
+  
+  @property
+  def action_content(self):
+    return self._action_content
+  
+  @property
+  def action_id(self):
+    return self.action_type.value
+  
+  def str_token(self, surface_vocab, nt_vocab):
+    if self.action_type == self.Type.GEN:
+      return "GEN('{}')".format(surface_vocab[self.action_content])
+    elif self.action_type == self.Type.NT:
+      return "NT('{}')".format(nt_vocab[self.action_content])
+    elif self.action_type == self.Type.REDUCE:
+      return "RL()" if self.action_content else "RR()"
+    else:
+      return "NONE()"
+    
+  def __eq__(self, other):
+    return self.action_type == other.action_type and self.action_content == other.action_content
+  
+  
+class RNNGSequenceSentence(ReadableSentence):
+  def __init__(self,
+               idx: Optional[numbers.Integral],
+               graph: HyperGraph,
+               surface_vocab: Vocab,
+               nt_vocab: Vocab,
+               all_surfaces: bool = False,
+               num_padded: numbers.Integral = 0,
+               unpadded_sent: 'RNNGSequenceSentence' = None) -> None:
+    self.idx = idx
+    self.surface_vocab = surface_vocab
+    self.nt_vocab = nt_vocab
+    self.graph = graph
+    self.all_surfaces = all_surfaces
+    self.actions = self._actions_from_graph()
+    self.num_padded = num_padded
+    self.unpadded_sent = unpadded_sent
+
+  def sent_len(self) -> int:
+    return len(self.actions)
+  
+  def len_unpadded(self) -> int:
+    return len(self.actions)
+  
+  def create_padded_sent(self, pad_len: numbers.Integral) -> 'ScalarSentence':
+    if pad_len != 0:
+      raise ValueError("RNNGSequenceSentence cannot be padded")
+    return self
+  
+  def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'ScalarSentence':
+    if trunc_len != 0:
+      raise ValueError("RNNGSeqeunceSentence cannot be truncated")
+    return self
+
+  def get_unpadded_sent(self):
+    return self
+
+  def str_tokens(self, **kwargs) -> List[str]:
+    return [action.str_token(self.surface_vocab, self.nt_vocab) for action in self.actions]
+
+  def sent_str(self):
+    return " ".join(self.str_tokens())
+
+  def _actions_from_graph(self):
+    roots = self.graph.roots()
+    # Only 1 Head
+    assert len(roots) == 1
+    # Helper function
+    def actions_from_graph(current_id, results):
+      successors = self.graph.sucessors(current_id)
+      for i in range(results[1], current_id+1):
+        if len(successors) == 0 or self.all_surfaces: # Leaf
+          results[0].append(RNNGAction(RNNGAction.Type.GEN, self.surface_vocab.convert(self.graph[i].value)))
+        else: # Non Terminal
+          results[0].append(RNNGAction(RNNGAction.Type.NT, self.nt_vocab.convert(self.graph[i].value)))
+      results[1] = max(results[1], current_id+1)
+      
+      for child in sorted(successors):
+        actions_from_graph(child, results)
+        results[0].append(RNNGAction(RNNGAction.Type.REDUCE, child < current_id))
+      return results[0]
+    # Driver function
+    return actions_from_graph(roots[0], [[], 1])
