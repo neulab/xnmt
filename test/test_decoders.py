@@ -52,7 +52,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
     train_loss = self.model.calc_nll(src=self.src_data[0],
                                      trg=outputs[0]).value()
 
-    self.assertAlmostEqual(-output_score, train_loss, places=5)
+    self.assertAlmostEqual(-output_score, train_loss, places=3)
 
 
 if __name__ == '__main__':
