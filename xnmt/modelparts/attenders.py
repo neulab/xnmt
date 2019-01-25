@@ -237,8 +237,8 @@ class LatticeBiasedMlpAttender(MlpAttender, Serializable):
   def on_start_sent(self, src):
     self.cur_sent_bias = np.full((src.sent_len(), 1, src.batch_size()), -1e10)
     for batch_i, lattice_batch_elem in enumerate(src):
-      for node_i, node in enumerate(lattice_batch_elem.graph.iter_nodes()):
-        self.cur_sent_bias[node_i, 0, batch_i] = node.marginal_log_prob
+      for node_id in lattice_batch_elem.nodes:
+        self.cur_sent_bias[node_id, 0, batch_i] = lattice_batch_elem.graph[node_id].marginal_log_prob
     self.cur_sent_bias_expr = None
 
   def calc_attention(self, state: dy.Expression) -> dy.Expression:

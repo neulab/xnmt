@@ -352,6 +352,7 @@ class ArraySentence(Sentence):
   def get_array(self):
     return self.nparr
 
+
 class NbestSentence(SimpleSentence):
   """
   Output in the context of an nbest list.
@@ -398,6 +399,7 @@ class GraphSentence(ReadableSentence):
     self.vocab = vocab
     self.num_padded = num_padded
     self.unpadded_sent = unpadded_sent
+    self.nodes = self.graph.topo_sort()
 
   def sent_len(self) -> int:
     """Return number of nodes in the lattice, including padded words.
@@ -405,7 +407,7 @@ class GraphSentence(ReadableSentence):
     Return:
       Number of nodes in lattice.
     """
-    return self.graph.len_nodes + self.num_padded
+    return len(self.nodes) + self.num_padded
 
   def len_unpadded(self) -> int:
     """Return number of nodes in the lattice, without counting padded words.
@@ -413,7 +415,7 @@ class GraphSentence(ReadableSentence):
     Returns:
       Number of nodes in lattice.
     """
-    return self.graph.len_nodes
+    return len(self.nodes)
 
   def __getitem__(self, key: numbers.Integral) -> Optional[int]:
     """
@@ -486,7 +488,7 @@ class GraphSentence(ReadableSentence):
 
     Returns: list of tokens of linearized lattice.
     """
-    return [self.vocab.i2w[node.value] for node in self.graph.iter_nodes()]
+    return [self.vocab.i2w[self.graph[node_id].value] for node_id in self.nodes]
 
   def sent_str(self, custom_output_procs=None, **kwargs) -> str:
     """
@@ -498,7 +500,7 @@ class GraphSentence(ReadableSentence):
 
     Returns: readable string
     """
-    out_str = str([self.str_tokens(**kwargs), [self.graph.sucessors(node.node_id) for node in self.graph.iter_nodes()]])
+    out_str = str([self.str_tokens(**kwargs), [self.graph.sucessors(node_id) for node_id in self.nodes]])
     return out_str
   
     
@@ -546,10 +548,11 @@ class LatticeSentence(GraphSentence):
     except:
       raise RuntimeError("Need graphviz package to be installed.")
     dot = Digraph(comment='Lattice')
-    for node in self.graph.iter_nodes():
+    for node_id in self.nodes:
+      node = self.graph[node_id]
       log_prob_strings = ["{:.3f}".format(math.exp(getattr(node, field))) for field in show_log_probs]
       node_label = "{} {}".format(self.vocab.i2w[node.value], '|'.join(log_prob_strings))
-      dot.node(str(node.node_id), "{} : {}".format(node.node_id, node_label))
+      dot.node(str(node_id), "{} : {}".format(node_id, node_label))
     for edge in self.graph.iter_edges():
       for node_next in edge.node_to:
         dot.edge(str(edge.node_from.node_id), str(node_next.node_id), "")

@@ -90,8 +90,6 @@ class HyperGraph(object):
     # Buffers for topological sorting
     stack = []
     visited = [False for _ in range(len(self._node_list))]
-    print(self._node_list)
-    print(self._edge_list)
     # Helper function for topological sorting
     def _topo_sort(current_id):
       visited[current_id] = True

@@ -77,17 +77,17 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
     Wx_f = dy.parameter(self.p_Wx_f)
     Wh_f = dy.parameter(self.p_Wh_f)
     b_f = dy.parameter(self.p_b_f)
-    h = []
-    c = []
+    h = {}
+    c = {}
+    h_list = []
 
     batch_size = expr_seq.dim()[1]
     if self.dropout_rate > 0.0 and self.train:
       self.set_dropout_masks(batch_size=batch_size)
 
-    for cur_node_id in lattice.graph.topo_sort():
-      cur_node = lattice.graph[cur_node_id]
-      prev_node = lattice.graph.predecessors(cur_node.node_id)
-      val = expr_seq[cur_node.node_id]
+    for i, cur_node_id in enumerate(lattice.nodes):
+      prev_node = lattice.graph.predecessors(cur_node_id)
+      val = expr_seq[i]
       if self.dropout_rate > 0.0 and self.train:
         val = dy.cmult(val, self.dropout_mask_x)
       i_ft_list = []
@@ -106,18 +106,19 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
       i_ot = dy.logistic(i_aot)
       i_gt = dy.tanh(i_agt)
       if len(prev_node) == 0:
-        c.append(dy.cmult(i_it, i_gt))
+        c[cur_node_id] = dy.cmult(i_it, i_gt)
       else:
         fc = dy.cmult(i_ft_list[0], c[prev_node[0]])
         for i in range(1, len(prev_node)):
           fc += dy.cmult(i_ft_list[i], c[prev_node[i]])
-        c.append(fc + dy.cmult(i_it, i_gt))
-      h_t = dy.cmult(i_ot, dy.tanh(c[-1]))
+        c[cur_node_id] = fc + dy.cmult(i_it, i_gt)
+      h_t = dy.cmult(i_ot, dy.tanh(c[cur_node_id]))
       if self.dropout_rate > 0.0 and self.train:
         h_t = dy.cmult(h_t, self.dropout_mask_h)
-      h.append(h_t)
-    self._final_states = [transducers.FinalTransducerState(h[-1], c[-1])]
-    return expression_seqs.ExpressionSequence(expr_list=h)
+      h[cur_node_id] = h_t
+      h_list.append(h_t)
+    self._final_states = [transducers.FinalTransducerState(h_list[-1], h_list[-1])]
+    return expression_seqs.ExpressionSequence(expr_list=h_list)
 
 
 class BiLatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
