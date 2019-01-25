@@ -15,20 +15,20 @@ class TestGraph(unittest.TestCase):
     self.graph = HyperGraph(edg_list)
     
   def test_construction(self):
-    adj_list = {2: [1], 3: [1], 4: [2], 5: [2]}
-    pred_list = {1: [2, 3], 2: [4, 5]}
+    pred_list = {2: [1], 3: [1], 4: [2], 5: [2]}
+    adj_list = {1: [2, 3], 2: [4, 5]}
     node_list = {1: self.nodes[0], 2: self.nodes[1], 3: self.nodes[2], 4: self.nodes[3], 5: self.nodes[4]}
-    self.assertDictEqual(adj_list, self.graph._adj_list)
+    self.assertDictEqual(adj_list, self.graph._succ_list)
     self.assertDictEqual(pred_list, self.graph._pred_list)
     self.assertDictEqual(node_list, self.graph._node_list)
     
   def test_reverse(self):
     reverse_graph = self.graph.reverse()
     # Now we reverse the expected adj_list & predec list
-    adj_list = {1: [2, 3], 2: [4, 5]}
-    pred_list = {2: [1], 3: [1], 4: [2], 5: [2]}
+    pred_list = {1: [2, 3], 2: [4, 5]}
+    adj_list = {2: [1], 3: [1], 4: [2], 5: [2]}
     node_list = {1: self.nodes[0], 2: self.nodes[1], 3: self.nodes[2], 4: self.nodes[3], 5: self.nodes[4]}
-    self.assertDictEqual(adj_list, reverse_graph._adj_list)
+    self.assertDictEqual(adj_list, reverse_graph._succ_list)
     self.assertDictEqual(pred_list, reverse_graph._pred_list)
     self.assertDictEqual(node_list, reverse_graph._node_list)
   
@@ -42,8 +42,10 @@ class TestGraph(unittest.TestCase):
              HyperEdge(nodes[2], [nodes[3]]),
              HyperEdge(nodes[3], [nodes[1]])]
     graph = HyperGraph(edges)
-    id_sort = [x.node_id for x in graph.topo_sort()]
-    self.assertListEqual(id_sort, [5, 4, 0, 2, 3, 1])
+    self.assertListEqual(graph.topo_sort(), [5, 4, 2, 3, 1, 0])
+    
+  def test_leaves(self):
+    self.assertListEqual(self.graph.leaves(), [3, 4, 5])
 
 
 if __name__ == "__main__":

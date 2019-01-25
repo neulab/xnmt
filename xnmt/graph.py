@@ -10,20 +10,24 @@ class HyperNode(object):
   - data: Value of the node
   - node_id: A unique id of the node.
   """
-  def __init__(self, data: Any, node_id: int):
-    self._data = data
+  def __init__(self, value: Any, node_id: int):
+    self._value = value
     self._node_id = node_id
     
   @property
-  def data(self):
-    return self._data
+  def value(self):
+    return self._value
   
   @property
   def node_id(self):
     return self._node_id
   
+  @property
+  def id(self):
+    return self.node_id
+  
   def __repr__(self):
-    return "Node({}, {})".format(self.node_id, str(self.data))
+    return "Node({}, {})".format(self.node_id, str(self.value))
 
 
 class HyperEdge(object):
@@ -66,8 +70,8 @@ class HyperGraph(object):
   """
   def __init__(self, edge_list: List[HyperEdge]):
     self._edge_list = tuple(edge_list)
-    adj_list, pred_list, node_list = self._build_graph()
-    self._adj_list = adj_list
+    succ_list, pred_list, node_list = self._build_graph()
+    self._succ_list = succ_list
     self._pred_list = pred_list
     self._node_list = node_list
 
@@ -76,41 +80,78 @@ class HyperGraph(object):
   def reverse(self):
     rev_edge_list = []
     for edge in self._edge_list:
-      assert len(edge.node_to) == 1, "Does not support reversed of HyperGraph yet."
+      assert len(edge.node_to) == 1, "Does not support reversed of HyperGraph."
       rev_edge_list.append(HyperEdge(edge.node_to[0], [edge.node_from], edge.features))
     return HyperGraph(rev_edge_list)
   
   # If hypergraph is immutable, we can cache the topological sort of the graph
   @functools.lru_cache(maxsize=1)
   def topo_sort(self):
+    # Buffers for topological sorting
     stack = []
     visited = [False for _ in range(len(self._node_list))]
+    # Helper function for topological sorting
+    def _topo_sort(current_id):
+      visited[node_id] = True
+      if current_id in self._succ_list:
+        for adj_id in self._succ_list[node_id]:
+          if not visited[adj_id]:
+            _topo_sort(adj_id)
+      stack.append(node_id)
+    # Driver function for topo sort
     for node_id in sorted(self._node_list.keys()):
       if not visited[node_id]:
-        self._topo_sort(node_id, visited, stack)
-    return [self._node_list[node_id] for node_id in stack]
+        _topo_sort(node_id, visited, stack)
+    # The results are seen from the reversed list
+    return list(reversed(stack))
+
+  def predecessors(self, node_id):
+    return self._pred_list.get(node_id, [])
     
-  def _topo_sort(self, node_id, visited, stack):
-    visited[node_id] = True
-    if node_id in self._adj_list:
-      for adj_id in self._adj_list[node_id]:
-        if not visited[adj_id]:
-          self._topo_sort(adj_id, visited, stack)
-    stack.append(node_id)
+  def sucessors(self, node_id):
+    return self._succ_list.get(node_id, [])
+
+  # Leaves are nodes who have predecessors but no sucessors
+  @functools.lru_cache(maxsize=1)
+  def leaves(self):
+    return sorted([x for x in self._pred_list if x not in self._succ_list])
   
+  # Roots are nodes who have 0 predecessors
+  @functools.lru_cache(maxsize=1)
+  def roots(self):
+    return sorted([x for x in self._node_list if x not in self._pred_list])
+
   def _build_graph(self):
     pred_list = defaultdict(list)
-    adj_list = defaultdict(list)
+    succ_list = defaultdict(list)
     node_list = {}
     for edge in self._edge_list:
       from_id = edge.node_from.node_id
       for dest in edge.node_to:
         to_id = dest.node_id
-        adj_list[from_id].append(to_id)
+        succ_list[from_id].append(to_id)
         pred_list[to_id].append(from_id)
         node_list[from_id] = edge.node_from
         node_list[to_id] = dest
-    return dict(pred_list), dict(adj_list), node_list
+    return dict(succ_list), dict(pred_list), node_list
+
+  @property
+  def len_nodes(self):
+    return len(self._node_list)
+  
+  @property
+  def len_edges(self):
+    return len(self._edge_list)
+ 
+  @functools.lru_cache(maxsize=1)
+  def sorted_nodes(self):
+    return sorted(self._node_list.values(), key=lambda x:x.node_id)
+  
+  def iter_nodes(self):
+    return iter(self.sorted_nodes())
+  
+  def iter_edges(self):
+    return iter(self._edge_list)
  
   def __repr__(self):
     lst = []
@@ -119,3 +160,7 @@ class HyperGraph(object):
     for edge in self._edge_list:
       lst.append(repr(edge))
     return "\n".join(lst)
+  
+  def __getitem__(self, node_id):
+    return self._node_list[node_id]
+

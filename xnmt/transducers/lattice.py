@@ -85,17 +85,18 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
       self.set_dropout_masks(batch_size=batch_size)
 
     for node_i in range(lattice.sent_len()):
-      cur_node = lattice.nodes[node_i]
+      cur_node = lattice.graph[node_i]
+      prev_node = lattice.graph.predecessors(cur_node.node_id)
       val = expr_seq[node_i]
       if self.dropout_rate > 0.0 and self.train:
         val = dy.cmult(val, self.dropout_mask_x)
       i_ft_list = []
-      if len(cur_node.nodes_prev) == 0:
+      if len(prev_node) == 0:
         tmp_iog = dy.affine_transform([b_iog, Wx_iog, val])
       else:
-        h_tilde = sum(h[pred] for pred in cur_node.nodes_prev)
+        h_tilde = sum(h[pred] for pred in prev_node)
         tmp_iog = dy.affine_transform([b_iog, Wx_iog, val, Wh_iog, h_tilde])
-        for pred in cur_node.nodes_prev:
+        for pred in prev_node:
           i_ft_list.append(dy.logistic(dy.affine_transform([b_f, Wx_f, val, Wh_f, h[pred]])))
       i_ait = dy.pick_range(tmp_iog, 0, self.hidden_dim)
       i_aot = dy.pick_range(tmp_iog, self.hidden_dim, self.hidden_dim * 2)
@@ -104,12 +105,12 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
       i_it = dy.logistic(i_ait)
       i_ot = dy.logistic(i_aot)
       i_gt = dy.tanh(i_agt)
-      if len(cur_node.nodes_prev) == 0:
+      if len(prev_node) == 0:
         c.append(dy.cmult(i_it, i_gt))
       else:
-        fc = dy.cmult(i_ft_list[0], c[cur_node.nodes_prev[0]])
-        for i in range(1, len(cur_node.nodes_prev)):
-          fc += dy.cmult(i_ft_list[i], c[cur_node.nodes_prev[i]])
+        fc = dy.cmult(i_ft_list[0], c[prev_node[0]])
+        for i in range(1, len(prev_node)):
+          fc += dy.cmult(i_ft_list[i], c[prev_node[i]])
         c.append(fc + dy.cmult(i_it, i_gt))
       h_t = dy.cmult(i_ot, dy.tanh(c[-1]))
       if self.dropout_rate > 0.0 and self.train:

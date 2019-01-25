@@ -14,6 +14,7 @@ with warnings.catch_warnings():
 from xnmt import logger
 
 from xnmt import events, vocabs, grammars
+from xnmt.graph import HyperEdge, HyperGraph
 from xnmt.persistence import serializable_init, Serializable
 from xnmt import sent
 from xnmt import batchers, output
@@ -568,37 +569,34 @@ class LatticeReader(BaseTextReader, Serializable):
     self.flatten = flatten
 
   def read_sent(self, line, idx):
+    edge_list = []
     if self.text_input:
-      nodes = [sent.LatticeNode(nodes_prev=[], nodes_next=[1], value=vocabs.Vocab.SS,
-                                fwd_log_prob=0.0, marginal_log_prob=0.0, bwd_log_prob=0.0)]
-      for word in line.strip().split():
-        nodes.append(
-          sent.LatticeNode(nodes_prev=[len(nodes)-1], nodes_next=[len(nodes)+1], value=self.vocab.convert(word),
-                           fwd_log_prob=0.0, marginal_log_prob=0.0, bwd_log_prob=0.0))
-      nodes.append(
-        sent.LatticeNode(nodes_prev=[len(nodes) - 1], nodes_next=[], value=vocabs.Vocab.ES,
-                         fwd_log_prob=0.0, marginal_log_prob=0.0, bwd_log_prob=0.0))
-
+      # Node List
+      nodes = [sent.LatticeNode(node_id=0, value=vocabs.Vocab.SS)]
+      for i, word in enumerate(line.strip().split()):
+        nodes.append(sent.LatticeNode(node_id=i+1, value=self.vocab.convert(word)))
+      nodes.append(sent.LatticeNode(node_id=len(nodes), value=vocabs.Vocab.ES))
+      # Flat edge list
+      for i in range(len(nodes)-1):
+        edge_list.append(HyperEdge(nodes[i], [nodes[i+1]]))
     else:
       node_list, arc_list = ast.literal_eval(line)
-      nodes = [sent.LatticeNode(nodes_prev=[], nodes_next=[],
+      nodes = [sent.LatticeNode(node_id=i,
                                 value=self.vocab.convert(item[0]),
                                 fwd_log_prob=item[1], marginal_log_prob=item[2], bwd_log_prob=item[3])
-               for item in node_list]
+               for i, item in enumerate(node_list)]
       if self.flatten:
-        for node_i in range(len(nodes)):
-          if node_i < len(nodes)-1: nodes[node_i].nodes_next.append(node_i+1)
-          if node_i > 0: nodes[node_i].nodes_prev.append(node_i-1)
-          nodes[node_i].fwd_log_prob = nodes[node_i].bwd_log_prob = nodes[node_i].marginal_log_prob = 0.0
+        for i in range(len(nodes)-1):
+          edge_list.append(HyperEdge(nodes[i], [nodes[i+1]]))
+          nodes[i].reset_prob()
+        nodes[-1].reset_prob()
       else:
         for from_index, to_index in arc_list:
-          nodes[from_index].nodes_next.append(to_index)
-          nodes[to_index].nodes_prev.append(from_index)
+          edge_list.append(HyperEdge(nodes[from_index], [nodes[to_index]]))
 
-      assert nodes[0].value == self.vocab.SS
-      assert nodes[-1].value == self.vocab.ES
+      assert nodes[0].value == self.vocab.SS and nodes[-1].value == self.vocab.ES
 
-    return sent.Lattice(idx=idx, nodes=nodes, vocab=self.vocab)
+    return sent.Lattice(idx=idx, graph=HyperGraph(edge_list), vocab=self.vocab)
 
   def vocab_size(self):
     return len(self.vocab)
