@@ -339,7 +339,7 @@ class LexiconSoftmax(Softmax, Serializable):
   def calc_scores(self, x: dy.Expression) -> dy.Expression:
     model_score = self.output_projector.transform(x)
     if self.lexicon_type == 'bias':
-      model_score += dy.sum_dim(dy.log(self.calculate_dict_prob() + self.lexicon_alpha), [1])
+      model_score += dy.sum_dim(dy.log(self.calculate_dict_prob(x) + self.lexicon_alpha), [1])
     return model_score
   
   def calculate_coeff(self, x):
@@ -347,16 +347,16 @@ class LexiconSoftmax(Softmax, Serializable):
       self.coeff = dy.logistic(self.coef_predictor.transform(x))
     return self.coeff
   
-  def calculate_dict_prob(self):
+  def calculate_dict_prob(self, x):
     if self.dict_prob is None:
-      self.dict_prob = self.lexicon_prob * self.attender.get_last_attention()
+      self.dict_prob = self.lexicon_prob * self.attender.calc_attention(x)
     return self.dict_prob
   
   def calc_probs(self, x: dy.Expression) -> dy.Expression:
     model_score = dy.softmax(self.calc_scores(x))
     if self.lexicon_type == 'linear':
       coeff = self.calculate_coeff(x)
-      return dy.sum_dim(dy.cmult(coeff, model_score) + dy.cmult((1-coeff), self.calculate_dict_prob()), [1])
+      return dy.sum_dim(dy.cmult(coeff, model_score) + dy.cmult((1-coeff), self.calculate_dict_prob(x)), [1])
     else:
       return model_score
 
