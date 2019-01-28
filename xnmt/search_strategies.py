@@ -95,7 +95,7 @@ class GreedySearch(Serializable, SearchStrategy):
       word_ids.append(word_id)
       attentions.append(current_output.attention)
       logsoftmaxes.append(None)
-      states.append(translator.get_nobp_state(current_state)) # TODO: not a part of translator interface, refactor
+      states.append(current_state)
 
       # Check if we are done.
       done = [x == Vocab.ES for x in word_id]
@@ -122,7 +122,7 @@ class BeamSearch(Serializable, SearchStrategy):
 
   yaml_tag = '!BeamSearch'
   Hypothesis = namedtuple('Hypothesis', ['score', 'output', 'parent', 'word'])
-  
+
   @serializable_init
   def __init__(self,
                beam_size: numbers.Integral = 1,
@@ -197,6 +197,7 @@ class BeamSearch(Serializable, SearchStrategy):
       while current.parent is not None:
         word_ids.append(current.word)
         attentions.append(current.output.attention)
+        states.append(current.output.state)
         # TODO(philip30): This should probably be uncommented.
         # These 2 statements are an overhead because it is need only for reinforce and minrisk
         # Furthermore, the attentions is only needed for report.
@@ -207,14 +208,14 @@ class BeamSearch(Serializable, SearchStrategy):
         current = current.parent
       results.append(SearchOutput([list(reversed(word_ids))], [list(reversed(attentions))],
                                   [score], list(reversed(logsoftmaxes)),
-                                  list(reversed(states)), None))
+                                  list(reversed(states)), [1 for _ in word_ids]))
     return results
 
 class SamplingSearch(Serializable, SearchStrategy):
   """
   Performs search based on the softmax probability distribution.
   Similar to greedy searchol
-  
+
   Args:
     max_len:
     sample_size:
@@ -235,7 +236,7 @@ class SamplingSearch(Serializable, SearchStrategy):
     for k in range(self.sample_size):
       outputs.append(self.sample_one(translator, initial_state))
     return outputs
- 
+
   # Words ids, attentions, score, logsoftmax, state
   def sample_one(self,
                  translator: 'xnmt.models.translators.AutoRegressiveTranslator',
@@ -272,7 +273,7 @@ class SamplingSearch(Serializable, SearchStrategy):
       # Appending output
       scores.append(word_score)
       samples.append(word_id)
-      states.append(translator.get_nobp_state(current_output.state))
+      states.append(current_output)
       attentions.append(current_output.attention)
 
       # Next time step
@@ -289,7 +290,7 @@ class SamplingSearch(Serializable, SearchStrategy):
     scores = [np.sum(scores)]
     masks.insert(0, [1 for _ in range(len(done))])
     samples = np.stack(samples, axis=1)
-    return SearchOutput(samples, attentions, scores, None, states, masks)
+    return SearchOutput(samples, attentions, scores, [None for _ in samples], states, masks)
 
 
 class MctsNode(object):

@@ -16,7 +16,7 @@ from xnmt.persistence import serializable_init, Serializable, bare
 
 from xnmt.reports import Reportable
 
-TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'logsoftmax', 'attention'])
+TranslatorOutput = namedtuple('TranslatorOutput', ['state', 'attention'])
 
 class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
   """
@@ -242,7 +242,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
     next_state = self.decoder.add_input(state, word) if word is not None else state
     next_state.context = self.attender.calc_context(next_state.as_vector())
-    return TranslatorOutput(next_state, None, self.attender.get_last_attention())
+    return TranslatorOutput(next_state, self.attender.get_last_attention())
 
   def best_k(self, state: decoders.AutoRegressiveDecoderState, k: numbers.Integral, normalize_scores: bool = False):
     best_words, best_scores = self.decoder.best_k(state.state, k, normalize_scores)
@@ -252,7 +252,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     return self.decoder.sample(state.state, n, temperature)
 
   def calc_log_probs(self, state: decoders.AutoRegressiveDecoderState):
-    return self.decoder.calc_log_probs(state.state)
+    return self.decoder.calc_log_probs(state)
 
 class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable):
   """

@@ -28,13 +28,6 @@ class Decoder(object):
   def sample(self, x, n=1, temperature=1.0):
     raise NotImplementedError('must be implemented by subclasses')
 
-  def calc_scores(self, calc_scores_logsoftmax):
-    raise NotImplementedError('must be implemented by subclasses')
-  def calc_prob(self, calc_scores_logsoftmax):
-    raise NotImplementedError('must be implemented by subclasses')
-  def calc_log_prob(self, calc_scores_logsoftmax):
-    raise NotImplementedError('must be implemented by subclasses')
-
 class DecoderState(object):
   """A state that holds whatever information is required for the decoder.
      Child classes must implement the as_vector() method, which will be
@@ -156,17 +149,6 @@ class AutoRegressiveDecoder(Decoder, Serializable):
   def sample(self, mlp_dec_state: AutoRegressiveDecoderState, n: numbers.Integral, temperature: float = 1.0):
     h = self._calc_transform(mlp_dec_state)
     return self.scorer.sample(h, n, temperature)
-
-  def calc_scores(self, mlp_dec_state: AutoRegressiveDecoderState) -> dy.Expression:
-    """Get scores given a current state.
-
-    Args:
-      mlp_dec_state: Decoder state with last RNN output and optional context vector.
-    Returns:
-      Scores over the vocabulary given this state.
-    """
-    raise NotImplementedError('deprecated')
-    return self.scorer.calc_scores(self._calc_transform(mlp_dec_state))
 
   def calc_log_probs(self, mlp_dec_state):
     #raise NotImplementedError('deprecated')
