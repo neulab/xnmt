@@ -6,7 +6,8 @@ import numpy as np
 
 from xnmt import batchers, event_trigger, losses, search_strategies, sent, vocabs
 from xnmt.persistence import bare, Ref, Serializable, serializable_init
-from xnmt.modelparts import transforms
+from xnmt.modelparts import transforms, decoders
+from xnmt.transducers.recurrent import UniLSTMState
 from xnmt.eval import metrics
 
 class LossCalculator(object):
@@ -134,24 +135,24 @@ class ReinforceLoss(Serializable, LossCalculator):
 
     total_loss = losses.FactoredLossExpr()
     for search_output in search_outputs:
-      self.eval_score = []
+      eval_score = []
       for trg_i, sample_i in zip(trg, search_output.word_ids):
         # Removing EOS
         sample_i = self.remove_eos(sample_i.tolist())
         ref_i = trg_i.words[:trg_i.len_unpadded()]
         score = self.evaluation_metric.evaluate_one_sent(ref_i, sample_i)
-        self.eval_score.append(sign * score)
-      self.reward = dy.inputTensor(self.eval_score, batched=True)
+        eval_score.append(sign * score)
+      self.reward = dy.inputTensor(eval_score, batched=True)
+
       # Composing losses
       loss = losses.FactoredLossExpr()
       if self.baseline is not None:
         baseline_loss = []
         cur_losses = []
-        for state, logsoft, mask in zip(search_output.state,
-                                        search_output.logsoftmaxes,
-                                        search_output.mask):
-          bs_score = self.baseline.transform(state)
+        for state, mask in zip(search_output.state, search_output.mask):
+          bs_score = self.baseline.transform(state.state.as_vector())
           baseline_loss.append(dy.squared_distance(self.reward, bs_score))
+          logsoft = model.calc_log_probs(state.state)
           loss_i = dy.cmult(logsoft, self.reward - bs_score)
           valid = list(np.nonzero(mask)[0])
           cur_losses.append(dy.cmult(loss_i, dy.inputTensor(mask, batched=True)))
@@ -190,7 +191,13 @@ class MinRiskLoss(Serializable, LossCalculator):
     sign = -1 if self.inv_eval else 1
     search_outputs = model.generate_search_output(src, self.search_strategy)
     for search_output in search_outputs:
-      logprob = search_output.logsoftmaxes
+      assert len(search_output.word_ids) == 1
+      assert search_output.word_ids[0].shape == (len(search_output.state),)
+      logprob = []
+      for word, state in zip(search_output.word_ids[0], search_output.state):
+        lpdist = model.calc_log_probs(state.state)
+        lp = dy.pick(lpdist, word)
+        logprob.append(lp)
       sample = search_output.word_ids
       attentions = search_output.attentions
 

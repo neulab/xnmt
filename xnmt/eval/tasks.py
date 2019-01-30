@@ -134,7 +134,7 @@ class AccuracyEvalTask(EvalTask, Serializable):
     self.hyp_file = hyp_file
     self.inference = inference or self.model.inference
     self.perform_inference = perform_inference
-    self.desc=desc
+    self.desc = desc
 
   def eval(self) -> Sequence[metrics.EvalScore]:
     event_trigger.set_train(False)
@@ -143,7 +143,8 @@ class AccuracyEvalTask(EvalTask, Serializable):
     if self.perform_inference:
       self.inference.perform_inference(generator=self.model,
                                        src_file=self.src_file,
-                                       trg_file=self.hyp_file)
+                                       trg_file=self.hyp_file,
+                                       ref_file=self.ref_file)
     # Evaluate
     eval_scores = xnmt_evaluate.xnmt_evaluate(hyp_file=self.hyp_file, ref_file=self.ref_file, desc=self.desc,
                                               evaluators=self.eval_metrics)

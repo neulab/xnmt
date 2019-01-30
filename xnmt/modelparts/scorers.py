@@ -1,12 +1,30 @@
 from typing import List, Union, Optional
 import numbers
 
+import numpy as np
 import dynet as dy
 
 from xnmt import batchers, input_readers, param_collections, param_initializers, vocabs, logger
 from xnmt.modelparts import transforms
 from xnmt.persistence import Serializable, serializable_init, bare, Ref
 from xnmt.events import handle_xnmt_event, register_xnmt_handler
+
+def find_best_k(scores, k):
+  k = min(len(scores), k)
+  top_words = np.argpartition(scores, -k, axis=0)[-k:]
+
+  if len(scores.shape) > 1:
+    assert top_words.shape == (k, scores.shape[1]), 'top_words has shape %s, expected (%d, %d)' % (str(top_words.shape), k, scores.shape[1])
+    # top_words is (k, batch_size)
+    # scores is (#classes, batch_size)
+    top_scores = []
+    for i in range(top_words.shape[1]):
+      top_scores.append(scores[top_words[:, i], i])
+    top_scores = np.array(top_scores).T
+  else:
+    assert top_words.shape == (k,)
+    top_scores = scores[top_words]
+  return top_words, top_scores
 
 class Scorer(object):
   """
@@ -23,7 +41,19 @@ class Scorer(object):
     Args:
       x: The vector used to make the prediction
     """
-    raise NotImplementedError('calc_score must be implemented by subclasses of Scorer')
+    raise NotImplementedError('calc_scores must be implemented by subclasses of Scorer')
+
+  def best_k(self, x: dy.Expression, k: numbers.Integral, normalize_scores: bool = False):
+    """
+    Returns a list of the k items with the highest scores. The items may not be
+    in sorted order.
+
+    Args:
+      x: The vector used to make the prediction
+      k: Number of items to return
+      normalize_scores: whether to normalize the scores
+    """
+    raise NotImplementedError('best_k must be implemented by subclasses of Scorer')
 
   def calc_probs(self, x: dy.Expression) -> dy.Expression:
     """
@@ -127,6 +157,31 @@ class Softmax(Scorer, Serializable):
   
   def calc_scores(self, x: dy.Expression) -> dy.Expression:
     return self.output_projector.transform(x)
+
+  def best_k(self, x: dy.Expression, k: numbers.Integral, normalize_scores: bool = False):
+    scores_expr = self.calc_log_probs(x) if normalize_scores else self.calc_scores(x)
+    scores = scores_expr.npvalue()
+    return find_best_k(scores, k)
+
+  def sample(self, x: dy.Expression, n: numbers.Integral, temperature: float = 1.0):
+    assert temperature != 0.0
+    scores_expr = self.calc_log_probs(x)
+    if temperature != 1.0:
+      scores_expr *= 1.0 / temperature
+      scores = dy.softmax(scores_expr).npvalue()
+    else:
+      scores = dy.exp(scores_expr).npvalue()
+
+    # Numpy is very picky. If the sum is off even by 1e-8 it complains.
+    scores /= sum(scores)
+
+    a = range(scores.shape[0])
+    samples = np.random.choice(a, (n,), replace=True, p=scores)
+
+    r = []
+    for word in samples:
+      r.append((word, dy.pick(scores_expr, word)))
+    return r
   
   def can_loss_be_derived_from_scores(self):
     """
@@ -284,7 +339,7 @@ class LexiconSoftmax(Softmax, Serializable):
   def calc_scores(self, x: dy.Expression) -> dy.Expression:
     model_score = self.output_projector.transform(x)
     if self.lexicon_type == 'bias':
-      model_score += dy.sum_dim(dy.log(self.calculate_dict_prob() + self.lexicon_alpha), [1])
+      model_score += dy.sum_dim(dy.log(self.calculate_dict_prob(x) + self.lexicon_alpha), [1])
     return model_score
   
   def calculate_coeff(self, x):
@@ -292,16 +347,16 @@ class LexiconSoftmax(Softmax, Serializable):
       self.coeff = dy.logistic(self.coef_predictor.transform(x))
     return self.coeff
   
-  def calculate_dict_prob(self):
+  def calculate_dict_prob(self, x):
     if self.dict_prob is None:
-      self.dict_prob = self.lexicon_prob * self.attender.get_last_attention()
+      self.dict_prob = self.lexicon_prob * self.attender.calc_attention(x)
     return self.dict_prob
   
   def calc_probs(self, x: dy.Expression) -> dy.Expression:
     model_score = dy.softmax(self.calc_scores(x))
     if self.lexicon_type == 'linear':
       coeff = self.calculate_coeff(x)
-      return dy.sum_dim(dy.cmult(coeff, model_score) + dy.cmult((1-coeff), self.calculate_dict_prob()), [1])
+      return dy.sum_dim(dy.cmult(coeff, model_score) + dy.cmult((1-coeff), self.calculate_dict_prob(x)), [1])
     else:
       return model_score
 
