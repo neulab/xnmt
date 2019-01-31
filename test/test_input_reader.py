@@ -27,5 +27,29 @@ class TestInputReader(unittest.TestCase):
     self.assertEqual(" ".join([vocab_ja.i2w[w] for w in mixed_sents[0].sents[1].words]), "君 は １ 日 で それ が でき ま す か 。 </s>")
 
 
+class TestCoNLLInputReader(unittest.TestCase):
+  
+  def test_read_tree(self):
+    vocab = vocabs.Vocab(vocab_file="examples/data/dep_tree.vocab")
+    reader = input_readers.CoNLLToRNNGActionsReader(vocab, vocab)
+    tree = list(reader.read_sents(filename="examples/data/dep_tree.conll"))
+    expected = [sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert("David")),
+                sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert("Gallo")),
+                sent.RNNGAction(sent.RNNGAction.Type.REDUCE, True),
+                sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert(":")),
+                sent.RNNGAction(sent.RNNGAction.Type.REDUCE, False),
+                sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert("This")),
+                sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert("is")),
+                sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert("Bill")),
+                sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert("Lange")),
+                sent.RNNGAction(sent.RNNGAction.Type.REDUCE, True),
+                sent.RNNGAction(sent.RNNGAction.Type.REDUCE, True),
+                sent.RNNGAction(sent.RNNGAction.Type.REDUCE, True),
+                sent.RNNGAction(sent.RNNGAction.Type.REDUCE, False),
+                sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert(".")),
+                sent.RNNGAction(sent.RNNGAction.Type.REDUCE, False)]
+    self.assertListEqual(tree[0].actions, expected)
+  
+
 if __name__ == '__main__':
   unittest.main()

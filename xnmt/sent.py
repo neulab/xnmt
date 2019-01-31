@@ -2,12 +2,14 @@ import copy
 import functools
 import math
 import numbers
+import enum
 from typing import List, Optional, Sequence, Union
 
 import numpy as np
 
 from xnmt.vocabs import Vocab
 from xnmt.output import OutputProcessor
+from xnmt.graph import  HyperGraph, HyperNode
 
 class Sentence(object):
   """
@@ -351,6 +353,7 @@ class ArraySentence(Sentence):
   def get_array(self):
     return self.nparr
 
+
 class NbestSentence(SimpleSentence):
   """
   Output in the context of an nbest list.
@@ -374,113 +377,81 @@ class NbestSentence(SimpleSentence):
       entries.insert(1, str(self.base_output.score))
     return " ||| ".join(entries)
 
-class LatticeNode(object):
+
+class GraphSentence(ReadableSentence):
   """
-  A lattice node, keeping track of neighboring nodes.
+  A graph structure.
 
-  Args:
-    nodes_prev: A list indices of direct predecessors
-    nodes_next: A list indices of direct successors
-    value: Word id assigned to this node.
-    fwd_log_prob: Lattice log probability normalized in forward-direction (successors sum to 1)
-    marginal_log_prob: Lattice log probability globally normalized
-    bwd_log_prob: Lattice log probability normalized in backward-direction (predecessors sum to 1)
-  """
-  def __init__(self,
-               nodes_prev: Sequence[numbers.Integral],
-               nodes_next: Sequence[numbers.Integral],
-               value: numbers.Integral,
-               fwd_log_prob: Optional[numbers.Real]=None,
-               marginal_log_prob: Optional[numbers.Real]=None,
-               bwd_log_prob: Optional[numbers.Real]=None) -> None:
-    self.nodes_prev = nodes_prev
-    self.nodes_next = nodes_next
-    self.value = value
-    self.fwd_log_prob = fwd_log_prob
-    self.marginal_log_prob = marginal_log_prob
-    self.bwd_log_prob = bwd_log_prob
-
-
-
-class Lattice(ReadableSentence):
-  """
-  A lattice structure.
-
-  The lattice is represented as a list of nodes, each of which keep track of the indices of predecessor and
-  successor nodes.
+  This is a wrapper for a graph datastructure.
 
   Args:
     idx: running sentence number (0-based; unique among sentences loaded from the same file, but not across files)
-    nodes: list of lattice nodes
+    graph: hypergraph containing graphs
     vocab: vocabulary for word IDs
     num_padded: denoting that this many words are padded (without adding any physical nodes)
     unpadded_sent: reference to original, unpadded sentence if available
   """
 
-  def __init__(self, idx: Optional[numbers.Integral], nodes: Sequence[LatticeNode], vocab: Vocab,
-               num_padded: numbers.Integral = 0, unpadded_sent: 'Lattice' = None) -> None:
+  def __init__(self, idx: Optional[numbers.Integral], graph: HyperGraph, vocab: Vocab,
+               num_padded: numbers.Integral = 0, unpadded_sent: 'GraphSentence' = None) -> None:
     self.idx = idx
-    self.nodes = nodes
+    self.graph = graph
     self.vocab = vocab
-    assert len(nodes[0].nodes_prev) == 0
-    assert len(nodes[-1].nodes_next) == 0
-    for t in range(1, len(nodes) - 1):
-      assert len(nodes[t].nodes_prev) > 0
-      assert len(nodes[t].nodes_next) > 0
     self.num_padded = num_padded
     self.unpadded_sent = unpadded_sent
+    self.nodes = self.graph.topo_sort()
 
   def sent_len(self) -> int:
-    """Return number of nodes in the lattice, including padded words.
+    """Return number of nodes in the graph, including padded words.
 
     Return:
-      Number of nodes in lattice.
+      Number of nodes in graph.
     """
     return len(self.nodes) + self.num_padded
 
   def len_unpadded(self) -> int:
-    """Return number of nodes in the lattice, without counting padded words.
+    """Return number of nodes in the graph, without counting padded words.
 
     Returns:
-      Number of nodes in lattice.
+      Number of nodes in graph.
     """
     return len(self.nodes)
 
   def __getitem__(self, key: numbers.Integral) -> Optional[int]:
     """
-    Return the value of a particular lattice node. Padded nodes are virtually appended at the end.
+    Return the value of a particular graph node. Padded nodes are virtually appended at the end.
 
     Args:
-      key: Index of lattice node.
+      key: Index of graph node.
 
     Returns:
-      Value of lattice node with given index, or ES if accessing a padded lattice node.
+      Value of graph node with given index, or ES if accessing a padded lattice node.
     """
     if self.len_unpadded() <= key < self.sent_len():
       return self.vocab.ES
-    node = self.nodes[key]
+    node = self.graph[key]
     if isinstance(node, list):
       # no guarantee that slice is still a consistent graph
-      raise ValueError("Slicing not support for lattices.")
+      raise ValueError("Slicing not support for graphs.")
     return node.value
 
-  def create_padded_sent(self, pad_len: numbers.Integral) -> 'Lattice':
+  def create_padded_sent(self, pad_len: numbers.Integral) -> 'GraphSentence':
     """
-    Return padded lattice.
+    Return padded graph.
 
     Args:
       pad_len: Number of tokens to pad.
 
     Returns:
-      New padded lattice, or self if pad_len==0.
+      New padded graph, or self if pad_len==0.
     """
     if pad_len == 0:
       return self
-    copied_nodes = copy.deepcopy(self.nodes)
-    return Lattice(idx=self.idx, nodes=copied_nodes, vocab=self.vocab, num_padded=pad_len,
-                   unpadded_sent=self.unpadded_sent or super().get_unpadded_sent())
+    copied_graph = copy.deepcopy(self.graph)
+    return GraphSentence(idx=self.idx, graph=copied_graph, vocab=self.vocab, num_padded=pad_len,
+                         unpadded_sent=self.unpadded_sent or super().get_unpadded_sent())
 
-  def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'Lattice':
+  def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'GraphSentence':
     """
     Return self, as truncation is not supported.
 
@@ -493,30 +464,20 @@ class Lattice(ReadableSentence):
     if trunc_len != 0: raise ValueError("Lattices cannot be truncated.")
     return self
 
-  def get_unpadded_sent(self) -> 'Lattice':
+  def get_unpadded_sent(self) -> 'GraphSentence':
     return self.unpadded_sent or super().get_unpadded_sent()
 
-  def reversed(self) -> 'Lattice':
+  def reversed(self) -> 'GraphSentence':
     """
-    Create a lattice with reversed direction.
+    Create a graph with reversed direction.
 
-    The new lattice will have lattice nodes in reversed order and switched successors/predecessors.
+    The new graph will have graph nodes in reversed order and switched successors/predecessors.
     It will have the same number of padded nodes (again at the end of the nodes!).
 
     Returns:
-      Reversed lattice.
+      Reversed graph.
     """
-    rev_nodes = []
-    seq_len = len(self.nodes)
-    for node in reversed(self.nodes[:self.len_unpadded()]):
-      new_node = LatticeNode(nodes_prev=[seq_len - n - 1 for n in node.nodes_next],
-                             nodes_next=[seq_len - p - 1 for p in node.nodes_prev],
-                             value=node.value,
-                             fwd_log_prob=node.bwd_log_prob,
-                             marginal_log_prob=node.marginal_log_prob,
-                             bwd_log_prob=node.bwd_log_prob)
-      rev_nodes.append(new_node)
-    return Lattice(idx=self.idx, nodes=rev_nodes, vocab=self.vocab, num_padded=self.num_padded)
+    return GraphSentence(idx=self.idx, graph=self.graph.reverse(), vocab=self.vocab, num_padded=self.num_padded)
 
   def str_tokens(self, **kwargs) -> List[str]:
     """
@@ -525,9 +486,9 @@ class Lattice(ReadableSentence):
     Args:
       **kwargs: ignored
 
-    Returns: list of tokens of linearized lattice.
+    Returns: list of tokens of linearized graph.
     """
-    return [self.vocab.i2w[node.value] for node in self.nodes]
+    return [self.vocab.i2w[self.graph[node_id].value] for node_id in self.nodes]
 
   def sent_str(self, custom_output_procs=None, **kwargs) -> str:
     """
@@ -539,24 +500,179 @@ class Lattice(ReadableSentence):
 
     Returns: readable string
     """
-    out_str = str([self.str_tokens(**kwargs), [node.nodes_next for node in self.nodes]])
+    out_str = str([self.str_tokens(**kwargs), [self.graph.sucessors(node_id) for node_id in self.nodes]])
     return out_str
-
-  def plot(self, out_file, show_log_probs=["fwd_log_prob", "marginal_log_prob", "bwd_log_prob"]):
-    from graphviz import Digraph
-    dot = Digraph(comment='Lattice')
-    for i, node in enumerate(self.nodes):
-      node_id = i
-      log_prob_strings = [f"{math.exp(getattr(node,field)):.3f}" for field in show_log_probs]
-      node_label = f"{self.vocab.i2w[node.value]} {'|'.join(log_prob_strings)}"
-      node.id = node_id
-      dot.node(str(node_id), f"{node_id} : {node_label}")
-    for node_i, node in enumerate(self.nodes):
-      for node_next in node.nodes_next:
-        edge_from, edge_to = node_i, node_next
-        dot.edge(str(edge_from), str(edge_to), "")
+  
+  def plot(self, out_file):
+    try:
+      from graphviz import Digraph
+    except:
+      raise RuntimeError("Need graphviz package to be installed.")
+    dot = Digraph(comment='Graph')
+    for node_id in self.nodes:
+      node = self.graph[node_id]
+      node_label = "{} {}".format(self.vocab.i2w[node.value], node.feature_str())
+      dot.node(str(node_id), "{} : {}".format(node_id, node_label))
+    for edge in self.graph.iter_edges():
+      for node_next in edge.node_to:
+        dot.edge(str(edge.node_from.node_id), str(node_next.node_id), "")
     try:
       dot.render(out_file)
     except RuntimeError:
       pass
+    
 
+class LatticeNode(HyperNode):
+  """
+  A lattice node.
+
+  Args:
+    node_id: Unique identifier for node
+    value: Word id assigned to this node.
+    fwd_log_prob: Lattice log probability normalized in forward-direction (successors sum to 1)
+    marginal_log_prob: Lattice log probability globally normalized
+    bwd_log_prob: Lattice log probability normalized in backward-direction (predecessors sum to 1)
+  """
+  def __init__(self,
+               node_id: int,
+               value: numbers.Integral,
+               fwd_log_prob: Optional[numbers.Real]=0,
+               marginal_log_prob: Optional[numbers.Real]=0,
+               bwd_log_prob: Optional[numbers.Real]=0) -> None:
+    super().__init__(value, node_id)
+    self.fwd_log_prob = fwd_log_prob
+    self.marginal_log_prob = marginal_log_prob
+    self.bwd_log_prob = bwd_log_prob
+
+  def reset_prob(self):
+    self.fwd_log_prob = 0
+    self.marginal_log_prob = 0
+    self.bwd_log_prob = 0
+
+  def reversed(self):
+    return LatticeNode(self.node_id, self.value, self.bwd_log_prob, self.marginal_log_prob, self.fwd_log_prob)
+
+  def feature_str(self):
+    return "{:.3f}|{:.3f}|{:.3f}".format(self.fwd_log_prob, self.marginal_log_prob, self.bwd_log_prob)
+
+    
+class SyntaxTreeNode(HyperNode):
+  class Type(enum.Enum):
+    NONE=0
+    NT=1
+    PRT=2
+    T=3
+  
+  def __init__(self, node_id, value, head, node_type=Type.NONE):
+    super().__init__(value, node_id)
+    self._head = head
+    self._type = node_type
+    
+  @property
+  def head(self):
+    return self._head
+  
+  @property
+  def node_type(self):
+    return self._type
+  
+class RNNGAction(object):
+  class Type(enum.Enum):
+    GEN=0
+    REDUCE=1
+    NT=2
+    NONE=3
+    
+  def __init__(self, action_type, action_content=None):
+    self._action_type = action_type
+    self._action_content = action_content
+  
+  @property
+  def action_type(self):
+    return self._action_type
+  
+  @property
+  def action_content(self):
+    return self._action_content
+  
+  @property
+  def action_id(self):
+    return self.action_type.value
+  
+  def str_token(self, surface_vocab, nt_vocab):
+    if self.action_type == self.Type.GEN:
+      return "GEN('{}')".format(surface_vocab[self.action_content])
+    elif self.action_type == self.Type.NT:
+      return "NT('{}')".format(nt_vocab[self.action_content])
+    elif self.action_type == self.Type.REDUCE:
+      return "RL()" if self.action_content else "RR()"
+    else:
+      return "NONE()"
+    
+  def __eq__(self, other):
+    return self.action_type == other.action_type and self.action_content == other.action_content
+  
+  
+class RNNGSequenceSentence(ReadableSentence):
+  def __init__(self,
+               idx: Optional[numbers.Integral],
+               graph: HyperGraph,
+               surface_vocab: Vocab,
+               nt_vocab: Vocab,
+               all_surfaces: bool = False,
+               num_padded: numbers.Integral = 0,
+               unpadded_sent: 'RNNGSequenceSentence' = None) -> None:
+    self.idx = idx
+    self.surface_vocab = surface_vocab
+    self.nt_vocab = nt_vocab
+    self.graph = graph
+    self.all_surfaces = all_surfaces
+    self.actions = self._actions_from_graph()
+    self.num_padded = num_padded
+    self.unpadded_sent = unpadded_sent
+
+  def sent_len(self) -> int:
+    return len(self.actions)
+  
+  def len_unpadded(self) -> int:
+    return len(self.actions)
+  
+  def create_padded_sent(self, pad_len: numbers.Integral) -> 'ScalarSentence':
+    if pad_len != 0:
+      raise ValueError("RNNGSequenceSentence cannot be padded")
+    return self
+  
+  def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'ScalarSentence':
+    if trunc_len != 0:
+      raise ValueError("RNNGSeqeunceSentence cannot be truncated")
+    return self
+
+  def get_unpadded_sent(self):
+    return self
+
+  def str_tokens(self, **kwargs) -> List[str]:
+    return [action.str_token(self.surface_vocab, self.nt_vocab) for action in self.actions]
+
+  def sent_str(self):
+    return " ".join(self.str_tokens())
+
+  def _actions_from_graph(self):
+    roots = self.graph.roots()
+    # Only 1 Head
+    assert len(roots) == 1
+    # Helper function
+    def actions_from_graph(current_id, results):
+      successors = self.graph.sucessors(current_id)
+      for i in range(results[1], current_id+1):
+        if len(successors) == 0 or self.all_surfaces: # Leaf
+          results[0].append(RNNGAction(RNNGAction.Type.GEN, self.surface_vocab.convert(self.graph[i].value)))
+        else: # Non Terminal
+          results[0].append(RNNGAction(RNNGAction.Type.NT, self.nt_vocab.convert(self.graph[i].value)))
+      results[1] = max(results[1], current_id+1)
+      
+      for child in sorted(successors):
+        actions_from_graph(child, results)
+        results[0].append(RNNGAction(RNNGAction.Type.REDUCE, child < current_id))
+      return results[0]
+    # Driver function
+    return actions_from_graph(roots[0], [[], 1])

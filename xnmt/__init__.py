@@ -14,8 +14,6 @@ logger = logging.getLogger('xnmt')
 yaml_logger = logging.getLogger('yaml')
 file_logger = logging.getLogger('xnmt_file')
 
-import dynet
-
 # all Serializable objects must be imported here in order to be parsable
 # using the !Classname YAML syntax
 import xnmt.batchers
@@ -25,6 +23,7 @@ import xnmt.experiments
 import xnmt.hyper_params
 import xnmt.inferences
 import xnmt.input_readers
+import xnmt.graph
 import xnmt.modelparts.attenders
 import xnmt.modelparts.bridges
 import xnmt.modelparts.decoders
@@ -42,6 +41,8 @@ import xnmt.param_initializers
 import xnmt.persistence
 import xnmt.reports
 import xnmt.rl
+import xnmt.simultaneous.simult_translators
+import xnmt.simultaneous.simult_search_strategies
 import xnmt.specialized_encoders.segmenting_encoder
 import xnmt.specialized_encoders.self_attentional_am
 import xnmt.specialized_encoders.tilburg_harwath

@@ -74,6 +74,8 @@ class MlpAttender(Attender, Serializable):
     self.pb = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
     self.pU = param_collection.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
     self.curr_sent = None
+    self.attention_vecs = None
+    self.WI = None
 
   def init_sent(self, sent: expression_seqs.ExpressionSequence) -> None:
     self.attention_vecs = []
@@ -213,8 +215,8 @@ class LatticeBiasedMlpAttender(MlpAttender, Serializable):
   def on_start_sent(self, src):
     self.cur_sent_bias = np.full((src.sent_len(), 1, src.batch_size()), -1e10)
     for batch_i, lattice_batch_elem in enumerate(src):
-      for node_i, node in enumerate(lattice_batch_elem.nodes):
-        self.cur_sent_bias[node_i, 0, batch_i] = node.marginal_log_prob
+      for node_id in lattice_batch_elem.nodes:
+        self.cur_sent_bias[node_id, 0, batch_i] = lattice_batch_elem.graph[node_id].marginal_log_prob
     self.cur_sent_bias_expr = None
 
   def calc_attention(self, state: dy.Expression) -> dy.Expression:

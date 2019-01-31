@@ -1,4 +1,3 @@
-import os
 import unittest
 
 import dynet as dy
@@ -12,7 +11,7 @@ from xnmt.input_readers import PlainTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.modelparts.transforms import NonLinear
 from xnmt.modelparts.scorers import Softmax
-from xnmt.models.translators import DefaultTranslator
+from xnmt.models.translators.default import DefaultTranslator
 from xnmt.search_strategies import BeamSearch, GreedySearch
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import LoadSerialized, initialize_if_needed, YamlPreloader

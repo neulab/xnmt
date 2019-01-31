@@ -13,7 +13,7 @@ from xnmt.persistence import Serializable, serializable_init, bare
 from xnmt.vocabs import Vocab
 
 
-SearchOutput = namedtuple('SearchOutput', ['word_ids', 'attentions', 'score', 'logsoftmaxes', 'state', 'mask'])
+SearchOutput = namedtuple('SearchOutput', ['word_ids', 'attentions', 'score', 'state', 'mask'])
 """
 Output of the search
 words_ids: list of generated word ids
@@ -66,7 +66,6 @@ class GreedySearch(Serializable, SearchStrategy):
     score = []
     word_ids = []
     attentions = []
-    logsoftmaxes = []
     states = []
     masks = []
     # Search Variables
@@ -75,7 +74,7 @@ class GreedySearch(Serializable, SearchStrategy):
     for length in range(self.max_len):
       prev_word = word_ids[length-1] if length > 0 else None
       current_output = translator.add_input(prev_word, current_state)
-      word_id, word_score = translator.best_k(current_output, 1, normalize_scores=True)
+      word_id, word_score = translator.best_k(current_output.state, 1, normalize_scores=True)
       word_id = word_id[0]
       word_score = word_score[0]
       current_state = current_output.state
@@ -94,7 +93,6 @@ class GreedySearch(Serializable, SearchStrategy):
       score.append(word_score)
       word_ids.append(word_id)
       attentions.append(current_output.attention)
-      logsoftmaxes.append(None)
       states.append(current_state)
 
       # Check if we are done.
@@ -105,7 +103,7 @@ class GreedySearch(Serializable, SearchStrategy):
     masks.insert(0, [1 for _ in range(len(done))])
     words = np.stack(word_ids, axis=1)
     score = np.sum(score, axis=0)
-    return [SearchOutput(words, attentions, score, logsoftmaxes, states, masks)]
+    return [SearchOutput(words, attentions, score, states, masks)]
 
 class BeamSearch(Serializable, SearchStrategy):
   """
@@ -140,7 +138,6 @@ class BeamSearch(Serializable, SearchStrategy):
                       translator: 'xnmt.models.translators.AutoRegressiveTranslator',
                       initial_state: decoders.AutoRegressiveDecoderState,
                       src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
-    # TODO(philip30): can only do single decoding, not batched
     active_hyp = [self.Hypothesis(0, None, None, None)]
     completed_hyp = []
     for length in range(self.max_len):
@@ -163,7 +160,7 @@ class BeamSearch(Serializable, SearchStrategy):
 
         # Find the k best words at the next time step
         current_output = translator.add_input(prev_word, prev_state)
-        top_words, top_scores = translator.best_k(current_output, self.beam_size, normalize_scores=True)
+        top_words, top_scores = translator.best_k(current_output.state, self.beam_size, normalize_scores=True)
 
         # Queue next states
         for cur_word, score in zip(top_words, top_scores):
@@ -189,7 +186,6 @@ class BeamSearch(Serializable, SearchStrategy):
     # Backtracing + Packing outputs
     results = []
     for end_hyp, score in hyp_and_score:
-      logsoftmaxes = []
       word_ids = []
       attentions = []
       states = []
@@ -198,17 +194,9 @@ class BeamSearch(Serializable, SearchStrategy):
         word_ids.append(current.word)
         attentions.append(current.output.attention)
         states.append(current.output.state)
-        # TODO(philip30): This should probably be uncommented.
-        # These 2 statements are an overhead because it is need only for reinforce and minrisk
-        # Furthermore, the attentions is only needed for report.
-        # We should have a global flag to indicate whether this is needed or not?
-        # The global flag is modified if certain objects is instantiated.
-        #logsoftmaxes.append(dy.pick(current.output.logsoftmax, current.word))
-        #states.append(translator.get_nobp_state(current.output.state))
         current = current.parent
       results.append(SearchOutput([list(reversed(word_ids))], [list(reversed(attentions))],
-                                  [score], list(reversed(logsoftmaxes)),
-                                  list(reversed(states)), [1 for _ in word_ids]))
+                                  [score], list(reversed(states)), [1 for _ in word_ids]))
     return results
 
 class SamplingSearch(Serializable, SearchStrategy):
@@ -254,7 +242,7 @@ class SamplingSearch(Serializable, SearchStrategy):
     # Sample to the max length
     for length in range(self.max_len):
       current_output = translator.add_input(current_words, current_state)
-      word_id, word_score = translator.sample(current_output, 1)[0]
+      word_id, word_score = translator.sample(current_output.state, 1)[0]
       word_score = word_score.npvalue()
       assert word_score.shape == (1,)
       word_score = word_score[0]
@@ -273,7 +261,7 @@ class SamplingSearch(Serializable, SearchStrategy):
       # Appending output
       scores.append(word_score)
       samples.append(word_id)
-      states.append(current_output)
+      states.append(current_output.state)
       attentions.append(current_output.attention)
 
       # Next time step
@@ -290,7 +278,7 @@ class SamplingSearch(Serializable, SearchStrategy):
     scores = [np.sum(scores)]
     masks.insert(0, [1 for _ in range(len(done))])
     samples = np.stack(samples, axis=1)
-    return SearchOutput(samples, attentions, scores, [None for _ in samples], states, masks)
+    return SearchOutput(samples, attentions, scores, states, masks)
 
 
 class MctsNode(object):

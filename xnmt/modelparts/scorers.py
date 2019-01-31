@@ -14,7 +14,8 @@ def find_best_k(scores, k):
   top_words = np.argpartition(scores, -k, axis=0)[-k:]
 
   if len(scores.shape) > 1:
-    assert top_words.shape == (k, scores.shape[1]), 'top_words has shape %s, expected (%d, %d)' % (str(top_words.shape), k, scores.shape[1])
+    assert top_words.shape == (k, scores.shape[1]), \
+      'top_words has shape %s, expected (%d, %d)' % (str(top_words.shape), k, scores.shape[1])
     # top_words is (k, batch_size)
     # scores is (#classes, batch_size)
     top_scores = []
@@ -54,6 +55,12 @@ class Scorer(object):
       normalize_scores: whether to normalize the scores
     """
     raise NotImplementedError('best_k must be implemented by subclasses of Scorer')
+
+  def sample(self, x: dy.Expression, n: numbers.Integral):
+    """
+    Return samples from the scores that are treated as probability distributions.
+    """
+    raise NotImplementedError('sample must be implemented by subclasses of Scorer')
 
   def calc_probs(self, x: dy.Expression) -> dy.Expression:
     """
@@ -112,6 +119,7 @@ class Scorer(object):
     else:
       return len(trg_reader.vocab)
 
+
 class Softmax(Scorer, Serializable):
   """
   A class that does an affine transform from the input to the vocabulary size,
@@ -149,7 +157,6 @@ class Softmax(Scorer, Serializable):
     self.input_dim = input_dim
     self.output_dim = self._choose_vocab_size(vocab_size, vocab, trg_reader)
     self.label_smoothing = label_smoothing
-
     self.output_projector = self.add_serializable_component("output_projector", output_projector,
                                                             lambda: output_projector or transforms.Linear(
                                                               input_dim=self.input_dim, output_dim=self.output_dim,
@@ -163,7 +170,7 @@ class Softmax(Scorer, Serializable):
     scores = scores_expr.npvalue()
     return find_best_k(scores, k)
 
-  def sample(self, x: dy.Expression, n: numbers.Integral, temperature: float = 1.0):
+  def sample(self, x: dy.Expression, n: numbers.Integral, temperature: numbers.Real=1.0):
     assert temperature != 0.0
     scores_expr = self.calc_log_probs(x)
     if temperature != 1.0:
@@ -367,5 +374,5 @@ class LexiconSoftmax(Softmax, Serializable):
       return dy.log_softmax(self.calc_scores(x))
 
   def can_loss_be_derived_from_scores(self):
-    # TODO: this line is broken
-    return self.lexicon_type == 'bias' and super().is_modifying_softmax_layer()
+    return self.lexicon_type == 'bias' and super().can_loss_be_derived_from_scores()
+

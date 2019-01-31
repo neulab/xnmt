@@ -1,4 +1,3 @@
-import ast
 from itertools import zip_longest
 from functools import lru_cache
 import ast
@@ -14,8 +13,11 @@ with warnings.catch_warnings():
 
 from xnmt import logger
 
-from xnmt import batchers, output, sent, events, vocabs
+from xnmt import events, vocabs
+from xnmt.graph import HyperEdge, HyperGraph
 from xnmt.persistence import serializable_init, Serializable
+from xnmt import sent
+from xnmt import batchers, output
 
 class InputReader(object):
   """
@@ -175,7 +177,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
   """
   Read in text and segment it with sentencepiece. Optionally perform sampling
   for subword regularization, only at training time.
-  https://arxiv.org/pdf/1804.10959.pdf 
+  https://arxiv.org/pdf/1804.10959.pdf
   """
   yaml_tag = '!SentencePieceTextReader'
 
@@ -276,7 +278,7 @@ class RamlTextReader(BaseTextReader, Serializable):
                                output_procs=self.output_procs)
 
   def needs_reload(self) -> bool:
-    return True 
+    return True
 
 class CharFromWordTextReader(PlainTextReader, Serializable):
   """
@@ -472,6 +474,56 @@ class IDReader(BaseTextReader, Serializable):
 
   def read_sents(self, filename: str, filter_ids: Optional[Sequence[numbers.Integral]] = None) -> list:
     return [l for l in self.iterate_filtered(filename, filter_ids)]
+ 
+ 
+class CoNLLToRNNGActionsReader(BaseTextReader, Serializable):
+  """
+  Handles the reading of CoNLL File Format:
+
+  ID FORM LEMMA POS FEAT HEAD DEPREL
+
+  A single line represents a single edge of dependency parse tree.
+  """
+  yaml_tag = "!CoNLLToRNNGActionsReader"
+  @serializable_init
+  def __init__(self, surface_vocab: vocabs.Vocab, nt_vocab:vocabs.Vocab):
+    self.surface_vocab = surface_vocab
+    self.nt_vocab = nt_vocab
+    pass
+
+  def read_sents(self, filename: str, filter_ids: Sequence[numbers.Integral] = None):
+    # Routine to add tree
+    def emit_tree(idx, lines):
+      nodes = {}
+      edge_list = []
+      for node_id, form, lemma, pos, feat, head, deprel in lines:
+        nodes[node_id] = sent.SyntaxTreeNode(node_id=node_id, value=form, head=pos)
+      for node_id, form, lemma, pos, feat, head, deprel in lines:
+        if head != 0 and deprel != "ROOT":
+          edge_list.append(HyperEdge(head, [node_id], None, deprel))
+      return sent.RNNGSequenceSentence(idx,
+                                       HyperGraph(edge_list, nodes),
+                                       self.surface_vocab,
+                                       self.nt_vocab,
+                                       all_surfaces=True)
+    idx = 0
+    lines = []
+    # Loop all lines in the file
+    with open(filename) as fp:
+      for line in fp:
+        line = line.strip()
+        if len(line) == 0:
+          yield emit_tree(idx, lines)
+          lines.clear()
+          idx += 1
+        else:
+          try:
+            node_id, form, lemma, pos, feat, head, deprel = line.strip().split()
+            lines.append((int(node_id), form, lemma, pos, feat, int(head), deprel))
+          except ValueError:
+            logger.error("Bad line: %s", line)
+      if len(lines) != 0:
+        yield emit_tree(idx, lines)
 
 
 class LatticeReader(BaseTextReader, Serializable):
@@ -506,37 +558,38 @@ class LatticeReader(BaseTextReader, Serializable):
     self.flatten = flatten
 
   def read_sent(self, line, idx):
+    edge_list = []
     if self.text_input:
-      nodes = [sent.LatticeNode(nodes_prev=[], nodes_next=[1], value=vocabs.Vocab.SS,
-                                fwd_log_prob=0.0, marginal_log_prob=0.0, bwd_log_prob=0.0)]
-      for word in line.strip().split():
-        nodes.append(
-          sent.LatticeNode(nodes_prev=[len(nodes)-1], nodes_next=[len(nodes)+1], value=self.vocab.convert(word),
-                           fwd_log_prob=0.0, marginal_log_prob=0.0, bwd_log_prob=0.0))
-      nodes.append(
-        sent.LatticeNode(nodes_prev=[len(nodes) - 1], nodes_next=[], value=vocabs.Vocab.ES,
-                         fwd_log_prob=0.0, marginal_log_prob=0.0, bwd_log_prob=0.0))
-
+      # Node List
+      nodes = [sent.LatticeNode(node_id=0, value=vocabs.Vocab.SS)]
+      for i, word in enumerate(line.strip().split()):
+        nodes.append(sent.LatticeNode(node_id=i+1, value=self.vocab.convert(word)))
+      nodes.append(sent.LatticeNode(node_id=len(nodes), value=vocabs.Vocab.ES))
+      # Flat edge list
+      for i in range(len(nodes)-1):
+        edge_list.append(HyperEdge(i, [i+1]))
     else:
       node_list, arc_list = ast.literal_eval(line)
-      nodes = [sent.LatticeNode(nodes_prev=[], nodes_next=[],
+      nodes = [sent.LatticeNode(node_id=i,
                                 value=self.vocab.convert(item[0]),
                                 fwd_log_prob=item[1], marginal_log_prob=item[2], bwd_log_prob=item[3])
-               for item in node_list]
+               for i, item in enumerate(node_list)]
       if self.flatten:
-        for node_i in range(len(nodes)):
-          if node_i < len(nodes)-1: nodes[node_i].nodes_next.append(node_i+1)
-          if node_i > 0: nodes[node_i].nodes_prev.append(node_i-1)
-          nodes[node_i].fwd_log_prob = nodes[node_i].bwd_log_prob = nodes[node_i].marginal_log_prob = 0.0
+        for i in range(len(nodes)-1):
+          edge_list.append(HyperEdge(i, [i+1]))
+          nodes[i].reset_prob()
+        nodes[-1].reset_prob()
       else:
         for from_index, to_index in arc_list:
-          nodes[from_index].nodes_next.append(to_index)
-          nodes[to_index].nodes_prev.append(from_index)
+          edge_list.append(HyperEdge(from_index, [to_index]))
 
-      assert nodes[0].value == self.vocab.SS
-      assert nodes[-1].value == self.vocab.ES
-
-    return sent.Lattice(idx=idx, nodes=nodes, vocab=self.vocab)
+      assert nodes[0].value == self.vocab.SS and nodes[-1].value == self.vocab.ES
+    # Construct graph
+    graph = HyperGraph(edge_list, {node.node_id: node for node in nodes})
+    assert len(graph.roots()) == 1 # <SOS>
+    assert len(graph.leaves()) == 1 # <EOS>
+    # Construct LatticeSentence
+    return sent.GraphSentence(idx=idx, graph=graph, vocab=self.vocab)
 
   def vocab_size(self):
     return len(self.vocab)

@@ -15,17 +15,15 @@ class Decoder(object):
   """
   def initial_state(self, enc_final_states, ss_expr):
     raise NotImplementedError('must be implemented by subclasses')
-  def add_input(self, mlp_dec_state, trg_embedding):
+  def add_input(self, dec_state, trg_embedding):
     raise NotImplementedError('must be implemented by subclasses')
-
-  def calc_loss(self, x, ref_action):
+  def calc_loss(self, dec_state, ref_action):
     raise NotImplementedError('must be implemented by subclasses')
-  def calc_score(self, x, action, normalize=False):
+  def calc_score(self, dec_state, action, normalize=False):
     raise NotImplementedError('must be implemented by subclasses')
-
-  def best_k(self, x, k=1, normalize_scores=False):
+  def best_k(self, dec_state, k, normalize_scores=False):
     raise NotImplementedError('must be implemented by subclasses')
-  def sample(self, x, n=1, temperature=1.0):
+  def sample(self, dec_state, n, temperature=1.0):
     raise NotImplementedError('must be implemented by subclasses')
 
 class DecoderState(object):
@@ -44,11 +42,23 @@ class AutoRegressiveDecoderState(DecoderState):
     context: a DyNet expression
   """
   def __init__(self, rnn_state=None, context=None):
-    self.rnn_state = rnn_state
-    self.context = context
+    self._rnn_state = rnn_state
+    self._context = context
 
   def as_vector(self):
     return self.rnn_state.output()
+  
+  @property
+  def rnn_state(self):
+    return self._rnn_state
+  
+  @property
+  def context(self):
+    return self._context
+  
+  @context.setter
+  def context(self, value):
+    self._context = value
 
 class AutoRegressiveDecoder(Decoder, Serializable):
   """
@@ -119,11 +129,12 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]) if self.input_feeding else ss_expr)
     return AutoRegressiveDecoderState(rnn_state=rnn_state, context=zeros)
 
-  def add_input(self, mlp_dec_state: AutoRegressiveDecoderState, trg_word: Any) -> AutoRegressiveDecoderState:
-    """Add an input and update the state.
+  def add_input(self, dec_state: AutoRegressiveDecoderState, trg_word: Any) -> AutoRegressiveDecoderState:
+    """
+    Add an input and return a *new* update the state.
 
     Args:
-      mlp_dec_state: An object containing the current state.
+      dec_state: An object containing the current state.
       trg_word: The word to input.
     Returns:
       The updated decoder state.
@@ -131,11 +142,11 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     trg_embedding = self.embedder.embed(trg_word)
     inp = trg_embedding
     if self.input_feeding:
-      inp = dy.concatenate([inp, mlp_dec_state.context])
-    rnn_state = mlp_dec_state.rnn_state
+      inp = dy.concatenate([inp, dec_state.context])
+    rnn_state = dec_state.rnn_state
     if self.truncate_dec_batches: rnn_state, inp = batchers.truncate_batches(rnn_state, inp)
     return AutoRegressiveDecoderState(rnn_state=rnn_state.add_input(inp),
-                                      context=mlp_dec_state.context)
+                                      context=dec_state.context)
 
   def _calc_transform(self, mlp_dec_state: AutoRegressiveDecoderState) -> dy.Expression:
     h = dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context])
@@ -146,13 +157,9 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     best_words, best_scores = self.scorer.best_k(h, k, normalize_scores=normalize_scores)
     return best_words, best_scores
 
-  def sample(self, mlp_dec_state: AutoRegressiveDecoderState, n: numbers.Integral, temperature: float = 1.0):
+  def sample(self, mlp_dec_state: AutoRegressiveDecoderState, n: numbers.Integral, temperature=1.0):
     h = self._calc_transform(mlp_dec_state)
-    return self.scorer.sample(h, n, temperature)
-
-  def calc_log_probs(self, mlp_dec_state):
-    #raise NotImplementedError('deprecated')
-    return self.scorer.calc_log_probs(self._calc_transform(mlp_dec_state))
+    return self.scorer.sample(h, n)
 
   def calc_loss(self, mlp_dec_state, ref_action):
     return self.scorer.calc_loss(self._calc_transform(mlp_dec_state), ref_action)

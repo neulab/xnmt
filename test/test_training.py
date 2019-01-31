@@ -18,7 +18,7 @@ from xnmt.param_collections import ParamManager
 from xnmt.transducers.pyramidal import PyramidalLSTMSeqTransducer
 from xnmt.train import regimens
 from xnmt.modelparts.transforms import NonLinear
-from xnmt.models.translators import DefaultTranslator
+from xnmt.models.translators.default import DefaultTranslator
 from xnmt.modelparts.scorers import Softmax
 from xnmt.vocabs import Vocab
 from xnmt import event_trigger, sent
