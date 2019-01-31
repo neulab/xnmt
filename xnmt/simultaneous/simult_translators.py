@@ -14,9 +14,10 @@ import xnmt.events as events
 import xnmt.event_trigger as event_trigger
 import xnmt.expression_seqs as expr_seq
 import xnmt.vocabs as vocabs
-import xnmt.simultaneous.rewards as rewards
+import xnmt.simultaneous.simult_rewards as rewards
 
-from xnmt.models.translators import DefaultTranslator, TranslatorOutput
+from xnmt.models.translators.default import DefaultTranslator
+from xnmt.models.translators.auto_regressive import AutoRegressiveTranslator
 from xnmt.persistence import bare, Serializable, serializable_init
 from xnmt.reports import Reportable
 
@@ -208,14 +209,10 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
       raise NotImplementedError("Forced decoding is not implemented for Simultaneous Translator.")
     event_trigger.start_sent(src)
     # Generating outputs
-    search_outputs = search_strategy.generate_output(self, self.initial_state(),
-                                                     src_length=None,
-                                                     forced_trg_ids=None)
+    search_outputs = search_strategy.generate_output(self,
+                                                     self.initial_state(),
+                                                     src_length=None)
     return search_outputs
-  
-  def generate_one_step(self, current_word, current_state: SimultaneousState) -> TranslatorOutput:
-    next_logsoftmax = self.decoder.calc_log_probs(current_state.context_state)
-    return TranslatorOutput(current_state.context_state, next_logsoftmax, self.attender.get_last_attention())
   
   def initial_state(self):
     self.decoder.scorer.last_model_scores = None

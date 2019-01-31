@@ -98,25 +98,18 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
 
   def generate(self,
                src: batchers.Batch,
-               forced_trg_ids: Sequence[numbers.Integral]=None,
                normalize_scores: bool = False) -> Sequence[sent.ReadableSentence]:
     if not batchers.is_batched(src):
       src = batchers.mark_as_batch([src])
-      if forced_trg_ids:
-        forced_trg_ids = batchers.mark_as_batch([forced_trg_ids])
     assert src.batch_size() == 1, "batch size > 1 not properly tested"
 
     batch_size, encodings, outputs, seq_len = self._encode_src(src)
-    score_expr = self.scorer.calc_log_softmax(outputs) if normalize_scores else self.scorer.calc_scores(outputs)
-    scores = score_expr.npvalue() # vocab_size x seq_len
 
-    if forced_trg_ids:
-      output_actions = forced_trg_ids
-    else:
-      output_actions = [np.argmax(scores[:, j]) for j in range(seq_len)]
-    score = np.sum([scores[output_actions[j], j] for j in range(seq_len)])
+    best_words, best_scores = self.scorer.best_k(outputs, k=1, normalize_scores=normalize_scores)
+    best_words = best_words[0, :]
+    score = np.sum(best_scores, axis=1)
 
-    outputs = [sent.SimpleSentence(words=output_actions, idx=src[0].idx,
+    outputs = [sent.SimpleSentence(words=best_words, idx=src[0].idx,
                                    vocab=self.trg_vocab if hasattr(self, "trg_vocab") else None,
                                    output_procs=self.trg_reader.output_procs,
                                    score=score)]

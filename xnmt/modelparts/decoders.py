@@ -13,18 +13,18 @@ class Decoder(object):
   A template class to convert a prefix of previously generated words and
   a context vector into a probability distribution over possible next words.
   """
-
-  def calc_loss(self, x, ref_action):
-    raise NotImplementedError('must be implemented by subclasses')
-  def calc_score(self, calc_scores_logsoftmax):
-    raise NotImplementedError('must be implemented by subclasses')
-  def calc_prob(self, calc_scores_logsoftmax):
-    raise NotImplementedError('must be implemented by subclasses')
-  def calc_log_probs(self, calc_scores_logsoftmax):
+  def initial_state(self, enc_final_states, ss_expr):
     raise NotImplementedError('must be implemented by subclasses')
   def add_input(self, mlp_dec_state, trg_embedding):
     raise NotImplementedError('must be implemented by subclasses')
-  def initial_state(self, enc_final_states, ss_expr):
+
+  def calc_loss(self, x, ref_action):
+    raise NotImplementedError('must be implemented by subclasses')
+  def calc_score(self, x, action, normalize=False):
+    raise NotImplementedError('must be implemented by subclasses')
+  def best_k(self, x, k=1, normalize_scores=False):
+    raise NotImplementedError('must be implemented by subclasses')
+  def sample(self, x, n=1, temperature=1.0):
     raise NotImplementedError('must be implemented by subclasses')
 
 class DecoderState(object):
@@ -140,17 +140,17 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     h = dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context])
     return self.transform.transform(h)
 
-  def calc_scores(self, mlp_dec_state: AutoRegressiveDecoderState) -> dy.Expression:
-    """Get scores given a current state.
+  def best_k(self, mlp_dec_state: AutoRegressiveDecoderState, k: numbers.Integral, normalize_scores: bool = False):
+    h = self._calc_transform(mlp_dec_state)
+    best_words, best_scores = self.scorer.best_k(h, k, normalize_scores=normalize_scores)
+    return best_words, best_scores
 
-    Args:
-      mlp_dec_state: Decoder state with last RNN output and optional context vector.
-    Returns:
-      Scores over the vocabulary given this state.
-    """
-    return self.scorer.calc_scores(self._calc_transform(mlp_dec_state))
+  def sample(self, mlp_dec_state: AutoRegressiveDecoderState, n: numbers.Integral, temperature: float = 1.0):
+    h = self._calc_transform(mlp_dec_state)
+    return self.scorer.sample(h, n, temperature)
 
   def calc_log_probs(self, mlp_dec_state):
+    #raise NotImplementedError('deprecated')
     return self.scorer.calc_log_probs(self._calc_transform(mlp_dec_state))
 
   def calc_loss(self, mlp_dec_state, ref_action):

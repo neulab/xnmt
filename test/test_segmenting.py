@@ -17,7 +17,7 @@ from xnmt import batchers, event_trigger
 from xnmt.input_readers import PlainTextReader
 from xnmt.input_readers import CharFromWordTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
-from xnmt.models.translators import DefaultTranslator
+from xnmt.models.translators.default import DefaultTranslator
 from xnmt.loss_calculators import MLELoss, FeedbackLoss, GlobalFertilityLoss, CompositeLoss
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import SegmentingSeqTransducer
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SumComposer

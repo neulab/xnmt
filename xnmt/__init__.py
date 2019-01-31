@@ -41,8 +41,8 @@ import xnmt.param_initializers
 import xnmt.persistence
 import xnmt.reports
 import xnmt.rl
-import xnmt.simultaneous.translators
-import xnmt.simultaneous.search_strategies
+import xnmt.simultaneous.simult_translators
+import xnmt.simultaneous.simult_search_strategies
 import xnmt.specialized_encoders.segmenting_encoder
 import xnmt.specialized_encoders.self_attentional_am
 import xnmt.specialized_encoders.tilburg_harwath

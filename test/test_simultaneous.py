@@ -18,8 +18,8 @@ from xnmt.param_collections import ParamManager
 from xnmt.input_readers import PlainTextReader
 from xnmt.input_readers import CharFromWordTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer
-from xnmt.simultaneous.translators import SimultaneousTranslator
-from xnmt.simultaneous.search_strategies import SimultaneousGreedySearch
+from xnmt.simultaneous.simult_translators import SimultaneousTranslator
+from xnmt.simultaneous.simult_search_strategies import SimultaneousGreedySearch
 from xnmt.loss_calculators import MLELoss
 from xnmt.modelparts.transforms import AuxNonLinear, Linear
 from xnmt.modelparts.scorers import Softmax

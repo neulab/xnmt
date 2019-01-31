@@ -29,23 +29,16 @@ class Attender(object):
     """
     raise NotImplementedError('calc_attention must be implemented for Attender subclasses')
 
-  def calc_context(self, state: dy.Expression) -> dy.Expression:
+  def calc_context(self, state: dy.Expression, attention: dy.Expression = None) -> dy.Expression:
     """ Compute weighted sum.
 
     Args:
       state: the current decoder state, aka query, for which to compute the weighted sum.
+      attention: the attention vector to use. if not given it is calculated from the state.
     """
-    attention = self.calc_attention(state)
+    attention = attention or self.calc_attention(state)
     I = self.curr_sent.as_tensor()
     return I * attention
-
-  def get_last_attention(self) -> dy.Expression:
-    """ Get the last computed vector of normalized attention scores.
-
-    Returns:
-      Last attention scores.
-    """
-    return self.attention_vecs[-1]
 
 class MlpAttender(Attender, Serializable):
   """
@@ -114,12 +107,6 @@ class MlpAttender(Attender, Serializable):
     self.attention_vecs.append(normalized)
     return normalized
 
-  def calc_context(self, state: dy.Expression) -> dy.Expression:
-    attention = self.calc_attention(state)
-    I = self.curr_sent.as_tensor()
-    if self.truncate_dec_batches: I, attention = batchers.truncate_batches(I, attention)
-    return I * attention
-
 class DotAttender(Attender, Serializable):
   """
   Implements dot product attention of https://arxiv.org/abs/1508.04025
@@ -155,11 +142,6 @@ class DotAttender(Attender, Serializable):
     normalized = dy.softmax(scores)
     self.attention_vecs.append(normalized)
     return normalized
-
-  def calc_context(self, state: dy.Expression) -> dy.Expression:
-    attention = self.calc_attention(state)
-    I = self.curr_sent.as_tensor()
-    return I * attention
 
 class BilinearAttender(Attender, Serializable):
   """
@@ -201,10 +183,6 @@ class BilinearAttender(Attender, Serializable):
     normalized = dy.softmax(scores)
     self.attention_vecs.append(normalized)
     return dy.transpose(normalized)
-
-  def calc_context(self, state: dy.Expression) -> dy.Expression:
-    attention = self.calc_attention(state)
-    return self.I * attention
 
 class LatticeBiasedMlpAttender(MlpAttender, Serializable):
   """
