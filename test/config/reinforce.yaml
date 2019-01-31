@@ -22,7 +22,6 @@ reinforce: !Experiment
         src_file: examples/data/head.ja
         ref_file: examples/data/head.en
     loss_calculator: !ReinforceLoss
-      use_baseline: True
       search_strategy: !SamplingSearch {}
   evaluate:
     - !AccuracyEvalTask

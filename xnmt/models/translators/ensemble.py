@@ -155,11 +155,9 @@ class EnsembleDecoder(EnsembleListDelegate):
   Currently only supports averaging.
   """
   def calc_log_probs(self, mlp_dec_states):
-    scores = [obj.calc_log_probs(dec_state) for obj, dec_state in zip(self._objects, mlp_dec_states)]
+    scores = [obj.scorer.calc_log_probs(dec_state.as_vector()) for obj, dec_state in zip(self._objects, mlp_dec_states)]
     return dy.average(scores)
 
-  # TODO: Implement best_k in a way that doesn't rely on the existence of the deprecated
-  # calc_log_probs function
   def best_k(self, mlp_dec_states, k: numbers.Integral, normalize_scores: bool = False):
     logprobs = self.calc_log_probs(mlp_dec_states)
     return scorers.find_best_k(logprobs.npvalue(), k)

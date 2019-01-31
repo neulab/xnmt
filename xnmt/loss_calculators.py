@@ -6,9 +6,9 @@ import numpy as np
 
 from xnmt import batchers, event_trigger, losses, search_strategies, sent, vocabs
 from xnmt.persistence import bare, Ref, Serializable, serializable_init
-from xnmt.modelparts import transforms, decoders
-from xnmt.transducers.recurrent import UniLSTMState
+from xnmt.modelparts import transforms
 from xnmt.eval import metrics
+
 
 class LossCalculator(object):
   """
@@ -29,6 +29,7 @@ class LossCalculator(object):
       pass
     return sequence
 
+
 class MLELoss(Serializable, LossCalculator):
   """
   Max likelihood loss calculator.
@@ -44,6 +45,7 @@ class MLELoss(Serializable, LossCalculator):
                 trg: Union[sent.Sentence, 'batchers.Batch']) -> losses.FactoredLossExpr:
     loss = model.calc_nll(src, trg)
     return losses.FactoredLossExpr({"mle": loss})
+
 
 class GlobalFertilityLoss(Serializable, LossCalculator):
   """
@@ -72,7 +74,8 @@ class GlobalFertilityLoss(Serializable, LossCalculator):
     return losses.FactoredLossExpr({"global_fertility": loss})
 
   def global_fertility(self, a: Sequence[dy.Expression]) -> dy.Expression:
-    return dy.sum_elems(dy.square(1 - dy.esum(a))) 
+    return dy.sum_elems(dy.square(1 - dy.esum(a)))
+
 
 class CompositeLoss(Serializable, LossCalculator):
   """
@@ -97,6 +100,7 @@ class CompositeLoss(Serializable, LossCalculator):
       total_loss.add_factored_loss_expr(loss.calc_loss(model, src, trg) * weight)
     return total_loss
 
+
 class ReinforceLoss(Serializable, LossCalculator):
   """
   Reinforce Loss according to Ranzato+, 2015.
@@ -112,19 +116,13 @@ class ReinforceLoss(Serializable, LossCalculator):
                baseline:Optional[Serializable]=None,
                evaluation_metric: metrics.SentenceLevelEvaluator = bare(metrics.FastBLEUEvaluator),
                search_strategy: search_strategies.SearchStrategy = bare(search_strategies.SamplingSearch),
-               # sample_length: numbers.Integral = 50, TODO unused?
-               use_baseline: bool = False,
                inv_eval: bool = True,
                decoder_hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim")) -> None:
     self.inv_eval = inv_eval
     self.search_strategy = search_strategy
     self.evaluation_metric = evaluation_metric
-
-    if use_baseline:
-      self.baseline = self.add_serializable_component("baseline", baseline,
-                                                      lambda: transforms.Linear(input_dim=decoder_hidden_dim, output_dim=1))
-    else:
-      self.baseline = None
+    self.baseline = self.add_serializable_component("baseline", baseline,
+                                                    lambda: transforms.Linear(input_dim=decoder_hidden_dim, output_dim=1))
 
   def calc_loss(self,
                 model: 'model_base.ConditionedModel',
@@ -135,6 +133,7 @@ class ReinforceLoss(Serializable, LossCalculator):
 
     total_loss = losses.FactoredLossExpr()
     for search_output in search_outputs:
+      # Calculate rewards
       eval_score = []
       for trg_i, sample_i in zip(trg, search_output.word_ids):
         # Removing EOS
@@ -142,26 +141,23 @@ class ReinforceLoss(Serializable, LossCalculator):
         ref_i = trg_i.words[:trg_i.len_unpadded()]
         score = self.evaluation_metric.evaluate_one_sent(ref_i, sample_i)
         eval_score.append(sign * score)
-      self.reward = dy.inputTensor(eval_score, batched=True)
-
+      reward = dy.inputTensor(eval_score, batched=True)
       # Composing losses
       loss = losses.FactoredLossExpr()
-      if self.baseline is not None:
-        baseline_loss = []
-        cur_losses = []
-        for state, mask in zip(search_output.state, search_output.mask):
-          bs_score = self.baseline.transform(state.state.as_vector())
-          baseline_loss.append(dy.squared_distance(self.reward, bs_score))
-          logsoft = model.calc_log_probs(state.state)
-          loss_i = dy.cmult(logsoft, self.reward - bs_score)
-          valid = list(np.nonzero(mask)[0])
-          cur_losses.append(dy.cmult(loss_i, dy.inputTensor(mask, batched=True)))
-        loss.add_loss("reinforce", dy.sum_elems(dy.esum(cur_losses)))
-        loss.add_loss("reinf_baseline", dy.sum_elems(dy.esum(baseline_loss)))
-      else:
-        loss.add_loss("reinforce", dy.sum_elems(dy.cmult(self.true_score, dy.esum(logsofts))))
+      baseline_loss = []
+      cur_losses = []
+      for state, mask in zip(search_output.state, search_output.mask):
+        bs_score = self.baseline.transform(dy.nobackprop(state.as_vector()))
+        baseline_loss.append(dy.squared_distance(reward, bs_score))
+        logsoft = model.decoder.scorer.calc_log_probs(state.as_vector())
+        loss_i = dy.cmult(logsoft, reward - bs_score)
+        cur_losses.append(dy.cmult(loss_i, dy.inputTensor(mask, batched=True)))
+      loss.add_loss("reinforce", dy.sum_elems(dy.esum(cur_losses)))
+      loss.add_loss("reinf_baseline", dy.sum_elems(dy.esum(baseline_loss)))
+      # Total losses
       total_loss.add_factored_loss_expr(loss)
     return loss
+
 
 class MinRiskLoss(Serializable, LossCalculator):
   yaml_tag = '!MinRiskLoss'
@@ -195,12 +191,10 @@ class MinRiskLoss(Serializable, LossCalculator):
       assert search_output.word_ids[0].shape == (len(search_output.state),)
       logprob = []
       for word, state in zip(search_output.word_ids[0], search_output.state):
-        lpdist = model.calc_log_probs(state.state)
+        lpdist = model.decoder.scorer.calc_log_probs(state.as_vector())
         lp = dy.pick(lpdist, word)
         logprob.append(lp)
       sample = search_output.word_ids
-      attentions = search_output.attentions
-
       logprob = dy.esum(logprob) * self.alpha
       # Calculate the evaluation score
       eval_score = np.zeros(batch_size, dtype=float)

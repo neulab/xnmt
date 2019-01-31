@@ -18,6 +18,3 @@ class SimultaneousReward(object):
       reward, bleu, delay, instant_reward = simult_reward.return_reward(output, ref, action, inp.len_unpadded()+1)
       ret.append(reward)
     return [dy.scalarInput(x) for x in np.hstack(ret)]
-  
-  
-

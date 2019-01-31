@@ -61,7 +61,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
             {".encoder.hidden_dim", ".attender.input_dim", ".decoder.input_dim"},
             {".attender.state_dim", ".decoder.rnn.hidden_dim"}]
 
-  def _encode_src(self, src: Union[batchers.Batch, sent.Sentence]):
+  def _initial_state(self, src: Union[batchers.Batch, sent.Sentence]):
+    # Encode sentence and initiate decoder state
     embeddings = self.src_embedder.embed_sent(src)
     encoding = self.encoder.transduce(embeddings)
     final_state = self.encoder.get_final_states()
@@ -74,7 +75,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     event_trigger.start_sent(src)
     if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
     # Encode the sentence
-    initial_state = self._encode_src(src)
+    initial_state = self._initial_state(src)
 
     dec_state = initial_state
     trg_mask = trg.mask if batchers.is_batched(trg) else None
@@ -146,19 +147,13 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
       raise NotImplementedError("batched decoding not implemented for DefaultTranslator. "
                                 "Specify inference batcher with batch size 1.")
     event_trigger.start_sent(src)
-    if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
-    # Generating outputs
-    src_sent = src[0]
-    sent_mask = None
-    if src.mask: sent_mask = batchers.Mask(np_arr=src.mask.np_arr[0:1])
-
-    # Encode the sentence
-    initial_state = self._encode_src(src)
-
-    search_outputs = search_strategy.generate_output(self, initial_state,
-                                                     src_length=[src_sent.sent_len()])
+    if isinstance(src, batchers.CompoundBatch):
+      src = src.batches[0]
+    search_outputs = search_strategy.generate_output(self,
+                                                     self._initial_state(src),
+                                                     src_length=src.sent_len())
     return search_outputs
-
+  
   def generate(self,
                src: batchers.Batch,
                search_strategy: search_strategies.SearchStrategy) -> Sequence[sent.Sentence]:
@@ -211,14 +206,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     return AutoRegressiveTranslator.Output(next_state, attention)
 
   def best_k(self, state: decoders.AutoRegressiveDecoderState, k: numbers.Integral, normalize_scores: bool = False):
-    best_words, best_scores = self.decoder.best_k(state.state, k, normalize_scores)
+    best_words, best_scores = self.decoder.best_k(state, k, normalize_scores)
     return best_words, best_scores
 
   def sample(self, state: decoders.AutoRegressiveDecoderState, n: numbers.Integral, temperature: float = 1.0):
-    return self.decoder.sample(state.state, n, temperature)
-
-  def calc_log_probs(self, state: decoders.AutoRegressiveDecoderState):
-    return self.decoder.calc_log_probs(state)
-
-
-
+    return self.decoder.sample(state, n, temperature)

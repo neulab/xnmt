@@ -6,9 +6,12 @@ from typing import List
 
 import xnmt.search_strategies as search_strategies
 
+from xnmt.simultaneous.simult_translators import SimultaneousTranslator
 from xnmt.vocabs import Vocab
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import handle_xnmt_event, register_xnmt_handler
+
+from.simult_state import SimultaneousState
 
 class SimultaneousGreedySearch(search_strategies.SearchStrategy, Serializable):
   """
@@ -31,10 +34,9 @@ class SimultaneousGreedySearch(search_strategies.SearchStrategy, Serializable):
     self.src_sent = src_sent[0]
   
   def generate_output(self,
-                      translator,
-                      initial_state,
-                      src_length=None,
-                      forced_trg_ids=None) -> List[search_strategies.SearchOutput]:
+                      translator: SimultaneousTranslator,
+                      initial_state: SimultaneousState,
+                      src_length=None) -> List[search_strategies.SearchOutput]:
     # Output variables
     scores = []
     word_ids = []
@@ -42,9 +44,8 @@ class SimultaneousGreedySearch(search_strategies.SearchStrategy, Serializable):
     logsoftmaxes = []
     # Search Variables
     current_state = initial_state
-    
+
     encoding = []
-    next_word = None
     while current_state.has_been_written < self.max_len:
       action = translator.next_action(current_state, self.src_sent.sent_len(), len(encoding))
       if action == translator.Action.READ:
@@ -53,21 +54,18 @@ class SimultaneousGreedySearch(search_strategies.SearchStrategy, Serializable):
         encoding.append(current_state.encoder_state.output())
       else:
         # Writing
-        current_state = current_state.calc_context(encoding, next_word)
-        current_output = translator.generate_one_step(None, current_state)
-        next_word = np.argmax(current_output.logsoftmax.npvalue(), axis=0)
-        if len(next_word.shape) == 2:
-          next_word = next_word[0]
-        current_state = current_state.write(next_word)
+        current_state = current_state.calc_context(encoding)
+        current_output = translator.add_input(current_state.prev_written_word, current_state)
+        best_words, best_scores = translator.best_k(current_output.state, 1)
+        current_state = current_state.write(best_words[0])
         # Scoring
-        scores.append(dy.pick(current_output.logsoftmax, next_word))
-        word_ids.append(next_word)
+        scores.append(best_scores[0])
+        word_ids.append(best_words[0])
         attentions.append(current_output.attention)
-        logsoftmaxes.append(current_output.logsoftmax)
-        if next_word == Vocab.ES:
+        current_word = best_words[0]
+        if current_word == Vocab.ES:
           break
     
     score = np.sum(scores, axis=0)
-    return [search_strategies.SearchOutput([word_ids], attentions, [score], logsoftmaxes, [], [])]
-
+    return [search_strategies.SearchOutput([word_ids], attentions, [score], [], [])]
 

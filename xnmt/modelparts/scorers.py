@@ -56,6 +56,12 @@ class Scorer(object):
     """
     raise NotImplementedError('best_k must be implemented by subclasses of Scorer')
 
+  def sample(self, x: dy.Expression, n: numbers.Integral):
+    """
+    Return samples from the scores that are treated as probability distributions.
+    """
+    raise NotImplementedError('sample must be implemented by subclasses of Scorer')
+
   def calc_probs(self, x: dy.Expression) -> dy.Expression:
     """
     Calculate the normalized probability of a decision.
@@ -151,7 +157,6 @@ class Softmax(Scorer, Serializable):
     self.input_dim = input_dim
     self.output_dim = self._choose_vocab_size(vocab_size, vocab, trg_reader)
     self.label_smoothing = label_smoothing
-
     self.output_projector = self.add_serializable_component("output_projector", output_projector,
                                                             lambda: output_projector or transforms.Linear(
                                                               input_dim=self.input_dim, output_dim=self.output_dim,
@@ -165,7 +170,7 @@ class Softmax(Scorer, Serializable):
     scores = scores_expr.npvalue()
     return find_best_k(scores, k)
 
-  def sample(self, x: dy.Expression, n: numbers.Integral, temperature: float = 1.0):
+  def sample(self, x: dy.Expression, n: numbers.Integral, temperature: numbers.Real=1.0):
     assert temperature != 0.0
     scores_expr = self.calc_log_probs(x)
     if temperature != 1.0:
