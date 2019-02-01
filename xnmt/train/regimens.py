@@ -69,7 +69,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
     dev_combinator: A formula to combine together development scores into a single score to
                     choose whether to perform learning rate decay, etc.
                     e.g. 'x[0]-x[1]' would say that the first dev task score minus the
-                    second dev task score is our measure of how good we're doing. If not
+                    second dev task score is our measure of how well we're doing. If not
                     specified, only the score from the first dev task will be used.
     restart_trainer: Restart trainer (useful for Adam) and revert weights to best dev checkpoint when applying
                             LR decay (https://arxiv.org/pdf/1706.09733.pdf)
