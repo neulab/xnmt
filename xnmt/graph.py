@@ -22,10 +22,6 @@ class HyperNode(object):
   def node_id(self):
     return self._node_id
   
-  @property
-  def id(self):
-    return self.node_id
-  
   def reversed(self):
     return self
   
